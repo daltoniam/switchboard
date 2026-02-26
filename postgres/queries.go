@@ -24,7 +24,7 @@ func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 		limit = 1000
 	}
 
-	wrapped := fmt.Sprintf("SELECT * FROM (%s) AS _q LIMIT %d", strings.TrimRight(strings.TrimSpace(sqlStr), ";"), limit)
+	wrapped := fmt.Sprintf("SELECT * FROM (%s) AS _q LIMIT %d", strings.TrimRight(strings.TrimSpace(sqlStr), ";"), limit) // #nosec G201 -- intentional: this tool executes user-provided SQL in a read-only transaction
 
 	tx, err := p.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
@@ -108,7 +108,7 @@ func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		columns = "*"
 	}
 
-	q := fmt.Sprintf("SELECT %s FROM %s.%s", columns, safeSchema, safeTable)
+	q := fmt.Sprintf("SELECT %s FROM %s.%s", columns, safeSchema, safeTable) // #nosec G201 -- identifiers are sanitized via sanitizeIdentifier
 
 	if where := argStr(args, "where"); where != "" {
 		q += " WHERE " + where
