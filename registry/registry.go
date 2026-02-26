@@ -10,6 +10,7 @@ import (
 type registry struct {
 	mu           sync.RWMutex
 	integrations map[string]mcp.Integration
+	order        []string
 }
 
 // New returns a new Registry implementation.
@@ -26,6 +27,7 @@ func (r *registry) Register(i mcp.Integration) error {
 		return fmt.Errorf("integration %q already registered", i.Name())
 	}
 	r.integrations[i.Name()] = i
+	r.order = append(r.order, i.Name())
 	return nil
 }
 
@@ -39,9 +41,9 @@ func (r *registry) Get(name string) (mcp.Integration, bool) {
 func (r *registry) All() []mcp.Integration {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	result := make([]mcp.Integration, 0, len(r.integrations))
-	for _, i := range r.integrations {
-		result = append(result, i)
+	result := make([]mcp.Integration, 0, len(r.order))
+	for _, name := range r.order {
+		result = append(result, r.integrations[name])
 	}
 	return result
 }
@@ -49,9 +51,7 @@ func (r *registry) All() []mcp.Integration {
 func (r *registry) Names() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	names := make([]string, 0, len(r.integrations))
-	for name := range r.integrations {
-		names = append(names, name)
-	}
-	return names
+	out := make([]string, len(r.order))
+	copy(out, r.order)
+	return out
 }

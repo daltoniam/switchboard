@@ -160,7 +160,7 @@ func Dashboard(page layouts.PageData, data DashboardData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " <div class=\"footer\"><p>Add to your MCP client config:</p><code>&#123; \"mcpServers\": &#123; \"switchboard\": &#123; \"command\": \"/path/to/switchboard\" &#125; &#125; &#125;</code></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " <div class=\"footer\"><p>Add to your MCP client config:</p><code>&#123; \"mcpServers\": &#123; \"switchboard\": &#123; \"url\": \"http://localhost:3847/mcp\" &#125; &#125; &#125;</code></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

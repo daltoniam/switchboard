@@ -87,7 +87,7 @@ func main() {
 	mux.Handle("/", ws.Handler())
 
 	addr := fmt.Sprintf(":%d", *port)
-	fmt.Fprintf(os.Stderr, "Unified MCP server on http://localhost:%d\n", *port)
+	fmt.Fprintf(os.Stderr, "Switchboard on http://localhost:%d\n", *port)
 	fmt.Fprintf(os.Stderr, "  Web UI:  http://localhost:%d/\n", *port)
 	fmt.Fprintf(os.Stderr, "  MCP:     http://localhost:%d/mcp\n", *port)
 

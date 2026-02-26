@@ -61,6 +61,10 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/sentry/oauth/save", w.handleSentryOAuthSave)
 	mux.HandleFunc("POST /api/sentry/save-token", w.handleSentrySaveToken)
 
+	mux.HandleFunc("POST /api/slack/oauth/start", w.handleSlackOAuthStart)
+	mux.HandleFunc("GET /api/slack/oauth/callback", w.handleSlackOAuthCallback)
+	mux.HandleFunc("GET /api/slack/oauth/poll", w.handleSlackOAuthPoll)
+
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 
 	return mux
@@ -87,9 +91,14 @@ func (w *WebServer) integrationSummaries(ctx context.Context) []pages.Integratio
 		enabled := exists && ic.Enabled
 
 		var healthy bool
-		if enabled {
+		if exists {
 			if err := a.Configure(ic.Credentials); err == nil {
 				healthy = a.Healthy(ctx)
+				if healthy && !enabled {
+					enabled = true
+					ic.Enabled = true
+					w.services.Config.SetIntegration(a.Name(), ic)
+				}
 			}
 		}
 
@@ -140,12 +149,24 @@ func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Reque
 	pages.IntegrationsList(page, summaries).Render(r.Context(), rw)
 }
 
+var setupIntegrations = map[string]bool{
+	"slack":  true,
+	"github": true,
+	"linear": true,
+	"sentry": true,
+}
+
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	integration, ok := w.services.Registry.Get(name)
 	if !ok {
 		http.NotFound(rw, r)
+		return
+	}
+
+	if setupIntegrations[name] {
+		http.Redirect(rw, r, "/integrations/"+name+"/setup", http.StatusSeeOther)
 		return
 	}
 
@@ -229,15 +250,38 @@ func (w *WebServer) handleHealthAPI(rw http.ResponseWriter, r *http.Request) {
 func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 	info := slackInt.GetTokenInfoForWeb()
 
+	ic, exists := w.services.Config.GetIntegration("slack")
+	hasOAuth := exists && ic.Credentials["client_id"] != "" && ic.Credentials["client_secret"] != ""
+
+	var healthy bool
+	if info.HasToken {
+		integration, ok := w.services.Registry.Get("slack")
+		if ok && exists {
+			if err := integration.Configure(ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists {
+		tokenSource = ic.Credentials["token_source"]
+	}
+	if tokenSource == "" && info.Source != "" {
+		tokenSource = info.Source
+	}
+
 	page := w.pageData(r, "Slack Setup", "/integrations")
 	data := pages.SlackSetupData{
 		HasToken:       info.HasToken,
 		HasCookie:      info.HasCookie,
 		TokenStatus:    info.Status,
 		TokenAge:       info.AgeHours,
-		TokenSource:    info.Source,
+		TokenSource:    tokenSource,
 		CanAutoExtract: slackInt.CanExtractFromChrome(),
 		ExtractSnippet: slackInt.ExtractionSnippet(),
+		HasOAuth:       hasOAuth,
+		Healthy:        healthy,
 	}
 
 	if flash := r.URL.Query().Get("result"); flash != "" {
@@ -266,10 +310,12 @@ func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Req
 	// Also save to config so the integration picks it up.
 	ic, _ := w.services.Config.GetIntegration("slack")
 	if ic == nil {
-		ic = &mcp.IntegrationConfig{}
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials = mcp.Credentials{"token": result.Token, "cookie": result.Cookie}
+	ic.Credentials["token"] = result.Token
+	ic.Credentials["cookie"] = result.Cookie
+	ic.Credentials["token_source"] = "chrome"
 	_ = w.services.Config.SetIntegration("slack", ic)
 
 	http.Redirect(rw, r, "/integrations/slack/setup?result=Tokens+extracted+from+Chrome+and+saved", http.StatusSeeOther)
@@ -673,11 +719,75 @@ func (w *WebServer) handleSlackSaveTokens(rw http.ResponseWriter, r *http.Reques
 	// Also update config.
 	ic, _ := w.services.Config.GetIntegration("slack")
 	if ic == nil {
-		ic = &mcp.IntegrationConfig{}
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials = mcp.Credentials{"token": token, "cookie": cookie}
+	ic.Credentials["token"] = token
+	ic.Credentials["cookie"] = cookie
+	ic.Credentials["token_source"] = "browser"
 	_ = w.services.Config.SetIntegration("slack", ic)
 
 	http.Redirect(rw, r, "/integrations/slack/setup?result=Tokens+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleSlackOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("slack")
+	if !exists || ic.Credentials["client_id"] == "" || ic.Credentials["client_secret"] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Slack OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/slack/oauth/callback", w.port)
+	result, err := slackInt.StartSlackOAuth(ic.Credentials["client_id"], ic.Credentials["client_secret"], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleSlackOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := slackInt.HandleSlackCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := slackInt.PollSlackOAuth()
+	if result.Status != "complete" || result.Token == "" {
+		http.Redirect(rw, r, "/integrations/slack/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("slack")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["token"] = result.Token
+	ic.Credentials["cookie"] = ""
+	ic.Credentials["token_source"] = "oauth"
+	w.services.Config.SetIntegration("slack", ic)
+
+	http.Redirect(rw, r, "/integrations/slack/setup?result=Connected+to+Slack+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleSlackOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := slackInt.PollSlackOAuth()
+	json.NewEncoder(rw).Encode(result)
 }

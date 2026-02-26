@@ -37,7 +37,7 @@ func linearStatusLabel(hasToken bool, healthy bool) string {
 templ LinearSetup(page layouts.PageData, data LinearSetupData) {
 	@layouts.Base(page) {
 		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-			<a href="/integrations/linear" class="btn btn-sm btn-outline">← Back</a>
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
 			<h1 class="page-title" style="margin-bottom: 0;">Linear Setup</h1>
 			@components.Badge(linearStatusLabel(data.HasToken, data.Healthy), linearStatusBadge(data.HasToken, data.Healthy))
 		</div>

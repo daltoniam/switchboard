@@ -94,21 +94,46 @@ Examples:
 }
 
 func (s *Server) configureIntegrations() {
-	for _, name := range s.services.Config.EnabledIntegrations() {
-		integration, ok := s.services.Registry.Get(name)
-		if !ok {
-			log.Printf("WARN: integration %q enabled but no adapter found", name)
+	for _, integration := range s.services.Registry.All() {
+		name := integration.Name()
+		ic, exists := s.services.Config.GetIntegration(name)
+		if !exists {
 			continue
 		}
 
-		ic, _ := s.services.Config.GetIntegration(name)
+		// Respect explicit disable from config toggle.
+		if exists && !ic.Enabled && !hasCredentials(ic.Credentials) {
+			continue
+		}
+
 		if err := integration.Configure(ic.Credentials); err != nil {
 			log.Printf("WARN: failed to configure %q: %v", name, err)
 			continue
 		}
 
+		// Auto-enable in config if Configure succeeded.
+		if !ic.Enabled {
+			ic.Enabled = true
+			s.services.Config.SetIntegration(name, ic)
+		}
+
 		log.Printf("Configured integration %q with %d tools", name, len(integration.Tools()))
 	}
+}
+
+func hasCredentials(creds mcp.Credentials) bool {
+	for k, v := range creds {
+		if v == "" {
+			continue
+		}
+		switch k {
+		case "client_id", "client_secret", "token_source":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {

@@ -6,12 +6,12 @@ var tools = []mcp.ToolDefinition{
 	// --- Token Management ---
 	{
 		Name:        "slack_token_status",
-		Description: "Check token health, age, auto-refresh status, and source.",
+		Description: "Check token health, type (OAuth vs browser session), age, auto-refresh status, and source.",
 		Parameters:  map[string]string{},
 	},
 	{
 		Name:        "slack_refresh_tokens",
-		Description: "Force refresh tokens by extracting from Chrome (requires Slack tab open in Chrome, macOS only).",
+		Description: "Force refresh browser session tokens. Tries cookie-based HTTP refresh first (works on all platforms), then Chrome LevelDB extraction (macOS). OAuth tokens (xoxp-) don't need refresh.",
 		Parameters:  map[string]string{},
 	},
 

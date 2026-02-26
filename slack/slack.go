@@ -97,7 +97,10 @@ func (s *slackIntegration) Healthy(ctx context.Context) bool {
 	return err == nil
 }
 
-// backgroundRefresh checks token health every 4 hours and auto-refreshes from Chrome.
+// backgroundRefresh checks token health periodically and auto-refreshes.
+// For xoxp- tokens (OAuth), no refresh is needed — they don't expire.
+// For xoxc- tokens (browser session), tries cookie-based HTTP refresh first,
+// then falls back to Chrome LevelDB extraction.
 func (s *slackIntegration) backgroundRefresh() {
 	ticker := time.NewTicker(4 * time.Hour)
 	defer ticker.Stop()
@@ -111,8 +114,21 @@ func (s *slackIntegration) backgroundRefresh() {
 	}
 }
 
-// tryRefresh attempts to extract fresh tokens from Chrome and rebuild the client.
+// tryRefresh attempts to refresh tokens. Prefers cookie-based HTTP refresh
+// (no Chrome dependency), falls back to Chrome LevelDB extraction.
+// Skips refresh entirely for OAuth tokens (xoxp-) which don't expire.
 func (s *slackIntegration) tryRefresh() bool {
+	tok, _ := s.store.get()
+	if strings.HasPrefix(tok, "xoxp-") {
+		return true // OAuth tokens don't expire, nothing to refresh
+	}
+
+	// Try cookie-based HTTP refresh first (works without Chrome running).
+	if s.tryRefreshViaCookie() {
+		return true
+	}
+
+	// Fall back to Chrome LevelDB extraction.
 	extracted := extractFromChrome()
 	if extracted == nil {
 		return false

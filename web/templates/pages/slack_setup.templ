@@ -13,6 +13,8 @@ type SlackSetupData struct {
 	TokenSource     string
 	CanAutoExtract  bool
 	ExtractSnippet  string
+	HasOAuth        bool
+	Healthy         bool
 	FlashResult     string
 	FlashError      string
 }
@@ -46,7 +48,7 @@ func slackStatusLabel(status string) string {
 templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 	@layouts.Base(page) {
 		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-			<a href="/integrations/slack" class="btn btn-sm btn-outline">← Back</a>
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
 			<h1 class="page-title" style="margin-bottom: 0;">Slack Token Setup</h1>
 			@components.Badge(slackStatusLabel(data.TokenStatus), slackStatusBadge(data.TokenStatus))
 		</div>
@@ -60,7 +62,13 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 			<div class="card">
 				<div class="card-header">
 					<div class="card-title">Current Token</div>
-					@components.Badge(slackStatusLabel(data.TokenStatus), slackStatusBadge(data.TokenStatus))
+					if data.Healthy {
+						@components.Badge("Connected", "green")
+					} else if data.HasToken {
+						@components.Badge("Invalid Token", "red")
+					} else {
+						@components.Badge("Not Connected", "muted")
+					}
 				</div>
 				<div class="slack-token-meta">
 					<span>Source: <strong>{ data.TokenSource }</strong></span>
@@ -68,10 +76,36 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 						if data.HasCookie {
 							Present
 						} else {
-							Missing
+							Not needed (OAuth)
 						}
 					</strong></span>
+					if data.TokenSource == "oauth" {
+						<span style="color: var(--color-success);">OAuth tokens do not expire</span>
+					} else if data.HasCookie {
+						<span>Auto-refresh: <strong>Enabled</strong> (via cookie every 4h)</span>
+					}
 				</div>
+			</div>
+		}
+		if data.HasOAuth {
+			<div class="card">
+				<div class="card-title" style="margin-bottom: 0.75rem;">Sign in with Slack</div>
+				<p class="slack-desc">
+					Connect via OAuth to get a permanent user token (xoxp-) that never expires and requires no refresh.
+					Requires a <a href="https://api.slack.com/apps" target="_blank" class="slack-link">Slack App</a> with OAuth configured.
+				</p>
+				<button type="button" class="btn" onclick="startSlackOAuth()" id="slack-oauth-btn" style="margin-top: 0.75rem;">Sign in with Slack</button>
+				<script>
+					function startSlackOAuth() {
+						fetch('/api/slack/oauth/start', {method: 'POST'})
+							.then(r => r.json())
+							.then(data => {
+								if (data.error) { alert(data.error); return; }
+								if (data.authorize_url) { window.location.href = data.authorize_url; }
+							})
+							.catch(err => alert('Failed: ' + err));
+					}
+				</script>
 			</div>
 		}
 		if data.CanAutoExtract {

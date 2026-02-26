@@ -437,51 +437,71 @@ func copyFile(src, dst string) error {
 // --- token management tool handlers ---
 
 func tokenStatus(_ context.Context, s *slackIntegration, _ map[string]any) (*mcp.ToolResult, error) {
-	_, _, source, updatedAt := s.store.info()
+	tok, cookie, source, updatedAt := s.store.info()
 	ageHours := 0.0
 	if !updatedAt.IsZero() {
 		ageHours = math.Round(time.Since(updatedAt).Hours()*10) / 10
 	}
+
+	tokenType := "unknown"
+	if strings.HasPrefix(tok, "xoxp-") {
+		tokenType = "oauth_user"
+	} else if strings.HasPrefix(tok, "xoxc-") {
+		tokenType = "browser_session"
+	} else if strings.HasPrefix(tok, "xoxb-") {
+		tokenType = "bot"
+	}
+
+	needsRefresh := tokenType == "browser_session"
 	status := "healthy"
-	if ageHours > 10 {
-		status = "critical"
-	} else if ageHours > 6 {
-		status = "warning"
+	if needsRefresh {
+		if ageHours > 10 {
+			status = "critical"
+		} else if ageHours > 6 {
+			status = "warning"
+		}
+	}
+
+	refreshInfo := map[string]any{
+		"enabled":            needsRefresh,
+		"interval":           "4 hours",
+		"cookie_refresh":     cookie != "" && needsRefresh,
+		"chrome_refresh":     CanExtractFromChrome(),
+		"platform":           runtime.GOOS,
+	}
+	if !needsRefresh {
+		refreshInfo["note"] = "OAuth tokens (xoxp-) do not expire — no refresh needed"
 	}
 
 	return jsonResult(map[string]any{
-		"status":     status,
-		"age_hours":  ageHours,
-		"source":     source,
-		"updated_at": updatedAt.Format(time.RFC3339),
-		"auto_refresh": map[string]any{
-			"enabled":  true,
-			"interval": "4 hours",
-			"platform": runtime.GOOS,
-			"requires": "Slack tab open in Chrome (macOS only)",
-		},
+		"status":       status,
+		"token_type":   tokenType,
+		"age_hours":    ageHours,
+		"source":       source,
+		"updated_at":   updatedAt.Format(time.RFC3339),
+		"auto_refresh": refreshInfo,
 	})
 }
 
 func refreshTokens(_ context.Context, s *slackIntegration, _ map[string]any) (*mcp.ToolResult, error) {
-	if runtime.GOOS != "darwin" {
-		return &mcp.ToolResult{
-			Data:    "Auto-refresh is only available on macOS. On other platforms, manually update token/cookie in config or set SLACK_TOKEN/SLACK_COOKIE env vars.",
-			IsError: true,
-		}, nil
+	tok, _ := s.store.get()
+	if strings.HasPrefix(tok, "xoxp-") {
+		return jsonResult(map[string]any{
+			"status": "not_needed",
+			"note":   "You have an OAuth token (xoxp-) which does not expire. No refresh needed.",
+		})
 	}
 
 	if ok := s.tryRefresh(); !ok {
 		return &mcp.ToolResult{
-			Data:    "Could not extract tokens from Chrome. Make sure Chrome is running with a Slack tab open (app.slack.com) and you are logged in.",
+			Data:    "Could not refresh tokens. Tried cookie-based refresh and Chrome extraction. Make sure you have a valid cookie or Chrome is running with Slack open.",
 			IsError: true,
 		}, nil
 	}
 
-	// Verify the new tokens work.
 	resp, err := s.getClient().AuthTest()
 	if err != nil {
-		return errResult(fmt.Errorf("extracted tokens but auth failed: %w", err)), nil
+		return errResult(fmt.Errorf("refreshed tokens but auth failed: %w", err)), nil
 	}
 	return jsonResult(map[string]any{
 		"status":  "refreshed",

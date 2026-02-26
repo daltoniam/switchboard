@@ -87,13 +87,12 @@ func searchIssues(ctx context.Context, l *linear, args map[string]any) (*mcp.Too
 
 func getIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	id := argStr(args, "id")
-	data, err := l.gql(ctx, fmt.Sprintf(`query($query: String!) {
-		issueSearch(query: $query, first: 1) {
-			nodes { %s
-				comments { nodes { id body user { name } createdAt } }
-			}
+	data, err := l.gql(ctx, fmt.Sprintf(`query($id: String!) {
+		issue(id: $id) {
+			%s
+			comments { nodes { id body user { name } createdAt } }
 		}
-	}`, issueFields), map[string]any{"query": id})
+	}`, issueFields), map[string]any{"id": id})
 	if err != nil {
 		return errResult(err)
 	}
@@ -102,21 +101,21 @@ func getIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolRes
 
 // resolveIssueID resolves an identifier (ENG-123) to a UUID.
 func (l *linear) resolveIssueID(ctx context.Context, idOrIdentifier string) (string, error) {
-	data, err := l.gql(ctx, `query($q: String!) {
-		issueSearch(query: $q, first: 1) { nodes { id } }
-	}`, map[string]any{"q": idOrIdentifier})
+	data, err := l.gql(ctx, `query($id: String!) {
+		issue(id: $id) { id }
+	}`, map[string]any{"id": idOrIdentifier})
 	if err != nil {
 		return "", err
 	}
 	var resp struct {
-		IssueSearch struct {
-			Nodes []struct{ ID string `json:"id"` } `json:"nodes"`
-		} `json:"issueSearch"`
+		Issue struct {
+			ID string `json:"id"`
+		} `json:"issue"`
 	}
-	if err := json.Unmarshal(data, &resp); err != nil || len(resp.IssueSearch.Nodes) == 0 {
+	if err := json.Unmarshal(data, &resp); err != nil || resp.Issue.ID == "" {
 		return "", fmt.Errorf("issue not found: %s", idOrIdentifier)
 	}
-	return resp.IssueSearch.Nodes[0].ID, nil
+	return resp.Issue.ID, nil
 }
 
 func createIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {

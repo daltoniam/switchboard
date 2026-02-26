@@ -75,7 +75,7 @@ func LinearSetup(page layouts.PageData, data LinearSetupData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div style=\"display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;\"><a href=\"/integrations/linear\" class=\"btn btn-sm btn-outline\">← Back</a><h1 class=\"page-title\" style=\"margin-bottom: 0;\">Linear Setup</h1>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div style=\"display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;\"><a href=\"/integrations\" class=\"btn btn-sm btn-outline\">← Back</a><h1 class=\"page-title\" style=\"margin-bottom: 0;\">Linear Setup</h1>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -106,40 +106,12 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if data.Name == "slack" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div style=\"margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);\"><a href=\"/integrations/slack/setup\" class=\"btn btn-sm\" style=\"background: var(--green);\">Setup Session Token</a> <span style=\"margin-left: 0.5rem; font-size: 0.78rem; color: var(--text-muted);\">Extract tokens from your browser automatically</span></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			if data.Name == "github" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div style=\"margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);\"><a href=\"/integrations/github/setup\" class=\"btn btn-sm\" style=\"background: var(--green);\">Sign in with GitHub</a> <span style=\"margin-left: 0.5rem; font-size: 0.78rem; color: var(--text-muted);\">OAuth device flow or manual token entry</span></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			if data.Name == "linear" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div style=\"margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);\"><a href=\"/integrations/linear/setup\" class=\"btn btn-sm\" style=\"background: var(--green);\">Sign in with Linear</a> <span style=\"margin-left: 0.5rem; font-size: 0.78rem; color: var(--text-muted);\">OAuth flow or manual API key entry</span></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			if data.Name == "sentry" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div style=\"margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);\"><a href=\"/integrations/sentry/setup\" class=\"btn btn-sm\" style=\"background: var(--green);\">Sign in with Sentry</a> <span style=\"margin-left: 0.5rem; font-size: 0.78rem; color: var(--text-muted);\">OAuth device flow or manual token entry</span></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(data.Tools) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools</div><div class=\"tools-list\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools</div><div class=\"tools-list\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -149,12 +121,12 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<button type=\"submit\" class=\"btn\">Save Configuration</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<button type=\"submit\" class=\"btn\">Save Configuration</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

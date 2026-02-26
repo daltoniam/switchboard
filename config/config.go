@@ -63,7 +63,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"slack": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"token": "", "cookie": ""},
+				Credentials: mcp.Credentials{"token": "", "cookie": "", "client_id": "", "client_secret": "", "token_source": ""},
 			},
 			"metabase": {
 				Enabled:     false,

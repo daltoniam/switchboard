@@ -37,7 +37,7 @@ func ghStatusLabel(hasToken bool, healthy bool) string {
 templ GitHubSetup(page layouts.PageData, data GitHubSetupData) {
 	@layouts.Base(page) {
 		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-			<a href="/integrations/github" class="btn btn-sm btn-outline">← Back</a>
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
 			<h1 class="page-title" style="margin-bottom: 0;">GitHub Setup</h1>
 			@components.Badge(ghStatusLabel(data.HasToken, data.Healthy), ghStatusBadge(data.HasToken, data.Healthy))
 		</div>
