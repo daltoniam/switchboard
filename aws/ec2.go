@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	mcp "github.com/daltoniam/switchboard"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	mcp "github.com/daltoniam/switchboard"
 )
 
 func ec2DescribeInstances(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {

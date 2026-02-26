@@ -3,13 +3,18 @@ package aws
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
-	mcp "github.com/daltoniam/switchboard"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	mcp "github.com/daltoniam/switchboard"
 )
+
+const maxS3GetObjectSize = 10 * 1024 * 1024
 
 func s3ListBuckets(ctx context.Context, a *integration, _ map[string]any) (*mcp.ToolResult, error) {
 	out, err := a.s3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
@@ -49,9 +54,12 @@ func s3GetObject(ctx context.Context, a *integration, args map[string]any) (*mcp
 	}
 	defer func() { _ = out.Body.Close() }()
 
-	data, err := io.ReadAll(out.Body)
+	data, err := io.ReadAll(io.LimitReader(out.Body, maxS3GetObjectSize+1))
 	if err != nil {
 		return errResult(err)
+	}
+	if len(data) > maxS3GetObjectSize {
+		return errResult(fmt.Errorf("object exceeds maximum size of %d bytes", maxS3GetObjectSize))
 	}
 
 	ct := ""
@@ -130,7 +138,7 @@ func s3HeadObject(ctx context.Context, a *integration, args map[string]any) (*mc
 }
 
 func s3CopyObject(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
-	source := argStr(args, "source_bucket") + "/" + argStr(args, "source_key")
+	source := argStr(args, "source_bucket") + "/" + url.PathEscape(argStr(args, "source_key"))
 	out, err := a.s3Client.CopyObject(ctx, &s3.CopyObjectInput{
 		Bucket:     aws.String(argStr(args, "dest_bucket")),
 		Key:        aws.String(argStr(args, "dest_key")),

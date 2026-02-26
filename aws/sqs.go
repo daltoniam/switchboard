@@ -3,10 +3,10 @@ package aws
 import (
 	"context"
 
-	mcp "github.com/daltoniam/switchboard"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
+	mcp "github.com/daltoniam/switchboard"
 )
 
 func sqsListQueues(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {

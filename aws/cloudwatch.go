@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"time"
 
-	mcp "github.com/daltoniam/switchboard"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	cwtypes "github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
+	mcp "github.com/daltoniam/switchboard"
 )
 
 func cwListMetrics(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -32,14 +32,18 @@ func cwGetMetricData(ctx context.Context, a *integration, args map[string]any) (
 	endTime := now
 
 	if v := argStr(args, "start_time"); v != "" {
-		if t, err := parseTime(v); err == nil {
-			startTime = t
+		t, err := parseTime(v)
+		if err != nil {
+			return errResult(err)
 		}
+		startTime = t
 	}
 	if v := argStr(args, "end_time"); v != "" {
-		if t, err := parseTime(v); err == nil {
-			endTime = t
+		t, err := parseTime(v)
+		if err != nil {
+			return errResult(err)
 		}
+		endTime = t
 	}
 
 	period := int32(300)

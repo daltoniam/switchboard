@@ -2,10 +2,10 @@ package aws
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
+	dynamotypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -199,18 +199,94 @@ func TestParseTime_Invalid(t *testing.T) {
 // --- DynamoDB JSON unmarshalling tests ---
 
 func TestUnmarshalDynamoJSON_String(t *testing.T) {
-	var result map[string]any
-	input := `{"id":{"S":"123"}}`
-	var raw json.RawMessage
-	require.NoError(t, json.Unmarshal([]byte(input), &raw))
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`{"id":{"S":"123"}}`, &out)
+	require.NoError(t, err)
+	require.Contains(t, out, "id")
+	sv, ok := out["id"].(*dynamotypes.AttributeValueMemberS)
+	require.True(t, ok, "expected S type")
+	assert.Equal(t, "123", sv.Value)
+}
 
-	var out map[string]any
-	_ = out
+func TestUnmarshalDynamoJSON_Number(t *testing.T) {
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`{"age":{"N":"42"}}`, &out)
+	require.NoError(t, err)
+	nv, ok := out["age"].(*dynamotypes.AttributeValueMemberN)
+	require.True(t, ok, "expected N type")
+	assert.Equal(t, "42", nv.Value)
+}
 
-	var key map[string]map[string]json.RawMessage
-	require.NoError(t, json.Unmarshal([]byte(input), &key))
-	assert.Contains(t, key, "id")
-	_ = result
+func TestUnmarshalDynamoJSON_Bool(t *testing.T) {
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`{"active":{"BOOL":true}}`, &out)
+	require.NoError(t, err)
+	bv, ok := out["active"].(*dynamotypes.AttributeValueMemberBOOL)
+	require.True(t, ok, "expected BOOL type")
+	assert.True(t, bv.Value)
+}
+
+func TestUnmarshalDynamoJSON_Null(t *testing.T) {
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`{"deleted":{"NULL":true}}`, &out)
+	require.NoError(t, err)
+	nv, ok := out["deleted"].(*dynamotypes.AttributeValueMemberNULL)
+	require.True(t, ok, "expected NULL type")
+	assert.True(t, nv.Value)
+}
+
+func TestUnmarshalDynamoJSON_StringSet(t *testing.T) {
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`{"tags":{"SS":["a","b","c"]}}`, &out)
+	require.NoError(t, err)
+	ss, ok := out["tags"].(*dynamotypes.AttributeValueMemberSS)
+	require.True(t, ok, "expected SS type")
+	assert.Equal(t, []string{"a", "b", "c"}, ss.Value)
+}
+
+func TestUnmarshalDynamoJSON_NumberSet(t *testing.T) {
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`{"scores":{"NS":["1","2","3"]}}`, &out)
+	require.NoError(t, err)
+	ns, ok := out["scores"].(*dynamotypes.AttributeValueMemberNS)
+	require.True(t, ok, "expected NS type")
+	assert.Equal(t, []string{"1", "2", "3"}, ns.Value)
+}
+
+func TestUnmarshalDynamoJSON_List(t *testing.T) {
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`{"items":{"L":[{"S":"hello"},{"N":"42"}]}}`, &out)
+	require.NoError(t, err)
+	lv, ok := out["items"].(*dynamotypes.AttributeValueMemberL)
+	require.True(t, ok, "expected L type")
+	require.Len(t, lv.Value, 2)
+	_, ok = lv.Value[0].(*dynamotypes.AttributeValueMemberS)
+	assert.True(t, ok)
+	_, ok = lv.Value[1].(*dynamotypes.AttributeValueMemberN)
+	assert.True(t, ok)
+}
+
+func TestUnmarshalDynamoJSON_Map(t *testing.T) {
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`{"addr":{"M":{"city":{"S":"NYC"},"zip":{"N":"10001"}}}}`, &out)
+	require.NoError(t, err)
+	mv, ok := out["addr"].(*dynamotypes.AttributeValueMemberM)
+	require.True(t, ok, "expected M type")
+	require.Contains(t, mv.Value, "city")
+	require.Contains(t, mv.Value, "zip")
+}
+
+func TestUnmarshalDynamoJSON_UnsupportedType(t *testing.T) {
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`{"x":{"UNKNOWN":"val"}}`, &out)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported DynamoDB type")
+}
+
+func TestUnmarshalDynamoJSON_InvalidJSON(t *testing.T) {
+	var out map[string]dynamotypes.AttributeValue
+	err := unmarshalDynamoJSON(`not json`, &out)
+	assert.Error(t, err)
 }
 
 func TestParseDimensions(t *testing.T) {

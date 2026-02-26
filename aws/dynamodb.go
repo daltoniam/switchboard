@@ -3,11 +3,12 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
-	mcp "github.com/daltoniam/switchboard"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamotypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	mcp "github.com/daltoniam/switchboard"
 )
 
 func dynamoListTables(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -156,42 +157,96 @@ func unmarshalDynamoJSON(s string, out *map[string]dynamotypes.AttributeValue) e
 	result := make(map[string]dynamotypes.AttributeValue, len(raw))
 	for k, typeVal := range raw {
 		for typeName, val := range typeVal {
-			switch typeName {
-			case "S":
-				var sv string
-				if err := json.Unmarshal(val, &sv); err != nil {
-					return err
-				}
-				result[k] = &dynamotypes.AttributeValueMemberS{Value: sv}
-			case "N":
-				var nv string
-				if err := json.Unmarshal(val, &nv); err != nil {
-					return err
-				}
-				result[k] = &dynamotypes.AttributeValueMemberN{Value: nv}
-			case "BOOL":
-				var bv bool
-				if err := json.Unmarshal(val, &bv); err != nil {
-					return err
-				}
-				result[k] = &dynamotypes.AttributeValueMemberBOOL{Value: bv}
-			case "NULL":
-				result[k] = &dynamotypes.AttributeValueMemberNULL{Value: true}
-			case "B":
-				var b []byte
-				if err := json.Unmarshal(val, &b); err != nil {
-					return err
-				}
-				result[k] = &dynamotypes.AttributeValueMemberB{Value: b}
-			default:
-				var sv string
-				if err := json.Unmarshal(val, &sv); err != nil {
-					return err
-				}
-				result[k] = &dynamotypes.AttributeValueMemberS{Value: sv}
+			av, err := unmarshalAttributeValue(typeName, val)
+			if err != nil {
+				return fmt.Errorf("attribute %q: %w", k, err)
 			}
+			result[k] = av
 		}
 	}
 	*out = result
 	return nil
+}
+
+func unmarshalAttributeValue(typeName string, val json.RawMessage) (dynamotypes.AttributeValue, error) {
+	switch typeName {
+	case "S":
+		var sv string
+		if err := json.Unmarshal(val, &sv); err != nil {
+			return nil, err
+		}
+		return &dynamotypes.AttributeValueMemberS{Value: sv}, nil
+	case "N":
+		var nv string
+		if err := json.Unmarshal(val, &nv); err != nil {
+			return nil, err
+		}
+		return &dynamotypes.AttributeValueMemberN{Value: nv}, nil
+	case "BOOL":
+		var bv bool
+		if err := json.Unmarshal(val, &bv); err != nil {
+			return nil, err
+		}
+		return &dynamotypes.AttributeValueMemberBOOL{Value: bv}, nil
+	case "NULL":
+		return &dynamotypes.AttributeValueMemberNULL{Value: true}, nil
+	case "B":
+		var b []byte
+		if err := json.Unmarshal(val, &b); err != nil {
+			return nil, err
+		}
+		return &dynamotypes.AttributeValueMemberB{Value: b}, nil
+	case "SS":
+		var ss []string
+		if err := json.Unmarshal(val, &ss); err != nil {
+			return nil, err
+		}
+		return &dynamotypes.AttributeValueMemberSS{Value: ss}, nil
+	case "NS":
+		var ns []string
+		if err := json.Unmarshal(val, &ns); err != nil {
+			return nil, err
+		}
+		return &dynamotypes.AttributeValueMemberNS{Value: ns}, nil
+	case "BS":
+		var bs [][]byte
+		if err := json.Unmarshal(val, &bs); err != nil {
+			return nil, err
+		}
+		return &dynamotypes.AttributeValueMemberBS{Value: bs}, nil
+	case "L":
+		var rawList []map[string]json.RawMessage
+		if err := json.Unmarshal(val, &rawList); err != nil {
+			return nil, err
+		}
+		list := make([]dynamotypes.AttributeValue, 0, len(rawList))
+		for _, item := range rawList {
+			for tn, tv := range item {
+				av, err := unmarshalAttributeValue(tn, tv)
+				if err != nil {
+					return nil, err
+				}
+				list = append(list, av)
+			}
+		}
+		return &dynamotypes.AttributeValueMemberL{Value: list}, nil
+	case "M":
+		var rawMap map[string]map[string]json.RawMessage
+		if err := json.Unmarshal(val, &rawMap); err != nil {
+			return nil, err
+		}
+		m := make(map[string]dynamotypes.AttributeValue, len(rawMap))
+		for mk, mv := range rawMap {
+			for tn, tv := range mv {
+				av, err := unmarshalAttributeValue(tn, tv)
+				if err != nil {
+					return nil, err
+				}
+				m[mk] = av
+			}
+		}
+		return &dynamotypes.AttributeValueMemberM{Value: m}, nil
+	default:
+		return nil, fmt.Errorf("unsupported DynamoDB type: %s", typeName)
+	}
 }

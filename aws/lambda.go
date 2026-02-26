@@ -3,10 +3,10 @@ package aws
 import (
 	"context"
 
-	mcp "github.com/daltoniam/switchboard"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
+	mcp "github.com/daltoniam/switchboard"
 )
 
 func lambdaListFunctions(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {

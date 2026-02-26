@@ -3,8 +3,8 @@ package aws
 import (
 	"context"
 
-	mcp "github.com/daltoniam/switchboard"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	mcp "github.com/daltoniam/switchboard"
 )
 
 func getCallerIdentity(ctx context.Context, a *integration, _ map[string]any) (*mcp.ToolResult, error) {

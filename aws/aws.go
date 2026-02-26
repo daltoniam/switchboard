@@ -26,19 +26,19 @@ import (
 )
 
 type integration struct {
-	cfg            aws.Config
-	region         string
-	s3Client       *s3.Client
-	ec2Client      *ec2.Client
-	lambdaClient   *lambda.Client
-	iamClient      *iam.Client
-	cwClient       *cloudwatch.Client
-	stsClient      *sts.Client
-	ecsClient      *ecs.Client
-	snsClient      *sns.Client
-	sqsClient      *sqs.Client
-	dynamoClient   *dynamodb.Client
-	cfnClient      *cloudformation.Client
+	cfg          aws.Config
+	region       string
+	s3Client     *s3.Client
+	ec2Client    *ec2.Client
+	lambdaClient *lambda.Client
+	iamClient    *iam.Client
+	cwClient     *cloudwatch.Client
+	stsClient    *sts.Client
+	ecsClient    *ecs.Client
+	snsClient    *sns.Client
+	sqsClient    *sqs.Client
+	dynamoClient *dynamodb.Client
+	cfnClient    *cloudformation.Client
 }
 
 func New() mcp.Integration {
@@ -225,53 +225,53 @@ var dispatch = map[string]handlerFunc{
 	"aws_ec2_describe_key_pairs":       ec2DescribeKeyPairs,
 
 	// Lambda
-	"aws_lambda_list_functions":    lambdaListFunctions,
-	"aws_lambda_get_function":      lambdaGetFunction,
-	"aws_lambda_invoke":            lambdaInvoke,
+	"aws_lambda_list_functions":             lambdaListFunctions,
+	"aws_lambda_get_function":               lambdaGetFunction,
+	"aws_lambda_invoke":                     lambdaInvoke,
 	"aws_lambda_list_event_source_mappings": lambdaListEventSourceMappings,
 	"aws_lambda_get_function_configuration": lambdaGetFunctionConfiguration,
 
 	// IAM
-	"aws_iam_list_users":            iamListUsers,
-	"aws_iam_get_user":              iamGetUser,
-	"aws_iam_list_roles":            iamListRoles,
-	"aws_iam_get_role":              iamGetRole,
-	"aws_iam_list_policies":         iamListPolicies,
-	"aws_iam_get_policy":            iamGetPolicy,
-	"aws_iam_list_groups":           iamListGroups,
+	"aws_iam_list_users":                   iamListUsers,
+	"aws_iam_get_user":                     iamGetUser,
+	"aws_iam_list_roles":                   iamListRoles,
+	"aws_iam_get_role":                     iamGetRole,
+	"aws_iam_list_policies":                iamListPolicies,
+	"aws_iam_get_policy":                   iamGetPolicy,
+	"aws_iam_list_groups":                  iamListGroups,
 	"aws_iam_list_attached_role_policies":  iamListAttachedRolePolicies,
 	"aws_iam_list_attached_user_policies":  iamListAttachedUserPolicies,
 	"aws_iam_list_attached_group_policies": iamListAttachedGroupPolicies,
 
 	// CloudWatch
-	"aws_cloudwatch_list_metrics":    cwListMetrics,
-	"aws_cloudwatch_get_metric_data": cwGetMetricData,
-	"aws_cloudwatch_describe_alarms": cwDescribeAlarms,
+	"aws_cloudwatch_list_metrics":          cwListMetrics,
+	"aws_cloudwatch_get_metric_data":       cwGetMetricData,
+	"aws_cloudwatch_describe_alarms":       cwDescribeAlarms,
 	"aws_cloudwatch_get_metric_statistics": cwGetMetricStatistics,
 
 	// ECS
-	"aws_ecs_list_clusters":          ecsListClusters,
-	"aws_ecs_describe_clusters":      ecsDescribeClusters,
-	"aws_ecs_list_services":          ecsListServices,
-	"aws_ecs_describe_services":      ecsDescribeServices,
-	"aws_ecs_list_tasks":             ecsListTasks,
-	"aws_ecs_describe_tasks":         ecsDescribeTasks,
-	"aws_ecs_list_task_definitions":  ecsListTaskDefinitions,
+	"aws_ecs_list_clusters":            ecsListClusters,
+	"aws_ecs_describe_clusters":        ecsDescribeClusters,
+	"aws_ecs_list_services":            ecsListServices,
+	"aws_ecs_describe_services":        ecsDescribeServices,
+	"aws_ecs_list_tasks":               ecsListTasks,
+	"aws_ecs_describe_tasks":           ecsDescribeTasks,
+	"aws_ecs_list_task_definitions":    ecsListTaskDefinitions,
 	"aws_ecs_describe_task_definition": ecsDescribeTaskDefinition,
 
 	// SNS
-	"aws_sns_list_topics":        snsListTopics,
+	"aws_sns_list_topics":          snsListTopics,
 	"aws_sns_get_topic_attributes": snsGetTopicAttributes,
-	"aws_sns_list_subscriptions": snsListSubscriptions,
-	"aws_sns_publish":            snsPublish,
+	"aws_sns_list_subscriptions":   snsListSubscriptions,
+	"aws_sns_publish":              snsPublish,
 
 	// SQS
-	"aws_sqs_list_queues":            sqsListQueues,
-	"aws_sqs_get_queue_attributes":   sqsGetQueueAttributes,
-	"aws_sqs_send_message":           sqsSendMessage,
-	"aws_sqs_receive_message":        sqsReceiveMessage,
-	"aws_sqs_delete_message":         sqsDeleteMessage,
-	"aws_sqs_purge_queue":            sqsPurgeQueue,
+	"aws_sqs_list_queues":          sqsListQueues,
+	"aws_sqs_get_queue_attributes": sqsGetQueueAttributes,
+	"aws_sqs_send_message":         sqsSendMessage,
+	"aws_sqs_receive_message":      sqsReceiveMessage,
+	"aws_sqs_delete_message":       sqsDeleteMessage,
+	"aws_sqs_purge_queue":          sqsPurgeQueue,
 
 	// DynamoDB
 	"aws_dynamodb_list_tables":    dynamoListTables,
@@ -283,9 +283,9 @@ var dispatch = map[string]handlerFunc{
 	"aws_dynamodb_delete_item":    dynamoDeleteItem,
 
 	// CloudFormation
-	"aws_cloudformation_list_stacks":      cfnListStacks,
-	"aws_cloudformation_describe_stack":   cfnDescribeStack,
-	"aws_cloudformation_list_stack_resources": cfnListStackResources,
-	"aws_cloudformation_get_template":     cfnGetTemplate,
+	"aws_cloudformation_list_stacks":           cfnListStacks,
+	"aws_cloudformation_describe_stack":        cfnDescribeStack,
+	"aws_cloudformation_list_stack_resources":  cfnListStackResources,
+	"aws_cloudformation_get_template":          cfnGetTemplate,
 	"aws_cloudformation_describe_stack_events": cfnDescribeStackEvents,
 }
