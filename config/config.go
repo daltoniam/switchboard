@@ -77,6 +77,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "project_id": "", "base_url": ""},
 			},
+			"postgres": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"connection_string": "", "host": "", "port": "", "user": "", "password": "", "database": "", "sslmode": ""},
+			},
 		},
 	}
 }
