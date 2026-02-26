@@ -81,7 +81,7 @@ func (l *linear) gql(ctx context.Context, query string, variables map[string]any
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -103,14 +103,6 @@ func (l *linear) gql(ctx context.Context, query string, variables map[string]any
 		return nil, fmt.Errorf("graphql errors: %s", strings.Join(msgs, "; "))
 	}
 	return gqlResp.Data, nil
-}
-
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
 }
 
 func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
@@ -149,27 +141,6 @@ func argBool(args map[string]any, key string) bool {
 		return v == "true"
 	}
 	return false
-}
-
-func argStrSlice(args map[string]any, key string) []string {
-	switch v := args[key].(type) {
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []string:
-		return v
-	case string:
-		if v == "" {
-			return nil
-		}
-		return strings.Split(v, ",")
-	}
-	return nil
 }
 
 func optInt(args map[string]any, key string, def int) int {

@@ -140,7 +140,7 @@ func extractFromChrome() *chromeTokens {
 
 func extractFromChromeWithError() (*chromeTokens, error) {
 	if runtime.GOOS != "darwin" {
-		return nil, fmt.Errorf("Chrome extraction is only available on macOS")
+		return nil, fmt.Errorf("chrome extraction is only available on macOS")
 	}
 
 	extractMu.Lock()
@@ -244,7 +244,7 @@ func extractTokenFromLevelDB(profilePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	entries, err := os.ReadDir(ldbDir)
 	if err != nil {
@@ -268,7 +268,7 @@ func extractTokenFromLevelDB(profilePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("opening LevelDB copy: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	key := "_https://app.slack.com\x00\x01localConfig_v2"
 	val, err := db.Get([]byte(key), nil)
@@ -313,7 +313,7 @@ func extractCookieFromChrome(profilePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	tmpFile := filepath.Join(tmpDir, "Cookies")
 	if err := copyFile(cookiesFile, tmpFile); err != nil {
@@ -329,7 +329,7 @@ func extractCookieFromChrome(profilePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("opening Cookies DB: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	var cookie string
 	err = db.VisitTableRecords("cookies", func(_ *int64, rec sqlite3.Record) error {
@@ -422,13 +422,13 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	_, err = io.Copy(out, in)
 	return err

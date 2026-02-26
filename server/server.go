@@ -116,7 +116,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		Query string `json:"query"`
 	}
 	if req.Params.Arguments != nil {
-		json.Unmarshal(req.Params.Arguments, &args)
+		_ = json.Unmarshal(req.Params.Arguments, &args)
 	}
 
 	query := strings.ToLower(args.Query)

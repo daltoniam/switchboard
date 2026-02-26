@@ -87,7 +87,7 @@ func (s *sentry) doRequest(ctx context.Context, method, path string, body any) (
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -130,14 +130,6 @@ func errResult(err error) (*mcp.ToolResult, error) {
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return errResult(err)
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
 // --- Argument helpers ---
 
 func argStr(args map[string]any, key string) string {
@@ -166,34 +158,6 @@ func argBool(args map[string]any, key string) bool {
 		return v == "true"
 	}
 	return false
-}
-
-func argStrSlice(args map[string]any, key string) []string {
-	switch v := args[key].(type) {
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []string:
-		return v
-	case string:
-		if v == "" {
-			return nil
-		}
-		return strings.Split(v, ",")
-	}
-	return nil
-}
-
-func optInt(args map[string]any, key string, def int) int {
-	if v := argInt(args, key); v > 0 {
-		return v
-	}
-	return def
 }
 
 // queryEncode builds a query string from non-empty key/value pairs.

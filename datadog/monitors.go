@@ -2,6 +2,7 @@ package datadog
 
 import (
 	"context"
+	"math"
 
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV1"
@@ -19,7 +20,7 @@ func listMonitors(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRes
 			opts = opts.WithPage(v)
 		}
 	}
-	if v := argInt(args, "page_size"); v > 0 {
+	if v := argInt(args, "page_size"); v > 0 && v <= math.MaxInt32 {
 		opts = opts.WithPageSize(int32(v))
 	}
 

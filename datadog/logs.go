@@ -2,6 +2,7 @@ package datadog
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
@@ -14,7 +15,7 @@ func searchLogs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResul
 
 	from := parseTime(argStr(args, "from"), -time.Hour)
 	to := parseTime(argStr(args, "to"), 0)
-	limit := int32(optInt(args, "limit", 50))
+	limit := int32(min(optInt(args, "limit", 50), math.MaxInt32))
 	query := argStr(args, "query")
 	sort := datadogV2.LOGSSORT_TIMESTAMP_DESCENDING
 	if argStr(args, "sort") == "timestamp" {

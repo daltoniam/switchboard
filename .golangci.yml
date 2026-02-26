@@ -9,6 +9,24 @@ linters:
     - staticcheck
     - unused
 
-issues:
-  exclude-dirs:
-    - web/templates
+  settings:
+    errcheck:
+      exclude-functions:
+        - (net/http.ResponseWriter).Write
+        - (*encoding/json.Encoder).Encode
+        - (*encoding/json.Decoder).Decode
+        - (github.com/a-h/templ.Component).Render
+
+  exclusions:
+    paths:
+      - web/templates
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+      - linters:
+          - staticcheck
+        text: "SA1019:"
+      - linters:
+          - errcheck
+        text: "defer"

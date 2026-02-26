@@ -81,7 +81,7 @@ func (m *metabase) doRequest(ctx context.Context, method, path string, body any)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -122,14 +122,6 @@ func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
 
 func errResult(err error) (*mcp.ToolResult, error) {
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return errResult(err)
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
 }
 
 // --- Argument helpers ---

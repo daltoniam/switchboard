@@ -44,7 +44,7 @@ func (s *slackIntegration) Configure(creds mcp.Credentials) error {
 		// Last resort: try Chrome extraction now.
 		if extracted := extractFromChrome(); extracted != nil {
 			s.store.set(extracted.token, extracted.cookie)
-			s.store.saveToFile()
+			_ = s.store.saveToFile()
 			tok = extracted.token
 			cookie = extracted.cookie
 		}
@@ -118,7 +118,7 @@ func (s *slackIntegration) tryRefresh() bool {
 		return false
 	}
 	s.store.set(extracted.token, extracted.cookie)
-	s.store.saveToFile()
+	_ = s.store.saveToFile()
 	s.buildClient(extracted.token, extracted.cookie)
 	log.Println("slack: tokens refreshed from Chrome")
 	return true
@@ -249,25 +249,6 @@ func argBool(args map[string]any, key string) bool {
 		return strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes")
 	}
 	return false
-}
-
-func argStrSlice(args map[string]any, key string) []string {
-	switch v := args[key].(type) {
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				out = append(out, s)
-			}
-		}
-		return out
-	case string:
-		if v == "" {
-			return nil
-		}
-		return strings.Split(v, ",")
-	}
-	return nil
 }
 
 func optInt(args map[string]any, key string, def int) int {

@@ -2,6 +2,7 @@ package datadog
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
@@ -21,7 +22,7 @@ func listEvents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResul
 	opts = opts.WithFilterFrom(from.Format(time.RFC3339))
 	opts = opts.WithFilterTo(to.Format(time.RFC3339))
 
-	if v := argInt(args, "limit"); v > 0 {
+	if v := argInt(args, "limit"); v > 0 && v <= math.MaxInt32 {
 		opts = opts.WithPageLimit(int32(v))
 	}
 	if argStr(args, "sort") == "timestamp" {
@@ -41,7 +42,7 @@ func searchEvents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRes
 	from := parseTime(argStr(args, "from"), -time.Hour)
 	to := parseTime(argStr(args, "to"), 0)
 	query := argStr(args, "query")
-	limit := int32(optInt(args, "limit", 10))
+	limit := int32(min(optInt(args, "limit", 10), math.MaxInt32))
 
 	sort := datadogV2.EVENTSSORT_TIMESTAMP_DESCENDING
 	if argStr(args, "sort") == "timestamp" {

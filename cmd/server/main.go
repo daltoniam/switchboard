@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/config"
@@ -90,10 +91,10 @@ func main() {
 	fmt.Fprintf(os.Stderr, "  Web UI:  http://localhost:%d/\n", *port)
 	fmt.Fprintf(os.Stderr, "  MCP:     http://localhost:%d/mcp\n", *port)
 
-	httpServer := &http.Server{Addr: addr, Handler: mux}
+	httpServer := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		<-ctx.Done()
-		httpServer.Close()
+		_ = httpServer.Close()
 	}()
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

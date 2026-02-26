@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -644,7 +645,7 @@ func searchSpans(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 	opts = opts.WithFilterFrom(from.Format(time.RFC3339))
 	opts = opts.WithFilterTo(to.Format(time.RFC3339))
 
-	if v := argInt(args, "limit"); v > 0 {
+	if v := argInt(args, "limit"); v > 0 && v <= math.MaxInt32 {
 		opts = opts.WithPageLimit(int32(v))
 	}
 

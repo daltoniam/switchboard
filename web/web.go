@@ -270,7 +270,7 @@ func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Req
 	}
 	ic.Enabled = true
 	ic.Credentials = mcp.Credentials{"token": result.Token, "cookie": result.Cookie}
-	w.services.Config.SetIntegration("slack", ic)
+	_ = w.services.Config.SetIntegration("slack", ic)
 
 	http.Redirect(rw, r, "/integrations/slack/setup?result=Tokens+extracted+from+Chrome+and+saved", http.StatusSeeOther)
 }
@@ -359,7 +359,7 @@ func (w *WebServer) handleGitHubOAuthSave(rw http.ResponseWriter, r *http.Reques
 	ic.Enabled = true
 	ic.Credentials["token"] = body.Token
 	ic.Credentials["token_source"] = "oauth"
-	w.services.Config.SetIntegration("github", ic)
+	_ = w.services.Config.SetIntegration("github", ic)
 
 	json.NewEncoder(rw).Encode(map[string]string{"status": "ok"})
 }
@@ -383,7 +383,7 @@ func (w *WebServer) handleGitHubSaveToken(rw http.ResponseWriter, r *http.Reques
 	ic.Enabled = true
 	ic.Credentials["token"] = token
 	ic.Credentials["token_source"] = "pat"
-	w.services.Config.SetIntegration("github", ic)
+	_ = w.services.Config.SetIntegration("github", ic)
 
 	http.Redirect(rw, r, "/integrations/github/setup?result=Token+saved+successfully", http.StatusSeeOther)
 }
@@ -476,7 +476,7 @@ func (w *WebServer) handleLinearOAuthCallback(rw http.ResponseWriter, r *http.Re
 	ic.Enabled = true
 	ic.Credentials["api_key"] = result.Token
 	ic.Credentials["token_source"] = "oauth"
-	w.services.Config.SetIntegration("linear", ic)
+	_ = w.services.Config.SetIntegration("linear", ic)
 
 	http.Redirect(rw, r, "/integrations/linear/setup?result=Connected+to+Linear+via+OAuth", http.StatusSeeOther)
 }
@@ -506,7 +506,7 @@ func (w *WebServer) handleLinearSaveToken(rw http.ResponseWriter, r *http.Reques
 	ic.Enabled = true
 	ic.Credentials["api_key"] = apiKey
 	ic.Credentials["token_source"] = "api_key"
-	w.services.Config.SetIntegration("linear", ic)
+	_ = w.services.Config.SetIntegration("linear", ic)
 
 	http.Redirect(rw, r, "/integrations/linear/setup?result=API+key+saved+successfully", http.StatusSeeOther)
 }
@@ -600,7 +600,7 @@ func (w *WebServer) handleSentryOAuthSave(rw http.ResponseWriter, r *http.Reques
 	ic.Credentials["auth_token"] = body.Token
 	ic.Credentials["organization"] = body.Organization
 	ic.Credentials["token_source"] = "oauth"
-	w.services.Config.SetIntegration("sentry", ic)
+	_ = w.services.Config.SetIntegration("sentry", ic)
 
 	json.NewEncoder(rw).Encode(map[string]string{"status": "ok"})
 }
@@ -630,7 +630,7 @@ func (w *WebServer) handleSentrySaveToken(rw http.ResponseWriter, r *http.Reques
 	ic.Credentials["auth_token"] = authToken
 	ic.Credentials["organization"] = organization
 	ic.Credentials["token_source"] = "token"
-	w.services.Config.SetIntegration("sentry", ic)
+	_ = w.services.Config.SetIntegration("sentry", ic)
 
 	http.Redirect(rw, r, "/integrations/sentry/setup?result=Token+saved+successfully", http.StatusSeeOther)
 }
@@ -677,7 +677,7 @@ func (w *WebServer) handleSlackSaveTokens(rw http.ResponseWriter, r *http.Reques
 	}
 	ic.Enabled = true
 	ic.Credentials = mcp.Credentials{"token": token, "cookie": cookie}
-	w.services.Config.SetIntegration("slack", ic)
+	_ = w.services.Config.SetIntegration("slack", ic)
 
 	http.Redirect(rw, r, "/integrations/slack/setup?result=Tokens+saved+successfully", http.StatusSeeOther)
 }
