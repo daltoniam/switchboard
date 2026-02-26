@@ -1,0 +1,133 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type LinearSetupData struct {
+	HasToken     bool
+	Healthy      bool
+	TokenSource  string
+	HasOAuth     bool
+	FlashResult  string
+	FlashError   string
+}
+
+func linearStatusBadge(hasToken bool, healthy bool) string {
+	if healthy {
+		return "green"
+	}
+	if hasToken {
+		return "red"
+	}
+	return "muted"
+}
+
+func linearStatusLabel(hasToken bool, healthy bool) string {
+	if healthy {
+		return "Connected"
+	}
+	if hasToken {
+		return "Invalid Token"
+	}
+	return "Not Connected"
+}
+
+templ LinearSetup(page layouts.PageData, data LinearSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations/linear" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Linear Setup</h1>
+			@components.Badge(linearStatusLabel(data.HasToken, data.Healthy), linearStatusBadge(data.HasToken, data.Healthy))
+		</div>
+		if data.FlashResult != "" {
+			<div class="flash flash-success">{ data.FlashResult }</div>
+		}
+		if data.FlashError != "" {
+			<div class="flash flash-error">{ data.FlashError }</div>
+		}
+		if data.HasToken && data.Healthy {
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Current Connection</div>
+					@components.Badge("Connected", "green")
+				</div>
+				<p style="color: var(--text-muted); font-size: 0.85rem;">
+					Linear is connected
+					if data.TokenSource != "" {
+						<span> via <strong>{ data.TokenSource }</strong></span>
+					}
+					. You can re-authenticate below to get a new token.
+				</p>
+			</div>
+		}
+		if data.HasOAuth {
+			<div class="card">
+				<div class="card-title" style="margin-bottom: 0.75rem;">Option 1: Sign in with Linear</div>
+				<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+					Authenticate using Linear's OAuth flow. You'll be redirected to Linear to authorize, then sent back automatically.
+				</p>
+				<div id="oauth-container">
+					<button type="button" class="btn" id="oauth-start-btn" onclick="startLinearOAuth()">
+						Sign in with Linear
+					</button>
+				</div>
+				<div id="oauth-error" style="display: none;">
+					<div class="flash flash-error" id="oauth-error-msg"></div>
+					<button type="button" class="btn btn-outline" onclick="resetOAuth()" style="margin-top: 0.5rem;">Try Again</button>
+				</div>
+			</div>
+		}
+		<div class="card">
+			<div class="card-title" style="margin-bottom: 0.75rem;">
+				if data.HasOAuth {
+					Option 2: Manual API Key Entry
+				} else {
+					API Key
+				}
+			</div>
+			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+				Create a
+				<a href="https://linear.app/settings/api" target="_blank" style="color: var(--accent);">Personal API Key</a>
+				in Linear Settings and paste it below.
+			</p>
+			<form method="POST" action="/api/linear/save-token">
+				@components.FormGroup("API Key", "api_key", "password", "", "lin_api_...")
+				<button type="submit" class="btn">Save API Key</button>
+			</form>
+		</div>
+		<script>
+			function startLinearOAuth() {
+				document.getElementById('oauth-start-btn').disabled = true;
+				document.getElementById('oauth-start-btn').textContent = 'Starting...';
+
+				fetch('/api/linear/oauth/start', { method: 'POST' })
+					.then(function(r) { return r.json(); })
+					.then(function(data) {
+						if (data.error) {
+							showOAuthError(data.error);
+							return;
+						}
+						window.location.href = data.authorize_url;
+					})
+					.catch(function(err) {
+						showOAuthError('Failed to start OAuth flow: ' + err.message);
+					});
+			}
+
+			function showOAuthError(msg) {
+				document.getElementById('oauth-container').style.display = 'none';
+				document.getElementById('oauth-error').style.display = 'block';
+				document.getElementById('oauth-error-msg').textContent = msg;
+			}
+
+			function resetOAuth() {
+				document.getElementById('oauth-error').style.display = 'none';
+				document.getElementById('oauth-container').style.display = 'block';
+				document.getElementById('oauth-start-btn').disabled = false;
+				document.getElementById('oauth-start-btn').textContent = 'Sign in with Linear';
+			}
+		</script>
+	}
+}

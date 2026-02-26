@@ -1,0 +1,183 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type GitHubSetupData struct {
+	HasToken      bool
+	Healthy       bool
+	TokenSource   string
+	ClientID      string
+	FlashResult   string
+	FlashError    string
+}
+
+func ghStatusBadge(hasToken bool, healthy bool) string {
+	if healthy {
+		return "green"
+	}
+	if hasToken {
+		return "red"
+	}
+	return "muted"
+}
+
+func ghStatusLabel(hasToken bool, healthy bool) string {
+	if healthy {
+		return "Connected"
+	}
+	if hasToken {
+		return "Invalid Token"
+	}
+	return "Not Connected"
+}
+
+templ GitHubSetup(page layouts.PageData, data GitHubSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations/github" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">GitHub Setup</h1>
+			@components.Badge(ghStatusLabel(data.HasToken, data.Healthy), ghStatusBadge(data.HasToken, data.Healthy))
+		</div>
+		if data.FlashResult != "" {
+			<div class="flash flash-success">{ data.FlashResult }</div>
+		}
+		if data.FlashError != "" {
+			<div class="flash flash-error">{ data.FlashError }</div>
+		}
+		if data.HasToken && data.Healthy {
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Current Connection</div>
+					@components.Badge("Connected", "green")
+				</div>
+				<p style="color: var(--text-muted); font-size: 0.85rem;">
+					GitHub is connected
+					if data.TokenSource != "" {
+						<span> via <strong>{ data.TokenSource }</strong></span>
+					}
+					. You can re-authenticate below to get a new token.
+				</p>
+			</div>
+		}
+		if data.ClientID != "" {
+			<div class="card">
+				<div class="card-title" style="margin-bottom: 0.75rem;">Option 1: Sign in with GitHub</div>
+				<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+					Authenticate using GitHub's device flow. You'll get a code to enter at github.com — no tokens to copy or paste.
+				</p>
+				<div id="oauth-container">
+					<button type="button" class="btn" id="oauth-start-btn" onclick="startOAuth()">
+						Sign in with GitHub
+					</button>
+				</div>
+				<div id="oauth-pending" style="display: none;">
+					<div class="card" style="background: var(--bg); border-color: var(--accent); margin-bottom: 0;">
+						<div style="text-align: center;">
+							<p style="font-size: 0.9rem; margin-bottom: 0.75rem;">Enter this code at GitHub:</p>
+							<div id="oauth-code" style="font-size: 2rem; font-weight: 700; font-family: monospace; letter-spacing: 0.15em; color: var(--accent); margin-bottom: 0.75rem;"></div>
+							<a id="oauth-link" href="" target="_blank" class="btn" style="margin-bottom: 0.75rem;">
+								Open GitHub
+							</a>
+							<p style="font-size: 0.78rem; color: var(--text-muted);" id="oauth-status">Waiting for authorization...</p>
+						</div>
+					</div>
+				</div>
+				<div id="oauth-success" style="display: none;">
+					<div class="flash flash-success">GitHub connected successfully! Redirecting...</div>
+				</div>
+				<div id="oauth-error" style="display: none;">
+					<div class="flash flash-error" id="oauth-error-msg"></div>
+					<button type="button" class="btn btn-outline" onclick="resetOAuth()" style="margin-top: 0.5rem;">Try Again</button>
+				</div>
+			</div>
+		}
+		<div class="card">
+			<div class="card-title" style="margin-bottom: 0.75rem;">
+				if data.ClientID != "" {
+					Option 2: Manual Token Entry
+				} else {
+					Personal Access Token
+				}
+			</div>
+			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+				Create a
+				<a href="https://github.com/settings/tokens?type=beta" target="_blank" style="color: var(--accent);">Personal Access Token</a>
+				in GitHub Settings and paste it below.
+			</p>
+			<form method="POST" action="/api/github/save-token">
+				@components.FormGroup("Personal Access Token", "token", "password", "", "ghp_... or github_pat_...")
+				<button type="submit" class="btn">Save Token</button>
+			</form>
+		</div>
+		<script>
+			function startOAuth() {
+				document.getElementById('oauth-start-btn').disabled = true;
+				document.getElementById('oauth-start-btn').textContent = 'Starting...';
+
+				fetch('/api/github/oauth/start', { method: 'POST' })
+					.then(function(r) { return r.json(); })
+					.then(function(data) {
+						if (data.error) {
+							showOAuthError(data.error);
+							return;
+						}
+						document.getElementById('oauth-code').textContent = data.user_code;
+						document.getElementById('oauth-link').href = data.verification_uri;
+						document.getElementById('oauth-container').style.display = 'none';
+						document.getElementById('oauth-pending').style.display = 'block';
+						pollOAuth();
+					})
+					.catch(function(err) {
+						showOAuthError('Failed to start OAuth flow: ' + err.message);
+					});
+			}
+
+			function pollOAuth() {
+				fetch('/api/github/oauth/poll')
+					.then(function(r) { return r.json(); })
+					.then(function(data) {
+						if (data.status === 'pending') {
+							setTimeout(pollOAuth, 2000);
+							return;
+						}
+						if (data.status === 'complete') {
+							document.getElementById('oauth-pending').style.display = 'none';
+							document.getElementById('oauth-success').style.display = 'block';
+							// Save the token
+							fetch('/api/github/oauth/save', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ token: data.token })
+							}).then(function() {
+								setTimeout(function() {
+									window.location.href = '/integrations/github/setup?result=Connected+to+GitHub+via+OAuth';
+								}, 1000);
+							});
+							return;
+						}
+						showOAuthError(data.error || 'Unknown error');
+					})
+					.catch(function(err) {
+						setTimeout(pollOAuth, 3000);
+					});
+			}
+
+			function showOAuthError(msg) {
+				document.getElementById('oauth-container').style.display = 'none';
+				document.getElementById('oauth-pending').style.display = 'none';
+				document.getElementById('oauth-error').style.display = 'block';
+				document.getElementById('oauth-error-msg').textContent = msg;
+			}
+
+			function resetOAuth() {
+				document.getElementById('oauth-error').style.display = 'none';
+				document.getElementById('oauth-container').style.display = 'block';
+				document.getElementById('oauth-start-btn').disabled = false;
+				document.getElementById('oauth-start-btn').textContent = 'Sign in with GitHub';
+			}
+		</script>
+	}
+}

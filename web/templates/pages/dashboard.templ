@@ -1,0 +1,74 @@
+package pages
+
+import (
+	"fmt"
+
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type DashboardData struct {
+	TotalIntegrations int
+	EnabledCount      int
+	HealthyCount      int
+	TotalTools        int
+	Integrations      []IntegrationSummary
+}
+
+type IntegrationSummary struct {
+	Name      string
+	Enabled   bool
+	Healthy   bool
+	ToolCount int
+}
+
+func healthBadge(enabled bool, healthy bool) string {
+	if !enabled {
+		return "muted"
+	}
+	if healthy {
+		return "green"
+	}
+	return "yellow"
+}
+
+func healthLabel(enabled bool, healthy bool) string {
+	if !enabled {
+		return "Disabled"
+	}
+	if healthy {
+		return "Connected"
+	}
+	return "Not Verified"
+}
+
+templ Dashboard(page layouts.PageData, data DashboardData) {
+	@layouts.Base(page) {
+		<h1 class="page-title">Dashboard</h1>
+		<div class="stats-grid">
+			@components.StatCard(data.TotalIntegrations, "Integrations")
+			@components.StatCard(data.EnabledCount, "Enabled")
+			@components.StatCard(data.HealthyCount, "Healthy")
+			@components.StatCard(data.TotalTools, "Total Tools")
+		</div>
+		<h2 style="font-size: 1.1rem; margin-bottom: 0.75rem;">Integrations</h2>
+		for _, i := range data.Integrations {
+			<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-link">
+				<div>
+					<span class="name">{ i.Name }</span>
+					<span style="margin-left: 0.5rem;">
+						@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
+					</span>
+				</div>
+				<div class="meta">
+					<span>{ fmt.Sprintf("%d tools", i.ToolCount) }</span>
+					<span>→</span>
+				</div>
+			</a>
+		}
+		<div class="footer">
+			<p>Add to your MCP client config:</p>
+			<code>&#123; "mcpServers": &#123; "switchboard": &#123; "command": "/path/to/switchboard" &#125; &#125; &#125;</code>
+		</div>
+	}
+}

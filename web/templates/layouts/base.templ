@@ -1,0 +1,338 @@
+package layouts
+
+import "strings"
+
+type PageData struct {
+	Title         string
+	CurrentPath   string
+	FlashSuccess  string
+	FlashError    string
+}
+
+type NavItem struct {
+	Path  string
+	Label string
+	Icon  string
+}
+
+func navItems() []NavItem {
+	return []NavItem{
+		{Path: "/", Label: "Dashboard", Icon: "⚡"},
+		{Path: "/integrations", Label: "Integrations", Icon: "🔌"},
+	}
+}
+
+func isActive(current, path string) bool {
+	if path == "/" {
+		return current == "/"
+	}
+	return strings.HasPrefix(current, path)
+}
+
+templ Base(data PageData) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ data.Title } — Unified MCP</title>
+			<style>
+				:root {
+					--bg: #0d1117;
+					--surface: #161b22;
+					--surface-hover: #1c2129;
+					--border: #30363d;
+					--text: #e6edf3;
+					--text-muted: #8b949e;
+					--accent: #58a6ff;
+					--green: #3fb950;
+					--red: #f85149;
+					--yellow: #d29922;
+					--radius: 8px;
+				}
+				* { margin: 0; padding: 0; box-sizing: border-box; }
+				body {
+					font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+					background: var(--bg);
+					color: var(--text);
+					line-height: 1.5;
+					display: flex;
+					min-height: 100vh;
+				}
+				.sidebar {
+					width: 220px;
+					background: var(--surface);
+					border-right: 1px solid var(--border);
+					padding: 1.5rem 0;
+					flex-shrink: 0;
+				}
+				.sidebar-brand {
+					padding: 0 1.25rem 1.25rem;
+					border-bottom: 1px solid var(--border);
+					margin-bottom: 0.75rem;
+					font-size: 0.9rem;
+					font-weight: 600;
+					color: var(--text);
+				}
+				.sidebar-brand span { color: var(--text-muted); font-weight: 400; font-size: 0.75rem; display: block; }
+				.nav-item {
+					display: flex;
+					align-items: center;
+					gap: 0.5rem;
+					padding: 0.5rem 1.25rem;
+					color: var(--text-muted);
+					text-decoration: none;
+					font-size: 0.85rem;
+					transition: background 0.15s, color 0.15s;
+				}
+				.nav-item:hover { background: var(--surface-hover); color: var(--text); }
+				.nav-item.active { color: var(--accent); background: rgba(88,166,255,0.08); }
+				.main { flex: 1; padding: 2rem; max-width: 960px; }
+				.page-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem; }
+				.flash {
+					padding: 0.75rem 1rem;
+					border-radius: var(--radius);
+					margin-bottom: 1rem;
+					font-size: 0.85rem;
+				}
+				.flash-success { background: rgba(63,185,80,0.12); border: 1px solid rgba(63,185,80,0.3); color: var(--green); }
+				.flash-error { background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.3); color: var(--red); }
+				.card {
+					background: var(--surface);
+					border: 1px solid var(--border);
+					border-radius: var(--radius);
+					padding: 1.25rem;
+					margin-bottom: 1rem;
+				}
+				.card-header {
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					margin-bottom: 0.75rem;
+				}
+				.card-title {
+					font-size: 1.05rem;
+					font-weight: 600;
+					display: flex;
+					align-items: center;
+					gap: 0.5rem;
+				}
+				.badge {
+					display: inline-block;
+					font-size: 0.65rem;
+					padding: 2px 8px;
+					border-radius: 12px;
+					font-weight: 500;
+					text-transform: uppercase;
+					letter-spacing: 0.02em;
+				}
+				.badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
+				.badge-red { background: rgba(248,81,73,0.15); color: var(--red); }
+				.badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }
+				.badge-muted { background: rgba(139,148,158,0.15); color: var(--text-muted); }
+				.form-group { margin-bottom: 0.75rem; }
+				.form-label {
+					display: block;
+					font-size: 0.78rem;
+					color: var(--text-muted);
+					margin-bottom: 0.25rem;
+					text-transform: capitalize;
+				}
+				.form-input {
+					width: 100%;
+					background: var(--bg);
+					border: 1px solid var(--border);
+					border-radius: 4px;
+					color: var(--text);
+					padding: 8px 10px;
+					font-size: 0.85rem;
+					font-family: monospace;
+				}
+				.form-input:focus { outline: none; border-color: var(--accent); }
+				.toggle {
+					position: relative;
+					width: 44px;
+					height: 24px;
+					cursor: pointer;
+					display: inline-block;
+				}
+				.toggle input { opacity: 0; width: 0; height: 0; }
+				.toggle .slider {
+					position: absolute;
+					inset: 0;
+					background: var(--border);
+					border-radius: 12px;
+					transition: 0.2s;
+				}
+				.toggle .slider:before {
+					content: "";
+					position: absolute;
+					height: 18px;
+					width: 18px;
+					left: 3px;
+					bottom: 3px;
+					background: var(--text);
+					border-radius: 50%;
+					transition: 0.2s;
+				}
+				.toggle input:checked + .slider { background: var(--accent); }
+				.toggle input:checked + .slider:before { transform: translateX(20px); }
+				.tools-list {
+					display: flex;
+					flex-wrap: wrap;
+					gap: 0.375rem;
+					margin-top: 0.75rem;
+				}
+				.tool-tag {
+					font-size: 0.7rem;
+					background: var(--bg);
+					border: 1px solid var(--border);
+					border-radius: 4px;
+					padding: 2px 8px;
+					font-family: monospace;
+					color: var(--text-muted);
+				}
+				.btn {
+					background: var(--accent);
+					color: #fff;
+					border: none;
+					border-radius: 6px;
+					padding: 8px 20px;
+					font-size: 0.85rem;
+					cursor: pointer;
+					font-weight: 500;
+					text-decoration: none;
+					display: inline-block;
+				}
+				.btn:hover { opacity: 0.9; }
+				.btn-sm { padding: 4px 12px; font-size: 0.78rem; }
+				.btn-outline {
+					background: transparent;
+					border: 1px solid var(--border);
+					color: var(--text-muted);
+				}
+				.btn-outline:hover { border-color: var(--text-muted); color: var(--text); }
+				.stats-grid {
+					display: grid;
+					grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+					gap: 1rem;
+					margin-bottom: 1.5rem;
+				}
+				.stat-card {
+					background: var(--surface);
+					border: 1px solid var(--border);
+					border-radius: var(--radius);
+					padding: 1rem 1.25rem;
+				}
+				.stat-value { font-size: 1.5rem; font-weight: 700; }
+				.stat-label { font-size: 0.78rem; color: var(--text-muted); }
+				.footer {
+					margin-top: 2rem;
+					padding-top: 1rem;
+					border-top: 1px solid var(--border);
+					color: var(--text-muted);
+					font-size: 0.78rem;
+				}
+				.footer code {
+					background: var(--surface);
+					padding: 2px 6px;
+					border-radius: 4px;
+					font-size: 0.72rem;
+				}
+				.integration-link {
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					text-decoration: none;
+					color: inherit;
+					padding: 1rem 1.25rem;
+					background: var(--surface);
+					border: 1px solid var(--border);
+					border-radius: var(--radius);
+					margin-bottom: 0.5rem;
+					transition: border-color 0.15s;
+				}
+				.integration-link:hover { border-color: var(--accent); }
+				.integration-link .name { font-weight: 600; font-size: 1rem; text-transform: capitalize; }
+				.integration-link .meta { display: flex; align-items: center; gap: 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
+			.slack-desc { color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; }
+			.slack-desc code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+			.slack-steps { margin-top: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+			.slack-step { display: flex; gap: 0.75rem; align-items: flex-start; }
+			.slack-step-num {
+				flex-shrink: 0;
+				width: 28px; height: 28px;
+				background: var(--accent);
+				color: #fff;
+				border-radius: 50%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 0.78rem;
+				font-weight: 600;
+			}
+			.slack-step-detail { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.25rem; }
+			.slack-step-detail kbd {
+				background: var(--bg);
+				border: 1px solid var(--border);
+				border-radius: 3px;
+				padding: 1px 5px;
+				font-size: 0.75rem;
+				font-family: monospace;
+			}
+			.slack-link { color: var(--accent); text-decoration: none; }
+			.slack-link:hover { text-decoration: underline; }
+			.slack-code-block {
+				background: var(--bg);
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				padding: 0.75rem;
+				margin-top: 0.5rem;
+				position: relative;
+			}
+			.slack-code-block pre { overflow-x: auto; margin: 0; }
+			.slack-code-block code { font-size: 0.72rem; color: var(--text-muted); white-space: pre-wrap; word-break: break-all; }
+			.slack-code-block .btn { position: absolute; top: 0.5rem; right: 0.5rem; }
+			.slack-textarea {
+				font-family: monospace;
+				font-size: 0.82rem;
+				resize: vertical;
+				min-height: 60px;
+			}
+			.slack-token-meta {
+				display: flex;
+				gap: 1.5rem;
+				font-size: 0.82rem;
+				color: var(--text-muted);
+			}
+			.slack-token-meta strong { color: var(--text); }
+			.btn-green { background: var(--green); }
+			.btn-green:hover { opacity: 0.9; }
+			</style>
+		</head>
+		<body>
+			<nav class="sidebar">
+				<div class="sidebar-brand">
+					⚙ Unified MCP
+					<span>Server Configuration</span>
+				</div>
+				for _, item := range navItems() {
+					if isActive(data.CurrentPath, item.Path) {
+						<a href={ templ.SafeURL(item.Path) } class="nav-item active">{ item.Icon } { item.Label }</a>
+					} else {
+						<a href={ templ.SafeURL(item.Path) } class="nav-item">{ item.Icon } { item.Label }</a>
+					}
+				}
+			</nav>
+			<main class="main">
+				if data.FlashSuccess != "" {
+					<div class="flash flash-success">{ data.FlashSuccess }</div>
+				}
+				if data.FlashError != "" {
+					<div class="flash flash-error">{ data.FlashError }</div>
+				}
+				{ children... }
+			</main>
+		</body>
+	</html>
+}

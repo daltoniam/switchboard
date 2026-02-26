@@ -1,0 +1,36 @@
+package components
+
+import "fmt"
+
+templ Badge(label string, variant string) {
+	<span class={ "badge badge-" + variant }>{ label }</span>
+}
+
+templ Toggle(name string, checked bool) {
+	<label class="toggle">
+		if checked {
+			<input type="checkbox" name={ name } value="true" checked/>
+		} else {
+			<input type="checkbox" name={ name } value="true"/>
+		}
+		<span class="slider"></span>
+	</label>
+}
+
+templ FormGroup(label string, name string, inputType string, value string, placeholder string) {
+	<div class="form-group">
+		<label class="form-label" for={ name }>{ label }</label>
+		<input class="form-input" type={ inputType } name={ name } id={ name } value={ value } placeholder={ placeholder }/>
+	</div>
+}
+
+templ StatCard(value int, label string) {
+	<div class="stat-card">
+		<div class="stat-value">{ fmt.Sprint(value) }</div>
+		<div class="stat-label">{ label }</div>
+	</div>
+}
+
+templ ToolTag(name string) {
+	<span class="tool-tag">{ name }</span>
+}

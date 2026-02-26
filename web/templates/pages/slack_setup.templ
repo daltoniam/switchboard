@@ -1,0 +1,160 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type SlackSetupData struct {
+	HasToken        bool
+	HasCookie       bool
+	TokenStatus     string
+	TokenAge        float64
+	TokenSource     string
+	CanAutoExtract  bool
+	ExtractSnippet  string
+	FlashResult     string
+	FlashError      string
+}
+
+func slackStatusBadge(status string) string {
+	switch status {
+	case "healthy":
+		return "green"
+	case "warning":
+		return "yellow"
+	case "critical":
+		return "red"
+	default:
+		return "muted"
+	}
+}
+
+func slackStatusLabel(status string) string {
+	switch status {
+	case "healthy":
+		return "Healthy"
+	case "warning":
+		return "Expiring Soon"
+	case "critical":
+		return "Expired"
+	default:
+		return "No Tokens"
+	}
+}
+
+templ SlackSetup(page layouts.PageData, data SlackSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations/slack" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Slack Token Setup</h1>
+			@components.Badge(slackStatusLabel(data.TokenStatus), slackStatusBadge(data.TokenStatus))
+		</div>
+		if data.FlashResult != "" {
+			<div class="flash flash-success">{ data.FlashResult }</div>
+		}
+		if data.FlashError != "" {
+			<div class="flash flash-error">{ data.FlashError }</div>
+		}
+		if data.HasToken {
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Current Token</div>
+					@components.Badge(slackStatusLabel(data.TokenStatus), slackStatusBadge(data.TokenStatus))
+				</div>
+				<div class="slack-token-meta">
+					<span>Source: <strong>{ data.TokenSource }</strong></span>
+					<span>Cookie: <strong>
+						if data.HasCookie {
+							Present
+						} else {
+							Missing
+						}
+					</strong></span>
+				</div>
+			</div>
+		}
+		if data.CanAutoExtract {
+			<div class="card">
+				<div class="card-title" style="margin-bottom: 0.75rem;">Option 1: Auto-Extract from Chrome</div>
+				<p class="slack-desc">
+					Automatically extracts your session token and cookie from a running Chrome browser with Slack open. Requires macOS and Chrome with a Slack tab at <code>app.slack.com</code>.
+				</p>
+				<form method="POST" action="/api/slack/extract-chrome" style="margin-top: 0.75rem;">
+					<button type="submit" class="btn">Extract from Chrome</button>
+				</form>
+			</div>
+		}
+		<div class="card">
+			<div class="card-title" style="margin-bottom: 0.75rem;">
+				if data.CanAutoExtract {
+					Option 2: Manual Browser Extraction
+				} else {
+					Extract from Browser
+				}
+			</div>
+			<p class="slack-desc">
+				Extract your session token by running a script in your browser's developer console. Works on any platform and any browser.
+			</p>
+			<div class="slack-steps">
+				<div class="slack-step">
+					<div class="slack-step-num">1</div>
+					<div>
+						<strong>Open Slack in your browser</strong>
+						<p class="slack-step-detail">Navigate to <a href="https://app.slack.com" target="_blank" class="slack-link">app.slack.com</a> and make sure you're signed in to your workspace.</p>
+					</div>
+				</div>
+				<div class="slack-step">
+					<div class="slack-step-num">2</div>
+					<div>
+						<strong>Open Developer Console</strong>
+						<p class="slack-step-detail">Press <kbd>F12</kbd> (or <kbd>Cmd+Option+J</kbd> on Mac) to open DevTools, then click the <strong>Console</strong> tab.</p>
+					</div>
+				</div>
+				<div class="slack-step">
+					<div class="slack-step-num">3</div>
+					<div>
+						<strong>Run the extraction script</strong>
+						<p class="slack-step-detail">Copy and paste this script into the console, then press Enter:</p>
+						<div class="slack-code-block">
+							<pre><code id="extract-snippet">{ data.ExtractSnippet }</code></pre>
+							<button type="button" class="btn btn-sm btn-outline" onclick="copySnippet()" id="copy-btn">Copy</button>
+						</div>
+					</div>
+				</div>
+				<div class="slack-step">
+					<div class="slack-step-num">4</div>
+					<div>
+						<strong>Paste the result below</strong>
+						<p class="slack-step-detail">A prompt will appear with a JSON string. Copy it and paste it here:</p>
+						<form method="POST" action="/api/slack/save-tokens" style="margin-top: 0.5rem;">
+							<div class="form-group">
+								<textarea class="form-input slack-textarea" name="extracted_json" placeholder='{"token":"xoxc-...","cookie":"xoxd-..."}' rows="3"></textarea>
+							</div>
+							<button type="submit" class="btn">Save Tokens</button>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="card">
+			<div class="card-title" style="margin-bottom: 0.75rem;">Manual Token Entry</div>
+			<p class="slack-desc">If you already have your token and cookie, enter them directly.</p>
+			<form method="POST" action="/api/slack/save-tokens" style="margin-top: 0.75rem;">
+				@components.FormGroup("Token (xoxc-...)", "token", "text", "", "xoxc-...")
+				@components.FormGroup("Cookie (xoxd-...)", "cookie", "text", "", "xoxd-...")
+				<button type="submit" class="btn">Save Tokens</button>
+			</form>
+		</div>
+		<script>
+			function copySnippet() {
+				var text = document.getElementById('extract-snippet').textContent;
+				navigator.clipboard.writeText(text).then(function() {
+					var btn = document.getElementById('copy-btn');
+					btn.textContent = 'Copied!';
+					setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+				});
+			}
+		</script>
+	}
+}
