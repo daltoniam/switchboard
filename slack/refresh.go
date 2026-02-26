@@ -38,7 +38,7 @@ func refreshViaCookie(cookie string) (newToken string, err error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
 	if err != nil {
@@ -83,7 +83,7 @@ func (s *slackIntegration) tryRefreshViaCookie() bool {
 	}
 
 	s.store.set(token, cookie)
-	s.store.saveToFile()
+	_ = s.store.saveToFile()
 	s.buildClient(token, cookie)
 	log.Println("slack: tokens refreshed via cookie")
 	return true
