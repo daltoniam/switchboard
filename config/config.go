@@ -73,6 +73,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_key_id": "", "secret_access_key": "", "session_token": "", "region": ""},
 			},
+			"posthog": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "project_id": "", "base_url": ""},
+			},
 		},
 	}
 }
