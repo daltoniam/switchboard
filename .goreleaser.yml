@@ -1,0 +1,101 @@
+version: 2
+
+project_name: switchboard
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/server
+    binary: switchboard
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+brews:
+  - repository:
+      owner: daltoniam
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/daltoniam/switchboard"
+    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    license: "MIT"
+    install: |
+      bin.install "switchboard"
+    test: |
+      system "#{bin}/switchboard", "--help"
+
+scoops:
+  - repository:
+      owner: daltoniam
+      name: scoop-bucket
+    homepage: "https://github.com/daltoniam/switchboard"
+    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    license: "MIT"
+
+nfpms:
+  - package_name: switchboard
+    homepage: "https://github.com/daltoniam/switchboard"
+    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    maintainer: "Austin Cherry <austin@daltoniam.com>"
+    license: "MIT"
+    formats:
+      - deb
+      - rpm
+      - apk
+      - archlinux
+    bindir: /usr/bin
+
+aurs:
+  - name: switchboard-bin
+    homepage: "https://github.com/daltoniam/switchboard"
+    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    maintainers:
+      - "Austin Cherry <austin@daltoniam.com>"
+    license: "MIT"
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/switchboard-bin.git"
+    package: |-
+      install -Dm755 "./switchboard" "${pkgdir}/usr/bin/switchboard"
+
+release:
+  github:
+    owner: daltoniam
+    name: switchboard
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"

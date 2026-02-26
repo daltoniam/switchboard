@@ -23,10 +23,22 @@ import (
 	"github.com/daltoniam/switchboard/web"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	stdioMode := flag.Bool("stdio", false, "Run MCP server over stdio transport (default is HTTP)")
 	port := flag.Int("port", 3847, "Port for the HTTP server")
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("switchboard %s (commit: %s, built: %s)\n", version, commit, date)
+		os.Exit(0)
+	}
 
 	cfgMgr, err := config.NewManager()
 	if err != nil {

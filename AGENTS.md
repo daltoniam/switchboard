@@ -24,9 +24,19 @@ go test ./...
 
 # Vet
 go vet ./...
+
+# Release (local snapshot for testing)
+goreleaser release --snapshot --clean
+
+# Release (production — triggered by pushing a git tag)
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin v0.1.0
+# CI (or manually): goreleaser release --clean
 ```
 
-No Makefile, CI config, or linter config exists. Go 1.25 with `github.com/modelcontextprotocol/go-sdk`, `github.com/google/go-github/v68`, `github.com/slack-go/slack`, and `github.com/a-h/templ` as direct dependencies.
+**Release tooling**: [GoReleaser](https://goreleaser.com/) is configured via `.goreleaser.yml`. It builds cross-platform binaries (darwin/linux/windows, amd64/arm64), produces `.deb`, `.rpm`, `.apk`, and `.archlinux` packages, and publishes to Homebrew (`daltoniam/homebrew-tap`), Scoop (`daltoniam/scoop-bucket`), and AUR (`switchboard-bin`). Version info is injected via ldflags (`main.version`, `main.commit`, `main.date`). The `--version` flag prints build metadata.
+
+No Makefile or linter config exists. Go 1.25 with `github.com/modelcontextprotocol/go-sdk`, `github.com/google/go-github/v68`, `github.com/slack-go/slack`, and `github.com/a-h/templ` as direct dependencies.
 
 ## Project Structure
 

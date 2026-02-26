@@ -1,8 +1,64 @@
-# Unified MCP Server
+# Switchboard
 
-A local MCP server written in Go that aggregates multiple integrations
-(Datadog, Linear, Sentry, GitHub, etc.) behind a single MCP endpoint,
+A unified MCP server written in Go that aggregates multiple integrations
+(GitHub, Datadog, Linear, Sentry, Slack, Metabase) behind a single MCP endpoint,
 with a web UI for easy configuration.
+
+## Installation
+
+### Homebrew (macOS / Linux)
+
+```bash
+brew install daltoniam/tap/switchboard
+```
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add daltoniam https://github.com/daltoniam/scoop-bucket
+scoop install switchboard
+```
+
+### Debian / Ubuntu (.deb)
+
+```bash
+# Download the latest .deb from GitHub releases
+curl -LO "https://github.com/daltoniam/switchboard/releases/latest/download/switchboard_$(curl -s https://api.github.com/repos/daltoniam/switchboard/releases/latest | grep tag_name | cut -d '"' -f4 | tr -d v)_linux_amd64.deb"
+sudo dpkg -i switchboard_*.deb
+```
+
+### Fedora / RHEL (.rpm)
+
+```bash
+# Download the latest .rpm from GitHub releases
+curl -LO "https://github.com/daltoniam/switchboard/releases/latest/download/switchboard_$(curl -s https://api.github.com/repos/daltoniam/switchboard/releases/latest | grep tag_name | cut -d '"' -f4 | tr -d v)_linux_amd64.rpm"
+sudo rpm -i switchboard_*.rpm
+```
+
+### Arch Linux (AUR)
+
+```bash
+yay -S switchboard-bin
+```
+
+### Alpine Linux (.apk)
+
+```bash
+# Download the latest .apk from GitHub releases
+curl -LO "https://github.com/daltoniam/switchboard/releases/latest/download/switchboard_$(curl -s https://api.github.com/repos/daltoniam/switchboard/releases/latest | grep tag_name | cut -d '"' -f4 | tr -d v)_linux_amd64.apk"
+sudo apk add --allow-untrusted switchboard_*.apk
+```
+
+### Go Install
+
+```bash
+go install github.com/daltoniam/switchboard/cmd/server@latest
+```
+
+### Download Binary
+
+Pre-built binaries for macOS, Linux, and Windows (amd64/arm64) are available on
+the [GitHub Releases](https://github.com/daltoniam/switchboard/releases) page.
 
 ## Architecture
 
@@ -16,10 +72,12 @@ with a web UI for easy configuration.
        │  Web UI (3847)   │◄─ HTTP ─►│           │           │
        │  config/creds    │          │  ┌────────▼────────┐  │
        └──────────────────┘          │  │  Adapters        │  │
+                                     │  │  ├─ GitHub       │  │
                                      │  │  ├─ Datadog      │  │
                                      │  │  ├─ Linear       │  │
                                      │  │  ├─ Sentry       │  │
-                                     │  │  └─ GitHub       │  │
+                                     │  │  ├─ Slack        │  │
+                                     │  │  └─ Metabase     │  │
                                      │  └─────────────────┘  │
                                      └──────────────────────┘
 ```
@@ -27,14 +85,17 @@ with a web UI for easy configuration.
 ## Quick Start
 
 ```bash
-# Build
-go build -o switchboard ./cmd/server
+# Run (default — HTTP server with MCP + web UI on port 3847)
+switchboard
 
-# Run (stdio mode for Cursor/Claude)
-./switchboard
+# Custom port
+switchboard --port 8080
 
-# Run with web UI
-./switchboard --web --port 3847
+# Stdio mode (for Cursor/Claude Desktop)
+switchboard --stdio
+
+# Check version
+switchboard --version
 
 # Open config UI
 open http://localhost:3847
@@ -73,26 +134,17 @@ Add to your MCP client config:
 {
   "mcpServers": {
     "switchboard": {
-      "command": "/path/to/switchboard",
+      "command": "switchboard",
       "args": []
     }
   }
 }
 ```
 
-## Project Structure
+## Building from Source
 
-```
-cmd/server/         — Entry point
-internal/
-  config/           — Config loading, saving, defaults
-  adapter/          — Integration adapter interface + registry
-  adapters/
-    github/         — GitHub integration
-    datadog/        — Datadog integration
-    linear/         — Linear integration
-    sentry/         — Sentry integration
-  server/           — MCP server wiring
-  web/              — Web UI (config dashboard)
-    static/         — HTML/CSS/JS assets
+```bash
+git clone https://github.com/daltoniam/switchboard.git
+cd switchboard
+go build -o switchboard ./cmd/server
 ```
