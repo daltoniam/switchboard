@@ -19,11 +19,17 @@ go build -o switchboard ./cmd/server
 # Run (stdio mode — legacy, for AI clients that need stdin/stdout)
 ./switchboard --stdio
 
-# Run tests (none exist yet)
+# Run tests
 go test ./...
+
+# Run tests with race detection
+go test -race ./...
 
 # Vet
 go vet ./...
+
+# Lint (requires golangci-lint installed)
+golangci-lint run
 
 # Release (local snapshot for testing)
 goreleaser release --snapshot --clean
@@ -36,7 +42,22 @@ git push origin v0.1.0
 
 **Release tooling**: [GoReleaser](https://goreleaser.com/) is configured via `.goreleaser.yml`. It builds cross-platform binaries (darwin/linux/windows, amd64/arm64), produces `.deb`, `.rpm`, `.apk`, and `.archlinux` packages, and publishes to Homebrew (`daltoniam/homebrew-tap`), Scoop (`daltoniam/scoop-bucket`), and AUR (`switchboard-bin`). Version info is injected via ldflags (`main.version`, `main.commit`, `main.date`). The `--version` flag prints build metadata.
 
-No Makefile or linter config exists. Go 1.25 with `github.com/modelcontextprotocol/go-sdk`, `github.com/google/go-github/v68`, `github.com/slack-go/slack`, and `github.com/a-h/templ` as direct dependencies.
+**Testing**: Uses [`github.com/stretchr/testify`](https://github.com/stretchr/testify) for assertions and test helpers. Tests exist for every package.
+
+**Linting**: [golangci-lint](https://golangci-lint.run/) is configured via `.golangci.yml` with errcheck, govet, ineffassign, staticcheck, and unused linters enabled.
+
+**CI/CD**: GitHub Actions workflow at `.github/workflows/ci.yml` runs on PRs and pushes to `main`. Jobs: build, test (with race detection), golangci-lint, gosec (security scanner), and govulncheck (vulnerability checker). All must pass before merging.
+
+Go 1.25 with `github.com/modelcontextprotocol/go-sdk`, `github.com/google/go-github/v68`, `github.com/slack-go/slack`, `github.com/a-h/templ`, and `github.com/stretchr/testify` as direct dependencies.
+
+## Requirements Before Completing Code Changes
+
+All of the following **must pass** before any code change is considered complete:
+
+1. **Build**: `go build -o switchboard ./cmd/server` must succeed with no errors.
+2. **Tests**: `go test ./...` must pass with all tests green. Run `go test -race ./...` to check for race conditions.
+3. **Lint**: `golangci-lint run` must pass with no errors.
+4. **New code must include tests**: Any new feature, integration, or bug fix must include corresponding test coverage.
 
 ## Project Structure
 
@@ -265,8 +286,6 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 
 ## Gotchas
 
-- **No tests exist.** No `_test.go` files anywhere.
-- **No CI/CD, Makefile, or linter config.** Build manually with `go build`.
 - **`argStr` is duplicated** in every adapter package rather than shared. Follow this pattern for consistency. The GitHub adapter additionally has `argInt`, `argInt64`, `argBool`, `argStrSlice` helpers.
 - **All six integrations use dispatch maps** (`var dispatch map[string]handlerFunc`) instead of switch statements for routing tool execution. GitHub ~100, Datadog ~60, Linear ~60, Sentry ~55, Slack ~40, Metabase ~22 tools.
 - **Linear uses GraphQL** while all other adapters use REST. It has a `gql()` helper that handles query+variables, error parsing, and returns `json.RawMessage`. Auth is `Authorization: <api_key>` (no Bearer prefix). Handlers use `rawResult(data)` / `errResult(err)`. Entity resolution helpers (`resolveTeamID`, `resolveIssueID`) convert names/identifiers to UUIDs. GraphQL field fragments are defined as constants (`issueFields`, `projectFields`) and interpolated with `fmt.Sprintf`.
