@@ -49,6 +49,8 @@ func updateProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 	return rawResult(data)
 }
 
+// Intentionally uses argStr instead of p.proj to require an explicit project_id,
+// preventing accidental deletion of the default project.
 func deleteProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.del(ctx, "/api/projects/%s/", argStr(args, "project_id"))
 	if err != nil {

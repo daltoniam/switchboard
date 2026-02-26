@@ -81,7 +81,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 7)
+	assert.Len(t, cfg.Integrations, 8)
 }
 
 func TestGet(t *testing.T) {
@@ -90,7 +90,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 7)
+	assert.Len(t, cfg.Integrations, 8)
 }
 
 func TestUpdate(t *testing.T) {

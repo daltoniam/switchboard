@@ -235,6 +235,39 @@ func TestProj(t *testing.T) {
 	assert.Equal(t, "custom-proj", p.proj(map[string]any{"project_id": "custom-proj"}))
 }
 
+func TestParseJSON_Valid(t *testing.T) {
+	args := map[string]any{"filters": `{"key":"value"}`}
+	result, err := parseJSON(args, "filters")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+}
+
+func TestParseJSON_Invalid(t *testing.T) {
+	args := map[string]any{"filters": `{bad json}`}
+	result, err := parseJSON(args, "filters")
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "invalid JSON for filters")
+}
+
+func TestParseJSON_Empty(t *testing.T) {
+	args := map[string]any{}
+	result, err := parseJSON(args, "filters")
+	assert.NoError(t, err)
+	assert.Nil(t, result)
+}
+
+func TestCreateFeatureFlag_InvalidJSON(t *testing.T) {
+	p := &posthog{apiKey: "token", projectID: "1", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := p.Execute(context.Background(), "posthog_create_feature_flag", map[string]any{
+		"key":     "my-flag",
+		"filters": "{bad json}",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "invalid JSON for filters")
+}
+
 // --- handler integration tests ---
 
 func TestListFeatureFlags(t *testing.T) {

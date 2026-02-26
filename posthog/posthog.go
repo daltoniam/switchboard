@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -21,9 +22,11 @@ type posthog struct {
 	baseURL   string
 }
 
+const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+
 func New() mcp.Integration {
 	return &posthog{
-		client:  &http.Client{},
+		client:  &http.Client{Timeout: 30 * time.Second},
 		baseURL: "https://us.posthog.com",
 	}
 }
@@ -89,7 +92,7 @@ func (p *posthog) doRequest(ctx context.Context, method, path string, body any) 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +134,19 @@ func errResult(err error) (*mcp.ToolResult, error) {
 }
 
 // --- Argument helpers ---
+
+// parseJSON unmarshals a JSON string arg, returning an error result if invalid.
+func parseJSON(args map[string]any, key string) (any, error) {
+	v := argStr(args, key)
+	if v == "" {
+		return nil, nil
+	}
+	var out any
+	if err := json.Unmarshal([]byte(v), &out); err != nil {
+		return nil, fmt.Errorf("invalid JSON for %s: %w", key, err)
+	}
+	return out, nil
+}
 
 func argStr(args map[string]any, key string) string {
 	v, _ := args[key].(string)

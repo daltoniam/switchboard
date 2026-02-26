@@ -2,7 +2,6 @@ package posthog
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -36,11 +35,10 @@ func createFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*m
 	if v := argStr(args, "name"); v != "" {
 		body["name"] = v
 	}
-	if v := argStr(args, "filters"); v != "" {
-		var filters any
-		if err := json.Unmarshal([]byte(v), &filters); err == nil {
-			body["filters"] = filters
-		}
+	if filters, err := parseJSON(args, "filters"); err != nil {
+		return errResult(err)
+	} else if filters != nil {
+		body["filters"] = filters
 	}
 	if _, ok := args["active"]; ok {
 		body["active"] = argBool(args, "active")
@@ -64,11 +62,10 @@ func updateFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*m
 	if v := argStr(args, "name"); v != "" {
 		body["name"] = v
 	}
-	if v := argStr(args, "filters"); v != "" {
-		var filters any
-		if err := json.Unmarshal([]byte(v), &filters); err == nil {
-			body["filters"] = filters
-		}
+	if filters, err := parseJSON(args, "filters"); err != nil {
+		return errResult(err)
+	} else if filters != nil {
+		body["filters"] = filters
 	}
 	if _, ok := args["active"]; ok {
 		body["active"] = argBool(args, "active")

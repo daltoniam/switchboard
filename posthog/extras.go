@@ -2,7 +2,6 @@ package posthog
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -175,11 +174,10 @@ func createAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	if v := argStr(args, "description"); v != "" {
 		body["description"] = v
 	}
-	if v := argStr(args, "steps"); v != "" {
-		var steps any
-		if err := json.Unmarshal([]byte(v), &steps); err == nil {
-			body["steps"] = steps
-		}
+	if steps, err := parseJSON(args, "steps"); err != nil {
+		return errResult(err)
+	} else if steps != nil {
+		body["steps"] = steps
 	}
 	if v := argStr(args, "tags"); v != "" {
 		body["tags"] = strings.Split(v, ",")
@@ -200,11 +198,10 @@ func updateAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	if v := argStr(args, "description"); v != "" {
 		body["description"] = v
 	}
-	if v := argStr(args, "steps"); v != "" {
-		var steps any
-		if err := json.Unmarshal([]byte(v), &steps); err == nil {
-			body["steps"] = steps
-		}
+	if steps, err := parseJSON(args, "steps"); err != nil {
+		return errResult(err)
+	} else if steps != nil {
+		body["steps"] = steps
 	}
 	if v := argStr(args, "tags"); v != "" {
 		body["tags"] = strings.Split(v, ",")
@@ -291,11 +288,10 @@ func createExperiment(ctx context.Context, p *posthog, args map[string]any) (*mc
 	if v := argStr(args, "end_date"); v != "" {
 		body["end_date"] = v
 	}
-	if v := argStr(args, "filters"); v != "" {
-		var filters any
-		if err := json.Unmarshal([]byte(v), &filters); err == nil {
-			body["filters"] = filters
-		}
+	if filters, err := parseJSON(args, "filters"); err != nil {
+		return errResult(err)
+	} else if filters != nil {
+		body["filters"] = filters
 	}
 	path := fmt.Sprintf("/api/projects/%s/experiments/", p.proj(args))
 	data, err := p.post(ctx, path, body)
@@ -367,17 +363,15 @@ func createSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	if v := argStr(args, "type"); v != "" {
 		body["type"] = v
 	}
-	if v := argStr(args, "questions"); v != "" {
-		var questions any
-		if err := json.Unmarshal([]byte(v), &questions); err == nil {
-			body["questions"] = questions
-		}
+	if questions, err := parseJSON(args, "questions"); err != nil {
+		return errResult(err)
+	} else if questions != nil {
+		body["questions"] = questions
 	}
-	if v := argStr(args, "targeting_flag_filters"); v != "" {
-		var filters any
-		if err := json.Unmarshal([]byte(v), &filters); err == nil {
-			body["targeting_flag_filters"] = filters
-		}
+	if filters, err := parseJSON(args, "targeting_flag_filters"); err != nil {
+		return errResult(err)
+	} else if filters != nil {
+		body["targeting_flag_filters"] = filters
 	}
 	path := fmt.Sprintf("/api/projects/%s/surveys/", p.proj(args))
 	data, err := p.post(ctx, path, body)
@@ -395,11 +389,10 @@ func updateSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	if v := argStr(args, "description"); v != "" {
 		body["description"] = v
 	}
-	if v := argStr(args, "questions"); v != "" {
-		var questions any
-		if err := json.Unmarshal([]byte(v), &questions); err == nil {
-			body["questions"] = questions
-		}
+	if questions, err := parseJSON(args, "questions"); err != nil {
+		return errResult(err)
+	} else if questions != nil {
+		body["questions"] = questions
 	}
 	path := fmt.Sprintf("/api/projects/%s/surveys/%s/", p.proj(args), argStr(args, "survey_id"))
 	data, err := p.patch(ctx, path, body)
