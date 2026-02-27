@@ -97,7 +97,7 @@ func (w *WebServer) integrationSummaries(ctx context.Context) []pages.Integratio
 				if healthy && !enabled {
 					enabled = true
 					ic.Enabled = true
-					w.services.Config.SetIntegration(a.Name(), ic)
+					_ = w.services.Config.SetIntegration(a.Name(), ic)
 				}
 			}
 		}
@@ -781,7 +781,7 @@ func (w *WebServer) handleSlackOAuthCallback(rw http.ResponseWriter, r *http.Req
 	ic.Credentials["token"] = result.Token
 	ic.Credentials["cookie"] = ""
 	ic.Credentials["token_source"] = "oauth"
-	w.services.Config.SetIntegration("slack", ic)
+	_ = w.services.Config.SetIntegration("slack", ic)
 
 	http.Redirect(rw, r, "/integrations/slack/setup?result=Connected+to+Slack+via+OAuth", http.StatusSeeOther)
 }

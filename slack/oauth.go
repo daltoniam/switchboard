@@ -47,7 +47,7 @@ var activeSlackOAuth struct {
 
 func oauthRandomString(n int) string {
 	b := make([]byte, n)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)[:n]
 }
 
@@ -123,7 +123,7 @@ func HandleSlackCallback(code, state string) error {
 		oauthState.done = true
 		return fmt.Errorf("%s", oauthState.err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

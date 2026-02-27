@@ -114,7 +114,7 @@ func (s *Server) configureIntegrations() {
 		// Auto-enable in config if Configure succeeded.
 		if !ic.Enabled {
 			ic.Enabled = true
-			s.services.Config.SetIntegration(name, ic)
+			_ = s.services.Config.SetIntegration(name, ic)
 		}
 
 		log.Printf("Configured integration %q with %d tools", name, len(integration.Tools()))

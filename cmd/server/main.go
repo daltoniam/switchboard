@@ -12,6 +12,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	awsInt "github.com/daltoniam/switchboard/aws"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/datadog"
 	"github.com/daltoniam/switchboard/github"
@@ -54,6 +55,7 @@ func main() {
 		sentry.New(),
 		slackInt.New(),
 		metabase.New(),
+		awsInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)

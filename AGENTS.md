@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase behind one endpoint
+- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, AWS behind one endpoint
 - Two meta-tools only: **search** (discover operations) and **execute** (run them)
 - Hexagonal architecture (ports and adapters)
 - HTTP transport (streamable) + web config UI on same port
@@ -138,6 +138,20 @@ metabase/
   queries.go                 Native SQL query execution, card CRUD handlers
   dashboards.go              Dashboard CRUD, add-card-to-dashboard handlers
   collections.go             Collection CRUD, search handlers
+aws/
+  aws.go                     AWS integration adapter (core, dispatch, typed SDK clients, helpers)
+  tools.go                   AWS tool definitions (~65 tools)
+  sts.go                     STS caller identity handler
+  s3.go                      S3 buckets, objects CRUD, copy, head handlers
+  ec2.go                     EC2 instances, security groups, VPCs, subnets, volumes, addresses handlers
+  lambda.go                  Lambda functions, invoke, event source mappings handlers
+  iam.go                     IAM users, roles, policies, groups, attached policies handlers
+  cloudwatch.go              CloudWatch metrics, metric data, alarms, statistics handlers
+  ecs.go                     ECS clusters, services, tasks, task definitions handlers
+  sns.go                     SNS topics, subscriptions, publish handlers
+  sqs.go                     SQS queues, messages, send/receive/delete handlers
+  dynamodb.go                DynamoDB tables, items CRUD, query, scan handlers
+  cloudformation.go          CloudFormation stacks, resources, templates, events handlers
 web/
   web.go                     Web UI HTTP server for config dashboard + Slack token setup routes
   templates/                 Templ-based templates — do not edit *_templ.go (generated)
@@ -182,7 +196,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/` → `Integration`
+- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `aws/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)
@@ -319,6 +333,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
   - Chrome extraction: LevelDB (`xoxc-*`) + encrypted SQLite cookies (`xoxd-*`, AES-128-CBC via Keychain)
   - Background refresh every 4h (`refresh.go`). Mutex-protected client (`s.getClient()`)
   - OAuth v2 flow (`oauth.go`) for web UI setup
+- **AWS**: `aws-sdk-go-v2` official typed SDK. Auth via static credentials or default credential chain. Region defaults to `us-east-1`. Each service gets typed client via `<service>.NewFromConfig(cfg)`. Import aliased as `awsInt`
 
 ### Config
 - File: `~/.config/switchboard/config.json`
@@ -345,7 +360,8 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 
 ## Gotchas
 
-- **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog also have `argInt64`, `argStrSlice`
-- **All six adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, Datadog ~60, Linear ~60, Sentry ~55, Slack ~40, Metabase ~22
+- **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS also have `argInt64`, `argStrSlice`
+- **All seven adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, Datadog ~60, Linear ~60, Sentry ~55, Slack ~40, AWS ~65, Metabase ~22
 - **Linear is the only GraphQL adapter**. `gql()` helper, entity resolution (`resolveTeamID`, `resolveIssueID`), field fragment constants (`issueFields`, `projectFields`)
+- **AWS adapter uses `aws-sdk-go-v2`** — 11 typed service clients (S3, EC2, Lambda, IAM, CloudWatch, STS, ECS, SNS, SQS, DynamoDB, CloudFormation). Custom `unmarshalDynamoJSON` for DynamoDB AttributeValue marshalling. S3 `GetObject` capped at 10MB via `io.LimitReader`
 - **`search` returns `ToolDefinition` metadata**, not raw API specs
