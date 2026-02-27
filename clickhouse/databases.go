@@ -17,31 +17,22 @@ func listDatabases(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mc
 
 func listTables(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
 	db := argStr(args, "database")
-	q := `SELECT
-		database,
-		name,
-		engine,
-		total_rows,
-		total_bytes,
-		comment
-	FROM system.tables
-	WHERE database = currentDatabase()
-	ORDER BY name`
 
-	if db != "" {
-		q = fmt.Sprintf(`SELECT
-			database,
-			name,
-			engine,
-			total_rows,
-			total_bytes,
-			comment
-		FROM system.tables
-		WHERE database = '%s'
-		ORDER BY name`, escapeSingleQuote(db))
+	q := `SELECT database, name, engine, total_rows, total_bytes, comment
+		FROM system.tables WHERE database = ? ORDER BY name`
+	filterVal := db
+
+	if db == "" {
+		q = `SELECT database, name, engine, total_rows, total_bytes, comment
+			FROM system.tables WHERE database = currentDatabase() ORDER BY name`
+		data, err := c.query(ctx, q)
+		if err != nil {
+			return errResult(err)
+		}
+		return rawResult(data)
 	}
 
-	data, err := c.query(ctx, q)
+	data, err := c.query(ctx, q, filterVal)
 	if err != nil {
 		return errResult(err)
 	}
@@ -62,7 +53,7 @@ func describeTable(ctx context.Context, c *clickhouseInt, args map[string]any) (
 		fqn = escapeIdentifier(table)
 	}
 
-	data, err := c.query(ctx, "DESCRIBE TABLE "+fqn)
+	data, err := c.query(ctx, "DESCRIBE TABLE "+fqn) // #nosec G201 -- identifiers escaped via escapeIdentifier
 	if err != nil {
 		return errResult(err)
 	}
@@ -76,25 +67,26 @@ func listColumns(ctx context.Context, c *clickhouseInt, args map[string]any) (*m
 	}
 
 	db := argStr(args, "database")
-	dbFilter := "database = currentDatabase()"
+
 	if db != "" {
-		dbFilter = fmt.Sprintf("database = '%s'", escapeSingleQuote(db))
+		q := `SELECT name, type, default_kind, default_expression, comment,
+			is_in_partition_key, is_in_sorting_key, is_in_primary_key
+			FROM system.columns
+			WHERE database = ? AND table = ?
+			ORDER BY position`
+		data, err := c.query(ctx, q, db, table)
+		if err != nil {
+			return errResult(err)
+		}
+		return rawResult(data)
 	}
 
-	q := fmt.Sprintf(`SELECT
-		name,
-		type,
-		default_kind,
-		default_expression,
-		comment,
-		is_in_partition_key,
-		is_in_sorting_key,
-		is_in_primary_key
-	FROM system.columns
-	WHERE %s AND table = '%s'
-	ORDER BY position`, dbFilter, escapeSingleQuote(table))
-
-	data, err := c.query(ctx, q)
+	q := `SELECT name, type, default_kind, default_expression, comment,
+		is_in_partition_key, is_in_sorting_key, is_in_primary_key
+		FROM system.columns
+		WHERE database = currentDatabase() AND table = ?
+		ORDER BY position`
+	data, err := c.query(ctx, q, table)
 	if err != nil {
 		return errResult(err)
 	}
@@ -115,26 +107,9 @@ func showCreateTable(ctx context.Context, c *clickhouseInt, args map[string]any)
 		fqn = escapeIdentifier(table)
 	}
 
-	data, err := c.query(ctx, "SHOW CREATE TABLE "+fqn)
+	data, err := c.query(ctx, "SHOW CREATE TABLE "+fqn) // #nosec G201 -- identifiers escaped via escapeIdentifier
 	if err != nil {
 		return errResult(err)
 	}
 	return rawResult(data)
-}
-
-func escapeSingleQuote(s string) string {
-	return replaceAll(s, "'", "\\'")
-}
-
-func replaceAll(s, old, new string) string {
-	result := ""
-	for i := 0; i < len(s); i++ {
-		if i+len(old) <= len(s) && s[i:i+len(old)] == old {
-			result += new
-			i += len(old) - 1
-		} else {
-			result += string(s[i])
-		}
-	}
-	return result
 }

@@ -121,8 +121,3 @@ func TestEscapeIdentifier(t *testing.T) {
 	assert.Equal(t, "`my_table`", escapeIdentifier("my_table"))
 	assert.Equal(t, "`my``table`", escapeIdentifier("my`table"))
 }
-
-func TestEscapeSingleQuote(t *testing.T) {
-	assert.Equal(t, "test", escapeSingleQuote("test"))
-	assert.Equal(t, "it\\'s", escapeSingleQuote("it's"))
-}

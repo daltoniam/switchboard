@@ -46,7 +46,7 @@ func killQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp
 		return errResult(fmt.Errorf("query_id is required"))
 	}
 
-	data, err := c.query(ctx, fmt.Sprintf("KILL QUERY WHERE query_id = '%s'", escapeSingleQuote(queryID)))
+	data, err := c.query(ctx, "KILL QUERY WHERE query_id = ?", queryID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -55,13 +55,18 @@ func killQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp
 
 func listSettings(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
 	pattern := argStr(args, "pattern")
-	q := `SELECT name, value, changed, description, type FROM system.settings`
 	if pattern != "" {
-		q += fmt.Sprintf(" WHERE name LIKE '%s'", escapeSingleQuote(pattern))
+		data, err := c.query(ctx,
+			"SELECT name, value, changed, description, type FROM system.settings WHERE name LIKE ? ORDER BY name LIMIT 200",
+			pattern)
+		if err != nil {
+			return errResult(err)
+		}
+		return rawResult(data)
 	}
-	q += " ORDER BY name LIMIT 200"
 
-	data, err := c.query(ctx, q)
+	data, err := c.query(ctx,
+		"SELECT name, value, changed, description, type FROM system.settings ORDER BY name LIMIT 200")
 	if err != nil {
 		return errResult(err)
 	}
@@ -130,30 +135,47 @@ func listParts(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp
 	}
 
 	db := argStr(args, "database")
-	dbFilter := "database = currentDatabase()"
+	activeOnly := argStr(args, "active") != "false"
+
 	if db != "" {
-		dbFilter = fmt.Sprintf("database = '%s'", escapeSingleQuote(db))
+		if activeOnly {
+			data, err := c.query(ctx, `SELECT partition, name, active, rows, bytes_on_disk,
+				formatReadableSize(bytes_on_disk) AS readable_size, modification_time
+				FROM system.parts
+				WHERE database = ? AND table = ? AND active = 1
+				ORDER BY modification_time DESC LIMIT 100`, db, table)
+			if err != nil {
+				return errResult(err)
+			}
+			return rawResult(data)
+		}
+		data, err := c.query(ctx, `SELECT partition, name, active, rows, bytes_on_disk,
+			formatReadableSize(bytes_on_disk) AS readable_size, modification_time
+			FROM system.parts
+			WHERE database = ? AND table = ?
+			ORDER BY modification_time DESC LIMIT 100`, db, table)
+		if err != nil {
+			return errResult(err)
+		}
+		return rawResult(data)
 	}
 
-	activeFilter := "AND active = 1"
-	if argStr(args, "active") == "false" {
-		activeFilter = ""
+	if activeOnly {
+		data, err := c.query(ctx, `SELECT partition, name, active, rows, bytes_on_disk,
+			formatReadableSize(bytes_on_disk) AS readable_size, modification_time
+			FROM system.parts
+			WHERE database = currentDatabase() AND table = ? AND active = 1
+			ORDER BY modification_time DESC LIMIT 100`, table)
+		if err != nil {
+			return errResult(err)
+		}
+		return rawResult(data)
 	}
-
-	q := fmt.Sprintf(`SELECT
-		partition,
-		name,
-		active,
-		rows,
-		bytes_on_disk,
-		formatReadableSize(bytes_on_disk) AS readable_size,
-		modification_time
-	FROM system.parts
-	WHERE %s AND table = '%s' %s
-	ORDER BY modification_time DESC
-	LIMIT 100`, dbFilter, escapeSingleQuote(table), activeFilter)
-
-	data, err := c.query(ctx, q)
+	data, err := c.query(ctx, `SELECT partition, name, active, rows, bytes_on_disk,
+		formatReadableSize(bytes_on_disk) AS readable_size, modification_time
+		FROM system.parts
+		WHERE database = currentDatabase() AND table = ?
+		ORDER BY modification_time DESC LIMIT 100`, table)
 	if err != nil {
 		return errResult(err)
 	}
@@ -200,40 +222,30 @@ func queryLog(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.
 		limit = 50
 	}
 
-	conditions := []string{}
-	if pattern := argStr(args, "query_pattern"); pattern != "" {
-		conditions = append(conditions, fmt.Sprintf("query LIKE '%s'", escapeSingleQuote(pattern)))
-	}
-	if qtype := argStr(args, "query_type"); qtype != "" {
-		conditions = append(conditions, fmt.Sprintf("type = '%s'", escapeSingleQuote(qtype)))
+	pattern := argStr(args, "query_pattern")
+	qtype := argStr(args, "query_type")
+
+	baseQuery := `SELECT type, event_time, query_id, query_duration_ms, read_rows, read_bytes,
+		result_rows, result_bytes, memory_usage, exception, query
+		FROM system.query_log`
+
+	var queryArgs []any
+
+	switch {
+	case pattern != "" && qtype != "":
+		baseQuery += " WHERE query LIKE ? AND type = ?"
+		queryArgs = append(queryArgs, pattern, qtype)
+	case pattern != "":
+		baseQuery += " WHERE query LIKE ?"
+		queryArgs = append(queryArgs, pattern)
+	case qtype != "":
+		baseQuery += " WHERE type = ?"
+		queryArgs = append(queryArgs, qtype)
 	}
 
-	where := ""
-	if len(conditions) > 0 {
-		where = "WHERE " + conditions[0]
-		for _, cond := range conditions[1:] {
-			where += " AND " + cond
-		}
-	}
+	baseQuery += fmt.Sprintf(" ORDER BY event_time DESC LIMIT %d", limit)
 
-	q := fmt.Sprintf(`SELECT
-		type,
-		event_time,
-		query_id,
-		query_duration_ms,
-		read_rows,
-		read_bytes,
-		result_rows,
-		result_bytes,
-		memory_usage,
-		exception,
-		query
-	FROM system.query_log
-	%s
-	ORDER BY event_time DESC
-	LIMIT %d`, where, limit)
-
-	data, err := c.query(ctx, q)
+	data, err := c.query(ctx, baseQuery, queryArgs...)
 	if err != nil {
 		return errResult(err)
 	}

@@ -56,7 +56,7 @@ func explainQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*
 		return errResult(fmt.Errorf("invalid explain type: %s (valid: PLAN, PIPELINE, SYNTAX, AST, ESTIMATE)", explainType))
 	}
 
-	sql := fmt.Sprintf("EXPLAIN %s %s", explainType, query)
+	sql := "EXPLAIN " + explainType + " " + query // #nosec G201 -- explainType is validated against allowlist above; query is user-provided SQL (the tool's purpose)
 	data, err := c.query(ctx, sql)
 	if err != nil {
 		return errResult(err)

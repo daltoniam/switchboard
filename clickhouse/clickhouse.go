@@ -58,7 +58,7 @@ func (c *clickhouseInt) Configure(creds mcp.Credentials) error {
 
 	if secure {
 		opts.TLS = &tls.Config{
-			InsecureSkipVerify: creds["skip_verify"] == "true",
+			InsecureSkipVerify: creds["skip_verify"] == "true", // #nosec G402 -- user-configured TLS setting
 		}
 	}
 
@@ -92,12 +92,12 @@ func (c *clickhouseInt) Execute(ctx context.Context, toolName string, args map[s
 
 type handlerFunc func(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error)
 
-func (c *clickhouseInt) query(ctx context.Context, query string) (json.RawMessage, error) {
-	rows, err := c.conn.Query(ctx, query)
+func (c *clickhouseInt) query(ctx context.Context, q string, args ...any) (json.RawMessage, error) {
+	rows, err := c.conn.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	columns := rows.ColumnTypes()
 	colNames := make([]string, len(columns))
@@ -131,8 +131,8 @@ func (c *clickhouseInt) query(ctx context.Context, query string) (json.RawMessag
 	return json.RawMessage(data), nil
 }
 
-func (c *clickhouseInt) exec(ctx context.Context, query string) error {
-	return c.conn.Exec(ctx, query)
+func (c *clickhouseInt) exec(ctx context.Context, q string) error {
+	return c.conn.Exec(ctx, q)
 }
 
 func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
