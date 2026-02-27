@@ -358,6 +358,12 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
   - `GET /integrations/slack/setup` — Slack token extraction (Chrome auto-extract, manual browser snippet, direct entry)
 - All setup pages save credentials to both the integration config and any external token files
 
+## Local Skills
+
+| Skill | When to use | Path |
+|-------|-------------|------|
+| `add-integration` | Adding a new external API integration adapter | `.claude/skills/add-integration/SKILL.md` |
+
 ## Gotchas
 
 - **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS also have `argInt64`, `argStrSlice`
