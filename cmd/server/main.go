@@ -18,6 +18,7 @@ import (
 	"github.com/daltoniam/switchboard/github"
 	"github.com/daltoniam/switchboard/linear"
 	"github.com/daltoniam/switchboard/metabase"
+	"github.com/daltoniam/switchboard/posthog"
 	"github.com/daltoniam/switchboard/registry"
 	"github.com/daltoniam/switchboard/sentry"
 	"github.com/daltoniam/switchboard/server"
@@ -56,6 +57,7 @@ func main() {
 		slackInt.New(),
 		metabase.New(),
 		awsInt.New(),
+		posthog.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
