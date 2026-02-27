@@ -13,6 +13,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	awsInt "github.com/daltoniam/switchboard/aws"
+	"github.com/daltoniam/switchboard/clickhouse"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
 	"github.com/daltoniam/switchboard/datadog"
@@ -173,6 +174,7 @@ func runServer(stdioMode bool, port int) {
 		awsInt.New(),
 		posthog.New(),
 		postgres.New(),
+		clickhouse.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)

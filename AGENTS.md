@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, AWS, PostHog behind one endpoint
+- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, AWS, PostHog, PostgreSQL, ClickHouse behind one endpoint
 - Two meta-tools only: **search** (discover operations) and **execute** (run them)
 - Hexagonal architecture (ports and adapters)
 - HTTP transport (streamable) + web config UI on same port
@@ -58,7 +58,7 @@ templ generate
 - **Testing**: `stretchr/testify` assertions. Tests in every package
 - **Linting**: `.golangci.yml` — errcheck, govet, ineffassign, staticcheck, unused
 - **CI**: `.github/workflows/ci.yml` — build, test (race), golangci-lint, gosec, govulncheck
-- **Go 1.25** — deps: `go-sdk`, `go-github/v68`, `slack-go/slack`, `a-h/templ`, `lib/pq`, `testify`
+- **Go 1.25** — deps: `go-sdk`, `go-github/v68`, `slack-go/slack`, `a-h/templ`, `lib/pq`, `clickhouse-go/v2`, `testify`
 
 ## Requirements Before Completing Code Changes
 
@@ -183,6 +183,13 @@ postgres/
   databases.go               Schema discovery, table/column/index/constraint/view/function/trigger/enum handlers
   queries.go                 Query execution, EXPLAIN, SELECT builder, read-only transaction wrappers
   management.go              Database info, size, stats, roles, grants, extensions, connections, locks handlers
+clickhouse/
+  clickhouse.go              ClickHouse integration adapter (core, dispatch, native driver helpers)
+  tools.go                   ClickHouse tool definitions (~20 tools)
+  queries.go                 SQL query execution, EXPLAIN handlers
+  databases.go               Database, table, column metadata handlers
+  extras.go                  System info, processes, merges, replicas, disk usage,
+                             parts, dictionaries, users, roles, query log handlers
 web/
   web.go                     Web UI HTTP server for config dashboard + Slack token setup routes
   templates/                 Templ-based templates — do not edit *_templ.go (generated)
@@ -208,10 +215,11 @@ graph BT
     subgraph "Adapters"
         GH["github/"] & DD["datadog/"] & LN["linear/"]
         SN["sentry/"] & SL["slack/"] & MB["metabase/"]
+        PG["postgres/"] & CH["clickhouse/"]
         CF["config/"] & RG["registry/"]
     end
 
-    GH & DD & LN & SN & SL & MB -->|implements\nIntegration| Core
+    GH & DD & LN & SN & SL & MB & PG & CH -->|implements\nIntegration| Core
     CF -->|implements\nConfigService| Core
     RG -->|implements\nRegistry| Core
 
@@ -227,7 +235,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `aws/`, `posthog/`, `postgres/` → `Integration`
+- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `aws/`, `posthog/`, `postgres/`, `clickhouse/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)
@@ -365,6 +373,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
   - Background refresh every 4h (`refresh.go`). Mutex-protected client (`s.getClient()`)
   - OAuth v2 flow (`oauth.go`) for web UI setup
 - **AWS**: `aws-sdk-go-v2` official typed SDK. Auth via static credentials or default credential chain. Region defaults to `us-east-1`. Each service gets typed client via `<service>.NewFromConfig(cfg)`. Import aliased as `awsInt`
+- **ClickHouse**: `ClickHouse/clickhouse-go/v2` typed native driver. Auth via `ch.Auth{Username, Password}`. Supports TLS (`secure`/`skip_verify` config). Connection pooling built into driver. Dynamic column scanning via `reflect` for generic query results.
 
 ### Config
 - File: `~/.config/switchboard/config.json`
@@ -398,7 +407,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 ## Gotchas
 
 - **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS also have `argInt64`, `argStrSlice`
-- **All nine adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Slack ~40, Postgres ~25, Metabase ~22
+- **All ten adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Slack ~40, Postgres ~25, Metabase ~22, ClickHouse ~20
 - **Linear is the only GraphQL adapter**. `gql()` helper, entity resolution (`resolveTeamID`, `resolveIssueID`), field fragment constants (`issueFields`, `projectFields`)
 - **AWS adapter uses `aws-sdk-go-v2`** — 11 typed service clients (S3, EC2, Lambda, IAM, CloudWatch, STS, ECS, SNS, SQS, DynamoDB, CloudFormation). Custom `unmarshalDynamoJSON` for DynamoDB AttributeValue marshalling. S3 `GetObject` capped at 10MB via `io.LimitReader`
 - **PostHog adapter uses hand-rolled REST HTTP**. ~50 tools covering projects, feature flags, cohorts, insights, persons, groups, annotations, dashboards, actions, events, experiments, and surveys. Auth via `Authorization: Bearer <api_key>` (personal API key starting with `phx_`). Base URL defaults to `https://us.posthog.com`; configurable for EU or self-hosted. Most deletes are soft deletes (PATCH with `deleted: true`).
