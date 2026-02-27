@@ -20,6 +20,15 @@ go build -o switchboard ./cmd/server
 # Run (stdio mode — legacy, for AI clients that need stdin/stdout)
 ./switchboard --stdio
 
+# Daemon management
+./switchboard daemon install              # Install as launchd (macOS) or systemd (Linux) service
+./switchboard daemon uninstall            # Remove the system service
+./switchboard daemon start                # Start the daemon (uses service if installed, else detached process)
+./switchboard daemon start --port 9999    # Start on a custom port
+./switchboard daemon stop                 # Stop the daemon
+./switchboard daemon status               # Show daemon status + health
+./switchboard daemon logs                 # Print log file path
+
 # Run tests
 go test ./...
 
@@ -76,10 +85,17 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 
 ```
 mcp.go                       Domain types + port interfaces (the hexagonal core)
-cmd/server/main.go           Composition root — wires adapters into Services, starts server
+cmd/server/main.go           Composition root — wires adapters into Services, starts server + daemon subcommand
 server/server.go             MCP server — exposes search/execute tools, routes to integrations
 config/config.go             ConfigService adapter — JSON file at ~/.config/switchboard/config.json
 registry/registry.go         Registry adapter — thread-safe integration lookup
+daemon/
+  daemon.go                  Daemon management — PID file, health checks, process control, status
+  launchd.go                 macOS launchd plist generation + launchctl commands
+  systemd.go                 Linux systemd user unit generation + systemctl commands
+  fallback.go                Platform dispatch + pure Go process detach fallback
+  proc_unix.go               Unix-specific SysProcAttr (Setsid)
+  proc_windows.go            Windows-specific SysProcAttr (CREATE_NO_WINDOW)
 github/
   github.go                  GitHub integration adapter (core, dispatch, helpers)
   tools.go                   GitHub tool definitions (~100 tools)
