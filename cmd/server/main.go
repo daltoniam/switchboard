@@ -80,7 +80,7 @@ Options:
 		fs.Usage()
 		os.Exit(0)
 	}
-	fs.Parse(args[1:])
+	_ = fs.Parse(args[1:])
 
 	switch cmd {
 	case "install":
@@ -192,7 +192,7 @@ func runServer(stdioMode bool, port int) {
 	if err := daemon.WritePID(os.Getpid()); err != nil {
 		log.Printf("WARN: failed to write PID file: %v", err)
 	}
-	defer daemon.RemovePID()
+	defer func() { _ = daemon.RemovePID() }()
 
 	mux := http.NewServeMux()
 

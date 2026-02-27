@@ -39,7 +39,7 @@ var systemdUnitPathFunc = defaultSystemdUnitPath
 var execCommand = defaultExecCommand
 
 func defaultExecCommand(name string, args ...string) ([]byte, error) {
-	return exec.Command(name, args...).CombinedOutput()
+	return exec.Command(name, args...).CombinedOutput() // #nosec G204
 }
 
 func systemdUnitPath() (string, error) {
@@ -86,11 +86,11 @@ func InstallSystemd(port int) error {
 		return fmt.Errorf("parse unit template: %w", err)
 	}
 
-	f, err := os.Create(unitPath)
+	f, err := os.OpenFile(unitPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("create unit file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return fmt.Errorf("write unit file: %w", err)

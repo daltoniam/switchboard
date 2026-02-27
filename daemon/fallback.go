@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 )
@@ -19,7 +20,7 @@ func StartFallback(port int) error {
 		return err
 	}
 
-	logDir := logPath[:len(logPath)-len("/switchboard.log")]
+	logDir := filepath.Dir(logPath)
 	if err := os.MkdirAll(logDir, 0700); err != nil {
 		return fmt.Errorf("create log dir: %w", err)
 	}
@@ -29,7 +30,7 @@ func StartFallback(port int) error {
 		return fmt.Errorf("open log file: %w", err)
 	}
 
-	cmd := exec.Command(exe, "--port", fmt.Sprintf("%d", port))
+	cmd := exec.Command(exe, "--port", fmt.Sprintf("%d", port)) // #nosec G204
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.Env = os.Environ()
@@ -37,16 +38,16 @@ func StartFallback(port int) error {
 	setSysProcAttr(cmd)
 
 	if err := cmd.Start(); err != nil {
-		logFile.Close()
+		_ = logFile.Close()
 		return fmt.Errorf("start process: %w", err)
 	}
 
 	if err := WritePID(cmd.Process.Pid); err != nil {
-		logFile.Close()
+		_ = logFile.Close()
 		return fmt.Errorf("write PID: %w", err)
 	}
 
-	logFile.Close()
+	_ = logFile.Close()
 
 	time.Sleep(500 * time.Millisecond)
 	if !IsRunning(cmd.Process.Pid) {

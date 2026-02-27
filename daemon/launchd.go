@@ -93,11 +93,11 @@ func InstallLaunchd(port int) error {
 		return fmt.Errorf("parse plist template: %w", err)
 	}
 
-	f, err := os.Create(plistPath)
+	f, err := os.OpenFile(plistPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("create plist file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return fmt.Errorf("write plist: %w", err)
@@ -113,7 +113,7 @@ func UninstallLaunchd() error {
 		return err
 	}
 
-	_ = exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d", os.Getuid()), plistPath).Run()
+	_ = exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d", os.Getuid()), plistPath).Run() // #nosec G204
 
 	if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove plist: %w", err)
@@ -133,7 +133,7 @@ func StartLaunchd() error {
 		return fmt.Errorf("service not installed — run 'switchboard daemon install' first")
 	}
 
-	cmd := exec.Command("launchctl", "bootstrap", fmt.Sprintf("gui/%d", os.Getuid()), plistPath)
+	cmd := exec.Command("launchctl", "bootstrap", fmt.Sprintf("gui/%d", os.Getuid()), plistPath) // #nosec G204
 	if output, err := cmd.CombinedOutput(); err != nil {
 		outStr := string(output)
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 37 {
@@ -150,7 +150,7 @@ func StopLaunchd() error {
 		return err
 	}
 
-	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d", os.Getuid()), plistPath)
+	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d", os.Getuid()), plistPath) // #nosec G204
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("launchctl bootout: %s (%w)", string(output), err)
 	}
