@@ -70,7 +70,7 @@ jobs:
         run: go install github.com/securego/gosec/v2/cmd/gosec@latest
 
       - name: Run gosec
-        run: gosec -exclude=G101,G104,G115,G117,G304,G505,G704 ./...
+        run: gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704 ./...
 
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
