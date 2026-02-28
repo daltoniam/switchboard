@@ -9,10 +9,21 @@
 
 ## Commands
 
-```bash
-# Build
-go build -o switchboard ./cmd/server
+| Target | Command | Make shortcut |
+|--------|---------|---------------|
+| Build | `go build -o switchboard ./cmd/server` | `make build` |
+| Test | `go test ./...` | `make test` |
+| Test + race | `go test -race -coverprofile=coverage.out ./...` | `make test-race` |
+| Vet | `go vet ./...` | `make vet` |
+| Lint | `golangci-lint run` | `make lint` |
+| Security scan | `go tool gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704 ./...` | `make gosec` |
+| Vuln check | `go tool govulncheck ./...` | `make govulncheck` |
+| All security | gosec + govulncheck | `make security` |
+| **All CI checks** | build + vet + test-race + lint + security | **`make ci`** |
+| Generate templ | `go generate .` | `make generate` |
+| Clean | `rm -f switchboard coverage.out` | `make clean` |
 
+```bash
 # Run (default — HTTP server with MCP + web UI on same port)
 ./switchboard
 ./switchboard --port 3847
@@ -29,18 +40,6 @@ go build -o switchboard ./cmd/server
 ./switchboard daemon status               # Show daemon status + health
 ./switchboard daemon logs                 # Print log file path
 
-# Run tests
-go test ./...
-
-# Run tests with race detection
-go test -race ./...
-
-# Vet
-go vet ./...
-
-# Lint (requires golangci-lint installed)
-golangci-lint run
-
 # Release (local snapshot for testing)
 goreleaser release --snapshot --clean
 
@@ -50,7 +49,7 @@ git push origin v0.1.0
 # CI (or manually): goreleaser release --clean
 
 # Generate templ templates (required after editing .templ files in web/templates/)
-templ generate
+make generate
 ```
 
 - **Templ**: `web/templates/*.templ` → run `templ generate` after edits. **Never edit `*_templ.go`** (generated)
@@ -62,10 +61,8 @@ templ generate
 
 ## Requirements Before Completing Code Changes
 
-1. **Build**: `go build -o switchboard ./cmd/server` — no errors
-2. **Tests**: `go test ./...` all green. `go test -race ./...` for race detection
-3. **Lint**: `golangci-lint run` — no errors
-4. **New code must include tests**
+1. **Run `make ci`** — must pass (build, vet, test-race, lint, security)
+2. **New code must include tests**
 
 ## Git Workflow
 
