@@ -23,6 +23,7 @@ RestartSec=5
 StandardOutput=append:{{ .LogPath }}
 StandardError=append:{{ .LogPath }}
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=SWITCHBOARD_DAEMON=1
 
 [Install]
 WantedBy=default.target

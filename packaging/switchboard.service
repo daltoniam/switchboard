@@ -9,6 +9,7 @@ ExecStart=/usr/bin/switchboard --port 3847
 Restart=on-failure
 RestartSec=5
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=SWITCHBOARD_DAEMON=1
 
 [Install]
 WantedBy=default.target

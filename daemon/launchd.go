@@ -56,6 +56,8 @@ func buildPlist(label, exePath string, port int, logPath string) string {
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <key>SWITCHBOARD_DAEMON</key>
+        <string>1</string>
     </dict>
 </dict>
 </plist>
@@ -99,7 +101,7 @@ func UninstallLaunchd() error {
 		return err
 	}
 
-	_ = exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d", os.Getuid()), plistPath).Run() // #nosec G204
+	_, _ = launchctl("unload", "-w", plistPath)
 
 	if err := os.Remove(plistPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove plist: %w", err)
@@ -119,13 +121,8 @@ func StartLaunchd() error {
 		return fmt.Errorf("service not installed — run 'switchboard daemon install' first")
 	}
 
-	cmd := exec.Command("launchctl", "bootstrap", fmt.Sprintf("gui/%d", os.Getuid()), plistPath) // #nosec G204
-	if output, err := cmd.CombinedOutput(); err != nil {
-		outStr := string(output)
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 37 {
-			return fmt.Errorf("service already loaded")
-		}
-		return fmt.Errorf("launchctl bootstrap: %s (%w)", outStr, err)
+	if output, err := launchctl("load", "-w", plistPath); err != nil {
+		return fmt.Errorf("launchctl load: %s (%w)", string(output), err)
 	}
 	return nil
 }
@@ -136,11 +133,14 @@ func StopLaunchd() error {
 		return err
 	}
 
-	cmd := exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d", os.Getuid()), plistPath) // #nosec G204
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("launchctl bootout: %s (%w)", string(output), err)
+	if output, err := launchctl("unload", plistPath); err != nil {
+		return fmt.Errorf("launchctl unload: %s (%w)", string(output), err)
 	}
 	return nil
+}
+
+func launchctl(args ...string) ([]byte, error) {
+	return exec.Command("launchctl", args...).CombinedOutput() // #nosec G204
 }
 
 func IsLaunchdInstalled() bool {
