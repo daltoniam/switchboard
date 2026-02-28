@@ -26,6 +26,10 @@ func New() mcp.Integration {
 func (c *clickhouseInt) Name() string { return "clickhouse" }
 
 func (c *clickhouseInt) Configure(creds mcp.Credentials) error {
+	if c.conn != nil {
+		_ = c.conn.Close()
+	}
+
 	host := creds["host"]
 	if host == "" {
 		host = "localhost"
@@ -105,7 +109,7 @@ func (c *clickhouseInt) query(ctx context.Context, q string, args ...any) (json.
 		colNames[i] = col.Name()
 	}
 
-	var results []map[string]any
+	results := make([]map[string]any, 0)
 	for rows.Next() {
 		vals := make([]any, len(columns))
 		for i, col := range columns {

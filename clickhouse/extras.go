@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -137,45 +138,24 @@ func listParts(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp
 	db := argStr(args, "database")
 	activeOnly := argStr(args, "active") != "false"
 
-	if db != "" {
-		if activeOnly {
-			data, err := c.query(ctx, `SELECT partition, name, active, rows, bytes_on_disk,
-				formatReadableSize(bytes_on_disk) AS readable_size, modification_time
-				FROM system.parts
-				WHERE database = ? AND table = ? AND active = 1
-				ORDER BY modification_time DESC LIMIT 100`, db, table)
-			if err != nil {
-				return errResult(err)
-			}
-			return rawResult(data)
-		}
-		data, err := c.query(ctx, `SELECT partition, name, active, rows, bytes_on_disk,
-			formatReadableSize(bytes_on_disk) AS readable_size, modification_time
-			FROM system.parts
-			WHERE database = ? AND table = ?
-			ORDER BY modification_time DESC LIMIT 100`, db, table)
-		if err != nil {
-			return errResult(err)
-		}
-		return rawResult(data)
-	}
-
-	if activeOnly {
-		data, err := c.query(ctx, `SELECT partition, name, active, rows, bytes_on_disk,
-			formatReadableSize(bytes_on_disk) AS readable_size, modification_time
-			FROM system.parts
-			WHERE database = currentDatabase() AND table = ? AND active = 1
-			ORDER BY modification_time DESC LIMIT 100`, table)
-		if err != nil {
-			return errResult(err)
-		}
-		return rawResult(data)
-	}
-	data, err := c.query(ctx, `SELECT partition, name, active, rows, bytes_on_disk,
+	q := `SELECT partition, name, active, rows, bytes_on_disk,
 		formatReadableSize(bytes_on_disk) AS readable_size, modification_time
-		FROM system.parts
-		WHERE database = currentDatabase() AND table = ?
-		ORDER BY modification_time DESC LIMIT 100`, table)
+		FROM system.parts WHERE `
+	var conds []string
+	var qargs []any
+	if db != "" {
+		conds = append(conds, "database = ?")
+		qargs = append(qargs, db)
+	} else {
+		conds = append(conds, "database = currentDatabase()")
+	}
+	conds = append(conds, "table = ?")
+	qargs = append(qargs, table)
+	if activeOnly {
+		conds = append(conds, "active = 1")
+	}
+	q += strings.Join(conds, " AND ") + " ORDER BY modification_time DESC LIMIT 100"
+	data, err := c.query(ctx, q, qargs...)
 	if err != nil {
 		return errResult(err)
 	}

@@ -18,12 +18,8 @@ func listDatabases(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mc
 func listTables(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
 	db := argStr(args, "database")
 
-	q := `SELECT database, name, engine, total_rows, total_bytes, comment
-		FROM system.tables WHERE database = ? ORDER BY name`
-	filterVal := db
-
 	if db == "" {
-		q = `SELECT database, name, engine, total_rows, total_bytes, comment
+		q := `SELECT database, name, engine, total_rows, total_bytes, comment
 			FROM system.tables WHERE database = currentDatabase() ORDER BY name`
 		data, err := c.query(ctx, q)
 		if err != nil {
@@ -32,7 +28,9 @@ func listTables(ctx context.Context, c *clickhouseInt, args map[string]any) (*mc
 		return rawResult(data)
 	}
 
-	data, err := c.query(ctx, q, filterVal)
+	q := `SELECT database, name, engine, total_rows, total_bytes, comment
+		FROM system.tables WHERE database = ? ORDER BY name`
+	data, err := c.query(ctx, q, db)
 	if err != nil {
 		return errResult(err)
 	}

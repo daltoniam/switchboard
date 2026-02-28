@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	ch "github.com/ClickHouse/clickhouse-go/v2"
+
 	mcp "github.com/daltoniam/switchboard"
 )
 
@@ -15,12 +17,16 @@ func executeQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*
 	}
 
 	if db := argStr(args, "database"); db != "" {
-		if err := c.exec(ctx, "USE "+escapeIdentifier(db)); err != nil {
-			return errResult(fmt.Errorf("failed to switch database: %w", err))
-		}
+		ctx = ch.Context(ctx, ch.WithSettings(ch.Settings{
+			"database": db,
+		}))
 	}
 
 	upper := strings.ToUpper(strings.TrimSpace(query))
+	if !strings.Contains(upper, "LIMIT") {
+		query += " LIMIT 10000"
+	}
+
 	if strings.HasPrefix(upper, "SELECT") ||
 		strings.HasPrefix(upper, "SHOW") ||
 		strings.HasPrefix(upper, "DESCRIBE") ||
