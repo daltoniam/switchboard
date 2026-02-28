@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -273,6 +274,229 @@ func TestHandleSearch_Integration(t *testing.T) {
 	assert.Len(t, allTools, 2)
 
 	_ = s // ensure server was created successfully
+}
+
+// --- search pagination tests ---
+
+// searchRequest is a helper to build a CallToolRequest for handleSearch.
+func searchRequest(args map[string]any) *mcpsdk.CallToolRequest {
+	data, _ := json.Marshal(args)
+	return &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "search",
+			Arguments: json.RawMessage(data),
+		},
+	}
+}
+
+// searchResponse is the paginated envelope returned by handleSearch.
+type searchResponse struct {
+	Summary string `json:"summary"`
+	Total   int    `json:"total"`
+	Offset  int    `json:"offset"`
+	Limit   int    `json:"limit"`
+	Tools   []struct {
+		Integration string `json:"integration"`
+		Name        string `json:"name"`
+	} `json:"tools"`
+}
+
+func parseSearchResponse(t *testing.T, result *mcpsdk.CallToolResult) searchResponse {
+	t.Helper()
+	require.Len(t, result.Content, 1)
+	tc, ok := result.Content[0].(*mcpsdk.TextContent)
+	require.True(t, ok, "expected TextContent, got %T", result.Content[0])
+	var resp searchResponse
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &resp))
+	return resp
+}
+
+// makeManyTools generates n tool definitions for testing pagination.
+func makeManyTools(prefix string, n int) []mcp.ToolDefinition {
+	tools := make([]mcp.ToolDefinition, n)
+	for i := range n {
+		tools[i] = mcp.ToolDefinition{
+			Name:        fmt.Sprintf("%s_tool_%d", prefix, i),
+			Description: fmt.Sprintf("Tool %d for %s", i, prefix),
+			Parameters:  map[string]string{"id": "the id"},
+		}
+	}
+	return tools
+}
+
+func TestHandleSearch_Pagination(t *testing.T) {
+	tests := []struct {
+		name      string
+		toolCount int
+		args      map[string]any
+		wantTotal int
+		wantOffset int
+		wantLimit int
+		wantTools int
+	}{
+		{
+			name:       "default limit caps results",
+			toolCount:  50,
+			args:       map[string]any{},
+			wantTotal:  50, wantOffset: 0, wantLimit: 20, wantTools: 20,
+		},
+		{
+			name:       "offset slides window",
+			toolCount:  50,
+			args:       map[string]any{"offset": 10, "limit": 5},
+			wantTotal:  50, wantOffset: 10, wantLimit: 5, wantTools: 5,
+		},
+		{
+			name:       "offset beyond total returns empty",
+			toolCount:  5,
+			args:       map[string]any{"offset": 100},
+			wantTotal:  5, wantOffset: 5, wantLimit: 20, wantTools: 0,
+		},
+		{
+			name:       "limit zero returns metadata only",
+			toolCount:  30,
+			args:       map[string]any{"limit": 0},
+			wantTotal:  30, wantOffset: 0, wantLimit: 0, wantTools: 0,
+		},
+		{
+			name:       "negative limit clamped to zero",
+			toolCount:  10,
+			args:       map[string]any{"limit": -5},
+			wantTotal:  10, wantOffset: 0, wantLimit: 0, wantTools: 0,
+		},
+		{
+			name:       "negative offset clamped to zero",
+			toolCount:  10,
+			args:       map[string]any{"offset": -3, "limit": 5},
+			wantTotal:  10, wantOffset: 0, wantLimit: 5, wantTools: 5,
+		},
+		{
+			name:       "limit larger than total returns all",
+			toolCount:  5,
+			args:       map[string]any{"limit": 1000},
+			wantTotal:  5, wantOffset: 0, wantLimit: 1000, wantTools: 5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mi := &mockIntegration{
+				name:    "testint",
+				healthy: true,
+				tools:   makeManyTools("testint", tt.toolCount),
+			}
+			s := setupTestServer(mi)
+
+			result, err := s.handleSearch(context.Background(), searchRequest(tt.args))
+			require.NoError(t, err)
+
+			resp := parseSearchResponse(t, result)
+			assert.Equal(t, tt.wantTotal, resp.Total)
+			assert.Equal(t, tt.wantOffset, resp.Offset)
+			assert.Equal(t, tt.wantLimit, resp.Limit)
+			assert.Len(t, resp.Tools, tt.wantTools)
+		})
+	}
+}
+
+func TestHandleSearch_QueryFiltersCombinedWithPagination(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_list_a", Description: "List A items"},
+			{Name: "testint_list_b", Description: "List B items"},
+			{Name: "testint_list_c", Description: "List C items"},
+			{Name: "testint_get_x", Description: "Get X"},
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"query":  "list",
+		"limit":  2,
+		"offset": 1,
+	}))
+	require.NoError(t, err)
+
+	resp := parseSearchResponse(t, result)
+	assert.Equal(t, 3, resp.Total)
+	assert.Len(t, resp.Tools, 2)
+}
+
+func TestHandleSearch_MalformedArgsReturnsError(t *testing.T) {
+	s := setupTestServer(&mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools:   makeManyTools("testint", 5),
+	})
+
+	req := &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "search",
+			Arguments: json.RawMessage(`{"limit": "not a number"}`),
+		},
+	}
+
+	result, err := s.handleSearch(context.Background(), req)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+}
+
+func TestHandleSearch_MultiIntegrationSortedDeterministically(t *testing.T) {
+	alpha := &mockIntegration{
+		name:    "alpha",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "alpha_b", Description: "B"},
+			{Name: "alpha_a", Description: "A"},
+		},
+	}
+	beta := &mockIntegration{
+		name:    "beta",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "beta_a", Description: "A"},
+		},
+	}
+	s := setupTestServer(alpha, beta)
+
+	// Call twice — results must be in the same order.
+	result1, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"limit": 10}))
+	require.NoError(t, err)
+	resp1 := parseSearchResponse(t, result1)
+
+	result2, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"limit": 10}))
+	require.NoError(t, err)
+	resp2 := parseSearchResponse(t, result2)
+
+	require.Len(t, resp1.Tools, 3)
+	require.Len(t, resp2.Tools, 3)
+
+	// Must be sorted by integration name, then tool name.
+	assert.Equal(t, "alpha_a", resp1.Tools[0].Name)
+	assert.Equal(t, "alpha_b", resp1.Tools[1].Name)
+	assert.Equal(t, "beta_a", resp1.Tools[2].Name)
+
+	// Same order on second call.
+	for i := range resp1.Tools {
+		assert.Equal(t, resp1.Tools[i].Name, resp2.Tools[i].Name)
+	}
+}
+
+func TestHandleSearch_ResponseIncludesSummary(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools:   makeManyTools("testint", 5),
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+	require.NoError(t, err)
+
+	resp := parseSearchResponse(t, result)
+	assert.Contains(t, resp.Summary, "5")
 }
 
 func TestToolResultJSON(t *testing.T) {

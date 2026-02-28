@@ -2,16 +2,20 @@ package server
 
 import (
 	"context"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+const defaultSearchLimit = 20
 
 // Server wraps the MCP SDK server and exposes search/execute tools.
 type Server struct {
@@ -49,17 +53,26 @@ func (s *Server) registerTools() {
 Use this to discover what operations are available before calling execute.
 
 You can filter by integration name, tool name, or keyword. Returns tool definitions
-with their parameters and descriptions.
+with their parameters and descriptions. Results are paginated (default limit: 20).
 
 Examples:
-- Search all tools: {"query": ""}
 - Search by integration: {"query": "github"}
 - Search by action: {"query": "list issues"}
-- Search specific tool: {"query": "datadog_search_logs"}`,
+- Search specific tool: {"query": "datadog_search_logs"}
+- Page through results: {"query": "github", "offset": 20, "limit": 20}
+- Count all tools: {"limit": 0}`,
 		InputSchema: objectSchema(map[string]any{
 			"query": map[string]any{
 				"type":        "string",
 				"description": "Search query to filter tools. Leave empty to list all available tools. Matches against tool names, descriptions, and integration names.",
+			},
+			"limit": map[string]any{
+				"type":        "integer",
+				"description": "Maximum number of tools to return. Defaults to 20. Set to 0 to return only the total count.",
+			},
+			"offset": map[string]any{
+				"type":        "integer",
+				"description": "Number of results to skip for pagination. Defaults to 0.",
 			},
 		}, nil),
 	}
@@ -138,10 +151,22 @@ func hasCredentials(creds mcp.Credentials) bool {
 
 func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 	var args struct {
-		Query string `json:"query"`
+		Query  string `json:"query"`
+		Limit  *int   `json:"limit"`
+		Offset int    `json:"offset"`
 	}
 	if req.Params.Arguments != nil {
-		_ = json.Unmarshal(req.Params.Arguments, &args)
+		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+			return errorResult("invalid arguments: " + err.Error()), nil
+		}
+	}
+
+	limit := defaultSearchLimit
+	if args.Limit != nil {
+		limit = max(*args.Limit, 0)
+	}
+	if args.Offset < 0 {
+		args.Offset = 0
 	}
 
 	query := strings.ToLower(args.Query)
@@ -154,9 +179,16 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		Required    []string          `json:"required,omitempty"`
 	}
 
-	var results []toolInfo
+	enabled := s.services.Config.EnabledIntegrations()
+	var capacity int
+	for _, name := range enabled {
+		if integration, ok := s.services.Registry.Get(name); ok {
+			capacity += len(integration.Tools())
+		}
+	}
+	all := make([]toolInfo, 0, capacity)
 
-	for _, name := range s.services.Config.EnabledIntegrations() {
+	for _, name := range enabled {
 		integration, ok := s.services.Registry.Get(name)
 		if !ok {
 			continue
@@ -164,7 +196,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 
 		for _, tool := range integration.Tools() {
 			if query == "" || matches(tool, name, query) {
-				results = append(results, toolInfo{
+				all = append(all, toolInfo{
 					Integration: name,
 					Name:        tool.Name,
 					Description: tool.Description,
@@ -175,16 +207,52 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		}
 	}
 
-	data, _ := json.MarshalIndent(results, "", "  ")
+	slices.SortFunc(all, func(a, b toolInfo) int {
+		if c := cmp.Compare(a.Integration, b.Integration); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Name, b.Name)
+	})
 
-	summary := fmt.Sprintf("Found %d tools", len(results))
+	total := len(all)
+
+	// Clamp offset.
+	offset := args.Offset
+	if offset > total {
+		offset = total
+	}
+
+	// Slice the window. limit=0 intentionally yields an empty page (count-only mode).
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	page := all[offset:end]
+
+	type response struct {
+		Summary string     `json:"summary"`
+		Total   int        `json:"total"`
+		Offset  int        `json:"offset"`
+		Limit   int        `json:"limit"`
+		Tools   []toolInfo `json:"tools"`
+	}
+
+	summary := fmt.Sprintf("Found %d tools", total)
 	if query != "" {
 		summary += fmt.Sprintf(" matching %q", args.Query)
 	}
 
+	data, _ := json.Marshal(response{
+		Summary: summary,
+		Total:   total,
+		Offset:  offset,
+		Limit:   limit,
+		Tools:   page,
+	})
+
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
-			&mcpsdk.TextContent{Text: summary + "\n\n" + string(data)},
+			&mcpsdk.TextContent{Text: string(data)},
 		},
 	}, nil
 }
