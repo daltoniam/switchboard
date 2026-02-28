@@ -71,7 +71,7 @@ func InstallSystemd(port int) error {
 	}
 
 	dir := filepath.Dir(unitPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("create systemd user dir: %w", err)
 	}
 
@@ -86,7 +86,7 @@ func InstallSystemd(port int) error {
 		return fmt.Errorf("parse unit template: %w", err)
 	}
 
-	f, err := os.OpenFile(unitPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	f, err := os.OpenFile(unitPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("create unit file: %w", err)
 	}
