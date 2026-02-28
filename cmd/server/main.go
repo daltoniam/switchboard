@@ -15,6 +15,7 @@ import (
 	awsInt "github.com/daltoniam/switchboard/aws"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/datadog"
+	gcpInt "github.com/daltoniam/switchboard/gcp"
 	"github.com/daltoniam/switchboard/github"
 	"github.com/daltoniam/switchboard/linear"
 	"github.com/daltoniam/switchboard/metabase"
@@ -58,6 +59,7 @@ func main() {
 		metabase.New(),
 		awsInt.New(),
 		posthog.New(),
+		gcpInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)

@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, AWS, PostHog behind one endpoint
+- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, AWS, PostHog, GCP behind one endpoint
 - Two meta-tools only: **search** (discover operations) and **execute** (run them)
 - Hexagonal architecture (ports and adapters)
 - HTTP transport (streamable) + web config UI on same port
@@ -161,6 +161,19 @@ posthog/
   insights.go                Insights (trends, funnels) CRUD handlers
   persons.go                 Persons, groups, property management handlers
   extras.go                  Annotations, dashboards, actions, events, experiments, surveys handlers
+gcp/
+  gcp.go                     GCP integration adapter (core, dispatch, typed SDK clients, helpers)
+  tools.go                   GCP tool definitions (~55 tools)
+  resourcemanager.go         Projects, folders, IAM policy handlers
+  storage.go                 Cloud Storage buckets, objects CRUD, copy handlers
+  compute.go                 Compute Engine instances, disks, networks, subnetworks, firewalls handlers
+  functions.go               Cloud Functions list, get, IAM policy handlers
+  iam.go                     IAM service accounts, keys, roles handlers
+  monitoring.go              Cloud Monitoring metrics, time series, alert policies handlers
+  run.go                     Cloud Run services, revisions handlers
+  pubsub.go                  Pub/Sub topics, subscriptions, publish, pull handlers
+  firestore.go               Firestore collections, documents CRUD, query handlers
+  logging.go                 Cloud Logging entries, log names, sinks handlers
 web/
   web.go                     Web UI HTTP server for config dashboard + Slack token setup routes
   templates/                 Templ-based templates — do not edit *_templ.go (generated)
@@ -205,7 +218,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `aws/`, `posthog/` → `Integration`
+- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `aws/`, `posthog/`, `gcp/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)
@@ -294,7 +307,7 @@ func New() mcp.Integration { ... }   // returns interface
 
 ### Import Aliases
 
-Only `slack` requires an alias to avoid collision with the package name. Other packages are imported directly.
+Only `slack` and `gcp` require aliases to avoid collision with the package name. Other packages are imported directly.
 
 | Package | Alias | Used In |
 |---------|-------|---------|
@@ -303,6 +316,7 @@ Only `slack` requires an alias to avoid collision with the package name. Other p
 | `.../switchboard/github` | `ghInt` | `web/web.go` |
 | `.../switchboard/linear` | `linearInt` | `web/web.go` |
 | `.../switchboard/sentry` | `sentryInt` | `web/web.go` |
+| `.../switchboard/gcp` | `gcpInt` | `cmd/server/main.go` |
 
 ### Tool Naming
 Tools are prefixed with integration name: `github_search_repos`, `datadog_search_logs`, `linear_list_issues`, `sentry_list_issues`.
@@ -375,9 +389,10 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 
 ## Gotchas
 
-- **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS also have `argInt64`, `argStrSlice`
-- **All eight adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, Datadog ~60, Linear ~60, Sentry ~55, Slack ~40, AWS ~65, PostHog ~50, Metabase ~22
+- **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS/GCP also have `argInt64`, `argStrSlice`
+- **All nine adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, Datadog ~60, Linear ~60, Sentry ~55, Slack ~40, AWS ~65, PostHog ~50, GCP ~55, Metabase ~22
 - **Linear is the only GraphQL adapter**. `gql()` helper, entity resolution (`resolveTeamID`, `resolveIssueID`), field fragment constants (`issueFields`, `projectFields`)
 - **AWS adapter uses `aws-sdk-go-v2`** — 11 typed service clients (S3, EC2, Lambda, IAM, CloudWatch, STS, ECS, SNS, SQS, DynamoDB, CloudFormation). Custom `unmarshalDynamoJSON` for DynamoDB AttributeValue marshalling. S3 `GetObject` capped at 10MB via `io.LimitReader`
 - **PostHog adapter uses hand-rolled REST HTTP**. ~50 tools covering projects, feature flags, cohorts, insights, persons, groups, annotations, dashboards, actions, events, experiments, and surveys. Auth via `Authorization: Bearer <api_key>` (personal API key starting with `phx_`). Base URL defaults to `https://us.posthog.com`; configurable for EU or self-hosted. Most deletes are soft deletes (PATCH with `deleted: true`).
+- **GCP adapter uses official `cloud.google.com/go` client libraries** — 17 typed clients (Storage, Compute Instances/Disks/Networks/Subnetworks/Firewalls, Functions, IAM via `google.golang.org/api/iam/v1`, Monitoring/AlertPolicy, Cloud Run Services/Revisions, Pub/Sub, Firestore, Logging/ConfigClient, ResourceManager Projects/Folders). Auth via Application Default Credentials or `credentials_json`. GCS `GetObject` capped at 10MB via `io.LimitReader`
 - **`search` returns `ToolDefinition` metadata**, not raw API specs
