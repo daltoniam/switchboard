@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, Notion, AWS, PostHog, PostgreSQL, ClickHouse, pganalyze, RWX, Gmail, Home Assistant, YNAB behind one endpoint
+- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, Notion, AWS, PostHog, PostgreSQL, ClickHouse, pganalyze, RWX, Gmail, Home Assistant, YNAB, GCP behind one endpoint
 - Two meta-tools only: **search** (discover operations) and **execute** (run them)
 - Hexagonal architecture (ports and adapters)
 - HTTP transport (streamable) + web config UI on same port
@@ -265,6 +265,19 @@ integrations/
     budgets.go               User, budgets, budget settings, accounts handlers
     categories.go            Categories, payees, months handlers
     transactions.go          Transactions, scheduled transactions handlers
+gcp/
+  gcp.go                     GCP integration adapter (core, dispatch, typed SDK clients, helpers)
+  tools.go                   GCP tool definitions (~55 tools)
+  resourcemanager.go         Projects, folders, IAM policy handlers
+  storage.go                 Cloud Storage buckets, objects CRUD, copy handlers
+  compute.go                 Compute Engine instances, disks, networks, subnetworks, firewalls handlers
+  functions.go               Cloud Functions list, get, IAM policy handlers
+  iam.go                     IAM service accounts, keys, roles handlers
+  monitoring.go              Cloud Monitoring metrics, time series, alert policies handlers
+  run.go                     Cloud Run services, revisions handlers
+  pubsub.go                  Pub/Sub topics, subscriptions, publish, pull handlers
+  firestore.go               Firestore collections, documents CRUD, query handlers
+  logging.go                 Cloud Logging entries, log names, sinks handlers
 web/
   web.go                     Web UI HTTP server for config dashboard + Slack token setup routes
   templates/                 Templ-based templates — do not edit *_templ.go (generated)
@@ -314,7 +327,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `integrations/github/`, `integrations/datadog/`, `integrations/linear/`, `integrations/sentry/`, `integrations/slack/`, `integrations/metabase/`, `integrations/notion/`, `integrations/aws/`, `integrations/posthog/`, `integrations/postgres/`, `integrations/clickhouse/`, `integrations/pganalyze/`, `integrations/rwx/`, `integrations/gmail/`, `integrations/homeassistant/`, `integrations/ynab/` → `Integration`
+- `integrations/github/`, `integrations/datadog/`, `integrations/linear/`, `integrations/sentry/`, `integrations/slack/`, `integrations/metabase/`, `integrations/notion/`, `integrations/aws/`, `integrations/posthog/`, `integrations/postgres/`, `integrations/clickhouse/`, `integrations/pganalyze/`, `integrations/rwx/`, `integrations/gmail/`, `integrations/homeassistant/`, `integrations/ynab/`, `gcp/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)
@@ -403,7 +416,7 @@ func New() mcp.Integration { ... }   // returns interface
 
 ### Import Aliases
 
-Only `slack`, `aws`, and `notion` require aliases to avoid collision with standard/SDK package names. Other packages are imported directly.
+Only `slack`, `aws`, `notion`, and `gcp` require aliases to avoid collision with standard/SDK package names. Other packages are imported directly.
 
 | Package | Alias | Used In |
 |---------|-------|---------|
@@ -414,6 +427,7 @@ Only `slack`, `aws`, and `notion` require aliases to avoid collision with standa
 | `.../switchboard/integrations/github` | `ghInt` | `web/web.go` |
 | `.../switchboard/integrations/linear` | `linearInt` | `web/web.go` |
 | `.../switchboard/integrations/sentry` | `sentryInt` | `web/web.go` |
+| `.../switchboard/gcp` | `gcpInt` | `cmd/server/main.go` |
 
 ### Tool Naming
 Tools are prefixed with integration name: `github_search_repos`, `datadog_search_logs`, `linear_list_issues`, `sentry_list_issues`.
@@ -556,11 +570,12 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 
 ## Gotchas
 
-- **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS also have `argInt64`, `argStrSlice`
-- **All sixteen adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Gmail ~44, Slack ~40, YNAB ~37, Postgres ~25, Notion ~24, Metabase ~22, ClickHouse ~20, Home Assistant ~17, RWX ~11, pganalyze ~3
+- **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS/GCP also have `argInt64`, `argStrSlice`
+- **All seventeen adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, GCP ~55, PostHog ~50, Gmail ~44, Slack ~40, YNAB ~37, Postgres ~25, Notion ~24, Metabase ~22, ClickHouse ~20, Home Assistant ~17, RWX ~11, pganalyze ~3
 - **Linear is the only GraphQL adapter**. `gql()` helper, entity resolution (`resolveTeamID`, `resolveIssueID`), field fragment constants (`issueFields`, `projectFields`)
 - **AWS adapter uses `aws-sdk-go-v2`** — 11 typed service clients (S3, EC2, Lambda, IAM, CloudWatch, STS, ECS, SNS, SQS, DynamoDB, CloudFormation). Custom `unmarshalDynamoJSON` for DynamoDB AttributeValue marshalling. S3 `GetObject` capped at 10MB via `io.LimitReader`
 - **PostHog adapter uses hand-rolled REST HTTP**. ~50 tools covering projects, feature flags, cohorts, insights, persons, groups, annotations, dashboards, actions, events, experiments, and surveys. Auth via `Authorization: Bearer <api_key>` (personal API key starting with `phx_`). Base URL defaults to `https://us.posthog.com`; configurable for EU or self-hosted. Most deletes are soft deletes (PATCH with `deleted: true`).
 - **PostgreSQL adapter uses `database/sql` with `lib/pq`**. ~25 tools. Auth via `connection_string` or individual host/port/user/password/database/sslmode. Read-only queries wrapped in read-only transactions. `sanitizeIdentifier` prevents SQL injection. Handlers split across `databases.go`, `queries.go`, `management.go`
 - **YNAB adapter uses hand-rolled REST HTTP**. ~25 tools covering user, budgets, accounts, categories, payees, months, transactions, and scheduled transactions. Auth via `Authorization: Bearer <api_key>` (personal access token). Base URL defaults to `https://api.ynab.com/v1`. All monetary amounts in milliunits (1000 = $1.00). `budget(args)` helper defaults `budget_id` to `"last-used"`. Rate limit: 200 requests/hour per token.
+- **GCP adapter uses official `cloud.google.com/go` client libraries** — 17 typed clients (Storage, Compute Instances/Disks/Networks/Subnetworks/Firewalls, Functions, IAM via `google.golang.org/api/iam/v1`, Monitoring/AlertPolicy, Cloud Run Services/Revisions, Pub/Sub, Firestore, Logging/ConfigClient, ResourceManager Projects/Folders). Auth via Application Default Credentials or `credentials_json`. GCS `GetObject` capped at 10MB via `io.LimitReader`
 - **`search` returns `ToolDefinition` metadata**, not raw API specs

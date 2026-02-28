@@ -14,6 +14,7 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
+	gcpInt "github.com/daltoniam/switchboard/gcp"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
 	"github.com/daltoniam/switchboard/integrations/datadog"
@@ -189,6 +190,7 @@ func runServer(stdioMode bool, port int) {
 		gmailIntegration,
 		homeassistant.New(),
 		notionInt.New(),
+		gcpInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
