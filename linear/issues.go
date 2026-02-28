@@ -24,26 +24,29 @@ const issueFields = `
 func listIssues(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	filter := map[string]any{}
 	if team := argStr(args, "team"); team != "" {
-		filter["team"] = map[string]any{"name": map[string]any{"eqCaseInsensitive": team}}
+		filter["team"] = map[string]any{"or": []map[string]any{
+			{"name": map[string]any{"eqIgnoreCase": team}},
+			{"key": map[string]any{"eqIgnoreCase": team}},
+		}}
 	}
 	if assignee := argStr(args, "assignee"); assignee != "" {
 		if assignee == "me" {
 			filter["assignee"] = map[string]any{"isMe": map[string]any{"eq": true}}
 		} else {
-			filter["assignee"] = map[string]any{"name": map[string]any{"eqCaseInsensitive": assignee}}
+			filter["assignee"] = map[string]any{"name": map[string]any{"eqIgnoreCase": assignee}}
 		}
 	}
 	if state := argStr(args, "state"); state != "" {
-		filter["state"] = map[string]any{"name": map[string]any{"eqCaseInsensitive": state}}
+		filter["state"] = map[string]any{"name": map[string]any{"eqIgnoreCase": state}}
 	}
 	if label := argStr(args, "label"); label != "" {
-		filter["labels"] = map[string]any{"name": map[string]any{"eqCaseInsensitive": label}}
+		filter["labels"] = map[string]any{"name": map[string]any{"eqIgnoreCase": label}}
 	}
 	if priority := argInt(args, "priority"); priority > 0 {
 		filter["priority"] = map[string]any{"eq": priority}
 	}
 	if project := argStr(args, "project"); project != "" {
-		filter["project"] = map[string]any{"name": map[string]any{"eqCaseInsensitive": project}}
+		filter["project"] = map[string]any{"name": map[string]any{"eqIgnoreCase": project}}
 	}
 
 	vars := map[string]any{
@@ -69,13 +72,13 @@ func listIssues(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 }
 
 func searchIssues(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := l.gql(ctx, fmt.Sprintf(`query($query: String!, $first: Int, $after: String) {
-		searchIssues(term: $query, first: $first, after: $after) {
+	data, err := l.gql(ctx, fmt.Sprintf(`query($term: String!, $first: Int, $after: String) {
+		searchIssues(term: $term, first: $first, after: $after) {
 			nodes { %s }
 			pageInfo { hasNextPage endCursor }
 		}
 	}`, issueFields), map[string]any{
-		"query": argStr(args, "query"),
+		"term":  argStr(args, "query"),
 		"first": optInt(args, "first", 50),
 		"after": argStr(args, "after"),
 	})

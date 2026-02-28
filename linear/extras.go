@@ -281,7 +281,7 @@ func createWorkflowState(ctx context.Context, l *linear, args map[string]any) (*
 func listDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	filter := map[string]any{}
 	if project := argStr(args, "project"); project != "" {
-		filter["project"] = map[string]any{"name": map[string]any{"eqCaseInsensitive": project}}
+		filter["project"] = map[string]any{"name": map[string]any{"eqIgnoreCase": project}}
 	}
 
 	vars := map[string]any{
@@ -309,8 +309,8 @@ func listDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 }
 
 func searchDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := l.gql(ctx, `query($query: String!, $first: Int) {
-		searchDocuments(term: $query, first: $first) {
+	data, err := l.gql(ctx, `query($term: String!, $first: Int) {
+		searchDocuments(term: $term, first: $first) {
 			nodes {
 				id title icon color content slugId
 				createdAt updatedAt
@@ -319,7 +319,7 @@ func searchDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.
 			}
 		}
 	}`, map[string]any{
-		"query": argStr(args, "query"),
+		"term":  argStr(args, "query"),
 		"first": optInt(args, "first", 25),
 	})
 	if err != nil {
@@ -702,11 +702,11 @@ func createCustomView(ctx context.Context, l *linear, args map[string]any) (*mcp
 		if v == "me" {
 			filterData["assignee"] = map[string]any{"isMe": map[string]any{"eq": true}}
 		} else {
-			filterData["assignee"] = map[string]any{"name": map[string]any{"eqCaseInsensitive": v}}
+			filterData["assignee"] = map[string]any{"name": map[string]any{"eqIgnoreCase": v}}
 		}
 	}
 	if v := argStr(args, "filter_label"); v != "" {
-		filterData["labels"] = map[string]any{"name": map[string]any{"eqCaseInsensitive": v}}
+		filterData["labels"] = map[string]any{"name": map[string]any{"eqIgnoreCase": v}}
 	}
 	if v := argInt(args, "filter_priority"); v > 0 {
 		filterData["priority"] = map[string]any{"eq": v}

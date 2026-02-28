@@ -45,12 +45,12 @@ func listProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.Too
 }
 
 func searchProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := l.gql(ctx, fmt.Sprintf(`query($query: String!, $first: Int) {
-		searchProjects(term: $query, first: $first) {
+	data, err := l.gql(ctx, fmt.Sprintf(`query($term: String!, $first: Int) {
+		searchProjects(term: $term, first: $first) {
 			nodes { %s }
 		}
 	}`, projectFields), map[string]any{
-		"query": argStr(args, "query"),
+		"term":  argStr(args, "query"),
 		"first": optInt(args, "first", 50),
 	})
 	if err != nil {
