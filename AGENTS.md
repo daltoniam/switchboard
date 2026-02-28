@@ -58,7 +58,7 @@ templ generate
 - **Testing**: `stretchr/testify` assertions. Tests in every package
 - **Linting**: `.golangci.yml` — errcheck, govet, ineffassign, staticcheck, unused
 - **CI**: `.github/workflows/ci.yml` — build, test (race), golangci-lint, gosec, govulncheck
-- **Go 1.25** — deps: `go-sdk`, `go-github/v68`, `slack-go/slack`, `a-h/templ`, `testify`
+- **Go 1.25** — deps: `go-sdk`, `go-github/v68`, `slack-go/slack`, `a-h/templ`, `lib/pq`, `testify`
 
 ## Requirements Before Completing Code Changes
 
@@ -177,6 +177,12 @@ posthog/
   insights.go                Insights (trends, funnels) CRUD handlers
   persons.go                 Persons, groups, property management handlers
   extras.go                  Annotations, dashboards, actions, events, experiments, surveys handlers
+postgres/
+  postgres.go                PostgreSQL integration adapter (core, dispatch, sql.DB helpers)
+  tools.go                   PostgreSQL tool definitions (~25 tools)
+  databases.go               Schema discovery, table/column/index/constraint/view/function/trigger/enum handlers
+  queries.go                 Query execution, EXPLAIN, SELECT builder, read-only transaction wrappers
+  management.go              Database info, size, stats, roles, grants, extensions, connections, locks handlers
 web/
   web.go                     Web UI HTTP server for config dashboard + Slack token setup routes
   templates/                 Templ-based templates — do not edit *_templ.go (generated)
@@ -221,7 +227,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `aws/`, `posthog/` → `Integration`
+- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `aws/`, `posthog/`, `postgres/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)
@@ -392,8 +398,9 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 ## Gotchas
 
 - **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS also have `argInt64`, `argStrSlice`
-- **All eight adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, Datadog ~60, Linear ~60, Sentry ~55, Slack ~40, AWS ~65, PostHog ~50, Metabase ~22
+- **All nine adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Slack ~40, Postgres ~25, Metabase ~22
 - **Linear is the only GraphQL adapter**. `gql()` helper, entity resolution (`resolveTeamID`, `resolveIssueID`), field fragment constants (`issueFields`, `projectFields`)
 - **AWS adapter uses `aws-sdk-go-v2`** — 11 typed service clients (S3, EC2, Lambda, IAM, CloudWatch, STS, ECS, SNS, SQS, DynamoDB, CloudFormation). Custom `unmarshalDynamoJSON` for DynamoDB AttributeValue marshalling. S3 `GetObject` capped at 10MB via `io.LimitReader`
 - **PostHog adapter uses hand-rolled REST HTTP**. ~50 tools covering projects, feature flags, cohorts, insights, persons, groups, annotations, dashboards, actions, events, experiments, and surveys. Auth via `Authorization: Bearer <api_key>` (personal API key starting with `phx_`). Base URL defaults to `https://us.posthog.com`; configurable for EU or self-hosted. Most deletes are soft deletes (PATCH with `deleted: true`).
+- **PostgreSQL adapter uses `database/sql` with `lib/pq`**. ~25 tools. Auth via `connection_string` or individual host/port/user/password/database/sslmode. Read-only queries wrapped in read-only transactions. `sanitizeIdentifier` prevents SQL injection. Handlers split across `databases.go`, `queries.go`, `management.go`
 - **`search` returns `ToolDefinition` metadata**, not raw API specs

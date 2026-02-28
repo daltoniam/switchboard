@@ -21,6 +21,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.7
 	github.com/go-sqlite/sqlite3 v0.0.0-20180313105335-53dd8e640ee7
 	github.com/google/go-github/v68 v68.0.0
+	github.com/lib/pq v1.11.2
 	github.com/modelcontextprotocol/go-sdk v1.3.1
 	github.com/slack-go/slack v0.18.0
 	github.com/stretchr/testify v1.11.1

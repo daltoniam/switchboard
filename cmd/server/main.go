@@ -20,6 +20,7 @@ import (
 	"github.com/daltoniam/switchboard/linear"
 	"github.com/daltoniam/switchboard/metabase"
 	"github.com/daltoniam/switchboard/posthog"
+	"github.com/daltoniam/switchboard/postgres"
 	"github.com/daltoniam/switchboard/registry"
 	"github.com/daltoniam/switchboard/sentry"
 	"github.com/daltoniam/switchboard/server"
@@ -171,6 +172,7 @@ func runServer(stdioMode bool, port int) {
 		metabase.New(),
 		awsInt.New(),
 		posthog.New(),
+		postgres.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)

@@ -30,9 +30,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	// Default config should have all eight integrations.
-	assert.Len(t, m.cfg.Integrations, 8)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog"} {
+	assert.Len(t, m.cfg.Integrations, 9)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -81,7 +80,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 8)
+	assert.Len(t, cfg.Integrations, 9)
 }
 
 func TestGet(t *testing.T) {
@@ -90,7 +89,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 8)
+	assert.Len(t, cfg.Integrations, 9)
 }
 
 func TestUpdate(t *testing.T) {
@@ -200,7 +199,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 8)
+	assert.Len(t, cfg.Integrations, 9)
 
 	expected := map[string][]string{
 		"github":   {"token", "client_id", "token_source"},
@@ -211,6 +210,7 @@ func TestDefaultConfig(t *testing.T) {
 		"metabase": {"api_key", "url"},
 		"aws":      {"access_key_id", "secret_access_key", "session_token", "region"},
 		"posthog":  {"api_key", "project_id", "base_url"},
+		"postgres": {"connection_string", "host", "user", "read_only"},
 	}
 
 	for name, keys := range expected {
