@@ -81,6 +81,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"connection_string": "", "host": "", "port": "", "user": "", "password": "", "database": "", "sslmode": "", "read_only": ""},
 			},
+			"instagram": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "user_id": "", "api_version": ""},
+			},
 		},
 	}
 }

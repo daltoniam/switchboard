@@ -17,6 +17,7 @@ import (
 	"github.com/daltoniam/switchboard/daemon"
 	"github.com/daltoniam/switchboard/datadog"
 	"github.com/daltoniam/switchboard/github"
+	"github.com/daltoniam/switchboard/instagram"
 	"github.com/daltoniam/switchboard/linear"
 	"github.com/daltoniam/switchboard/metabase"
 	"github.com/daltoniam/switchboard/posthog"
@@ -173,6 +174,7 @@ func runServer(stdioMode bool, port int) {
 		awsInt.New(),
 		posthog.New(),
 		postgres.New(),
+		instagram.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
