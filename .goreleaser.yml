@@ -56,8 +56,17 @@ brews:
     license: "MIT"
     install: |
       bin.install "switchboard"
+    post_install: |
+      system bin/"switchboard", "daemon", "install"
+    pre_uninstall: |
+      system bin/"switchboard", "daemon", "uninstall"
+    service: |
+      run [opt_bin/"switchboard", "--port", "3847"]
+      keep_alive true
+      log_path var/"log/switchboard.log"
+      error_log_path var/"log/switchboard.log"
     test: |
-      system "#{bin}/switchboard", "--help"
+      system "#{bin}/switchboard", "--version"
 
 scoops:
   - repository:
@@ -79,6 +88,13 @@ nfpms:
       - apk
       - archlinux
     bindir: /usr/bin
+    contents:
+      - src: packaging/switchboard.service
+        dst: /usr/share/switchboard/switchboard.service
+        type: config
+    scripts:
+      postinstall: scripts/postinstall.sh
+      preremove: scripts/preremove.sh
 
 aurs:
   - name: switchboard-bin
