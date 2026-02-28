@@ -26,7 +26,7 @@ func listIssues(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 	if team := argStr(args, "team"); team != "" {
 		filter["team"] = map[string]any{"or": []map[string]any{
 			{"name": map[string]any{"eqIgnoreCase": team}},
-			{"key": map[string]any{"eq": team}},
+			{"key": map[string]any{"eqIgnoreCase": team}},
 		}}
 	}
 	if assignee := argStr(args, "assignee"); assignee != "" {

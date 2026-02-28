@@ -309,8 +309,8 @@ func listDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 }
 
 func searchDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := l.gql(ctx, `query($query: String!, $first: Int) {
-		searchDocuments(term: $query, first: $first) {
+	data, err := l.gql(ctx, `query($term: String!, $first: Int) {
+		searchDocuments(term: $term, first: $first) {
 			nodes {
 				id title icon color content slugId
 				createdAt updatedAt
@@ -319,7 +319,7 @@ func searchDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.
 			}
 		}
 	}`, map[string]any{
-		"query": argStr(args, "query"),
+		"term":  argStr(args, "query"),
 		"first": optInt(args, "first", 25),
 	})
 	if err != nil {
