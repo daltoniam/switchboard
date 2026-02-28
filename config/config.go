@@ -85,13 +85,17 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"host": "", "port": "", "username": "", "password": "", "database": "", "secure": "", "skip_verify": ""},
 			},
-			"pganalyze": {
+"pganalyze": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "organization_slug": ""},
 			},
 			"rwx": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": ""},
+			},
+			"gmail": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
 			},
 		},
 	}
