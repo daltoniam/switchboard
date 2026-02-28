@@ -57,7 +57,7 @@ make generate
 - **Testing**: `stretchr/testify` assertions. Tests in every package
 - **Linting**: `.golangci.yml` — errcheck, govet, ineffassign, staticcheck, unused
 - **CI**: `.github/workflows/ci.yml` — build, test (race), golangci-lint, gosec, govulncheck
-- **Go 1.25** — deps: `go-sdk`, `go-github/v68`, `slack-go/slack`, `a-h/templ`, `lib/pq`, `clickhouse-go/v2`, `testify`
+- **Go 1.26** — deps: `go-sdk`, `go-github/v68`, `slack-go/slack`, `a-h/templ`, `lib/pq`, `clickhouse-go/v2`, `testify`
 
 ## Requirements Before Completing Code Changes
 
