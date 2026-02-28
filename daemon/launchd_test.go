@@ -86,3 +86,9 @@ func TestLaunchdPlistTemplate_CustomPort(t *testing.T) {
 	assert.Contains(t, content, "<string>9999</string>")
 	assert.True(t, strings.Contains(content, "<?xml version"))
 }
+
+func TestBuildPlist_XMLEscapesSpecialChars(t *testing.T) {
+	content := buildPlist("com.test", "/path/with <angle> & ampersand", 3847, "/log/path")
+	assert.Contains(t, content, "/path/with &lt;angle&gt; &amp; ampersand")
+	assert.NotContains(t, content, "/path/with <angle>")
+}

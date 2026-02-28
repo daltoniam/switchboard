@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -121,8 +122,9 @@ func CheckHealth(port int) bool {
 	if resp.StatusCode != http.StatusOK {
 		return false
 	}
+	limited := io.LimitReader(resp.Body, 1024)
 	var result map[string]string
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(limited).Decode(&result); err != nil {
 		return false
 	}
 	return result["status"] == "healthy"
@@ -162,8 +164,7 @@ func StopProcess() error {
 		return fmt.Errorf("send SIGTERM: %w", err)
 	}
 
-	for i := range 50 {
-		_ = i
+	for range 50 {
 		time.Sleep(100 * time.Millisecond)
 		if !IsRunning(pid) {
 			_ = RemovePID()
@@ -173,7 +174,7 @@ func StopProcess() error {
 
 	_ = proc.Signal(syscall.SIGKILL)
 	_ = RemovePID()
-	return nil
+	return fmt.Errorf("process %d did not exit after SIGTERM, sent SIGKILL", pid)
 }
 
 func ExePath() (string, error) {

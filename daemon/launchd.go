@@ -1,50 +1,15 @@
 package daemon
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"text/template"
 )
 
 const launchdLabel = "com.daltoniam.switchboard"
-
-const launchdPlistTemplate = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>{{ .Label }}</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>{{ .ExePath }}</string>
-        <string>--port</string>
-        <string>{{ .Port }}</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>{{ .LogPath }}</string>
-    <key>StandardErrorPath</key>
-    <string>{{ .LogPath }}</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
-    </dict>
-</dict>
-</plist>
-`
-
-type launchdData struct {
-	Label   string
-	ExePath string
-	Port    int
-	LogPath string
-}
 
 var launchdPlistPathFunc = defaultLaunchdPlistPath
 
@@ -58,6 +23,43 @@ func defaultLaunchdPlistPath() (string, error) {
 		return "", fmt.Errorf("get home dir: %w", err)
 	}
 	return filepath.Join(home, "Library", "LaunchAgents", launchdLabel+".plist"), nil
+}
+
+func xmlEscape(s string) string {
+	var buf bytes.Buffer
+	_ = xml.EscapeText(&buf, []byte(s))
+	return buf.String()
+}
+
+func buildPlist(label, exePath string, port int, logPath string) string {
+	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>%s</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>%s</string>
+        <string>--port</string>
+        <string>%d</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>%s</string>
+    <key>StandardErrorPath</key>
+    <string>%s</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    </dict>
+</dict>
+</plist>
+`, xmlEscape(label), xmlEscape(exePath), port, xmlEscape(logPath), xmlEscape(logPath))
 }
 
 func InstallLaunchd(port int) error {
@@ -81,26 +83,10 @@ func InstallLaunchd(port int) error {
 		return fmt.Errorf("create LaunchAgents dir: %w", err)
 	}
 
-	data := launchdData{
-		Label:   launchdLabel,
-		ExePath: exe,
-		Port:    port,
-		LogPath: logPath,
-	}
+	content := buildPlist(launchdLabel, exe, port, logPath)
 
-	tmpl, err := template.New("plist").Parse(launchdPlistTemplate)
-	if err != nil {
-		return fmt.Errorf("parse plist template: %w", err)
-	}
-
-	f, err := os.OpenFile(plistPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-	if err != nil {
-		return fmt.Errorf("create plist file: %w", err)
-	}
-	defer func() { _ = f.Close() }()
-
-	if err := tmpl.Execute(f, data); err != nil {
-		return fmt.Errorf("write plist: %w", err)
+	if err := os.WriteFile(plistPath, []byte(content), 0600); err != nil {
+		return fmt.Errorf("write plist file: %w", err)
 	}
 
 	fmt.Printf("Installed launchd service: %s\n", plistPath)

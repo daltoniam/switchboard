@@ -89,7 +89,7 @@ nfpms:
       - archlinux
     bindir: /usr/bin
     contents:
-      - src: dist/switchboard.service
+      - src: packaging/switchboard.service
         dst: /usr/share/switchboard/switchboard.service
         type: config
     scripts:
@@ -107,7 +107,6 @@ aurs:
     git_url: "ssh://aur@aur.archlinux.org/switchboard-bin.git"
     package: |-
       install -Dm755 "./switchboard" "${pkgdir}/usr/bin/switchboard"
-      install -Dm644 "./switchboard.service" "${pkgdir}/usr/share/switchboard/switchboard.service"
 
 release:
   github:

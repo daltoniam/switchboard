@@ -75,12 +75,15 @@ Options:
 		os.Exit(1)
 	}
 
-	cmd := args[0]
-	if cmd == "-h" || cmd == "-help" || cmd == "--help" {
+	_ = fs.Parse(args)
+	remaining := fs.Args()
+
+	if len(remaining) == 0 {
 		fs.Usage()
-		os.Exit(0)
+		os.Exit(1)
 	}
-	_ = fs.Parse(args[1:])
+
+	cmd := remaining[0]
 
 	switch cmd {
 	case "install":
@@ -189,10 +192,12 @@ func runServer(stdioMode bool, port int) {
 		return
 	}
 
-	if err := daemon.WritePID(os.Getpid()); err != nil {
-		log.Printf("WARN: failed to write PID file: %v", err)
+	if os.Getenv("SWITCHBOARD_DAEMON") == "1" {
+		if err := daemon.WritePID(os.Getpid()); err != nil {
+			log.Printf("WARN: failed to write PID file: %v", err)
+		}
+		defer func() { _ = daemon.RemovePID() }()
 	}
-	defer func() { _ = daemon.RemovePID() }()
 
 	mux := http.NewServeMux()
 

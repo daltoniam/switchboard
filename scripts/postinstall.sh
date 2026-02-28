@@ -6,7 +6,12 @@ set -e
 
 if command -v systemctl >/dev/null 2>&1; then
     REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || echo root)}"
-    REAL_HOME=$(eval echo "~${REAL_USER}")
+    REAL_HOME=$(getent passwd "${REAL_USER}" | cut -d: -f6)
+
+    if [ -z "${REAL_HOME}" ]; then
+        exit 0
+    fi
+
     UNIT_DIR="${REAL_HOME}/.config/systemd/user"
 
     mkdir -p "${UNIT_DIR}"

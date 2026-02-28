@@ -33,7 +33,7 @@ func StartFallback(port int) error {
 	cmd := exec.Command(exe, "--port", fmt.Sprintf("%d", port)) // #nosec G204
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "SWITCHBOARD_DAEMON=1")
 
 	setSysProcAttr(cmd)
 
