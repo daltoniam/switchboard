@@ -210,7 +210,7 @@ func TestDefaultConfig(t *testing.T) {
 		"metabase": {"api_key", "url"},
 		"aws":      {"access_key_id", "secret_access_key", "session_token", "region"},
 		"posthog":  {"api_key", "project_id", "base_url"},
-		"postgres": {"connection_string", "host", "user"},
+		"postgres": {"connection_string", "host", "user", "read_only"},
 	}
 
 	for name, keys := range expected {

@@ -103,7 +103,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "postgres_execute",
-		Description: "Execute a data-modifying SQL statement (INSERT, UPDATE, DELETE, CREATE, ALTER, DROP). Returns rows affected.",
+		Description: "Execute a data-modifying SQL statement (INSERT, UPDATE, DELETE, CREATE, ALTER, DROP). Returns rows affected. **CAUTION: executes arbitrary SQL including DDL/DML. Disabled by default -- set read_only=false in credentials to enable.** DROP DATABASE and TRUNCATE are always denied.",
 		Parameters: map[string]string{
 			"sql": "SQL statement to execute",
 		},
@@ -123,13 +123,13 @@ var tools = []mcp.ToolDefinition{
 	// --- Table Data ---
 	{
 		Name:        "postgres_select",
-		Description: "Select rows from a table with optional filtering, ordering, and pagination",
+		Description: "Select rows from a table with optional filtering, ordering, and pagination. The columns, where, and order_by parameters accept SQL expressions (semicolons and comments are rejected).",
 		Parameters: map[string]string{
 			"table":    "Table name",
 			"schema":   "Schema name (default: public)",
-			"columns":  "Comma-separated column names (default: *)",
-			"where":    "WHERE clause (without the WHERE keyword)",
-			"order_by": "ORDER BY clause (without the ORDER BY keyword)",
+			"columns":  "Comma-separated column names or SQL expressions (default: *)",
+			"where":    "WHERE clause without the WHERE keyword (SQL expression)",
+			"order_by": "ORDER BY clause without the ORDER BY keyword (SQL expression)",
 			"limit":    "Max rows to return (default: 100)",
 			"offset":   "Number of rows to skip",
 		},
@@ -224,17 +224,17 @@ var dispatch = map[string]handlerFunc{
 	"postgres_select": selectTool,
 
 	// Database Info
-	"postgres_database_info":  databaseInfo,
-	"postgres_database_size":  databaseSize,
-	"postgres_table_stats":    tableStats,
+	"postgres_database_info": databaseInfo,
+	"postgres_database_size": databaseSize,
+	"postgres_table_stats":   tableStats,
 
 	// Roles & Permissions
 	"postgres_list_roles":  listRoles,
 	"postgres_list_grants": listGrants,
 
 	// Extensions & Connections
-	"postgres_list_extensions":          listExtensions,
-	"postgres_list_active_connections":  listActiveConnections,
-	"postgres_list_locks":               listLocks,
-	"postgres_running_queries":          runningQueries,
+	"postgres_list_extensions":         listExtensions,
+	"postgres_list_active_connections": listActiveConnections,
+	"postgres_list_locks":              listLocks,
+	"postgres_running_queries":         runningQueries,
 }

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -21,10 +22,9 @@ func TestNew(t *testing.T) {
 func TestConfigure_ConnectionString(t *testing.T) {
 	p := &postgres{}
 	err := p.Configure(mcp.Credentials{"connection_string": "host=localhost port=5432 user=test dbname=testdb sslmode=disable"})
-	assert.NoError(t, err)
-	assert.Equal(t, "host=localhost port=5432 user=test dbname=testdb sslmode=disable", p.connStr)
-	assert.NotNil(t, p.db)
-	_ = p.db.Close()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to ping")
+	assert.True(t, p.readOnly)
 }
 
 func TestConfigure_IndividualCredentials(t *testing.T) {
@@ -33,29 +33,26 @@ func TestConfigure_IndividualCredentials(t *testing.T) {
 		"host":     "myhost",
 		"port":     "5433",
 		"user":     "myuser",
-		"password": "mypass",
+		"password": "my pass",
 		"database": "mydb",
 		"sslmode":  "require",
 	})
-	assert.NoError(t, err)
-	assert.Contains(t, p.connStr, "host=myhost")
-	assert.Contains(t, p.connStr, "port=5433")
-	assert.Contains(t, p.connStr, "user=myuser")
-	assert.Contains(t, p.connStr, "password=mypass")
-	assert.Contains(t, p.connStr, "dbname=mydb")
+	assert.Error(t, err)
+	assert.Contains(t, p.connStr, "myhost")
+	assert.Contains(t, p.connStr, "5433")
+	assert.Contains(t, p.connStr, "myuser")
+	assert.Contains(t, p.connStr, "my%20pass")
+	assert.Contains(t, p.connStr, "mydb")
 	assert.Contains(t, p.connStr, "sslmode=require")
-	assert.NotNil(t, p.db)
-	_ = p.db.Close()
 }
 
 func TestConfigure_Defaults(t *testing.T) {
 	p := &postgres{}
 	err := p.Configure(mcp.Credentials{"user": "test"})
-	assert.NoError(t, err)
-	assert.Contains(t, p.connStr, "host=localhost")
-	assert.Contains(t, p.connStr, "port=5432")
+	assert.Error(t, err)
+	assert.Contains(t, p.connStr, "localhost")
+	assert.Contains(t, p.connStr, "5432")
 	assert.Contains(t, p.connStr, "sslmode=prefer")
-	_ = p.db.Close()
 }
 
 func TestConfigure_MissingUser(t *testing.T) {
@@ -63,6 +60,23 @@ func TestConfigure_MissingUser(t *testing.T) {
 	err := p.Configure(mcp.Credentials{"host": "localhost"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user is required")
+}
+
+func TestConfigure_ReadOnlyDefault(t *testing.T) {
+	p := &postgres{}
+	_ = p.Configure(mcp.Credentials{"connection_string": "host=localhost"})
+	assert.True(t, p.readOnly)
+}
+
+func TestConfigure_ReadOnlyExplicitFalse(t *testing.T) {
+	p := &postgres{}
+	_ = p.Configure(mcp.Credentials{"connection_string": "host=localhost", "read_only": "false"})
+	assert.False(t, p.readOnly)
+}
+
+func TestClose_NilDB(t *testing.T) {
+	p := &postgres{}
+	assert.NoError(t, p.Close())
 }
 
 func TestHealthy_NilDB(t *testing.T) {
@@ -203,11 +217,29 @@ func TestQueryTool_RequiresSQL(t *testing.T) {
 }
 
 func TestExecuteTool_RequiresSQL(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := &postgres{db: &sql.DB{}, readOnly: false}
 	result, err := executeTool(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "sql is required")
+}
+
+func TestExecuteTool_ReadOnlyBlocks(t *testing.T) {
+	p := &postgres{db: &sql.DB{}, readOnly: true}
+	result, err := executeTool(context.Background(), p, map[string]any{"sql": "INSERT INTO t VALUES (1)"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "execute is disabled")
+}
+
+func TestExecuteTool_DenyList(t *testing.T) {
+	p := &postgres{db: &sql.DB{}, readOnly: false}
+	for _, sql := range []string{"DROP DATABASE mydb", "drop database mydb", "TRUNCATE users", "truncate users"} {
+		result, err := executeTool(context.Background(), p, map[string]any{"sql": sql})
+		require.NoError(t, err)
+		assert.True(t, result.IsError, "expected error for: %s", sql)
+		assert.Contains(t, result.Data, "not allowed", "expected deny for: %s", sql)
+	}
 }
 
 func TestExplainTool_RequiresSQL(t *testing.T) {
@@ -216,6 +248,47 @@ func TestExplainTool_RequiresSQL(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "sql is required")
+}
+
+func TestExplainTool_InvalidFormat(t *testing.T) {
+	p := &postgres{db: &sql.DB{}}
+	result, err := explainTool(context.Background(), p, map[string]any{"sql": "SELECT 1", "format": "evil"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "invalid format")
+}
+
+func TestExplainTool_ValidFormats(t *testing.T) {
+	for _, f := range []string{"text", "json", "yaml", "xml", "TEXT", "Json"} {
+		assert.True(t, validExplainFormats[strings.ToLower(f)], "expected valid format: %s", f)
+	}
+}
+
+func TestValidateSQLFragment(t *testing.T) {
+	assert.NoError(t, validateSQLFragment("id = 1"))
+	assert.NoError(t, validateSQLFragment("name ASC"))
+	assert.Error(t, validateSQLFragment("1; DROP TABLE users"))
+	assert.Error(t, validateSQLFragment("id -- comment"))
+	assert.Error(t, validateSQLFragment("id /* block */"))
+}
+
+func TestSelectTool_RejectsMaliciousFragments(t *testing.T) {
+	p := &postgres{db: &sql.DB{}}
+
+	result, err := selectTool(context.Background(), p, map[string]any{"table": "users", "columns": "*; DROP TABLE users"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "semicolons")
+
+	result, err = selectTool(context.Background(), p, map[string]any{"table": "users", "where": "1=1 -- always true"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "comments")
+
+	result, err = selectTool(context.Background(), p, map[string]any{"table": "users", "order_by": "id /* evil */"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "comments")
 }
 
 func TestSelectTool_RequiresTable(t *testing.T) {

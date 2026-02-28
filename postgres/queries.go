@@ -10,6 +10,13 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+var validExplainFormats = map[string]bool{
+	"text": true,
+	"json": true,
+	"yaml": true,
+	"xml":  true,
+}
+
 func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	sqlStr := argStr(args, "sql")
 	if sqlStr == "" {
@@ -46,9 +53,20 @@ func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 }
 
 func executeTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	if p.readOnly {
+		return errResult(fmt.Errorf("execute is disabled: set read_only=false in postgres credentials to enable"))
+	}
+
 	sqlStr := argStr(args, "sql")
 	if sqlStr == "" {
 		return errResult(fmt.Errorf("sql is required"))
+	}
+
+	upper := strings.ToUpper(strings.TrimSpace(sqlStr))
+	for _, prefix := range []string{"DROP DATABASE", "TRUNCATE"} {
+		if strings.HasPrefix(upper, prefix) {
+			return errResult(fmt.Errorf("statement rejected: %s is not allowed", prefix))
+		}
 	}
 
 	data, err := p.exec(ctx, sqlStr)
@@ -64,9 +82,12 @@ func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		return errResult(fmt.Errorf("sql is required"))
 	}
 
-	format := argStr(args, "format")
+	format := strings.ToLower(argStr(args, "format"))
 	if format == "" {
 		format = "text"
+	}
+	if !validExplainFormats[format] {
+		return errResult(fmt.Errorf("invalid format %q: must be one of text, json, yaml, xml", format))
 	}
 	analyze := argBool(args, "analyze")
 
@@ -77,7 +98,19 @@ func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		explain = fmt.Sprintf("EXPLAIN (FORMAT %s) %s", format, sqlStr)
 	}
 
-	data, err := p.query(ctx, explain)
+	tx, err := p.db.BeginTx(ctx, &readOnlyTx)
+	if err != nil {
+		return errResult(fmt.Errorf("begin transaction: %w", err))
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	rows, err := tx.QueryContext(ctx, explain)
+	if err != nil {
+		return errResult(fmt.Errorf("explain error: %w", err))
+	}
+	defer func() { _ = rows.Close() }()
+
+	data, err := scanRows(rows)
 	if err != nil {
 		return errResult(err)
 	}
@@ -106,14 +139,22 @@ func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 	columns := argStr(args, "columns")
 	if columns == "" {
 		columns = "*"
+	} else if err := validateSQLFragment(columns); err != nil {
+		return errResult(fmt.Errorf("columns: %w", err))
 	}
 
 	q := fmt.Sprintf("SELECT %s FROM %s.%s", columns, safeSchema, safeTable) // #nosec G201 -- identifiers are sanitized via sanitizeIdentifier
 
 	if where := argStr(args, "where"); where != "" {
+		if err := validateSQLFragment(where); err != nil {
+			return errResult(fmt.Errorf("where: %w", err))
+		}
 		q += " WHERE " + where
 	}
 	if orderBy := argStr(args, "order_by"); orderBy != "" {
+		if err := validateSQLFragment(orderBy); err != nil {
+			return errResult(fmt.Errorf("order_by: %w", err))
+		}
 		q += " ORDER BY " + orderBy
 	}
 
@@ -149,6 +190,19 @@ func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 // --- helpers ---
 
 var readOnlyTx = sql.TxOptions{ReadOnly: true}
+
+func validateSQLFragment(s string) error {
+	if strings.Contains(s, ";") {
+		return fmt.Errorf("semicolons are not allowed")
+	}
+	if strings.Contains(s, "--") {
+		return fmt.Errorf("line comments (--) are not allowed")
+	}
+	if strings.Contains(s, "/*") {
+		return fmt.Errorf("block comments (/*) are not allowed")
+	}
+	return nil
+}
 
 func scanRows(rows *sql.Rows) (json.RawMessage, error) {
 	columns, err := rows.Columns()

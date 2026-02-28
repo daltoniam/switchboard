@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -14,8 +16,9 @@ import (
 )
 
 type postgres struct {
-	connStr string
-	db      *sql.DB
+	connStr  string
+	db       *sql.DB
+	readOnly bool
 }
 
 func New() mcp.Integration {
@@ -25,6 +28,8 @@ func New() mcp.Integration {
 func (p *postgres) Name() string { return "postgres" }
 
 func (p *postgres) Configure(creds mcp.Credentials) error {
+	p.readOnly = creds["read_only"] != "false"
+
 	connStr := creds["connection_string"]
 	if connStr == "" {
 		host := creds["host"]
@@ -47,11 +52,14 @@ func (p *postgres) Configure(creds mcp.Credentials) error {
 			return fmt.Errorf("postgres: user is required (set connection_string or user credential)")
 		}
 
-		connStr = fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=%s",
-			host, port, user, dbname, sslmode)
-		if password != "" {
-			connStr += fmt.Sprintf(" password=%s", password)
+		u := &url.URL{
+			Scheme:   "postgres",
+			User:     url.UserPassword(user, password),
+			Host:     host + ":" + port,
+			Path:     dbname,
+			RawQuery: "sslmode=" + url.QueryEscape(sslmode),
 		}
+		connStr = u.String()
 	}
 
 	p.connStr = connStr
@@ -62,7 +70,23 @@ func (p *postgres) Configure(creds mcp.Credentials) error {
 	}
 	db.SetMaxOpenConns(5)
 	db.SetMaxIdleConns(2)
+	db.SetConnMaxLifetime(30 * time.Minute)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return fmt.Errorf("postgres: failed to ping database: %w", err)
+	}
+
 	p.db = db
+	return nil
+}
+
+func (p *postgres) Close() error {
+	if p.db != nil {
+		return p.db.Close()
+	}
 	return nil
 }
 
@@ -87,54 +111,14 @@ func (p *postgres) Execute(ctx context.Context, toolName string, args map[string
 
 // --- Query helpers ---
 
-func (p *postgres) query(ctx context.Context, query string, args ...any) (json.RawMessage, error) {
-	rows, err := p.db.QueryContext(ctx, query, args...)
+func (p *postgres) query(ctx context.Context, q string, args ...any) (json.RawMessage, error) {
+	rows, err := p.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query error: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	columns, err := rows.Columns()
-	if err != nil {
-		return nil, fmt.Errorf("columns error: %w", err)
-	}
-
-	var results []map[string]any
-	for rows.Next() {
-		values := make([]any, len(columns))
-		pointers := make([]any, len(columns))
-		for i := range values {
-			pointers[i] = &values[i]
-		}
-		if err := rows.Scan(pointers...); err != nil {
-			return nil, fmt.Errorf("scan error: %w", err)
-		}
-
-		row := make(map[string]any, len(columns))
-		for i, col := range columns {
-			val := values[i]
-			switch v := val.(type) {
-			case []byte:
-				row[col] = string(v)
-			default:
-				row[col] = v
-			}
-		}
-		results = append(results, row)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows error: %w", err)
-	}
-
-	if results == nil {
-		results = []map[string]any{}
-	}
-
-	data, err := json.Marshal(results)
-	if err != nil {
-		return nil, fmt.Errorf("marshal error: %w", err)
-	}
-	return json.RawMessage(data), nil
+	return scanRows(rows)
 }
 
 func (p *postgres) exec(ctx context.Context, query string, args ...any) (json.RawMessage, error) {
