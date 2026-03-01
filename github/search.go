@@ -9,11 +9,11 @@ import (
 
 func searchCode(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	opts := &gh.SearchOptions{ListOptions: listOpts(args)}
-	result, _, err := g.client.Search.Code(ctx, argStr(args, "query"), opts)
+	resp, _, err := g.client.Search.Code(ctx, argStr(args, "query"), opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return jsonResult(resp.CodeResults)
 }
 
 func searchIssues(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -22,11 +22,11 @@ func searchIssues(ctx context.Context, g *integration, args map[string]any) (*mc
 		Order:       argStr(args, "order"),
 		ListOptions: listOpts(args),
 	}
-	result, _, err := g.client.Search.Issues(ctx, argStr(args, "query"), opts)
+	resp, _, err := g.client.Search.Issues(ctx, argStr(args, "query"), opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return jsonResult(resp.Issues)
 }
 
 func searchUsers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -35,11 +35,11 @@ func searchUsers(ctx context.Context, g *integration, args map[string]any) (*mcp
 		Order:       argStr(args, "order"),
 		ListOptions: listOpts(args),
 	}
-	result, _, err := g.client.Search.Users(ctx, argStr(args, "query"), opts)
+	resp, _, err := g.client.Search.Users(ctx, argStr(args, "query"), opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return jsonResult(resp.Users)
 }
 
 func searchCommits(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -48,9 +48,9 @@ func searchCommits(ctx context.Context, g *integration, args map[string]any) (*m
 		Order:       argStr(args, "order"),
 		ListOptions: listOpts(args),
 	}
-	result, _, err := g.client.Search.Commits(ctx, argStr(args, "query"), opts)
+	resp, _, err := g.client.Search.Commits(ctx, argStr(args, "query"), opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return jsonResult(resp.Commits)
 }

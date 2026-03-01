@@ -6,6 +6,21 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// ── Shared field slices ──────────────────────────────────────────────
+
+var repoListFields = []string{
+	"full_name", "description", "language", "stargazers_count",
+	"html_url", "private", "archived", "default_branch", "updated_at",
+}
+
+var commitListFields = []string{
+	"sha", "commit.message", "commit.author.name", "commit.author.date", "html_url",
+}
+
+var userListFields = []string{"login", "html_url", "type"}
+
+var secretListFields = []string{"name", "created_at", "updated_at"}
+
 // rawFieldCompactionSpecs maps tool names to dot-notation field compaction specs.
 // Only list/search tools get specs — get tools return full detail,
 // mutation tools return confirmation responses.
@@ -20,14 +35,8 @@ import (
 //   - "Search for issues about X across repos" → needs repo context on each result
 var rawFieldCompactionSpecs = map[string][]string{
 	// ── Repositories ──────────────────────────────────────────────────
-	"github_list_user_repos": {
-		"full_name", "description", "language", "stargazers_count",
-		"html_url", "private", "archived", "default_branch", "updated_at",
-	},
-	"github_list_org_repos": {
-		"full_name", "description", "language", "stargazers_count",
-		"html_url", "private", "archived", "default_branch", "updated_at",
-	},
+	"github_list_user_repos": repoListFields,
+	"github_list_org_repos":  repoListFields,
 	"github_list_branches": {"name", "commit.sha", "protected"},
 	"github_list_tags":     {"name", "commit.sha"},
 	"github_list_contributors": {
@@ -44,6 +53,7 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"github_list_issues": {
 		"number", "title", "state", "html_url", "created_at", "updated_at",
 		"comments", "user.login", "labels[].name", "assignees[].login",
+		"milestone.title",
 	},
 	"github_list_issue_comments": {
 		"id", "body", "user.login", "created_at", "html_url",
@@ -58,42 +68,40 @@ var rawFieldCompactionSpecs = map[string][]string{
 	},
 	"github_list_issue_timeline": {
 		"id", "event", "actor.login", "created_at",
+		"source.issue.number",
 	},
-	"github_list_assignees": {"login", "html_url", "type"},
+	"github_list_assignees": userListFields,
 
 	// ── Pull Requests ─────────────────────────────────────────────────
 	"github_list_prs": {
 		"number", "title", "state", "html_url", "created_at", "updated_at",
-		"draft", "user.login", "head.ref", "base.ref",
-		"additions", "deletions", "changed_files",
+		"comments", "draft", "merged", "user.login", "head.ref", "base.ref",
+		"head.repo.full_name", "labels[].name",
+		"assignees[].login", "requested_reviewers[].login",
 	},
-	"github_list_pr_commits": {
-		"sha", "commit.message", "commit.author.name", "commit.author.date", "html_url",
-	},
+	"github_list_pr_commits": commitListFields,
 	"github_list_pr_files": {
-		"filename", "status", "additions", "deletions", "changes",
+		"sha", "filename", "status", "additions", "deletions",
 	},
 	"github_list_pr_reviews": {
-		"id", "state", "user.login", "submitted_at", "html_url",
+		"id", "state", "body", "user.login", "submitted_at", "html_url",
 	},
 	"github_list_pr_comments": {
 		"id", "body", "user.login", "created_at", "path", "line", "html_url",
 	},
 
 	// ── Git (low-level) ───────────────────────────────────────────────
-	"github_list_commits": {
-		"sha", "commit.message", "commit.author.name", "commit.author.date", "html_url",
-	},
+	"github_list_commits": commitListFields,
 
 	// ── Users ─────────────────────────────────────────────────────────
-	"github_list_user_followers": {"login", "html_url", "type"},
-	"github_list_user_following": {"login", "html_url", "type"},
+	"github_list_user_followers": userListFields,
+	"github_list_user_following": userListFields,
 	"github_list_user_keys":      {"id", "key"},
 
 	// ── Organizations ─────────────────────────────────────────────────
-	"github_list_org_members":  {"login", "html_url", "type"},
+	"github_list_org_members":  userListFields,
 	"github_list_org_teams":    {"name", "slug", "permission", "description"},
-	"github_list_team_members": {"login", "html_url", "type"},
+	"github_list_team_members": userListFields,
 	"github_list_team_repos": {
 		"full_name", "description", "language", "html_url", "private",
 	},
@@ -103,31 +111,33 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"id", "name", "state", "path", "html_url",
 	},
 	"github_list_workflow_runs": {
-		"id", "name", "status", "conclusion", "head_branch",
-		"created_at", "html_url", "event", "run_number",
+		"id", "name", "display_title", "status", "conclusion",
+		"head_branch", "head_sha", "actor.login",
+		"created_at", "html_url", "event", "run_number", "run_attempt",
 	},
 	"github_list_workflow_jobs": {
 		"id", "name", "status", "conclusion", "started_at",
 		"completed_at", "html_url",
+		"steps[].name", "steps[].conclusion",
 	},
-	"github_list_repo_secrets":        {"name", "created_at", "updated_at"},
+	"github_list_repo_secrets":        secretListFields,
 	"github_list_artifacts":           {"id", "name", "size_in_bytes", "created_at", "expired"},
-	"github_list_environment_secrets": {"name", "created_at", "updated_at"},
-	"github_list_org_secrets":         {"name", "created_at", "updated_at"},
+	"github_list_environment_secrets": secretListFields,
+	"github_list_org_secrets":         secretListFields,
 
 	// ── Checks ────────────────────────────────────────────────────────
 	"github_list_check_runs": {
 		"id", "name", "status", "conclusion", "started_at",
-		"completed_at", "html_url",
+		"completed_at", "html_url", "output.title",
 	},
 	"github_list_check_suites": {
-		"id", "status", "conclusion", "head_branch", "created_at",
+		"id", "app.slug", "status", "conclusion", "head_branch", "created_at",
 	},
 
 	// ── Releases ──────────────────────────────────────────────────────
 	"github_list_releases": {
 		"id", "tag_name", "name", "draft", "prerelease",
-		"created_at", "html_url",
+		"created_at", "published_at", "html_url",
 	},
 	"github_list_release_assets": {
 		"id", "name", "size", "download_count", "browser_download_url",
@@ -140,16 +150,21 @@ var rawFieldCompactionSpecs = map[string][]string{
 	},
 
 	// ── Activity ──────────────────────────────────────────────────────
-	"github_list_stargazers":    {"login", "html_url", "type"},
-	"github_list_watchers":      {"login", "html_url", "type"},
-	"github_list_notifications": {"id", "reason", "subject.title", "subject.type", "updated_at", "unread"},
+	"github_list_stargazers":    userListFields,
+	"github_list_watchers":      userListFields,
+	"github_list_notifications": {
+		"id", "reason", "subject.title", "subject.type", "subject.url",
+		"repository.full_name", "updated_at", "unread",
+	},
 	"github_list_repo_events": {
 		"id", "type", "actor.login", "created_at",
+		"payload.action", "payload.ref",
+		"payload.pull_request.number", "payload.issue.number",
 	},
 
 	// ── Security ──────────────────────────────────────────────────────
 	"github_list_code_scanning_alerts": {
-		"number", "state", "rule.id", "rule.severity",
+		"number", "state", "rule.id", "rule.severity", "rule.description",
 		"most_recent_instance.ref", "html_url", "created_at",
 	},
 	"github_list_secret_scanning_alerts": {
@@ -159,6 +174,19 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"number", "state", "dependency.package.name",
 		"security_advisory.severity", "html_url", "created_at",
 	},
+
+	// ── Search ───────────────────────────────────────────────────────
+	"github_search_repos": repoListFields,
+	"github_search_issues": {
+		"number", "title", "state", "html_url", "created_at", "updated_at",
+		"comments", "user.login", "labels[].name", "assignees[].login",
+		"milestone.title", "repository.full_name",
+	},
+	"github_search_code": {
+		"repository.full_name", "path", "name", "html_url",
+	},
+	"github_search_users": userListFields,
+	"github_search_commits": append(commitListFields, "repository.full_name"),
 
 	// ── Webhooks ──────────────────────────────────────────────────────
 	"github_list_hooks":       {"id", "name", "active", "config.url", "events", "updated_at"},

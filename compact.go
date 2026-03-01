@@ -94,14 +94,19 @@ func CompactJSON(data []byte, fields []CompactField) ([]byte, error) {
 	case '[':
 		return compactArray(data, fields)
 	case '{':
-		var obj map[string]any
-		if err := json.Unmarshal(data, &obj); err != nil {
-			return nil, fmt.Errorf("compactJSON: %w", err)
-		}
-		return json.Marshal(compactObject(obj, fields))
+		return compactObjectJSON(data, fields)
 	default:
 		return nil, fmt.Errorf("compactJSON: expected JSON object or array, got %q", data[0])
 	}
+}
+
+// compactObjectJSON unmarshals a single JSON object, applies field compaction, and re-marshals.
+func compactObjectJSON(data []byte, fields []CompactField) ([]byte, error) {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return nil, fmt.Errorf("compactJSON: %w", err)
+	}
+	return json.Marshal(compactObject(obj, fields))
 }
 
 // compactObject keeps only the specified fields from an unmarshalled object.

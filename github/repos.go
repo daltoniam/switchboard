@@ -14,7 +14,7 @@ func searchRepos(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return jsonResult(result.Repositories)
 }
 
 func getRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {

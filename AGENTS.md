@@ -85,8 +85,9 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 
 ```
 mcp.go                       Domain types + port interfaces (the hexagonal core)
+compact.go                   Field compaction engine — CompactJSON, ParseCompactSpecs, dot-notation parser
 cmd/server/main.go           Composition root — wires adapters into Services, starts server + daemon subcommand
-server/server.go             MCP server — exposes search/execute tools, routes to integrations
+server/server.go             MCP server — exposes search/execute tools, routes to integrations, applies field compaction
 config/config.go             ConfigService adapter — JSON file at ~/.config/switchboard/config.json
 registry/registry.go         Registry adapter — thread-safe integration lookup
 daemon/
@@ -97,7 +98,8 @@ daemon/
   proc_unix.go               Unix-specific SysProcAttr (Setsid)
   proc_windows.go            Windows-specific SysProcAttr (CREATE_NO_WINDOW)
 github/
-  github.go                  GitHub integration adapter (core, dispatch, helpers)
+  github.go                  GitHub integration adapter (core, dispatch, helpers, FieldCompactionIntegration)
+  compact_specs.go           Field compaction spec declarations (~45 list/search tools)
   tools.go                   GitHub tool definitions (~100 tools)
   repos.go                   Repos, releases, deploy keys, webhooks, rate limit handlers
   issues.go                  Issues, comments, labels, milestones handlers
@@ -229,9 +231,10 @@ graph BT
     DI --> Core
 ```
 
-**Core (`mcp.go`)**:
-- Types: `Config`, `Credentials`, `IntegrationConfig`, `ToolDefinition`, `ToolResult`, `HealthStatus`
+**Core (`mcp.go` + `compact.go`)**:
+- Types: `Config`, `Credentials`, `IntegrationConfig`, `ToolDefinition`, `ToolResult`, `HealthStatus`, `CompactField`
 - Port interfaces: `Integration`, `ConfigService`, `Registry`
+- Opt-in interface: `FieldCompactionIntegration` — adapters implement to declare field compaction specs
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
@@ -354,6 +357,41 @@ Every adapter **must** have two tests enforcing bidirectional parity between `To
 - `TestDispatchMap_NoOrphanHandlers` — every key in `dispatch` has a corresponding `ToolDefinition`
 
 When adding a new tool: add both the `ToolDefinition` in `tools.go` **and** the handler entry in the `dispatch` map. Tests will fail if either is missing.
+
+### Field Compaction
+
+List/search tools return compact responses via the `FieldCompactionIntegration` interface. The server applies field compaction automatically after `Execute()`. Optimize specs for fewest total tokens across the entire task workflow, not smallest single response.
+
+```mermaid
+sequenceDiagram
+    participant LLM
+    participant Switchboard
+    participant API as GitHub API
+
+    LLM->>Switchboard: execute(github_list_issues, {owner, repo})
+    Switchboard->>API: GET /repos/:owner/:repo/issues
+    API-->>Switchboard: 50KB (30 issues × 100 fields each)
+    Note over Switchboard: Compaction applied automatically<br/>Keeps: number, title, state, user.login,<br/>labels, comments, html_url
+    Switchboard-->>LLM: 3KB (30 issues × 10 fields each)
+
+    Note over LLM: Scans compact list,<br/>identifies issue #42
+
+    LLM->>Switchboard: execute(github_get_issue, {issue_number: 42})
+    Switchboard->>API: GET /repos/:owner/:repo/issues/42
+    API-->>Switchboard: 5KB (full issue with body, timeline)
+    Note over Switchboard: No compaction for get tools<br/>Full response returned
+    Switchboard-->>LLM: 5KB (complete detail)
+```
+
+- **Opt in**: Implement `CompactSpec(toolName string) ([]CompactField, bool)` — returns parsed fields + found flag
+- **Declare specs** in `<adapter>/compact_specs.go` using dot-notation: `"title"`, `"user.login"`, `"labels[].name"`
+- **Keep**: fields that prevent N+1 drill-downs (routing fields, identifiers, states, dates, counts)
+- **Drop**: nested full objects (user, repo), permissions, avatars, node_ids, template URLs
+- **Mutations stay full**: only list/search tools get compaction specs
+- **Dispatch parity**: `TestFieldCompactionSpecs_NoOrphanSpecs` — every spec key must have a dispatch handler
+- **Unwrap SDK lists**: return `resp.Items` not `resp` so compaction operates on the array directly
+- **Anti-pattern**: `return jsonResult(fullSDKWrapper)` for list tools
+- See `.claude/skills/add-integration/SKILL.md` § "Field Compaction" for spec design questions
 
 ### Error Handling
 - Integration errors: return `&mcp.ToolResult{Data: err.Error(), IsError: true}, nil`
