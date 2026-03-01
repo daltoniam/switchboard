@@ -107,15 +107,15 @@ Use search first to discover available tools and their parameter schemas.`,
 		InputSchema: objectSchema(map[string]any{
 			"tool_name": map[string]any{
 				"type":        "string",
-				"description": "The exact name of the tool to execute (single-tool mode)",
+				"description": "The exact name of the tool to execute (mutually exclusive with script)",
 			},
 			"arguments": map[string]any{
 				"type":        "object",
-				"description": "Arguments to pass to the tool (single-tool mode)",
+				"description": "Arguments to pass to the tool (mutually exclusive with script)",
 			},
 			"script": map[string]any{
 				"type":        "string",
-				"description": "JavaScript code to execute server-side. Use api.call(toolName, args) to invoke tools. Return the final result. (script mode)",
+				"description": "JavaScript code to execute server-side. Use api.call(toolName, args) to invoke tools. Return the final result. (mutually exclusive with tool_name)",
 			},
 		}, nil),
 	}

@@ -911,3 +911,11 @@ func TestScriptExecution_ToolNotFound(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "not found")
 }
+
+func TestHandleExecute_EmptyArgs(t *testing.T) {
+	s := setupTestServer()
+	result, err := s.executeTool(context.Background(), "", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not found")
+}

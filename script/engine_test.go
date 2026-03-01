@@ -83,7 +83,7 @@ func TestEngine_ApiCall(t *testing.T) {
 func TestEngine_ChainedCalls(t *testing.T) {
 	exec := &mockExecutor{
 		results: map[string]*mcp.ToolResult{
-			"linear_search_issues": {Data: `[{"id":"ISS-1","assignee":{"email":"alice@example.com"}}]`},
+			"linear_search_issues":   {Data: `[{"id":"ISS-1","assignee":{"email":"alice@example.com"}}]`},
 			"postgres_execute_query": {Data: `[{"name":"Alice","role":"admin"}]`},
 		},
 	}
@@ -311,4 +311,32 @@ func TestEngine_ContextCancellation(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.True(t, strings.Contains(result.Data, "cancelled") || strings.Contains(result.Data, "timeout") || strings.Contains(result.Data, "context"))
+}
+
+func TestEngine_ScriptTooLarge(t *testing.T) {
+	exec := &mockExecutor{results: map[string]*mcp.ToolResult{}}
+	engine := New(exec)
+
+	bigScript := strings.Repeat("x", MaxScriptSize+1)
+	result, err := engine.Run(context.Background(), bigScript)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "script too large")
+}
+
+func TestEngine_ConsoleLogCapped(t *testing.T) {
+	exec := &mockExecutor{results: map[string]*mcp.ToolResult{}}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		for (var i = 0; i < 200; i++) {
+			console.log("line " + i);
+		}
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var logs []string
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &logs))
+	assert.Equal(t, MaxLogEntries, len(logs))
 }

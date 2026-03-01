@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -13,6 +14,8 @@ import (
 const (
 	DefaultTimeout  = 30 * time.Second
 	DefaultMaxCalls = 50
+	MaxScriptSize   = 64 * 1024
+	MaxLogEntries   = 100
 )
 
 // Executor looks up an integration by tool name prefix and executes the tool.
@@ -53,18 +56,18 @@ func New(executor Executor, opts ...Option) *Engine {
 	return e
 }
 
-// Result is the output of a script execution.
-type Result struct {
-	Data    string `json:"data"`
-	IsError bool   `json:"is_error,omitempty"`
-}
-
 // Run executes a JavaScript script. The script has access to:
 //   - api.call(toolName, args) — calls an integration tool and returns the parsed JSON result
-//   - console.log(...args) — collects log output (available in Result on error)
+//   - console.log(...args) — collects log output (available in result on error)
 //
-// The script's return value is JSON-serialized as the Result.Data.
-func (e *Engine) Run(ctx context.Context, source string) (*Result, error) {
+// The script's return value is JSON-serialized as the ToolResult.Data.
+func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error) {
+	if len(source) > MaxScriptSize {
+		return &mcp.ToolResult{
+			Data:    fmt.Sprintf("script too large: %d bytes (max %d)", len(source), MaxScriptSize),
+			IsError: true,
+		}, nil
+	}
 	ctx, cancel := context.WithTimeout(ctx, e.timeout)
 	defer cancel()
 
@@ -130,18 +133,14 @@ func (e *Engine) Run(ctx context.Context, source string) (*Result, error) {
 
 	consoleObj := vm.NewObject()
 	if err := consoleObj.Set("log", func(call goja.FunctionCall) goja.Value {
+		if len(logs) >= MaxLogEntries {
+			return goja.Undefined()
+		}
 		parts := make([]string, len(call.Arguments))
 		for i, arg := range call.Arguments {
 			parts[i] = arg.String()
 		}
-		line := ""
-		for i, p := range parts {
-			if i > 0 {
-				line += " "
-			}
-			line += p
-		}
-		logs = append(logs, line)
+		logs = append(logs, strings.Join(parts, " "))
 		return goja.Undefined()
 	}); err != nil {
 		return nil, fmt.Errorf("failed to set console.log: %w", err)
@@ -162,21 +161,21 @@ func (e *Engine) Run(ctx context.Context, source string) (*Result, error) {
 			logData, _ := json.Marshal(logs)
 			errMsg += "\nconsole output: " + string(logData)
 		}
-		return &Result{Data: errMsg, IsError: true}, nil
+		return &mcp.ToolResult{Data: errMsg, IsError: true}, nil
 	}
 
 	if val == nil || goja.IsUndefined(val) || goja.IsNull(val) {
 		if len(logs) > 0 {
 			logData, _ := json.Marshal(logs)
-			return &Result{Data: string(logData)}, nil
+			return &mcp.ToolResult{Data: string(logData)}, nil
 		}
-		return &Result{Data: "null"}, nil
+		return &mcp.ToolResult{Data: "null"}, nil
 	}
 
 	exported := val.Export()
 	data, err := json.Marshal(exported)
 	if err != nil {
-		return &Result{Data: fmt.Sprintf("%v", exported)}, nil
+		return &mcp.ToolResult{Data: fmt.Sprintf("%v", exported)}, nil
 	}
-	return &Result{Data: string(data)}, nil
+	return &mcp.ToolResult{Data: string(data)}, nil
 }
