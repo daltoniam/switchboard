@@ -87,7 +87,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"gmail": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", "client_id": "", "client_secret": "", "base_url": "", "token_source": ""},
 			},
 		},
 	}

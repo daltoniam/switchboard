@@ -9,6 +9,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	ghInt "github.com/daltoniam/switchboard/github"
+	gmailInt "github.com/daltoniam/switchboard/gmail"
 	linearInt "github.com/daltoniam/switchboard/linear"
 	sentryInt "github.com/daltoniam/switchboard/sentry"
 	slackInt "github.com/daltoniam/switchboard/slack"
@@ -60,6 +61,13 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/sentry/oauth/poll", w.handleSentryOAuthPoll)
 	mux.HandleFunc("POST /api/sentry/oauth/save", w.handleSentryOAuthSave)
 	mux.HandleFunc("POST /api/sentry/save-token", w.handleSentrySaveToken)
+
+	mux.HandleFunc("GET /integrations/gmail/setup", w.handleGmailSetup)
+	mux.HandleFunc("POST /api/gmail/oauth/start", w.handleGmailOAuthStart)
+	mux.HandleFunc("GET /api/gmail/oauth/callback", w.handleGmailOAuthCallback)
+	mux.HandleFunc("GET /api/gmail/oauth/poll", w.handleGmailOAuthPoll)
+	mux.HandleFunc("POST /api/gmail/save-token", w.handleGmailSaveToken)
+	mux.HandleFunc("POST /api/gmail/save-oauth-credentials", w.handleGmailSaveOAuthCredentials)
 
 	mux.HandleFunc("POST /api/slack/oauth/start", w.handleSlackOAuthStart)
 	mux.HandleFunc("GET /api/slack/oauth/callback", w.handleSlackOAuthCallback)
@@ -154,6 +162,7 @@ var setupIntegrations = map[string]bool{
 	"github": true,
 	"linear": true,
 	"sentry": true,
+	"gmail":  true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
@@ -790,4 +799,162 @@ func (w *WebServer) handleSlackOAuthPoll(rw http.ResponseWriter, r *http.Request
 	rw.Header().Set("Content-Type", "application/json")
 	result := slackInt.PollSlackOAuth()
 	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGmailSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gmail")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials["client_id"] != "" && ic.Credentials["client_secret"] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials["client_id"]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gmail")
+		if ok {
+			if err := integration.Configure(ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials["token_source"] != "" {
+		tokenSource = ic.Credentials["token_source"]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gmail/oauth/callback", w.port)
+
+	page := w.pageData(r, "Gmail Setup", "/integrations")
+	data := pages.GmailSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GmailSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGmailOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gmail")
+	if !exists || ic.Credentials["client_id"] == "" || ic.Credentials["client_secret"] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Gmail OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gmail/oauth/callback", w.port)
+	result, err := gmailInt.StartGmailOAuth(ic.Credentials["client_id"], ic.Credentials["client_secret"], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGmailOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gmail/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gmailInt.HandleGmailCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gmail/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gmailInt.PollGmailOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gmail/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gmail")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials["token_source"] = "oauth"
+	_ = w.services.Config.SetIntegration("gmail", ic)
+
+	http.Redirect(rw, r, "/integrations/gmail/setup?result=Connected+to+Gmail+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGmailOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gmailInt.PollGmailOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGmailSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gmail/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gmail/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gmail")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials["token_source"] = "manual"
+	_ = w.services.Config.SetIntegration("gmail", ic)
+
+	http.Redirect(rw, r, "/integrations/gmail/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGmailSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gmail/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gmail/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gmail")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials["client_id"] = clientID
+	ic.Credentials["client_secret"] = clientSecret
+	_ = w.services.Config.SetIntegration("gmail", ic)
+
+	http.Redirect(rw, r, "/integrations/gmail/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
 }

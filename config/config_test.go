@@ -212,7 +212,7 @@ func TestDefaultConfig(t *testing.T) {
 		"posthog":    {"api_key", "project_id", "base_url"},
 		"postgres":   {"connection_string", "host", "user", "read_only"},
 		"clickhouse": {"host", "port", "username", "password", "database", "secure", "skip_verify"},
-		"gmail":      {"access_token", "base_url"},
+		"gmail":      {"access_token", "refresh_token", "client_id", "client_secret", "base_url", "token_source"},
 	}
 
 	for name, keys := range expected {

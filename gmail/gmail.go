@@ -10,15 +10,20 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 )
 
 type gmail struct {
-	accessToken string
-	client      *http.Client
-	baseURL     string
+	accessToken  string
+	refreshToken string
+	clientID     string
+	clientSecret string
+	client       *http.Client
+	baseURL      string
+	mu           sync.Mutex
 }
 
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
@@ -34,6 +39,9 @@ func (g *gmail) Name() string { return "gmail" }
 
 func (g *gmail) Configure(creds mcp.Credentials) error {
 	g.accessToken = creds["access_token"]
+	g.refreshToken = creds["refresh_token"]
+	g.clientID = creds["client_id"]
+	g.clientSecret = creds["client_secret"]
 	if g.accessToken == "" {
 		return fmt.Errorf("gmail: access_token is required")
 	}
@@ -63,6 +71,10 @@ func (g *gmail) Execute(ctx context.Context, toolName string, args map[string]an
 // --- HTTP helpers ---
 
 func (g *gmail) doRequest(ctx context.Context, method, path string, body any) (json.RawMessage, error) {
+	return g.doRequestInner(ctx, method, path, body, true)
+}
+
+func (g *gmail) doRequestInner(ctx context.Context, method, path string, body any, canRetry bool) (json.RawMessage, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -90,6 +102,15 @@ func (g *gmail) doRequest(ctx context.Context, method, path string, body any) (j
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode == 401 && canRetry && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
+		newToken, rerr := RefreshAccessToken(g.clientID, g.clientSecret, g.refreshToken)
+		if rerr == nil {
+			g.mu.Lock()
+			g.accessToken = newToken
+			g.mu.Unlock()
+			return g.doRequestInner(ctx, method, path, body, false)
+		}
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("gmail API error (%d): %s", resp.StatusCode, string(data))
