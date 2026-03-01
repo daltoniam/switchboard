@@ -11,6 +11,12 @@ import (
 	gh "github.com/google/go-github/v68/github"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration     = (*integration)(nil)
+	_ mcp.FieldCompactionIntegration = (*integration)(nil)
+)
+
 type integration struct {
 	token  string
 	client *gh.Client
@@ -38,6 +44,11 @@ func (g *integration) Healthy(ctx context.Context) bool {
 
 func (g *integration) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (g *integration) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (g *integration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
@@ -133,7 +144,7 @@ func listOpts(args map[string]any) gh.ListOptions {
 		page = 1
 	}
 	if perPage == 0 {
-		perPage = 30
+		perPage = 10
 	}
 	return gh.ListOptions{Page: page, PerPage: perPage}
 }

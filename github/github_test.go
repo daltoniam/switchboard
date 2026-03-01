@@ -210,7 +210,7 @@ func TestListOpts(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		opts := listOpts(map[string]any{})
 		assert.Equal(t, 1, opts.Page)
-		assert.Equal(t, 30, opts.PerPage)
+		assert.Equal(t, 10, opts.PerPage)
 	})
 
 	t.Run("custom", func(t *testing.T) {
