@@ -1,8 +1,8 @@
 package server
 
 import (
-	"context"
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -180,13 +180,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	}
 
 	enabled := s.services.Config.EnabledIntegrations()
-	var capacity int
-	for _, name := range enabled {
-		if integration, ok := s.services.Registry.Get(name); ok {
-			capacity += len(integration.Tools())
-		}
-	}
-	all := make([]toolInfo, 0, capacity)
+	var all []toolInfo
 
 	for _, name := range enabled {
 		integration, ok := s.services.Registry.Get(name)
@@ -230,11 +224,13 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	page := all[offset:end]
 
 	type response struct {
-		Summary string     `json:"summary"`
-		Total   int        `json:"total"`
-		Offset  int        `json:"offset"`
-		Limit   int        `json:"limit"`
-		Tools   []toolInfo `json:"tools"`
+		Summary      string     `json:"summary"`
+		Total        int        `json:"total"`
+		Offset       int        `json:"offset"`
+		Limit        int        `json:"limit"`
+		HasMore      bool       `json:"has_more"`
+		Integrations []string   `json:"integrations"`
+		Tools        []toolInfo `json:"tools"`
 	}
 
 	summary := fmt.Sprintf("Found %d tools", total)
@@ -243,11 +239,13 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	}
 
 	data, _ := json.Marshal(response{
-		Summary: summary,
-		Total:   total,
-		Offset:  offset,
-		Limit:   limit,
-		Tools:   page,
+		Summary:      summary,
+		Total:        total,
+		Offset:       offset,
+		Limit:        limit,
+		HasMore:      limit > 0 && offset+limit < total,
+		Integrations: enabled,
+		Tools:        page,
 	})
 
 	return &mcpsdk.CallToolResult{

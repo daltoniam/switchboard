@@ -22,10 +22,10 @@ func newMockConfigService(integrations map[string]*mcp.IntegrationConfig) *mockC
 	return &mockConfigService{cfg: &mcp.Config{Integrations: integrations}}
 }
 
-func (m *mockConfigService) Load() error                                          { return nil }
-func (m *mockConfigService) Save() error                                          { return nil }
-func (m *mockConfigService) Get() *mcp.Config                                     { return m.cfg }
-func (m *mockConfigService) Update(cfg *mcp.Config) error                         { m.cfg = cfg; return nil }
+func (m *mockConfigService) Load() error                  { return nil }
+func (m *mockConfigService) Save() error                  { return nil }
+func (m *mockConfigService) Get() *mcp.Config             { return m.cfg }
+func (m *mockConfigService) Update(cfg *mcp.Config) error { m.cfg = cfg; return nil }
 func (m *mockConfigService) GetIntegration(name string) (*mcp.IntegrationConfig, bool) {
 	ic, ok := m.cfg.Integrations[name]
 	return ic, ok
@@ -291,11 +291,13 @@ func searchRequest(args map[string]any) *mcpsdk.CallToolRequest {
 
 // searchResponse is the paginated envelope returned by handleSearch.
 type searchResponse struct {
-	Summary string `json:"summary"`
-	Total   int    `json:"total"`
-	Offset  int    `json:"offset"`
-	Limit   int    `json:"limit"`
-	Tools   []struct {
+	Summary      string   `json:"summary"`
+	Total        int      `json:"total"`
+	Offset       int      `json:"offset"`
+	Limit        int      `json:"limit"`
+	HasMore      bool     `json:"has_more"`
+	Integrations []string `json:"integrations"`
+	Tools        []struct {
 		Integration string `json:"integration"`
 		Name        string `json:"name"`
 	} `json:"tools"`
@@ -326,55 +328,62 @@ func makeManyTools(prefix string, n int) []mcp.ToolDefinition {
 
 func TestHandleSearch_Pagination(t *testing.T) {
 	tests := []struct {
-		name      string
-		toolCount int
-		args      map[string]any
-		wantTotal int
-		wantOffset int
-		wantLimit int
-		wantTools int
+		name        string
+		toolCount   int
+		args        map[string]any
+		wantTotal   int
+		wantOffset  int
+		wantLimit   int
+		wantTools   int
+		wantHasMore bool
 	}{
 		{
-			name:       "default limit caps results",
-			toolCount:  50,
-			args:       map[string]any{},
-			wantTotal:  50, wantOffset: 0, wantLimit: 20, wantTools: 20,
+			name:      "default limit caps results",
+			toolCount: 50,
+			args:      map[string]any{},
+			wantTotal: 50, wantOffset: 0, wantLimit: 20, wantTools: 20, wantHasMore: true,
 		},
 		{
-			name:       "offset slides window",
-			toolCount:  50,
-			args:       map[string]any{"offset": 10, "limit": 5},
-			wantTotal:  50, wantOffset: 10, wantLimit: 5, wantTools: 5,
+			name:      "offset slides window",
+			toolCount: 50,
+			args:      map[string]any{"offset": 10, "limit": 5},
+			wantTotal: 50, wantOffset: 10, wantLimit: 5, wantTools: 5, wantHasMore: true,
 		},
 		{
-			name:       "offset beyond total returns empty",
-			toolCount:  5,
-			args:       map[string]any{"offset": 100},
-			wantTotal:  5, wantOffset: 5, wantLimit: 20, wantTools: 0,
+			name:      "offset beyond total returns empty",
+			toolCount: 5,
+			args:      map[string]any{"offset": 100},
+			wantTotal: 5, wantOffset: 5, wantLimit: 20, wantTools: 0, wantHasMore: false,
 		},
 		{
-			name:       "limit zero returns metadata only",
-			toolCount:  30,
-			args:       map[string]any{"limit": 0},
-			wantTotal:  30, wantOffset: 0, wantLimit: 0, wantTools: 0,
+			name:      "limit zero returns metadata only",
+			toolCount: 30,
+			args:      map[string]any{"limit": 0},
+			wantTotal: 30, wantOffset: 0, wantLimit: 0, wantTools: 0, wantHasMore: false,
 		},
 		{
-			name:       "negative limit clamped to zero",
-			toolCount:  10,
-			args:       map[string]any{"limit": -5},
-			wantTotal:  10, wantOffset: 0, wantLimit: 0, wantTools: 0,
+			name:      "negative limit clamped to zero",
+			toolCount: 10,
+			args:      map[string]any{"limit": -5},
+			wantTotal: 10, wantOffset: 0, wantLimit: 0, wantTools: 0, wantHasMore: false,
 		},
 		{
-			name:       "negative offset clamped to zero",
-			toolCount:  10,
-			args:       map[string]any{"offset": -3, "limit": 5},
-			wantTotal:  10, wantOffset: 0, wantLimit: 5, wantTools: 5,
+			name:      "negative offset clamped to zero",
+			toolCount: 10,
+			args:      map[string]any{"offset": -3, "limit": 5},
+			wantTotal: 10, wantOffset: 0, wantLimit: 5, wantTools: 5, wantHasMore: true,
 		},
 		{
-			name:       "limit larger than total returns all",
-			toolCount:  5,
-			args:       map[string]any{"limit": 1000},
-			wantTotal:  5, wantOffset: 0, wantLimit: 1000, wantTools: 5,
+			name:      "limit larger than total returns all",
+			toolCount: 5,
+			args:      map[string]any{"limit": 1000},
+			wantTotal: 5, wantOffset: 0, wantLimit: 1000, wantTools: 5, wantHasMore: false,
+		},
+		{
+			name:      "last page has_more is false",
+			toolCount: 10,
+			args:      map[string]any{"offset": 5, "limit": 5},
+			wantTotal: 10, wantOffset: 5, wantLimit: 5, wantTools: 5, wantHasMore: false,
 		},
 	}
 
@@ -395,6 +404,7 @@ func TestHandleSearch_Pagination(t *testing.T) {
 			assert.Equal(t, tt.wantOffset, resp.Offset)
 			assert.Equal(t, tt.wantLimit, resp.Limit)
 			assert.Len(t, resp.Tools, tt.wantTools)
+			assert.Equal(t, tt.wantHasMore, resp.HasMore, "has_more")
 		})
 	}
 }
@@ -497,6 +507,86 @@ func TestHandleSearch_ResponseIncludesSummary(t *testing.T) {
 
 	resp := parseSearchResponse(t, result)
 	assert.Contains(t, resp.Summary, "5")
+}
+
+func TestHandleSearch_ResponseIncludesIntegrations(t *testing.T) {
+	alpha := &mockIntegration{
+		name:    "alpha",
+		healthy: true,
+		tools:   makeManyTools("alpha", 3),
+	}
+	beta := &mockIntegration{
+		name:    "beta",
+		healthy: true,
+		tools:   makeManyTools("beta", 2),
+	}
+	s := setupTestServer(alpha, beta)
+
+	t.Run("lists all enabled integrations", func(t *testing.T) {
+		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"limit": 10}))
+		require.NoError(t, err)
+
+		resp := parseSearchResponse(t, result)
+		assert.ElementsMatch(t, []string{"alpha", "beta"}, resp.Integrations)
+	})
+
+	t.Run("present even when query filters out all tools", func(t *testing.T) {
+		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+			"query": "nonexistent_tool_xyz",
+		}))
+		require.NoError(t, err)
+
+		resp := parseSearchResponse(t, result)
+		assert.ElementsMatch(t, []string{"alpha", "beta"}, resp.Integrations)
+		assert.Empty(t, resp.Tools)
+	})
+}
+
+// --- smoke test ---
+
+// TestSmoke_SearchResponseShape verifies the full search response contract
+// that LLM consumers depend on. If this test breaks, consumers will too.
+func TestSmoke_SearchResponseShape(t *testing.T) {
+	alpha := &mockIntegration{
+		name:    "alpha",
+		healthy: true,
+		tools:   makeManyTools("alpha", 10),
+	}
+	beta := &mockIntegration{
+		name:    "beta",
+		healthy: true,
+		tools:   makeManyTools("beta", 5),
+	}
+	s := setupTestServer(alpha, beta)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"limit":  3,
+		"offset": 0,
+	}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	// Parse raw JSON to verify every expected key exists.
+	tc, ok := result.Content[0].(*mcpsdk.TextContent)
+	require.True(t, ok)
+
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &raw))
+
+	expectedKeys := []string{"summary", "total", "offset", "limit", "has_more", "integrations", "tools"}
+	for _, key := range expectedKeys {
+		assert.Contains(t, raw, key, "response missing key %q", key)
+	}
+
+	// Parse typed response and verify field values.
+	resp := parseSearchResponse(t, result)
+	assert.Equal(t, 15, resp.Total)
+	assert.Equal(t, 0, resp.Offset)
+	assert.Equal(t, 3, resp.Limit)
+	assert.True(t, resp.HasMore)
+	assert.ElementsMatch(t, []string{"alpha", "beta"}, resp.Integrations)
+	assert.Len(t, resp.Tools, 3)
+	assert.Contains(t, resp.Summary, "15")
 }
 
 func TestToolResultJSON(t *testing.T) {
