@@ -82,6 +82,14 @@ the [GitHub Releases](https://github.com/daltoniam/switchboard/releases) page.
                                      └──────────────────────┘
 ```
 
+## Context Optimization
+
+API responses are large. A single GitHub issue carries ~100 fields (nested users, permissions, node IDs, avatar URLs) when an LLM needs ~10 to decide what to do next. Multiply by 30 issues per page and a list call can consume 150KB of context for information the model will never use.
+
+Switchboard solves this automatically. Integrations declare **compaction specs** that describe which fields matter for each tool. The server strips everything else after every `execute` call, before responses reach the LLM.
+
+List and search responses are compact by default. When the LLM identifies a specific item and calls a single-item `get` tool, it gets the full response back for drill-down.
+
 ## Quick Start
 
 ```bash

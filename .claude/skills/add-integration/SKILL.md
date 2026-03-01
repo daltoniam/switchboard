@@ -124,6 +124,41 @@ Follow `AGENTS.md > Adding a New Integration` steps 6-7 (register + config defau
 1. `go build ./...` && `go test ./...` && `go vet ./...` && `go tool golangci-lint run`
 2. Smoke test: start server, call `search` for new integration tools, `execute` one
 
+## 6. Field Compaction
+
+New adapters should implement `FieldCompactionIntegration` to keep list/search responses compact.
+
+**Contract vs implementation**: The interface contract is `CompactSpec(toolName string) ([]CompactField, bool)` defined in `mcp.go`. How you build the specs is an implementation detail — `github/compact_specs.go` uses a raw string map parsed at init, but adapters can construct `CompactField` slices however they want.
+
+### Token Budget Principle
+
+Optimize specs for **fewest total tokens across the entire task workflow**, not smallest single response. A field that prevents an N+1 drill-down saves ~5KB per item even if it costs 50 bytes in the compacted list. Distribution of tokens across 1 or N calls doesn't matter as long as N is small enough that network latency doesn't dominate timing. The goal is a finite minimum token budget for any given workflow — get as close to it as possible.
+
+**Example**: `requested_reviewers[].login` adds ~80 bytes per PR to the compacted list, but without it "which PRs need review?" requires a separate `list_requested_reviewers` call per PR (~3KB each). For 20 open PRs: +1.6KB in compacted list vs. +60KB in drill-down calls.
+
+### Checklist
+
+- [ ] Create `<name>/compact_specs.go` with `rawFieldCompactionSpecs` map and `mustBuildFieldCompactionSpecs` init (copy pattern from `github/compact_specs.go`)
+- [ ] Design field compaction specs using the spec design questions below
+- [ ] Add specs for all list/search tools — keep identifiers, names, states, dates, counts, URLs; drop nested full objects, permissions, avatars, node_ids
+- [ ] Implement `CompactSpec(toolName string) ([]CompactField, bool)` method on the adapter struct
+- [ ] Add compile-time assertion: `var _ mcp.FieldCompactionIntegration = (*myapi)(nil)`
+- [ ] Add `TestFieldCompactionSpecs_NoOrphanSpecs` — every spec key must exist in `dispatch`
+- [ ] Unwrap SDK list responses to the inner slice (e.g., `resp.Items` not `resp`) so field compaction operates on the array directly
+- [ ] Mutation tools (create/update/delete) should NOT have field compaction specs — return full confirmation responses
+
+### Spec Design Questions
+
+For each tool's spec, verify against these questions before finalizing:
+
+1. **Routing sufficiency**: Can the LLM decide which item to drill into from the compacted list alone? If it must open every item to answer "which PR broke the build?", the spec is missing a field.
+2. **Workflow gaps**: Trace common workflows (triage, review, debug CI). Does each workflow have the fields to complete without per-item get calls? Missing a field like `requested_reviewers` means "which PRs need review?" requires N extra calls.
+3. **Dead weight**: Would you only look at this field after already deciding to open the full record? If yes, drop it — it's noise in a list context. Also watch for **phantom fields** — fields that exist in SDK structs but are only populated by Get endpoints (e.g., `additions`/`deletions` on GitHub's List PRs API return 0/null).
+4. **Field dependencies**: Do included fields make sense alone? `status` without `conclusion` in CI runs is incomplete. `additions` without `deletions` in PRs is half the story. Include paired fields together or not at all.
+5. **Follow-up keys**: Does the LLM have the identifiers it needs to make follow-up API calls? Verify that `id`, `number`, or `sha` — whatever the get tool requires — is included.
+
+Canonical example: `github/compact_specs.go`
+
 ## Anti-Patterns
 
 | Mistake | Correct approach |
@@ -134,3 +169,5 @@ Follow `AGENTS.md > Adding a New Integration` steps 6-7 (register + config defau
 | Pre-building helpers before duplication | Wait for 3+ uses, then extract |
 | Duplicating AGENTS.md content in handlers | Read AGENTS.md for conventions |
 | Adding OAuth before basic auth works | Get token-based auth working first, add OAuth flow after |
+| Returning full SDK wrapper for lists | Unwrap to inner slice, declare compaction specs |
+| No default page size on list tools | Use sensible defaults (10-50 items) |
