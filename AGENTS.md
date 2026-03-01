@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, AWS, PostHog, PostgreSQL, ClickHouse behind one endpoint
+- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, Notion, AWS, PostHog, PostgreSQL, ClickHouse behind one endpoint
 - Two meta-tools only: **search** (discover operations) and **execute** (run them)
 - Hexagonal architecture (ports and adapters)
 - HTTP transport (streamable) + web config UI on same port
@@ -153,6 +153,15 @@ metabase/
   queries.go                 Native SQL query execution, card CRUD handlers
   dashboards.go              Dashboard CRUD, add-card-to-dashboard handlers
   collections.go             Collection CRUD, search handlers
+notion/
+  notion.go                  Notion integration adapter (core, dispatch, HTTP helpers)
+  tools.go                   Notion tool definitions (~24 tools)
+  data_sources.go            Database create, data sources read/update/query/templates, database retrieve handlers
+  pages.go                   Pages CRUD, move, property + convenience (getPageContent, createPageWithContent) handlers
+  blocks.go                  Blocks CRUD, children list/append handlers
+  search.go                  Search handler
+  users.go                   Users list, retrieve, get-self handlers
+  comments.go                Comments create, retrieve handlers
 aws/
   aws.go                     AWS integration adapter (core, dispatch, typed SDK clients, helpers)
   tools.go                   AWS tool definitions (~65 tools)
@@ -234,7 +243,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `aws/`, `posthog/`, `postgres/`, `clickhouse/` → `Integration`
+- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `notion/`, `aws/`, `posthog/`, `postgres/`, `clickhouse/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)
@@ -371,6 +380,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
   - Chrome extraction: LevelDB (`xoxc-*`) + encrypted SQLite cookies (`xoxd-*`, AES-128-CBC via Keychain)
   - Background refresh every 4h (`refresh.go`). Mutex-protected client (`s.getClient()`)
   - OAuth v2 flow (`oauth.go`) for web UI setup
+- **Notion**: Hand-rolled REST over `net/http`. Auth via `Authorization: Bearer <integration_secret>` (internal integration secret starting with `ntn_`). `Notion-Version: 2025-09-03` header on every request. Base URL defaults to `https://api.notion.com`. 24 tools covering databases, data sources, pages, blocks, search, users, comments + 2 convenience tools (`getPageContent` recursive block fetch, `createPageWithContent`). Path args escaped with `url.PathEscape()`. Response bodies capped at 10MB via `io.LimitReader`. **v2025-09-03 caveat**: data sources API is read-heavy — creation uses legacy `POST /v1/databases`, description updates require `PATCH /v1/databases/{id}`. Search filter uses `"data_source"` not `"database"`.
 - **AWS**: `aws-sdk-go-v2` official typed SDK. Auth via static credentials or default credential chain. Region defaults to `us-east-1`. Each service gets typed client via `<service>.NewFromConfig(cfg)`. Import aliased as `awsInt`
 - **ClickHouse**: `ClickHouse/clickhouse-go/v2` typed native driver. Auth via `ch.Auth{Username, Password}`. Supports TLS (`secure`/`skip_verify` config). Connection pooling built into driver. Dynamic column scanning via `reflect` for generic query results.
 
@@ -395,6 +405,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
   - `GET /integrations/linear/setup` — Linear OAuth (PKCE)
   - `GET /integrations/sentry/setup` — Sentry Device Flow OAuth
   - `GET /integrations/slack/setup` — Slack token extraction (Chrome auto-extract, manual browser snippet, direct entry)
+  - `GET /integrations/notion/setup` — Notion internal integration secret entry
 - All setup pages save credentials to both the integration config and any external token files
 
 ## Local Skills
@@ -406,7 +417,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 ## Gotchas
 
 - **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS also have `argInt64`, `argStrSlice`
-- **All ten adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Slack ~40, Postgres ~25, Metabase ~22, ClickHouse ~20
+- **All eleven adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Slack ~40, Postgres ~25, Notion ~24, Metabase ~22, ClickHouse ~20
 - **Linear is the only GraphQL adapter**. `gql()` helper, entity resolution (`resolveTeamID`, `resolveIssueID`), field fragment constants (`issueFields`, `projectFields`)
 - **AWS adapter uses `aws-sdk-go-v2`** — 11 typed service clients (S3, EC2, Lambda, IAM, CloudWatch, STS, ECS, SNS, SQS, DynamoDB, CloudFormation). Custom `unmarshalDynamoJSON` for DynamoDB AttributeValue marshalling. S3 `GetObject` capped at 10MB via `io.LimitReader`
 - **PostHog adapter uses hand-rolled REST HTTP**. ~50 tools covering projects, feature flags, cohorts, insights, persons, groups, annotations, dashboards, actions, events, experiments, and surveys. Auth via `Authorization: Bearer <api_key>` (personal API key starting with `phx_`). Base URL defaults to `https://us.posthog.com`; configurable for EU or self-hosted. Most deletes are soft deletes (PATCH with `deleted: true`).
