@@ -23,17 +23,16 @@ func getProfile(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRe
 
 func listMessages(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	params := map[string]string{
-		"q":                 argStr(args, "q"),
-		"maxResults":        argStr(args, "max_results"),
-		"pageToken":         argStr(args, "page_token"),
-		"includeSpamTrash":  argStr(args, "include_spam_trash"),
+		"q":                argStr(args, "q"),
+		"maxResults":       argStr(args, "max_results"),
+		"pageToken":        argStr(args, "page_token"),
+		"includeSpamTrash": argStr(args, "include_spam_trash"),
 	}
+	var multi map[string][]string
 	if ids := argStr(args, "label_ids"); ids != "" {
-		for _, id := range strings.Split(ids, ",") {
-			params["labelIds"] = strings.TrimSpace(id)
-		}
+		multi = map[string][]string{"labelIds": argStrSlice(args, "label_ids")}
 	}
-	q := queryEncode(params)
+	q := queryEncodeMulti(params, multi)
 	data, err := g.get(ctx, "/gmail/v1/users/%s/messages%s", user(args), q)
 	if err != nil {
 		return errResult(err)
@@ -76,7 +75,7 @@ func buildRawMessage(args map[string]any) string {
 	msg.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n")
 	msg.WriteString("\r\n")
 	msg.WriteString(body)
-	return base64.URLEncoding.EncodeToString([]byte(msg.String()))
+	return base64.RawURLEncoding.EncodeToString([]byte(msg.String()))
 }
 
 func sendMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -183,17 +182,15 @@ func listHistory(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 		"maxResults":     argStr(args, "max_results"),
 		"pageToken":      argStr(args, "page_token"),
 	}
+	var multi map[string][]string
 	if types := argStr(args, "history_types"); types != "" {
-		for _, t := range strings.Split(types, ",") {
-			params["historyTypes"] = strings.TrimSpace(t)
-		}
+		multi = map[string][]string{"historyTypes": argStrSlice(args, "history_types")}
 	}
-	q := queryEncode(params)
+	q := queryEncodeMulti(params, multi)
 	data, err := g.get(ctx, "/gmail/v1/users/%s/history%s", user(args), q)
 	if err != nil {
 		return errResult(err)
 	}
 	return rawResult(data)
 }
-
 

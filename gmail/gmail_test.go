@@ -244,6 +244,65 @@ func TestQueryEncode(t *testing.T) {
 	})
 }
 
+func TestQueryEncodeMulti(t *testing.T) {
+	t.Run("with repeated params", func(t *testing.T) {
+		result := queryEncodeMulti(
+			map[string]string{"q": "is:unread"},
+			map[string][]string{"labelIds": {"INBOX", "STARRED"}},
+		)
+		assert.Contains(t, result, "q=is%3Aunread")
+		assert.Contains(t, result, "labelIds=INBOX")
+		assert.Contains(t, result, "labelIds=STARRED")
+	})
+
+	t.Run("nil multi", func(t *testing.T) {
+		result := queryEncodeMulti(map[string]string{"key": "val"}, nil)
+		assert.Equal(t, "?key=val", result)
+	})
+
+	t.Run("all empty", func(t *testing.T) {
+		result := queryEncodeMulti(map[string]string{}, nil)
+		assert.Empty(t, result)
+	})
+}
+
+func TestListMessages_MultipleLabels(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		labelIDs := r.URL.Query()["labelIds"]
+		assert.Len(t, labelIDs, 2, "should have 2 labelIds query params")
+		assert.Contains(t, labelIDs, "INBOX")
+		assert.Contains(t, labelIDs, "STARRED")
+		_, _ = w.Write([]byte(`{"messages":[]}`))
+	}))
+	defer ts.Close()
+
+	g := &gmail{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := g.Execute(context.Background(), "gmail_list_messages", map[string]any{
+		"label_ids": "INBOX,STARRED",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestListHistory_MultipleTypes(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		types := r.URL.Query()["historyTypes"]
+		assert.Len(t, types, 2, "should have 2 historyTypes query params")
+		assert.Contains(t, types, "messageAdded")
+		assert.Contains(t, types, "labelAdded")
+		_, _ = w.Write([]byte(`{"history":[]}`))
+	}))
+	defer ts.Close()
+
+	g := &gmail{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := g.Execute(context.Background(), "gmail_list_history", map[string]any{
+		"start_history_id": "12345",
+		"history_types":    "messageAdded,labelAdded",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
 func TestUser(t *testing.T) {
 	assert.Equal(t, "me", user(map[string]any{}))
 	assert.Equal(t, "user@example.com", user(map[string]any{"user_id": "user@example.com"}))
@@ -279,6 +338,7 @@ func TestBuildRawMessage(t *testing.T) {
 			"body":    "World",
 		})
 		assert.NotEmpty(t, raw)
+		assert.NotContains(t, raw, "=", "base64url must not contain padding")
 	})
 
 	t.Run("raw passthrough", func(t *testing.T) {

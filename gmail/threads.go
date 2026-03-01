@@ -3,7 +3,6 @@ package gmail
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -15,12 +14,11 @@ func listThreads(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 		"pageToken":        argStr(args, "page_token"),
 		"includeSpamTrash": argStr(args, "include_spam_trash"),
 	}
+	var multi map[string][]string
 	if ids := argStr(args, "label_ids"); ids != "" {
-		for _, id := range strings.Split(ids, ",") {
-			params["labelIds"] = strings.TrimSpace(id)
-		}
+		multi = map[string][]string{"labelIds": argStrSlice(args, "label_ids")}
 	}
-	q := queryEncode(params)
+	q := queryEncodeMulti(params, multi)
 	data, err := g.get(ctx, "/gmail/v1/users/%s/threads%s", user(args), q)
 	if err != nil {
 		return errResult(err)
