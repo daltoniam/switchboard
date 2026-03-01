@@ -16,6 +16,7 @@ import (
 )
 
 const defaultSearchLimit = 20
+const maxResponseBytes = 50 * 1024 // 50KB
 
 // Server wraps the MCP SDK server and exposes search/execute tools.
 type Server struct {
@@ -84,6 +85,10 @@ Use the search tool first to discover available tools and their parameters.
 
 The tool_name must exactly match a tool returned by search. Arguments are
 passed as a JSON object matching the tool's parameter schema.
+
+List and search responses are automatically compacted to essential fields.
+Use single-item get tools (e.g., github_get_issue) for full detail.
+Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
 
 Examples:
 - {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go", "state": "open"}}
@@ -271,29 +276,72 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		args.Arguments = map[string]any{}
 	}
 
+	integration, found := s.findIntegration(args.ToolName)
+	if !found {
+		return errorResult(fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", args.ToolName)), nil
+	}
+
+	result, err := integration.Execute(ctx, args.ToolName, args.Arguments)
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
+
+	if result.IsError {
+		return &mcpsdk.CallToolResult{
+			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
+			IsError: true,
+		}, nil
+	}
+
+	result.Data = compactResult(integration, args.ToolName, result.Data)
+
+	if len(result.Data) > maxResponseBytes {
+		return errorResult(fmt.Sprintf(
+			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
+			maxResponseBytes/1024,
+			len(result.Data)/1024,
+		)), nil
+	}
+
+	return &mcpsdk.CallToolResult{
+		Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
+	}, nil
+}
+
+// findIntegration returns the integration that owns toolName, or false if not found.
+func (s *Server) findIntegration(toolName string) (mcp.Integration, bool) {
 	for _, name := range s.services.Config.EnabledIntegrations() {
 		integration, ok := s.services.Registry.Get(name)
 		if !ok {
 			continue
 		}
-
 		for _, tool := range integration.Tools() {
-			if tool.Name == args.ToolName {
-				result, err := integration.Execute(ctx, args.ToolName, args.Arguments)
-				if err != nil {
-					return errorResult(err.Error()), nil
-				}
-				return &mcpsdk.CallToolResult{
-					Content: []mcpsdk.Content{
-						&mcpsdk.TextContent{Text: result.Data},
-					},
-					IsError: result.IsError,
-				}, nil
+			if tool.Name == toolName {
+				return integration, true
 			}
 		}
 	}
+	return nil, false
+}
 
-	return errorResult(fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", args.ToolName)), nil
+// compactResult applies field compaction if the integration opts in.
+// Returns the original data unchanged if the integration doesn't implement
+// FieldCompactionIntegration, returns nil specs, or compaction fails.
+func compactResult(integration mcp.Integration, toolName string, data string) string {
+	pi, ok := integration.(mcp.FieldCompactionIntegration)
+	if !ok {
+		return data
+	}
+	fields, ok := pi.CompactSpec(toolName)
+	if !ok {
+		return data
+	}
+	compacted, err := mcp.CompactJSON([]byte(data), fields)
+	if err != nil {
+		slog.Warn("compaction failed, returning full response", "tool", toolName, "err", err)
+		return data
+	}
+	return string(compacted)
 }
 
 // Handler returns an http.Handler that serves MCP over streamable HTTP transport.

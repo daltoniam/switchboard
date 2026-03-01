@@ -69,6 +69,16 @@ type Integration interface {
 	Healthy(ctx context.Context) bool
 }
 
+// FieldCompactionIntegration is an optional interface that integrations can implement
+// to declare field compaction specs for tool responses. The server applies
+// field compaction automatically after Execute, reducing context usage for LLM consumers.
+type FieldCompactionIntegration interface {
+	// CompactSpec returns pre-parsed field compaction specs for a tool.
+	// Returns false if the tool has no specs (skip compaction).
+	// Adapters should parse specs once at init time via ParseCompactSpecs.
+	CompactSpec(toolName string) ([]CompactField, bool)
+}
+
 // ConfigService manages loading and saving configuration.
 type ConfigService interface {
 	Load() error

@@ -589,6 +589,195 @@ func TestSmoke_SearchResponseShape(t *testing.T) {
 	assert.Contains(t, resp.Summary, "15")
 }
 
+// --- compaction integration mock ---
+
+type mockFieldCompactionIntegration struct {
+	mockIntegration
+	specs map[string][]mcp.CompactField
+}
+
+func (m *mockFieldCompactionIntegration) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := m.specs[toolName]
+	return fields, ok
+}
+
+// executeRequest builds a CallToolRequest for handleExecute.
+func executeRequest(toolName string, args map[string]any) *mcpsdk.CallToolRequest {
+	data, _ := json.Marshal(map[string]any{
+		"tool_name": toolName,
+		"arguments": args,
+	})
+	return &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "execute",
+			Arguments: json.RawMessage(data),
+		},
+	}
+}
+
+func mustParseCompactSpecs(t *testing.T, specs []string) []mcp.CompactField {
+	t.Helper()
+	fields, err := mcp.ParseCompactSpecs(specs)
+	require.NoError(t, err)
+	return fields
+}
+
+func TestHandleExecute_CompactionApplied(t *testing.T) {
+	mi := &mockFieldCompactionIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "testint_list_items", Description: "List items"},
+			},
+			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: `[{"id":1,"name":"foo","secret":"hidden"},{"id":2,"name":"bar","secret":"also hidden"}]`}, nil
+			},
+		},
+		specs: map[string][]mcp.CompactField{
+			"testint_list_items": mustParseCompactSpecs(t, []string{"id", "name"}),
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	// Re-register with the compaction-aware mock.
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_list_items", nil))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	var items []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &items))
+	assert.Len(t, items, 2)
+	assert.Equal(t, float64(1), items[0]["id"])
+	assert.Equal(t, "foo", items[0]["name"])
+	assert.NotContains(t, items[0], "secret", "compaction should remove unlisted fields")
+}
+
+func TestHandleExecute_CompactionSkippedWhenNotImplemented(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_get_item", Description: "Get item"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `{"id":1,"secret":"visible"}`}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_get_item", nil))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Contains(t, tc.Text, "secret", "non-compact integration should return full response")
+}
+
+func TestHandleExecute_CompactionSkippedOnNilSpec(t *testing.T) {
+	mi := &mockFieldCompactionIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "testint_create_item", Description: "Create item"},
+			},
+			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: `{"id":1,"all_fields":"present"}`}, nil
+			},
+		},
+		specs: map[string][]mcp.CompactField{}, // no spec for testint_create_item
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_create_item", nil))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Contains(t, tc.Text, "all_fields", "nil spec should pass response through unchanged")
+}
+
+func TestHandleExecute_CompactionSkippedOnErrorResult(t *testing.T) {
+	mi := &mockFieldCompactionIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "testint_list_items", Description: "List items"},
+			},
+			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: "API rate limit exceeded", IsError: true}, nil
+			},
+		},
+		specs: map[string][]mcp.CompactField{
+			"testint_list_items": mustParseCompactSpecs(t, []string{"id", "name"}),
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_list_items", nil))
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Equal(t, "API rate limit exceeded", tc.Text, "error results should not be compacted")
+}
+
+func TestHandleExecute_ByteCapEnforced(t *testing.T) {
+	// Generate a response over 50KB.
+	bigData := `{"data":"` + string(make([]byte, 60*1024)) + `"}`
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_big", Description: "Returns huge data"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: bigData}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_big", nil))
+	require.NoError(t, err)
+	assert.True(t, result.IsError, "over-cap response should return error")
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	capKB := fmt.Sprintf("%dKB", maxResponseBytes/1024)
+	assert.Contains(t, tc.Text, capKB)
+}
+
+func TestHandleExecute_ByteCapSkippedOnError(t *testing.T) {
+	bigErr := string(make([]byte, 60*1024))
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_big_err", Description: "Returns huge error"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: bigErr, IsError: true}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_big_err", nil))
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	capKB := fmt.Sprintf("%dKB", maxResponseBytes/1024)
+	assert.NotContains(t, tc.Text, capKB, "error results should skip byte cap")
+}
+
 func TestToolResultJSON(t *testing.T) {
 	result := &mcp.ToolResult{Data: `{"count":5}`, IsError: false}
 	data, err := json.Marshal(result)
