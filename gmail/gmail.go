@@ -223,6 +223,24 @@ func queryEncode(params map[string]string) string {
 	return "?" + vals.Encode()
 }
 
+func queryEncodeMulti(params map[string]string, multi map[string][]string) string {
+	vals := url.Values{}
+	for k, v := range params {
+		if v != "" {
+			vals.Set(k, v)
+		}
+	}
+	for k, vs := range multi {
+		for _, v := range vs {
+			vals.Add(k, v)
+		}
+	}
+	if len(vals) == 0 {
+		return ""
+	}
+	return "?" + vals.Encode()
+}
+
 // user returns the userId from args, falling back to "me".
 func user(args map[string]any) string {
 	if v := argStr(args, "user_id"); v != "" {
