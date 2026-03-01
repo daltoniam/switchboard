@@ -65,6 +65,7 @@ make generate
 2. **New code must include tests**
 3. **TDD**: write failing test before implementation, verify it fails for the right reason, then write minimal code to pass
 4. **Table-driven tests**: use `t.Run` subtests when 3+ cases share the same assert structure. Keep standalone tests for cases with unique setup or assertions
+5. **MCP smoke test** — `TestSmoke_SearchResponseShape` in `server/server_test.go` validates the full response contract. Runs as part of `make test`.
 
 ## Git Workflow
 
