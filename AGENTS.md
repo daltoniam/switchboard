@@ -15,7 +15,7 @@
 | Test | `go test ./...` | `make test` |
 | Test + race | `go test -race -coverprofile=coverage.out ./...` | `make test-race` |
 | Vet | `go vet ./...` | `make vet` |
-| Lint | `golangci-lint run` | `make lint` |
+| Lint | `go tool golangci-lint run` | `make lint` |
 | Security scan | `go tool gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704 ./...` | `make gosec` |
 | Vuln check | `go tool govulncheck ./...` | `make govulncheck` |
 | All security | gosec + govulncheck | `make security` |

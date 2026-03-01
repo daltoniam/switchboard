@@ -56,9 +56,7 @@ jobs:
           go-version-file: go.mod
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: latest
+        run: go tool golangci-lint run
 
   security:
     runs-on: ubuntu-latest

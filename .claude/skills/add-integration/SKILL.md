@@ -121,7 +121,7 @@ Every adapter must have these test categories (see existing `*_test.go` files):
 
 Follow `AGENTS.md > Adding a New Integration` steps 6-7 (register + config defaults), then verify:
 
-1. `go build ./...` && `go test ./...` && `go vet ./...` && `golangci-lint run`
+1. `go build ./...` && `go test ./...` && `go vet ./...` && `go tool golangci-lint run`
 2. Smoke test: start server, call `search` for new integration tools, `execute` one
 
 ## Anti-Patterns
