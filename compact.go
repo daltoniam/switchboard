@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// CompactField is a parsed compaction spec — parse once via ParseCompactSpecs,
+// CompactField is a parsed field compaction spec — parse once via ParseCompactSpecs,
 // then pass to CompactJSON on each request.
 type CompactField struct {
 	path      []string // e.g. ["user", "login"] or ["labels[]", "name"]
@@ -83,7 +83,7 @@ func parseCompactSpec(spec string) (CompactField, error) {
 	}, nil
 }
 
-// CompactJSON projects JSON data down to the specified fields.
+// CompactJSON applies field compaction to JSON data, keeping only the specified fields.
 // Nil or empty fields returns data unchanged. Handles both objects and arrays.
 func CompactJSON(data []byte, fields []CompactField) ([]byte, error) {
 	if len(data) == 0 || len(fields) == 0 {
@@ -94,24 +94,18 @@ func CompactJSON(data []byte, fields []CompactField) ([]byte, error) {
 	case '[':
 		return compactArray(data, fields)
 	case '{':
-		return compactObject(data, fields)
+		var obj map[string]any
+		if err := json.Unmarshal(data, &obj); err != nil {
+			return nil, fmt.Errorf("compactJSON: %w", err)
+		}
+		return json.Marshal(compactObject(obj, fields))
 	default:
 		return nil, fmt.Errorf("compactJSON: expected JSON object or array, got %q", data[0])
 	}
 }
 
-// compactObject unmarshals a single JSON object and projects it down to the specified fields.
-func compactObject(data []byte, fields []CompactField) ([]byte, error) {
-	var obj map[string]any
-	if err := json.Unmarshal(data, &obj); err != nil {
-		return nil, fmt.Errorf("compactJSON: %w", err)
-	}
-
-	return json.Marshal(projectObject(obj, fields))
-}
-
-// projectObject projects an already-unmarshalled object down to the specified fields.
-func projectObject(obj map[string]any, fields []CompactField) map[string]any {
+// compactObject keeps only the specified fields from an unmarshalled object.
+func compactObject(obj map[string]any, fields []CompactField) map[string]any {
 	out := make(map[string]any, len(fields))
 	for _, f := range fields {
 		val, ok := extractField(obj, f)
@@ -123,7 +117,7 @@ func projectObject(obj map[string]any, fields []CompactField) map[string]any {
 	return out
 }
 
-// compactArray maps projection over each element in a JSON array.
+// compactArray applies field compaction to each element in a JSON array.
 // Unmarshals once into []any to avoid per-element unmarshal overhead.
 func compactArray(data []byte, fields []CompactField) ([]byte, error) {
 	var arr []any
@@ -138,7 +132,7 @@ func compactArray(data []byte, fields []CompactField) ([]byte, error) {
 			result = append(result, elem) // preserve non-object elements unchanged
 			continue
 		}
-		result = append(result, projectObject(obj, fields))
+		result = append(result, compactObject(obj, fields))
 	}
 
 	return json.Marshal(result)
