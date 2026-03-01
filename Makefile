@@ -27,7 +27,7 @@ vet: ## Run go vet
 	go vet ./...
 
 lint: ## Run golangci-lint
-	golangci-lint run
+	go tool golangci-lint run
 
 gosec: ## Run security scanner
 	go tool gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704 ./...
