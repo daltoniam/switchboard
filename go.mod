@@ -20,6 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sns v1.39.12
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.22
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.7
+	github.com/dop251/goja v0.0.0-20260226184354-913bd86fb70c
 	github.com/go-sqlite/sqlite3 v0.0.0-20180313105335-53dd8e640ee7
 	github.com/google/go-github/v68 v68.0.0
 	github.com/lib/pq v1.11.2
@@ -122,6 +123,7 @@ require (
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-toolsmith/astcast v1.1.0 // indirect
 	github.com/go-toolsmith/astcopy v1.1.0 // indirect
 	github.com/go-toolsmith/astequal v1.2.0 // indirect
@@ -152,6 +154,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
+	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
