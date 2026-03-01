@@ -1,17 +1,18 @@
 .PHONY: build generate test test-race vet lint security gosec govulncheck ci clean help
 
-BIN := switchboard
+BIN := dist/switchboard
 
 ## Build
 
 build: ## Build the binary
+	@mkdir -p dist
 	go build -o $(BIN) ./cmd/server
 
 generate: ## Generate templ templates
 	go generate .
 
 clean: ## Remove build artifacts
-	rm -f $(BIN) coverage.out
+	rm -rf dist/ coverage.out
 
 ## Test
 
