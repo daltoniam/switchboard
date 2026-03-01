@@ -85,7 +85,7 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"host": "", "port": "", "username": "", "password": "", "database": "", "secure": "", "skip_verify": ""},
 			},
-"pganalyze": {
+			"pganalyze": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "organization_slug": ""},
 			},
@@ -95,7 +95,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"gmail": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", "client_id": "", "client_secret": "", "base_url": "", "token_source": ""},
 			},
 		},
 	}
