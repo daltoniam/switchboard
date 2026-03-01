@@ -20,6 +20,7 @@ import (
 	"github.com/daltoniam/switchboard/github"
 	"github.com/daltoniam/switchboard/linear"
 	"github.com/daltoniam/switchboard/metabase"
+	"github.com/daltoniam/switchboard/notion"
 	"github.com/daltoniam/switchboard/posthog"
 	"github.com/daltoniam/switchboard/postgres"
 	"github.com/daltoniam/switchboard/registry"
@@ -171,6 +172,7 @@ func runServer(stdioMode bool, port int) {
 		sentry.New(),
 		slackInt.New(),
 		metabase.New(),
+		notion.New(),
 		awsInt.New(),
 		posthog.New(),
 		postgres.New(),

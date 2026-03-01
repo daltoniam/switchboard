@@ -55,6 +55,9 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/linear/oauth/poll", w.handleLinearOAuthPoll)
 	mux.HandleFunc("POST /api/linear/save-token", w.handleLinearSaveToken)
 
+	mux.HandleFunc("GET /integrations/notion/setup", w.handleNotionSetup)
+	mux.HandleFunc("POST /api/notion/save-token", w.handleNotionSaveToken)
+
 	mux.HandleFunc("GET /integrations/sentry/setup", w.handleSentrySetup)
 	mux.HandleFunc("POST /api/sentry/oauth/start", w.handleSentryOAuthStart)
 	mux.HandleFunc("GET /api/sentry/oauth/poll", w.handleSentryOAuthPoll)
@@ -154,6 +157,7 @@ var setupIntegrations = map[string]bool{
 	"github": true,
 	"linear": true,
 	"sentry": true,
+	"notion": true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
@@ -555,6 +559,59 @@ func (w *WebServer) handleLinearSaveToken(rw http.ResponseWriter, r *http.Reques
 	_ = w.services.Config.SetIntegration("linear", ic)
 
 	http.Redirect(rw, r, "/integrations/linear/setup?result=API+key+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("notion")
+	hasToken := exists && ic.Credentials["integration_secret"] != ""
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("notion")
+		if ok {
+			if err := integration.Configure(ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	page := w.pageData(r, "Notion Setup", "/integrations")
+	data := pages.NotionSetupData{
+		HasToken: hasToken,
+		Healthy:  healthy,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.NotionSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleNotionSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/notion/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	secret := strings.TrimSpace(r.FormValue("integration_secret"))
+	if secret == "" {
+		http.Redirect(rw, r, "/integrations/notion/setup?error=Integration+secret+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("notion")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["integration_secret"] = secret
+	_ = w.services.Config.SetIntegration("notion", ic)
+
+	http.Redirect(rw, r, "/integrations/notion/setup?result=Integration+secret+saved+successfully", http.StatusSeeOther)
 }
 
 func (w *WebServer) handleSentrySetup(rw http.ResponseWriter, r *http.Request) {
