@@ -18,6 +18,7 @@ import (
 	"github.com/daltoniam/switchboard/daemon"
 	"github.com/daltoniam/switchboard/datadog"
 	"github.com/daltoniam/switchboard/github"
+	gmailInt "github.com/daltoniam/switchboard/gmail"
 	"github.com/daltoniam/switchboard/linear"
 	"github.com/daltoniam/switchboard/metabase"
 	"github.com/daltoniam/switchboard/posthog"
@@ -175,6 +176,7 @@ func runServer(stdioMode bool, port int) {
 		posthog.New(),
 		postgres.New(),
 		clickhouse.New(),
+		gmailInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
