@@ -66,9 +66,12 @@ func TestParseCompactSpec(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "multiple array brackets",
-			spec:    "items[].labels[].name",
-			wantErr: true,
+			name: "nested array brackets",
+			spec: "items[].labels[].name",
+			want: CompactField{
+				path: []string{"items[]", "labels[]", "name"}, outputKey: "items",
+				arrayIdx: 0, arrayKey: "items", childPath: []string{"labels[]", "name"},
+			},
 		},
 	}
 
@@ -255,6 +258,84 @@ func TestCompactJSON_Array(t *testing.T) {
 	}
 }
 
+func TestCompactJSON_MultiFieldArray(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		specs []string
+		want  string
+	}{
+		{
+			name:  "two fields from same array parent produce sub-objects",
+			input: `{"id":1,"steps":[{"name":"Build","conclusion":"success","number":1},{"name":"Test","conclusion":"failure","number":2}]}`,
+			specs: []string{"id", "steps[].name", "steps[].conclusion"},
+			want:  `{"id":1,"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]}`,
+		},
+		{
+			name:  "single field from array still produces flat scalars",
+			input: `{"id":1,"labels":[{"name":"bug","color":"red"},{"name":"P1","color":"blue"}]}`,
+			specs: []string{"id", "labels[].name"},
+			want:  `{"id":1,"labels":["bug","P1"]}`,
+		},
+		{
+			name:  "nested array parent navigates to array",
+			input: `{"repo":{"labels":[{"name":"bug","color":"red"},{"name":"P1","color":"blue"}]},"id":1}`,
+			specs: []string{"id", "repo.labels[].name"},
+			want:  `{"id":1,"labels":["bug","P1"]}`,
+		},
+		{
+			name:  "multi-field from nested array parent",
+			input: `{"payload":{"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]},"id":1}`,
+			specs: []string{"id", "payload.steps[].name", "payload.steps[].conclusion"},
+			want:  `{"id":1,"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]}`,
+		},
+		{
+			name:  "multi-field array idempotent",
+			input: `{"id":1,"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]}`,
+			specs: []string{"id", "steps[].name", "steps[].conclusion"},
+			want:  `{"id":1,"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]}`,
+		},
+		{
+			name: "nested array within multi-field group",
+			input: `{"total_count":2,"items":[
+				{"number":1,"labels":[{"name":"bug"},{"name":"P1"}],"title":"fix it"},
+				{"number":2,"labels":[{"name":"feat"}],"title":"add it"}
+			]}`,
+			specs: []string{"total_count", "items[].number", "items[].title", "items[].labels[].name"},
+			want:  `{"total_count":2,"items":[{"number":1,"title":"fix it","labels":["bug","P1"]},{"number":2,"title":"add it","labels":["feat"]}]}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, err := ParseCompactSpecs(tt.specs)
+			require.NoError(t, err)
+
+			got, err := CompactJSON([]byte(tt.input), fields)
+			require.NoError(t, err)
+
+			var wantVal, gotVal any
+			require.NoError(t, json.Unmarshal([]byte(tt.want), &wantVal))
+			require.NoError(t, json.Unmarshal(got, &gotVal))
+			assert.Equal(t, wantVal, gotVal)
+		})
+	}
+}
+
+func TestCompactJSON_LeadingWhitespace(t *testing.T) {
+	fields, err := ParseCompactSpecs([]string{"number", "title"})
+	require.NoError(t, err)
+
+	input := []byte(`  {"number":1,"title":"bug","body":"long"}`)
+	got, err := CompactJSON(input, fields)
+	require.NoError(t, err)
+
+	var wantVal, gotVal any
+	require.NoError(t, json.Unmarshal([]byte(`{"number":1,"title":"bug"}`), &wantVal))
+	require.NoError(t, json.Unmarshal(got, &gotVal))
+	assert.Equal(t, wantVal, gotVal)
+}
+
 func TestCompactJSON_Idempotent(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -280,6 +361,11 @@ func TestCompactJSON_Idempotent(t *testing.T) {
 			name:  "mixed simple and nested",
 			input: `{"title":"bug","state":"open","user":{"login":"alice"},"labels":[{"name":"P1"},{"name":"bug"}]}`,
 			specs: []string{"title", "state", "user.login", "labels[].name"},
+		},
+		{
+			name:  "multi-field array extraction survives second pass",
+			input: `{"id":1,"steps":[{"name":"Build","conclusion":"success","number":1},{"name":"Test","conclusion":"failure","number":2}]}`,
+			specs: []string{"id", "steps[].name", "steps[].conclusion"},
 		},
 	}
 

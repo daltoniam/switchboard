@@ -21,6 +21,17 @@ var userListFields = []string{"login", "html_url", "type"}
 
 var secretListFields = []string{"name", "created_at", "updated_at"}
 
+// itemsPrefix wraps field specs with "items[]." for search result compaction.
+// Search responses are {"total_count": N, "items": [...]}, so per-item specs
+// need the items[] prefix to target elements inside the wrapper.
+func itemsPrefix(fields []string) []string {
+	out := make([]string, len(fields))
+	for i, f := range fields {
+		out[i] = "items[]." + f
+	}
+	return out
+}
+
 // rawFieldCompactionSpecs maps tool names to dot-notation field compaction specs.
 // Only list/search tools get specs — get tools return full detail,
 // mutation tools return confirmation responses.
@@ -176,17 +187,19 @@ var rawFieldCompactionSpecs = map[string][]string{
 	},
 
 	// ── Search ───────────────────────────────────────────────────────
-	"github_search_repos": repoListFields,
-	"github_search_issues": {
+	// Search responses are {"total_count": N, "items": [...]}.
+	// Items use items[].field prefix; nested arrays use items[].labels[].name.
+	"github_search_repos": append([]string{"total_count"}, itemsPrefix(repoListFields)...),
+	"github_search_issues": append([]string{"total_count"}, itemsPrefix([]string{
 		"number", "title", "state", "html_url", "created_at", "updated_at",
 		"comments", "user.login", "labels[].name", "assignees[].login",
 		"milestone.title", "repository.full_name",
-	},
-	"github_search_code": {
+	})...),
+	"github_search_code": append([]string{"total_count"}, itemsPrefix([]string{
 		"repository.full_name", "path", "name", "html_url",
-	},
-	"github_search_users": userListFields,
-	"github_search_commits": append(commitListFields, "repository.full_name"),
+	})...),
+	"github_search_users":   append([]string{"total_count"}, itemsPrefix(userListFields)...),
+	"github_search_commits": append([]string{"total_count"}, itemsPrefix(append(commitListFields, "repository.full_name"))...),
 
 	// ── Webhooks ──────────────────────────────────────────────────────
 	"github_list_hooks":       {"id", "name", "active", "config.url", "events", "updated_at"},
@@ -208,3 +221,4 @@ func mustBuildFieldCompactionSpecs(raw map[string][]string) map[string][]mcp.Com
 	}
 	return parsed
 }
+

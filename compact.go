@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -55,7 +56,7 @@ func parseCompactSpec(spec string) (CompactField, error) {
 			return CompactField{}, fmt.Errorf("compact spec: %q ends with [] (need a child field)", spec)
 		}
 		if arrayIdx >= 0 {
-			return CompactField{}, fmt.Errorf("compact spec: %q has multiple [] (nested array traversal not supported)", spec)
+			continue // nested [] handled at extraction time
 		}
 		arrayIdx = i
 	}
@@ -90,13 +91,18 @@ func CompactJSON(data []byte, fields []CompactField) ([]byte, error) {
 		return data, nil
 	}
 
-	switch data[0] {
+	trimmed := bytes.TrimLeft(data, " \t\n\r")
+	if len(trimmed) == 0 {
+		return data, nil
+	}
+
+	switch trimmed[0] {
 	case '[':
 		return compactArray(data, fields)
 	case '{':
 		return compactObjectJSON(data, fields)
 	default:
-		return nil, fmt.Errorf("compactJSON: expected JSON object or array, got %q", data[0])
+		return nil, fmt.Errorf("compactJSON: expected JSON object or array, got %q", trimmed[0])
 	}
 }
 
@@ -110,15 +116,38 @@ func compactObjectJSON(data []byte, fields []CompactField) ([]byte, error) {
 }
 
 // compactObject keeps only the specified fields from an unmarshalled object.
+// Groups array fields by outputKey so multiple child specs on the same parent
+// (e.g. steps[].name + steps[].conclusion) produce sub-objects, not overwrites.
 func compactObject(obj map[string]any, fields []CompactField) map[string]any {
 	out := make(map[string]any, len(fields))
+
+	// Group array fields by outputKey to detect multi-field specs.
+	arrayGroups := map[string][]CompactField{}
 	for _, f := range fields {
+		if f.arrayIdx >= 0 {
+			arrayGroups[f.outputKey] = append(arrayGroups[f.outputKey], f)
+			continue
+		}
 		val, ok := extractField(obj, f)
 		if !ok {
 			continue
 		}
 		out[f.outputKey] = val
 	}
+
+	for key, group := range arrayGroups {
+		var val any
+		var ok bool
+		if len(group) == 1 {
+			val, ok = extractArrayField(obj, group[0])
+		} else {
+			val, ok = extractArrayFieldGroup(obj, group)
+		}
+		if ok {
+			out[key] = val
+		}
+	}
+
 	return out
 }
 
@@ -164,15 +193,43 @@ func extractField(obj map[string]any, f CompactField) (any, bool) {
 	return navigateToLeaf(obj, f.path)
 }
 
-// extractArrayField handles "labels[].name" specs — plucks a field from each array element.
-// Uses precomputed arrayKey and childPath to avoid per-call string ops.
-func extractArrayField(obj map[string]any, f CompactField) (any, bool) {
-	raw, ok := obj[f.arrayKey]
+// navigateToArray walks path segments before arrayIdx to reach the object
+// containing the array, then returns the array. Handles both flat (labels[])
+// and nested (repo.labels[]) array parents.
+func navigateToArray(obj map[string]any, f CompactField) ([]any, bool) {
+	current := obj
+	for i := 0; i < f.arrayIdx; i++ {
+		next, ok := current[f.path[i]]
+		if !ok {
+			return nil, false
+		}
+		nested, ok := next.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current = nested
+	}
+
+	raw, ok := current[f.arrayKey]
 	if !ok {
 		return nil, false
 	}
-
 	arr, ok := raw.([]any)
+	if !ok {
+		return nil, false
+	}
+	return arr, true
+}
+
+// extractArrayField handles "labels[].name" specs — plucks a single field from each array element.
+// For nested arrays (labels[].name where childPath has no []), produces flat scalars.
+// For childPaths containing [], delegates to group extraction.
+func extractArrayField(obj map[string]any, f CompactField) (any, bool) {
+	if hasNestedArray(f.childPath) {
+		return extractArrayFieldGroup(obj, []CompactField{f})
+	}
+
+	arr, ok := navigateToArray(obj, f)
 	if !ok {
 		return nil, false
 	}
@@ -193,6 +250,108 @@ func extractArrayField(obj map[string]any, f CompactField) (any, bool) {
 	}
 
 	return result, true
+}
+
+// extractArrayFieldGroup handles multiple specs on the same array parent
+// (e.g. steps[].name + steps[].conclusion) — produces sub-objects per element.
+// Also handles nested array specs (e.g. items[].labels[].name).
+func extractArrayFieldGroup(obj map[string]any, fields []CompactField) (any, bool) {
+	arr, ok := navigateToArray(obj, fields[0])
+	if !ok {
+		return nil, false
+	}
+
+	result := make([]any, 0, len(arr))
+	for _, elem := range arr {
+		elemObj, ok := elem.(map[string]any)
+		if !ok {
+			// Already a sub-object from a previous pass — preserve for idempotence.
+			result = append(result, elem)
+			continue
+		}
+		sub := make(map[string]any, len(fields))
+		for _, f := range fields {
+			key, val, ok := extractChildValue(elemObj, f.childPath)
+			if ok {
+				sub[key] = val
+			}
+		}
+		if len(sub) > 0 {
+			result = append(result, sub)
+		}
+	}
+
+	return result, true
+}
+
+// extractChildValue extracts a value from an object following a child path.
+// Handles simple paths ("name"), nested paths ("user.login"), and nested
+// array paths ("labels[].name") within the child path.
+func extractChildValue(obj map[string]any, childPath []string) (string, any, bool) {
+	// Find nested [] in childPath.
+	for i, p := range childPath {
+		if !strings.HasSuffix(p, "[]") {
+			continue
+		}
+
+		// Navigate to the nested array parent.
+		current := obj
+		for j := 0; j < i; j++ {
+			next, ok := current[childPath[j]]
+			if !ok {
+				return "", nil, false
+			}
+			nested, ok := next.(map[string]any)
+			if !ok {
+				return "", nil, false
+			}
+			current = nested
+		}
+
+		arrayKey := strings.TrimSuffix(p, "[]")
+		raw, ok := current[arrayKey]
+		if !ok {
+			return "", nil, false
+		}
+		arr, ok := raw.([]any)
+		if !ok {
+			return "", nil, false
+		}
+
+		// Extract from each element using the remaining path.
+		remaining := childPath[i+1:]
+		extracted := make([]any, 0, len(arr))
+		for _, elem := range arr {
+			elemObj, ok := elem.(map[string]any)
+			if !ok {
+				extracted = append(extracted, elem) // idempotence
+				continue
+			}
+			val, ok := navigateToLeaf(elemObj, remaining)
+			if !ok {
+				continue
+			}
+			extracted = append(extracted, val)
+		}
+		return arrayKey, extracted, true
+	}
+
+	// No nested array — simple leaf navigation.
+	val, ok := navigateToLeaf(obj, childPath)
+	if !ok {
+		return "", nil, false
+	}
+	return childPath[len(childPath)-1], val, ok
+}
+
+// hasNestedArray reports whether a child path contains a [] segment.
+func hasNestedArray(childPath []string) bool {
+	for _, p := range childPath {
+		if strings.HasSuffix(p, "[]") {
+			return true
+		}
+	}
+	return false
 }
 
 // navigateToLeaf walks a dot-path through nested JSON objects to the leaf value.
