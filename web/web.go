@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	ghInt "github.com/daltoniam/switchboard/github"
@@ -21,14 +21,20 @@ import (
 type WebServer struct {
 	services *mcp.Services
 	port     int
+	health   *healthCache
 }
 
 // New returns a WebServer that provides a browser-based config UI.
 func New(services *mcp.Services, port int) *WebServer {
-	return &WebServer{
+	ws := &WebServer{
 		services: services,
 		port:     port,
+		health:   newHealthCache(services),
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	ws.health.refreshAll(ctx)
+	return ws
 }
 
 // Handler returns an http.Handler that serves the web UI routes.
@@ -67,6 +73,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/slack/oauth/poll", w.handleSlackOAuthPoll)
 
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
+	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
 
 	return mux
 }
@@ -85,38 +92,30 @@ func (w *WebServer) pageData(r *http.Request, title string, path string) layouts
 	return data
 }
 
-func (w *WebServer) integrationSummaries(ctx context.Context) []pages.IntegrationSummary {
-	all := w.services.Registry.All()
-	summaries := make([]pages.IntegrationSummary, len(all))
-
-	var wg sync.WaitGroup
-	for i, a := range all {
+func (w *WebServer) integrationSummaries(_ context.Context) []pages.IntegrationSummary {
+	var summaries []pages.IntegrationSummary
+	for _, a := range w.services.Registry.All() {
 		ic, exists := w.services.Config.GetIntegration(a.Name())
-		summaries[i] = pages.IntegrationSummary{
-			Name:      a.Name(),
-			Enabled:   exists && ic.Enabled,
-			ToolCount: len(a.Tools()),
-		}
-		if !exists {
-			continue
-		}
-		if err := a.Configure(ic.Credentials); err != nil {
-			continue
-		}
-		wg.Add(1)
-		go func(idx int, integ mcp.Integration, cfg *mcp.IntegrationConfig) {
-			defer wg.Done()
-			if integ.Healthy(ctx) {
-				summaries[idx].Healthy = true
-				if !summaries[idx].Enabled {
-					summaries[idx].Enabled = true
-					cfg.Enabled = true
-					_ = w.services.Config.SetIntegration(integ.Name(), cfg)
-				}
+		enabled := exists && ic.Enabled
+
+		var healthy bool
+		var lastCheck time.Time
+		if entry, ok := w.health.get(a.Name()); ok {
+			healthy = entry.Healthy
+			if entry.Enabled {
+				enabled = true
 			}
-		}(i, a, ic)
+			lastCheck = entry.CheckedAt
+		}
+
+		summaries = append(summaries, pages.IntegrationSummary{
+			Name:      a.Name(),
+			Enabled:   enabled,
+			Healthy:   healthy,
+			ToolCount: len(a.Tools()),
+			LastCheck: lastCheck,
+		})
 	}
-	wg.Wait()
 	return summaries
 }
 
@@ -253,6 +252,13 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 func (w *WebServer) handleHealthAPI(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	rw.Write([]byte(`{"status":"healthy"}`))
+}
+
+func (w *WebServer) handleHealthRefresh(rw http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	w.health.refreshAll(ctx)
+	http.Redirect(rw, r, r.Referer(), http.StatusSeeOther)
 }
 
 func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {

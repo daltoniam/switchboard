@@ -204,3 +204,44 @@ func TestHealthAPI_JSON(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "healthy", resp["status"])
 }
+
+func TestHealthRefresh(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("POST", "/api/health/refresh", nil)
+	req.Header.Set("Referer", "/integrations")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Equal(t, "/integrations", rr.Header().Get("Location"))
+
+	entry, ok := ws.health.get("testint")
+	require.True(t, ok)
+	assert.True(t, entry.Healthy)
+}
+
+func TestHealthRefresh_NoReferer(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("POST", "/api/health/refresh", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+}
+
+func TestIntegrationSummaries_UsesCache(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+
+	summaries := ws.integrationSummaries(context.Background())
+	require.Len(t, summaries, 1)
+
+	s := summaries[0]
+	assert.Equal(t, "testint", s.Name)
+	assert.True(t, s.Healthy)
+	assert.True(t, s.Enabled)
+	assert.False(t, s.LastCheck.IsZero())
+}
