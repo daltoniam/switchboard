@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/script"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -20,8 +21,9 @@ const maxResponseBytes = 50 * 1024 // 50KB
 
 // Server wraps the MCP SDK server and exposes search/execute tools.
 type Server struct {
-	mcpServer *mcpsdk.Server
-	services  *mcp.Services
+	mcpServer    *mcpsdk.Server
+	services     *mcp.Services
+	scriptEngine *script.Engine
 }
 
 // New creates a Server that exposes two MCP tools — search and execute —
@@ -40,6 +42,7 @@ func New(services *mcp.Services) *Server {
 		mcpServer: mcpServer,
 		services:  services,
 	}
+	s.scriptEngine = script.New(&toolExecutor{server: s})
 
 	s.registerTools()
 	return s
@@ -80,31 +83,41 @@ Examples:
 
 	executeTool := &mcpsdk.Tool{
 		Name: "execute",
-		Description: `Execute a tool by name with the given arguments.
-Use the search tool first to discover available tools and their parameters.
+		Description: `Execute a tool or run a JavaScript script that chains multiple tool calls.
 
-The tool_name must exactly match a tool returned by search. Arguments are
-passed as a JSON object matching the tool's parameter schema.
+Mode 1 — Single tool (provide tool_name + arguments):
+  {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
+
+Mode 2 — Script (provide script):
+  Write JavaScript that calls api.call(toolName, args) to invoke tools.
+  Chain multiple calls, filter results, and return only what you need.
+  The script runs server-side — intermediate results never enter the conversation.
+
+  {"script": "var issues = api.call('linear_search_issues', {query: 'BUG-1234'}); var email = issues[0].assignee.email; var user = api.call('postgres_execute_query', {query: 'SELECT * FROM users WHERE email = $1', params: [email]}); ({issue: issues[0], dbUser: user[0]});"}
+
+Script API:
+  api.call(toolName, args) — call any tool discovered via search, returns parsed JSON
+  console.log(...) — debug logging (included in output on error)
 
 List and search responses are automatically compacted to essential fields.
 Use single-item get tools (e.g., github_get_issue) for full detail.
 Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
 
-Examples:
-- {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go", "state": "open"}}
-- {"tool_name": "datadog_search_logs", "arguments": {"query": "service:nginx status:error", "from": "now-1h"}}
-- {"tool_name": "linear_get_issue", "arguments": {"id": "ENG-123"}}
-- {"tool_name": "sentry_list_projects", "arguments": {}}`,
+Use search first to discover available tools and their parameter schemas.`,
 		InputSchema: objectSchema(map[string]any{
 			"tool_name": map[string]any{
 				"type":        "string",
-				"description": "The exact name of the tool to execute (e.g., 'github_search_repos', 'datadog_search_logs')",
+				"description": "The exact name of the tool to execute (mutually exclusive with script)",
 			},
 			"arguments": map[string]any{
 				"type":        "object",
-				"description": "Arguments to pass to the tool, matching the parameter schema returned by search",
+				"description": "Arguments to pass to the tool (mutually exclusive with script)",
 			},
-		}, []string{"tool_name"}),
+			"script": map[string]any{
+				"type":        "string",
+				"description": "JavaScript code to execute server-side. Use api.call(toolName, args) to invoke tools. Return the final result. (mutually exclusive with tool_name)",
+			},
+		}, nil),
 	}
 
 	s.mcpServer.AddTool(searchTool, s.handleSearch)
@@ -264,48 +277,80 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	var args struct {
 		ToolName  string         `json:"tool_name"`
 		Arguments map[string]any `json:"arguments"`
+		Script    string         `json:"script"`
 	}
 	if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
 		return errorResult("invalid arguments: " + err.Error()), nil
 	}
 
+	if args.Script != "" {
+		return s.handleScriptExecute(ctx, args.Script)
+	}
+
 	if args.ToolName == "" {
-		return errorResult("tool_name is required"), nil
+		return errorResult("either tool_name or script is required"), nil
 	}
 	if args.Arguments == nil {
 		args.Arguments = map[string]any{}
 	}
 
-	integration, found := s.findIntegration(args.ToolName)
-	if !found {
-		return errorResult(fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", args.ToolName)), nil
-	}
-
-	result, err := integration.Execute(ctx, args.ToolName, args.Arguments)
+	result, err := s.executeTool(ctx, args.ToolName, args.Arguments)
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
+	return &mcpsdk.CallToolResult{
+		Content: []mcpsdk.Content{
+			&mcpsdk.TextContent{Text: result.Data},
+		},
+		IsError: result.IsError,
+	}, nil
+}
 
-	if result.IsError {
-		return &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
+func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsdk.CallToolResult, error) {
+	result, err := s.scriptEngine.Run(ctx, source)
+	if err != nil {
+		return errorResult(err.Error()), nil
+	}
+	return &mcpsdk.CallToolResult{
+		Content: []mcpsdk.Content{
+			&mcpsdk.TextContent{Text: result.Data},
+		},
+		IsError: result.IsError,
+	}, nil
+}
+
+// executeTool finds and runs a single tool by name. Used by both direct
+// execute and as the bridge for the script engine's api.call().
+func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+	integration, found := s.findIntegration(toolName)
+	if !found {
+		return &mcp.ToolResult{
+			Data:    fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", toolName),
 			IsError: true,
 		}, nil
 	}
 
-	result.Data = compactResult(integration, args.ToolName, result.Data)
-
-	if len(result.Data) > maxResponseBytes {
-		return errorResult(fmt.Sprintf(
-			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
-			maxResponseBytes/1024,
-			len(result.Data)/1024,
-		)), nil
+	result, err := integration.Execute(ctx, toolName, args)
+	if err != nil {
+		return result, err
 	}
 
-	return &mcpsdk.CallToolResult{
-		Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
-	}, nil
+	if !result.IsError {
+		result.Data = compactResult(integration, toolName, result.Data)
+
+		if len(result.Data) > maxResponseBytes {
+			return &mcp.ToolResult{
+				Data: fmt.Sprintf(
+					"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
+					maxResponseBytes/1024,
+					len(result.Data)/1024,
+				),
+				IsError: true,
+			}, nil
+		}
+	}
+
+	return result, nil
 }
 
 // findIntegration returns the integration that owns toolName, or false if not found.
@@ -322,6 +367,15 @@ func (s *Server) findIntegration(toolName string) (mcp.Integration, bool) {
 		}
 	}
 	return nil, false
+}
+
+// toolExecutor bridges the script.Executor interface to the server's tool dispatch.
+type toolExecutor struct {
+	server *Server
+}
+
+func (te *toolExecutor) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+	return te.server.executeTool(ctx, toolName, args)
 }
 
 // compactResult applies field compaction if the integration opts in.

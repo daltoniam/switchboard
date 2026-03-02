@@ -788,3 +788,149 @@ func TestToolResultJSON(t *testing.T) {
 	assert.Equal(t, `{"count":5}`, decoded.Data)
 	assert.False(t, decoded.IsError)
 }
+
+func TestExecuteTool_SingleTool(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_get_item", Description: "Get an item"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `{"id":"123","name":"widget"}`}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"id": "123"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "widget")
+}
+
+func TestExecuteTool_NotFound(t *testing.T) {
+	s := setupTestServer()
+	result, err := s.executeTool(context.Background(), "nonexistent_tool", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not found")
+}
+
+func TestScriptExecution_SingleCall(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_list_items", Description: "List items"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `[{"id":1,"name":"alpha"},{"id":2,"name":"beta"}]`}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var items = api.call("testint_list_items", {});
+		items.length;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Equal(t, "2", result.Data)
+}
+
+func TestScriptExecution_ChainedCalls(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_list_items", Description: "List items"},
+			{Name: "testint_get_detail", Description: "Get item detail"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			switch toolName {
+			case "testint_list_items":
+				return &mcp.ToolResult{Data: `[{"id":"abc"},{"id":"def"}]`}, nil
+			case "testint_get_detail":
+				id, _ := args["id"].(string)
+				return &mcp.ToolResult{Data: fmt.Sprintf(`{"id":"%s","detail":"info for %s"}`, id, id)}, nil
+			}
+			return &mcp.ToolResult{Data: "unknown", IsError: true}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var items = api.call("testint_list_items", {});
+		var details = [];
+		for (var i = 0; i < items.length; i++) {
+			details.push(api.call("testint_get_detail", {id: items[i].id}));
+		}
+		({count: details.length, first: details[0].detail});
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, float64(2), parsed["count"])
+	assert.Equal(t, "info for abc", parsed["first"])
+}
+
+func TestScriptExecution_FilterResults(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_list_items", Description: "List items"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `[{"name":"a","active":true},{"name":"b","active":false},{"name":"c","active":true}]`}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var items = api.call("testint_list_items", {});
+		var active = items.filter(function(i) { return i.active; });
+		active.map(function(i) { return i.name; });
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var names []string
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &names))
+	assert.Equal(t, []string{"a", "c"}, names)
+}
+
+func TestScriptExecution_ToolNotFound(t *testing.T) {
+	s := setupTestServer()
+	result, err := s.scriptEngine.Run(context.Background(), `
+		api.call("nonexistent_tool", {});
+	`)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not found")
+}
+
+func TestHandleExecute_EmptyArgs(t *testing.T) {
+	s := setupTestServer()
+	result, err := s.executeTool(context.Background(), "", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not found")
+}
+
+func TestHandleExecute_NeitherToolNameNorScript(t *testing.T) {
+	s := setupTestServer()
+	req := &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "execute",
+			Arguments: json.RawMessage(`{}`),
+		},
+	}
+	result, err := s.handleExecute(context.Background(), req)
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Equal(t, "either tool_name or script is required", tc.Text)
+}
