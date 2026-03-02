@@ -919,3 +919,18 @@ func TestHandleExecute_EmptyArgs(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "not found")
 }
+
+func TestHandleExecute_NeitherToolNameNorScript(t *testing.T) {
+	s := setupTestServer()
+	req := &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "execute",
+			Arguments: json.RawMessage(`{}`),
+		},
+	}
+	result, err := s.handleExecute(context.Background(), req)
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Equal(t, "either tool_name or script is required", tc.Text)
+}
