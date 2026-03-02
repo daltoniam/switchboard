@@ -117,7 +117,51 @@ Every adapter must have these test categories (see existing `*_test.go` files):
 - [ ] **HTTP helpers**: `httptest.NewServer` for success, API errors (>=400), 204 no-content
 - [ ] **Arg helpers**: Unit tests for type coercion (`float64→int`, `string→bool`)
 
-## 5. Wiring and Verification
+## 5. Web UI Setup Page
+
+Every integration should have a setup page for guided credential entry. Complexity scales with auth model:
+
+| Auth model | Setup page pattern | Example |
+|------------|-------------------|---------|
+| API key only | Instructions + single form field | `notion_setup.templ` |
+| API key + OAuth | Instructions + OAuth button + manual fallback | `linear_setup.templ`, `sentry_setup.templ` |
+| Session tokens | Auto-extract + snippet + manual entry | `slack_setup.templ` |
+
+### Steps to add a setup page
+
+1. **Create template**: `web/templates/pages/<name>_setup.templ`
+   - Define `<Name>SetupData` struct with `HasToken`, `Healthy`, `FlashResult`, `FlashError`
+   - Add status badge helpers (`<name>StatusBadge`, `<name>StatusLabel`)
+   - Include step-by-step instructions for obtaining credentials
+   - Use `@components.FormGroup` and `@components.Badge` from shared components
+2. **Run `go generate .`** (or `templ generate`) to produce `*_templ.go`
+3. **Add routes** in `web/web.go`:
+   - `GET /integrations/<name>/setup` → `handleXSetup`
+   - `POST /api/<name>/save-token` → `handleXSaveToken`
+4. **Add `"<name>": true`** to `setupIntegrations` map in `web/web.go`
+5. **Write handler functions** following the pattern in existing handlers (see `handleLinearSetup`/`handleLinearSaveToken`)
+
+### Template conventions
+
+- Back button links to `/integrations`
+- Status badge shows Connected (green), Invalid Token (red), or Not Connected (muted)
+- Flash messages for success/error from query params
+- Connected card shown when `HasToken && Healthy`
+- Instructions card with numbered steps and link to provider's settings page
+- Credential form card with `method="POST" action="/api/<name>/save-token"`
+- Never edit `*_templ.go` files — they are generated
+
+## 6. Security Best Practices
+
+| Concern | Mitigation |
+|---------|-----------|
+| Path injection via user-supplied IDs | Use `url.PathEscape()` on all string args in `get()`/`del()` format strings |
+| Unbounded response bodies | Use `io.LimitReader(resp.Body, maxResponseSize)` in `doRequest()` |
+| Unbounded recursion (recursive block/tree fetches) | Add a call counter with a hard limit (e.g., `maxBlockFetches = 100`) |
+| Missing context cancellation in loops | Check `ctx.Err()` at the top of each iteration |
+| Healthy() on unconfigured adapter | Guard with `n.apiKey == ""` (or equivalent) in addition to nil client check |
+
+## 7. Wiring and Verification
 
 Follow `AGENTS.md > Adding a New Integration` steps 6-7 (register + config defaults), then verify:
 

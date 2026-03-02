@@ -1,0 +1,90 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type NotionSetupData struct {
+	HasToken    bool
+	Healthy     bool
+	FlashResult string
+	FlashError  string
+}
+
+func notionStatusBadge(hasToken bool, healthy bool) string {
+	if healthy {
+		return "green"
+	}
+	if hasToken {
+		return "red"
+	}
+	return "muted"
+}
+
+func notionStatusLabel(hasToken bool, healthy bool) string {
+	if healthy {
+		return "Connected"
+	}
+	if hasToken {
+		return "Invalid Token"
+	}
+	return "Not Connected"
+}
+
+templ NotionSetup(page layouts.PageData, data NotionSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Notion Setup</h1>
+			@components.Badge(notionStatusLabel(data.HasToken, data.Healthy), notionStatusBadge(data.HasToken, data.Healthy))
+		</div>
+		if data.FlashResult != "" {
+			<div class="flash flash-success">{ data.FlashResult }</div>
+		}
+		if data.FlashError != "" {
+			<div class="flash flash-error">{ data.FlashError }</div>
+		}
+		if data.HasToken && data.Healthy {
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Current Connection</div>
+					@components.Badge("Connected", "green")
+				</div>
+				<p style="color: var(--text-muted); font-size: 0.85rem;">
+					Notion is connected. You can update your token below.
+				</p>
+			</div>
+		}
+		<div class="card">
+			<div class="card-title" style="margin-bottom: 0.75rem;">How to get your Notion API key</div>
+			<ol style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.8; padding-left: 1.25rem; margin-bottom: 1rem;">
+				<li>
+					Go to
+					<a href="https://www.notion.so/profile/integrations" target="_blank" style="color: var(--accent);">My Integrations</a>
+					in your Notion settings.
+				</li>
+				<li>Click <strong>New integration</strong> (or select an existing one).</li>
+				<li>Give it a name (e.g. "Switchboard") and select a workspace.</li>
+				<li>Under <strong>Capabilities</strong>, enable the permissions you need (Read content, Update content, Insert content).</li>
+				<li>Copy the <strong>Internal Integration Secret</strong> (starts with <code>ntn_</code>).</li>
+			</ol>
+			<div style="background: var(--bg-subtle); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+				<strong>Granting access to pages:</strong> After creating the integration, grant it access to your content using one of these methods:
+				<ul style="margin: 0.5rem 0 0 1.25rem; padding: 0;">
+					<li><strong>Bulk access (recommended):</strong> Go to your
+						<a href="https://www.notion.so/profile/integrations" target="_blank" style="color: var(--accent);">integration settings</a>
+						→ select your integration → <strong>Access</strong> tab → choose which pages to share.</li>
+					<li><strong>Per-page:</strong> Open a page in Notion → click <strong>···</strong> (top right) → <strong>Connections</strong> → add your integration.</li>
+				</ul>
+			</div>
+		</div>
+		<div class="card">
+			<div class="card-title" style="margin-bottom: 0.75rem;">Internal Integration Secret</div>
+			<form method="POST" action="/api/notion/save-token">
+				@components.FormGroup("Integration Secret", "integration_secret", "password", "", "ntn_...")
+				<button type="submit" class="btn">Save Integration Secret</button>
+			</form>
+		</div>
+	}
+}
