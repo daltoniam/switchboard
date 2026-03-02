@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	mcp "github.com/daltoniam/switchboard"
 	ghInt "github.com/daltoniam/switchboard/github"
@@ -85,30 +86,37 @@ func (w *WebServer) pageData(r *http.Request, title string, path string) layouts
 }
 
 func (w *WebServer) integrationSummaries(ctx context.Context) []pages.IntegrationSummary {
-	var summaries []pages.IntegrationSummary
-	for _, a := range w.services.Registry.All() {
-		ic, exists := w.services.Config.GetIntegration(a.Name())
-		enabled := exists && ic.Enabled
+	all := w.services.Registry.All()
+	summaries := make([]pages.IntegrationSummary, len(all))
 
-		var healthy bool
-		if exists {
-			if err := a.Configure(ic.Credentials); err == nil {
-				healthy = a.Healthy(ctx)
-				if healthy && !enabled {
-					enabled = true
-					ic.Enabled = true
-					_ = w.services.Config.SetIntegration(a.Name(), ic)
+	var wg sync.WaitGroup
+	for i, a := range all {
+		ic, exists := w.services.Config.GetIntegration(a.Name())
+		summaries[i] = pages.IntegrationSummary{
+			Name:      a.Name(),
+			Enabled:   exists && ic.Enabled,
+			ToolCount: len(a.Tools()),
+		}
+		if !exists {
+			continue
+		}
+		if err := a.Configure(ic.Credentials); err != nil {
+			continue
+		}
+		wg.Add(1)
+		go func(idx int, integ mcp.Integration, cfg *mcp.IntegrationConfig) {
+			defer wg.Done()
+			if integ.Healthy(ctx) {
+				summaries[idx].Healthy = true
+				if !summaries[idx].Enabled {
+					summaries[idx].Enabled = true
+					cfg.Enabled = true
+					_ = w.services.Config.SetIntegration(integ.Name(), cfg)
 				}
 			}
-		}
-
-		summaries = append(summaries, pages.IntegrationSummary{
-			Name:      a.Name(),
-			Enabled:   enabled,
-			Healthy:   healthy,
-			ToolCount: len(a.Tools()),
-		})
+		}(i, a, ic)
 	}
+	wg.Wait()
 	return summaries
 }
 
