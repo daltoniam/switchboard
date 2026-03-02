@@ -10,11 +10,11 @@ import (
 
 func searchRepos(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	opts := &gh.SearchOptions{ListOptions: listOpts(args)}
-	result, _, err := g.client.Search.Repositories(ctx, argStr(args, "query"), opts)
+	resp, _, err := g.client.Search.Repositories(ctx, argStr(args, "query"), opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result.Repositories)
+	return searchResult(resp.GetTotal(), resp.Repositories)
 }
 
 func getRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
