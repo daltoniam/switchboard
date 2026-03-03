@@ -89,6 +89,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "organization_slug": ""},
 			},
+			"rwx": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": ""},
+			},
 		},
 	}
 }
