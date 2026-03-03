@@ -2,6 +2,7 @@ package pages
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/components"
@@ -20,6 +21,7 @@ type IntegrationSummary struct {
 	Enabled   bool
 	Healthy   bool
 	ToolCount int
+	LastCheck time.Time
 }
 
 func healthBadge(enabled bool, healthy bool) string {
@@ -42,6 +44,23 @@ func healthLabel(enabled bool, healthy bool) string {
 	return "Not Verified"
 }
 
+func lastCheckLabel(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	default:
+		return t.Format("Jan 2 15:04")
+	}
+}
+
 templ Dashboard(page layouts.PageData, data DashboardData) {
 	@layouts.Base(page) {
 		<h1 class="page-title">Dashboard</h1>
@@ -59,6 +78,9 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 					<span style="margin-left: 0.5rem;">
 						@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
 					</span>
+					if i.Healthy && lastCheckLabel(i.LastCheck) != "" {
+						<span class="last-check">last check: { lastCheckLabel(i.LastCheck) }</span>
+					}
 				</div>
 				<div class="meta">
 					<span>{ fmt.Sprintf("%d tools", i.ToolCount) }</span>

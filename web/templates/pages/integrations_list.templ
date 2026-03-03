@@ -9,7 +9,12 @@ import (
 
 templ IntegrationsList(page layouts.PageData, integrations []IntegrationSummary) {
 	@layouts.Base(page) {
-		<h1 class="page-title">Integrations</h1>
+		<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+			<h1 class="page-title" style="margin-bottom: 0;">Integrations</h1>
+			<form method="POST" action="/api/health/refresh">
+				<button type="submit" class="btn btn-outline btn-sm">Re-check all</button>
+			</form>
+		</div>
 		for _, i := range integrations {
 			<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-link">
 				<div>
@@ -17,6 +22,9 @@ templ IntegrationsList(page layouts.PageData, integrations []IntegrationSummary)
 					<span style="margin-left: 0.5rem;">
 						@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
 					</span>
+					if i.Healthy && lastCheckLabel(i.LastCheck) != "" {
+						<span class="last-check">last check: { lastCheckLabel(i.LastCheck) }</span>
+					}
 				</div>
 				<div class="meta">
 					<span>
