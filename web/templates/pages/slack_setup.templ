@@ -114,9 +114,82 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 				<p class="slack-desc">
 					Automatically extracts your session token and cookie from a running Chrome browser with Slack open. Requires macOS and Chrome with a Slack tab at <code>app.slack.com</code>.
 				</p>
-				<form method="POST" action="/api/slack/extract-chrome" style="margin-top: 0.75rem;">
-					<button type="submit" class="btn">Extract from Chrome</button>
-				</form>
+				<div id="chrome-extract-initial" style="margin-top: 0.75rem;">
+					<button type="button" class="btn" onclick="listWorkspaces()" id="chrome-extract-btn">Extract from Chrome</button>
+				</div>
+				<div id="chrome-extract-picker" style="display: none; margin-top: 0.75rem;">
+					<p class="slack-desc" style="margin-bottom: 0.5rem;"><strong>Select a workspace:</strong></p>
+					<form method="POST" action="/api/slack/extract-chrome" id="chrome-extract-form">
+						<div id="workspace-list"></div>
+						<div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+							<button type="submit" class="btn">Extract Selected</button>
+							<button type="button" class="btn btn-outline" onclick="resetWorkspacePicker()">Cancel</button>
+						</div>
+					</form>
+				</div>
+				<div id="chrome-extract-loading" style="display: none; margin-top: 0.75rem;">
+					<span>Scanning Chrome profiles...</span>
+				</div>
+				<div id="chrome-extract-error" style="display: none; margin-top: 0.75rem;" class="flash flash-error"></div>
+				<script>
+					function listWorkspaces() {
+						document.getElementById('chrome-extract-initial').style.display = 'none';
+						document.getElementById('chrome-extract-loading').style.display = 'block';
+						document.getElementById('chrome-extract-error').style.display = 'none';
+						fetch('/api/slack/list-workspaces')
+							.then(function(r) { return r.json(); })
+							.then(function(data) {
+								document.getElementById('chrome-extract-loading').style.display = 'none';
+								if (data.error) {
+									document.getElementById('chrome-extract-error').textContent = data.error;
+									document.getElementById('chrome-extract-error').style.display = 'block';
+									document.getElementById('chrome-extract-initial').style.display = 'block';
+									return;
+								}
+								var ws = data.workspaces || [];
+								if (ws.length === 1) {
+									var input = document.createElement('input');
+									input.type = 'hidden';
+									input.name = 'team_id';
+									input.value = ws[0].team_id;
+									var form = document.getElementById('chrome-extract-form');
+									form.appendChild(input);
+									form.submit();
+									return;
+								}
+								var container = document.getElementById('workspace-list');
+								container.innerHTML = '';
+								for (var i = 0; i < ws.length; i++) {
+									var labelEl = document.createElement('label');
+									labelEl.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; cursor: pointer;';
+									var radio = document.createElement('input');
+									radio.type = 'radio';
+									radio.name = 'team_id';
+									radio.value = ws[i].team_id;
+									if (i === 0) radio.checked = true;
+									var span = document.createElement('span');
+									var text = ws[i].name || ws[i].team_id;
+									if (ws[i].url) { text += ' (' + ws[i].url.replace('https://', '') + ')'; }
+									span.textContent = text;
+									labelEl.appendChild(radio);
+									labelEl.appendChild(span);
+									container.appendChild(labelEl);
+								}
+								document.getElementById('chrome-extract-picker').style.display = 'block';
+							})
+							.catch(function(err) {
+								document.getElementById('chrome-extract-loading').style.display = 'none';
+								document.getElementById('chrome-extract-error').textContent = 'Failed: ' + err;
+								document.getElementById('chrome-extract-error').style.display = 'block';
+								document.getElementById('chrome-extract-initial').style.display = 'block';
+							});
+					}
+					function resetWorkspacePicker() {
+						document.getElementById('chrome-extract-picker').style.display = 'none';
+						document.getElementById('chrome-extract-error').style.display = 'none';
+						document.getElementById('chrome-extract-initial').style.display = 'block';
+					}
+				</script>
 			</div>
 		}
 		<div class="card">

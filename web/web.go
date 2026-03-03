@@ -41,6 +41,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /integrations/{name}", w.handleIntegrationSave)
 
 	mux.HandleFunc("GET /integrations/slack/setup", w.handleSlackSetup)
+	mux.HandleFunc("GET /api/slack/list-workspaces", w.handleSlackListWorkspaces)
 	mux.HandleFunc("POST /api/slack/extract-chrome", w.handleSlackExtractChrome)
 	mux.HandleFunc("POST /api/slack/save-tokens", w.handleSlackSaveTokens)
 
@@ -302,8 +303,23 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 	pages.SlackSetup(page, data).Render(r.Context(), rw)
 }
 
+func (w *WebServer) handleSlackListWorkspaces(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	workspaces, err := slackInt.ListWorkspacesFromChrome()
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]any{"error": err.Error()})
+		return
+	}
+	json.NewEncoder(rw).Encode(map[string]any{"workspaces": workspaces})
+}
+
 func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Request) {
-	result := slackInt.ExtractFromChromeForWeb()
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+	teamID := strings.TrimSpace(r.FormValue("team_id"))
+	result := slackInt.ExtractFromChromeForWeb(teamID)
 	if !result.Success {
 		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(result.Error, " ", "+"), http.StatusSeeOther)
 		return

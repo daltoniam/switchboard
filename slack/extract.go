@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+// WorkspaceInfo describes a Slack workspace found in Chrome's localStorage.
+type WorkspaceInfo struct {
+	TeamID string `json:"team_id"`
+	Name   string `json:"name"`
+	URL    string `json:"url"`
+}
+
 // ExtractResult holds the result of a token extraction attempt.
 type ExtractResult struct {
 	Token   string `json:"token"`
@@ -28,9 +35,19 @@ type TokenInfo struct {
 	Status    string    `json:"status"`
 }
 
+// ListWorkspacesFromChrome returns all Slack workspaces found in Chrome's localStorage.
+// Exported for use by the web UI to let the user pick which workspace to extract.
+func ListWorkspacesFromChrome() ([]WorkspaceInfo, error) {
+	if runtime.GOOS != "darwin" {
+		return nil, fmt.Errorf("chrome extraction is only available on macOS")
+	}
+	return listWorkspacesFromChrome()
+}
+
 // ExtractFromChromeForWeb triggers Chrome extraction and returns the result.
+// If teamID is non-empty, only the token for that workspace is extracted.
 // This is exported for use by the web UI server.
-func ExtractFromChromeForWeb() *ExtractResult {
+func ExtractFromChromeForWeb(teamID string) *ExtractResult {
 	if runtime.GOOS != "darwin" {
 		return &ExtractResult{
 			Success: false,
@@ -38,7 +55,7 @@ func ExtractFromChromeForWeb() *ExtractResult {
 		}
 	}
 
-	extracted, err := extractFromChromeWithError()
+	extracted, err := extractFromChromeWithError(teamID)
 	if err != nil {
 		return &ExtractResult{
 			Success: false,
@@ -143,14 +160,43 @@ func CanExtractFromChrome() bool {
 // their browser console to extract tokens manually.
 func ExtractionSnippet() string {
 	return `(function() {
-  var cookie = document.cookie.split('; ').find(c => c.startsWith('d='));
+  var cookie = document.cookie.split('; ').find(function(c) { return c.startsWith('d='); });
   var cookieVal = cookie ? cookie.split('=').slice(1).join('=') : '';
-  var token = '';
-  try { token = JSON.parse(localStorage.localConfig_v2).teams[Object.keys(JSON.parse(localStorage.localConfig_v2).teams)[0]].token; } catch(e) {}
-  if (!token) { try { token = JSON.parse(localStorage.localConfig_v3).teams[Object.keys(JSON.parse(localStorage.localConfig_v3).teams)[0]].token; } catch(e) {} }
-  if (!token) { try { token = window.boot_data && window.boot_data.api_token; } catch(e) {} }
-  if (token && cookieVal) {
-    prompt('Copy this entire value and paste it in the web UI:', JSON.stringify({token: token, cookie: cookieVal}));
+  var teams = null;
+  var versions = ['localConfig_v2', 'localConfig_v3', 'localConfig_v4', 'localConfig_v5'];
+  for (var i = 0; i < versions.length; i++) {
+    try {
+      var raw = localStorage.getItem(versions[i]);
+      if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.teams) { teams = parsed.teams; break; } }
+    } catch(e) {}
+  }
+  if (!teams && window.boot_data && window.boot_data.api_token) {
+    if (cookieVal) {
+      prompt('Copy this entire value and paste it in the web UI:', JSON.stringify({token: window.boot_data.api_token, cookie: cookieVal}));
+    } else { alert('Found token but no cookie. Make sure you are on app.slack.com.'); }
+    return;
+  }
+  if (!teams) { alert('Could not find Slack config. Make sure you are on a Slack workspace page (app.slack.com).'); return; }
+  var ids = Object.keys(teams);
+  var entries = [];
+  for (var j = 0; j < ids.length; j++) {
+    var t = teams[ids[j]];
+    if (t && t.token && t.token.indexOf('xoxc-') === 0) {
+      entries.push({id: ids[j], name: t.name || ids[j], url: t.url || '', token: t.token});
+    }
+  }
+  if (entries.length === 0) { alert('No xoxc- tokens found. Make sure you are signed in.'); return; }
+  var chosen = entries[0];
+  if (entries.length > 1) {
+    var msg = 'Multiple workspaces found. Enter the number:\n';
+    for (var k = 0; k < entries.length; k++) { msg += (k+1) + '. ' + entries[k].name + '\n'; }
+    var pick = prompt(msg);
+    if (!pick) return;
+    var idx = parseInt(pick, 10) - 1;
+    if (idx >= 0 && idx < entries.length) chosen = entries[idx];
+  }
+  if (chosen.token && cookieVal) {
+    prompt('Copy this entire value and paste it in the web UI:', JSON.stringify({token: chosen.token, cookie: cookieVal}));
   } else {
     alert('Could not extract tokens. Make sure you are on a Slack workspace page (app.slack.com).');
   }

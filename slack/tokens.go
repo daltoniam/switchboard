@@ -134,11 +134,11 @@ type chromeTokens struct {
 var extractMu sync.Mutex
 
 func extractFromChrome() *chromeTokens {
-	result, _ := extractFromChromeWithError()
+	result, _ := extractFromChromeWithError("")
 	return result
 }
 
-func extractFromChromeWithError() (*chromeTokens, error) {
+func extractFromChromeWithError(teamID string) (*chromeTokens, error) {
 	if runtime.GOOS != "darwin" {
 		return nil, fmt.Errorf("chrome extraction is only available on macOS")
 	}
@@ -159,7 +159,7 @@ func extractFromChromeWithError() (*chromeTokens, error) {
 
 	for _, profile := range profiles {
 		if token == "" {
-			if t, err := extractTokenFromLevelDB(profile); err != nil {
+			if t, err := extractTokenFromLevelDB(profile, teamID); err != nil {
 				lastTokenErr = err
 			} else {
 				token = t
@@ -231,24 +231,33 @@ func findChromeProfiles() ([]string, error) {
 	return profiles, nil
 }
 
-// extractTokenFromLevelDB reads the xoxc-* token from Chrome's localStorage
-// LevelDB. Chrome holds a lock on the DB while running, so we copy the files
-// to a temp directory first.
-func extractTokenFromLevelDB(profilePath string) (string, error) {
+// slackLocalConfig represents the parsed structure of Chrome's localStorage
+// localConfig_v2 (or later versions) for Slack.
+type slackLocalConfig struct {
+	Teams map[string]struct {
+		Token string `json:"token"`
+		Name  string `json:"name"`
+		URL   string `json:"url"`
+	} `json:"teams"`
+}
+
+// readSlackLocalConfig reads and parses Chrome's localStorage LevelDB for Slack
+// config data from the given profile path. Returns the parsed config.
+func readSlackLocalConfig(profilePath string) (*slackLocalConfig, error) {
 	ldbDir := filepath.Join(profilePath, "Local Storage", "leveldb")
 	if _, err := os.Stat(ldbDir); err != nil {
-		return "", fmt.Errorf("no LevelDB at %s", ldbDir)
+		return nil, fmt.Errorf("no LevelDB at %s", ldbDir)
 	}
 
 	tmpDir, err := os.MkdirTemp("", "slack-ldb-*")
 	if err != nil {
-		return "", fmt.Errorf("creating temp dir: %w", err)
+		return nil, fmt.Errorf("creating temp dir: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	entries, err := os.ReadDir(ldbDir)
 	if err != nil {
-		return "", fmt.Errorf("reading LevelDB dir: %w", err)
+		return nil, fmt.Errorf("reading LevelDB dir: %w", err)
 	}
 	for _, e := range entries {
 		if e.IsDir() || e.Name() == "LOCK" {
@@ -266,29 +275,98 @@ func extractTokenFromLevelDB(profilePath string) (string, error) {
 		Strict:   opt.NoStrict,
 	})
 	if err != nil {
-		return "", fmt.Errorf("opening LevelDB copy: %w", err)
+		return nil, fmt.Errorf("opening LevelDB copy: %w", err)
 	}
 	defer func() { _ = db.Close() }()
 
-	key := "_https://app.slack.com\x00\x01localConfig_v2"
-	val, err := db.Get([]byte(key), nil)
-	if err != nil {
-		return "", fmt.Errorf("key not found in profile %s", filepath.Base(profilePath))
+	versions := []string{"localConfig_v2", "localConfig_v3", "localConfig_v4", "localConfig_v5"}
+	var val []byte
+	for _, v := range versions {
+		key := "_https://app.slack.com\x00\x01" + v
+		if found, err := db.Get([]byte(key), nil); err == nil {
+			val = found
+			break
+		}
+	}
+	if val == nil {
+		return nil, fmt.Errorf("key not found in profile %s", filepath.Base(profilePath))
 	}
 
-	// LevelDB values for localStorage have a \x01 prefix byte.
 	data := val
 	if len(data) > 0 && data[0] == 0x01 {
 		data = data[1:]
 	}
 
-	var cfg struct {
-		Teams map[string]struct {
-			Token string `json:"token"`
-		} `json:"teams"`
-	}
+	var cfg slackLocalConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return "", fmt.Errorf("parsing localConfig_v2: %w", err)
+		return nil, fmt.Errorf("parsing localConfig: %w", err)
+	}
+	return &cfg, nil
+}
+
+// listWorkspacesFromChrome scans all Chrome profiles and returns every Slack
+// workspace that has an xoxc-* token.
+func listWorkspacesFromChrome() ([]WorkspaceInfo, error) {
+	extractMu.Lock()
+	defer extractMu.Unlock()
+
+	profiles, err := findChromeProfiles()
+	if err != nil {
+		return nil, fmt.Errorf("could not find Chrome profiles: %w", err)
+	}
+	if len(profiles) == 0 {
+		return nil, fmt.Errorf("no Chrome profiles found at ~/Library/Application Support/Google/Chrome/")
+	}
+
+	seen := make(map[string]bool)
+	var workspaces []WorkspaceInfo
+	for _, profile := range profiles {
+		cfg, err := readSlackLocalConfig(profile)
+		if err != nil {
+			continue
+		}
+		for id, team := range cfg.Teams {
+			if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
+				continue
+			}
+			seen[id] = true
+			name := team.Name
+			if name == "" {
+				name = id
+			}
+			workspaces = append(workspaces, WorkspaceInfo{
+				TeamID: id,
+				Name:   name,
+				URL:    team.URL,
+			})
+		}
+	}
+
+	if len(workspaces) == 0 {
+		return nil, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in Chrome, make sure you are logged in to Slack at app.slack.com")
+	}
+	return workspaces, nil
+}
+
+// extractTokenFromLevelDB reads the xoxc-* token from Chrome's localStorage
+// LevelDB. Chrome holds a lock on the DB while running, so we copy the files
+// to a temp directory first. If teamID is non-empty, only that workspace's
+// token is returned.
+func extractTokenFromLevelDB(profilePath, teamID string) (string, error) {
+	cfg, err := readSlackLocalConfig(profilePath)
+	if err != nil {
+		return "", err
+	}
+
+	if teamID != "" {
+		team, ok := cfg.Teams[teamID]
+		if !ok {
+			return "", fmt.Errorf("team %s not found in profile %s", teamID, filepath.Base(profilePath))
+		}
+		if !strings.HasPrefix(team.Token, "xoxc-") {
+			return "", fmt.Errorf("team %s has no xoxc-* token in profile %s", teamID, filepath.Base(profilePath))
+		}
+		return team.Token, nil
 	}
 
 	for _, team := range cfg.Teams {
