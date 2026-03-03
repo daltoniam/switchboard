@@ -405,6 +405,8 @@ Constructed in `cmd/server/main.go` and passed to both `server.New()` and `web.N
 5. In `Execute()`, switch on tool name and dispatch to private handler methods.
 6. Register in `cmd/server/main.go` by adding to the integration list.
 7. Add default credentials to `config.defaultConfig()` in `config/config.go`.
+8. Add env var mappings for the new integration's credentials to `envMapping` in `config/config.go`.
+9. Update the **Environment Variables** table in `README.md` with the new env var names.
 
 ## Conventions and Patterns
 

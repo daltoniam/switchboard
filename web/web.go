@@ -14,6 +14,7 @@ import (
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
+	"github.com/daltoniam/switchboard/remotemcp"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 )
@@ -59,10 +60,11 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/github/save-token", w.handleGitHubSaveToken)
 
 	mux.HandleFunc("GET /integrations/linear/setup", w.handleLinearSetup)
-	mux.HandleFunc("POST /api/linear/oauth/start", w.handleLinearOAuthStart)
-	mux.HandleFunc("GET /api/linear/oauth/callback", w.handleLinearOAuthCallback)
-	mux.HandleFunc("GET /api/linear/oauth/poll", w.handleLinearOAuthPoll)
 	mux.HandleFunc("POST /api/linear/save-token", w.handleLinearSaveToken)
+
+	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
+	mux.HandleFunc("GET /api/remote/{name}/oauth/callback", w.handleRemoteMCPOAuthCallback)
+	mux.HandleFunc("GET /api/remote/{name}/oauth/poll", w.handleRemoteMCPOAuthPoll)
 
 	mux.HandleFunc("GET /integrations/sentry/setup", w.handleSentrySetup)
 	mux.HandleFunc("POST /api/sentry/oauth/start", w.handleSentryOAuthStart)
@@ -79,10 +81,6 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /integrations/notion/setup", w.handleNotionSetup)
 	mux.HandleFunc("POST /api/notion/save-token", w.handleNotionSaveToken)
-
-	mux.HandleFunc("POST /api/slack/oauth/start", w.handleSlackOAuthStart)
-	mux.HandleFunc("GET /api/slack/oauth/callback", w.handleSlackOAuthCallback)
-	mux.HandleFunc("GET /api/slack/oauth/poll", w.handleSlackOAuthPoll)
 
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
@@ -109,6 +107,7 @@ func (w *WebServer) integrationSummaries(_ context.Context) []pages.IntegrationS
 	for _, a := range w.services.Registry.All() {
 		ic, exists := w.services.Config.GetIntegration(a.Name())
 		enabled := exists && ic.Enabled
+		isRemote := exists && ic.Credentials["mcp_access_token"] != "" && linearInt.MCPServerURL(a) != ""
 
 		var healthy bool
 		var lastCheck time.Time
@@ -126,6 +125,7 @@ func (w *WebServer) integrationSummaries(_ context.Context) []pages.IntegrationS
 			Healthy:   healthy,
 			ToolCount: len(a.Tools()),
 			LastCheck: lastCheck,
+			IsRemote:  isRemote,
 		})
 	}
 	return summaries
@@ -292,7 +292,6 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 	info := slackInt.GetTokenInfoForWeb()
 
 	ic, exists := w.services.Config.GetIntegration("slack")
-	hasOAuth := exists && ic.Credentials["client_id"] != "" && ic.Credentials["client_secret"] != ""
 
 	var healthy bool
 	if info.HasToken {
@@ -321,7 +320,6 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 		TokenSource:    tokenSource,
 		CanAutoExtract: slackInt.CanExtractFromChrome(),
 		ExtractSnippet: slackInt.ExtractionSnippet(),
-		HasOAuth:       hasOAuth,
 		Healthy:        healthy,
 	}
 
@@ -492,16 +490,34 @@ func (w *WebServer) handleGitHubSaveToken(rw http.ResponseWriter, r *http.Reques
 
 func (w *WebServer) handleLinearSetup(rw http.ResponseWriter, r *http.Request) {
 	ic, exists := w.services.Config.GetIntegration("linear")
-	hasToken := exists && ic.Credentials["api_key"] != ""
-	hasOAuth := exists && ic.Credentials["client_id"] != "" && ic.Credentials["client_secret"] != ""
 
-	var healthy bool
-	if hasToken {
-		integration, ok := w.services.Registry.Get("linear")
-		if ok {
-			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
-				healthy = integration.Healthy(r.Context())
-			}
+	integration, integrationOK := w.services.Registry.Get("linear")
+	mcpServerURL := ""
+	if integrationOK {
+		mcpServerURL = linearInt.MCPServerURL(integration)
+	}
+	hasRemoteMCP := mcpServerURL != ""
+
+	hasAPIKey := exists && ic.Credentials["api_key"] != ""
+	hasMCPToken := exists && ic.Credentials["mcp_access_token"] != ""
+
+	var apiKeyHealthy, remoteMCPHealthy bool
+
+	if hasAPIKey && integrationOK {
+		apiKeyCreds := mcp.Credentials{"api_key": ic.Credentials["api_key"]}
+		if err := integration.Configure(r.Context(), apiKeyCreds); err == nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			apiKeyHealthy = integration.Healthy(ctx)
+			cancel()
+		}
+	}
+
+	if hasMCPToken && hasRemoteMCP {
+		mcpCreds := mcp.Credentials{"mcp_access_token": ic.Credentials["mcp_access_token"]}
+		if err := integration.Configure(r.Context(), mcpCreds); err == nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			remoteMCPHealthy = integration.Healthy(ctx)
+			cancel()
 		}
 	}
 
@@ -512,10 +528,11 @@ func (w *WebServer) handleLinearSetup(rw http.ResponseWriter, r *http.Request) {
 
 	page := w.pageData(r, "Linear Setup", "/integrations")
 	data := pages.LinearSetupData{
-		HasToken:    hasToken,
-		Healthy:     healthy,
-		TokenSource: tokenSource,
-		HasOAuth:    hasOAuth,
+		HasRemoteMCP:     hasRemoteMCP,
+		RemoteMCPHealthy: remoteMCPHealthy,
+		HasAPIKey:        hasAPIKey,
+		APIKeyHealthy:    apiKeyHealthy,
+		TokenSource:      tokenSource,
 	}
 
 	if flash := r.URL.Query().Get("result"); flash != "" {
@@ -526,67 +543,6 @@ func (w *WebServer) handleLinearSetup(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	pages.LinearSetup(page, data).Render(r.Context(), rw)
-}
-
-func (w *WebServer) handleLinearOAuthStart(rw http.ResponseWriter, r *http.Request) {
-	rw.Header().Set("Content-Type", "application/json")
-
-	ic, exists := w.services.Config.GetIntegration("linear")
-	if !exists || ic.Credentials["client_id"] == "" || ic.Credentials["client_secret"] == "" {
-		json.NewEncoder(rw).Encode(map[string]string{"error": "Linear OAuth client_id/client_secret not configured"})
-		return
-	}
-
-	redirectURI := fmt.Sprintf("http://localhost:%d/api/linear/oauth/callback", w.port)
-	result, err := linearInt.StartLinearOAuth(ic.Credentials["client_id"], ic.Credentials["client_secret"], redirectURI)
-	if err != nil {
-		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-
-	json.NewEncoder(rw).Encode(result)
-}
-
-func (w *WebServer) handleLinearOAuthCallback(rw http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	state := r.URL.Query().Get("state")
-
-	if code == "" {
-		errMsg := r.URL.Query().Get("error")
-		if errMsg == "" {
-			errMsg = "No authorization code received"
-		}
-		http.Redirect(rw, r, "/integrations/linear/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
-		return
-	}
-
-	if err := linearInt.HandleLinearCallback(code, state); err != nil {
-		http.Redirect(rw, r, "/integrations/linear/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
-		return
-	}
-
-	result := linearInt.PollLinearOAuth()
-	if result.Status != "complete" || result.Token == "" {
-		http.Redirect(rw, r, "/integrations/linear/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
-		return
-	}
-
-	ic, _ := w.services.Config.GetIntegration("linear")
-	if ic == nil {
-		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
-	}
-	ic.Enabled = true
-	ic.Credentials["api_key"] = result.Token
-	ic.Credentials["token_source"] = "oauth"
-	_ = w.services.Config.SetIntegration("linear", ic)
-
-	http.Redirect(rw, r, "/integrations/linear/setup?result=Connected+to+Linear+via+OAuth", http.StatusSeeOther)
-}
-
-func (w *WebServer) handleLinearOAuthPoll(rw http.ResponseWriter, r *http.Request) {
-	rw.Header().Set("Content-Type", "application/json")
-	result := linearInt.PollLinearOAuth()
-	json.NewEncoder(rw).Encode(result)
 }
 
 func (w *WebServer) handleLinearSaveToken(rw http.ResponseWriter, r *http.Request) {
@@ -607,6 +563,7 @@ func (w *WebServer) handleLinearSaveToken(rw http.ResponseWriter, r *http.Reques
 	}
 	ic.Enabled = true
 	ic.Credentials["api_key"] = apiKey
+	ic.Credentials["mcp_access_token"] = ""
 	ic.Credentials["token_source"] = "api_key"
 	_ = w.services.Config.SetIntegration("linear", ic)
 
@@ -840,66 +797,84 @@ func (w *WebServer) handleNotionSaveToken(rw http.ResponseWriter, r *http.Reques
 	http.Redirect(rw, r, "/integrations/notion/setup?result=Token+saved+successfully", http.StatusSeeOther)
 }
 
-func (w *WebServer) handleSlackOAuthStart(rw http.ResponseWriter, r *http.Request) {
+func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
+	name := r.PathValue("name")
 
-	ic, exists := w.services.Config.GetIntegration("slack")
-	if !exists || ic.Credentials["client_id"] == "" || ic.Credentials["client_secret"] == "" {
-		json.NewEncoder(rw).Encode(map[string]string{"error": "Slack OAuth client_id/client_secret not configured"})
+	integration, ok := w.services.Registry.Get(name)
+	if !ok {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Unknown integration: " + name})
 		return
 	}
 
-	redirectURI := fmt.Sprintf("http://localhost:%d/api/slack/oauth/callback", w.port)
-	result, err := slackInt.StartSlackOAuth(ic.Credentials["client_id"], ic.Credentials["client_secret"], redirectURI)
+	serverURL := remotemcp.ServerURL(integration)
+	if serverURL == "" {
+		serverURL = linearInt.MCPServerURL(integration)
+	}
+	if serverURL == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/remote/%s/oauth/callback", w.port, name)
+	authorizeURL, err := remotemcp.StartOAuth(name, serverURL, redirectURI)
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
-	json.NewEncoder(rw).Encode(result)
+	json.NewEncoder(rw).Encode(map[string]string{"authorize_url": authorizeURL})
 }
 
-func (w *WebServer) handleSlackOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
+
+	setupPath := "/integrations/" + name + "/setup"
 
 	if code == "" {
 		errMsg := r.URL.Query().Get("error")
 		if errMsg == "" {
 			errMsg = "No authorization code received"
 		}
-		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		http.Redirect(rw, r, setupPath+"?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
 		return
 	}
 
-	if err := slackInt.HandleSlackCallback(code, state); err != nil {
-		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+	if err := remotemcp.HandleOAuthCallback(name, code, state); err != nil {
+		http.Redirect(rw, r, setupPath+"?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
 		return
 	}
 
-	result := slackInt.PollSlackOAuth()
-	if result.Status != "complete" || result.Token == "" {
-		http.Redirect(rw, r, "/integrations/slack/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+	status, token, errStr := remotemcp.PollOAuth(name)
+	if status != "complete" || token == "" {
+		msg := "Failed to get access token"
+		if errStr != "" {
+			msg = errStr
+		}
+		http.Redirect(rw, r, setupPath+"?error="+strings.ReplaceAll(msg, " ", "+"), http.StatusSeeOther)
 		return
 	}
 
-	ic, _ := w.services.Config.GetIntegration("slack")
+	ic, _ := w.services.Config.GetIntegration(name)
 	if ic == nil {
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials["token"] = result.Token
-	ic.Credentials["cookie"] = ""
+	ic.Credentials["mcp_access_token"] = token
+	ic.Credentials["api_key"] = ""
 	ic.Credentials["token_source"] = "oauth"
-	_ = w.services.Config.SetIntegration("slack", ic)
+	_ = w.services.Config.SetIntegration(name, ic)
 
-	http.Redirect(rw, r, "/integrations/slack/setup?result=Connected+to+Slack+via+OAuth", http.StatusSeeOther)
+	http.Redirect(rw, r, setupPath+"?result=Connected+via+MCP+OAuth", http.StatusSeeOther)
 }
 
-func (w *WebServer) handleSlackOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+func (w *WebServer) handleRemoteMCPOAuthPoll(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	result := slackInt.PollSlackOAuth()
-	json.NewEncoder(rw).Encode(result)
+	name := r.PathValue("name")
+	status, token, errStr := remotemcp.PollOAuth(name)
+	json.NewEncoder(rw).Encode(map[string]string{"status": status, "token": token, "error": errStr})
 }
 
 func (w *WebServer) handleGmailSetup(rw http.ResponseWriter, r *http.Request) {

@@ -42,13 +42,51 @@ func (s *sentry) Configure(_ context.Context, creds mcp.Credentials) error {
 	if s.authToken == "" {
 		return fmt.Errorf("sentry: auth_token is required")
 	}
-	if s.organization == "" {
-		return fmt.Errorf("sentry: organization is required")
-	}
 	if v := creds["base_url"]; v != "" {
 		s.baseURL = strings.TrimRight(v, "/")
 	}
+	if s.organization == "" {
+		org, err := s.fetchOrganization()
+		if err != nil {
+			return fmt.Errorf("sentry: organization is required (auto-detect failed: %v)", err)
+		}
+		s.organization = org
+	}
 	return nil
+}
+
+// fetchOrganization calls GET /organizations/ to auto-detect the user's organization slug.
+func (s *sentry) fetchOrganization() (string, error) {
+	req, err := http.NewRequest("GET", s.baseURL+"/organizations/", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+s.authToken)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("API error (%d): %s", resp.StatusCode, string(data))
+	}
+
+	var orgs []struct {
+		Slug string `json:"slug"`
+	}
+	if err := json.Unmarshal(data, &orgs); err != nil {
+		return "", fmt.Errorf("parse organizations: %w", err)
+	}
+	if len(orgs) == 0 {
+		return "", fmt.Errorf("no organizations found for this token")
+	}
+	return orgs[0].Slug, nil
 }
 
 func (s *sentry) Healthy(ctx context.Context) bool {

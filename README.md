@@ -134,6 +134,56 @@ convenience layer over this file — you can also edit it by hand.
 }
 ```
 
+### Environment Variables
+
+Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
+
+Any integration with credentials provided via env vars will auto-enable without needing to toggle it in the web UI.
+
+| Integration | Credential | Env Var |
+|---|---|---|
+| GitHub | `token` | `GITHUB_TOKEN` |
+| Datadog | `api_key` | `DD_API_KEY` |
+| Datadog | `app_key` | `DD_APP_KEY` |
+| Datadog | `site` | `DD_SITE` |
+| Linear | `api_key` | `LINEAR_API_KEY` |
+| Sentry | `auth_token` | `SENTRY_AUTH_TOKEN` |
+| Sentry | `organization` | `SENTRY_ORG` (optional — auto-detected from API) |
+| Slack | `token` | `SLACK_TOKEN` |
+| Slack | `cookie` | `SLACK_COOKIE` |
+| Metabase | `api_key` | `METABASE_API_KEY` |
+| Metabase | `url` | `METABASE_URL` |
+| AWS | `access_key_id` | `AWS_ACCESS_KEY_ID` |
+| AWS | `secret_access_key` | `AWS_SECRET_ACCESS_KEY` |
+| AWS | `session_token` | `AWS_SESSION_TOKEN` |
+| AWS | `region` | `AWS_REGION` |
+| PostHog | `api_key` | `POSTHOG_API_KEY` |
+| PostHog | `project_id` | `POSTHOG_PROJECT_ID` |
+| PostHog | `base_url` | `POSTHOG_URL` |
+| Postgres | `connection_string` | `DATABASE_URL` |
+| Postgres | `host` | `PGHOST` |
+| Postgres | `port` | `PGPORT` |
+| Postgres | `user` | `PGUSER` |
+| Postgres | `password` | `PGPASSWORD` |
+| Postgres | `database` | `PGDATABASE` |
+| Postgres | `sslmode` | `PGSSLMODE` |
+
+### OAuth Setup
+
+Some integrations support OAuth flows through the web UI at `http://localhost:3847`. This is the easiest way to get tokens for integrations that don't use simple API keys.
+
+| Integration | Auth Method | Setup |
+|---|---|---|
+| GitHub | OAuth Device Flow | Web UI → GitHub → Setup, or set `GITHUB_TOKEN` |
+| Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
+| Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
+| Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
+| Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
+| AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
+| Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
+| PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |
+| Postgres | Connection String | Set `DATABASE_URL` env var or enter in web UI |
+
 ## Adding to Cursor / Claude Desktop
 
 Add to your MCP client config:
