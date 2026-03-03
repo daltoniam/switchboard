@@ -23,6 +23,7 @@ type IntegrationConfig struct {
 // Config is the top-level configuration containing all integrations.
 type Config struct {
 	Integrations map[string]*IntegrationConfig `json:"integrations"`
+	Instructions *InstructionsConfig           `json:"instructions,omitempty"`
 }
 
 // ToolDefinition describes an API operation an integration exposes.
@@ -96,6 +97,12 @@ type ConfigService interface {
 	SetIntegration(name string, ic *IntegrationConfig) error
 	EnabledIntegrations() []string
 	DefaultCredentialKeys(name string) []string
+	// Instructions management
+	GetInstructions() *InstructionsConfig
+	SetInstructions(ic *InstructionsConfig) error
+	GetInstruction(id string) (*Instruction, bool)
+	SetInstruction(inst *Instruction) error
+	DeleteInstruction(id string) error
 }
 
 // Registry holds all registered integrations and provides lookup.
@@ -110,4 +117,48 @@ type Registry interface {
 type Services struct {
 	Config   ConfigService
 	Registry Registry
+}
+
+// Instruction represents a system instruction/prompt template that can be
+// dynamically rendered with context (model info, environment, custom variables).
+// Inspired by the Helmsman Ruby gem's approach to managing AI assistant instructions.
+type Instruction struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	Template    string            `json:"template"`
+	Enabled     bool              `json:"enabled"`
+	Variables   map[string]string `json:"variables,omitempty"`
+}
+
+// InstructionsConfig holds all instruction templates.
+type InstructionsConfig struct {
+	DefaultTier  string         `json:"default_tier,omitempty"`
+	Instructions []*Instruction `json:"instructions,omitempty"`
+}
+
+// ModelContext provides information about the AI model requesting instructions.
+type ModelContext struct {
+	ID   string // Model identifier (e.g., "claude-opus-4-5-20251101")
+	Tier string // Model tier: "agi", "engineer", "monkey"
+}
+
+// EnvContext provides information about the execution environment.
+type EnvContext struct {
+	OS       string // Operating system: "macos", "linux", "windows"
+	Shell    string // Shell: "zsh", "bash", "fish", "sh", "powershell"
+	InDocker bool   // Running inside Docker container
+	InSSH    bool   // Running in SSH session
+	HasMise  bool   // mise (formerly rtx) available
+	HasBrew  bool   // Homebrew available
+	HasApt   bool   // apt available
+	HasGh    bool   // GitHub CLI available
+	HasGit   bool   // git available
+}
+
+// InstructionRenderContext is the data passed to instruction templates.
+type InstructionRenderContext struct {
+	Model ModelContext
+	Env   EnvContext
+	Vars  map[string]string // Custom variables from instruction config
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compass"
 	ghInt "github.com/daltoniam/switchboard/integrations/github"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
@@ -75,6 +76,15 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
+
+	// Instructions routes
+	mux.HandleFunc("GET /instructions", w.handleInstructionsList)
+	mux.HandleFunc("GET /instructions/new", w.handleInstructionNew)
+	mux.HandleFunc("POST /instructions", w.handleInstructionCreate)
+	mux.HandleFunc("GET /instructions/{id}", w.handleInstructionDetail)
+	mux.HandleFunc("POST /instructions/{id}", w.handleInstructionSave)
+	mux.HandleFunc("POST /instructions/{id}/delete", w.handleInstructionDelete)
+	mux.HandleFunc("POST /api/instructions/preview", w.handleInstructionPreview)
 
 	return mux
 }
@@ -831,4 +841,211 @@ func (w *WebServer) handleSlackOAuthPoll(rw http.ResponseWriter, r *http.Request
 	rw.Header().Set("Content-Type", "application/json")
 	result := slackInt.PollSlackOAuth()
 	json.NewEncoder(rw).Encode(result)
+}
+
+// --- Instructions handlers ---
+
+func (w *WebServer) handleInstructionsList(rw http.ResponseWriter, r *http.Request) {
+	instConfig := w.services.Config.GetInstructions()
+
+	var summaries []pages.InstructionSummary
+	if instConfig != nil {
+		for _, inst := range instConfig.Instructions {
+			summaries = append(summaries, pages.InstructionSummary{
+				ID:          inst.ID,
+				Name:        inst.Name,
+				Description: inst.Description,
+				Enabled:     inst.Enabled,
+			})
+		}
+	}
+
+	defaultTier := ""
+	if instConfig != nil {
+		defaultTier = instConfig.DefaultTier
+	}
+
+	page := w.pageData(r, "Instructions", "/instructions")
+	data := pages.InstructionsListData{
+		Instructions: summaries,
+		DefaultTier:  defaultTier,
+	}
+	pages.InstructionsList(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleInstructionNew(rw http.ResponseWriter, r *http.Request) {
+	page := w.pageData(r, "New Instruction", "/instructions")
+	data := pages.InstructionDetailData{
+		IsNew:   true,
+		Enabled: true,
+	}
+	pages.InstructionDetail(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleInstructionCreate(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/instructions/new?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Redirect(rw, r, "/instructions/new?error=Name+is+required", http.StatusSeeOther)
+		return
+	}
+
+	// Generate ID from name
+	id := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+	id = strings.ReplaceAll(id, "_", "-")
+	// Add timestamp suffix to ensure uniqueness
+	id = fmt.Sprintf("%s-%d", id, time.Now().Unix())
+
+	inst := &mcp.Instruction{
+		ID:          id,
+		Name:        name,
+		Description: strings.TrimSpace(r.FormValue("description")),
+		Template:    r.FormValue("template"),
+		Enabled:     r.FormValue("enabled") == "true",
+		Variables:   parseVariables(r.FormValue("variables")),
+	}
+
+	if err := w.services.Config.SetInstruction(inst); err != nil {
+		http.Redirect(rw, r, "/instructions/new?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(rw, r, "/instructions/"+id+"?result=Instruction+created", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleInstructionDetail(rw http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	inst, exists := w.services.Config.GetInstruction(id)
+	if !exists {
+		http.NotFound(rw, r)
+		return
+	}
+
+	page := w.pageData(r, "Edit: "+inst.Name, "/instructions")
+	data := pages.InstructionDetailData{
+		ID:          inst.ID,
+		Name:        inst.Name,
+		Description: inst.Description,
+		Template:    inst.Template,
+		Enabled:     inst.Enabled,
+		Variables:   inst.Variables,
+		IsNew:       false,
+	}
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.InstructionDetail(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleInstructionSave(rw http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	_, exists := w.services.Config.GetInstruction(id)
+	if !exists {
+		http.NotFound(rw, r)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/instructions/"+id+"?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Redirect(rw, r, "/instructions/"+id+"?error=Name+is+required", http.StatusSeeOther)
+		return
+	}
+
+	inst := &mcp.Instruction{
+		ID:          id,
+		Name:        name,
+		Description: strings.TrimSpace(r.FormValue("description")),
+		Template:    r.FormValue("template"),
+		Enabled:     r.FormValue("enabled") == "true",
+		Variables:   parseVariables(r.FormValue("variables")),
+	}
+
+	if err := w.services.Config.SetInstruction(inst); err != nil {
+		http.Redirect(rw, r, "/instructions/"+id+"?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(rw, r, "/instructions/"+id+"?result=Changes+saved", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleInstructionDelete(rw http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	if err := w.services.Config.DeleteInstruction(id); err != nil {
+		http.Redirect(rw, r, "/instructions/"+id+"?error=Failed+to+delete:+"+err.Error(), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(rw, r, "/instructions?result=Instruction+deleted", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleInstructionPreview(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	var body struct {
+		Template string `json:"template"`
+		ModelID  string `json:"model_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	instConfig := w.services.Config.GetInstructions()
+	defaultTier := ""
+	if instConfig != nil {
+		defaultTier = instConfig.DefaultTier
+	}
+
+	// Create a temporary instruction to render
+	inst := &mcp.Instruction{
+		ID:       "preview",
+		Name:     "Preview",
+		Template: body.Template,
+		Enabled:  true,
+	}
+
+	ctx := compass.BuildRenderContext(body.ModelID, defaultTier, nil)
+	rendered, err := compass.RenderInstruction(inst, ctx)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(map[string]string{"rendered": rendered})
+}
+
+func parseVariables(input string) map[string]string {
+	vars := make(map[string]string)
+	lines := strings.Split(input, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			if key != "" {
+				vars[key] = value
+			}
+		}
+	}
+	return vars
 }
