@@ -1,0 +1,38 @@
+name: Crush PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  crush-review:
+    name: Crush PR Review
+    runs-on: [self-hosted, macOS]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Run Crush PR Review
+        env:
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION: us-east-1
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          CRUSH_SKILLS_DIR: ${{ github.workspace }}/.claude/skills
+        run: >
+          crush run -c "${{ github.workspace }}"
+          "Review PR #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+          Use the pr-review skill to do a full code review, then use the pr-comments skill to post your findings as inline comments on the PR.
+          The repo is already checked out locally. Use gh CLI for all GitHub API interactions."
