@@ -97,7 +97,7 @@ Review the diff against Switchboard's established patterns. Read `AGENTS.md` at 
 - Domain types and port interfaces belong in `mcp.go` (root package `mcp`) — not in adapter packages
 - Implementation structs are **unexported** with **exported** `New()` constructors returning `mcp.Integration`
 - Adapters implement `mcp.Integration` interface: `Name()`, `Configure()`, `Tools()`, `Execute()`, `Healthy()`
-- No cross-package imports between adapter packages (`github/`, `datadog/`, `slack/`, etc.)
+- No cross-package imports between adapter packages (`integrations/github/`, `integrations/datadog/`, `integrations/slack/`, etc.)
 - All wiring happens in `cmd/server/main.go`
 - `mcp.Services` struct is the DI container (passed to `server.New()` and `web.New()`)
 

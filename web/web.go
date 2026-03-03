@@ -9,10 +9,10 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
-	ghInt "github.com/daltoniam/switchboard/github"
-	linearInt "github.com/daltoniam/switchboard/linear"
-	sentryInt "github.com/daltoniam/switchboard/sentry"
-	slackInt "github.com/daltoniam/switchboard/slack"
+	ghInt "github.com/daltoniam/switchboard/integrations/github"
+	linearInt "github.com/daltoniam/switchboard/integrations/linear"
+	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
+	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 )

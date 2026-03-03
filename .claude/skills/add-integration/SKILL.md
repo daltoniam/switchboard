@@ -96,9 +96,9 @@ Follow `AGENTS.md > Error Handling`. Key judgment: surface errors to the caller 
 ### When to Add Custom Helpers
 
 Add integration-specific helpers when a pattern repeats 3+ times *within* an adapter:
-- Org/workspace slug injection (see `sentry/org()`)
-- Entity ID resolution by name (see `linear/resolveTeamID()`)
-- Query string building from optional params (see `sentry/queryEncode()`)
+- Org/workspace slug injection (see `integrations/sentry/org()`)
+- Entity ID resolution by name (see `integrations/linear/resolveTeamID()`)
+- Query string building from optional params (see `integrations/sentry/queryEncode()`)
 
 Note: arg helpers (`argStr`, `argInt`, `argBool`) are intentionally duplicated *across* adapters — see `AGENTS.md > Gotchas`. Raw-HTTP adapters also duplicate result helpers (`rawResult`, `errResult`). Do not extract shared utilities.
 
@@ -128,7 +128,7 @@ Follow `AGENTS.md > Adding a New Integration` steps 6-7 (register + config defau
 
 New adapters should implement `FieldCompactionIntegration` to keep list/search responses compact.
 
-**Contract vs implementation**: The interface contract is `CompactSpec(toolName string) ([]CompactField, bool)` defined in `mcp.go`. How you build the specs is an implementation detail — `github/compact_specs.go` uses a raw string map parsed at init, but adapters can construct `CompactField` slices however they want.
+**Contract vs implementation**: The interface contract is `CompactSpec(toolName string) ([]CompactField, bool)` defined in `mcp.go`. How you build the specs is an implementation detail — `integrations/github/compact_specs.go` uses a raw string map parsed at init, but adapters can construct `CompactField` slices however they want.
 
 ### Token Budget Principle
 
@@ -138,7 +138,7 @@ Optimize specs for **fewest total tokens across the entire task workflow**, not 
 
 ### Checklist
 
-- [ ] Create `<name>/compact_specs.go` with `rawFieldCompactionSpecs` map and `mustBuildFieldCompactionSpecs` init (copy pattern from `github/compact_specs.go`)
+- [ ] Create `integrations/<name>/compact_specs.go` with `rawFieldCompactionSpecs` map and `mustBuildFieldCompactionSpecs` init (copy pattern from `integrations/github/compact_specs.go`)
 - [ ] Design field compaction specs using the spec design questions below
 - [ ] Add specs for all list/search tools — keep identifiers, names, states, dates, counts, URLs; drop nested full objects, permissions, avatars, node_ids
 - [ ] Implement `CompactSpec(toolName string) ([]CompactField, bool)` method on the adapter struct
@@ -157,7 +157,7 @@ For each tool's spec, verify against these questions before finalizing:
 4. **Field dependencies**: Do included fields make sense alone? `status` without `conclusion` in CI runs is incomplete. `additions` without `deletions` in PRs is half the story. Include paired fields together or not at all.
 5. **Follow-up keys**: Does the LLM have the identifiers it needs to make follow-up API calls? Verify that `id`, `number`, or `sha` — whatever the get tool requires — is included.
 
-Canonical example: `github/compact_specs.go`
+Canonical example: `integrations/github/compact_specs.go`
 
 ## Anti-Patterns
 
