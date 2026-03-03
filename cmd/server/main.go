@@ -23,6 +23,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/posthog"
 	"github.com/daltoniam/switchboard/integrations/postgres"
+	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/registry"
@@ -177,6 +178,7 @@ func runServer(stdioMode bool, port int) {
 		postgres.New(),
 		clickhouse.New(),
 		pganalyze.New(),
+		rwx.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
