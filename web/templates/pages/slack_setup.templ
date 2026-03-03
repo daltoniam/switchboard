@@ -157,15 +157,24 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 									form.submit();
 									return;
 								}
-								var html = '';
+								var container = document.getElementById('workspace-list');
+								container.innerHTML = '';
 								for (var i = 0; i < ws.length; i++) {
-									var label = ws[i].name || ws[i].team_id;
-									if (ws[i].url) { label += ' (' + ws[i].url.replace('https://', '') + ')'; }
-									html += '<label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; cursor: pointer;">';
-									html += '<input type="radio" name="team_id" value="' + ws[i].team_id + '"' + (i === 0 ? ' checked' : '') + '>';
-									html += '<span>' + label + '</span></label>';
+									var labelEl = document.createElement('label');
+									labelEl.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; cursor: pointer;';
+									var radio = document.createElement('input');
+									radio.type = 'radio';
+									radio.name = 'team_id';
+									radio.value = ws[i].team_id;
+									if (i === 0) radio.checked = true;
+									var span = document.createElement('span');
+									var text = ws[i].name || ws[i].team_id;
+									if (ws[i].url) { text += ' (' + ws[i].url.replace('https://', '') + ')'; }
+									span.textContent = text;
+									labelEl.appendChild(radio);
+									labelEl.appendChild(span);
+									container.appendChild(labelEl);
 								}
-								document.getElementById('workspace-list').innerHTML = html;
 								document.getElementById('chrome-extract-picker').style.display = 'block';
 							})
 							.catch(function(err) {

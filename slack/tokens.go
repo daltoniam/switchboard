@@ -279,9 +279,16 @@ func readSlackLocalConfig(profilePath string) (*slackLocalConfig, error) {
 	}
 	defer func() { _ = db.Close() }()
 
-	key := "_https://app.slack.com\x00\x01localConfig_v2"
-	val, err := db.Get([]byte(key), nil)
-	if err != nil {
+	versions := []string{"localConfig_v2", "localConfig_v3", "localConfig_v4", "localConfig_v5"}
+	var val []byte
+	for _, v := range versions {
+		key := "_https://app.slack.com\x00\x01" + v
+		if found, err := db.Get([]byte(key), nil); err == nil {
+			val = found
+			break
+		}
+	}
+	if val == nil {
 		return nil, fmt.Errorf("key not found in profile %s", filepath.Base(profilePath))
 	}
 
@@ -292,7 +299,7 @@ func readSlackLocalConfig(profilePath string) (*slackLocalConfig, error) {
 
 	var cfg slackLocalConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("parsing localConfig_v2: %w", err)
+		return nil, fmt.Errorf("parsing localConfig: %w", err)
 	}
 	return &cfg, nil
 }
