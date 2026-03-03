@@ -15,19 +15,76 @@ const (
 	configFile = "config.json"
 )
 
+// envMapping maps integration credential keys to environment variable names.
+// When an env var is set, it overrides the corresponding JSON config value.
+// These use standard/conventional env var names where they exist.
+var envMapping = map[string]map[string]string{
+	"github": {
+		"token": "GITHUB_TOKEN",
+	},
+	"datadog": {
+		"api_key": "DD_API_KEY",
+		"app_key": "DD_APP_KEY",
+		"site":    "DD_SITE",
+	},
+	"linear": {
+		"api_key": "LINEAR_API_KEY",
+	},
+	"sentry": {
+		"auth_token":   "SENTRY_AUTH_TOKEN",
+		"organization": "SENTRY_ORG",
+	},
+	"slack": {
+		"token":  "SLACK_TOKEN",
+		"cookie": "SLACK_COOKIE",
+	},
+	"metabase": {
+		"api_key": "METABASE_API_KEY",
+		"url":     "METABASE_URL",
+	},
+	"aws": {
+		"access_key_id":     "AWS_ACCESS_KEY_ID",
+		"secret_access_key": "AWS_SECRET_ACCESS_KEY",
+		"session_token":     "AWS_SESSION_TOKEN",
+		"region":            "AWS_REGION",
+	},
+	"posthog": {
+		"api_key":    "POSTHOG_API_KEY",
+		"project_id": "POSTHOG_PROJECT_ID",
+		"base_url":   "POSTHOG_URL",
+	},
+	"postgres": {
+		"connection_string": "DATABASE_URL",
+		"host":              "PGHOST",
+		"port":              "PGPORT",
+		"user":              "PGUSER",
+		"password":          "PGPASSWORD",
+		"database":          "PGDATABASE",
+		"sslmode":           "PGSSLMODE",
+	},
+}
+
+// EnvMapping returns the env var mapping table. Useful for documentation and debugging.
+func EnvMapping() map[string]map[string]string {
+	return envMapping
+}
+
 type manager struct {
-	mu       sync.RWMutex
-	cfg      *mcp.Config
-	filePath string
+	mu        sync.RWMutex
+	cfg       *mcp.Config
+	filePath  string
+	envLookup func(string) string // defaults to os.Getenv; override in tests
 }
 
 // NewManager returns a ConfigService backed by a JSON file at ~/.config/switchboard/config.json.
+// After loading the JSON config, environment variables are overlaid on top.
+// Any env var that maps to an integration credential will override the JSON value.
 func NewManager() (mcp.ConfigService, error) {
 	path, err := configPath()
 	if err != nil {
 		return nil, err
 	}
-	m := &manager{filePath: path}
+	m := &manager{filePath: path, envLookup: os.Getenv}
 	if err := m.Load(); err != nil {
 		return nil, err
 	}
@@ -55,7 +112,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"linear": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"api_key": "", "client_id": "", "client_secret": "", "token_source": ""},
+				Credentials: mcp.Credentials{"api_key": "", "mcp_access_token": "", "token_source": ""},
 			},
 			"sentry": {
 				Enabled:     false,
@@ -63,7 +120,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"slack": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"token": "", "cookie": "", "client_id": "", "client_secret": "", "token_source": ""},
+				Credentials: mcp.Credentials{"token": "", "cookie": "", "token_source": ""},
 			},
 			"metabase": {
 				Enabled:     false,
@@ -101,7 +158,11 @@ func (m *manager) Load() error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			m.cfg = defaultConfig()
-			return m.saveLocked()
+			if saveErr := m.saveLocked(); saveErr != nil {
+				return saveErr
+			}
+			m.applyEnvOverrides()
+			return nil
 		}
 		return fmt.Errorf("read config: %w", err)
 	}
@@ -111,6 +172,7 @@ func (m *manager) Load() error {
 		return fmt.Errorf("parse config: %w", err)
 	}
 	m.cfg = mergeWithDefaults(&cfg)
+	m.applyEnvOverrides()
 	return nil
 }
 
@@ -131,6 +193,29 @@ func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 		}
 	}
 	return cfg
+}
+
+func (m *manager) applyEnvOverrides() {
+	if m.cfg.Integrations == nil {
+		return
+	}
+	for integration, mapping := range envMapping {
+		ic, ok := m.cfg.Integrations[integration]
+		if !ok {
+			ic = &mcp.IntegrationConfig{
+				Credentials: mcp.Credentials{},
+			}
+			m.cfg.Integrations[integration] = ic
+		}
+		if ic.Credentials == nil {
+			ic.Credentials = mcp.Credentials{}
+		}
+		for credKey, envVar := range mapping {
+			if val := m.envLookup(envVar); val != "" {
+				ic.Credentials[credKey] = val
+			}
+		}
+	}
 }
 
 func (m *manager) Save() error {

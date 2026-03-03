@@ -33,10 +33,41 @@ func TestConfigure_MissingAuthToken(t *testing.T) {
 }
 
 func TestConfigure_MissingOrganization(t *testing.T) {
-	i := New()
-	err := i.Configure(mcp.Credentials{"auth_token": "token", "organization": ""})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/organizations/", r.URL.Path)
+		w.Write([]byte(`[{"slug":"auto-org"}]`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{client: ts.Client(), baseURL: ts.URL}
+	err := s.Configure(mcp.Credentials{"auth_token": "token", "organization": ""})
+	assert.NoError(t, err)
+	assert.Equal(t, "auto-org", s.organization)
+}
+
+func TestConfigure_AutoDetectOrgFails(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(401)
+		w.Write([]byte(`{"detail":"unauthorized"}`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{client: ts.Client(), baseURL: ts.URL}
+	err := s.Configure(mcp.Credentials{"auth_token": "bad-token", "organization": ""})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "organization is required")
+	assert.Contains(t, err.Error(), "auto-detect failed")
+}
+
+func TestConfigure_AutoDetectNoOrgs(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`[]`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{client: ts.Client(), baseURL: ts.URL}
+	err := s.Configure(mcp.Credentials{"auth_token": "token", "organization": ""})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no organizations found")
 }
 
 func TestConfigure_CustomBaseURL(t *testing.T) {

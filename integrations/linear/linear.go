@@ -11,39 +11,98 @@ import (
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/remotemcp"
 )
 
 const graphqlURL = "https://api.linear.app/graphql"
 
 type linear struct {
-	apiKey string
-	client *http.Client
+	apiKey     string
+	authHeader string
+	client     *http.Client
+
+	mcpServerURL string
+	remote       mcp.Integration
+	useRemote    bool
 }
 
-func New() mcp.Integration {
-	return &linear{client: &http.Client{}}
+// New creates a Linear integration. If mcpServerURL is non-empty, the
+// integration supports dual-mode: remote MCP (via OAuth) or native API key.
+func New(mcpServerURL ...string) mcp.Integration {
+	l := &linear{client: &http.Client{}}
+	if len(mcpServerURL) > 0 && mcpServerURL[0] != "" {
+		l.mcpServerURL = mcpServerURL[0]
+	}
+	return l
+}
+
+// IsRemoteMCP reports whether this integration is currently operating in
+// remote MCP mode (as opposed to native API key mode).
+func IsRemoteMCP(i mcp.Integration) bool {
+	if l, ok := i.(*linear); ok {
+		return l.useRemote
+	}
+	return false
+}
+
+// MCPServerURL returns the configured remote MCP server URL, or empty.
+func MCPServerURL(i mcp.Integration) string {
+	if l, ok := i.(*linear); ok {
+		return l.mcpServerURL
+	}
+	return ""
+}
+
+func newRemote(serverURL string) mcp.Integration {
+	return remotemcp.New("linear", serverURL)
 }
 
 func (l *linear) Name() string { return "linear" }
 
 func (l *linear) Configure(creds mcp.Credentials) error {
+	if token := creds["mcp_access_token"]; token != "" && l.mcpServerURL != "" {
+		if l.remote == nil {
+			l.remote = newRemote(l.mcpServerURL)
+		}
+		if err := l.remote.Configure(mcp.Credentials{"access_token": token}); err != nil {
+			return err
+		}
+		l.useRemote = true
+		return nil
+	}
+
+	l.useRemote = false
 	l.apiKey = creds["api_key"]
 	if l.apiKey == "" {
-		return fmt.Errorf("linear: api_key is required")
+		return fmt.Errorf("linear: api_key or mcp_access_token is required")
+	}
+	if strings.HasPrefix(l.apiKey, "lin_api_") {
+		l.authHeader = l.apiKey
+	} else {
+		l.authHeader = "Bearer " + l.apiKey
 	}
 	return nil
 }
 
 func (l *linear) Healthy(ctx context.Context) bool {
+	if l.useRemote && l.remote != nil {
+		return l.remote.Healthy(ctx)
+	}
 	_, err := l.gql(ctx, `{ viewer { id } }`, nil)
 	return err == nil
 }
 
 func (l *linear) Tools() []mcp.ToolDefinition {
+	if l.useRemote && l.remote != nil {
+		return l.remote.Tools()
+	}
 	return tools
 }
 
 func (l *linear) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+	if l.useRemote && l.remote != nil {
+		return l.remote.Execute(ctx, toolName, args)
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -74,7 +133,7 @@ func (l *linear) gql(ctx context.Context, query string, variables map[string]any
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", l.apiKey)
+	req.Header.Set("Authorization", l.authHeader)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := l.client.Do(req)
