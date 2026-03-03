@@ -79,6 +79,13 @@ type FieldCompactionIntegration interface {
 	CompactSpec(toolName string) ([]CompactField, bool)
 }
 
+// PlainTextCredentials is an optional interface that integrations can implement
+// to declare which credential keys should be rendered as plain text inputs
+// instead of password fields in the web UI.
+type PlainTextCredentials interface {
+	PlainTextKeys() []string
+}
+
 // ConfigService manages loading and saving configuration.
 type ConfigService interface {
 	Load() error
@@ -88,6 +95,7 @@ type ConfigService interface {
 	GetIntegration(name string) (*IntegrationConfig, bool)
 	SetIntegration(name string, ic *IntegrationConfig) error
 	EnabledIntegrations() []string
+	DefaultCredentialKeys(name string) []string
 }
 
 // Registry holds all registered integrations and provides lookup.

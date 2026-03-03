@@ -182,17 +182,27 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 	enabled := exists && ic.Enabled
 
 	var healthy bool
-	var creds mcp.Credentials
-	if exists {
-		creds = ic.Credentials
-		if enabled {
-			if err := integration.Configure(ic.Credentials); err == nil {
-				healthy = integration.Healthy(r.Context())
-			}
+	if exists && enabled {
+		if err := integration.Configure(ic.Credentials); err == nil {
+			healthy = integration.Healthy(r.Context())
 		}
 	}
-	if creds == nil {
-		creds = mcp.Credentials{}
+
+	creds := mcp.Credentials{}
+	for _, key := range w.services.Config.DefaultCredentialKeys(name) {
+		creds[key] = ""
+	}
+	if exists {
+		for k, v := range ic.Credentials {
+			creds[k] = v
+		}
+	}
+
+	plainTextKeys := map[string]bool{}
+	if ptc, ok := integration.(mcp.PlainTextCredentials); ok {
+		for _, k := range ptc.PlainTextKeys() {
+			plainTextKeys[k] = true
+		}
 	}
 
 	var tools []string
@@ -202,11 +212,12 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 
 	page := w.pageData(r, integration.Name(), "/integrations")
 	data := pages.IntegrationDetailData{
-		Name:        name,
-		Enabled:     enabled,
-		Healthy:     healthy,
-		Credentials: creds,
-		Tools:       tools,
+		Name:          name,
+		Enabled:       enabled,
+		Healthy:       healthy,
+		Credentials:   creds,
+		PlainTextKeys: plainTextKeys,
+		Tools:         tools,
 	}
 
 	pages.IntegrationDetail(page, data).Render(r.Context(), rw)

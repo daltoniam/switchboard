@@ -6,11 +6,19 @@ import (
 )
 
 type IntegrationDetailData struct {
-	Name        string
-	Enabled     bool
-	Healthy     bool
-	Credentials map[string]string
-	Tools       []string
+	Name          string
+	Enabled       bool
+	Healthy       bool
+	Credentials   map[string]string
+	PlainTextKeys map[string]bool
+	Tools         []string
+}
+
+func credInputType(key string, plainTextKeys map[string]bool) string {
+	if plainTextKeys[key] {
+		return "text"
+	}
+	return "password"
 }
 
 templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
@@ -28,7 +36,7 @@ templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
 				</div>
 				<div>
 					for key, val := range data.Credentials {
-						@components.FormGroup(key, "cred_" + key, "password", val, "Enter " + key)
+						@components.FormGroup(key, "cred_" + key, credInputType(key, data.PlainTextKeys), val, "Enter " + key)
 					}
 				</div>
 			</div>

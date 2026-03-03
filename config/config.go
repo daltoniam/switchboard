@@ -85,6 +85,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"host": "", "port": "", "username": "", "password": "", "database": "", "secure": "", "skip_verify": ""},
 			},
+			"pganalyze": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "organization_slug": ""},
+			},
 		},
 	}
 }
@@ -106,8 +110,27 @@ func (m *manager) Load() error {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("parse config: %w", err)
 	}
-	m.cfg = &cfg
+	m.cfg = mergeWithDefaults(&cfg)
 	return nil
+}
+
+func mergeWithDefaults(file *mcp.Config) *mcp.Config {
+	cfg := defaultConfig()
+	if file.Integrations == nil {
+		return cfg
+	}
+	for name, fileIC := range file.Integrations {
+		defIC, ok := cfg.Integrations[name]
+		if !ok {
+			cfg.Integrations[name] = fileIC
+			continue
+		}
+		defIC.Enabled = fileIC.Enabled
+		for k, v := range fileIC.Credentials {
+			defIC.Credentials[k] = v
+		}
+	}
+	return cfg
 }
 
 func (m *manager) Save() error {
@@ -170,4 +193,17 @@ func (m *manager) EnabledIntegrations() []string {
 		}
 	}
 	return names
+}
+
+func (m *manager) DefaultCredentialKeys(name string) []string {
+	def := defaultConfig()
+	ic, ok := def.Integrations[name]
+	if !ok {
+		return nil
+	}
+	keys := make([]string, 0, len(ic.Credentials))
+	for k := range ic.Credentials {
+		keys = append(keys, k)
+	}
+	return keys
 }

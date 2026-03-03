@@ -43,6 +43,7 @@ func (m *mockConfigService) EnabledIntegrations() []string {
 	}
 	return names
 }
+func (m *mockConfigService) DefaultCredentialKeys(_ string) []string { return nil }
 
 type mockIntegration struct {
 	name      string

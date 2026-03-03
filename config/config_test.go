@@ -30,8 +30,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 10)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse"} {
+	assert.Len(t, m.cfg.Integrations, 11)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "pganalyze"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -57,6 +57,36 @@ func TestLoad_ParsesExistingFile(t *testing.T) {
 	assert.Equal(t, "abc", m.cfg.Integrations["github"].Credentials["token"])
 }
 
+func TestLoad_BackfillsMissingIntegrations(t *testing.T) {
+	m, path := newTestManager(t)
+
+	cfg := &mcp.Config{
+		Integrations: map[string]*mcp.IntegrationConfig{
+			"github": {Enabled: true, Credentials: mcp.Credentials{"token": "abc"}},
+		},
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
+	require.NoError(t, os.WriteFile(path, data, 0600))
+
+	err = m.Load()
+	require.NoError(t, err)
+
+	assert.True(t, m.cfg.Integrations["github"].Enabled)
+	assert.Equal(t, "abc", m.cfg.Integrations["github"].Credentials["token"])
+
+	for name := range defaultConfig().Integrations {
+		_, ok := m.cfg.Integrations[name]
+		assert.True(t, ok, "missing backfilled integration: %s", name)
+	}
+
+	for _, key := range []string{"token", "client_id", "token_source"} {
+		_, ok := m.cfg.Integrations["github"].Credentials[key]
+		assert.True(t, ok, "missing default credential key %q for github", key)
+	}
+}
+
 func TestLoad_InvalidJSON(t *testing.T) {
 	m, path := newTestManager(t)
 
@@ -80,7 +110,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 10)
+	assert.Len(t, cfg.Integrations, 11)
 }
 
 func TestGet(t *testing.T) {
@@ -89,7 +119,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 10)
+	assert.Len(t, cfg.Integrations, 11)
 }
 
 func TestUpdate(t *testing.T) {
@@ -199,7 +229,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 10)
+	assert.Len(t, cfg.Integrations, 11)
 
 	expected := map[string][]string{
 		"github":     {"token", "client_id", "token_source"},
@@ -212,6 +242,7 @@ func TestDefaultConfig(t *testing.T) {
 		"posthog":    {"api_key", "project_id", "base_url"},
 		"postgres":   {"connection_string", "host", "user", "read_only"},
 		"clickhouse": {"host", "port", "username", "password", "database", "secure", "skip_verify"},
+		"pganalyze":  {"api_key", "base_url", "organization_slug"},
 	}
 
 	for name, keys := range expected {
@@ -236,4 +267,20 @@ func TestSave_FilePermissions(t *testing.T) {
 	require.NoError(t, err)
 	// File should be readable/writable by owner only.
 	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+}
+
+func TestDefaultCredentialKeys(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	keys := m.DefaultCredentialKeys("pganalyze")
+	assert.ElementsMatch(t, []string{"api_key", "base_url", "organization_slug"}, keys)
+}
+
+func TestDefaultCredentialKeys_Unknown(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	keys := m.DefaultCredentialKeys("nonexistent")
+	assert.Nil(t, keys)
 }
