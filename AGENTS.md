@@ -97,100 +97,101 @@ daemon/
   fallback.go                Platform dispatch + pure Go process detach fallback
   proc_unix.go               Unix-specific SysProcAttr (Setsid)
   proc_windows.go            Windows-specific SysProcAttr (CREATE_NO_WINDOW)
-github/
-  github.go                  GitHub integration adapter (core, dispatch, helpers, FieldCompactionIntegration)
-  compact_specs.go           Field compaction spec declarations (~45 list/search tools)
-  tools.go                   GitHub tool definitions (~100 tools)
-  repos.go                   Repos, releases, deploy keys, webhooks, rate limit handlers
-  issues.go                  Issues, comments, labels, milestones handlers
-  pulls.go                   Pull requests, reviews, merge handlers
-  git.go                     Low-level git (commits, refs, trees, tags) handlers
-  users_orgs.go              Users, followers, orgs, teams handlers
-  actions.go                 Actions workflows, runs, jobs, secrets, checks handlers
-  search.go                  Search (code, issues, users, commits) handlers
-  extras.go                  Gists, activity, code/secret/dependabot scanning, copilot handlers
-  oauth.go                   GitHub Device Flow OAuth (device code grant, polling, token exchange)
-datadog/
-  datadog.go                 Datadog integration adapter (core, dispatch, SDK client, helpers)
-  tools.go                   Datadog tool definitions (~60 tools)
-  logs.go                    Logs search and aggregation handlers
-  metrics.go                 Metrics query, search, metadata handlers
-  monitors.go                Monitors CRUD, search, mute handlers
-  dashboards.go              Dashboards list, get, create, delete handlers
-  events.go                  Events list, search, get, create handlers
-  extras.go                  Hosts, tags, SLOs, downtimes, incidents, synthetics,
+integrations/
+  github/
+    github.go                GitHub integration adapter (core, dispatch, helpers, FieldCompactionIntegration)
+    compact_specs.go         Field compaction spec declarations (~45 list/search tools)
+    tools.go                 GitHub tool definitions (~100 tools)
+    repos.go                 Repos, releases, deploy keys, webhooks, rate limit handlers
+    issues.go                Issues, comments, labels, milestones handlers
+    pulls.go                 Pull requests, reviews, merge handlers
+    git.go                   Low-level git (commits, refs, trees, tags) handlers
+    users_orgs.go            Users, followers, orgs, teams handlers
+    actions.go               Actions workflows, runs, jobs, secrets, checks handlers
+    search.go                Search (code, issues, users, commits) handlers
+    extras.go                Gists, activity, code/secret/dependabot scanning, copilot handlers
+    oauth.go                 GitHub Device Flow OAuth (device code grant, polling, token exchange)
+  datadog/
+    datadog.go               Datadog integration adapter (core, dispatch, SDK client, helpers)
+    tools.go                 Datadog tool definitions (~60 tools)
+    logs.go                  Logs search and aggregation handlers
+    metrics.go               Metrics query, search, metadata handlers
+    monitors.go              Monitors CRUD, search, mute handlers
+    dashboards.go            Dashboards list, get, create, delete handlers
+    events.go                Events list, search, get, create handlers
+    extras.go                Hosts, tags, SLOs, downtimes, incidents, synthetics,
                              notebooks, users, spans, software catalog, IP ranges handlers
-linear/
-  linear.go                  Linear integration adapter (core, dispatch, GraphQL helpers)
-  tools.go                   Linear tool definitions (~60 tools)
-  issues.go                  Issues, comments, relations, labels, attachments handlers
-  projects.go                Projects, project updates, milestones handlers
-  teams.go                   Teams and users handlers
-  extras.go                  Cycles, labels, workflow states, documents, initiatives,
+  linear/
+    linear.go                Linear integration adapter (core, dispatch, GraphQL helpers)
+    tools.go                 Linear tool definitions (~60 tools)
+    issues.go                Issues, comments, relations, labels, attachments handlers
+    projects.go              Projects, project updates, milestones handlers
+    teams.go                 Teams and users handlers
+    extras.go                Cycles, labels, workflow states, documents, initiatives,
                              favorites, webhooks, notifications, templates, org,
                              custom views, rate limit handlers
-  oauth.go                   Linear OAuth (PKCE authorization code flow, token exchange)
-sentry/
-  sentry.go                  Sentry integration adapter (core, dispatch, HTTP helpers)
-  tools.go                   Sentry tool definitions (~55 tools)
-  organizations.go           Organizations, members, teams, repos handlers
-  issues.go                  Projects, issues, events, tags, stats handlers
-  releases.go                Releases, deploys, commits, files handlers
-  extras.go                  Alerts, monitors (cron), discover, replays handlers
-  oauth.go                   Sentry Device Flow OAuth (device code grant, polling)
-slack/
-  slack.go                   Slack integration adapter (core, dispatch, cookie transport, mutex-protected client)
-  tokens.go                  Token store (persistence, Chrome disk-read extraction via LevelDB+SQLite+AES, background refresh)
-  tools.go                   Slack tool definitions (~42 tools)
-  conversations.go           Channels, DMs, history, threads handlers
-  messages.go                Send, update, delete, search, reactions, pins handlers
-  users.go                   Users, user groups, presence handlers
-  extras.go                  Files, bookmarks, reminders, emoji, team info, auth handlers
-  extract.go                 Exported helpers for web UI token extraction (Chrome, manual, snippet)
-  oauth.go                   Slack OAuth v2 (authorization code flow, callback handling)
-  refresh.go                 Cookie-based token refresh (fetches fresh xoxc via xoxd cookie HTTP request)
-metabase/
-  metabase.go                Metabase integration adapter (core, dispatch, HTTP helpers)
-  tools.go                   Metabase tool definitions (~22 tools)
-  databases.go               Database, table, field metadata handlers
-  queries.go                 Native SQL query execution, card CRUD handlers
-  dashboards.go              Dashboard CRUD, add-card-to-dashboard handlers
-  collections.go             Collection CRUD, search handlers
-aws/
-  aws.go                     AWS integration adapter (core, dispatch, typed SDK clients, helpers)
-  tools.go                   AWS tool definitions (~65 tools)
-  sts.go                     STS caller identity handler
-  s3.go                      S3 buckets, objects CRUD, copy, head handlers
-  ec2.go                     EC2 instances, security groups, VPCs, subnets, volumes, addresses handlers
-  lambda.go                  Lambda functions, invoke, event source mappings handlers
-  iam.go                     IAM users, roles, policies, groups, attached policies handlers
-  cloudwatch.go              CloudWatch metrics, metric data, alarms, statistics handlers
-  ecs.go                     ECS clusters, services, tasks, task definitions handlers
-  sns.go                     SNS topics, subscriptions, publish handlers
-  sqs.go                     SQS queues, messages, send/receive/delete handlers
-  dynamodb.go                DynamoDB tables, items CRUD, query, scan handlers
-  cloudformation.go          CloudFormation stacks, resources, templates, events handlers
-posthog/
-  posthog.go                 PostHog integration adapter (core, dispatch, HTTP helpers)
-  tools.go                   PostHog tool definitions (~50 tools)
-  projects.go                Projects CRUD handlers
-  feature_flags.go           Feature flags CRUD, activity handlers
-  cohorts.go                 Cohorts CRUD, persons-in-cohort handlers
-  insights.go                Insights (trends, funnels) CRUD handlers
-  persons.go                 Persons, groups, property management handlers
-  extras.go                  Annotations, dashboards, actions, events, experiments, surveys handlers
-postgres/
-  postgres.go                PostgreSQL integration adapter (core, dispatch, sql.DB helpers)
-  tools.go                   PostgreSQL tool definitions (~25 tools)
-  databases.go               Schema discovery, table/column/index/constraint/view/function/trigger/enum handlers
-  queries.go                 Query execution, EXPLAIN, SELECT builder, read-only transaction wrappers
-  management.go              Database info, size, stats, roles, grants, extensions, connections, locks handlers
-clickhouse/
-  clickhouse.go              ClickHouse integration adapter (core, dispatch, native driver helpers)
-  tools.go                   ClickHouse tool definitions (~20 tools)
-  queries.go                 SQL query execution, EXPLAIN handlers
-  databases.go               Database, table, column metadata handlers
-  extras.go                  System info, processes, merges, replicas, disk usage,
+    oauth.go                 Linear OAuth (PKCE authorization code flow, token exchange)
+  sentry/
+    sentry.go                Sentry integration adapter (core, dispatch, HTTP helpers)
+    tools.go                 Sentry tool definitions (~55 tools)
+    organizations.go         Organizations, members, teams, repos handlers
+    issues.go                Projects, issues, events, tags, stats handlers
+    releases.go              Releases, deploys, commits, files handlers
+    extras.go                Alerts, monitors (cron), discover, replays handlers
+    oauth.go                 Sentry Device Flow OAuth (device code grant, polling)
+  slack/
+    slack.go                 Slack integration adapter (core, dispatch, cookie transport, mutex-protected client)
+    tokens.go                Token store (persistence, Chrome disk-read extraction via LevelDB+SQLite+AES, background refresh)
+    tools.go                 Slack tool definitions (~42 tools)
+    conversations.go         Channels, DMs, history, threads handlers
+    messages.go              Send, update, delete, search, reactions, pins handlers
+    users.go                 Users, user groups, presence handlers
+    extras.go                Files, bookmarks, reminders, emoji, team info, auth handlers
+    extract.go               Exported helpers for web UI token extraction (Chrome, manual, snippet)
+    oauth.go                 Slack OAuth v2 (authorization code flow, callback handling)
+    refresh.go               Cookie-based token refresh (fetches fresh xoxc via xoxd cookie HTTP request)
+  metabase/
+    metabase.go              Metabase integration adapter (core, dispatch, HTTP helpers)
+    tools.go                 Metabase tool definitions (~22 tools)
+    databases.go             Database, table, field metadata handlers
+    queries.go               Native SQL query execution, card CRUD handlers
+    dashboards.go            Dashboard CRUD, add-card-to-dashboard handlers
+    collections.go           Collection CRUD, search handlers
+  aws/
+    aws.go                   AWS integration adapter (core, dispatch, typed SDK clients, helpers)
+    tools.go                 AWS tool definitions (~65 tools)
+    sts.go                   STS caller identity handler
+    s3.go                    S3 buckets, objects CRUD, copy, head handlers
+    ec2.go                   EC2 instances, security groups, VPCs, subnets, volumes, addresses handlers
+    lambda.go                Lambda functions, invoke, event source mappings handlers
+    iam.go                   IAM users, roles, policies, groups, attached policies handlers
+    cloudwatch.go            CloudWatch metrics, metric data, alarms, statistics handlers
+    ecs.go                   ECS clusters, services, tasks, task definitions handlers
+    sns.go                   SNS topics, subscriptions, publish handlers
+    sqs.go                   SQS queues, messages, send/receive/delete handlers
+    dynamodb.go              DynamoDB tables, items CRUD, query, scan handlers
+    cloudformation.go        CloudFormation stacks, resources, templates, events handlers
+  posthog/
+    posthog.go               PostHog integration adapter (core, dispatch, HTTP helpers)
+    tools.go                 PostHog tool definitions (~50 tools)
+    projects.go              Projects CRUD handlers
+    feature_flags.go         Feature flags CRUD, activity handlers
+    cohorts.go               Cohorts CRUD, persons-in-cohort handlers
+    insights.go              Insights (trends, funnels) CRUD handlers
+    persons.go               Persons, groups, property management handlers
+    extras.go                Annotations, dashboards, actions, events, experiments, surveys handlers
+  postgres/
+    postgres.go              PostgreSQL integration adapter (core, dispatch, sql.DB helpers)
+    tools.go                 PostgreSQL tool definitions (~25 tools)
+    databases.go             Schema discovery, table/column/index/constraint/view/function/trigger/enum handlers
+    queries.go               Query execution, EXPLAIN, SELECT builder, read-only transaction wrappers
+    management.go            Database info, size, stats, roles, grants, extensions, connections, locks handlers
+  clickhouse/
+    clickhouse.go            ClickHouse integration adapter (core, dispatch, native driver helpers)
+    tools.go                 ClickHouse tool definitions (~20 tools)
+    queries.go               SQL query execution, EXPLAIN handlers
+    databases.go             Database, table, column metadata handlers
+    extras.go                System info, processes, merges, replicas, disk usage,
                              parts, dictionaries, users, roles, query log handlers
 web/
   web.go                     Web UI HTTP server for config dashboard + Slack token setup routes
@@ -215,9 +216,9 @@ Defines domain types and port interfaces. Adapters satisfy interfaces. Dependenc
 ```mermaid
 graph BT
     subgraph "Adapters"
-        GH["github/"] & DD["datadog/"] & LN["linear/"]
-        SN["sentry/"] & SL["slack/"] & MB["metabase/"]
-        PG["postgres/"] & CH["clickhouse/"]
+        GH["integrations/github/"] & DD["integrations/datadog/"] & LN["integrations/linear/"]
+        SN["integrations/sentry/"] & SL["integrations/slack/"] & MB["integrations/metabase/"]
+        PG["integrations/postgres/"] & CH["integrations/clickhouse/"]
         CF["config/"] & RG["registry/"]
     end
 
@@ -238,7 +239,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `github/`, `datadog/`, `linear/`, `sentry/`, `slack/`, `metabase/`, `aws/`, `posthog/`, `postgres/`, `clickhouse/` → `Integration`
+- `integrations/github/`, `integrations/datadog/`, `integrations/linear/`, `integrations/sentry/`, `integrations/slack/`, `integrations/metabase/`, `integrations/aws/`, `integrations/posthog/`, `integrations/postgres/`, `integrations/clickhouse/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)
@@ -309,7 +310,7 @@ Constructed in `cmd/server/main.go` and passed to both `server.New()` and `web.N
 
 ## Adding a New Integration
 
-1. Create `<name>/<name>.go` in the repo root.
+1. Create `integrations/<name>/<name>.go`.
 2. Define an unexported struct implementing `Integration`.
 3. Export a `New()` constructor that returns `mcp.Integration`.
 4. In `Tools()`, return `[]mcp.ToolDefinition` describing each operation.
@@ -327,15 +328,15 @@ func New() mcp.Integration { ... }   // returns interface
 
 ### Import Aliases
 
-Only `slack` requires an alias to avoid collision with the package name. Other packages are imported directly.
+Only `slack` and `aws` require aliases to avoid collision with standard/SDK package names. Other packages are imported directly.
 
 | Package | Alias | Used In |
 |---------|-------|---------|
 | `github.com/daltoniam/switchboard` | `mcp` | All consumers |
-| `.../switchboard/slack` | `slackInt` | `cmd/server/main.go`, `web/web.go` |
-| `.../switchboard/github` | `ghInt` | `web/web.go` |
-| `.../switchboard/linear` | `linearInt` | `web/web.go` |
-| `.../switchboard/sentry` | `sentryInt` | `web/web.go` |
+| `.../switchboard/integrations/slack` | `slackInt` | `cmd/server/main.go`, `web/web.go` |
+| `.../switchboard/integrations/github` | `ghInt` | `web/web.go` |
+| `.../switchboard/integrations/linear` | `linearInt` | `web/web.go` |
+| `.../switchboard/integrations/sentry` | `sentryInt` | `web/web.go` |
 
 ### Tool Naming
 Tools are prefixed with integration name: `github_search_repos`, `datadog_search_logs`, `linear_list_issues`, `sentry_list_issues`.
