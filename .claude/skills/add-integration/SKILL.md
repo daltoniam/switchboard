@@ -140,7 +140,7 @@ Optimize specs for **fewest total tokens across the entire task workflow**, not 
 
 - [ ] Create `integrations/<name>/compact_specs.go` with `rawFieldCompactionSpecs` map and `mustBuildFieldCompactionSpecs` init (copy pattern from `integrations/github/compact_specs.go`)
 - [ ] Design field compaction specs using the spec design questions below
-- [ ] Add specs for all list/search tools — keep identifiers, names, states, dates, counts, URLs; drop nested full objects, permissions, avatars, node_ids
+- [ ] Add specs for all read tools (list, search, AND single-record get) — keep identifiers, names, states, dates, counts, URLs; drop nested full objects, permissions, avatars, node_ids, CRDT noise
 - [ ] Implement `CompactSpec(toolName string) ([]CompactField, bool)` method on the adapter struct
 - [ ] Add compile-time assertion: `var _ mcp.FieldCompactionIntegration = (*myapi)(nil)`
 - [ ] Add `TestFieldCompactionSpecs_NoOrphanSpecs` — every spec key must exist in `dispatch`
