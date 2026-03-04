@@ -101,6 +101,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "base_url": ""},
 			},
+			"notion": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"token_v2": ""},
+			},
 		},
 	}
 }

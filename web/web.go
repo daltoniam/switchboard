@@ -77,6 +77,9 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/gmail/save-token", w.handleGmailSaveToken)
 	mux.HandleFunc("POST /api/gmail/save-oauth-credentials", w.handleGmailSaveOAuthCredentials)
 
+	mux.HandleFunc("GET /integrations/notion/setup", w.handleNotionSetup)
+	mux.HandleFunc("POST /api/notion/save-token", w.handleNotionSaveToken)
+
 	mux.HandleFunc("POST /api/slack/oauth/start", w.handleSlackOAuthStart)
 	mux.HandleFunc("GET /api/slack/oauth/callback", w.handleSlackOAuthCallback)
 	mux.HandleFunc("GET /api/slack/oauth/poll", w.handleSlackOAuthPoll)
@@ -165,12 +168,15 @@ func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Reque
 	pages.IntegrationsList(page, summaries).Render(r.Context(), rw)
 }
 
+const notionExtractionSnippet = `(function(){var c=document.cookie.split(';').find(function(c){return c.trim().startsWith('token_v2=')});if(!c){alert('token_v2 cookie not found. Make sure you are on notion.so and signed in.');return;}var t=c.split('=').slice(1).join('=').trim();prompt('Copy this token_v2 value:',t);})()`
+
 var setupIntegrations = map[string]bool{
 	"slack":  true,
 	"github": true,
 	"linear": true,
 	"sentry": true,
 	"gmail":  true,
+	"notion": true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
@@ -778,6 +784,60 @@ func (w *WebServer) handleSlackSaveTokens(rw http.ResponseWriter, r *http.Reques
 	_ = w.services.Config.SetIntegration("slack", ic)
 
 	http.Redirect(rw, r, "/integrations/slack/setup?result=Tokens+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("notion")
+	hasToken := exists && ic.Credentials["token_v2"] != ""
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("notion")
+		if ok {
+			if err := integration.Configure(ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	page := w.pageData(r, "Notion Setup", "/integrations")
+	data := pages.NotionSetupData{
+		HasToken:       hasToken,
+		Healthy:        healthy,
+		ExtractSnippet: notionExtractionSnippet,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.NotionSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleNotionSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/notion/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	tokenV2 := strings.TrimSpace(r.FormValue("token_v2"))
+	if tokenV2 == "" {
+		http.Redirect(rw, r, "/integrations/notion/setup?error=token_v2+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("notion")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["token_v2"] = tokenV2
+	_ = w.services.Config.SetIntegration("notion", ic)
+
+	http.Redirect(rw, r, "/integrations/notion/setup?result=Token+saved+successfully", http.StatusSeeOther)
 }
 
 func (w *WebServer) handleSlackOAuthStart(rw http.ResponseWriter, r *http.Request) {

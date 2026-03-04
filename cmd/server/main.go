@@ -22,6 +22,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/homeassistant"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
+	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/posthog"
 	"github.com/daltoniam/switchboard/integrations/postgres"
@@ -185,6 +186,7 @@ func runServer(stdioMode bool, port int) {
 		rwx.New(),
 		gmailIntegration,
 		homeassistant.New(),
+		notionInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
