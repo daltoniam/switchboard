@@ -399,14 +399,25 @@ sequenceDiagram
 ```
 
 - **Opt in**: Implement `CompactSpec(toolName string) ([]CompactField, bool)` — returns parsed fields + found flag
-- **Declare specs** in `<adapter>/compact_specs.go` using dot-notation: `"title"`, `"user.login"`, `"labels[].name"`
+- **Declare specs** in `<adapter>/compact_specs.go` using dot-notation: `"title"`, `"user.login"`, `"labels[].name"`, `"page.id"` (2+ specs sharing a root → nested object)
 - **Keep**: fields that prevent N+1 drill-downs (routing fields, identifiers, states, dates, counts)
 - **Drop**: nested full objects (user, repo), permissions, avatars, node_ids, template URLs
-- **Compact all reads**: any tool returning raw API records (list, search, or single-record get) needs a compaction spec. Mutation tools return small confirmation objects (`{"id":"...","status":"updated"}`) — no spec needed. Tools returning handler-constructed compact objects (e.g., `retrieve_page_property`) — no spec needed.
+- **Compact all reads**: any tool returning raw API records (list, search, or single-record get) needs a compaction spec. Mutation tools return small confirmation objects (`{"id":"...","status":"updated"}`) — no spec needed.
+- **Handler boundary**: handlers do structural transformation only (unwrap envelopes, merge split responses, tree-build). All noise/context reduction flows through compaction specs — handler-level field whitelists or record filtering cause spec drift (changes require two-file edits, reviewers miss the handler's hidden filter).
 - **Dispatch parity**: `TestFieldCompactionSpecs_NoOrphanSpecs` — every spec key must have a dispatch handler
 - **Unwrap SDK lists**: return `resp.Items` not `resp` so compaction operates on the array directly
 - **Anti-pattern**: `return jsonResult(fullSDKWrapper)` for list tools
-- See `.claude/skills/add-integration/SKILL.md` § "Field Compaction" for spec design questions
+- See `.claude/skills/optimize-integration/SKILL.md` for compaction refinement, handler boundary rules, and anti-patterns
+
+### Tool Description Design
+
+Tool descriptions are the only context an LLM gets for tool selection. Design for correct routing:
+
+- **Workflow entry points**: "Start here for most workflows"
+- **Prefer-over hints**: "Preferred over retrieve_page — returns the full page tree"
+- **Gotcha prevention**: surface ID/parameter confusion in description AND parameter strings
+- **Tiers**: high-value tools get routing hints, supporting tools get chaining hints, subsumed primitives get prefer-over hints
+- See `.claude/skills/optimize-integration/SKILL.md` for the full optimization workflow
 
 ### Error Handling
 - Integration errors: return `&mcp.ToolResult{Data: err.Error(), IsError: true}, nil`
@@ -461,6 +472,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 | Skill | When to use | Path |
 |-------|-------------|------|
 | `add-integration` | Adding a new external API integration adapter | `.claude/skills/add-integration/SKILL.md` |
+| `optimize-integration` | Improving an existing adapter's LLM usability (descriptions, compaction, response tuning) | `.claude/skills/optimize-integration/SKILL.md` |
 
 ## Gotchas
 
