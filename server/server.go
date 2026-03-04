@@ -378,7 +378,7 @@ const maxRetries = 3
 func (s *Server) computeBackoff(attempt int) time.Duration {
 	base := s.retryBackoff << attempt
 	half := base / 2
-	return half + time.Duration(rand.Int64N(int64(half)+1)) // #nosec G404 -- jitter for retry backoff, not security-sensitive
+	return half + time.Duration(rand.Int64N(int64(half)+1)) // #nosec G404 -- jitter, not security
 }
 
 // getBreaker returns the circuit breaker for the given integration, creating one if needed.
@@ -436,8 +436,8 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 		if !mcp.IsRetryable(err) {
 			return result, err
 		}
-		cb.recordFailure()
 		lastErr = err
+		cb.recordFailure()
 		if attempt >= maxRetries-1 {
 			break
 		}
