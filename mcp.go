@@ -3,6 +3,8 @@ package mcp
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 )
 
 // ErrNotConfigured is returned when an integration is used before being configured.
@@ -10,6 +12,27 @@ var ErrNotConfigured = errors.New("integration not configured")
 
 // ErrUnhealthy is returned when an integration cannot reach its upstream API.
 var ErrUnhealthy = errors.New("integration unhealthy")
+
+// RetryableError signals that an operation failed with a transient error (5xx, 429)
+// and should be retried. The server layer retries these automatically with backoff.
+// Adapters return this from their HTTP helpers; non-retryable errors (4xx) use plain errors.
+type RetryableError struct {
+	StatusCode int
+	Err        error
+	RetryAfter time.Duration // server-suggested wait; 0 means use default backoff
+}
+
+func (e *RetryableError) Error() string {
+	return fmt.Sprintf("retryable (%d): %s", e.StatusCode, e.Err)
+}
+
+func (e *RetryableError) Unwrap() error { return e.Err }
+
+// IsRetryable reports whether err (or any error in its chain) is a RetryableError.
+func IsRetryable(err error) bool {
+	var re *RetryableError
+	return errors.As(err, &re)
+}
 
 // Credentials holds key-value credential pairs for an integration.
 type Credentials map[string]string
