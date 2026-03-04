@@ -1148,6 +1148,34 @@ func TestExecuteTool_CircuitBreakerResetsOnSuccess(t *testing.T) {
 	assert.Equal(t, "ok", result.Data)
 }
 
+func TestExecuteTool_BudgetExhaustionRecordsFailure(t *testing.T) {
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_budget_breaker", Description: "always 503"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
+		},
+		healthy: true,
+	})
+	s.retryBackoff = 0
+	s.breakerThreshold = 2
+	s.breakerCooldown = time.Minute
+
+	// Budget of 1: attempt 0 fails → record failure, consume retry (budget=0) →
+	// attempt 1 fails → record failure, budget exhausted → break.
+	// Two failures should trip the breaker (threshold=2).
+	ctx := withRetryBudget(context.Background(), 1)
+	s.executeTool(ctx, "test_budget_breaker", map[string]any{})
+
+	// If failures were recorded correctly, breaker should now be open.
+	result, err := s.executeTool(context.Background(), "test_budget_breaker", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "circuit breaker open")
+}
+
 func TestScriptExecution_RetriesShareBudget(t *testing.T) {
 	callCounts := map[string]int{}
 	s := setupTestServer(&mockIntegration{
