@@ -816,6 +816,63 @@ func TestQueryDataSource_ReturnsResultsFromQueryCollection(t *testing.T) {
 	assert.Contains(t, result.Data, "row-2")
 }
 
+func TestQueryDataSource_IncludesSchemaFromCollection(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v3/loadCachedPageChunkV2":
+			okJSON(w, `{
+				"recordMap": {
+					"block": {
+						"cvp-1": {"value": {"id": "cvp-1", "type": "collection_view_page", "collection_id": "col-1", "view_ids": ["view-1"]}}
+					}
+				}
+			}`)
+		case "/api/v3/queryCollection":
+			okJSON(w, `{
+				"result": {
+					"type": "reducer",
+					"reducerResults": {
+						"collection_group_results": {
+							"type": "results",
+							"blockIds": ["row-1"],
+							"hasMore": false
+						}
+					}
+				},
+				"recordMap": {
+					"__version__": 3,
+					"block": {
+						"row-1": {"value": {"value": {"id": "row-1", "properties": {"title": [["Task 1"]], "gedz": [["Acme Corp"]]}}}}
+					},
+					"collection": {
+						"col-1": {"value": {"value": {
+							"id": "col-1",
+							"name": [["Tasks"]],
+							"schema": {
+								"title": {"name": "Name", "type": "title"},
+								"gedz": {"name": "Company", "type": "text"}
+							}
+						}}}
+					}
+				}
+			}`)
+		}
+	})
+	result, err := queryDataSource(context.Background(), n, map[string]any{"data_source_id": "cvp-1"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &resp))
+
+	schema, ok := resp["schema"].(map[string]any)
+	require.True(t, ok, "response must include schema")
+	gedz, ok := schema["gedz"].(map[string]any)
+	require.True(t, ok, "schema must include gedz property")
+	assert.Equal(t, "Company", gedz["name"])
+	assert.Equal(t, "text", gedz["type"])
+}
+
 func TestQueryDataSource_RequiresDataSourceID(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, _ *http.Request) { okJSON(w, `{}`) })
 	result, err := queryDataSource(context.Background(), n, map[string]any{})
@@ -1769,6 +1826,35 @@ func TestSearchNotion_IncludesCollectionIDForDataSourceResults(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	assert.Contains(t, result.Data, "col-abc", "search results should include collection_id for data source blocks")
+}
+
+func TestSearchNotion_PassesThroughAllBlockTypes(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		okJSON(w, `{
+			"results": [
+				{"id": "page-1", "highlight": {"text": "Real Page"}},
+				{"id": "ext-1", "highlight": {"text": "CRM Contact"}},
+				{"id": "page-2", "highlight": {"text": "Another Page"}}
+			],
+			"total": 3,
+			"recordMap": {
+				"block": {
+					"page-1": {"value": {"id": "page-1", "type": "page", "properties": {"title": [["Real Page"]]}}},
+					"ext-1": {"value": {"id": "ext-1", "type": "external_object_instance_page", "properties": {"title": [["CRM Contact"]]}}},
+					"page-2": {"value": {"id": "page-2", "type": "page", "properties": {"title": [["Another Page"]]}}}
+				}
+			}
+		}`)
+	})
+	result, err := searchNotion(context.Background(), n, map[string]any{"query": "test"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	var resp struct {
+		Results []map[string]any `json:"results"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &resp))
+	assert.Len(t, resp.Results, 3, "handler should pass through all block types — compaction handles noise")
 }
 
 // --- deterministic workspace selection ---

@@ -10,11 +10,12 @@ import (
 // CompactField is a parsed field compaction spec — parse once via ParseCompactSpecs,
 // then pass to CompactJSON on each request.
 type CompactField struct {
-	path      []string // e.g. ["user", "login"] or ["labels[]", "name"]
-	outputKey string   // top-level key in the compacted output
-	arrayIdx  int      // index of the "[]" segment in path, -1 if none
-	arrayKey  string   // path[arrayIdx] without "[]", empty if arrayIdx == -1
-	childPath []string // path[arrayIdx+1:], nil if arrayIdx == -1
+	path       []string // e.g. ["user", "login"] or ["labels[]", "name"]
+	outputKey  string   // top-level key in the compacted output
+	arrayIdx   int      // index of the "[]" segment in path, -1 if none
+	arrayKey   string   // path[arrayIdx] without "[]", empty if arrayIdx == -1
+	childPath  []string // path[arrayIdx+1:], nil if arrayIdx == -1
+	objectRoot string   // first path segment for non-array multi-segment specs, empty otherwise
 }
 
 // ParseCompactSpecs parses dot-notation spec strings into CompactFields.
@@ -75,12 +76,20 @@ func parseCompactSpec(spec string) (CompactField, error) {
 		outputKey = spec
 	}
 
+	// objectRoot: first path segment for multi-segment non-array specs.
+	// Enables object grouping in compactObject() when 2+ specs share a root.
+	var objectRoot string
+	if len(parts) > 1 && arrayIdx == -1 {
+		objectRoot = parts[0]
+	}
+
 	return CompactField{
-		path:      parts,
-		outputKey: outputKey,
-		arrayIdx:  arrayIdx,
-		arrayKey:  arrayKey,
-		childPath: childPath,
+		path:       parts,
+		outputKey:  outputKey,
+		arrayIdx:   arrayIdx,
+		arrayKey:   arrayKey,
+		childPath:  childPath,
+		objectRoot: objectRoot,
 	}, nil
 }
 
@@ -118,14 +127,21 @@ func compactObjectJSON(data []byte, fields []CompactField) ([]byte, error) {
 // compactObject keeps only the specified fields from an unmarshalled object.
 // Groups array fields by outputKey so multiple child specs on the same parent
 // (e.g. steps[].name + steps[].conclusion) produce sub-objects, not overwrites.
+// Groups non-array nested fields by objectRoot when 2+ share a root segment
+// (e.g. commit.message + commit.author.name) into nested output objects.
 func compactObject(obj map[string]any, fields []CompactField) map[string]any {
 	out := make(map[string]any, len(fields))
 
-	// Group array fields by outputKey to detect multi-field specs.
+	// Group array fields by outputKey and nested object fields by objectRoot.
 	arrayGroups := map[string][]CompactField{}
+	objectGroups := map[string][]CompactField{}
 	for _, f := range fields {
 		if f.arrayIdx >= 0 {
 			arrayGroups[f.outputKey] = append(arrayGroups[f.outputKey], f)
+			continue
+		}
+		if f.objectRoot != "" {
+			objectGroups[f.objectRoot] = append(objectGroups[f.objectRoot], f)
 			continue
 		}
 		val, ok := extractField(obj, f)
@@ -133,6 +149,20 @@ func compactObject(obj map[string]any, fields []CompactField) map[string]any {
 			continue
 		}
 		out[f.outputKey] = val
+	}
+
+	// Process object groups: 2+ specs sharing a root → nested sub-object.
+	// Single-member groups preserve flat dot-key behavior for backward compat.
+	for root, group := range objectGroups {
+		if len(group) == 1 {
+			if val, ok := extractField(obj, group[0]); ok {
+				out[group[0].outputKey] = val
+			}
+			continue
+		}
+		if sub := compactSubObject(obj, root, group); len(sub) > 0 {
+			out[root] = sub
+		}
 	}
 
 	for key, group := range arrayGroups {
@@ -149,6 +179,25 @@ func compactObject(obj map[string]any, fields []CompactField) map[string]any {
 	}
 
 	return out
+}
+
+// compactSubObject builds a compacted nested object from specs sharing a root.
+// Navigates to obj[root], strips the first path segment from each spec, and
+// recursively compacts the sub-object. Returns nil map if root is missing.
+func compactSubObject(obj map[string]any, root string, group []CompactField) map[string]any {
+	parentObj, ok := obj[root].(map[string]any)
+	if !ok {
+		return nil
+	}
+	childFields := make([]CompactField, 0, len(group))
+	for _, f := range group {
+		cf, err := parseCompactSpec(strings.Join(f.path[1:], "."))
+		if err != nil {
+			continue
+		}
+		childFields = append(childFields, cf)
+	}
+	return compactObject(parentObj, childFields)
 }
 
 // compactArray applies field compaction to each element in a JSON array.

@@ -125,10 +125,19 @@ func TestGetPageContent_CompactionStripsBlockNoise(t *testing.T) {
 	var resp map[string]any
 	require.NoError(t, json.Unmarshal(compacted, &resp))
 
-	// Page present with essential fields
+	// Page compacted — essential fields preserved, noise stripped
 	page := resp["page"].(map[string]any)
 	assert.Equal(t, "page-1", page["id"])
+	assert.Equal(t, "page", page["type"])
 	assert.NotNil(t, page["properties"])
+	assert.NotNil(t, page["content"])
+	assert.NotNil(t, page["format"])
+
+	// Page noise fields stripped by compaction
+	for _, key := range []string{"space_id", "crdt_data", "permissions", "created_by_id", "created_by_table", "last_edited_by_id", "last_edited_by_table", "version"} {
+		_, present := page[key]
+		assert.False(t, present, "compaction should strip %q from page", key)
+	}
 
 	// Blocks compacted — only listed fields survive
 	blocks := resp["blocks"].([]any)
@@ -176,6 +185,7 @@ func TestFieldCompactionSpecs_QueryDataSourceReducesResponseSize(t *testing.T) {
 	require.NotEmpty(t, fields)
 
 	data := `{
+		"schema": {"title": {"name": "Name", "type": "title"}, "gedz": {"name": "Company", "type": "text"}},
 		"results": [
 			{"id":"row-1","properties":{"title":[["Task 1"]],"status":["Done"]},"created_time":1700000000000,"last_edited_time":1700000001000,"type":"page","space_id":"sp-1","version":5,"permissions":[{"role":"reader"}],"format":{"page_cover":"img.png"}},
 			{"id":"row-2","properties":{"title":[["Task 2"]],"status":["In Progress"]},"created_time":1700000002000,"last_edited_time":1700000003000,"type":"page","space_id":"sp-1","version":8}
@@ -189,6 +199,7 @@ func TestFieldCompactionSpecs_QueryDataSourceReducesResponseSize(t *testing.T) {
 	assert.Less(t, len(compacted), len(data))
 	assert.Contains(t, string(compacted), "row-1")
 	assert.Contains(t, string(compacted), "Task 1")
+	assert.Contains(t, string(compacted), "Company", "schema must survive compaction")
 	assert.NotContains(t, string(compacted), "version")
 }
 

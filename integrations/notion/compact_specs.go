@@ -76,18 +76,20 @@ var blockFields = []string{
 var rawFieldCompactionSpecs = map[string][]string{
 	// ── List/search tools ────────────────────────────────────────────
 	"notion_search":                     prefixFields("results[]", searchResultFields),
-	"notion_query_data_source":          prefixFields("results[]", queryResultFields),
+	"notion_query_data_source": append(
+		[]string{"schema"},
+		prefixFields("results[]", queryResultFields)...,
+	),
 	"notion_list_users":                 prefixFields("results[]", userFields),
 	"notion_retrieve_comments":          prefixFields("results[]", commentFields),
 	"notion_list_data_source_templates": prefixFields("results[]", templateFields),
 
 	// ── Composite read tools ─────────────────────────────────────────
 	// get_page_content returns {page: {...}, blocks: [...]}.
-	// "page" passes through fully (1 object — acceptable noise).
-	// Compaction engine doesn't support nested single-object field whitelisting.
-	// blocks[] gets field-level compaction to strip CRDT noise (N × noise).
+	// Both page and blocks get field-level compaction to strip CRDT noise.
+	// page.* specs (2+ sharing root "page") auto-group into nested {"page": {...}}.
 	"notion_get_page_content": append(
-		[]string{"page"},
+		prefixFields("page", blockFields),
 		prefixFields("blocks[]", blockFields)...,
 	),
 

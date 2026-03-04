@@ -273,11 +273,19 @@ func queryDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.
 		results = append(results, outerMap)
 	}
 
-	return jsonResult(map[string]any{
+	// Extract collection schema from recordMap — maps opaque property keys to names.
+	// Same double-wrap as blocks: collection[id].value.value.schema
+	schema := extractCollectionSchema(recordMap, collectionID)
+
+	out := map[string]any{
 		"results":  results,
 		"total":    total,
 		"has_more": hasMore,
-	})
+	}
+	if schema != nil {
+		out["schema"] = schema
+	}
+	return jsonResult(out)
 }
 
 // resolveDataSource resolves a data_source_id (which may be a collection_view_page
@@ -315,6 +323,23 @@ func resolveDataSource(ctx context.Context, n *notion, id string) (collectionID,
 		return colID, viewIDs[0], nil
 	}
 	return "", "", fmt.Errorf("data source %q not found", id)
+}
+
+// extractCollectionSchema extracts the schema field from a collection record in
+// a queryCollection recordMap. Handles double-wrapped collection[id].value.value.schema.
+// Returns nil if collection is missing or has no schema.
+func extractCollectionSchema(recordMap map[string]any, collectionID string) map[string]any {
+	collTable, _ := recordMap["collection"].(map[string]any)
+	entry, _ := collTable[collectionID].(map[string]any)
+	outer, _ := entry["value"].(map[string]any)
+	// Double-wrapped like blocks: value.value.schema
+	if inner, ok := outer["value"].(map[string]any); ok {
+		schema, _ := inner["schema"].(map[string]any)
+		return schema
+	}
+	// Single-wrapped fallback: value.schema
+	schema, _ := outer["schema"].(map[string]any)
+	return schema
 }
 
 func retrieveDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
