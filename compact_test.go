@@ -21,22 +21,22 @@ func TestParseCompactSpec(t *testing.T) {
 			want: CompactField{path: []string{"title"}, outputKey: "title", arrayIdx: -1},
 		},
 		{
-			name: "nested field",
+			name: "nested field has objectRoot",
 			spec: "user.login",
-			want: CompactField{path: []string{"user", "login"}, outputKey: "user.login", arrayIdx: -1},
+			want: CompactField{path: []string{"user", "login"}, outputKey: "user.login", arrayIdx: -1, objectRoot: "user"},
 		},
 		{
-			name: "deeply nested field",
+			name: "deeply nested field has objectRoot from first segment",
 			spec: "commit.author.name",
-			want: CompactField{path: []string{"commit", "author", "name"}, outputKey: "commit.author.name", arrayIdx: -1},
+			want: CompactField{path: []string{"commit", "author", "name"}, outputKey: "commit.author.name", arrayIdx: -1, objectRoot: "commit"},
 		},
 		{
-			name: "array extraction",
+			name: "array extraction has no objectRoot",
 			spec: "labels[].name",
 			want: CompactField{path: []string{"labels[]", "name"}, outputKey: "labels", arrayIdx: 0, arrayKey: "labels", childPath: []string{"name"}},
 		},
 		{
-			name: "nested array extraction",
+			name: "nested array extraction has no objectRoot",
 			spec: "repo.labels[].name",
 			want: CompactField{path: []string{"repo", "labels[]", "name"}, outputKey: "labels", arrayIdx: 1, arrayKey: "labels", childPath: []string{"name"}},
 		},
@@ -66,7 +66,7 @@ func TestParseCompactSpec(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "nested array brackets",
+			name: "nested array brackets has no objectRoot",
 			spec: "items[].labels[].name",
 			want: CompactField{
 				path: []string{"items[]", "labels[]", "name"}, outputKey: "items",
@@ -108,10 +108,22 @@ func TestCompactJSON_Object(t *testing.T) {
 			want:  `{"number":1,"user.login":"rsc"}`,
 		},
 		{
-			name:  "deeply nested field",
+			name:  "two nested fields sharing root produce nested object",
 			input: `{"sha":"abc","commit":{"author":{"name":"Alice","email":"a@b.com","date":"2025-01-01"},"message":"fix"}}`,
 			specs: []string{"sha", "commit.author.name", "commit.message"},
-			want:  `{"sha":"abc","commit.author.name":"Alice","commit.message":"fix"}`,
+			want:  `{"sha":"abc","commit":{"author.name":"Alice","message":"fix"}}`,
+		},
+		{
+			name:  "single nested field stays flat",
+			input: `{"number":1,"user":{"login":"alice","id":999}}`,
+			specs: []string{"number", "user.login"},
+			want:  `{"number":1,"user.login":"alice"}`,
+		},
+		{
+			name:  "three nested fields sharing root all grouped",
+			input: `{"id":1,"subject":{"title":"PR Review","type":"PullRequest","url":"https://github.com/foo/bar/pull/1"}}`,
+			specs: []string{"id", "subject.title", "subject.type", "subject.url"},
+			want:  `{"id":1,"subject":{"title":"PR Review","type":"PullRequest","url":"https://github.com/foo/bar/pull/1"}}`,
 		},
 		{
 			name:  "missing field skipped gracefully",
@@ -366,6 +378,11 @@ func TestCompactJSON_Idempotent(t *testing.T) {
 			name:  "multi-field array extraction survives second pass",
 			input: `{"id":1,"steps":[{"name":"Build","conclusion":"success","number":1},{"name":"Test","conclusion":"failure","number":2}]}`,
 			specs: []string{"id", "steps[].name", "steps[].conclusion"},
+		},
+		{
+			name:  "object-grouped nested fields survive second pass",
+			input: `{"sha":"abc","commit":{"author":{"name":"Alice"},"message":"fix"}}`,
+			specs: []string{"sha", "commit.author.name", "commit.message"},
 		},
 	}
 

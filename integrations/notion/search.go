@@ -70,7 +70,7 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 	// Build block lookup from recordMap
 	blocks := parseBlockTable(resp.RecordMap)
 
-	// Merge results with block data
+	// Merge results with block data — include all fields, let compaction strip noise.
 	var results []map[string]any
 	for _, r := range resp.Results {
 		entry := map[string]any{
@@ -82,10 +82,11 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 			results = append(results, entry)
 			continue
 		}
-		for _, key := range []string{"type", "parent_id", "collection_id", "properties", "created_time", "last_edited_time"} {
-			if v, ok := block[key]; ok {
-				entry[key] = v
+		for k, v := range block {
+			if k == "id" {
+				continue // already set from results array
 			}
+			entry[k] = v
 		}
 		results = append(results, entry)
 	}
