@@ -26,6 +26,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
+	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
 	"github.com/daltoniam/switchboard/server"
 	"github.com/daltoniam/switchboard/web"
@@ -209,9 +210,20 @@ func runServer(stdioMode bool, port int) {
 		defer func() { _ = daemon.RemovePID() }()
 	}
 
+	projectStore := project.NewStore(project.DefaultConfigDir())
+	if err := projectStore.Load(); err != nil {
+		log.Printf("WARN: failed to load project definitions: %v", err)
+	}
+	if names := projectStore.Names(); len(names) > 0 {
+		log.Printf("Loaded %d project(s): %v", len(names), names)
+	}
+
+	projectRouter := server.NewProjectRouter(services, projectStore, "")
+
 	mux := http.NewServeMux()
 
 	mux.Handle("/mcp", srv.Handler())
+	mux.Handle("/mcp/{project}", projectRouter.Handler())
 
 	ws := web.New(services, port)
 	mux.Handle("/", ws.Handler())
@@ -220,6 +232,7 @@ func runServer(stdioMode bool, port int) {
 	fmt.Fprintf(os.Stderr, "Switchboard on http://localhost:%d\n", port)
 	fmt.Fprintf(os.Stderr, "  Web UI:  http://localhost:%d/\n", port)
 	fmt.Fprintf(os.Stderr, "  MCP:     http://localhost:%d/mcp\n", port)
+	fmt.Fprintf(os.Stderr, "  Project: http://localhost:%d/mcp/{project}\n", port)
 
 	httpServer := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
