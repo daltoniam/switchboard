@@ -12,7 +12,7 @@ permissions:
 jobs:
   crush-review:
     name: Crush PR Review
-    runs-on: [self-hosted, macOS]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,12 +25,20 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: Install Crush CLI
+        run: |
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+          sudo apt update && sudo apt install -y crush
+
       - name: Run Crush PR Review
         env:
           AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
           AWS_REGION: us-east-1
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           CRUSH_SKILLS_DIR: ${{ github.workspace }}/.claude/skills
+          CRUSH_GLOBAL_CONFIG: ${{ github.workspace }}/.ci/crush
         run: >
           crush run -c "${{ github.workspace }}"
           "Review PR #${{ github.event.pull_request.number }} in ${{ github.repository }}.
