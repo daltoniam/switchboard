@@ -13,17 +13,23 @@ func TestGetModelTier(t *testing.T) {
 		name        string
 		modelID     string
 		defaultTier string
+		customTiers map[string]string
 		want        string
 	}{
 		{
 			name:    "claude opus exact match",
 			modelID: "claude-opus-4-5-20251101",
-			want:    "agi",
+			want:    "large",
 		},
 		{
 			name:    "gpt-4o exact match",
 			modelID: "gpt-4o",
-			want:    "engineer",
+			want:    "large",
+		},
+		{
+			name:    "gpt-4o-mini is small",
+			modelID: "gpt-4o-mini",
+			want:    "small",
 		},
 		{
 			name:    "unknown model uses default tier",
@@ -33,19 +39,35 @@ func TestGetModelTier(t *testing.T) {
 		{
 			name:        "unknown model uses custom default",
 			modelID:     "unknown-model-123",
-			defaultTier: "monkey",
-			want:        "monkey",
+			defaultTier: "small",
+			want:        "small",
 		},
 		{
 			name:    "partial match prefix",
 			modelID: "claude-opus-4-5-20251101-extended",
-			want:    "agi",
+			want:    "large",
+		},
+		{
+			name:    "custom tier overrides default",
+			modelID: "gpt-4o",
+			customTiers: map[string]string{
+				"gpt-4o": "small",
+			},
+			want: "small",
+		},
+		{
+			name:    "custom tier for new model",
+			modelID: "my-custom-model",
+			customTiers: map[string]string{
+				"my-custom-model": "large",
+			},
+			want: "large",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetModelTier(tt.modelID, tt.defaultTier)
+			got := GetModelTier(tt.modelID, tt.defaultTier, tt.customTiers)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -91,10 +113,10 @@ func TestRenderInstruction(t *testing.T) {
 			ctx: mcp.InstructionRenderContext{
 				Model: mcp.ModelContext{
 					ID:   "claude-opus-4-5-20251101",
-					Tier: "agi",
+					Tier: "large",
 				},
 			},
-			want: "Model: claude-opus-4-5-20251101 (Tier: agi)",
+			want: "Model: claude-opus-4-5-20251101 (Tier: large)",
 		},
 		{
 			name: "template with env context",
@@ -148,11 +170,11 @@ func TestRenderInstruction(t *testing.T) {
 			inst: &mcp.Instruction{
 				ID:       "test6",
 				Name:     "Test",
-				Template: "{{if eq .Model.Tier \"agi\"}}Full capabilities{{else}}Limited mode{{end}}",
+				Template: `{{if eq .Model.Tier "large"}}Full capabilities{{else}}Limited mode{{end}}`,
 				Enabled:  true,
 			},
 			ctx: mcp.InstructionRenderContext{
-				Model: mcp.ModelContext{Tier: "agi"},
+				Model: mcp.ModelContext{Tier: "large"},
 			},
 			want: "Full capabilities",
 		},
@@ -217,10 +239,10 @@ func TestRenderInstructions(t *testing.T) {
 		},
 	}
 
-	result, err := RenderInstructions(instructions, "gpt-4o", "")
+	result, err := RenderInstructions(instructions, "gpt-4o", "", nil)
 	require.NoError(t, err)
 
-	assert.Contains(t, result, "First instruction for engineer")
+	assert.Contains(t, result, "First instruction for large")
 	assert.Contains(t, result, "Third instruction")
 	assert.NotContains(t, result, "Should not appear")
 }
@@ -228,18 +250,28 @@ func TestRenderInstructions(t *testing.T) {
 func TestBuildRenderContext(t *testing.T) {
 	ctx := BuildRenderContext("claude-opus-4-5-20251101", "", map[string]string{
 		"custom": "value",
-	})
+	}, nil)
 
 	assert.Equal(t, "claude-opus-4-5-20251101", ctx.Model.ID)
-	assert.Equal(t, "agi", ctx.Model.Tier)
+	assert.Equal(t, "large", ctx.Model.Tier)
 	assert.NotEmpty(t, ctx.Env.OS)
 	assert.Equal(t, "value", ctx.Vars["custom"])
 }
 
 func TestBuildRenderContext_DefaultTier(t *testing.T) {
-	ctx := BuildRenderContext("unknown-model", "monkey", nil)
+	ctx := BuildRenderContext("unknown-model", "small", nil, nil)
 
 	assert.Equal(t, "unknown-model", ctx.Model.ID)
-	assert.Equal(t, "monkey", ctx.Model.Tier)
+	assert.Equal(t, "small", ctx.Model.Tier)
 	assert.NotNil(t, ctx.Vars)
+}
+
+func TestBuildRenderContext_CustomTiers(t *testing.T) {
+	customTiers := map[string]string{
+		"my-model": "large",
+	}
+	ctx := BuildRenderContext("my-model", "", nil, customTiers)
+
+	assert.Equal(t, "my-model", ctx.Model.ID)
+	assert.Equal(t, "large", ctx.Model.Tier)
 }

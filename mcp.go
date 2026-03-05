@@ -133,14 +133,15 @@ type Instruction struct {
 
 // InstructionsConfig holds all instruction templates.
 type InstructionsConfig struct {
-	DefaultTier  string         `json:"default_tier,omitempty"`
-	Instructions []*Instruction `json:"instructions,omitempty"`
+	DefaultTier  string            `json:"default_tier,omitempty"`
+	ModelTiers   map[string]string `json:"model_tiers,omitempty"`
+	Instructions []*Instruction    `json:"instructions,omitempty"`
 }
 
 // ModelContext provides information about the AI model requesting instructions.
 type ModelContext struct {
 	ID   string // Model identifier (e.g., "claude-opus-4-5-20251101")
-	Tier string // Model tier: "agi", "engineer", "monkey"
+	Tier string // Model tier: "large" or "small"
 }
 
 // EnvContext provides information about the execution environment.

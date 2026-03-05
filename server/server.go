@@ -463,6 +463,10 @@ func objectSchema(properties map[string]any, required []string) map[string]any {
 
 // handleInstructionsPrompt handles the instructions prompt request.
 // It renders all enabled instructions with context-aware templating.
+// Instructions are loaded from multiple sources with priority:
+// 1. Repo-local (.git/switchboard/instructions.json) - worktree-shared, uncommitted
+// 2. Project (.switchboard/instructions.json) - committed, version-controlled
+// 3. Global (~/.config/switchboard/config.json) - user-wide defaults
 func (s *Server) handleInstructionsPrompt(_ context.Context, req *mcpsdk.GetPromptRequest) (*mcpsdk.GetPromptResult, error) {
 	// Extract model_id from arguments
 	modelID := ""
@@ -472,8 +476,13 @@ func (s *Server) handleInstructionsPrompt(_ context.Context, req *mcpsdk.GetProm
 		}
 	}
 
-	// Get instructions config
-	instConfig := s.services.Config.GetInstructions()
+	// Get global instructions config
+	globalConfig := s.services.Config.GetInstructions()
+
+	// Load and merge instructions from all sources (global + project + repo-local)
+	// Uses current working directory to find git repo context
+	instConfig := compass.LoadAllInstructions("", globalConfig)
+
 	if instConfig == nil || len(instConfig.Instructions) == 0 {
 		return &mcpsdk.GetPromptResult{
 			Description: "No instructions configured",
@@ -489,7 +498,7 @@ func (s *Server) handleInstructionsPrompt(_ context.Context, req *mcpsdk.GetProm
 	}
 
 	// Render instructions
-	rendered, err := compass.RenderInstructions(instConfig.Instructions, modelID, instConfig.DefaultTier)
+	rendered, err := compass.RenderInstructions(instConfig.Instructions, modelID, instConfig.DefaultTier, instConfig.ModelTiers)
 	if err != nil {
 		return &mcpsdk.GetPromptResult{
 			Description: "Error rendering instructions",

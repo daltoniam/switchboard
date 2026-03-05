@@ -1,5 +1,5 @@
 // Package compass provides adaptive instruction template rendering for AI coding agents.
-// It is inspired by the Helmsman Ruby gem (https://github.com/seuros/helmsman).
+// It is inspired by the Helmsman Rust crate (https://github.com/seuros/helmsman).
 package compass
 
 import (
@@ -13,56 +13,76 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-// ModelTiers maps known model IDs to their capability tier.
-// "agi" = frontier models, "engineer" = capable models, "monkey" = limited models.
-var ModelTiers = map[string]string{
+// DefaultModelTiers maps known model IDs to their capability tier.
+// "large" = frontier/capable models, "small" = limited/fast models.
+var DefaultModelTiers = map[string]string{
 	// Anthropic
-	"claude-opus-4-5-20251101":   "agi",
-	"claude-sonnet-4-20250514":   "engineer",
-	"claude-3-5-sonnet-20241022": "engineer",
-	"claude-3-5-haiku-20241022":  "monkey",
-	"claude-3-haiku-20240307":    "monkey",
+	"claude-opus-4-5-20251101":   "large",
+	"claude-sonnet-4-20250514":   "large",
+	"claude-3-5-sonnet-20241022": "large",
+	"claude-3-5-haiku-20241022":  "small",
+	"claude-3-haiku-20240307":    "small",
 
 	// OpenAI
-	"gpt-4o":         "engineer",
-	"gpt-4o-mini":    "monkey",
-	"gpt-4-turbo":    "engineer",
-	"gpt-4":          "engineer",
-	"o1":             "agi",
-	"o1-mini":        "monkey",
-	"o1-preview":     "agi",
-	"o3":             "agi",
-	"o3-mini":        "engineer",
-	"gpt-3.5-turbo":  "monkey",
+	"gpt-4o":        "large",
+	"gpt-4o-mini":   "small",
+	"gpt-4-turbo":   "large",
+	"gpt-4":         "large",
+	"o1":            "large",
+	"o1-mini":       "small",
+	"o1-preview":    "large",
+	"o3":            "large",
+	"o3-mini":       "small",
+	"gpt-3.5-turbo": "small",
 
 	// Google
-	"gemini-2.0-flash":       "engineer",
-	"gemini-2.0-flash-lite":  "monkey",
-	"gemini-1.5-pro":         "engineer",
-	"gemini-1.5-flash":       "monkey",
-	"gemini-2.5-pro":         "agi",
+	"gemini-2.0-flash":      "large",
+	"gemini-2.0-flash-lite": "small",
+	"gemini-1.5-pro":        "large",
+	"gemini-1.5-flash":      "small",
+	"gemini-2.5-pro":        "large",
 
-	// Other
-	"deepseek-chat":       "engineer",
-	"deepseek-reasoner":   "agi",
-	"llama-3.3-70b":       "engineer",
-	"llama-3.1-8b":        "monkey",
-	"mistral-large":       "engineer",
-	"mistral-small":       "monkey",
-	"qwen-2.5-72b":        "engineer",
+	// DeepSeek
+	"deepseek-chat":     "large",
+	"deepseek-reasoner": "large",
+
+	// Meta
+	"llama-3.3-70b": "large",
+	"llama-3.1-8b":  "small",
+
+	// Mistral
+	"mistral-large": "large",
+	"mistral-small": "small",
+
+	// Qwen
+	"qwen-2.5-72b": "large",
 }
 
 // DefaultTier is used when a model ID is not recognized.
-const DefaultTier = "engineer"
+const DefaultTier = "large"
 
 // GetModelTier returns the capability tier for a model ID.
-func GetModelTier(modelID, defaultTier string) string {
-	if tier, ok := ModelTiers[modelID]; ok {
+// customTiers takes precedence over DefaultModelTiers.
+func GetModelTier(modelID, defaultTier string, customTiers map[string]string) string {
+	// Check custom tiers first (from config)
+	if customTiers != nil {
+		if tier, ok := customTiers[modelID]; ok {
+			return tier
+		}
+	}
+	// Check default tiers
+	if tier, ok := DefaultModelTiers[modelID]; ok {
 		return tier
 	}
-	// Try partial match (model ID prefix)
+	// Try partial match (model ID prefix) in custom tiers first
 	lower := strings.ToLower(modelID)
-	for id, tier := range ModelTiers {
+	for id, tier := range customTiers {
+		if strings.HasPrefix(lower, strings.ToLower(id)) {
+			return tier
+		}
+	}
+	// Try partial match in default tiers
+	for id, tier := range DefaultModelTiers {
 		if strings.HasPrefix(lower, strings.ToLower(id)) {
 			return tier
 		}
@@ -193,11 +213,12 @@ func RenderInstruction(inst *mcp.Instruction, ctx mcp.InstructionRenderContext) 
 }
 
 // RenderInstructions renders all enabled instructions and concatenates them.
-func RenderInstructions(instructions []*mcp.Instruction, modelID, defaultTier string) (string, error) {
+// customTiers allows overriding or extending the default model tier mappings.
+func RenderInstructions(instructions []*mcp.Instruction, modelID, defaultTier string, customTiers map[string]string) (string, error) {
 	ctx := mcp.InstructionRenderContext{
 		Model: mcp.ModelContext{
 			ID:   modelID,
-			Tier: GetModelTier(modelID, defaultTier),
+			Tier: GetModelTier(modelID, defaultTier, customTiers),
 		},
 		Env:  DetectEnv(),
 		Vars: make(map[string]string),
@@ -219,11 +240,12 @@ func RenderInstructions(instructions []*mcp.Instruction, modelID, defaultTier st
 }
 
 // BuildRenderContext creates a render context for the given model ID.
-func BuildRenderContext(modelID, defaultTier string, extraVars map[string]string) mcp.InstructionRenderContext {
+// customTiers allows overriding or extending the default model tier mappings.
+func BuildRenderContext(modelID, defaultTier string, extraVars map[string]string, customTiers map[string]string) mcp.InstructionRenderContext {
 	ctx := mcp.InstructionRenderContext{
 		Model: mcp.ModelContext{
 			ID:   modelID,
-			Tier: GetModelTier(modelID, defaultTier),
+			Tier: GetModelTier(modelID, defaultTier, customTiers),
 		},
 		Env:  DetectEnv(),
 		Vars: extraVars,

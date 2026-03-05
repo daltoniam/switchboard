@@ -1008,8 +1008,10 @@ func (w *WebServer) handleInstructionPreview(rw http.ResponseWriter, r *http.Req
 
 	instConfig := w.services.Config.GetInstructions()
 	defaultTier := ""
+	var modelTiers map[string]string
 	if instConfig != nil {
 		defaultTier = instConfig.DefaultTier
+		modelTiers = instConfig.ModelTiers
 	}
 
 	// Create a temporary instruction to render
@@ -1020,7 +1022,7 @@ func (w *WebServer) handleInstructionPreview(rw http.ResponseWriter, r *http.Req
 		Enabled:  true,
 	}
 
-	ctx := compass.BuildRenderContext(body.ModelID, defaultTier, nil)
+	ctx := compass.BuildRenderContext(body.ModelID, defaultTier, nil, modelTiers)
 	rendered, err := compass.RenderInstruction(inst, ctx)
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
