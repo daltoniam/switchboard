@@ -935,3 +935,40 @@ func TestHandleExecute_NeitherToolNameNorScript(t *testing.T) {
 	tc := result.Content[0].(*mcpsdk.TextContent)
 	assert.Equal(t, "either tool_name or script is required", tc.Text)
 }
+
+func TestScriptExecution_PRReviewScript(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_get_pull", Description: "Get a pull request"},
+			{Name: "github_get_pull_diff", Description: "Get the raw diff"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			switch toolName {
+			case "github_get_pull":
+				return &mcp.ToolResult{Data: `{"title":"Fix bug","state":"open","body":"Fixes issue #1","base":{"ref":"main"},"head":{"ref":"fix-branch"}}`}, nil
+			case "github_get_pull_diff":
+				return &mcp.ToolResult{Data: "diff --git a/file.go b/file.go\n--- a/file.go\n+++ b/file.go\n@@ -1,3 +1,4 @@\n package main\n+import \"fmt\"\n func main() {}"}, nil
+			}
+			return &mcp.ToolResult{Data: "unknown", IsError: true}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var pr = api.call("github_get_pull", {owner: "o", repo: "r", pull_number: 37});
+		var diff = api.call("github_get_pull_diff", {owner: "o", repo: "r", pull_number: 37});
+		({title: pr.title, state: pr.state, body: pr.body, base: pr.base.ref, head: pr.head.ref, diff: diff});
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "Fix bug", parsed["title"])
+	assert.Equal(t, "open", parsed["state"])
+	assert.Equal(t, "main", parsed["base"])
+	assert.Equal(t, "fix-branch", parsed["head"])
+	assert.Contains(t, parsed["diff"], "diff --git")
+}
