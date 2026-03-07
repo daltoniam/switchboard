@@ -85,27 +85,31 @@ Examples:
 		Name: "execute",
 		Description: `Execute a tool or run a JavaScript script that chains multiple tool calls.
 
-Mode 1 — Single tool (provide tool_name + arguments):
-  {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
+PREFER scripts when a task requires 2+ tool calls or crosses integrations — intermediate
+results stay server-side and never enter the conversation, saving tokens dramatically.
 
-Mode 2 — Script (provide script):
+Mode 1 — Script (provide script):
   Write JavaScript that calls api.call(toolName, args) to invoke tools.
   Chain multiple calls, filter results, and return only what you need.
-  The script runs server-side — intermediate results never enter the conversation.
 
   {"script": "var issues = api.call('linear_search_issues', {query: 'BUG-1234'}); var email = issues[0].assignee.email; var user = api.call('postgres_execute_query', {query: 'SELECT * FROM users WHERE email = $1', params: [email]}); ({issue: issues[0], dbUser: user[0]});"}
+
+Mode 2 — Single tool (provide tool_name + arguments):
+  Use for one-off calls where scripting adds no benefit.
+
+  {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
 
 Script API:
   api.call(toolName, args) — call any tool discovered via search, returns parsed JSON
   console.log(...) — debug logging (included in output on error)
+
+Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
 
 List and search responses are automatically compacted to essential fields.
 Use single-item get tools (e.g., github_get_issue) for full detail.
 Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
 
 Use search first to discover available tools and their parameter schemas.
-
-Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
 
 Script examples:
 
@@ -256,6 +260,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 
 	type response struct {
 		Summary      string     `json:"summary"`
+		ScriptHint   string     `json:"script_hint,omitempty"`
 		Total        int        `json:"total"`
 		Offset       int        `json:"offset"`
 		Limit        int        `json:"limit"`
@@ -269,8 +274,22 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		summary += fmt.Sprintf(" matching %q", args.Query)
 	}
 
+	var scriptHint string
+	if total > 1 {
+		seen := map[string]bool{}
+		for _, t := range page {
+			seen[t.Integration] = true
+		}
+		if len(seen) >= 2 {
+			scriptHint = "These tools span multiple integrations. Use execute with a script to chain them in a single call — intermediate results stay server-side and never enter the conversation."
+		} else if total > 1 {
+			scriptHint = "Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage."
+		}
+	}
+
 	data, _ := json.Marshal(response{
 		Summary:      summary,
+		ScriptHint:   scriptHint,
 		Total:        total,
 		Offset:       offset,
 		Limit:        limit,
