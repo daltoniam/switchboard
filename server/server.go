@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compass"
 	"github.com/daltoniam/switchboard/script"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -122,6 +123,21 @@ Use search first to discover available tools and their parameter schemas.`,
 
 	s.mcpServer.AddTool(searchTool, s.handleSearch)
 	s.mcpServer.AddTool(executeTool, s.handleExecute)
+
+	// Register the instructions prompt (Helmsman-style)
+	instructionsPrompt := &mcpsdk.Prompt{
+		Name:        "instructions",
+		Title:       "System Instructions",
+		Description: "Dynamically rendered system instructions based on model and environment. Pass the model_id as an argument to get context-aware instructions.",
+		Arguments: []*mcpsdk.PromptArgument{
+			{
+				Name:        "model_id",
+				Description: "The model identifier (e.g., 'claude-opus-4-5-20251101', 'gpt-4o'). Used to determine model tier for conditional instructions.",
+				Required:    false,
+			},
+		},
+	}
+	s.mcpServer.AddPrompt(instructionsPrompt, s.handleInstructionsPrompt)
 }
 
 func (s *Server) configureIntegrations() {
@@ -443,4 +459,69 @@ func objectSchema(properties map[string]any, required []string) map[string]any {
 		s["required"] = required
 	}
 	return s
+}
+
+// handleInstructionsPrompt handles the instructions prompt request.
+// It renders all enabled instructions with context-aware templating.
+// Instructions are loaded from multiple sources with priority:
+// 1. Repo-local (.git/switchboard/instructions.json) - worktree-shared, uncommitted
+// 2. Project (.switchboard/instructions.json) - committed, version-controlled
+// 3. Global (~/.config/switchboard/config.json) - user-wide defaults
+func (s *Server) handleInstructionsPrompt(_ context.Context, req *mcpsdk.GetPromptRequest) (*mcpsdk.GetPromptResult, error) {
+	// Extract model_id from arguments
+	modelID := ""
+	if req.Params.Arguments != nil {
+		if id, ok := req.Params.Arguments["model_id"]; ok {
+			modelID = id
+		}
+	}
+
+	// Get global instructions config
+	globalConfig := s.services.Config.GetInstructions()
+
+	// Load and merge instructions from all sources (global + project + repo-local)
+	// Uses current working directory to find git repo context
+	instConfig := compass.LoadAllInstructions("", globalConfig)
+
+	if instConfig == nil || len(instConfig.Instructions) == 0 {
+		return &mcpsdk.GetPromptResult{
+			Description: "No instructions configured",
+			Messages: []*mcpsdk.PromptMessage{
+				{
+					Role: "user",
+					Content: &mcpsdk.TextContent{
+						Text: "No system instructions have been configured. Use the Switchboard web UI to add instruction templates.",
+					},
+				},
+			},
+		}, nil
+	}
+
+	// Render instructions
+	rendered, err := compass.RenderInstructions(instConfig.Instructions, modelID, instConfig.DefaultTier, instConfig.ModelTiers)
+	if err != nil {
+		return &mcpsdk.GetPromptResult{
+			Description: "Error rendering instructions",
+			Messages: []*mcpsdk.PromptMessage{
+				{
+					Role: "user",
+					Content: &mcpsdk.TextContent{
+						Text: fmt.Sprintf("Error rendering instructions: %v", err),
+					},
+				},
+			},
+		}, nil
+	}
+
+	return &mcpsdk.GetPromptResult{
+		Description: "System instructions for AI assistant",
+		Messages: []*mcpsdk.PromptMessage{
+			{
+				Role: "user",
+				Content: &mcpsdk.TextContent{
+					Text: rendered,
+				},
+			},
+		},
+	}, nil
 }

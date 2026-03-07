@@ -1,0 +1,79 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type InstructionSummary struct {
+	ID          string
+	Name        string
+	Description string
+	Enabled     bool
+}
+
+type InstructionsListData struct {
+	Instructions []InstructionSummary
+	DefaultTier  string
+}
+
+templ InstructionsList(page layouts.PageData, data InstructionsListData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+			<h1 class="page-title" style="margin-bottom: 0;">Instructions</h1>
+			<a href="/instructions/new" class="btn btn-sm">+ New Instruction</a>
+		</div>
+		<p class="slack-desc" style="margin-bottom: 1.5rem;">
+			Instruction templates are dynamically rendered system prompts for AI assistants.
+			They support Go template syntax with model and environment context.
+			if data.DefaultTier != "" {
+				<br/><strong>Default tier:</strong> { data.DefaultTier }
+			}
+		</p>
+		if len(data.Instructions) == 0 {
+			<div class="card">
+				<p style="color: var(--text-muted); text-align: center; padding: 2rem 0;">
+					No instructions configured yet. Click "New Instruction" to create one.
+				</p>
+			</div>
+		} else {
+			for _, i := range data.Instructions {
+				<a href={ templ.SafeURL("/instructions/" + i.ID) } class="integration-link">
+					<div>
+						<span class="name">{ i.Name }</span>
+						<span style="margin-left: 0.5rem;">
+							if i.Enabled {
+								@components.Badge("Enabled", "green")
+							} else {
+								@components.Badge("Disabled", "muted")
+							}
+						</span>
+						if i.Description != "" {
+							<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+								{ i.Description }
+							</div>
+						}
+					</div>
+					<div class="meta">
+						<span>→</span>
+					</div>
+				</a>
+			}
+		}
+		<div class="card" style="margin-top: 1.5rem;">
+			<div class="card-title" style="margin-bottom: 0.75rem;">Template Context</div>
+			<p class="slack-desc">
+				Available variables in templates:
+			</p>
+			<ul style="font-size: 0.82rem; color: var(--text-muted); margin: 0.75rem 0 0 1.5rem;">
+				<li><code>&#123;&#123;.Model.ID&#125;&#125;</code> — Model identifier (e.g., "claude-opus-4-5-20251101")</li>
+				<li><code>&#123;&#123;.Model.Tier&#125;&#125;</code> — Model tier: "agi", "engineer", or "monkey"</li>
+				<li><code>&#123;&#123;.Env.OS&#125;&#125;</code> — Operating system: "macos", "linux", "windows"</li>
+				<li><code>&#123;&#123;.Env.Shell&#125;&#125;</code> — Shell: "zsh", "bash", "fish", etc.</li>
+				<li><code>&#123;&#123;.Env.InDocker&#125;&#125;</code> — true if running in Docker</li>
+				<li><code>&#123;&#123;.Env.HasGit&#125;&#125;</code>, <code>&#123;&#123;.Env.HasGh&#125;&#125;</code> — Tool availability</li>
+				<li><code>&#123;&#123;.Vars.key&#125;&#125;</code> — Custom variables defined per instruction</li>
+			</ul>
+		</div>
+	}
+}

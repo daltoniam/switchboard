@@ -45,6 +45,17 @@ func (m *mockConfigService) EnabledIntegrations() []string {
 }
 func (m *mockConfigService) DefaultCredentialKeys(_ string) []string { return nil }
 
+// Instructions stubs
+func (m *mockConfigService) GetInstructions() *mcp.InstructionsConfig { return nil }
+func (m *mockConfigService) SetInstructions(_ *mcp.InstructionsConfig) error {
+	return nil
+}
+func (m *mockConfigService) GetInstruction(_ string) (*mcp.Instruction, bool) {
+	return nil, false
+}
+func (m *mockConfigService) SetInstruction(_ *mcp.Instruction) error { return nil }
+func (m *mockConfigService) DeleteInstruction(_ string) error        { return nil }
+
 type mockIntegration struct {
 	name      string
 	tools     []mcp.ToolDefinition

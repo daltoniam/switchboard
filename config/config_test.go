@@ -285,3 +285,152 @@ func TestDefaultCredentialKeys_Unknown(t *testing.T) {
 	keys := m.DefaultCredentialKeys("nonexistent")
 	assert.Nil(t, keys)
 }
+
+// --- Instructions tests ---
+
+func TestGetInstructions_Empty(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	instConfig := m.GetInstructions()
+	require.NotNil(t, instConfig)
+	assert.Empty(t, instConfig.Instructions)
+}
+
+func TestSetInstructions(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	ic := &mcp.InstructionsConfig{
+		DefaultTier: "engineer",
+		Instructions: []*mcp.Instruction{
+			{ID: "test1", Name: "Test", Template: "Hello", Enabled: true},
+		},
+	}
+	err := m.SetInstructions(ic)
+	require.NoError(t, err)
+
+	got := m.GetInstructions()
+	require.NotNil(t, got)
+	assert.Equal(t, "engineer", got.DefaultTier)
+	require.Len(t, got.Instructions, 1)
+	assert.Equal(t, "test1", got.Instructions[0].ID)
+}
+
+func TestGetInstruction(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	// Initially not found
+	_, ok := m.GetInstruction("test1")
+	assert.False(t, ok)
+
+	// Add instruction
+	err := m.SetInstruction(&mcp.Instruction{
+		ID:       "test1",
+		Name:     "Test",
+		Template: "Hello",
+		Enabled:  true,
+	})
+	require.NoError(t, err)
+
+	// Now found
+	inst, ok := m.GetInstruction("test1")
+	assert.True(t, ok)
+	assert.Equal(t, "Test", inst.Name)
+	assert.Equal(t, "Hello", inst.Template)
+}
+
+func TestSetInstruction_Update(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	// Create
+	err := m.SetInstruction(&mcp.Instruction{
+		ID:       "test1",
+		Name:     "Test",
+		Template: "Hello",
+		Enabled:  true,
+	})
+	require.NoError(t, err)
+
+	// Update
+	err = m.SetInstruction(&mcp.Instruction{
+		ID:       "test1",
+		Name:     "Updated",
+		Template: "World",
+		Enabled:  false,
+	})
+	require.NoError(t, err)
+
+	inst, ok := m.GetInstruction("test1")
+	assert.True(t, ok)
+	assert.Equal(t, "Updated", inst.Name)
+	assert.Equal(t, "World", inst.Template)
+	assert.False(t, inst.Enabled)
+
+	// Should still have only 1 instruction
+	assert.Len(t, m.GetInstructions().Instructions, 1)
+}
+
+func TestDeleteInstruction(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	// Add two instructions
+	err := m.SetInstruction(&mcp.Instruction{ID: "test1", Name: "Test1", Enabled: true})
+	require.NoError(t, err)
+	err = m.SetInstruction(&mcp.Instruction{ID: "test2", Name: "Test2", Enabled: true})
+	require.NoError(t, err)
+
+	// Delete one
+	err = m.DeleteInstruction("test1")
+	require.NoError(t, err)
+
+	// Verify
+	_, ok := m.GetInstruction("test1")
+	assert.False(t, ok)
+
+	inst, ok := m.GetInstruction("test2")
+	assert.True(t, ok)
+	assert.Equal(t, "Test2", inst.Name)
+
+	assert.Len(t, m.GetInstructions().Instructions, 1)
+}
+
+func TestDeleteInstruction_NotFound(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	// Should not error when deleting non-existent
+	err := m.DeleteInstruction("nonexistent")
+	assert.NoError(t, err)
+}
+
+func TestInstructions_Persistence(t *testing.T) {
+	m, path := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	// Add instruction
+	err := m.SetInstruction(&mcp.Instruction{
+		ID:          "test1",
+		Name:        "Test",
+		Description: "A test instruction",
+		Template:    "Hello {{.Model.ID}}",
+		Enabled:     true,
+		Variables:   map[string]string{"foo": "bar"},
+	})
+	require.NoError(t, err)
+
+	// Load fresh manager
+	m2 := &manager{filePath: path}
+	require.NoError(t, m2.Load())
+
+	inst, ok := m2.GetInstruction("test1")
+	require.True(t, ok)
+	assert.Equal(t, "Test", inst.Name)
+	assert.Equal(t, "A test instruction", inst.Description)
+	assert.Equal(t, "Hello {{.Model.ID}}", inst.Template)
+	assert.True(t, inst.Enabled)
+	assert.Equal(t, "bar", inst.Variables["foo"])
+}

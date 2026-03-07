@@ -134,6 +134,8 @@ func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 			defIC.Credentials[k] = v
 		}
 	}
+	// Preserve instructions from file
+	cfg.Instructions = file.Instructions
 	return cfg
 }
 
@@ -210,4 +212,71 @@ func (m *manager) DefaultCredentialKeys(name string) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// --- Instructions management ---
+
+func (m *manager) GetInstructions() *mcp.InstructionsConfig {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.cfg.Instructions == nil {
+		return &mcp.InstructionsConfig{}
+	}
+	return m.cfg.Instructions
+}
+
+func (m *manager) SetInstructions(ic *mcp.InstructionsConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cfg.Instructions = ic
+	return m.saveLocked()
+}
+
+func (m *manager) GetInstruction(id string) (*mcp.Instruction, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.cfg.Instructions == nil {
+		return nil, false
+	}
+	for _, inst := range m.cfg.Instructions.Instructions {
+		if inst.ID == id {
+			return inst, true
+		}
+	}
+	return nil, false
+}
+
+func (m *manager) SetInstruction(inst *mcp.Instruction) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.cfg.Instructions == nil {
+		m.cfg.Instructions = &mcp.InstructionsConfig{}
+	}
+	// Update existing or append new
+	for i, existing := range m.cfg.Instructions.Instructions {
+		if existing.ID == inst.ID {
+			m.cfg.Instructions.Instructions[i] = inst
+			return m.saveLocked()
+		}
+	}
+	m.cfg.Instructions.Instructions = append(m.cfg.Instructions.Instructions, inst)
+	return m.saveLocked()
+}
+
+func (m *manager) DeleteInstruction(id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.cfg.Instructions == nil {
+		return nil
+	}
+	for i, inst := range m.cfg.Instructions.Instructions {
+		if inst.ID == id {
+			m.cfg.Instructions.Instructions = append(
+				m.cfg.Instructions.Instructions[:i],
+				m.cfg.Instructions.Instructions[i+1:]...,
+			)
+			return m.saveLocked()
+		}
+	}
+	return nil
 }
