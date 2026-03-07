@@ -24,11 +24,19 @@ func listPRs(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 }
 
 func getPR(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	pr, _, err := g.client.PullRequests.Get(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"))
+	pr, _, err := g.client.PullRequests.Get(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"))
 	if err != nil {
 		return errResult(err)
 	}
 	return jsonResult(pr)
+}
+
+func getPRDiff(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	diff, _, err := g.client.PullRequests.GetRaw(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), gh.RawOptions{Type: gh.Diff})
+	if err != nil {
+		return errResult(err)
+	}
+	return &mcp.ToolResult{Data: diff}, nil
 }
 
 func createPR(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -60,7 +68,7 @@ func updatePR(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 	if v := argStr(args, "base"); v != "" {
 		pr.Base = &gh.PullRequestBranch{Ref: gh.Ptr(v)}
 	}
-	pull, _, err := g.client.PullRequests.Edit(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), pr)
+	pull, _, err := g.client.PullRequests.Edit(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), pr)
 	if err != nil {
 		return errResult(err)
 	}
@@ -69,7 +77,7 @@ func updatePR(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 
 func listPRCommits(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	commits, _, err := g.client.PullRequests.ListCommits(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	commits, _, err := g.client.PullRequests.ListCommits(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -78,7 +86,7 @@ func listPRCommits(ctx context.Context, g *integration, args map[string]any) (*m
 
 func listPRFiles(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	files, _, err := g.client.PullRequests.ListFiles(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	files, _, err := g.client.PullRequests.ListFiles(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -87,7 +95,7 @@ func listPRFiles(ctx context.Context, g *integration, args map[string]any) (*mcp
 
 func listPRReviews(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	reviews, _, err := g.client.PullRequests.ListReviews(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	reviews, _, err := g.client.PullRequests.ListReviews(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -99,7 +107,7 @@ func createPRReview(ctx context.Context, g *integration, args map[string]any) (*
 		Body:  gh.Ptr(argStr(args, "body")),
 		Event: gh.Ptr(argStr(args, "event")),
 	}
-	r, _, err := g.client.PullRequests.CreateReview(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), review)
+	r, _, err := g.client.PullRequests.CreateReview(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), review)
 	if err != nil {
 		return errResult(err)
 	}
@@ -108,7 +116,7 @@ func createPRReview(ctx context.Context, g *integration, args map[string]any) (*
 
 func listPRComments(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	opts := &gh.PullRequestListCommentsOptions{ListOptions: listOpts(args)}
-	comments, _, err := g.client.PullRequests.ListComments(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	comments, _, err := g.client.PullRequests.ListComments(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -124,7 +132,7 @@ func createPRComment(ctx context.Context, g *integration, args map[string]any) (
 	if line := argInt(args, "line"); line > 0 {
 		comment.Line = gh.Ptr(line)
 	}
-	c, _, err := g.client.PullRequests.CreateComment(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), comment)
+	c, _, err := g.client.PullRequests.CreateComment(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), comment)
 	if err != nil {
 		return errResult(err)
 	}
@@ -136,7 +144,7 @@ func mergePR(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 	if method := argStr(args, "merge_method"); method != "" {
 		opts.MergeMethod = method
 	}
-	result, _, err := g.client.PullRequests.Merge(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), argStr(args, "commit_message"), opts)
+	result, _, err := g.client.PullRequests.Merge(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), argStr(args, "commit_message"), opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -144,7 +152,7 @@ func mergePR(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 }
 
 func listRequestedReviewers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	reviewers, _, err := g.client.PullRequests.ListReviewers(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), nil)
+	reviewers, _, err := g.client.PullRequests.ListReviewers(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), nil)
 	if err != nil {
 		return errResult(err)
 	}
@@ -156,7 +164,7 @@ func requestReviewers(ctx context.Context, g *integration, args map[string]any) 
 		Reviewers:     argStrSlice(args, "reviewers"),
 		TeamReviewers: argStrSlice(args, "team_reviewers"),
 	}
-	pr, _, err := g.client.PullRequests.RequestReviewers(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), req)
+	pr, _, err := g.client.PullRequests.RequestReviewers(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), req)
 	if err != nil {
 		return errResult(err)
 	}

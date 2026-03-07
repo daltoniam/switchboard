@@ -293,6 +293,7 @@ func searchRequest(args map[string]any) *mcpsdk.CallToolRequest {
 // searchResponse is the paginated envelope returned by handleSearch.
 type searchResponse struct {
 	Summary      string   `json:"summary"`
+	ScriptHint   string   `json:"script_hint"`
 	Total        int      `json:"total"`
 	Offset       int      `json:"offset"`
 	Limit        int      `json:"limit"`
@@ -574,7 +575,7 @@ func TestSmoke_SearchResponseShape(t *testing.T) {
 	var raw map[string]json.RawMessage
 	require.NoError(t, json.Unmarshal([]byte(tc.Text), &raw))
 
-	expectedKeys := []string{"summary", "total", "offset", "limit", "has_more", "integrations", "tools"}
+	expectedKeys := []string{"summary", "script_hint", "total", "offset", "limit", "has_more", "integrations", "tools"}
 	for _, key := range expectedKeys {
 		assert.Contains(t, raw, key, "response missing key %q", key)
 	}
@@ -588,6 +589,7 @@ func TestSmoke_SearchResponseShape(t *testing.T) {
 	assert.ElementsMatch(t, []string{"alpha", "beta"}, resp.Integrations)
 	assert.Len(t, resp.Tools, 3)
 	assert.Contains(t, resp.Summary, "15")
+	assert.Contains(t, resp.ScriptHint, "script")
 }
 
 // --- compaction integration mock ---
@@ -934,4 +936,138 @@ func TestHandleExecute_NeitherToolNameNorScript(t *testing.T) {
 	require.True(t, result.IsError)
 	tc := result.Content[0].(*mcpsdk.TextContent)
 	assert.Equal(t, "either tool_name or script is required", tc.Text)
+}
+
+func TestScriptExecution_PRReviewScript(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_get_pull", Description: "Get a pull request"},
+			{Name: "github_get_pull_diff", Description: "Get the raw diff"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			switch toolName {
+			case "github_get_pull":
+				return &mcp.ToolResult{Data: `{"title":"Fix bug","state":"open","body":"Fixes issue #1","base":{"ref":"main"},"head":{"ref":"fix-branch"}}`}, nil
+			case "github_get_pull_diff":
+				return &mcp.ToolResult{Data: "diff --git a/file.go b/file.go\n--- a/file.go\n+++ b/file.go\n@@ -1,3 +1,4 @@\n package main\n+import \"fmt\"\n func main() {}"}, nil
+			}
+			return &mcp.ToolResult{Data: "unknown", IsError: true}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var pr = api.call("github_get_pull", {owner: "o", repo: "r", pull_number: 37});
+		var diff = api.call("github_get_pull_diff", {owner: "o", repo: "r", pull_number: 37});
+		({title: pr.title, state: pr.state, body: pr.body, base: pr.base.ref, head: pr.head.ref, diff: diff});
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "Fix bug", parsed["title"])
+	assert.Equal(t, "open", parsed["state"])
+	assert.Equal(t, "main", parsed["base"])
+	assert.Equal(t, "fix-branch", parsed["head"])
+	assert.Contains(t, parsed["diff"], "diff --git")
+}
+
+func TestScriptExecution_CrossIntegration(t *testing.T) {
+	linear := &mockIntegration{
+		name:    "linear",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "linear_create_issue", Description: "Create a Linear issue"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			title, _ := args["title"].(string)
+			return &mcp.ToolResult{Data: fmt.Sprintf(`{"identifier":"ENG-42","title":"%s","url":"https://linear.app/team/issue/ENG-42"}`, title)}, nil
+		},
+	}
+
+	gh := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_create_pull", Description: "Create a pull request"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			title, _ := args["title"].(string)
+			body, _ := args["body"].(string)
+			return &mcp.ToolResult{Data: fmt.Sprintf(`{"html_url":"https://github.com/o/r/pull/99","title":"%s","body":"%s"}`, title, body)}, nil
+		},
+	}
+
+	s := setupTestServer(linear, gh)
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var issue = api.call("linear_create_issue", {team_id: "TEAM", title: "Fix auth bug"});
+		var pr = api.call("github_create_pull", {
+			owner: "o", repo: "r",
+			title: issue.identifier + ": " + issue.title,
+			head: "fix-auth", base: "main",
+			body: "Resolves " + issue.url
+		});
+		({issue: issue.identifier, pr_url: pr.html_url, pr_title: pr.title});
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "ENG-42", parsed["issue"])
+	assert.Equal(t, "https://github.com/o/r/pull/99", parsed["pr_url"])
+	assert.Equal(t, "ENG-42: Fix auth bug", parsed["pr_title"])
+}
+
+func TestSearch_ScriptHint_MultipleIntegrations(t *testing.T) {
+	alpha := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "github_list_issues", Description: "List issues"}},
+	}
+	beta := &mockIntegration{
+		name:    "linear",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+	}
+	s := setupTestServer(alpha, beta)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "list issues"}))
+	require.NoError(t, err)
+	resp := parseSearchResponse(t, result)
+	assert.Contains(t, resp.ScriptHint, "multiple integrations")
+}
+
+func TestSearch_ScriptHint_SingleIntegrationMultipleTools(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_get_pull", Description: "Get a pull request"},
+			{Name: "github_get_pull_diff", Description: "Get diff"},
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "pull"}))
+	require.NoError(t, err)
+	resp := parseSearchResponse(t, result)
+	assert.Contains(t, resp.ScriptHint, "multiple tool calls")
+}
+
+func TestSearch_ScriptHint_SingleResult(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "github_get_pull", Description: "Get a pull request"}},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "get pull"}))
+	require.NoError(t, err)
+	resp := parseSearchResponse(t, result)
+	assert.Empty(t, resp.ScriptHint)
 }

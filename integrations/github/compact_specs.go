@@ -84,20 +84,20 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"github_list_assignees": userListFields,
 
 	// ── Pull Requests ─────────────────────────────────────────────────
-	"github_list_prs": {
+	"github_list_pulls": {
 		"number", "title", "state", "html_url", "created_at", "updated_at",
 		"comments", "draft", "merged", "user.login", "head.ref", "base.ref",
 		"head.repo.full_name", "labels[].name",
 		"assignees[].login", "requested_reviewers[].login",
 	},
-	"github_list_pr_commits": commitListFields,
-	"github_list_pr_files": {
+	"github_list_pull_commits": commitListFields,
+	"github_list_pull_files": {
 		"sha", "filename", "status", "additions", "deletions",
 	},
-	"github_list_pr_reviews": {
+	"github_list_pull_reviews": {
 		"id", "state", "body", "user.login", "submitted_at", "html_url",
 	},
-	"github_list_pr_comments": {
+	"github_list_pull_comments": {
 		"id", "body", "user.login", "created_at", "path", "line", "html_url",
 	},
 
