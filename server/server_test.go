@@ -972,3 +972,50 @@ func TestScriptExecution_PRReviewScript(t *testing.T) {
 	assert.Equal(t, "fix-branch", parsed["head"])
 	assert.Contains(t, parsed["diff"], "diff --git")
 }
+
+func TestScriptExecution_CrossIntegration(t *testing.T) {
+	linear := &mockIntegration{
+		name:    "linear",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "linear_create_issue", Description: "Create a Linear issue"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			title, _ := args["title"].(string)
+			return &mcp.ToolResult{Data: fmt.Sprintf(`{"identifier":"ENG-42","title":"%s","url":"https://linear.app/team/issue/ENG-42"}`, title)}, nil
+		},
+	}
+
+	gh := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_create_pull", Description: "Create a pull request"},
+		},
+		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+			title, _ := args["title"].(string)
+			body, _ := args["body"].(string)
+			return &mcp.ToolResult{Data: fmt.Sprintf(`{"html_url":"https://github.com/o/r/pull/99","title":"%s","body":"%s"}`, title, body)}, nil
+		},
+	}
+
+	s := setupTestServer(linear, gh)
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var issue = api.call("linear_create_issue", {team_id: "TEAM", title: "Fix auth bug"});
+		var pr = api.call("github_create_pull", {
+			owner: "o", repo: "r",
+			title: issue.identifier + ": " + issue.title,
+			head: "fix-auth", base: "main",
+			body: "Resolves " + issue.url
+		});
+		({issue: issue.identifier, pr_url: pr.html_url, pr_title: pr.title});
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "ENG-42", parsed["issue"])
+	assert.Equal(t, "https://github.com/o/r/pull/99", parsed["pr_url"])
+	assert.Equal(t, "ENG-42: Fix auth bug", parsed["pr_title"])
+}
