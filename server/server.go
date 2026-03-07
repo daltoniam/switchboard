@@ -103,7 +103,12 @@ List and search responses are automatically compacted to essential fields.
 Use single-item get tools (e.g., github_get_issue) for full detail.
 Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
 
-Use search first to discover available tools and their parameter schemas.`,
+Use search first to discover available tools and their parameter schemas.
+
+Script examples:
+
+Fetch a GitHub PR with its diff in a single call:
+  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}); var diff = api.call('github_get_pull_diff', {owner: 'o', repo: 'r', pull_number: 42}); ({title: pr.title, state: pr.state, body: pr.body, base: pr.base.ref, head: pr.head.ref, diff: diff});"}`,
 		InputSchema: objectSchema(map[string]any{
 			"tool_name": map[string]any{
 				"type":        "string",
