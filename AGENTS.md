@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, AWS, PostHog, PostgreSQL, ClickHouse behind one endpoint
+- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, Notion, AWS, PostHog, PostgreSQL, ClickHouse behind one endpoint
 - Two meta-tools only: **search** (discover operations) and **execute** (run them)
 - Hexagonal architecture (ports and adapters)
 - HTTP transport (streamable) + web config UI on same port
@@ -157,6 +157,18 @@ integrations/
     queries.go               Native SQL query execution, card CRUD handlers
     dashboards.go            Dashboard CRUD, add-card-to-dashboard handlers
     collections.go           Collection CRUD, search handlers
+  notion/
+    notion.go                Notion v3 integration adapter (core, dispatch, HTTP helpers)
+    tools.go                 Notion tool definitions (~24 tools)
+    compact_specs.go         Field compaction spec declarations (13 read tools)
+    data_sources.go          Database create, data sources read/update/query/templates handlers
+    pages.go                 Pages CRUD, move, property + convenience (getPageContent, createPageWithContent) handlers
+    blocks.go                Blocks CRUD, children list/append handlers
+    search.go                Search handler (normalized results + recordMap merge)
+    users.go                 Users list, retrieve, get-self handlers
+    comments.go              Comments create, retrieve handlers
+    recordmap.go             recordMap extraction helpers (extractRecord, extractAllRecords)
+    transaction.go           submitTransaction builder helpers (buildOp, buildTransaction)
   aws/
     aws.go                   AWS integration adapter (core, dispatch, typed SDK clients, helpers)
     tools.go                 AWS tool definitions (~65 tools)
@@ -198,7 +210,7 @@ web/
   templates/                 Templ-based templates — do not edit *_templ.go (generated)
     layouts/                 Base layout templates
     pages/                   dashboard, integrations_list, integration detail,
-                             github_setup, linear_setup, sentry_setup, slack_setup
+                             github_setup, linear_setup, sentry_setup, slack_setup, notion_setup
     components/              Shared UI components
 ```
 
@@ -218,11 +230,11 @@ graph BT
     subgraph "Adapters"
         GH["integrations/github/"] & DD["integrations/datadog/"] & LN["integrations/linear/"]
         SN["integrations/sentry/"] & SL["integrations/slack/"] & MB["integrations/metabase/"]
-        PG["integrations/postgres/"] & CH["integrations/clickhouse/"]
+        NT["integrations/notion/"] & PG["integrations/postgres/"] & CH["integrations/clickhouse/"]
         CF["config/"] & RG["registry/"]
     end
 
-    GH & DD & LN & SN & SL & MB & PG & CH -->|implements\nIntegration| Core
+    GH & DD & LN & SN & SL & MB & NT & PG & CH -->|implements\nIntegration| Core
     CF -->|implements\nConfigService| Core
     RG -->|implements\nRegistry| Core
 
@@ -239,7 +251,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `integrations/github/`, `integrations/datadog/`, `integrations/linear/`, `integrations/sentry/`, `integrations/slack/`, `integrations/metabase/`, `integrations/aws/`, `integrations/posthog/`, `integrations/postgres/`, `integrations/clickhouse/` → `Integration`
+- `integrations/github/`, `integrations/datadog/`, `integrations/linear/`, `integrations/sentry/`, `integrations/slack/`, `integrations/metabase/`, `integrations/notion/`, `integrations/aws/`, `integrations/posthog/`, `integrations/postgres/`, `integrations/clickhouse/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)
@@ -328,12 +340,14 @@ func New() mcp.Integration { ... }   // returns interface
 
 ### Import Aliases
 
-Only `slack` and `aws` require aliases to avoid collision with standard/SDK package names. Other packages are imported directly.
+Only `slack`, `aws`, and `notion` require aliases to avoid collision with standard/SDK package names. Other packages are imported directly.
 
 | Package | Alias | Used In |
 |---------|-------|---------|
 | `github.com/daltoniam/switchboard` | `mcp` | All consumers |
 | `.../switchboard/integrations/slack` | `slackInt` | `cmd/server/main.go`, `web/web.go` |
+| `.../switchboard/integrations/aws` | `awsInt` | `cmd/server/main.go` |
+| `.../switchboard/integrations/notion` | `notionInt` | `cmd/server/main.go` |
 | `.../switchboard/integrations/github` | `ghInt` | `web/web.go` |
 | `.../switchboard/integrations/linear` | `linearInt` | `web/web.go` |
 | `.../switchboard/integrations/sentry` | `sentryInt` | `web/web.go` |
@@ -361,7 +375,7 @@ When adding a new tool: add both the `ToolDefinition` in `tools.go` **and** the 
 
 ### Field Compaction
 
-List/search tools return compact responses via the `FieldCompactionIntegration` interface. The server applies field compaction automatically after `Execute()`. Optimize specs for fewest total tokens across the entire task workflow, not smallest single response.
+A whitelist of fields, per tool, that the MCP server uses to build a DTO before sending to the MCP client. Optimize specs for fewest total tokens across the entire task workflow, not smallest single response.
 
 ```mermaid
 sequenceDiagram
@@ -380,19 +394,30 @@ sequenceDiagram
     LLM->>Switchboard: execute(github_get_issue, {issue_number: 42})
     Switchboard->>API: GET /repos/:owner/:repo/issues/42
     API-->>Switchboard: 5KB (full issue with body, timeline)
-    Note over Switchboard: No compaction for get tools<br/>Full response returned
+    Note over Switchboard: Get tools also compacted<br/>Strips CRDT noise from raw records
     Switchboard-->>LLM: 5KB (complete detail)
 ```
 
 - **Opt in**: Implement `CompactSpec(toolName string) ([]CompactField, bool)` — returns parsed fields + found flag
-- **Declare specs** in `<adapter>/compact_specs.go` using dot-notation: `"title"`, `"user.login"`, `"labels[].name"`
+- **Declare specs** in `<adapter>/compact_specs.go` using dot-notation: `"title"`, `"user.login"`, `"labels[].name"`, `"page.id"` (2+ specs sharing a root → nested object)
 - **Keep**: fields that prevent N+1 drill-downs (routing fields, identifiers, states, dates, counts)
 - **Drop**: nested full objects (user, repo), permissions, avatars, node_ids, template URLs
-- **Mutations stay full**: only list/search tools get compaction specs
+- **Compact all reads**: any tool returning raw API records (list, search, or single-record get) needs a compaction spec. Mutation tools return small confirmation objects (`{"id":"...","status":"updated"}`) — no spec needed.
+- **Handler boundary**: handlers do structural transformation only (unwrap envelopes, merge split responses, tree-build). All noise/context reduction flows through compaction specs — handler-level field whitelists or record filtering cause spec drift (changes require two-file edits, reviewers miss the handler's hidden filter).
 - **Dispatch parity**: `TestFieldCompactionSpecs_NoOrphanSpecs` — every spec key must have a dispatch handler
 - **Unwrap SDK lists**: return `resp.Items` not `resp` so compaction operates on the array directly
 - **Anti-pattern**: `return jsonResult(fullSDKWrapper)` for list tools
-- See `.claude/skills/add-integration/SKILL.md` § "Field Compaction" for spec design questions
+- See `.claude/skills/optimize-integration/SKILL.md` for compaction refinement, handler boundary rules, and anti-patterns
+
+### Tool Description Design
+
+Tool descriptions are the only context an LLM gets for tool selection. Design for correct routing:
+
+- **Workflow entry points**: "Start here for most workflows"
+- **Prefer-over hints**: "Preferred over retrieve_page — returns the full page tree"
+- **Gotcha prevention**: surface ID/parameter confusion in description AND parameter strings
+- **Tiers**: high-value tools get routing hints, supporting tools get chaining hints, subsumed primitives get prefer-over hints
+- See `.claude/skills/optimize-integration/SKILL.md` for the full optimization workflow
 
 ### Error Handling
 - Integration errors: return `&mcp.ToolResult{Data: err.Error(), IsError: true}, nil`
@@ -412,6 +437,10 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
   - Background refresh every 4h (`refresh.go`). Mutex-protected client (`s.getClient()`)
   - OAuth v2 flow (`oauth.go`) for web UI setup
 - **AWS**: `aws-sdk-go-v2` official typed SDK. Auth via static credentials or default credential chain. Region defaults to `us-east-1`. Each service gets typed client via `<service>.NewFromConfig(cfg)`. Import aliased as `awsInt`
+- **Notion**: Hand-rolled v3 internal API over `net/http`. Auth via `Cookie: token_v2=<token>` (session cookie starting with `v03:`). Base URL `https://www.notion.so`. All endpoints are POST to `/api/v3/<endpoint>`. No version header. HTTP client: 30s timeout, redirect blocking (prevents token leaking on 3xx), 512KB response cap (largest real responses ~230KB, keeps worst-case at ~125K tokens). 24 tools covering databases, data sources, pages, blocks, search, users, comments + 2 convenience tools (`getPageContent` single-call page tree, `createPageWithContent` atomic transaction). `spaceID` and `userID` resolved at `Configure()` time via `getSpaces`.
+  - **Reads**: `loadCachedPageChunkV2` (blocks, pages, databases, data sources, comments, children, page content), `syncRecordValuesMain` with pointer format (users), `queryCollection` with source+reducer format (data source queries), `getSpaces` (user list), `search` (hybrid search). `getRecordValues` NOT used — broken by shard isolation.
+  - **Writes**: `submitTransaction` with client-generated UUIDs. Atomic multi-op transactions.
+  - **v3 gotchas**: `queryCollection` double-wraps blocks (`block[id].value.value.*`) and `recordMap` contains `__version__` (number) alongside table maps — parse as `map[string]any`; `collection_view.parent_table` must be `"block"` not `"collection"`; comments are bundled in `loadCachedPageChunkV2` recordMap (no dedicated endpoint); search results split between `results` (id, highlight) and `recordMap` (block data) — handler normalizes into flat array.
 - **ClickHouse**: `ClickHouse/clickhouse-go/v2` typed native driver. Auth via `ch.Auth{Username, Password}`. Supports TLS (`secure`/`skip_verify` config). Connection pooling built into driver. Dynamic column scanning via `reflect` for generic query results.
 
 ### Config
@@ -435,6 +464,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
   - `GET /integrations/linear/setup` — Linear OAuth (PKCE)
   - `GET /integrations/sentry/setup` — Sentry Device Flow OAuth
   - `GET /integrations/slack/setup` — Slack token extraction (Chrome auto-extract, manual browser snippet, direct entry)
+  - `GET /integrations/notion/setup` — Notion token_v2 entry (browser snippet extraction, manual entry)
 - All setup pages save credentials to both the integration config and any external token files
 
 ## Local Skills
@@ -442,11 +472,12 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 | Skill | When to use | Path |
 |-------|-------------|------|
 | `add-integration` | Adding a new external API integration adapter | `.claude/skills/add-integration/SKILL.md` |
+| `optimize-integration` | Improving an existing adapter's LLM usability (descriptions, compaction, response tuning) | `.claude/skills/optimize-integration/SKILL.md` |
 
 ## Gotchas
 
 - **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS also have `argInt64`, `argStrSlice`
-- **All ten adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Slack ~40, Postgres ~25, Metabase ~22, ClickHouse ~20
+- **All eleven adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Slack ~40, Postgres ~25, Notion ~24, Metabase ~22, ClickHouse ~20
 - **Linear is the only GraphQL adapter**. `gql()` helper, entity resolution (`resolveTeamID`, `resolveIssueID`), field fragment constants (`issueFields`, `projectFields`)
 - **AWS adapter uses `aws-sdk-go-v2`** — 11 typed service clients (S3, EC2, Lambda, IAM, CloudWatch, STS, ECS, SNS, SQS, DynamoDB, CloudFormation). Custom `unmarshalDynamoJSON` for DynamoDB AttributeValue marshalling. S3 `GetObject` capped at 10MB via `io.LimitReader`
 - **PostHog adapter uses hand-rolled REST HTTP**. ~50 tools covering projects, feature flags, cohorts, insights, persons, groups, annotations, dashboards, actions, events, experiments, and surveys. Auth via `Authorization: Bearer <api_key>` (personal API key starting with `phx_`). Base URL defaults to `https://us.posthog.com`; configurable for EU or self-hosted. Most deletes are soft deletes (PATCH with `deleted: true`).
