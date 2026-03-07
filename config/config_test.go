@@ -11,11 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func noEnv(string) string { return "" }
+
 func newTestManager(t *testing.T) (*manager, string) {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	m := &manager{filePath: path}
+	m := &manager{filePath: path, envLookup: noEnv}
 	return m, path
 }
 
@@ -234,9 +236,9 @@ func TestDefaultConfig(t *testing.T) {
 	expected := map[string][]string{
 		"github":     {"token", "client_id", "token_source"},
 		"datadog":    {"api_key", "app_key"},
-		"linear":     {"api_key", "client_id", "client_secret", "token_source"},
+		"linear":     {"api_key", "mcp_access_token", "token_source"},
 		"sentry":     {"auth_token", "organization", "client_id", "token_source"},
-		"slack":      {"token", "cookie"},
+		"slack":      {"token", "cookie", "token_source"},
 		"metabase":   {"api_key", "url"},
 		"aws":        {"access_key_id", "secret_access_key", "session_token", "region"},
 		"posthog":    {"api_key", "project_id", "base_url"},
@@ -285,3 +287,169 @@ func TestDefaultCredentialKeys_Unknown(t *testing.T) {
 	keys := m.DefaultCredentialKeys("nonexistent")
 	assert.Nil(t, keys)
 }
+
+func TestEnvOverrides_OverridesEmptyCredentials(t *testing.T) {
+	m, _ := newTestManager(t)
+	m.envLookup = func(key string) string {
+		switch key {
+		case "GITHUB_TOKEN":
+			return "gh_env_token"
+		case "DD_API_KEY":
+			return "dd_env_key"
+		case "DD_APP_KEY":
+			return "dd_env_app"
+		default:
+			return ""
+		}
+	}
+
+	err := m.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "gh_env_token", m.cfg.Integrations["github"].Credentials["token"])
+	assert.Equal(t, "dd_env_key", m.cfg.Integrations["datadog"].Credentials["api_key"])
+	assert.Equal(t, "dd_env_app", m.cfg.Integrations["datadog"].Credentials["app_key"])
+}
+
+func TestEnvOverrides_OverridesExistingValues(t *testing.T) {
+	m, path := newTestManager(t)
+
+	cfg := &mcp.Config{
+		Integrations: map[string]*mcp.IntegrationConfig{
+			"github": {Enabled: true, Credentials: mcp.Credentials{"token": "json_token"}},
+		},
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
+	require.NoError(t, os.WriteFile(path, data, 0600))
+
+	m.envLookup = func(key string) string {
+		if key == "GITHUB_TOKEN" {
+			return "env_token"
+		}
+		return ""
+	}
+
+	err = m.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "env_token", m.cfg.Integrations["github"].Credentials["token"])
+}
+
+func TestEnvOverrides_EmptyEnvDoesNotOverride(t *testing.T) {
+	m, path := newTestManager(t)
+
+	cfg := &mcp.Config{
+		Integrations: map[string]*mcp.IntegrationConfig{
+			"github": {Enabled: true, Credentials: mcp.Credentials{"token": "json_token"}},
+		},
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
+	require.NoError(t, os.WriteFile(path, data, 0600))
+
+	err = m.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "json_token", m.cfg.Integrations["github"].Credentials["token"])
+}
+
+func TestEnvOverrides_AllIntegrations(t *testing.T) {
+	m, _ := newTestManager(t)
+
+	envVars := map[string]string{
+		"GITHUB_TOKEN":        "gh_tok",
+		"DD_API_KEY":          "dd_api",
+		"DD_APP_KEY":          "dd_app",
+		"DD_SITE":             "datadoghq.eu",
+		"LINEAR_API_KEY":      "lin_key",
+		"SENTRY_AUTH_TOKEN":   "sentry_tok",
+		"SENTRY_ORG":          "my-org",
+		"SLACK_TOKEN":         "xoxc-tok",
+		"SLACK_COOKIE":        "xoxd-cookie",
+		"METABASE_API_KEY":    "mb_key",
+		"METABASE_URL":        "https://mb.example.com",
+		"AWS_ACCESS_KEY_ID":     "AKIA123",
+		"AWS_SECRET_ACCESS_KEY": "secret123",
+		"AWS_SESSION_TOKEN":     "sess123",
+		"AWS_REGION":            "eu-west-1",
+		"POSTHOG_API_KEY":    "phx_key",
+		"POSTHOG_PROJECT_ID": "12345",
+		"POSTHOG_URL":        "https://eu.posthog.com",
+		"DATABASE_URL":       "postgres://user:pass@host:5432/db",
+		"PGHOST":             "db.example.com",
+		"PGPORT":             "5433",
+		"PGUSER":             "admin",
+		"PGPASSWORD":         "secret",
+		"PGDATABASE":         "mydb",
+		"PGSSLMODE":          "require",
+	}
+
+	m.envLookup = func(key string) string {
+		return envVars[key]
+	}
+
+	err := m.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "gh_tok", m.cfg.Integrations["github"].Credentials["token"])
+	assert.Equal(t, "dd_api", m.cfg.Integrations["datadog"].Credentials["api_key"])
+	assert.Equal(t, "dd_app", m.cfg.Integrations["datadog"].Credentials["app_key"])
+	assert.Equal(t, "datadoghq.eu", m.cfg.Integrations["datadog"].Credentials["site"])
+	assert.Equal(t, "lin_key", m.cfg.Integrations["linear"].Credentials["api_key"])
+	assert.Equal(t, "sentry_tok", m.cfg.Integrations["sentry"].Credentials["auth_token"])
+	assert.Equal(t, "my-org", m.cfg.Integrations["sentry"].Credentials["organization"])
+	assert.Equal(t, "xoxc-tok", m.cfg.Integrations["slack"].Credentials["token"])
+	assert.Equal(t, "xoxd-cookie", m.cfg.Integrations["slack"].Credentials["cookie"])
+	assert.Equal(t, "mb_key", m.cfg.Integrations["metabase"].Credentials["api_key"])
+	assert.Equal(t, "https://mb.example.com", m.cfg.Integrations["metabase"].Credentials["url"])
+	assert.Equal(t, "AKIA123", m.cfg.Integrations["aws"].Credentials["access_key_id"])
+	assert.Equal(t, "secret123", m.cfg.Integrations["aws"].Credentials["secret_access_key"])
+	assert.Equal(t, "sess123", m.cfg.Integrations["aws"].Credentials["session_token"])
+	assert.Equal(t, "eu-west-1", m.cfg.Integrations["aws"].Credentials["region"])
+	assert.Equal(t, "phx_key", m.cfg.Integrations["posthog"].Credentials["api_key"])
+	assert.Equal(t, "12345", m.cfg.Integrations["posthog"].Credentials["project_id"])
+	assert.Equal(t, "https://eu.posthog.com", m.cfg.Integrations["posthog"].Credentials["base_url"])
+	assert.Equal(t, "postgres://user:pass@host:5432/db", m.cfg.Integrations["postgres"].Credentials["connection_string"])
+	assert.Equal(t, "db.example.com", m.cfg.Integrations["postgres"].Credentials["host"])
+	assert.Equal(t, "5433", m.cfg.Integrations["postgres"].Credentials["port"])
+	assert.Equal(t, "admin", m.cfg.Integrations["postgres"].Credentials["user"])
+	assert.Equal(t, "secret", m.cfg.Integrations["postgres"].Credentials["password"])
+	assert.Equal(t, "mydb", m.cfg.Integrations["postgres"].Credentials["database"])
+	assert.Equal(t, "require", m.cfg.Integrations["postgres"].Credentials["sslmode"])
+}
+
+func TestEnvOverrides_DoesNotPersistToFile(t *testing.T) {
+	m, path := newTestManager(t)
+	m.envLookup = func(key string) string {
+		if key == "GITHUB_TOKEN" {
+			return "env_secret"
+		}
+		return ""
+	}
+
+	err := m.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "env_secret", m.cfg.Integrations["github"].Credentials["token"])
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var diskCfg mcp.Config
+	require.NoError(t, json.Unmarshal(data, &diskCfg))
+	assert.Equal(t, "", diskCfg.Integrations["github"].Credentials["token"])
+}
+
+func TestEnvMapping_ReturnsMapping(t *testing.T) {
+	m := EnvMapping()
+	require.NotNil(t, m)
+
+	assert.Equal(t, "GITHUB_TOKEN", m["github"]["token"])
+	assert.Equal(t, "DD_API_KEY", m["datadog"]["api_key"])
+	assert.Equal(t, "DATABASE_URL", m["postgres"]["connection_string"])
+	assert.Len(t, m, 9)
+}
+
+

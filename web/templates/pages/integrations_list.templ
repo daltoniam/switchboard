@@ -19,6 +19,9 @@ templ IntegrationsList(page layouts.PageData, integrations []IntegrationSummary)
 			<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-link">
 				<div>
 					<span class="name">{ i.Name }</span>
+					if i.IsRemote {
+						@components.Badge("remote", "muted")
+					}
 					<span style="margin-left: 0.5rem;">
 						@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
 					</span>

@@ -6,17 +6,16 @@ import (
 )
 
 type SlackSetupData struct {
-	HasToken        bool
-	HasCookie       bool
-	TokenStatus     string
-	TokenAge        float64
-	TokenSource     string
-	CanAutoExtract  bool
-	ExtractSnippet  string
-	HasOAuth        bool
-	Healthy         bool
-	FlashResult     string
-	FlashError      string
+	HasToken       bool
+	HasCookie      bool
+	TokenStatus    string
+	TokenAge       float64
+	TokenSource    string
+	CanAutoExtract bool
+	ExtractSnippet string
+	Healthy        bool
+	FlashResult    string
+	FlashError     string
 }
 
 func slackStatusBadge(status string) string {
@@ -76,38 +75,16 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 						if data.HasCookie {
 							Present
 						} else {
-							Not needed (OAuth)
+							Missing
 						}
 					</strong></span>
-					if data.TokenSource == "oauth" {
-						<span style="color: var(--color-success);">OAuth tokens do not expire</span>
-					} else if data.HasCookie {
+					if data.HasCookie {
 						<span>Auto-refresh: <strong>Enabled</strong> (via cookie every 4h)</span>
 					}
 				</div>
 			</div>
 		}
-		if data.HasOAuth {
-			<div class="card">
-				<div class="card-title" style="margin-bottom: 0.75rem;">Sign in with Slack</div>
-				<p class="slack-desc">
-					Connect via OAuth to get a permanent user token (xoxp-) that never expires and requires no refresh.
-					Requires a <a href="https://api.slack.com/apps" target="_blank" class="slack-link">Slack App</a> with OAuth configured.
-				</p>
-				<button type="button" class="btn" onclick="startSlackOAuth()" id="slack-oauth-btn" style="margin-top: 0.75rem;">Sign in with Slack</button>
-				<script>
-					function startSlackOAuth() {
-						fetch('/api/slack/oauth/start', {method: 'POST'})
-							.then(r => r.json())
-							.then(data => {
-								if (data.error) { alert(data.error); return; }
-								if (data.authorize_url) { window.location.href = data.authorize_url; }
-							})
-							.catch(err => alert('Failed: ' + err));
-					}
-				</script>
-			</div>
-		}
+
 		if data.CanAutoExtract {
 			<div class="card">
 				<div class="card-title" style="margin-bottom: 0.75rem;">Option 1: Auto-Extract from Chrome</div>
