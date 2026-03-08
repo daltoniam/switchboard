@@ -13,7 +13,11 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-const maxGCSGetObjectSize = 10 * 1024 * 1024
+const (
+	maxGCSGetObjectSize  = 10 * 1024 * 1024
+	defaultStorageLimit  = 1000
+	defaultComputeLimit  = 500
+)
 
 func storageListBuckets(ctx context.Context, g *integration, _ map[string]any) (*mcp.ToolResult, error) {
 	var buckets []map[string]any
@@ -54,10 +58,15 @@ func storageListObjects(ctx context.Context, g *integration, args map[string]any
 		query.Delimiter = v
 	}
 
+	limit := argInt(args, "limit")
+	if limit <= 0 {
+		limit = defaultStorageLimit
+	}
+
 	bucket := g.storageClient.Bucket(argStr(args, "bucket"))
 	var objects []map[string]any
 	it := bucket.Objects(ctx, query)
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < limit; i++ {
 		o, err := it.Next()
 		if err == iterator.Done {
 			break

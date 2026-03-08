@@ -22,9 +22,14 @@ func computeListInstances(ctx context.Context, g *integration, args map[string]a
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
+	limit := argInt(args, "limit")
+	if limit <= 0 {
+		limit = defaultComputeLimit
+	}
+
 	var instances []*computepb.Instance
 	it := g.instancesClient.List(ctx, req)
-	for i := 0; i < 500; i++ {
+	for i := 0; i < limit; i++ {
 		inst, err := it.Next()
 		if err == iterator.Done {
 			break
@@ -91,9 +96,14 @@ func computeListDisks(ctx context.Context, g *integration, args map[string]any) 
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
+	limit := argInt(args, "limit")
+	if limit <= 0 {
+		limit = defaultComputeLimit
+	}
+
 	var disks []*computepb.Disk
 	it := g.disksClient.List(ctx, req)
-	for i := 0; i < 500; i++ {
+	for i := 0; i < limit; i++ {
 		d, err := it.Next()
 		if err == iterator.Done {
 			break
@@ -117,9 +127,14 @@ func computeListNetworks(ctx context.Context, g *integration, args map[string]an
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
+	limit := argInt(args, "limit")
+	if limit <= 0 {
+		limit = defaultComputeLimit
+	}
+
 	var networks []*computepb.Network
 	it := g.networksClient.List(ctx, req)
-	for i := 0; i < 500; i++ {
+	for i := 0; i < limit; i++ {
 		n, err := it.Next()
 		if err == iterator.Done {
 			break
@@ -144,9 +159,14 @@ func computeListSubnetworks(ctx context.Context, g *integration, args map[string
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
+	limit := argInt(args, "limit")
+	if limit <= 0 {
+		limit = defaultComputeLimit
+	}
+
 	var subnets []*computepb.Subnetwork
 	it := g.subnetworksClient.List(ctx, req)
-	for i := 0; i < 500; i++ {
+	for i := 0; i < limit; i++ {
 		s, err := it.Next()
 		if err == iterator.Done {
 			break
@@ -170,9 +190,14 @@ func computeListFirewalls(ctx context.Context, g *integration, args map[string]a
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
+	limit := argInt(args, "limit")
+	if limit <= 0 {
+		limit = defaultComputeLimit
+	}
+
 	var firewalls []*computepb.Firewall
 	it := g.firewallsClient.List(ctx, req)
-	for i := 0; i < 500; i++ {
+	for i := 0; i < limit; i++ {
 		f, err := it.Next()
 		if err == iterator.Done {
 			break

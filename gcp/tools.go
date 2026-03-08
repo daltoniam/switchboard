@@ -38,8 +38,8 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"bucket"},
 	},
 	{
-		Name: "gcp_storage_list_objects", Description: "List objects in a Cloud Storage bucket",
-		Parameters: map[string]string{"bucket": "Bucket name", "prefix": "Object name prefix filter", "delimiter": "Delimiter for hierarchy (e.g. /)"},
+		Name: "gcp_storage_list_objects", Description: "List objects in a Cloud Storage bucket (default limit 1000)",
+		Parameters: map[string]string{"bucket": "Bucket name", "prefix": "Object name prefix filter", "delimiter": "Delimiter for hierarchy (e.g. /)", "limit": "Maximum total results to return (default 1000)"},
 		Required:   []string{"bucket"},
 	},
 	{
@@ -65,8 +65,8 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Compute Engine ───────────────────────────────────────────────
 	{
-		Name: "gcp_compute_list_instances", Description: "List Compute Engine instances in a zone",
-		Parameters: map[string]string{"zone": "Zone name (e.g. us-central1-a)", "filter": "Filter expression", "max_results": "Maximum number of results"},
+		Name: "gcp_compute_list_instances", Description: "List Compute Engine instances in a zone (default limit 500)",
+		Parameters: map[string]string{"zone": "Zone name (e.g. us-central1-a)", "filter": "Filter expression", "max_results": "Page size for API requests", "limit": "Maximum total results to return (default 500)"},
 		Required:   []string{"zone"},
 	},
 	{
@@ -85,22 +85,22 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"zone", "instance"},
 	},
 	{
-		Name: "gcp_compute_list_disks", Description: "List persistent disks in a zone",
-		Parameters: map[string]string{"zone": "Zone name", "filter": "Filter expression", "max_results": "Maximum number of results"},
+		Name: "gcp_compute_list_disks", Description: "List persistent disks in a zone (default limit 500)",
+		Parameters: map[string]string{"zone": "Zone name", "filter": "Filter expression", "max_results": "Page size for API requests", "limit": "Maximum total results to return (default 500)"},
 		Required:   []string{"zone"},
 	},
 	{
-		Name: "gcp_compute_list_networks", Description: "List VPC networks in the project",
-		Parameters: map[string]string{"filter": "Filter expression", "max_results": "Maximum number of results"},
+		Name: "gcp_compute_list_networks", Description: "List VPC networks in the project (default limit 500)",
+		Parameters: map[string]string{"filter": "Filter expression", "max_results": "Page size for API requests", "limit": "Maximum total results to return (default 500)"},
 	},
 	{
-		Name: "gcp_compute_list_subnetworks", Description: "List subnetworks in a region",
-		Parameters: map[string]string{"region": "Region name (e.g. us-central1)", "filter": "Filter expression", "max_results": "Maximum number of results"},
+		Name: "gcp_compute_list_subnetworks", Description: "List subnetworks in a region (default limit 500)",
+		Parameters: map[string]string{"region": "Region name (e.g. us-central1)", "filter": "Filter expression", "max_results": "Page size for API requests", "limit": "Maximum total results to return (default 500)"},
 		Required:   []string{"region"},
 	},
 	{
-		Name: "gcp_compute_list_firewalls", Description: "List firewall rules in the project",
-		Parameters: map[string]string{"filter": "Filter expression", "max_results": "Maximum number of results"},
+		Name: "gcp_compute_list_firewalls", Description: "List firewall rules in the project (default limit 500)",
+		Parameters: map[string]string{"filter": "Filter expression", "max_results": "Page size for API requests", "limit": "Maximum total results to return (default 500)"},
 	},
 	{
 		Name: "gcp_compute_get_firewall", Description: "Get details for a specific firewall rule",
