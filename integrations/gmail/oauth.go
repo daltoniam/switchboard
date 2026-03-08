@@ -144,7 +144,7 @@ func HandleGmailCallback(code, state string) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
 	if err != nil {
 		oauthState.err = fmt.Sprintf("Failed to read token response: %v", err)
 		oauthState.done = true
@@ -236,7 +236,7 @@ func RefreshAccessToken(clientID, clientSecret, refreshToken string) (string, er
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
 	if err != nil {
 		return "", fmt.Errorf("read refresh response: %w", err)
 	}

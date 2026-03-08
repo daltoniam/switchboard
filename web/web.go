@@ -10,7 +10,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	ghInt "github.com/daltoniam/switchboard/integrations/github"
-	gmailInt "github.com/daltoniam/switchboard/gmail"
+	"github.com/daltoniam/switchboard/integrations/gmail"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
@@ -898,7 +898,7 @@ func (w *WebServer) handleGmailOAuthStart(rw http.ResponseWriter, r *http.Reques
 	}
 
 	redirectURI := fmt.Sprintf("http://localhost:%d/api/gmail/oauth/callback", w.port)
-	result, err := gmailInt.StartGmailOAuth(ic.Credentials["client_id"], ic.Credentials["client_secret"], redirectURI)
+	result, err := gmail.StartGmailOAuth(ic.Credentials["client_id"], ic.Credentials["client_secret"], redirectURI)
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
 		return
@@ -920,12 +920,12 @@ func (w *WebServer) handleGmailOAuthCallback(rw http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := gmailInt.HandleGmailCallback(code, state); err != nil {
+	if err := gmail.HandleGmailCallback(code, state); err != nil {
 		http.Redirect(rw, r, "/integrations/gmail/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
 		return
 	}
 
-	result := gmailInt.PollGmailOAuth()
+	result := gmail.PollGmailOAuth()
 	if result.Status != "complete" || result.AccessToken == "" {
 		http.Redirect(rw, r, "/integrations/gmail/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
 		return
@@ -948,7 +948,7 @@ func (w *WebServer) handleGmailOAuthCallback(rw http.ResponseWriter, r *http.Req
 
 func (w *WebServer) handleGmailOAuthPoll(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	result := gmailInt.PollGmailOAuth()
+	result := gmail.PollGmailOAuth()
 	json.NewEncoder(rw).Encode(result)
 }
 

@@ -23,16 +23,21 @@ type gmail struct {
 	clientSecret string
 	client       *http.Client
 	baseURL      string
+	configSvc    mcp.ConfigService
 	mu           sync.Mutex
 }
 
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 
-func New() mcp.Integration {
-	return &gmail{
+func New(cfgSvc ...mcp.ConfigService) mcp.Integration {
+	g := &gmail{
 		client:  &http.Client{Timeout: 30 * time.Second},
 		baseURL: "https://gmail.googleapis.com",
 	}
+	if len(cfgSvc) > 0 {
+		g.configSvc = cfgSvc[0]
+	}
+	return g
 }
 
 func (g *gmail) Name() string { return "gmail" }
@@ -109,6 +114,7 @@ func (g *gmail) doRequestInner(ctx context.Context, method, path string, body an
 			g.mu.Lock()
 			g.accessToken = newToken
 			g.mu.Unlock()
+			g.persistToken(newToken)
 			return g.doRequestInner(ctx, method, path, body, false)
 		}
 	}
@@ -139,6 +145,18 @@ func (g *gmail) put(ctx context.Context, path string, body any) (json.RawMessage
 
 func (g *gmail) del(ctx context.Context, pathFmt string, args ...any) (json.RawMessage, error) {
 	return g.doRequest(ctx, "DELETE", fmt.Sprintf(pathFmt, args...), nil)
+}
+
+func (g *gmail) persistToken(token string) {
+	if g.configSvc == nil {
+		return
+	}
+	ic, ok := g.configSvc.GetIntegration("gmail")
+	if !ok || ic == nil {
+		return
+	}
+	ic.Credentials["access_token"] = token
+	_ = g.configSvc.SetIntegration("gmail", ic)
 }
 
 // --- Result helpers ---

@@ -14,11 +14,11 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
-awsInt "github.com/daltoniam/switchboard/integrations/aws"
+	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/github"
-	gmailInt "github.com/daltoniam/switchboard/gmail"
+	"github.com/daltoniam/switchboard/integrations/gmail"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -179,9 +179,9 @@ func runServer(stdioMode bool, port int) {
 		posthog.New(),
 		postgres.New(),
 		clickhouse.New(),
-pganalyze.New(),
+		pganalyze.New(),
 		rwx.New(),
-		gmailInt.New(),
+		gmail.New(cfgMgr),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
