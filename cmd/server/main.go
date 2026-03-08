@@ -25,6 +25,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/posthog"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/rwx"
+	"github.com/daltoniam/switchboard/integrations/ynab"
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/project"
@@ -182,6 +183,7 @@ func runServer(stdioMode bool, port int) {
 		clickhouse.New(),
 		pganalyze.New(),
 		rwx.New(),
+		ynab.New(),
 		gmailIntegration,
 	} {
 		if err := reg.Register(i); err != nil {
