@@ -30,7 +30,7 @@ var tools = []mcp.ToolDefinition{
 	// ── Cloud Storage ────────────────────────────────────────────────
 	{
 		Name: "gcp_storage_list_buckets", Description: "List all Cloud Storage buckets in the project",
-		Parameters: map[string]string{},
+		Parameters: map[string]string{"limit": "Maximum number of buckets to return (default 1000)"},
 	},
 	{
 		Name: "gcp_storage_get_bucket", Description: "Get metadata for a Cloud Storage bucket",
@@ -43,7 +43,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"bucket"},
 	},
 	{
-		Name: "gcp_storage_get_object", Description: "Get an object from Cloud Storage (returns metadata and body as text for text types, base64 for binary)",
+		Name: "gcp_storage_get_object", Description: "Get an object from Cloud Storage (max 10MB; returns metadata and body as text for text types, base64 for binary)",
 		Parameters: map[string]string{"bucket": "Bucket name", "object": "Object name/path"},
 		Required:   []string{"bucket", "object"},
 	},
@@ -221,7 +221,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: "gcp_pubsub_pull", Description: "Pull messages from a Pub/Sub subscription",
-		Parameters: map[string]string{"subscription": "Subscription ID", "max_messages": "Maximum messages to pull (default 10)"},
+		Parameters: map[string]string{"subscription": "Subscription ID", "max_messages": "Maximum messages to pull (default 10)", "timeout": "Timeout in seconds to wait for messages (default 10)"},
 		Required:   []string{"subscription"},
 	},
 

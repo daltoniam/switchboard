@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/firestore"
@@ -14,6 +15,7 @@ import (
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	"cloud.google.com/go/pubsub"
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
+	resourcemanagerpb "cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
 	run "cloud.google.com/go/run/apiv2"
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
@@ -62,6 +64,9 @@ func (g *integration) Configure(ctx context.Context, creds mcp.Credentials) erro
 	if g.projectID == "" {
 		return fmt.Errorf("gcp: project_id is required")
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
 	var opts []option.ClientOption
 	if v := creds["credentials_json"]; v != "" {
@@ -164,12 +169,13 @@ func (g *integration) Configure(ctx context.Context, creds mcp.Credentials) erro
 }
 
 func (g *integration) Healthy(ctx context.Context) bool {
-	if g.storageClient == nil {
+	if g.projectsClient == nil {
 		return false
 	}
-	it := g.storageClient.Buckets(ctx, g.projectID)
-	_, _ = it.Next()
-	return true
+	_, err := g.projectsClient.GetProject(ctx, &resourcemanagerpb.GetProjectRequest{
+		Name: g.projectName(),
+	})
+	return err == nil
 }
 
 func (g *integration) Tools() []mcp.ToolDefinition {

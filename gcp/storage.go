@@ -15,10 +15,15 @@ import (
 
 const maxGCSGetObjectSize = 10 * 1024 * 1024
 
-func storageListBuckets(ctx context.Context, g *integration, _ map[string]any) (*mcp.ToolResult, error) {
+func storageListBuckets(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	limit := argInt(args, "limit")
+	if limit <= 0 {
+		limit = defaultStorageLimit
+	}
+
 	var buckets []map[string]any
 	it := g.storageClient.Buckets(ctx, g.projectID)
-	for {
+	for i := 0; i < limit; i++ {
 		b, err := it.Next()
 		if err == iterator.Done {
 			break

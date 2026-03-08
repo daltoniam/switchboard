@@ -145,7 +145,12 @@ func pubsubPull(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	var messages []map[string]any
 	var mu sync.Mutex
 
-	pullCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	timeout := argInt(args, "timeout")
+	if timeout <= 0 {
+		timeout = 10
+	}
+
+	pullCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 
 	err := sub.Receive(pullCtx, func(_ context.Context, msg *pubsub.Message) {
