@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -31,7 +32,7 @@ func fireEvent(ctx context.Context, h *homeassistant, args map[string]any) (*mcp
 		body = data
 	}
 
-	result, err := h.post(ctx, fmt.Sprintf("/api/events/%s", eventType), body)
+	result, err := h.post(ctx, fmt.Sprintf("/api/events/%s", url.PathEscape(eventType)), body)
 	if err != nil {
 		return errResult(err)
 	}
