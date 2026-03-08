@@ -23,6 +23,11 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+const (
+	defaultComputeLimit = 500
+	defaultStorageLimit = 1000
+)
+
 type integration struct {
 	projectID string
 
