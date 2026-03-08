@@ -18,6 +18,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/github"
+	"github.com/daltoniam/switchboard/integrations/gmail"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -166,6 +167,7 @@ func runServer(stdioMode bool, port int) {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	gmailIntegration := gmail.New()
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
 		github.New(),
@@ -180,6 +182,7 @@ func runServer(stdioMode bool, port int) {
 		clickhouse.New(),
 		pganalyze.New(),
 		rwx.New(),
+		gmailIntegration,
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
@@ -190,6 +193,8 @@ func runServer(stdioMode bool, port int) {
 		Config:   cfgMgr,
 		Registry: reg,
 	}
+
+	gmail.SetConfigService(gmailIntegration, cfgMgr)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
