@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, AWS, PostHog, PostgreSQL, ClickHouse behind one endpoint
+- Go MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, Metabase, AWS, PostHog, PostgreSQL, ClickHouse, pganalyze, RWX, Gmail, Home Assistant, YNAB behind one endpoint
 - Two meta-tools only: **search** (discover operations) and **execute** (run them)
 - Hexagonal architecture (ports and adapters)
 - HTTP transport (streamable) + web config UI on same port
@@ -193,6 +193,46 @@ integrations/
     databases.go             Database, table, column metadata handlers
     extras.go                System info, processes, merges, replicas, disk usage,
                              parts, dictionaries, users, roles, query log handlers
+  pganalyze/
+    pganalyze.go             pganalyze integration adapter (core, dispatch, GraphQL helpers)
+    compact_specs.go         Field compaction spec declarations
+    tools.go                 pganalyze tool definitions (~3 tools)
+    servers.go               Server listing handler
+    issues.go                Issue listing handler
+    queries.go               Query statistics handler
+  rwx/
+    rwx.go                   RWX integration adapter (core, dispatch, HTTP helpers, proxy client)
+    tools.go                 RWX tool definitions (~11 tools + dynamic proxy tools)
+    runs.go                  CI run listing and detail handlers
+    logs.go                  Run log retrieval and caching handlers
+    extras.go                Workspaces, branches, suites handlers
+    proxy.go                 Proxy client for rwx mcp serve (dynamic tool forwarding)
+  gmail/
+    gmail.go                 Gmail integration adapter (core, dispatch, HTTP helpers, OAuth2 refresh)
+    compact_specs.go         Field compaction spec declarations (~9 list tools)
+    tools.go                 Gmail tool definitions (~44 tools)
+    messages.go              Message CRUD, send, trash, labels handlers
+    threads.go               Thread list, get, trash, labels handlers
+    labels.go                Label CRUD handlers
+    drafts.go                Draft CRUD, send handlers
+    settings.go              Filters, forwarding, send-as, delegates, vacation handlers
+    oauth.go                 Gmail OAuth2 (authorization code flow, token refresh)
+  homeassistant/
+    homeassistant.go         Home Assistant integration adapter (core, dispatch, HTTP helpers)
+    compact_specs.go         Field compaction spec declarations
+    tools.go                 Home Assistant tool definitions (~17 tools)
+    states.go                Entity state listing and detail handlers
+    services.go              Service domain and call handlers
+    history.go               Entity history handlers
+    events.go                Event firing and listening handlers
+    extras.go                Config, areas, devices, entities, templates, logs handlers
+  ynab/
+    ynab.go                  YNAB integration adapter (core, dispatch, HTTP helpers, FieldCompactionIntegration)
+    compact_specs.go         Field compaction spec declarations (~10 list tools)
+    tools.go                 YNAB tool definitions (~25 tools)
+    budgets.go               User, budgets, budget settings, accounts handlers
+    categories.go            Categories, payees, months handlers
+    transactions.go          Transactions, scheduled transactions handlers
 web/
   web.go                     Web UI HTTP server for config dashboard + Slack token setup routes
   templates/                 Templ-based templates — do not edit *_templ.go (generated)
@@ -219,10 +259,13 @@ graph BT
         GH["integrations/github/"] & DD["integrations/datadog/"] & LN["integrations/linear/"]
         SN["integrations/sentry/"] & SL["integrations/slack/"] & MB["integrations/metabase/"]
         PG["integrations/postgres/"] & CH["integrations/clickhouse/"]
+        PA["integrations/pganalyze/"] & RW["integrations/rwx/"] & GM["integrations/gmail/"]
+        HA["integrations/homeassistant/"] & YN["integrations/ynab/"]
         CF["config/"] & RG["registry/"]
     end
 
     GH & DD & LN & SN & SL & MB & PG & CH -->|implements\nIntegration| Core
+    PA & RW & GM & HA & YN -->|implements\nIntegration| Core
     CF -->|implements\nConfigService| Core
     RG -->|implements\nRegistry| Core
 
@@ -239,7 +282,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `integrations/github/`, `integrations/datadog/`, `integrations/linear/`, `integrations/sentry/`, `integrations/slack/`, `integrations/metabase/`, `integrations/aws/`, `integrations/posthog/`, `integrations/postgres/`, `integrations/clickhouse/` → `Integration`
+- `integrations/github/`, `integrations/datadog/`, `integrations/linear/`, `integrations/sentry/`, `integrations/slack/`, `integrations/metabase/`, `integrations/aws/`, `integrations/posthog/`, `integrations/postgres/`, `integrations/clickhouse/`, `integrations/pganalyze/`, `integrations/rwx/`, `integrations/gmail/`, `integrations/homeassistant/`, `integrations/ynab/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)
@@ -413,6 +456,11 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
   - OAuth v2 flow (`oauth.go`) for web UI setup
 - **AWS**: `aws-sdk-go-v2` official typed SDK. Auth via static credentials or default credential chain. Region defaults to `us-east-1`. Each service gets typed client via `<service>.NewFromConfig(cfg)`. Import aliased as `awsInt`
 - **ClickHouse**: `ClickHouse/clickhouse-go/v2` typed native driver. Auth via `ch.Auth{Username, Password}`. Supports TLS (`secure`/`skip_verify` config). Connection pooling built into driver. Dynamic column scanning via `reflect` for generic query results.
+- **pganalyze**: Hand-rolled GraphQL over `net/http`. Auth via `Authorization: Token <api_key>`. Base URL defaults to `https://app.pganalyze.com/graphql`; configurable via `base_url`. Organization slug required.
+- **RWX**: Hand-rolled REST over `net/http`. Auth via `Authorization: Bearer <access_token>`. Base URL hardcoded to `https://cloud.rwx.com`. Includes proxy client that forwards tools from `rwx mcp serve` when available.
+- **Gmail**: Hand-rolled REST over `net/http` against Google Gmail API. Auth via `Authorization: Bearer <access_token>` with OAuth2 refresh token support. Base URL defaults to `https://gmail.googleapis.com`. Requires OAuth2 client credentials for token refresh.
+- **Home Assistant**: Hand-rolled REST over `net/http`. Auth via `Authorization: Bearer <token>`. Base URL required from config (varies per installation). ~17 tools covering states, services, history, events, config, areas, devices.
+- **YNAB**: Hand-rolled REST over `net/http`. Auth via `Authorization: Bearer <api_key>` (personal access token). Base URL defaults to `https://api.ynab.com/v1`. ~25 tools covering user, budgets, accounts, categories, payees, months, transactions, scheduled transactions. Amounts in milliunits (1000 = $1.00). `budget_id` defaults to `"last-used"`. Rate limit: 200 requests/hour.
 
 ### Config
 - File: `~/.config/switchboard/config.json`
@@ -446,9 +494,10 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 ## Gotchas
 
 - **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS also have `argInt64`, `argStrSlice`
-- **All ten adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Slack ~40, Postgres ~25, Metabase ~22, ClickHouse ~20
+- **All fifteen adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, PostHog ~50, Gmail ~44, Slack ~40, YNAB ~25, Postgres ~25, Metabase ~22, ClickHouse ~20, Home Assistant ~17, RWX ~11, pganalyze ~3
 - **Linear is the only GraphQL adapter**. `gql()` helper, entity resolution (`resolveTeamID`, `resolveIssueID`), field fragment constants (`issueFields`, `projectFields`)
 - **AWS adapter uses `aws-sdk-go-v2`** — 11 typed service clients (S3, EC2, Lambda, IAM, CloudWatch, STS, ECS, SNS, SQS, DynamoDB, CloudFormation). Custom `unmarshalDynamoJSON` for DynamoDB AttributeValue marshalling. S3 `GetObject` capped at 10MB via `io.LimitReader`
 - **PostHog adapter uses hand-rolled REST HTTP**. ~50 tools covering projects, feature flags, cohorts, insights, persons, groups, annotations, dashboards, actions, events, experiments, and surveys. Auth via `Authorization: Bearer <api_key>` (personal API key starting with `phx_`). Base URL defaults to `https://us.posthog.com`; configurable for EU or self-hosted. Most deletes are soft deletes (PATCH with `deleted: true`).
 - **PostgreSQL adapter uses `database/sql` with `lib/pq`**. ~25 tools. Auth via `connection_string` or individual host/port/user/password/database/sslmode. Read-only queries wrapped in read-only transactions. `sanitizeIdentifier` prevents SQL injection. Handlers split across `databases.go`, `queries.go`, `management.go`
+- **YNAB adapter uses hand-rolled REST HTTP**. ~25 tools covering user, budgets, accounts, categories, payees, months, transactions, and scheduled transactions. Auth via `Authorization: Bearer <api_key>` (personal access token). Base URL defaults to `https://api.ynab.com/v1`. All monetary amounts in milliunits (1000 = $1.00). `budget(args)` helper defaults `budget_id` to `"last-used"`. Rate limit: 200 requests/hour per token.
 - **`search` returns `ToolDefinition` metadata**, not raw API specs
