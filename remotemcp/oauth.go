@@ -87,7 +87,7 @@ func registerClient(registerURL, redirectURI string) (clientID, clientSecret str
 		"token_endpoint_auth_method": "none",
 	})
 
-	resp, err := http.Post(registerURL, "application/json", bytes.NewReader(body))
+	resp, err := http.Post(registerURL, "application/json", bytes.NewReader(body)) // #nosec G107 -- URL from OAuth metadata discovery
 	if err != nil {
 		return "", "", fmt.Errorf("register client: %w", err)
 	}
