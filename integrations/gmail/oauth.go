@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -30,6 +31,7 @@ type OAuthState struct {
 	refreshToken string
 	err          string
 	done         bool
+	startedAt    time.Time
 }
 
 type OAuthStartResult struct {
@@ -43,6 +45,8 @@ type OAuthPollResult struct {
 	RefreshToken string `json:"refresh_token,omitempty"`
 	Error        string `json:"error,omitempty"`
 }
+
+const oauthTTL = 10 * time.Minute
 
 var activeOAuth struct {
 	mu    sync.Mutex
@@ -92,6 +96,7 @@ func StartGmailOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartRes
 		redirectURI:  redirectURI,
 		state:        state,
 		codeVerifier: codeVerifier,
+		startedAt:    time.Now(),
 	}
 
 	activeOAuth.mu.Lock()
@@ -101,10 +106,19 @@ func StartGmailOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartRes
 	return &OAuthStartResult{AuthorizeURL: authURL}, nil
 }
 
-func HandleGmailCallback(code, state string) error {
+func getActiveOAuth() *OAuthState {
 	activeOAuth.mu.Lock()
-	oauthState := activeOAuth.state
-	activeOAuth.mu.Unlock()
+	defer activeOAuth.mu.Unlock()
+	s := activeOAuth.state
+	if s != nil && time.Since(s.startedAt) > oauthTTL {
+		activeOAuth.state = nil
+		return nil
+	}
+	return s
+}
+
+func HandleGmailCallback(code, state string) error {
+	oauthState := getActiveOAuth()
 
 	if oauthState == nil {
 		return fmt.Errorf("no OAuth flow in progress")
@@ -190,9 +204,7 @@ func HandleGmailCallback(code, state string) error {
 }
 
 func PollGmailOAuth() OAuthPollResult {
-	activeOAuth.mu.Lock()
-	oauthState := activeOAuth.state
-	activeOAuth.mu.Unlock()
+	oauthState := getActiveOAuth()
 
 	if oauthState == nil {
 		return OAuthPollResult{Status: "no_flow", Error: "No OAuth flow in progress"}

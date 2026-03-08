@@ -27,17 +27,23 @@ type gmail struct {
 	mu           sync.Mutex
 }
 
+var _ mcp.FieldCompactionIntegration = (*gmail)(nil)
+
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 
-func New(cfgSvc ...mcp.ConfigService) mcp.Integration {
-	g := &gmail{
+func New() mcp.Integration {
+	return &gmail{
 		client:  &http.Client{Timeout: 30 * time.Second},
 		baseURL: "https://gmail.googleapis.com",
 	}
-	if len(cfgSvc) > 0 {
-		g.configSvc = cfgSvc[0]
+}
+
+func SetConfigService(i mcp.Integration, svc mcp.ConfigService) {
+	if g, ok := i.(*gmail); ok {
+		g.mu.Lock()
+		g.configSvc = svc
+		g.mu.Unlock()
 	}
-	return g
 }
 
 func (g *gmail) Name() string { return "gmail" }
@@ -71,6 +77,11 @@ func (g *gmail) Execute(ctx context.Context, toolName string, args map[string]an
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
 	}
 	return fn(ctx, g, args)
+}
+
+func (g *gmail) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 // --- HTTP helpers ---
@@ -109,12 +120,18 @@ func (g *gmail) doRequestInner(ctx context.Context, method, path string, body an
 		return nil, err
 	}
 	if resp.StatusCode == 401 && canRetry && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
+		g.mu.Lock()
+		currentToken := g.accessToken
+		g.mu.Unlock()
+
 		newToken, rerr := RefreshAccessToken(g.clientID, g.clientSecret, g.refreshToken)
 		if rerr == nil {
 			g.mu.Lock()
-			g.accessToken = newToken
+			if g.accessToken == currentToken {
+				g.accessToken = newToken
+				g.persistToken(newToken)
+			}
 			g.mu.Unlock()
-			g.persistToken(newToken)
 			return g.doRequestInner(ctx, method, path, body, false)
 		}
 	}

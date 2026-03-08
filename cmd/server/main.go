@@ -167,6 +167,7 @@ func runServer(stdioMode bool, port int) {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	gmailIntegration := gmail.New()
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
 		github.New(),
@@ -181,7 +182,7 @@ func runServer(stdioMode bool, port int) {
 		clickhouse.New(),
 		pganalyze.New(),
 		rwx.New(),
-		gmail.New(cfgMgr),
+		gmailIntegration,
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
@@ -192,6 +193,8 @@ func runServer(stdioMode bool, port int) {
 		Config:   cfgMgr,
 		Registry: reg,
 	}
+
+	gmail.SetConfigService(gmailIntegration, cfgMgr)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

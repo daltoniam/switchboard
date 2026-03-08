@@ -21,7 +21,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: "gmail_send_message", Description: "Send an email message. Provide raw RFC 2822 formatted message or use to/subject/body for simple messages",
-		Parameters: map[string]string{"user_id": "User ID (defaults to 'me')", "to": "Recipient email address(es), comma-separated", "subject": "Email subject", "body": "Email body (plain text)", "raw": "Base64url-encoded RFC 2822 message (overrides to/subject/body)", "thread_id": "Thread ID to reply to"},
+		Parameters: map[string]string{"user_id": "User ID (defaults to 'me')", "from": "Sender email address (defaults to authenticated user)", "to": "Recipient email address(es), comma-separated", "subject": "Email subject", "body": "Email body (plain text)", "raw": "Base64url-encoded RFC 2822 message (overrides from/to/subject/body)", "thread_id": "Thread ID to reply to"},
 	},
 	{
 		Name: "gmail_delete_message", Description: "Permanently delete a message (not trash). Cannot be undone",

@@ -55,17 +55,25 @@ func getMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRe
 	return rawResult(data)
 }
 
+func sanitizeHeader(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "\r", ""), "\n", "")
+}
+
 func buildRawMessage(args map[string]any) string {
 	if raw := argStr(args, "raw"); raw != "" {
 		return raw
 	}
-	to := argStr(args, "to")
-	subject := argStr(args, "subject")
+	to := sanitizeHeader(argStr(args, "to"))
+	from := sanitizeHeader(argStr(args, "from"))
+	subject := sanitizeHeader(argStr(args, "subject"))
 	body := argStr(args, "body")
 	if to == "" && subject == "" && body == "" {
 		return ""
 	}
 	var msg strings.Builder
+	if from != "" {
+		msg.WriteString("From: " + from + "\r\n")
+	}
 	if to != "" {
 		msg.WriteString("To: " + to + "\r\n")
 	}

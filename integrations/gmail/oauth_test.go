@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -123,6 +124,7 @@ func TestHandleGmailCallback_TokenExchange(t *testing.T) {
 		redirectURI:  "http://localhost:3847/callback",
 		state:        state,
 		codeVerifier: codeVerifier,
+		startedAt:    time.Now(),
 	}
 
 	activeOAuth.mu.Lock()
