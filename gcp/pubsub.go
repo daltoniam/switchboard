@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
+	"google.golang.org/api/iterator"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -16,8 +17,11 @@ func pubsubListTopics(ctx context.Context, g *integration, _ map[string]any) (*m
 	it := g.pubsubClient.Topics(ctx)
 	for {
 		t, err := it.Next()
-		if err != nil {
+		if err == iterator.Done {
 			break
+		}
+		if err != nil {
+			return errResult(err)
 		}
 		cfg, err := t.Config(ctx)
 		if err != nil {
@@ -82,8 +86,11 @@ func pubsubListSubscriptions(ctx context.Context, g *integration, _ map[string]a
 	it := g.pubsubClient.Subscriptions(ctx)
 	for {
 		s, err := it.Next()
-		if err != nil {
+		if err == iterator.Done {
 			break
+		}
+		if err != nil {
+			return errResult(err)
 		}
 		cfg, err := s.Config(ctx)
 		if err != nil {

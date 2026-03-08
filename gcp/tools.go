@@ -252,7 +252,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: "gcp_firestore_query", Description: "Query documents in a Firestore collection",
-		Parameters: map[string]string{"collection": "Collection path", "where_field": "Field to filter on", "where_op": "Operator: ==, !=, <, <=, >, >=, array-contains, in", "where_value": "Value to compare (JSON-encoded)", "order_by": "Field to order by", "order_dir": "Order direction: asc or desc", "limit": "Maximum number of documents"},
+		Parameters: map[string]string{"collection": "Collection path", "where_field": "Field to filter on", "where_op": "Operator: ==, !=, <, <=, >, >=, array-contains, in", "where_value": "Value to compare (JSON-encoded: use 123 for numbers, \"\\\"text\\\"\" for strings, true/false for booleans)", "order_by": "Field to order by", "order_dir": "Order direction: asc or desc", "limit": "Maximum number of documents"},
 		Required:   []string{"collection"},
 	},
 
