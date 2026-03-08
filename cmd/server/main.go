@@ -19,6 +19,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
+	"github.com/daltoniam/switchboard/integrations/homeassistant"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -185,6 +186,7 @@ func runServer(stdioMode bool, port int) {
 		rwx.New(),
 		ynab.New(),
 		gmailIntegration,
+		homeassistant.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
