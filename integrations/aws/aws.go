@@ -25,6 +25,12 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*integration)(nil)
+	_ mcp.FieldCompactionIntegration = (*integration)(nil)
+)
+
 type integration struct {
 	cfg          aws.Config
 	region       string
@@ -93,6 +99,11 @@ func (a *integration) Healthy(ctx context.Context) bool {
 
 func (a *integration) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (a *integration) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (a *integration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {

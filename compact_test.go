@@ -156,10 +156,10 @@ func TestCompactJSON_Object(t *testing.T) {
 			want:  `{"number":1,"labels":["bug","P1"]}`,
 		},
 		{
-			name:  "empty array preserved",
+			name:  "empty array omitted",
 			input: `{"number":1,"labels":[]}`,
 			specs: []string{"number", "labels[].name"},
-			want:  `{"number":1,"labels":[]}`,
+			want:  `{"number":1}`,
 		},
 		{
 			name:  "nested null value preserved",
@@ -400,5 +400,368 @@ func TestCompactJSON_Idempotent(t *testing.T) {
 			assert.JSONEq(t, string(once), string(twice),
 				"compact(compact(x)) != compact(x)")
 		})
+	}
+}
+
+func TestParseCompactSpec_Exclusion(t *testing.T) {
+	tests := []struct {
+		name    string
+		spec    string
+		want    CompactField
+		wantErr bool
+	}{
+		{
+			name: "exclusion field",
+			spec: "-body",
+			want: CompactField{path: []string{"body"}, outputKey: "body", arrayIdx: -1, exclude: true},
+		},
+		{
+			name: "exclusion nested field",
+			spec: "-user.avatar_url",
+			want: CompactField{path: []string{"user", "avatar_url"}, outputKey: "user.avatar_url", arrayIdx: -1, objectRoot: "user", exclude: true},
+		},
+		{
+			name:    "exclusion empty after dash",
+			spec:    "-",
+			wantErr: true,
+		},
+		{
+			name:    "exclusion array not supported",
+			spec:    "-labels[].name",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseCompactSpec(tt.spec)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCompactJSON_Exclusion(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		specs []string
+		want  string
+	}{
+		{
+			name:  "exclude single field",
+			input: `{"number":1,"title":"bug","body":"long text","node_id":"abc123"}`,
+			specs: []string{"-body", "-node_id"},
+			want:  `{"number":1,"title":"bug"}`,
+		},
+		{
+			name:  "exclude nested field",
+			input: `{"number":1,"user":{"login":"rsc","id":999,"avatar_url":"https://..."}}`,
+			specs: []string{"-user"},
+			want:  `{"number":1}`,
+		},
+		{
+			name:  "mixed include and exclude",
+			input: `{"number":1,"title":"bug","body":"long text","node_id":"abc123","state":"open"}`,
+			specs: []string{"number", "title", "state", "-body", "-node_id"},
+			want:  `{"number":1,"title":"bug","state":"open"}`,
+		},
+		{
+			name:  "exclude on array of objects",
+			input: `[{"number":1,"title":"bug","body":"long"},{"number":2,"title":"feat","body":"longer"}]`,
+			specs: []string{"-body"},
+			want:  `[{"number":1,"title":"bug"},{"number":2,"title":"feat"}]`,
+		},
+		{
+			name:  "exclude-only mode keeps everything else",
+			input: `{"a":1,"b":2,"c":3,"d":4}`,
+			specs: []string{"-c", "-d"},
+			want:  `{"a":1,"b":2}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, err := ParseCompactSpecs(tt.specs)
+			require.NoError(t, err)
+
+			got, err := CompactJSON([]byte(tt.input), fields)
+			require.NoError(t, err)
+
+			var wantVal, gotVal any
+			require.NoError(t, json.Unmarshal([]byte(tt.want), &wantVal))
+			require.NoError(t, json.Unmarshal(got, &gotVal))
+			assert.Equal(t, wantVal, gotVal)
+		})
+	}
+}
+
+func TestCompactJSON_OmitEmpty(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		specs []string
+		want  string
+	}{
+		{
+			name:  "null value omitted",
+			input: `{"number":1,"title":"bug","body":null}`,
+			specs: []string{"number", "title", "body"},
+			want:  `{"number":1,"title":"bug"}`,
+		},
+		{
+			name:  "empty array omitted",
+			input: `{"number":1,"labels":[],"title":"bug"}`,
+			specs: []string{"number", "title", "labels[].name"},
+			want:  `{"number":1,"title":"bug"}`,
+		},
+		{
+			name:  "empty string preserved",
+			input: `{"number":1,"title":""}`,
+			specs: []string{"number", "title"},
+			want:  `{"number":1,"title":""}`,
+		},
+		{
+			name:  "non-empty array preserved",
+			input: `{"number":1,"labels":[{"name":"bug"}]}`,
+			specs: []string{"number", "labels[].name"},
+			want:  `{"number":1,"labels":["bug"]}`,
+		},
+		{
+			name:  "empty object omitted",
+			input: `{"number":1,"metadata":{}}`,
+			specs: []string{"number", "metadata"},
+			want:  `{"number":1}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, err := ParseCompactSpecs(tt.specs)
+			require.NoError(t, err)
+
+			got, err := CompactJSON([]byte(tt.input), fields)
+			require.NoError(t, err)
+
+			var wantVal, gotVal any
+			require.NoError(t, json.Unmarshal([]byte(tt.want), &wantVal))
+			require.NoError(t, json.Unmarshal(got, &gotVal))
+			assert.Equal(t, wantVal, gotVal)
+		})
+	}
+}
+
+func TestCompactJSON_PrecomputedGrouping(t *testing.T) {
+	input := `[
+		{"sha":"a","commit":{"author":{"name":"Alice"},"message":"fix"}},
+		{"sha":"b","commit":{"author":{"name":"Bob"},"message":"feat"}}
+	]`
+	specs := []string{"sha", "commit.author.name", "commit.message"}
+	fields, err := ParseCompactSpecs(specs)
+	require.NoError(t, err)
+
+	got, err := CompactJSON([]byte(input), fields)
+	require.NoError(t, err)
+
+	want := `[{"sha":"a","commit":{"author.name":"Alice","message":"fix"}},{"sha":"b","commit":{"author.name":"Bob","message":"feat"}}]`
+	var wantVal, gotVal any
+	require.NoError(t, json.Unmarshal([]byte(want), &wantVal))
+	require.NoError(t, json.Unmarshal(got, &gotVal))
+	assert.Equal(t, wantVal, gotVal)
+}
+
+func TestParseCompactSpec_Rename(t *testing.T) {
+	tests := []struct {
+		name    string
+		spec    string
+		want    CompactField
+		wantErr bool
+	}{
+		{
+			name: "simple rename",
+			spec: "user.login:author",
+			want: CompactField{path: []string{"user", "login"}, outputKey: "author", arrayIdx: -1, objectRoot: "user"},
+		},
+		{
+			name: "nested rename",
+			spec: "commit.author.name:committer",
+			want: CompactField{path: []string{"commit", "author", "name"}, outputKey: "committer", arrayIdx: -1, objectRoot: "commit"},
+		},
+		{
+			name:    "empty alias",
+			spec:    "user.login:",
+			wantErr: true,
+		},
+		{
+			name:    "alias on exclusion",
+			spec:    "-field:alias",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseCompactSpec(tt.spec)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCompactJSON_Rename(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		specs []string
+		want  string
+	}{
+		{
+			name:  "rename nested field",
+			input: `{"number":1,"user":{"login":"rsc","id":999}}`,
+			specs: []string{"number", "user.login:author"},
+			want:  `{"number":1,"author":"rsc"}`,
+		},
+		{
+			name:  "rename simple field",
+			input: `{"full_name":"golang/go","stargazers_count":100}`,
+			specs: []string{"full_name:name", "stargazers_count:stars"},
+			want:  `{"name":"golang/go","stars":100}`,
+		},
+		{
+			name:  "rename in array of objects",
+			input: `[{"user":{"login":"a"},"number":1},{"user":{"login":"b"},"number":2}]`,
+			specs: []string{"number", "user.login:author"},
+			want:  `[{"number":1,"author":"a"},{"number":2,"author":"b"}]`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, err := ParseCompactSpecs(tt.specs)
+			require.NoError(t, err)
+
+			got, err := CompactJSON([]byte(tt.input), fields)
+			require.NoError(t, err)
+
+			var wantVal, gotVal any
+			require.NoError(t, json.Unmarshal([]byte(tt.want), &wantVal))
+			require.NoError(t, json.Unmarshal(got, &gotVal))
+			assert.Equal(t, wantVal, gotVal)
+		})
+	}
+}
+
+func TestParseCompactSpec_Wildcard(t *testing.T) {
+	tests := []struct {
+		name    string
+		spec    string
+		want    CompactField
+		wantErr bool
+	}{
+		{
+			name: "wildcard on nested object",
+			spec: "user.*",
+			want: CompactField{path: []string{"user", "*"}, outputKey: "user", arrayIdx: -1, objectRoot: "user", wildcard: true},
+		},
+		{
+			name:    "bare wildcard",
+			spec:    "*",
+			wantErr: true,
+		},
+		{
+			name:    "wildcard not terminal",
+			spec:    "user.*.name",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseCompactSpec(tt.spec)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCompactJSON_Wildcard(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		specs []string
+		want  string
+	}{
+		{
+			name:  "wildcard keeps entire sub-object under parent key",
+			input: `{"number":1,"user":{"login":"alice","id":99,"avatar_url":"https://..."}}`,
+			specs: []string{"number", "user.*"},
+			want:  `{"number":1,"user":{"login":"alice","id":99,"avatar_url":"https://..."}}`,
+		},
+		{
+			name:  "wildcard on missing key skipped",
+			input: `{"number":1}`,
+			specs: []string{"number", "user.*"},
+			want:  `{"number":1}`,
+		},
+		{
+			name:  "wildcard with other specs",
+			input: `{"number":1,"user":{"login":"alice","id":99},"labels":[{"name":"bug"}]}`,
+			specs: []string{"number", "user.*", "labels[].name"},
+			want:  `{"number":1,"user":{"login":"alice","id":99},"labels":["bug"]}`,
+		},
+		{
+			name:  "wildcard on array of objects",
+			input: `[{"number":1,"meta":{"a":1,"b":2}},{"number":2,"meta":{"a":3,"b":4}}]`,
+			specs: []string{"number", "meta.*"},
+			want:  `[{"number":1,"meta":{"a":1,"b":2}},{"number":2,"meta":{"a":3,"b":4}}]`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, err := ParseCompactSpecs(tt.specs)
+			require.NoError(t, err)
+
+			got, err := CompactJSON([]byte(tt.input), fields)
+			require.NoError(t, err)
+
+			var wantVal, gotVal any
+			require.NoError(t, json.Unmarshal([]byte(tt.want), &wantVal))
+			require.NoError(t, json.Unmarshal(got, &gotVal))
+			assert.Equal(t, wantVal, gotVal)
+		})
+	}
+}
+
+func BenchmarkCompactJSON_ArrayOfObjects(b *testing.B) {
+	input := make([]map[string]any, 100)
+	for i := range input {
+		input[i] = map[string]any{
+			"number": i,
+			"title":  "issue title",
+			"body":   "long body text that should be stripped",
+			"user":   map[string]any{"login": "alice", "id": 999, "avatar_url": "https://..."},
+			"labels": []any{map[string]any{"name": "bug", "color": "red"}, map[string]any{"name": "P1", "color": "blue"}},
+			"commit": map[string]any{"author": map[string]any{"name": "Alice", "email": "a@b.com"}, "message": "fix"},
+		}
+	}
+	data, _ := json.Marshal(input)
+	fields, _ := ParseCompactSpecs([]string{"number", "title", "user.login", "labels[].name", "commit.author.name", "commit.message"})
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = CompactJSON(data, fields)
 	}
 }

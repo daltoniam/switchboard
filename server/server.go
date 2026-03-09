@@ -498,10 +498,24 @@ func compactResult(integration mcp.Integration, toolName string, data string) st
 	if !ok {
 		return data
 	}
+	originalLen := len(data)
 	compacted, err := mcp.CompactJSON([]byte(data), fields)
 	if err != nil {
 		slog.Warn("compaction failed, returning full response", "tool", toolName, "err", err)
 		return data
+	}
+	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
+		compactedLen := len(compacted)
+		savingsPct := 0
+		if originalLen > 0 {
+			savingsPct = 100 - 100*compactedLen/originalLen
+		}
+		slog.Debug("compaction applied",
+			"tool", toolName,
+			"before_bytes", originalLen,
+			"after_bytes", compactedLen,
+			"savings_pct", savingsPct,
+		)
 	}
 	return string(compacted)
 }

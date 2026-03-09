@@ -13,6 +13,12 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*dd)(nil)
+	_ mcp.FieldCompactionIntegration = (*dd)(nil)
+)
+
 type dd struct {
 	apiKey string
 	appKey string
@@ -65,6 +71,11 @@ func (d *dd) Healthy(ctx context.Context) bool {
 
 func (d *dd) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (d *dd) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (d *dd) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {

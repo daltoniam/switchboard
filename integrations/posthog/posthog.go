@@ -24,6 +24,12 @@ type posthog struct {
 
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*posthog)(nil)
+	_ mcp.FieldCompactionIntegration = (*posthog)(nil)
+)
+
 func New() mcp.Integration {
 	return &posthog{
 		client:  &http.Client{Timeout: 30 * time.Second},
@@ -55,6 +61,11 @@ func (p *posthog) Healthy(ctx context.Context) bool {
 
 func (p *posthog) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (p *posthog) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (p *posthog) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
