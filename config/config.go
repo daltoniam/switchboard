@@ -109,6 +109,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": ""},
 			},
+			"gcp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"project_id": "", "credentials_json": ""},
+			},
 		},
 	}
 }
