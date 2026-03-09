@@ -105,6 +105,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token_v2": ""},
 			},
+			"ynab": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": ""},
+			},
 		},
 	}
 }
