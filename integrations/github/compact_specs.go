@@ -204,6 +204,85 @@ var rawFieldCompactionSpecs = map[string][]string{
 	// ── Webhooks ──────────────────────────────────────────────────────
 	"github_list_hooks":       {"id", "name", "active", "config.url", "events", "updated_at"},
 	"github_list_deploy_keys": {"id", "title", "key", "read_only", "created_at"},
+
+	// ── Repositories (extended) ───────────────────────────────────────
+	"github_list_statuses": {
+		"id", "state", "context", "description", "target_url", "created_at",
+	},
+	"github_list_deployments": {
+		"id", "ref", "environment", "task", "description",
+		"creator.login", "created_at", "updated_at",
+	},
+	"github_list_deployment_statuses": {
+		"id", "state", "description", "environment",
+		"creator.login", "created_at", "log_url",
+	},
+	"github_list_environments": {
+		"id", "name", "created_at", "updated_at",
+	},
+	"github_list_rulesets": {
+		"id", "name", "enforcement", "source_type", "source", "created_at",
+	},
+	"github_list_traffic_referrers": {
+		"referrer", "count", "uniques",
+	},
+	"github_list_traffic_paths": {
+		"path", "title", "count", "uniques",
+	},
+	"github_list_commit_comments": {
+		"id", "body", "user.login", "created_at", "path", "position", "html_url",
+	},
+
+	// ── Issues (extended) ─────────────────────────────────────────────
+	"github_list_labels": {
+		"name", "color", "description",
+	},
+	"github_list_issue_reactions": {
+		"id", "content", "user.login", "created_at",
+	},
+
+	// ── Pull Requests (extended) ──────────────────────────────────────
+	"github_list_pulls_with_commit": {
+		"number", "title", "state", "html_url", "created_at",
+		"user.login", "head.ref", "base.ref",
+	},
+
+	// ── Actions (extended) ────────────────────────────────────────────
+	"github_list_repo_variables":  {"name", "value", "created_at", "updated_at"},
+	"github_list_org_variables":   {"name", "value", "created_at", "updated_at"},
+	"github_list_env_variables":   {"name", "value", "created_at", "updated_at"},
+	"github_list_runners": {
+		"id", "name", "os", "status", "busy", "labels[].name",
+	},
+	"github_list_org_runners": {
+		"id", "name", "os", "status", "busy", "labels[].name",
+	},
+
+	// ── Teams/Orgs (extended) ─────────────────────────────────────────
+	"github_list_pending_org_invitations": {
+		"id", "login", "email", "role", "created_at",
+	},
+	"github_list_outside_collaborators": userListFields,
+
+	// ── Search (extended) ─────────────────────────────────────────────
+	"github_search_topics": append([]string{"total_count"}, itemsPrefix([]string{
+		"name", "display_name", "short_description", "created_by",
+	})...),
+	"github_search_labels": append([]string{"total_count"}, itemsPrefix([]string{
+		"name", "color", "description",
+	})...),
+
+	// ── Activity (extended) ───────────────────────────────────────────
+	"github_list_starred": {
+		"repo.full_name", "repo.description", "repo.language",
+		"repo.stargazers_count", "repo.html_url", "starred_at",
+	},
+
+	// ── Security (extended) ───────────────────────────────────────────
+	"github_list_code_scanning_analyses": {
+		"id", "ref", "commit_sha", "analysis_key", "tool.name",
+		"created_at", "results_count", "rules_count",
+	},
 }
 
 // fieldCompactionSpecs holds pre-parsed CompactFields, built once at package init.

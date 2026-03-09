@@ -178,6 +178,39 @@ var dispatch = map[string]handlerFunc{
 	"github_merge_upstream":        mergeUpstream,
 	"github_list_autolinks":        listAutolinks,
 
+	// Repositories (extended)
+	"github_edit_repo":               editRepo,
+	"github_replace_topics":          replaceTopics,
+	"github_rename_branch":           renameBranch,
+	"github_add_collaborator":        addCollaborator,
+	"github_remove_collaborator":     removeCollaborator,
+	"github_get_combined_status":     getCombinedStatus,
+	"github_list_statuses":           listStatuses,
+	"github_create_status":           createStatus,
+	"github_list_deployments":        listDeployments,
+	"github_get_deployment":          getDeployment,
+	"github_create_deployment":       createDeployment,
+	"github_list_deployment_statuses": listDeploymentStatuses,
+	"github_create_deployment_status": createDeploymentStatus,
+	"github_list_environments":       listEnvironments,
+	"github_get_environment":         getEnvironment,
+	"github_get_branch_protection":   getBranchProtection,
+	"github_remove_branch_protection": removeBranchProtection,
+	"github_list_rulesets":           listRulesets,
+	"github_get_ruleset":             getRuleset,
+	"github_get_rules_for_branch":    getRulesForBranch,
+	"github_list_traffic_views":      listTrafficViews,
+	"github_list_traffic_clones":     listTrafficClones,
+	"github_list_traffic_referrers":  listTrafficReferrers,
+	"github_list_traffic_paths":      listTrafficPaths,
+	"github_get_community_health":    getCommunityHealth,
+	"github_dispatch_event":          dispatchEvent,
+	"github_merge_branch":            mergeBranch,
+	"github_edit_release":            editRelease,
+	"github_generate_release_notes":  generateReleaseNotes,
+	"github_list_commit_comments":    listCommitComments,
+	"github_create_commit_comment":   createCommitComment,
+
 	// Issues
 	"github_list_issues":           listIssues,
 	"github_get_issue":             getIssue,
@@ -196,6 +229,19 @@ var dispatch = map[string]handlerFunc{
 	"github_list_issue_timeline":   listIssueTimeline,
 	"github_list_assignees":        listAssignees,
 
+	// Issues (extended)
+	"github_update_issue_comment":        updateIssueComment,
+	"github_delete_issue_comment":        deleteIssueComment,
+	"github_update_milestone":            updateMilestone,
+	"github_delete_milestone":            deleteMilestone,
+	"github_list_labels":                 listLabels,
+	"github_create_label":                createLabel,
+	"github_edit_label":                  editLabel,
+	"github_delete_label":                deleteLabel,
+	"github_create_issue_reaction":       createIssueReaction,
+	"github_create_issue_comment_reaction": createIssueCommentReaction,
+	"github_list_issue_reactions":         listIssueReactions,
+
 	// Pull Requests
 	"github_list_pulls":              listPRs,
 	"github_get_pull":                getPR,
@@ -211,6 +257,12 @@ var dispatch = map[string]handlerFunc{
 	"github_merge_pull":              mergePR,
 	"github_list_requested_reviewers": listRequestedReviewers,
 	"github_request_reviewers":     requestReviewers,
+
+	// Pull Requests (extended)
+	"github_dismiss_pull_review":   dismissPullReview,
+	"github_update_pull_branch":    updatePullBranch,
+	"github_remove_reviewers":      removeReviewers,
+	"github_list_pulls_with_commit": listPullsWithCommit,
 
 	// Git (low-level)
 	"github_get_commit":            getCommit,
@@ -237,6 +289,17 @@ var dispatch = map[string]handlerFunc{
 	"github_list_team_members":     listTeamMembers,
 	"github_list_team_repos":       listTeamRepos,
 
+	// Teams/Orgs (extended)
+	"github_create_team":                  createTeam,
+	"github_edit_team":                    editTeam,
+	"github_delete_team":                  deleteTeam,
+	"github_add_team_member":              addTeamMember,
+	"github_remove_team_member":           removeTeamMember,
+	"github_add_team_repo":                addTeamRepo,
+	"github_remove_team_repo":             removeTeamRepo,
+	"github_list_pending_org_invitations": listPendingOrgInvitations,
+	"github_list_outside_collaborators":   listOutsideCollaborators,
+
 	// Actions (CI/CD)
 	"github_list_workflows":        listWorkflows,
 	"github_list_workflow_runs":    listWorkflowRuns,
@@ -249,6 +312,21 @@ var dispatch = map[string]handlerFunc{
 	"github_list_artifacts":        listArtifacts,
 	"github_list_environment_secrets": listEnvironmentSecrets,
 	"github_list_org_secrets":      listOrgSecrets,
+
+	// Actions (extended)
+	"github_trigger_workflow":       triggerWorkflow,
+	"github_rerun_failed_jobs":      rerunFailedJobs,
+	"github_get_workflow_job":       getWorkflowJob,
+	"github_get_workflow_job_logs":  getWorkflowJobLogs,
+	"github_delete_workflow_run":    deleteWorkflowRun,
+	"github_list_repo_variables":    listRepoVariables,
+	"github_create_repo_variable":   createRepoVariable,
+	"github_update_repo_variable":   updateRepoVariable,
+	"github_delete_repo_variable":   deleteRepoVariable,
+	"github_list_org_variables":     listOrgVariables,
+	"github_list_env_variables":     listEnvVariables,
+	"github_list_runners":           listRunners,
+	"github_list_org_runners":       listOrgRunners,
 
 	// Checks
 	"github_list_check_runs":       listCheckRuns,
@@ -274,11 +352,21 @@ var dispatch = map[string]handlerFunc{
 	"github_search_users":          searchUsers,
 	"github_search_commits":        searchCommits,
 
+	// Search (extended)
+	"github_search_topics":         searchTopics,
+	"github_search_labels":         searchLabels,
+
 	// Activity
 	"github_list_stargazers":       listStargazers,
 	"github_list_watchers":         listWatchers,
 	"github_list_notifications":    listNotifications,
 	"github_list_repo_events":      listRepoEvents,
+
+	// Activity (extended)
+	"github_mark_notifications_read": markNotificationsRead,
+	"github_star_repo":              starRepo,
+	"github_unstar_repo":            unstarRepo,
+	"github_list_starred":           listStarred,
 
 	// Code Scanning
 	"github_list_code_scanning_alerts":  listCodeScanningAlerts,
@@ -287,8 +375,20 @@ var dispatch = map[string]handlerFunc{
 	// Secret Scanning
 	"github_list_secret_scanning_alerts": listSecretScanningAlerts,
 
+	// Secret Scanning (extended)
+	"github_get_secret_scanning_alert": getSecretScanningAlert,
+
 	// Dependabot
 	"github_list_dependabot_alerts": listDependabotAlerts,
+
+	// Dependabot (extended)
+	"github_get_dependabot_alert":  getDependabotAlert,
+
+	// Code Scanning (extended)
+	"github_list_code_scanning_analyses": listCodeScanningAnalyses,
+
+	// SBOM
+	"github_get_sbom":              getSBOM,
 
 	// Copilot
 	"github_get_copilot_org_usage": getCopilotOrgUsage,

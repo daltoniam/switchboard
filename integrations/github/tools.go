@@ -125,6 +125,163 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo"},
 	},
 
+	// ── Repositories (extended) ───────────────────────────────────────
+	{
+		Name: "github_edit_repo", Description: "Update a repository's settings (description, visibility, default branch, etc.)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "description": "New description", "homepage": "Homepage URL", "default_branch": "Default branch name", "private": "Private (true/false)", "archived": "Archived (true/false)", "has_issues": "Enable issues (true/false)", "has_projects": "Enable projects (true/false)", "has_wiki": "Enable wiki (true/false)"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_replace_topics", Description: "Replace all topics on a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "topics": "Comma-separated topic names"},
+		Required:   []string{"owner", "repo", "topics"},
+	},
+	{
+		Name: "github_rename_branch", Description: "Rename a branch",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "branch": "Current branch name", "new_name": "New branch name"},
+		Required:   []string{"owner", "repo", "branch", "new_name"},
+	},
+	{
+		Name: "github_add_collaborator", Description: "Add a collaborator to a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "username": "User to add", "permission": "Permission: pull, triage, push, maintain, admin"},
+		Required:   []string{"owner", "repo", "username"},
+	},
+	{
+		Name: "github_remove_collaborator", Description: "Remove a collaborator from a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "username": "User to remove"},
+		Required:   []string{"owner", "repo", "username"},
+	},
+	{
+		Name: "github_get_combined_status", Description: "Get the combined commit status for a ref (aggregates all status checks)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "ref": "Git ref (SHA, branch, or tag)", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo", "ref"},
+	},
+	{
+		Name: "github_list_statuses", Description: "List commit statuses for a ref",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "ref": "Git ref (SHA, branch, or tag)", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo", "ref"},
+	},
+	{
+		Name: "github_create_status", Description: "Create a commit status",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Commit SHA", "state": "State: error, failure, pending, success", "target_url": "URL to associate with status", "description": "Short description", "context": "Status context identifier"},
+		Required:   []string{"owner", "repo", "sha", "state"},
+	},
+	{
+		Name: "github_list_deployments", Description: "List deployments for a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "environment": "Filter by environment", "ref": "Filter by ref", "task": "Filter by task", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_get_deployment", Description: "Get a single deployment",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "deployment_id": "Deployment ID"},
+		Required:   []string{"owner", "repo", "deployment_id"},
+	},
+	{
+		Name: "github_create_deployment", Description: "Create a deployment",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "ref": "Ref to deploy (branch, tag, or SHA)", "task": "Task (default: deploy)", "environment": "Environment name", "description": "Description", "auto_merge": "Auto-merge default branch into ref (true/false)"},
+		Required:   []string{"owner", "repo", "ref"},
+	},
+	{
+		Name: "github_list_deployment_statuses", Description: "List statuses for a deployment",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "deployment_id": "Deployment ID", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo", "deployment_id"},
+	},
+	{
+		Name: "github_create_deployment_status", Description: "Create a deployment status",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "deployment_id": "Deployment ID", "state": "State: error, failure, inactive, in_progress, queued, pending, success", "description": "Description", "log_url": "Log URL", "environment": "Override environment name"},
+		Required:   []string{"owner", "repo", "deployment_id", "state"},
+	},
+	{
+		Name: "github_list_environments", Description: "List environments for a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_get_environment", Description: "Get a single environment",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "environment": "Environment name"},
+		Required:   []string{"owner", "repo", "environment"},
+	},
+	{
+		Name: "github_get_branch_protection", Description: "Get branch protection rules",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "branch": "Branch name"},
+		Required:   []string{"owner", "repo", "branch"},
+	},
+	{
+		Name: "github_remove_branch_protection", Description: "Remove branch protection rules",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "branch": "Branch name"},
+		Required:   []string{"owner", "repo", "branch"},
+	},
+	{
+		Name: "github_list_rulesets", Description: "List repository rulesets",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_get_ruleset", Description: "Get a repository ruleset by ID",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "ruleset_id": "Ruleset ID"},
+		Required:   []string{"owner", "repo", "ruleset_id"},
+	},
+	{
+		Name: "github_get_rules_for_branch", Description: "Get active rules that apply to a branch",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "branch": "Branch name"},
+		Required:   []string{"owner", "repo", "branch"},
+	},
+	{
+		Name: "github_list_traffic_views", Description: "Get repository traffic page views (last 14 days, push access required)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "per": "Aggregation period: day, week"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_list_traffic_clones", Description: "Get repository traffic clones (last 14 days, push access required)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "per": "Aggregation period: day, week"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_list_traffic_referrers", Description: "Get top referral sources for a repository (push access required)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_list_traffic_paths", Description: "Get popular content paths for a repository (push access required)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_get_community_health", Description: "Get community health metrics for a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_dispatch_event", Description: "Trigger a repository dispatch event",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "event_type": "Custom event type string"},
+		Required:   []string{"owner", "repo", "event_type"},
+	},
+	{
+		Name: "github_merge_branch", Description: "Merge a branch into another (not a PR merge — use github_merge_pull for PRs)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Branch to merge into", "head": "Branch to merge from", "commit_message": "Merge commit message"},
+		Required:   []string{"owner", "repo", "base", "head"},
+	},
+	{
+		Name: "github_edit_release", Description: "Update a release",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "release_id": "Release ID", "tag_name": "New tag name", "name": "New release name", "body": "New release notes", "draft": "Draft (true/false)", "prerelease": "Pre-release (true/false)"},
+		Required:   []string{"owner", "repo", "release_id"},
+	},
+	{
+		Name: "github_generate_release_notes", Description: "Auto-generate release notes content between two tags",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "tag_name": "Tag for the release", "previous_tag_name": "Previous tag to compare against", "target_commitish": "Branch or SHA to tag"},
+		Required:   []string{"owner", "repo", "tag_name"},
+	},
+	{
+		Name: "github_list_commit_comments", Description: "List comments on a specific commit",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Commit SHA", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo", "sha"},
+	},
+	{
+		Name: "github_create_commit_comment", Description: "Create a comment on a commit",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Commit SHA", "body": "Comment body", "path": "Relative file path", "position": "Line position in the diff"},
+		Required:   []string{"owner", "repo", "sha", "body"},
+	},
+
 	// ── Issues ────────────────────────────────────────────────────────
 	{
 		Name: "github_list_issues", Description: "List issues for a repository",
@@ -207,6 +364,63 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo"},
 	},
 
+	// ── Issues (extended) ─────────────────────────────────────────────
+	{
+		Name: "github_update_issue_comment", Description: "Edit an issue or PR comment",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "comment_id": "Comment ID", "body": "New comment body (markdown)"},
+		Required:   []string{"owner", "repo", "comment_id", "body"},
+	},
+	{
+		Name: "github_delete_issue_comment", Description: "Delete an issue or PR comment",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "comment_id": "Comment ID"},
+		Required:   []string{"owner", "repo", "comment_id"},
+	},
+	{
+		Name: "github_update_milestone", Description: "Update a milestone",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "number": "Milestone number", "title": "New title", "description": "New description", "state": "State: open, closed", "due_on": "Due date (ISO 8601)"},
+		Required:   []string{"owner", "repo", "number"},
+	},
+	{
+		Name: "github_delete_milestone", Description: "Delete a milestone",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "number": "Milestone number"},
+		Required:   []string{"owner", "repo", "number"},
+	},
+	{
+		Name: "github_list_labels", Description: "List all labels in a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_create_label", Description: "Create a label in a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "name": "Label name", "color": "Color hex code (without #)", "description": "Label description"},
+		Required:   []string{"owner", "repo", "name", "color"},
+	},
+	{
+		Name: "github_edit_label", Description: "Update a label",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "name": "Current label name", "new_name": "New label name", "color": "New color hex code (without #)", "description": "New description"},
+		Required:   []string{"owner", "repo", "name"},
+	},
+	{
+		Name: "github_delete_label", Description: "Delete a label from a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "name": "Label name"},
+		Required:   []string{"owner", "repo", "name"},
+	},
+	{
+		Name: "github_create_issue_reaction", Description: "Add a reaction to an issue (+1, -1, laugh, confused, heart, hooray, rocket, eyes)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "number": "Issue number", "content": "Reaction: +1, -1, laugh, confused, heart, hooray, rocket, eyes"},
+		Required:   []string{"owner", "repo", "number", "content"},
+	},
+	{
+		Name: "github_create_issue_comment_reaction", Description: "Add a reaction to an issue comment",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "comment_id": "Comment ID", "content": "Reaction: +1, -1, laugh, confused, heart, hooray, rocket, eyes"},
+		Required:   []string{"owner", "repo", "comment_id", "content"},
+	},
+	{
+		Name: "github_list_issue_reactions", Description: "List reactions on an issue",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "number": "Issue number", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo", "number"},
+	},
+
 	// ── Pull Requests ─────────────────────────────────────────────────
 	{
 		Name: "github_list_pulls", Description: "List pull requests for a repository",
@@ -277,6 +491,28 @@ var tools = []mcp.ToolDefinition{
 		Name: "github_request_reviewers", Description: "Request reviewers on a pull request",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "reviewers": "Comma-separated usernames", "team_reviewers": "Comma-separated team slugs"},
 		Required:   []string{"owner", "repo", "pull_number"},
+	},
+
+	// ── Pull Requests (extended) ──────────────────────────────────────
+	{
+		Name: "github_dismiss_pull_review", Description: "Dismiss a pull request review",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "review_id": "Review ID", "message": "Dismissal message"},
+		Required:   []string{"owner", "repo", "pull_number", "review_id", "message"},
+	},
+	{
+		Name: "github_update_pull_branch", Description: "Update a PR branch with the latest changes from the base branch",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "expected_head_sha": "Expected SHA of the PR head (for optimistic locking)"},
+		Required:   []string{"owner", "repo", "pull_number"},
+	},
+	{
+		Name: "github_remove_reviewers", Description: "Remove requested reviewers from a pull request",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "reviewers": "Comma-separated usernames", "team_reviewers": "Comma-separated team slugs"},
+		Required:   []string{"owner", "repo", "pull_number"},
+	},
+	{
+		Name: "github_list_pulls_with_commit", Description: "List pull requests that contain a specific commit",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Commit SHA", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo", "sha"},
 	},
 
 	// ── Git (low-level) ───────────────────────────────────────────────
@@ -378,6 +614,53 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"org", "slug"},
 	},
 
+	// ── Teams (extended) ──────────────────────────────────────────────
+	{
+		Name: "github_create_team", Description: "Create a team in an organization",
+		Parameters: map[string]string{"org": "Organization name", "name": "Team name", "description": "Team description", "privacy": "Privacy: secret, closed", "permission": "Default permission: pull, push"},
+		Required:   []string{"org", "name"},
+	},
+	{
+		Name: "github_edit_team", Description: "Update a team",
+		Parameters: map[string]string{"org": "Organization name", "slug": "Team slug", "name": "New team name", "description": "New description", "privacy": "Privacy: secret, closed", "permission": "Default permission: pull, push"},
+		Required:   []string{"org", "slug", "name"},
+	},
+	{
+		Name: "github_delete_team", Description: "Delete a team",
+		Parameters: map[string]string{"org": "Organization name", "slug": "Team slug"},
+		Required:   []string{"org", "slug"},
+	},
+	{
+		Name: "github_add_team_member", Description: "Add or update a user's membership in a team",
+		Parameters: map[string]string{"org": "Organization name", "slug": "Team slug", "username": "GitHub username", "role": "Role: member, maintainer"},
+		Required:   []string{"org", "slug", "username"},
+	},
+	{
+		Name: "github_remove_team_member", Description: "Remove a user from a team",
+		Parameters: map[string]string{"org": "Organization name", "slug": "Team slug", "username": "GitHub username"},
+		Required:   []string{"org", "slug", "username"},
+	},
+	{
+		Name: "github_add_team_repo", Description: "Add a repository to a team",
+		Parameters: map[string]string{"org": "Organization name", "slug": "Team slug", "owner": "Repository owner", "repo": "Repository name", "permission": "Permission: pull, triage, push, maintain, admin"},
+		Required:   []string{"org", "slug", "owner", "repo"},
+	},
+	{
+		Name: "github_remove_team_repo", Description: "Remove a repository from a team",
+		Parameters: map[string]string{"org": "Organization name", "slug": "Team slug", "owner": "Repository owner", "repo": "Repository name"},
+		Required:   []string{"org", "slug", "owner", "repo"},
+	},
+	{
+		Name: "github_list_pending_org_invitations", Description: "List pending organization invitations",
+		Parameters: map[string]string{"org": "Organization name", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"org"},
+	},
+	{
+		Name: "github_list_outside_collaborators", Description: "List outside collaborators for an organization",
+		Parameters: map[string]string{"org": "Organization name", "filter": "Filter: 2fa_disabled, all", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"org"},
+	},
+
 	// ── Actions (CI/CD) ───────────────────────────────────────────────
 	{
 		Name: "github_list_workflows", Description: "List workflows in a repository",
@@ -431,6 +714,73 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: "github_list_org_secrets", Description: "List organization Actions secrets (names only)",
+		Parameters: map[string]string{"org": "Organization name", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"org"},
+	},
+
+	// ── Actions (extended) ────────────────────────────────────────────
+	{
+		Name: "github_trigger_workflow", Description: "Trigger a workflow dispatch event",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "workflow_id": "Workflow filename (e.g., ci.yml)", "ref": "Git ref to run workflow on (branch or tag)"},
+		Required:   []string{"owner", "repo", "workflow_id", "ref"},
+	},
+	{
+		Name: "github_rerun_failed_jobs", Description: "Re-run only the failed jobs of a workflow run",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "run_id": "Workflow run ID"},
+		Required:   []string{"owner", "repo", "run_id"},
+	},
+	{
+		Name: "github_get_workflow_job", Description: "Get a single workflow job by ID",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "job_id": "Job ID"},
+		Required:   []string{"owner", "repo", "job_id"},
+	},
+	{
+		Name: "github_get_workflow_job_logs", Description: "Get a URL to download a single job's logs",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "job_id": "Job ID"},
+		Required:   []string{"owner", "repo", "job_id"},
+	},
+	{
+		Name: "github_delete_workflow_run", Description: "Delete a workflow run",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "run_id": "Workflow run ID"},
+		Required:   []string{"owner", "repo", "run_id"},
+	},
+	{
+		Name: "github_list_repo_variables", Description: "List repository Actions variables (names and values)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_create_repo_variable", Description: "Create a repository Actions variable",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "name": "Variable name", "value": "Variable value"},
+		Required:   []string{"owner", "repo", "name", "value"},
+	},
+	{
+		Name: "github_update_repo_variable", Description: "Update a repository Actions variable",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "name": "Variable name", "value": "New variable value"},
+		Required:   []string{"owner", "repo", "name", "value"},
+	},
+	{
+		Name: "github_delete_repo_variable", Description: "Delete a repository Actions variable",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "name": "Variable name"},
+		Required:   []string{"owner", "repo", "name"},
+	},
+	{
+		Name: "github_list_org_variables", Description: "List organization Actions variables (names and values)",
+		Parameters: map[string]string{"org": "Organization name", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"org"},
+	},
+	{
+		Name: "github_list_env_variables", Description: "List environment Actions variables (names and values)",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "environment": "Environment name", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo", "environment"},
+	},
+	{
+		Name: "github_list_runners", Description: "List self-hosted runners for a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_list_org_runners", Description: "List self-hosted runners for an organization",
 		Parameters: map[string]string{"org": "Organization name", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"org"},
 	},
@@ -502,6 +852,16 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Search ────────────────────────────────────────────────────────
 	{
+		Name: "github_search_topics", Description: "Search GitHub topics",
+		Parameters: map[string]string{"query": "Search query", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"query"},
+	},
+	{
+		Name: "github_search_labels", Description: "Search labels in a repository",
+		Parameters: map[string]string{"repository_id": "Repository numeric ID", "query": "Search query", "sort": "Sort: created, updated", "order": "Order: asc, desc", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"repository_id", "query"},
+	},
+	{
 		Name: "github_search_code", Description: "Search code across GitHub repositories",
 		Parameters: map[string]string{"query": "Search query (supports qualifiers like language:go, repo:owner/name)", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"query"},
@@ -543,6 +903,26 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo"},
 	},
 
+	// ── Activity (extended) ───────────────────────────────────────────
+	{
+		Name: "github_mark_notifications_read", Description: "Mark all notifications as read",
+		Parameters: map[string]string{},
+	},
+	{
+		Name: "github_star_repo", Description: "Star a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_unstar_repo", Description: "Unstar a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "github_list_starred", Description: "List repositories starred by a user",
+		Parameters: map[string]string{"username": "GitHub username (empty for authenticated user)", "sort": "Sort: created, updated", "direction": "Direction: asc, desc", "page": "Page number", "per_page": "Results per page"},
+	},
+
 	// ── Code Scanning ─────────────────────────────────────────────────
 	{
 		Name: "github_list_code_scanning_alerts", Description: "List code scanning alerts for a repository",
@@ -562,10 +942,38 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo"},
 	},
 
+	// ── Secret Scanning (extended) ────────────────────────────────────
+	{
+		Name: "github_get_secret_scanning_alert", Description: "Get a single secret scanning alert",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "alert_number": "Alert number"},
+		Required:   []string{"owner", "repo", "alert_number"},
+	},
+
 	// ── Dependabot ────────────────────────────────────────────────────
 	{
 		Name: "github_list_dependabot_alerts", Description: "List Dependabot alerts for a repository",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "State: auto_dismissed, dismissed, fixed, open", "severity": "Severity: low, medium, high, critical", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo"},
+	},
+
+	// ── Dependabot (extended) ─────────────────────────────────────────
+	{
+		Name: "github_get_dependabot_alert", Description: "Get a single Dependabot alert",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "alert_number": "Alert number"},
+		Required:   []string{"owner", "repo", "alert_number"},
+	},
+
+	// ── Code Scanning (extended) ─────────────────────────────────────
+	{
+		Name: "github_list_code_scanning_analyses", Description: "List code scanning SARIF analyses for a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "ref": "Git ref to filter by", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"owner", "repo"},
+	},
+
+	// ── SBOM ─────────────────────────────────────────────────────────
+	{
+		Name: "github_get_sbom", Description: "Get the software bill of materials (SBOM) for a repository",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
 		Required:   []string{"owner", "repo"},
 	},
 
