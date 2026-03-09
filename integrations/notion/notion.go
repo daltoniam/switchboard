@@ -47,7 +47,7 @@ func New() mcp.Integration {
 
 func (n *notion) Name() string { return "notion" }
 
-func (n *notion) Configure(creds mcp.Credentials) error {
+func (n *notion) Configure(ctx context.Context, creds mcp.Credentials) error {
 	n.tokenV2 = creds["token_v2"]
 	if n.tokenV2 == "" {
 		return fmt.Errorf("notion: token_v2 is required")
@@ -56,7 +56,7 @@ func (n *notion) Configure(creds mcp.Credentials) error {
 		n.baseURL = strings.TrimRight(v, "/")
 	}
 
-	spaceID, userID, err := n.resolveSpaceAndUser()
+	spaceID, userID, err := n.resolveSpaceAndUser(ctx)
 	if err != nil {
 		return fmt.Errorf("notion: failed to resolve workspace: %w", err)
 	}
@@ -66,8 +66,8 @@ func (n *notion) Configure(creds mcp.Credentials) error {
 }
 
 // resolveSpaceAndUser calls getSpaces to discover the first space ID and user ID.
-func (n *notion) resolveSpaceAndUser() (string, string, error) {
-	data, err := n.doRequest(context.Background(), "/api/v3/getSpaces", map[string]any{})
+func (n *notion) resolveSpaceAndUser(ctx context.Context) (string, string, error) {
+	data, err := n.doRequest(ctx, "/api/v3/getSpaces", map[string]any{})
 	if err != nil {
 		return "", "", err
 	}

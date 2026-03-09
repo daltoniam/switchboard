@@ -21,27 +21,27 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "phx_test123", "project_id": "12345"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "phx_test123", "project_id": "12345"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "", "project_id": "12345"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "", "project_id": "12345"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api_key is required")
 }
 
 func TestConfigure_MissingProjectID(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "phx_test123", "project_id": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "phx_test123", "project_id": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "project_id is required")
 }
 
 func TestConfigure_CustomBaseURL(t *testing.T) {
 	p := &posthog{client: &http.Client{}, baseURL: "https://us.posthog.com"}
-	err := p.Configure(mcp.Credentials{
+	err := p.Configure(context.Background(), mcp.Credentials{
 		"api_key":    "phx_test",
 		"project_id": "1",
 		"base_url":   "https://eu.posthog.com/",

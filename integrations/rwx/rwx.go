@@ -26,6 +26,12 @@ const (
 	maxResponseSize = 10 * 1024 * 1024 // 10 MB
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*rwx)(nil)
+	_ mcp.FieldCompactionIntegration = (*rwx)(nil)
+)
+
 type rwx struct {
 	accessToken string
 	client      *http.Client
@@ -42,7 +48,7 @@ func New() mcp.Integration {
 
 func (r *rwx) Name() string { return "rwx" }
 
-func (r *rwx) Configure(creds mcp.Credentials) error {
+func (r *rwx) Configure(_ context.Context, creds mcp.Credentials) error {
 	r.accessToken = creds["access_token"]
 	if r.accessToken == "" {
 		return fmt.Errorf("rwx: access_token is required")
@@ -73,6 +79,11 @@ func (r *rwx) Tools() []mcp.ToolDefinition {
 		return append(nativeTools, r.proxy.toolDefinitions()...)
 	}
 	return nativeTools
+}
+
+func (r *rwx) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (r *rwx) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {

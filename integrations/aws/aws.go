@@ -25,6 +25,12 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*integration)(nil)
+	_ mcp.FieldCompactionIntegration = (*integration)(nil)
+)
+
 type integration struct {
 	cfg          aws.Config
 	region       string
@@ -47,7 +53,7 @@ func New() mcp.Integration {
 
 func (a *integration) Name() string { return "aws" }
 
-func (a *integration) Configure(creds mcp.Credentials) error {
+func (a *integration) Configure(ctx context.Context, creds mcp.Credentials) error {
 	region := creds["region"]
 	if region == "" {
 		region = "us-east-1"
@@ -66,7 +72,7 @@ func (a *integration) Configure(creds mcp.Credentials) error {
 		))
 	}
 
-	cfg, err := awsconfig.LoadDefaultConfig(context.Background(), opts...)
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
 		return fmt.Errorf("aws: failed to load config: %w", err)
 	}
@@ -93,6 +99,11 @@ func (a *integration) Healthy(ctx context.Context) bool {
 
 func (a *integration) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (a *integration) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (a *integration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {

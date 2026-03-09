@@ -79,7 +79,7 @@ type Integration interface {
 	Name() string
 
 	// Configure initializes the integration with credentials.
-	Configure(creds Credentials) error
+	Configure(ctx context.Context, creds Credentials) error
 
 	// Tools returns the tool definitions this integration provides.
 	// Used by the search tool for progressive discovery.

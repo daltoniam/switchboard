@@ -15,6 +15,12 @@ import (
 
 const graphqlURL = "https://api.linear.app/graphql"
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*linear)(nil)
+	_ mcp.FieldCompactionIntegration = (*linear)(nil)
+)
+
 type linear struct {
 	apiKey string
 	client *http.Client
@@ -26,7 +32,7 @@ func New() mcp.Integration {
 
 func (l *linear) Name() string { return "linear" }
 
-func (l *linear) Configure(creds mcp.Credentials) error {
+func (l *linear) Configure(_ context.Context, creds mcp.Credentials) error {
 	l.apiKey = creds["api_key"]
 	if l.apiKey == "" {
 		return fmt.Errorf("linear: api_key is required")
@@ -41,6 +47,11 @@ func (l *linear) Healthy(ctx context.Context) bool {
 
 func (l *linear) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (l *linear) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (l *linear) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {

@@ -13,6 +13,12 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*metabase)(nil)
+	_ mcp.FieldCompactionIntegration = (*metabase)(nil)
+)
+
 type metabase struct {
 	apiKey  string
 	baseURL string
@@ -27,7 +33,7 @@ func New() mcp.Integration {
 
 func (m *metabase) Name() string { return "metabase" }
 
-func (m *metabase) Configure(creds mcp.Credentials) error {
+func (m *metabase) Configure(_ context.Context, creds mcp.Credentials) error {
 	m.apiKey = creds["api_key"]
 	m.baseURL = strings.TrimRight(creds["url"], "/")
 	if m.apiKey == "" {
@@ -46,6 +52,11 @@ func (m *metabase) Healthy(ctx context.Context) bool {
 
 func (m *metabase) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (m *metabase) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (m *metabase) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {

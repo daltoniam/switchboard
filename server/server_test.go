@@ -55,7 +55,7 @@ type mockIntegration struct {
 }
 
 func (m *mockIntegration) Name() string { return m.name }
-func (m *mockIntegration) Configure(_ mcp.Credentials) error {
+func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error {
 	return m.configErr
 }
 func (m *mockIntegration) Tools() []mcp.ToolDefinition { return m.tools }

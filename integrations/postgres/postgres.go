@@ -15,6 +15,12 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*postgres)(nil)
+	_ mcp.FieldCompactionIntegration = (*postgres)(nil)
+)
+
 type postgres struct {
 	connStr  string
 	db       *sql.DB
@@ -27,7 +33,7 @@ func New() mcp.Integration {
 
 func (p *postgres) Name() string { return "postgres" }
 
-func (p *postgres) Configure(creds mcp.Credentials) error {
+func (p *postgres) Configure(ctx context.Context, creds mcp.Credentials) error {
 	p.readOnly = creds["read_only"] != "false"
 
 	connStr := creds["connection_string"]
@@ -72,7 +78,7 @@ func (p *postgres) Configure(creds mcp.Credentials) error {
 	db.SetMaxIdleConns(2)
 	db.SetConnMaxLifetime(30 * time.Minute)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
@@ -99,6 +105,11 @@ func (p *postgres) Healthy(ctx context.Context) bool {
 
 func (p *postgres) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (p *postgres) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (p *postgres) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
