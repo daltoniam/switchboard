@@ -503,3 +503,146 @@ func TestListMonths(t *testing.T) {
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, "2024-03-01")
 }
+
+func TestCreateCategoryGroup(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Contains(t, r.URL.Path, "/budgets/last-used/category_groups")
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		grp := body["category_group"].(map[string]any)
+		assert.Equal(t, "Subscriptions", grp["name"])
+		_, _ = w.Write([]byte(`{"data":{"category_group":{"id":"grp-new","name":"Subscriptions"}}}`))
+	}))
+	defer ts.Close()
+
+	y := &ynab{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := y.Execute(context.Background(), "ynab_create_category_group", map[string]any{
+		"name": "Subscriptions",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Subscriptions")
+}
+
+func TestUpdatePayee(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "PATCH", r.Method)
+		assert.Contains(t, r.URL.Path, "/payees/p-1")
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		payee := body["payee"].(map[string]any)
+		assert.Equal(t, "New Landlord", payee["name"])
+		_, _ = w.Write([]byte(`{"data":{"payee":{"id":"p-1","name":"New Landlord"}}}`))
+	}))
+	defer ts.Close()
+
+	y := &ynab{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := y.Execute(context.Background(), "ynab_update_payee", map[string]any{
+		"payee_id": "p-1",
+		"name":     "New Landlord",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "New Landlord")
+}
+
+func TestListPayeeLocations(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/budgets/last-used/payee_locations")
+		_, _ = w.Write([]byte(`{"data":{"payee_locations":[{"id":"loc-1","payee_id":"p-1","latitude":"40.7128","longitude":"-74.0060"}]}}`))
+	}))
+	defer ts.Close()
+
+	y := &ynab{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := y.Execute(context.Background(), "ynab_list_payee_locations", map[string]any{})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "40.7128")
+}
+
+func TestListMonthTransactions(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/budgets/last-used/months/2024-03-01/transactions")
+		_, _ = w.Write([]byte(`{"data":{"transactions":[{"id":"txn-m1","amount":-30000}]}}`))
+	}))
+	defer ts.Close()
+
+	y := &ynab{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := y.Execute(context.Background(), "ynab_list_month_transactions", map[string]any{
+		"month": "2024-03-01",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "txn-m1")
+}
+
+func TestCreateScheduledTransaction(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Contains(t, r.URL.Path, "/budgets/last-used/scheduled_transactions")
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		st := body["scheduled_transaction"].(map[string]any)
+		assert.Equal(t, "acc-1", st["account_id"])
+		assert.Equal(t, "2024-04-01", st["date"])
+		assert.Equal(t, float64(-100000), st["amount"])
+		assert.Equal(t, "monthly", st["frequency"])
+		assert.Equal(t, "Rent payment", st["memo"])
+		_, _ = w.Write([]byte(`{"data":{"scheduled_transaction":{"id":"st-new","frequency":"monthly"}}}`))
+	}))
+	defer ts.Close()
+
+	y := &ynab{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := y.Execute(context.Background(), "ynab_create_scheduled_transaction", map[string]any{
+		"account_id": "acc-1",
+		"date":       "2024-04-01",
+		"amount":     float64(-100000),
+		"frequency":  "monthly",
+		"memo":       "Rent payment",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "st-new")
+}
+
+func TestUpdateScheduledTransaction(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "PUT", r.Method)
+		assert.Contains(t, r.URL.Path, "/scheduled_transactions/st-1")
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		st := body["scheduled_transaction"].(map[string]any)
+		assert.Equal(t, "Updated memo", st["memo"])
+		_, _ = w.Write([]byte(`{"data":{"scheduled_transaction":{"id":"st-1","memo":"Updated memo"}}}`))
+	}))
+	defer ts.Close()
+
+	y := &ynab{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := y.Execute(context.Background(), "ynab_update_scheduled_transaction", map[string]any{
+		"scheduled_transaction_id": "st-1",
+		"memo":                     "Updated memo",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Updated memo")
+}
+
+func TestDeleteScheduledTransaction(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Contains(t, r.URL.Path, "/scheduled_transactions/st-1")
+		_, _ = w.Write([]byte(`{"data":{"scheduled_transaction":{"id":"st-1","deleted":true}}}`))
+	}))
+	defer ts.Close()
+
+	y := &ynab{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := y.Execute(context.Background(), "ynab_delete_scheduled_transaction", map[string]any{
+		"scheduled_transaction_id": "st-1",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "deleted")
+}

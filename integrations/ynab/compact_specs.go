@@ -72,6 +72,24 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"data.scheduled_transactions[].category_id", "data.scheduled_transactions[].category_name",
 		"data.scheduled_transactions[].flag_color", "data.scheduled_transactions[].deleted",
 	},
+	"ynab_list_payee_locations": {
+		"data.payee_locations[].id", "data.payee_locations[].payee_id",
+		"data.payee_locations[].latitude", "data.payee_locations[].longitude",
+		"data.payee_locations[].deleted",
+	},
+	"ynab_list_locations_for_payee": {
+		"data.payee_locations[].id", "data.payee_locations[].payee_id",
+		"data.payee_locations[].latitude", "data.payee_locations[].longitude",
+		"data.payee_locations[].deleted",
+	},
+	"ynab_list_month_transactions": {
+		"data.transactions[].id", "data.transactions[].date", "data.transactions[].amount",
+		"data.transactions[].memo", "data.transactions[].cleared", "data.transactions[].approved",
+		"data.transactions[].account_id", "data.transactions[].account_name",
+		"data.transactions[].payee_id", "data.transactions[].payee_name",
+		"data.transactions[].category_id", "data.transactions[].category_name",
+		"data.transactions[].flag_color", "data.transactions[].deleted",
+	},
 }
 
 var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(rawFieldCompactionSpecs)

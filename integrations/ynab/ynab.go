@@ -209,12 +209,24 @@ var dispatch = map[string]handlerFunc{
 	// Categories
 	"ynab_list_categories":       listCategories,
 	"ynab_get_category":          getCategory,
+	"ynab_create_category":       createCategory,
+	"ynab_update_category":       updateCategory,
 	"ynab_get_month_category":    getMonthCategory,
 	"ynab_update_month_category": updateMonthCategory,
 
+	// Category Groups
+	"ynab_create_category_group": createCategoryGroup,
+	"ynab_update_category_group": updateCategoryGroup,
+
 	// Payees
-	"ynab_list_payees": listPayees,
-	"ynab_get_payee":   getPayee,
+	"ynab_list_payees":  listPayees,
+	"ynab_get_payee":    getPayee,
+	"ynab_update_payee": updatePayee,
+
+	// Payee Locations
+	"ynab_list_payee_locations":    listPayeeLocations,
+	"ynab_get_payee_location":      getPayeeLocation,
+	"ynab_list_locations_for_payee": listLocationsForPayee,
 
 	// Months
 	"ynab_list_months": listMonths,
@@ -226,11 +238,15 @@ var dispatch = map[string]handlerFunc{
 	"ynab_list_account_transactions":  listAccountTransactions,
 	"ynab_list_category_transactions": listCategoryTransactions,
 	"ynab_list_payee_transactions":    listPayeeTransactions,
+	"ynab_list_month_transactions":    listMonthTransactions,
 	"ynab_create_transaction":         createTransaction,
 	"ynab_update_transaction":         updateTransaction,
 	"ynab_delete_transaction":         deleteTransaction,
 
 	// Scheduled Transactions
-	"ynab_list_scheduled_transactions": listScheduledTransactions,
-	"ynab_get_scheduled_transaction":   getScheduledTransaction,
+	"ynab_list_scheduled_transactions":   listScheduledTransactions,
+	"ynab_get_scheduled_transaction":     getScheduledTransaction,
+	"ynab_create_scheduled_transaction":  createScheduledTransaction,
+	"ynab_update_scheduled_transaction":  updateScheduledTransaction,
+	"ynab_delete_scheduled_transaction":  deleteScheduledTransaction,
 }
