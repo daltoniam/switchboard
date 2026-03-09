@@ -53,7 +53,7 @@ func New() mcp.Integration {
 
 func (a *integration) Name() string { return "aws" }
 
-func (a *integration) Configure(creds mcp.Credentials) error {
+func (a *integration) Configure(ctx context.Context, creds mcp.Credentials) error {
 	region := creds["region"]
 	if region == "" {
 		region = "us-east-1"
@@ -72,7 +72,7 @@ func (a *integration) Configure(creds mcp.Credentials) error {
 		))
 	}
 
-	cfg, err := awsconfig.LoadDefaultConfig(context.Background(), opts...)
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
 		return fmt.Errorf("aws: failed to load config: %w", err)
 	}

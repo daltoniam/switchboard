@@ -21,40 +21,40 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "test-token-123"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "test-token-123"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api_key is required")
 }
 
 func TestConfigure_EmptyCredentials(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{})
+	err := i.Configure(context.Background(), mcp.Credentials{})
 	assert.Error(t, err)
 }
 
 func TestConfigure_CustomBaseURL(t *testing.T) {
 	p := &pganalyze{client: &http.Client{}}
-	err := p.Configure(mcp.Credentials{"api_key": "key", "base_url": "https://pganalyze.example.com/"})
+	err := p.Configure(context.Background(), mcp.Credentials{"api_key": "key", "base_url": "https://pganalyze.example.com/"})
 	assert.NoError(t, err)
 	assert.Equal(t, "https://pganalyze.example.com/graphql", p.graphqlURL)
 }
 
 func TestConfigure_DefaultBaseURL(t *testing.T) {
 	p := &pganalyze{client: &http.Client{}}
-	err := p.Configure(mcp.Credentials{"api_key": "key"})
+	err := p.Configure(context.Background(), mcp.Credentials{"api_key": "key"})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultGraphQLURL, p.graphqlURL)
 }
 
 func TestConfigure_BaseURLWithGraphQLSuffix(t *testing.T) {
 	p := &pganalyze{client: &http.Client{}}
-	err := p.Configure(mcp.Credentials{"api_key": "key", "base_url": "https://app.pganalyze.com/graphql"})
+	err := p.Configure(context.Background(), mcp.Credentials{"api_key": "key", "base_url": "https://app.pganalyze.com/graphql"})
 	assert.NoError(t, err)
 	assert.Equal(t, "https://app.pganalyze.com/graphql", p.graphqlURL)
 }
@@ -216,7 +216,7 @@ func TestPlainTextKeys(t *testing.T) {
 
 func TestConfigure_OrganizationSlug(t *testing.T) {
 	p := &pganalyze{client: &http.Client{}}
-	err := p.Configure(mcp.Credentials{"api_key": "key", "organization_slug": "my-org"})
+	err := p.Configure(context.Background(), mcp.Credentials{"api_key": "key", "organization_slug": "my-org"})
 	assert.NoError(t, err)
 	assert.Equal(t, "my-org", p.organizationSlug)
 }

@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Defaults(t *testing.T) {
 	c := &clickhouseInt{}
-	err := c.Configure(mcp.Credentials{"host": "localhost", "port": "9000"})
+	err := c.Configure(context.Background(), mcp.Credentials{"host": "localhost", "port": "9000"})
 	if err != nil {
 		t.Skipf("ClickHouse not available: %v", err)
 	}

@@ -16,7 +16,7 @@ type mockIntegration struct {
 }
 
 func (m *mockIntegration) Name() string                      { return m.name }
-func (m *mockIntegration) Configure(_ mcp.Credentials) error { return nil }
+func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error { return nil }
 func (m *mockIntegration) Tools() []mcp.ToolDefinition       { return m.tools }
 func (m *mockIntegration) Execute(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
 	return &mcp.ToolResult{Data: "ok"}, nil

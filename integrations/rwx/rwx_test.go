@@ -21,13 +21,13 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"access_token": "rwx_test_token"})
+	err := i.Configure(context.Background(), mcp.Credentials{"access_token": "rwx_test_token"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAccessToken(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"access_token": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"access_token": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "access_token is required")
 }

@@ -21,27 +21,27 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"auth_token": "sntrys_test", "organization": "my-org"})
+	err := i.Configure(context.Background(), mcp.Credentials{"auth_token": "sntrys_test", "organization": "my-org"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAuthToken(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"auth_token": "", "organization": "my-org"})
+	err := i.Configure(context.Background(), mcp.Credentials{"auth_token": "", "organization": "my-org"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "auth_token is required")
 }
 
 func TestConfigure_MissingOrganization(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"auth_token": "token", "organization": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"auth_token": "token", "organization": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "organization is required")
 }
 
 func TestConfigure_CustomBaseURL(t *testing.T) {
 	s := &sentry{client: &http.Client{}, baseURL: "https://sentry.io/api/0"}
-	err := s.Configure(mcp.Credentials{
+	err := s.Configure(context.Background(), mcp.Credentials{
 		"auth_token":   "token",
 		"organization": "org",
 		"base_url":     "https://custom.sentry.io/api/0/",

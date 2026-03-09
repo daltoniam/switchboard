@@ -77,7 +77,7 @@ func TestConfigure_AcceptsTokenV2AndResolvesSpaceAndUser(t *testing.T) {
 	defer ts.Close()
 
 	n := &notion{client: ts.Client(), baseURL: ts.URL}
-	err := n.Configure(mcp.Credentials{"token_v2": "v2-token-123"})
+	err := n.Configure(context.Background(), mcp.Credentials{"token_v2": "v2-token-123"})
 	require.NoError(t, err)
 	assert.Equal(t, "v2-token-123", n.tokenV2)
 	assert.Equal(t, "space-xyz", n.spaceID)
@@ -86,7 +86,7 @@ func TestConfigure_AcceptsTokenV2AndResolvesSpaceAndUser(t *testing.T) {
 
 func TestConfigure_RejectsEmptyTokenV2(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"token_v2": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"token_v2": ""})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "token_v2 is required")
 }
@@ -98,7 +98,7 @@ func TestConfigure_TrimsTrailingSlashFromCustomBaseURL(t *testing.T) {
 	defer ts.Close()
 
 	n := &notion{client: ts.Client(), baseURL: ts.URL + "/"}
-	err := n.Configure(mcp.Credentials{"token_v2": "tok", "base_url": ts.URL + "/"})
+	err := n.Configure(context.Background(), mcp.Credentials{"token_v2": "tok", "base_url": ts.URL + "/"})
 	require.NoError(t, err)
 	assert.Equal(t, ts.URL, n.baseURL)
 }
@@ -116,7 +116,7 @@ func TestConfigure_ReturnsErrorWhenGetSpacesFails(t *testing.T) {
 	defer ts.Close()
 
 	n := &notion{client: ts.Client(), baseURL: ts.URL}
-	err := n.Configure(mcp.Credentials{"token_v2": "bad-token"})
+	err := n.Configure(context.Background(), mcp.Credentials{"token_v2": "bad-token"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "resolve workspace")
 }
@@ -1882,7 +1882,7 @@ func TestResolveSpaceAndUser_DeterministicSelection(t *testing.T) {
 	// Run multiple times to verify determinism (Go map iteration is random)
 	for i := 0; i < 10; i++ {
 		n := &notion{client: ts.Client(), baseURL: ts.URL, tokenV2: "tok"}
-		spaceID, userID, err := n.resolveSpaceAndUser()
+		spaceID, userID, err := n.resolveSpaceAndUser(context.Background())
 		require.NoError(t, err)
 		assert.Equal(t, "space-ccc", spaceID, "iteration %d: should consistently pick first sorted user's first sorted space", i)
 		assert.Equal(t, "user-aaa", userID, "iteration %d: should consistently pick first sorted user", i)

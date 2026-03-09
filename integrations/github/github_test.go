@@ -18,20 +18,20 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"token": "ghp_test123"})
+	err := i.Configure(context.Background(), mcp.Credentials{"token": "ghp_test123"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingToken(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"token": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"token": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "token is required")
 }
 
 func TestConfigure_EmptyCredentials(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{})
+	err := i.Configure(context.Background(), mcp.Credentials{})
 	assert.Error(t, err)
 }
 

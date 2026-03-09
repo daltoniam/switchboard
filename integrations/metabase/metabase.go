@@ -33,7 +33,7 @@ func New() mcp.Integration {
 
 func (m *metabase) Name() string { return "metabase" }
 
-func (m *metabase) Configure(creds mcp.Credentials) error {
+func (m *metabase) Configure(_ context.Context, creds mcp.Credentials) error {
 	m.apiKey = creds["api_key"]
 	m.baseURL = strings.TrimRight(creds["url"], "/")
 	if m.apiKey == "" {

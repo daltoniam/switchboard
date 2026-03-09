@@ -48,7 +48,7 @@ func New() mcp.Integration {
 
 func (r *rwx) Name() string { return "rwx" }
 
-func (r *rwx) Configure(creds mcp.Credentials) error {
+func (r *rwx) Configure(_ context.Context, creds mcp.Credentials) error {
 	r.accessToken = creds["access_token"]
 	if r.accessToken == "" {
 		return fmt.Errorf("rwx: access_token is required")

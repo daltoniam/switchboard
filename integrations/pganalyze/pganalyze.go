@@ -34,7 +34,7 @@ func New() mcp.Integration {
 
 func (p *pganalyze) Name() string { return "pganalyze" }
 
-func (p *pganalyze) Configure(creds mcp.Credentials) error {
+func (p *pganalyze) Configure(_ context.Context, creds mcp.Credentials) error {
 	p.apiKey = creds["api_key"]
 	if p.apiKey == "" {
 		return fmt.Errorf("pganalyze: api_key is required")

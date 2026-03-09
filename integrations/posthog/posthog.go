@@ -39,7 +39,7 @@ func New() mcp.Integration {
 
 func (p *posthog) Name() string { return "posthog" }
 
-func (p *posthog) Configure(creds mcp.Credentials) error {
+func (p *posthog) Configure(_ context.Context, creds mcp.Credentials) error {
 	p.apiKey = creds["api_key"]
 	p.projectID = creds["project_id"]
 	if p.apiKey == "" {

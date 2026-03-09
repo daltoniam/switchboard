@@ -318,7 +318,7 @@ Every integration adapter implements this interface defined in `mcp.go`:
 ```go
 type Integration interface {
     Name() string
-    Configure(creds Credentials) error
+    Configure(ctx context.Context, creds Credentials) error
     Tools() []ToolDefinition
     Execute(ctx context.Context, toolName string, args map[string]any) (*ToolResult, error)
     Healthy(ctx context.Context) bool
@@ -326,7 +326,7 @@ type Integration interface {
 ```
 
 - **`Name()`** — Lowercase identifier (e.g., `"github"`). Must match config key.
-- **`Configure()`** — Receives `Credentials` (`map[string]string`). Validate and store.
+- **`Configure(ctx)`** — Receives `context.Context` and `Credentials` (`map[string]string`). Validate and store. I/O adapters propagate ctx.
 - **`Tools()`** — Returns tool definitions for progressive discovery via the `search` MCP tool.
 - **`Execute()`** — Dispatches to the correct handler by tool name. Returns `*ToolResult`.
 - **`Healthy()`** — Lightweight API call to verify credentials.

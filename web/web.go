@@ -198,7 +198,7 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 
 	var healthy bool
 	if exists && enabled {
-		if err := integration.Configure(ic.Credentials); err == nil {
+		if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
 			healthy = integration.Healthy(r.Context())
 		}
 	}
@@ -298,7 +298,7 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 	if info.HasToken {
 		integration, ok := w.services.Registry.Get("slack")
 		if ok && exists {
-			if err := integration.Configure(ic.Credentials); err == nil {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
 				healthy = integration.Healthy(r.Context())
 			}
 		}
@@ -389,7 +389,7 @@ func (w *WebServer) handleGitHubSetup(rw http.ResponseWriter, r *http.Request) {
 	if hasToken {
 		integration, ok := w.services.Registry.Get("github")
 		if ok {
-			if err := integration.Configure(ic.Credentials); err == nil {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
 				healthy = integration.Healthy(r.Context())
 			}
 		}
@@ -499,7 +499,7 @@ func (w *WebServer) handleLinearSetup(rw http.ResponseWriter, r *http.Request) {
 	if hasToken {
 		integration, ok := w.services.Registry.Get("linear")
 		if ok {
-			if err := integration.Configure(ic.Credentials); err == nil {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
 				healthy = integration.Healthy(r.Context())
 			}
 		}
@@ -627,7 +627,7 @@ func (w *WebServer) handleSentrySetup(rw http.ResponseWriter, r *http.Request) {
 	if hasToken {
 		integration, ok := w.services.Registry.Get("sentry")
 		if ok {
-			if err := integration.Configure(ic.Credentials); err == nil {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
 				healthy = integration.Healthy(r.Context())
 			}
 		}
@@ -794,7 +794,7 @@ func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {
 	if hasToken {
 		integration, ok := w.services.Registry.Get("notion")
 		if ok {
-			if err := integration.Configure(ic.Credentials); err == nil {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
 				healthy = integration.Healthy(r.Context())
 			}
 		}
@@ -915,7 +915,7 @@ func (w *WebServer) handleGmailSetup(rw http.ResponseWriter, r *http.Request) {
 	if hasToken {
 		integration, ok := w.services.Registry.Get("gmail")
 		if ok {
-			if err := integration.Configure(ic.Credentials); err == nil {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
 				healthy = integration.Healthy(r.Context())
 			}
 		}
