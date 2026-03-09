@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -921,6 +922,290 @@ func TestHandleExecute_EmptyArgs(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "not found")
+}
+
+func TestExecuteTool_RetriesOnRetryableError(t *testing.T) {
+	calls := 0
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_flaky", Description: "flaky tool"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			calls++
+			if calls < 3 {
+				return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("service unavailable")}
+			}
+			return &mcp.ToolResult{Data: "ok"}, nil
+		},
+		healthy: true,
+	})
+	s.retryBackoff = 0
+	result, err := s.executeTool(context.Background(), "test_flaky", map[string]any{})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Equal(t, "ok", result.Data)
+	assert.Equal(t, 3, calls, "should have retried until success")
+}
+
+func TestExecuteTool_ReturnsErrorAfterMaxRetries(t *testing.T) {
+	calls := 0
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_down", Description: "always 503"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			calls++
+			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("service unavailable")}
+		},
+		healthy: true,
+	})
+	s.retryBackoff = 0
+	result, err := s.executeTool(context.Background(), "test_down", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "service unavailable")
+	assert.Equal(t, 3, calls, "should attempt exactly 3 times")
+}
+
+func TestComputeBackoff_ReturnsValueWithinJitterBounds(t *testing.T) {
+	s := &Server{retryBackoff: 100 * time.Millisecond}
+
+	for attempt := range 3 {
+		base := s.retryBackoff << attempt
+		half := base / 2
+
+		// Run enough times to verify bounds and variation.
+		var vals []time.Duration
+		for range 50 {
+			d := s.computeBackoff(attempt)
+			assert.GreaterOrEqual(t, d, half, "attempt %d: backoff must be ≥ base/2", attempt)
+			assert.LessOrEqual(t, d, base, "attempt %d: backoff must be ≤ base", attempt)
+			vals = append(vals, d)
+		}
+
+		// At least 2 distinct values in 50 samples (deterministic would produce 1).
+		distinct := map[time.Duration]bool{}
+		for _, v := range vals {
+			distinct[v] = true
+		}
+		assert.Greater(t, len(distinct), 1, "attempt %d: jitter should produce varying values", attempt)
+	}
+}
+
+func TestExecuteTool_DoesNotRetryNonRetryableErrors(t *testing.T) {
+	calls := 0
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_bad", Description: "permanent error"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			calls++
+			return nil, fmt.Errorf("json marshal failed")
+		},
+		healthy: true,
+	})
+	_, err := s.executeTool(context.Background(), "test_bad", map[string]any{})
+	require.Error(t, err)
+	assert.Equal(t, 1, calls, "should not retry non-retryable errors")
+}
+
+func TestExecuteTool_DoesNotRetryToolResultErrors(t *testing.T) {
+	calls := 0
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_4xx", Description: "client error"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			calls++
+			return &mcp.ToolResult{Data: "not found", IsError: true}, nil
+		},
+		healthy: true,
+	})
+	result, err := s.executeTool(context.Background(), "test_4xx", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Equal(t, 1, calls, "should not retry ToolResult errors")
+}
+
+func TestExecuteTool_RespectsContextCancellationDuringBackoff(t *testing.T) {
+	calls := 0
+	ctx, cancel := context.WithCancel(context.Background())
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_slow", Description: "fails then cancelled"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			calls++
+			if calls == 1 {
+				cancel() // cancel during first failure — should abort before retry
+			}
+			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("unavailable")}
+		},
+		healthy: true,
+	})
+	s.retryBackoff = time.Second // long backoff so cancellation wins the select race
+
+	_, err := s.executeTool(ctx, "test_slow", map[string]any{})
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, calls, "should not retry after context cancellation")
+}
+
+func TestExecuteTool_UsesRetryAfterWhenProvided(t *testing.T) {
+	calls := 0
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_ratelimit", Description: "429 with retry-after"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			calls++
+			if calls == 1 {
+				return nil, &mcp.RetryableError{StatusCode: 429, Err: fmt.Errorf("rate limited"), RetryAfter: 15 * time.Millisecond}
+			}
+			return &mcp.ToolResult{Data: "ok"}, nil
+		},
+		healthy: true,
+	})
+	s.retryBackoff = time.Second // default backoff is very long
+
+	start := time.Now()
+	result, err := s.executeTool(context.Background(), "test_ratelimit", map[string]any{})
+	elapsed := time.Since(start)
+
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	// If using RetryAfter (15ms), elapsed should be much less than default backoff (1s).
+	assert.Less(t, elapsed, 500*time.Millisecond, "should use RetryAfter delay, not default backoff")
+	assert.Equal(t, 2, calls)
+}
+
+func TestExecuteTool_CircuitBreakerTripsAfterRepeatedFailures(t *testing.T) {
+	calls := 0
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_breaker", Description: "always 503"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			calls++
+			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
+		},
+		healthy: true,
+	})
+	s.retryBackoff = 0
+	s.breakerThreshold = 5
+	s.breakerCooldown = time.Minute
+
+	// Each executeTool call with maxRetries=3 records 3 failures.
+	// After 2 calls (6 failures ≥ threshold of 5), breaker should be open.
+	s.executeTool(context.Background(), "test_breaker", map[string]any{})
+	s.executeTool(context.Background(), "test_breaker", map[string]any{})
+
+	callsBefore := calls
+	result, err := s.executeTool(context.Background(), "test_breaker", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "circuit breaker open")
+	assert.Equal(t, callsBefore, calls, "should not call integration when breaker is open")
+}
+
+func TestExecuteTool_CircuitBreakerResetsOnSuccess(t *testing.T) {
+	callCount := 0
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_recover", Description: "fails then recovers"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			callCount++
+			if callCount <= 6 {
+				return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
+			}
+			return &mcp.ToolResult{Data: "ok"}, nil
+		},
+		healthy: true,
+	})
+	s.retryBackoff = 0
+	s.breakerThreshold = 5
+	s.breakerCooldown = 50 * time.Millisecond
+
+	// Trip the breaker (6 failures across 2 calls).
+	s.executeTool(context.Background(), "test_recover", map[string]any{})
+	s.executeTool(context.Background(), "test_recover", map[string]any{})
+
+	// Wait for cooldown.
+	time.Sleep(60 * time.Millisecond)
+
+	// Half-open: allows one probe. Mock now returns success.
+	result, err := s.executeTool(context.Background(), "test_recover", map[string]any{})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Equal(t, "ok", result.Data)
+}
+
+func TestExecuteTool_BudgetExhaustionRecordsFailure(t *testing.T) {
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_budget_breaker", Description: "always 503"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
+		},
+		healthy: true,
+	})
+	s.retryBackoff = 0
+	s.breakerThreshold = 2
+	s.breakerCooldown = time.Minute
+
+	// Budget of 1: attempt 0 fails → record failure, consume retry (budget=0) →
+	// attempt 1 fails → record failure, budget exhausted → break.
+	// Two failures should trip the breaker (threshold=2).
+	ctx := withRetryBudget(context.Background(), 1)
+	s.executeTool(ctx, "test_budget_breaker", map[string]any{})
+
+	// If failures were recorded correctly, breaker should now be open.
+	result, err := s.executeTool(context.Background(), "test_budget_breaker", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "circuit breaker open")
+}
+
+func TestScriptExecution_RetriesShareBudget(t *testing.T) {
+	callCounts := map[string]int{}
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_flaky_a", Description: "flaky a"},
+			{Name: "test_flaky_b", Description: "flaky b"},
+		},
+		execFn: func(_ context.Context, toolName string, _ map[string]any) (*mcp.ToolResult, error) {
+			callCounts[toolName]++
+			// Each tool fails twice then succeeds on 3rd attempt (needs 2 retries).
+			if callCounts[toolName] <= 2 {
+				return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("unavailable")}
+			}
+			return &mcp.ToolResult{Data: fmt.Sprintf(`{"tool":"%s"}`, toolName)}, nil
+		},
+		healthy: true,
+	})
+	s.retryBackoff = 0
+	s.breakerThreshold = 100 // disable breaker for this test
+
+	// Budget of 3 retries total. Tool A uses 2, leaving 1 for tool B (needs 2).
+	// Without budget wiring: both tools succeed (each has 3 attempts via maxRetries).
+	// With budget wiring: tool B fails because budget only allows 1 more retry.
+	result, err := s.scriptEngine.Run(
+		withRetryBudget(context.Background(), 3),
+		`var a = api.call("test_flaky_a", {}); var b = api.call("test_flaky_b", {}); ({a: a, b: b});`,
+	)
+	require.NoError(t, err)
+	assert.True(t, result.IsError, "second tool should fail — retry budget exhausted")
 }
 
 func TestHandleExecute_NeitherToolNameNorScript(t *testing.T) {

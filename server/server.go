@@ -4,12 +4,15 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/script"
@@ -19,11 +22,20 @@ import (
 const defaultSearchLimit = 20
 const maxResponseBytes = 50 * 1024 // 50KB
 
+const (
+	defaultBreakerThreshold = 5
+	defaultBreakerCooldown  = 30 * time.Second
+)
+
 // Server wraps the MCP SDK server and exposes search/execute tools.
 type Server struct {
-	mcpServer    *mcpsdk.Server
-	services     *mcp.Services
-	scriptEngine *script.Engine
+	mcpServer        *mcpsdk.Server
+	services         *mcp.Services
+	scriptEngine     *script.Engine
+	retryBackoff     time.Duration
+	breakers         map[string]*breaker
+	breakerThreshold int
+	breakerCooldown  time.Duration
 }
 
 // New creates a Server that exposes two MCP tools — search and execute —
@@ -39,8 +51,12 @@ func New(services *mcp.Services) *Server {
 	)
 
 	s := &Server{
-		mcpServer: mcpServer,
-		services:  services,
+		mcpServer:        mcpServer,
+		services:         services,
+		retryBackoff:     500 * time.Millisecond,
+		breakers:         make(map[string]*breaker),
+		breakerThreshold: defaultBreakerThreshold,
+		breakerCooldown:  defaultBreakerCooldown,
 	}
 	s.scriptEngine = script.New(&toolExecutor{server: s})
 
@@ -338,7 +354,10 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	}, nil
 }
 
+const maxScriptRetries = 10
+
 func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsdk.CallToolResult, error) {
+	ctx = withRetryBudget(ctx, maxScriptRetries)
 	result, err := s.scriptEngine.Run(ctx, source)
 	if err != nil {
 		return errorResult(err.Error()), nil
@@ -351,8 +370,31 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 	}, nil
 }
 
+const maxRetries = 3
+
+// computeBackoff returns a jittered backoff duration for the given retry attempt.
+// Uses equal jitter: half the exponential base plus a random value in [0, half].
+// This guarantees a minimum wait while decorrelating concurrent retries.
+func (s *Server) computeBackoff(attempt int) time.Duration {
+	base := s.retryBackoff << attempt
+	half := base / 2
+	return half + time.Duration(rand.Int64N(int64(half)+1)) // #nosec G404 -- jitter, not security
+}
+
+// getBreaker returns the circuit breaker for the given integration, creating one if needed.
+func (s *Server) getBreaker(integrationName string) *breaker {
+	if b, ok := s.breakers[integrationName]; ok {
+		return b
+	}
+	b := newBreaker(s.breakerThreshold, s.breakerCooldown)
+	s.breakers[integrationName] = b
+	return b
+}
+
 // executeTool finds and runs a single tool by name. Used by both direct
 // execute and as the bridge for the script engine's api.call().
+// Retries automatically on RetryableError (5xx, 429) with exponential backoff.
+// Respects per-integration circuit breakers to avoid hammering down services.
 func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
 	integration, found := s.findIntegration(toolName)
 	if !found {
@@ -362,27 +404,61 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 		}, nil
 	}
 
-	result, err := integration.Execute(ctx, toolName, args)
-	if err != nil {
-		return result, err
+	cb := s.getBreaker(integration.Name())
+	if !cb.allow() {
+		return &mcp.ToolResult{
+			Data:    fmt.Sprintf("integration %q temporarily unavailable (circuit breaker open)", integration.Name()),
+			IsError: true,
+		}, nil
 	}
 
-	if !result.IsError {
-		result.Data = compactResult(integration, toolName, result.Data)
+	var lastErr error
+	for attempt := range maxRetries {
+		result, err := integration.Execute(ctx, toolName, args)
+		if err == nil {
+			cb.recordSuccess()
+			if !result.IsError {
+				result.Data = compactResult(integration, toolName, result.Data)
+				if len(result.Data) > maxResponseBytes {
+					return &mcp.ToolResult{
+						Data: fmt.Sprintf(
+							"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
+							maxResponseBytes/1024,
+							len(result.Data)/1024,
+						),
+						IsError: true,
+					}, nil
+				}
+			}
+			return result, nil
+		}
 
-		if len(result.Data) > maxResponseBytes {
-			return &mcp.ToolResult{
-				Data: fmt.Sprintf(
-					"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
-					maxResponseBytes/1024,
-					len(result.Data)/1024,
-				),
-				IsError: true,
-			}, nil
+		if !mcp.IsRetryable(err) {
+			return result, err
+		}
+		lastErr = err
+		cb.recordFailure()
+		if attempt >= maxRetries-1 {
+			break
+		}
+		if !consumeRetry(ctx) {
+			break // script retry budget exhausted
+		}
+		backoff := s.computeBackoff(attempt)
+		// Prefer server-suggested Retry-After over computed backoff.
+		var re *mcp.RetryableError
+		if errors.As(err, &re) && re.RetryAfter > 0 {
+			backoff = re.RetryAfter
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(backoff):
 		}
 	}
 
-	return result, nil
+	// All retries exhausted — convert last retryable error to ToolResult
+	return &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }
 
 // findIntegration returns the integration that owns toolName, or false if not found.

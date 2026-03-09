@@ -1,7 +1,10 @@
 package mcp
 
 import (
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,4 +105,56 @@ func TestServicesStruct(t *testing.T) {
 	s := &Services{}
 	assert.Nil(t, s.Config)
 	assert.Nil(t, s.Registry)
+}
+
+func TestRetryableError_IncludesStatusCodeInMessage(t *testing.T) {
+	tests := []struct {
+		name    string
+		code    int
+		inner   string
+		wantMsg string
+	}{
+		{"503", 503, "service unavailable", "retryable (503): service unavailable"},
+		{"429", 429, "rate limited", "retryable (429): rate limited"},
+		{"502", 502, "bad gateway", "retryable (502): bad gateway"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := &RetryableError{StatusCode: tt.code, Err: errors.New(tt.inner)}
+			assert.Equal(t, tt.wantMsg, err.Error())
+		})
+	}
+}
+
+func TestRetryableError_UnwrapsInnerError(t *testing.T) {
+	inner := errors.New("connection reset")
+	err := &RetryableError{StatusCode: 502, Err: inner}
+	assert.ErrorIs(t, err, inner)
+}
+
+func TestRetryableError_PreservesRetryAfterThroughErrorsAs(t *testing.T) {
+	inner := errors.New("rate limited")
+	err := &RetryableError{StatusCode: 429, Err: inner, RetryAfter: 5 * time.Second}
+
+	var re *RetryableError
+	require.True(t, errors.As(err, &re))
+	assert.Equal(t, 5*time.Second, re.RetryAfter)
+	assert.Equal(t, 429, re.StatusCode)
+}
+
+func TestIsRetryable_DistinguishesRetryableFromPermanentErrors(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		retryable bool
+	}{
+		{"RetryableError is retryable", &RetryableError{StatusCode: 503, Err: errors.New("timeout")}, true},
+		{"plain error is not retryable", errors.New("bad request"), false},
+		{"wrapped RetryableError is retryable", fmt.Errorf("outer: %w", &RetryableError{StatusCode: 429, Err: errors.New("rate limit")}), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.retryable, IsRetryable(tt.err))
+		})
+	}
 }
