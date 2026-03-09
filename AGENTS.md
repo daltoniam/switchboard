@@ -21,6 +21,8 @@
 | All security | gosec + govulncheck | `make security` |
 | **All CI checks** | build + vet + test-race + lint + security | **`make ci`** |
 | Generate templ | `go generate .` | `make generate` |
+| Install | Build + copy to `~/.local/bin` + install systemd user service | `make install` |
+| Deploy | Build + copy to `~/.local/bin` + restart systemd service | `make deploy` |
 | Clean | `rm -f switchboard coverage.out` | `make clean` |
 
 ```bash
@@ -51,6 +53,24 @@ git push origin v0.1.0
 # Generate templ templates (required after editing .templ files in web/templates/)
 make generate
 ```
+
+### Local Development Daemon (systemd only)
+
+On Linux systems with systemd, `make install` and `make deploy` manage a user-space daemon for local development. The binary is **copied** (not symlinked) to `~/.local/bin/switchboard`, so the daemon keeps running even if the source worktree is deleted.
+
+```bash
+# First time — build, install binary, create systemd user service, and start
+make install
+
+# After code changes — build, overwrite binary, restart service
+make deploy
+
+# Logs and status
+journalctl --user -u switchboard -f
+systemctl --user status switchboard
+```
+
+The systemd unit file is written to `~/.config/systemd/user/switchboard.service` and points at `~/.local/bin/switchboard`. The service restarts on failure automatically.
 
 - **Templ**: `web/templates/*.templ` → run `templ generate` after edits. **Never edit `*_templ.go`** (generated)
 - **Release**: GoReleaser via `.goreleaser.yml`. Ldflags: `main.version`, `main.commit`, `main.date`

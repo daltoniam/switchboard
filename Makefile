@@ -1,6 +1,8 @@
-.PHONY: build generate test test-race vet lint security gosec govulncheck ci clean help
+.PHONY: build generate test test-race vet lint security gosec govulncheck ci clean install deploy help
 
-BIN := dist/switchboard
+BIN        := dist/switchboard
+INSTALL_DIR := $(HOME)/.local/bin
+INSTALL_BIN := $(INSTALL_DIR)/switchboard
 
 ## Build
 
@@ -41,6 +43,20 @@ security: gosec govulncheck ## Run all security checks
 ## CI
 
 ci: build vet test-race lint security ## Run all CI checks locally
+
+## Install & Deploy
+
+install: build ## Build, install to ~/.local/bin, and set up systemd user service
+	@mkdir -p $(INSTALL_DIR)
+	cp $(BIN) $(INSTALL_BIN)
+	$(INSTALL_BIN) daemon install
+	$(INSTALL_BIN) daemon start
+	@echo "Installed and started. Logs: journalctl --user -u switchboard -f"
+
+deploy: build ## Build, install to ~/.local/bin, and restart the daemon
+	cp $(BIN) $(INSTALL_BIN)
+	systemctl --user restart switchboard
+	@echo "Deployed and restarted."
 
 ## Help
 
