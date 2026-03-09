@@ -34,7 +34,7 @@ func New() mcp.Integration {
 
 func (y *ynab) Name() string { return "ynab" }
 
-func (y *ynab) Configure(creds mcp.Credentials) error {
+func (y *ynab) Configure(_ context.Context, creds mcp.Credentials) error {
 	y.apiKey = creds["api_key"]
 	if y.apiKey == "" {
 		return fmt.Errorf("ynab: api_key is required")

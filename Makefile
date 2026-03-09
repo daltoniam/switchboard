@@ -1,6 +1,8 @@
-.PHONY: build generate test test-race vet lint security gosec govulncheck ci clean help
+.PHONY: build generate test test-race vet lint security gosec govulncheck ci clean install deploy help
 
-BIN := dist/switchboard
+BIN        := dist/switchboard
+INSTALL_DIR := $(HOME)/.local/bin
+INSTALL_BIN := $(INSTALL_DIR)/switchboard
 
 ## Build
 
@@ -41,6 +43,27 @@ security: gosec govulncheck ## Run all security checks
 ## CI
 
 ci: build vet test-race lint security ## Run all CI checks locally
+
+## Install & Deploy
+
+install: build ## Build, install to ~/.local/bin, and set up systemd user service
+	@mkdir -p $(INSTALL_DIR)
+	cp $(BIN) $(INSTALL_BIN)
+	$(INSTALL_BIN) daemon install
+	$(INSTALL_BIN) daemon start
+	@sleep 1
+	@systemctl --user is-active switchboard.service >/dev/null 2>&1 && \
+		echo "Installed and started. Logs: journalctl --user -u switchboard -f" || \
+		echo "Service installed but failed to start. Check: systemctl --user status switchboard"
+
+deploy: build ## Build, install to ~/.local/bin, and restart the daemon (requires make install first)
+	@if ! systemctl --user is-enabled switchboard.service >/dev/null 2>&1; then \
+		echo "Error: systemd service not installed. Run 'make install' first."; \
+		exit 1; \
+	fi
+	cp $(BIN) $(INSTALL_BIN)
+	systemctl --user restart switchboard
+	@echo "Deployed and restarted."
 
 ## Help
 
