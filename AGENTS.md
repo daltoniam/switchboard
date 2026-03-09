@@ -400,13 +400,25 @@ sequenceDiagram
 
 - **Opt in**: Implement `CompactSpec(toolName string) ([]CompactField, bool)` — returns parsed fields + found flag
 - **Declare specs** in `<adapter>/compact_specs.go` using dot-notation: `"title"`, `"user.login"`, `"labels[].name"`, `"page.id"` (2+ specs sharing a root → nested object)
+- **Spec syntax** (all parsed by `ParseCompactSpecs` in `compact.go`):
+  - `"field"` — keep a top-level field
+  - `"parent.child"` — extract nested value (2+ children sharing a root → nested object in output)
+  - `"parent[].child"` — extract from array elements
+  - `"-field"` — exclude a top-level field (exclusion mode: all other fields kept)
+  - `"-parent.child"` — exclude the entire parent object
+  - `"field:alias"` — rename field in output
+  - `"parent.*"` — wildcard, keeps entire sub-object under parent key (one level only)
+- **Omitempty**: null values, empty arrays `[]`, and empty objects `{}` are automatically stripped from compacted output
+- **Pre-computed field plans**: `buildFieldPlan` groups specs into scalars, array groups, object groups, wildcards, and excludes once per `CompactJSON` call — shared across all array items
 - **Keep**: fields that prevent N+1 drill-downs (routing fields, identifiers, states, dates, counts)
 - **Drop**: nested full objects (user, repo), permissions, avatars, node_ids, template URLs
 - **Compact all reads**: any tool returning raw API records (list, search, or single-record get) needs a compaction spec. Mutation tools return small confirmation objects (`{"id":"...","status":"updated"}`) — no spec needed.
 - **Handler boundary**: handlers do structural transformation only (unwrap envelopes, merge split responses, tree-build). All noise/context reduction flows through compaction specs — handler-level field whitelists or record filtering cause spec drift (changes require two-file edits, reviewers miss the handler's hidden filter).
 - **Dispatch parity**: `TestFieldCompactionSpecs_NoOrphanSpecs` — every spec key must have a dispatch handler
+- **Compaction spec tests**: every adapter with `compact_specs.go` has a `compact_specs_test.go` with 6-7 tests: no orphan specs, no missing specs for read tools, no specs on mutation tools, spec parsability, nested object grouping, wildcard consistency
 - **Unwrap SDK lists**: return `resp.Items` not `resp` so compaction operates on the array directly
 - **Anti-pattern**: `return jsonResult(fullSDKWrapper)` for list tools
+- **Benchmarks**: `BenchmarkCompactionRatio` in `compact_test.go` — 8 sub-benchmarks with realistic payloads (GitHub, Datadog, Linear, Sentry, AWS, exclusion, single object, passthrough). Reports input_bytes, output_bytes, savings_%, throughput MB/s.
 - See `.claude/skills/optimize-integration/SKILL.md` for compaction refinement, handler boundary rules, and anti-patterns
 
 ### Tool Description Design

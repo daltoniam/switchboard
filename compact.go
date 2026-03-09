@@ -100,7 +100,8 @@ func buildFieldPlan(fields []CompactField) *fieldPlan {
 //   - "field"          → scalar value, output key = field name
 //   - "parent.child"   → nested value, output key = dot-path ("user.login")
 //   - "parent[].child" → array element extraction, output key = array base ("labels")
-//   - "-field"         → exclusion spec, removes the field from output
+//   - "-field"         → exclusion spec, removes top-level field from output
+//   - "-parent.child"  → exclusion spec, removes entire parent object from output
 //   - "field:alias"    → field renaming, output key = alias
 //   - "parent.*"       → wildcard, keeps entire sub-object under parent key
 func ParseCompactSpecs(specs []string) ([]CompactField, error) {
@@ -159,7 +160,7 @@ func parseCompactSpec(spec string) (CompactField, error) {
 			return CompactField{}, fmt.Errorf("compact spec: bare wildcard not allowed")
 		}
 		if len(parts) > 2 {
-			return CompactField{}, fmt.Errorf("compact spec: wildcard must be directly under parent in %q", spec)
+			return CompactField{}, fmt.Errorf("compact spec: wildcard only supports one level (parent.*), got %q", spec)
 		}
 		isWildcard = true
 	}

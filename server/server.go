@@ -504,7 +504,7 @@ func compactResult(integration mcp.Integration, toolName string, data string) st
 		slog.Warn("compaction failed, returning full response", "tool", toolName, "err", err)
 		return data
 	}
-	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
+	if slog.Default().Handler().Enabled(context.Background(), slog.LevelDebug) {
 		compactedLen := len(compacted)
 		savingsPct := 0
 		if originalLen > 0 {
