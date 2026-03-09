@@ -56,7 +56,7 @@ make generate
 
 ### Local Development Daemon (systemd only)
 
-On Linux systems with systemd, `make install` and `make deploy` manage a user-space daemon for local development. The binary is **copied** (not symlinked) to `~/.local/bin/switchboard`, so the daemon keeps running even if the source worktree is deleted.
+On Linux systems with systemd, `make install` and `make deploy` manage a user-space daemon for local development. The binary is **copied** (not symlinked) to `~/.local/bin/switchboard`, so the daemon keeps running even if the source worktree is deleted. **Note**: macOS users with launchd should use `./switchboard daemon install` directly — these Makefile targets are Linux-specific.
 
 ```bash
 # First time — build, install binary, create systemd user service, and start
