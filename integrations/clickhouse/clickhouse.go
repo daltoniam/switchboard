@@ -15,6 +15,12 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*clickhouseInt)(nil)
+	_ mcp.FieldCompactionIntegration = (*clickhouseInt)(nil)
+)
+
 type clickhouseInt struct {
 	conn driver.Conn
 }
@@ -84,6 +90,11 @@ func (c *clickhouseInt) Healthy(ctx context.Context) bool {
 
 func (c *clickhouseInt) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (c *clickhouseInt) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (c *clickhouseInt) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {

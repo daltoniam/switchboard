@@ -15,6 +15,12 @@ import (
 	"github.com/slack-go/slack"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*slackIntegration)(nil)
+	_ mcp.FieldCompactionIntegration = (*slackIntegration)(nil)
+)
+
 type slackIntegration struct {
 	mu     sync.RWMutex
 	client *slack.Client
@@ -83,6 +89,11 @@ func (s *slackIntegration) getClient() *slack.Client {
 }
 
 func (s *slackIntegration) Tools() []mcp.ToolDefinition { return tools }
+
+func (s *slackIntegration) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
+}
 
 func (s *slackIntegration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]

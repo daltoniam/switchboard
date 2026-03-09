@@ -14,6 +14,12 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*sentry)(nil)
+	_ mcp.FieldCompactionIntegration = (*sentry)(nil)
+)
+
 type sentry struct {
 	authToken    string
 	organization string
@@ -52,6 +58,11 @@ func (s *sentry) Healthy(ctx context.Context) bool {
 
 func (s *sentry) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (s *sentry) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (s *sentry) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {

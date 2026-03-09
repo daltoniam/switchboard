@@ -16,6 +16,82 @@ type CompactField struct {
 	arrayKey   string   // path[arrayIdx] without "[]", empty if arrayIdx == -1
 	childPath  []string // path[arrayIdx+1:], nil if arrayIdx == -1
 	objectRoot string   // first path segment for non-array multi-segment specs, empty otherwise
+	exclude    bool     // true for "-field" exclusion specs
+	wildcard   bool     // true for "parent.*" wildcard specs
+}
+
+// fieldPlan holds pre-computed groupings for a set of CompactField specs.
+// Built once by ParseCompactSpecs; reused on every object in an array.
+type fieldPlan struct {
+	scalars      []CompactField            // simple fields + single-member object groups
+	arrayGroups  map[string][]CompactField  // outputKey → array field group
+	objectGroups map[string][]CompactField  // objectRoot → nested object group (2+ members only)
+	childPlans   map[string][]CompactField  // objectRoot → pre-parsed child CompactFields
+	excludes     map[string]bool            // top-level keys to exclude
+	hasIncludes  bool                       // true if any non-exclude specs exist
+}
+
+// buildFieldPlan pre-computes groupings from a slice of CompactFields.
+func buildFieldPlan(fields []CompactField) *fieldPlan {
+	plan := &fieldPlan{
+		arrayGroups:  make(map[string][]CompactField),
+		objectGroups: make(map[string][]CompactField),
+		childPlans:   make(map[string][]CompactField),
+		excludes:     make(map[string]bool),
+	}
+
+	// Separate excludes from includes.
+	var includes []CompactField
+	for _, f := range fields {
+		if f.exclude {
+			if len(f.path) == 1 {
+				plan.excludes[f.path[0]] = true
+			} else {
+				plan.excludes[f.objectRoot] = true
+			}
+			continue
+		}
+		includes = append(includes, f)
+	}
+	plan.hasIncludes = len(includes) > 0
+
+	// Group include fields.
+	rawObjectGroups := map[string][]CompactField{}
+	for _, f := range includes {
+		if f.wildcard {
+			plan.scalars = append(plan.scalars, f)
+			continue
+		}
+		if f.arrayIdx >= 0 {
+			plan.arrayGroups[f.outputKey] = append(plan.arrayGroups[f.outputKey], f)
+			continue
+		}
+		if f.objectRoot != "" {
+			rawObjectGroups[f.objectRoot] = append(rawObjectGroups[f.objectRoot], f)
+			continue
+		}
+		plan.scalars = append(plan.scalars, f)
+	}
+
+	// Split object groups: single-member → scalars, multi-member → objectGroups with pre-parsed children.
+	for root, group := range rawObjectGroups {
+		if len(group) == 1 {
+			plan.scalars = append(plan.scalars, group[0])
+			continue
+		}
+		plan.objectGroups[root] = group
+		childFields := make([]CompactField, 0, len(group))
+		for _, f := range group {
+			cf, err := parseCompactSpec(strings.Join(f.path[1:], "."))
+			if err != nil {
+				continue
+			}
+			childFields = append(childFields, cf)
+		}
+		plan.childPlans[root] = childFields
+	}
+
+	return plan
 }
 
 // ParseCompactSpecs parses dot-notation spec strings into CompactFields.
@@ -24,6 +100,10 @@ type CompactField struct {
 //   - "field"          → scalar value, output key = field name
 //   - "parent.child"   → nested value, output key = dot-path ("user.login")
 //   - "parent[].child" → array element extraction, output key = array base ("labels")
+//   - "-field"         → exclusion spec, removes top-level field from output
+//   - "-parent.child"  → exclusion spec, removes entire parent object from output
+//   - "field:alias"    → field renaming, output key = alias
+//   - "parent.*"       → wildcard, keeps entire sub-object under parent key
 func ParseCompactSpecs(specs []string) ([]CompactField, error) {
 	fields := make([]CompactField, 0, len(specs))
 	for _, s := range specs {
@@ -40,6 +120,30 @@ func parseCompactSpec(spec string) (CompactField, error) {
 	if spec == "" {
 		return CompactField{}, fmt.Errorf("compact spec: empty string")
 	}
+
+	// Handle exclusion specs.
+	var exclude bool
+	if strings.HasPrefix(spec, "-") {
+		exclude = true
+		spec = spec[1:]
+		if spec == "" {
+			return CompactField{}, fmt.Errorf("compact spec: empty exclusion")
+		}
+	}
+
+	// Handle field renaming (source:alias).
+	var alias string
+	if idx := strings.LastIndex(spec, ":"); idx >= 0 {
+		if exclude {
+			return CompactField{}, fmt.Errorf("compact spec: exclusion cannot use rename syntax %q", "-"+spec)
+		}
+		alias = spec[idx+1:]
+		if alias == "" {
+			return CompactField{}, fmt.Errorf("compact spec: empty alias in %q", spec)
+		}
+		spec = spec[:idx]
+	}
+
 	if strings.HasPrefix(spec, ".") || strings.HasSuffix(spec, ".") {
 		return CompactField{}, fmt.Errorf("compact spec: invalid %q", spec)
 	}
@@ -48,10 +152,31 @@ func parseCompactSpec(spec string) (CompactField, error) {
 	}
 
 	parts := strings.Split(spec, ".")
+
+	// Handle wildcard specs (parent.*).
+	var isWildcard bool
+	if parts[len(parts)-1] == "*" {
+		if len(parts) == 1 {
+			return CompactField{}, fmt.Errorf("compact spec: bare wildcard not allowed")
+		}
+		if len(parts) > 2 {
+			return CompactField{}, fmt.Errorf("compact spec: wildcard only supports one level (parent.*), got %q", spec)
+		}
+		isWildcard = true
+	}
+	for i := 0; i < len(parts)-1; i++ {
+		if parts[i] == "*" {
+			return CompactField{}, fmt.Errorf("compact spec: wildcard must be terminal in %q", spec)
+		}
+	}
+
 	arrayIdx := -1
 	for i, p := range parts {
 		if !strings.HasSuffix(p, "[]") {
 			continue
+		}
+		if exclude {
+			return CompactField{}, fmt.Errorf("compact spec: exclusion cannot use array syntax %q", "-"+spec)
 		}
 		if i == len(parts)-1 {
 			return CompactField{}, fmt.Errorf("compact spec: %q ends with [] (need a child field)", spec)
@@ -70,10 +195,17 @@ func parseCompactSpec(spec string) (CompactField, error) {
 		outputKey = strings.TrimSuffix(parts[arrayIdx], "[]")
 		arrayKey = outputKey
 		childPath = parts[arrayIdx+1:]
+	case isWildcard:
+		outputKey = parts[0]
 	case len(parts) == 1:
 		outputKey = parts[0]
 	default:
 		outputKey = spec
+	}
+
+	// Apply alias override if provided.
+	if alias != "" {
+		outputKey = alias
 	}
 
 	// objectRoot: first path segment for multi-segment non-array specs.
@@ -90,11 +222,16 @@ func parseCompactSpec(spec string) (CompactField, error) {
 		arrayKey:   arrayKey,
 		childPath:  childPath,
 		objectRoot: objectRoot,
+		exclude:    exclude,
+		wildcard:   isWildcard,
 	}, nil
 }
 
 // CompactJSON applies field compaction to JSON data, keeping only the specified fields.
 // Nil or empty fields returns data unchanged. Handles both objects and arrays.
+// Exclusion specs ("-field") remove fields from output. When only exclusion specs
+// are provided, all other fields are preserved. Null values and empty arrays/objects
+// are automatically omitted from output.
 func CompactJSON(data []byte, fields []CompactField) ([]byte, error) {
 	if len(data) == 0 || len(fields) == 0 {
 		return data, nil
@@ -105,67 +242,68 @@ func CompactJSON(data []byte, fields []CompactField) ([]byte, error) {
 		return data, nil
 	}
 
+	plan := buildFieldPlan(fields)
+
 	switch trimmed[0] {
 	case '[':
-		return compactArray(data, fields)
+		return compactArray(data, fields, plan)
 	case '{':
-		return compactObjectJSON(data, fields)
+		return compactObjectJSON(data, fields, plan)
 	default:
 		return nil, fmt.Errorf("compactJSON: expected JSON object or array, got %q", trimmed[0])
 	}
 }
 
 // compactObjectJSON unmarshals a single JSON object, applies field compaction, and re-marshals.
-func compactObjectJSON(data []byte, fields []CompactField) ([]byte, error) {
+func compactObjectJSON(data []byte, fields []CompactField, plan *fieldPlan) ([]byte, error) {
 	var obj map[string]any
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return nil, fmt.Errorf("compactJSON: %w", err)
 	}
-	return json.Marshal(compactObject(obj, fields))
+	return json.Marshal(compactObject(obj, fields, plan))
 }
 
 // compactObject keeps only the specified fields from an unmarshalled object.
-// Groups array fields by outputKey so multiple child specs on the same parent
-// (e.g. steps[].name + steps[].conclusion) produce sub-objects, not overwrites.
-// Groups non-array nested fields by objectRoot when 2+ share a root segment
-// (e.g. commit.message + commit.author.name) into nested output objects.
-func compactObject(obj map[string]any, fields []CompactField) map[string]any {
-	out := make(map[string]any, len(fields))
+// Uses pre-computed fieldPlan for groupings, avoiding per-object re-computation.
+// When only exclusion specs exist, copies all keys except excluded ones.
+// Omits null values, empty arrays, and empty objects from output.
+func compactObject(obj map[string]any, fields []CompactField, plan *fieldPlan) map[string]any {
+	// Exclusion-only mode: copy all fields except excluded ones.
+	if !plan.hasIncludes && len(plan.excludes) > 0 {
+		out := make(map[string]any, len(obj))
+		for k, v := range obj {
+			if plan.excludes[k] {
+				continue
+			}
+			if isEmptyValue(v) {
+				continue
+			}
+			out[k] = v
+		}
+		return out
+	}
 
-	// Group array fields by outputKey and nested object fields by objectRoot.
-	arrayGroups := map[string][]CompactField{}
-	objectGroups := map[string][]CompactField{}
-	for _, f := range fields {
-		if f.arrayIdx >= 0 {
-			arrayGroups[f.outputKey] = append(arrayGroups[f.outputKey], f)
-			continue
-		}
-		if f.objectRoot != "" {
-			objectGroups[f.objectRoot] = append(objectGroups[f.objectRoot], f)
-			continue
-		}
+	out := make(map[string]any, len(plan.scalars)+len(plan.arrayGroups)+len(plan.objectGroups))
+
+	// Scalar fields (simple + single-member object groups).
+	for _, f := range plan.scalars {
 		val, ok := extractField(obj, f)
-		if !ok {
+		if !ok || isEmptyValue(val) {
 			continue
 		}
 		out[f.outputKey] = val
 	}
 
-	// Process object groups: 2+ specs sharing a root → nested sub-object.
-	// Single-member groups preserve flat dot-key behavior for backward compat.
-	for root, group := range objectGroups {
-		if len(group) == 1 {
-			if val, ok := extractField(obj, group[0]); ok {
-				out[group[0].outputKey] = val
-			}
-			continue
-		}
-		if sub := compactSubObject(obj, root, group); len(sub) > 0 {
+	// Object groups: 2+ specs sharing a root → nested sub-object.
+	for root, group := range plan.objectGroups {
+		childFields := plan.childPlans[root]
+		if sub := compactSubObject(obj, root, group, childFields); len(sub) > 0 {
 			out[root] = sub
 		}
 	}
 
-	for key, group := range arrayGroups {
+	// Array groups.
+	for key, group := range plan.arrayGroups {
 		var val any
 		var ok bool
 		if len(group) == 1 {
@@ -173,36 +311,48 @@ func compactObject(obj map[string]any, fields []CompactField) map[string]any {
 		} else {
 			val, ok = extractArrayFieldGroup(obj, group)
 		}
-		if ok {
+		if ok && !isEmptyValue(val) {
 			out[key] = val
 		}
+	}
+
+	// Apply excludes to mixed mode (includes + excludes).
+	for k := range plan.excludes {
+		delete(out, k)
 	}
 
 	return out
 }
 
+// isEmptyValue reports whether a value should be omitted from compacted output.
+// Null, empty arrays, and empty objects are considered empty.
+func isEmptyValue(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch tv := v.(type) {
+	case []any:
+		return len(tv) == 0
+	case map[string]any:
+		return len(tv) == 0
+	}
+	return false
+}
+
 // compactSubObject builds a compacted nested object from specs sharing a root.
-// Navigates to obj[root], strips the first path segment from each spec, and
-// recursively compacts the sub-object. Returns nil map if root is missing.
-func compactSubObject(obj map[string]any, root string, group []CompactField) map[string]any {
+// Uses pre-parsed child fields instead of re-parsing on every call.
+func compactSubObject(obj map[string]any, root string, _ []CompactField, childFields []CompactField) map[string]any {
 	parentObj, ok := obj[root].(map[string]any)
 	if !ok {
 		return nil
 	}
-	childFields := make([]CompactField, 0, len(group))
-	for _, f := range group {
-		cf, err := parseCompactSpec(strings.Join(f.path[1:], "."))
-		if err != nil {
-			continue
-		}
-		childFields = append(childFields, cf)
-	}
-	return compactObject(parentObj, childFields)
+	childPlan := buildFieldPlan(childFields)
+	return compactObject(parentObj, childFields, childPlan)
 }
 
 // compactArray applies field compaction to each element in a JSON array.
 // Unmarshals once into []any to avoid per-element unmarshal overhead.
-func compactArray(data []byte, fields []CompactField) ([]byte, error) {
+func compactArray(data []byte, fields []CompactField, plan *fieldPlan) ([]byte, error) {
 	var arr []any
 	if err := json.Unmarshal(data, &arr); err != nil {
 		return nil, fmt.Errorf("compactJSON: %w", err)
@@ -215,7 +365,7 @@ func compactArray(data []byte, fields []CompactField) ([]byte, error) {
 			result = append(result, elem) // preserve non-object elements unchanged
 			continue
 		}
-		result = append(result, compactObject(obj, fields))
+		result = append(result, compactObject(obj, fields, plan))
 	}
 
 	return json.Marshal(result)
@@ -223,6 +373,12 @@ func compactArray(data []byte, fields []CompactField) ([]byte, error) {
 
 // extractField dispatches to the right extraction strategy based on the spec shape.
 func extractField(obj map[string]any, f CompactField) (any, bool) {
+	// Wildcard: "user.*" → return obj["user"] as-is.
+	if f.wildcard {
+		val, ok := obj[f.path[0]]
+		return val, ok
+	}
+
 	if len(f.path) == 1 {
 		val, ok := obj[f.path[0]]
 		return val, ok
@@ -321,7 +477,7 @@ func extractArrayFieldGroup(obj map[string]any, fields []CompactField) (any, boo
 		sub := make(map[string]any, len(fields))
 		for _, f := range fields {
 			key, val, ok := extractChildValue(elemObj, f.childPath)
-			if ok {
+			if ok && !isEmptyValue(val) {
 				sub[key] = val
 			}
 		}

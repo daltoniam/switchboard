@@ -15,6 +15,12 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*postgres)(nil)
+	_ mcp.FieldCompactionIntegration = (*postgres)(nil)
+)
+
 type postgres struct {
 	connStr  string
 	db       *sql.DB
@@ -99,6 +105,11 @@ func (p *postgres) Healthy(ctx context.Context) bool {
 
 func (p *postgres) Tools() []mcp.ToolDefinition {
 	return tools
+}
+
+func (p *postgres) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
 }
 
 func (p *postgres) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
