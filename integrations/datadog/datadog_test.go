@@ -1,6 +1,7 @@
 package datadog
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -18,32 +19,32 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "key123", "app_key": "app456"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "key123", "app_key": "app456"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "", "app_key": "app456"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "", "app_key": "app456"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api_key and app_key are required")
 }
 
 func TestConfigure_MissingAppKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "key123", "app_key": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "key123", "app_key": ""})
 	assert.Error(t, err)
 }
 
 func TestConfigure_EmptyCredentials(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{})
+	err := i.Configure(context.Background(), mcp.Credentials{})
 	assert.Error(t, err)
 }
 
 func TestConfigure_WithSite(t *testing.T) {
 	d := &dd{}
-	err := d.Configure(mcp.Credentials{"api_key": "key", "app_key": "app", "site": "datadoghq.eu"})
+	err := d.Configure(context.Background(), mcp.Credentials{"api_key": "key", "app_key": "app", "site": "datadoghq.eu"})
 	assert.NoError(t, err)
 	assert.Equal(t, "datadoghq.eu", d.site)
 }
@@ -77,7 +78,7 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 
 func TestExecute_UnknownTool(t *testing.T) {
 	d := &dd{apiKey: "key", appKey: "app"}
-	d.Configure(mcp.Credentials{"api_key": "key", "app_key": "app"})
+	d.Configure(context.Background(), mcp.Credentials{"api_key": "key", "app_key": "app"})
 	result, err := d.Execute(t.Context(), "datadog_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)

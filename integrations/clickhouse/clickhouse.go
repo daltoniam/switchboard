@@ -25,7 +25,7 @@ func New() mcp.Integration {
 
 func (c *clickhouseInt) Name() string { return "clickhouse" }
 
-func (c *clickhouseInt) Configure(creds mcp.Credentials) error {
+func (c *clickhouseInt) Configure(_ context.Context, creds mcp.Credentials) error {
 	if c.conn != nil {
 		_ = c.conn.Close()
 	}

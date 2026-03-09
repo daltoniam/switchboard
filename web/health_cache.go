@@ -55,7 +55,7 @@ func (hc *healthCache) refreshAll(ctx context.Context) {
 
 			var healthy bool
 			if exists {
-				if err := a.Configure(ic.Credentials); err == nil {
+				if err := a.Configure(ctx, ic.Credentials); err == nil {
 					healthy = a.Healthy(ctx)
 					if healthy && !enabled {
 						enabled = true

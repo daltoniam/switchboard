@@ -19,7 +19,7 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_WithStaticCredentials(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{
+	err := i.Configure(context.Background(), mcp.Credentials{
 		"access_key_id":     "AKIAIOSFODNN7EXAMPLE",
 		"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 		"region":            "us-west-2",
@@ -29,7 +29,7 @@ func TestConfigure_WithStaticCredentials(t *testing.T) {
 
 func TestConfigure_DefaultRegion(t *testing.T) {
 	a := &integration{}
-	err := a.Configure(mcp.Credentials{
+	err := a.Configure(context.Background(), mcp.Credentials{
 		"access_key_id":     "AKIAIOSFODNN7EXAMPLE",
 		"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 	})
@@ -39,7 +39,7 @@ func TestConfigure_DefaultRegion(t *testing.T) {
 
 func TestConfigure_WithSessionToken(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{
+	err := i.Configure(context.Background(), mcp.Credentials{
 		"access_key_id":     "AKIAIOSFODNN7EXAMPLE",
 		"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 		"session_token":     "FwoGZXIvYXdzEBYaDG...",
@@ -50,7 +50,7 @@ func TestConfigure_WithSessionToken(t *testing.T) {
 
 func TestConfigure_DefaultConfig(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"region": "ap-southeast-1"})
+	err := i.Configure(context.Background(), mcp.Credentials{"region": "ap-southeast-1"})
 	assert.NoError(t, err)
 }
 
@@ -83,7 +83,7 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 
 func TestExecute_UnknownTool(t *testing.T) {
 	a := &integration{}
-	err := a.Configure(mcp.Credentials{
+	err := a.Configure(context.Background(), mcp.Credentials{
 		"access_key_id":     "AKIAIOSFODNN7EXAMPLE",
 		"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 		"region":            "us-east-1",

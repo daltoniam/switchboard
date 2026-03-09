@@ -21,20 +21,20 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"access_token": "ya29.test-token"})
+	err := i.Configure(context.Background(), mcp.Credentials{"access_token": "ya29.test-token"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAccessToken(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"access_token": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"access_token": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "access_token is required")
 }
 
 func TestConfigure_CustomBaseURL(t *testing.T) {
 	g := &gmail{client: &http.Client{}, baseURL: "https://gmail.googleapis.com"}
-	err := g.Configure(mcp.Credentials{
+	err := g.Configure(context.Background(), mcp.Credentials{
 		"access_token": "ya29.test",
 		"base_url":     "https://custom.example.com/",
 	})

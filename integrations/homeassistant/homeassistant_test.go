@@ -21,27 +21,27 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"token": "test-token", "base_url": "http://localhost:8123"})
+	err := i.Configure(context.Background(), mcp.Credentials{"token": "test-token", "base_url": "http://localhost:8123"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingToken(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"base_url": "http://localhost:8123"})
+	err := i.Configure(context.Background(), mcp.Credentials{"base_url": "http://localhost:8123"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "token is required")
 }
 
 func TestConfigure_MissingBaseURL(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"token": "test-token"})
+	err := i.Configure(context.Background(), mcp.Credentials{"token": "test-token"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "base_url is required")
 }
 
 func TestConfigure_TrimsTrailingSlash(t *testing.T) {
 	ha := &homeassistant{client: &http.Client{}}
-	err := ha.Configure(mcp.Credentials{
+	err := ha.Configure(context.Background(), mcp.Credentials{
 		"token":    "test",
 		"base_url": "http://localhost:8123/",
 	})

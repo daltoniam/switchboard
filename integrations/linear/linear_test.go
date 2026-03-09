@@ -23,20 +23,20 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "lin_api_test123"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "lin_api_test123"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api_key is required")
 }
 
 func TestConfigure_EmptyCredentials(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{})
+	err := i.Configure(context.Background(), mcp.Credentials{})
 	assert.Error(t, err)
 }
 

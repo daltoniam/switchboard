@@ -48,7 +48,7 @@ func SetConfigService(i mcp.Integration, svc mcp.ConfigService) {
 
 func (g *gmail) Name() string { return "gmail" }
 
-func (g *gmail) Configure(creds mcp.Credentials) error {
+func (g *gmail) Configure(_ context.Context, creds mcp.Credentials) error {
 	g.accessToken = creds["access_token"]
 	g.refreshToken = creds["refresh_token"]
 	g.clientID = creds["client_id"]

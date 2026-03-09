@@ -28,7 +28,7 @@ func New() mcp.Integration {
 
 func (s *slackIntegration) Name() string { return "slack" }
 
-func (s *slackIntegration) Configure(creds mcp.Credentials) error {
+func (s *slackIntegration) Configure(_ context.Context, creds mcp.Credentials) error {
 	s.store = newTokenStore()
 
 	// Seed the store from config credentials if present.

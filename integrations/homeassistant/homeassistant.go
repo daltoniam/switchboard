@@ -41,7 +41,7 @@ func (h *homeassistant) PlainTextKeys() []string {
 	return []string{"base_url"}
 }
 
-func (h *homeassistant) Configure(creds mcp.Credentials) error {
+func (h *homeassistant) Configure(_ context.Context, creds mcp.Credentials) error {
 	h.token = creds["token"]
 	if h.token == "" {
 		return fmt.Errorf("homeassistant: token is required")

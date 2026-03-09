@@ -170,7 +170,7 @@ func (s *Server) configureIntegrations() {
 			continue
 		}
 
-		if err := integration.Configure(ic.Credentials); err != nil {
+		if err := integration.Configure(context.Background(), ic.Credentials); err != nil {
 			log.Printf("WARN: failed to configure %q: %v", name, err)
 			continue
 		}

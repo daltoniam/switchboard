@@ -26,7 +26,7 @@ func New() mcp.Integration {
 
 func (d *dd) Name() string { return "datadog" }
 
-func (d *dd) Configure(creds mcp.Credentials) error {
+func (d *dd) Configure(_ context.Context, creds mcp.Credentials) error {
 	d.apiKey = creds["api_key"]
 	d.appKey = creds["app_key"]
 	if d.apiKey == "" || d.appKey == "" {

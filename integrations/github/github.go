@@ -28,7 +28,7 @@ func New() mcp.Integration {
 
 func (g *integration) Name() string { return "github" }
 
-func (g *integration) Configure(creds mcp.Credentials) error {
+func (g *integration) Configure(_ context.Context, creds mcp.Credentials) error {
 	g.token = creds["token"]
 	if g.token == "" {
 		return fmt.Errorf("github: token is required")

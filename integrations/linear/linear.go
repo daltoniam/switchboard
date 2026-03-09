@@ -26,7 +26,7 @@ func New() mcp.Integration {
 
 func (l *linear) Name() string { return "linear" }
 
-func (l *linear) Configure(creds mcp.Credentials) error {
+func (l *linear) Configure(_ context.Context, creds mcp.Credentials) error {
 	l.apiKey = creds["api_key"]
 	if l.apiKey == "" {
 		return fmt.Errorf("linear: api_key is required")

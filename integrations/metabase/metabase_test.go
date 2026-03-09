@@ -21,27 +21,27 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "mb_key", "url": "https://metabase.example.com"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "mb_key", "url": "https://metabase.example.com"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "", "url": "https://metabase.example.com"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "", "url": "https://metabase.example.com"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api_key is required")
 }
 
 func TestConfigure_MissingURL(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "key", "url": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "key", "url": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "url is required")
 }
 
 func TestConfigure_TrimsTrailingSlash(t *testing.T) {
 	m := &metabase{client: &http.Client{}}
-	err := m.Configure(mcp.Credentials{"api_key": "key", "url": "https://metabase.example.com/"})
+	err := m.Configure(context.Background(), mcp.Credentials{"api_key": "key", "url": "https://metabase.example.com/"})
 	assert.NoError(t, err)
 	assert.Equal(t, "https://metabase.example.com", m.baseURL)
 }

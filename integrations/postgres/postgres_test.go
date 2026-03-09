@@ -21,7 +21,7 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_ConnectionString(t *testing.T) {
 	p := &postgres{}
-	err := p.Configure(mcp.Credentials{"connection_string": "host=localhost port=5432 user=test dbname=testdb sslmode=disable"})
+	err := p.Configure(context.Background(), mcp.Credentials{"connection_string": "host=localhost port=5432 user=test dbname=testdb sslmode=disable"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to ping")
 	assert.True(t, p.readOnly)
@@ -29,7 +29,7 @@ func TestConfigure_ConnectionString(t *testing.T) {
 
 func TestConfigure_IndividualCredentials(t *testing.T) {
 	p := &postgres{}
-	err := p.Configure(mcp.Credentials{
+	err := p.Configure(context.Background(), mcp.Credentials{
 		"host":     "myhost",
 		"port":     "5433",
 		"user":     "myuser",
@@ -48,7 +48,7 @@ func TestConfigure_IndividualCredentials(t *testing.T) {
 
 func TestConfigure_Defaults(t *testing.T) {
 	p := &postgres{}
-	err := p.Configure(mcp.Credentials{"user": "test"})
+	err := p.Configure(context.Background(), mcp.Credentials{"user": "test"})
 	assert.Error(t, err)
 	assert.Contains(t, p.connStr, "localhost")
 	assert.Contains(t, p.connStr, "5432")
@@ -57,20 +57,20 @@ func TestConfigure_Defaults(t *testing.T) {
 
 func TestConfigure_MissingUser(t *testing.T) {
 	p := &postgres{}
-	err := p.Configure(mcp.Credentials{"host": "localhost"})
+	err := p.Configure(context.Background(), mcp.Credentials{"host": "localhost"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user is required")
 }
 
 func TestConfigure_ReadOnlyDefault(t *testing.T) {
 	p := &postgres{}
-	_ = p.Configure(mcp.Credentials{"connection_string": "host=localhost"})
+	_ = p.Configure(context.Background(), mcp.Credentials{"connection_string": "host=localhost"})
 	assert.True(t, p.readOnly)
 }
 
 func TestConfigure_ReadOnlyExplicitFalse(t *testing.T) {
 	p := &postgres{}
-	_ = p.Configure(mcp.Credentials{"connection_string": "host=localhost", "read_only": "false"})
+	_ = p.Configure(context.Background(), mcp.Credentials{"connection_string": "host=localhost", "read_only": "false"})
 	assert.False(t, p.readOnly)
 }
 

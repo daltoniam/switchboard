@@ -30,7 +30,7 @@ func New() mcp.Integration {
 
 func (s *sentry) Name() string { return "sentry" }
 
-func (s *sentry) Configure(creds mcp.Credentials) error {
+func (s *sentry) Configure(_ context.Context, creds mcp.Credentials) error {
 	s.authToken = creds["auth_token"]
 	s.organization = creds["organization"]
 	if s.authToken == "" {
