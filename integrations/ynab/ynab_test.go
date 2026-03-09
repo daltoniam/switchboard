@@ -21,20 +21,20 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "test-token"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "test-token"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api_key is required")
 }
 
 func TestConfigure_CustomBaseURL(t *testing.T) {
 	y := &ynab{client: &http.Client{}, baseURL: "https://api.ynab.com/v1"}
-	err := y.Configure(mcp.Credentials{
+	err := y.Configure(context.Background(), mcp.Credentials{
 		"api_key":  "test",
 		"base_url": "https://custom.ynab.com/v1/",
 	})
