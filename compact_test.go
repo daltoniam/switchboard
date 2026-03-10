@@ -36,9 +36,9 @@ func TestParseCompactSpec(t *testing.T) {
 			want: CompactField{path: []string{"labels[]", "name"}, outputKey: "labels", arrayIdx: 0, arrayKey: "labels", childPath: []string{"name"}},
 		},
 		{
-			name: "nested array extraction has no objectRoot",
+			name: "nested array extraction has objectRoot from parent prefix",
 			spec: "repo.labels[].name",
-			want: CompactField{path: []string{"repo", "labels[]", "name"}, outputKey: "labels", arrayIdx: 1, arrayKey: "labels", childPath: []string{"name"}},
+			want: CompactField{path: []string{"repo", "labels[]", "name"}, outputKey: "repo.labels", arrayIdx: 1, arrayKey: "labels", childPath: []string{"name"}, objectRoot: "repo"},
 		},
 		{
 			name:    "empty string",
@@ -290,16 +290,16 @@ func TestCompactJSON_MultiFieldArray(t *testing.T) {
 			want:  `{"id":1,"labels":["bug","P1"]}`,
 		},
 		{
-			name:  "nested array parent navigates to array",
+			name:  "nested array parent preserves envelope",
 			input: `{"repo":{"labels":[{"name":"bug","color":"red"},{"name":"P1","color":"blue"}]},"id":1}`,
 			specs: []string{"id", "repo.labels[].name"},
-			want:  `{"id":1,"labels":["bug","P1"]}`,
+			want:  `{"id":1,"repo":{"labels":["bug","P1"]}}`,
 		},
 		{
-			name:  "multi-field from nested array parent",
+			name:  "multi-field from nested array parent preserves envelope",
 			input: `{"payload":{"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]},"id":1}`,
 			specs: []string{"id", "payload.steps[].name", "payload.steps[].conclusion"},
-			want:  `{"id":1,"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]}`,
+			want:  `{"id":1,"payload":{"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]}}`,
 		},
 		{
 			name:  "multi-field array idempotent",
@@ -332,6 +332,83 @@ func TestCompactJSON_MultiFieldArray(t *testing.T) {
 			assert.Equal(t, wantVal, gotVal)
 		})
 	}
+}
+
+func TestCompactJSON_NestedArrayEnvelope(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		specs []string
+		want  string
+	}{
+		{
+			name:  "GraphQL envelope: array + sibling pageInfo under same parent",
+			input: `{"issues":{"nodes":[{"id":"1","title":"Bug","priority":3},{"id":"2","title":"Feat","priority":1}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`,
+			specs: []string{"issues.nodes[].id", "issues.nodes[].title", "issues.pageInfo.hasNextPage", "issues.pageInfo.endCursor"},
+			want:  `{"issues":{"nodes":[{"id":"1","title":"Bug"},{"id":"2","title":"Feat"}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`,
+		},
+		{
+			name:  "GraphQL envelope: single array field preserves nesting",
+			input: `{"projects":{"nodes":[{"id":"p1","name":"Alpha"},{"id":"p2","name":"Beta"}]}}`,
+			specs: []string{"projects.nodes[].id", "projects.nodes[].name"},
+			want:  `{"projects":{"nodes":[{"id":"p1","name":"Alpha"},{"id":"p2","name":"Beta"}]}}`,
+		},
+		{
+			name:  "flat array (Category A) unchanged",
+			input: `{"Buckets":[{"Name":"logs","CreationDate":"2025-01-01"},{"Name":"data","CreationDate":"2025-02-01"}]}`,
+			specs: []string{"Buckets[].Name"},
+			want:  `{"Buckets":["logs","data"]}`,
+		},
+		{
+			name:  "nested array with scalar sibling at parent level",
+			input: `{"data":{"total":42,"items":[{"id":1,"name":"first"},{"id":2,"name":"second"}]}}`,
+			specs: []string{"data.total", "data.items[].id", "data.items[].name"},
+			want:  `{"data":{"total":42,"items":[{"id":1,"name":"first"},{"id":2,"name":"second"}]}}`,
+		},
+		{
+			name:  "nested empty array preserved under envelope",
+			input: `{"issues":{"nodes":[],"pageInfo":{"hasNextPage":false}}}`,
+			specs: []string{"issues.nodes[].id", "issues.pageInfo.hasNextPage"},
+			want:  `{"issues":{"nodes":[],"pageInfo.hasNextPage":false}}`,
+		},
+		{
+			name:  "nested array with two pageInfo siblings nest under pageInfo",
+			input: `{"issues":{"nodes":[{"id":"1","title":"Bug"}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`,
+			specs: []string{"issues.nodes[].id", "issues.nodes[].title", "issues.pageInfo.hasNextPage", "issues.pageInfo.endCursor"},
+			want:  `{"issues":{"nodes":[{"id":"1","title":"Bug"}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, err := ParseCompactSpecs(tt.specs)
+			require.NoError(t, err)
+
+			got, err := CompactJSON([]byte(tt.input), fields)
+			require.NoError(t, err)
+
+			var wantVal, gotVal any
+			require.NoError(t, json.Unmarshal([]byte(tt.want), &wantVal))
+			require.NoError(t, json.Unmarshal(got, &gotVal))
+			assert.Equal(t, wantVal, gotVal)
+		})
+	}
+}
+
+func TestCompactJSON_NestedArrayEnvelope_Idempotent(t *testing.T) {
+	input := `{"issues":{"nodes":[{"id":"1","title":"Bug","priority":3}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`
+	specs := []string{"issues.nodes[].id", "issues.nodes[].title", "issues.pageInfo.hasNextPage", "issues.pageInfo.endCursor"}
+
+	fields, err := ParseCompactSpecs(specs)
+	require.NoError(t, err)
+
+	once, err := CompactJSON([]byte(input), fields)
+	require.NoError(t, err)
+
+	twice, err := CompactJSON(once, fields)
+	require.NoError(t, err)
+
+	assert.JSONEq(t, string(once), string(twice), "compact(compact(x)) != compact(x)")
 }
 
 func TestCompactJSON_LeadingWhitespace(t *testing.T) {
