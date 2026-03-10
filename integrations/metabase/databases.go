@@ -2,6 +2,7 @@ package metabase
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -12,7 +13,21 @@ func listDatabases(ctx context.Context, m *metabase, _ map[string]any) (*mcp.Too
 	if err != nil {
 		return errResult(err)
 	}
-	return rawResult(data)
+	// Metabase wraps the list in {"data": [...]}. Unwrap so compaction specs
+	// can target the array items directly.
+	return rawResult(unwrapData(data))
+}
+
+// unwrapData extracts the "data" array from a Metabase API envelope.
+// Returns the original data unchanged if it doesn't match the envelope pattern.
+func unwrapData(data json.RawMessage) json.RawMessage {
+	var envelope struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(data, &envelope) == nil && len(envelope.Data) > 0 {
+		return envelope.Data
+	}
+	return data
 }
 
 func getDatabase(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {

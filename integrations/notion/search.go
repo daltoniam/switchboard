@@ -9,6 +9,11 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// highlightTagRe matches Notion's proprietary highlight markup tags.
+// These are random alphanumeric strings (e.g., <gzkNfoUU>), not standard HTML.
+// The regex is intentionally broad (any alphanum tag) because Notion's tag format
+// is undocumented and may vary. Blast radius is limited: only applied to the
+// "highlight" field from search results, not arbitrary page content.
 var highlightTagRe = regexp.MustCompile(`</?[a-zA-Z0-9]+>`)
 
 // stripHighlightTags removes Notion's proprietary highlight markup

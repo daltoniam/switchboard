@@ -76,8 +76,9 @@ You can filter by integration name, tool name, or keyword. Returns tool definiti
 with their parameters and descriptions. Results are paginated (default limit: 20).
 
 Examples:
-- Search by integration: {"query": "github"}
+- Filter by integration: {"integration": "github"}
 - Search by action: {"query": "list issues"}
+- Combined filter: {"integration": "slack", "query": "send message"}
 - Search specific tool: {"query": "datadog_search_logs"}
 - Page through results: {"query": "github", "offset": 20, "limit": 20}
 - Count all tools: {"limit": 0}`,
@@ -85,6 +86,10 @@ Examples:
 			"query": map[string]any{
 				"type":        "string",
 				"description": "Search query to filter tools. Leave empty to list all available tools. Matches against tool names, descriptions, and integration names.",
+			},
+			"integration": map[string]any{
+				"type":        "string",
+				"description": "Filter by integration name (e.g., \"github\", \"slack\", \"linear\"). When set, only returns tools from that integration.",
 			},
 			"limit": map[string]any{
 				"type":        "integer",
@@ -206,9 +211,10 @@ func hasCredentials(creds mcp.Credentials) bool {
 
 func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 	var args struct {
-		Query  string `json:"query"`
-		Limit  *int   `json:"limit"`
-		Offset int    `json:"offset"`
+		Query       string `json:"query"`
+		Integration string `json:"integration"`
+		Limit       *int   `json:"limit"`
+		Offset      int    `json:"offset"`
 	}
 	if req.Params.Arguments != nil {
 		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
@@ -238,6 +244,9 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	var all []toolInfo
 
 	for _, name := range enabled {
+		if args.Integration != "" && name != args.Integration {
+			continue
+		}
 		integration, ok := s.services.Registry.Get(name)
 		if !ok {
 			continue
@@ -411,7 +420,10 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 	cb := s.getBreaker(integration.Name())
 	if !cb.allow() {
 		return &mcp.ToolResult{
-			Data:    fmt.Sprintf("integration %q temporarily unavailable (circuit breaker open)", integration.Name()),
+			Data: fmt.Sprintf(
+				"integration %q temporarily unavailable (circuit breaker open, try again in ~%ds). Other integrations still work.",
+				integration.Name(), int(s.breakerCooldown.Seconds()),
+			),
 			IsError: true,
 		}, nil
 	}
@@ -441,7 +453,6 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 			return result, err
 		}
 		lastErr = err
-		cb.recordFailure()
 		if attempt >= maxRetries-1 {
 			break
 		}
@@ -461,7 +472,8 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 		}
 	}
 
-	// All retries exhausted — convert last retryable error to ToolResult
+	// All retries exhausted — record one failure per call (not per attempt).
+	cb.recordFailure()
 	return &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }
 

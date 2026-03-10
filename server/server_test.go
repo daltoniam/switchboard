@@ -1101,10 +1101,11 @@ func TestExecuteTool_CircuitBreakerTripsAfterRepeatedFailures(t *testing.T) {
 	s.breakerThreshold = 5
 	s.breakerCooldown = time.Minute
 
-	// Each executeTool call with maxRetries=3 records 3 failures.
-	// After 2 calls (6 failures ≥ threshold of 5), breaker should be open.
-	s.executeTool(context.Background(), "test_breaker", map[string]any{})
-	s.executeTool(context.Background(), "test_breaker", map[string]any{})
+	// Each executeTool call records 1 failure (per-call, not per-attempt).
+	// After 5 calls (5 failures = threshold), breaker should be open.
+	for i := 0; i < 5; i++ {
+		s.executeTool(context.Background(), "test_breaker", map[string]any{})
+	}
 
 	callsBefore := calls
 	result, err := s.executeTool(context.Background(), "test_breaker", map[string]any{})
@@ -1123,7 +1124,7 @@ func TestExecuteTool_CircuitBreakerResetsOnSuccess(t *testing.T) {
 		},
 		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
 			callCount++
-			if callCount <= 6 {
+			if callCount <= 15 {
 				return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
 			}
 			return &mcp.ToolResult{Data: "ok"}, nil
@@ -1134,9 +1135,10 @@ func TestExecuteTool_CircuitBreakerResetsOnSuccess(t *testing.T) {
 	s.breakerThreshold = 5
 	s.breakerCooldown = 50 * time.Millisecond
 
-	// Trip the breaker (6 failures across 2 calls).
-	s.executeTool(context.Background(), "test_recover", map[string]any{})
-	s.executeTool(context.Background(), "test_recover", map[string]any{})
+	// Trip the breaker (5 per-call failures across 5 calls).
+	for i := 0; i < 5; i++ {
+		s.executeTool(context.Background(), "test_recover", map[string]any{})
+	}
 
 	// Wait for cooldown.
 	time.Sleep(60 * time.Millisecond)
@@ -1163,11 +1165,11 @@ func TestExecuteTool_BudgetExhaustionRecordsFailure(t *testing.T) {
 	s.breakerThreshold = 2
 	s.breakerCooldown = time.Minute
 
-	// Budget of 1: attempt 0 fails → record failure, consume retry (budget=0) →
-	// attempt 1 fails → record failure, budget exhausted → break.
-	// Two failures should trip the breaker (threshold=2).
+	// With per-call counting: each executeTool call records 1 failure regardless of
+	// how many retry attempts it made. Need 2 calls to trip threshold=2.
 	ctx := withRetryBudget(context.Background(), 1)
 	s.executeTool(ctx, "test_budget_breaker", map[string]any{})
+	s.executeTool(context.Background(), "test_budget_breaker", map[string]any{})
 
 	// If failures were recorded correctly, breaker should now be open.
 	result, err := s.executeTool(context.Background(), "test_budget_breaker", map[string]any{})
@@ -1341,6 +1343,137 @@ func TestSearch_ScriptHint_SingleIntegrationMultipleTools(t *testing.T) {
 	require.NoError(t, err)
 	resp := parseSearchResponse(t, result)
 	assert.Contains(t, resp.ScriptHint, "multiple tool calls")
+}
+
+func TestExecuteTool_BreakerCountsPerCallNotPerAttempt(t *testing.T) {
+	calls := 0
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_counter", Description: "always 503"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			calls++
+			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
+		},
+		healthy: true,
+	})
+	s.retryBackoff = 0
+	s.breakerThreshold = 3
+	s.breakerCooldown = time.Minute
+
+	// Each executeTool call exhausts all 3 retry attempts but should record only 1 failure.
+	// With threshold=3, need exactly 3 calls (not 1 call with 3 attempts) to trip.
+	s.executeTool(context.Background(), "test_counter", map[string]any{})
+	s.executeTool(context.Background(), "test_counter", map[string]any{})
+
+	// After 2 calls (2 failures), breaker should still be closed (threshold=3).
+	callsBefore := calls
+	_, err := s.executeTool(context.Background(), "test_counter", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, calls > callsBefore, "breaker should still allow calls after 2 failures with threshold=3")
+
+	// After 3rd call (3 failures), breaker should be open.
+	result, err := s.executeTool(context.Background(), "test_counter", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "circuit breaker open")
+}
+
+func TestExecuteTool_BreakerErrorIncludesCooldownDuration(t *testing.T) {
+	s := setupTestServer(&mockIntegration{
+		name: "test",
+		tools: []mcp.ToolDefinition{
+			{Name: "test_cooldown", Description: "always 503"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
+		},
+		healthy: true,
+	})
+	s.retryBackoff = 0
+	s.breakerThreshold = 1
+	s.breakerCooldown = 30 * time.Second
+
+	// Trip the breaker with 1 call.
+	s.executeTool(context.Background(), "test_cooldown", map[string]any{})
+
+	// Next call should hit the breaker with a helpful message.
+	result, err := s.executeTool(context.Background(), "test_cooldown", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "30s", "breaker error should include cooldown duration")
+	assert.Contains(t, result.Data, "Other integrations still work", "breaker error should hint at alternatives")
+}
+
+func TestSearch_IntegrationFilter(t *testing.T) {
+	gh := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues"},
+			{Name: "github_list_pulls", Description: "List pull requests"},
+		},
+	}
+	slack := &mockIntegration{
+		name:    "slack",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "slack_send_message", Description: "Send a message"},
+			{Name: "slack_list_conversations", Description: "List conversations"},
+		},
+	}
+	s := setupTestServer(gh, slack)
+
+	t.Run("filter returns only matching integration", func(t *testing.T) {
+		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+			"integration": "github",
+		}))
+		require.NoError(t, err)
+		resp := parseSearchResponse(t, result)
+		assert.Equal(t, 2, resp.Total)
+		for _, tool := range resp.Tools {
+			assert.Equal(t, "github", tool.Integration)
+		}
+	})
+
+	t.Run("filter combined with query", func(t *testing.T) {
+		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+			"integration": "slack",
+			"query":       "send",
+		}))
+		require.NoError(t, err)
+		resp := parseSearchResponse(t, result)
+		assert.Equal(t, 1, resp.Total)
+		assert.Equal(t, "slack_send_message", resp.Tools[0].Name)
+	})
+
+	t.Run("empty filter returns all", func(t *testing.T) {
+		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+		require.NoError(t, err)
+		resp := parseSearchResponse(t, result)
+		assert.Equal(t, 4, resp.Total)
+	})
+}
+
+func TestSearch_SynonymMatching(t *testing.T) {
+	slack := &mockIntegration{
+		name:    "slack",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "slack_send_message", Description: "Send (post) a message to a channel or DM"},
+		},
+	}
+	s := setupTestServer(slack)
+
+	// "post message" should match because "post" is now in the description.
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"query": "slack post message",
+	}))
+	require.NoError(t, err)
+	resp := parseSearchResponse(t, result)
+	assert.Equal(t, 1, resp.Total, "search for 'slack post message' should find slack_send_message")
+	assert.Equal(t, "slack_send_message", resp.Tools[0].Name)
 }
 
 func TestSearch_ScriptHint_SingleResult(t *testing.T) {

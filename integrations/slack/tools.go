@@ -137,7 +137,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Messages ---
 	{
 		Name:        "slack_send_message",
-		Description: "Send a message to a channel or DM. Requires channel ID (C...), not channel name. Supports Slack mrkdwn formatting and threads.",
+		Description: "Send (post) a message to a channel or DM. Requires channel ID (C...), not channel name. Supports Slack mrkdwn formatting and threads.",
 		Parameters: map[string]string{
 			"channel_id": "Channel or DM ID to send to",
 			"text":       "Message text (supports Slack mrkdwn)",
