@@ -5,26 +5,26 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Issues ────────────────────────────────────────────────────────
 	{
-		Name: "linear_list_issues", Description: "List Linear issues with optional filters",
+		Name: "linear_list_issues", Description: "List Linear issues with optional filters. Start here for filtered queries (by assignee, state, label, project). Use list_workflow_states to discover valid state names.",
 		Parameters: map[string]string{"team": "Filter by team name or key", "assignee": "Filter by assignee name or 'me'", "state": "Filter by state name (e.g., 'In Progress', 'Done')", "label": "Filter by label name", "priority": "Filter by priority (1=urgent, 2=high, 3=normal, 4=low)", "project": "Filter by project name", "cycle": "Filter by cycle name or number", "first": "Max results (default 50)", "after": "Pagination cursor"},
 	},
 	{
-		Name: "linear_search_issues", Description: "Full-text search Linear issues",
+		Name: "linear_search_issues", Description: "Full-text search Linear issues by keyword. For filtering by assignee, state, or label, use list_issues with filter parameters instead.",
 		Parameters: map[string]string{"query": "Search query text", "first": "Max results (default 50)", "after": "Pagination cursor"},
 		Required:   []string{"query"},
 	},
 	{
-		Name: "linear_get_issue", Description: "Get a specific issue by identifier (e.g., ENG-123)",
+		Name: "linear_get_issue", Description: "Get a specific issue with full detail. Accepts issue ID (UUID) or identifier (e.g., ENG-123).",
 		Parameters: map[string]string{"id": "Issue identifier (e.g., ENG-123) or UUID"},
 		Required:   []string{"id"},
 	},
 	{
-		Name: "linear_create_issue", Description: "Create a new issue",
+		Name: "linear_create_issue", Description: "Create a new issue (ticket). Requires team_id — use list_teams to find it. Use list_workflow_states to discover valid state names.",
 		Parameters: map[string]string{"title": "Issue title", "team": "Team name or key", "description": "Description (markdown)", "assignee": "Assignee name or email", "priority": "Priority (0=none, 1=urgent, 2=high, 3=normal, 4=low)", "state": "Workflow state name", "labels": "Comma-separated label names", "project": "Project name", "cycle": "Cycle name or number", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)", "parent_id": "Parent issue ID for sub-issues"},
 		Required:   []string{"title", "team"},
 	},
 	{
-		Name: "linear_update_issue", Description: "Update an existing issue",
+		Name: "linear_update_issue", Description: "Update an existing issue. Accepts issue ID (UUID) or identifier (e.g., ENG-123). Use list_workflow_states to discover valid state names.",
 		Parameters: map[string]string{"id": "Issue identifier (e.g., ENG-123) or UUID", "title": "New title", "description": "New description", "assignee": "Assignee name or email", "priority": "Priority (0-4)", "state": "Workflow state name", "labels": "Comma-separated label names", "project": "Project name", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)"},
 		Required:   []string{"id"},
 	},
@@ -91,7 +91,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Projects ──────────────────────────────────────────────────────
 	{
-		Name: "linear_list_projects", Description: "List projects with optional filters",
+		Name: "linear_list_projects", Description: "List projects with optional filters. Start here for project status queries.",
 		Parameters: map[string]string{"team": "Filter by team name or key", "state": "Filter by state: planned, started, paused, completed, canceled", "first": "Max results (default 50)", "after": "Pagination cursor"},
 	},
 	{
@@ -100,7 +100,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"query"},
 	},
 	{
-		Name: "linear_get_project", Description: "Get a specific project by ID or slug",
+		Name: "linear_get_project", Description: "Get a specific project with full detail including progress and members. Accepts project UUID or slug.",
 		Parameters: map[string]string{"id": "Project UUID or slug"},
 		Required:   []string{"id"},
 	},
@@ -142,11 +142,11 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Cycles ────────────────────────────────────────────────────────
 	{
-		Name: "linear_list_cycles", Description: "List cycles with optional filters",
+		Name: "linear_list_cycles", Description: "List cycles (sprints) with optional filters. Use to find the current sprint, then get_cycle for its issues.",
 		Parameters: map[string]string{"team": "Filter by team name or key", "first": "Max results (default 50)", "after": "Pagination cursor"},
 	},
 	{
-		Name: "linear_get_cycle", Description: "Get a specific cycle by ID",
+		Name: "linear_get_cycle", Description: "Get a specific cycle with its issues. Use after list_cycles to drill into a sprint.",
 		Parameters: map[string]string{"id": "Cycle UUID"},
 		Required:   []string{"id"},
 	},
@@ -163,33 +163,33 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Teams ─────────────────────────────────────────────────────────
 	{
-		Name: "linear_list_teams", Description: "List all teams in the workspace",
+		Name: "linear_list_teams", Description: "List all teams in the workspace. Use to discover team IDs needed by create_issue and list_workflow_states.",
 		Parameters: map[string]string{"first": "Max results (default 50)"},
 	},
 	{
-		Name: "linear_get_team", Description: "Get a specific team by ID, name, or key",
+		Name: "linear_get_team", Description: "Get a specific team with members and settings. Accepts team UUID, name, or key.",
 		Parameters: map[string]string{"id": "Team UUID, name, or key"},
 		Required:   []string{"id"},
 	},
 
 	// ── Users ─────────────────────────────────────────────────────────
 	{
-		Name: "linear_viewer", Description: "Get the currently authenticated user",
+		Name: "linear_viewer", Description: "Get the currently authenticated user. Use to find your user ID for filtering assigned issues via list_issues.",
 		Parameters: map[string]string{},
 	},
 	{
-		Name: "linear_list_users", Description: "List users in the workspace",
+		Name: "linear_list_users", Description: "List users in the workspace. Use to find user IDs for assignee filtering.",
 		Parameters: map[string]string{"first": "Max results (default 50)"},
 	},
 	{
-		Name: "linear_get_user", Description: "Get a specific user by ID, name, or email",
+		Name: "linear_get_user", Description: "Get a specific user with assigned issues count. Accepts user UUID, display name, or email.",
 		Parameters: map[string]string{"id": "User UUID, display name, or email"},
 		Required:   []string{"id"},
 	},
 
 	// ── Labels ────────────────────────────────────────────────────────
 	{
-		Name: "linear_list_labels", Description: "List issue labels in the workspace",
+		Name: "linear_list_labels", Description: "List issue labels in the workspace. Use to discover valid label names for list_issues filtering or create_issue.",
 		Parameters: map[string]string{"team": "Filter by team name or key", "first": "Max results (default 100)"},
 	},
 	{
@@ -210,7 +210,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Workflow States ───────────────────────────────────────────────
 	{
-		Name: "linear_list_workflow_states", Description: "List workflow states for a team",
+		Name: "linear_list_workflow_states", Description: "List workflow states for a team. Use before list_issues, create_issue, or update_issue to discover valid state names.",
 		Parameters: map[string]string{"team": "Team name or key", "first": "Max results (default 50)"},
 	},
 	{
@@ -221,11 +221,11 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Documents ─────────────────────────────────────────────────────
 	{
-		Name: "linear_list_documents", Description: "List documents in the workspace",
+		Name: "linear_list_documents", Description: "List documents in the workspace. Filter by project to find project-specific docs.",
 		Parameters: map[string]string{"project": "Filter by project name", "first": "Max results (default 50)"},
 	},
 	{
-		Name: "linear_search_documents", Description: "Full-text search documents",
+		Name: "linear_search_documents", Description: "Full-text search documents by keyword. For browsing by project, use list_documents with project filter.",
 		Parameters: map[string]string{"query": "Search query", "first": "Max results (default 25)"},
 		Required:   []string{"query"},
 	},

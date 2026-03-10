@@ -5,22 +5,22 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Repositories ──────────────────────────────────────────────────
 	{
-		Name: "github_search_repos", Description: "Search GitHub repositories",
+		Name: "github_search_repos", Description: "Search GitHub repositories. Start here to find repos by name, topic, or language.",
 		Parameters: map[string]string{"query": "Search query", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"query"},
 	},
 	{
-		Name: "github_get_repo", Description: "Get a repository by owner/name",
+		Name: "github_get_repo", Description: "Get a repository by owner/name. Use after search_repos or when you already know the owner/repo.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
 		Required:   []string{"owner", "repo"},
 	},
 	{
-		Name: "github_list_user_repos", Description: "List repositories for a user",
+		Name: "github_list_user_repos", Description: "List repositories for a user. Use when you know the username; prefer search_repos for keyword discovery.",
 		Parameters: map[string]string{"username": "GitHub username", "type": "Type: all, owner, member (default: owner)", "sort": "Sort: created, updated, pushed, full_name", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"username"},
 	},
 	{
-		Name: "github_list_org_repos", Description: "List repositories for an organization",
+		Name: "github_list_org_repos", Description: "List repositories for an organization. Use when you know the org; prefer search_repos for keyword discovery.",
 		Parameters: map[string]string{"org": "Organization name", "type": "Type: all, public, private, forks, sources, member", "sort": "Sort: created, updated, pushed, full_name", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"org"},
 	},
@@ -110,7 +110,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo"},
 	},
 	{
-		Name: "github_compare_commits", Description: "Compare two commits/branches/tags",
+		Name: "github_compare_commits", Description: "Compare two commits, branches, or tags. Returns commit list and diff between base and head.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base ref (branch, tag, or SHA)", "head": "Head ref (branch, tag, or SHA)", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo", "base", "head"},
 	},
@@ -284,17 +284,17 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Issues ────────────────────────────────────────────────────────
 	{
-		Name: "github_list_issues", Description: "List issues for a repository",
+		Name: "github_list_issues", Description: "List issues for a repository. Start here for issue workflows when you know the repo. For cross-repo search, use search_issues.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "State: open, closed, all", "labels": "Comma-separated label names", "sort": "Sort: created, updated, comments", "direction": "Direction: asc, desc", "assignee": "Filter by assignee username", "milestone": "Milestone number", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo"},
 	},
 	{
-		Name: "github_get_issue", Description: "Get a single issue",
+		Name: "github_get_issue", Description: "Get a single issue with full details. Use after list_issues or search_issues to drill into a specific issue.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "number": "Issue number"},
 		Required:   []string{"owner", "repo", "number"},
 	},
 	{
-		Name: "github_create_issue", Description: "Create an issue",
+		Name: "github_create_issue", Description: "Create an issue. Requires owner, repo, and title at minimum.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "title": "Issue title", "body": "Issue body (markdown)", "assignees": "Comma-separated assignee usernames", "labels": "Comma-separated label names", "milestone": "Milestone number"},
 		Required:   []string{"owner", "repo", "title"},
 	},
@@ -423,22 +423,22 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Pull Requests ─────────────────────────────────────────────────
 	{
-		Name: "github_list_pulls", Description: "List pull requests for a repository",
+		Name: "github_list_pulls", Description: "List pull requests for a repository. Start here for PR workflows when you know the repo. For cross-repo search, use search_issues with type:pr.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "State: open, closed, all", "head": "Filter by head user:branch", "base": "Filter by base branch", "sort": "Sort: created, updated, popularity, long-running", "direction": "Direction: asc, desc", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo"},
 	},
 	{
-		Name: "github_get_pull", Description: "Get a single pull request",
+		Name: "github_get_pull", Description: "Get a single pull request with full details. Use after list_pulls to drill into a specific PR. For the diff, follow up with get_pull_diff.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number"},
 		Required:   []string{"owner", "repo", "pull_number"},
 	},
 	{
-		Name: "github_get_pull_diff", Description: "Get the raw unified diff of a pull request",
+		Name: "github_get_pull_diff", Description: "Get the raw unified diff of a pull request. Use after get_pull for the full code diff.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number"},
 		Required:   []string{"owner", "repo", "pull_number"},
 	},
 	{
-		Name: "github_create_pull", Description: "Create a pull request",
+		Name: "github_create_pull", Description: "Create a pull request. Requires head branch and base branch.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "title": "PR title", "head": "Head branch (or user:branch for cross-repo)", "base": "Base branch", "body": "PR body (markdown)", "draft": "Create as draft (true/false)"},
 		Required:   []string{"owner", "repo", "title", "head", "base"},
 	},
@@ -517,7 +517,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Git (low-level) ───────────────────────────────────────────────
 	{
-		Name: "github_get_commit", Description: "Get a commit by SHA",
+		Name: "github_get_commit", Description: "Get a commit by SHA including files changed. For comparing two refs, use compare_commits instead.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Commit SHA"},
 		Required:   []string{"owner", "repo", "sha"},
 	},
@@ -668,12 +668,12 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo"},
 	},
 	{
-		Name: "github_list_workflow_runs", Description: "List workflow runs",
+		Name: "github_list_workflow_runs", Description: "List workflow runs for a repository. Use to check CI status or recent builds.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "workflow_id": "Workflow ID or filename (e.g., ci.yml)", "branch": "Filter by branch", "event": "Filter by event (push, pull_request, etc.)", "status": "Filter: completed, action_required, cancelled, failure, neutral, skipped, stale, success, timed_out, in_progress, queued, requested, waiting, pending", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo"},
 	},
 	{
-		Name: "github_get_workflow_run", Description: "Get a specific workflow run",
+		Name: "github_get_workflow_run", Description: "Get a specific workflow run. Use after list_workflow_runs for full run details.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "run_id": "Workflow run ID"},
 		Required:   []string{"owner", "repo", "run_id"},
 	},
@@ -862,12 +862,12 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"repository_id", "query"},
 	},
 	{
-		Name: "github_search_code", Description: "Search code across GitHub repositories",
+		Name: "github_search_code", Description: "Search code across GitHub repositories. Start here to find files, functions, or strings across repos.",
 		Parameters: map[string]string{"query": "Search query (supports qualifiers like language:go, repo:owner/name)", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"query"},
 	},
 	{
-		Name: "github_search_issues", Description: "Search issues and pull requests across GitHub",
+		Name: "github_search_issues", Description: "Search issues and pull requests across GitHub. Start here for cross-repo issue/PR discovery. Add is:pr or is:issue to filter.",
 		Parameters: map[string]string{"query": "Search query (supports qualifiers like is:issue, is:pr, repo:owner/name, state:open)", "sort": "Sort: comments, reactions, created, updated", "order": "Order: asc, desc", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"query"},
 	},
