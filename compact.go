@@ -24,11 +24,11 @@ type CompactField struct {
 // Built once by ParseCompactSpecs; reused on every object in an array.
 type fieldPlan struct {
 	scalars      []CompactField            // simple fields + single-member object groups
-	arrayGroups  map[string][]CompactField  // outputKey → array field group
-	objectGroups map[string][]CompactField  // objectRoot → nested object group (2+ members only)
-	childPlans   map[string][]CompactField  // objectRoot → pre-parsed child CompactFields
-	excludes     map[string]bool            // top-level keys to exclude
-	hasIncludes  bool                       // true if any non-exclude specs exist
+	arrayGroups  map[string][]CompactField // outputKey → array field group
+	objectGroups map[string][]CompactField // objectRoot → nested object group (2+ members only)
+	childPlans   map[string][]CompactField // objectRoot → pre-parsed child CompactFields
+	excludes     map[string]bool           // top-level keys to exclude
+	hasIncludes  bool                      // true if any non-exclude specs exist
 }
 
 // buildFieldPlan pre-computes groupings from a slice of CompactFields.
@@ -311,7 +311,15 @@ func compactObject(obj map[string]any, fields []CompactField, plan *fieldPlan) m
 		} else {
 			val, ok = extractArrayFieldGroup(obj, group)
 		}
-		if ok && !isEmptyValue(val) {
+		if !ok {
+			continue
+		}
+		// Preserve empty arrays for spec-targeted array groups: a spec
+		// targeting "matches[].text" means the author chose to include this
+		// field — [] means "0 results", not noise.
+		if arr, isArr := val.([]any); isArr {
+			out[key] = arr
+		} else if !isEmptyValue(val) {
 			out[key] = val
 		}
 	}

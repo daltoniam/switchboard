@@ -105,8 +105,8 @@ PREFER scripts when a task requires 2+ tool calls or crosses integrations — in
 results stay server-side and never enter the conversation, saving tokens dramatically.
 
 Mode 1 — Script (provide script):
-  Write JavaScript that calls api.call(toolName, args) to invoke tools.
-  Chain multiple calls, filter results, and return only what you need.
+  Write ES5 JavaScript (var, function(){}, string + concatenation). No let/const, arrow functions, template literals, or destructuring.
+  Call api.call(toolName, args) to invoke tools. Chain multiple calls, filter results, and return only what you need.
 
   {"script": "var issues = api.call('linear_search_issues', {query: 'BUG-1234'}); var email = issues[0].assignee.email; var user = api.call('postgres_execute_query', {query: 'SELECT * FROM users WHERE email = $1', params: [email]}); ({issue: issues[0], dbUser: user[0]});"}
 
@@ -116,7 +116,8 @@ Mode 2 — Single tool (provide tool_name + arguments):
   {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
 
 Script API:
-  api.call(toolName, args) — call any tool discovered via search, returns parsed JSON
+  api.call(toolName, args) — call any tool, returns parsed JSON. Throws on error (kills script).
+  api.tryCall(toolName, args) — like call, but returns {ok: true, data: ...} or {ok: false, error: "..."}. Prefer tryCall for cross-integration scripts where partial results are useful.
   console.log(...) — debug logging (included in output on error)
 
 Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
@@ -148,7 +149,7 @@ Look up a Sentry error, find the responsible deploy, and notify Slack:
 			},
 			"script": map[string]any{
 				"type":        "string",
-				"description": "JavaScript code to execute server-side. Use api.call(toolName, args) to invoke tools. Return the final result. (mutually exclusive with tool_name)",
+				"description": "ES5 JavaScript code to execute server-side. Use var (not let/const), function() (not =>), string + concatenation (not template literals). Use api.call(toolName, args) to invoke tools. Return the final result. (mutually exclusive with tool_name)",
 			},
 		}, nil),
 	}

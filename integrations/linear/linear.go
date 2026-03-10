@@ -123,11 +123,26 @@ func (l *linear) Execute(ctx context.Context, toolName string, args map[string]a
 
 // --- GraphQL helpers ---
 
+type gqlError struct {
+	Message    string         `json:"message"`
+	Path       []string       `json:"path,omitempty"`
+	Extensions map[string]any `json:"extensions,omitempty"`
+}
+
+func (e gqlError) String() string {
+	s := e.Message
+	if len(e.Path) > 0 {
+		s += " (path: " + strings.Join(e.Path, ".") + ")"
+	}
+	if code, ok := e.Extensions["code"]; ok {
+		s += fmt.Sprintf(" [%v]", code)
+	}
+	return s
+}
+
 type gqlResponse struct {
 	Data   json.RawMessage `json:"data"`
-	Errors []struct {
-		Message string `json:"message"`
-	} `json:"errors"`
+	Errors []gqlError      `json:"errors"`
 }
 
 func (l *linear) gql(ctx context.Context, query string, variables map[string]any) (json.RawMessage, error) {
@@ -168,7 +183,7 @@ func (l *linear) gql(ctx context.Context, query string, variables map[string]any
 	if len(gqlResp.Errors) > 0 {
 		msgs := make([]string, len(gqlResp.Errors))
 		for i, e := range gqlResp.Errors {
-			msgs[i] = e.Message
+			msgs[i] = e.String()
 		}
 		return nil, fmt.Errorf("graphql errors: %s", strings.Join(msgs, "; "))
 	}
@@ -232,7 +247,9 @@ func (l *linear) resolveTeamID(ctx context.Context, nameOrKey string) (string, e
 	}
 	var resp struct {
 		Teams struct {
-			Nodes []struct{ ID string `json:"id"` } `json:"nodes"`
+			Nodes []struct {
+				ID string `json:"id"`
+			} `json:"nodes"`
 		} `json:"teams"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
