@@ -135,6 +135,11 @@ func (g *gmail) doRequestInner(ctx context.Context, method, path string, body an
 			return g.doRequestInner(ctx, method, path, body, false)
 		}
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("gmail API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("gmail API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -185,6 +190,9 @@ func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
@@ -291,24 +299,24 @@ var dispatch = map[string]handlerFunc{
 	"gmail_get_profile": getProfile,
 
 	// Messages
-	"gmail_list_messages":       listMessages,
-	"gmail_get_message":         getMessage,
-	"gmail_send_message":        sendMessage,
-	"gmail_delete_message":      deleteMessage,
-	"gmail_trash_message":       trashMessage,
-	"gmail_untrash_message":     untrashMessage,
-	"gmail_modify_message":      modifyMessage,
-	"gmail_batch_modify":        batchModifyMessages,
-	"gmail_batch_delete":        batchDeleteMessages,
-	"gmail_get_attachment":      getAttachment,
+	"gmail_list_messages":   listMessages,
+	"gmail_get_message":     getMessage,
+	"gmail_send_message":    sendMessage,
+	"gmail_delete_message":  deleteMessage,
+	"gmail_trash_message":   trashMessage,
+	"gmail_untrash_message": untrashMessage,
+	"gmail_modify_message":  modifyMessage,
+	"gmail_batch_modify":    batchModifyMessages,
+	"gmail_batch_delete":    batchDeleteMessages,
+	"gmail_get_attachment":  getAttachment,
 
 	// Threads
-	"gmail_list_threads":    listThreads,
-	"gmail_get_thread":      getThread,
-	"gmail_delete_thread":   deleteThread,
-	"gmail_trash_thread":    trashThread,
-	"gmail_untrash_thread":  untrashThread,
-	"gmail_modify_thread":   modifyThread,
+	"gmail_list_threads":   listThreads,
+	"gmail_get_thread":     getThread,
+	"gmail_delete_thread":  deleteThread,
+	"gmail_trash_thread":   trashThread,
+	"gmail_untrash_thread": untrashThread,
+	"gmail_modify_thread":  modifyThread,
 
 	// Labels
 	"gmail_list_labels":  listLabels,
@@ -329,16 +337,16 @@ var dispatch = map[string]handlerFunc{
 	"gmail_list_history": listHistory,
 
 	// Settings
-	"gmail_get_vacation":    getVacation,
-	"gmail_update_vacation": updateVacation,
+	"gmail_get_vacation":           getVacation,
+	"gmail_update_vacation":        updateVacation,
 	"gmail_get_auto_forwarding":    getAutoForwarding,
 	"gmail_update_auto_forwarding": updateAutoForwarding,
-	"gmail_get_imap":       getImap,
-	"gmail_update_imap":    updateImap,
-	"gmail_get_pop":        getPop,
-	"gmail_update_pop":     updatePop,
-	"gmail_get_language":   getLanguage,
-	"gmail_update_language": updateLanguage,
+	"gmail_get_imap":               getImap,
+	"gmail_update_imap":            updateImap,
+	"gmail_get_pop":                getPop,
+	"gmail_update_pop":             updatePop,
+	"gmail_get_language":           getLanguage,
+	"gmail_update_language":        updateLanguage,
 
 	// Filters
 	"gmail_list_filters":  listFilters,
@@ -347,14 +355,14 @@ var dispatch = map[string]handlerFunc{
 	"gmail_delete_filter": deleteFilter,
 
 	// Forwarding Addresses
-	"gmail_list_forwarding_addresses":  listForwardingAddresses,
-	"gmail_get_forwarding_address":     getForwardingAddress,
-	"gmail_create_forwarding_address":  createForwardingAddress,
-	"gmail_delete_forwarding_address":  deleteForwardingAddress,
+	"gmail_list_forwarding_addresses": listForwardingAddresses,
+	"gmail_get_forwarding_address":    getForwardingAddress,
+	"gmail_create_forwarding_address": createForwardingAddress,
+	"gmail_delete_forwarding_address": deleteForwardingAddress,
 
 	// Send As
-	"gmail_list_send_as":  listSendAs,
-	"gmail_get_send_as":   getSendAs,
+	"gmail_list_send_as":   listSendAs,
+	"gmail_get_send_as":    getSendAs,
 	"gmail_create_send_as": createSendAs,
 	"gmail_update_send_as": updateSendAs,
 	"gmail_delete_send_as": deleteSendAs,

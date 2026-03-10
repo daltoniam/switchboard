@@ -98,6 +98,11 @@ func (m *metabase) doRequest(ctx context.Context, method, path string, body any)
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("metabase API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("metabase API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -132,6 +137,9 @@ func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 

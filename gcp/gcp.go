@@ -19,6 +19,8 @@ import (
 	run "cloud.google.com/go/run/apiv2"
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	iamv1 "google.golang.org/api/iam/v1"
 
@@ -33,24 +35,24 @@ const (
 type integration struct {
 	projectID string
 
-	storageClient     *storage.Client
-	instancesClient   *compute.InstancesClient
-	disksClient       *compute.DisksClient
-	networksClient    *compute.NetworksClient
-	subnetworksClient *compute.SubnetworksClient
-	firewallsClient   *compute.FirewallsClient
-	functionsClient   *functions.FunctionClient
-	iamService        *iamv1.Service
-	monitoringClient  *monitoring.MetricClient
-	alertClient       *monitoring.AlertPolicyClient
-	runServicesClient  *run.ServicesClient
-	runRevisionsClient *run.RevisionsClient
-	pubsubClient      *pubsub.Client
-	firestoreClient   *firestore.Client
-	loggingClient     *logging.Client
+	storageClient       *storage.Client
+	instancesClient     *compute.InstancesClient
+	disksClient         *compute.DisksClient
+	networksClient      *compute.NetworksClient
+	subnetworksClient   *compute.SubnetworksClient
+	firewallsClient     *compute.FirewallsClient
+	functionsClient     *functions.FunctionClient
+	iamService          *iamv1.Service
+	monitoringClient    *monitoring.MetricClient
+	alertClient         *monitoring.AlertPolicyClient
+	runServicesClient   *run.ServicesClient
+	runRevisionsClient  *run.RevisionsClient
+	pubsubClient        *pubsub.Client
+	firestoreClient     *firestore.Client
+	loggingClient       *logging.Client
 	loggingConfigClient *logging.ConfigClient
-	projectsClient    *resourcemanager.ProjectsClient
-	foldersClient     *resourcemanager.FoldersClient
+	projectsClient      *resourcemanager.ProjectsClient
+	foldersClient       *resourcemanager.FoldersClient
 }
 
 func New() mcp.Integration {
@@ -200,7 +202,26 @@ func jsonResult(v any) (*mcp.ToolResult, error) {
 	return &mcp.ToolResult{Data: string(data)}, nil
 }
 
+func wrapRetryable(err error) error {
+	if err == nil {
+		return nil
+	}
+	st, ok := status.FromError(err)
+	if !ok {
+		return err
+	}
+	switch st.Code() {
+	case codes.Unavailable, codes.Internal, codes.ResourceExhausted, codes.DeadlineExceeded:
+		return &mcp.RetryableError{StatusCode: int(st.Code()), Err: err}
+	}
+	return err
+}
+
 func errResult(err error) (*mcp.ToolResult, error) {
+	err = wrapRetryable(err)
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
@@ -357,6 +378,6 @@ var dispatch = map[string]handlerFunc{
 	// Cloud Logging
 	"gcp_logging_list_entries":   loggingListEntries,
 	"gcp_logging_list_log_names": loggingListLogNames,
-	"gcp_logging_list_sinks":    loggingListSinks,
-	"gcp_logging_get_sink":      loggingGetSink,
+	"gcp_logging_list_sinks":     loggingListSinks,
+	"gcp_logging_get_sink":       loggingGetSink,
 }

@@ -541,11 +541,11 @@ func tokenStatus(_ context.Context, s *slackIntegration, _ map[string]any) (*mcp
 	}
 
 	refreshInfo := map[string]any{
-		"enabled":            needsRefresh,
-		"interval":           "4 hours",
-		"cookie_refresh":     cookie != "" && needsRefresh,
-		"chrome_refresh":     CanExtractFromChrome(),
-		"platform":           runtime.GOOS,
+		"enabled":        needsRefresh,
+		"interval":       "4 hours",
+		"cookie_refresh": cookie != "" && needsRefresh,
+		"chrome_refresh": CanExtractFromChrome(),
+		"platform":       runtime.GOOS,
 	}
 	if !needsRefresh {
 		refreshInfo["note"] = "OAuth tokens (xoxp-) do not expire — no refresh needed"
@@ -579,7 +579,7 @@ func refreshTokens(_ context.Context, s *slackIntegration, _ map[string]any) (*m
 
 	resp, err := s.getClient().AuthTest()
 	if err != nil {
-		return errResult(fmt.Errorf("refreshed tokens but auth failed: %w", err)), nil
+		return errResult(fmt.Errorf("refreshed tokens but auth failed: %w", err))
 	}
 	return jsonResult(map[string]any{
 		"status":  "refreshed",

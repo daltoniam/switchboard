@@ -172,6 +172,11 @@ func (l *linear) gql(ctx context.Context, query string, variables map[string]any
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("linear API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("linear API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -195,6 +200,9 @@ func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 

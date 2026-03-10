@@ -18,7 +18,7 @@ func sendMessage(ctx context.Context, s *slackIntegration, args map[string]any) 
 
 	channel, ts, err := s.getClient().PostMessageContext(ctx, argStr(args, "channel_id"), opts...)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "sent", "channel": channel, "ts": ts})
 }
@@ -27,7 +27,7 @@ func updateMessage(ctx context.Context, s *slackIntegration, args map[string]any
 	opts := []slack.MsgOption{slack.MsgOptionText(argStr(args, "text"), false)}
 	channel, ts, _, err := s.getClient().UpdateMessageContext(ctx, argStr(args, "channel_id"), argStr(args, "ts"), opts...)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "updated", "channel": channel, "ts": ts})
 }
@@ -35,7 +35,7 @@ func updateMessage(ctx context.Context, s *slackIntegration, args map[string]any
 func deleteMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	channel, ts, err := s.getClient().DeleteMessageContext(ctx, argStr(args, "channel_id"), argStr(args, "ts"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "deleted", "channel": channel, "ts": ts})
 }
@@ -48,7 +48,7 @@ func searchMessages(ctx context.Context, s *slackIntegration, args map[string]an
 	}
 	result, err := s.getClient().SearchMessagesContext(ctx, argStr(args, "query"), params)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 
 	type match struct {
@@ -81,7 +81,7 @@ func addReaction(ctx context.Context, s *slackIntegration, args map[string]any) 
 	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
 	err := s.getClient().AddReactionContext(ctx, argStr(args, "emoji"), ref)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "added", "emoji": argStr(args, "emoji")})
 }
@@ -90,7 +90,7 @@ func removeReaction(ctx context.Context, s *slackIntegration, args map[string]an
 	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
 	err := s.getClient().RemoveReactionContext(ctx, argStr(args, "emoji"), ref)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "removed", "emoji": argStr(args, "emoji")})
 }
@@ -99,7 +99,7 @@ func getReactions(ctx context.Context, s *slackIntegration, args map[string]any)
 	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
 	reactedItem, err := s.getClient().GetReactionsContext(ctx, ref, slack.GetReactionsParameters{})
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	type rxn struct {
 		Name  string   `json:"name"`
@@ -117,7 +117,7 @@ func addPin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp
 	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
 	err := s.getClient().AddPinContext(ctx, argStr(args, "channel_id"), ref)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "pinned"})
 }
@@ -126,7 +126,7 @@ func removePin(ctx context.Context, s *slackIntegration, args map[string]any) (*
 	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
 	err := s.getClient().RemovePinContext(ctx, argStr(args, "channel_id"), ref)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "unpinned"})
 }
@@ -134,7 +134,7 @@ func removePin(ctx context.Context, s *slackIntegration, args map[string]any) (*
 func listPins(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	items, _, err := s.getClient().ListPinsContext(ctx, argStr(args, "channel_id"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 
 	type pin struct {
@@ -164,7 +164,7 @@ func scheduleMessage(ctx context.Context, s *slackIntegration, args map[string]a
 
 	channel, scheduledID, err := s.getClient().ScheduleMessageContext(ctx, argStr(args, "channel_id"), postAt, opts...)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 
 	postAtInt, _ := strconv.ParseInt(postAt, 10, 64)

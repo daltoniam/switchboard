@@ -20,9 +20,9 @@ func mustJSON(v any) string {
 }
 
 const (
-	rwxOrg         = "curri"
-	minRWXVersion  = "3.0.0"
-	rwxAPIBase     = "https://cloud.rwx.com"
+	rwxOrg          = "curri"
+	minRWXVersion   = "3.0.0"
+	rwxAPIBase      = "https://cloud.rwx.com"
 	maxResponseSize = 10 * 1024 * 1024 // 10 MB
 )
 
@@ -129,6 +129,9 @@ func rawResult(data string) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
@@ -182,10 +185,10 @@ func argStrSlice(args map[string]any, key string) []string {
 
 var dispatch = map[string]handlerFunc{
 	// Runs
-	"rwx_launch_ci_run":    launchCIRun,
-	"rwx_wait_for_ci_run":  waitForCIRun,
-	"rwx_get_recent_runs":  getRecentRuns,
-	"rwx_get_run_results":  getRunResults,
+	"rwx_launch_ci_run":   launchCIRun,
+	"rwx_wait_for_ci_run": waitForCIRun,
+	"rwx_get_recent_runs": getRecentRuns,
+	"rwx_get_run_results": getRunResults,
 
 	// Logs
 	"rwx_get_task_logs": getTaskLogs,

@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -126,7 +127,30 @@ func jsonResult(v any) (*mcp.ToolResult, error) {
 	return &mcp.ToolResult{Data: string(data)}, nil
 }
 
+func wrapRetryable(err error) error {
+	if err == nil {
+		return nil
+	}
+	var apiErr interface{ ErrorCode() string }
+	if errors.As(err, &apiErr) {
+		code := apiErr.ErrorCode()
+		switch code {
+		case "Throttling", "ThrottlingException", "TooManyRequestsException",
+			"RequestLimitExceeded", "ProvisionedThroughputExceededException",
+			"RequestThrottled", "SlowDown", "EC2ThrottledException":
+			return &mcp.RetryableError{StatusCode: 429, Err: err}
+		case "InternalError", "InternalFailure", "ServiceUnavailable":
+			return &mcp.RetryableError{StatusCode: 500, Err: err}
+		}
+	}
+	return err
+}
+
 func errResult(err error) (*mcp.ToolResult, error) {
+	err = wrapRetryable(err)
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 

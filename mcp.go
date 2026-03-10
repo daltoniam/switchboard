@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -34,6 +35,27 @@ func IsRetryable(err error) bool {
 	return errors.As(err, &re)
 }
 
+const maxRetryAfter = 60 * time.Second
+
+// ParseRetryAfter parses a Retry-After header value (integer seconds) into a Duration.
+// Returns 0 for empty, non-numeric, or non-positive values. Caps at 60s.
+// Does not handle HTTP-date format (RFC 7231 §7.1.3) — all known upstream APIs use
+// integer seconds.
+func ParseRetryAfter(header string) time.Duration {
+	if header == "" {
+		return 0
+	}
+	secs, err := strconv.Atoi(header)
+	if err != nil || secs <= 0 {
+		return 0
+	}
+	d := time.Duration(secs) * time.Second
+	if d > maxRetryAfter {
+		return maxRetryAfter
+	}
+	return d
+}
+
 // Credentials holds key-value credential pairs for an integration.
 type Credentials map[string]string
 
@@ -53,7 +75,7 @@ type Config struct {
 type ToolDefinition struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
-	Parameters  map[string]string `json:"parameters"`           // param name -> description
+	Parameters  map[string]string `json:"parameters"` // param name -> description
 	Required    []string          `json:"required,omitempty"`
 }
 
