@@ -36,7 +36,7 @@ func saveAutomation(ctx context.Context, h *homeassistant, args map[string]any) 
 	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
 		return errResult(fmt.Errorf("invalid JSON for config: %w", err))
 	}
-	data, err := h.post(ctx, fmt.Sprintf("/api/config/automation/config/%s", url.PathEscape(id)), config)
+	data, err := h.postf(ctx, config, "/api/config/automation/config/%s", url.PathEscape(id))
 	if err != nil {
 		return errResult(err)
 	}
@@ -82,7 +82,7 @@ func saveScene(ctx context.Context, h *homeassistant, args map[string]any) (*mcp
 	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
 		return errResult(fmt.Errorf("invalid JSON for config: %w", err))
 	}
-	data, err := h.post(ctx, fmt.Sprintf("/api/config/scene/config/%s", url.PathEscape(id)), config)
+	data, err := h.postf(ctx, config, "/api/config/scene/config/%s", url.PathEscape(id))
 	if err != nil {
 		return errResult(err)
 	}
@@ -128,7 +128,7 @@ func saveScript(ctx context.Context, h *homeassistant, args map[string]any) (*mc
 	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
 		return errResult(fmt.Errorf("invalid JSON for config: %w", err))
 	}
-	data, err := h.post(ctx, fmt.Sprintf("/api/config/script/config/%s", url.PathEscape(id)), config)
+	data, err := h.postf(ctx, config, "/api/config/script/config/%s", url.PathEscape(id))
 	if err != nil {
 		return errResult(err)
 	}
