@@ -113,6 +113,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"project_id": "", "credentials_json": ""},
 			},
+			"amazon": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"cookies": "", "domain": ""},
+			},
 		},
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/daltoniam/switchboard/daemon"
 	gcpInt "github.com/daltoniam/switchboard/gcp"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
+	"github.com/daltoniam/switchboard/integrations/amazon"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/github"
@@ -187,6 +188,7 @@ func runServer(stdioMode bool, port int) {
 		pganalyze.New(),
 		rwx.New(),
 		ynab.New(),
+		amazon.New(),
 		gmailIntegration,
 		homeassistant.New(),
 		notionInt.New(),

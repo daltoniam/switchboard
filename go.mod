@@ -15,6 +15,7 @@ require (
 	cloud.google.com/go/storage v1.53.0
 	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
 	github.com/DataDog/datadog-api-client-go/v2 v2.55.0
+	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/a-h/templ v0.3.977
 	github.com/aws/aws-sdk-go-v2 v1.41.2
 	github.com/aws/aws-sdk-go-v2/config v1.32.10
@@ -83,6 +84,7 @@ require (
 	github.com/alingse/asasalint v0.0.11 // indirect
 	github.com/alingse/nilnesserr v0.2.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
+	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/anthropics/anthropic-sdk-go v1.26.0 // indirect
 	github.com/ashanbrown/forbidigo/v2 v2.3.0 // indirect
 	github.com/ashanbrown/makezero/v2 v2.1.0 // indirect
