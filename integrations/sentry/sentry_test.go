@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
@@ -193,7 +194,68 @@ func TestPost(t *testing.T) {
 	assert.Contains(t, string(data), "created")
 }
 
+func TestDoRequest_RetryableOn429(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "30")
+		w.WriteHeader(429)
+		w.Write([]byte(`{"detail":"rate limited"}`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{authToken: "token", organization: "org", client: ts.Client(), baseURL: ts.URL}
+	_, err := s.get(context.Background(), "/test")
+	require.Error(t, err)
+	assert.True(t, mcp.IsRetryable(err), "429 should produce RetryableError")
+
+	var re *mcp.RetryableError
+	require.ErrorAs(t, err, &re)
+	assert.Equal(t, 429, re.StatusCode)
+	assert.Equal(t, 30*time.Second, re.RetryAfter)
+}
+
+func TestDoRequest_RetryableOn5xx(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(503)
+		w.Write([]byte(`service unavailable`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{authToken: "token", organization: "org", client: ts.Client(), baseURL: ts.URL}
+	_, err := s.get(context.Background(), "/test")
+	require.Error(t, err)
+	assert.True(t, mcp.IsRetryable(err), "503 should produce RetryableError")
+}
+
+func TestDoRequest_NonRetryableOn4xx(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(404)
+		w.Write([]byte(`not found`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{authToken: "token", organization: "org", client: ts.Client(), baseURL: ts.URL}
+	_, err := s.get(context.Background(), "/test")
+	require.Error(t, err)
+	assert.False(t, mcp.IsRetryable(err), "404 should NOT be retryable")
+}
+
 // --- result helper tests ---
+
+func TestErrResult_PropagatesRetryableError(t *testing.T) {
+	retryErr := &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("service unavailable")}
+	result, err := errResult(retryErr)
+	assert.Nil(t, result, "retryable error should not produce a ToolResult")
+	assert.Error(t, err, "retryable error should be propagated as Go error")
+	assert.True(t, mcp.IsRetryable(err))
+}
+
+func TestErrResult_WrapsNonRetryableError(t *testing.T) {
+	plainErr := fmt.Errorf("bad request")
+	result, err := errResult(plainErr)
+	require.NoError(t, err, "non-retryable error should not propagate as Go error")
+	assert.True(t, result.IsError)
+	assert.Equal(t, "bad request", result.Data)
+}
 
 func TestRawResult(t *testing.T) {
 	data := json.RawMessage(`{"key":"value"}`)
@@ -203,7 +265,7 @@ func TestRawResult(t *testing.T) {
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
-func TestErrResult(t *testing.T) {
+func TestErrResult_NonRetryable(t *testing.T) {
 	result, err := errResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)

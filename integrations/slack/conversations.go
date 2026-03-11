@@ -25,7 +25,7 @@ func listConversations(ctx context.Context, s *slackIntegration, args map[string
 
 	channels, cursor, err := s.getClient().GetConversationsContext(ctx, params)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 
 	type ch struct {
@@ -71,7 +71,7 @@ func getConversationInfo(ctx context.Context, s *slackIntegration, args map[stri
 		IncludeNumMembers: true,
 	})
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{
 		"id":          ch.ID,
@@ -101,7 +101,7 @@ func conversationsHistory(ctx context.Context, s *slackIntegration, args map[str
 
 	resp, err := s.getClient().GetConversationHistoryContext(ctx, params)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 
 	type msg struct {
@@ -139,7 +139,7 @@ func getThread(ctx context.Context, s *slackIntegration, args map[string]any) (*
 
 	msgs, _, _, err := s.getClient().GetConversationRepliesContext(ctx, params)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 
 	type reply struct {
@@ -172,7 +172,7 @@ func createConversation(ctx context.Context, s *slackIntegration, args map[strin
 		IsPrivate:   argBool(args, "is_private"),
 	})
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{
 		"id":         ch.ID,
@@ -185,7 +185,7 @@ func createConversation(ctx context.Context, s *slackIntegration, args map[strin
 func archiveConversation(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	err := s.getClient().ArchiveConversationContext(ctx, argStr(args, "channel_id"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "archived", "channel_id": argStr(args, "channel_id")})
 }
@@ -194,7 +194,7 @@ func inviteToConversation(ctx context.Context, s *slackIntegration, args map[str
 	users := strings.Split(argStr(args, "user_ids"), ",")
 	ch, err := s.getClient().InviteUsersToConversationContext(ctx, argStr(args, "channel_id"), users...)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "invited", "channel": ch.Name, "users": users})
 }
@@ -202,7 +202,7 @@ func inviteToConversation(ctx context.Context, s *slackIntegration, args map[str
 func kickFromConversation(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	err := s.getClient().KickUserFromConversationContext(ctx, argStr(args, "channel_id"), argStr(args, "user_id"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "removed", "channel_id": argStr(args, "channel_id"), "user_id": argStr(args, "user_id")})
 }
@@ -210,7 +210,7 @@ func kickFromConversation(ctx context.Context, s *slackIntegration, args map[str
 func setConversationTopic(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	ch, err := s.getClient().SetTopicOfConversationContext(ctx, argStr(args, "channel_id"), argStr(args, "topic"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"channel": ch.Name, "topic": ch.Topic.Value})
 }
@@ -218,7 +218,7 @@ func setConversationTopic(ctx context.Context, s *slackIntegration, args map[str
 func setConversationPurpose(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	ch, err := s.getClient().SetPurposeOfConversationContext(ctx, argStr(args, "channel_id"), argStr(args, "purpose"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"channel": ch.Name, "purpose": ch.Purpose.Value})
 }
@@ -226,7 +226,7 @@ func setConversationPurpose(ctx context.Context, s *slackIntegration, args map[s
 func joinConversation(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	ch, _, _, err := s.getClient().JoinConversationContext(ctx, argStr(args, "channel_id"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "joined", "channel": ch.Name})
 }
@@ -234,7 +234,7 @@ func joinConversation(ctx context.Context, s *slackIntegration, args map[string]
 func leaveConversation(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	_, err := s.getClient().LeaveConversationContext(ctx, argStr(args, "channel_id"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"status": "left", "channel_id": argStr(args, "channel_id")})
 }
@@ -242,7 +242,7 @@ func leaveConversation(ctx context.Context, s *slackIntegration, args map[string
 func renameConversation(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	ch, err := s.getClient().RenameConversationContext(ctx, argStr(args, "channel_id"), argStr(args, "name"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{"id": ch.ID, "name": ch.Name})
 }

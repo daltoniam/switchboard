@@ -56,8 +56,41 @@ func New(executor Executor, opts ...Option) *Engine {
 	return e
 }
 
+// parseCallArgs extracts the tool name and argument map from a goja function call.
+func parseCallArgs(call goja.FunctionCall) (string, map[string]any) {
+	toolName := call.Argument(0).String()
+
+	var args map[string]any
+	if len(call.Arguments) > 1 {
+		argsVal := call.Argument(1)
+		if argsVal != nil && !goja.IsUndefined(argsVal) && !goja.IsNull(argsVal) {
+			exported := argsVal.Export()
+			if m, ok := exported.(map[string]any); ok {
+				args = m
+			} else {
+				raw, _ := json.Marshal(exported)
+				_ = json.Unmarshal(raw, &args)
+			}
+		}
+	}
+	if args == nil {
+		args = map[string]any{}
+	}
+	return toolName, args
+}
+
+// parseResult JSON-parses a ToolResult.Data string and returns it as a goja value.
+func parseResult(vm *goja.Runtime, data string) goja.Value {
+	var parsed any
+	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+		return vm.ToValue(data)
+	}
+	return vm.ToValue(parsed)
+}
+
 // Run executes a JavaScript script. The script has access to:
 //   - api.call(toolName, args) — calls an integration tool and returns the parsed JSON result
+//   - api.tryCall(toolName, args) — like call, but returns {ok, data/error} instead of throwing
 //   - console.log(...args) — collects log output (available in result on error)
 //
 // The script's return value is JSON-serialized as the ToolResult.Data.
@@ -78,36 +111,25 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 	var logs []string
 
 	apiObj := vm.NewObject()
-	if err := apiObj.Set("call", func(call goja.FunctionCall) goja.Value {
+
+	// checkCallLimit enforces context cancellation and the per-script call cap.
+	// Both api.call() and api.tryCall() share this limit.
+	checkCallLimit := func() {
 		if err := ctx.Err(); err != nil {
 			panic(vm.NewGoError(fmt.Errorf("script cancelled: %w", err)))
 		}
-
 		callCount++
 		if callCount > e.maxCalls {
 			panic(vm.NewGoError(fmt.Errorf("exceeded maximum of %d api.call() invocations", e.maxCalls)))
 		}
+	}
 
-		toolName := call.Argument(0).String()
+	if err := apiObj.Set("call", func(call goja.FunctionCall) goja.Value {
+		checkCallLimit()
+
+		toolName, args := parseCallArgs(call)
 		if toolName == "" || toolName == "undefined" {
 			panic(vm.NewGoError(fmt.Errorf("api.call() requires a tool name as the first argument")))
-		}
-
-		var args map[string]any
-		if len(call.Arguments) > 1 {
-			argsVal := call.Argument(1)
-			if argsVal != nil && !goja.IsUndefined(argsVal) && !goja.IsNull(argsVal) {
-				exported := argsVal.Export()
-				if m, ok := exported.(map[string]any); ok {
-					args = m
-				} else {
-					raw, _ := json.Marshal(exported)
-					_ = json.Unmarshal(raw, &args)
-				}
-			}
-		}
-		if args == nil {
-			args = map[string]any{}
 		}
 
 		result, err := e.executor.Execute(ctx, toolName, args)
@@ -118,13 +140,43 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 			panic(vm.NewGoError(fmt.Errorf("api.call(%q) returned error: %s", toolName, result.Data)))
 		}
 
-		var parsed any
-		if err := json.Unmarshal([]byte(result.Data), &parsed); err != nil {
-			return vm.ToValue(result.Data)
-		}
-		return vm.ToValue(parsed)
+		return parseResult(vm, result.Data)
 	}); err != nil {
 		return nil, fmt.Errorf("failed to set api.call: %w", err)
+	}
+
+	if err := apiObj.Set("tryCall", func(call goja.FunctionCall) goja.Value {
+		// Context cancellation still kills the script — nothing can execute anyway.
+		if err := ctx.Err(); err != nil {
+			panic(vm.NewGoError(fmt.Errorf("script cancelled: %w", err)))
+		}
+		// maxCalls returns an error envelope instead of killing the script,
+		// so partial results from earlier calls are preserved.
+		callCount++
+		if callCount > e.maxCalls {
+			return vm.ToValue(map[string]any{"ok": false, "error": fmt.Sprintf("exceeded maximum of %d api.call() invocations", e.maxCalls)})
+		}
+
+		toolName, args := parseCallArgs(call)
+		if toolName == "" || toolName == "undefined" {
+			return vm.ToValue(map[string]any{"ok": false, "error": "api.tryCall() requires a tool name"})
+		}
+
+		result, err := e.executor.Execute(ctx, toolName, args)
+		if err != nil {
+			return vm.ToValue(map[string]any{"ok": false, "error": err.Error()})
+		}
+		if result.IsError {
+			return vm.ToValue(map[string]any{"ok": false, "error": result.Data})
+		}
+
+		var parsed any
+		if jsonErr := json.Unmarshal([]byte(result.Data), &parsed); jsonErr != nil {
+			return vm.ToValue(map[string]any{"ok": true, "data": result.Data})
+		}
+		return vm.ToValue(map[string]any{"ok": true, "data": parsed})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to set api.tryCall: %w", err)
 	}
 
 	if err := vm.Set("api", apiObj); err != nil {

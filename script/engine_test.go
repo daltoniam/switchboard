@@ -324,6 +324,111 @@ func TestEngine_ScriptTooLarge(t *testing.T) {
 	assert.Contains(t, result.Data, "script too large")
 }
 
+func TestEngine_TryCallSuccess(t *testing.T) {
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"github_list_issues": {Data: `[{"id":1,"title":"Bug"}]`},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var r = api.tryCall("github_list_issues", {owner: "test"});
+		r;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, true, parsed["ok"])
+	assert.NotNil(t, parsed["data"])
+}
+
+func TestEngine_TryCallError(t *testing.T) {
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"bad_tool": {Data: "not found", IsError: true},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var r = api.tryCall("bad_tool", {});
+		r;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "tryCall should not kill the script")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, false, parsed["ok"])
+	assert.Contains(t, parsed["error"], "not found")
+}
+
+func TestEngine_TryCallGoError(t *testing.T) {
+	exec := &mockExecutor{err: fmt.Errorf("connection refused")}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var r = api.tryCall("some_tool", {});
+		r;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "tryCall should not kill the script")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, false, parsed["ok"])
+	assert.Contains(t, parsed["error"], "connection refused")
+}
+
+func TestEngine_TryCallMixedWithCall(t *testing.T) {
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"good_tool": {Data: `{"status":"ok"}`},
+			"bad_tool":  {Data: "boom", IsError: true},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var good = api.call("good_tool", {});
+		var bad = api.tryCall("bad_tool", {});
+		({good: good, bad: bad});
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	bad, _ := parsed["bad"].(map[string]any)
+	assert.Equal(t, false, bad["ok"])
+	good, _ := parsed["good"].(map[string]any)
+	assert.Equal(t, "ok", good["status"])
+}
+
+func TestEngine_TryCallRespectsMaxCalls(t *testing.T) {
+	exec := &mockExecutor{results: map[string]*mcp.ToolResult{}}
+	engine := New(exec, WithMaxCalls(2))
+
+	result, err := engine.Run(context.Background(), `
+		var r1 = api.tryCall("tool_1", {});
+		var r2 = api.tryCall("tool_2", {});
+		var r3 = api.tryCall("tool_3", {});
+		({r1: r1.ok, r2: r2.ok, r3_ok: r3.ok, r3_error: r3.error});
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "tryCall should return error envelope, not kill script")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, true, parsed["r1"])
+	assert.Equal(t, true, parsed["r2"])
+	assert.Equal(t, false, parsed["r3_ok"])
+	assert.Contains(t, parsed["r3_error"], "exceeded maximum")
+}
+
 func TestEngine_ConsoleLogCapped(t *testing.T) {
 	exec := &mockExecutor{results: map[string]*mcp.ToolResult{}}
 	engine := New(exec)

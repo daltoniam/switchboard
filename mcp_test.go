@@ -142,6 +142,28 @@ func TestRetryableError_PreservesRetryAfterThroughErrorsAs(t *testing.T) {
 	assert.Equal(t, 429, re.StatusCode)
 }
 
+func TestParseRetryAfter(t *testing.T) {
+	tests := []struct {
+		name   string
+		header string
+		want   time.Duration
+	}{
+		{"valid seconds", "30", 30 * time.Second},
+		{"empty header", "", 0},
+		{"non-numeric", "abc", 0},
+		{"negative value", "-5", 0},
+		{"zero", "0", 0},
+		{"capped at 60s", "999", 60 * time.Second},
+		{"exactly 60s", "60", 60 * time.Second},
+		{"just over cap", "61", 60 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ParseRetryAfter(tt.header))
+		})
+	}
+}
+
 func TestIsRetryable_DistinguishesRetryableFromPermanentErrors(t *testing.T) {
 	tests := []struct {
 		name      string

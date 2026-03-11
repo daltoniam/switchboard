@@ -24,11 +24,11 @@ type CompactField struct {
 // Built once by ParseCompactSpecs; reused on every object in an array.
 type fieldPlan struct {
 	scalars      []CompactField            // simple fields + single-member object groups
-	arrayGroups  map[string][]CompactField  // outputKey → array field group
-	objectGroups map[string][]CompactField  // objectRoot → nested object group (2+ members only)
-	childPlans   map[string][]CompactField  // objectRoot → pre-parsed child CompactFields
-	excludes     map[string]bool            // top-level keys to exclude
-	hasIncludes  bool                       // true if any non-exclude specs exist
+	arrayGroups  map[string][]CompactField // outputKey → array field group
+	objectGroups map[string][]CompactField // objectRoot → nested object group (2+ members only)
+	childPlans   map[string][]CompactField // objectRoot → pre-parsed child CompactFields
+	excludes     map[string]bool           // top-level keys to exclude
+	hasIncludes  bool                      // true if any non-exclude specs exist
 }
 
 // buildFieldPlan pre-computes groupings from a slice of CompactFields.
@@ -73,9 +73,20 @@ func buildFieldPlan(fields []CompactField) *fieldPlan {
 		plan.scalars = append(plan.scalars, f)
 	}
 
-	// Split object groups: single-member → scalars, multi-member → objectGroups with pre-parsed children.
+	// Collect objectRoots used by nested array groups (arrayIdx > 0).
+	// Object specs sharing these roots must always nest (even single-member)
+	// so they merge with the nested array under the same parent.
+	nestedArrayRoots := map[string]bool{}
+	for _, group := range plan.arrayGroups {
+		if root := group[0].objectRoot; root != "" {
+			nestedArrayRoots[root] = true
+		}
+	}
+
+	// Split object groups: single-member → scalars (unless sharing a root with
+	// a nested array group), multi-member → objectGroups with pre-parsed children.
 	for root, group := range rawObjectGroups {
-		if len(group) == 1 {
+		if len(group) == 1 && !nestedArrayRoots[root] {
 			plan.scalars = append(plan.scalars, group[0])
 			continue
 		}
@@ -187,13 +198,18 @@ func parseCompactSpec(spec string) (CompactField, error) {
 		arrayIdx = i
 	}
 
-	// "title" → "title", "user.login" → "user.login", "labels[].name" → "labels"
+	// "title" → "title", "user.login" → "user.login", "labels[].name" → "labels",
+	// "issues.nodes[].id" → "issues.nodes" (preserves parent prefix for nested arrays)
 	var outputKey, arrayKey string
 	var childPath []string
 	switch {
 	case arrayIdx >= 0:
-		outputKey = strings.TrimSuffix(parts[arrayIdx], "[]")
-		arrayKey = outputKey
+		arrayKey = strings.TrimSuffix(parts[arrayIdx], "[]")
+		if arrayIdx > 0 {
+			outputKey = strings.Join(parts[:arrayIdx], ".") + "." + arrayKey
+		} else {
+			outputKey = arrayKey
+		}
 		childPath = parts[arrayIdx+1:]
 	case isWildcard:
 		outputKey = parts[0]
@@ -208,10 +224,12 @@ func parseCompactSpec(spec string) (CompactField, error) {
 		outputKey = alias
 	}
 
-	// objectRoot: first path segment for multi-segment non-array specs.
-	// Enables object grouping in compactObject() when 2+ specs share a root.
+	// objectRoot: first path segment for multi-segment specs (both non-array and
+	// nested array specs with arrayIdx > 0). Enables object grouping in
+	// compactObject() when 2+ specs share a root. Flat array specs (arrayIdx == 0)
+	// have no parent to nest under, so objectRoot stays empty.
 	var objectRoot string
-	if len(parts) > 1 && arrayIdx == -1 {
+	if len(parts) > 1 && (arrayIdx == -1 || arrayIdx > 0) {
 		objectRoot = parts[0]
 	}
 
@@ -311,7 +329,37 @@ func compactObject(obj map[string]any, fields []CompactField, plan *fieldPlan) m
 		} else {
 			val, ok = extractArrayFieldGroup(obj, group)
 		}
-		if ok && !isEmptyValue(val) {
+		if !ok {
+			continue
+		}
+
+		// Nested array groups (arrayIdx > 0, e.g. "issues.nodes") nest under
+		// their parent object alongside sibling object specs. Flat array groups
+		// (arrayIdx == 0, e.g. "labels") go directly into out.
+		root := group[0].objectRoot
+		if root != "" {
+			parent, _ := out[root].(map[string]any)
+			if parent == nil {
+				parent = make(map[string]any, 2)
+			}
+			arrayKey := group[0].arrayKey
+			if arr, isArr := val.([]any); isArr {
+				parent[arrayKey] = arr
+			} else if !isEmptyValue(val) {
+				parent[arrayKey] = val
+			}
+			if len(parent) > 0 {
+				out[root] = parent
+			}
+			continue
+		}
+
+		// Preserve empty arrays for spec-targeted array groups: a spec
+		// targeting "matches[].text" means the author chose to include this
+		// field — [] means "0 results", not noise.
+		if arr, isArr := val.([]any); isArr {
+			out[key] = arr
+		} else if !isEmptyValue(val) {
 			out[key] = val
 		}
 	}

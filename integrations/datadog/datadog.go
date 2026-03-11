@@ -97,6 +97,14 @@ func jsonResult(v any) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	// TODO: add wrapRetryable for Datadog SDK errors. The GenericOpenAPIError
+	// type doesn't carry an HTTP status code, and all 59 handlers discard
+	// the *http.Response return value. Options: (1) capture httpResp in each
+	// handler, (2) enable the SDK's built-in RetryConfiguration, or
+	// (3) parse error message strings for status codes (fragile).
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
@@ -209,9 +217,9 @@ var dispatch = map[string]handlerFunc{
 	"datadog_aggregate_logs": aggregateLogs,
 
 	// Metrics
-	"datadog_query_metrics":      queryMetrics,
+	"datadog_query_metrics":       queryMetrics,
 	"datadog_list_active_metrics": listActiveMetrics,
-	"datadog_search_metrics":     searchMetrics,
+	"datadog_search_metrics":      searchMetrics,
 	"datadog_get_metric_metadata": getMetricMetadata,
 
 	// Monitors

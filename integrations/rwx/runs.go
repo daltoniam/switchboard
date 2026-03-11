@@ -162,6 +162,12 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("RWX API error (%d): %s", resp.StatusCode, string(body))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return errResult(re)
+	}
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return errResult(fmt.Errorf("RWX API error (%d): %s", resp.StatusCode, string(body)))
@@ -294,6 +300,12 @@ func fetchRunStatus(ctx context.Context, r *rwx, runID string) (status string, i
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("API request failed: %d %s", resp.StatusCode, string(body))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return "", false, re
+	}
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return "", false, fmt.Errorf("API request failed: %d %s", resp.StatusCode, string(body))

@@ -283,9 +283,9 @@ func TestDoRequest_ReturnsRetryableErrorOn429(t *testing.T) {
 
 func TestDoRequest_ParsesRetryAfterHeader(t *testing.T) {
 	tests := []struct {
-		name       string
-		header     string
-		wantDelay  time.Duration
+		name      string
+		header    string
+		wantDelay time.Duration
 	}{
 		{"parses seconds", "5", 5 * time.Second},
 		{"caps at 60s", "120", 60 * time.Second},
@@ -1855,6 +1855,66 @@ func TestSearchNotion_PassesThroughAllBlockTypes(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(result.Data), &resp))
 	assert.Len(t, resp.Results, 3, "handler should pass through all block types — compaction handles noise")
+}
+
+func TestSearchNotion_StripsHighlightMarkup(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		okJSON(w, `{
+			"results": [
+				{"id": "page-1", "highlight": {"text": "Meeting <gzkNfoUU>Notes</gzkNfoUU> from Monday", "pathText": "Workspace / <gzkNfoUU>Team</gzkNfoUU>"}}
+			],
+			"total": 1,
+			"recordMap": {
+				"block": {
+					"page-1": {"value": {"id": "page-1", "type": "page", "properties": {"title": [["Meeting Notes"]]}}}
+				}
+			}
+		}`)
+	})
+	result, err := searchNotion(context.Background(), n, map[string]any{"query": "notes"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	assert.NotContains(t, result.Data, "gzkNfoUU")
+	assert.Contains(t, result.Data, "Meeting Notes from Monday")
+	assert.Contains(t, result.Data, "Workspace / Team")
+}
+
+func TestSearchNotion_SynthesizesURL(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		okJSON(w, `{
+			"results": [
+				{"id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "highlight": {"text": "Test"}}
+			],
+			"total": 1,
+			"recordMap": {
+				"block": {
+					"a1b2c3d4-e5f6-7890-abcd-ef1234567890": {"value": {"id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "type": "page", "properties": {}}}
+				}
+			}
+		}`)
+	})
+	result, err := searchNotion(context.Background(), n, map[string]any{"query": "test"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	assert.Contains(t, result.Data, "https://www.notion.so/a1b2c3d4e5f67890abcdef1234567890")
+}
+
+func TestStripHighlightTags(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"no tags", "no tags"},
+		{"<gzkNfoUU>match</gzkNfoUU>", "match"},
+		{"before <gzkNfoUU>match</gzkNfoUU> after", "before match after"},
+		{"<abc>one</abc> and <def>two</def>", "one and two"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, stripHighlightTags(tt.input), "input: %q", tt.input)
+	}
 }
 
 // --- deterministic workspace selection ---

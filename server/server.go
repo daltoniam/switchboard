@@ -76,8 +76,9 @@ You can filter by integration name, tool name, or keyword. Returns tool definiti
 with their parameters and descriptions. Results are paginated (default limit: 20).
 
 Examples:
-- Search by integration: {"query": "github"}
+- Filter by integration: {"integration": "github"}
 - Search by action: {"query": "list issues"}
+- Combined filter: {"integration": "slack", "query": "send message"}
 - Search specific tool: {"query": "datadog_search_logs"}
 - Page through results: {"query": "github", "offset": 20, "limit": 20}
 - Count all tools: {"limit": 0}`,
@@ -85,6 +86,10 @@ Examples:
 			"query": map[string]any{
 				"type":        "string",
 				"description": "Search query to filter tools. Leave empty to list all available tools. Matches against tool names, descriptions, and integration names.",
+			},
+			"integration": map[string]any{
+				"type":        "string",
+				"description": "Filter by integration name (e.g., \"github\", \"slack\", \"linear\"). When set, only returns tools from that integration.",
 			},
 			"limit": map[string]any{
 				"type":        "integer",
@@ -105,8 +110,8 @@ PREFER scripts when a task requires 2+ tool calls or crosses integrations — in
 results stay server-side and never enter the conversation, saving tokens dramatically.
 
 Mode 1 — Script (provide script):
-  Write JavaScript that calls api.call(toolName, args) to invoke tools.
-  Chain multiple calls, filter results, and return only what you need.
+  Write ES5 JavaScript (var, function(){}, string + concatenation). No let/const, arrow functions, template literals, or destructuring.
+  Call api.call(toolName, args) to invoke tools. Chain multiple calls, filter results, and return only what you need.
 
   {"script": "var issues = api.call('linear_search_issues', {query: 'BUG-1234'}); var email = issues[0].assignee.email; var user = api.call('postgres_execute_query', {query: 'SELECT * FROM users WHERE email = $1', params: [email]}); ({issue: issues[0], dbUser: user[0]});"}
 
@@ -116,7 +121,8 @@ Mode 2 — Single tool (provide tool_name + arguments):
   {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
 
 Script API:
-  api.call(toolName, args) — call any tool discovered via search, returns parsed JSON
+  api.call(toolName, args) — call any tool, returns parsed JSON. Throws on error (kills script).
+  api.tryCall(toolName, args) — like call, but returns {ok: true, data: ...} or {ok: false, error: "..."}. Prefer tryCall for cross-integration scripts where partial results are useful.
   console.log(...) — debug logging (included in output on error)
 
 Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
@@ -136,7 +142,10 @@ Create a Linear issue then open a GitHub PR referencing it:
   {"script": "var issue = api.call('linear_create_issue', {team_id: 'TEAM-ID', title: 'Fix auth bug', description: 'Details...'}); var pr = api.call('github_create_pull', {owner: 'o', repo: 'r', title: issue.identifier + ': ' + issue.title, head: 'fix-auth', base: 'main', body: 'Resolves ' + issue.url}); ({issue: issue.identifier, pr_url: pr.html_url});"}
 
 Look up a Sentry error, find the responsible deploy, and notify Slack:
-  {"script": "var issue = api.call('sentry_get_issue', {issue_id: '12345'}); var deploys = api.call('sentry_list_deploys', {organization_slug: 'org', version: issue.firstRelease.version}); api.call('slack_post_message', {channel: '#alerts', text: 'Sentry issue ' + issue.title + ' introduced in deploy ' + deploys[0].environment}); ({sentry: issue.shortId, deploy: deploys[0].environment});"}`,
+  {"script": "var issue = api.call('sentry_get_issue', {issue_id: '12345'}); var deploys = api.call('sentry_list_deploys', {organization_slug: 'org', version: issue.firstRelease.version}); api.call('slack_post_message', {channel: '#alerts', text: 'Sentry issue ' + issue.title + ' introduced in deploy ' + deploys[0].environment}); ({sentry: issue.shortId, deploy: deploys[0].environment});"}
+
+Cross-integration correlation with tryCall (tolerates partial failures):
+  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}); var linear = api.tryCall('linear_search_issues', {query: pr.title}); var slack = api.tryCall('slack_search_messages', {query: pr.title, count: 5}); ({pr: {title: pr.title, state: pr.state}, linear: linear.ok ? linear.data : {error: linear.error}, slack: slack.ok ? slack.data : {error: slack.error}});"}`,
 		InputSchema: objectSchema(map[string]any{
 			"tool_name": map[string]any{
 				"type":        "string",
@@ -148,7 +157,7 @@ Look up a Sentry error, find the responsible deploy, and notify Slack:
 			},
 			"script": map[string]any{
 				"type":        "string",
-				"description": "JavaScript code to execute server-side. Use api.call(toolName, args) to invoke tools. Return the final result. (mutually exclusive with tool_name)",
+				"description": "ES5 JavaScript code to execute server-side. Use var (not let/const), function() (not =>), string + concatenation (not template literals). Use api.call(toolName, args) to invoke tools. Return the final result. (mutually exclusive with tool_name)",
 			},
 		}, nil),
 	}
@@ -202,9 +211,10 @@ func hasCredentials(creds mcp.Credentials) bool {
 
 func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 	var args struct {
-		Query  string `json:"query"`
-		Limit  *int   `json:"limit"`
-		Offset int    `json:"offset"`
+		Query       string `json:"query"`
+		Integration string `json:"integration"`
+		Limit       *int   `json:"limit"`
+		Offset      int    `json:"offset"`
 	}
 	if req.Params.Arguments != nil {
 		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
@@ -234,6 +244,9 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	var all []toolInfo
 
 	for _, name := range enabled {
+		if args.Integration != "" && name != args.Integration {
+			continue
+		}
 		integration, ok := s.services.Registry.Get(name)
 		if !ok {
 			continue
@@ -407,7 +420,10 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 	cb := s.getBreaker(integration.Name())
 	if !cb.allow() {
 		return &mcp.ToolResult{
-			Data:    fmt.Sprintf("integration %q temporarily unavailable (circuit breaker open)", integration.Name()),
+			Data: fmt.Sprintf(
+				"integration %q temporarily unavailable (circuit breaker open, try again in ~%ds). Other integrations still work.",
+				integration.Name(), int(s.breakerCooldown.Seconds()),
+			),
 			IsError: true,
 		}, nil
 	}
@@ -437,7 +453,6 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 			return result, err
 		}
 		lastErr = err
-		cb.recordFailure()
 		if attempt >= maxRetries-1 {
 			break
 		}
@@ -457,7 +472,8 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 		}
 	}
 
-	// All retries exhausted — convert last retryable error to ToolResult
+	// All retries exhausted — record one failure per call (not per attempt).
+	cb.recordFailure()
 	return &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }
 

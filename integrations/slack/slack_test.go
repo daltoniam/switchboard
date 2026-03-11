@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
+	mcp "github.com/daltoniam/switchboard"
+	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -159,7 +162,40 @@ func TestJsonResult(t *testing.T) {
 }
 
 func TestErrResult(t *testing.T) {
-	result := errResult(fmt.Errorf("test error"))
+	result, err := errResult(fmt.Errorf("test error"))
+	assert.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
+}
+
+func TestWrapRetryable_SlackRateLimitedError(t *testing.T) {
+	rle := &slack.RateLimitedError{RetryAfter: 30 * time.Second}
+	wrapped := wrapRetryable(rle)
+	require.Error(t, wrapped)
+
+	var re *mcp.RetryableError
+	require.ErrorAs(t, wrapped, &re)
+	assert.Equal(t, 429, re.StatusCode)
+	assert.Equal(t, 30*time.Second, re.RetryAfter)
+}
+
+func TestWrapRetryable_NonRetryableError(t *testing.T) {
+	err := fmt.Errorf("channel not found")
+	wrapped := wrapRetryable(err)
+	assert.Equal(t, err, wrapped, "non-retryable errors should pass through unchanged")
+
+	assert.False(t, mcp.IsRetryable(wrapped))
+}
+
+func TestWrapRetryable_NilError(t *testing.T) {
+	assert.Nil(t, wrapRetryable(nil))
+}
+
+func TestErrResult_PropagatesSlackRateLimitedError(t *testing.T) {
+	// errResult composes wrapRetryable internally — no explicit wrapping needed at call sites.
+	rle := &slack.RateLimitedError{RetryAfter: 10 * time.Second}
+	result, err := errResult(rle)
+	assert.Nil(t, result, "retryable error should not produce a ToolResult")
+	require.Error(t, err)
+	assert.True(t, mcp.IsRetryable(err))
 }

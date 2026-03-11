@@ -107,6 +107,11 @@ func (p *posthog) doRequest(ctx context.Context, method, path string, body any) 
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("posthog API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("posthog API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -141,6 +146,9 @@ func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
@@ -242,15 +250,15 @@ var dispatch = map[string]handlerFunc{
 	"posthog_delete_insight": deleteInsight,
 
 	// Persons
-	"posthog_list_persons":          listPersons,
-	"posthog_get_person":            getPerson,
-	"posthog_delete_person":         deletePerson,
+	"posthog_list_persons":           listPersons,
+	"posthog_get_person":             getPerson,
+	"posthog_delete_person":          deletePerson,
 	"posthog_update_person_property": updatePersonProperty,
 	"posthog_delete_person_property": deletePersonProperty,
 
 	// Groups
-	"posthog_list_groups":   listGroups,
-	"posthog_find_group":    findGroup,
+	"posthog_list_groups": listGroups,
+	"posthog_find_group":  findGroup,
 
 	// Annotations
 	"posthog_list_annotations":  listAnnotations,

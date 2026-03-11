@@ -142,6 +142,11 @@ func (s *sentry) doRequest(ctx context.Context, method, path string, body any) (
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("sentry API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("sentry API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -176,6 +181,9 @@ func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
@@ -235,31 +243,31 @@ func (s *sentry) org(args map[string]any) string {
 
 var dispatch = map[string]handlerFunc{
 	// Organizations
-	"sentry_get_organization":    getOrganization,
-	"sentry_list_org_projects":   listOrgProjects,
-	"sentry_list_org_teams":      listOrgTeams,
-	"sentry_list_org_members":    listOrgMembers,
-	"sentry_get_org_member":      getOrgMember,
-	"sentry_list_org_repos":      listOrgRepos,
-	"sentry_resolve_short_id":    resolveShortID,
+	"sentry_get_organization":  getOrganization,
+	"sentry_list_org_projects": listOrgProjects,
+	"sentry_list_org_teams":    listOrgTeams,
+	"sentry_list_org_members":  listOrgMembers,
+	"sentry_get_org_member":    getOrgMember,
+	"sentry_list_org_repos":    listOrgRepos,
+	"sentry_resolve_short_id":  resolveShortID,
 
 	// Projects
-	"sentry_list_projects":        listProjects,
-	"sentry_get_project":          getProject,
-	"sentry_update_project":       updateProject,
-	"sentry_delete_project":       deleteProject,
-	"sentry_create_project":       createProject,
-	"sentry_list_project_keys":    listProjectKeys,
-	"sentry_list_project_envs":    listProjectEnvironments,
-	"sentry_list_project_tags":    listProjectTags,
-	"sentry_get_project_stats":    getProjectStats,
-	"sentry_list_project_hooks":   listProjectHooks,
+	"sentry_list_projects":      listProjects,
+	"sentry_get_project":        getProject,
+	"sentry_update_project":     updateProject,
+	"sentry_delete_project":     deleteProject,
+	"sentry_create_project":     createProject,
+	"sentry_list_project_keys":  listProjectKeys,
+	"sentry_list_project_envs":  listProjectEnvironments,
+	"sentry_list_project_tags":  listProjectTags,
+	"sentry_get_project_stats":  getProjectStats,
+	"sentry_list_project_hooks": listProjectHooks,
 
 	// Teams
-	"sentry_get_team":             getTeam,
-	"sentry_create_team":          createTeam,
-	"sentry_delete_team":          deleteTeam,
-	"sentry_list_team_projects":   listTeamProjects,
+	"sentry_get_team":           getTeam,
+	"sentry_create_team":        createTeam,
+	"sentry_delete_team":        deleteTeam,
+	"sentry_list_team_projects": listTeamProjects,
 
 	// Issues & Events
 	"sentry_list_issues":          listIssues,
@@ -284,22 +292,22 @@ var dispatch = map[string]handlerFunc{
 	"sentry_list_release_files":   listReleaseFiles,
 
 	// Alerts
-	"sentry_list_metric_alerts":       listMetricAlerts,
-	"sentry_get_metric_alert":         getMetricAlert,
-	"sentry_delete_metric_alert":      deleteMetricAlert,
-	"sentry_list_issue_alerts":        listIssueAlerts,
-	"sentry_get_issue_alert":          getIssueAlert,
-	"sentry_delete_issue_alert":       deleteIssueAlert,
+	"sentry_list_metric_alerts":  listMetricAlerts,
+	"sentry_get_metric_alert":    getMetricAlert,
+	"sentry_delete_metric_alert": deleteMetricAlert,
+	"sentry_list_issue_alerts":   listIssueAlerts,
+	"sentry_get_issue_alert":     getIssueAlert,
+	"sentry_delete_issue_alert":  deleteIssueAlert,
 
 	// Monitors (Cron)
-	"sentry_list_monitors":         listMonitors,
-	"sentry_get_monitor":           getMonitor,
-	"sentry_delete_monitor":        deleteMonitor,
+	"sentry_list_monitors":  listMonitors,
+	"sentry_get_monitor":    getMonitor,
+	"sentry_delete_monitor": deleteMonitor,
 
 	// Discover
-	"sentry_list_saved_queries":  listSavedQueries,
-	"sentry_get_saved_query":     getSavedQuery,
-	"sentry_delete_saved_query":  deleteSavedQuery,
+	"sentry_list_saved_queries": listSavedQueries,
+	"sentry_get_saved_query":    getSavedQuery,
+	"sentry_delete_saved_query": deleteSavedQuery,
 
 	// Replays
 	"sentry_list_replays":  listReplays,

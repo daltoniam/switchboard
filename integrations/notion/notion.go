@@ -158,7 +158,7 @@ func (n *notion) doRequest(ctx context.Context, path string, body any) (json.Raw
 	}
 	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
 		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: formatAPIError(resp.StatusCode, respData)}
-		re.RetryAfter = parseRetryAfter(resp.Header.Get("Retry-After"))
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
 		return nil, re
 	}
 	if resp.StatusCode >= 400 {
@@ -171,25 +171,6 @@ func (n *notion) doRequest(ctx context.Context, path string, body any) (json.Raw
 }
 
 const maxErrorLen = 500
-
-const maxRetryAfter = 60 * time.Second
-
-// parseRetryAfter parses a Retry-After header value (integer seconds) into a Duration.
-// Returns 0 for empty, non-numeric, or non-positive values. Caps at 60s.
-func parseRetryAfter(header string) time.Duration {
-	if header == "" {
-		return 0
-	}
-	secs, err := strconv.Atoi(header)
-	if err != nil || secs <= 0 {
-		return 0
-	}
-	d := time.Duration(secs) * time.Second
-	if d > maxRetryAfter {
-		return maxRetryAfter
-	}
-	return d
-}
 
 // formatAPIError extracts a clean error from a Notion v3 error response.
 // Prefers the structured {name, message} fields; falls back to truncated raw body.
@@ -225,6 +206,9 @@ func jsonResult(v any) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
@@ -295,18 +279,18 @@ func buildChildBlockOps(n *notion, parentID string, child map[string]any, now in
 	}
 
 	blockData := map[string]any{
-		"id":           childID,
-		"type":         childType,
-		"parent_id":    parentID,
-		"parent_table": "block",
-		"space_id":     n.spaceID,
-		"created_by_id":    n.userID,
-		"created_by_table": "notion_user",
+		"id":                   childID,
+		"type":                 childType,
+		"parent_id":            parentID,
+		"parent_table":         "block",
+		"space_id":             n.spaceID,
+		"created_by_id":        n.userID,
+		"created_by_table":     "notion_user",
 		"last_edited_by_id":    n.userID,
 		"last_edited_by_table": "notion_user",
-		"alive":        true,
-		"created_time": now,
-		"last_edited_time": now,
+		"alive":                true,
+		"created_time":         now,
+		"last_edited_time":     now,
 	}
 
 	if props, ok := child["properties"].(map[string]any); ok {

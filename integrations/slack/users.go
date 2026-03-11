@@ -19,7 +19,7 @@ func listUsers(ctx context.Context, s *slackIntegration, args map[string]any) (*
 
 	users, err := s.getClient().GetUsersContext(ctx, opts...)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 
 	type u struct {
@@ -53,7 +53,7 @@ func listUsers(ctx context.Context, s *slackIntegration, args map[string]any) (*
 func getUserInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	user, err := s.getClient().GetUserInfoContext(ctx, argStr(args, "user_id"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{
 		"id":           user.ID,
@@ -75,7 +75,7 @@ func getUserInfo(ctx context.Context, s *slackIntegration, args map[string]any) 
 func getUserPresence(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	presence, err := s.getClient().GetUserPresenceContext(ctx, argStr(args, "user_id"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{
 		"user_id":  argStr(args, "user_id"),
@@ -93,7 +93,7 @@ func listUserGroups(ctx context.Context, s *slackIntegration, args map[string]an
 
 	groups, err := s.getClient().GetUserGroupsContext(ctx, opts...)
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 
 	type ug struct {
@@ -121,7 +121,7 @@ func listUserGroups(ctx context.Context, s *slackIntegration, args map[string]an
 func getUserGroup(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	members, err := s.getClient().GetUserGroupMembersContext(ctx, argStr(args, "usergroup_id"))
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return jsonResult(map[string]any{
 		"usergroup_id": argStr(args, "usergroup_id"),

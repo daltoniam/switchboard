@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -153,7 +154,11 @@ func testGQL(url string, l *linear, query string, variables map[string]any) (jso
 		return data, nil
 	}
 	if len(gqlResp.Errors) > 0 {
-		return nil, fmt.Errorf("graphql errors: %s", gqlResp.Errors[0].Message)
+		msgs := make([]string, len(gqlResp.Errors))
+		for i, e := range gqlResp.Errors {
+			msgs[i] = e.String()
+		}
+		return nil, fmt.Errorf("graphql errors: %s", strings.Join(msgs, "; "))
 	}
 	return gqlResp.Data, nil
 }
@@ -200,6 +205,44 @@ func TestGQL_GraphQLErrors(t *testing.T) {
 	_, err := testGQL(ts.URL, l, `{ bad }`, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "field not found")
+}
+
+func TestGQL_GraphQLErrorsWithPathAndExtensions(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"errors": []map[string]any{
+				{
+					"message":    "Argument Validation Error",
+					"path":       []string{"searchIssues"},
+					"extensions": map[string]any{"code": "INVALID_INPUT", "field": "term"},
+				},
+			},
+		})
+	}))
+	defer ts.Close()
+
+	l := &linear{apiKey: "test-key", client: ts.Client()}
+	_, err := testGQL(ts.URL, l, `{ searchIssues(term: "") { nodes { id } } }`, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Argument Validation Error")
+	assert.Contains(t, err.Error(), "searchIssues")
+	assert.Contains(t, err.Error(), "INVALID_INPUT")
+}
+
+func TestGQL_GraphQLErrorsWithoutExtensions(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"errors": []map[string]any{
+				{"message": "Not authorized"},
+			},
+		})
+	}))
+	defer ts.Close()
+
+	l := &linear{apiKey: "test-key", client: ts.Client()}
+	_, err := testGQL(ts.URL, l, `{ viewer { id } }`, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Not authorized")
 }
 
 // --- arg helper tests ---

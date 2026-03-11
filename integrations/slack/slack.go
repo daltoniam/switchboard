@@ -3,6 +3,7 @@ package slack
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -180,8 +181,8 @@ type handlerFunc func(ctx context.Context, s *slackIntegration, args map[string]
 
 var dispatch = map[string]handlerFunc{
 	// Token management
-	"slack_token_status":    tokenStatus,
-	"slack_refresh_tokens":  refreshTokens,
+	"slack_token_status":   tokenStatus,
+	"slack_refresh_tokens": refreshTokens,
 
 	// Conversations
 	"slack_list_conversations":       listConversations,
@@ -239,13 +240,30 @@ var dispatch = map[string]handlerFunc{
 func jsonResult(v any) (*mcp.ToolResult, error) {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return errResult(err), nil
+		return errResult(err)
 	}
 	return &mcp.ToolResult{Data: string(data)}, nil
 }
 
-func errResult(err error) *mcp.ToolResult {
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}
+// wrapRetryable converts SDK-specific retryable errors into mcp.RetryableError.
+// The slack-go SDK returns *slack.RateLimitedError on 429s with a parsed RetryAfter.
+func wrapRetryable(err error) error {
+	if err == nil {
+		return nil
+	}
+	var rle *slack.RateLimitedError
+	if errors.As(err, &rle) {
+		return &mcp.RetryableError{StatusCode: 429, Err: err, RetryAfter: rle.RetryAfter}
+	}
+	return err
+}
+
+func errResult(err error) (*mcp.ToolResult, error) {
+	err = wrapRetryable(err)
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
+	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
 func argStr(args map[string]any, key string) string {

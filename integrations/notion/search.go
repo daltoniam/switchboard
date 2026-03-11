@@ -3,9 +3,24 @@ package notion
 import (
 	"context"
 	"encoding/json"
+	"regexp"
+	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
+
+// highlightTagRe matches Notion's proprietary highlight markup tags.
+// These are random alphanumeric strings (e.g., <gzkNfoUU>), not standard HTML.
+// The regex is intentionally broad (any alphanum tag) because Notion's tag format
+// is undocumented and may vary. Blast radius is limited: only applied to the
+// "highlight" field from search results, not arbitrary page content.
+var highlightTagRe = regexp.MustCompile(`</?[a-zA-Z0-9]+>`)
+
+// stripHighlightTags removes Notion's proprietary highlight markup
+// (e.g., <gzkNfoUU>matched text</gzkNfoUU>) from search result strings.
+func stripHighlightTags(s string) string {
+	return highlightTagRe.ReplaceAllString(s, "")
+}
 
 func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	body := map[string]any{
@@ -15,19 +30,19 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 		"limit":   20,
 		"source":  "quick_find",
 		"filters": map[string]any{
-			"isDeletedOnly":                            false,
-			"navigableBlockContentOnly":                false,
-			"excludeTemplates":                         false,
-			"requireEditPermissions":                   false,
-			"includePublicPagesWithoutExplicitAccess":  false,
-			"ancestors":                                []string{},
-			"createdBy":                                []string{},
-			"editedBy":                                 []string{},
-			"lastEditedTime":                           map[string]any{},
-			"createdTime":                              map[string]any{},
-			"inTeams":                                  []string{},
-			"excludeSurrogateCollections":              false,
-			"excludedParentCollectionIds":              []string{},
+			"isDeletedOnly":                           false,
+			"navigableBlockContentOnly":               false,
+			"excludeTemplates":                        false,
+			"requireEditPermissions":                  false,
+			"includePublicPagesWithoutExplicitAccess": false,
+			"ancestors":                               []string{},
+			"createdBy":                               []string{},
+			"editedBy":                                []string{},
+			"lastEditedTime":                          map[string]any{},
+			"createdTime":                             map[string]any{},
+			"inTeams":                                 []string{},
+			"excludeSurrogateCollections":             false,
+			"excludedParentCollectionIds":             []string{},
 		},
 		"sort": map[string]any{"field": "relevance"},
 	}
@@ -75,7 +90,8 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 	for _, r := range resp.Results {
 		entry := map[string]any{
 			"id":        r.ID,
-			"highlight": r.Highlight,
+			"highlight": cleanHighlight(r.Highlight),
+			"url":       "https://www.notion.so/" + strings.ReplaceAll(r.ID, "-", ""),
 		}
 		block, ok := blocks[r.ID]
 		if !ok {
@@ -106,6 +122,24 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 		"results": results,
 		"total":   resp.Total,
 	})
+}
+
+// cleanHighlight strips Notion's proprietary highlight markup tags from all
+// string values in the highlight object (text, pathText, etc.).
+func cleanHighlight(h any) any {
+	m, ok := h.(map[string]any)
+	if !ok {
+		return h
+	}
+	cleaned := make(map[string]any, len(m))
+	for k, v := range m {
+		if s, ok := v.(string); ok {
+			cleaned[k] = stripHighlightTags(s)
+		} else {
+			cleaned[k] = v
+		}
+	}
+	return cleaned
 }
 
 // parseBlockTable extracts block records from a recordMap's "block" table.

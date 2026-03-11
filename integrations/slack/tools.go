@@ -18,7 +18,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Conversations ---
 	{
 		Name:        "slack_list_conversations",
-		Description: "List channels and DMs in the workspace. Filter by type (public_channel, private_channel, im, mpim).",
+		Description: "Start here to discover channels. List channels and DMs in the workspace. Filter by type (public_channel, private_channel, im, mpim). Returns channel IDs needed by most other Slack tools.",
 		Parameters: map[string]string{
 			"types":            "Comma-separated types: public_channel, private_channel, im, mpim (default: public_channel,private_channel)",
 			"limit":            "Max results per page (default 100, max 1000)",
@@ -28,7 +28,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "slack_get_conversation_info",
-		Description: "Get detailed information about a specific channel or DM.",
+		Description: "Get detailed information about a specific channel or DM, including topic, purpose, and member count. Use after list_conversations to inspect a channel.",
 		Parameters: map[string]string{
 			"channel_id": "Channel or DM ID",
 		},
@@ -36,7 +36,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "slack_conversations_history",
-		Description: "Get messages from a channel or DM. Returns messages in reverse chronological order.",
+		Description: "Start here to read channel messages. Returns messages in reverse chronological order. Requires channel ID (C...), not channel name. Use list_conversations to find IDs.",
 		Parameters: map[string]string{
 			"channel_id": "Channel or DM ID",
 			"limit":      "Number of messages to fetch (default 50, max 100)",
@@ -48,7 +48,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "slack_get_thread",
-		Description: "Get all replies in a message thread.",
+		Description: "Get all replies in a message thread. Use after conversations_history to read full thread replies. Requires channel ID and thread_ts from conversations_history.",
 		Parameters: map[string]string{
 			"channel_id": "Channel or DM ID",
 			"thread_ts":  "Thread parent message timestamp",
@@ -137,7 +137,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Messages ---
 	{
 		Name:        "slack_send_message",
-		Description: "Send a message to a channel or DM. Supports Slack mrkdwn formatting and threads.",
+		Description: "Send (post) a message to a channel or DM. Requires channel ID (C...), not channel name. Supports Slack mrkdwn formatting and threads.",
 		Parameters: map[string]string{
 			"channel_id": "Channel or DM ID to send to",
 			"text":       "Message text (supports Slack mrkdwn)",
@@ -166,7 +166,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "slack_search_messages",
-		Description: "Search messages across the Slack workspace. Supports Slack search syntax (from:@user, in:#channel, has:link, etc.).",
+		Description: "Start here to find messages. Search across the entire Slack workspace. Supports Slack search syntax: from:@user, in:#channel, has:link, before:2024-01-01, after:2024-01-01.",
 		Parameters: map[string]string{
 			"query": "Search query (supports Slack search modifiers)",
 			"count": "Number of results (default 20, max 100)",
@@ -222,7 +222,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "slack_list_pins",
-		Description: "List all pinned items in a channel.",
+		Description: "List all pinned items in a channel. Use to find important messages and references pinned by the team.",
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 		},
@@ -243,7 +243,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Users ---
 	{
 		Name:        "slack_list_users",
-		Description: "List all users in the workspace. Supports pagination for large workspaces.",
+		Description: "Start here to find users. List all users in the workspace with display names, emails, and IDs. Supports pagination for large workspaces.",
 		Parameters: map[string]string{
 			"limit":  "Max users per page (default 200, max 1000)",
 			"cursor": "Pagination cursor",
@@ -251,7 +251,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "slack_get_user_info",
-		Description: "Get detailed information about a user including profile, status, timezone, and admin status.",
+		Description: "Get detailed profile for a single user including status, timezone, and admin status. Use after list_users when you need full details for a specific person.",
 		Parameters: map[string]string{
 			"user_id": "Slack user ID",
 		},
@@ -259,7 +259,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "slack_get_user_presence",
-		Description: "Get a user's current presence status (active/away).",
+		Description: "Get a user's current presence status (active/away). Use after list_users to check if someone is online.",
 		Parameters: map[string]string{
 			"user_id": "Slack user ID",
 		},
@@ -267,7 +267,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "slack_list_user_groups",
-		Description: "List all user groups (handles) in the workspace.",
+		Description: "List all user groups (handles like @engineering) in the workspace. Use to find group IDs and membership.",
 		Parameters: map[string]string{
 			"include_users":    "Include list of member user IDs (default false)",
 			"include_disabled": "Include disabled user groups (default false)",
@@ -285,7 +285,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Extras ---
 	{
 		Name:        "slack_auth_test",
-		Description: "Test authentication and get current user/workspace info.",
+		Description: "Test authentication and get current user/workspace info. Use to verify credentials and find your own user ID.",
 		Parameters:  map[string]string{},
 	},
 	{
@@ -297,19 +297,19 @@ var tools = []mcp.ToolDefinition{
 		Name:        "slack_upload_file",
 		Description: "Upload a text file or snippet to a channel.",
 		Parameters: map[string]string{
-			"channels":         "Comma-separated channel IDs to share the file in",
-			"content":          "Text content of the file",
-			"filename":         "Filename (e.g., report.txt)",
-			"title":            "Title for the file",
-			"filetype":         "File type identifier (e.g., text, python, javascript)",
-			"initial_comment":  "Message to include with the file",
-			"thread_ts":        "Thread timestamp to upload into a thread (optional)",
+			"channels":        "Comma-separated channel IDs to share the file in",
+			"content":         "Text content of the file",
+			"filename":        "Filename (e.g., report.txt)",
+			"title":           "Title for the file",
+			"filetype":        "File type identifier (e.g., text, python, javascript)",
+			"initial_comment": "Message to include with the file",
+			"thread_ts":       "Thread timestamp to upload into a thread (optional)",
 		},
 		Required: []string{"channels", "content", "filename"},
 	},
 	{
 		Name:        "slack_list_files",
-		Description: "List files shared in the workspace. Filter by channel, user, or type.",
+		Description: "List files shared in the workspace. Use to find documents, images, and snippets. Filter by channel, user, or type.",
 		Parameters: map[string]string{
 			"channel_id": "Filter by channel ID (optional)",
 			"user_id":    "Filter by user ID (optional)",

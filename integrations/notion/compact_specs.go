@@ -20,7 +20,7 @@ func prefixFields(prefix string, fields []string) []string {
 
 var searchResultFields = []string{
 	"id", "type", "parent_id", "collection_id",
-	"properties", "highlight",
+	"properties", "highlight", "url",
 	"created_time", "last_edited_time",
 }
 
@@ -75,7 +75,7 @@ var blockFields = []string{
 //   - "What templates does this database have?" → needs id, properties.title
 var rawFieldCompactionSpecs = map[string][]string{
 	// ── List/search tools ────────────────────────────────────────────
-	"notion_search":                     prefixFields("results[]", searchResultFields),
+	"notion_search": prefixFields("results[]", searchResultFields),
 	"notion_query_data_source": append(
 		[]string{"schema"},
 		prefixFields("results[]", queryResultFields)...,

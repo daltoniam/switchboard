@@ -8,8 +8,10 @@ import (
 
 var rawFieldCompactionSpecs = map[string][]string{
 	// ── Runs ────────────────────────────────────────────────────────
-	"rwx_get_recent_runs": {"id", "status", "branch", "created_at", "url", "tasks[].key", "tasks[].status"},
-	"rwx_get_run_results": {"id", "status", "tasks[].key", "tasks[].status", "tasks[].duration", "summary"},
+	// Handler: jsonResult(map{ref, count, runs: [{run_id, status, commit_sha, title, url}]})
+	"rwx_get_recent_runs": {"ref", "count", "runs[].run_id", "runs[].status", "runs[].commit_sha", "runs[].title", "runs[].url"},
+	// Handler: jsonResult(map{run_id, url, status, execution, duration_seconds, summary, failed_tasks, tasks: [{key, status, duration_seconds, cache_hit}]})
+	"rwx_get_run_results": {"run_id", "url", "status", "duration_seconds", "summary", "failed_tasks", "tasks[].key", "tasks[].status", "tasks[].duration_seconds", "tasks[].cache_hit"},
 }
 
 var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(rawFieldCompactionSpecs)

@@ -98,6 +98,11 @@ func (y *ynab) doRequest(ctx context.Context, method, path string, body any) (js
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("ynab API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("ynab API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -136,6 +141,9 @@ func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
@@ -197,8 +205,8 @@ var dispatch = map[string]handlerFunc{
 	"ynab_get_user": getUser,
 
 	// Budgets
-	"ynab_list_budgets":       listBudgets,
-	"ynab_get_budget":         getBudget,
+	"ynab_list_budgets":        listBudgets,
+	"ynab_get_budget":          getBudget,
 	"ynab_get_budget_settings": getBudgetSettings,
 
 	// Accounts
@@ -224,8 +232,8 @@ var dispatch = map[string]handlerFunc{
 	"ynab_update_payee": updatePayee,
 
 	// Payee Locations
-	"ynab_list_payee_locations":    listPayeeLocations,
-	"ynab_get_payee_location":      getPayeeLocation,
+	"ynab_list_payee_locations":     listPayeeLocations,
+	"ynab_get_payee_location":       getPayeeLocation,
 	"ynab_list_locations_for_payee": listLocationsForPayee,
 
 	// Months
@@ -244,9 +252,9 @@ var dispatch = map[string]handlerFunc{
 	"ynab_delete_transaction":         deleteTransaction,
 
 	// Scheduled Transactions
-	"ynab_list_scheduled_transactions":   listScheduledTransactions,
-	"ynab_get_scheduled_transaction":     getScheduledTransaction,
-	"ynab_create_scheduled_transaction":  createScheduledTransaction,
-	"ynab_update_scheduled_transaction":  updateScheduledTransaction,
-	"ynab_delete_scheduled_transaction":  deleteScheduledTransaction,
+	"ynab_list_scheduled_transactions":  listScheduledTransactions,
+	"ynab_get_scheduled_transaction":    getScheduledTransaction,
+	"ynab_create_scheduled_transaction": createScheduledTransaction,
+	"ynab_update_scheduled_transaction": updateScheduledTransaction,
+	"ynab_delete_scheduled_transaction": deleteScheduledTransaction,
 }

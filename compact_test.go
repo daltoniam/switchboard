@@ -36,9 +36,9 @@ func TestParseCompactSpec(t *testing.T) {
 			want: CompactField{path: []string{"labels[]", "name"}, outputKey: "labels", arrayIdx: 0, arrayKey: "labels", childPath: []string{"name"}},
 		},
 		{
-			name: "nested array extraction has no objectRoot",
+			name: "nested array extraction has objectRoot from parent prefix",
 			spec: "repo.labels[].name",
-			want: CompactField{path: []string{"repo", "labels[]", "name"}, outputKey: "labels", arrayIdx: 1, arrayKey: "labels", childPath: []string{"name"}},
+			want: CompactField{path: []string{"repo", "labels[]", "name"}, outputKey: "repo.labels", arrayIdx: 1, arrayKey: "labels", childPath: []string{"name"}, objectRoot: "repo"},
 		},
 		{
 			name:    "empty string",
@@ -156,10 +156,10 @@ func TestCompactJSON_Object(t *testing.T) {
 			want:  `{"number":1,"labels":["bug","P1"]}`,
 		},
 		{
-			name:  "empty array omitted",
+			name:  "empty array preserved",
 			input: `{"number":1,"labels":[]}`,
 			specs: []string{"number", "labels[].name"},
-			want:  `{"number":1}`,
+			want:  `{"number":1,"labels":[]}`,
 		},
 		{
 			name:  "nested null value preserved",
@@ -290,16 +290,16 @@ func TestCompactJSON_MultiFieldArray(t *testing.T) {
 			want:  `{"id":1,"labels":["bug","P1"]}`,
 		},
 		{
-			name:  "nested array parent navigates to array",
+			name:  "nested array parent preserves envelope",
 			input: `{"repo":{"labels":[{"name":"bug","color":"red"},{"name":"P1","color":"blue"}]},"id":1}`,
 			specs: []string{"id", "repo.labels[].name"},
-			want:  `{"id":1,"labels":["bug","P1"]}`,
+			want:  `{"id":1,"repo":{"labels":["bug","P1"]}}`,
 		},
 		{
-			name:  "multi-field from nested array parent",
+			name:  "multi-field from nested array parent preserves envelope",
 			input: `{"payload":{"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]},"id":1}`,
 			specs: []string{"id", "payload.steps[].name", "payload.steps[].conclusion"},
-			want:  `{"id":1,"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]}`,
+			want:  `{"id":1,"payload":{"steps":[{"name":"Build","conclusion":"success"},{"name":"Test","conclusion":"failure"}]}}`,
 		},
 		{
 			name:  "multi-field array idempotent",
@@ -332,6 +332,83 @@ func TestCompactJSON_MultiFieldArray(t *testing.T) {
 			assert.Equal(t, wantVal, gotVal)
 		})
 	}
+}
+
+func TestCompactJSON_NestedArrayEnvelope(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		specs []string
+		want  string
+	}{
+		{
+			name:  "GraphQL envelope: array + sibling pageInfo under same parent",
+			input: `{"issues":{"nodes":[{"id":"1","title":"Bug","priority":3},{"id":"2","title":"Feat","priority":1}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`,
+			specs: []string{"issues.nodes[].id", "issues.nodes[].title", "issues.pageInfo.hasNextPage", "issues.pageInfo.endCursor"},
+			want:  `{"issues":{"nodes":[{"id":"1","title":"Bug"},{"id":"2","title":"Feat"}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`,
+		},
+		{
+			name:  "GraphQL envelope: single array field preserves nesting",
+			input: `{"projects":{"nodes":[{"id":"p1","name":"Alpha"},{"id":"p2","name":"Beta"}]}}`,
+			specs: []string{"projects.nodes[].id", "projects.nodes[].name"},
+			want:  `{"projects":{"nodes":[{"id":"p1","name":"Alpha"},{"id":"p2","name":"Beta"}]}}`,
+		},
+		{
+			name:  "flat array (Category A) unchanged",
+			input: `{"Buckets":[{"Name":"logs","CreationDate":"2025-01-01"},{"Name":"data","CreationDate":"2025-02-01"}]}`,
+			specs: []string{"Buckets[].Name"},
+			want:  `{"Buckets":["logs","data"]}`,
+		},
+		{
+			name:  "nested array with scalar sibling at parent level",
+			input: `{"data":{"total":42,"items":[{"id":1,"name":"first"},{"id":2,"name":"second"}]}}`,
+			specs: []string{"data.total", "data.items[].id", "data.items[].name"},
+			want:  `{"data":{"total":42,"items":[{"id":1,"name":"first"},{"id":2,"name":"second"}]}}`,
+		},
+		{
+			name:  "nested empty array preserved under envelope",
+			input: `{"issues":{"nodes":[],"pageInfo":{"hasNextPage":false}}}`,
+			specs: []string{"issues.nodes[].id", "issues.pageInfo.hasNextPage"},
+			want:  `{"issues":{"nodes":[],"pageInfo.hasNextPage":false}}`,
+		},
+		{
+			name:  "nested array with two pageInfo siblings nest under pageInfo",
+			input: `{"issues":{"nodes":[{"id":"1","title":"Bug"}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`,
+			specs: []string{"issues.nodes[].id", "issues.nodes[].title", "issues.pageInfo.hasNextPage", "issues.pageInfo.endCursor"},
+			want:  `{"issues":{"nodes":[{"id":"1","title":"Bug"}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fields, err := ParseCompactSpecs(tt.specs)
+			require.NoError(t, err)
+
+			got, err := CompactJSON([]byte(tt.input), fields)
+			require.NoError(t, err)
+
+			var wantVal, gotVal any
+			require.NoError(t, json.Unmarshal([]byte(tt.want), &wantVal))
+			require.NoError(t, json.Unmarshal(got, &gotVal))
+			assert.Equal(t, wantVal, gotVal)
+		})
+	}
+}
+
+func TestCompactJSON_NestedArrayEnvelope_Idempotent(t *testing.T) {
+	input := `{"issues":{"nodes":[{"id":"1","title":"Bug","priority":3}],"pageInfo":{"hasNextPage":true,"endCursor":"abc"}}}`
+	specs := []string{"issues.nodes[].id", "issues.nodes[].title", "issues.pageInfo.hasNextPage", "issues.pageInfo.endCursor"}
+
+	fields, err := ParseCompactSpecs(specs)
+	require.NoError(t, err)
+
+	once, err := CompactJSON([]byte(input), fields)
+	require.NoError(t, err)
+
+	twice, err := CompactJSON(once, fields)
+	require.NoError(t, err)
+
+	assert.JSONEq(t, string(once), string(twice), "compact(compact(x)) != compact(x)")
 }
 
 func TestCompactJSON_LeadingWhitespace(t *testing.T) {
@@ -514,10 +591,10 @@ func TestCompactJSON_OmitEmpty(t *testing.T) {
 			want:  `{"number":1,"title":"bug"}`,
 		},
 		{
-			name:  "empty array omitted",
+			name:  "empty array preserved for spec-targeted array groups",
 			input: `{"number":1,"labels":[],"title":"bug"}`,
 			specs: []string{"number", "title", "labels[].name"},
-			want:  `{"number":1,"title":"bug"}`,
+			want:  `{"number":1,"title":"bug","labels":[]}`,
 		},
 		{
 			name:  "empty string preserved",
@@ -530,6 +607,12 @@ func TestCompactJSON_OmitEmpty(t *testing.T) {
 			input: `{"number":1,"labels":[{"name":"bug"}]}`,
 			specs: []string{"number", "labels[].name"},
 			want:  `{"number":1,"labels":["bug"]}`,
+		},
+		{
+			name:  "object-wrapped empty array preserved",
+			input: `{"query":"test","total":0,"matches":[]}`,
+			specs: []string{"query", "total", "matches[].text", "matches[].user"},
+			want:  `{"query":"test","total":0,"matches":[]}`,
 		},
 		{
 			name:  "empty object omitted",
@@ -849,15 +932,15 @@ func BenchmarkCompactionRatio(b *testing.B) {
 					map[string]any{"login": "alice", "id": 1001, "avatar_url": "https://avatars.githubusercontent.com/u/1001?v=4", "type": "User"},
 				},
 				"milestone": map[string]any{
-					"title":        "v2.0",
-					"id":           50,
-					"number":       5,
-					"state":        "open",
-					"description":  "Second major release milestone with breaking changes and new features",
-					"open_issues":  12,
+					"title":         "v2.0",
+					"id":            50,
+					"number":        5,
+					"state":         "open",
+					"description":   "Second major release milestone with breaking changes and new features",
+					"open_issues":   12,
 					"closed_issues": 8,
-					"created_at":   "2025-01-01T00:00:00Z",
-					"due_on":       "2025-06-01T00:00:00Z",
+					"created_at":    "2025-01-01T00:00:00Z",
+					"due_on":        "2025-06-01T00:00:00Z",
 				},
 				"reactions": map[string]any{
 					"url":         "https://api.github.com/repos/org/repo/issues/1/reactions",
@@ -916,11 +999,11 @@ func BenchmarkCompactionRatio(b *testing.B) {
 						"stack":   "Error: connect ECONNREFUSED 10.0.1.99:8080\n    at TCPConnectWrap.afterConnect [as oncomplete] (net.js:1141:16)\n    at Protocol._enqueue (/app/node_modules/mysql/lib/protocol/Protocol.js:144:48)\n    at Connection.query (/app/node_modules/mysql/lib/Connection.js:198:25)",
 					},
 					"custom": map[string]any{
-						"request_id":   "abc-123-def",
-						"trace_id":     "1234567890abcdef",
-						"span_id":      "fedcba0987654321",
-						"duration_ms":  30042,
-						"retry_count":  3,
+						"request_id":    "abc-123-def",
+						"trace_id":      "1234567890abcdef",
+						"span_id":       "fedcba0987654321",
+						"duration_ms":   30042,
+						"retry_count":   3,
 						"circuit_state": "open",
 					},
 				},
@@ -970,17 +1053,17 @@ func BenchmarkCompactionRatio(b *testing.B) {
 					map[string]any{"id": "label-2", "name": "backend", "color": "#3b82f6"},
 				},
 				"project": map[string]any{
-					"id":        "project-uuid",
-					"name":      "Q1 Platform Improvements",
-					"state":     "started",
-					"progress":  0.45,
-					"startDate": "2025-01-01",
+					"id":         "project-uuid",
+					"name":       "Q1 Platform Improvements",
+					"state":      "started",
+					"progress":   0.45,
+					"startDate":  "2025-01-01",
 					"targetDate": "2025-03-31",
 				},
 				"cycle": map[string]any{
-					"id":     "cycle-uuid",
-					"name":   "Sprint 12",
-					"number": 12,
+					"id":       "cycle-uuid",
+					"name":     "Sprint 12",
+					"number":   12,
 					"startsAt": "2025-02-24",
 					"endsAt":   "2025-03-07",
 				},
@@ -1128,12 +1211,12 @@ func BenchmarkCompactionRatio(b *testing.B) {
 					"Arn": "arn:aws:iam::123456789012:instance-profile/web-server-role",
 					"Id":  "AIPAXXXXXXXXXXXXXXXXX",
 				},
-				"EbsOptimized":       true,
-				"EnaSupport":         true,
-				"Hypervisor":         "nitro",
+				"EbsOptimized": true,
+				"EnaSupport":   true,
+				"Hypervisor":   "nitro",
 				"MetadataOptions": map[string]any{
-					"State":                 "applied",
-					"HttpTokens":            "required",
+					"State":                   "applied",
+					"HttpTokens":              "required",
 					"HttpPutResponseHopLimit": 1,
 					"HttpEndpoint":            "enabled",
 				},
@@ -1159,16 +1242,16 @@ func BenchmarkCompactionRatio(b *testing.B) {
 		items := make([]map[string]any, 30)
 		for i := range items {
 			items[i] = map[string]any{
-				"number":     i + 1,
-				"title":      "Issue title",
-				"state":      "open",
-				"body":       "Very long body with detailed description, markdown, code blocks, and reproduction steps that inflate the token count significantly in real responses.",
-				"node_id":    "MDU6SXNzdWUxMjM0NTY3OA==",
-				"url":        "https://api.github.com/repos/org/repo/issues/1",
-				"repository_url": "https://api.github.com/repos/org/repo",
-				"labels_url": "https://api.github.com/repos/org/repo/issues/1/labels{/name}",
-				"comments_url": "https://api.github.com/repos/org/repo/issues/1/comments",
-				"events_url": "https://api.github.com/repos/org/repo/issues/1/events",
+				"number":                   i + 1,
+				"title":                    "Issue title",
+				"state":                    "open",
+				"body":                     "Very long body with detailed description, markdown, code blocks, and reproduction steps that inflate the token count significantly in real responses.",
+				"node_id":                  "MDU6SXNzdWUxMjM0NTY3OA==",
+				"url":                      "https://api.github.com/repos/org/repo/issues/1",
+				"repository_url":           "https://api.github.com/repos/org/repo",
+				"labels_url":               "https://api.github.com/repos/org/repo/issues/1/labels{/name}",
+				"comments_url":             "https://api.github.com/repos/org/repo/issues/1/comments",
+				"events_url":               "https://api.github.com/repos/org/repo/issues/1/events",
 				"performed_via_github_app": nil,
 			}
 		}
@@ -1203,8 +1286,8 @@ func BenchmarkCompactionRatio(b *testing.B) {
 			"project": map[string]any{
 				"id": "project-1", "name": "frontend-app", "slug": "frontend-app", "platform": "javascript-react",
 			},
-			"type":        "error",
-			"annotations": []any{},
+			"type":          "error",
+			"annotations":   []any{},
 			"statusDetails": map[string]any{},
 		}
 		data, _ := json.Marshal(item)

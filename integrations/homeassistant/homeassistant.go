@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	_ mcp.Integration              = (*homeassistant)(nil)
+	_ mcp.Integration                = (*homeassistant)(nil)
 	_ mcp.FieldCompactionIntegration = (*homeassistant)(nil)
-	_ mcp.PlainTextCredentials     = (*homeassistant)(nil)
+	_ mcp.PlainTextCredentials       = (*homeassistant)(nil)
 )
 
 type homeassistant struct {
@@ -110,6 +110,11 @@ func (h *homeassistant) doRequest(ctx context.Context, method, path string, body
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("homeassistant API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("homeassistant API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -148,6 +153,11 @@ func (h *homeassistant) doRequestRaw(ctx context.Context, method, path string, b
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("homeassistant API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("homeassistant API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -179,6 +189,9 @@ func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
+	if mcp.IsRetryable(err) {
+		return nil, err
+	}
 	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
@@ -249,8 +262,8 @@ var dispatch = map[string]handlerFunc{
 	"homeassistant_get_logbook": getLogbook,
 
 	// Config
-	"homeassistant_get_config":    getConfig,
-	"homeassistant_check_config":  checkConfig,
+	"homeassistant_get_config":   getConfig,
+	"homeassistant_check_config": checkConfig,
 
 	// Template
 	"homeassistant_render_template": renderTemplate,
@@ -259,7 +272,7 @@ var dispatch = map[string]handlerFunc{
 	"homeassistant_get_error_log": getErrorLog,
 
 	// Calendars
-	"homeassistant_list_calendars":    listCalendars,
+	"homeassistant_list_calendars":      listCalendars,
 	"homeassistant_get_calendar_events": getCalendarEvents,
 
 	// Intents
