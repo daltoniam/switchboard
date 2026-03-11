@@ -162,6 +162,10 @@ func (h *homeassistant) post(ctx context.Context, path string, body any) (json.R
 	return h.doRequest(ctx, "POST", path, body)
 }
 
+func (h *homeassistant) postf(ctx context.Context, body any, pathFmt string, args ...any) (json.RawMessage, error) {
+	return h.doRequest(ctx, "POST", fmt.Sprintf(pathFmt, args...), body)
+}
+
 func (h *homeassistant) del(ctx context.Context, pathFmt string, args ...any) (json.RawMessage, error) {
 	return h.doRequest(ctx, "DELETE", fmt.Sprintf(pathFmt, args...), nil)
 }
@@ -260,4 +264,19 @@ var dispatch = map[string]handlerFunc{
 
 	// Intents
 	"homeassistant_handle_intent": handleIntent,
+
+	// Automations
+	"homeassistant_get_automation":    getAutomation,
+	"homeassistant_save_automation":   saveAutomation,
+	"homeassistant_delete_automation": deleteAutomation,
+
+	// Scenes
+	"homeassistant_get_scene":    getScene,
+	"homeassistant_save_scene":   saveScene,
+	"homeassistant_delete_scene": deleteScene,
+
+	// Scripts
+	"homeassistant_get_script":    getScript,
+	"homeassistant_save_script":   saveScript,
+	"homeassistant_delete_script": deleteScript,
 }
