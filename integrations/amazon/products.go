@@ -12,6 +12,8 @@ import (
 
 const maxSearchResults = 20
 
+var asinRe = regexp.MustCompile(`^[A-Z0-9]{10}$`)
+
 func searchProducts(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error) {
 	term := argStr(args, "search_term")
 	if term == "" {
@@ -50,7 +52,7 @@ func searchProducts(ctx context.Context, a *amazon, args map[string]any) (*mcp.T
 		}
 
 		asin, _ := s.Attr("data-asin")
-		if asin == "" || len(asin) != 10 {
+		if !asinRe.MatchString(asin) {
 			return
 		}
 
@@ -99,8 +101,8 @@ func searchProducts(ctx context.Context, a *amazon, args map[string]any) (*mcp.T
 
 func getProduct(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error) {
 	asin := argStr(args, "asin")
-	if asin == "" || len(asin) != 10 {
-		return errResult(fmt.Errorf("asin must be exactly 10 characters"))
+	if !asinRe.MatchString(asin) {
+		return errResult(fmt.Errorf("asin must be exactly 10 uppercase alphanumeric characters (e.g. B0CHXKM5GK)"))
 	}
 
 	doc, err := a.fetch(ctx, a.productURL(asin))

@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	mcp "github.com/daltoniam/switchboard"
@@ -113,8 +114,8 @@ func getCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult,
 
 func addToCart(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error) {
 	asin := argStr(args, "asin")
-	if asin == "" || len(asin) != 10 {
-		return errResult(fmt.Errorf("asin must be exactly 10 characters"))
+	if !asinRe.MatchString(asin) {
+		return errResult(fmt.Errorf("asin must be exactly 10 uppercase alphanumeric characters (e.g. B0CHXKM5GK)"))
 	}
 
 	doc, err := a.fetch(ctx, a.productURL(asin))
@@ -248,6 +249,7 @@ func clearCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 			}
 			_ = resp.Body.Close()
 			removed++
+			time.Sleep(800 * time.Millisecond)
 		}
 	})
 

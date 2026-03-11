@@ -216,6 +216,7 @@ func TestDetectDomain(t *testing.T) {
 		{"amazon.co.uk", []cookieJSON{{Domain: ".amazon.co.uk"}}, "amazon.co.uk"},
 		{"amazon.de", []cookieJSON{{Domain: ".amazon.de"}}, "amazon.de"},
 		{"fallback with amazon in domain", []cookieJSON{{Domain: "www.amazon.es"}}, "www.amazon.es"},
+		{"rejects overly broad match", []cookieJSON{{Domain: ".myamazondomain.com"}}, defaultDomain},
 		{"no match", []cookieJSON{{Domain: ".example.com"}}, defaultDomain},
 	}
 
@@ -350,7 +351,7 @@ func TestGetProduct_InvalidASIN(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Data, "asin must be exactly 10 characters")
+	assert.Contains(t, result.Data, "asin must be exactly 10 uppercase alphanumeric characters")
 }
 
 func TestGetOrders(t *testing.T) {
@@ -457,7 +458,7 @@ func TestAddToCart_InvalidASIN(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Data, "asin must be exactly 10 characters")
+	assert.Contains(t, result.Data, "asin must be exactly 10 uppercase alphanumeric characters")
 }
 
 func TestClearCart(t *testing.T) {

@@ -181,7 +181,7 @@ func detectDomain(cookies []cookieJSON) string {
 	}
 	for _, c := range cookies {
 		d := strings.TrimPrefix(c.Domain, ".")
-		if strings.Contains(d, "amazon") {
+		if strings.Contains(d, ".amazon.") || strings.HasSuffix(d, ".amazon") {
 			return d
 		}
 	}
