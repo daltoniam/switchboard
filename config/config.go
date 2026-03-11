@@ -117,6 +117,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "base_url": ""},
 			},
+			"amazon": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"cookies": "", "domain": ""},
+			},
 		},
 	}
 }
