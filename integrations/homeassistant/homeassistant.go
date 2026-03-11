@@ -260,4 +260,19 @@ var dispatch = map[string]handlerFunc{
 
 	// Intents
 	"homeassistant_handle_intent": handleIntent,
+
+	// Automations
+	"homeassistant_get_automation":    getAutomation,
+	"homeassistant_save_automation":   saveAutomation,
+	"homeassistant_delete_automation": deleteAutomation,
+
+	// Scenes
+	"homeassistant_get_scene":    getScene,
+	"homeassistant_save_scene":   saveScene,
+	"homeassistant_delete_scene": deleteScene,
+
+	// Scripts
+	"homeassistant_get_script":    getScript,
+	"homeassistant_save_script":   saveScript,
+	"homeassistant_delete_script": deleteScript,
 }
