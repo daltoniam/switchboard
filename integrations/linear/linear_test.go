@@ -31,7 +31,7 @@ func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
 	err := i.Configure(context.Background(), mcp.Credentials{"api_key": ""})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "api_key is required")
+	assert.Contains(t, err.Error(), "api_key or mcp_access_token is required")
 }
 
 func TestConfigure_EmptyCredentials(t *testing.T) {
@@ -39,6 +39,39 @@ func TestConfigure_EmptyCredentials(t *testing.T) {
 	err := i.Configure(context.Background(), mcp.Credentials{})
 	assert.Error(t, err)
 }
+
+func TestNew_WithMCPServerURL(t *testing.T) {
+	i := New("https://mcp.linear.app")
+	require.NotNil(t, i)
+	assert.Equal(t, "linear", i.Name())
+	assert.Equal(t, "https://mcp.linear.app", MCPServerURL(i))
+}
+
+func TestNew_WithoutMCPServerURL(t *testing.T) {
+	i := New()
+	assert.Equal(t, "", MCPServerURL(i))
+}
+
+func TestIsRemoteMCP_APIKeyMode(t *testing.T) {
+	i := New("https://mcp.linear.app")
+	_ = i.Configure(context.Background(), mcp.Credentials{"api_key": "lin_api_test"})
+	assert.False(t, IsRemoteMCP(i))
+}
+
+func TestIsRemoteMCP_NonLinear(t *testing.T) {
+	assert.False(t, IsRemoteMCP(&mockIntegration{}))
+	assert.Equal(t, "", MCPServerURL(&mockIntegration{}))
+}
+
+type mockIntegration struct{}
+
+func (m *mockIntegration) Name() string                          { return "mock" }
+func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error       { return nil }
+func (m *mockIntegration) Tools() []mcp.ToolDefinition           { return nil }
+func (m *mockIntegration) Execute(context.Context, string, map[string]any) (*mcp.ToolResult, error) {
+	return nil, nil
+}
+func (m *mockIntegration) Healthy(context.Context) bool { return false }
 
 func TestTools(t *testing.T) {
 	i := New()

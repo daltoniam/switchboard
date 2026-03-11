@@ -178,7 +178,7 @@ func runServer(stdioMode bool, port int) {
 	for _, i := range []mcp.Integration{
 		github.New(),
 		datadog.New(),
-		linear.New(),
+		linear.New("https://mcp.linear.app"),
 		sentry.New(),
 		slackInt.New(),
 		metabase.New(),

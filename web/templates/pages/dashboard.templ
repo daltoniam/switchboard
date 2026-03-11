@@ -22,6 +22,7 @@ type IntegrationSummary struct {
 	Healthy   bool
 	ToolCount int
 	LastCheck time.Time
+	IsRemote  bool
 }
 
 func healthBadge(enabled bool, healthy bool) string {
