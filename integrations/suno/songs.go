@@ -2,6 +2,7 @@ package suno
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -217,7 +218,11 @@ func addInstrumental(ctx context.Context, s *suno, args map[string]any) (*mcp.To
 }
 
 func generateMashup(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	audioIDs := strings.Split(argStr(args, "audio_ids"), ",")
+	audioIDsStr := argStr(args, "audio_ids")
+	if audioIDsStr == "" {
+		return errResult(fmt.Errorf("audio_ids is required"))
+	}
+	audioIDs := strings.Split(audioIDsStr, ",")
 	for i := range audioIDs {
 		audioIDs[i] = strings.TrimSpace(audioIDs[i])
 	}
@@ -248,7 +253,11 @@ func generateMashup(ctx context.Context, s *suno, args map[string]any) (*mcp.Too
 }
 
 func generatePersona(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	audioIDs := strings.Split(argStr(args, "audio_ids"), ",")
+	audioIDsStr := argStr(args, "audio_ids")
+	if audioIDsStr == "" {
+		return errResult(fmt.Errorf("audio_ids is required"))
+	}
+	audioIDs := strings.Split(audioIDsStr, ",")
 	for i := range audioIDs {
 		audioIDs[i] = strings.TrimSpace(audioIDs[i])
 	}

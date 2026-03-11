@@ -565,3 +565,23 @@ func TestGenerateMusic_WithCallbackAndInstrumental(t *testing.T) {
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, "gen-inst")
 }
+
+func TestGenerateMashup_EmptyAudioIDs(t *testing.T) {
+	s := &suno{apiKey: "key", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := s.Execute(context.Background(), "suno_generate_mashup", map[string]any{
+		"audio_ids": "",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "audio_ids is required")
+}
+
+func TestGeneratePersona_EmptyAudioIDs(t *testing.T) {
+	s := &suno{apiKey: "key", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := s.Execute(context.Background(), "suno_generate_persona", map[string]any{
+		"audio_ids": "",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "audio_ids is required")
+}
