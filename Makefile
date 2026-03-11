@@ -61,8 +61,9 @@ deploy: build ## Build, install to ~/.local/bin, and restart the daemon (require
 		echo "Error: systemd service not installed. Run 'make install' first."; \
 		exit 1; \
 	fi
+	systemctl --user stop switchboard
 	cp $(BIN) $(INSTALL_BIN)
-	systemctl --user restart switchboard
+	systemctl --user start switchboard
 	@echo "Deployed and restarted."
 
 ## Help
