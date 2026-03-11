@@ -636,3 +636,249 @@ func TestListServices(t *testing.T) {
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, "light")
 }
+
+// --- Automation handler tests ---
+
+func TestGetAutomation(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/api/config/automation/config/abc123", r.URL.Path)
+		_, _ = w.Write([]byte(`{"id":"abc123","alias":"Motion Light","triggers":[],"actions":[]}`))
+	}))
+	defer ts.Close()
+
+	ha := &homeassistant{token: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := ha.Execute(context.Background(), "homeassistant_get_automation", map[string]any{
+		"automation_id": "abc123",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Motion Light")
+}
+
+func TestGetAutomation_MissingID(t *testing.T) {
+	ha := &homeassistant{token: "token", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ha.Execute(context.Background(), "homeassistant_get_automation", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "automation_id is required")
+}
+
+func TestSaveAutomation(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/config/automation/config/motion_light", r.URL.Path)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "Motion Light", body["alias"])
+		_, _ = w.Write([]byte(`{"result":"ok"}`))
+	}))
+	defer ts.Close()
+
+	ha := &homeassistant{token: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := ha.Execute(context.Background(), "homeassistant_save_automation", map[string]any{
+		"automation_id": "motion_light",
+		"config":        `{"alias":"Motion Light","triggers":[],"actions":[]}`,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "ok")
+}
+
+func TestSaveAutomation_InvalidConfig(t *testing.T) {
+	ha := &homeassistant{token: "token", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ha.Execute(context.Background(), "homeassistant_save_automation", map[string]any{
+		"automation_id": "test",
+		"config":        "{bad json}",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "invalid JSON for config")
+}
+
+func TestSaveAutomation_MissingConfig(t *testing.T) {
+	ha := &homeassistant{token: "token", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ha.Execute(context.Background(), "homeassistant_save_automation", map[string]any{
+		"automation_id": "test",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "config is required")
+}
+
+func TestDeleteAutomation(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Equal(t, "/api/config/automation/config/abc123", r.URL.Path)
+		_, _ = w.Write([]byte(`{"result":"ok"}`))
+	}))
+	defer ts.Close()
+
+	ha := &homeassistant{token: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := ha.Execute(context.Background(), "homeassistant_delete_automation", map[string]any{
+		"automation_id": "abc123",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "ok")
+}
+
+func TestDeleteAutomation_MissingID(t *testing.T) {
+	ha := &homeassistant{token: "token", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ha.Execute(context.Background(), "homeassistant_delete_automation", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "automation_id is required")
+}
+
+// --- Scene handler tests ---
+
+func TestGetScene(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/api/config/scene/config/movie_time", r.URL.Path)
+		_, _ = w.Write([]byte(`{"id":"movie_time","name":"Movie Time","entities":{}}`))
+	}))
+	defer ts.Close()
+
+	ha := &homeassistant{token: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := ha.Execute(context.Background(), "homeassistant_get_scene", map[string]any{
+		"scene_id": "movie_time",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Movie Time")
+}
+
+func TestGetScene_MissingID(t *testing.T) {
+	ha := &homeassistant{token: "token", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ha.Execute(context.Background(), "homeassistant_get_scene", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "scene_id is required")
+}
+
+func TestSaveScene(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/config/scene/config/movie_time", r.URL.Path)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "Movie Time", body["name"])
+		_, _ = w.Write([]byte(`{"result":"ok"}`))
+	}))
+	defer ts.Close()
+
+	ha := &homeassistant{token: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := ha.Execute(context.Background(), "homeassistant_save_scene", map[string]any{
+		"scene_id": "movie_time",
+		"config":   `{"name":"Movie Time","entities":{"light.living_room":{"state":"on","brightness":50}}}`,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "ok")
+}
+
+func TestSaveScene_InvalidConfig(t *testing.T) {
+	ha := &homeassistant{token: "token", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ha.Execute(context.Background(), "homeassistant_save_scene", map[string]any{
+		"scene_id": "test",
+		"config":   "{bad}",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "invalid JSON for config")
+}
+
+func TestDeleteScene(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Equal(t, "/api/config/scene/config/movie_time", r.URL.Path)
+		_, _ = w.Write([]byte(`{"result":"ok"}`))
+	}))
+	defer ts.Close()
+
+	ha := &homeassistant{token: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := ha.Execute(context.Background(), "homeassistant_delete_scene", map[string]any{
+		"scene_id": "movie_time",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "ok")
+}
+
+// --- Script handler tests ---
+
+func TestGetScript(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/api/config/script/config/morning_routine", r.URL.Path)
+		_, _ = w.Write([]byte(`{"alias":"Morning Routine","sequence":[]}`))
+	}))
+	defer ts.Close()
+
+	ha := &homeassistant{token: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := ha.Execute(context.Background(), "homeassistant_get_script", map[string]any{
+		"script_id": "morning_routine",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Morning Routine")
+}
+
+func TestGetScript_MissingID(t *testing.T) {
+	ha := &homeassistant{token: "token", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ha.Execute(context.Background(), "homeassistant_get_script", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "script_id is required")
+}
+
+func TestSaveScript(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/config/script/config/morning_routine", r.URL.Path)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "Morning Routine", body["alias"])
+		_, _ = w.Write([]byte(`{"result":"ok"}`))
+	}))
+	defer ts.Close()
+
+	ha := &homeassistant{token: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := ha.Execute(context.Background(), "homeassistant_save_script", map[string]any{
+		"script_id": "morning_routine",
+		"config":    `{"alias":"Morning Routine","sequence":[{"service":"light.turn_on","target":{"entity_id":"light.bedroom"}}]}`,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "ok")
+}
+
+func TestSaveScript_InvalidConfig(t *testing.T) {
+	ha := &homeassistant{token: "token", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ha.Execute(context.Background(), "homeassistant_save_script", map[string]any{
+		"script_id": "test",
+		"config":    "{bad}",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "invalid JSON for config")
+}
+
+func TestDeleteScript(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Equal(t, "/api/config/script/config/morning_routine", r.URL.Path)
+		_, _ = w.Write([]byte(`{"result":"ok"}`))
+	}))
+	defer ts.Close()
+
+	ha := &homeassistant{token: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := ha.Execute(context.Background(), "homeassistant_delete_script", map[string]any{
+		"script_id": "morning_routine",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "ok")
+}

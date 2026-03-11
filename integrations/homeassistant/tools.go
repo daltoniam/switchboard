@@ -99,4 +99,55 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"name": "Intent name (e.g. HassTurnOn)", "data": "JSON string of intent data (e.g. entity, area)"},
 		Required:   []string{"name"},
 	},
+
+	// ── Automations ─────────────────────────────────────────────────
+	{
+		Name: "homeassistant_get_automation", Description: "Get the configuration of a specific automation by its ID. Only works for UI-managed automations, not YAML-defined ones",
+		Parameters: map[string]string{"automation_id": "Automation unique ID (not entity_id — find it via list_states filtering automation.*)"},
+		Required:   []string{"automation_id"},
+	},
+	{
+		Name: "homeassistant_save_automation", Description: "Create or update an automation. Creates if automation_id is new, updates if it exists. Triggers an automation reload after saving",
+		Parameters: map[string]string{"automation_id": "Unique ID for the automation (use a descriptive slug, e.g. motion_light_kitchen)", "config": "JSON string of automation config: {\"alias\": \"...\", \"description\": \"...\", \"triggers\": [...], \"conditions\": [...], \"actions\": [...]}"},
+		Required:   []string{"automation_id", "config"},
+	},
+	{
+		Name: "homeassistant_delete_automation", Description: "Delete a UI-managed automation by its ID. Cannot delete YAML-defined automations",
+		Parameters: map[string]string{"automation_id": "Automation unique ID to delete"},
+		Required:   []string{"automation_id"},
+	},
+
+	// ── Scenes ──────────────────────────────────────────────────────
+	{
+		Name: "homeassistant_get_scene", Description: "Get the configuration of a specific scene by its ID. Only works for UI-managed scenes",
+		Parameters: map[string]string{"scene_id": "Scene unique ID (not entity_id)"},
+		Required:   []string{"scene_id"},
+	},
+	{
+		Name: "homeassistant_save_scene", Description: "Create or update a scene. Creates if scene_id is new, updates if it exists",
+		Parameters: map[string]string{"scene_id": "Unique ID for the scene", "config": "JSON string of scene config: {\"name\": \"...\", \"entities\": {\"light.living_room\": {\"state\": \"on\", \"brightness\": 255}}}"},
+		Required:   []string{"scene_id", "config"},
+	},
+	{
+		Name: "homeassistant_delete_scene", Description: "Delete a UI-managed scene by its ID",
+		Parameters: map[string]string{"scene_id": "Scene unique ID to delete"},
+		Required:   []string{"scene_id"},
+	},
+
+	// ── Scripts ─────────────────────────────────────────────────────
+	{
+		Name: "homeassistant_get_script", Description: "Get the configuration of a specific script by its ID. Only works for UI-managed scripts",
+		Parameters: map[string]string{"script_id": "Script unique ID (slug format, e.g. morning_routine)"},
+		Required:   []string{"script_id"},
+	},
+	{
+		Name: "homeassistant_save_script", Description: "Create or update a script. Creates if script_id is new, updates if it exists",
+		Parameters: map[string]string{"script_id": "Unique ID for the script (slug format)", "config": "JSON string of script config: {\"alias\": \"...\", \"sequence\": [{\"service\": \"light.turn_on\", \"target\": {\"entity_id\": \"light.living_room\"}}]}"},
+		Required:   []string{"script_id", "config"},
+	},
+	{
+		Name: "homeassistant_delete_script", Description: "Delete a UI-managed script by its ID",
+		Parameters: map[string]string{"script_id": "Script unique ID to delete"},
+		Required:   []string{"script_id"},
+	},
 }
