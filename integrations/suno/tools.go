@@ -8,7 +8,7 @@ var tools = []mcp.ToolDefinition{
 		Name:        "suno_generate_music",
 		Description: "Generate a music track with Suno AI. Each request produces 2 songs. Start here for music creation workflows. Stream URL available in ~30s, download URL in ~2-3 min. Use suno_get_generation to poll status",
 		Parameters: map[string]string{
-			"prompt":        "Text description or lyrics for the song (500 chars non-custom, up to 5000 in custom mode)",
+			"prompt":        "Text description or lyrics for the song (500 chars in non-custom mode, up to 5000 in custom mode)",
 			"style":         "Music genre/style (e.g. pop, rock, jazz, folk, synthwave). Required in custom mode",
 			"title":         "Song title (max 80-100 chars depending on model). Required in custom mode",
 			"model":         "Model version: V5, V4_5PLUS, V4_5ALL, V4_5, V4 (default: V4_5ALL)",
