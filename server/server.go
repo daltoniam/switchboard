@@ -501,12 +501,16 @@ func (s *Server) getBreaker(integrationName string) *breaker {
 // Retries automatically on RetryableError (5xx, 429) with exponential backoff.
 // Respects per-integration circuit breakers to avoid hammering down services.
 func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
-	integration, found := s.findIntegration(toolName)
+	integration, toolDef, found := s.findTool(toolName)
 	if !found {
 		return &mcp.ToolResult{
 			Data:    fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", toolName),
 			IsError: true,
 		}, nil
+	}
+
+	if err := validateArgs(toolDef, args); err != nil {
+		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 	}
 
 	cb := s.getBreaker(integration.Name())
@@ -569,8 +573,8 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 	return &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }
 
-// findIntegration returns the integration that owns toolName, or false if not found.
-func (s *Server) findIntegration(toolName string) (mcp.Integration, bool) {
+// findTool returns the integration and tool definition that owns toolName, or false if not found.
+func (s *Server) findTool(toolName string) (mcp.Integration, mcp.ToolDefinition, bool) {
 	for _, name := range s.services.Config.EnabledIntegrations() {
 		integration, ok := s.services.Registry.Get(name)
 		if !ok {
@@ -578,11 +582,96 @@ func (s *Server) findIntegration(toolName string) (mcp.Integration, bool) {
 		}
 		for _, tool := range integration.Tools() {
 			if tool.Name == toolName {
-				return integration, true
+				return integration, tool, true
 			}
 		}
 	}
-	return nil, false
+	return nil, mcp.ToolDefinition{}, false
+}
+
+// validateArgs checks that all required parameters are present and all provided
+// parameters are declared in the tool's schema. Returns a descriptive error
+// naming the offending parameter and suggesting corrections for typos.
+func validateArgs(tool mcp.ToolDefinition, args map[string]any) error {
+	for _, req := range tool.Required {
+		if _, ok := args[req]; !ok {
+			return fmt.Errorf("missing required parameter %q for tool %q. Required: %v", req, tool.Name, tool.Required)
+		}
+	}
+	if len(tool.Parameters) == 0 {
+		return nil // no schema declared — skip unknown-param check
+	}
+	for key := range args {
+		if _, ok := tool.Parameters[key]; ok {
+			continue
+		}
+		return unknownParamError(key, tool)
+	}
+	return nil
+}
+
+func unknownParamError(key string, tool mcp.ToolDefinition) error {
+	valid := paramNames(tool.Parameters)
+	suggestion := closestParam(key, tool.Parameters)
+	if suggestion != "" {
+		return fmt.Errorf("unknown parameter %q for tool %q, did you mean %q? Valid parameters: %v",
+			key, tool.Name, suggestion, valid)
+	}
+	return fmt.Errorf("unknown parameter %q for tool %q. Valid parameters: %v",
+		key, tool.Name, valid)
+}
+
+// closestParam returns the parameter name closest to key by edit distance,
+// or empty string if no parameter is within a reasonable threshold.
+func closestParam(key string, params map[string]string) string {
+	best := ""
+	bestDist := len(key)/2 + 1 // threshold: half the key length
+	for name := range params {
+		d := editDistance(key, name)
+		if d < bestDist {
+			bestDist = d
+			best = name
+		}
+	}
+	return best
+}
+
+// editDistance computes the Levenshtein distance between two strings.
+func editDistance(a, b string) int {
+	la, lb := len(a), len(b)
+	if la == 0 {
+		return lb
+	}
+	if lb == 0 {
+		return la
+	}
+	prev := make([]int, lb+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= la; i++ {
+		curr := make([]int, lb+1)
+		curr[0] = i
+		for j := 1; j <= lb; j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			curr[j] = min(curr[j-1]+1, min(prev[j]+1, prev[j-1]+cost))
+		}
+		prev = curr
+	}
+	return prev[lb]
+}
+
+// paramNames returns sorted parameter names for error messages.
+func paramNames(params map[string]string) []string {
+	names := make([]string, 0, len(params))
+	for name := range params {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 // toolExecutor bridges the script.Executor interface to the server's tool dispatch.
