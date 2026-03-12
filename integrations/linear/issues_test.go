@@ -273,30 +273,28 @@ func TestResolveLabelIDs(t *testing.T) {
 			resp: func(_ string, _ map[string]any) any {
 				return map[string]any{
 					"issueLabels": map[string]any{
-						"nodes": []map[string]any{{"id": "label-1"}},
+						"nodes": []map[string]any{{"id": "label-1", "name": "Bug"}},
 					},
 				}
 			},
 			wantIDs: []string{"label-1"},
 		},
 		{
-			name:   "multiple labels",
+			name:   "multiple labels batched",
 			labels: []string{"Bug", "Feature"},
-			resp: func() func(string, map[string]any) any {
-				call := 0
-				return func(_ string, _ map[string]any) any {
-					call++
-					id := "label-1"
-					if call == 2 {
-						id = "label-2"
-					}
-					return map[string]any{
-						"issueLabels": map[string]any{
-							"nodes": []map[string]any{{"id": id}},
+			resp: func(_ string, vars map[string]any) any {
+				filter, _ := vars["filter"].(map[string]any)
+				orFilters, _ := filter["or"].([]any)
+				assert.Len(t, orFilters, 2)
+				return map[string]any{
+					"issueLabels": map[string]any{
+						"nodes": []map[string]any{
+							{"id": "label-1", "name": "Bug"},
+							{"id": "label-2", "name": "Feature"},
 						},
-					}
+					},
 				}
-			}(),
+			},
 			wantIDs: []string{"label-1", "label-2"},
 		},
 		{
@@ -355,8 +353,8 @@ func TestUpdateIssue_SetsTeamStateProjectAssigneeLabels(t *testing.T) {
 			return map[string]any{"searchProjects": map[string]any{"nodes": []map[string]any{{"id": "proj-uuid", "name": "My Project"}}}}
 		case 5: // resolveUserID (by name)
 			return map[string]any{"users": map[string]any{"nodes": []map[string]any{{"id": "user-uuid"}}}}
-		case 6: // resolveLabelIDs
-			return map[string]any{"issueLabels": map[string]any{"nodes": []map[string]any{{"id": "label-uuid"}}}}
+		case 6: // resolveLabelIDs (batched)
+			return map[string]any{"issueLabels": map[string]any{"nodes": []map[string]any{{"id": "label-uuid", "name": "Bug"}}}}
 		default: // final issueUpdate mutation
 			capturedInput, _ = vars["input"].(map[string]any)
 			return map[string]any{

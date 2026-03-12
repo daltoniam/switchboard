@@ -407,36 +407,56 @@ func (l *linear) resolveUserID(ctx context.Context, nameOrEmail string) (string,
 	return "", fmt.Errorf("user not found: %s", nameOrEmail)
 }
 
-// resolveLabelIDs looks up labels by name and returns their UUIDs.
+// resolveLabelIDs looks up labels by name in a single batched query and returns their UUIDs.
 func (l *linear) resolveLabelIDs(ctx context.Context, names []string) ([]string, error) {
-	var ids []string
+	var cleaned []string
 	for _, name := range names {
 		name = strings.TrimSpace(name)
-		if name == "" {
-			continue
+		if name != "" {
+			cleaned = append(cleaned, name)
 		}
-		data, err := l.gql(ctx, `query($filter: IssueLabelFilter) {
-			issueLabels(filter: $filter) { nodes { id } }
-		}`, map[string]any{
-			"filter": map[string]any{"name": map[string]any{"eqIgnoreCase": name}},
-		})
-		if err != nil {
-			return nil, err
-		}
-		var resp struct {
-			IssueLabels struct {
-				Nodes []struct {
-					ID string `json:"id"`
-				} `json:"nodes"`
-			} `json:"issueLabels"`
-		}
-		if err := json.Unmarshal(data, &resp); err != nil {
-			return nil, err
-		}
-		if len(resp.IssueLabels.Nodes) == 0 {
+	}
+	if len(cleaned) == 0 {
+		return nil, nil
+	}
+
+	orFilters := make([]map[string]any, len(cleaned))
+	for i, name := range cleaned {
+		orFilters[i] = map[string]any{"name": map[string]any{"eqIgnoreCase": name}}
+	}
+
+	data, err := l.gql(ctx, `query($filter: IssueLabelFilter) {
+		issueLabels(filter: $filter) { nodes { id name } }
+	}`, map[string]any{
+		"filter": map[string]any{"or": orFilters},
+	})
+	if err != nil {
+		return nil, err
+	}
+	var resp struct {
+		IssueLabels struct {
+			Nodes []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"nodes"`
+		} `json:"issueLabels"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, err
+	}
+
+	nameToID := make(map[string]string, len(resp.IssueLabels.Nodes))
+	for _, n := range resp.IssueLabels.Nodes {
+		nameToID[strings.ToLower(n.Name)] = n.ID
+	}
+
+	ids := make([]string, 0, len(cleaned))
+	for _, name := range cleaned {
+		id, ok := nameToID[strings.ToLower(name)]
+		if !ok {
 			return nil, fmt.Errorf("label not found: %s", name)
 		}
-		ids = append(ids, resp.IssueLabels.Nodes[0].ID)
+		ids = append(ids, id)
 	}
 	return ids, nil
 }
