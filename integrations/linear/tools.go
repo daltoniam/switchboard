@@ -24,8 +24,8 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"title", "team"},
 	},
 	{
-		Name: "linear_update_issue", Description: "Update an existing issue. Accepts issue ID (UUID) or identifier (e.g., ENG-123). Use list_workflow_states to discover valid state names.",
-		Parameters: map[string]string{"id": "Issue identifier (e.g., ENG-123) or UUID", "title": "New title", "description": "New description", "assignee": "Assignee name or email", "priority": "Priority (0-4)", "state": "Workflow state name", "labels": "Comma-separated label names", "project": "Project name", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)"},
+		Name: "linear_update_issue", Description: "Update an existing issue. Accepts issue ID (UUID) or identifier (e.g., ENG-123). Use list_workflow_states to discover valid state names. Use list_teams to find team names for transfers.",
+		Parameters: map[string]string{"id": "Issue identifier (e.g., ENG-123) or UUID", "title": "New title", "description": "New description", "assignee": "Assignee name or email", "priority": "Priority (0-4)", "state": "Workflow state name", "team": "Team name or key (moves issue to this team)", "labels": "Comma-separated label names", "project": "Project name", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)"},
 		Required:   []string{"id"},
 	},
 	{

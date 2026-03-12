@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -146,6 +147,34 @@ func createIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 	if v := argStr(args, "parent_id"); v != "" {
 		input["parentId"] = v
 	}
+	if v := argStr(args, "state"); v != "" {
+		stateID, err := l.resolveStateID(ctx, v, teamID)
+		if err != nil {
+			return errResult(err)
+		}
+		input["stateId"] = stateID
+	}
+	if v := argStr(args, "project"); v != "" {
+		projectID, err := l.resolveProjectID(ctx, v)
+		if err != nil {
+			return errResult(err)
+		}
+		input["projectId"] = projectID
+	}
+	if v := argStr(args, "assignee"); v != "" {
+		userID, err := l.resolveUserID(ctx, v)
+		if err != nil {
+			return errResult(err)
+		}
+		input["assigneeId"] = userID
+	}
+	if v := argStr(args, "labels"); v != "" {
+		labelIDs, err := l.resolveLabelIDs(ctx, strings.Split(v, ","))
+		if err != nil {
+			return errResult(err)
+		}
+		input["labelIds"] = labelIDs
+	}
 
 	data, err := l.gql(ctx, `mutation($input: IssueCreateInput!) {
 		issueCreate(input: $input) {
@@ -181,6 +210,49 @@ func updateIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 	}
 	if v := argStr(args, "due_date"); v != "" {
 		input["dueDate"] = v
+	}
+
+	var teamID string
+	if v := argStr(args, "team"); v != "" {
+		teamID, err = l.resolveTeamID(ctx, v)
+		if err != nil {
+			return errResult(err)
+		}
+		input["teamId"] = teamID
+	}
+	if v := argStr(args, "state"); v != "" {
+		if teamID == "" {
+			teamID, err = l.resolveIssueTeamID(ctx, issueID)
+			if err != nil {
+				return errResult(err)
+			}
+		}
+		stateID, err := l.resolveStateID(ctx, v, teamID)
+		if err != nil {
+			return errResult(err)
+		}
+		input["stateId"] = stateID
+	}
+	if v := argStr(args, "project"); v != "" {
+		projectID, err := l.resolveProjectID(ctx, v)
+		if err != nil {
+			return errResult(err)
+		}
+		input["projectId"] = projectID
+	}
+	if v := argStr(args, "assignee"); v != "" {
+		userID, err := l.resolveUserID(ctx, v)
+		if err != nil {
+			return errResult(err)
+		}
+		input["assigneeId"] = userID
+	}
+	if v := argStr(args, "labels"); v != "" {
+		labelIDs, err := l.resolveLabelIDs(ctx, strings.Split(v, ","))
+		if err != nil {
+			return errResult(err)
+		}
+		input["labelIds"] = labelIDs
 	}
 
 	data, err := l.gql(ctx, fmt.Sprintf(`mutation($id: String!, $input: IssueUpdateInput!) {
