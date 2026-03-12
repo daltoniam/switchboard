@@ -1776,6 +1776,178 @@ func TestSearch_SynonymMatching(t *testing.T) {
 	assert.Equal(t, "slack_send_message", names[0])
 }
 
+func TestFindTool_ReturnsToolDefinition(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{
+				Name:        "testint_get_item",
+				Description: "Get an item",
+				Parameters:  map[string]string{"id": "Item ID"},
+				Required:    []string{"id"},
+			},
+			{
+				Name:        "testint_list_items",
+				Description: "List items",
+				Parameters:  map[string]string{"query": "Search query"},
+			},
+		},
+	}
+	s := setupTestServer(mi)
+
+	t.Run("returns matching tool definition", func(t *testing.T) {
+		integration, toolDef, found := s.findTool("testint_get_item")
+		require.True(t, found)
+		assert.Equal(t, "testint", integration.Name())
+		assert.Equal(t, "testint_get_item", toolDef.Name)
+		assert.Equal(t, []string{"id"}, toolDef.Required)
+	})
+
+	t.Run("returns false for unknown tool", func(t *testing.T) {
+		_, _, found := s.findTool("nonexistent_tool")
+		assert.False(t, found)
+	})
+}
+
+func TestValidateArgs(t *testing.T) {
+	tool := mcp.ToolDefinition{
+		Name:       "github_get_issue",
+		Parameters: map[string]string{"owner": "Repo owner", "repo": "Repo name", "number": "Issue number"},
+		Required:   []string{"owner", "repo", "number"},
+	}
+
+	tests := []struct {
+		name    string
+		tool    mcp.ToolDefinition
+		args    map[string]any
+		wantErr string
+	}{
+		{
+			name: "all required present, no unknowns",
+			tool: tool,
+			args: map[string]any{"owner": "foo", "repo": "bar", "number": 42},
+		},
+		{
+			name:    "missing required param",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo", "repo": "bar"},
+			wantErr: `missing required parameter "number"`,
+		},
+		{
+			name:    "missing multiple required params",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo"},
+			wantErr: "missing required parameter",
+		},
+		{
+			name:    "unknown param",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo", "repo": "bar", "number": 42, "bogus": "val"},
+			wantErr: `unknown parameter "bogus"`,
+		},
+		{
+			name:    "unknown param similar to valid — suggests correction",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo", "repo": "bar", "number": 42, "issue_number": 99},
+			wantErr: `did you mean "number"`,
+		},
+		{
+			name: "optional param present",
+			tool: mcp.ToolDefinition{
+				Name:       "testint_list",
+				Parameters: map[string]string{"query": "Search", "page": "Page number"},
+				Required:   []string{"query"},
+			},
+			args: map[string]any{"query": "test", "page": 2},
+		},
+		{
+			name: "empty args with no required",
+			tool: mcp.ToolDefinition{
+				Name:       "testint_list",
+				Parameters: map[string]string{"query": "Search"},
+			},
+			args: map[string]any{},
+		},
+		{
+			name: "nil args with no required",
+			tool: mcp.ToolDefinition{
+				Name:       "testint_list",
+				Parameters: map[string]string{"query": "Search"},
+			},
+			args: nil,
+		},
+		{
+			name:    "nil args with required params",
+			tool:    tool,
+			args:    nil,
+			wantErr: `missing required parameter "owner"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateArgs(tt.tool, tt.args)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestExecuteTool_ValidationRejectsMissingRequired(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{
+				Name:        "testint_get_item",
+				Description: "Get an item",
+				Parameters:  map[string]string{"id": "Item ID", "format": "Output format"},
+				Required:    []string{"id"},
+			},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			t.Fatal("handler should not be called when validation fails")
+			return nil, nil
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"format": "json"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, `missing required parameter "id"`)
+}
+
+func TestExecuteTool_ValidationRejectsUnknownParam(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{
+				Name:        "testint_get_item",
+				Description: "Get an item",
+				Parameters:  map[string]string{"id": "Item ID"},
+				Required:    []string{"id"},
+			},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			t.Fatal("handler should not be called when validation fails")
+			return nil, nil
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"id": "123", "item_id": "456"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, `unknown parameter "item_id"`)
+}
+
 func TestSearch_ScriptHint_SingleResult(t *testing.T) {
 	mi := &mockIntegration{
 		name:    "github",
