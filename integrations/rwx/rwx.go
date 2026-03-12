@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -34,6 +37,7 @@ var (
 
 type rwx struct {
 	accessToken string
+	cliPath     string
 	client      *http.Client
 	proxy       *proxyClient
 	logCache    *logCache
@@ -53,6 +57,7 @@ func (r *rwx) Configure(_ context.Context, creds mcp.Credentials) error {
 	if r.accessToken == "" {
 		return fmt.Errorf("rwx: access_token is required")
 	}
+	r.cliPath = resolveRWXBinary(creds["cli_path"])
 	return nil
 }
 
@@ -101,7 +106,7 @@ func (r *rwx) Execute(ctx context.Context, toolName string, args map[string]any)
 // Called from main after Configure. Non-fatal — tools still work via CLI/API.
 func (r *rwx) StartProxy() {
 	p := newProxyClient()
-	if err := p.start(); err != nil {
+	if err := p.start(r.cliPath); err != nil {
 		fmt.Printf("[rwx] proxy start failed (tools still available via CLI): %v\n", err)
 		return
 	}
@@ -114,6 +119,34 @@ func (r *rwx) StopProxy() {
 		r.proxy.stop()
 		r.proxy = nil
 	}
+}
+
+// resolveRWXBinary determines the absolute path to the rwx CLI binary.
+// Priority: explicit config > PATH lookup > common install locations.
+func resolveRWXBinary(configured string) string {
+	if configured != "" {
+		if _, err := os.Stat(configured); err == nil {
+			return configured
+		}
+	}
+	if p, err := exec.LookPath("rwx"); err == nil {
+		return p
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "rwx"
+	}
+	for _, candidate := range []string{
+		filepath.Join(home, ".local", "bin", "rwx"),
+		filepath.Join(home, ".rwx", "bin", "rwx"),
+		"/usr/local/bin/rwx",
+		"/opt/homebrew/bin/rwx",
+	} {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return "rwx"
 }
 
 // --- Result helpers ---

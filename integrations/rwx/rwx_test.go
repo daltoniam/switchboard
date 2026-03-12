@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -342,4 +344,49 @@ func TestMustJSON_Complex(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "success", parsed["status"])
 	assert.Equal(t, float64(3), parsed["count"])
+}
+
+// --- resolveRWXBinary tests ---
+
+func TestResolveRWXBinary_ExplicitPath(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("#!/bin/sh\n"), 0o755))
+
+	result := resolveRWXBinary(fakeBin)
+	assert.Equal(t, fakeBin, result)
+}
+
+func TestResolveRWXBinary_ExplicitPathMissing(t *testing.T) {
+	result := resolveRWXBinary("/nonexistent/path/to/rwx")
+	assert.NotEqual(t, "/nonexistent/path/to/rwx", result)
+}
+
+func TestResolveRWXBinary_FallsBackToCommonLocations(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	candidate := filepath.Join(home, ".local", "bin", "rwx")
+	if _, err := os.Stat(candidate); err == nil {
+		result := resolveRWXBinary("")
+		assert.Equal(t, candidate, result)
+	}
+}
+
+func TestResolveRWXBinary_EmptyConfigFallsBackToLookPath(t *testing.T) {
+	result := resolveRWXBinary("")
+	assert.NotEmpty(t, result)
+}
+
+func TestConfigure_StoresCliPath(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("#!/bin/sh\n"), 0o755))
+
+	r := &rwx{client: &http.Client{}, logCache: newLogCache()}
+	err := r.Configure(context.Background(), mcp.Credentials{
+		"access_token": "test",
+		"cli_path":     fakeBin,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, fakeBin, r.cliPath)
 }

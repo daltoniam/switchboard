@@ -30,7 +30,7 @@ func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResul
 		timeoutMs = 30 * 60 * 1000 // 30 min
 	}
 
-	output, err := runRWXCommand(cmdArgs, timeoutMs)
+	output, err := r.runRWXCommand(cmdArgs, timeoutMs)
 	if err != nil {
 		return errResult(err)
 	}
@@ -219,7 +219,7 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 
 func getRunResults(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
 	id := extractRunID(argStr(args, "run_id"))
-	output, err := runRWXCommand([]string{"results", id, "--output", "json"}, 0)
+	output, err := r.runRWXCommand([]string{"results", id, "--output", "json"}, 0)
 	if err != nil {
 		return errResult(err)
 	}

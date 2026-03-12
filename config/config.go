@@ -62,6 +62,10 @@ var envMapping = map[string]map[string]string{
 		"database":          "PGDATABASE",
 		"sslmode":           "PGSSLMODE",
 	},
+	"rwx": {
+		"access_token": "RWX_ACCESS_TOKEN",
+		"cli_path":     "RWX_CLI_PATH",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -148,7 +152,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"rwx": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"access_token": ""},
+				Credentials: mcp.Credentials{"access_token": "", "cli_path": ""},
 			},
 			"gmail": {
 				Enabled:     false,
