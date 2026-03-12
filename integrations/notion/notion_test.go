@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -1190,6 +1191,25 @@ func TestCreatePage_SubmitsTransactionWithPageBlock(t *testing.T) {
 	assert.Contains(t, result.Data, "id")
 }
 
+func TestCreatePage_ReturnsNotionURL(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, _ *http.Request) { okJSON(w, `{}`) })
+	result, err := createPage(context.Background(), n, map[string]any{
+		"parent": map[string]any{"page_id": "parent-page-1"},
+		"title":  "Test Page",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &resp))
+	id, _ := resp["id"].(string)
+	require.NotEmpty(t, id)
+
+	url, _ := resp["url"].(string)
+	dashless := strings.ReplaceAll(id, "-", "")
+	assert.Equal(t, "https://www.notion.so/"+dashless, url)
+}
+
 func TestCreatePage_RequiresParent(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, _ *http.Request) { okJSON(w, `{}`) })
 	result, err := createPage(context.Background(), n, map[string]any{})
@@ -1359,6 +1379,28 @@ func TestCreatePageWithContent_SubmitsPageAndChildBlocksAtomically(t *testing.T)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, "id")
+}
+
+func TestCreatePageWithContent_ReturnsNotionURL(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, _ *http.Request) { okJSON(w, `{}`) })
+	result, err := createPageWithContent(context.Background(), n, map[string]any{
+		"parent": map[string]any{"page_id": "parent-1"},
+		"title":  "My Page",
+		"children": []any{
+			map[string]any{"type": "text", "properties": map[string]any{"title": [](any){[](any){"Block"}}}},
+		},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &resp))
+	id, _ := resp["id"].(string)
+	require.NotEmpty(t, id)
+
+	url, _ := resp["url"].(string)
+	dashless := strings.ReplaceAll(id, "-", "")
+	assert.Equal(t, "https://www.notion.so/"+dashless, url)
 }
 
 func TestCreatePageWithContent_RequiresParentAndChildren(t *testing.T) {
@@ -1542,6 +1584,26 @@ func TestCreateDatabase_SubmitsBlockCollectionAndViewOps(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, "id")
+}
+
+func TestCreateDatabase_ReturnsNotionURL(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, _ *http.Request) { okJSON(w, `{}`) })
+	result, err := createDatabase(context.Background(), n, map[string]any{
+		"parent":     map[string]any{"page_id": "parent-page"},
+		"title":      "Tasks",
+		"properties": map[string]any{"Name": map[string]any{"name": "Name", "type": "title"}},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &resp))
+	id, _ := resp["id"].(string)
+	require.NotEmpty(t, id)
+
+	url, _ := resp["url"].(string)
+	dashless := strings.ReplaceAll(id, "-", "")
+	assert.Equal(t, "https://www.notion.so/"+dashless, url)
 }
 
 func TestCreateDatabase_RequiresParent(t *testing.T) {
