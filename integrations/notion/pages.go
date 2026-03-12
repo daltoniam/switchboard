@@ -22,18 +22,18 @@ func createPage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolR
 	now := currentTimeMillis()
 
 	blockData := map[string]any{
-		"id":           pageID,
-		"type":         "page",
-		"parent_id":    parentID,
-		"parent_table": parentTable,
-		"space_id":     n.spaceID,
-		"created_by_id":    n.userID,
-		"created_by_table": "notion_user",
+		"id":                   pageID,
+		"type":                 "page",
+		"parent_id":            parentID,
+		"parent_table":         parentTable,
+		"space_id":             n.spaceID,
+		"created_by_id":        n.userID,
+		"created_by_table":     "notion_user",
 		"last_edited_by_id":    n.userID,
 		"last_edited_by_table": "notion_user",
-		"alive":        true,
-		"created_time": now,
-		"last_edited_time": now,
+		"alive":                true,
+		"created_time":         now,
+		"last_edited_time":     now,
 	}
 
 	if props := argMap(args, "properties"); props != nil {
@@ -60,7 +60,7 @@ func createPage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolR
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"id": pageID})
+	return jsonResult(map[string]any{"id": pageID, "url": notionPageURL(pageID)})
 }
 
 func retrievePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
@@ -258,18 +258,18 @@ func createPageWithContent(ctx context.Context, n *notion, args map[string]any) 
 	now := currentTimeMillis()
 
 	blockData := map[string]any{
-		"id":           pageID,
-		"type":         "page",
-		"parent_id":    parentID,
-		"parent_table": parentTable,
-		"space_id":     n.spaceID,
-		"created_by_id":    n.userID,
-		"created_by_table": "notion_user",
+		"id":                   pageID,
+		"type":                 "page",
+		"parent_id":            parentID,
+		"parent_table":         parentTable,
+		"space_id":             n.spaceID,
+		"created_by_id":        n.userID,
+		"created_by_table":     "notion_user",
 		"last_edited_by_id":    n.userID,
 		"last_edited_by_table": "notion_user",
-		"alive":        true,
-		"created_time": now,
-		"last_edited_time": now,
+		"alive":                true,
+		"created_time":         now,
+		"last_edited_time":     now,
 	}
 
 	if props := argMap(args, "properties"); props != nil {
@@ -308,5 +308,5 @@ func createPageWithContent(ctx context.Context, n *notion, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"id": pageID})
+	return jsonResult(map[string]any{"id": pageID, "url": notionPageURL(pageID)})
 }

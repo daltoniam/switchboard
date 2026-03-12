@@ -217,6 +217,11 @@ func unmarshalJSON(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
 
+// notionPageURL builds the canonical Notion URL for a page ID.
+func notionPageURL(id string) string {
+	return "https://www.notion.so/" + strings.ReplaceAll(id, "-", "")
+}
+
 // --- Argument helpers ---
 
 func argStr(args map[string]any, key string) string {
