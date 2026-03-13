@@ -37,6 +37,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.11.2
 	github.com/modelcontextprotocol/go-sdk v1.3.1
+	github.com/playwright-community/playwright-go v0.5001.0
 	github.com/slack-go/slack v0.18.0
 	github.com/stretchr/testify v1.11.1
 	github.com/syndtr/goleveldb v1.0.0
@@ -246,7 +247,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.25 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
-	github.com/playwright-community/playwright-go v0.5001.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.12.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect

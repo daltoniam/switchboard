@@ -1,8 +1,8 @@
 package browser
 
 import (
+	"bytes"
 	"context"
-	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -128,6 +128,7 @@ func TestPage_Screenshot(t *testing.T) {
 
 	data, err := pg.Screenshot(ctx)
 	require.NoError(t, err)
-	// PNG magic bytes: \x89PNG
-	assert.True(t, strings.HasPrefix(string(data), "\x89PNG"), "expected PNG data")
+	// PNG magic bytes: 0x89 0x50 0x4E 0x47
+	pngMagic := []byte{0x89, 0x50, 0x4E, 0x47}
+	assert.True(t, bytes.HasPrefix(data, pngMagic), "expected PNG data")
 }

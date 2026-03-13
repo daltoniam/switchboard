@@ -42,11 +42,14 @@ func (s *service) NewSession(_ context.Context) (mcp.BrowserSession, error) {
 }
 
 func (s *service) Close() error {
-	if err := s.browser.Close(); err != nil {
-		return fmt.Errorf("browser: close browser: %w", err)
+	var browserErr, pwErr error
+	browserErr = s.browser.Close()
+	pwErr = s.pw.Stop()
+	if browserErr != nil {
+		return fmt.Errorf("browser: close browser: %w", browserErr)
 	}
-	if err := s.pw.Stop(); err != nil {
-		return fmt.Errorf("browser: stop playwright: %w", err)
+	if pwErr != nil {
+		return fmt.Errorf("browser: stop playwright: %w", pwErr)
 	}
 	return nil
 }

@@ -155,6 +155,7 @@ type Registry interface {
 type Services struct {
 	Config   ConfigService
 	Registry Registry
+	Browser  BrowserService // nil if playwright driver is not installed
 }
 
 // BrowserService manages browser lifecycle for web automation.
@@ -172,6 +173,9 @@ type BrowserSession interface {
 }
 
 // BrowserPage is a single browser tab.
+// Note: context.Context parameters are accepted for API consistency and future-proofing,
+// but the underlying playwright-go driver does not support context cancellation.
+// Long-running calls (Navigate, WaitForSelector) will not be interrupted by ctx.Done().
 type BrowserPage interface {
 	Navigate(ctx context.Context, url string) error
 	Fill(ctx context.Context, selector, value string) error
