@@ -125,28 +125,42 @@ func (r *rwx) StopProxy() {
 // Priority: explicit config > PATH lookup > common install locations.
 func resolveRWXBinary(configured string) string {
 	if configured != "" {
-		if _, err := os.Stat(configured); err == nil {
+		if isExecutable(configured) {
 			return configured
 		}
 	}
 	if p, err := exec.LookPath("rwx"); err == nil {
 		return p
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "rwx"
-	}
-	for _, candidate := range []string{
-		filepath.Join(home, ".local", "bin", "rwx"),
-		filepath.Join(home, ".rwx", "bin", "rwx"),
-		"/usr/local/bin/rwx",
-		"/opt/homebrew/bin/rwx",
-	} {
-		if _, err := os.Stat(candidate); err == nil {
+	candidates := absoluteCandidates()
+	for _, candidate := range candidates {
+		if isExecutable(candidate) {
 			return candidate
 		}
 	}
 	return "rwx"
+}
+
+// absoluteCandidates returns common rwx install paths, including
+// home-relative paths when the home directory is available.
+func absoluteCandidates() []string {
+	var paths []string
+	if home, err := os.UserHomeDir(); err == nil {
+		paths = append(paths,
+			filepath.Join(home, ".local", "bin", "rwx"),
+			filepath.Join(home, ".rwx", "bin", "rwx"),
+		)
+	}
+	paths = append(paths, "/usr/local/bin/rwx", "/opt/homebrew/bin/rwx")
+	return paths
+}
+
+func isExecutable(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir() && info.Mode()&0o111 != 0
 }
 
 // --- Result helpers ---
