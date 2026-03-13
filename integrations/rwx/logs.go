@@ -62,7 +62,7 @@ func downloadLogs(ctx context.Context, r *rwx, id string) (string, error) {
 		return cached, nil
 	}
 
-	logs, err := downloadLogsFromRWX(id)
+	logs, err := r.downloadLogsFromRWX(id)
 	if err != nil {
 		return "", err
 	}
@@ -78,14 +78,14 @@ func downloadLogs(ctx context.Context, r *rwx, id string) (string, error) {
 	return logs, nil
 }
 
-func downloadLogsFromRWX(id string) (string, error) {
+func (r *rwx) downloadLogsFromRWX(id string) (string, error) {
 	outputDir, err := os.MkdirTemp("", fmt.Sprintf("rwx-logs-%s-", id))
 	if err != nil {
 		return "", fmt.Errorf("create temp dir: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(outputDir) }()
 
-	_, err = runRWXCommand([]string{"logs", id, "--output-dir", outputDir, "--auto-extract", "--output", "json"}, 0)
+	_, err = r.runRWXCommand([]string{"logs", id, "--output-dir", outputDir, "--auto-extract", "--output", "json"}, 0)
 	if err != nil {
 		return "", err
 	}
@@ -351,13 +351,14 @@ func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 
 // --- CLI helper ---
 
-func runRWXCommand(args []string, timeoutMs int) (string, error) {
-	cmd := exec.Command("rwx", args...) // #nosec G204 -- fixed binary name, args are controlled
+func (r *rwx) runRWXCommand(args []string, timeoutMs int) (string, error) {
+	bin := r.cliPath
+	cmd := exec.Command(bin, args...) // #nosec G204 -- resolved binary path, args are controlled
 	cmd.Env = os.Environ()
 	if timeoutMs > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
 		defer cancel()
-		cmd = exec.CommandContext(ctx, "rwx", args...) // #nosec G204 -- fixed binary name, args are controlled
+		cmd = exec.CommandContext(ctx, bin, args...) // #nosec G204 -- resolved binary path, args are controlled
 		cmd.Env = os.Environ()
 	}
 

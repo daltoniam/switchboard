@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -34,6 +37,7 @@ var (
 
 type rwx struct {
 	accessToken string
+	cliPath     string
 	client      *http.Client
 	proxy       *proxyClient
 	logCache    *logCache
@@ -53,6 +57,7 @@ func (r *rwx) Configure(_ context.Context, creds mcp.Credentials) error {
 	if r.accessToken == "" {
 		return fmt.Errorf("rwx: access_token is required")
 	}
+	r.cliPath = resolveRWXBinary(creds["cli_path"])
 	return nil
 }
 
@@ -101,7 +106,7 @@ func (r *rwx) Execute(ctx context.Context, toolName string, args map[string]any)
 // Called from main after Configure. Non-fatal — tools still work via CLI/API.
 func (r *rwx) StartProxy() {
 	p := newProxyClient()
-	if err := p.start(); err != nil {
+	if err := p.start(r.cliPath); err != nil {
 		fmt.Printf("[rwx] proxy start failed (tools still available via CLI): %v\n", err)
 		return
 	}
@@ -114,6 +119,48 @@ func (r *rwx) StopProxy() {
 		r.proxy.stop()
 		r.proxy = nil
 	}
+}
+
+// resolveRWXBinary determines the absolute path to the rwx CLI binary.
+// Priority: explicit config > PATH lookup > common install locations.
+func resolveRWXBinary(configured string) string {
+	if configured != "" {
+		if isExecutable(configured) {
+			return configured
+		}
+	}
+	if p, err := exec.LookPath("rwx"); err == nil {
+		return p
+	}
+	candidates := absoluteCandidates()
+	for _, candidate := range candidates {
+		if isExecutable(candidate) {
+			return candidate
+		}
+	}
+	return "rwx"
+}
+
+// absoluteCandidates returns common rwx install paths, including
+// home-relative paths when the home directory is available.
+func absoluteCandidates() []string {
+	var paths []string
+	if home, err := os.UserHomeDir(); err == nil {
+		paths = append(paths,
+			filepath.Join(home, ".local", "bin", "rwx"),
+			filepath.Join(home, ".rwx", "bin", "rwx"),
+		)
+	}
+	paths = append(paths, "/usr/local/bin/rwx", "/opt/homebrew/bin/rwx")
+	return paths
+}
+
+func isExecutable(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir() && info.Mode()&0o111 != 0
 }
 
 // --- Result helpers ---

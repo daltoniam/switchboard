@@ -24,7 +24,7 @@ func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResu
 		cmdArgs = append(cmdArgs, "--key", key)
 	}
 
-	output, err := runRWXCommand(cmdArgs, 0)
+	output, err := r.runRWXCommand(cmdArgs, 0)
 	if err != nil {
 		return errResult(err)
 	}
@@ -60,13 +60,13 @@ func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResu
 	return jsonResult(resp)
 }
 
-func validateWorkflow(_ context.Context, _ *rwx, args map[string]any) (*mcp.ToolResult, error) {
+func validateWorkflow(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
 	filePath := argStr(args, "file_path")
 	if filePath == "" {
 		filePath = ".rwx/ci.yml"
 	}
 
-	output, err := runRWXCommand([]string{"lint", filePath, "--output", "json"}, 30000)
+	output, err := r.runRWXCommand([]string{"lint", filePath, "--output", "json"}, 30000)
 	if err != nil {
 		exitErr, ok := err.(*exec.ExitError)
 		if ok && len(exitErr.Stderr) > 0 {
@@ -87,8 +87,8 @@ func validateWorkflow(_ context.Context, _ *rwx, args map[string]any) (*mcp.Tool
 	return rawResult(output)
 }
 
-func verifyCLI(_ context.Context, _ *rwx, _ map[string]any) (*mcp.ToolResult, error) {
-	check := getRWXCLIVersion()
+func verifyCLI(_ context.Context, r *rwx, _ map[string]any) (*mcp.ToolResult, error) {
+	check := r.getRWXCLIVersion()
 
 	if !check.installed {
 		return jsonResult(map[string]any{
@@ -123,8 +123,8 @@ type rwxVersionCheck struct {
 	meetsMinimum bool
 }
 
-func getRWXCLIVersion() rwxVersionCheck {
-	output, err := exec.Command("rwx", "--version").CombinedOutput()
+func (r *rwx) getRWXCLIVersion() rwxVersionCheck {
+	output, err := exec.Command(r.cliPath, "--version").CombinedOutput() // #nosec G204 -- resolved binary path
 	if err != nil {
 		return rwxVersionCheck{installed: false}
 	}
