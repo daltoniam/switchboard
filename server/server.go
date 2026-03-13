@@ -22,6 +22,15 @@ import (
 const defaultSearchLimit = 20
 const maxResponseBytes = 50 * 1024 // 50KB
 
+// searchToolInfo represents a tool in search results.
+type searchToolInfo struct {
+	Integration string            `json:"integration"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Parameters  map[string]string `json:"parameters"`
+	Required    []string          `json:"required,omitempty"`
+}
+
 const (
 	defaultBreakerThreshold = 5
 	defaultBreakerCooldown  = 30 * time.Second
@@ -236,13 +245,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 
 	query := strings.ToLower(args.Query)
 
-	type toolInfo struct {
-		Integration string            `json:"integration"`
-		Name        string            `json:"name"`
-		Description string            `json:"description"`
-		Parameters  map[string]string `json:"parameters"`
-		Required    []string          `json:"required,omitempty"`
-	}
+	type toolInfo = searchToolInfo
 
 	enabled := s.services.Config.EnabledIntegrations()
 	var all []toolInfo
@@ -258,11 +261,15 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 
 		for _, tool := range integration.Tools() {
 			if query == "" || matches(tool, name, query) {
+				params := make(map[string]string, len(tool.Parameters))
+				for k, v := range tool.Parameters {
+					params[k] = v
+				}
 				all = append(all, toolInfo{
 					Integration: name,
 					Name:        tool.Name,
 					Description: tool.Description,
-					Parameters:  tool.Parameters,
+					Parameters:  params,
 					Required:    tool.Required,
 				})
 			}
@@ -292,14 +299,15 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	page := all[offset:end]
 
 	type response struct {
-		Summary      string     `json:"summary"`
-		ScriptHint   string     `json:"script_hint,omitempty"`
-		Total        int        `json:"total"`
-		Offset       int        `json:"offset"`
-		Limit        int        `json:"limit"`
-		HasMore      bool       `json:"has_more"`
-		Integrations []string   `json:"integrations"`
-		Tools        []toolInfo `json:"tools"`
+		Summary          string            `json:"summary"`
+		ScriptHint       string            `json:"script_hint,omitempty"`
+		SharedParameters map[string]string `json:"shared_parameters,omitempty"`
+		Total            int               `json:"total"`
+		Offset           int               `json:"offset"`
+		Limit            int               `json:"limit"`
+		HasMore          bool              `json:"has_more"`
+		Integrations     []string          `json:"integrations"`
+		Tools            []toolInfo        `json:"tools"`
 	}
 
 	summary := fmt.Sprintf("Found %d tools", total)
@@ -320,22 +328,74 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		}
 	}
 
+	shared := extractSharedParameters(page)
+
 	data, _ := json.Marshal(response{
-		Summary:      summary,
-		ScriptHint:   scriptHint,
-		Total:        total,
-		Offset:       offset,
-		Limit:        limit,
-		HasMore:      limit > 0 && offset+limit < total,
-		Integrations: enabled,
-		Tools:        page,
+		Summary:          summary,
+		ScriptHint:       scriptHint,
+		SharedParameters: shared,
+		Total:            total,
+		Offset:           offset,
+		Limit:            limit,
+		HasMore:          limit > 0 && offset+limit < total,
+		Integrations:     enabled,
+		Tools:            page,
 	})
 
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
-			&mcpsdk.TextContent{Text: string(data)},
+			&mcpsdk.TextContent{Text: columnarizeResult(string(data))},
 		},
 	}, nil
+}
+
+// extractSharedParameters finds parameters with identical name+description
+// across 3+ tools in the page, moves them to a shared map, and removes them
+// from per-tool parameters. This deduplicates common params like "owner" and
+// "repo" that appear verbatim across dozens of tools in an integration.
+func extractSharedParameters(tools []searchToolInfo) map[string]string {
+	const minCount = 3
+
+	type paramKey struct{ name, desc string }
+	counts := map[paramKey]int{}
+	for _, t := range tools {
+		for name, desc := range t.Parameters {
+			counts[paramKey{name, desc}]++
+		}
+	}
+
+	// For each param name, collect all descriptions that meet the threshold.
+	// A name with multiple qualifying descriptions is ambiguous — skip it.
+	candidates := map[string]string{} // name → description
+	conflicted := map[string]bool{}
+	for pk, count := range counts {
+		if count < minCount {
+			continue
+		}
+		if conflicted[pk.name] {
+			continue
+		}
+		if prev, exists := candidates[pk.name]; exists && prev != pk.desc {
+			delete(candidates, pk.name)
+			conflicted[pk.name] = true
+			continue
+		}
+		candidates[pk.name] = pk.desc
+	}
+
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	for i := range tools {
+		for name, desc := range tools[i].Parameters {
+			if candidates[name] == desc {
+				delete(tools[i].Parameters, name)
+			}
+		}
+	}
+
+	return candidates
 }
 
 func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
@@ -363,6 +423,9 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
+	if !result.IsError {
+		result.Data = columnarizeResult(result.Data)
+	}
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
 			&mcpsdk.TextContent{Text: result.Data},
@@ -386,12 +449,30 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 			len(result.Data)/1024,
 		)), nil
 	}
+	if !result.IsError {
+		result.Data = columnarizeResult(result.Data)
+	}
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
 			&mcpsdk.TextContent{Text: result.Data},
 		},
 		IsError: result.IsError,
 	}, nil
+}
+
+// columnarizeResult applies columnar formatting at the MCP response boundary.
+// Scripts and direct tool calls both produce per-record JSON; this converts
+// arrays of objects into {"columns":[...],"rows":[[...],...]} before the LLM sees it.
+func columnarizeResult(data string) string {
+	if len(data) == 0 || (data[0] != '[' && data[0] != '{') {
+		return data
+	}
+	out, err := mcp.ColumnarizeJSON([]byte(data))
+	if err != nil {
+		slog.Warn("columnarization failed, returning per-record response", "err", err)
+		return data
+	}
+	return string(out)
 }
 
 const maxRetries = 3

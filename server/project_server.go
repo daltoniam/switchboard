@@ -224,11 +224,15 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 			permitted := project.FilterTools(integration.Tools(), scopeRule)
 			for _, tool := range permitted {
 				if query == "" || matches(tool, name, query) {
+					params := make(map[string]string, len(tool.Parameters))
+					for k, v := range tool.Parameters {
+						params[k] = v
+					}
 					all = append(all, toolInfo{
 						Integration: name,
 						Name:        tool.Name,
 						Description: tool.Description,
-						Parameters:  tool.Parameters,
+						Parameters:  params,
 						Required:    tool.Required,
 					})
 				}
