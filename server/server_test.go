@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -1307,6 +1308,57 @@ func TestScriptExecution_CrossIntegration(t *testing.T) {
 	assert.Equal(t, "ENG-42", parsed["issue"])
 	assert.Equal(t, "https://github.com/o/r/pull/99", parsed["pr_url"])
 	assert.Equal(t, "ENG-42: Fix auth bug", parsed["pr_title"])
+}
+
+func TestScriptExecution_OutputByteCapEnforced(t *testing.T) {
+	chunkData := `{"data":"` + strings.Repeat("x", 20*1024) + `"}`
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_chunk", Description: "Returns a chunk of data"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: chunkData}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	script := `var a = api.call("testint_chunk", {}); var b = api.call("testint_chunk", {}); var c = api.call("testint_chunk", {}); ({a: a, b: b, c: c});`
+	data, _ := json.Marshal(map[string]any{"script": script})
+	req := &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "execute",
+			Arguments: json.RawMessage(data),
+		},
+	}
+	result, err := s.handleExecute(context.Background(), req)
+	require.NoError(t, err)
+	assert.True(t, result.IsError, "over-cap script output should return error")
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	capKB := fmt.Sprintf("%dKB", maxResponseBytes/1024)
+	assert.Contains(t, tc.Text, capKB)
+	assert.Contains(t, tc.Text, "Script output exceeded")
+}
+
+func TestScriptExecution_OutputByteCapSkippedOnError(t *testing.T) {
+	s := setupTestServer()
+	data, _ := json.Marshal(map[string]any{
+		"script": `api.call("nonexistent_tool", {});`,
+	})
+	req := &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "execute",
+			Arguments: json.RawMessage(data),
+		},
+	}
+	result, err := s.handleExecute(context.Background(), req)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.NotContains(t, tc.Text, "Script output exceeded", "error results should skip byte cap")
 }
 
 func TestSearch_ScriptHint_MultipleIntegrations(t *testing.T) {

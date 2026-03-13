@@ -130,6 +130,7 @@ Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Da
 List and search responses are automatically compacted to essential fields.
 Use single-item get tools (e.g., github_get_issue) for full detail.
 Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
+Script output is also capped at 50KB — return only the fields you need, not entire API responses.
 
 Use search first to discover available tools and their parameter schemas.
 
@@ -145,7 +146,10 @@ Look up a Sentry error, find the responsible deploy, and notify Slack:
   {"script": "var issue = api.call('sentry_get_issue', {issue_id: '12345'}); var deploys = api.call('sentry_list_deploys', {organization_slug: 'org', version: issue.firstRelease.version}); api.call('slack_post_message', {channel: '#alerts', text: 'Sentry issue ' + issue.title + ' introduced in deploy ' + deploys[0].environment}); ({sentry: issue.shortId, deploy: deploys[0].environment});"}
 
 Cross-integration correlation with tryCall (tolerates partial failures):
-  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}); var linear = api.tryCall('linear_search_issues', {query: pr.title}); var slack = api.tryCall('slack_search_messages', {query: pr.title, count: 5}); ({pr: {title: pr.title, state: pr.state}, linear: linear.ok ? linear.data : {error: linear.error}, slack: slack.ok ? slack.data : {error: slack.error}});"}`,
+  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}); var linear = api.tryCall('linear_search_issues', {query: pr.title}); var slack = api.tryCall('slack_search_messages', {query: pr.title, count: 5}); ({pr: {title: pr.title, state: pr.state}, linear: linear.ok ? linear.data : {error: linear.error}, slack: slack.ok ? slack.data : {error: slack.error}});"}
+
+Filter list results to only the fields you need (reduces output tokens):
+  {"script": "var issues = api.call('github_list_issues', {owner: 'o', repo: 'r', state: 'open'}); issues.map(function(i) { return {number: i.number, title: i.title, labels: i.labels}; });"}`,
 		InputSchema: objectSchema(map[string]any{
 			"tool_name": map[string]any{
 				"type":        "string",
@@ -374,6 +378,13 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 	result, err := s.scriptEngine.Run(ctx, source)
 	if err != nil {
 		return errorResult(err.Error()), nil
+	}
+	if !result.IsError && len(result.Data) > maxResponseBytes {
+		return errorResult(fmt.Sprintf(
+			"Script output exceeded %dKB (actual: %dKB). Return only the fields you need from each api.call() result.",
+			maxResponseBytes/1024,
+			len(result.Data)/1024,
+		)), nil
 	}
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
