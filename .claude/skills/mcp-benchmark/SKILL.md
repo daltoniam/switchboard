@@ -84,7 +84,8 @@ For any integration not listed, use the first list/search tool found via
 | Field | How to check |
 |-------|-------------|
 | Tool name | What you called |
-| Response shape | Array, object, or `{}` |
+| Response shape | Array, columnar (`columns`/`rows`/`constants`), object, or `{}` |
+| Columnar format | If 8+ items, verify columnar shape with `columns`+`rows`. Check `constants` for lifted uniform values |
 | Empty object `{}` | **FLAG as compaction shape mismatch (Critical)** |
 | Error | Record error message verbatim |
 | Approximate size | Eyeball response length; flag if approaching 50KB |

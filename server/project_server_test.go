@@ -111,10 +111,7 @@ func TestProjectRouter_SearchFiltersTools(t *testing.T) {
 	resp := parseSearchResponse(t, result)
 	assert.Equal(t, 2, resp.Total)
 
-	var names []string
-	for _, tool := range resp.Tools {
-		names = append(names, tool.Name)
-	}
+	names := searchToolNames(t, resp)
 	assert.Contains(t, names, "github_list_issues")
 	assert.Contains(t, names, "github_get_issue")
 	assert.NotContains(t, names, "github_delete_repo")

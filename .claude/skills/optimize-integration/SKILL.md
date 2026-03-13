@@ -168,6 +168,30 @@ const maxResponseSize = 512 << 10 // example: 512 KB for an adapter whose larges
 4. Run `make ci` after each phase
 5. Commit each phase separately (descriptions, compaction, tuning)
 
+## Columnar Format & Automatic Optimizations
+
+These optimizations are applied automatically at the MCP response boundary — no per-adapter work needed. Understanding them helps when debugging response shapes or writing scripts.
+
+### Columnar JSON
+
+Arrays of 8+ objects in execute and search responses are reshaped from `[{k:v},{k:v}]` to `{"columns":[...],"rows":[[...],...],"constants":{...}}`. This eliminates per-record key repetition (28%+ savings at 8+ items).
+
+- **Constant lifting**: Uniform columns move to `"constants"` map (e.g., filtered list where all items have `state:"open"`)
+- **Density ordering**: Dense columns appear before sparse ones — LLMs see important data first
+- **Threshold**: Only arrays of 8+ items are columnarized. Below 8, per-record format preserved
+
+### Search shared parameter deduplication
+
+Params with identical name+description across 3+ tools on the search page are extracted to `shared_parameters`. Common params like `owner`/`repo` appear once instead of N times.
+
+### Script field projection
+
+Scripts can project fields via third arg: `api.call(tool, args, {fields: ["id","title"]})`. Uses `CompactJSON` under the hood. Use this in scripts that only need a few fields from large responses.
+
+### Glob exclusion specs
+
+Use `"-*_url"` to exclude all fields matching a glob pattern. Valid in exclusion mode only. **Caveat**: catches future fields — prefer targeted exclusions when the field set is small. Invalid patterns rejected at parse time.
+
 ## Anti-Patterns
 
 | Mistake | Failure it causes | Correct approach |
@@ -180,3 +204,5 @@ const maxResponseSize = 512 << 10 // example: 512 KB for an adapter whose larges
 | Same field set for list and get tools | List context wastes tokens on fields only useful in single-record context (N x noise) | Use shared slices with list/single variance |
 | Adding every field "just in case" | Every field costs tokens x N items — unjustified fields compound across pagination | Justify each field by the query it enables |
 | Enriching Tier 4 tools that are already clear | Description churn with no routing improvement | Don't touch what doesn't need touching |
+| Broad glob exclusions like `-*_url` | Silently excludes future upstream API fields that match the glob | Use targeted exclusions when field set is small and stable |
+| Aliasing `ToolDefinition.Parameters` map in search | Progressive silent corruption — `extractSharedParameters` deletes from shared map | Always deep-copy the Parameters map when building `searchToolInfo` |
