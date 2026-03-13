@@ -12,6 +12,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/browser"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
 	gcpInt "github.com/daltoniam/switchboard/gcp"
@@ -171,6 +172,15 @@ func runServer(stdioMode bool, port int) {
 	cfgMgr, err := config.NewManager()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	browserSvc, err := browser.New(true /* headless */)
+	if err != nil {
+		log.Printf("browser service unavailable (%v) — browser-based integrations disabled", err)
+		browserSvc = nil
+	}
+	if browserSvc != nil {
+		defer browserSvc.Close() //nolint:errcheck
 	}
 
 	gmailIntegration := gmail.New()
