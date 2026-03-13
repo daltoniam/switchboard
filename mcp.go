@@ -155,4 +155,37 @@ type Registry interface {
 type Services struct {
 	Config   ConfigService
 	Registry Registry
+	Browser  BrowserService // nil if playwright driver is not installed
+}
+
+// BrowserService manages browser lifecycle for web automation.
+// Pass via integration constructors — never exposed as MCP tools.
+type BrowserService interface {
+	NewSession(ctx context.Context) (BrowserSession, error)
+	Close() error
+}
+
+// BrowserSession is an isolated browser context (own cookies, local storage).
+// One session per integration; pages within the same session share auth state.
+type BrowserSession interface {
+	NewPage(ctx context.Context) (BrowserPage, error)
+	Close() error
+}
+
+// BrowserPage is a single browser tab.
+// Note: context.Context parameters are accepted for API consistency and future-proofing,
+// but the underlying playwright-go driver does not support context cancellation.
+// Long-running calls (Navigate, WaitForSelector) will not be interrupted by ctx.Done().
+type BrowserPage interface {
+	Navigate(ctx context.Context, url string) error
+	Fill(ctx context.Context, selector, value string) error
+	Click(ctx context.Context, selector string) error
+	SelectOption(ctx context.Context, selector, value string) error
+	InnerText(ctx context.Context, selector string) (string, error)
+	InnerHTML(ctx context.Context, selector string) (string, error)
+	Content(ctx context.Context) (string, error)
+	WaitForSelector(ctx context.Context, selector string) error
+	Screenshot(ctx context.Context) ([]byte, error)
+	Evaluate(ctx context.Context, expression string, args ...any) (any, error)
+	Close() error
 }
