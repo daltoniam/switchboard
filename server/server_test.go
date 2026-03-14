@@ -1605,6 +1605,35 @@ func TestScriptExecution_OutputByteCapSkippedOnError(t *testing.T) {
 	assert.NotContains(t, tc.Text, "Script output exceeded", "error results should skip byte cap")
 }
 
+func TestScriptExecution_FieldProjection(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_list_items", Description: "List items"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `[{"id":1,"name":"alpha","secret":"hidden","meta":{"tag":"v1"}},{"id":2,"name":"beta","secret":"also hidden","meta":{"tag":"v2"}}]`}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var items = api.call("testint_list_items", {}, {fields: ["id", "name"]});
+		items;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	require.Len(t, parsed, 2)
+	assert.Equal(t, float64(1), parsed[0]["id"])
+	assert.Equal(t, "alpha", parsed[0]["name"])
+	assert.Nil(t, parsed[0]["secret"], "secret should be projected out")
+	assert.Nil(t, parsed[0]["meta"], "meta should be projected out")
+}
+
 func TestSearch_ScriptHint_MultipleIntegrations(t *testing.T) {
 	alpha := &mockIntegration{
 		name:    "github",

@@ -478,6 +478,11 @@ func TestEngine_FieldProjection(t *testing.T) {
 			script:    `api.call("tool", {}, {fields: "not_an_array"})`,
 			wantError: true,
 		},
+		{
+			name:       "bare array third arg is ignored (must use opts object)",
+			script:     `api.call("tool", {}, ["number", "title"])`,
+			wantFields: []string{"number", "title", "state", "body", "user"},
+		},
 	}
 
 	for _, tt := range tests {
