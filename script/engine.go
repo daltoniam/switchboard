@@ -133,10 +133,10 @@ func parseResult(vm *goja.Runtime, data string) goja.Value {
 }
 
 // Run executes a JavaScript script. The script has access to:
-//   - api.call(toolName, args[, fields]) — calls an integration tool and returns the parsed JSON result.
-//     Optional fields array applies a secondary field projection (same syntax as CompactJSON specs).
-//   - api.tryCall(toolName, args[, fields]) — like call, but returns {ok, data/error} instead of throwing.
-//     Also supports the optional fields projection.
+//   - api.call(toolName, args[, opts]) — calls an integration tool and returns the parsed JSON result.
+//     Optional opts object with fields key applies a secondary field projection: {fields: ["id", "title"]}.
+//   - api.tryCall(toolName, args[, opts]) — like call, but returns {ok, data/error} instead of throwing.
+//     Also supports the optional opts with field projection.
 //   - console.log(...args) — collects log output (available in result on error)
 //
 // The script's return value is JSON-serialized as the ToolResult.Data.

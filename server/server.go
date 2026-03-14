@@ -130,11 +130,11 @@ Mode 2 — Single tool (provide tool_name + arguments):
   {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
 
 Script API:
-  api.call(toolName, args[, fields]) — call any tool, returns parsed JSON. Throws on error (kills script).
-    Optional fields array applies server-side field projection before data enters the script.
-    Uses dot-notation: ["id", "title", "user.login", "labels[].name"]. Only specified fields are kept.
-  api.tryCall(toolName, args[, fields]) — like call, but returns {ok: true, data: ...} or {ok: false, error: "..."}.
-    Also supports the optional fields projection. Prefer tryCall for cross-integration scripts where partial results are useful.
+  api.call(toolName, args[, opts]) — call any tool, returns parsed JSON. Throws on error (kills script).
+    Optional opts object with fields key applies server-side field projection: {fields: ["id", "title", "user.login"]}.
+    Uses dot-notation: {fields: ["id", "title", "user.login", "labels[].name"]}. Only specified fields are kept.
+  api.tryCall(toolName, args[, opts]) — like call, but returns {ok: true, data: ...} or {ok: false, error: "..."}.
+    Also supports the optional opts with field projection. Prefer tryCall for cross-integration scripts where partial results are useful.
   console.log(...) — debug logging (included in output on error)
 
 Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
@@ -149,7 +149,7 @@ Use search first to discover available tools and their parameter schemas.
 Script examples:
 
 Fetch a GitHub PR with field projection (only title, state, and branch refs returned):
-  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, ['title', 'state', 'body', 'base.ref', 'head.ref']); var diff = api.call('github_get_pull_diff', {owner: 'o', repo: 'r', pull_number: 42}); ({pr: pr, diff: diff});"}
+  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, {fields: ['title', 'state', 'body', 'base.ref', 'head.ref']}); var diff = api.call('github_get_pull_diff', {owner: 'o', repo: 'r', pull_number: 42}); ({pr: pr, diff: diff});"}
 
 Create a Linear issue then open a GitHub PR referencing it:
   {"script": "var issue = api.call('linear_create_issue', {team_id: 'TEAM-ID', title: 'Fix auth bug', description: 'Details...'}); var pr = api.call('github_create_pull', {owner: 'o', repo: 'r', title: issue.identifier + ': ' + issue.title, head: 'fix-auth', base: 'main', body: 'Resolves ' + issue.url}); ({issue: issue.identifier, pr_url: pr.html_url});"}
@@ -158,10 +158,10 @@ Look up a Sentry error, find the responsible deploy, and notify Slack:
   {"script": "var issue = api.call('sentry_get_issue', {issue_id: '12345'}); var deploys = api.call('sentry_list_deploys', {organization_slug: 'org', version: issue.firstRelease.version}); api.call('slack_post_message', {channel: '#alerts', text: 'Sentry issue ' + issue.title + ' introduced in deploy ' + deploys[0].environment}); ({sentry: issue.shortId, deploy: deploys[0].environment});"}
 
 Cross-integration correlation with tryCall and field projection:
-  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, ['title', 'state']); var linear = api.tryCall('linear_search_issues', {query: pr.title}, ['issues.nodes[].identifier', 'issues.nodes[].title']); ({pr: pr, linear: linear.ok ? linear.data : {error: linear.error}});"}
+  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, {fields: ['title', 'state']}); var linear = api.tryCall('linear_search_issues', {query: pr.title}, {fields: ['issues.nodes[].identifier', 'issues.nodes[].title']}); ({pr: pr, linear: linear.ok ? linear.data : {error: linear.error}});"}
 
 List issues with server-side projection (only id, title, labels — no manual .map() needed):
-  {"script": "api.call('github_list_issues', {owner: 'o', repo: 'r', state: 'open'}, ['number', 'title', 'labels[].name']);"}`,
+  {"script": "api.call('github_list_issues', {owner: 'o', repo: 'r', state: 'open'}, {fields: ['number', 'title', 'labels[].name']});"}`,
 		InputSchema: objectSchema(map[string]any{
 			"tool_name": map[string]any{
 				"type":        "string",
@@ -173,7 +173,7 @@ List issues with server-side projection (only id, title, labels — no manual .m
 			},
 			"script": map[string]any{
 				"type":        "string",
-				"description": "ES5 JavaScript code to execute server-side. Use var (not let/const), function() (not =>), string + concatenation (not template literals). Use api.call(toolName, args, fields) to invoke tools with optional field projection. Return the final result. (mutually exclusive with tool_name)",
+				"description": "ES5 JavaScript code to execute server-side. Use var (not let/const), function() (not =>), string + concatenation (not template literals). Use api.call(toolName, args, {fields: [...]}) to invoke tools with optional field projection. Return the final result. (mutually exclusive with tool_name)",
 			},
 		}, nil),
 	}
