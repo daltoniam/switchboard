@@ -1619,7 +1619,7 @@ func TestScriptExecution_FieldProjection(t *testing.T) {
 
 	s := setupTestServer(mi)
 	result, err := s.scriptEngine.Run(context.Background(), `
-		var items = api.call("testint_list_items", {}, ["id", "name"]);
+		var items = api.call("testint_list_items", {}, {fields: ["id", "name"]});
 		items;
 	`)
 	require.NoError(t, err)
