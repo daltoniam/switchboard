@@ -21,6 +21,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
+	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/homeassistant"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
@@ -192,6 +193,7 @@ func runServer(stdioMode bool, port int) {
 		amazon.New(),
 		gmailIntegration,
 		homeassistant.New(),
+		jira.New(),
 		notionInt.New(),
 		gcpInt.New(),
 		suno.New(),

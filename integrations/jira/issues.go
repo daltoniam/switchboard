@@ -1,0 +1,244 @@
+package jira
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	mcp "github.com/daltoniam/switchboard"
+)
+
+func searchIssues(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	body := map[string]any{
+		"jql": argStr(args, "jql"),
+	}
+	if v := argStr(args, "fields"); v != "" {
+		body["fields"] = strings.Split(v, ",")
+	} else {
+		body["fields"] = []string{"summary", "status", "assignee", "priority", "issuetype"}
+	}
+	if v := argInt(args, "start_at"); v > 0 {
+		body["startAt"] = v
+	}
+	if v := argInt(args, "max_results"); v > 0 {
+		body["maxResults"] = v
+	} else {
+		body["maxResults"] = 50
+	}
+
+	data, err := j.post(ctx, "/search", body)
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func getIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	params := map[string]string{}
+	if v := argStr(args, "fields"); v != "" {
+		params["fields"] = v
+	}
+	if v := argStr(args, "expand"); v != "" {
+		params["expand"] = v
+	}
+	q := queryEncode(params)
+	data, err := j.get(ctx, "/issue/%s%s", argStr(args, "issue_key"), q)
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func createIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	fields := map[string]any{
+		"project":   map[string]string{"key": argStr(args, "project_key")},
+		"issuetype": map[string]string{"name": argStr(args, "issue_type")},
+		"summary":   argStr(args, "summary"),
+	}
+	if v := argStr(args, "description"); v != "" {
+		fields["description"] = textToADF(v)
+	}
+	if v := argStr(args, "priority"); v != "" {
+		fields["priority"] = map[string]string{"name": v}
+	}
+	if v := argStr(args, "assignee_id"); v != "" {
+		fields["assignee"] = map[string]string{"accountId": v}
+	}
+	if v := argStr(args, "labels"); v != "" {
+		fields["labels"] = strings.Split(v, ",")
+	}
+	if v := argStr(args, "parent_key"); v != "" {
+		fields["parent"] = map[string]string{"key": v}
+	}
+
+	data, err := j.post(ctx, "/issue", map[string]any{"fields": fields})
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func updateIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	fields := map[string]any{}
+	if v := argStr(args, "summary"); v != "" {
+		fields["summary"] = v
+	}
+	if v := argStr(args, "description"); v != "" {
+		fields["description"] = textToADF(v)
+	}
+	if v := argStr(args, "priority"); v != "" {
+		fields["priority"] = map[string]string{"name": v}
+	}
+	if _, ok := args["assignee_id"]; ok {
+		v := argStr(args, "assignee_id")
+		if v == "" {
+			fields["assignee"] = nil
+		} else {
+			fields["assignee"] = map[string]string{"accountId": v}
+		}
+	}
+	if v := argStr(args, "labels"); v != "" {
+		fields["labels"] = strings.Split(v, ",")
+	}
+
+	path := fmt.Sprintf("/issue/%s", argStr(args, "issue_key"))
+	data, err := j.put(ctx, path, map[string]any{"fields": fields})
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func deleteIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	q := ""
+	if argBool(args, "delete_subtasks") {
+		q = "?deleteSubtasks=true"
+	}
+	data, err := j.del(ctx, "/issue/%s%s", argStr(args, "issue_key"), q)
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func transitionIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	body := map[string]any{
+		"transition": map[string]string{"id": argStr(args, "transition_id")},
+	}
+	path := fmt.Sprintf("/issue/%s/transitions", argStr(args, "issue_key"))
+	data, err := j.post(ctx, path, body)
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func getTransitions(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	data, err := j.get(ctx, "/issue/%s/transitions", argStr(args, "issue_key"))
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func assignIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	accountID := argStr(args, "account_id")
+	var body any
+	if accountID == "" || accountID == "-1" {
+		body = map[string]any{"accountId": nil}
+	} else {
+		body = map[string]string{"accountId": accountID}
+	}
+	path := fmt.Sprintf("/issue/%s/assignee", argStr(args, "issue_key"))
+	data, err := j.put(ctx, path, body)
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func listComments(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	params := map[string]string{}
+	if v := argInt(args, "start_at"); v > 0 {
+		params["startAt"] = fmt.Sprintf("%d", v)
+	}
+	if v := argInt(args, "max_results"); v > 0 {
+		params["maxResults"] = fmt.Sprintf("%d", v)
+	}
+	q := queryEncode(params)
+	data, err := j.get(ctx, "/issue/%s/comment%s", argStr(args, "issue_key"), q)
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func addComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	body := textToADF(argStr(args, "body"))
+	path := fmt.Sprintf("/issue/%s/comment", argStr(args, "issue_key"))
+	data, err := j.post(ctx, path, body)
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func updateComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	body := textToADF(argStr(args, "body"))
+	path := fmt.Sprintf("/issue/%s/comment/%s", argStr(args, "issue_key"), argStr(args, "comment_id"))
+	data, err := j.put(ctx, path, body)
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func deleteComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	data, err := j.del(ctx, "/issue/%s/comment/%s", argStr(args, "issue_key"), argStr(args, "comment_id"))
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func listIssueLinks(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	data, err := j.get(ctx, "/issue/%s?fields=issuelinks", argStr(args, "issue_key"))
+	if err != nil {
+		return errResult(err)
+	}
+	// Extract just the issuelinks field from the response.
+	var issue struct {
+		Fields struct {
+			IssueLinks json.RawMessage `json:"issuelinks"`
+		} `json:"fields"`
+	}
+	if err := json.Unmarshal(data, &issue); err != nil {
+		return errResult(err)
+	}
+	if issue.Fields.IssueLinks == nil {
+		return rawResult(json.RawMessage(`[]`))
+	}
+	return rawResult(issue.Fields.IssueLinks)
+}
+
+func createIssueLink(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	body := map[string]any{
+		"type":         map[string]string{"name": argStr(args, "type_name")},
+		"inwardIssue":  map[string]string{"key": argStr(args, "inward_issue")},
+		"outwardIssue": map[string]string{"key": argStr(args, "outward_issue")},
+	}
+	data, err := j.post(ctx, "/issueLink", body)
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
+
+func deleteIssueLink(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	data, err := j.del(ctx, "/issueLink/%s", argStr(args, "link_id"))
+	if err != nil {
+		return errResult(err)
+	}
+	return rawResult(data)
+}
