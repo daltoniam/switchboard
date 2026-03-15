@@ -155,13 +155,13 @@ func getProduct(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolR
 	}
 
 	type productDetail struct {
-		ASIN                    string      `json:"asin"`
-		Title                   string      `json:"title"`
-		Price                   string      `json:"price,omitempty"`
-		CanUseSubscribeAndSave  bool        `json:"can_use_subscribe_and_save"`
-		Description             description `json:"description"`
-		Reviews                 reviews     `json:"reviews"`
-		MainImageURL            string      `json:"main_image_url,omitempty"`
+		ASIN                   string      `json:"asin"`
+		Title                  string      `json:"title"`
+		Price                  string      `json:"price,omitempty"`
+		CanUseSubscribeAndSave bool        `json:"can_use_subscribe_and_save"`
+		Description            description `json:"description"`
+		Reviews                reviews     `json:"reviews"`
+		MainImageURL           string      `json:"main_image_url,omitempty"`
 	}
 
 	result := productDetail{

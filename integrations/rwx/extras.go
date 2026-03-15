@@ -92,18 +92,18 @@ func verifyCLI(_ context.Context, r *rwx, _ map[string]any) (*mcp.ToolResult, er
 
 	if !check.installed {
 		return jsonResult(map[string]any{
-			"status":  "not_installed",
-			"message": fmt.Sprintf("rwx CLI is not installed. Please install version >= %s.", minRWXVersion),
+			"status":               "not_installed",
+			"message":              fmt.Sprintf("rwx CLI is not installed. Please install version >= %s.", minRWXVersion),
 			"install_instructions": "Visit https://github.com/rwx-research/rwx-cli/releases or use: brew install rwx-research/tap/rwx",
 		})
 	}
 
 	if !check.meetsMinimum {
 		return jsonResult(map[string]any{
-			"status":           "outdated",
-			"current_version":  check.version,
-			"required_version": minRWXVersion,
-			"message":          fmt.Sprintf("rwx CLI version %s is below minimum required version %s. Please upgrade.", check.version, minRWXVersion),
+			"status":               "outdated",
+			"current_version":      check.version,
+			"required_version":     minRWXVersion,
+			"message":              fmt.Sprintf("rwx CLI version %s is below minimum required version %s. Please upgrade.", check.version, minRWXVersion),
 			"install_instructions": "Visit https://github.com/rwx-research/rwx-cli/releases or use: brew upgrade rwx-research/tap/rwx",
 		})
 	}

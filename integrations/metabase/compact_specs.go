@@ -15,8 +15,8 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"metabase_get_table_fields": {"id", "name", "database_type", "base_type", "semantic_type", "position", "description"},
 
 	// ── Cards ────────────────────────────────────────────────────────
-	"metabase_list_cards":   {"id", "name", "description", "display", "collection_id", "creator_id", "created_at", "updated_at"},
-	"metabase_get_card":     {"id", "name", "description", "display", "dataset_query", "result_metadata", "collection_id", "created_at", "updated_at"},
+	"metabase_list_cards": {"id", "name", "description", "display", "collection_id", "creator_id", "created_at", "updated_at"},
+	"metabase_get_card":   {"id", "name", "description", "display", "dataset_query", "result_metadata", "collection_id", "created_at", "updated_at"},
 
 	// ── Dashboards ───────────────────────────────────────────────────
 	"metabase_list_dashboards": {"id", "name", "description", "collection_id", "creator_id", "created_at"},

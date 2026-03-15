@@ -456,7 +456,7 @@ func TestModifyMessage(t *testing.T) {
 
 	g := &gmail{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
 	result, err := g.Execute(context.Background(), "gmail_modify_message", map[string]any{
-		"message_id":   "msg1",
+		"message_id":    "msg1",
 		"add_label_ids": "STARRED",
 	})
 	require.NoError(t, err)
@@ -695,8 +695,8 @@ func TestBatchModify(t *testing.T) {
 
 	g := &gmail{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
 	result, err := g.Execute(context.Background(), "gmail_batch_modify", map[string]any{
-		"message_ids":    "msg1,msg2",
-		"add_label_ids":  "IMPORTANT",
+		"message_ids":   "msg1,msg2",
+		"add_label_ids": "IMPORTANT",
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)

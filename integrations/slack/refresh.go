@@ -104,14 +104,14 @@ func (s *slackIntegration) RefreshStatus() map[string]any {
 	}
 
 	return map[string]any{
-		"token_type":        tokenType,
-		"has_cookie":        cookie != "",
-		"source":            source,
-		"updated_at":        updatedAt.Format("2006-01-02T15:04:05Z"),
+		"token_type":         tokenType,
+		"has_cookie":         cookie != "",
+		"source":             source,
+		"updated_at":         updatedAt.Format("2006-01-02T15:04:05Z"),
 		"can_cookie_refresh": cookie != "" && strings.HasPrefix(tok, "xoxc-"),
 		"can_chrome_refresh": CanExtractFromChrome(),
-		"oauth_token":       strings.HasPrefix(tok, "xoxp-"),
-		"needs_refresh":     strings.HasPrefix(tok, "xoxc-"),
+		"oauth_token":        strings.HasPrefix(tok, "xoxp-"),
+		"needs_refresh":      strings.HasPrefix(tok, "xoxc-"),
 	}
 }
 

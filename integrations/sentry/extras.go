@@ -153,4 +153,3 @@ func deleteReplay(ctx context.Context, s *sentry, args map[string]any) (*mcp.Too
 	}
 	return rawResult(data)
 }
-

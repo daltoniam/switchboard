@@ -81,7 +81,7 @@ func monitoringListTimeSeries(ctx context.Context, g *integration, args map[stri
 			}
 		}
 		req.Aggregation = &monitoringpb.Aggregation{
-			AlignmentPeriod: durationpb.New(d),
+			AlignmentPeriod:  durationpb.New(d),
 			PerSeriesAligner: aligner,
 		}
 	}

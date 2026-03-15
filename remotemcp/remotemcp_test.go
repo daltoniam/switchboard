@@ -172,9 +172,9 @@ func TestExecute_NoConnection(t *testing.T) {
 
 type mockIntegration struct{}
 
-func (m *mockIntegration) Name() string                  { return "mock" }
+func (m *mockIntegration) Name() string                                         { return "mock" }
 func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error { return nil }
-func (m *mockIntegration) Tools() []mcp.ToolDefinition   { return nil }
+func (m *mockIntegration) Tools() []mcp.ToolDefinition                          { return nil }
 func (m *mockIntegration) Execute(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
 	return nil, nil
 }

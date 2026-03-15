@@ -38,9 +38,9 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"datadog_get_host_tags":   {"tags"},
 
 	// ── SLOs ─────────────────────────────────────────────────────────
-	"datadog_list_slos":      {"data[].id", "data[].name", "data[].type", "data[].description", "data[].thresholds", "data[].tags", "data[].overall_status"},
-	"datadog_search_slos":    {"data.attributes[].id", "data.attributes[].name", "data.attributes[].status", "data.attributes[].overall_status"},
-	"datadog_get_slo":        {"data.id", "data.name", "data.type", "data.description", "data.thresholds", "data.tags", "data.overall_status"},
+	"datadog_list_slos":       {"data[].id", "data[].name", "data[].type", "data[].description", "data[].thresholds", "data[].tags", "data[].overall_status"},
+	"datadog_search_slos":     {"data.attributes[].id", "data.attributes[].name", "data.attributes[].status", "data.attributes[].overall_status"},
+	"datadog_get_slo":         {"data.id", "data.name", "data.type", "data.description", "data.thresholds", "data.tags", "data.overall_status"},
 	"datadog_get_slo_history": {"data.overall.sli_value", "data.overall.span_precision", "data.thresholds"},
 
 	// ── Downtimes ────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ var rawFieldCompactionSpecs = map[string][]string{
 
 	// ── Incidents ────────────────────────────────────────────────────
 	"datadog_list_incidents": {"data[].id", "data[].attributes.title", "data[].attributes.severity", "data[].attributes.status", "data[].attributes.created", "data[].attributes.modified"},
-	"datadog_get_incident":  {"data.id", "data.attributes.title", "data.attributes.severity", "data.attributes.status", "data.attributes.fields", "data.attributes.created", "data.attributes.modified"},
+	"datadog_get_incident":   {"data.id", "data.attributes.title", "data.attributes.severity", "data.attributes.status", "data.attributes.fields", "data.attributes.created", "data.attributes.modified"},
 
 	// ── Synthetics ───────────────────────────────────────────────────
 	"datadog_list_synthetics_tests":      {"tests[].public_id", "tests[].name", "tests[].type", "tests[].status", "tests[].tags", "tests[].locations"},
@@ -62,7 +62,7 @@ var rawFieldCompactionSpecs = map[string][]string{
 
 	// ── Users ────────────────────────────────────────────────────────
 	"datadog_list_users": {"data[].id", "data[].attributes.name", "data[].attributes.handle", "data[].attributes.email", "data[].attributes.status", "data[].attributes.disabled"},
-	"datadog_get_user":  {"data.id", "data.attributes.name", "data.attributes.handle", "data.attributes.email", "data.attributes.status", "data.attributes.disabled"},
+	"datadog_get_user":   {"data.id", "data.attributes.name", "data.attributes.handle", "data.attributes.email", "data.attributes.status", "data.attributes.disabled"},
 
 	// ── APM ──────────────────────────────────────────────────────────
 	"datadog_search_spans":  {"data[].attributes.service", "data[].attributes.resource_name", "data[].attributes.status", "data[].attributes.duration", "data[].attributes.start", "data[].attributes.span_id", "data[].attributes.trace_id"},

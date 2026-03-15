@@ -13,15 +13,15 @@ import (
 // CompactField is a parsed field compaction spec — parse once via ParseCompactSpecs,
 // then pass to CompactJSON on each request.
 type CompactField struct {
-	path       []string // e.g. ["user", "login"] or ["labels[]", "name"]
-	outputKey  string   // top-level key in the compacted output
-	arrayIdx   int      // index of the "[]" segment in path, -1 if none
-	arrayKey   string   // path[arrayIdx] without "[]", empty if arrayIdx == -1
-	childPath  []string // path[arrayIdx+1:], nil if arrayIdx == -1
-	objectRoot string   // first path segment for non-array multi-segment specs, empty otherwise
-	exclude     bool   // true for "-field" exclusion specs
-	wildcard    bool   // true for "parent.*" wildcard specs
-	globPattern string // non-empty for glob exclusion specs like "-*_url"
+	path        []string // e.g. ["user", "login"] or ["labels[]", "name"]
+	outputKey   string   // top-level key in the compacted output
+	arrayIdx    int      // index of the "[]" segment in path, -1 if none
+	arrayKey    string   // path[arrayIdx] without "[]", empty if arrayIdx == -1
+	childPath   []string // path[arrayIdx+1:], nil if arrayIdx == -1
+	objectRoot  string   // first path segment for non-array multi-segment specs, empty otherwise
+	exclude     bool     // true for "-field" exclusion specs
+	wildcard    bool     // true for "parent.*" wildcard specs
+	globPattern string   // non-empty for glob exclusion specs like "-*_url"
 }
 
 // fieldPlan holds pre-computed groupings for a set of CompactField specs.
@@ -32,7 +32,7 @@ type fieldPlan struct {
 	objectGroups map[string][]CompactField // objectRoot → nested object group (2+ members only)
 	childPlans   map[string][]CompactField // objectRoot → pre-parsed child CompactFields
 	excludes     map[string]bool           // top-level keys to exclude (exact match)
-	globExcludes []string                 // glob patterns to exclude (e.g. "*_url")
+	globExcludes []string                  // glob patterns to exclude (e.g. "*_url")
 	hasIncludes  bool                      // true if any non-exclude specs exist
 }
 

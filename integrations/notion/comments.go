@@ -44,15 +44,15 @@ func createComment(ctx context.Context, n *notion, args map[string]any) (*mcp.To
 	}
 
 	commentData := map[string]any{
-		"id":           commentID,
-		"parent_id":    discussionID,
-		"parent_table": "discussion",
-		"space_id":     n.spaceID,
-		"text":         []any{[]any{text}},
+		"id":               commentID,
+		"parent_id":        discussionID,
+		"parent_table":     "discussion",
+		"space_id":         n.spaceID,
+		"text":             []any{[]any{text}},
 		"created_by_id":    n.userID,
 		"created_by_table": "notion_user",
-		"created_time": now,
-		"alive":        true,
+		"created_time":     now,
+		"alive":            true,
 	}
 
 	ops = append(ops,

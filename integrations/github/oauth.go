@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	deviceCodeURL = "https://github.com/login/device/code"
+	deviceCodeURL  = "https://github.com/login/device/code"
 	accessTokenURL = "https://github.com/login/oauth/access_token"
-	defaultScope  = "repo read:org read:user gist notifications read:packages read:project"
+	defaultScope   = "repo read:org read:user gist notifications read:packages read:project"
 )
 
 type DeviceCodeResponse struct {

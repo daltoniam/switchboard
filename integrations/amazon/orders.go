@@ -28,12 +28,12 @@ func getOrders(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 	}
 
 	type orderInfo struct {
-		OrderNumber    string          `json:"order_number,omitempty"`
-		OrderDate      string          `json:"order_date,omitempty"`
-		Total          string          `json:"total,omitempty"`
+		OrderNumber    string           `json:"order_number,omitempty"`
+		OrderDate      string           `json:"order_date,omitempty"`
+		Total          string           `json:"total,omitempty"`
 		DeliveryAddr   *deliveryAddress `json:"delivery_address,omitempty"`
-		Status         string          `json:"status,omitempty"`
-		CollectionDate string          `json:"collection_date,omitempty"`
+		Status         string           `json:"status,omitempty"`
+		CollectionDate string           `json:"collection_date,omitempty"`
 	}
 
 	type orderItem struct {

@@ -958,24 +958,24 @@ func TestColumnarizeJSON_HeterogeneousKeys(t *testing.T) {
 
 func TestColumnarizeJSON_ConstantLifting(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		wantConstants  map[string]any
-		wantColumns    []any
-		wantRowCount   int
-		wantRowLen     int
+		name          string
+		input         string
+		wantConstants map[string]any
+		wantColumns   []any
+		wantRowCount  int
+		wantRowLen    int
 	}{
 		{
-			name:  "top-level array lifts constant column",
-			input: `[{"id":1,"state":"open"},{"id":2,"state":"open"},{"id":3,"state":"open"},{"id":4,"state":"open"},{"id":5,"state":"open"},{"id":6,"state":"open"},{"id":7,"state":"open"},{"id":8,"state":"open"}]`,
+			name:          "top-level array lifts constant column",
+			input:         `[{"id":1,"state":"open"},{"id":2,"state":"open"},{"id":3,"state":"open"},{"id":4,"state":"open"},{"id":5,"state":"open"},{"id":6,"state":"open"},{"id":7,"state":"open"},{"id":8,"state":"open"}]`,
 			wantConstants: map[string]any{"state": "open"},
 			wantColumns:   []any{"id"},
 			wantRowCount:  8,
 			wantRowLen:    1,
 		},
 		{
-			name:  "nested array lifts constant column",
-			input: `{"results":[{"id":"a","type":"page"},{"id":"b","type":"page"},{"id":"c","type":"page"},{"id":"d","type":"page"},{"id":"e","type":"page"},{"id":"f","type":"page"},{"id":"g","type":"page"},{"id":"h","type":"page"}],"total":8}`,
+			name:          "nested array lifts constant column",
+			input:         `{"results":[{"id":"a","type":"page"},{"id":"b","type":"page"},{"id":"c","type":"page"},{"id":"d","type":"page"},{"id":"e","type":"page"},{"id":"f","type":"page"},{"id":"g","type":"page"},{"id":"h","type":"page"}],"total":8}`,
 			wantConstants: map[string]any{"type": "page"},
 			wantColumns:   []any{"id"},
 			wantRowCount:  8,
@@ -1259,7 +1259,6 @@ func BenchmarkCompactJSON_ArrayOfObjects(b *testing.B) {
 		_, _ = CompactJSON(data, fields)
 	}
 }
-
 
 // ---------------------------------------------------------------------------
 // Compaction ratio benchmarks — realistic API payloads per integration
@@ -1718,4 +1717,3 @@ func BenchmarkCompactionRatio(b *testing.B) {
 		benchCompaction(b, "Passthrough", data, nil)
 	})
 }
-

@@ -39,14 +39,14 @@ func transformCLIReferences(text string) string {
 
 // proxyClient manages a subprocess running `rwx mcp serve` and proxies tool calls.
 type proxyClient struct {
-	mu       sync.Mutex
-	proc     *exec.Cmd
-	stdin    io.WriteCloser
-	scanner  *bufio.Scanner
-	nextID   int
-	pending  map[int]chan json.RawMessage
-	tools    []proxyToolDef
-	running  bool
+	mu      sync.Mutex
+	proc    *exec.Cmd
+	stdin   io.WriteCloser
+	scanner *bufio.Scanner
+	nextID  int
+	pending map[int]chan json.RawMessage
+	tools   []proxyToolDef
+	running bool
 }
 
 type proxyToolDef struct {

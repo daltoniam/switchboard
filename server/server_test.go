@@ -349,8 +349,8 @@ func searchToolNames(t *testing.T, resp searchResponse) []string {
 
 	// Columnar format: find "name" column index, extract from rows.
 	var obj struct {
-		Columns   []string          `json:"columns"`
-		Constants map[string]string `json:"constants"`
+		Columns   []string            `json:"columns"`
+		Constants map[string]string   `json:"constants"`
 		Rows      [][]json.RawMessage `json:"rows"`
 	}
 	require.NoError(t, json.Unmarshal(resp.Tools, &obj))
@@ -378,7 +378,7 @@ func searchToolNames(t *testing.T, resp searchResponse) []string {
 func extractColumnarParams(t *testing.T, toolsRaw json.RawMessage) []map[string]string {
 	t.Helper()
 	var obj struct {
-		Columns []string           `json:"columns"`
+		Columns []string            `json:"columns"`
 		Rows    [][]json.RawMessage `json:"rows"`
 	}
 	require.NoError(t, json.Unmarshal(toolsRaw, &obj))
@@ -888,7 +888,7 @@ func TestHandleScriptExecute_OutputColumnarized(t *testing.T) {
 	s := setupTestServer(mi)
 	scriptReq := &mcpsdk.CallToolRequest{
 		Params: &mcpsdk.CallToolParamsRaw{
-			Name: "execute",
+			Name:      "execute",
 			Arguments: json.RawMessage(`{"script":"api.call('testint_list_items', {});"}`),
 		},
 	}
@@ -1993,10 +1993,10 @@ func TestSearch_ScriptHint_SingleResult(t *testing.T) {
 
 func TestSearch_ResponseColumnarized(t *testing.T) {
 	tests := []struct {
-		name           string
-		toolCount      int
-		wantColumnar   bool
-		wantConstant   string // expected constant integration value, empty = no constants check
+		name         string
+		toolCount    int
+		wantColumnar bool
+		wantConstant string // expected constant integration value, empty = no constants check
 	}{
 		{
 			name:         "columnarizes tools array when 8+ results from one integration",
@@ -2056,10 +2056,10 @@ func TestSearch_ResponseColumnarized(t *testing.T) {
 
 func TestSearch_SharedParametersExtracted(t *testing.T) {
 	tests := []struct {
-		name              string
-		tools             []mcp.ToolDefinition
-		wantSharedParams  map[string]string // params expected in shared_parameters
-		wantKeptPerTool   []string          // param names that should stay per-tool
+		name             string
+		tools            []mcp.ToolDefinition
+		wantSharedParams map[string]string // params expected in shared_parameters
+		wantKeptPerTool  []string          // param names that should stay per-tool
 	}{
 		{
 			name: "extracts params with identical description across 3+ tools",
