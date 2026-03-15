@@ -370,21 +370,21 @@ func TestDoRequest_PostsJSONBody(t *testing.T) {
 
 func TestRawResult_WrapsDataWithoutError(t *testing.T) {
 	data := json.RawMessage(`{"key":"value"}`)
-	result, err := rawResult(data)
+	result, err := mcp.RawResult(data)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
 func TestJsonResult_MarshalsStructToJSON(t *testing.T) {
-	result, err := jsonResult(map[string]string{"hello": "world"})
+	result, err := mcp.JSONResult(map[string]string{"hello": "world"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"hello":"world"`)
 }
 
 func TestErrResult_WrapsErrorMessage(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)

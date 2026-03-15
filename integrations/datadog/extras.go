@@ -37,9 +37,9 @@ func listHosts(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult
 	}
 	resp, _, err := api.ListHosts(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getHostTotals(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -50,9 +50,9 @@ func getHostTotals(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 	}
 	resp, _, err := api.GetHostTotals(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func muteHost(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -69,18 +69,18 @@ func muteHost(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult,
 	}
 	resp, _, err := api.MuteHost(ctx, argStr(args, "hostname"), body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func unmuteHost(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewHostsApi(d.client)
 	resp, _, err := api.UnmuteHost(ctx, argStr(args, "hostname"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 // ── Tags ─────────────────────────────────────────────────────────────
@@ -93,9 +93,9 @@ func listTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult,
 	}
 	resp, _, err := api.ListHostTags(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -106,9 +106,9 @@ func getHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 	}
 	resp, _, err := api.GetHostTags(ctx, argStr(args, "hostname"), *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func createHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -121,9 +121,9 @@ func createHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 	}
 	resp, _, err := api.CreateHostTags(ctx, argStr(args, "hostname"), body, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func updateHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -136,9 +136,9 @@ func updateHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 	}
 	resp, _, err := api.UpdateHostTags(ctx, argStr(args, "hostname"), body, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func deleteHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -149,9 +149,9 @@ func deleteHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 	}
 	_, err := api.DeleteHostTags(ctx, argStr(args, "hostname"), *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 // ── SLOs ─────────────────────────────────────────────────────────────
@@ -176,9 +176,9 @@ func listSLOs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult,
 	}
 	resp, _, err := api.ListSLOs(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func searchSLOs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -195,18 +195,18 @@ func searchSLOs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResul
 	}
 	resp, _, err := api.SearchSLO(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewServiceLevelObjectivesApi(d.client)
 	resp, _, err := api.GetSLO(ctx, argStr(args, "id"), *datadogV1.NewGetSLOOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getSLOHistory(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -215,9 +215,9 @@ func getSLOHistory(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 	toTs := argInt64(args, "to")
 	resp, _, err := api.GetSLOHistory(ctx, argStr(args, "id"), fromTs, toTs, *datadogV1.NewGetSLOHistoryOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func createSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -277,18 +277,18 @@ func createSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult
 
 	resp, _, err := api.CreateSLO(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func deleteSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewServiceLevelObjectivesApi(d.client)
 	resp, _, err := api.DeleteSLO(ctx, argStr(args, "id"), *datadogV1.NewDeleteSLOOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 // ── Downtimes ────────────────────────────────────────────────────────
@@ -301,18 +301,18 @@ func listDowntimes(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 	}
 	resp, _, err := api.ListDowntimes(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV2.NewDowntimesApi(d.client)
 	resp, _, err := api.GetDowntime(ctx, argStr(args, "id"), *datadogV2.NewGetDowntimeOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func createDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -353,18 +353,18 @@ func createDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 
 	resp, _, err := api.CreateDowntime(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func cancelDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV2.NewDowntimesApi(d.client)
 	_, err := api.CancelDowntime(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]string{"status": "cancelled"})
+	return mcp.JSONResult(map[string]string{"status": "cancelled"})
 }
 
 // ── Incidents ────────────────────────────────────────────────────────
@@ -380,18 +380,18 @@ func listIncidents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 	}
 	resp, _, err := api.ListIncidents(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV2.NewIncidentsApi(d.client)
 	resp, _, err := api.GetIncident(ctx, argStr(args, "id"), *datadogV2.NewGetIncidentOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func createIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -420,9 +420,9 @@ func createIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 
 	resp, _, err := api.CreateIncident(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func updateIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -464,9 +464,9 @@ func updateIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 
 	resp, _, err := api.UpdateIncident(ctx, incidentID, body, *datadogV2.NewUpdateIncidentOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 // ── Synthetics ───────────────────────────────────────────────────────
@@ -482,27 +482,27 @@ func listSyntheticsTests(ctx context.Context, d *dd, args map[string]any) (*mcp.
 	}
 	resp, _, err := api.ListTests(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getSyntheticsAPITest(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewSyntheticsApi(d.client)
 	resp, _, err := api.GetAPITest(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getSyntheticsTestResult(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewSyntheticsApi(d.client)
 	resp, _, err := api.GetAPITestLatestResults(ctx, argStr(args, "id"), *datadogV1.NewGetAPITestLatestResultsOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func triggerSyntheticsTests(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -514,9 +514,9 @@ func triggerSyntheticsTests(ctx context.Context, d *dd, args map[string]any) (*m
 	}
 	resp, _, err := api.TriggerTests(ctx, datadogV1.SyntheticsTriggerBody{Tests: tests})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 // ── Notebooks ────────────────────────────────────────────────────────
@@ -541,18 +541,18 @@ func listNotebooks(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 	}
 	resp, _, err := api.ListNotebooks(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewNotebooksApi(d.client)
 	resp, _, err := api.GetNotebook(ctx, argInt64(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func createNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -561,7 +561,7 @@ func createNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 	var cells []datadogV1.NotebookCellCreateRequest
 	if cj := argStr(args, "cells_json"); cj != "" {
 		if err := json.Unmarshal([]byte(cj), &cells); err != nil {
-			return errResult(fmt.Errorf("invalid cells_json: %w", err))
+			return mcp.ErrResult(fmt.Errorf("invalid cells_json: %w", err))
 		}
 	}
 
@@ -583,18 +583,18 @@ func createNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 
 	resp, _, err := api.CreateNotebook(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func deleteNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewNotebooksApi(d.client)
 	_, err := api.DeleteNotebook(ctx, argInt64(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 // ── Users ────────────────────────────────────────────────────────────
@@ -616,18 +616,18 @@ func listUsers(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult
 	}
 	resp, _, err := api.ListUsers(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getUser(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV2.NewUsersApi(d.client)
 	resp, _, err := api.GetUser(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 // ── Spans / APM ──────────────────────────────────────────────────────
@@ -657,9 +657,9 @@ func searchSpans(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 
 	resp, _, err := api.ListSpansGet(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 // ── Software Catalog ─────────────────────────────────────────────────
@@ -675,9 +675,9 @@ func listServices(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRes
 	}
 	resp, _, err := api.ListCatalogEntity(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 // ── IP Ranges ────────────────────────────────────────────────────────
@@ -686,7 +686,7 @@ func getIPRanges(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 	api := datadogV1.NewIPRangesApi(d.client)
 	resp, _, err := api.GetIPRanges(ctx)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }

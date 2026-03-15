@@ -186,7 +186,7 @@ Params with identical name+description across 3+ tools on the search page are ex
 
 ### Script field projection
 
-Scripts can project fields via third arg: `api.call(tool, args, {fields: ["id","title"]})`. Uses `CompactJSON` under the hood. Use this in scripts that only need a few fields from large responses.
+Scripts can project fields via third arg: `api.call(tool, args, {fields: ["id","title"]})`. Uses `CompactAny` under the hood. Use this in scripts that only need a few fields from large responses.
 
 ### Glob exclusion specs
 

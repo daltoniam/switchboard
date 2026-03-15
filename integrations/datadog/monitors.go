@@ -26,9 +26,9 @@ func listMonitors(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRes
 
 	resp, _, err := api.ListMonitors(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func searchMonitors(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -48,18 +48,18 @@ func searchMonitors(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 
 	resp, _, err := api.SearchMonitors(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewMonitorsApi(d.client)
 	resp, _, err := api.GetMonitor(ctx, argInt64(args, "id"), *datadogV1.NewGetMonitorOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func createMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -83,9 +83,9 @@ func createMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 
 	resp, _, err := api.CreateMonitor(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func updateMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -110,18 +110,18 @@ func updateMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 
 	resp, _, err := api.UpdateMonitor(ctx, argInt64(args, "id"), body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func deleteMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewMonitorsApi(d.client)
 	resp, _, err := api.DeleteMonitor(ctx, argInt64(args, "id"), *datadogV1.NewDeleteMonitorOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func muteMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -140,9 +140,9 @@ func muteMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 	// For a practical implementation, return the monitor info.
 	resp, _, err := api.GetMonitor(ctx, argInt64(args, "id"), *datadogV1.NewGetMonitorOptionalParameters())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"message": "Monitor retrieved - use datadog_create_downtime to schedule monitor silencing",
 		"monitor": resp,
 	})

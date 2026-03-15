@@ -34,7 +34,7 @@ func functionsList(ctx context.Context, g *integration, args map[string]any) (*m
 		}
 		fns = append(fns, f)
 	}
-	return jsonResult(fns)
+	return mcp.JSONResult(fns)
 }
 
 func functionsGet(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -44,7 +44,7 @@ func functionsGet(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(fn)
+	return mcp.JSONResult(fn)
 }
 
 func functionsGetIAMPolicy(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -54,5 +54,5 @@ func functionsGetIAMPolicy(ctx context.Context, g *integration, args map[string]
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(policy)
+	return mcp.JSONResult(policy)
 }

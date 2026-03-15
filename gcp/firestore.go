@@ -23,7 +23,7 @@ func firestoreListCollections(ctx context.Context, g *integration, _ map[string]
 		}
 		collections = append(collections, col.ID)
 	}
-	return jsonResult(collections)
+	return mcp.JSONResult(collections)
 }
 
 func firestoreListDocuments(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -51,7 +51,7 @@ func firestoreListDocuments(ctx context.Context, g *integration, args map[string
 			"data": doc.Data(),
 		})
 	}
-	return jsonResult(results)
+	return mcp.JSONResult(results)
 }
 
 func firestoreGetDocument(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -59,7 +59,7 @@ func firestoreGetDocument(ctx context.Context, g *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":          doc.Ref.ID,
 		"path":        doc.Ref.Path,
 		"data":        doc.Data(),
@@ -79,7 +79,7 @@ func firestoreSetDocument(ctx context.Context, g *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "success"})
+	return mcp.JSONResult(map[string]string{"status": "success"})
 }
 
 func firestoreDeleteDocument(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -87,7 +87,7 @@ func firestoreDeleteDocument(ctx context.Context, g *integration, args map[strin
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "success"})
+	return mcp.JSONResult(map[string]string{"status": "success"})
 }
 
 func firestoreQuery(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -134,5 +134,5 @@ func firestoreQuery(ctx context.Context, g *integration, args map[string]any) (*
 			"data": doc.Data(),
 		})
 	}
-	return jsonResult(results)
+	return mcp.JSONResult(results)
 }

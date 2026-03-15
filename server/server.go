@@ -422,18 +422,28 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		args.Arguments = map[string]any{}
 	}
 
-	result, err := s.executeTool(ctx, args.ToolName, args.Arguments)
+	integration, result, err := s.executeTool(ctx, args.ToolName, args.Arguments)
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
-	if !result.IsError {
-		result.Data = columnarizeResult(result.Data)
+	if result.IsError {
+		return &mcpsdk.CallToolResult{
+			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
+			IsError: true,
+		}, nil
+	}
+	result.Data = processResult(integration, args.ToolName, result.Data)
+	if len(result.Data) > maxResponseBytes {
+		return errorResult(fmt.Sprintf(
+			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
+			maxResponseBytes/1024,
+			len(result.Data)/1024,
+		)), nil
 	}
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
 			&mcpsdk.TextContent{Text: result.Data},
 		},
-		IsError: result.IsError,
 	}, nil
 }
 
@@ -445,37 +455,90 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
-	if !result.IsError && len(result.Data) > maxResponseBytes {
+	if result.IsError {
+		return &mcpsdk.CallToolResult{
+			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
+			IsError: true,
+		}, nil
+	}
+	result.Data = columnarizeResult(result.Data)
+	if len(result.Data) > maxResponseBytes {
 		return errorResult(fmt.Sprintf(
 			"Script output exceeded %dKB (actual: %dKB). Return only the fields you need from each api.call() result.",
 			maxResponseBytes/1024,
 			len(result.Data)/1024,
 		)), nil
 	}
-	if !result.IsError {
-		result.Data = columnarizeResult(result.Data)
-	}
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
 			&mcpsdk.TextContent{Text: result.Data},
 		},
-		IsError: result.IsError,
 	}, nil
 }
 
-// columnarizeResult applies columnar formatting at the MCP response boundary.
-// Scripts and direct tool calls both produce per-record JSON; this converts
-// arrays of objects into {"columns":[...],"rows":[[...],...]} before the LLM sees it.
-func columnarizeResult(data string) string {
-	if len(data) == 0 || (data[0] != '[' && data[0] != '{') {
+// processResult applies compaction and columnarization in a single parse/serialize cycle.
+// Parses JSON once, applies compact specs (if any), columnarizes arrays, and serializes once.
+func processResult(integration mcp.Integration, toolName string, data string) string {
+	trimmed := strings.TrimLeft(data, " \t\n\r")
+	if len(trimmed) == 0 || (trimmed[0] != '[' && trimmed[0] != '{') {
 		return data
 	}
-	out, err := mcp.ColumnarizeJSON([]byte(data))
+	originalLen := len(data)
+
+	var parsed any
+	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+		slog.Warn("processResult: unmarshal failed", "tool", toolName, "err", err)
+		return data
+	}
+
+	if pi, ok := integration.(mcp.FieldCompactionIntegration); ok {
+		if fields, ok := pi.CompactSpec(toolName); ok {
+			parsed = mcp.CompactAny(parsed, fields)
+		}
+	}
+
+	parsed = mcp.ColumnarizeAny(parsed)
+
+	result, err := json.Marshal(parsed)
 	if err != nil {
-		slog.Warn("columnarization failed, returning per-record response", "err", err)
+		slog.Warn("processResult: marshal failed", "tool", toolName, "err", err)
 		return data
 	}
-	return string(out)
+
+	if slog.Default().Handler().Enabled(context.Background(), slog.LevelDebug) {
+		savings := 0
+		if originalLen > 0 {
+			savings = 100 - 100*len(result)/originalLen
+		}
+		slog.Debug("processResult: applied",
+			"tool", toolName,
+			"before_bytes", originalLen,
+			"after_bytes", len(result),
+			"savings_pct", savings,
+		)
+	}
+
+	return string(result)
+}
+
+// columnarizeResult applies columnar formatting only (no compaction).
+// Used by script and search paths where per-tool compaction doesn't apply.
+func columnarizeResult(data string) string {
+	trimmed := strings.TrimLeft(data, " \t\n\r")
+	if len(trimmed) == 0 || (trimmed[0] != '[' && trimmed[0] != '{') {
+		return data
+	}
+	var parsed any
+	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+		slog.Warn("columnarizeResult: unmarshal failed", "err", err)
+		return data
+	}
+	result, err := json.Marshal(mcp.ColumnarizeAny(parsed))
+	if err != nil {
+		slog.Warn("columnarizeResult: marshal failed", "err", err)
+		return data
+	}
+	return string(result)
 }
 
 const maxRetries = 3
@@ -501,24 +564,26 @@ func (s *Server) getBreaker(integrationName string) *breaker {
 
 // executeTool finds and runs a single tool by name. Used by both direct
 // execute and as the bridge for the script engine's api.call().
+// Returns the owning integration alongside the result so callers can
+// apply post-processing (e.g. compaction) without a redundant findTool call.
 // Retries automatically on RetryableError (5xx, 429) with exponential backoff.
 // Respects per-integration circuit breakers to avoid hammering down services.
-func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (mcp.Integration, *mcp.ToolResult, error) {
 	integration, toolDef, found := s.findTool(toolName)
 	if !found {
-		return &mcp.ToolResult{
+		return nil, &mcp.ToolResult{
 			Data:    fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", toolName),
 			IsError: true,
 		}, nil
 	}
 
 	if err := validateArgs(toolDef, args); err != nil {
-		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+		return nil, &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 	}
 
 	cb := s.getBreaker(integration.Name())
 	if !cb.allow() {
-		return &mcp.ToolResult{
+		return nil, &mcp.ToolResult{
 			Data: fmt.Sprintf(
 				"integration %q temporarily unavailable (circuit breaker open, try again in ~%ds). Other integrations still work.",
 				integration.Name(), int(s.breakerCooldown.Seconds()),
@@ -532,24 +597,11 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 		result, err := integration.Execute(ctx, toolName, args)
 		if err == nil {
 			cb.recordSuccess()
-			if !result.IsError {
-				result.Data = compactResult(integration, toolName, result.Data)
-				if len(result.Data) > maxResponseBytes {
-					return &mcp.ToolResult{
-						Data: fmt.Sprintf(
-							"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
-							maxResponseBytes/1024,
-							len(result.Data)/1024,
-						),
-						IsError: true,
-					}, nil
-				}
-			}
-			return result, nil
+			return integration, result, nil
 		}
 
 		if !mcp.IsRetryable(err) {
-			return result, err
+			return nil, result, err
 		}
 		lastErr = err
 		if attempt >= maxRetries-1 {
@@ -566,14 +618,14 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 		}
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, nil, ctx.Err()
 		case <-time.After(backoff):
 		}
 	}
 
 	// All retries exhausted — record one failure per call (not per attempt).
 	cb.recordFailure()
-	return &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
+	return nil, &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }
 
 // findTool returns the integration and tool definition that owns toolName, or false if not found.
@@ -683,41 +735,10 @@ type toolExecutor struct {
 }
 
 func (te *toolExecutor) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
-	return te.server.executeTool(ctx, toolName, args)
-}
-
-// compactResult applies field compaction if the integration opts in.
-// Returns the original data unchanged if the integration doesn't implement
-// FieldCompactionIntegration, returns nil specs, or compaction fails.
-func compactResult(integration mcp.Integration, toolName string, data string) string {
-	pi, ok := integration.(mcp.FieldCompactionIntegration)
-	if !ok {
-		return data
-	}
-	fields, ok := pi.CompactSpec(toolName)
-	if !ok {
-		return data
-	}
-	originalLen := len(data)
-	compacted, err := mcp.CompactJSON([]byte(data), fields)
-	if err != nil {
-		slog.Warn("compaction failed, returning full response", "tool", toolName, "err", err)
-		return data
-	}
-	if slog.Default().Handler().Enabled(context.Background(), slog.LevelDebug) {
-		compactedLen := len(compacted)
-		savingsPct := 0
-		if originalLen > 0 {
-			savingsPct = 100 - 100*compactedLen/originalLen
-		}
-		slog.Debug("compaction applied",
-			"tool", toolName,
-			"before_bytes", originalLen,
-			"after_bytes", compactedLen,
-			"savings_pct", savingsPct,
-		)
-	}
-	return string(compacted)
+	// Integration is discarded: script-path calls intentionally skip per-tool
+	// compaction so scripts can access all fields by name before projecting.
+	_, result, err := te.server.executeTool(ctx, toolName, args)
+	return result, err
 }
 
 // Handler returns an http.Handler that serves MCP over streamable HTTP transport.

@@ -19,9 +19,9 @@ func databaseInfo(ctx context.Context, p *postgres, _ map[string]any) (*mcp.Tool
 		       current_setting('TimeZone') AS timezone,
 		       current_setting('max_connections') AS max_connections`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func databaseSize(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
@@ -43,15 +43,15 @@ func databaseSize(ctx context.Context, p *postgres, args map[string]any) (*mcp.T
 		ORDER BY pg_total_relation_size(relid) DESC
 		LIMIT $1`, limit)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func tableStats(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 	schema := argStr(args, "schema")
 	if schema == "" {
@@ -79,9 +79,9 @@ func tableStats(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		FROM pg_stat_user_tables s
 		WHERE s.schemaname = $1 AND s.relname = $2`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listRoles(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolResult, error) {
@@ -97,9 +97,9 @@ func listRoles(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolRes
 		FROM pg_roles
 		ORDER BY rolname`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listGrants(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
@@ -116,9 +116,9 @@ func listGrants(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 			WHERE table_schema = $1 AND table_name = $2
 			ORDER BY grantee, privilege_type`, schema, table)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
 	data, err := p.query(ctx, `
@@ -127,9 +127,9 @@ func listGrants(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		WHERE table_schema = $1
 		ORDER BY table_name, grantee, privilege_type`, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listExtensions(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolResult, error) {
@@ -142,9 +142,9 @@ func listExtensions(ctx context.Context, p *postgres, _ map[string]any) (*mcp.To
 		JOIN pg_namespace n ON n.oid = e.extnamespace
 		ORDER BY extname`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listActiveConnections(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
@@ -160,9 +160,9 @@ func listActiveConnections(ctx context.Context, p *postgres, args map[string]any
 			WHERE datname = current_database() AND state = $1
 			ORDER BY query_start`, state)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
 	data, err := p.query(ctx, `
@@ -174,9 +174,9 @@ func listActiveConnections(ctx context.Context, p *postgres, args map[string]any
 		WHERE datname = current_database()
 		ORDER BY query_start`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listLocks(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolResult, error) {
@@ -208,9 +208,9 @@ func listLocks(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolRes
 		WHERE NOT blocked_locks.granted
 		ORDER BY blocked_activity.query_start`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func runningQueries(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
@@ -230,9 +230,9 @@ func runningQueries(ctx context.Context, p *postgres, args map[string]any) (*mcp
 			  AND EXTRACT(EPOCH FROM now() - query_start) > $1::int
 			ORDER BY query_start`, minDuration)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
 	data, err := p.query(ctx, `
@@ -247,7 +247,7 @@ func runningQueries(ctx context.Context, p *postgres, args map[string]any) (*mcp
 		  AND pid != pg_backend_pid()
 		ORDER BY query_start`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

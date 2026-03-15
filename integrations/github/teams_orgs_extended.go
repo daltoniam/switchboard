@@ -22,7 +22,7 @@ func createTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(team)
+	return mcp.JSONResult(team)
 }
 
 func editTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -40,7 +40,7 @@ func editTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(team)
+	return mcp.JSONResult(team)
 }
 
 func deleteTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -48,7 +48,7 @@ func deleteTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 func addTeamMember(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -60,7 +60,7 @@ func addTeamMember(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(membership)
+	return mcp.JSONResult(membership)
 }
 
 func removeTeamMember(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -68,7 +68,7 @@ func removeTeamMember(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "removed"})
+	return mcp.JSONResult(map[string]string{"status": "removed"})
 }
 
 func addTeamRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -80,7 +80,7 @@ func addTeamRepo(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "added"})
+	return mcp.JSONResult(map[string]string{"status": "added"})
 }
 
 func removeTeamRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -88,7 +88,7 @@ func removeTeamRepo(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "removed"})
+	return mcp.JSONResult(map[string]string{"status": "removed"})
 }
 
 // ── Organizations Extended ────────────────────────────────────────
@@ -99,7 +99,7 @@ func listPendingOrgInvitations(ctx context.Context, g *integration, args map[str
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(invitations)
+	return mcp.JSONResult(invitations)
 }
 
 func listOutsideCollaborators(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -111,5 +111,5 @@ func listOutsideCollaborators(ctx context.Context, g *integration, args map[stri
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(users)
+	return mcp.JSONResult(users)
 }

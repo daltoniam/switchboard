@@ -47,7 +47,7 @@ func listUsers(ctx context.Context, s *slackIntegration, args map[string]any) (*
 			TZ:          user.TZ,
 		})
 	}
-	return jsonResult(map[string]any{"count": len(out), "users": out})
+	return mcp.JSONResult(map[string]any{"count": len(out), "users": out})
 }
 
 func getUserInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -55,7 +55,7 @@ func getUserInfo(ctx context.Context, s *slackIntegration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":           user.ID,
 		"name":         user.Name,
 		"real_name":    user.RealName,
@@ -77,7 +77,7 @@ func getUserPresence(ctx context.Context, s *slackIntegration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"user_id":  argStr(args, "user_id"),
 		"presence": presence.Presence,
 		"online":   presence.Online,
@@ -115,7 +115,7 @@ func listUserGroups(ctx context.Context, s *slackIntegration, args map[string]an
 			Users:       g.Users,
 		})
 	}
-	return jsonResult(map[string]any{"count": len(out), "user_groups": out})
+	return mcp.JSONResult(map[string]any{"count": len(out), "user_groups": out})
 }
 
 func getUserGroup(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -123,7 +123,7 @@ func getUserGroup(ctx context.Context, s *slackIntegration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"usergroup_id": argStr(args, "usergroup_id"),
 		"count":        len(members),
 		"members":      members,

@@ -21,7 +21,7 @@ func s3ListBuckets(ctx context.Context, a *integration, _ map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func s3ListObjects(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -41,7 +41,7 @@ func s3ListObjects(ctx context.Context, a *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func s3GetObject(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -94,7 +94,7 @@ func s3GetObject(ctx context.Context, a *integration, args map[string]any) (*mcp
 		result.Body = base64.StdEncoding.EncodeToString(data)
 		result.Encoding = "base64"
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func s3PutObject(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -112,7 +112,7 @@ func s3PutObject(ctx context.Context, a *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "success"})
+	return mcp.JSONResult(map[string]string{"status": "success"})
 }
 
 func s3DeleteObject(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -123,7 +123,7 @@ func s3DeleteObject(ctx context.Context, a *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "success"})
+	return mcp.JSONResult(map[string]string{"status": "success"})
 }
 
 func s3HeadObject(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -134,7 +134,7 @@ func s3HeadObject(ctx context.Context, a *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func s3CopyObject(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -147,5 +147,5 @@ func s3CopyObject(ctx context.Context, a *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

@@ -22,7 +22,7 @@ func getRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(repo)
+	return mcp.JSONResult(repo)
 }
 
 func listUserRepos(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -35,7 +35,7 @@ func listUserRepos(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(repos)
+	return mcp.JSONResult(repos)
 }
 
 func listOrgRepos(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -48,7 +48,7 @@ func listOrgRepos(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(repos)
+	return mcp.JSONResult(repos)
 }
 
 func createRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -62,7 +62,7 @@ func createRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(repo)
+	return mcp.JSONResult(repo)
 }
 
 func deleteRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -70,7 +70,7 @@ func deleteRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 func listBranches(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -79,7 +79,7 @@ func listBranches(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(branches)
+	return mcp.JSONResult(branches)
 }
 
 func getBranch(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -87,7 +87,7 @@ func getBranch(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(branch)
+	return mcp.JSONResult(branch)
 }
 
 func listTags(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -96,7 +96,7 @@ func listTags(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(tags)
+	return mcp.JSONResult(tags)
 }
 
 func listContributors(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -105,7 +105,7 @@ func listContributors(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(contributors)
+	return mcp.JSONResult(contributors)
 }
 
 func listLanguages(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -113,7 +113,7 @@ func listLanguages(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(langs)
+	return mcp.JSONResult(langs)
 }
 
 func listTopics(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -121,7 +121,7 @@ func listTopics(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(topics)
+	return mcp.JSONResult(topics)
 }
 
 func getReadme(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -134,7 +134,7 @@ func getReadme(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"name": readme.GetName(), "path": readme.GetPath(), "content": content})
+	return mcp.JSONResult(map[string]string{"name": readme.GetName(), "path": readme.GetPath(), "content": content})
 }
 
 func getFileContents(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -148,9 +148,9 @@ func getFileContents(ctx context.Context, g *integration, args map[string]any) (
 		if err != nil {
 			return errResult(err)
 		}
-		return jsonResult(map[string]any{"type": "file", "name": fileContent.GetName(), "path": fileContent.GetPath(), "sha": fileContent.GetSHA(), "size": fileContent.GetSize(), "content": content})
+		return mcp.JSONResult(map[string]any{"type": "file", "name": fileContent.GetName(), "path": fileContent.GetPath(), "sha": fileContent.GetSHA(), "size": fileContent.GetSize(), "content": content})
 	}
-	return jsonResult(map[string]any{"type": "dir", "entries": dirContent})
+	return mcp.JSONResult(map[string]any{"type": "dir", "entries": dirContent})
 }
 
 func createOrUpdateFile(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -166,7 +166,7 @@ func createOrUpdateFile(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func deleteFile(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -179,7 +179,7 @@ func deleteFile(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func listForks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -191,7 +191,7 @@ func listForks(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(forks)
+	return mcp.JSONResult(forks)
 }
 
 func createFork(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -202,11 +202,11 @@ func createFork(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	repo, _, err := g.client.Repositories.CreateFork(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
 	if err != nil {
 		if _, ok := err.(*gh.AcceptedError); ok {
-			return jsonResult(map[string]string{"status": "forking", "message": "Fork is being created asynchronously"})
+			return mcp.JSONResult(map[string]string{"status": "forking", "message": "Fork is being created asynchronously"})
 		}
 		return errResult(err)
 	}
-	return jsonResult(repo)
+	return mcp.JSONResult(repo)
 }
 
 func listCollaborators(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -215,7 +215,7 @@ func listCollaborators(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(users)
+	return mcp.JSONResult(users)
 }
 
 func listCommitActivity(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -223,7 +223,7 @@ func listCommitActivity(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(activity)
+	return mcp.JSONResult(activity)
 }
 
 func listRepoTeams(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -232,7 +232,7 @@ func listRepoTeams(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(teams)
+	return mcp.JSONResult(teams)
 }
 
 func compareCommits(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -241,7 +241,7 @@ func compareCommits(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(comparison)
+	return mcp.JSONResult(comparison)
 }
 
 func mergeUpstream(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -250,7 +250,7 @@ func mergeUpstream(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func listAutolinks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -259,7 +259,7 @@ func listAutolinks(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(links)
+	return mcp.JSONResult(links)
 }
 
 // ── Releases ──────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ func listReleases(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(releases)
+	return mcp.JSONResult(releases)
 }
 
 func getRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -278,7 +278,7 @@ func getRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(release)
+	return mcp.JSONResult(release)
 }
 
 func getLatestRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -286,7 +286,7 @@ func getLatestRelease(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(release)
+	return mcp.JSONResult(release)
 }
 
 func createRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -302,7 +302,7 @@ func createRelease(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(release)
+	return mcp.JSONResult(release)
 }
 
 func deleteRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -310,7 +310,7 @@ func deleteRelease(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 func listReleaseAssets(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -319,7 +319,7 @@ func listReleaseAssets(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(assets)
+	return mcp.JSONResult(assets)
 }
 
 // ── Deploy Keys ───────────────────────────────────────────────────
@@ -330,7 +330,7 @@ func listDeployKeys(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(keys)
+	return mcp.JSONResult(keys)
 }
 
 // ── Webhooks ──────────────────────────────────────────────────────
@@ -341,7 +341,7 @@ func listHooks(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(hooks)
+	return mcp.JSONResult(hooks)
 }
 
 func createHook(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -374,7 +374,7 @@ func createHook(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(h)
+	return mcp.JSONResult(h)
 }
 
 func deleteHook(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -382,7 +382,7 @@ func deleteHook(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 // ── Rate Limit ────────────────────────────────────────────────────
@@ -392,7 +392,7 @@ func getRateLimit(ctx context.Context, g *integration, _ map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(rl)
+	return mcp.JSONResult(rl)
 }
 
 // unused but keeps the import

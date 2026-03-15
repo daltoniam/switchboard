@@ -551,7 +551,7 @@ func tokenStatus(_ context.Context, s *slackIntegration, _ map[string]any) (*mcp
 		refreshInfo["note"] = "OAuth tokens (xoxp-) do not expire — no refresh needed"
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"status":       status,
 		"token_type":   tokenType,
 		"age_hours":    ageHours,
@@ -564,7 +564,7 @@ func tokenStatus(_ context.Context, s *slackIntegration, _ map[string]any) (*mcp
 func refreshTokens(_ context.Context, s *slackIntegration, _ map[string]any) (*mcp.ToolResult, error) {
 	tok, _ := s.store.get()
 	if strings.HasPrefix(tok, "xoxp-") {
-		return jsonResult(map[string]any{
+		return mcp.JSONResult(map[string]any{
 			"status": "not_needed",
 			"note":   "You have an OAuth token (xoxp-) which does not expire. No refresh needed.",
 		})
@@ -581,7 +581,7 @@ func refreshTokens(_ context.Context, s *slackIntegration, _ map[string]any) (*m
 	if err != nil {
 		return errResult(fmt.Errorf("refreshed tokens but auth failed: %w", err))
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"status":  "refreshed",
 		"user":    resp.User,
 		"team":    resp.Team,

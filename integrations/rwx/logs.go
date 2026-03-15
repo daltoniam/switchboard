@@ -142,7 +142,7 @@ func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRes
 	id := extractRunID(argStr(args, "task_id"))
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	lines := strings.Split(logs, "\n")
@@ -168,7 +168,7 @@ func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRes
 		truncatedLogs = truncatedLogs[:maxLogSize]
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"task_id":            id,
 		"exit_code":          exitCode,
 		"failure_highlights": failureHighlights,
@@ -186,7 +186,7 @@ func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	allLines := strings.Split(logs, "\n")
@@ -214,7 +214,7 @@ func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 	if hasMore {
 		resp["next_offset"] = end
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
@@ -227,7 +227,7 @@ func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	allLines := strings.Split(logs, "\n")
@@ -257,7 +257,7 @@ func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 	if hasMore {
 		resp["next_offset"] = offset + len(tailLines)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
@@ -274,13 +274,13 @@ func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	allLines := strings.Split(logs, "\n")
 	re, err := regexp.Compile("(?i)" + pattern)
 	if err != nil {
-		return errResult(fmt.Errorf("invalid pattern: %w", err))
+		return mcp.ErrResult(fmt.Errorf("invalid pattern: %w", err))
 	}
 
 	var matchingIndices []int
@@ -346,7 +346,7 @@ func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 	if hasMore {
 		resp["next_page"] = page + 1
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 // --- CLI helper ---

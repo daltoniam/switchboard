@@ -16,7 +16,7 @@ func listWorkflows(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Workflows)
+	return mcp.JSONResult(resp.Workflows)
 }
 
 func listWorkflowRuns(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -37,7 +37,7 @@ func listWorkflowRuns(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(runs.WorkflowRuns)
+	return mcp.JSONResult(runs.WorkflowRuns)
 }
 
 func getWorkflowRun(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -45,7 +45,7 @@ func getWorkflowRun(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(run)
+	return mcp.JSONResult(run)
 }
 
 func listWorkflowJobs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -57,7 +57,7 @@ func listWorkflowJobs(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Jobs)
+	return mcp.JSONResult(resp.Jobs)
 }
 
 func downloadWorkflowLogs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -65,7 +65,7 @@ func downloadWorkflowLogs(ctx context.Context, g *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"logs_url": url.String()})
+	return mcp.JSONResult(map[string]string{"logs_url": url.String()})
 }
 
 func rerunWorkflow(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -73,7 +73,7 @@ func rerunWorkflow(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "rerun_requested"})
+	return mcp.JSONResult(map[string]string{"status": "rerun_requested"})
 }
 
 func cancelWorkflowRun(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -81,7 +81,7 @@ func cancelWorkflowRun(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "cancelled"})
+	return mcp.JSONResult(map[string]string{"status": "cancelled"})
 }
 
 // ── Secrets ───────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ func listRepoSecrets(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Secrets)
+	return mcp.JSONResult(resp.Secrets)
 }
 
 func listArtifacts(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -101,7 +101,7 @@ func listArtifacts(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Artifacts)
+	return mcp.JSONResult(resp.Artifacts)
 }
 
 func listEnvironmentSecrets(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -114,7 +114,7 @@ func listEnvironmentSecrets(ctx context.Context, g *integration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Secrets)
+	return mcp.JSONResult(resp.Secrets)
 }
 
 func listOrgSecrets(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -123,7 +123,7 @@ func listOrgSecrets(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Secrets)
+	return mcp.JSONResult(resp.Secrets)
 }
 
 // ── Checks ────────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ func listCheckRuns(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.CheckRuns)
+	return mcp.JSONResult(resp.CheckRuns)
 }
 
 func getCheckRun(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -142,7 +142,7 @@ func getCheckRun(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(run)
+	return mcp.JSONResult(run)
 }
 
 func listCheckSuites(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -151,7 +151,7 @@ func listCheckSuites(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.CheckSuites)
+	return mcp.JSONResult(resp.CheckSuites)
 }
 
 // helper to get repo numeric ID for env secrets API

@@ -13,7 +13,7 @@ func ecsListClusters(ctx context.Context, a *integration, _ map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsDescribeClusters(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -23,7 +23,7 @@ func ecsDescribeClusters(ctx context.Context, a *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsListServices(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -35,7 +35,7 @@ func ecsListServices(ctx context.Context, a *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsDescribeServices(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -49,7 +49,7 @@ func ecsDescribeServices(ctx context.Context, a *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsListTasks(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -67,7 +67,7 @@ func ecsListTasks(ctx context.Context, a *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsDescribeTasks(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -81,7 +81,7 @@ func ecsDescribeTasks(ctx context.Context, a *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsListTaskDefinitions(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -96,7 +96,7 @@ func ecsListTaskDefinitions(ctx context.Context, a *integration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsDescribeTaskDefinition(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -107,5 +107,5 @@ func ecsDescribeTaskDefinition(ctx context.Context, a *integration, args map[str
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

@@ -18,17 +18,17 @@ func listAnnotations(ctx context.Context, p *posthog, args map[string]any) (*mcp
 	})
 	data, err := p.get(ctx, "/api/projects/%s/annotations/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/annotations/%s/", p.proj(args), argStr(args, "annotation_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -42,9 +42,9 @@ func createAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mc
 	path := fmt.Sprintf("/api/projects/%s/annotations/", p.proj(args))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -61,17 +61,17 @@ func updateAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mc
 	path := fmt.Sprintf("/api/projects/%s/annotations/%s/", p.proj(args), argStr(args, "annotation_id"))
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.del(ctx, "/api/projects/%s/annotations/%s/", p.proj(args), argStr(args, "annotation_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Dashboards ──────────────────────────────────────────────────────
@@ -83,17 +83,17 @@ func listDashboards(ctx context.Context, p *posthog, args map[string]any) (*mcp.
 	})
 	data, err := p.get(ctx, "/api/projects/%s/dashboards/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/dashboards/%s/", p.proj(args), argStr(args, "dashboard_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -110,9 +110,9 @@ func createDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp
 	path := fmt.Sprintf("/api/projects/%s/dashboards/", p.proj(args))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -132,9 +132,9 @@ func updateDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp
 	path := fmt.Sprintf("/api/projects/%s/dashboards/%s/", p.proj(args), argStr(args, "dashboard_id"))
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -142,9 +142,9 @@ func deleteDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Actions ─────────────────────────────────────────────────────────
@@ -156,17 +156,17 @@ func listActions(ctx context.Context, p *posthog, args map[string]any) (*mcp.Too
 	})
 	data, err := p.get(ctx, "/api/projects/%s/actions/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/actions/%s/", p.proj(args), argStr(args, "action_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -175,7 +175,7 @@ func createAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 		body["description"] = v
 	}
 	if steps, err := parseJSON(args, "steps"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if steps != nil {
 		body["steps"] = steps
 	}
@@ -185,9 +185,9 @@ func createAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/api/projects/%s/actions/", p.proj(args))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -199,7 +199,7 @@ func updateAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 		body["description"] = v
 	}
 	if steps, err := parseJSON(args, "steps"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if steps != nil {
 		body["steps"] = steps
 	}
@@ -209,9 +209,9 @@ func updateAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/api/projects/%s/actions/%s/", p.proj(args), argStr(args, "action_id"))
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -219,9 +219,9 @@ func deleteAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Events ──────────────────────────────────────────────────────────
@@ -239,17 +239,17 @@ func listEvents(ctx context.Context, p *posthog, args map[string]any) (*mcp.Tool
 	})
 	data, err := p.get(ctx, "/api/projects/%s/events/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getEvent(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/events/%s/", p.proj(args), argStr(args, "event_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Experiments ─────────────────────────────────────────────────────
@@ -261,17 +261,17 @@ func listExperiments(ctx context.Context, p *posthog, args map[string]any) (*mcp
 	})
 	data, err := p.get(ctx, "/api/projects/%s/experiments/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getExperiment(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/experiments/%s/", p.proj(args), argStr(args, "experiment_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createExperiment(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -289,16 +289,16 @@ func createExperiment(ctx context.Context, p *posthog, args map[string]any) (*mc
 		body["end_date"] = v
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
 	path := fmt.Sprintf("/api/projects/%s/experiments/", p.proj(args))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateExperiment(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -318,9 +318,9 @@ func updateExperiment(ctx context.Context, p *posthog, args map[string]any) (*mc
 	path := fmt.Sprintf("/api/projects/%s/experiments/%s/", p.proj(args), argStr(args, "experiment_id"))
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteExperiment(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -328,9 +328,9 @@ func deleteExperiment(ctx context.Context, p *posthog, args map[string]any) (*mc
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Surveys ─────────────────────────────────────────────────────────
@@ -342,17 +342,17 @@ func listSurveys(ctx context.Context, p *posthog, args map[string]any) (*mcp.Too
 	})
 	data, err := p.get(ctx, "/api/projects/%s/surveys/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/surveys/%s/", p.proj(args), argStr(args, "survey_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -364,21 +364,21 @@ func createSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 		body["type"] = v
 	}
 	if questions, err := parseJSON(args, "questions"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if questions != nil {
 		body["questions"] = questions
 	}
 	if filters, err := parseJSON(args, "targeting_flag_filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["targeting_flag_filters"] = filters
 	}
 	path := fmt.Sprintf("/api/projects/%s/surveys/", p.proj(args))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -390,16 +390,16 @@ func updateSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 		body["description"] = v
 	}
 	if questions, err := parseJSON(args, "questions"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if questions != nil {
 		body["questions"] = questions
 	}
 	path := fmt.Sprintf("/api/projects/%s/surveys/%s/", p.proj(args), argStr(args, "survey_id"))
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -407,7 +407,7 @@ func deleteSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

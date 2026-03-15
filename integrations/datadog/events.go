@@ -31,9 +31,9 @@ func listEvents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResul
 
 	resp, _, err := api.ListEvents(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func searchEvents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -63,18 +63,18 @@ func searchEvents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRes
 
 	resp, _, err := api.SearchEvents(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getEvent(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV2.NewEventsApi(d.client)
 	resp, _, err := api.GetEvent(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func createEvent(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -114,7 +114,7 @@ func createEvent(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 
 	resp, _, err := api.CreateEvent(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }

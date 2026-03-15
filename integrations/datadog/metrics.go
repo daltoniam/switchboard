@@ -16,9 +16,9 @@ func queryMetrics(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRes
 
 	resp, _, err := api.QueryMetrics(ctx, from.Unix(), to.Unix(), query)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func listActiveMetrics(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -35,25 +35,25 @@ func listActiveMetrics(ctx context.Context, d *dd, args map[string]any) (*mcp.To
 
 	resp, _, err := api.ListActiveMetrics(ctx, from, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func searchMetrics(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewMetricsApi(d.client)
 	resp, _, err := api.ListMetrics(ctx, argStr(args, "query"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getMetricMetadata(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewMetricsApi(d.client)
 	resp, _, err := api.GetMetricMetadata(ctx, argStr(args, "metric"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }

@@ -193,25 +193,6 @@ func formatAPIError(statusCode int, body []byte) error {
 
 type handlerFunc func(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error)
 
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return errResult(err)
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
 // unmarshalJSON is a convenience wrapper that provides clearer error messages.
 func unmarshalJSON(data []byte, v any) error {
 	return json.Unmarshal(data, v)

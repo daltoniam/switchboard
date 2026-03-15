@@ -116,11 +116,16 @@ func projectFields(data string, opts map[string]any) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("invalid field projection: %w", err)
 	}
-	compacted, err := mcp.CompactJSON([]byte(data), fields)
-	if err != nil {
-		return "", fmt.Errorf("field projection failed: %w", err)
+	var parsed any
+	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+		return "", fmt.Errorf("field projection parse: %w", err)
 	}
-	return string(compacted), nil
+	projected := mcp.CompactAny(parsed, fields)
+	result, err := json.Marshal(projected)
+	if err != nil {
+		return "", fmt.Errorf("field projection marshal: %w", err)
+	}
+	return string(result), nil
 }
 
 // parseResult JSON-parses a ToolResult.Data string and returns it as a goja value.

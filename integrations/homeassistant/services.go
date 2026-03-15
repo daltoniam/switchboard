@@ -12,23 +12,23 @@ import (
 func listServices(ctx context.Context, h *homeassistant, _ map[string]any) (*mcp.ToolResult, error) {
 	data, err := h.get(ctx, "/api/services")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func callService(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
 	domain := argStr(args, "domain")
 	service := argStr(args, "service")
 	if domain == "" || service == "" {
-		return errResult(fmt.Errorf("domain and service are required"))
+		return mcp.ErrResult(fmt.Errorf("domain and service are required"))
 	}
 
 	var body any
 	if v := argStr(args, "service_data"); v != "" {
 		var data map[string]any
 		if err := json.Unmarshal([]byte(v), &data); err != nil {
-			return errResult(fmt.Errorf("invalid JSON for service_data: %w", err))
+			return mcp.ErrResult(fmt.Errorf("invalid JSON for service_data: %w", err))
 		}
 		body = data
 	}
@@ -40,7 +40,7 @@ func callService(ctx context.Context, h *homeassistant, args map[string]any) (*m
 
 	result, err := h.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(result)
+	return mcp.RawResult(result)
 }

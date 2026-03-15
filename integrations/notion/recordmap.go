@@ -87,7 +87,7 @@ func extractAllRecords(data json.RawMessage, table string) ([]map[string]any, er
 func recordMapResult(data json.RawMessage, table, id string) (*mcp.ToolResult, error) {
 	record, err := extractRecord(data, table, id)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(record)
+	return mcp.JSONResult(record)
 }

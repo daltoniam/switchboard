@@ -100,7 +100,7 @@ Add integration-specific helpers when a pattern repeats 3+ times *within* an ada
 - Entity ID resolution by name (see `integrations/linear/resolveTeamID()`)
 - Query string building from optional params (see `integrations/sentry/queryEncode()`)
 
-Note: arg helpers (`argStr`, `argInt`, `argBool`) are intentionally duplicated *across* adapters — see `AGENTS.md > Gotchas`. Raw-HTTP adapters also duplicate result helpers (`rawResult`, `errResult`). Do not extract shared utilities.
+Note: arg helpers (`argStr`, `argInt`, `argBool`) are intentionally duplicated *across* adapters — see `AGENTS.md > Gotchas`. Result constructors (`mcp.JSONResult`, `mcp.RawResult`, `mcp.ErrResult`) are shared from the root package. Some adapters wrap `mcp.ErrResult` in a local `errResult` to inject retry semantics.
 
 ## 4. Testing Requirements
 

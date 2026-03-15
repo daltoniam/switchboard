@@ -150,21 +150,6 @@ func (c *clickhouseInt) exec(ctx context.Context, q string) error {
 	return c.conn.Exec(ctx, q)
 }
 
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	// TODO: add wrapRetryable for ClickHouse driver errors. The native binary
-	// protocol has no HTTP status codes. Retryable candidates: net.Error with
-	// Timeout() for connection failures. Query errors (syntax, missing table)
-	// are not retryable.
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
 func argStr(args map[string]any, key string) string {
 	v, _ := args[key].(string)
 	return v

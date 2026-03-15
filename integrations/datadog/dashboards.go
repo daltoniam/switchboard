@@ -24,18 +24,18 @@ func listDashboards(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 
 	resp, _, err := api.ListDashboards(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getDashboard(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewDashboardsApi(d.client)
 	resp, _, err := api.GetDashboard(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func createDashboard(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -65,16 +65,16 @@ func createDashboard(ctx context.Context, d *dd, args map[string]any) (*mcp.Tool
 
 	resp, _, err := api.CreateDashboard(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func deleteDashboard(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewDashboardsApi(d.client)
 	resp, _, err := api.DeleteDashboard(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }

@@ -118,14 +118,6 @@ func (s *suno) post(ctx context.Context, path string, body any) (json.RawMessage
 
 type handlerFunc func(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error)
 
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
 // --- Argument helpers ---
 
 func argStr(args map[string]any, key string) string {

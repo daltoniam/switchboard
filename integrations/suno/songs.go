@@ -48,18 +48,18 @@ func generateMusic(ctx context.Context, s *suno, args map[string]any) (*mcp.Tool
 
 	data, err := s.post(ctx, "/api/v1/generate", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getGeneration(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
 	taskID := argStr(args, "task_id")
 	data, err := s.get(ctx, "/api/v1/generate/record-info?taskId=%s", taskID)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func extendMusic(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
@@ -90,17 +90,17 @@ func extendMusic(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolRe
 
 	data, err := s.post(ctx, "/api/v1/generate/extend", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getCredits(ctx context.Context, s *suno, _ map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/api/v1/generate/credit")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func coverAudio(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
@@ -131,9 +131,9 @@ func coverAudio(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolRes
 
 	data, err := s.post(ctx, "/api/v1/generate/cover", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func uploadExtend(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
@@ -160,9 +160,9 @@ func uploadExtend(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolR
 
 	data, err := s.post(ctx, "/api/v1/generate/upload-extend", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func addVocals(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
@@ -186,9 +186,9 @@ func addVocals(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResu
 
 	data, err := s.post(ctx, "/api/v1/generate/add-vocals", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func addInstrumental(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
@@ -212,15 +212,15 @@ func addInstrumental(ctx context.Context, s *suno, args map[string]any) (*mcp.To
 
 	data, err := s.post(ctx, "/api/v1/generate/add-instrumental", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func generateMashup(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
 	audioIDsStr := argStr(args, "audio_ids")
 	if audioIDsStr == "" {
-		return errResult(fmt.Errorf("audio_ids is required"))
+		return mcp.ErrResult(fmt.Errorf("audio_ids is required"))
 	}
 	audioIDs := strings.Split(audioIDsStr, ",")
 	for i := range audioIDs {
@@ -247,15 +247,15 @@ func generateMashup(ctx context.Context, s *suno, args map[string]any) (*mcp.Too
 
 	data, err := s.post(ctx, "/api/v1/generate/mashup", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func generatePersona(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
 	audioIDsStr := argStr(args, "audio_ids")
 	if audioIDsStr == "" {
-		return errResult(fmt.Errorf("audio_ids is required"))
+		return mcp.ErrResult(fmt.Errorf("audio_ids is required"))
 	}
 	audioIDs := strings.Split(audioIDsStr, ",")
 	for i := range audioIDs {
@@ -272,7 +272,7 @@ func generatePersona(ctx context.Context, s *suno, args map[string]any) (*mcp.To
 
 	data, err := s.post(ctx, "/api/v1/generate/persona", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

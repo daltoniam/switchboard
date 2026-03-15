@@ -20,7 +20,7 @@ var validExplainFormats = map[string]bool{
 func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	sqlStr := argStr(args, "sql")
 	if sqlStr == "" {
-		return errResult(fmt.Errorf("sql is required"))
+		return mcp.ErrResult(fmt.Errorf("sql is required"))
 	}
 
 	limit := argInt(args, "limit")
@@ -35,51 +35,51 @@ func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 
 	tx, err := p.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
-		return errResult(fmt.Errorf("begin transaction: %w", err))
+		return mcp.ErrResult(fmt.Errorf("begin transaction: %w", err))
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	rows, err := tx.QueryContext(ctx, wrapped)
 	if err != nil {
-		return errResult(fmt.Errorf("query error: %w", err))
+		return mcp.ErrResult(fmt.Errorf("query error: %w", err))
 	}
 	defer func() { _ = rows.Close() }()
 
 	data, err := scanRows(rows)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func executeTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	if p.readOnly {
-		return errResult(fmt.Errorf("execute is disabled: set read_only=false in postgres credentials to enable"))
+		return mcp.ErrResult(fmt.Errorf("execute is disabled: set read_only=false in postgres credentials to enable"))
 	}
 
 	sqlStr := argStr(args, "sql")
 	if sqlStr == "" {
-		return errResult(fmt.Errorf("sql is required"))
+		return mcp.ErrResult(fmt.Errorf("sql is required"))
 	}
 
 	upper := strings.ToUpper(strings.TrimSpace(sqlStr))
 	for _, prefix := range []string{"DROP DATABASE", "TRUNCATE"} {
 		if strings.HasPrefix(upper, prefix) {
-			return errResult(fmt.Errorf("statement rejected: %s is not allowed", prefix))
+			return mcp.ErrResult(fmt.Errorf("statement rejected: %s is not allowed", prefix))
 		}
 	}
 
 	data, err := p.exec(ctx, sqlStr)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	sqlStr := argStr(args, "sql")
 	if sqlStr == "" {
-		return errResult(fmt.Errorf("sql is required"))
+		return mcp.ErrResult(fmt.Errorf("sql is required"))
 	}
 
 	format := strings.ToLower(argStr(args, "format"))
@@ -87,7 +87,7 @@ func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		format = "text"
 	}
 	if !validExplainFormats[format] {
-		return errResult(fmt.Errorf("invalid format %q: must be one of text, json, yaml, xml", format))
+		return mcp.ErrResult(fmt.Errorf("invalid format %q: must be one of text, json, yaml, xml", format))
 	}
 	analyze := argBool(args, "analyze")
 
@@ -100,27 +100,27 @@ func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 
 	tx, err := p.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
-		return errResult(fmt.Errorf("begin transaction: %w", err))
+		return mcp.ErrResult(fmt.Errorf("begin transaction: %w", err))
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	rows, err := tx.QueryContext(ctx, explain)
 	if err != nil {
-		return errResult(fmt.Errorf("explain error: %w", err))
+		return mcp.ErrResult(fmt.Errorf("explain error: %w", err))
 	}
 	defer func() { _ = rows.Close() }()
 
 	data, err := scanRows(rows)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 	schema := argStr(args, "schema")
 	if schema == "" {
@@ -129,31 +129,31 @@ func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 
 	safeSchema, err := sanitizeIdentifier(schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	safeTable, err := sanitizeIdentifier(table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	columns := argStr(args, "columns")
 	if columns == "" {
 		columns = "*"
 	} else if err := validateSQLFragment(columns); err != nil {
-		return errResult(fmt.Errorf("columns: %w", err))
+		return mcp.ErrResult(fmt.Errorf("columns: %w", err))
 	}
 
 	q := fmt.Sprintf("SELECT %s FROM %s.%s", columns, safeSchema, safeTable) // #nosec G201 -- identifiers are sanitized via sanitizeIdentifier
 
 	if where := argStr(args, "where"); where != "" {
 		if err := validateSQLFragment(where); err != nil {
-			return errResult(fmt.Errorf("where: %w", err))
+			return mcp.ErrResult(fmt.Errorf("where: %w", err))
 		}
 		q += " WHERE " + where
 	}
 	if orderBy := argStr(args, "order_by"); orderBy != "" {
 		if err := validateSQLFragment(orderBy); err != nil {
-			return errResult(fmt.Errorf("order_by: %w", err))
+			return mcp.ErrResult(fmt.Errorf("order_by: %w", err))
 		}
 		q += " ORDER BY " + orderBy
 	}
@@ -170,21 +170,21 @@ func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 
 	tx, err := p.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
-		return errResult(fmt.Errorf("begin transaction: %w", err))
+		return mcp.ErrResult(fmt.Errorf("begin transaction: %w", err))
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	rows, err := tx.QueryContext(ctx, q)
 	if err != nil {
-		return errResult(fmt.Errorf("query error: %w", err))
+		return mcp.ErrResult(fmt.Errorf("query error: %w", err))
 	}
 	defer func() { _ = rows.Close() }()
 
 	data, err := scanRows(rows)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // --- helpers ---

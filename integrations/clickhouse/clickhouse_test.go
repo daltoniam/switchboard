@@ -85,14 +85,14 @@ func TestHealthy_NilConn(t *testing.T) {
 
 func TestRawResult(t *testing.T) {
 	data := []byte(`{"key":"value"}`)
-	result, err := rawResult(data)
+	result, err := mcp.RawResult(data)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)

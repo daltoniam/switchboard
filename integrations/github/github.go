@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -126,14 +125,6 @@ func argStrSlice(args map[string]any, key string) []string {
 	return nil
 }
 
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
 func wrapRetryable(err error) error {
 	if err == nil {
 		return nil
@@ -160,11 +151,7 @@ func wrapRetryable(err error) error {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
-	err = wrapRetryable(err)
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+	return mcp.ErrResult(wrapRetryable(err))
 }
 
 func listOpts(args map[string]any) gh.ListOptions {

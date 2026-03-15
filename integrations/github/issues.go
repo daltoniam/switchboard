@@ -24,7 +24,7 @@ func listIssues(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(issues)
+	return mcp.JSONResult(issues)
 }
 
 func getIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -32,7 +32,7 @@ func getIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(issue)
+	return mcp.JSONResult(issue)
 }
 
 func createIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -53,7 +53,7 @@ func createIssue(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(issue)
+	return mcp.JSONResult(issue)
 }
 
 func updateIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -80,7 +80,7 @@ func updateIssue(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(issue)
+	return mcp.JSONResult(issue)
 }
 
 func listIssueComments(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -89,7 +89,7 @@ func listIssueComments(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(comments)
+	return mcp.JSONResult(comments)
 }
 
 func createIssueComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -98,7 +98,7 @@ func createIssueComment(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(c)
+	return mcp.JSONResult(c)
 }
 
 func listIssueLabels(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -107,7 +107,7 @@ func listIssueLabels(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(labels)
+	return mcp.JSONResult(labels)
 }
 
 func addIssueLabels(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -116,7 +116,7 @@ func addIssueLabels(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func removeIssueLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -124,7 +124,7 @@ func removeIssueLabel(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "removed"})
+	return mcp.JSONResult(map[string]string{"status": "removed"})
 }
 
 func lockIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -136,7 +136,7 @@ func lockIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "locked"})
+	return mcp.JSONResult(map[string]string{"status": "locked"})
 }
 
 func unlockIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -144,7 +144,7 @@ func unlockIssue(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "unlocked"})
+	return mcp.JSONResult(map[string]string{"status": "unlocked"})
 }
 
 func listMilestones(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -157,7 +157,7 @@ func listMilestones(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(milestones)
+	return mcp.JSONResult(milestones)
 }
 
 func createMilestone(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -176,7 +176,7 @@ func createMilestone(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(milestone)
+	return mcp.JSONResult(milestone)
 }
 
 func listIssueEvents(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -185,7 +185,7 @@ func listIssueEvents(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(events)
+	return mcp.JSONResult(events)
 }
 
 func listIssueTimeline(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -194,7 +194,7 @@ func listIssueTimeline(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(events)
+	return mcp.JSONResult(events)
 }
 
 func listAssignees(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -203,5 +203,5 @@ func listAssignees(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(users)
+	return mcp.JSONResult(users)
 }

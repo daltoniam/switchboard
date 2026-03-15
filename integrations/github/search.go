@@ -10,7 +10,7 @@ import (
 // searchResult wraps search items with total_count so the LLM knows
 // whether to refine the query or paginate for more results.
 func searchResult(total int, items any) (*mcp.ToolResult, error) {
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"total_count": total,
 		"items":       items,
 	})

@@ -16,7 +16,7 @@ func updateIssueComment(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(c)
+	return mcp.JSONResult(c)
 }
 
 func deleteIssueComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -24,7 +24,7 @@ func deleteIssueComment(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 // ── Milestones Extended ───────────────────────────────────────────
@@ -50,7 +50,7 @@ func updateMilestone(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(milestone)
+	return mcp.JSONResult(milestone)
 }
 
 func deleteMilestone(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -58,7 +58,7 @@ func deleteMilestone(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 // ── Labels (Repo-Level) ──────────────────────────────────────────
@@ -69,7 +69,7 @@ func listLabels(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(labels)
+	return mcp.JSONResult(labels)
 }
 
 func createLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -82,7 +82,7 @@ func createLabel(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(l)
+	return mcp.JSONResult(l)
 }
 
 func editLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -100,7 +100,7 @@ func editLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(l)
+	return mcp.JSONResult(l)
 }
 
 func deleteLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -108,7 +108,7 @@ func deleteLabel(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 // ── Reactions ─────────────────────────────────────────────────────
@@ -118,7 +118,7 @@ func createIssueReaction(ctx context.Context, g *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(reaction)
+	return mcp.JSONResult(reaction)
 }
 
 func createIssueCommentReaction(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -126,7 +126,7 @@ func createIssueCommentReaction(ctx context.Context, g *integration, args map[st
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(reaction)
+	return mcp.JSONResult(reaction)
 }
 
 func listIssueReactions(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -135,5 +135,5 @@ func listIssueReactions(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(reactions)
+	return mcp.JSONResult(reactions)
 }

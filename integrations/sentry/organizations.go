@@ -12,61 +12,61 @@ import (
 func getOrganization(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/organizations/%s/", s.org(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listOrgProjects(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/organizations/%s/projects/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listOrgTeams(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/organizations/%s/teams/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listOrgMembers(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/organizations/%s/members/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getOrgMember(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/organizations/%s/members/%s/", s.org(args), argStr(args, "member_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listOrgRepos(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/organizations/%s/repos/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func resolveShortID(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/organizations/%s/shortids/%s/", s.org(args), argStr(args, "short_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Teams ────────────────────────────────────────────────────────────
@@ -74,9 +74,9 @@ func resolveShortID(ctx context.Context, s *sentry, args map[string]any) (*mcp.T
 func getTeam(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/teams/%s/%s/", s.org(args), argStr(args, "team"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createTeam(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
@@ -87,24 +87,24 @@ func createTeam(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolR
 	path := fmt.Sprintf("/organizations/%s/teams/", s.org(args))
 	data, err := s.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteTeam(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.del(ctx, "/teams/%s/%s/", s.org(args), argStr(args, "team"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listTeamProjects(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/teams/%s/%s/projects/%s", s.org(args), argStr(args, "team"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

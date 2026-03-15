@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -83,6 +84,34 @@ type ToolDefinition struct {
 type ToolResult struct {
 	Data    string `json:"data,omitempty"`
 	IsError bool   `json:"is_error,omitempty"`
+}
+
+// JSONResult marshals v to JSON and returns it as a ToolResult.
+func JSONResult(v any) (*ToolResult, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return &ToolResult{Data: err.Error(), IsError: true}, nil
+	}
+	return &ToolResult{Data: string(data)}, nil
+}
+
+// RawResult wraps already-serialized JSON bytes as a ToolResult.
+// Passing nil is equivalent to passing an empty slice — returns an empty, non-error result.
+func RawResult(data []byte) (*ToolResult, error) {
+	return &ToolResult{Data: string(data)}, nil
+}
+
+// ErrResult converts an error to a ToolResult.
+// Retryable errors are propagated as Go errors for the server retry loop.
+// Non-retryable errors become ToolResult with IsError=true.
+func ErrResult(err error) (*ToolResult, error) {
+	if err == nil {
+		return nil, nil
+	}
+	if IsRetryable(err) {
+		return nil, err
+	}
+	return &ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
 // HealthStatus represents the health of an integration.

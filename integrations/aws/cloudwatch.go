@@ -23,7 +23,7 @@ func cwListMetrics(ctx context.Context, a *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func cwGetMetricData(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -79,7 +79,7 @@ func cwGetMetricData(ctx context.Context, a *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func cwDescribeAlarms(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -97,7 +97,7 @@ func cwDescribeAlarms(ctx context.Context, a *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func cwGetMetricStatistics(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -134,7 +134,7 @@ func cwGetMetricStatistics(ctx context.Context, a *integration, args map[string]
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func parseTime(s string) (time.Time, error) {

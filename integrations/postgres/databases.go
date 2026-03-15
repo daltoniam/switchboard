@@ -15,9 +15,9 @@ func listSchemas(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolR
 		FROM information_schema.schemata
 		ORDER BY schema_name`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listTables(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
@@ -40,15 +40,15 @@ func listTables(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		  AND c.relkind = 'r'
 		ORDER BY c.relname`, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func describeTable(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 	schema := argStr(args, "schema")
 	if schema == "" {
@@ -77,15 +77,15 @@ func describeTable(ctx context.Context, p *postgres, args map[string]any) (*mcp.
 		WHERE c.table_schema = $1 AND c.table_name = $2
 		ORDER BY c.ordinal_position`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listColumns(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 	schema := argStr(args, "schema")
 	if schema == "" {
@@ -98,15 +98,15 @@ func listColumns(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		WHERE table_schema = $1 AND table_name = $2
 		ORDER BY ordinal_position`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listIndexes(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 	schema := argStr(args, "schema")
 	if schema == "" {
@@ -126,15 +126,15 @@ func listIndexes(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		WHERE n.nspname = $1 AND t.relname = $2
 		ORDER BY i.relname`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listConstraints(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 	schema := argStr(args, "schema")
 	if schema == "" {
@@ -160,15 +160,15 @@ func listConstraints(ctx context.Context, p *postgres, args map[string]any) (*mc
 		WHERE tc.table_schema = $1 AND tc.table_name = $2
 		ORDER BY tc.constraint_type, tc.constraint_name`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listForeignKeys(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 	schema := argStr(args, "schema")
 	if schema == "" {
@@ -194,9 +194,9 @@ func listForeignKeys(ctx context.Context, p *postgres, args map[string]any) (*mc
 		  AND tc.table_schema = $1 AND tc.table_name = $2
 		ORDER BY tc.constraint_name`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listViews(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
@@ -214,9 +214,9 @@ func listViews(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 		WHERE table_schema = $1
 		ORDER BY table_name`, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listFunctions(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
@@ -237,9 +237,9 @@ func listFunctions(ctx context.Context, p *postgres, args map[string]any) (*mcp.
 		WHERE n.nspname = $1
 		ORDER BY p.proname`, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listTriggers(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
@@ -263,17 +263,17 @@ func listTriggers(ctx context.Context, p *postgres, args map[string]any) (*mcp.T
 		q += ` AND event_object_table = $2 ORDER BY trigger_name`
 		data, err := p.query(ctx, q, schema, table)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
 	q += ` ORDER BY event_object_table, trigger_name`
 	data, err := p.query(ctx, q, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listEnums(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
@@ -292,7 +292,7 @@ func listEnums(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 		GROUP BY t.typname
 		ORDER BY t.typname`, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

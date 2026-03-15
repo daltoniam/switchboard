@@ -65,7 +65,7 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 
 	data, err := n.doRequest(ctx, "/api/v3/search", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Normalize: merge results (id, highlight) with recordMap block data
@@ -79,7 +79,7 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 		RecordMap map[string]json.RawMessage `json:"recordMap"`
 	}
 	if err := unmarshalJSON(data, &resp); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Build block lookup from recordMap
@@ -118,7 +118,7 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 		results = filtered
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"results": results,
 		"total":   resp.Total,
 	})

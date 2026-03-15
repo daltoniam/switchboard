@@ -147,25 +147,6 @@ func (p *pganalyze) gql(ctx context.Context, query string, variables map[string]
 	return gqlResp.Data, nil
 }
 
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
 // --- Argument helpers ---
 
 func argStr(args map[string]any, key string) string {

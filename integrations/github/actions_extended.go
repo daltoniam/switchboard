@@ -17,7 +17,7 @@ func triggerWorkflow(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "dispatched"})
+	return mcp.JSONResult(map[string]string{"status": "dispatched"})
 }
 
 func rerunFailedJobs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -25,7 +25,7 @@ func rerunFailedJobs(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "rerun_failed_requested"})
+	return mcp.JSONResult(map[string]string{"status": "rerun_failed_requested"})
 }
 
 func getWorkflowJob(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -33,7 +33,7 @@ func getWorkflowJob(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(job)
+	return mcp.JSONResult(job)
 }
 
 func getWorkflowJobLogs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -41,7 +41,7 @@ func getWorkflowJobLogs(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"logs_url": url.String()})
+	return mcp.JSONResult(map[string]string{"logs_url": url.String()})
 }
 
 func deleteWorkflowRun(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -49,7 +49,7 @@ func deleteWorkflowRun(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 // ── Actions Variables ─────────────────────────────────────────────
@@ -60,7 +60,7 @@ func listRepoVariables(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Variables)
+	return mcp.JSONResult(resp.Variables)
 }
 
 func createRepoVariable(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -72,7 +72,7 @@ func createRepoVariable(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "created", "name": v.Name})
+	return mcp.JSONResult(map[string]string{"status": "created", "name": v.Name})
 }
 
 func updateRepoVariable(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -84,7 +84,7 @@ func updateRepoVariable(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "updated", "name": v.Name})
+	return mcp.JSONResult(map[string]string{"status": "updated", "name": v.Name})
 }
 
 func deleteRepoVariable(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -92,7 +92,7 @@ func deleteRepoVariable(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 func listOrgVariables(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -101,7 +101,7 @@ func listOrgVariables(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Variables)
+	return mcp.JSONResult(resp.Variables)
 }
 
 func listEnvVariables(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -110,7 +110,7 @@ func listEnvVariables(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Variables)
+	return mcp.JSONResult(resp.Variables)
 }
 
 // ── Runners ───────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ func listRunners(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Runners)
+	return mcp.JSONResult(resp.Runners)
 }
 
 func listOrgRunners(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -130,5 +130,5 @@ func listOrgRunners(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Runners)
+	return mcp.JSONResult(resp.Runners)
 }

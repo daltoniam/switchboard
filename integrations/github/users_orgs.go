@@ -14,7 +14,7 @@ func getAuthenticatedUser(ctx context.Context, g *integration, _ map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(user)
+	return mcp.JSONResult(user)
 }
 
 func getUser(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -22,7 +22,7 @@ func getUser(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(user)
+	return mcp.JSONResult(user)
 }
 
 func listUserFollowers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -31,7 +31,7 @@ func listUserFollowers(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(users)
+	return mcp.JSONResult(users)
 }
 
 func listUserFollowing(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -40,7 +40,7 @@ func listUserFollowing(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(users)
+	return mcp.JSONResult(users)
 }
 
 func listUserKeys(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -49,7 +49,7 @@ func listUserKeys(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(keys)
+	return mcp.JSONResult(keys)
 }
 
 // ── Organizations ─────────────────────────────────────────────────
@@ -59,7 +59,7 @@ func getOrg(ctx context.Context, g *integration, args map[string]any) (*mcp.Tool
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(org)
+	return mcp.JSONResult(org)
 }
 
 func listUserOrgs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -68,7 +68,7 @@ func listUserOrgs(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(orgs)
+	return mcp.JSONResult(orgs)
 }
 
 func listOrgMembers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -83,7 +83,7 @@ func listOrgMembers(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(members)
+	return mcp.JSONResult(members)
 }
 
 func listOrgTeams(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -92,7 +92,7 @@ func listOrgTeams(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(teams)
+	return mcp.JSONResult(teams)
 }
 
 func getTeamBySlug(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -100,7 +100,7 @@ func getTeamBySlug(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(team)
+	return mcp.JSONResult(team)
 }
 
 func listTeamMembers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -112,7 +112,7 @@ func listTeamMembers(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(members)
+	return mcp.JSONResult(members)
 }
 
 func listTeamRepos(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -121,5 +121,5 @@ func listTeamRepos(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(repos)
+	return mcp.JSONResult(repos)
 }

@@ -18,7 +18,7 @@ func lambdaListFunctions(ctx context.Context, a *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func lambdaGetFunction(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -28,7 +28,7 @@ func lambdaGetFunction(ctx context.Context, a *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func lambdaInvoke(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -58,7 +58,7 @@ func lambdaInvoke(ctx context.Context, a *integration, args map[string]any) (*mc
 	if out.FunctionError != nil {
 		result.FunctionError = *out.FunctionError
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func lambdaListEventSourceMappings(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -70,7 +70,7 @@ func lambdaListEventSourceMappings(ctx context.Context, a *integration, args map
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func lambdaGetFunctionConfiguration(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -80,5 +80,5 @@ func lambdaGetFunctionConfiguration(ctx context.Context, a *integration, args ma
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

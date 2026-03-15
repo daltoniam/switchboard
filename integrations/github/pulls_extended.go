@@ -17,7 +17,7 @@ func dismissPullReview(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(review)
+	return mcp.JSONResult(review)
 }
 
 func updatePullBranch(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -29,7 +29,7 @@ func updatePullBranch(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func removeReviewers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -41,7 +41,7 @@ func removeReviewers(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "removed"})
+	return mcp.JSONResult(map[string]string{"status": "removed"})
 }
 
 func listPullsWithCommit(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -50,5 +50,5 @@ func listPullsWithCommit(ctx context.Context, g *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(prs)
+	return mcp.JSONResult(prs)
 }

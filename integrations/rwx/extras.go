@@ -26,7 +26,7 @@ func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResu
 
 	output, err := r.runRWXCommand(cmdArgs, 0)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	var parsed struct {
@@ -39,7 +39,7 @@ func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResu
 		} `json:"artifacts"`
 	}
 	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		return errResult(fmt.Errorf("parse artifacts output: %w", err))
+		return mcp.ErrResult(fmt.Errorf("parse artifacts output: %w", err))
 	}
 
 	action := "listed"
@@ -57,7 +57,7 @@ func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResu
 	if !download {
 		resp["hint"] = "Set download=true to download artifacts"
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func validateWorkflow(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
@@ -70,7 +70,7 @@ func validateWorkflow(_ context.Context, r *rwx, args map[string]any) (*mcp.Tool
 	if err != nil {
 		exitErr, ok := err.(*exec.ExitError)
 		if ok && len(exitErr.Stderr) > 0 {
-			return jsonResult(map[string]any{
+			return mcp.JSONResult(map[string]any{
 				"isValid": false,
 				"errors": []map[string]string{
 					{"severity": "error", "message": string(exitErr.Stderr)},
@@ -81,17 +81,17 @@ func validateWorkflow(_ context.Context, r *rwx, args map[string]any) (*mcp.Tool
 		if output != "" {
 			return &mcp.ToolResult{Data: output, IsError: true}, nil
 		}
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
-	return rawResult(output)
+	return &mcp.ToolResult{Data: output}, nil
 }
 
 func verifyCLI(_ context.Context, r *rwx, _ map[string]any) (*mcp.ToolResult, error) {
 	check := r.getRWXCLIVersion()
 
 	if !check.installed {
-		return jsonResult(map[string]any{
+		return mcp.JSONResult(map[string]any{
 			"status":               "not_installed",
 			"message":              fmt.Sprintf("rwx CLI is not installed. Please install version >= %s.", minRWXVersion),
 			"install_instructions": "Visit https://github.com/rwx-research/rwx-cli/releases or use: brew install rwx-research/tap/rwx",
@@ -99,7 +99,7 @@ func verifyCLI(_ context.Context, r *rwx, _ map[string]any) (*mcp.ToolResult, er
 	}
 
 	if !check.meetsMinimum {
-		return jsonResult(map[string]any{
+		return mcp.JSONResult(map[string]any{
 			"status":               "outdated",
 			"current_version":      check.version,
 			"required_version":     minRWXVersion,
@@ -108,7 +108,7 @@ func verifyCLI(_ context.Context, r *rwx, _ map[string]any) (*mcp.ToolResult, er
 		})
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"status":  "ready",
 		"version": check.version,
 		"message": fmt.Sprintf("rwx CLI version %s is installed and ready.", check.version),

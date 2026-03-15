@@ -11,27 +11,27 @@ import (
 func listCollections(ctx context.Context, m *metabase, _ map[string]any) (*mcp.ToolResult, error) {
 	data, err := m.get(ctx, "/api/collection")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getCollection(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
 	id := argStr(args, "collection_id")
 	if id == "" {
-		return errResult(fmt.Errorf("collection_id is required"))
+		return mcp.ErrResult(fmt.Errorf("collection_id is required"))
 	}
 	data, err := m.get(ctx, "/api/collection/%s/items", id)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createCollection(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
 	name := argStr(args, "name")
 	if name == "" {
-		return errResult(fmt.Errorf("name is required"))
+		return mcp.ErrResult(fmt.Errorf("name is required"))
 	}
 
 	body := map[string]any{"name": name}
@@ -44,15 +44,15 @@ func createCollection(ctx context.Context, m *metabase, args map[string]any) (*m
 
 	data, err := m.post(ctx, "/api/collection", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateCollection(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
 	id := argStr(args, "collection_id")
 	if id == "" {
-		return errResult(fmt.Errorf("collection_id is required"))
+		return mcp.ErrResult(fmt.Errorf("collection_id is required"))
 	}
 
 	body := map[string]any{}
@@ -71,15 +71,15 @@ func updateCollection(ctx context.Context, m *metabase, args map[string]any) (*m
 
 	data, err := m.put(ctx, fmt.Sprintf("/api/collection/%s", id), body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func search(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
 	query := argStr(args, "query")
 	if query == "" {
-		return errResult(fmt.Errorf("query is required"))
+		return mcp.ErrResult(fmt.Errorf("query is required"))
 	}
 
 	path := fmt.Sprintf("/api/search?q=%s", query)
@@ -91,7 +91,7 @@ func search(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolRes
 
 	data, err := m.get(ctx, "%s", path)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

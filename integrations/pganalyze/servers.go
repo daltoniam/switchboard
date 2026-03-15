@@ -31,14 +31,14 @@ func getServers(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.To
 
 	data, err := p.gql(ctx, query, variables)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	var resp struct {
 		GetServers json.RawMessage `json:"getServers"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(resp.GetServers)
+	return mcp.RawResult(resp.GetServers)
 }
