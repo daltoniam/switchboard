@@ -201,4 +201,3 @@ func listHistory(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 	}
 	return rawResult(data)
 }
-

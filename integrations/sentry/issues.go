@@ -240,4 +240,3 @@ func listOrgIssues(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 	}
 	return rawResult(data)
 }
-

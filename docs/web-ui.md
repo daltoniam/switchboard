@@ -21,7 +21,7 @@
 - **Release**: GoReleaser via `.goreleaser.yml`. Ldflags: `main.version`, `main.commit`, `main.date`
 - **Testing**: `stretchr/testify` assertions. Tests in every package
 - **Linting**: `.golangci.yml` — errcheck, govet, ineffassign, nestif, staticcheck, unused
-- **CI**: `.github/workflows/ci.yml` — build, test (race), golangci-lint, gosec, govulncheck
+- **CI**: `.github/workflows/ci.yml` — build, test (race), gofmt, golangci-lint, gosec, govulncheck
 - **Go 1.26** — deps: `go-sdk`, `go-github/v68`, `slack-go/slack`, `a-h/templ`, `lib/pq`, `clickhouse-go/v2`, `testify`
 
 ## CLI & Daemon

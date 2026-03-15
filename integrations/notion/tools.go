@@ -162,12 +162,12 @@ var tools = []mcp.ToolDefinition{
 		Name:        "notion_search",
 		Description: "Search across all pages and data sources in the workspace. Start here for most workflows. For database results, use the returned id (block ID) as the data_source_id for query_data_source and retrieve_data_source.",
 		Parameters: map[string]string{
-			"query":     "Search query text. Searches page titles and content.",
-			"type":      "Filter by type: \"page\" or \"data_source\"",
-			"limit":     "Maximum number of results (default 20)",
-			"sort":      "Sort object with field and direction",
-			"filters":   "Additional filter object for v3 search",
-			"space_id":  "Space ID (auto-filled if not provided)",
+			"query":    "Search query text. Searches page titles and content.",
+			"type":     "Filter by type: \"page\" or \"data_source\"",
+			"limit":    "Maximum number of results (default 20)",
+			"sort":     "Sort object with field and direction",
+			"filters":  "Additional filter object for v3 search",
+			"space_id": "Space ID (auto-filled if not provided)",
 		},
 	},
 

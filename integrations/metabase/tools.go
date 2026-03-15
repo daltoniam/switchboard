@@ -85,13 +85,13 @@ var tools = []mcp.ToolDefinition{
 		Name:        "metabase_update_card",
 		Description: "Update a saved question/card (name, description, query, visualization)",
 		Parameters: map[string]string{
-			"card_id":      "Card ID",
-			"name":         "New name",
-			"description":  "New description",
-			"query":        "New SQL query",
-			"database_id":  "Database ID (required if changing query)",
-			"display":      "Visualization type: table, bar, line, pie, scalar, etc.",
-			"archived":     "Set to true to archive the card",
+			"card_id":     "Card ID",
+			"name":        "New name",
+			"description": "New description",
+			"query":       "New SQL query",
+			"database_id": "Database ID (required if changing query)",
+			"display":     "Visualization type: table, bar, line, pie, scalar, etc.",
+			"archived":    "Set to true to archive the card",
 		},
 		Required: []string{"card_id"},
 	},
@@ -195,7 +195,7 @@ var tools = []mcp.ToolDefinition{
 		Name:        "metabase_search",
 		Description: "Search across all Metabase content (questions, dashboards, collections, tables, databases)",
 		Parameters: map[string]string{
-			"query": "Search query string",
+			"query":  "Search query string",
 			"models": "Comma-separated types to search: card, dashboard, collection, table, database",
 		},
 		Required: []string{"query"},
@@ -204,10 +204,10 @@ var tools = []mcp.ToolDefinition{
 
 var dispatch = map[string]handlerFunc{
 	// Databases
-	"metabase_list_databases":  listDatabases,
-	"metabase_get_database":    getDatabase,
-	"metabase_list_tables":     listTables,
-	"metabase_get_table":       getTable,
+	"metabase_list_databases":   listDatabases,
+	"metabase_get_database":     getDatabase,
+	"metabase_list_tables":      listTables,
+	"metabase_get_table":        getTable,
 	"metabase_get_table_fields": getTableFields,
 
 	// Queries
@@ -222,18 +222,18 @@ var dispatch = map[string]handlerFunc{
 	"metabase_delete_card": deleteCard,
 
 	// Dashboards
-	"metabase_list_dashboards":      listDashboards,
-	"metabase_get_dashboard":        getDashboard,
-	"metabase_create_dashboard":     createDashboard,
-	"metabase_update_dashboard":     updateDashboard,
-	"metabase_delete_dashboard":     deleteDashboard,
+	"metabase_list_dashboards":       listDashboards,
+	"metabase_get_dashboard":         getDashboard,
+	"metabase_create_dashboard":      createDashboard,
+	"metabase_update_dashboard":      updateDashboard,
+	"metabase_delete_dashboard":      deleteDashboard,
 	"metabase_add_card_to_dashboard": addCardToDashboard,
 
 	// Collections
-	"metabase_list_collections":   listCollections,
-	"metabase_get_collection":     getCollection,
-	"metabase_create_collection":  createCollection,
-	"metabase_update_collection":  updateCollection,
+	"metabase_list_collections":  listCollections,
+	"metabase_get_collection":    getCollection,
+	"metabase_create_collection": createCollection,
+	"metabase_update_collection": updateCollection,
 
 	// Search
 	"metabase_search": search,

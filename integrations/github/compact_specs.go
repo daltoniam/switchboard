@@ -48,8 +48,8 @@ var rawFieldCompactionSpecs = map[string][]string{
 	// ── Repositories ──────────────────────────────────────────────────
 	"github_list_user_repos": repoListFields,
 	"github_list_org_repos":  repoListFields,
-	"github_list_branches": {"name", "commit.sha", "protected"},
-	"github_list_tags":     {"name", "commit.sha"},
+	"github_list_branches":   {"name", "commit.sha", "protected"},
+	"github_list_tags":       {"name", "commit.sha"},
 	"github_list_contributors": {
 		"login", "contributions", "html_url", "type",
 	},
@@ -161,8 +161,8 @@ var rawFieldCompactionSpecs = map[string][]string{
 	},
 
 	// ── Activity ──────────────────────────────────────────────────────
-	"github_list_stargazers":    userListFields,
-	"github_list_watchers":      userListFields,
+	"github_list_stargazers": userListFields,
+	"github_list_watchers":   userListFields,
 	"github_list_notifications": {
 		"id", "reason", "subject.title", "subject.type", "subject.url",
 		"repository.full_name", "updated_at", "unread",
@@ -248,9 +248,9 @@ var rawFieldCompactionSpecs = map[string][]string{
 	},
 
 	// ── Actions (extended) ────────────────────────────────────────────
-	"github_list_repo_variables":  {"name", "value", "created_at", "updated_at"},
-	"github_list_org_variables":   {"name", "value", "created_at", "updated_at"},
-	"github_list_env_variables":   {"name", "value", "created_at", "updated_at"},
+	"github_list_repo_variables": {"name", "value", "created_at", "updated_at"},
+	"github_list_org_variables":  {"name", "value", "created_at", "updated_at"},
+	"github_list_env_variables":  {"name", "value", "created_at", "updated_at"},
 	"github_list_runners": {
 		"id", "name", "os", "status", "busy", "labels[].name",
 	},
@@ -300,4 +300,3 @@ func mustBuildFieldCompactionSpecs(raw map[string][]string) map[string][]mcp.Com
 	}
 	return parsed
 }
-

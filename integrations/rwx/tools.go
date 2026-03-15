@@ -16,8 +16,8 @@ var tools = []mcp.ToolDefinition{
 		Name:        "rwx_wait_for_ci_run",
 		Description: "Poll and wait for an RWX CI run to complete or timeout",
 		Parameters: map[string]string{
-			"run_id":               "RWX run ID or full URL to wait for",
-			"timeout_seconds":      "Maximum time to wait in seconds (default: 1800)",
+			"run_id":                "RWX run ID or full URL to wait for",
+			"timeout_seconds":       "Maximum time to wait in seconds (default: 1800)",
 			"poll_interval_seconds": "Seconds between status checks (default: 30)",
 		},
 		Required: []string{"run_id"},

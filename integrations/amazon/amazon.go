@@ -262,10 +262,10 @@ func (a *amazon) ordersURL() string {
 // --- Dispatch map ---
 
 var dispatch = map[string]handlerFunc{
-	"amazon_search_products":    searchProducts,
-	"amazon_get_product":        getProduct,
-	"amazon_get_orders":         getOrders,
-	"amazon_get_cart":           getCart,
-	"amazon_add_to_cart":        addToCart,
-	"amazon_clear_cart":         clearCart,
+	"amazon_search_products": searchProducts,
+	"amazon_get_product":     getProduct,
+	"amazon_get_orders":      getOrders,
+	"amazon_get_cart":        getCart,
+	"amazon_add_to_cart":     addToCart,
+	"amazon_clear_cart":      clearCart,
 }

@@ -81,9 +81,9 @@ func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
 func registerClient(registerURL, redirectURI string) (clientID, clientSecret string, err error) {
 	body, _ := json.Marshal(map[string]any{
 		"client_name":                "Switchboard",
-		"redirect_uris":             []string{redirectURI},
-		"grant_types":               []string{"authorization_code", "refresh_token"},
-		"response_types":            []string{"code"},
+		"redirect_uris":              []string{redirectURI},
+		"grant_types":                []string{"authorization_code", "refresh_token"},
+		"response_types":             []string{"code"},
 		"token_endpoint_auth_method": "none",
 	})
 

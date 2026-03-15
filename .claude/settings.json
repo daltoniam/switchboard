@@ -1,0 +1,29 @@
+{
+  "enableAllProjectMcpServers": true,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'F=$(cat | jq -r \".tool_input.file_path // empty\"); [[ \"$F\" == *_templ.go ]] && echo \"BLOCKED: Never edit generated *_templ.go files. Edit the .templ source instead.\" && exit 2 || true'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'F=$(cat | jq -r \".tool_input.file_path // empty\"); [[ \"$F\" == *.go && -f \"$F\" ]] && gofmt -w \"$F\" || true'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
