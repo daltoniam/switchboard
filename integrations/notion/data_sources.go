@@ -10,12 +10,12 @@ import (
 func createDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	parent := argMap(args, "parent")
 	if parent == nil {
-		return errResult(fmt.Errorf("parent is required"))
+		return mcp.ErrResult(fmt.Errorf("parent is required"))
 	}
 
 	parentID, _ := resolveParent(parent)
 	if parentID == "" {
-		return errResult(fmt.Errorf("parent must contain page_id or database_id"))
+		return mcp.ErrResult(fmt.Errorf("parent must contain page_id or database_id"))
 	}
 
 	blockID := newBlockID()
@@ -94,9 +94,9 @@ func createDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 
 	_, err := submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":            blockID,
 		"collection_id": collectionID,
 		"view_id":       viewID,
@@ -107,7 +107,7 @@ func createDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 func retrieveDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	dataSourceID := argStr(args, "data_source_id")
 	if dataSourceID == "" {
-		return errResult(fmt.Errorf("data_source_id is required"))
+		return mcp.ErrResult(fmt.Errorf("data_source_id is required"))
 	}
 
 	// loadCachedPageChunkV2 includes both block and collection records in recordMap.
@@ -119,17 +119,17 @@ func retrieveDataSource(ctx context.Context, n *notion, args map[string]any) (*m
 		"verticalColumns": false,
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Find the block to get its collection_id
 	block, err := extractRecord(data, "block", dataSourceID)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	collectionID, _ := block["collection_id"].(string)
 	if collectionID == "" {
-		return errResult(fmt.Errorf("block %q is not a database (no collection_id)", dataSourceID))
+		return mcp.ErrResult(fmt.Errorf("block %q is not a database (no collection_id)", dataSourceID))
 	}
 
 	// Collection is included in the same recordMap response
@@ -139,7 +139,7 @@ func retrieveDataSource(ctx context.Context, n *notion, args map[string]any) (*m
 func updateDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	dataSourceID := argStr(args, "data_source_id")
 	if dataSourceID == "" {
-		return errResult(fmt.Errorf("data_source_id is required"))
+		return mcp.ErrResult(fmt.Errorf("data_source_id is required"))
 	}
 
 	// Resolve: data_source_id may be a block ID from search
@@ -160,26 +160,26 @@ func updateDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp
 	}
 
 	if len(ops) == 0 {
-		return errResult(fmt.Errorf("no updates specified: provide title or properties"))
+		return mcp.ErrResult(fmt.Errorf("no updates specified: provide title or properties"))
 	}
 
 	_, err = submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{"id": collectionID, "status": "updated"})
+	return mcp.JSONResult(map[string]any{"id": collectionID, "status": "updated"})
 }
 
 func queryDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	dataSourceID := argStr(args, "data_source_id")
 	if dataSourceID == "" {
-		return errResult(fmt.Errorf("data_source_id is required"))
+		return mcp.ErrResult(fmt.Errorf("data_source_id is required"))
 	}
 
 	// Step 1: Resolve data_source_id (may be a block ID from search) to collection + view IDs
 	collectionID, viewID, err := resolveDataSource(ctx, n, dataSourceID)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Step 2: Build queryCollection request — source + reducer format
@@ -228,7 +228,7 @@ func queryDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.
 
 	data, err := n.doRequest(ctx, "/api/v3/queryCollection", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Step 3: Parse response — reducerResults format with double-wrapped blocks.
@@ -236,7 +236,7 @@ func queryDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.
 	// so we parse it as map[string]any to tolerate heterogeneous values.
 	var resp map[string]any
 	if err := unmarshalJSON(data, &resp); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	resultObj, _ := resp["result"].(map[string]any)
@@ -286,7 +286,7 @@ func queryDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.
 	if schema != nil {
 		out["schema"] = schema
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 // resolveDataSource resolves a data_source_id (which may be a collection_view_page
@@ -346,7 +346,7 @@ func extractCollectionSchema(recordMap map[string]any, collectionID string) map[
 func retrieveDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	databaseID := argStr(args, "database_id")
 	if databaseID == "" {
-		return errResult(fmt.Errorf("database_id is required"))
+		return mcp.ErrResult(fmt.Errorf("database_id is required"))
 	}
 
 	// Same pattern as retrieveDataSource — single loadCachedPageChunkV2 call
@@ -357,16 +357,16 @@ func retrieveDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp
 		"verticalColumns": false,
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	block, err := extractRecord(data, "block", databaseID)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	collectionID, _ := block["collection_id"].(string)
 	if collectionID == "" {
-		return errResult(fmt.Errorf("block %q is not a database (no collection_id)", databaseID))
+		return mcp.ErrResult(fmt.Errorf("block %q is not a database (no collection_id)", databaseID))
 	}
 
 	return recordMapResult(data, "collection", collectionID)
@@ -375,7 +375,7 @@ func retrieveDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp
 func listDataSourceTemplates(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	dataSourceID := argStr(args, "data_source_id")
 	if dataSourceID == "" {
-		return errResult(fmt.Errorf("data_source_id is required"))
+		return mcp.ErrResult(fmt.Errorf("data_source_id is required"))
 	}
 
 	// Load the page chunk — includes block + collection records in recordMap
@@ -386,28 +386,28 @@ func listDataSourceTemplates(ctx context.Context, n *notion, args map[string]any
 		"verticalColumns": false,
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Find the block to get collection_id
 	block, err := extractRecord(data, "block", dataSourceID)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	collectionID, _ := block["collection_id"].(string)
 	if collectionID == "" {
-		return errResult(fmt.Errorf("block %q is not a database (no collection_id)", dataSourceID))
+		return mcp.ErrResult(fmt.Errorf("block %q is not a database (no collection_id)", dataSourceID))
 	}
 
 	// Get collection to find template_pages
 	collection, err := extractRecord(data, "collection", collectionID)
 	if err != nil {
-		return errResult(fmt.Errorf("collection %q not found", collectionID))
+		return mcp.ErrResult(fmt.Errorf("collection %q not found", collectionID))
 	}
 
 	templateIDs := toStringSlice(collection["template_pages"])
 	if len(templateIDs) == 0 {
-		return jsonResult(map[string]any{"results": []any{}})
+		return mcp.JSONResult(map[string]any{"results": []any{}})
 	}
 
 	// Fetch each template block via loadCachedPageChunkV2
@@ -427,5 +427,5 @@ func listDataSourceTemplates(ctx context.Context, n *notion, args map[string]any
 		templates = append(templates, tmpl)
 	}
 
-	return jsonResult(map[string]any{"results": templates})
+	return mcp.JSONResult(map[string]any{"results": templates})
 }

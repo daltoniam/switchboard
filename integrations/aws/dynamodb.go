@@ -20,7 +20,7 @@ func dynamoListTables(ctx context.Context, a *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoDescribeTable(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -30,7 +30,7 @@ func dynamoDescribeTable(ctx context.Context, a *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoGetItem(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -46,7 +46,7 @@ func dynamoGetItem(ctx context.Context, a *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoPutItem(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -62,7 +62,7 @@ func dynamoPutItem(ctx context.Context, a *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoQuery(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -99,7 +99,7 @@ func dynamoQuery(ctx context.Context, a *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoScan(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -130,7 +130,7 @@ func dynamoScan(ctx context.Context, a *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoDeleteItem(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -146,7 +146,7 @@ func dynamoDeleteItem(ctx context.Context, a *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func unmarshalDynamoJSON(s string, out *map[string]dynamotypes.AttributeValue) error {

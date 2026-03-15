@@ -14,26 +14,26 @@ func listProjects(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	})
 	data, err := p.get(ctx, "/api/projects/%s", q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/", p.proj(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	body := map[string]any{"name": argStr(args, "name")}
 	data, err := p.post(ctx, "/api/projects/", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -44,9 +44,9 @@ func updateProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 	path := fmt.Sprintf("/api/projects/%s/", p.proj(args))
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // Intentionally uses argStr instead of p.proj to require an explicit project_id,
@@ -54,7 +54,7 @@ func updateProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 func deleteProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.del(ctx, "/api/projects/%s/", argStr(args, "project_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

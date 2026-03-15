@@ -12,7 +12,7 @@ func iamListServiceAccounts(ctx context.Context, g *integration, _ map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Accounts)
+	return mcp.JSONResult(resp.Accounts)
 }
 
 func iamGetServiceAccount(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -22,7 +22,7 @@ func iamGetServiceAccount(ctx context.Context, g *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(sa)
+	return mcp.JSONResult(sa)
 }
 
 func iamListServiceAccountKeys(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -32,7 +32,7 @@ func iamListServiceAccountKeys(ctx context.Context, g *integration, args map[str
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Keys)
+	return mcp.JSONResult(resp.Keys)
 }
 
 func iamListRoles(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -44,7 +44,7 @@ func iamListRoles(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Roles)
+	return mcp.JSONResult(resp.Roles)
 }
 
 func iamGetRole(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -52,5 +52,5 @@ func iamGetRole(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(role)
+	return mcp.JSONResult(role)
 }

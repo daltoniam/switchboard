@@ -186,7 +186,7 @@ func TestArgStrSlice(t *testing.T) {
 }
 
 func TestJsonResult(t *testing.T) {
-	result, err := jsonResult(map[string]string{"key": "value"})
+	result, err := mcp.JSONResult(map[string]string{"key": "value"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"key"`)
@@ -194,7 +194,7 @@ func TestJsonResult(t *testing.T) {
 }
 
 func TestJsonResult_MarshalError(t *testing.T) {
-	result, err := jsonResult(make(chan int))
+	result, err := mcp.JSONResult(make(chan int))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 }

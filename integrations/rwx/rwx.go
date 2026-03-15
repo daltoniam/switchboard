@@ -2,7 +2,6 @@ package rwx
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,14 +12,6 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 )
-
-func mustJSON(v any) string {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return fmt.Sprintf(`{"error":%q}`, err.Error())
-	}
-	return string(data)
-}
 
 const (
 	rwxOrg          = "curri"
@@ -166,21 +157,6 @@ func isExecutable(path string) bool {
 // --- Result helpers ---
 
 type handlerFunc func(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error)
-
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	return rawResult(mustJSON(v))
-}
-
-func rawResult(data string) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: data}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
 
 // --- Argument helpers ---
 

@@ -12,7 +12,7 @@ import (
 func getHistory(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
 	entityID := argStr(args, "entity_id")
 	if entityID == "" {
-		return errResult(fmt.Errorf("entity_id is required"))
+		return mcp.ErrResult(fmt.Errorf("entity_id is required"))
 	}
 
 	path := "/api/history/period"
@@ -42,9 +42,9 @@ func getHistory(ctx context.Context, h *homeassistant, args map[string]any) (*mc
 
 	data, err := h.get(ctx, "%s?%s", path, encoded)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getLogbook(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
@@ -63,7 +63,7 @@ func getLogbook(ctx context.Context, h *homeassistant, args map[string]any) (*mc
 
 	data, err := h.get(ctx, "%s%s", path, queryEncode(params))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

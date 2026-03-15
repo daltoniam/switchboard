@@ -15,7 +15,7 @@ func listCycles(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 	if team := argStr(args, "team"); team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		filter["team"] = map[string]any{"id": map[string]any{"eq": teamID}}
 	}
@@ -42,9 +42,9 @@ func listCycles(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 		}
 	}`, vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -60,15 +60,15 @@ func getCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolRes
 		}
 	}`, map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	teamID, err := l.resolveTeamID(ctx, argStr(args, "team"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	input := map[string]any{
@@ -89,9 +89,9 @@ func createCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -115,9 +115,9 @@ func updateCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		}
 	}`, map[string]any{"id": argStr(args, "id"), "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Labels ────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ func listLabels(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 	if team := argStr(args, "team"); team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		filter["team"] = map[string]any{"id": map[string]any{"eq": teamID}}
 	}
@@ -149,9 +149,9 @@ func listLabels(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 		}
 	}`, vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -167,7 +167,7 @@ func createLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 	if team := argStr(args, "team"); team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["teamId"] = teamID
 	}
@@ -178,9 +178,9 @@ func createLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -201,9 +201,9 @@ func updateLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		}
 	}`, map[string]any{"id": argStr(args, "id"), "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -211,9 +211,9 @@ func deleteLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		issueLabelArchive(id: $id) { success }
 	}`, map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Workflow States ───────────────────────────────────────────────
@@ -223,7 +223,7 @@ func listWorkflowStates(ctx context.Context, l *linear, args map[string]any) (*m
 	if team := argStr(args, "team"); team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		filter["team"] = map[string]any{"id": map[string]any{"eq": teamID}}
 	}
@@ -244,15 +244,15 @@ func listWorkflowStates(ctx context.Context, l *linear, args map[string]any) (*m
 		}
 	}`, vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createWorkflowState(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	teamID, err := l.resolveTeamID(ctx, argStr(args, "team"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	input := map[string]any{
@@ -271,9 +271,9 @@ func createWorkflowState(ctx context.Context, l *linear, args map[string]any) (*
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Documents ─────────────────────────────────────────────────────
@@ -303,9 +303,9 @@ func listDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		}
 	}`, vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func searchDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -323,9 +323,9 @@ func searchDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.
 		"first": optInt(args, "first", 25),
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -338,9 +338,9 @@ func getDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		}
 	}`, map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -363,9 +363,9 @@ func createDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -386,9 +386,9 @@ func updateDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 		}
 	}`, map[string]any{"id": argStr(args, "id"), "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Initiatives ───────────────────────────────────────────────────
@@ -406,9 +406,9 @@ func listInitiatives(ctx context.Context, l *linear, args map[string]any) (*mcp.
 		}
 	}`, map[string]any{"first": optInt(args, "first", 50)})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -421,9 +421,9 @@ func getInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		}
 	}`, map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -446,9 +446,9 @@ func createInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -472,9 +472,9 @@ func updateInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp
 		}
 	}`, map[string]any{"id": argStr(args, "id"), "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Favorites ─────────────────────────────────────────────────────
@@ -493,9 +493,9 @@ func listFavorites(ctx context.Context, l *linear, _ map[string]any) (*mcp.ToolR
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createFavorite(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -519,9 +519,9 @@ func createFavorite(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteFavorite(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -529,9 +529,9 @@ func deleteFavorite(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 		favoriteDelete(id: $id) { success }
 	}`, map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Webhooks ──────────────────────────────────────────────────────
@@ -549,9 +549,9 @@ func listWebhooks(ctx context.Context, l *linear, _ map[string]any) (*mcp.ToolRe
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createWebhook(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -567,7 +567,7 @@ func createWebhook(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 	if team := argStr(args, "team"); team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["teamId"] = teamID
 	}
@@ -581,9 +581,9 @@ func createWebhook(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteWebhook(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -591,9 +591,9 @@ func deleteWebhook(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		webhookDelete(id: $id) { success }
 	}`, map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Notifications ─────────────────────────────────────────────────
@@ -617,9 +617,9 @@ func listNotifications(ctx context.Context, l *linear, args map[string]any) (*mc
 		}
 	}`, map[string]any{"first": optInt(args, "first", 50)})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Templates ─────────────────────────────────────────────────────
@@ -633,9 +633,9 @@ func listTemplates(ctx context.Context, l *linear, _ map[string]any) (*mcp.ToolR
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Organization ──────────────────────────────────────────────────
@@ -652,9 +652,9 @@ func getOrganization(ctx context.Context, l *linear, _ map[string]any) (*mcp.Too
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Custom Views ──────────────────────────────────────────────────
@@ -673,9 +673,9 @@ func listCustomViews(ctx context.Context, l *linear, args map[string]any) (*mcp.
 		}
 	}`, map[string]any{"first": optInt(args, "first", 50)})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createCustomView(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -688,7 +688,7 @@ func createCustomView(ctx context.Context, l *linear, args map[string]any) (*mcp
 	if team := argStr(args, "team"); team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["teamId"] = teamID
 	}
@@ -721,9 +721,9 @@ func createCustomView(ctx context.Context, l *linear, args map[string]any) (*mcp
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Rate Limit ────────────────────────────────────────────────────
@@ -740,9 +740,9 @@ func rateLimitStatus(ctx context.Context, l *linear, _ map[string]any) (*mcp.Too
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 var _ = fmt.Sprintf

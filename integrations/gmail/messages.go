@@ -14,9 +14,9 @@ import (
 func getProfile(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/profile", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Messages ────────────────────────────────────────────────────────
@@ -35,9 +35,9 @@ func listMessages(ctx context.Context, g *gmail, args map[string]any) (*mcp.Tool
 	q := queryEncodeMulti(params, multi)
 	data, err := g.get(ctx, "/gmail/v1/users/%s/messages%s", user(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -50,9 +50,9 @@ func getMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRe
 	q := queryEncode(params)
 	data, err := g.get(ctx, "/gmail/v1/users/%s/messages/%s%s", user(args), argStr(args, "message_id"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func sanitizeHeader(s string) string {
@@ -95,35 +95,35 @@ func sendMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 	path := fmt.Sprintf("/gmail/v1/users/%s/messages/send", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.del(ctx, "/gmail/v1/users/%s/messages/%s", user(args), argStr(args, "message_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func trashMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	path := fmt.Sprintf("/gmail/v1/users/%s/messages/%s/trash", user(args), argStr(args, "message_id"))
 	data, err := g.post(ctx, path, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func untrashMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	path := fmt.Sprintf("/gmail/v1/users/%s/messages/%s/untrash", user(args), argStr(args, "message_id"))
 	data, err := g.post(ctx, path, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func modifyMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -137,9 +137,9 @@ func modifyMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.Too
 	path := fmt.Sprintf("/gmail/v1/users/%s/messages/%s/modify", user(args), argStr(args, "message_id"))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func batchModifyMessages(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -155,9 +155,9 @@ func batchModifyMessages(ctx context.Context, g *gmail, args map[string]any) (*m
 	path := fmt.Sprintf("/gmail/v1/users/%s/messages/batchModify", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func batchDeleteMessages(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -167,18 +167,18 @@ func batchDeleteMessages(ctx context.Context, g *gmail, args map[string]any) (*m
 	path := fmt.Sprintf("/gmail/v1/users/%s/messages/batchDelete", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getAttachment(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/messages/%s/attachments/%s",
 		user(args), argStr(args, "message_id"), argStr(args, "attachment_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── History ─────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ func listHistory(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 	q := queryEncodeMulti(params, multi)
 	data, err := g.get(ctx, "/gmail/v1/users/%s/history%s", user(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

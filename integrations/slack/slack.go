@@ -2,7 +2,6 @@ package slack
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -237,14 +236,6 @@ var dispatch = map[string]handlerFunc{
 
 // --- helpers ---
 
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return errResult(err)
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
 // wrapRetryable converts SDK-specific retryable errors into mcp.RetryableError.
 // The slack-go SDK returns *slack.RateLimitedError on 429s with a parsed RetryAfter.
 func wrapRetryable(err error) error {
@@ -259,11 +250,7 @@ func wrapRetryable(err error) error {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
-	err = wrapRetryable(err)
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+	return mcp.ErrResult(wrapRetryable(err))
 }
 
 func argStr(args map[string]any, key string) string {

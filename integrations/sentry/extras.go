@@ -12,49 +12,49 @@ import (
 func listMetricAlerts(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/organizations/%s/alert-rules/", s.org(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getMetricAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/organizations/%s/alert-rules/%s/", s.org(args), argStr(args, "alert_rule_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteMetricAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.del(ctx, "/organizations/%s/alert-rules/%s/", s.org(args), argStr(args, "alert_rule_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listIssueAlerts(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/projects/%s/%s/rules/", s.org(args), argStr(args, "project"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getIssueAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/projects/%s/%s/rules/%s/", s.org(args), argStr(args, "project"), argStr(args, "alert_rule_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteIssueAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.del(ctx, "/projects/%s/%s/rules/%s/", s.org(args), argStr(args, "project"), argStr(args, "alert_rule_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Monitors (Cron) ──────────────────────────────────────────────────
@@ -67,25 +67,25 @@ func listMonitors(ctx context.Context, s *sentry, args map[string]any) (*mcp.Too
 	q := queryEncode(params)
 	data, err := s.get(ctx, "/organizations/%s/monitors/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getMonitor(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/projects/%s/%s/monitors/%s/", s.org(args), argStr(args, "project"), argStr(args, "monitor_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteMonitor(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.del(ctx, "/projects/%s/%s/monitors/%s/", s.org(args), argStr(args, "project"), argStr(args, "monitor_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Discover ─────────────────────────────────────────────────────────
@@ -98,25 +98,25 @@ func listSavedQueries(ctx context.Context, s *sentry, args map[string]any) (*mcp
 	q := queryEncode(params)
 	data, err := s.get(ctx, "/organizations/%s/discover/saved/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getSavedQuery(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/organizations/%s/discover/saved/%s/", s.org(args), argStr(args, "query_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteSavedQuery(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.del(ctx, "/organizations/%s/discover/saved/%s/", s.org(args), argStr(args, "query_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Replays ──────────────────────────────────────────────────────────
@@ -133,23 +133,23 @@ func listReplays(ctx context.Context, s *sentry, args map[string]any) (*mcp.Tool
 	q := queryEncode(params)
 	data, err := s.get(ctx, "/organizations/%s/replays/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getReplay(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/organizations/%s/replays/%s/", s.org(args), argStr(args, "replay_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteReplay(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.del(ctx, "/organizations/%s/replays/%s/", s.org(args), argStr(args, "replay_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

@@ -39,7 +39,7 @@ func editRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(repo)
+	return mcp.JSONResult(repo)
 }
 
 func replaceTopics(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -48,7 +48,7 @@ func replaceTopics(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func renameBranch(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -56,7 +56,7 @@ func renameBranch(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(branch)
+	return mcp.JSONResult(branch)
 }
 
 // ── Collaborators ─────────────────────────────────────────────────
@@ -71,9 +71,9 @@ func addCollaborator(ctx context.Context, g *integration, args map[string]any) (
 		return errResult(err)
 	}
 	if invite != nil {
-		return jsonResult(invite)
+		return mcp.JSONResult(invite)
 	}
-	return jsonResult(map[string]string{"status": "added"})
+	return mcp.JSONResult(map[string]string{"status": "added"})
 }
 
 func removeCollaborator(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -81,7 +81,7 @@ func removeCollaborator(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "removed"})
+	return mcp.JSONResult(map[string]string{"status": "removed"})
 }
 
 // ── Commit Status ─────────────────────────────────────────────────
@@ -92,7 +92,7 @@ func getCombinedStatus(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(status)
+	return mcp.JSONResult(status)
 }
 
 func listStatuses(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -101,7 +101,7 @@ func listStatuses(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(statuses)
+	return mcp.JSONResult(statuses)
 }
 
 func createStatus(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -115,7 +115,7 @@ func createStatus(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(s)
+	return mcp.JSONResult(s)
 }
 
 // ── Deployments ───────────────────────────────────────────────────
@@ -131,7 +131,7 @@ func listDeployments(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(deployments)
+	return mcp.JSONResult(deployments)
 }
 
 func getDeployment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -139,7 +139,7 @@ func getDeployment(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(deployment)
+	return mcp.JSONResult(deployment)
 }
 
 func createDeployment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -156,7 +156,7 @@ func createDeployment(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(deployment)
+	return mcp.JSONResult(deployment)
 }
 
 func listDeploymentStatuses(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -165,7 +165,7 @@ func listDeploymentStatuses(ctx context.Context, g *integration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(statuses)
+	return mcp.JSONResult(statuses)
 }
 
 func createDeploymentStatus(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -181,7 +181,7 @@ func createDeploymentStatus(ctx context.Context, g *integration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(status)
+	return mcp.JSONResult(status)
 }
 
 // ── Environments ──────────────────────────────────────────────────
@@ -192,7 +192,7 @@ func listEnvironments(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(envs.Environments)
+	return mcp.JSONResult(envs.Environments)
 }
 
 func getEnvironment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -200,7 +200,7 @@ func getEnvironment(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(env)
+	return mcp.JSONResult(env)
 }
 
 // ── Branch Protection ─────────────────────────────────────────────
@@ -210,7 +210,7 @@ func getBranchProtection(ctx context.Context, g *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(protection)
+	return mcp.JSONResult(protection)
 }
 
 func removeBranchProtection(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -218,7 +218,7 @@ func removeBranchProtection(ctx context.Context, g *integration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "removed"})
+	return mcp.JSONResult(map[string]string{"status": "removed"})
 }
 
 // ── Rulesets ──────────────────────────────────────────────────────
@@ -228,7 +228,7 @@ func listRulesets(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(rulesets)
+	return mcp.JSONResult(rulesets)
 }
 
 func getRuleset(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -236,7 +236,7 @@ func getRuleset(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(ruleset)
+	return mcp.JSONResult(ruleset)
 }
 
 func getRulesForBranch(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -244,7 +244,7 @@ func getRulesForBranch(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(rules)
+	return mcp.JSONResult(rules)
 }
 
 // ── Traffic ───────────────────────────────────────────────────────
@@ -258,7 +258,7 @@ func listTrafficViews(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(views)
+	return mcp.JSONResult(views)
 }
 
 func listTrafficClones(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -270,7 +270,7 @@ func listTrafficClones(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(clones)
+	return mcp.JSONResult(clones)
 }
 
 func listTrafficReferrers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -278,7 +278,7 @@ func listTrafficReferrers(ctx context.Context, g *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(referrers)
+	return mcp.JSONResult(referrers)
 }
 
 func listTrafficPaths(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -286,7 +286,7 @@ func listTrafficPaths(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(paths)
+	return mcp.JSONResult(paths)
 }
 
 // ── Community Health ──────────────────────────────────────────────
@@ -296,7 +296,7 @@ func getCommunityHealth(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(metrics)
+	return mcp.JSONResult(metrics)
 }
 
 // ── Dispatch ──────────────────────────────────────────────────────
@@ -307,7 +307,7 @@ func dispatchEvent(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "dispatched"})
+	return mcp.JSONResult(map[string]string{"status": "dispatched"})
 }
 
 // ── Merge ─────────────────────────────────────────────────────────
@@ -322,7 +322,7 @@ func mergeBranch(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(commit)
+	return mcp.JSONResult(commit)
 }
 
 // ── Releases Extended ─────────────────────────────────────────────
@@ -348,7 +348,7 @@ func editRelease(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(release)
+	return mcp.JSONResult(release)
 }
 
 func generateReleaseNotes(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -361,7 +361,7 @@ func generateReleaseNotes(ctx context.Context, g *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(notes)
+	return mcp.JSONResult(notes)
 }
 
 // ── Commit Comments ───────────────────────────────────────────────
@@ -372,7 +372,7 @@ func listCommitComments(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(comments)
+	return mcp.JSONResult(comments)
 }
 
 func createCommitComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -389,5 +389,5 @@ func createCommitComment(ctx context.Context, g *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(c)
+	return mcp.JSONResult(c)
 }

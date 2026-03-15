@@ -15,7 +15,7 @@ func listGists(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(gists)
+	return mcp.JSONResult(gists)
 }
 
 func getGist(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -23,7 +23,7 @@ func getGist(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(gist)
+	return mcp.JSONResult(gist)
 }
 
 func createGist(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -38,7 +38,7 @@ func createGist(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(g2)
+	return mcp.JSONResult(g2)
 }
 
 // ── Activity ──────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ func listStargazers(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(stargazers)
+	return mcp.JSONResult(stargazers)
 }
 
 func listWatchers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -58,7 +58,7 @@ func listWatchers(ctx context.Context, g *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(watchers)
+	return mcp.JSONResult(watchers)
 }
 
 func listNotifications(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -71,7 +71,7 @@ func listNotifications(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(notifications)
+	return mcp.JSONResult(notifications)
 }
 
 func listRepoEvents(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -80,7 +80,7 @@ func listRepoEvents(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(events)
+	return mcp.JSONResult(events)
 }
 
 // ── Code Scanning ─────────────────────────────────────────────────
@@ -98,7 +98,7 @@ func listCodeScanningAlerts(ctx context.Context, g *integration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(alerts)
+	return mcp.JSONResult(alerts)
 }
 
 func getCodeScanningAlert(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -106,7 +106,7 @@ func getCodeScanningAlert(ctx context.Context, g *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(alert)
+	return mcp.JSONResult(alert)
 }
 
 // ── Secret Scanning ───────────────────────────────────────────────
@@ -121,7 +121,7 @@ func listSecretScanningAlerts(ctx context.Context, g *integration, args map[stri
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(alerts)
+	return mcp.JSONResult(alerts)
 }
 
 // ── Dependabot ────────────────────────────────────────────────────
@@ -136,7 +136,7 @@ func listDependabotAlerts(ctx context.Context, g *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(alerts)
+	return mcp.JSONResult(alerts)
 }
 
 // ── Copilot ───────────────────────────────────────────────────────
@@ -146,5 +146,5 @@ func getCopilotOrgUsage(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(billing)
+	return mcp.JSONResult(billing)
 }

@@ -195,14 +195,14 @@ func TestOptInt64(t *testing.T) {
 }
 
 func TestJsonResult(t *testing.T) {
-	result, err := jsonResult(map[string]string{"key": "val"})
+	result, err := mcp.JSONResult(map[string]string{"key": "val"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"key"`)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)

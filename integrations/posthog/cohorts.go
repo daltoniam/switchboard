@@ -14,17 +14,17 @@ func listCohorts(ctx context.Context, p *posthog, args map[string]any) (*mcp.Too
 	})
 	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/", p.proj(args), argStr(args, "cohort_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -33,7 +33,7 @@ func createCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 		body["description"] = v
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
@@ -43,9 +43,9 @@ func createCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/api/projects/%s/cohorts/", p.proj(args))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -57,16 +57,16 @@ func updateCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 		body["description"] = v
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
 	path := fmt.Sprintf("/api/projects/%s/cohorts/%s/", p.proj(args), argStr(args, "cohort_id"))
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -74,9 +74,9 @@ func deleteCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listCohortPersons(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -86,7 +86,7 @@ func listCohortPersons(ctx context.Context, p *posthog, args map[string]any) (*m
 	})
 	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/persons/%s", p.proj(args), argStr(args, "cohort_id"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

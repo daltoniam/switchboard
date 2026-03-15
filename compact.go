@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -294,40 +293,46 @@ func parseCompactSpec(spec string) (CompactField, error) {
 	}, nil
 }
 
-// CompactJSON applies field compaction to JSON data, keeping only the specified fields.
-// Nil or empty fields returns data unchanged. Handles both objects and arrays.
-// Exclusion specs ("-field") remove fields from output. When only exclusion specs
-// are provided, all other fields are preserved. Null values and empty arrays/objects
-// are automatically omitted from output.
+// CompactAny applies field compaction to already-parsed JSON data.
+// v must be map[string]any (object) or []any (array).
+// Returns the compacted value without any JSON serialization.
+// Exclusion specs (prefixed with "-") preserve all unlisted fields.
+// Null values, empty objects, and empty strings are omitted from output.
+func CompactAny(v any, fields []CompactField) any {
+	if len(fields) == 0 || v == nil {
+		return v
+	}
+	plan := buildFieldPlan(fields)
+	switch val := v.(type) {
+	case map[string]any:
+		return compactObject(val, fields, plan)
+	case []any:
+		result := make([]any, 0, len(val))
+		for _, elem := range val {
+			obj, ok := elem.(map[string]any)
+			if !ok {
+				result = append(result, elem)
+				continue
+			}
+			result = append(result, compactObject(obj, fields, plan))
+		}
+		return result
+	default:
+		return v
+	}
+}
+
+// CompactJSON applies field compaction to JSON bytes.
+// Thin wrapper: unmarshal → CompactAny → marshal. See CompactAny for field semantics.
 func CompactJSON(data []byte, fields []CompactField) ([]byte, error) {
 	if len(data) == 0 || len(fields) == 0 {
 		return data, nil
 	}
-
-	trimmed := bytes.TrimLeft(data, " \t\n\r")
-	if len(trimmed) == 0 {
-		return data, nil
-	}
-
-	plan := buildFieldPlan(fields)
-
-	switch trimmed[0] {
-	case '[':
-		return compactArray(data, fields, plan)
-	case '{':
-		return compactObjectJSON(data, fields, plan)
-	default:
-		return nil, fmt.Errorf("compactJSON: expected JSON object or array, got %q", trimmed[0])
-	}
-}
-
-// compactObjectJSON unmarshals a single JSON object, applies field compaction, and re-marshals.
-func compactObjectJSON(data []byte, fields []CompactField, plan *fieldPlan) ([]byte, error) {
-	var obj map[string]any
-	if err := json.Unmarshal(data, &obj); err != nil {
+	var parsed any
+	if err := json.Unmarshal(data, &parsed); err != nil {
 		return nil, fmt.Errorf("compactJSON: %w", err)
 	}
-	return json.Marshal(compactObject(obj, fields, plan))
+	return json.Marshal(CompactAny(parsed, fields))
 }
 
 // compactObject keeps only the specified fields from an unmarshalled object.
@@ -447,27 +452,6 @@ func compactSubObject(obj map[string]any, root string, _ []CompactField, childFi
 	}
 	childPlan := buildFieldPlan(childFields)
 	return compactObject(parentObj, childFields, childPlan)
-}
-
-// compactArray applies field compaction to each element in a JSON array.
-// Unmarshals once into []any to avoid per-element unmarshal overhead.
-func compactArray(data []byte, fields []CompactField, plan *fieldPlan) ([]byte, error) {
-	var arr []any
-	if err := json.Unmarshal(data, &arr); err != nil {
-		return nil, fmt.Errorf("compactJSON: %w", err)
-	}
-
-	result := make([]any, 0, len(arr))
-	for _, elem := range arr {
-		obj, ok := elem.(map[string]any)
-		if !ok {
-			result = append(result, elem) // preserve non-object elements unchanged
-			continue
-		}
-		result = append(result, compactObject(obj, fields, plan))
-	}
-
-	return json.Marshal(result)
 }
 
 // columnarMinItems is the minimum array length for columnar format.
@@ -596,60 +580,45 @@ func columnarizeNestedArrays(obj map[string]any) {
 	}
 }
 
-// ColumnarizeJSON converts arrays of objects in already-processed JSON to columnar format.
-// Top-level arrays of 4+ objects become {"columns":[...],"rows":[[...],...]}.
-// Nested arrays of objects inside an object are also columnarized.
-// No compaction is applied — this function only reshapes structure.
+// ColumnarizeAny converts arrays of 8+ objects to columnar format.
+// Operates on already-parsed data — no JSON serialization.
+// Note: map[string]any inputs are modified in-place (nested arrays columnarized);
+// []any inputs return a new columnar map without mutating the original slice.
+func ColumnarizeAny(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		columnarizeNestedArrays(val)
+		return val
+	case []any:
+		if len(val) < columnarMinItems {
+			return val
+		}
+		objects := make([]map[string]any, 0, len(val))
+		for _, elem := range val {
+			m, ok := elem.(map[string]any)
+			if !ok {
+				return val
+			}
+			objects = append(objects, m)
+		}
+		return buildColumnar(objects)
+	default:
+		return v
+	}
+}
+
+// ColumnarizeJSON converts arrays of objects in JSON to columnar format.
+// Thin wrapper: unmarshal → ColumnarizeAny → marshal. See ColumnarizeAny for semantics.
 // Returns data unchanged if parsing or reshaping fails — columnarization is best-effort.
 func ColumnarizeJSON(data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return data, nil
 	}
-
-	trimmed := bytes.TrimLeft(data, " \t\n\r")
-	if len(trimmed) == 0 {
+	var parsed any
+	if err := json.Unmarshal(data, &parsed); err != nil {
 		return data, nil
 	}
-
-	switch trimmed[0] {
-	case '[':
-		return columnarizeTopLevelArray(data)
-	case '{':
-		var obj map[string]any
-		if err := json.Unmarshal(data, &obj); err != nil {
-			return data, nil // malformed JSON, pass through unchanged
-		}
-		columnarizeNestedArrays(obj)
-		result, err := json.Marshal(obj)
-		if err != nil {
-			return data, nil
-		}
-		return result, nil
-	default:
-		return data, nil
-	}
-}
-
-// columnarizeTopLevelArray converts a top-level JSON array of objects into columnar format.
-func columnarizeTopLevelArray(data []byte) ([]byte, error) {
-	var arr []any
-	if err := json.Unmarshal(data, &arr); err != nil {
-		return data, nil
-	}
-	if len(arr) < columnarMinItems {
-		return data, nil
-	}
-
-	objects := make([]map[string]any, 0, len(arr))
-	for _, elem := range arr {
-		m, ok := elem.(map[string]any)
-		if !ok {
-			return data, nil // mixed array, passthrough
-		}
-		objects = append(objects, m)
-	}
-
-	result, err := json.Marshal(buildColumnar(objects))
+	result, err := json.Marshal(ColumnarizeAny(parsed))
 	if err != nil {
 		return data, nil
 	}

@@ -21,7 +21,7 @@ func iamListUsers(ctx context.Context, a *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func iamGetUser(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -33,7 +33,7 @@ func iamGetUser(ctx context.Context, a *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func iamListRoles(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -48,7 +48,7 @@ func iamListRoles(ctx context.Context, a *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func iamGetRole(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -58,7 +58,7 @@ func iamGetRole(ctx context.Context, a *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func iamListPolicies(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -79,7 +79,7 @@ func iamListPolicies(ctx context.Context, a *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func iamGetPolicy(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -89,7 +89,7 @@ func iamGetPolicy(ctx context.Context, a *integration, args map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func iamListGroups(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -104,7 +104,7 @@ func iamListGroups(ctx context.Context, a *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func iamListAttachedRolePolicies(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -118,7 +118,7 @@ func iamListAttachedRolePolicies(ctx context.Context, a *integration, args map[s
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func iamListAttachedUserPolicies(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -132,7 +132,7 @@ func iamListAttachedUserPolicies(ctx context.Context, a *integration, args map[s
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func iamListAttachedGroupPolicies(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -146,5 +146,5 @@ func iamListAttachedGroupPolicies(ctx context.Context, a *integration, args map[
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

@@ -130,28 +130,24 @@ func TestArgStrSlice(t *testing.T) {
 // --- Result helper tests ---
 
 func TestRawResult(t *testing.T) {
-	result, err := rawResult(`{"key":"value"}`)
+	result, err := mcp.RawResult([]byte(`{"key":"value"}`))
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
 }
 
 func TestJsonResult(t *testing.T) {
-	result, err := jsonResult(map[string]string{"key": "value"})
+	result, err := mcp.JSONResult(map[string]string{"key": "value"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"key":"value"`)
-}
-
-func TestMustJSON(t *testing.T) {
-	assert.Equal(t, `{"a":"b"}`, mustJSON(map[string]string{"a": "b"}))
 }
 
 // --- Utility tests ---
@@ -332,15 +328,16 @@ func TestProxyToolDefinitions_TransformsCLIReferences(t *testing.T) {
 
 // --- JSON marshal test ---
 
-func TestMustJSON_Complex(t *testing.T) {
+func TestJSONResult_Complex(t *testing.T) {
 	resp := map[string]any{
 		"status": "success",
 		"count":  3,
 		"items":  []string{"a", "b", "c"},
 	}
-	result := mustJSON(resp)
+	tr, err := mcp.JSONResult(resp)
+	require.NoError(t, err)
 	var parsed map[string]any
-	err := json.Unmarshal([]byte(result), &parsed)
+	err = json.Unmarshal([]byte(tr.Data), &parsed)
 	require.NoError(t, err)
 	assert.Equal(t, "success", parsed["status"])
 	assert.Equal(t, float64(3), parsed["count"])

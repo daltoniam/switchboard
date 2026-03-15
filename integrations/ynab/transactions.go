@@ -14,17 +14,17 @@ func listTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.T
 	})
 	data, err := y.get(ctx, "/budgets/%s/transactions%s", budget(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.get(ctx, "/budgets/%s/transactions/%s", budget(args), argStr(args, "transaction_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listAccountTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -35,9 +35,9 @@ func listAccountTransactions(ctx context.Context, y *ynab, args map[string]any) 
 	data, err := y.get(ctx, "/budgets/%s/accounts/%s/transactions%s",
 		budget(args), argStr(args, "account_id"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listCategoryTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -48,9 +48,9 @@ func listCategoryTransactions(ctx context.Context, y *ynab, args map[string]any)
 	data, err := y.get(ctx, "/budgets/%s/categories/%s/transactions%s",
 		budget(args), argStr(args, "category_id"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listPayeeTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -61,9 +61,9 @@ func listPayeeTransactions(ctx context.Context, y *ynab, args map[string]any) (*
 	data, err := y.get(ctx, "/budgets/%s/payees/%s/transactions%s",
 		budget(args), argStr(args, "payee_id"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -98,9 +98,9 @@ func createTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.
 	path := fmt.Sprintf("/budgets/%s/transactions", budget(args))
 	data, err := y.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -140,34 +140,34 @@ func updateTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.
 	path := fmt.Sprintf("/budgets/%s/transactions/%s", budget(args), argStr(args, "transaction_id"))
 	data, err := y.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.del(ctx, "/budgets/%s/transactions/%s", budget(args), argStr(args, "transaction_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listScheduledTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.get(ctx, "/budgets/%s/scheduled_transactions", budget(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getScheduledTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.get(ctx, "/budgets/%s/scheduled_transactions/%s",
 		budget(args), argStr(args, "scheduled_transaction_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listMonthTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -178,9 +178,9 @@ func listMonthTransactions(ctx context.Context, y *ynab, args map[string]any) (*
 	data, err := y.get(ctx, "/budgets/%s/months/%s/transactions%s",
 		budget(args), argStr(args, "month"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createScheduledTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -210,9 +210,9 @@ func createScheduledTransaction(ctx context.Context, y *ynab, args map[string]an
 	path := fmt.Sprintf("/budgets/%s/scheduled_transactions", budget(args))
 	data, err := y.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateScheduledTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -250,16 +250,16 @@ func updateScheduledTransaction(ctx context.Context, y *ynab, args map[string]an
 		budget(args), argStr(args, "scheduled_transaction_id"))
 	data, err := y.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteScheduledTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.del(ctx, "/budgets/%s/scheduled_transactions/%s",
 		budget(args), argStr(args, "scheduled_transaction_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

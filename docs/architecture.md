@@ -4,7 +4,7 @@
 
 ```
 mcp.go                       Domain types + port interfaces (the hexagonal core)
-compact.go                   Field compaction engine — CompactJSON, ParseCompactSpecs, dot-notation parser
+compact.go                   Field compaction engine — CompactAny/CompactJSON, ColumnarizeAny/ColumnarizeJSON, ParseCompactSpecs
 cmd/server/main.go           Composition root — wires adapters into Services, starts server + daemon subcommand
 server/server.go             MCP server — exposes search/execute tools, routes to integrations, applies field compaction
 config/config.go             ConfigService adapter — JSON file at ~/.config/switchboard/config.json

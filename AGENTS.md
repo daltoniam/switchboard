@@ -53,7 +53,8 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 - **Tool naming**: prefixed with integration name (`github_list_issues`, `datadog_search_logs`)
 - **Dispatch map test parity** (MUST): `TestDispatchMap_AllToolsCovered` + `TestDispatchMap_NoOrphanHandlers` in every adapter
 - **Compaction spec tests** (MUST): every adapter with `compact_specs.go` has parity + shape tests
-- **Error handling**: `return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil`
+- **Shared result helpers** (MUST): use `mcp.JSONResult(v)`, `mcp.RawResult(data)`, `mcp.ErrResult(err)` — never define per-adapter copies
+- **Parse at boundary, not throughout** (MUST): JSON is unmarshalled once at ingress and marshalled once at egress. Use `CompactAny`/`ColumnarizeAny` for already-parsed data — never re-serialize to `[]byte` just to call `CompactJSON`/`ColumnarizeJSON`. Redundant marshal/unmarshal cycles are the #1 performance regression to guard against in the response pipeline.
 
 ## Reference Docs
 

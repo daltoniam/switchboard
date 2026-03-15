@@ -24,7 +24,7 @@ func cfnListStacks(ctx context.Context, a *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func cfnDescribeStack(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -34,7 +34,7 @@ func cfnDescribeStack(ctx context.Context, a *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func cfnListStackResources(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -44,7 +44,7 @@ func cfnListStackResources(ctx context.Context, a *integration, args map[string]
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func cfnGetTemplate(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -54,7 +54,7 @@ func cfnGetTemplate(ctx context.Context, a *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func cfnDescribeStackEvents(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -64,5 +64,5 @@ func cfnDescribeStackEvents(ctx context.Context, a *integration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

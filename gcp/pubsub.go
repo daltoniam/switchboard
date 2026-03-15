@@ -34,7 +34,7 @@ func pubsubListTopics(ctx context.Context, g *integration, _ map[string]any) (*m
 			"message_storage": cfg.MessageStoragePolicy.AllowedPersistenceRegions,
 		})
 	}
-	return jsonResult(topics)
+	return mcp.JSONResult(topics)
 }
 
 func pubsubGetTopic(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -50,7 +50,7 @@ func pubsubGetTopic(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":              topic.ID(),
 		"retention":       cfg.RetentionDuration,
 		"message_storage": cfg.MessageStoragePolicy.AllowedPersistenceRegions,
@@ -78,7 +78,7 @@ func pubsubPublish(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"message_id": serverID})
+	return mcp.JSONResult(map[string]string{"message_id": serverID})
 }
 
 func pubsubListSubscriptions(ctx context.Context, g *integration, _ map[string]any) (*mcp.ToolResult, error) {
@@ -105,7 +105,7 @@ func pubsubListSubscriptions(ctx context.Context, g *integration, _ map[string]a
 			"enable_message_ordering": cfg.EnableMessageOrdering,
 		})
 	}
-	return jsonResult(subs)
+	return mcp.JSONResult(subs)
 }
 
 func pubsubGetSubscription(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -121,7 +121,7 @@ func pubsubGetSubscription(ctx context.Context, g *integration, args map[string]
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":                      sub.ID(),
 		"topic":                   cfg.Topic.ID(),
 		"ack_deadline":            cfg.AckDeadline.String(),
@@ -171,5 +171,5 @@ func pubsubPull(ctx context.Context, g *integration, args map[string]any) (*mcp.
 		return errResult(err)
 	}
 
-	return jsonResult(messages)
+	return mcp.JSONResult(messages)
 }

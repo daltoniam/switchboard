@@ -170,14 +170,14 @@ func TestFetch_LoginPage(t *testing.T) {
 // --- Result helper tests ---
 
 func TestJsonResult(t *testing.T) {
-	result, err := jsonResult(map[string]string{"key": "value"})
+	result, err := mcp.JSONResult(map[string]string{"key": "value"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"key":"value"`)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)

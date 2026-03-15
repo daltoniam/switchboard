@@ -10,13 +10,13 @@ import (
 func createComment(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	text := argStr(args, "text")
 	if text == "" {
-		return errResult(fmt.Errorf("text is required"))
+		return mcp.ErrResult(fmt.Errorf("text is required"))
 	}
 
 	pageID := argStr(args, "page_id")
 	discussionID := argStr(args, "discussion_id")
 	if pageID == "" && discussionID == "" {
-		return errResult(fmt.Errorf("page_id or discussion_id is required"))
+		return mcp.ErrResult(fmt.Errorf("page_id or discussion_id is required"))
 	}
 
 	commentID := newBlockID()
@@ -64,9 +64,9 @@ func createComment(ctx context.Context, n *notion, args map[string]any) (*mcp.To
 
 	_, err := submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":            commentID,
 		"discussion_id": discussionID,
 	})
@@ -75,7 +75,7 @@ func createComment(ctx context.Context, n *notion, args map[string]any) (*mcp.To
 func retrieveComments(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	blockID := argStr(args, "block_id")
 	if blockID == "" {
-		return errResult(fmt.Errorf("block_id is required"))
+		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
 
 	// Load the page chunk — comments are bundled as discussion + comment records
@@ -86,7 +86,7 @@ func retrieveComments(ctx context.Context, n *notion, args map[string]any) (*mcp
 		"verticalColumns": false,
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Extract discussions and comments from recordMap.
@@ -112,5 +112,5 @@ func retrieveComments(ctx context.Context, n *notion, args map[string]any) (*mcp
 		results = append(results, entry)
 	}
 
-	return jsonResult(map[string]any{"results": results})
+	return mcp.JSONResult(map[string]any{"results": results})
 }

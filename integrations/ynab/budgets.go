@@ -10,9 +10,9 @@ import (
 func getUser(ctx context.Context, y *ynab, _ map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.get(ctx, "/user")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listBudgets(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -21,41 +21,41 @@ func listBudgets(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolRe
 	})
 	data, err := y.get(ctx, "/budgets%s", q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getBudget(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.get(ctx, "/budgets/%s", budget(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getBudgetSettings(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.get(ctx, "/budgets/%s/settings", budget(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listAccounts(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.get(ctx, "/budgets/%s/accounts", budget(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getAccount(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := y.get(ctx, "/budgets/%s/accounts/%s", budget(args), argStr(args, "account_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createAccount(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
@@ -69,7 +69,7 @@ func createAccount(ctx context.Context, y *ynab, args map[string]any) (*mcp.Tool
 	path := fmt.Sprintf("/budgets/%s/accounts", budget(args))
 	data, err := y.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

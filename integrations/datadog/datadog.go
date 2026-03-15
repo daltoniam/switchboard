@@ -2,7 +2,6 @@ package datadog
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -87,26 +86,6 @@ func (d *dd) Execute(ctx context.Context, toolName string, args map[string]any) 
 }
 
 // --- helpers ---
-
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return errResult(err)
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	// TODO: add wrapRetryable for Datadog SDK errors. The GenericOpenAPIError
-	// type doesn't carry an HTTP status code, and all 59 handlers discard
-	// the *http.Response return value. Options: (1) capture httpResp in each
-	// handler, (2) enable the SDK's built-in RetryConfiguration, or
-	// (3) parse error message strings for status codes (fragile).
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
 
 func argStr(args map[string]any, key string) string {
 	v, _ := args[key].(string)

@@ -198,17 +198,6 @@ func (l *linear) gql(ctx context.Context, query string, variables map[string]any
 	return gqlResp.Data, nil
 }
 
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
 // --- arg helpers ---
 
 func argStr(args map[string]any, key string) string {

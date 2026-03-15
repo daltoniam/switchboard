@@ -10,7 +10,7 @@ import (
 func retrieveBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	blockID := argStr(args, "block_id")
 	if blockID == "" {
-		return errResult(fmt.Errorf("block_id is required"))
+		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
 	return loadBlock(ctx, n, blockID)
 }
@@ -18,7 +18,7 @@ func retrieveBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.To
 func updateBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	blockID := argStr(args, "block_id")
 	if blockID == "" {
-		return errResult(fmt.Errorf("block_id is required"))
+		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
 
 	var ops []op
@@ -43,15 +43,15 @@ func updateBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.Tool
 
 	_, err := submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{"id": blockID, "status": "updated"})
+	return mcp.JSONResult(map[string]any{"id": blockID, "status": "updated"})
 }
 
 func deleteBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	blockID := argStr(args, "block_id")
 	if blockID == "" {
-		return errResult(fmt.Errorf("block_id is required"))
+		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
 
 	// Fetch block to get parent info for listRemove
@@ -65,7 +65,7 @@ func deleteBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.Tool
 
 	var block map[string]any
 	if err := unmarshalJSON([]byte(result.Data), &block); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	parentID, _ := block["parent_id"].(string)
 	parentTable, _ := block["parent_table"].(string)
@@ -86,15 +86,15 @@ func deleteBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.Tool
 
 	_, err = submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{"id": blockID, "status": "deleted"})
+	return mcp.JSONResult(map[string]any{"id": blockID, "status": "deleted"})
 }
 
 func getBlockChildren(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	blockID := argStr(args, "block_id")
 	if blockID == "" {
-		return errResult(fmt.Errorf("block_id is required"))
+		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
 
 	// Single call: loadCachedPageChunkV2 returns the target block + all descendants.
@@ -106,12 +106,12 @@ func getBlockChildren(ctx context.Context, n *notion, args map[string]any) (*mcp
 		"verticalColumns": false,
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	blocks, err := extractAllRecords(data, "block")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Find the target block to get its content array
@@ -124,7 +124,7 @@ func getBlockChildren(ctx context.Context, n *notion, args map[string]any) (*mcp
 		}
 	}
 	if len(contentIDs) == 0 {
-		return jsonResult(map[string]any{"results": []any{}})
+		return mcp.JSONResult(map[string]any{"results": []any{}})
 	}
 
 	// Filter to direct children only
@@ -142,18 +142,18 @@ func getBlockChildren(ctx context.Context, n *notion, args map[string]any) (*mcp
 		children = append(children, block)
 	}
 
-	return jsonResult(map[string]any{"results": children})
+	return mcp.JSONResult(map[string]any{"results": children})
 }
 
 func appendBlockChildren(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	blockID := argStr(args, "block_id")
 	if blockID == "" {
-		return errResult(fmt.Errorf("block_id is required"))
+		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
 
 	children, ok := args["children"].([]any)
 	if !ok || len(children) == 0 {
-		return errResult(fmt.Errorf("children is required"))
+		return mcp.ErrResult(fmt.Errorf("children is required"))
 	}
 
 	now := currentTimeMillis()
@@ -175,9 +175,9 @@ func appendBlockChildren(ctx context.Context, n *notion, args map[string]any) (*
 
 	_, err := submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{"block_ids": childIDs})
+	return mcp.JSONResult(map[string]any{"block_ids": childIDs})
 }
 
 // loadBlock fetches a single block via loadCachedPageChunkV2.
@@ -191,7 +191,7 @@ func loadBlock(ctx context.Context, n *notion, blockID string) (*mcp.ToolResult,
 		"verticalColumns": false,
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	return recordMapResult(data, "block", blockID)
 }

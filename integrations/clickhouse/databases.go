@@ -10,9 +10,9 @@ import (
 func listDatabases(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.ToolResult, error) {
 	data, err := c.query(ctx, "SELECT name, engine, comment FROM system.databases ORDER BY name")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listTables(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
@@ -23,24 +23,24 @@ func listTables(ctx context.Context, c *clickhouseInt, args map[string]any) (*mc
 			FROM system.tables WHERE database = currentDatabase() ORDER BY name`
 		data, err := c.query(ctx, q)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
 	q := `SELECT database, name, engine, total_rows, total_bytes, comment
 		FROM system.tables WHERE database = ? ORDER BY name`
 	data, err := c.query(ctx, q, db)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func describeTable(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 
 	db := argStr(args, "database")
@@ -53,15 +53,15 @@ func describeTable(ctx context.Context, c *clickhouseInt, args map[string]any) (
 
 	data, err := c.query(ctx, "DESCRIBE TABLE "+fqn) // #nosec G201 -- identifiers escaped via escapeIdentifier
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listColumns(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 
 	db := argStr(args, "database")
@@ -74,9 +74,9 @@ func listColumns(ctx context.Context, c *clickhouseInt, args map[string]any) (*m
 			ORDER BY position`
 		data, err := c.query(ctx, q, db, table)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
 	q := `SELECT name, type, default_kind, default_expression, comment,
@@ -86,15 +86,15 @@ func listColumns(ctx context.Context, c *clickhouseInt, args map[string]any) (*m
 		ORDER BY position`
 	data, err := c.query(ctx, q, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func showCreateTable(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 
 	db := argStr(args, "database")
@@ -107,7 +107,7 @@ func showCreateTable(ctx context.Context, c *clickhouseInt, args map[string]any)
 
 	data, err := c.query(ctx, "SHOW CREATE TABLE "+fqn) // #nosec G201 -- identifiers escaped via escapeIdentifier
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

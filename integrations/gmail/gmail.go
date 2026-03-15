@@ -185,17 +185,6 @@ func (g *gmail) persistToken(token string) {
 
 type handlerFunc func(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error)
 
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
 // --- Argument helpers ---
 
 func parseJSON(args map[string]any, key string) (any, error) {

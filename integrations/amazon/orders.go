@@ -18,7 +18,7 @@ var (
 func getOrders(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult, error) {
 	doc, err := a.fetch(ctx, a.ordersURL())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	type deliveryAddress struct {
@@ -139,5 +139,5 @@ func getOrders(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 		orders = append(orders, order{OrderInfo: info, Items: items})
 	})
 
-	return jsonResult(orders)
+	return mcp.JSONResult(orders)
 }

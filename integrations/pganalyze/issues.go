@@ -45,20 +45,20 @@ func getIssues(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.Too
 
 	data, err := p.gql(ctx, query, variables)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	var resp struct {
 		GetIssues json.RawMessage `json:"getIssues"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	if severity := argStr(args, "severity"); severity != "" {
 		var issues []map[string]any
 		if err := json.Unmarshal(resp.GetIssues, &issues); err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		filtered := make([]map[string]any, 0, len(issues))
 		for _, issue := range issues {
@@ -66,8 +66,8 @@ func getIssues(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.Too
 				filtered = append(filtered, issue)
 			}
 		}
-		return jsonResult(filtered)
+		return mcp.JSONResult(filtered)
 	}
 
-	return rawResult(resp.GetIssues)
+	return mcp.RawResult(resp.GetIssues)
 }

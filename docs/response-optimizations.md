@@ -2,7 +2,7 @@
 
 ## Columnar JSON Format
 
-Arrays of 8+ objects in execute/search responses are automatically reshaped to columnar format, eliminating per-record key repetition. Applied at the MCP response boundary (`columnarizeResult` in `server/server.go`).
+Arrays of 8+ objects in execute/search responses are automatically reshaped to columnar format, eliminating per-record key repetition. Applied at the MCP response boundary (`processResult` for execute, `columnarizeResult` for scripts/search in `server/server.go`).
 
 ```json
 // Per-record (< 8 items): [{...},{...}]
@@ -35,6 +35,6 @@ var issues = api.call("github_list_issues", {owner:"org",repo:"app"}, {fields:["
 ```
 
 - Third arg is optional — omitting it preserves existing behavior (full compacted result)
-- `fields` array parsed as compact specs via `ParseCompactSpecs` → applied via `CompactJSON` before JS parsing
+- `fields` array parsed as compact specs via `ParseCompactSpecs` → applied via `CompactAny` before JS parsing
 - Compaction happens after the integration's own compaction (additive filtering, never expands)
 - Implementation: `parseCallArgs` returns 3 values, `projectFields` in `script/engine.go`

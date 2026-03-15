@@ -10,6 +10,81 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestJSONResult(t *testing.T) {
+	t.Run("marshals a struct to JSON string", func(t *testing.T) {
+		v := map[string]any{"count": 5, "name": "test"}
+		result, err := JSONResult(v)
+		require.NoError(t, err)
+		assert.False(t, result.IsError)
+		assert.Contains(t, result.Data, `"count":5`)
+		assert.Contains(t, result.Data, `"name":"test"`)
+	})
+
+	t.Run("returns error result when marshal fails", func(t *testing.T) {
+		v := make(chan int) // channels are not JSON-serializable
+		result, err := JSONResult(v)
+		require.NoError(t, err) // no Go error — wrapped in ToolResult
+		assert.True(t, result.IsError)
+		assert.Contains(t, result.Data, "unsupported type")
+	})
+
+	t.Run("handles nil value as JSON null", func(t *testing.T) {
+		result, err := JSONResult(nil)
+		require.NoError(t, err)
+		assert.Equal(t, "null", result.Data)
+		assert.False(t, result.IsError)
+	})
+}
+
+func TestRawResult(t *testing.T) {
+	t.Run("wraps raw bytes as tool result data", func(t *testing.T) {
+		data := []byte(`{"items":[1,2,3]}`)
+		result, err := RawResult(data)
+		require.NoError(t, err)
+		assert.Equal(t, `{"items":[1,2,3]}`, result.Data)
+		assert.False(t, result.IsError)
+	})
+
+	t.Run("handles empty bytes", func(t *testing.T) {
+		result, err := RawResult([]byte{})
+		require.NoError(t, err)
+		assert.Equal(t, "", result.Data)
+		assert.False(t, result.IsError)
+	})
+}
+
+func TestErrResult(t *testing.T) {
+	t.Run("propagates retryable errors as Go errors", func(t *testing.T) {
+		retryable := &RetryableError{StatusCode: 429, Err: errors.New("rate limited")}
+		result, err := ErrResult(retryable)
+		assert.Nil(t, result)
+		assert.Error(t, err)
+		assert.True(t, IsRetryable(err))
+	})
+
+	t.Run("wraps non-retryable errors in ToolResult", func(t *testing.T) {
+		plain := errors.New("bad request")
+		result, err := ErrResult(plain)
+		require.NoError(t, err)
+		assert.True(t, result.IsError)
+		assert.Equal(t, "bad request", result.Data)
+	})
+
+	t.Run("propagates wrapped retryable errors", func(t *testing.T) {
+		inner := &RetryableError{StatusCode: 503, Err: errors.New("timeout")}
+		wrapped := fmt.Errorf("outer: %w", inner)
+		result, err := ErrResult(wrapped)
+		assert.Nil(t, result)
+		assert.Error(t, err)
+	})
+
+	t.Run("returns nil result and nil error for nil input", func(t *testing.T) {
+		result, err := ErrResult(nil)
+		assert.Nil(t, result)
+		assert.NoError(t, err)
+	})
+}
+
 func TestCredentials(t *testing.T) {
 	creds := Credentials{"token": "abc123", "secret": "xyz"}
 

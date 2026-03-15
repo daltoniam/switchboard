@@ -41,7 +41,7 @@ func loggingListEntries(ctx context.Context, g *integration, args map[string]any
 		}
 		entries = append(entries, entry)
 	}
-	return jsonResult(entries)
+	return mcp.JSONResult(entries)
 }
 
 func loggingListLogNames(ctx context.Context, g *integration, _ map[string]any) (*mcp.ToolResult, error) {
@@ -61,7 +61,7 @@ func loggingListLogNames(ctx context.Context, g *integration, _ map[string]any) 
 		}
 		names = append(names, name)
 	}
-	return jsonResult(names)
+	return mcp.JSONResult(names)
 }
 
 func loggingListSinks(ctx context.Context, g *integration, _ map[string]any) (*mcp.ToolResult, error) {
@@ -81,7 +81,7 @@ func loggingListSinks(ctx context.Context, g *integration, _ map[string]any) (*m
 		}
 		sinks = append(sinks, sink)
 	}
-	return jsonResult(sinks)
+	return mcp.JSONResult(sinks)
 }
 
 func loggingGetSink(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -93,5 +93,5 @@ func loggingGetSink(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(sink)
+	return mcp.JSONResult(sink)
 }

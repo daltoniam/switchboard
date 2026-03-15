@@ -10,17 +10,17 @@ import (
 func listLabels(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/labels", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/labels/%s", user(args), argStr(args, "label_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -46,9 +46,9 @@ func createLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 	path := fmt.Sprintf("/gmail/v1/users/%s/labels", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -77,15 +77,15 @@ func updateLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 	path := fmt.Sprintf("/gmail/v1/users/%s/labels/%s", user(args), argStr(args, "label_id"))
 	data, err := g.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.del(ctx, "/gmail/v1/users/%s/labels/%s", user(args), argStr(args, "label_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

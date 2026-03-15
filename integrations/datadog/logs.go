@@ -36,9 +36,9 @@ func searchLogs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResul
 
 	resp, _, err := api.ListLogs(ctx, *datadogV2.NewListLogsOptionalParameters().WithBody(body))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func aggregateLogs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
@@ -78,7 +78,7 @@ func aggregateLogs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 
 	resp, _, err := api.AggregateLogs(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }

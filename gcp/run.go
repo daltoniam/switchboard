@@ -30,7 +30,7 @@ func runListServices(ctx context.Context, g *integration, args map[string]any) (
 		}
 		services = append(services, s)
 	}
-	return jsonResult(services)
+	return mcp.JSONResult(services)
 }
 
 func runGetService(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -40,7 +40,7 @@ func runGetService(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(svc)
+	return mcp.JSONResult(svc)
 }
 
 func runListRevisions(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -60,7 +60,7 @@ func runListRevisions(ctx context.Context, g *integration, args map[string]any) 
 		}
 		revisions = append(revisions, r)
 	}
-	return jsonResult(revisions)
+	return mcp.JSONResult(revisions)
 }
 
 func runGetRevision(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -70,5 +70,5 @@ func runGetRevision(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(rev)
+	return mcp.JSONResult(rev)
 }

@@ -28,7 +28,7 @@ func ec2DescribeInstances(ctx context.Context, a *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2DescribeInstance(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -38,7 +38,7 @@ func ec2DescribeInstance(ctx context.Context, a *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2StartInstances(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -49,7 +49,7 @@ func ec2StartInstances(ctx context.Context, a *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2StopInstances(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -60,7 +60,7 @@ func ec2StopInstances(ctx context.Context, a *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2DescribeSecurityGroups(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -79,7 +79,7 @@ func ec2DescribeSecurityGroups(ctx context.Context, a *integration, args map[str
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2DescribeVPCs(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -98,7 +98,7 @@ func ec2DescribeVPCs(ctx context.Context, a *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2DescribeSubnets(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -117,7 +117,7 @@ func ec2DescribeSubnets(ctx context.Context, a *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2DescribeImages(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -139,7 +139,7 @@ func ec2DescribeImages(ctx context.Context, a *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2DescribeVolumes(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -158,7 +158,7 @@ func ec2DescribeVolumes(ctx context.Context, a *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2DescribeAddresses(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -177,7 +177,7 @@ func ec2DescribeAddresses(ctx context.Context, a *integration, args map[string]a
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ec2DescribeKeyPairs(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -189,5 +189,5 @@ func ec2DescribeKeyPairs(ctx context.Context, a *integration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

@@ -39,7 +39,7 @@ func computeListInstances(ctx context.Context, g *integration, args map[string]a
 		}
 		instances = append(instances, inst)
 	}
-	return jsonResult(instances)
+	return mcp.JSONResult(instances)
 }
 
 func computeGetInstance(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -51,7 +51,7 @@ func computeGetInstance(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(inst)
+	return mcp.JSONResult(inst)
 }
 
 func computeStartInstance(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -66,7 +66,7 @@ func computeStartInstance(ctx context.Context, g *integration, args map[string]a
 	if err := op.Wait(ctx); err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "started"})
+	return mcp.JSONResult(map[string]string{"status": "started"})
 }
 
 func computeStopInstance(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -81,7 +81,7 @@ func computeStopInstance(ctx context.Context, g *integration, args map[string]an
 	if err := op.Wait(ctx); err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "stopped"})
+	return mcp.JSONResult(map[string]string{"status": "stopped"})
 }
 
 func computeListDisks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -113,7 +113,7 @@ func computeListDisks(ctx context.Context, g *integration, args map[string]any) 
 		}
 		disks = append(disks, d)
 	}
-	return jsonResult(disks)
+	return mcp.JSONResult(disks)
 }
 
 func computeListNetworks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -144,7 +144,7 @@ func computeListNetworks(ctx context.Context, g *integration, args map[string]an
 		}
 		networks = append(networks, n)
 	}
-	return jsonResult(networks)
+	return mcp.JSONResult(networks)
 }
 
 func computeListSubnetworks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -176,7 +176,7 @@ func computeListSubnetworks(ctx context.Context, g *integration, args map[string
 		}
 		subnets = append(subnets, s)
 	}
-	return jsonResult(subnets)
+	return mcp.JSONResult(subnets)
 }
 
 func computeListFirewalls(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -207,7 +207,7 @@ func computeListFirewalls(ctx context.Context, g *integration, args map[string]a
 		}
 		firewalls = append(firewalls, f)
 	}
-	return jsonResult(firewalls)
+	return mcp.JSONResult(firewalls)
 }
 
 func computeGetFirewall(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -218,5 +218,5 @@ func computeGetFirewall(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(fw)
+	return mcp.JSONResult(fw)
 }
