@@ -445,3 +445,74 @@ func TestEngine_ConsoleLogCapped(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(result.Data), &logs))
 	assert.Equal(t, MaxLogEntries, len(logs))
 }
+
+func TestEngine_FieldProjection(t *testing.T) {
+	fullIssue := `{"number":42,"title":"bug","state":"open","body":"long text","user":{"login":"alice","id":99}}`
+
+	tests := []struct {
+		name       string
+		script     string
+		wantFields []string // fields expected in result
+		wantAbsent []string // fields expected NOT in result
+		wantError  bool
+	}{
+		{
+			name:       "projects specified fields from api.call result",
+			script:     `api.call("tool", {}, {fields: ["number", "title"]})`,
+			wantFields: []string{"number", "title"},
+			wantAbsent: []string{"state", "body", "user"},
+		},
+		{
+			name:       "omitted third arg preserves all fields",
+			script:     `api.call("tool", {})`,
+			wantFields: []string{"number", "title", "state", "body", "user"},
+		},
+		{
+			name:       "tryCall also supports field projection",
+			script:     `api.tryCall("tool", {}, {fields: ["number", "state"]}).data`,
+			wantFields: []string{"number", "state"},
+			wantAbsent: []string{"title", "body", "user"},
+		},
+		{
+			name:      "invalid fields option returns error",
+			script:    `api.call("tool", {}, {fields: "not_an_array"})`,
+			wantError: true,
+		},
+		{
+			name:       "bare array third arg is ignored (must use opts object)",
+			script:     `api.call("tool", {}, ["number", "title"])`,
+			wantFields: []string{"number", "title", "state", "body", "user"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exec := &mockExecutor{
+				results: map[string]*mcp.ToolResult{
+					"tool": {Data: fullIssue},
+				},
+			}
+			engine := New(exec)
+
+			result, err := engine.Run(context.Background(), tt.script)
+			require.NoError(t, err)
+
+			if tt.wantError {
+				assert.True(t, result.IsError)
+				return
+			}
+
+			assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+
+			var parsed map[string]any
+			require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+
+			for _, field := range tt.wantFields {
+				assert.Contains(t, parsed, field, "expected field %q", field)
+			}
+			for _, field := range tt.wantAbsent {
+				assert.NotContains(t, parsed, field, "unexpected field %q", field)
+			}
+		})
+	}
+}

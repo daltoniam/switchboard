@@ -454,6 +454,8 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "GITHUB_TOKEN", m["github"]["token"])
 	assert.Equal(t, "DD_API_KEY", m["datadog"]["api_key"])
 	assert.Equal(t, "DATABASE_URL", m["postgres"]["connection_string"])
+	assert.Equal(t, "RWX_ACCESS_TOKEN", m["rwx"]["access_token"])
+	assert.Equal(t, "RWX_CLI_PATH", m["rwx"]["cli_path"])
 	assert.Len(t, m, 10)
 }
 

@@ -507,6 +507,26 @@ func TestParseCompactSpec_Exclusion(t *testing.T) {
 			spec:    "-labels[].name",
 			wantErr: true,
 		},
+		{
+			name: "glob exclusion pattern",
+			spec: "-*_url",
+			want: CompactField{path: []string{"*_url"}, outputKey: "*_url", arrayIdx: -1, exclude: true, globPattern: "*_url"},
+		},
+		{
+			name: "glob exclusion with prefix",
+			spec: "-node_*",
+			want: CompactField{path: []string{"node_*"}, outputKey: "node_*", arrayIdx: -1, exclude: true, globPattern: "node_*"},
+		},
+		{
+			name:    "glob in include spec rejected",
+			spec:    "*_url",
+			wantErr: true,
+		},
+		{
+			name:    "invalid glob pattern rejected at parse time",
+			spec:    "-[invalid",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -558,6 +578,24 @@ func TestCompactJSON_Exclusion(t *testing.T) {
 			input: `{"a":1,"b":2,"c":3,"d":4}`,
 			specs: []string{"-c", "-d"},
 			want:  `{"a":1,"b":2}`,
+		},
+		{
+			name:  "glob exclusion removes matching fields",
+			input: `{"html_url":"https://x","api_url":"https://y","title":"bug","node_id":"abc"}`,
+			specs: []string{"-*_url", "-node_*"},
+			want:  `{"title":"bug"}`,
+		},
+		{
+			name:  "glob exclusion on array of objects",
+			input: `[{"id":1,"html_url":"x","api_url":"y"},{"id":2,"html_url":"a","api_url":"b"}]`,
+			specs: []string{"-*_url"},
+			want:  `[{"id":1},{"id":2}]`,
+		},
+		{
+			name:  "glob exclusion mixed with include specs",
+			input: `{"id":1,"title":"bug","html_url":"x","api_url":"y","state":"open"}`,
+			specs: []string{"id", "title", "state", "-*_url"},
+			want:  `{"id":1,"title":"bug","state":"open"}`,
 		},
 	}
 
@@ -828,6 +866,379 @@ func TestCompactJSON_Wildcard(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// ColumnarizeJSON tests (standalone columnarization, no compaction)
+// ---------------------------------------------------------------------------
+
+func TestColumnarizeJSON_TopLevelArray(t *testing.T) {
+	input := `[{"id":1,"name":"a"},{"id":2,"name":"b"},{"id":3,"name":"c"},{"id":4,"name":"d"},{"id":5,"name":"e"},{"id":6,"name":"f"},{"id":7,"name":"g"},{"id":8,"name":"h"}]`
+	got, err := ColumnarizeJSON([]byte(input))
+	require.NoError(t, err)
+
+	var result map[string]any
+	require.NoError(t, json.Unmarshal(got, &result))
+
+	columns := result["columns"].([]any)
+	assert.Equal(t, []any{"id", "name"}, columns)
+
+	rows := result["rows"].([]any)
+	assert.Len(t, rows, 8)
+	assert.Equal(t, []any{float64(1), "a"}, rows[0])
+}
+
+func TestColumnarizeJSON_SmallArrayPassthrough(t *testing.T) {
+	input := `[{"id":1,"name":"foo"},{"id":2,"name":"bar"}]`
+	got, err := ColumnarizeJSON([]byte(input))
+	require.NoError(t, err)
+	assert.JSONEq(t, input, string(got))
+}
+
+func TestColumnarizeJSON_NestedArrayInObject(t *testing.T) {
+	input := `{"results":[{"id":"a","type":"page"},{"id":"b","type":"db"},{"id":"c","type":"page"},{"id":"d","type":"db"},{"id":"e","type":"page"},{"id":"f","type":"db"},{"id":"g","type":"page"},{"id":"h","type":"db"}],"total":8}`
+	got, err := ColumnarizeJSON([]byte(input))
+	require.NoError(t, err)
+
+	var result map[string]any
+	require.NoError(t, json.Unmarshal(got, &result))
+
+	assert.Equal(t, float64(8), result["total"])
+	nested := result["results"].(map[string]any)
+	assert.Contains(t, nested, "columns")
+	assert.Contains(t, nested, "rows")
+}
+
+func TestColumnarizeJSON_SingleObject(t *testing.T) {
+	input := `{"id":1,"name":"foo"}`
+	got, err := ColumnarizeJSON([]byte(input))
+	require.NoError(t, err)
+	assert.JSONEq(t, input, string(got))
+}
+
+func TestColumnarizeJSON_ScalarArray(t *testing.T) {
+	input := `[1,2,3,4,5]`
+	got, err := ColumnarizeJSON([]byte(input))
+	require.NoError(t, err)
+	assert.JSONEq(t, input, string(got))
+}
+
+func TestColumnarizeJSON_Empty(t *testing.T) {
+	got, err := ColumnarizeJSON([]byte{})
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
+func TestColumnarizeJSON_HeterogeneousKeys(t *testing.T) {
+	// Objects with different key sets — columns must be the union, missing values become null.
+	input := `[{"id":1,"name":"a"},{"id":2,"extra":"x"},{"id":3,"name":"c","extra":"y"},{"id":4},{"id":5,"name":"e"},{"id":6,"extra":"z"},{"id":7,"name":"g","extra":"w"},{"id":8}]`
+	got, err := ColumnarizeJSON([]byte(input))
+	require.NoError(t, err)
+
+	var result map[string]any
+	require.NoError(t, json.Unmarshal(got, &result))
+
+	cols, ok := result["columns"].([]any)
+	require.True(t, ok)
+	// Union of {id, name, extra} = 3 columns
+	assert.Len(t, cols, 3)
+	assert.Contains(t, cols, "id")
+	assert.Contains(t, cols, "name")
+	assert.Contains(t, cols, "extra")
+
+	rows, ok := result["rows"].([]any)
+	require.True(t, ok)
+	assert.Len(t, rows, 8)
+
+	// Each row has len(cols) entries; missing fields are nil/null.
+	for _, r := range rows {
+		row, ok := r.([]any)
+		require.True(t, ok)
+		assert.Len(t, row, len(cols))
+	}
+}
+
+func TestColumnarizeJSON_ConstantLifting(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		wantConstants  map[string]any
+		wantColumns    []any
+		wantRowCount   int
+		wantRowLen     int
+	}{
+		{
+			name:  "top-level array lifts constant column",
+			input: `[{"id":1,"state":"open"},{"id":2,"state":"open"},{"id":3,"state":"open"},{"id":4,"state":"open"},{"id":5,"state":"open"},{"id":6,"state":"open"},{"id":7,"state":"open"},{"id":8,"state":"open"}]`,
+			wantConstants: map[string]any{"state": "open"},
+			wantColumns:   []any{"id"},
+			wantRowCount:  8,
+			wantRowLen:    1,
+		},
+		{
+			name:  "nested array lifts constant column",
+			input: `{"results":[{"id":"a","type":"page"},{"id":"b","type":"page"},{"id":"c","type":"page"},{"id":"d","type":"page"},{"id":"e","type":"page"},{"id":"f","type":"page"},{"id":"g","type":"page"},{"id":"h","type":"page"}],"total":8}`,
+			wantConstants: map[string]any{"type": "page"},
+			wantColumns:   []any{"id"},
+			wantRowCount:  8,
+			wantRowLen:    1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ColumnarizeJSON([]byte(tt.input))
+			require.NoError(t, err)
+
+			var raw map[string]any
+			require.NoError(t, json.Unmarshal(got, &raw))
+
+			// For nested arrays, dig into "results".
+			target := raw
+			if nested, ok := raw["results"].(map[string]any); ok {
+				target = nested
+			}
+
+			cols, ok := target["columns"].([]any)
+			require.True(t, ok)
+			assert.Equal(t, tt.wantColumns, cols)
+
+			rows, ok := target["rows"].([]any)
+			require.True(t, ok)
+			assert.Len(t, rows, tt.wantRowCount)
+			for _, r := range rows {
+				row, ok := r.([]any)
+				require.True(t, ok)
+				assert.Len(t, row, tt.wantRowLen)
+			}
+
+			constants, ok := target["constants"].(map[string]any)
+			require.True(t, ok, "should have constants key")
+			assert.Equal(t, tt.wantConstants, constants)
+		})
+	}
+}
+
+func TestBuildColumnar(t *testing.T) {
+	tests := []struct {
+		name      string
+		objects   []map[string]any
+		columns   []string       // expected columns in sorted order
+		rows      [][]any        // expected row values (column-aligned)
+		constants map[string]any // expected constant columns lifted out (nil = no constants)
+	}{
+		{
+			name: "converts uniform objects to columns and rows",
+			objects: []map[string]any{
+				{"id": float64(1), "name": "foo"},
+				{"id": float64(2), "name": "bar"},
+				{"id": float64(3), "name": "baz"},
+				{"id": float64(4), "name": "qux"},
+			},
+			columns: []string{"id", "name"},
+			rows: [][]any{
+				{float64(1), "foo"},
+				{float64(2), "bar"},
+				{float64(3), "baz"},
+				{float64(4), "qux"},
+			},
+		},
+		{
+			name: "uses union of all keys across heterogeneous objects",
+			objects: []map[string]any{
+				{"id": float64(1), "name": "a"},
+				{"id": float64(2), "extra": "x"},
+				{"id": float64(3), "name": "c", "extra": "y"},
+				{"id": float64(4)},
+			},
+			// id: 4/4, extra: 2/4, name: 2/4 — density desc, then alpha tiebreak
+			columns: []string{"id", "extra", "name"},
+			rows: [][]any{
+				{float64(1), nil, "a"},
+				{float64(2), "x", nil},
+				{float64(3), "y", "c"},
+				{float64(4), nil, nil},
+			},
+		},
+		{
+			name: "preserves nested objects and arrays in cell values",
+			objects: []map[string]any{
+				{"id": float64(1), "meta": map[string]any{"key": "val"}},
+				{"id": float64(2), "meta": map[string]any{"key": "other"}},
+				{"id": float64(3), "meta": nil},
+				{"id": float64(4), "meta": map[string]any{"key": "last"}},
+			},
+			columns: []string{"id", "meta"},
+			rows: [][]any{
+				{float64(1), map[string]any{"key": "val"}},
+				{float64(2), map[string]any{"key": "other"}},
+				{float64(3), nil},
+				{float64(4), map[string]any{"key": "last"}},
+			},
+		},
+		{
+			name: "handles single-key objects",
+			objects: []map[string]any{
+				{"name": "a"},
+				{"name": "b"},
+				{"name": "c"},
+				{"name": "d"},
+			},
+			columns: []string{"name"},
+			rows: [][]any{
+				{"a"},
+				{"b"},
+				{"c"},
+				{"d"},
+			},
+		},
+		{
+			name: "lifts uniform column to constants",
+			objects: []map[string]any{
+				{"id": float64(1), "state": "open", "title": "bug"},
+				{"id": float64(2), "state": "open", "title": "feat"},
+				{"id": float64(3), "state": "open", "title": "fix"},
+				{"id": float64(4), "state": "open", "title": "docs"},
+			},
+			columns:   []string{"id", "title"},
+			constants: map[string]any{"state": "open"},
+			rows: [][]any{
+				{float64(1), "bug"},
+				{float64(2), "feat"},
+				{float64(3), "fix"},
+				{float64(4), "docs"},
+			},
+		},
+		{
+			name: "does not lift when all values differ",
+			objects: []map[string]any{
+				{"id": float64(1), "name": "a"},
+				{"id": float64(2), "name": "b"},
+				{"id": float64(3), "name": "c"},
+				{"id": float64(4), "name": "d"},
+			},
+			columns: []string{"id", "name"},
+			rows: [][]any{
+				{float64(1), "a"},
+				{float64(2), "b"},
+				{float64(3), "c"},
+				{float64(4), "d"},
+			},
+		},
+		{
+			name: "lifts all-null column as constant",
+			objects: []map[string]any{
+				{"id": float64(1), "milestone": nil},
+				{"id": float64(2), "milestone": nil},
+				{"id": float64(3), "milestone": nil},
+				{"id": float64(4), "milestone": nil},
+			},
+			columns:   []string{"id"},
+			constants: map[string]any{"milestone": nil},
+			rows: [][]any{
+				{float64(1)},
+				{float64(2)},
+				{float64(3)},
+				{float64(4)},
+			},
+		},
+		{
+			name: "lifts multiple constant columns",
+			objects: []map[string]any{
+				{"id": float64(1), "state": "open", "integration": "github", "title": "bug"},
+				{"id": float64(2), "state": "open", "integration": "github", "title": "feat"},
+				{"id": float64(3), "state": "open", "integration": "github", "title": "fix"},
+				{"id": float64(4), "state": "open", "integration": "github", "title": "docs"},
+			},
+			columns:   []string{"id", "title"},
+			constants: map[string]any{"integration": "github", "state": "open"},
+			rows: [][]any{
+				{float64(1), "bug"},
+				{float64(2), "feat"},
+				{float64(3), "fix"},
+				{float64(4), "docs"},
+			},
+		},
+		{
+			name: "orders columns by density descending then alphabetically",
+			objects: []map[string]any{
+				{"alpha": "a", "zebra": "z", "mid": "m"},
+				{"zebra": "z2"},
+				{"zebra": "z3", "mid": "m3"},
+				{"zebra": "z4"},
+			},
+			// zebra: 4/4 non-null, mid: 2/4, alpha: 1/4
+			// Density desc puts zebra first (despite being last alphabetically)
+			columns: []string{"zebra", "mid", "alpha"},
+			rows: [][]any{
+				{"z", "m", "a"},
+				{"z2", nil, nil},
+				{"z3", "m3", nil},
+				{"z4", nil, nil},
+			},
+		},
+		{
+			name: "breaks density ties alphabetically",
+			objects: []map[string]any{
+				{"zebra": "z", "alpha": "a"},
+				{"zebra": "z2", "alpha": "a2"},
+				{"zebra": "z3", "alpha": "a3"},
+				{"zebra": "z4", "alpha": "a4"},
+			},
+			// Both 4/4 density, alphabetical tiebreak: alpha before zebra
+			columns: []string{"alpha", "zebra"},
+			rows: [][]any{
+				{"a", "z"},
+				{"a2", "z2"},
+				{"a3", "z3"},
+				{"a4", "z4"},
+			},
+		},
+		{
+			name: "lifts constant with nested object value using deep equality",
+			objects: []map[string]any{
+				{"id": float64(1), "config": map[string]any{"mode": "fast"}},
+				{"id": float64(2), "config": map[string]any{"mode": "fast"}},
+				{"id": float64(3), "config": map[string]any{"mode": "fast"}},
+				{"id": float64(4), "config": map[string]any{"mode": "fast"}},
+			},
+			columns:   []string{"id"},
+			constants: map[string]any{"config": map[string]any{"mode": "fast"}},
+			rows: [][]any{
+				{float64(1)},
+				{float64(2)},
+				{float64(3)},
+				{float64(4)},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildColumnar(tt.objects)
+
+			cols, ok := result["columns"].([]string)
+			require.True(t, ok, "columns should be []string")
+			assert.Equal(t, tt.columns, cols)
+
+			rows, ok := result["rows"].([][]any)
+			require.True(t, ok, "rows should be [][]any")
+			require.Len(t, rows, len(tt.rows))
+
+			for i, expectedRow := range tt.rows {
+				assert.Equal(t, expectedRow, rows[i], "row %d mismatch", i)
+			}
+
+			if tt.constants != nil {
+				constants, ok := result["constants"].(map[string]any)
+				require.True(t, ok, "constants should be map[string]any")
+				assert.Equal(t, tt.constants, constants)
+			} else {
+				_, hasConstants := result["constants"]
+				assert.False(t, hasConstants, "should not have constants key")
+			}
+		})
+	}
+}
+
 func BenchmarkCompactJSON_ArrayOfObjects(b *testing.B) {
 	input := make([]map[string]any, 100)
 	for i := range input {
@@ -848,6 +1259,7 @@ func BenchmarkCompactJSON_ArrayOfObjects(b *testing.B) {
 		_, _ = CompactJSON(data, fields)
 	}
 }
+
 
 // ---------------------------------------------------------------------------
 // Compaction ratio benchmarks — realistic API payloads per integration
@@ -1306,3 +1718,4 @@ func BenchmarkCompactionRatio(b *testing.B) {
 		benchCompaction(b, "Passthrough", data, nil)
 	})
 }
+

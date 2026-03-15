@@ -14,7 +14,10 @@ import (
 	"github.com/daltoniam/switchboard/remotemcp"
 )
 
-const graphqlURL = "https://api.linear.app/graphql"
+var graphqlURL = "https://api.linear.app/graphql"
+
+// setGraphqlURL overrides the GraphQL endpoint (tests only).
+func setGraphqlURL(url string) { graphqlURL = url }
 
 // Compile-time interface assertions.
 var (
@@ -282,6 +285,180 @@ func (l *linear) resolveTeamID(ctx context.Context, nameOrKey string) (string, e
 		return resp.Teams.Nodes[0].ID, nil
 	}
 	return "", fmt.Errorf("team not found: %s", nameOrKey)
+}
+
+// resolveIssueTeamID fetches the team ID for an already-resolved issue UUID.
+func (l *linear) resolveIssueTeamID(ctx context.Context, issueID string) (string, error) {
+	data, err := l.gql(ctx, `query($id: String!) {
+		issue(id: $id) { team { id } }
+	}`, map[string]any{"id": issueID})
+	if err != nil {
+		return "", err
+	}
+	var resp struct {
+		Issue struct {
+			Team struct {
+				ID string `json:"id"`
+			} `json:"team"`
+		} `json:"issue"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil || resp.Issue.Team.ID == "" {
+		return "", fmt.Errorf("could not resolve team for issue: %s", issueID)
+	}
+	return resp.Issue.Team.ID, nil
+}
+
+// resolveStateID looks up a workflow state by name within a team and returns its UUID.
+func (l *linear) resolveStateID(ctx context.Context, name, teamID string) (string, error) {
+	filter := map[string]any{"name": map[string]any{"eqIgnoreCase": name}}
+	if teamID != "" {
+		filter["team"] = map[string]any{"id": map[string]any{"eq": teamID}}
+	}
+	data, err := l.gql(ctx, `query($filter: WorkflowStateFilter) {
+		workflowStates(filter: $filter) { nodes { id } }
+	}`, map[string]any{"filter": filter})
+	if err != nil {
+		return "", err
+	}
+	var resp struct {
+		WorkflowStates struct {
+			Nodes []struct {
+				ID string `json:"id"`
+			} `json:"nodes"`
+		} `json:"workflowStates"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return "", err
+	}
+	if len(resp.WorkflowStates.Nodes) > 0 {
+		return resp.WorkflowStates.Nodes[0].ID, nil
+	}
+	return "", fmt.Errorf("workflow state not found: %s", name)
+}
+
+// resolveProjectID looks up a project by name and returns its UUID.
+func (l *linear) resolveProjectID(ctx context.Context, name string) (string, error) {
+	data, err := l.gql(ctx, `query($term: String!) {
+		searchProjects(term: $term, first: 5) { nodes { id name } }
+	}`, map[string]any{"term": name})
+	if err != nil {
+		return "", err
+	}
+	var resp struct {
+		SearchProjects struct {
+			Nodes []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"nodes"`
+		} `json:"searchProjects"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return "", err
+	}
+	for _, n := range resp.SearchProjects.Nodes {
+		if strings.EqualFold(n.Name, name) {
+			return n.ID, nil
+		}
+	}
+	if len(resp.SearchProjects.Nodes) > 0 {
+		return resp.SearchProjects.Nodes[0].ID, nil
+	}
+	return "", fmt.Errorf("project not found: %s", name)
+}
+
+// resolveUserID looks up a user by name or email and returns their UUID.
+func (l *linear) resolveUserID(ctx context.Context, nameOrEmail string) (string, error) {
+	data, err := l.gql(ctx, `query($filter: UserFilter) {
+		users(filter: $filter) { nodes { id } }
+	}`, map[string]any{
+		"filter": map[string]any{"name": map[string]any{"eqIgnoreCase": nameOrEmail}},
+	})
+	if err != nil {
+		return "", err
+	}
+	var resp struct {
+		Users struct {
+			Nodes []struct {
+				ID string `json:"id"`
+			} `json:"nodes"`
+		} `json:"users"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return "", err
+	}
+	if len(resp.Users.Nodes) > 0 {
+		return resp.Users.Nodes[0].ID, nil
+	}
+
+	data, err = l.gql(ctx, `query($filter: UserFilter) {
+		users(filter: $filter) { nodes { id } }
+	}`, map[string]any{
+		"filter": map[string]any{"email": map[string]any{"eqIgnoreCase": nameOrEmail}},
+	})
+	if err != nil {
+		return "", err
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return "", err
+	}
+	if len(resp.Users.Nodes) > 0 {
+		return resp.Users.Nodes[0].ID, nil
+	}
+	return "", fmt.Errorf("user not found: %s", nameOrEmail)
+}
+
+// resolveLabelIDs looks up labels by name in a single batched query and returns their UUIDs.
+func (l *linear) resolveLabelIDs(ctx context.Context, names []string) ([]string, error) {
+	var cleaned []string
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			cleaned = append(cleaned, name)
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil, nil
+	}
+
+	orFilters := make([]map[string]any, len(cleaned))
+	for i, name := range cleaned {
+		orFilters[i] = map[string]any{"name": map[string]any{"eqIgnoreCase": name}}
+	}
+
+	data, err := l.gql(ctx, `query($filter: IssueLabelFilter) {
+		issueLabels(filter: $filter) { nodes { id name } }
+	}`, map[string]any{
+		"filter": map[string]any{"or": orFilters},
+	})
+	if err != nil {
+		return nil, err
+	}
+	var resp struct {
+		IssueLabels struct {
+			Nodes []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"nodes"`
+		} `json:"issueLabels"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, err
+	}
+
+	nameToID := make(map[string]string, len(resp.IssueLabels.Nodes))
+	for _, n := range resp.IssueLabels.Nodes {
+		nameToID[strings.ToLower(n.Name)] = n.ID
+	}
+
+	ids := make([]string, 0, len(cleaned))
+	for _, name := range cleaned {
+		id, ok := nameToID[strings.ToLower(name)]
+		if !ok {
+			return nil, fmt.Errorf("label not found: %s", name)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 type handlerFunc func(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error)

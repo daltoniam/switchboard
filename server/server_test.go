@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -292,18 +293,18 @@ func searchRequest(args map[string]any) *mcpsdk.CallToolRequest {
 }
 
 // searchResponse is the paginated envelope returned by handleSearch.
+// Tools is json.RawMessage because it can be either a plain array (<4 items)
+// or a columnar object (4+ items with columns/rows/constants).
 type searchResponse struct {
-	Summary      string   `json:"summary"`
-	ScriptHint   string   `json:"script_hint"`
-	Total        int      `json:"total"`
-	Offset       int      `json:"offset"`
-	Limit        int      `json:"limit"`
-	HasMore      bool     `json:"has_more"`
-	Integrations []string `json:"integrations"`
-	Tools        []struct {
-		Integration string `json:"integration"`
-		Name        string `json:"name"`
-	} `json:"tools"`
+	Summary          string            `json:"summary"`
+	ScriptHint       string            `json:"script_hint"`
+	SharedParameters map[string]string `json:"shared_parameters"`
+	Total            int               `json:"total"`
+	Offset           int               `json:"offset"`
+	Limit            int               `json:"limit"`
+	HasMore          bool              `json:"has_more"`
+	Integrations     []string          `json:"integrations"`
+	Tools            json.RawMessage   `json:"tools"`
 }
 
 func parseSearchResponse(t *testing.T, result *mcpsdk.CallToolResult) searchResponse {
@@ -314,6 +315,138 @@ func parseSearchResponse(t *testing.T, result *mcpsdk.CallToolResult) searchResp
 	var resp searchResponse
 	require.NoError(t, json.Unmarshal([]byte(tc.Text), &resp))
 	return resp
+}
+
+// searchToolCount returns the number of tools in a search response,
+// handling both per-record array and columnar formats.
+func searchToolCount(t *testing.T, resp searchResponse) int {
+	t.Helper()
+	var arr []any
+	if err := json.Unmarshal(resp.Tools, &arr); err == nil {
+		return len(arr)
+	}
+	var obj struct {
+		Rows []json.RawMessage `json:"rows"`
+	}
+	require.NoError(t, json.Unmarshal(resp.Tools, &obj))
+	return len(obj.Rows)
+}
+
+// searchToolNames extracts tool names from a search response,
+// handling both per-record array and columnar formats.
+func searchToolNames(t *testing.T, resp searchResponse) []string {
+	t.Helper()
+
+	// Try per-record array first.
+	var arr []struct{ Name string }
+	if err := json.Unmarshal(resp.Tools, &arr); err == nil {
+		names := make([]string, len(arr))
+		for i, tool := range arr {
+			names[i] = tool.Name
+		}
+		return names
+	}
+
+	// Columnar format: find "name" column index, extract from rows.
+	var obj struct {
+		Columns   []string          `json:"columns"`
+		Constants map[string]string `json:"constants"`
+		Rows      [][]json.RawMessage `json:"rows"`
+	}
+	require.NoError(t, json.Unmarshal(resp.Tools, &obj))
+
+	nameIdx := -1
+	for i, c := range obj.Columns {
+		if c == "name" {
+			nameIdx = i
+			break
+		}
+	}
+
+	var names []string
+	if nameIdx >= 0 {
+		for _, row := range obj.Rows {
+			var name string
+			require.NoError(t, json.Unmarshal(row[nameIdx], &name))
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// extractColumnarParams parses the parameters column from columnar search tools JSON.
+func extractColumnarParams(t *testing.T, toolsRaw json.RawMessage) []map[string]string {
+	t.Helper()
+	var obj struct {
+		Columns []string           `json:"columns"`
+		Rows    [][]json.RawMessage `json:"rows"`
+	}
+	require.NoError(t, json.Unmarshal(toolsRaw, &obj))
+
+	paramIdx := -1
+	for i, c := range obj.Columns {
+		if c == "parameters" {
+			paramIdx = i
+			break
+		}
+	}
+	require.NotEqual(t, -1, paramIdx, "should have parameters column")
+
+	var result []map[string]string
+	for _, row := range obj.Rows {
+		var params map[string]string
+		require.NoError(t, json.Unmarshal(row[paramIdx], &params))
+		result = append(result, params)
+	}
+	return result
+}
+
+// searchToolIntegrations extracts integration values from a search response.
+func searchToolIntegrations(t *testing.T, resp searchResponse) []string {
+	t.Helper()
+
+	var arr []struct{ Integration string }
+	if err := json.Unmarshal(resp.Tools, &arr); err == nil {
+		integrations := make([]string, len(arr))
+		for i, tool := range arr {
+			integrations[i] = tool.Integration
+		}
+		return integrations
+	}
+
+	var obj struct {
+		Columns   []string            `json:"columns"`
+		Constants map[string]string   `json:"constants"`
+		Rows      [][]json.RawMessage `json:"rows"`
+	}
+	require.NoError(t, json.Unmarshal(resp.Tools, &obj))
+
+	// Check constants first (integration is often lifted).
+	if v, ok := obj.Constants["integration"]; ok {
+		result := make([]string, len(obj.Rows))
+		for i := range result {
+			result[i] = v
+		}
+		return result
+	}
+
+	intIdx := -1
+	for i, c := range obj.Columns {
+		if c == "integration" {
+			intIdx = i
+			break
+		}
+	}
+
+	var integrations []string
+	if intIdx >= 0 {
+		for _, row := range obj.Rows {
+			var v string
+			require.NoError(t, json.Unmarshal(row[intIdx], &v))
+			integrations = append(integrations, v)
+		}
+	}
+	return integrations
 }
 
 // makeManyTools generates n tool definitions for testing pagination.
@@ -406,7 +539,7 @@ func TestHandleSearch_Pagination(t *testing.T) {
 			assert.Equal(t, tt.wantTotal, resp.Total)
 			assert.Equal(t, tt.wantOffset, resp.Offset)
 			assert.Equal(t, tt.wantLimit, resp.Limit)
-			assert.Len(t, resp.Tools, tt.wantTools)
+			assert.Equal(t, tt.wantTools, searchToolCount(t, resp))
 			assert.Equal(t, tt.wantHasMore, resp.HasMore, "has_more")
 		})
 	}
@@ -434,7 +567,7 @@ func TestHandleSearch_QueryFiltersCombinedWithPagination(t *testing.T) {
 
 	resp := parseSearchResponse(t, result)
 	assert.Equal(t, 3, resp.Total)
-	assert.Len(t, resp.Tools, 2)
+	assert.Equal(t, 2, searchToolCount(t, resp))
 }
 
 func TestHandleSearch_MalformedArgsReturnsError(t *testing.T) {
@@ -483,18 +616,18 @@ func TestHandleSearch_MultiIntegrationSortedDeterministically(t *testing.T) {
 	require.NoError(t, err)
 	resp2 := parseSearchResponse(t, result2)
 
-	require.Len(t, resp1.Tools, 3)
-	require.Len(t, resp2.Tools, 3)
+	names1 := searchToolNames(t, resp1)
+	names2 := searchToolNames(t, resp2)
+	require.Len(t, names1, 3)
+	require.Len(t, names2, 3)
 
 	// Must be sorted by integration name, then tool name.
-	assert.Equal(t, "alpha_a", resp1.Tools[0].Name)
-	assert.Equal(t, "alpha_b", resp1.Tools[1].Name)
-	assert.Equal(t, "beta_a", resp1.Tools[2].Name)
+	assert.Equal(t, "alpha_a", names1[0])
+	assert.Equal(t, "alpha_b", names1[1])
+	assert.Equal(t, "beta_a", names1[2])
 
 	// Same order on second call.
-	for i := range resp1.Tools {
-		assert.Equal(t, resp1.Tools[i].Name, resp2.Tools[i].Name)
-	}
+	assert.Equal(t, names1, names2)
 }
 
 func TestHandleSearch_ResponseIncludesSummary(t *testing.T) {
@@ -541,7 +674,7 @@ func TestHandleSearch_ResponseIncludesIntegrations(t *testing.T) {
 
 		resp := parseSearchResponse(t, result)
 		assert.ElementsMatch(t, []string{"alpha", "beta"}, resp.Integrations)
-		assert.Empty(t, resp.Tools)
+		assert.Equal(t, 0, searchToolCount(t, resp))
 	})
 }
 
@@ -588,7 +721,7 @@ func TestSmoke_SearchResponseShape(t *testing.T) {
 	assert.Equal(t, 3, resp.Limit)
 	assert.True(t, resp.HasMore)
 	assert.ElementsMatch(t, []string{"alpha", "beta"}, resp.Integrations)
-	assert.Len(t, resp.Tools, 3)
+	assert.Equal(t, 3, searchToolCount(t, resp))
 	assert.Contains(t, resp.Summary, "15")
 	assert.Contains(t, resp.ScriptHint, "script")
 }
@@ -635,7 +768,7 @@ func TestHandleExecute_CompactionApplied(t *testing.T) {
 				{Name: "testint_list_items", Description: "List items"},
 			},
 			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
-				return &mcp.ToolResult{Data: `[{"id":1,"name":"foo","secret":"hidden"},{"id":2,"name":"bar","secret":"also hidden"}]`}, nil
+				return &mcp.ToolResult{Data: `[{"id":1,"name":"a","secret":"s"},{"id":2,"name":"b","secret":"s"},{"id":3,"name":"c","secret":"s"},{"id":4,"name":"d","secret":"s"},{"id":5,"name":"e","secret":"s"},{"id":6,"name":"f","secret":"s"},{"id":7,"name":"g","secret":"s"},{"id":8,"name":"h","secret":"s"}]`}, nil
 			},
 		},
 		specs: map[string][]mcp.CompactField{
@@ -652,12 +785,124 @@ func TestHandleExecute_CompactionApplied(t *testing.T) {
 	require.False(t, result.IsError)
 
 	tc := result.Content[0].(*mcpsdk.TextContent)
-	var items []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(tc.Text), &items))
-	assert.Len(t, items, 2)
-	assert.Equal(t, float64(1), items[0]["id"])
-	assert.Equal(t, "foo", items[0]["name"])
-	assert.NotContains(t, items[0], "secret", "compaction should remove unlisted fields")
+	var columnar map[string]any
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &columnar))
+
+	// Array responses use columnar format: {"columns": [...], "rows": [[...], ...]}
+	columns, ok := columnar["columns"].([]any)
+	require.True(t, ok, "expected columnar format with 'columns' key")
+	assert.Equal(t, []any{"id", "name"}, columns)
+
+	rows, ok := columnar["rows"].([]any)
+	require.True(t, ok, "expected columnar format with 'rows' key")
+	assert.Len(t, rows, 8)
+
+	row0, ok := rows[0].([]any)
+	require.True(t, ok)
+	assert.Equal(t, float64(1), row0[0])
+	assert.Equal(t, "a", row0[1])
+}
+
+func TestHandleExecute_CompactionSingleObjectStaysPerRecord(t *testing.T) {
+	mi := &mockFieldCompactionIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "testint_get_item", Description: "Get item"},
+			},
+			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: `{"id":1,"name":"foo","secret":"hidden"}`}, nil
+			},
+		},
+		specs: map[string][]mcp.CompactField{
+			"testint_get_item": mustParseCompactSpecs(t, []string{"id", "name"}),
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_get_item", nil))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	var item map[string]any
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &item))
+	assert.Equal(t, float64(1), item["id"])
+	assert.Equal(t, "foo", item["name"])
+	assert.NotContains(t, item, "secret", "compaction should remove unlisted fields")
+	assert.NotContains(t, item, "columns", "single objects should not use columnar format")
+}
+
+func TestScriptExecution_CompactedToolReturnsPerRecord(t *testing.T) {
+	// Scripts calling compacted tools should get per-record data (not columnar),
+	// enabling natural field access like items[i].name instead of row index counting.
+	mi := &mockFieldCompactionIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "testint_list_items", Description: "List items"},
+			},
+			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: `[{"id":1,"name":"foo","secret":"x"},{"id":2,"name":"bar","secret":"y"},{"id":3,"name":"baz","secret":"z"},{"id":4,"name":"qux","secret":"w"}]`}, nil
+			},
+		},
+		specs: map[string][]mcp.CompactField{
+			"testint_list_items": mustParseCompactSpecs(t, []string{"id", "name"}),
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	// Script accesses compacted fields by name — this would fail if api.call returned columnar.
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var items = api.call("testint_list_items", {});
+		var names = [];
+		for (var i = 0; i < items.length; i++) {
+			names.push(items[i].name);
+		}
+		names;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.JSONEq(t, `["foo","bar","baz","qux"]`, result.Data)
+}
+
+func TestHandleScriptExecute_OutputColumnarized(t *testing.T) {
+	// Script output should be columnarized at the MCP response boundary.
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_list_items", Description: "List items"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `[{"id":1,"name":"a"},{"id":2,"name":"b"},{"id":3,"name":"c"},{"id":4,"name":"d"},{"id":5,"name":"e"},{"id":6,"name":"f"},{"id":7,"name":"g"},{"id":8,"name":"h"}]`}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	scriptReq := &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name: "execute",
+			Arguments: json.RawMessage(`{"script":"api.call('testint_list_items', {});"}`),
+		},
+	}
+	result, err := s.handleExecute(context.Background(), scriptReq)
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	var columnar map[string]any
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &columnar))
+
+	columns, ok := columnar["columns"].([]any)
+	require.True(t, ok, "script output should be columnarized at the response boundary")
+	assert.Equal(t, []any{"id", "name"}, columns)
 }
 
 func TestHandleExecute_CompactionSkippedWhenNotImplemented(t *testing.T) {
@@ -1309,6 +1554,86 @@ func TestScriptExecution_CrossIntegration(t *testing.T) {
 	assert.Equal(t, "ENG-42: Fix auth bug", parsed["pr_title"])
 }
 
+func TestScriptExecution_OutputByteCapEnforced(t *testing.T) {
+	chunkData := `{"data":"` + strings.Repeat("x", 20*1024) + `"}`
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_chunk", Description: "Returns a chunk of data"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: chunkData}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	script := `var a = api.call("testint_chunk", {}); var b = api.call("testint_chunk", {}); var c = api.call("testint_chunk", {}); ({a: a, b: b, c: c});`
+	data, _ := json.Marshal(map[string]any{"script": script})
+	req := &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "execute",
+			Arguments: json.RawMessage(data),
+		},
+	}
+	result, err := s.handleExecute(context.Background(), req)
+	require.NoError(t, err)
+	assert.True(t, result.IsError, "over-cap script output should return error")
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	capKB := fmt.Sprintf("%dKB", maxResponseBytes/1024)
+	assert.Contains(t, tc.Text, capKB)
+	assert.Contains(t, tc.Text, "Script output exceeded")
+}
+
+func TestScriptExecution_OutputByteCapSkippedOnError(t *testing.T) {
+	s := setupTestServer()
+	data, _ := json.Marshal(map[string]any{
+		"script": `api.call("nonexistent_tool", {});`,
+	})
+	req := &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "execute",
+			Arguments: json.RawMessage(data),
+		},
+	}
+	result, err := s.handleExecute(context.Background(), req)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.NotContains(t, tc.Text, "Script output exceeded", "error results should skip byte cap")
+}
+
+func TestScriptExecution_FieldProjection(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "testint_list_items", Description: "List items"},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `[{"id":1,"name":"alpha","secret":"hidden","meta":{"tag":"v1"}},{"id":2,"name":"beta","secret":"also hidden","meta":{"tag":"v2"}}]`}, nil
+		},
+	}
+
+	s := setupTestServer(mi)
+	result, err := s.scriptEngine.Run(context.Background(), `
+		var items = api.call("testint_list_items", {}, {fields: ["id", "name"]});
+		items;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	require.Len(t, parsed, 2)
+	assert.Equal(t, float64(1), parsed[0]["id"])
+	assert.Equal(t, "alpha", parsed[0]["name"])
+	assert.Nil(t, parsed[0]["secret"], "secret should be projected out")
+	assert.Nil(t, parsed[0]["meta"], "meta should be projected out")
+}
+
 func TestSearch_ScriptHint_MultipleIntegrations(t *testing.T) {
 	alpha := &mockIntegration{
 		name:    "github",
@@ -1432,8 +1757,8 @@ func TestSearch_IntegrationFilter(t *testing.T) {
 		require.NoError(t, err)
 		resp := parseSearchResponse(t, result)
 		assert.Equal(t, 2, resp.Total)
-		for _, tool := range resp.Tools {
-			assert.Equal(t, "github", tool.Integration)
+		for _, integration := range searchToolIntegrations(t, resp) {
+			assert.Equal(t, "github", integration)
 		}
 	})
 
@@ -1445,7 +1770,9 @@ func TestSearch_IntegrationFilter(t *testing.T) {
 		require.NoError(t, err)
 		resp := parseSearchResponse(t, result)
 		assert.Equal(t, 1, resp.Total)
-		assert.Equal(t, "slack_send_message", resp.Tools[0].Name)
+		names := searchToolNames(t, resp)
+		require.Len(t, names, 1)
+		assert.Equal(t, "slack_send_message", names[0])
 	})
 
 	t.Run("empty filter returns all", func(t *testing.T) {
@@ -1473,7 +1800,181 @@ func TestSearch_SynonymMatching(t *testing.T) {
 	require.NoError(t, err)
 	resp := parseSearchResponse(t, result)
 	assert.Equal(t, 1, resp.Total, "search for 'slack post message' should find slack_send_message")
-	assert.Equal(t, "slack_send_message", resp.Tools[0].Name)
+	names := searchToolNames(t, resp)
+	require.Len(t, names, 1)
+	assert.Equal(t, "slack_send_message", names[0])
+}
+
+func TestFindTool_ReturnsToolDefinition(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{
+				Name:        "testint_get_item",
+				Description: "Get an item",
+				Parameters:  map[string]string{"id": "Item ID"},
+				Required:    []string{"id"},
+			},
+			{
+				Name:        "testint_list_items",
+				Description: "List items",
+				Parameters:  map[string]string{"query": "Search query"},
+			},
+		},
+	}
+	s := setupTestServer(mi)
+
+	t.Run("returns matching tool definition", func(t *testing.T) {
+		integration, toolDef, found := s.findTool("testint_get_item")
+		require.True(t, found)
+		assert.Equal(t, "testint", integration.Name())
+		assert.Equal(t, "testint_get_item", toolDef.Name)
+		assert.Equal(t, []string{"id"}, toolDef.Required)
+	})
+
+	t.Run("returns false for unknown tool", func(t *testing.T) {
+		_, _, found := s.findTool("nonexistent_tool")
+		assert.False(t, found)
+	})
+}
+
+func TestValidateArgs(t *testing.T) {
+	tool := mcp.ToolDefinition{
+		Name:       "github_get_issue",
+		Parameters: map[string]string{"owner": "Repo owner", "repo": "Repo name", "number": "Issue number"},
+		Required:   []string{"owner", "repo", "number"},
+	}
+
+	tests := []struct {
+		name    string
+		tool    mcp.ToolDefinition
+		args    map[string]any
+		wantErr string
+	}{
+		{
+			name: "all required present, no unknowns",
+			tool: tool,
+			args: map[string]any{"owner": "foo", "repo": "bar", "number": 42},
+		},
+		{
+			name:    "missing required param",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo", "repo": "bar"},
+			wantErr: `missing required parameter "number"`,
+		},
+		{
+			name:    "missing multiple required params",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo"},
+			wantErr: "missing required parameter",
+		},
+		{
+			name:    "unknown param",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo", "repo": "bar", "number": 42, "bogus": "val"},
+			wantErr: `unknown parameter "bogus"`,
+		},
+		{
+			name:    "unknown param similar to valid — suggests correction",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo", "repo": "bar", "number": 42, "issue_number": 99},
+			wantErr: `did you mean "number"`,
+		},
+		{
+			name: "optional param present",
+			tool: mcp.ToolDefinition{
+				Name:       "testint_list",
+				Parameters: map[string]string{"query": "Search", "page": "Page number"},
+				Required:   []string{"query"},
+			},
+			args: map[string]any{"query": "test", "page": 2},
+		},
+		{
+			name: "empty args with no required",
+			tool: mcp.ToolDefinition{
+				Name:       "testint_list",
+				Parameters: map[string]string{"query": "Search"},
+			},
+			args: map[string]any{},
+		},
+		{
+			name: "nil args with no required",
+			tool: mcp.ToolDefinition{
+				Name:       "testint_list",
+				Parameters: map[string]string{"query": "Search"},
+			},
+			args: nil,
+		},
+		{
+			name:    "nil args with required params",
+			tool:    tool,
+			args:    nil,
+			wantErr: `missing required parameter "owner"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateArgs(tt.tool, tt.args)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestExecuteTool_ValidationRejectsMissingRequired(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{
+				Name:        "testint_get_item",
+				Description: "Get an item",
+				Parameters:  map[string]string{"id": "Item ID", "format": "Output format"},
+				Required:    []string{"id"},
+			},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			t.Fatal("handler should not be called when validation fails")
+			return nil, nil
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"format": "json"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, `missing required parameter "id"`)
+}
+
+func TestExecuteTool_ValidationRejectsUnknownParam(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{
+				Name:        "testint_get_item",
+				Description: "Get an item",
+				Parameters:  map[string]string{"id": "Item ID"},
+				Required:    []string{"id"},
+			},
+		},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			t.Fatal("handler should not be called when validation fails")
+			return nil, nil
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"id": "123", "item_id": "456"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, `unknown parameter "item_id"`)
 }
 
 func TestSearch_ScriptHint_SingleResult(t *testing.T) {
@@ -1488,4 +1989,225 @@ func TestSearch_ScriptHint_SingleResult(t *testing.T) {
 	require.NoError(t, err)
 	resp := parseSearchResponse(t, result)
 	assert.Empty(t, resp.ScriptHint)
+}
+
+func TestSearch_ResponseColumnarized(t *testing.T) {
+	tests := []struct {
+		name           string
+		toolCount      int
+		wantColumnar   bool
+		wantConstant   string // expected constant integration value, empty = no constants check
+	}{
+		{
+			name:         "columnarizes tools array when 8+ results from one integration",
+			toolCount:    10,
+			wantColumnar: true,
+			wantConstant: "testint",
+		},
+		{
+			name:         "keeps per-record format when fewer than 8 results",
+			toolCount:    5,
+			wantColumnar: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mi := &mockIntegration{
+				name:    "testint",
+				healthy: true,
+				tools:   makeManyTools("testint", tt.toolCount),
+			}
+			s := setupTestServer(mi)
+
+			result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+			require.NoError(t, err)
+			require.False(t, result.IsError)
+
+			tc, ok := result.Content[0].(*mcpsdk.TextContent)
+			require.True(t, ok)
+
+			var raw map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal([]byte(tc.Text), &raw))
+
+			var tools any
+			require.NoError(t, json.Unmarshal(raw["tools"], &tools))
+
+			if tt.wantColumnar {
+				// tools should be {"columns":[...],"rows":[...],...}
+				toolsMap, ok := tools.(map[string]any)
+				require.True(t, ok, "expected columnar object, got %T", tools)
+				assert.Contains(t, toolsMap, "columns")
+				assert.Contains(t, toolsMap, "rows")
+
+				if tt.wantConstant != "" {
+					constants, ok := toolsMap["constants"].(map[string]any)
+					require.True(t, ok, "expected constants map")
+					assert.Equal(t, tt.wantConstant, constants["integration"])
+				}
+			} else {
+				// tools should be a plain array
+				_, ok := tools.([]any)
+				assert.True(t, ok, "expected array, got %T", tools)
+			}
+		})
+	}
+}
+
+func TestSearch_SharedParametersExtracted(t *testing.T) {
+	tests := []struct {
+		name              string
+		tools             []mcp.ToolDefinition
+		wantSharedParams  map[string]string // params expected in shared_parameters
+		wantKeptPerTool   []string          // param names that should stay per-tool
+	}{
+		{
+			name: "extracts params with identical description across 3+ tools",
+			tools: []mcp.ToolDefinition{
+				{Name: "t_list_issues", Description: "List issues", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "open or closed"}},
+				{Name: "t_get_issue", Description: "Get issue", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "issue_number": "Issue number"}},
+				{Name: "t_list_pulls", Description: "List pulls", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base branch"}},
+				{Name: "t_get_pull", Description: "Get pull", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull number"}},
+				{Name: "t_list_commits", Description: "List commits", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Branch or SHA"}},
+				{Name: "t_list_branches", Description: "List branches", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+				{Name: "t_list_releases", Description: "List releases", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+				{Name: "t_list_tags", Description: "List tags", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+			},
+			wantSharedParams: map[string]string{
+				"owner": "Repository owner",
+				"repo":  "Repository name",
+			},
+			wantKeptPerTool: []string{"state", "issue_number", "base", "pull_number", "sha"},
+		},
+		{
+			name: "keeps params with same name but different description per-tool",
+			tools: []mcp.ToolDefinition{
+				{Name: "t_one", Description: "One", Parameters: map[string]string{"id": "The issue ID"}},
+				{Name: "t_two", Description: "Two", Parameters: map[string]string{"id": "The pull request ID"}},
+				{Name: "t_three", Description: "Three", Parameters: map[string]string{"id": "The commit SHA"}},
+				{Name: "t_four", Description: "Four", Parameters: map[string]string{"id": "The release ID"}},
+				{Name: "t_five", Description: "Five", Parameters: map[string]string{"id": "The tag name"}},
+				{Name: "t_six", Description: "Six", Parameters: map[string]string{"id": "The branch name"}},
+				{Name: "t_seven", Description: "Seven", Parameters: map[string]string{"id": "The deploy ID"}},
+				{Name: "t_eight", Description: "Eight", Parameters: map[string]string{"id": "The run ID"}},
+			},
+			wantSharedParams: nil, // all different descriptions
+			wantKeptPerTool:  []string{"id"},
+		},
+		{
+			name: "preserves tool-specific value hints even when name matches",
+			tools: []mcp.ToolDefinition{
+				{Name: "t_a", Description: "A", Parameters: map[string]string{"event": "APPROVE, REQUEST_CHANGES, COMMENT", "owner": "Repo owner"}},
+				{Name: "t_b", Description: "B", Parameters: map[string]string{"event": "push, pull_request", "owner": "Repo owner"}},
+				{Name: "t_c", Description: "C", Parameters: map[string]string{"event": "issues, created", "owner": "Repo owner"}},
+				{Name: "t_d", Description: "D", Parameters: map[string]string{"owner": "Repo owner"}},
+				{Name: "t_e", Description: "E", Parameters: map[string]string{"event": "deployment", "owner": "Repo owner"}},
+				{Name: "t_f", Description: "F", Parameters: map[string]string{"event": "release", "owner": "Repo owner"}},
+				{Name: "t_g", Description: "G", Parameters: map[string]string{"owner": "Repo owner"}},
+				{Name: "t_h", Description: "H", Parameters: map[string]string{"owner": "Repo owner"}},
+			},
+			wantSharedParams: map[string]string{"owner": "Repo owner"},
+			wantKeptPerTool:  []string{"event"}, // different descriptions → stays per-tool
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mi := &mockIntegration{
+				name:    "testint",
+				healthy: true,
+				tools:   tt.tools,
+			}
+			s := setupTestServer(mi)
+
+			result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+			require.NoError(t, err)
+			require.False(t, result.IsError)
+
+			tc, ok := result.Content[0].(*mcpsdk.TextContent)
+			require.True(t, ok)
+
+			var raw map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal([]byte(tc.Text), &raw))
+
+			if tt.wantSharedParams != nil {
+				var shared map[string]string
+				require.Contains(t, raw, "shared_parameters", "response should have shared_parameters")
+				require.NoError(t, json.Unmarshal(raw["shared_parameters"], &shared))
+				assert.Equal(t, tt.wantSharedParams, shared)
+
+				// Verify shared params are removed from per-tool parameters.
+				allParams := extractColumnarParams(t, raw["tools"])
+				for _, params := range allParams {
+					for sharedKey := range tt.wantSharedParams {
+						assert.NotContains(t, params, sharedKey, "shared param %q should be removed from per-tool params", sharedKey)
+					}
+				}
+			} else {
+				_, hasShared := raw["shared_parameters"]
+				assert.False(t, hasShared, "should not have shared_parameters when no common params")
+			}
+
+			// Verify kept-per-tool params are still in tool parameters.
+			if len(tt.wantKeptPerTool) > 0 {
+				allParams := extractColumnarParams(t, raw["tools"])
+				for _, keptParam := range tt.wantKeptPerTool {
+					found := false
+					for _, params := range allParams {
+						if _, ok := params[keptParam]; ok {
+							found = true
+							break
+						}
+					}
+					assert.True(t, found, "param %q should be kept per-tool in at least one tool", keptParam)
+				}
+			}
+		})
+	}
+}
+
+func TestSearch_SharedParametersDoNotMutateOriginalTools(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "t_list_issues", Description: "List issues", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "open or closed"}},
+			{Name: "t_get_issue", Description: "Get issue", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "issue_number": "Issue number"}},
+			{Name: "t_list_pulls", Description: "List pulls", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base branch"}},
+			{Name: "t_get_pull", Description: "Get pull", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull number"}},
+			{Name: "t_list_commits", Description: "List commits", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Branch or SHA"}},
+			{Name: "t_list_branches", Description: "List branches", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+			{Name: "t_list_releases", Description: "List releases", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+			{Name: "t_list_tags", Description: "List tags", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+		},
+	}
+	s := setupTestServer(mi)
+
+	// First search triggers shared parameter extraction — must not corrupt originals.
+	_, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+	require.NoError(t, err)
+
+	// Verify the original ToolDefinition maps are untouched.
+	for _, tool := range mi.tools {
+		assert.Contains(t, tool.Parameters, "owner",
+			"tool %q should still have 'owner' after search (was deleted from original)", tool.Name)
+		assert.Contains(t, tool.Parameters, "repo",
+			"tool %q should still have 'repo' after search (was deleted from original)", tool.Name)
+	}
+
+	// Second search should produce identical shared_parameters as the first.
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+	require.NoError(t, err)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &raw))
+
+	var shared map[string]string
+	require.Contains(t, raw, "shared_parameters")
+	require.NoError(t, json.Unmarshal(raw["shared_parameters"], &shared))
+	assert.Equal(t, map[string]string{
+		"owner": "Repository owner",
+		"repo":  "Repository name",
+	}, shared, "second search should produce the same shared_parameters")
 }

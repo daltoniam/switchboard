@@ -40,20 +40,20 @@ func createDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 
 	// Block: collection_view_page
 	blockData := map[string]any{
-		"id":           blockID,
-		"type":         "collection_view_page",
-		"collection_id": collectionID,
-		"view_ids":      []string{viewID},
-		"parent_id":    parentID,
-		"parent_table": "block",
-		"space_id":     n.spaceID,
-		"created_by_id":    n.userID,
-		"created_by_table": "notion_user",
+		"id":                   blockID,
+		"type":                 "collection_view_page",
+		"collection_id":        collectionID,
+		"view_ids":             []string{viewID},
+		"parent_id":            parentID,
+		"parent_table":         "block",
+		"space_id":             n.spaceID,
+		"created_by_id":        n.userID,
+		"created_by_table":     "notion_user",
 		"last_edited_by_id":    n.userID,
 		"last_edited_by_table": "notion_user",
-		"alive":        true,
-		"created_time": now,
-		"last_edited_time": now,
+		"alive":                true,
+		"created_time":         now,
+		"last_edited_time":     now,
 	}
 
 	// Collection
@@ -100,6 +100,7 @@ func createDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 		"id":            blockID,
 		"collection_id": collectionID,
 		"view_id":       viewID,
+		"url":           notionPageURL(blockID),
 	})
 }
 

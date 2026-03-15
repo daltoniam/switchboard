@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -342,4 +344,72 @@ func TestMustJSON_Complex(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "success", parsed["status"])
 	assert.Equal(t, float64(3), parsed["count"])
+}
+
+// --- resolveRWXBinary tests ---
+
+func TestResolveRWXBinary_ExplicitPath(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("#!/bin/sh\n"), 0o755))
+
+	result := resolveRWXBinary(fakeBin)
+	assert.Equal(t, fakeBin, result)
+}
+
+func TestResolveRWXBinary_ExplicitPathNotExecutable(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("not executable"), 0o644))
+
+	result := resolveRWXBinary(fakeBin)
+	assert.NotEqual(t, fakeBin, result, "should reject non-executable configured path")
+}
+
+func TestResolveRWXBinary_ExplicitPathMissing(t *testing.T) {
+	result := resolveRWXBinary("/nonexistent/path/to/rwx")
+	assert.NotEqual(t, "/nonexistent/path/to/rwx", result)
+}
+
+func TestResolveRWXBinary_EmptyConfigFallsBackToLookPath(t *testing.T) {
+	result := resolveRWXBinary("")
+	assert.NotEmpty(t, result)
+}
+
+func TestIsExecutable(t *testing.T) {
+	tmp := t.TempDir()
+
+	t.Run("executable file", func(t *testing.T) {
+		p := filepath.Join(tmp, "good")
+		require.NoError(t, os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755))
+		assert.True(t, isExecutable(p))
+	})
+
+	t.Run("non-executable file", func(t *testing.T) {
+		p := filepath.Join(tmp, "noexec")
+		require.NoError(t, os.WriteFile(p, []byte("data"), 0o644))
+		assert.False(t, isExecutable(p))
+	})
+
+	t.Run("directory", func(t *testing.T) {
+		assert.False(t, isExecutable(tmp))
+	})
+
+	t.Run("nonexistent", func(t *testing.T) {
+		assert.False(t, isExecutable(filepath.Join(tmp, "nope")))
+	})
+}
+
+func TestConfigure_StoresCliPath(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("#!/bin/sh\n"), 0o755))
+
+	r := &rwx{client: &http.Client{}, logCache: newLogCache()}
+	err := r.Configure(context.Background(), mcp.Credentials{
+		"access_token": "test",
+		"cli_path":     fakeBin,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, fakeBin, r.cliPath)
 }

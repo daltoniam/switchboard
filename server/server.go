@@ -22,6 +22,15 @@ import (
 const defaultSearchLimit = 20
 const maxResponseBytes = 50 * 1024 // 50KB
 
+// searchToolInfo represents a tool in search results.
+type searchToolInfo struct {
+	Integration string            `json:"integration"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Parameters  map[string]string `json:"parameters"`
+	Required    []string          `json:"required,omitempty"`
+}
+
 const (
 	defaultBreakerThreshold = 5
 	defaultBreakerCooldown  = 30 * time.Second
@@ -121,8 +130,11 @@ Mode 2 — Single tool (provide tool_name + arguments):
   {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
 
 Script API:
-  api.call(toolName, args) — call any tool, returns parsed JSON. Throws on error (kills script).
-  api.tryCall(toolName, args) — like call, but returns {ok: true, data: ...} or {ok: false, error: "..."}. Prefer tryCall for cross-integration scripts where partial results are useful.
+  api.call(toolName, args[, opts]) — call any tool, returns parsed JSON. Throws on error (kills script).
+    Optional opts object with fields key applies server-side field projection: {fields: ["id", "title", "user.login"]}.
+    Uses dot-notation: {fields: ["id", "title", "user.login", "labels[].name"]}. Only specified fields are kept.
+  api.tryCall(toolName, args[, opts]) — like call, but returns {ok: true, data: ...} or {ok: false, error: "..."}.
+    Also supports the optional opts with field projection. Prefer tryCall for cross-integration scripts where partial results are useful.
   console.log(...) — debug logging (included in output on error)
 
 Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
@@ -130,13 +142,14 @@ Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Da
 List and search responses are automatically compacted to essential fields.
 Use single-item get tools (e.g., github_get_issue) for full detail.
 Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
+Script output is also capped at 50KB — return only the fields you need, not entire API responses.
 
 Use search first to discover available tools and their parameter schemas.
 
 Script examples:
 
-Fetch a GitHub PR with its diff in a single call:
-  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}); var diff = api.call('github_get_pull_diff', {owner: 'o', repo: 'r', pull_number: 42}); ({title: pr.title, state: pr.state, body: pr.body, base: pr.base.ref, head: pr.head.ref, diff: diff});"}
+Fetch a GitHub PR with field projection (only title, state, and branch refs returned):
+  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, {fields: ['title', 'state', 'body', 'base.ref', 'head.ref']}); var diff = api.call('github_get_pull_diff', {owner: 'o', repo: 'r', pull_number: 42}); ({pr: pr, diff: diff});"}
 
 Create a Linear issue then open a GitHub PR referencing it:
   {"script": "var issue = api.call('linear_create_issue', {team_id: 'TEAM-ID', title: 'Fix auth bug', description: 'Details...'}); var pr = api.call('github_create_pull', {owner: 'o', repo: 'r', title: issue.identifier + ': ' + issue.title, head: 'fix-auth', base: 'main', body: 'Resolves ' + issue.url}); ({issue: issue.identifier, pr_url: pr.html_url});"}
@@ -144,8 +157,11 @@ Create a Linear issue then open a GitHub PR referencing it:
 Look up a Sentry error, find the responsible deploy, and notify Slack:
   {"script": "var issue = api.call('sentry_get_issue', {issue_id: '12345'}); var deploys = api.call('sentry_list_deploys', {organization_slug: 'org', version: issue.firstRelease.version}); api.call('slack_post_message', {channel: '#alerts', text: 'Sentry issue ' + issue.title + ' introduced in deploy ' + deploys[0].environment}); ({sentry: issue.shortId, deploy: deploys[0].environment});"}
 
-Cross-integration correlation with tryCall (tolerates partial failures):
-  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}); var linear = api.tryCall('linear_search_issues', {query: pr.title}); var slack = api.tryCall('slack_search_messages', {query: pr.title, count: 5}); ({pr: {title: pr.title, state: pr.state}, linear: linear.ok ? linear.data : {error: linear.error}, slack: slack.ok ? slack.data : {error: slack.error}});"}`,
+Cross-integration correlation with tryCall and field projection:
+  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, {fields: ['title', 'state']}); var linear = api.tryCall('linear_search_issues', {query: pr.title}, {fields: ['issues.nodes[].identifier', 'issues.nodes[].title']}); ({pr: pr, linear: linear.ok ? linear.data : {error: linear.error}});"}
+
+List issues with server-side projection (only id, title, labels — no manual .map() needed):
+  {"script": "api.call('github_list_issues', {owner: 'o', repo: 'r', state: 'open'}, {fields: ['number', 'title', 'labels[].name']});"}`,
 		InputSchema: objectSchema(map[string]any{
 			"tool_name": map[string]any{
 				"type":        "string",
@@ -157,7 +173,7 @@ Cross-integration correlation with tryCall (tolerates partial failures):
 			},
 			"script": map[string]any{
 				"type":        "string",
-				"description": "ES5 JavaScript code to execute server-side. Use var (not let/const), function() (not =>), string + concatenation (not template literals). Use api.call(toolName, args) to invoke tools. Return the final result. (mutually exclusive with tool_name)",
+				"description": "ES5 JavaScript code to execute server-side. Use var (not let/const), function() (not =>), string + concatenation (not template literals). Use api.call(toolName, args, {fields: [...]}) to invoke tools with optional field projection. Return the final result. (mutually exclusive with tool_name)",
 			},
 		}, nil),
 	}
@@ -232,13 +248,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 
 	query := strings.ToLower(args.Query)
 
-	type toolInfo struct {
-		Integration string            `json:"integration"`
-		Name        string            `json:"name"`
-		Description string            `json:"description"`
-		Parameters  map[string]string `json:"parameters"`
-		Required    []string          `json:"required,omitempty"`
-	}
+	type toolInfo = searchToolInfo
 
 	enabled := s.services.Config.EnabledIntegrations()
 	var all []toolInfo
@@ -254,11 +264,15 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 
 		for _, tool := range integration.Tools() {
 			if query == "" || matches(tool, name, query) {
+				params := make(map[string]string, len(tool.Parameters))
+				for k, v := range tool.Parameters {
+					params[k] = v
+				}
 				all = append(all, toolInfo{
 					Integration: name,
 					Name:        tool.Name,
 					Description: tool.Description,
-					Parameters:  tool.Parameters,
+					Parameters:  params,
 					Required:    tool.Required,
 				})
 			}
@@ -288,14 +302,15 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	page := all[offset:end]
 
 	type response struct {
-		Summary      string     `json:"summary"`
-		ScriptHint   string     `json:"script_hint,omitempty"`
-		Total        int        `json:"total"`
-		Offset       int        `json:"offset"`
-		Limit        int        `json:"limit"`
-		HasMore      bool       `json:"has_more"`
-		Integrations []string   `json:"integrations"`
-		Tools        []toolInfo `json:"tools"`
+		Summary          string            `json:"summary"`
+		ScriptHint       string            `json:"script_hint,omitempty"`
+		SharedParameters map[string]string `json:"shared_parameters,omitempty"`
+		Total            int               `json:"total"`
+		Offset           int               `json:"offset"`
+		Limit            int               `json:"limit"`
+		HasMore          bool              `json:"has_more"`
+		Integrations     []string          `json:"integrations"`
+		Tools            []toolInfo        `json:"tools"`
 	}
 
 	summary := fmt.Sprintf("Found %d tools", total)
@@ -316,22 +331,74 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		}
 	}
 
+	shared := extractSharedParameters(page)
+
 	data, _ := json.Marshal(response{
-		Summary:      summary,
-		ScriptHint:   scriptHint,
-		Total:        total,
-		Offset:       offset,
-		Limit:        limit,
-		HasMore:      limit > 0 && offset+limit < total,
-		Integrations: enabled,
-		Tools:        page,
+		Summary:          summary,
+		ScriptHint:       scriptHint,
+		SharedParameters: shared,
+		Total:            total,
+		Offset:           offset,
+		Limit:            limit,
+		HasMore:          limit > 0 && offset+limit < total,
+		Integrations:     enabled,
+		Tools:            page,
 	})
 
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
-			&mcpsdk.TextContent{Text: string(data)},
+			&mcpsdk.TextContent{Text: columnarizeResult(string(data))},
 		},
 	}, nil
+}
+
+// extractSharedParameters finds parameters with identical name+description
+// across 3+ tools in the page, moves them to a shared map, and removes them
+// from per-tool parameters. This deduplicates common params like "owner" and
+// "repo" that appear verbatim across dozens of tools in an integration.
+func extractSharedParameters(tools []searchToolInfo) map[string]string {
+	const minCount = 3
+
+	type paramKey struct{ name, desc string }
+	counts := map[paramKey]int{}
+	for _, t := range tools {
+		for name, desc := range t.Parameters {
+			counts[paramKey{name, desc}]++
+		}
+	}
+
+	// For each param name, collect all descriptions that meet the threshold.
+	// A name with multiple qualifying descriptions is ambiguous — skip it.
+	candidates := map[string]string{} // name → description
+	conflicted := map[string]bool{}
+	for pk, count := range counts {
+		if count < minCount {
+			continue
+		}
+		if conflicted[pk.name] {
+			continue
+		}
+		if prev, exists := candidates[pk.name]; exists && prev != pk.desc {
+			delete(candidates, pk.name)
+			conflicted[pk.name] = true
+			continue
+		}
+		candidates[pk.name] = pk.desc
+	}
+
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	for i := range tools {
+		for name, desc := range tools[i].Parameters {
+			if candidates[name] == desc {
+				delete(tools[i].Parameters, name)
+			}
+		}
+	}
+
+	return candidates
 }
 
 func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
@@ -359,6 +426,9 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
+	if !result.IsError {
+		result.Data = columnarizeResult(result.Data)
+	}
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
 			&mcpsdk.TextContent{Text: result.Data},
@@ -375,12 +445,37 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
+	if !result.IsError && len(result.Data) > maxResponseBytes {
+		return errorResult(fmt.Sprintf(
+			"Script output exceeded %dKB (actual: %dKB). Return only the fields you need from each api.call() result.",
+			maxResponseBytes/1024,
+			len(result.Data)/1024,
+		)), nil
+	}
+	if !result.IsError {
+		result.Data = columnarizeResult(result.Data)
+	}
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
 			&mcpsdk.TextContent{Text: result.Data},
 		},
 		IsError: result.IsError,
 	}, nil
+}
+
+// columnarizeResult applies columnar formatting at the MCP response boundary.
+// Scripts and direct tool calls both produce per-record JSON; this converts
+// arrays of objects into {"columns":[...],"rows":[[...],...]} before the LLM sees it.
+func columnarizeResult(data string) string {
+	if len(data) == 0 || (data[0] != '[' && data[0] != '{') {
+		return data
+	}
+	out, err := mcp.ColumnarizeJSON([]byte(data))
+	if err != nil {
+		slog.Warn("columnarization failed, returning per-record response", "err", err)
+		return data
+	}
+	return string(out)
 }
 
 const maxRetries = 3
@@ -409,12 +504,16 @@ func (s *Server) getBreaker(integrationName string) *breaker {
 // Retries automatically on RetryableError (5xx, 429) with exponential backoff.
 // Respects per-integration circuit breakers to avoid hammering down services.
 func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
-	integration, found := s.findIntegration(toolName)
+	integration, toolDef, found := s.findTool(toolName)
 	if !found {
 		return &mcp.ToolResult{
 			Data:    fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", toolName),
 			IsError: true,
 		}, nil
+	}
+
+	if err := validateArgs(toolDef, args); err != nil {
+		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 	}
 
 	cb := s.getBreaker(integration.Name())
@@ -477,8 +576,8 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 	return &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }
 
-// findIntegration returns the integration that owns toolName, or false if not found.
-func (s *Server) findIntegration(toolName string) (mcp.Integration, bool) {
+// findTool returns the integration and tool definition that owns toolName, or false if not found.
+func (s *Server) findTool(toolName string) (mcp.Integration, mcp.ToolDefinition, bool) {
 	for _, name := range s.services.Config.EnabledIntegrations() {
 		integration, ok := s.services.Registry.Get(name)
 		if !ok {
@@ -486,11 +585,96 @@ func (s *Server) findIntegration(toolName string) (mcp.Integration, bool) {
 		}
 		for _, tool := range integration.Tools() {
 			if tool.Name == toolName {
-				return integration, true
+				return integration, tool, true
 			}
 		}
 	}
-	return nil, false
+	return nil, mcp.ToolDefinition{}, false
+}
+
+// validateArgs checks that all required parameters are present and all provided
+// parameters are declared in the tool's schema. Returns a descriptive error
+// naming the offending parameter and suggesting corrections for typos.
+func validateArgs(tool mcp.ToolDefinition, args map[string]any) error {
+	for _, req := range tool.Required {
+		if _, ok := args[req]; !ok {
+			return fmt.Errorf("missing required parameter %q for tool %q. Required: %v", req, tool.Name, tool.Required)
+		}
+	}
+	if len(tool.Parameters) == 0 {
+		return nil // no schema declared — skip unknown-param check
+	}
+	for key := range args {
+		if _, ok := tool.Parameters[key]; ok {
+			continue
+		}
+		return unknownParamError(key, tool)
+	}
+	return nil
+}
+
+func unknownParamError(key string, tool mcp.ToolDefinition) error {
+	valid := paramNames(tool.Parameters)
+	suggestion := closestParam(key, tool.Parameters)
+	if suggestion != "" {
+		return fmt.Errorf("unknown parameter %q for tool %q, did you mean %q? Valid parameters: %v",
+			key, tool.Name, suggestion, valid)
+	}
+	return fmt.Errorf("unknown parameter %q for tool %q. Valid parameters: %v",
+		key, tool.Name, valid)
+}
+
+// closestParam returns the parameter name closest to key by edit distance,
+// or empty string if no parameter is within a reasonable threshold.
+func closestParam(key string, params map[string]string) string {
+	best := ""
+	bestDist := len(key)/2 + 1 // threshold: half the key length
+	for name := range params {
+		d := editDistance(key, name)
+		if d < bestDist {
+			bestDist = d
+			best = name
+		}
+	}
+	return best
+}
+
+// editDistance computes the Levenshtein distance between two strings.
+func editDistance(a, b string) int {
+	la, lb := len(a), len(b)
+	if la == 0 {
+		return lb
+	}
+	if lb == 0 {
+		return la
+	}
+	prev := make([]int, lb+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= la; i++ {
+		curr := make([]int, lb+1)
+		curr[0] = i
+		for j := 1; j <= lb; j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			curr[j] = min(curr[j-1]+1, min(prev[j]+1, prev[j-1]+cost))
+		}
+		prev = curr
+	}
+	return prev[lb]
+}
+
+// paramNames returns sorted parameter names for error messages.
+func paramNames(params map[string]string) []string {
+	names := make([]string, 0, len(params))
+	for name := range params {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 // toolExecutor bridges the script.Executor interface to the server's tool dispatch.

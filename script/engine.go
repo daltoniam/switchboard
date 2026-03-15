@@ -56,8 +56,9 @@ func New(executor Executor, opts ...Option) *Engine {
 	return e
 }
 
-// parseCallArgs extracts the tool name and argument map from a goja function call.
-func parseCallArgs(call goja.FunctionCall) (string, map[string]any) {
+// parseCallArgs extracts the tool name, argument map, and optional options from a goja function call.
+// The third argument is optional: api.call(tool, args, {fields: ["id", "title"]})
+func parseCallArgs(call goja.FunctionCall) (string, map[string]any, map[string]any) {
 	toolName := call.Argument(0).String()
 
 	var args map[string]any
@@ -76,7 +77,50 @@ func parseCallArgs(call goja.FunctionCall) (string, map[string]any) {
 	if args == nil {
 		args = map[string]any{}
 	}
-	return toolName, args
+
+	var opts map[string]any
+	if len(call.Arguments) > 2 {
+		optsVal := call.Argument(2)
+		if optsVal != nil && !goja.IsUndefined(optsVal) && !goja.IsNull(optsVal) {
+			if m, ok := optsVal.Export().(map[string]any); ok {
+				opts = m
+			}
+		}
+	}
+	return toolName, args, opts
+}
+
+// projectFields applies field projection to result data when opts contains a "fields" key.
+// Returns the original data unchanged if no fields option is provided.
+func projectFields(data string, opts map[string]any) (string, error) {
+	if opts == nil {
+		return data, nil
+	}
+	fieldsRaw, ok := opts["fields"]
+	if !ok {
+		return data, nil
+	}
+	fieldSlice, ok := fieldsRaw.([]any)
+	if !ok {
+		return "", fmt.Errorf("fields option must be an array, got %T", fieldsRaw)
+	}
+	specs := make([]string, len(fieldSlice))
+	for i, f := range fieldSlice {
+		s, ok := f.(string)
+		if !ok {
+			return "", fmt.Errorf("fields[%d] must be a string, got %T", i, f)
+		}
+		specs[i] = s
+	}
+	fields, err := mcp.ParseCompactSpecs(specs)
+	if err != nil {
+		return "", fmt.Errorf("invalid field projection: %w", err)
+	}
+	compacted, err := mcp.CompactJSON([]byte(data), fields)
+	if err != nil {
+		return "", fmt.Errorf("field projection failed: %w", err)
+	}
+	return string(compacted), nil
 }
 
 // parseResult JSON-parses a ToolResult.Data string and returns it as a goja value.
@@ -89,8 +133,10 @@ func parseResult(vm *goja.Runtime, data string) goja.Value {
 }
 
 // Run executes a JavaScript script. The script has access to:
-//   - api.call(toolName, args) — calls an integration tool and returns the parsed JSON result
-//   - api.tryCall(toolName, args) — like call, but returns {ok, data/error} instead of throwing
+//   - api.call(toolName, args[, opts]) — calls an integration tool and returns the parsed JSON result.
+//     Optional opts object with fields key applies a secondary field projection: {fields: ["id", "title"]}.
+//   - api.tryCall(toolName, args[, opts]) — like call, but returns {ok, data/error} instead of throwing.
+//     Also supports the optional opts with field projection.
 //   - console.log(...args) — collects log output (available in result on error)
 //
 // The script's return value is JSON-serialized as the ToolResult.Data.
@@ -127,7 +173,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 	if err := apiObj.Set("call", func(call goja.FunctionCall) goja.Value {
 		checkCallLimit()
 
-		toolName, args := parseCallArgs(call)
+		toolName, args, opts := parseCallArgs(call)
 		if toolName == "" || toolName == "undefined" {
 			panic(vm.NewGoError(fmt.Errorf("api.call() requires a tool name as the first argument")))
 		}
@@ -140,7 +186,12 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 			panic(vm.NewGoError(fmt.Errorf("api.call(%q) returned error: %s", toolName, result.Data)))
 		}
 
-		return parseResult(vm, result.Data)
+		data, err := projectFields(result.Data, opts)
+		if err != nil {
+			panic(vm.NewGoError(fmt.Errorf("api.call(%q) field projection: %w", toolName, err)))
+		}
+
+		return parseResult(vm, data)
 	}); err != nil {
 		return nil, fmt.Errorf("failed to set api.call: %w", err)
 	}
@@ -157,7 +208,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 			return vm.ToValue(map[string]any{"ok": false, "error": fmt.Sprintf("exceeded maximum of %d api.call() invocations", e.maxCalls)})
 		}
 
-		toolName, args := parseCallArgs(call)
+		toolName, args, opts := parseCallArgs(call)
 		if toolName == "" || toolName == "undefined" {
 			return vm.ToValue(map[string]any{"ok": false, "error": "api.tryCall() requires a tool name"})
 		}
@@ -170,9 +221,16 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 			return vm.ToValue(map[string]any{"ok": false, "error": result.Data})
 		}
 
+		data := result.Data
+		if projected, err := projectFields(data, opts); err != nil {
+			return vm.ToValue(map[string]any{"ok": false, "error": err.Error()})
+		} else {
+			data = projected
+		}
+
 		var parsed any
-		if jsonErr := json.Unmarshal([]byte(result.Data), &parsed); jsonErr != nil {
-			return vm.ToValue(map[string]any{"ok": true, "data": result.Data})
+		if jsonErr := json.Unmarshal([]byte(data), &parsed); jsonErr != nil {
+			return vm.ToValue(map[string]any{"ok": true, "data": data})
 		}
 		return vm.ToValue(map[string]any{"ok": true, "data": parsed})
 	}); err != nil {

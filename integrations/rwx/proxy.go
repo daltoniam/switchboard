@@ -61,8 +61,8 @@ func newProxyClient() *proxyClient {
 	}
 }
 
-func (p *proxyClient) start() error {
-	cmd := exec.Command("rwx", "mcp", "serve")
+func (p *proxyClient) start(rwxBin string) error {
+	cmd := exec.Command(rwxBin, "mcp", "serve")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("stdin pipe: %w", err)

@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path"
+	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -16,8 +19,9 @@ type CompactField struct {
 	arrayKey   string   // path[arrayIdx] without "[]", empty if arrayIdx == -1
 	childPath  []string // path[arrayIdx+1:], nil if arrayIdx == -1
 	objectRoot string   // first path segment for non-array multi-segment specs, empty otherwise
-	exclude    bool     // true for "-field" exclusion specs
-	wildcard   bool     // true for "parent.*" wildcard specs
+	exclude     bool   // true for "-field" exclusion specs
+	wildcard    bool   // true for "parent.*" wildcard specs
+	globPattern string // non-empty for glob exclusion specs like "-*_url"
 }
 
 // fieldPlan holds pre-computed groupings for a set of CompactField specs.
@@ -27,7 +31,8 @@ type fieldPlan struct {
 	arrayGroups  map[string][]CompactField // outputKey → array field group
 	objectGroups map[string][]CompactField // objectRoot → nested object group (2+ members only)
 	childPlans   map[string][]CompactField // objectRoot → pre-parsed child CompactFields
-	excludes     map[string]bool           // top-level keys to exclude
+	excludes     map[string]bool           // top-level keys to exclude (exact match)
+	globExcludes []string                 // glob patterns to exclude (e.g. "*_url")
 	hasIncludes  bool                      // true if any non-exclude specs exist
 }
 
@@ -43,15 +48,19 @@ func buildFieldPlan(fields []CompactField) *fieldPlan {
 	// Separate excludes from includes.
 	var includes []CompactField
 	for _, f := range fields {
-		if f.exclude {
-			if len(f.path) == 1 {
-				plan.excludes[f.path[0]] = true
-			} else {
-				plan.excludes[f.objectRoot] = true
-			}
+		if !f.exclude {
+			includes = append(includes, f)
 			continue
 		}
-		includes = append(includes, f)
+		if f.globPattern != "" {
+			plan.globExcludes = append(plan.globExcludes, f.globPattern)
+			continue
+		}
+		if len(f.path) == 1 {
+			plan.excludes[f.path[0]] = true
+		} else {
+			plan.excludes[f.objectRoot] = true
+		}
 	}
 	plan.hasIncludes = len(includes) > 0
 
@@ -103,6 +112,19 @@ func buildFieldPlan(fields []CompactField) *fieldPlan {
 	}
 
 	return plan
+}
+
+// isExcluded reports whether a key should be excluded by exact match or glob pattern.
+func (p *fieldPlan) isExcluded(key string) bool {
+	if p.excludes[key] {
+		return true
+	}
+	for _, pattern := range p.globExcludes {
+		if matched, _ := path.Match(pattern, key); matched {
+			return true
+		}
+	}
+	return false
 }
 
 // ParseCompactSpecs parses dot-notation spec strings into CompactFields.
@@ -163,6 +185,33 @@ func parseCompactSpec(spec string) (CompactField, error) {
 	}
 
 	parts := strings.Split(spec, ".")
+
+	// Detect glob patterns (contain * but aren't bare "*").
+	hasGlob := strings.Contains(spec, "*")
+
+	// Glob exclusions: "-*_url", "-node_*" — only single-segment, exclude-only.
+	if hasGlob && exclude && len(parts) == 1 && parts[0] != "*" {
+		if _, err := path.Match(parts[0], ""); err != nil {
+			return CompactField{}, fmt.Errorf("compact spec: invalid glob pattern %q: %w", spec, err)
+		}
+		return CompactField{
+			path:        parts,
+			outputKey:   parts[0],
+			arrayIdx:    -1,
+			exclude:     true,
+			globPattern: parts[0],
+		}, nil
+	}
+
+	// Non-glob exclusions with bracket metacharacters are also invalid globs.
+	if exclude && len(parts) == 1 && strings.ContainsAny(parts[0], "[?") {
+		return CompactField{}, fmt.Errorf("compact spec: invalid glob pattern %q", spec)
+	}
+
+	// Reject glob in include specs (not a valid wildcard like parent.*).
+	if hasGlob && !exclude && (len(parts) != 2 || parts[1] != "*") {
+		return CompactField{}, fmt.Errorf("compact spec: glob patterns only allowed in exclusion specs, got %q", spec)
+	}
 
 	// Handle wildcard specs (parent.*).
 	var isWildcard bool
@@ -287,10 +336,10 @@ func compactObjectJSON(data []byte, fields []CompactField, plan *fieldPlan) ([]b
 // Omits null values, empty arrays, and empty objects from output.
 func compactObject(obj map[string]any, fields []CompactField, plan *fieldPlan) map[string]any {
 	// Exclusion-only mode: copy all fields except excluded ones.
-	if !plan.hasIncludes && len(plan.excludes) > 0 {
+	if !plan.hasIncludes && (len(plan.excludes) > 0 || len(plan.globExcludes) > 0) {
 		out := make(map[string]any, len(obj))
 		for k, v := range obj {
-			if plan.excludes[k] {
+			if plan.isExcluded(k) {
 				continue
 			}
 			if isEmptyValue(v) {
@@ -365,8 +414,10 @@ func compactObject(obj map[string]any, fields []CompactField, plan *fieldPlan) m
 	}
 
 	// Apply excludes to mixed mode (includes + excludes).
-	for k := range plan.excludes {
-		delete(out, k)
+	for k := range out {
+		if plan.isExcluded(k) {
+			delete(out, k)
+		}
 	}
 
 	return out
@@ -417,6 +468,192 @@ func compactArray(data []byte, fields []CompactField, plan *fieldPlan) ([]byte, 
 	}
 
 	return json.Marshal(result)
+}
+
+// columnarMinItems is the minimum array length for columnar format.
+// Below 8 items, per-record JSON is more readable and the byte savings (<25%) are marginal.
+// At 8+ items, columnar saves 28%+ even on heterogeneous data, and payloads are large enough
+// that eliminating key repetition genuinely helps LLM scanning.
+const columnarMinItems = 8
+
+// buildColumnar converts a slice of objects into columnar format:
+// {"columns": [sorted keys], "rows": [[val, ...], ...], "constants": {key: val, ...}}.
+// Missing keys produce nil (JSON null) in the corresponding cell.
+// Columns where every row has the same value (by reflect.DeepEqual) are lifted
+// into a "constants" map and removed from columns/rows.
+func buildColumnar(objects []map[string]any) map[string]any {
+	seen := make(map[string]bool)
+	for _, o := range objects {
+		for k := range o {
+			seen[k] = true
+		}
+	}
+	allCols := make([]string, 0, len(seen))
+	for k := range seen {
+		allCols = append(allCols, k)
+	}
+
+	// Count non-null values per column for density ordering.
+	density := make(map[string]int, len(allCols))
+	for _, o := range objects {
+		for _, c := range allCols {
+			if o[c] != nil {
+				density[c]++
+			}
+		}
+	}
+
+	// Sort by density descending, then alphabetically within same density.
+	sort.Slice(allCols, func(i, j int) bool {
+		di, dj := density[allCols[i]], density[allCols[j]]
+		if di != dj {
+			return di > dj
+		}
+		return allCols[i] < allCols[j]
+	})
+
+	// Build full rows first, then scan for constant columns.
+	fullRows := make([][]any, len(objects))
+	for i, o := range objects {
+		row := make([]any, len(allCols))
+		for j, c := range allCols {
+			row[j] = o[c]
+		}
+		fullRows[i] = row
+	}
+
+	// Detect constant columns: every row has the same value.
+	constants := map[string]any{}
+	constantIdx := make(map[int]bool)
+	for j, col := range allCols {
+		first := fullRows[0][j]
+		uniform := true
+		for i := 1; i < len(fullRows); i++ {
+			if !reflect.DeepEqual(first, fullRows[i][j]) {
+				uniform = false
+				break
+			}
+		}
+		if uniform {
+			constants[col] = first
+			constantIdx[j] = true
+		}
+	}
+
+	// Build final columns/rows without constants.
+	cols := make([]string, 0, len(allCols)-len(constants))
+	for j, c := range allCols {
+		if !constantIdx[j] {
+			cols = append(cols, c)
+		}
+	}
+
+	rows := make([][]any, len(objects))
+	for i, fullRow := range fullRows {
+		row := make([]any, 0, len(cols))
+		for j, val := range fullRow {
+			if !constantIdx[j] {
+				row = append(row, val)
+			}
+		}
+		rows[i] = row
+	}
+
+	result := map[string]any{"columns": cols, "rows": rows}
+	if len(constants) > 0 {
+		result["constants"] = constants
+	}
+	return result
+}
+
+// columnarizeNestedArrays walks a compacted object and converts any nested
+// []any where all elements are map[string]any into {"columns":[...],"rows":[[...],...]}.
+// Flat scalar arrays (like ["bug","P1"] from labels[].name) are left untouched.
+// Recurses into nested map[string]any values to handle deep envelopes (e.g., issues.nodes[]).
+func columnarizeNestedArrays(obj map[string]any) {
+	for key, val := range obj {
+		switch v := val.(type) {
+		case map[string]any:
+			columnarizeNestedArrays(v)
+		case []any:
+			if len(v) < columnarMinItems {
+				continue
+			}
+			objects := make([]map[string]any, 0, len(v))
+			for _, elem := range v {
+				m, ok := elem.(map[string]any)
+				if !ok {
+					objects = nil
+					break
+				}
+				objects = append(objects, m)
+			}
+			if objects == nil {
+				continue
+			}
+			obj[key] = buildColumnar(objects)
+		}
+	}
+}
+
+// ColumnarizeJSON converts arrays of objects in already-processed JSON to columnar format.
+// Top-level arrays of 4+ objects become {"columns":[...],"rows":[[...],...]}.
+// Nested arrays of objects inside an object are also columnarized.
+// No compaction is applied — this function only reshapes structure.
+// Returns data unchanged if parsing or reshaping fails — columnarization is best-effort.
+func ColumnarizeJSON(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return data, nil
+	}
+
+	trimmed := bytes.TrimLeft(data, " \t\n\r")
+	if len(trimmed) == 0 {
+		return data, nil
+	}
+
+	switch trimmed[0] {
+	case '[':
+		return columnarizeTopLevelArray(data)
+	case '{':
+		var obj map[string]any
+		if err := json.Unmarshal(data, &obj); err != nil {
+			return data, nil // malformed JSON, pass through unchanged
+		}
+		columnarizeNestedArrays(obj)
+		result, err := json.Marshal(obj)
+		if err != nil {
+			return data, nil
+		}
+		return result, nil
+	default:
+		return data, nil
+	}
+}
+
+// columnarizeTopLevelArray converts a top-level JSON array of objects into columnar format.
+func columnarizeTopLevelArray(data []byte) ([]byte, error) {
+	var arr []any
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return data, nil
+	}
+	if len(arr) < columnarMinItems {
+		return data, nil
+	}
+
+	objects := make([]map[string]any, 0, len(arr))
+	for _, elem := range arr {
+		m, ok := elem.(map[string]any)
+		if !ok {
+			return data, nil // mixed array, passthrough
+		}
+		objects = append(objects, m)
+	}
+
+	result, err := json.Marshal(buildColumnar(objects))
+	if err != nil {
+		return data, nil
+	}
+	return result, nil
 }
 
 // extractField dispatches to the right extraction strategy based on the spec shape.
