@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 	"strconv"
 	"strings"
 
@@ -33,7 +34,7 @@ type jira struct {
 
 func New() mcp.Integration {
 	return &jira{
-		client: &http.Client{},
+		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -113,7 +114,8 @@ func (j *jira) doRequest(ctx context.Context, method, fullURL string, body any) 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	data, err := io.ReadAll(resp.Body)
+	const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		return nil, err
 	}

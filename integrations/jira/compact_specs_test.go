@@ -3,6 +3,7 @@ package jira
 import (
 	"testing"
 
+	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,4 +50,15 @@ func TestFieldCompactionSpec_ReturnsFalseForUnknownTool(t *testing.T) {
 	j := &jira{}
 	_, ok := j.CompactSpec("jira_nonexistent")
 	assert.False(t, ok, "unknown tools should return false")
+}
+
+func TestFieldCompactionSpec_ShapeParity_SearchIssues(t *testing.T) {
+	// Jira /rest/api/3/search returns {issues: [...], total: N}
+	payload := `{"issues":[{"key":"PROJ-1","fields":{"summary":"Fix bug","status":{"name":"Open"},"assignee":{"displayName":"Alice"},"priority":{"name":"High"},"issuetype":{"name":"Bug"},"created":"2024-01-01","updated":"2024-01-02"}}],"total":1}`
+	fields, ok := fieldCompactionSpecs["jira_search_issues"]
+	require.True(t, ok)
+	compacted, err := mcp.CompactJSON([]byte(payload), fields)
+	require.NoError(t, err)
+	assert.NotEqual(t, "{}", string(compacted))
+	assert.Contains(t, string(compacted), "PROJ-1")
 }

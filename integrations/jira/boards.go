@@ -131,7 +131,11 @@ func getSprintIssues(ctx context.Context, j *jira, args map[string]any) (*mcp.To
 }
 
 func moveIssuesToSprint(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	issues := strings.Split(argStr(args, "issues"), ",")
+	issuesStr := argStr(args, "issues")
+	if issuesStr == "" {
+		return errResult(fmt.Errorf("issues is required"))
+	}
+	issues := strings.Split(issuesStr, ",")
 	body := map[string]any{"issues": issues}
 	path := fmt.Sprintf("/sprint/%s/issue", argStr(args, "sprint_id"))
 	data, err := j.agilePost(ctx, path, body)

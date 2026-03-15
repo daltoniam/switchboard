@@ -457,6 +457,9 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "RWX_ACCESS_TOKEN", m["rwx"]["access_token"])
 	assert.Equal(t, "RWX_CLI_PATH", m["rwx"]["cli_path"])
 	assert.Len(t, m, 10)
+	assert.Equal(t, "JIRA_EMAIL", m["jira"]["email"])
+	assert.Equal(t, "JIRA_API_TOKEN", m["jira"]["api_token"])
+	assert.Equal(t, "JIRA_DOMAIN", m["jira"]["domain"])
 }
 
 
