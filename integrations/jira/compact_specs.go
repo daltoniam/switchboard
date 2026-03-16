@@ -38,10 +38,10 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"jira_list_project_statuses":   {"id", "name", "statuses[].id", "statuses[].name"},
 
 	// ── Boards & Sprints (Agile API) ────────────────────────────────
-	"jira_list_boards":   {"values[].id", "values[].name", "values[].type", "values[].location.projectKey"},
-	"jira_get_board":     {"id", "name", "type", "location.projectKey"},
-	"jira_list_sprints":  {"values[].id", "values[].name", "values[].state", "values[].startDate", "values[].endDate", "values[].goal"},
-	"jira_get_sprint":    {"id", "name", "state", "startDate", "endDate", "goal", "originBoardId"},
+	"jira_list_boards":  {"values[].id", "values[].name", "values[].type", "values[].location.projectKey"},
+	"jira_get_board":    {"id", "name", "type", "location.projectKey"},
+	"jira_list_sprints": {"values[].id", "values[].name", "values[].state", "values[].startDate", "values[].endDate", "values[].goal"},
+	"jira_get_sprint":   {"id", "name", "state", "startDate", "endDate", "goal", "originBoardId"},
 	"jira_get_sprint_issues": {
 		"issues[].key", "issues[].fields.summary", "issues[].fields.status.name",
 		"issues[].fields.assignee.displayName", "issues[].fields.priority.name",
@@ -67,7 +67,7 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"jira_get_filter":       {"id", "name", "jql", "owner.displayName", "description"},
 
 	// ── Worklogs & Info ──────────────────────────────────────────────
-	"jira_list_worklogs":  {"worklogs[].id", "worklogs[].author.displayName", "worklogs[].timeSpent", "worklogs[].started", "worklogs[].comment"},
+	"jira_list_worklogs":   {"worklogs[].id", "worklogs[].author.displayName", "worklogs[].timeSpent", "worklogs[].started", "worklogs[].comment"},
 	"jira_get_server_info": {"baseUrl", "version", "deploymentType", "serverTitle"},
 }
 

@@ -159,7 +159,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Users ────────────────────────────────────────────────────────
 	{
-		Name:       "jira_get_myself", Description: "Get the current authenticated user's details",
+		Name: "jira_get_myself", Description: "Get the current authenticated user's details",
 		Parameters: map[string]string{},
 	},
 	{
@@ -216,7 +216,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"issue_key", "time_spent"},
 	},
 	{
-		Name:       "jira_get_server_info", Description: "Get Jira instance server info (version, deployment type, URLs)",
+		Name: "jira_get_server_info", Description: "Get Jira instance server info (version, deployment type, URLs)",
 		Parameters: map[string]string{},
 	},
 }

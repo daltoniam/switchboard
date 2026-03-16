@@ -289,9 +289,9 @@ var dispatch = map[string]handlerFunc{
 	"jira_get_board_config":      getBoardConfig,
 
 	// Users
-	"jira_get_myself":    getMyself,
-	"jira_search_users":  searchUsers,
-	"jira_get_user":      getUser,
+	"jira_get_myself":   getMyself,
+	"jira_search_users": searchUsers,
+	"jira_get_user":     getUser,
 
 	// Metadata
 	"jira_list_issue_types": listIssueTypes,
@@ -303,7 +303,7 @@ var dispatch = map[string]handlerFunc{
 	"jira_get_filter":       getFilter,
 
 	// Worklogs & Info
-	"jira_list_worklogs":  listWorklogs,
-	"jira_add_worklog":    addWorklog,
+	"jira_list_worklogs":   listWorklogs,
+	"jira_add_worklog":     addWorklog,
 	"jira_get_server_info": getServerInfo,
 }
