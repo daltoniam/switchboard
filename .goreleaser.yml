@@ -58,13 +58,14 @@ brews:
       bin.install "switchboard"
     post_install: |
       system bin/"switchboard", "daemon", "install"
-    pre_uninstall: |
-      system bin/"switchboard", "daemon", "uninstall"
+    caveats: |
+      To uninstall the background daemon before removing the formula, run:
+        switchboard daemon uninstall
     service: |
       run [opt_bin/"switchboard", "--port", "3847"]
       keep_alive true
       log_path var/"log/switchboard.log"
-      error_log_path var/"log/switchboard.log"
+      error_log_path var/"log/switchboard.error.log"
     test: |
       system "#{bin}/switchboard", "--version"
 
