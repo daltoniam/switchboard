@@ -18,7 +18,7 @@ func getProject(ctx context.Context, g *integration, _ map[string]any) (*mcp.Too
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(project)
+	return mcp.JSONResult(project)
 }
 
 func listProjects(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -39,7 +39,7 @@ func listProjects(ctx context.Context, g *integration, args map[string]any) (*mc
 		}
 		projects = append(projects, p)
 	}
-	return jsonResult(projects)
+	return mcp.JSONResult(projects)
 }
 
 func listFolders(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -59,7 +59,7 @@ func listFolders(ctx context.Context, g *integration, args map[string]any) (*mcp
 		}
 		folders = append(folders, f)
 	}
-	return jsonResult(folders)
+	return mcp.JSONResult(folders)
 }
 
 func getFolder(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -69,7 +69,7 @@ func getFolder(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(folder)
+	return mcp.JSONResult(folder)
 }
 
 func getIAMPolicy(ctx context.Context, g *integration, _ map[string]any) (*mcp.ToolResult, error) {
@@ -79,5 +79,5 @@ func getIAMPolicy(ctx context.Context, g *integration, _ map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(policy)
+	return mcp.JSONResult(policy)
 }

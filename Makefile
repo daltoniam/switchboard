@@ -1,4 +1,4 @@
-.PHONY: build generate test test-race vet lint security gosec govulncheck ci clean install deploy help
+.PHONY: build generate test test-race vet lint fmt security gosec govulncheck ci clean install deploy help
 
 BIN        := dist/switchboard
 INSTALL_DIR := $(HOME)/.local/bin
@@ -31,6 +31,9 @@ vet: ## Run go vet
 
 lint: ## Run golangci-lint
 	go tool golangci-lint run
+
+fmt: ## Format Go source files
+	gofmt -w .
 
 gosec: ## Run security scanner
 	go tool gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...

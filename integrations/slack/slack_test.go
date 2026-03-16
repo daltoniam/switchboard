@@ -155,7 +155,7 @@ func TestOptInt(t *testing.T) {
 }
 
 func TestJsonResult(t *testing.T) {
-	result, err := jsonResult(map[string]string{"key": "val"})
+	result, err := mcp.JSONResult(map[string]string{"key": "val"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"key"`)

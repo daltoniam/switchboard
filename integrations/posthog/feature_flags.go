@@ -17,17 +17,17 @@ func listFeatureFlags(ctx context.Context, p *posthog, args map[string]any) (*mc
 	})
 	data, err := p.get(ctx, "/api/projects/%s/feature_flags/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/feature_flags/%s/", p.proj(args), argStr(args, "flag_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -36,7 +36,7 @@ func createFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*m
 		body["name"] = v
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
@@ -49,9 +49,9 @@ func createFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*m
 	path := fmt.Sprintf("/api/projects/%s/feature_flags/", p.proj(args))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -63,7 +63,7 @@ func updateFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*m
 		body["name"] = v
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
@@ -73,9 +73,9 @@ func updateFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*m
 	path := fmt.Sprintf("/api/projects/%s/feature_flags/%s/", p.proj(args), argStr(args, "flag_id"))
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -83,9 +83,9 @@ func deleteFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*m
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func featureFlagActivity(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -95,7 +95,7 @@ func featureFlagActivity(ctx context.Context, p *posthog, args map[string]any) (
 	})
 	data, err := p.get(ctx, "/api/projects/%s/feature_flags/%s/activity/%s", p.proj(args), argStr(args, "flag_id"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

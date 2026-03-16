@@ -12,13 +12,13 @@ func listUsers(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolRe
 	// getSpaces returns: { "<user_id>": { "notion_user": { "<uid>": { "value": {...} } }, "space": {...} } }
 	data, err := n.doRequest(ctx, "/api/v3/getSpaces", map[string]any{})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Parse the user-keyed wrapper to find notion_user tables
 	var top map[string]json.RawMessage
 	if err := unmarshalJSON(data, &top); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	var allUsers []map[string]any
@@ -30,7 +30,7 @@ func listUsers(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolRe
 		allUsers = append(allUsers, users...)
 	}
 
-	return jsonResult(map[string]any{"results": allUsers})
+	return mcp.JSONResult(map[string]any{"results": allUsers})
 }
 
 // syncRecordValue fetches a single record via syncRecordValuesMain.
@@ -49,7 +49,7 @@ func syncRecordValue(ctx context.Context, n *notion, table, id string) (*mcp.Too
 	}
 	data, err := n.doRequest(ctx, "/api/v3/syncRecordValuesMain", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	return recordMapResult(data, table, id)
 }
@@ -57,7 +57,7 @@ func syncRecordValue(ctx context.Context, n *notion, table, id string) (*mcp.Too
 func retrieveUser(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	userID := argStr(args, "user_id")
 	if userID == "" {
-		return errResult(fmt.Errorf("user_id is required"))
+		return mcp.ErrResult(fmt.Errorf("user_id is required"))
 	}
 	return syncRecordValue(ctx, n, "notion_user", userID)
 }

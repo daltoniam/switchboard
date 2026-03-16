@@ -45,14 +45,14 @@ func getQueryStats(ctx context.Context, p *pganalyze, args map[string]any) (*mcp
 
 	data, err := p.gql(ctx, query, variables)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	var resp struct {
 		GetQueryStats json.RawMessage `json:"getQueryStats"`
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(resp.GetQueryStats)
+	return mcp.RawResult(resp.GetQueryStats)
 }

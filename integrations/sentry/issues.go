@@ -11,17 +11,17 @@ func listProjects(ctx context.Context, s *sentry, args map[string]any) (*mcp.Too
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/organizations/%s/projects/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getProject(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/projects/%s/%s/", s.org(args), argStr(args, "project"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateProject(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
@@ -41,17 +41,17 @@ func updateProject(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/projects/%s/%s/", s.org(args), argStr(args, "project"))
 	data, err := s.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteProject(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.del(ctx, "/projects/%s/%s/", s.org(args), argStr(args, "project"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createProject(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
@@ -65,33 +65,33 @@ func createProject(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/teams/%s/%s/projects/", s.org(args), argStr(args, "team"))
 	data, err := s.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectKeys(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/projects/%s/%s/keys/", s.org(args), argStr(args, "project"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectEnvironments(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/projects/%s/%s/environments/", s.org(args), argStr(args, "project"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectTags(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/projects/%s/%s/tags/", s.org(args), argStr(args, "project"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getProjectStats(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
@@ -103,17 +103,17 @@ func getProjectStats(ctx context.Context, s *sentry, args map[string]any) (*mcp.
 	})
 	data, err := s.get(ctx, "/projects/%s/%s/stats/%s", s.org(args), argStr(args, "project"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectHooks(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/projects/%s/%s/hooks/", s.org(args), argStr(args, "project"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Issues & Events ──────────────────────────────────────────────────
@@ -131,17 +131,17 @@ func listIssues(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolR
 	})
 	data, err := s.get(ctx, "/projects/%s/%s/issues/%s", s.org(args), argStr(args, "project"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getIssue(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/issues/%s/", argStr(args, "issue_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateIssue(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
@@ -167,60 +167,60 @@ func updateIssue(ctx context.Context, s *sentry, args map[string]any) (*mcp.Tool
 	path := fmt.Sprintf("/issues/%s/", argStr(args, "issue_id"))
 	data, err := s.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteIssue(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.del(ctx, "/issues/%s/", argStr(args, "issue_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listIssueEvents(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/issues/%s/events/%s", argStr(args, "issue_id"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listIssueHashes(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/issues/%s/hashes/%s", argStr(args, "issue_id"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getIssueTagValues(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/issues/%s/tags/%s/values/", argStr(args, "issue_id"), argStr(args, "tag_name"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectEvents(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/projects/%s/%s/events/%s", s.org(args), argStr(args, "project"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getEvent(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/projects/%s/%s/events/%s/", s.org(args), argStr(args, "project"), argStr(args, "event_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listOrgIssues(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
@@ -236,8 +236,7 @@ func listOrgIssues(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 	q := queryEncode(params)
 	data, err := s.get(ctx, "/organizations/%s/issues/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
-

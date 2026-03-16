@@ -39,9 +39,9 @@ func listProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.Too
 		}
 	}`, projectFields), vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func searchProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -54,9 +54,9 @@ func searchProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 		"first": optInt(args, "first", 50),
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -69,9 +69,9 @@ func getProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 		}
 	}`, projectFields), map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -79,7 +79,7 @@ func createProject(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 	if team := argStr(args, "team"); team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		teamIDs = append(teamIDs, teamID)
 	}
@@ -107,9 +107,9 @@ func createProject(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -136,9 +136,9 @@ func updateProject(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		}
 	}`, projectFields), map[string]any{"id": argStr(args, "id"), "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func archiveProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -146,9 +146,9 @@ func archiveProject(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 		projectArchive(id: $id) { success }
 	}`, map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectUpdates(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -163,9 +163,9 @@ func listProjectUpdates(ctx context.Context, l *linear, args map[string]any) (*m
 		"first": optInt(args, "first", 10),
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createProjectUpdate(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -182,9 +182,9 @@ func createProjectUpdate(ctx context.Context, l *linear, args map[string]any) (*
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectMilestones(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -199,9 +199,9 @@ func listProjectMilestones(ctx context.Context, l *linear, args map[string]any) 
 		"first": optInt(args, "first", 50),
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createProjectMilestone(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -222,7 +222,7 @@ func createProjectMilestone(ctx context.Context, l *linear, args map[string]any)
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

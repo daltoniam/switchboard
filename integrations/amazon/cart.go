@@ -20,7 +20,7 @@ var cartItemCountRe = regexp.MustCompile(`\((\d+)\s+item`)
 func getCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult, error) {
 	doc, err := a.fetch(ctx, a.cartURL())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	type cartItem struct {
@@ -43,7 +43,7 @@ func getCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult,
 
 	pageText := doc.Text()
 	if strings.Contains(pageText, "Your Amazon Cart is empty") || strings.Contains(pageText, "Your Amazon Basket is empty") {
-		return jsonResult(cart{IsEmpty: true, Items: []cartItem{}, TotalItems: 0})
+		return mcp.JSONResult(cart{IsEmpty: true, Items: []cartItem{}, TotalItems: 0})
 	}
 
 	var items []cartItem
@@ -104,7 +104,7 @@ func getCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult,
 		}
 	}
 
-	return jsonResult(cart{
+	return mcp.JSONResult(cart{
 		IsEmpty:    len(items) == 0,
 		Items:      items,
 		Subtotal:   subtotal,
@@ -115,17 +115,17 @@ func getCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult,
 func addToCart(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error) {
 	asin := argStr(args, "asin")
 	if !asinRe.MatchString(asin) {
-		return errResult(fmt.Errorf("asin must be exactly 10 uppercase alphanumeric characters (e.g. B0CHXKM5GK)"))
+		return mcp.ErrResult(fmt.Errorf("asin must be exactly 10 uppercase alphanumeric characters (e.g. B0CHXKM5GK)"))
 	}
 
 	doc, err := a.fetch(ctx, a.productURL(asin))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	form := doc.Find("#addToCart")
 	if form.Length() == 0 {
-		return errResult(fmt.Errorf("add-to-cart form not found on product page for ASIN %s", asin))
+		return mcp.ErrResult(fmt.Errorf("add-to-cart form not found on product page for ASIN %s", asin))
 	}
 
 	actionURL, exists := form.Attr("action")
@@ -150,7 +150,7 @@ func addToCart(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolRe
 
 	req, err := http.NewRequestWithContext(ctx, "POST", actionURL, strings.NewReader(formData.Encode()))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	a.setCookies(req)
 	req.Header.Set("User-Agent", userAgent)
@@ -159,7 +159,7 @@ func addToCart(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolRe
 
 	resp, err := a.client.Do(req)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -178,15 +178,15 @@ func addToCart(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolRe
 	}
 
 	if success {
-		return jsonResult(addResult{Success: true, Message: fmt.Sprintf("Product %s added to cart", asin)})
+		return mcp.JSONResult(addResult{Success: true, Message: fmt.Sprintf("Product %s added to cart", asin)})
 	}
-	return jsonResult(addResult{Success: false, Message: fmt.Sprintf("Failed to add product %s to cart", asin)})
+	return mcp.JSONResult(addResult{Success: false, Message: fmt.Sprintf("Failed to add product %s to cart", asin)})
 }
 
 func clearCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult, error) {
 	doc, err := a.fetch(ctx, a.cartURL())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	items := doc.Find("#sc-active-cart [data-asin]")
@@ -198,7 +198,7 @@ func clearCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 			Message      string `json:"message"`
 			ItemsRemoved int    `json:"items_removed"`
 		}
-		return jsonResult(clearResult{Success: true, Message: "Cart is already empty", ItemsRemoved: 0})
+		return mcp.JSONResult(clearResult{Success: true, Message: "Cart is already empty", ItemsRemoved: 0})
 	}
 
 	removed := 0
@@ -260,10 +260,10 @@ func clearCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 	}
 
 	if lastErr != nil && removed == 0 {
-		return errResult(lastErr)
+		return mcp.ErrResult(lastErr)
 	}
 
-	return jsonResult(clearResult{
+	return mcp.JSONResult(clearResult{
 		Success:      true,
 		Message:      fmt.Sprintf("Removed %d item(s) from cart", removed),
 		ItemsRemoved: removed,

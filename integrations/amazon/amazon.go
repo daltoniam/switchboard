@@ -192,18 +192,6 @@ func detectDomain(cookies []cookieJSON) string {
 
 type handlerFunc func(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error)
 
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return errResult(err)
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
 // --- Argument helpers ---
 
 func argStr(args map[string]any, key string) string {
@@ -262,10 +250,10 @@ func (a *amazon) ordersURL() string {
 // --- Dispatch map ---
 
 var dispatch = map[string]handlerFunc{
-	"amazon_search_products":    searchProducts,
-	"amazon_get_product":        getProduct,
-	"amazon_get_orders":         getOrders,
-	"amazon_get_cart":           getCart,
-	"amazon_add_to_cart":        addToCart,
-	"amazon_clear_cart":         clearCart,
+	"amazon_search_products": searchProducts,
+	"amazon_get_product":     getProduct,
+	"amazon_get_orders":      getOrders,
+	"amazon_get_cart":        getCart,
+	"amazon_add_to_cart":     addToCart,
+	"amazon_clear_cart":      clearCart,
 }

@@ -38,7 +38,7 @@ func storageListBuckets(ctx context.Context, g *integration, args map[string]any
 			"created":       b.Created,
 		})
 	}
-	return jsonResult(buckets)
+	return mcp.JSONResult(buckets)
 }
 
 func storageGetBucket(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -47,7 +47,7 @@ func storageGetBucket(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(attrs)
+	return mcp.JSONResult(attrs)
 }
 
 func storageListObjects(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -83,7 +83,7 @@ func storageListObjects(ctx context.Context, g *integration, args map[string]any
 			"updated":      o.Updated,
 		})
 	}
-	return jsonResult(objects)
+	return mcp.JSONResult(objects)
 }
 
 func storageGetObject(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -133,7 +133,7 @@ func storageGetObject(ctx context.Context, g *integration, args map[string]any) 
 		result.Body = base64.StdEncoding.EncodeToString(data)
 		result.Encoding = "base64"
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func storagePutObject(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -155,7 +155,7 @@ func storagePutObject(ctx context.Context, g *integration, args map[string]any) 
 	if err := writer.Close(); err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "success"})
+	return mcp.JSONResult(map[string]string{"status": "success"})
 }
 
 func storageDeleteObject(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -164,7 +164,7 @@ func storageDeleteObject(ctx context.Context, g *integration, args map[string]an
 	if err := obj.Delete(ctx); err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "success"})
+	return mcp.JSONResult(map[string]string{"status": "success"})
 }
 
 func storageCopyObject(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -179,7 +179,7 @@ func storageCopyObject(ctx context.Context, g *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"name":    attrs.Name,
 		"bucket":  attrs.Bucket,
 		"size":    attrs.Size,

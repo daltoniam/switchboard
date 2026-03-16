@@ -17,12 +17,12 @@ var asinRe = regexp.MustCompile(`^[A-Z0-9]{10}$`)
 func searchProducts(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error) {
 	term := argStr(args, "search_term")
 	if term == "" {
-		return errResult(fmt.Errorf("search_term is required"))
+		return mcp.ErrResult(fmt.Errorf("search_term is required"))
 	}
 
 	doc, err := a.fetch(ctx, a.searchURL(term))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	type reviewInfo struct {
@@ -96,18 +96,18 @@ func searchProducts(ctx context.Context, a *amazon, args map[string]any) (*mcp.T
 		})
 	})
 
-	return jsonResult(products)
+	return mcp.JSONResult(products)
 }
 
 func getProduct(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error) {
 	asin := argStr(args, "asin")
 	if !asinRe.MatchString(asin) {
-		return errResult(fmt.Errorf("asin must be exactly 10 uppercase alphanumeric characters (e.g. B0CHXKM5GK)"))
+		return mcp.ErrResult(fmt.Errorf("asin must be exactly 10 uppercase alphanumeric characters (e.g. B0CHXKM5GK)"))
 	}
 
 	doc, err := a.fetch(ctx, a.productURL(asin))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	title := strings.TrimSpace(doc.Find("span#productTitle").Text())
@@ -155,13 +155,13 @@ func getProduct(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolR
 	}
 
 	type productDetail struct {
-		ASIN                    string      `json:"asin"`
-		Title                   string      `json:"title"`
-		Price                   string      `json:"price,omitempty"`
-		CanUseSubscribeAndSave  bool        `json:"can_use_subscribe_and_save"`
-		Description             description `json:"description"`
-		Reviews                 reviews     `json:"reviews"`
-		MainImageURL            string      `json:"main_image_url,omitempty"`
+		ASIN                   string      `json:"asin"`
+		Title                  string      `json:"title"`
+		Price                  string      `json:"price,omitempty"`
+		CanUseSubscribeAndSave bool        `json:"can_use_subscribe_and_save"`
+		Description            description `json:"description"`
+		Reviews                reviews     `json:"reviews"`
+		MainImageURL           string      `json:"main_image_url,omitempty"`
 	}
 
 	result := productDetail{
@@ -182,7 +182,7 @@ func getProduct(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolR
 		MainImageURL: mainImage,
 	}
 
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 var multiSpaceRe = regexp.MustCompile(`\s{2,}`)

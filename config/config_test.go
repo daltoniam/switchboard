@@ -234,16 +234,16 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Len(t, cfg.Integrations, 20)
 
 	expected := map[string][]string{
-		"github":     {"token", "client_id", "token_source"},
-		"datadog":    {"api_key", "app_key"},
-		"linear":     {"api_key", "mcp_access_token", "token_source"},
-		"sentry":     {"auth_token", "organization", "client_id", "token_source"},
-		"slack":      {"token", "cookie", "token_source"},
-		"metabase":   {"api_key", "url"},
-		"aws":        {"access_key_id", "secret_access_key", "session_token", "region"},
-		"posthog":    {"api_key", "project_id", "base_url"},
-		"postgres":   {"connection_string", "host", "user", "read_only"},
-		"clickhouse": {"host", "port", "username", "password", "database", "secure", "skip_verify"},
+		"github":        {"token", "client_id", "token_source"},
+		"datadog":       {"api_key", "app_key"},
+		"linear":        {"api_key", "mcp_access_token", "token_source"},
+		"sentry":        {"auth_token", "organization", "client_id", "token_source"},
+		"slack":         {"token", "cookie", "token_source"},
+		"metabase":      {"api_key", "url"},
+		"aws":           {"access_key_id", "secret_access_key", "session_token", "region"},
+		"posthog":       {"api_key", "project_id", "base_url"},
+		"postgres":      {"connection_string", "host", "user", "read_only"},
+		"clickhouse":    {"host", "port", "username", "password", "database", "secure", "skip_verify"},
 		"pganalyze":     {"api_key", "base_url", "organization_slug"},
 		"rwx":           {"access_token"},
 		"gmail":         {"access_token", "refresh_token", "client_id", "client_secret", "base_url", "token_source"},
@@ -365,31 +365,31 @@ func TestEnvOverrides_AllIntegrations(t *testing.T) {
 	m, _ := newTestManager(t)
 
 	envVars := map[string]string{
-		"GITHUB_TOKEN":        "gh_tok",
-		"DD_API_KEY":          "dd_api",
-		"DD_APP_KEY":          "dd_app",
-		"DD_SITE":             "datadoghq.eu",
-		"LINEAR_API_KEY":      "lin_key",
-		"SENTRY_AUTH_TOKEN":   "sentry_tok",
-		"SENTRY_ORG":          "my-org",
-		"SLACK_TOKEN":         "xoxc-tok",
-		"SLACK_COOKIE":        "xoxd-cookie",
-		"METABASE_API_KEY":    "mb_key",
-		"METABASE_URL":        "https://mb.example.com",
+		"GITHUB_TOKEN":          "gh_tok",
+		"DD_API_KEY":            "dd_api",
+		"DD_APP_KEY":            "dd_app",
+		"DD_SITE":               "datadoghq.eu",
+		"LINEAR_API_KEY":        "lin_key",
+		"SENTRY_AUTH_TOKEN":     "sentry_tok",
+		"SENTRY_ORG":            "my-org",
+		"SLACK_TOKEN":           "xoxc-tok",
+		"SLACK_COOKIE":          "xoxd-cookie",
+		"METABASE_API_KEY":      "mb_key",
+		"METABASE_URL":          "https://mb.example.com",
 		"AWS_ACCESS_KEY_ID":     "AKIA123",
 		"AWS_SECRET_ACCESS_KEY": "secret123",
 		"AWS_SESSION_TOKEN":     "sess123",
 		"AWS_REGION":            "eu-west-1",
-		"POSTHOG_API_KEY":    "phx_key",
-		"POSTHOG_PROJECT_ID": "12345",
-		"POSTHOG_URL":        "https://eu.posthog.com",
-		"DATABASE_URL":       "postgres://user:pass@host:5432/db",
-		"PGHOST":             "db.example.com",
-		"PGPORT":             "5433",
-		"PGUSER":             "admin",
-		"PGPASSWORD":         "secret",
-		"PGDATABASE":         "mydb",
-		"PGSSLMODE":          "require",
+		"POSTHOG_API_KEY":       "phx_key",
+		"POSTHOG_PROJECT_ID":    "12345",
+		"POSTHOG_URL":           "https://eu.posthog.com",
+		"DATABASE_URL":          "postgres://user:pass@host:5432/db",
+		"PGHOST":                "db.example.com",
+		"PGPORT":                "5433",
+		"PGUSER":                "admin",
+		"PGPASSWORD":            "secret",
+		"PGDATABASE":            "mydb",
+		"PGSSLMODE":             "require",
 	}
 
 	m.envLookup = func(key string) string {
@@ -461,5 +461,3 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "JIRA_API_TOKEN", m["jira"]["api_token"])
 	assert.Equal(t, "JIRA_DOMAIN", m["jira"]["domain"])
 }
-
-

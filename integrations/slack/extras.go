@@ -15,7 +15,7 @@ func authTest(ctx context.Context, s *slackIntegration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"user":    resp.User,
 		"user_id": resp.UserID,
 		"team":    resp.Team,
@@ -29,7 +29,7 @@ func teamInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":     info.ID,
 		"name":   info.Name,
 		"domain": info.Domain,
@@ -55,7 +55,7 @@ func uploadFile(ctx context.Context, s *slackIntegration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":    file.ID,
 		"title": file.Title,
 	})
@@ -93,7 +93,7 @@ func listFiles(ctx context.Context, s *slackIntegration, args map[string]any) (*
 			User:     file.User,
 		})
 	}
-	return jsonResult(map[string]any{"count": len(out), "files": out})
+	return mcp.JSONResult(map[string]any{"count": len(out), "files": out})
 }
 
 func deleteFile(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -101,7 +101,7 @@ func deleteFile(ctx context.Context, s *slackIntegration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "deleted", "file_id": argStr(args, "file_id")})
+	return mcp.JSONResult(map[string]any{"status": "deleted", "file_id": argStr(args, "file_id")})
 }
 
 func listEmoji(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -109,7 +109,7 @@ func listEmoji(ctx context.Context, s *slackIntegration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"count": len(emoji), "emoji": emoji})
+	return mcp.JSONResult(map[string]any{"count": len(emoji), "emoji": emoji})
 }
 
 func setStatus(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -118,7 +118,7 @@ func setStatus(ctx context.Context, s *slackIntegration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"status":      "set",
 		"status_text": argStr(args, "status_text"),
 	})
@@ -147,7 +147,7 @@ func listBookmarks(ctx context.Context, s *slackIntegration, args map[string]any
 			Type:  b.Type,
 		})
 	}
-	return jsonResult(map[string]any{"count": len(out), "bookmarks": out})
+	return mcp.JSONResult(map[string]any{"count": len(out), "bookmarks": out})
 }
 
 func addBookmark(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -161,7 +161,7 @@ func addBookmark(ctx context.Context, s *slackIntegration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":    bm.ID,
 		"title": bm.Title,
 		"link":  bm.Link,
@@ -173,7 +173,7 @@ func removeBookmark(ctx context.Context, s *slackIntegration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "removed", "bookmark_id": argStr(args, "bookmark_id")})
+	return mcp.JSONResult(map[string]any{"status": "removed", "bookmark_id": argStr(args, "bookmark_id")})
 }
 
 func addReminder(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -185,7 +185,7 @@ func addReminder(ctx context.Context, s *slackIntegration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"id":   reminder.ID,
 		"text": reminder.Text,
 		"user": reminder.User,
@@ -213,7 +213,7 @@ func listReminders(ctx context.Context, s *slackIntegration, args map[string]any
 			Time: r.Time,
 		})
 	}
-	return jsonResult(map[string]any{"count": len(out), "reminders": out})
+	return mcp.JSONResult(map[string]any{"count": len(out), "reminders": out})
 }
 
 func deleteReminder(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -221,5 +221,5 @@ func deleteReminder(ctx context.Context, s *slackIntegration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "deleted", "reminder_id": argStr(args, "reminder_id")})
+	return mcp.JSONResult(map[string]any{"status": "deleted", "reminder_id": argStr(args, "reminder_id")})
 }

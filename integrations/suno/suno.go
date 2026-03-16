@@ -118,14 +118,6 @@ func (s *suno) post(ctx context.Context, path string, body any) (json.RawMessage
 
 type handlerFunc func(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error)
 
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
 // --- Argument helpers ---
 
 func argStr(args map[string]any, key string) string {
@@ -173,15 +165,15 @@ func argFloat(args map[string]any, key string) float64 {
 
 var dispatch = map[string]handlerFunc{
 	// Music generation
-	"suno_generate_music":      generateMusic,
-	"suno_get_generation":      getGeneration,
-	"suno_extend_music":        extendMusic,
-	"suno_get_credits":         getCredits,
+	"suno_generate_music": generateMusic,
+	"suno_get_generation": getGeneration,
+	"suno_extend_music":   extendMusic,
+	"suno_get_credits":    getCredits,
 
 	// Lyrics
-	"suno_generate_lyrics":     generateLyrics,
-	"suno_get_lyrics":          getLyrics,
-	"suno_get_aligned_lyrics":  getAlignedLyrics,
+	"suno_generate_lyrics":    generateLyrics,
+	"suno_get_lyrics":         getLyrics,
+	"suno_get_aligned_lyrics": getAlignedLyrics,
 
 	// Audio processing
 	"suno_separate_stems":      separateStems,
@@ -190,19 +182,19 @@ var dispatch = map[string]handlerFunc{
 	"suno_get_wav_conversion":  getWavConversion,
 
 	// Advanced generation
-	"suno_cover_audio":         coverAudio,
-	"suno_upload_extend":       uploadExtend,
-	"suno_add_vocals":          addVocals,
-	"suno_add_instrumental":    addInstrumental,
-	"suno_generate_mashup":     generateMashup,
+	"suno_cover_audio":      coverAudio,
+	"suno_upload_extend":    uploadExtend,
+	"suno_add_vocals":       addVocals,
+	"suno_add_instrumental": addInstrumental,
+	"suno_generate_mashup":  generateMashup,
 
 	// Persona
-	"suno_generate_persona":    generatePersona,
+	"suno_generate_persona": generatePersona,
 
 	// Video
-	"suno_generate_video":      generateVideo,
-	"suno_get_video":           getVideo,
+	"suno_generate_video": generateVideo,
+	"suno_get_video":      getVideo,
 
 	// MIDI
-	"suno_generate_midi":       generateMidi,
+	"suno_generate_midi": generateMidi,
 }

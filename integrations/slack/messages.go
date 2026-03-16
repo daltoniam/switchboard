@@ -20,7 +20,7 @@ func sendMessage(ctx context.Context, s *slackIntegration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "sent", "channel": channel, "ts": ts})
+	return mcp.JSONResult(map[string]any{"status": "sent", "channel": channel, "ts": ts})
 }
 
 func updateMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -29,7 +29,7 @@ func updateMessage(ctx context.Context, s *slackIntegration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "updated", "channel": channel, "ts": ts})
+	return mcp.JSONResult(map[string]any{"status": "updated", "channel": channel, "ts": ts})
 }
 
 func deleteMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -37,7 +37,7 @@ func deleteMessage(ctx context.Context, s *slackIntegration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "deleted", "channel": channel, "ts": ts})
+	return mcp.JSONResult(map[string]any{"status": "deleted", "channel": channel, "ts": ts})
 }
 
 func searchMessages(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -70,7 +70,7 @@ func searchMessages(ctx context.Context, s *slackIntegration, args map[string]an
 			Permalink: m.Permalink,
 		})
 	}
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"query":   argStr(args, "query"),
 		"total":   result.Total,
 		"matches": matches,
@@ -83,7 +83,7 @@ func addReaction(ctx context.Context, s *slackIntegration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "added", "emoji": argStr(args, "emoji")})
+	return mcp.JSONResult(map[string]any{"status": "added", "emoji": argStr(args, "emoji")})
 }
 
 func removeReaction(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -92,7 +92,7 @@ func removeReaction(ctx context.Context, s *slackIntegration, args map[string]an
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "removed", "emoji": argStr(args, "emoji")})
+	return mcp.JSONResult(map[string]any{"status": "removed", "emoji": argStr(args, "emoji")})
 }
 
 func getReactions(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -110,7 +110,7 @@ func getReactions(ctx context.Context, s *slackIntegration, args map[string]any)
 	for _, r := range reactedItem.Reactions {
 		out = append(out, rxn{Name: r.Name, Count: r.Count, Users: r.Users})
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func addPin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -119,7 +119,7 @@ func addPin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "pinned"})
+	return mcp.JSONResult(map[string]any{"status": "pinned"})
 }
 
 func removePin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -128,7 +128,7 @@ func removePin(ctx context.Context, s *slackIntegration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]any{"status": "unpinned"})
+	return mcp.JSONResult(map[string]any{"status": "unpinned"})
 }
 
 func listPins(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -152,7 +152,7 @@ func listPins(ctx context.Context, s *slackIntegration, args map[string]any) (*m
 		}
 		out = append(out, p)
 	}
-	return jsonResult(map[string]any{"count": len(out), "pins": out})
+	return mcp.JSONResult(map[string]any{"count": len(out), "pins": out})
 }
 
 func scheduleMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -168,7 +168,7 @@ func scheduleMessage(ctx context.Context, s *slackIntegration, args map[string]a
 	}
 
 	postAtInt, _ := strconv.ParseInt(postAt, 10, 64)
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"status":       "scheduled",
 		"channel":      channel,
 		"scheduled_id": scheduledID,

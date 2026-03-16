@@ -39,14 +39,14 @@ func transformCLIReferences(text string) string {
 
 // proxyClient manages a subprocess running `rwx mcp serve` and proxies tool calls.
 type proxyClient struct {
-	mu       sync.Mutex
-	proc     *exec.Cmd
-	stdin    io.WriteCloser
-	scanner  *bufio.Scanner
-	nextID   int
-	pending  map[int]chan json.RawMessage
-	tools    []proxyToolDef
-	running  bool
+	mu      sync.Mutex
+	proc    *exec.Cmd
+	stdin   io.WriteCloser
+	scanner *bufio.Scanner
+	nextID  int
+	pending map[int]chan json.RawMessage
+	tools   []proxyToolDef
+	running bool
 }
 
 type proxyToolDef struct {
@@ -287,7 +287,7 @@ func (p *proxyClient) execute(_ context.Context, toolName string, args map[strin
 		"arguments": args,
 	})
 	if err != nil {
-		return errResult(fmt.Errorf("proxy call %s: %w", originalName, err))
+		return mcp.ErrResult(fmt.Errorf("proxy call %s: %w", originalName, err))
 	}
 
 	var callResult struct {
@@ -298,7 +298,7 @@ func (p *proxyClient) execute(_ context.Context, toolName string, args map[strin
 		IsError bool `json:"isError"`
 	}
 	if err := json.Unmarshal(result, &callResult); err != nil {
-		return rawResult(transformCLIReferences(string(result)))
+		return &mcp.ToolResult{Data: transformCLIReferences(string(result))}, nil
 	}
 
 	var texts []string

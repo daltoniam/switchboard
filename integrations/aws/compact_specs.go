@@ -11,10 +11,10 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"aws_get_caller_identity": {"Account", "Arn", "UserId"},
 
 	// ── S3 ───────────────────────────────────────────────────────────
-	"aws_s3_list_buckets":  {"Buckets[].Name", "Buckets[].CreationDate"},
-	"aws_s3_list_objects":  {"Contents[].Key", "Contents[].Size", "Contents[].LastModified", "Contents[].StorageClass", "IsTruncated", "NextContinuationToken"},
-	"aws_s3_get_object":    {"ContentType", "ContentLength", "LastModified", "ETag", "Body"},
-	"aws_s3_head_object":   {"ContentType", "ContentLength", "LastModified", "ETag", "Metadata"},
+	"aws_s3_list_buckets": {"Buckets[].Name", "Buckets[].CreationDate"},
+	"aws_s3_list_objects": {"Contents[].Key", "Contents[].Size", "Contents[].LastModified", "Contents[].StorageClass", "IsTruncated", "NextContinuationToken"},
+	"aws_s3_get_object":   {"ContentType", "ContentLength", "LastModified", "ETag", "Body"},
+	"aws_s3_head_object":  {"ContentType", "ContentLength", "LastModified", "ETag", "Metadata"},
 
 	// ── EC2 ──────────────────────────────────────────────────────────
 	"aws_ec2_describe_instances":       {"Reservations[].Instances[].InstanceId", "Reservations[].Instances[].InstanceType", "Reservations[].Instances[].State.Name", "Reservations[].Instances[].PublicIpAddress", "Reservations[].Instances[].PrivateIpAddress", "Reservations[].Instances[].LaunchTime", "Reservations[].Instances[].Tags"},
@@ -28,22 +28,22 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"aws_ec2_describe_key_pairs":       {"KeyPairs[].KeyName", "KeyPairs[].KeyPairId", "KeyPairs[].KeyFingerprint", "KeyPairs[].CreateTime"},
 
 	// ── Lambda ───────────────────────────────────────────────────────
-	"aws_lambda_list_functions":              {"Functions[].FunctionName", "Functions[].FunctionArn", "Functions[].Runtime", "Functions[].Handler", "Functions[].CodeSize", "Functions[].LastModified", "Functions[].MemorySize", "Functions[].Timeout"},
-	"aws_lambda_get_function":                {"Configuration.FunctionName", "Configuration.FunctionArn", "Configuration.Runtime", "Configuration.Handler", "Configuration.CodeSize", "Configuration.LastModified", "Configuration.MemorySize", "Configuration.Timeout", "Configuration.Environment", "Code.Location"},
-	"aws_lambda_list_event_source_mappings":  {"EventSourceMappings[].UUID", "EventSourceMappings[].EventSourceArn", "EventSourceMappings[].FunctionArn", "EventSourceMappings[].State", "EventSourceMappings[].BatchSize"},
-	"aws_lambda_get_function_configuration":  {"FunctionName", "FunctionArn", "Runtime", "Handler", "CodeSize", "LastModified", "MemorySize", "Timeout", "Environment", "VpcConfig"},
+	"aws_lambda_list_functions":             {"Functions[].FunctionName", "Functions[].FunctionArn", "Functions[].Runtime", "Functions[].Handler", "Functions[].CodeSize", "Functions[].LastModified", "Functions[].MemorySize", "Functions[].Timeout"},
+	"aws_lambda_get_function":               {"Configuration.FunctionName", "Configuration.FunctionArn", "Configuration.Runtime", "Configuration.Handler", "Configuration.CodeSize", "Configuration.LastModified", "Configuration.MemorySize", "Configuration.Timeout", "Configuration.Environment", "Code.Location"},
+	"aws_lambda_list_event_source_mappings": {"EventSourceMappings[].UUID", "EventSourceMappings[].EventSourceArn", "EventSourceMappings[].FunctionArn", "EventSourceMappings[].State", "EventSourceMappings[].BatchSize"},
+	"aws_lambda_get_function_configuration": {"FunctionName", "FunctionArn", "Runtime", "Handler", "CodeSize", "LastModified", "MemorySize", "Timeout", "Environment", "VpcConfig"},
 
 	// ── IAM ──────────────────────────────────────────────────────────
-	"aws_iam_list_users":                    {"Users[].UserName", "Users[].UserId", "Users[].Arn", "Users[].CreateDate", "Users[].PasswordLastUsed"},
-	"aws_iam_get_user":                      {"User.UserName", "User.UserId", "User.Arn", "User.CreateDate", "User.PasswordLastUsed", "User.Tags"},
-	"aws_iam_list_roles":                    {"Roles[].RoleName", "Roles[].RoleId", "Roles[].Arn", "Roles[].CreateDate", "Roles[].Description"},
-	"aws_iam_get_role":                      {"Role.RoleName", "Role.RoleId", "Role.Arn", "Role.CreateDate", "Role.Description", "Role.AssumeRolePolicyDocument", "Role.Tags"},
-	"aws_iam_list_policies":                 {"Policies[].PolicyName", "Policies[].PolicyId", "Policies[].Arn", "Policies[].CreateDate", "Policies[].AttachmentCount", "Policies[].IsAttachable"},
-	"aws_iam_get_policy":                    {"Policy.PolicyName", "Policy.PolicyId", "Policy.Arn", "Policy.CreateDate", "Policy.AttachmentCount", "Policy.Description"},
-	"aws_iam_list_groups":                   {"Groups[].GroupName", "Groups[].GroupId", "Groups[].Arn", "Groups[].CreateDate"},
-	"aws_iam_list_attached_role_policies":   {"AttachedPolicies[].PolicyName", "AttachedPolicies[].PolicyArn"},
-	"aws_iam_list_attached_user_policies":   {"AttachedPolicies[].PolicyName", "AttachedPolicies[].PolicyArn"},
-	"aws_iam_list_attached_group_policies":  {"AttachedPolicies[].PolicyName", "AttachedPolicies[].PolicyArn"},
+	"aws_iam_list_users":                   {"Users[].UserName", "Users[].UserId", "Users[].Arn", "Users[].CreateDate", "Users[].PasswordLastUsed"},
+	"aws_iam_get_user":                     {"User.UserName", "User.UserId", "User.Arn", "User.CreateDate", "User.PasswordLastUsed", "User.Tags"},
+	"aws_iam_list_roles":                   {"Roles[].RoleName", "Roles[].RoleId", "Roles[].Arn", "Roles[].CreateDate", "Roles[].Description"},
+	"aws_iam_get_role":                     {"Role.RoleName", "Role.RoleId", "Role.Arn", "Role.CreateDate", "Role.Description", "Role.AssumeRolePolicyDocument", "Role.Tags"},
+	"aws_iam_list_policies":                {"Policies[].PolicyName", "Policies[].PolicyId", "Policies[].Arn", "Policies[].CreateDate", "Policies[].AttachmentCount", "Policies[].IsAttachable"},
+	"aws_iam_get_policy":                   {"Policy.PolicyName", "Policy.PolicyId", "Policy.Arn", "Policy.CreateDate", "Policy.AttachmentCount", "Policy.Description"},
+	"aws_iam_list_groups":                  {"Groups[].GroupName", "Groups[].GroupId", "Groups[].Arn", "Groups[].CreateDate"},
+	"aws_iam_list_attached_role_policies":  {"AttachedPolicies[].PolicyName", "AttachedPolicies[].PolicyArn"},
+	"aws_iam_list_attached_user_policies":  {"AttachedPolicies[].PolicyName", "AttachedPolicies[].PolicyArn"},
+	"aws_iam_list_attached_group_policies": {"AttachedPolicies[].PolicyName", "AttachedPolicies[].PolicyArn"},
 
 	// ── CloudWatch ───────────────────────────────────────────────────
 	"aws_cloudwatch_list_metrics":          {"Metrics[].MetricName", "Metrics[].Namespace", "Metrics[].Dimensions"},
@@ -58,8 +58,8 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"aws_ecs_describe_services":        {"services[].serviceName", "services[].serviceArn", "services[].status", "services[].desiredCount", "services[].runningCount", "services[].taskDefinition", "services[].launchType"},
 	"aws_ecs_list_tasks":               {"taskArns"},
 	"aws_ecs_describe_tasks":           {"tasks[].taskArn", "tasks[].taskDefinitionArn", "tasks[].lastStatus", "tasks[].desiredStatus", "tasks[].cpu", "tasks[].memory", "tasks[].startedAt", "tasks[].containers[].name", "tasks[].containers[].lastStatus"},
-	"aws_ecs_list_task_definitions":     {"taskDefinitionArns"},
-	"aws_ecs_describe_task_definition":  {"taskDefinition.taskDefinitionArn", "taskDefinition.family", "taskDefinition.revision", "taskDefinition.status", "taskDefinition.cpu", "taskDefinition.memory", "taskDefinition.containerDefinitions[].name", "taskDefinition.containerDefinitions[].image", "taskDefinition.containerDefinitions[].cpu", "taskDefinition.containerDefinitions[].memory"},
+	"aws_ecs_list_task_definitions":    {"taskDefinitionArns"},
+	"aws_ecs_describe_task_definition": {"taskDefinition.taskDefinitionArn", "taskDefinition.family", "taskDefinition.revision", "taskDefinition.status", "taskDefinition.cpu", "taskDefinition.memory", "taskDefinition.containerDefinitions[].name", "taskDefinition.containerDefinitions[].image", "taskDefinition.containerDefinitions[].cpu", "taskDefinition.containerDefinitions[].memory"},
 
 	// ── SNS ──────────────────────────────────────────────────────────
 	"aws_sns_list_topics":          {"Topics[].TopicArn"},
@@ -79,10 +79,10 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"aws_dynamodb_scan":           {"Items", "Count", "ScannedCount"},
 
 	// ── CloudFormation ───────────────────────────────────────────────
-	"aws_cloudformation_list_stacks":          {"StackSummaries[].StackName", "StackSummaries[].StackId", "StackSummaries[].StackStatus", "StackSummaries[].CreationTime", "StackSummaries[].LastUpdatedTime"},
-	"aws_cloudformation_describe_stack":       {"Stacks[].StackName", "Stacks[].StackId", "Stacks[].StackStatus", "Stacks[].Parameters", "Stacks[].Outputs", "Stacks[].CreationTime"},
-	"aws_cloudformation_list_stack_resources": {"StackResourceSummaries[].LogicalResourceId", "StackResourceSummaries[].PhysicalResourceId", "StackResourceSummaries[].ResourceType", "StackResourceSummaries[].ResourceStatus"},
-	"aws_cloudformation_get_template":         {"TemplateBody"},
+	"aws_cloudformation_list_stacks":           {"StackSummaries[].StackName", "StackSummaries[].StackId", "StackSummaries[].StackStatus", "StackSummaries[].CreationTime", "StackSummaries[].LastUpdatedTime"},
+	"aws_cloudformation_describe_stack":        {"Stacks[].StackName", "Stacks[].StackId", "Stacks[].StackStatus", "Stacks[].Parameters", "Stacks[].Outputs", "Stacks[].CreationTime"},
+	"aws_cloudformation_list_stack_resources":  {"StackResourceSummaries[].LogicalResourceId", "StackResourceSummaries[].PhysicalResourceId", "StackResourceSummaries[].ResourceType", "StackResourceSummaries[].ResourceStatus"},
+	"aws_cloudformation_get_template":          {"TemplateBody"},
 	"aws_cloudformation_describe_stack_events": {"StackEvents[].EventId", "StackEvents[].ResourceType", "StackEvents[].LogicalResourceId", "StackEvents[].ResourceStatus", "StackEvents[].Timestamp", "StackEvents[].ResourceStatusReason"},
 }
 

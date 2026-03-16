@@ -13,7 +13,7 @@ func getCommit(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(commit)
+	return mcp.JSONResult(commit)
 }
 
 func listCommits(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -37,7 +37,7 @@ func listCommits(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(commits)
+	return mcp.JSONResult(commits)
 }
 
 func getRef(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -45,7 +45,7 @@ func getRef(ctx context.Context, g *integration, args map[string]any) (*mcp.Tool
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(ref)
+	return mcp.JSONResult(ref)
 }
 
 func createRef(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -57,7 +57,7 @@ func createRef(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(r)
+	return mcp.JSONResult(r)
 }
 
 func deleteRef(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -65,7 +65,7 @@ func deleteRef(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "deleted"})
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }
 
 func getTree(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -80,7 +80,7 @@ func getTree(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(tree)
+	return mcp.JSONResult(tree)
 }
 
 func createTag(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -97,5 +97,5 @@ func createTag(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(t)
+	return mcp.JSONResult(t)
 }

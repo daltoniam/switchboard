@@ -38,7 +38,7 @@ func getSecretScanningAlert(ctx context.Context, g *integration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(alert)
+	return mcp.JSONResult(alert)
 }
 
 func getDependabotAlert(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -46,7 +46,7 @@ func getDependabotAlert(ctx context.Context, g *integration, args map[string]any
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(alert)
+	return mcp.JSONResult(alert)
 }
 
 func listCodeScanningAnalyses(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -61,7 +61,7 @@ func listCodeScanningAnalyses(ctx context.Context, g *integration, args map[stri
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(analyses)
+	return mcp.JSONResult(analyses)
 }
 
 // ── SBOM ──────────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ func getSBOM(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(sbom)
+	return mcp.JSONResult(sbom)
 }
 
 // ── Activity Extended ─────────────────────────────────────────────
@@ -81,7 +81,7 @@ func markNotificationsRead(ctx context.Context, g *integration, args map[string]
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "marked_read"})
+	return mcp.JSONResult(map[string]string{"status": "marked_read"})
 }
 
 func starRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -89,7 +89,7 @@ func starRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "starred"})
+	return mcp.JSONResult(map[string]string{"status": "starred"})
 }
 
 func unstarRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -97,7 +97,7 @@ func unstarRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "unstarred"})
+	return mcp.JSONResult(map[string]string{"status": "unstarred"})
 }
 
 func listStarred(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -110,5 +110,5 @@ func listStarred(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(repos)
+	return mcp.JSONResult(repos)
 }

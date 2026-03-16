@@ -40,7 +40,7 @@ func monitoringListMetricDescriptors(ctx context.Context, g *integration, args m
 			"unit":         d.Unit,
 		})
 	}
-	return jsonResult(descriptors)
+	return mcp.JSONResult(descriptors)
 }
 
 func monitoringListTimeSeries(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -81,7 +81,7 @@ func monitoringListTimeSeries(ctx context.Context, g *integration, args map[stri
 			}
 		}
 		req.Aggregation = &monitoringpb.Aggregation{
-			AlignmentPeriod: durationpb.New(d),
+			AlignmentPeriod:  durationpb.New(d),
 			PerSeriesAligner: aligner,
 		}
 	}
@@ -98,7 +98,7 @@ func monitoringListTimeSeries(ctx context.Context, g *integration, args map[stri
 		}
 		series = append(series, ts)
 	}
-	return jsonResult(series)
+	return mcp.JSONResult(series)
 }
 
 func monitoringListAlertPolicies(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -121,7 +121,7 @@ func monitoringListAlertPolicies(ctx context.Context, g *integration, args map[s
 		}
 		policies = append(policies, p)
 	}
-	return jsonResult(policies)
+	return mcp.JSONResult(policies)
 }
 
 func monitoringGetAlertPolicy(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -131,7 +131,7 @@ func monitoringGetAlertPolicy(ctx context.Context, g *integration, args map[stri
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(policy)
+	return mcp.JSONResult(policy)
 }
 
 func monitoringListMonitoredResources(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -158,5 +158,5 @@ func monitoringListMonitoredResources(ctx context.Context, g *integration, args 
 			"description":  r.Description,
 		})
 	}
-	return jsonResult(resources)
+	return mcp.JSONResult(resources)
 }

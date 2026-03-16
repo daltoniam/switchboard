@@ -52,9 +52,9 @@ type mockIntegration struct {
 	healthy bool
 }
 
-func (mi *mockIntegration) Name() string                      { return mi.name }
+func (mi *mockIntegration) Name() string                                         { return mi.name }
 func (mi *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error { return nil }
-func (mi *mockIntegration) Tools() []mcp.ToolDefinition       { return mi.tools }
+func (mi *mockIntegration) Tools() []mcp.ToolDefinition                          { return mi.tools }
 func (mi *mockIntegration) Execute(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
 	return &mcp.ToolResult{Data: "ok"}, nil
 }

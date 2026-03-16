@@ -19,25 +19,25 @@ func listPersons(ctx context.Context, p *posthog, args map[string]any) (*mcp.Too
 	})
 	data, err := p.get(ctx, "/api/projects/%s/persons/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getPerson(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/persons/%s/", p.proj(args), argStr(args, "person_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deletePerson(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.del(ctx, "/api/projects/%s/persons/%s/", p.proj(args), argStr(args, "person_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updatePersonProperty(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -45,9 +45,9 @@ func updatePersonProperty(ctx context.Context, p *posthog, args map[string]any) 
 	path := fmt.Sprintf("/api/projects/%s/persons/%s/update_property/", p.proj(args), argStr(args, "person_id"))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deletePersonProperty(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -55,9 +55,9 @@ func deletePersonProperty(ctx context.Context, p *posthog, args map[string]any) 
 	path := fmt.Sprintf("/api/projects/%s/persons/%s/delete_property/", p.proj(args), argStr(args, "person_id"))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Groups ──────────────────────────────────────────────────────────
@@ -70,9 +70,9 @@ func listGroups(ctx context.Context, p *posthog, args map[string]any) (*mcp.Tool
 	})
 	data, err := p.get(ctx, "/api/projects/%s/groups/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func findGroup(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -82,7 +82,7 @@ func findGroup(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolR
 	})
 	data, err := p.get(ctx, "/api/projects/%s/groups/find/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

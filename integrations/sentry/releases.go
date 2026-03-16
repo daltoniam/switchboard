@@ -19,17 +19,17 @@ func listReleases(ctx context.Context, s *sentry, args map[string]any) (*mcp.Too
 	q := queryEncode(params)
 	data, err := s.get(ctx, "/organizations/%s/releases/%s", s.org(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/organizations/%s/releases/%s/", s.org(args), argStr(args, "version"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
@@ -49,34 +49,34 @@ func createRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/organizations/%s/releases/", s.org(args))
 	data, err := s.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.del(ctx, "/organizations/%s/releases/%s/", s.org(args), argStr(args, "version"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listReleaseCommits(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/organizations/%s/releases/%s/commits/%s", s.org(args), argStr(args, "version"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listReleaseDeploys(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := s.get(ctx, "/organizations/%s/releases/%s/deploys/", s.org(args), argStr(args, "version"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createDeploy(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
@@ -98,16 +98,16 @@ func createDeploy(ctx context.Context, s *sentry, args map[string]any) (*mcp.Too
 	path := fmt.Sprintf("/organizations/%s/releases/%s/deploys/", s.org(args), argStr(args, "version"))
 	data, err := s.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listReleaseFiles(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
 	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
 	data, err := s.get(ctx, "/organizations/%s/releases/%s/files/%s", s.org(args), argStr(args, "version"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

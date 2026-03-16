@@ -12,7 +12,7 @@ func executeQuery(ctx context.Context, m *metabase, args map[string]any) (*mcp.T
 	dbID := argInt(args, "database_id")
 	query := argStr(args, "query")
 	if dbID == 0 || query == "" {
-		return errResult(fmt.Errorf("database_id and query are required"))
+		return mcp.ErrResult(fmt.Errorf("database_id and query are required"))
 	}
 
 	body := map[string]any{
@@ -26,15 +26,15 @@ func executeQuery(ctx context.Context, m *metabase, args map[string]any) (*mcp.T
 
 	data, err := m.post(ctx, "/api/dataset", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func executeCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
 	cardID := argInt(args, "card_id")
 	if cardID == 0 {
-		return errResult(fmt.Errorf("card_id is required"))
+		return mcp.ErrResult(fmt.Errorf("card_id is required"))
 	}
 
 	path := fmt.Sprintf("/api/card/%d/query", cardID)
@@ -42,20 +42,20 @@ func executeCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.To
 	if params != "" {
 		var p []any
 		if err := json.Unmarshal([]byte(params), &p); err != nil {
-			return errResult(fmt.Errorf("invalid parameters JSON: %w", err))
+			return mcp.ErrResult(fmt.Errorf("invalid parameters JSON: %w", err))
 		}
 		data, err := m.post(ctx, path, map[string]any{"parameters": p})
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
 	data, err := m.post(ctx, path, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listCards(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
@@ -66,21 +66,21 @@ func listCards(ctx context.Context, m *metabase, args map[string]any) (*mcp.Tool
 	}
 	data, err := m.get(ctx, "%s", path)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
 	id := argInt(args, "card_id")
 	if id == 0 {
-		return errResult(fmt.Errorf("card_id is required"))
+		return mcp.ErrResult(fmt.Errorf("card_id is required"))
 	}
 	data, err := m.get(ctx, "/api/card/%d", id)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
@@ -88,7 +88,7 @@ func createCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.Too
 	dbID := argInt(args, "database_id")
 	query := argStr(args, "query")
 	if name == "" || dbID == 0 || query == "" {
-		return errResult(fmt.Errorf("name, database_id, and query are required"))
+		return mcp.ErrResult(fmt.Errorf("name, database_id, and query are required"))
 	}
 
 	display := argStr(args, "display")
@@ -119,15 +119,15 @@ func createCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.Too
 
 	data, err := m.post(ctx, "/api/card", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
 	id := argInt(args, "card_id")
 	if id == 0 {
-		return errResult(fmt.Errorf("card_id is required"))
+		return mcp.ErrResult(fmt.Errorf("card_id is required"))
 	}
 
 	body := map[string]any{}
@@ -147,7 +147,7 @@ func updateCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.Too
 	if q := argStr(args, "query"); q != "" {
 		dbID := argInt(args, "database_id")
 		if dbID == 0 {
-			return errResult(fmt.Errorf("database_id is required when updating query"))
+			return mcp.ErrResult(fmt.Errorf("database_id is required when updating query"))
 		}
 		body["dataset_query"] = map[string]any{
 			"database": dbID,
@@ -161,19 +161,19 @@ func updateCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.Too
 
 	data, err := m.put(ctx, fmt.Sprintf("/api/card/%d", id), body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
 	id := argInt(args, "card_id")
 	if id == 0 {
-		return errResult(fmt.Errorf("card_id is required"))
+		return mcp.ErrResult(fmt.Errorf("card_id is required"))
 	}
 	data, err := m.del(ctx, "/api/card/%d", id)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

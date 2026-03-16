@@ -176,17 +176,6 @@ func (s *sentry) del(ctx context.Context, pathFmt string, args ...any) (json.Raw
 
 type handlerFunc func(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error)
 
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
 // --- Argument helpers ---
 
 func argStr(args map[string]any, key string) string {

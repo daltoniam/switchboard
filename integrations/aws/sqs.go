@@ -18,7 +18,7 @@ func sqsListQueues(ctx context.Context, a *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func sqsGetQueueAttributes(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -29,7 +29,7 @@ func sqsGetQueueAttributes(ctx context.Context, a *integration, args map[string]
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func sqsSendMessage(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -44,7 +44,7 @@ func sqsSendMessage(ctx context.Context, a *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func sqsReceiveMessage(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -61,7 +61,7 @@ func sqsReceiveMessage(ctx context.Context, a *integration, args map[string]any)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func sqsDeleteMessage(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -72,7 +72,7 @@ func sqsDeleteMessage(ctx context.Context, a *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "success"})
+	return mcp.JSONResult(map[string]string{"status": "success"})
 }
 
 func sqsPurgeQueue(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -82,5 +82,5 @@ func sqsPurgeQueue(ctx context.Context, a *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "success"})
+	return mcp.JSONResult(map[string]string{"status": "success"})
 }

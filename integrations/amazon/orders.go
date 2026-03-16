@@ -18,7 +18,7 @@ var (
 func getOrders(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult, error) {
 	doc, err := a.fetch(ctx, a.ordersURL())
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	type deliveryAddress struct {
@@ -28,12 +28,12 @@ func getOrders(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 	}
 
 	type orderInfo struct {
-		OrderNumber    string          `json:"order_number,omitempty"`
-		OrderDate      string          `json:"order_date,omitempty"`
-		Total          string          `json:"total,omitempty"`
+		OrderNumber    string           `json:"order_number,omitempty"`
+		OrderDate      string           `json:"order_date,omitempty"`
+		Total          string           `json:"total,omitempty"`
 		DeliveryAddr   *deliveryAddress `json:"delivery_address,omitempty"`
-		Status         string          `json:"status,omitempty"`
-		CollectionDate string          `json:"collection_date,omitempty"`
+		Status         string           `json:"status,omitempty"`
+		CollectionDate string           `json:"collection_date,omitempty"`
 	}
 
 	type orderItem struct {
@@ -139,5 +139,5 @@ func getOrders(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 		orders = append(orders, order{OrderInfo: info, Items: items})
 	})
 
-	return jsonResult(orders)
+	return mcp.JSONResult(orders)
 }

@@ -186,14 +186,14 @@ func TestPut(t *testing.T) {
 
 func TestRawResult(t *testing.T) {
 	data := json.RawMessage(`{"key":"value"}`)
-	result, err := rawResult(data)
+	result, err := mcp.RawResult(data)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
@@ -456,7 +456,7 @@ func TestModifyMessage(t *testing.T) {
 
 	g := &gmail{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
 	result, err := g.Execute(context.Background(), "gmail_modify_message", map[string]any{
-		"message_id":   "msg1",
+		"message_id":    "msg1",
 		"add_label_ids": "STARRED",
 	})
 	require.NoError(t, err)
@@ -695,8 +695,8 @@ func TestBatchModify(t *testing.T) {
 
 	g := &gmail{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
 	result, err := g.Execute(context.Background(), "gmail_batch_modify", map[string]any{
-		"message_ids":    "msg1,msg2",
-		"add_label_ids":  "IMPORTANT",
+		"message_ids":   "msg1,msg2",
+		"add_label_ids": "IMPORTANT",
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)

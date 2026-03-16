@@ -118,7 +118,7 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 // --- Result helper tests ---
 
 func TestJsonResult(t *testing.T) {
-	result, err := jsonResult(map[string]string{"key": "value"})
+	result, err := mcp.JSONResult(map[string]string{"key": "value"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"key"`)

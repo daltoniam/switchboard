@@ -2,7 +2,6 @@ package aws
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -119,14 +118,6 @@ func (a *integration) Execute(ctx context.Context, toolName string, args map[str
 
 type handlerFunc func(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error)
 
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-	}
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
 func wrapRetryable(err error) error {
 	if err == nil {
 		return nil
@@ -147,11 +138,7 @@ func wrapRetryable(err error) error {
 }
 
 func errResult(err error) (*mcp.ToolResult, error) {
-	err = wrapRetryable(err)
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+	return mcp.ErrResult(wrapRetryable(err))
 }
 
 // --- Argument helpers ---

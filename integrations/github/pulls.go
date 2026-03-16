@@ -20,7 +20,7 @@ func listPRs(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(prs)
+	return mcp.JSONResult(prs)
 }
 
 func getPR(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -28,7 +28,7 @@ func getPR(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolR
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(pr)
+	return mcp.JSONResult(pr)
 }
 
 func getPRDiff(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -51,7 +51,7 @@ func createPR(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(pull)
+	return mcp.JSONResult(pull)
 }
 
 func updatePR(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -72,7 +72,7 @@ func updatePR(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(pull)
+	return mcp.JSONResult(pull)
 }
 
 func listPRCommits(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -81,7 +81,7 @@ func listPRCommits(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(commits)
+	return mcp.JSONResult(commits)
 }
 
 func listPRFiles(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -90,7 +90,7 @@ func listPRFiles(ctx context.Context, g *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(files)
+	return mcp.JSONResult(files)
 }
 
 func listPRReviews(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -99,7 +99,7 @@ func listPRReviews(ctx context.Context, g *integration, args map[string]any) (*m
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(reviews)
+	return mcp.JSONResult(reviews)
 }
 
 func createPRReview(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -111,7 +111,7 @@ func createPRReview(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(r)
+	return mcp.JSONResult(r)
 }
 
 func listPRComments(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -120,7 +120,7 @@ func listPRComments(ctx context.Context, g *integration, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(comments)
+	return mcp.JSONResult(comments)
 }
 
 func createPRComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -136,7 +136,7 @@ func createPRComment(ctx context.Context, g *integration, args map[string]any) (
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(c)
+	return mcp.JSONResult(c)
 }
 
 func mergePR(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -148,7 +148,7 @@ func mergePR(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func listRequestedReviewers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -156,7 +156,7 @@ func listRequestedReviewers(ctx context.Context, g *integration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(reviewers)
+	return mcp.JSONResult(reviewers)
 }
 
 func requestReviewers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -168,5 +168,5 @@ func requestReviewers(ctx context.Context, g *integration, args map[string]any) 
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(pr)
+	return mcp.JSONResult(pr)
 }

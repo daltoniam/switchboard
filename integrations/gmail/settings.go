@@ -13,9 +13,9 @@ import (
 func getVacation(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/vacation", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateVacation(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -51,9 +51,9 @@ func updateVacation(ctx context.Context, g *gmail, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/vacation", user(args))
 	data, err := g.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Auto-Forwarding ─────────────────────────────────────────────────
@@ -61,9 +61,9 @@ func updateVacation(ctx context.Context, g *gmail, args map[string]any) (*mcp.To
 func getAutoForwarding(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/autoForwarding", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateAutoForwarding(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -80,9 +80,9 @@ func updateAutoForwarding(ctx context.Context, g *gmail, args map[string]any) (*
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/autoForwarding", user(args))
 	data, err := g.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── IMAP ────────────────────────────────────────────────────────────
@@ -90,9 +90,9 @@ func updateAutoForwarding(ctx context.Context, g *gmail, args map[string]any) (*
 func getImap(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/imap", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateImap(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -112,9 +112,9 @@ func updateImap(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRe
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/imap", user(args))
 	data, err := g.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── POP ─────────────────────────────────────────────────────────────
@@ -122,9 +122,9 @@ func updateImap(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRe
 func getPop(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/pop", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updatePop(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -138,9 +138,9 @@ func updatePop(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRes
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/pop", user(args))
 	data, err := g.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Language ────────────────────────────────────────────────────────
@@ -148,9 +148,9 @@ func updatePop(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRes
 func getLanguage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/language", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateLanguage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -160,9 +160,9 @@ func updateLanguage(ctx context.Context, g *gmail, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/language", user(args))
 	data, err := g.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Filters ─────────────────────────────────────────────────────────
@@ -170,45 +170,45 @@ func updateLanguage(ctx context.Context, g *gmail, args map[string]any) (*mcp.To
 func listFilters(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/filters", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getFilter(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/filters/%s", user(args), argStr(args, "filter_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createFilter(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	body := map[string]any{}
 	if criteria, err := parseJSON(args, "criteria"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if criteria != nil {
 		body["criteria"] = criteria
 	}
 	if action, err := parseJSON(args, "action"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if action != nil {
 		body["action"] = action
 	}
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/filters", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteFilter(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.del(ctx, "/gmail/v1/users/%s/settings/filters/%s", user(args), argStr(args, "filter_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Forwarding Addresses ────────────────────────────────────────────
@@ -216,18 +216,18 @@ func deleteFilter(ctx context.Context, g *gmail, args map[string]any) (*mcp.Tool
 func listForwardingAddresses(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/forwardingAddresses", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getForwardingAddress(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/forwardingAddresses/%s",
 		user(args), argStr(args, "forwarding_email"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createForwardingAddress(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -237,18 +237,18 @@ func createForwardingAddress(ctx context.Context, g *gmail, args map[string]any)
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/forwardingAddresses", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteForwardingAddress(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.del(ctx, "/gmail/v1/users/%s/settings/forwardingAddresses/%s",
 		user(args), argStr(args, "forwarding_email"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Send As ─────────────────────────────────────────────────────────
@@ -256,18 +256,18 @@ func deleteForwardingAddress(ctx context.Context, g *gmail, args map[string]any)
 func listSendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/sendAs", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getSendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/sendAs/%s",
 		user(args), argStr(args, "send_as_email"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createSendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -286,9 +286,9 @@ func createSendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.Tool
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/sendAs", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateSendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -307,18 +307,18 @@ func updateSendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.Tool
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/sendAs/%s", user(args), argStr(args, "send_as_email"))
 	data, err := g.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteSendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.del(ctx, "/gmail/v1/users/%s/settings/sendAs/%s",
 		user(args), argStr(args, "send_as_email"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func verifySendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -326,9 +326,9 @@ func verifySendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.Tool
 		user(args), argStr(args, "send_as_email"))
 	data, err := g.post(ctx, path, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Delegates ───────────────────────────────────────────────────────
@@ -336,18 +336,18 @@ func verifySendAs(ctx context.Context, g *gmail, args map[string]any) (*mcp.Tool
 func listDelegates(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/delegates", user(args))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getDelegate(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/gmail/v1/users/%s/settings/delegates/%s",
 		user(args), argStr(args, "delegate_email"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createDelegate(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -357,16 +357,16 @@ func createDelegate(ctx context.Context, g *gmail, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/gmail/v1/users/%s/settings/delegates", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteDelegate(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.del(ctx, "/gmail/v1/users/%s/settings/delegates/%s",
 		user(args), argStr(args, "delegate_email"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

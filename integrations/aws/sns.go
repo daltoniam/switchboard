@@ -13,7 +13,7 @@ func snsListTopics(ctx context.Context, a *integration, _ map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func snsGetTopicAttributes(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -23,7 +23,7 @@ func snsGetTopicAttributes(ctx context.Context, a *integration, args map[string]
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func snsListSubscriptions(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -34,13 +34,13 @@ func snsListSubscriptions(ctx context.Context, a *integration, args map[string]a
 		if err != nil {
 			return errResult(err)
 		}
-		return jsonResult(out)
+		return mcp.JSONResult(out)
 	}
 	out, err := a.snsClient.ListSubscriptions(ctx, &sns.ListSubscriptionsInput{})
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func snsPublish(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
@@ -55,5 +55,5 @@ func snsPublish(ctx context.Context, a *integration, args map[string]any) (*mcp.
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

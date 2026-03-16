@@ -10,12 +10,12 @@ import (
 func createPage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	parent := argMap(args, "parent")
 	if parent == nil {
-		return errResult(fmt.Errorf("parent is required"))
+		return mcp.ErrResult(fmt.Errorf("parent is required"))
 	}
 
 	parentID, parentTable := resolveParent(parent)
 	if parentID == "" {
-		return errResult(fmt.Errorf("parent must contain page_id or database_id"))
+		return mcp.ErrResult(fmt.Errorf("parent must contain page_id or database_id"))
 	}
 
 	pageID := newBlockID()
@@ -58,15 +58,15 @@ func createPage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolR
 
 	_, err := submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{"id": pageID, "url": notionPageURL(pageID)})
+	return mcp.JSONResult(map[string]any{"id": pageID, "url": notionPageURL(pageID)})
 }
 
 func retrievePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	pageID := argStr(args, "page_id")
 	if pageID == "" {
-		return errResult(fmt.Errorf("page_id is required"))
+		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
 	return loadBlock(ctx, n, pageID)
 }
@@ -74,7 +74,7 @@ func retrievePage(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 func updatePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	pageID := argStr(args, "page_id")
 	if pageID == "" {
-		return errResult(fmt.Errorf("page_id is required"))
+		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
 
 	var ops []op
@@ -94,24 +94,24 @@ func updatePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolR
 
 	_, err := submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{"id": pageID, "status": "updated"})
+	return mcp.JSONResult(map[string]any{"id": pageID, "status": "updated"})
 }
 
 func movePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	pageID := argStr(args, "page_id")
 	if pageID == "" {
-		return errResult(fmt.Errorf("page_id is required"))
+		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
 	newParent := argMap(args, "parent")
 	if newParent == nil {
-		return errResult(fmt.Errorf("parent is required"))
+		return mcp.ErrResult(fmt.Errorf("parent is required"))
 	}
 
 	newParentID, newParentTable := resolveParent(newParent)
 	if newParentID == "" {
-		return errResult(fmt.Errorf("parent must contain page_id or database_id"))
+		return mcp.ErrResult(fmt.Errorf("parent must contain page_id or database_id"))
 	}
 
 	// Fetch current page to get old parent_id
@@ -125,7 +125,7 @@ func movePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolRes
 
 	var page map[string]any
 	if err := unmarshalJSON([]byte(result.Data), &page); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	oldParentID, _ := page["parent_id"].(string)
 
@@ -149,19 +149,19 @@ func movePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolRes
 
 	_, err = submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{"id": pageID, "status": "moved"})
+	return mcp.JSONResult(map[string]any{"id": pageID, "status": "moved"})
 }
 
 func retrievePageProperty(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	pageID := argStr(args, "page_id")
 	if pageID == "" {
-		return errResult(fmt.Errorf("page_id is required"))
+		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
 	propertyID := argStr(args, "property_id")
 	if propertyID == "" {
-		return errResult(fmt.Errorf("property_id is required"))
+		return mcp.ErrResult(fmt.Errorf("property_id is required"))
 	}
 
 	// Fetch the page and extract the specific property.
@@ -175,27 +175,27 @@ func retrievePageProperty(ctx context.Context, n *notion, args map[string]any) (
 
 	var page map[string]any
 	if err := unmarshalJSON([]byte(result.Data), &page); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	// Look in properties map for the requested property
 	props, _ := page["properties"].(map[string]any)
 	if props == nil {
-		return jsonResult(map[string]any{"property_id": propertyID, "value": nil})
+		return mcp.JSONResult(map[string]any{"property_id": propertyID, "value": nil})
 	}
 
 	propVal, exists := props[propertyID]
 	if !exists {
-		return jsonResult(map[string]any{"property_id": propertyID, "value": nil})
+		return mcp.JSONResult(map[string]any{"property_id": propertyID, "value": nil})
 	}
 
-	return jsonResult(map[string]any{"property_id": propertyID, "value": propVal})
+	return mcp.JSONResult(map[string]any{"property_id": propertyID, "value": propVal})
 }
 
 func getPageContent(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	pageID := argStr(args, "page_id")
 	if pageID == "" {
-		return errResult(fmt.Errorf("page_id is required"))
+		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
 
 	limit := argInt(args, "limit")
@@ -210,12 +210,12 @@ func getPageContent(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 		"verticalColumns": false,
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	blocks, err := extractAllRecords(data, "block")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	var page map[string]any
@@ -229,10 +229,10 @@ func getPageContent(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 		children = append(children, block)
 	}
 	if page == nil {
-		return errResult(fmt.Errorf("page %q not found in response", pageID))
+		return mcp.ErrResult(fmt.Errorf("page %q not found in response", pageID))
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"page":   page,
 		"blocks": children,
 	})
@@ -241,17 +241,17 @@ func getPageContent(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 func createPageWithContent(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	parent := argMap(args, "parent")
 	if parent == nil {
-		return errResult(fmt.Errorf("parent is required"))
+		return mcp.ErrResult(fmt.Errorf("parent is required"))
 	}
 
 	children, ok := args["children"].([]any)
 	if !ok || len(children) == 0 {
-		return errResult(fmt.Errorf("children is required"))
+		return mcp.ErrResult(fmt.Errorf("children is required"))
 	}
 
 	parentID, parentTable := resolveParent(parent)
 	if parentID == "" {
-		return errResult(fmt.Errorf("parent must contain page_id or database_id"))
+		return mcp.ErrResult(fmt.Errorf("parent must contain page_id or database_id"))
 	}
 
 	pageID := newBlockID()
@@ -306,7 +306,7 @@ func createPageWithContent(ctx context.Context, n *notion, args map[string]any) 
 
 	_, err := submitTransaction(ctx, n, ops)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{"id": pageID, "url": notionPageURL(pageID)})
+	return mcp.JSONResult(map[string]any{"id": pageID, "url": notionPageURL(pageID)})
 }

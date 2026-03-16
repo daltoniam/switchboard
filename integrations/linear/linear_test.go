@@ -66,9 +66,9 @@ func TestIsRemoteMCP_NonLinear(t *testing.T) {
 
 type mockIntegration struct{}
 
-func (m *mockIntegration) Name() string                          { return "mock" }
-func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error       { return nil }
-func (m *mockIntegration) Tools() []mcp.ToolDefinition           { return nil }
+func (m *mockIntegration) Name() string                                         { return "mock" }
+func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error { return nil }
+func (m *mockIntegration) Tools() []mcp.ToolDefinition                          { return nil }
 func (m *mockIntegration) Execute(context.Context, string, map[string]any) (*mcp.ToolResult, error) {
 	return nil, nil
 }
@@ -273,14 +273,14 @@ func TestOptInt(t *testing.T) {
 
 func TestRawResult(t *testing.T) {
 	data := json.RawMessage(`{"key":"value"}`)
-	result, err := rawResult(data)
+	result, err := mcp.RawResult(data)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)

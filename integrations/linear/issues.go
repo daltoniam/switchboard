@@ -67,9 +67,9 @@ func listIssues(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 		}
 	}`, issueFields), vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func searchIssues(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -84,9 +84,9 @@ func searchIssues(ctx context.Context, l *linear, args map[string]any) (*mcp.Too
 		"after": argStr(args, "after"),
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -98,9 +98,9 @@ func getIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolRes
 		}
 	}`, issueFields), map[string]any{"id": id})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // resolveIssueID resolves an identifier (ENG-123) to a UUID.
@@ -125,7 +125,7 @@ func (l *linear) resolveIssueID(ctx context.Context, idOrIdentifier string) (str
 func createIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	teamID, err := l.resolveTeamID(ctx, argStr(args, "team"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	input := map[string]any{
@@ -150,28 +150,28 @@ func createIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 	if v := argStr(args, "state"); v != "" {
 		stateID, err := l.resolveStateID(ctx, v, teamID)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["stateId"] = stateID
 	}
 	if v := argStr(args, "project"); v != "" {
 		projectID, err := l.resolveProjectID(ctx, v)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["projectId"] = projectID
 	}
 	if v := argStr(args, "assignee"); v != "" {
 		userID, err := l.resolveUserID(ctx, v)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["assigneeId"] = userID
 	}
 	if v := argStr(args, "labels"); v != "" {
 		labelIDs, err := l.resolveLabelIDs(ctx, strings.Split(v, ","))
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["labelIds"] = labelIDs
 	}
@@ -182,15 +182,15 @@ func createIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	input := map[string]any{}
@@ -216,7 +216,7 @@ func updateIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 	if v := argStr(args, "team"); v != "" {
 		teamID, err = l.resolveTeamID(ctx, v)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["teamId"] = teamID
 	}
@@ -224,33 +224,33 @@ func updateIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		if teamID == "" {
 			teamID, err = l.resolveIssueTeamID(ctx, issueID)
 			if err != nil {
-				return errResult(err)
+				return mcp.ErrResult(err)
 			}
 		}
 		stateID, err := l.resolveStateID(ctx, v, teamID)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["stateId"] = stateID
 	}
 	if v := argStr(args, "project"); v != "" {
 		projectID, err := l.resolveProjectID(ctx, v)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["projectId"] = projectID
 	}
 	if v := argStr(args, "assignee"); v != "" {
 		userID, err := l.resolveUserID(ctx, v)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["assigneeId"] = userID
 	}
 	if v := argStr(args, "labels"); v != "" {
 		labelIDs, err := l.resolveLabelIDs(ctx, strings.Split(v, ","))
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["labelIds"] = labelIDs
 	}
@@ -261,43 +261,43 @@ func updateIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		}
 	}`, issueFields), map[string]any{"id": issueID, "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func archiveIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	data, err := l.gql(ctx, `mutation($id: String!) {
 		issueArchive(id: $id) { success }
 	}`, map[string]any{"id": issueID})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func unarchiveIssue(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	data, err := l.gql(ctx, `mutation($id: String!) {
 		issueUnarchive(id: $id) { success }
 	}`, map[string]any{"id": issueID})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listIssueComments(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	data, err := l.gql(ctx, `query($id: String!, $first: Int) {
 		issue(id: $id) {
@@ -310,15 +310,15 @@ func listIssueComments(ctx context.Context, l *linear, args map[string]any) (*mc
 		}
 	}`, map[string]any{"id": issueID, "first": optInt(args, "first", 50)})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createComment(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "issue_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	data, err := l.gql(ctx, `mutation($input: CommentCreateInput!) {
 		commentCreate(input: $input) {
@@ -331,9 +331,9 @@ func createComment(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		},
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateComment(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -346,9 +346,9 @@ func updateComment(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		"input": map[string]any{"body": argStr(args, "body")},
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteComment(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -356,15 +356,15 @@ func deleteComment(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		commentDelete(id: $id) { success }
 	}`, map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listIssueRelations(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	data, err := l.gql(ctx, `query($id: String!) {
 		issue(id: $id) {
@@ -373,19 +373,19 @@ func listIssueRelations(ctx context.Context, l *linear, args map[string]any) (*m
 		}
 	}`, map[string]any{"id": issueID})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createIssueRelation(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "issue_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	relatedID, err := l.resolveIssueID(ctx, argStr(args, "related_issue_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	relType := argStr(args, "type")
 	data, err := l.gql(ctx, `mutation($input: IssueRelationCreateInput!) {
@@ -400,9 +400,9 @@ func createIssueRelation(ctx context.Context, l *linear, args map[string]any) (*
 		},
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteIssueRelation(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
@@ -410,15 +410,15 @@ func deleteIssueRelation(ctx context.Context, l *linear, args map[string]any) (*
 		issueRelationDelete(id: $id) { success }
 	}`, map[string]any{"id": argStr(args, "id")})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listIssueLabels(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	data, err := l.gql(ctx, `query($id: String!) {
 		issue(id: $id) {
@@ -426,15 +426,15 @@ func listIssueLabels(ctx context.Context, l *linear, args map[string]any) (*mcp.
 		}
 	}`, map[string]any{"id": issueID})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listAttachments(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "issue_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	data, err := l.gql(ctx, `query($filter: AttachmentFilter, $first: Int) {
 		attachments(filter: $filter, first: $first) {
@@ -445,15 +445,15 @@ func listAttachments(ctx context.Context, l *linear, args map[string]any) (*mcp.
 		"first":  optInt(args, "first", 25),
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createAttachment(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
 	issueID, err := l.resolveIssueID(ctx, argStr(args, "issue_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	input := map[string]any{
 		"issueId": issueID,
@@ -471,9 +471,9 @@ func createAttachment(ctx context.Context, l *linear, args map[string]any) (*mcp
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // unused but keeps import

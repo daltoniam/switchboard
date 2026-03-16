@@ -349,8 +349,8 @@ func searchToolNames(t *testing.T, resp searchResponse) []string {
 
 	// Columnar format: find "name" column index, extract from rows.
 	var obj struct {
-		Columns   []string          `json:"columns"`
-		Constants map[string]string `json:"constants"`
+		Columns   []string            `json:"columns"`
+		Constants map[string]string   `json:"constants"`
 		Rows      [][]json.RawMessage `json:"rows"`
 	}
 	require.NoError(t, json.Unmarshal(resp.Tools, &obj))
@@ -378,7 +378,7 @@ func searchToolNames(t *testing.T, resp searchResponse) []string {
 func extractColumnarParams(t *testing.T, toolsRaw json.RawMessage) []map[string]string {
 	t.Helper()
 	var obj struct {
-		Columns []string           `json:"columns"`
+		Columns []string            `json:"columns"`
 		Rows    [][]json.RawMessage `json:"rows"`
 	}
 	require.NoError(t, json.Unmarshal(toolsRaw, &obj))
@@ -888,7 +888,7 @@ func TestHandleScriptExecute_OutputColumnarized(t *testing.T) {
 	s := setupTestServer(mi)
 	scriptReq := &mcpsdk.CallToolRequest{
 		Params: &mcpsdk.CallToolParamsRaw{
-			Name: "execute",
+			Name:      "execute",
 			Arguments: json.RawMessage(`{"script":"api.call('testint_list_items', {});"}`),
 		},
 	}
@@ -1051,18 +1051,21 @@ func TestExecuteTool_SingleTool(t *testing.T) {
 	}
 
 	s := setupTestServer(mi)
-	result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"id": "123"})
+	integration, result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"id": "123"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, "widget")
+	require.NotNil(t, integration, "executeTool should return the owning integration on success")
+	assert.Equal(t, "testint", integration.Name())
 }
 
 func TestExecuteTool_NotFound(t *testing.T) {
 	s := setupTestServer()
-	result, err := s.executeTool(context.Background(), "nonexistent_tool", map[string]any{})
+	integration, result, err := s.executeTool(context.Background(), "nonexistent_tool", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "not found")
+	assert.Nil(t, integration, "executeTool should return nil integration when tool not found")
 }
 
 func TestScriptExecution_SingleCall(t *testing.T) {
@@ -1163,7 +1166,7 @@ func TestScriptExecution_ToolNotFound(t *testing.T) {
 
 func TestHandleExecute_EmptyArgs(t *testing.T) {
 	s := setupTestServer()
-	result, err := s.executeTool(context.Background(), "", map[string]any{})
+	_, result, err := s.executeTool(context.Background(), "", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "not found")
@@ -1186,7 +1189,7 @@ func TestExecuteTool_RetriesOnRetryableError(t *testing.T) {
 		healthy: true,
 	})
 	s.retryBackoff = 0
-	result, err := s.executeTool(context.Background(), "test_flaky", map[string]any{})
+	_, result, err := s.executeTool(context.Background(), "test_flaky", map[string]any{})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, "ok", result.Data)
@@ -1207,11 +1210,12 @@ func TestExecuteTool_ReturnsErrorAfterMaxRetries(t *testing.T) {
 		healthy: true,
 	})
 	s.retryBackoff = 0
-	result, err := s.executeTool(context.Background(), "test_down", map[string]any{})
+	integration, result, err := s.executeTool(context.Background(), "test_down", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "service unavailable")
 	assert.Equal(t, 3, calls, "should attempt exactly 3 times")
+	assert.Nil(t, integration, "executeTool should return nil integration when retries exhausted")
 }
 
 func TestComputeBackoff_ReturnsValueWithinJitterBounds(t *testing.T) {
@@ -1252,9 +1256,10 @@ func TestExecuteTool_DoesNotRetryNonRetryableErrors(t *testing.T) {
 		},
 		healthy: true,
 	})
-	_, err := s.executeTool(context.Background(), "test_bad", map[string]any{})
+	integration, _, err := s.executeTool(context.Background(), "test_bad", map[string]any{})
 	require.Error(t, err)
 	assert.Equal(t, 1, calls, "should not retry non-retryable errors")
+	assert.Nil(t, integration, "executeTool should return nil integration on non-retryable error")
 }
 
 func TestExecuteTool_DoesNotRetryToolResultErrors(t *testing.T) {
@@ -1270,7 +1275,7 @@ func TestExecuteTool_DoesNotRetryToolResultErrors(t *testing.T) {
 		},
 		healthy: true,
 	})
-	result, err := s.executeTool(context.Background(), "test_4xx", map[string]any{})
+	_, result, err := s.executeTool(context.Background(), "test_4xx", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, 1, calls, "should not retry ToolResult errors")
@@ -1295,7 +1300,7 @@ func TestExecuteTool_RespectsContextCancellationDuringBackoff(t *testing.T) {
 	})
 	s.retryBackoff = time.Second // long backoff so cancellation wins the select race
 
-	_, err := s.executeTool(ctx, "test_slow", map[string]any{})
+	_, _, err := s.executeTool(ctx, "test_slow", map[string]any{})
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Equal(t, 1, calls, "should not retry after context cancellation")
 }
@@ -1319,7 +1324,7 @@ func TestExecuteTool_UsesRetryAfterWhenProvided(t *testing.T) {
 	s.retryBackoff = time.Second // default backoff is very long
 
 	start := time.Now()
-	result, err := s.executeTool(context.Background(), "test_ratelimit", map[string]any{})
+	_, result, err := s.executeTool(context.Background(), "test_ratelimit", map[string]any{})
 	elapsed := time.Since(start)
 
 	require.NoError(t, err)
@@ -1353,11 +1358,12 @@ func TestExecuteTool_CircuitBreakerTripsAfterRepeatedFailures(t *testing.T) {
 	}
 
 	callsBefore := calls
-	result, err := s.executeTool(context.Background(), "test_breaker", map[string]any{})
+	integration, result, err := s.executeTool(context.Background(), "test_breaker", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "circuit breaker open")
 	assert.Equal(t, callsBefore, calls, "should not call integration when breaker is open")
+	assert.Nil(t, integration, "executeTool should return nil integration when breaker is open")
 }
 
 func TestExecuteTool_CircuitBreakerResetsOnSuccess(t *testing.T) {
@@ -1389,7 +1395,7 @@ func TestExecuteTool_CircuitBreakerResetsOnSuccess(t *testing.T) {
 	time.Sleep(60 * time.Millisecond)
 
 	// Half-open: allows one probe. Mock now returns success.
-	result, err := s.executeTool(context.Background(), "test_recover", map[string]any{})
+	_, result, err := s.executeTool(context.Background(), "test_recover", map[string]any{})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, "ok", result.Data)
@@ -1417,7 +1423,7 @@ func TestExecuteTool_BudgetExhaustionRecordsFailure(t *testing.T) {
 	s.executeTool(context.Background(), "test_budget_breaker", map[string]any{})
 
 	// If failures were recorded correctly, breaker should now be open.
-	result, err := s.executeTool(context.Background(), "test_budget_breaker", map[string]any{})
+	_, result, err := s.executeTool(context.Background(), "test_budget_breaker", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "circuit breaker open")
@@ -1694,12 +1700,12 @@ func TestExecuteTool_BreakerCountsPerCallNotPerAttempt(t *testing.T) {
 
 	// After 2 calls (2 failures), breaker should still be closed (threshold=3).
 	callsBefore := calls
-	_, err := s.executeTool(context.Background(), "test_counter", map[string]any{})
+	_, _, err := s.executeTool(context.Background(), "test_counter", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, calls > callsBefore, "breaker should still allow calls after 2 failures with threshold=3")
 
 	// After 3rd call (3 failures), breaker should be open.
-	result, err := s.executeTool(context.Background(), "test_counter", map[string]any{})
+	_, result, err := s.executeTool(context.Background(), "test_counter", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "circuit breaker open")
@@ -1724,7 +1730,7 @@ func TestExecuteTool_BreakerErrorIncludesCooldownDuration(t *testing.T) {
 	s.executeTool(context.Background(), "test_cooldown", map[string]any{})
 
 	// Next call should hit the breaker with a helpful message.
-	result, err := s.executeTool(context.Background(), "test_cooldown", map[string]any{})
+	_, result, err := s.executeTool(context.Background(), "test_cooldown", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "30s", "breaker error should include cooldown duration")
@@ -1946,10 +1952,11 @@ func TestExecuteTool_ValidationRejectsMissingRequired(t *testing.T) {
 	}
 	s := setupTestServer(mi)
 
-	result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"format": "json"})
+	integration, result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"format": "json"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, `missing required parameter "id"`)
+	assert.Nil(t, integration, "executeTool should return nil integration on validation failure")
 }
 
 func TestExecuteTool_ValidationRejectsUnknownParam(t *testing.T) {
@@ -1971,7 +1978,7 @@ func TestExecuteTool_ValidationRejectsUnknownParam(t *testing.T) {
 	}
 	s := setupTestServer(mi)
 
-	result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"id": "123", "item_id": "456"})
+	_, result, err := s.executeTool(context.Background(), "testint_get_item", map[string]any{"id": "123", "item_id": "456"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, `unknown parameter "item_id"`)
@@ -1993,10 +2000,10 @@ func TestSearch_ScriptHint_SingleResult(t *testing.T) {
 
 func TestSearch_ResponseColumnarized(t *testing.T) {
 	tests := []struct {
-		name           string
-		toolCount      int
-		wantColumnar   bool
-		wantConstant   string // expected constant integration value, empty = no constants check
+		name         string
+		toolCount    int
+		wantColumnar bool
+		wantConstant string // expected constant integration value, empty = no constants check
 	}{
 		{
 			name:         "columnarizes tools array when 8+ results from one integration",
@@ -2056,10 +2063,10 @@ func TestSearch_ResponseColumnarized(t *testing.T) {
 
 func TestSearch_SharedParametersExtracted(t *testing.T) {
 	tests := []struct {
-		name              string
-		tools             []mcp.ToolDefinition
-		wantSharedParams  map[string]string // params expected in shared_parameters
-		wantKeptPerTool   []string          // param names that should stay per-tool
+		name             string
+		tools            []mcp.ToolDefinition
+		wantSharedParams map[string]string // params expected in shared_parameters
+		wantKeptPerTool  []string          // param names that should stay per-tool
 	}{
 		{
 			name: "extracts params with identical description across 3+ tools",

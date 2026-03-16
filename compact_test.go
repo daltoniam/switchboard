@@ -1239,6 +1239,161 @@ func TestBuildColumnar(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// CompactAny tests — verify any-based compaction matches CompactJSON behavior
+// ---------------------------------------------------------------------------
+
+func TestCompactAny_CompactsObjectFields(t *testing.T) {
+	obj := map[string]any{
+		"number": float64(42),
+		"title":  "bug report",
+		"body":   "long text to strip",
+		"user":   map[string]any{"login": "alice", "id": float64(1), "avatar_url": "https://..."},
+	}
+	fields, err := ParseCompactSpecs([]string{"number", "title", "user.login"})
+	require.NoError(t, err)
+
+	result := CompactAny(obj, fields)
+	m, ok := result.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, float64(42), m["number"])
+	assert.Equal(t, "bug report", m["title"])
+	// compactObject flattens single-member nested specs to dotted keys (e.g. "user.login"),
+	// so the output map is flat rather than nested.
+	assert.Equal(t, "alice", m["user.login"])
+	assert.NotContains(t, m, "body")
+	assert.NotContains(t, m, "user")
+}
+
+func TestCompactAny_CompactsArrayElements(t *testing.T) {
+	arr := []any{
+		map[string]any{"number": float64(1), "title": "a", "body": "strip"},
+		map[string]any{"number": float64(2), "title": "b", "body": "strip"},
+	}
+	fields, err := ParseCompactSpecs([]string{"number", "title"})
+	require.NoError(t, err)
+
+	result := CompactAny(arr, fields)
+	slice, ok := result.([]any)
+	require.True(t, ok)
+	require.Len(t, slice, 2)
+	first := slice[0].(map[string]any)
+	assert.Equal(t, float64(1), first["number"])
+	assert.Equal(t, "a", first["title"])
+	assert.NotContains(t, first, "body")
+}
+
+func TestCompactAny_ReturnsInputUnchangedWhenNoSpecs(t *testing.T) {
+	obj := map[string]any{"a": 1}
+	assert.Equal(t, obj, CompactAny(obj, nil))
+}
+
+func TestCompactAny_ReturnsNilForNilInput(t *testing.T) {
+	fields, _ := ParseCompactSpecs([]string{"x"})
+	assert.Nil(t, CompactAny(nil, fields))
+}
+
+func TestCompactAny_PassesThroughNonMapNonSlice(t *testing.T) {
+	fields, _ := ParseCompactSpecs([]string{"x"})
+	assert.Equal(t, "hello", CompactAny("hello", fields))
+}
+
+func TestCompactAny_MatchesCompactJSON(t *testing.T) {
+	input := []map[string]any{
+		{"number": 1, "title": "a", "user": map[string]any{"login": "alice", "id": 999}},
+		{"number": 2, "title": "b", "user": map[string]any{"login": "bob", "id": 888}},
+	}
+	data, _ := json.Marshal(input)
+	specs := []string{"number", "title", "user.login"}
+	fields, _ := ParseCompactSpecs(specs)
+
+	// CompactJSON path
+	jsonOut, err := CompactJSON(data, fields)
+	require.NoError(t, err)
+
+	// CompactAny path
+	var parsed any
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	anyOut, err := json.Marshal(CompactAny(parsed, fields))
+	require.NoError(t, err)
+
+	assert.JSONEq(t, string(jsonOut), string(anyOut))
+}
+
+// ---------------------------------------------------------------------------
+// ColumnarizeAny tests — verify any-based columnarization matches ColumnarizeJSON
+// ---------------------------------------------------------------------------
+
+func TestColumnarizeAny_ConvertsLargeArrayToColumnar(t *testing.T) {
+	arr := make([]any, 10)
+	for i := range arr {
+		arr[i] = map[string]any{"id": float64(i), "name": "item"}
+	}
+
+	result := ColumnarizeAny(arr)
+	m, ok := result.(map[string]any)
+	require.True(t, ok)
+	assert.Contains(t, m, "columns")
+	assert.Contains(t, m, "rows")
+}
+
+func TestColumnarizeAny_PassesThroughSmallArray(t *testing.T) {
+	arr := []any{
+		map[string]any{"id": 1},
+		map[string]any{"id": 2},
+	}
+	result := ColumnarizeAny(arr)
+	// Should return original array unchanged (< columnarMinItems)
+	slice, ok := result.([]any)
+	require.True(t, ok)
+	assert.Len(t, slice, 2)
+}
+
+func TestColumnarizeAny_ColumnarizesNestedArraysInObject(t *testing.T) {
+	obj := map[string]any{
+		"total": float64(10),
+		"items": func() []any {
+			arr := make([]any, 10)
+			for i := range arr {
+				arr[i] = map[string]any{"id": float64(i)}
+			}
+			return arr
+		}(),
+	}
+
+	result := ColumnarizeAny(obj)
+	m := result.(map[string]any)
+	items := m["items"].(map[string]any)
+	assert.Contains(t, items, "columns")
+	assert.Contains(t, items, "rows")
+}
+
+func TestColumnarizeAny_PassesThroughNonMapNonSlice(t *testing.T) {
+	assert.Equal(t, "hello", ColumnarizeAny("hello"))
+	assert.Equal(t, float64(42), ColumnarizeAny(float64(42)))
+	assert.Nil(t, ColumnarizeAny(nil))
+}
+
+func TestColumnarizeAny_MatchesColumnarizeJSON(t *testing.T) {
+	input := make([]map[string]any, 10)
+	for i := range input {
+		input[i] = map[string]any{"id": i, "name": "item", "value": i * 10}
+	}
+	data, _ := json.Marshal(input)
+
+	// ColumnarizeJSON path
+	jsonOut, err := ColumnarizeJSON(data)
+	require.NoError(t, err)
+
+	// ColumnarizeAny path
+	var parsed any
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	anyOut, err := json.Marshal(ColumnarizeAny(parsed))
+	require.NoError(t, err)
+
+	assert.JSONEq(t, string(jsonOut), string(anyOut))
+}
+
 func BenchmarkCompactJSON_ArrayOfObjects(b *testing.B) {
 	input := make([]map[string]any, 100)
 	for i := range input {
@@ -1715,5 +1870,93 @@ func BenchmarkCompactionRatio(b *testing.B) {
 		}
 		data, _ := json.Marshal(items)
 		benchCompaction(b, "Passthrough", data, nil)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline benchmarks — CompactAny vs CompactJSON, single-pass vs two-pass
+// ---------------------------------------------------------------------------
+
+func BenchmarkCompactAny_vs_CompactJSON(b *testing.B) {
+	input := make([]map[string]any, 100)
+	for i := range input {
+		input[i] = map[string]any{
+			"number": i,
+			"title":  "issue title",
+			"body":   "long body text that should be stripped",
+			"user":   map[string]any{"login": "alice", "id": 999, "avatar_url": "https://..."},
+			"labels": []any{map[string]any{"name": "bug", "color": "red"}, map[string]any{"name": "P1", "color": "blue"}},
+			"commit": map[string]any{"author": map[string]any{"name": "Alice", "email": "a@b.com"}, "message": "fix"},
+		}
+	}
+	data, _ := json.Marshal(input)
+	fields, _ := ParseCompactSpecs([]string{"number", "title", "user.login", "labels[].name", "commit.author.name", "commit.message"})
+
+	b.Run("CompactJSON_bytes_in_bytes_out", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_, _ = CompactJSON(data, fields)
+		}
+	})
+
+	b.Run("CompactAny_pre_parsed", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			var parsed any
+			_ = json.Unmarshal(data, &parsed)
+			result := CompactAny(parsed, fields)
+			_, _ = json.Marshal(result)
+		}
+	})
+}
+
+func BenchmarkFullPipeline_SinglePass_vs_TwoPass(b *testing.B) {
+	input := make([]map[string]any, 30)
+	for i := range input {
+		input[i] = map[string]any{
+			"number":     i + 1,
+			"title":      "Issue title for benchmarking pipeline",
+			"state":      "open",
+			"html_url":   "https://github.com/org/repo/issues/42",
+			"created_at": "2025-01-15T10:30:00Z",
+			"updated_at": "2025-03-01T14:22:00Z",
+			"comments":   i * 3,
+			"body":       "Long issue body with detailed description of the bug.",
+			"node_id":    "MDU6SXNzdWUxMjM0NTY3OA==",
+			"user": map[string]any{
+				"login":      "developer",
+				"id":         999,
+				"avatar_url": "https://avatars.githubusercontent.com/u/999",
+				"url":        "https://api.github.com/users/developer",
+			},
+			"labels": []any{
+				map[string]any{"id": 100, "name": "bug", "color": "d73a4a"},
+				map[string]any{"id": 101, "name": "priority:high", "color": "e11d48"},
+			},
+		}
+	}
+	data, _ := json.Marshal(input)
+	fields, _ := ParseCompactSpecs([]string{
+		"number", "title", "state", "html_url", "created_at", "updated_at",
+		"comments", "user.login", "labels[].name",
+	})
+
+	b.Run("TwoPass_CompactJSON_then_ColumnarizeJSON", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			compacted, _ := CompactJSON(data, fields)
+			_, _ = ColumnarizeJSON(compacted)
+		}
+	})
+
+	b.Run("SinglePass_parse_CompactAny_ColumnarizeAny_marshal", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			var parsed any
+			_ = json.Unmarshal(data, &parsed)
+			parsed = CompactAny(parsed, fields)
+			parsed = ColumnarizeAny(parsed)
+			_, _ = json.Marshal(parsed)
+		}
 	})
 }

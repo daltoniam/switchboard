@@ -18,9 +18,9 @@ func serverInfo(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.T
 		OSVersion() AS os_version,
 		totalMemory() AS total_memory_bytes`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProcesses(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.ToolResult, error) {
@@ -36,22 +36,22 @@ func listProcesses(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mc
 	FROM system.processes
 	ORDER BY elapsed DESC`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func killQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
 	queryID := argStr(args, "query_id")
 	if queryID == "" {
-		return errResult(fmt.Errorf("query_id is required"))
+		return mcp.ErrResult(fmt.Errorf("query_id is required"))
 	}
 
 	data, err := c.query(ctx, "KILL QUERY WHERE query_id = ?", queryID)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listSettings(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
@@ -61,17 +61,17 @@ func listSettings(ctx context.Context, c *clickhouseInt, args map[string]any) (*
 			"SELECT name, value, changed, description, type FROM system.settings WHERE name LIKE ? ORDER BY name LIMIT 200",
 			pattern)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
 	data, err := c.query(ctx,
 		"SELECT name, value, changed, description, type FROM system.settings ORDER BY name LIMIT 200")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listMerges(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.ToolResult, error) {
@@ -87,9 +87,9 @@ func listMerges(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.T
 	FROM system.merges
 	ORDER BY elapsed DESC`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listReplicas(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.ToolResult, error) {
@@ -107,9 +107,9 @@ func listReplicas(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp
 	FROM system.replicas
 	ORDER BY database, table`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func diskUsage(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.ToolResult, error) {
@@ -124,15 +124,15 @@ func diskUsage(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.To
 	GROUP BY database
 	ORDER BY total_bytes DESC`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listParts(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
 	table := argStr(args, "table")
 	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
 
 	db := argStr(args, "database")
@@ -157,9 +157,9 @@ func listParts(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp
 	q += strings.Join(conds, " AND ") + " ORDER BY modification_time DESC LIMIT 100"
 	data, err := c.query(ctx, q, qargs...)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listDictionaries(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.ToolResult, error) {
@@ -175,25 +175,25 @@ func listDictionaries(ctx context.Context, c *clickhouseInt, _ map[string]any) (
 	FROM system.dictionaries
 	ORDER BY database, name`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listUsers(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.ToolResult, error) {
 	data, err := c.query(ctx, "SHOW USERS")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listRoles(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.ToolResult, error) {
 	data, err := c.query(ctx, "SHOW ROLES")
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func queryLog(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
@@ -227,7 +227,7 @@ func queryLog(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.
 
 	data, err := c.query(ctx, baseQuery, queryArgs...)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

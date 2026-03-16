@@ -17,9 +17,9 @@ func listDrafts(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRe
 	q := queryEncode(params)
 	data, err := g.get(ctx, "/gmail/v1/users/%s/drafts%s", user(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -29,9 +29,9 @@ func getDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResu
 	q := queryEncode(params)
 	data, err := g.get(ctx, "/gmail/v1/users/%s/drafts/%s%s", user(args), argStr(args, "draft_id"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -46,9 +46,9 @@ func createDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 	path := fmt.Sprintf("/gmail/v1/users/%s/drafts", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -63,17 +63,17 @@ func updateDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 	path := fmt.Sprintf("/gmail/v1/users/%s/drafts/%s", user(args), argStr(args, "draft_id"))
 	data, err := g.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.del(ctx, "/gmail/v1/users/%s/drafts/%s", user(args), argStr(args, "draft_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func sendDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
@@ -83,7 +83,7 @@ func sendDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRes
 	path := fmt.Sprintf("/gmail/v1/users/%s/drafts/send", user(args))
 	data, err := g.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

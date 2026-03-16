@@ -17,18 +17,18 @@ func separateStems(ctx context.Context, s *suno, args map[string]any) (*mcp.Tool
 
 	data, err := s.post(ctx, "/api/v1/vocal-removal/generate", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getStemSeparation(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
 	taskID := argStr(args, "task_id")
 	data, err := s.get(ctx, "/api/v1/vocal-removal/record-info?taskId=%s", taskID)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func convertWav(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
@@ -42,18 +42,18 @@ func convertWav(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolRes
 
 	data, err := s.post(ctx, "/api/v1/convert/wav", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getWavConversion(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
 	taskID := argStr(args, "task_id")
 	data, err := s.get(ctx, "/api/v1/convert/wav/record-info?taskId=%s", taskID)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func generateVideo(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
@@ -73,18 +73,18 @@ func generateVideo(ctx context.Context, s *suno, args map[string]any) (*mcp.Tool
 
 	data, err := s.post(ctx, "/api/v1/video/generate", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getVideo(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
 	taskID := argStr(args, "task_id")
 	data, err := s.get(ctx, "/api/v1/video/record-info?taskId=%s", taskID)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func generateMidi(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
@@ -98,7 +98,7 @@ func generateMidi(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolR
 
 	data, err := s.post(ctx, "/api/v1/midi/generate", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

@@ -8,7 +8,7 @@ import (
 
 var rawFieldCompactionSpecs = map[string][]string{
 	// ── Organizations ────────────────────────────────────────────────
-	"sentry_get_organization": {"id", "slug", "name", "status.id", "dateCreated", "features"},
+	"sentry_get_organization":  {"id", "slug", "name", "status.id", "dateCreated", "features"},
 	"sentry_list_org_projects": {"id", "slug", "name", "platform", "dateCreated", "status"},
 	"sentry_list_org_teams":    {"id", "slug", "name", "memberCount", "dateCreated"},
 	"sentry_list_org_members":  {"id", "email", "name", "role", "pending", "dateCreated"},

@@ -16,17 +16,17 @@ func listInsights(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	})
 	data, err := p.get(ctx, "/api/projects/%s/insights/%s", p.proj(args), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := p.get(ctx, "/api/projects/%s/insights/%s/", p.proj(args), argStr(args, "insight_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -38,21 +38,21 @@ func createInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 		body["description"] = v
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
 	if query, err := parseJSON(args, "query"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if query != nil {
 		body["query"] = query
 	}
 	path := fmt.Sprintf("/api/projects/%s/insights/", p.proj(args))
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -64,21 +64,21 @@ func updateInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 		body["description"] = v
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
 	if query, err := parseJSON(args, "query"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if query != nil {
 		body["query"] = query
 	}
 	path := fmt.Sprintf("/api/projects/%s/insights/%s/", p.proj(args), argStr(args, "insight_id"))
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
@@ -86,7 +86,7 @@ func deleteInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
