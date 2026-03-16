@@ -175,7 +175,7 @@ func listComments(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 }
 
 func addComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	body := textToADF(argStr(args, "body"))
+	body := map[string]any{"body": textToADF(argStr(args, "body"))}
 	path := fmt.Sprintf("/issue/%s/comment", argStr(args, "issue_key"))
 	data, err := j.post(ctx, path, body)
 	if err != nil {
@@ -185,7 +185,7 @@ func addComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRes
 }
 
 func updateComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	body := textToADF(argStr(args, "body"))
+	body := map[string]any{"body": textToADF(argStr(args, "body"))}
 	path := fmt.Sprintf("/issue/%s/comment/%s", argStr(args, "issue_key"), argStr(args, "comment_id"))
 	data, err := j.put(ctx, path, body)
 	if err != nil {

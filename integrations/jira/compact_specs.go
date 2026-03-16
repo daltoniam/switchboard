@@ -25,16 +25,16 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"comments[].created", "comments[].updated",
 	},
 	"jira_list_issue_links": {
-		"id", "type.name", "type.inward", "type.outward",
-		"inwardIssue.key", "inwardIssue.fields.summary",
-		"outwardIssue.key", "outwardIssue.fields.summary",
+		"[].id", "[].type.name", "[].type.inward", "[].type.outward",
+		"[].inwardIssue.key", "[].inwardIssue.fields.summary",
+		"[].outwardIssue.key", "[].outwardIssue.fields.summary",
 	},
 
 	// ── Projects ─────────────────────────────────────────────────────
 	"jira_list_projects":           {"values[].key", "values[].name", "values[].projectTypeKey", "values[].style"},
 	"jira_get_project":             {"key", "name", "projectTypeKey", "description", "lead.displayName", "components", "versions"},
-	"jira_list_project_components": {"id", "name", "description", "lead.displayName", "assigneeType"},
-	"jira_list_project_versions":   {"id", "name", "description", "released", "releaseDate", "archived"},
+	"jira_list_project_components": {"[].id", "[].name", "[].description", "[].lead.displayName", "[].assigneeType"},
+	"jira_list_project_versions":   {"[].id", "[].name", "[].description", "[].released", "[].releaseDate", "[].archived"},
 	"jira_list_project_statuses":   {"id", "name", "statuses[].id", "statuses[].name"},
 
 	// ── Boards & Sprints (Agile API) ────────────────────────────────
@@ -54,15 +54,15 @@ var rawFieldCompactionSpecs = map[string][]string{
 
 	// ── Users ────────────────────────────────────────────────────────
 	"jira_get_myself":   {"accountId", "displayName", "emailAddress", "active", "timeZone"},
-	"jira_search_users": {"accountId", "displayName", "emailAddress", "active"},
+	"jira_search_users": {"[].accountId", "[].displayName", "[].emailAddress", "[].active"},
 	"jira_get_user":     {"accountId", "displayName", "emailAddress", "active", "timeZone"},
 
 	// ── Metadata ─────────────────────────────────────────────────────
-	"jira_list_issue_types": {"id", "name", "subtask", "description"},
-	"jira_list_priorities":  {"id", "name", "description"},
-	"jira_list_statuses":    {"id", "name", "statusCategory.name"},
+	"jira_list_issue_types": {"[].id", "[].name", "[].subtask", "[].description"},
+	"jira_list_priorities":  {"[].id", "[].name", "[].description"},
+	"jira_list_statuses":    {"[].id", "[].name", "[].statusCategory.name"},
 	"jira_list_labels":      {"values"},
-	"jira_list_fields":      {"id", "name", "custom", "schema.type"},
+	"jira_list_fields":      {"[].id", "[].name", "[].custom", "[].schema.type"},
 	"jira_list_filters":     {"values[].id", "values[].name", "values[].jql", "values[].owner.displayName"},
 	"jira_get_filter":       {"id", "name", "jql", "owner.displayName", "description"},
 
