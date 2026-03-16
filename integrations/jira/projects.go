@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -27,7 +28,7 @@ func listProjects(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 }
 
 func getProject(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/project/%s", argStr(args, "project_key"))
+	data, err := j.get(ctx, "/project/%s", url.PathEscape(argStr(args, "project_key")))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -35,7 +36,7 @@ func getProject(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRes
 }
 
 func listProjectComponents(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/project/%s/components", argStr(args, "project_key"))
+	data, err := j.get(ctx, "/project/%s/components", url.PathEscape(argStr(args, "project_key")))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -43,7 +44,7 @@ func listProjectComponents(ctx context.Context, j *jira, args map[string]any) (*
 }
 
 func listProjectVersions(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/project/%s/versions", argStr(args, "project_key"))
+	data, err := j.get(ctx, "/project/%s/versions", url.PathEscape(argStr(args, "project_key")))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -51,7 +52,7 @@ func listProjectVersions(ctx context.Context, j *jira, args map[string]any) (*mc
 }
 
 func listProjectStatuses(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/project/%s/statuses", argStr(args, "project_key"))
+	data, err := j.get(ctx, "/project/%s/statuses", url.PathEscape(argStr(args, "project_key")))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -31,7 +32,7 @@ func listBoards(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRes
 }
 
 func getBoard(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.agileGet(ctx, "/board/%s", argStr(args, "board_id"))
+	data, err := j.agileGet(ctx, "/board/%s", url.PathEscape(argStr(args, "board_id")))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -50,7 +51,7 @@ func listSprints(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 		params["state"] = v
 	}
 	q := queryEncode(params)
-	data, err := j.agileGet(ctx, "/board/%s/sprint%s", argStr(args, "board_id"), q)
+	data, err := j.agileGet(ctx, "/board/%s/sprint%s", url.PathEscape(argStr(args, "board_id")), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -58,7 +59,7 @@ func listSprints(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 }
 
 func getSprint(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.agileGet(ctx, "/sprint/%s", argStr(args, "sprint_id"))
+	data, err := j.agileGet(ctx, "/sprint/%s", url.PathEscape(argStr(args, "sprint_id")))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -103,7 +104,7 @@ func updateSprint(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 	if v := argStr(args, "goal"); v != "" {
 		body["goal"] = v
 	}
-	path := fmt.Sprintf("/sprint/%s", argStr(args, "sprint_id"))
+	path := fmt.Sprintf("/sprint/%s", url.PathEscape(argStr(args, "sprint_id")))
 	data, err := j.agilePut(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -123,7 +124,7 @@ func getSprintIssues(ctx context.Context, j *jira, args map[string]any) (*mcp.To
 		params["jql"] = v
 	}
 	q := queryEncode(params)
-	data, err := j.agileGet(ctx, "/sprint/%s/issue%s", argStr(args, "sprint_id"), q)
+	data, err := j.agileGet(ctx, "/sprint/%s/issue%s", url.PathEscape(argStr(args, "sprint_id")), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -140,7 +141,7 @@ func moveIssuesToSprint(ctx context.Context, j *jira, args map[string]any) (*mcp
 		issues[i] = strings.TrimSpace(s)
 	}
 	body := map[string]any{"issues": issues}
-	path := fmt.Sprintf("/sprint/%s/issue", argStr(args, "sprint_id"))
+	path := fmt.Sprintf("/sprint/%s/issue", url.PathEscape(argStr(args, "sprint_id")))
 	data, err := j.agilePost(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -160,7 +161,7 @@ func listBoardBacklog(ctx context.Context, j *jira, args map[string]any) (*mcp.T
 		params["jql"] = v
 	}
 	q := queryEncode(params)
-	data, err := j.agileGet(ctx, "/board/%s/backlog%s", argStr(args, "board_id"), q)
+	data, err := j.agileGet(ctx, "/board/%s/backlog%s", url.PathEscape(argStr(args, "board_id")), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -168,7 +169,7 @@ func listBoardBacklog(ctx context.Context, j *jira, args map[string]any) (*mcp.T
 }
 
 func getBoardConfig(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.agileGet(ctx, "/board/%s/configuration", argStr(args, "board_id"))
+	data, err := j.agileGet(ctx, "/board/%s/configuration", url.PathEscape(argStr(args, "board_id")))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

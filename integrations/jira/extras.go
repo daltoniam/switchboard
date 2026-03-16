@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -69,7 +70,7 @@ func listFilters(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 }
 
 func getFilter(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/filter/%s", argStr(args, "filter_id"))
+	data, err := j.get(ctx, "/filter/%s", url.PathEscape(argStr(args, "filter_id")))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -87,7 +88,7 @@ func listWorklogs(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 		params["maxResults"] = fmt.Sprintf("%d", v)
 	}
 	q := queryEncode(params)
-	data, err := j.get(ctx, "/issue/%s/worklog%s", argStr(args, "issue_key"), q)
+	data, err := j.get(ctx, "/issue/%s/worklog%s", url.PathEscape(argStr(args, "issue_key")), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -104,7 +105,7 @@ func addWorklog(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRes
 	if v := argStr(args, "started"); v != "" {
 		body["started"] = v
 	}
-	path := fmt.Sprintf("/issue/%s/worklog", argStr(args, "issue_key"))
+	path := fmt.Sprintf("/issue/%s/worklog", url.PathEscape(argStr(args, "issue_key")))
 	data, err := j.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
