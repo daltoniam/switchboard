@@ -29,9 +29,9 @@ func searchIssues(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 
 	data, err := j.post(ctx, "/search", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -45,9 +45,9 @@ func getIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResul
 	q := queryEncode(params)
 	data, err := j.get(ctx, "/issue/%s%s", argStr(args, "issue_key"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -74,9 +74,9 @@ func createIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 
 	data, err := j.post(ctx, "/issue", map[string]any{"fields": fields})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -105,9 +105,9 @@ func updateIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 	path := fmt.Sprintf("/issue/%s", argStr(args, "issue_key"))
 	data, err := j.put(ctx, path, map[string]any{"fields": fields})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -117,9 +117,9 @@ func deleteIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 	}
 	data, err := j.del(ctx, "/issue/%s%s", argStr(args, "issue_key"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func transitionIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -129,17 +129,17 @@ func transitionIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.To
 	path := fmt.Sprintf("/issue/%s/transitions", argStr(args, "issue_key"))
 	data, err := j.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getTransitions(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := j.get(ctx, "/issue/%s/transitions", argStr(args, "issue_key"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func assignIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -153,9 +153,9 @@ func assignIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 	path := fmt.Sprintf("/issue/%s/assignee", argStr(args, "issue_key"))
 	data, err := j.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listComments(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -169,9 +169,9 @@ func listComments(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 	q := queryEncode(params)
 	data, err := j.get(ctx, "/issue/%s/comment%s", argStr(args, "issue_key"), q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func addComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -179,9 +179,9 @@ func addComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRes
 	path := fmt.Sprintf("/issue/%s/comment", argStr(args, "issue_key"))
 	data, err := j.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -189,23 +189,23 @@ func updateComment(ctx context.Context, j *jira, args map[string]any) (*mcp.Tool
 	path := fmt.Sprintf("/issue/%s/comment/%s", argStr(args, "issue_key"), argStr(args, "comment_id"))
 	data, err := j.put(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteComment(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := j.del(ctx, "/issue/%s/comment/%s", argStr(args, "issue_key"), argStr(args, "comment_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listIssueLinks(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := j.get(ctx, "/issue/%s?fields=issuelinks", argStr(args, "issue_key"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	// Extract just the issuelinks field from the response.
 	var issue struct {
@@ -214,12 +214,12 @@ func listIssueLinks(ctx context.Context, j *jira, args map[string]any) (*mcp.Too
 		} `json:"fields"`
 	}
 	if err := json.Unmarshal(data, &issue); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	if issue.Fields.IssueLinks == nil {
-		return rawResult(json.RawMessage(`[]`))
+		return mcp.RawResult(json.RawMessage(`[]`))
 	}
-	return rawResult(issue.Fields.IssueLinks)
+	return mcp.RawResult(issue.Fields.IssueLinks)
 }
 
 func createIssueLink(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
@@ -230,15 +230,15 @@ func createIssueLink(ctx context.Context, j *jira, args map[string]any) (*mcp.To
 	}
 	data, err := j.post(ctx, "/issueLink", body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteIssueLink(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := j.del(ctx, "/issueLink/%s", argStr(args, "link_id"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

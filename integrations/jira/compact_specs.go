@@ -35,7 +35,7 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"jira_get_project":             {"key", "name", "projectTypeKey", "description", "lead.displayName", "components", "versions"},
 	"jira_list_project_components": {"[].id", "[].name", "[].description", "[].lead.displayName", "[].assigneeType"},
 	"jira_list_project_versions":   {"[].id", "[].name", "[].description", "[].released", "[].releaseDate", "[].archived"},
-	"jira_list_project_statuses":   {"id", "name", "statuses[].id", "statuses[].name"},
+	"jira_list_project_statuses":   {"[].id", "[].name", "[].statuses[].id", "[].statuses[].name"},
 
 	// ── Boards & Sprints (Agile API) ────────────────────────────────
 	"jira_list_boards":  {"values[].id", "values[].name", "values[].type", "values[].location.projectKey"},

@@ -21,39 +21,39 @@ func listProjects(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 	q := queryEncode(params)
 	data, err := j.get(ctx, "/project/search%s", q)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getProject(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := j.get(ctx, "/project/%s", argStr(args, "project_key"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectComponents(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := j.get(ctx, "/project/%s/components", argStr(args, "project_key"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectVersions(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := j.get(ctx, "/project/%s/versions", argStr(args, "project_key"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listProjectStatuses(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := j.get(ctx, "/project/%s/statuses", argStr(args, "project_key"))
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

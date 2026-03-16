@@ -77,7 +77,7 @@ func (j *jira) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
 func (j *jira) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
-		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
+		return mcp.ErrResult(fmt.Errorf("unknown tool: %s", toolName))
 	}
 	return fn(ctx, j, args)
 }
@@ -163,20 +163,7 @@ func (j *jira) agilePut(ctx context.Context, path string, body any) (json.RawMes
 	return j.doRequest(ctx, "PUT", j.agileURL+path, body)
 }
 
-// --- Result helpers ---
-
 type handlerFunc func(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error)
-
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	if mcp.IsRetryable(err) {
-		return nil, err
-	}
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
 
 // --- Argument helpers ---
 

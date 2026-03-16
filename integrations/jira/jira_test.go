@@ -250,11 +250,11 @@ func TestAgileGet(t *testing.T) {
 	assert.Contains(t, string(data), "Board 1")
 }
 
-// --- result helper tests ---
+// --- result helper tests (shared mcp.RawResult / mcp.ErrResult) ---
 
 func TestErrResult_PropagatesRetryableError(t *testing.T) {
 	retryErr := &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("service unavailable")}
-	result, err := errResult(retryErr)
+	result, err := mcp.ErrResult(retryErr)
 	assert.Nil(t, result, "retryable error should not produce a ToolResult")
 	assert.Error(t, err, "retryable error should be propagated as Go error")
 	assert.True(t, mcp.IsRetryable(err))
@@ -262,7 +262,7 @@ func TestErrResult_PropagatesRetryableError(t *testing.T) {
 
 func TestErrResult_WrapsNonRetryableError(t *testing.T) {
 	plainErr := fmt.Errorf("bad request")
-	result, err := errResult(plainErr)
+	result, err := mcp.ErrResult(plainErr)
 	require.NoError(t, err, "non-retryable error should not propagate as Go error")
 	assert.True(t, result.IsError)
 	assert.Equal(t, "bad request", result.Data)
@@ -270,7 +270,7 @@ func TestErrResult_WrapsNonRetryableError(t *testing.T) {
 
 func TestRawResult(t *testing.T) {
 	data := json.RawMessage(`{"key":"value"}`)
-	result, err := rawResult(data)
+	result, err := mcp.RawResult(data)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
