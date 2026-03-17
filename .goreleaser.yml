@@ -46,28 +46,16 @@ changelog:
       - "^ci:"
       - "^chore:"
 
-brews:
+homebrew_casks:
   - repository:
       owner: daltoniam
       name: homebrew-tap
-    directory: Formula
+    directory: Casks
     homepage: "https://github.com/daltoniam/switchboard"
     description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
-    license: "MIT"
-    install: |
-      bin.install "switchboard"
-    post_install: |
-      system bin/"switchboard", "daemon", "install"
     caveats: |
       To uninstall the background daemon before removing the formula, run:
         switchboard daemon uninstall
-    service: |
-      run [opt_bin/"switchboard", "--port", "3847"]
-      keep_alive true
-      log_path var/"log/switchboard.log"
-      error_log_path var/"log/switchboard.error.log"
-    test: |
-      system "#{bin}/switchboard", "--version"
 
 scoops:
   - repository:
@@ -96,18 +84,6 @@ nfpms:
     scripts:
       postinstall: scripts/postinstall.sh
       preremove: scripts/preremove.sh
-
-aurs:
-  - name: switchboard-bin
-    homepage: "https://github.com/daltoniam/switchboard"
-    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
-    maintainers:
-      - "Austin Cherry <austin@daltoniam.com>"
-    license: "MIT"
-    private_key: "{{ .Env.AUR_KEY }}"
-    git_url: "ssh://aur@aur.archlinux.org/switchboard-bin.git"
-    package: |-
-      install -Dm755 "./switchboard" "${pkgdir}/usr/bin/switchboard"
 
 release:
   github:
