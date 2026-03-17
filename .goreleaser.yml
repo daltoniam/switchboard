@@ -54,8 +54,13 @@ homebrew_casks:
     homepage: "https://github.com/daltoniam/switchboard"
     description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
     caveats: |
-      To uninstall the background daemon before removing the formula, run:
+      To start the background daemon, run:
+        switchboard daemon install
+
+      To uninstall the daemon before removing the cask, run:
         switchboard daemon uninstall
+    test: |
+      system "#{bin}/switchboard", "--version"
 
 scoops:
   - repository:
