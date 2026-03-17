@@ -189,7 +189,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"amazon": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"cookies": "", "domain": ""},
+				Credentials: mcp.Credentials{"email": "", "password": "", "otp_secret": "", "cookies": "", "domain": ""},
 			},
 		},
 	}
