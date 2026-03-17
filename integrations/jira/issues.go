@@ -15,7 +15,11 @@ func searchIssues(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 		"jql": argStr(args, "jql"),
 	}
 	if v := argStr(args, "fields"); v != "" {
-		body["fields"] = strings.Split(v, ",")
+		rawFields := strings.Split(v, ",")
+		for i, f := range rawFields {
+			rawFields[i] = strings.TrimSpace(f)
+		}
+		body["fields"] = rawFields
 	} else {
 		body["fields"] = []string{"summary", "status", "assignee", "priority", "issuetype"}
 	}
@@ -212,7 +216,8 @@ func deleteComment(ctx context.Context, j *jira, args map[string]any) (*mcp.Tool
 }
 
 func listIssueLinks(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/issue/%s?fields=issuelinks", url.PathEscape(argStr(args, "issue_key")))
+	q := queryEncode(map[string]string{"fields": "issuelinks"})
+	data, err := j.get(ctx, "/issue/%s%s", url.PathEscape(argStr(args, "issue_key")), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
