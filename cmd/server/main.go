@@ -19,6 +19,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
+	"github.com/daltoniam/switchboard/integrations/confluence"
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
@@ -204,6 +205,7 @@ func runServer(stdioMode bool, port int) {
 		gmailIntegration,
 		homeassistant.New(),
 		jira.New(),
+		confluence.New(),
 		notionInt.New(),
 		gcpInt.New(),
 		suno.New(),

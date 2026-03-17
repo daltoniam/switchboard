@@ -58,6 +58,11 @@ var envMapping = map[string]map[string]string{
 		"api_token": "JIRA_API_TOKEN",
 		"domain":    "JIRA_DOMAIN",
 	},
+	"confluence": {
+		"email":     "CONFLUENCE_EMAIL",
+		"api_token": "CONFLUENCE_API_TOKEN",
+		"domain":    "CONFLUENCE_DOMAIN",
+	},
 	"postgres": {
 		"connection_string": "DATABASE_URL",
 		"host":              "PGHOST",
@@ -176,6 +181,10 @@ func defaultConfig() *mcp.Config {
 				Credentials: mcp.Credentials{"api_key": ""},
 			},
 			"jira": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"email": "", "api_token": "", "domain": ""},
+			},
+			"confluence": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"email": "", "api_token": "", "domain": ""},
 			},
