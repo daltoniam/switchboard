@@ -53,6 +53,11 @@ var envMapping = map[string]map[string]string{
 		"project_id": "POSTHOG_PROJECT_ID",
 		"base_url":   "POSTHOG_URL",
 	},
+	"jira": {
+		"email":     "JIRA_EMAIL",
+		"api_token": "JIRA_API_TOKEN",
+		"domain":    "JIRA_DOMAIN",
+	},
 	"postgres": {
 		"connection_string": "DATABASE_URL",
 		"host":              "PGHOST",
@@ -169,6 +174,10 @@ func defaultConfig() *mcp.Config {
 			"ynab": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": ""},
+			},
+			"jira": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"email": "", "api_token": "", "domain": ""},
 			},
 			"gcp": {
 				Enabled:     false,

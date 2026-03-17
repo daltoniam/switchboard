@@ -167,6 +167,9 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Postgres | `password` | `PGPASSWORD` |
 | Postgres | `database` | `PGDATABASE` |
 | Postgres | `sslmode` | `PGSSLMODE` |
+| Jira | `email` | `JIRA_EMAIL` |
+| Jira | `api_token` | `JIRA_API_TOKEN` |
+| Jira | `domain` | `JIRA_DOMAIN` |
 
 ### OAuth Setup
 
