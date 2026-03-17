@@ -8,17 +8,17 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-func listComments(ctx context.Context, c *confluence, args map[string]any) (*mcp.ToolResult, error) {
-	parentType := argStr(args, "parent_type")
-	parentID := url.PathEscape(argStr(args, "parent_id"))
-
-	var basePath string
+func commentBasePath(parentType, parentID string) string {
 	switch parentType {
 	case "blogpost":
-		basePath = fmt.Sprintf("/blogposts/%s/footer-comments", parentID)
+		return fmt.Sprintf("/blogposts/%s/footer-comments", parentID)
 	default:
-		basePath = fmt.Sprintf("/pages/%s/footer-comments", parentID)
+		return fmt.Sprintf("/pages/%s/footer-comments", parentID)
 	}
+}
+
+func listComments(ctx context.Context, c *confluence, args map[string]any) (*mcp.ToolResult, error) {
+	basePath := commentBasePath(argStr(args, "parent_type"), url.PathEscape(argStr(args, "parent_id")))
 
 	params := map[string]string{}
 	if v := argStr(args, "cursor"); v != "" {
@@ -36,16 +36,7 @@ func listComments(ctx context.Context, c *confluence, args map[string]any) (*mcp
 }
 
 func createComment(ctx context.Context, c *confluence, args map[string]any) (*mcp.ToolResult, error) {
-	parentType := argStr(args, "parent_type")
-	parentID := url.PathEscape(argStr(args, "parent_id"))
-
-	var basePath string
-	switch parentType {
-	case "blogpost":
-		basePath = fmt.Sprintf("/blogposts/%s/footer-comments", parentID)
-	default:
-		basePath = fmt.Sprintf("/pages/%s/footer-comments", parentID)
-	}
+	basePath := commentBasePath(argStr(args, "parent_type"), url.PathEscape(argStr(args, "parent_id")))
 
 	bodyFormat := argStr(args, "body_format")
 	if bodyFormat == "" {

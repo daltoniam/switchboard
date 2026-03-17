@@ -240,7 +240,7 @@ func TestDoRequest_NonRetryableOn4xx(t *testing.T) {
 func TestV1Get(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/search", r.URL.Path)
-		w.Write([]byte(`{"results":[]}"`))
+		w.Write([]byte(`{"results":[]}`))
 	}))
 	defer ts.Close()
 

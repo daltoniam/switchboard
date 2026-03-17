@@ -39,8 +39,12 @@ func getSpace(ctx context.Context, c *confluence, args map[string]any) (*mcp.Too
 }
 
 func search(ctx context.Context, c *confluence, args map[string]any) (*mcp.ToolResult, error) {
+	cql := argStr(args, "cql")
+	if cql == "" {
+		return mcp.ErrResult(fmt.Errorf("cql is required"))
+	}
 	params := map[string]string{
-		"cql": argStr(args, "cql"),
+		"cql": cql,
 	}
 	if v := argInt(args, "limit"); v > 0 {
 		params["limit"] = fmt.Sprintf("%d", v)

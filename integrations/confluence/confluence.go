@@ -60,7 +60,8 @@ func (c *confluence) Configure(_ context.Context, creds mcp.Credentials) error {
 }
 
 func (c *confluence) Healthy(ctx context.Context) bool {
-	_, err := c.get(ctx, "/spaces?limit=1")
+	q := queryEncode(map[string]string{"limit": "1"})
+	_, err := c.get(ctx, "/spaces%s", q)
 	return err == nil
 }
 
