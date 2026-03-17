@@ -198,7 +198,7 @@ func TestGetSession_InjectsCookies(t *testing.T) {
 		},
 	}
 
-	sess, err := a.getSession(context.Background())
+	sess, err := a.ensureSession(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, mockSess, sess)
 	require.Len(t, mockSess.cookies, 1)
@@ -214,7 +214,7 @@ func TestGetSession_ReusesExisting(t *testing.T) {
 		session:    mockSess,
 	}
 
-	sess, err := a.getSession(context.Background())
+	sess, err := a.ensureSession(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, mockSess, sess)
 }
@@ -334,10 +334,12 @@ func (m *mockBrowserSession) Close() error {
 }
 
 type mockBrowserPage struct {
-	navigatedURL string
-	html         string
-	closed       bool
-	clickErr     error
+	navigatedURL  string
+	html          string
+	postClickHTML string
+	clicked       bool
+	closed        bool
+	clickErr      error
 }
 
 func (m *mockBrowserPage) Navigate(_ context.Context, url string) error {
@@ -346,13 +348,20 @@ func (m *mockBrowserPage) Navigate(_ context.Context, url string) error {
 }
 
 func (m *mockBrowserPage) Content(_ context.Context) (string, error) {
-	if m.html == "" {
+	html := m.html
+	if m.clicked && m.postClickHTML != "" {
+		html = m.postClickHTML
+	}
+	if html == "" {
 		return "<html><body></body></html>", nil
 	}
-	return m.html, nil
+	return html, nil
 }
 
-func (m *mockBrowserPage) Click(_ context.Context, _ string) error   { return m.clickErr }
+func (m *mockBrowserPage) Click(_ context.Context, _ string) error {
+	m.clicked = true
+	return m.clickErr
+}
 func (m *mockBrowserPage) Fill(_ context.Context, _, _ string) error { return nil }
 func (m *mockBrowserPage) SelectOption(_ context.Context, _, _ string) error {
 	return nil
@@ -740,6 +749,68 @@ func TestAddToCart_InvalidASIN(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "asin must be exactly 10 uppercase alphanumeric characters")
+}
+
+func TestAddToCartBrowser(t *testing.T) {
+	productPage := `<html><body><button id="add-to-cart-button">Add to Cart</button></body></html>`
+	confirmPage := `<html><body><div id="sw-atc-confirmation">Added to cart</div></body></html>`
+
+	mockSess := &mockBrowserSession{}
+	mockSess.pages = []*mockBrowserPage{
+		{html: productPage, postClickHTML: confirmPage},
+	}
+
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: &mockBrowserSvc{session: mockSess},
+		session:    mockSess,
+	}
+
+	result, err := addToCartBrowser(context.Background(), a, "B0CHXKM5GK")
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "added to cart")
+}
+
+func TestClearCartBrowser(t *testing.T) {
+	cartWithItem := `<html><body><div id="sc-active-cart"><div data-asin="B0CHXKM5GK"></div></div></body></html>`
+	emptyCart := `<html><body><div id="sc-active-cart"></div></body></html>`
+
+	mockPg := &mockBrowserPage{html: cartWithItem, postClickHTML: emptyCart}
+	mockSess := &mockBrowserSession{}
+	mockSess.pages = []*mockBrowserPage{mockPg}
+
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: &mockBrowserSvc{session: mockSess},
+		session:    mockSess,
+	}
+
+	result, err := clearCartBrowser(context.Background(), a)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Removed 1 item")
+}
+
+func TestClearCartBrowser_AlreadyEmpty(t *testing.T) {
+	emptyCart := `<html><body><div id="sc-active-cart"></div></body></html>`
+
+	mockSess := &mockBrowserSession{}
+	mockSess.pages = []*mockBrowserPage{{html: emptyCart}}
+
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: &mockBrowserSvc{session: mockSess},
+		session:    mockSess,
+	}
+
+	result, err := clearCartBrowser(context.Background(), a)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "already empty")
 }
 
 func TestClearCart(t *testing.T) {

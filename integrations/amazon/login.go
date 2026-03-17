@@ -29,10 +29,14 @@ const (
 //
 // Requires a.browserSvc to be non-nil. On success the session cookies
 // are stored in the browser context and remain valid for subsequent fetches.
+// The entire flow is bounded by loginTimeout to prevent hanging.
 func (a *amazon) login(ctx context.Context) error {
 	if a.email == "" || a.password == "" {
 		return fmt.Errorf("amazon: email and password are required for auto-login")
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, loginTimeout)
+	defer cancel()
 
 	sess, err := a.ensureSession(ctx)
 	if err != nil {
@@ -62,7 +66,9 @@ func (a *amazon) login(ctx context.Context) error {
 	}
 
 	// Step 2: password
-	time.Sleep(loginPollWait)
+	if err := ctxSleep(ctx, loginPollWait); err != nil {
+		return err
+	}
 	if err := pg.WaitForSelector(ctx, "#ap_password"); err != nil {
 		return fmt.Errorf("amazon: password field not found (CAPTCHA or unusual page?): %w", err)
 	}
@@ -74,7 +80,9 @@ func (a *amazon) login(ctx context.Context) error {
 	}
 
 	// Step 3: check for OTP / MFA prompt
-	time.Sleep(loginPollWait)
+	if err := ctxSleep(ctx, loginPollWait); err != nil {
+		return err
+	}
 	html, err := pg.Content(ctx)
 	if err != nil {
 		return fmt.Errorf("amazon: read post-login page: %w", err)
@@ -94,7 +102,9 @@ func (a *amazon) login(ctx context.Context) error {
 		if err := pg.Click(ctx, otpSubmitBtn); err != nil {
 			return fmt.Errorf("amazon: submit OTP: %w", err)
 		}
-		time.Sleep(loginPollWait)
+		if err := ctxSleep(ctx, loginPollWait); err != nil {
+			return err
+		}
 	}
 
 	// Verify we're actually logged in now.
@@ -132,6 +142,16 @@ func (a *amazon) ensureSession(ctx context.Context) (mcp.BrowserSession, error) 
 	}
 	a.session = sess
 	return sess, nil
+}
+
+// ctxSleep waits for d or until ctx is cancelled, whichever comes first.
+func ctxSleep(ctx context.Context, d time.Duration) error {
+	select {
+	case <-time.After(d):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // --- TOTP (RFC 6238) ---

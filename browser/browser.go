@@ -70,6 +70,10 @@ func (s *session) AddCookies(_ context.Context, cookies []mcp.BrowserCookie) err
 			Secure:   playwright.Bool(c.Secure),
 			HttpOnly: playwright.Bool(c.HTTPOnly),
 		}
+		if c.Expires != nil {
+			epoch := float64(c.Expires.Unix())
+			opts[i].Expires = &epoch
+		}
 	}
 	if err := s.ctx.AddCookies(opts); err != nil {
 		return fmt.Errorf("browser: add cookies: %w", err)

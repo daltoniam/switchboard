@@ -30,6 +30,7 @@ type amazon struct {
 	browserSvc mcp.BrowserService
 	session    mcp.BrowserSession
 	sessionMu  sync.Mutex
+	loginMu    sync.Mutex
 	loginFunc  func(ctx context.Context) error // overridden in tests
 }
 
@@ -140,10 +141,6 @@ func (a *amazon) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
 
 // --- Browser session management ---
 
-func (a *amazon) getSession(ctx context.Context) (mcp.BrowserSession, error) {
-	return a.ensureSession(ctx)
-}
-
 func (a *amazon) closeSession() {
 	a.sessionMu.Lock()
 	defer a.sessionMu.Unlock()
@@ -163,7 +160,7 @@ func (a *amazon) fetch(ctx context.Context, rawURL string) (*goquery.Document, e
 }
 
 func (a *amazon) fetchBrowser(ctx context.Context, rawURL string) (*goquery.Document, error) {
-	sess, err := a.getSession(ctx)
+	sess, err := a.ensureSession(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -188,15 +185,18 @@ func (a *amazon) fetchBrowser(ctx context.Context, rawURL string) (*goquery.Docu
 	}
 
 	// Auto-login on session expiry if credentials are available.
+	// loginMu prevents concurrent tool calls from racing through login simultaneously.
 	if isLoginDoc(doc) && a.email != "" {
+		a.loginMu.Lock()
 		doLogin := a.login
 		if a.loginFunc != nil {
 			doLogin = a.loginFunc
 		}
-		if err := doLogin(ctx); err != nil {
+		err := doLogin(ctx)
+		a.loginMu.Unlock()
+		if err != nil {
 			return nil, err
 		}
-		// Retry the original request after login.
 		return a.fetchBrowserPage(ctx, rawURL)
 	}
 
@@ -209,7 +209,7 @@ func (a *amazon) fetchBrowser(ctx context.Context, rawURL string) (*goquery.Docu
 
 // fetchBrowserPage is a simple page fetch without login retry (used after login to avoid recursion).
 func (a *amazon) fetchBrowserPage(ctx context.Context, rawURL string) (*goquery.Document, error) {
-	sess, err := a.getSession(ctx)
+	sess, err := a.ensureSession(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func (a *amazon) fetchHTTP(ctx context.Context, rawURL string) (*goquery.Documen
 // --- Browser page helpers (for mutations that need click/fill) ---
 
 func (a *amazon) withPage(ctx context.Context, rawURL string, fn func(ctx context.Context, pg mcp.BrowserPage) error) error {
-	sess, err := a.getSession(ctx)
+	sess, err := a.ensureSession(ctx)
 	if err != nil {
 		return err
 	}

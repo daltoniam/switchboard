@@ -202,6 +202,7 @@ type BrowserCookie struct {
 	Path     string
 	Secure   bool
 	HTTPOnly bool
+	Expires  *time.Time
 }
 
 // BrowserSession is an isolated browser context (own cookies, local storage).

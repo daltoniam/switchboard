@@ -135,7 +135,9 @@ func addToCartBrowser(ctx context.Context, a *amazon, asin string) (*mcp.ToolRes
 		if err := pg.Click(ctx, "#add-to-cart-button"); err != nil {
 			return fmt.Errorf("click add-to-cart: %w", err)
 		}
-		time.Sleep(2 * time.Second)
+		if err := ctxSleep(ctx, 2*time.Second); err != nil {
+			return err
+		}
 
 		html, err := pg.Content(ctx)
 		if err != nil {
@@ -237,7 +239,7 @@ func clearCartBrowser(ctx context.Context, a *amazon) (*mcp.ToolResult, error) {
 		ItemsRemoved int    `json:"items_removed"`
 	}
 
-	sess, err := a.getSession(ctx)
+	sess, err := a.ensureSession(ctx)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -252,7 +254,8 @@ func clearCartBrowser(ctx context.Context, a *amazon) (*mcp.ToolResult, error) {
 	}
 
 	removed := 0
-	for {
+	const maxCartItems = 100
+	for i := 0; i < maxCartItems; i++ {
 		html, err := pg.Content(ctx)
 		if err != nil {
 			break
@@ -267,12 +270,17 @@ func clearCartBrowser(ctx context.Context, a *amazon) (*mcp.ToolResult, error) {
 			break
 		}
 
+		// Amazon renders delete controls as <input value="Delete"> or <input data-action="delete">
+		// depending on locale and A/B variant. If this selector breaks, inspect the cart page
+		// for the current delete element and update accordingly.
 		deleteSelector := `input[value="Delete"], input[data-action="delete"]`
 		if err := pg.Click(ctx, deleteSelector); err != nil {
 			break
 		}
 		removed++
-		time.Sleep(1 * time.Second)
+		if err := ctxSleep(ctx, 1*time.Second); err != nil {
+			break
+		}
 	}
 
 	if removed == 0 {
