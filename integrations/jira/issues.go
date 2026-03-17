@@ -67,7 +67,11 @@ func createIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 		fields["assignee"] = map[string]string{"accountId": v}
 	}
 	if v := argStr(args, "labels"); v != "" {
-		fields["labels"] = strings.Split(v, ",")
+		rawLabels := strings.Split(v, ",")
+		for i, l := range rawLabels {
+			rawLabels[i] = strings.TrimSpace(l)
+		}
+		fields["labels"] = rawLabels
 	}
 	if v := argStr(args, "parent_key"); v != "" {
 		fields["parent"] = map[string]string{"key": v}
@@ -100,7 +104,11 @@ func updateIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 		}
 	}
 	if v := argStr(args, "labels"); v != "" {
-		fields["labels"] = strings.Split(v, ",")
+		rawLabels := strings.Split(v, ",")
+		for i, l := range rawLabels {
+			rawLabels[i] = strings.TrimSpace(l)
+		}
+		fields["labels"] = rawLabels
 	}
 
 	path := fmt.Sprintf("/issue/%s", url.PathEscape(argStr(args, "issue_key")))
@@ -217,7 +225,7 @@ func listIssueLinks(ctx context.Context, j *jira, args map[string]any) (*mcp.Too
 	if err := json.Unmarshal(data, &issue); err != nil {
 		return mcp.ErrResult(err)
 	}
-	if issue.Fields.IssueLinks == nil {
+	if issue.Fields.IssueLinks == nil || string(issue.Fields.IssueLinks) == "null" {
 		return mcp.RawResult(json.RawMessage(`[]`))
 	}
 	return mcp.RawResult(issue.Fields.IssueLinks)
