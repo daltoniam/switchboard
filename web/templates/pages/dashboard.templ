@@ -14,6 +14,7 @@ type DashboardData struct {
 	HealthyCount      int
 	TotalTools        int
 	Integrations      []IntegrationSummary
+	Port              int
 }
 
 type IntegrationSummary struct {
@@ -91,7 +92,7 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 		}
 		<div class="footer">
 			<p>Add to your MCP client config:</p>
-			<code>&#123; "mcpServers": &#123; "switchboard": &#123; "url": "http://localhost:3847/mcp" &#125; &#125; &#125;</code>
+			<code>&#123; "mcpServers": &#123; "switchboard": &#123; "url": "http://localhost:{ fmt.Sprintf("%d", data.Port) }/mcp" &#125; &#125; &#125;</code>
 		</div>
 	}
 }
