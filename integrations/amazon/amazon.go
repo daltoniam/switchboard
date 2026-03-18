@@ -61,6 +61,8 @@ func SetBrowserService(i mcp.Integration, svc mcp.BrowserService) {
 func (a *amazon) Name() string { return "amazon" }
 
 func (a *amazon) Configure(_ context.Context, creds mcp.Credentials) error {
+	a.sessionMu.Lock()
+
 	a.email = strings.TrimSpace(creds["email"])
 	a.password = creds["password"]
 	a.otpSecret = strings.TrimSpace(creds["otp_secret"])
@@ -74,6 +76,7 @@ func (a *amazon) Configure(_ context.Context, creds mcp.Credentials) error {
 	if raw != "" {
 		var parsed []cookieJSON
 		if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+			a.sessionMu.Unlock()
 			return fmt.Errorf("amazon: invalid cookies JSON: %w", err)
 		}
 		a.browserCookies = make([]mcp.BrowserCookie, 0, len(parsed))
@@ -102,11 +105,16 @@ func (a *amazon) Configure(_ context.Context, creds mcp.Credentials) error {
 	}
 
 	if a.email == "" && len(a.browserCookies) == 0 {
+		a.sessionMu.Unlock()
 		return fmt.Errorf("amazon: either email+password or cookies is required")
 	}
 
 	// Reset any existing session so next fetch picks up new credentials.
-	a.closeSession()
+	if a.session != nil {
+		_ = a.session.Close()
+		a.session = nil
+	}
+	a.sessionMu.Unlock()
 
 	return nil
 }
@@ -140,15 +148,6 @@ func (a *amazon) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
 }
 
 // --- Browser session management ---
-
-func (a *amazon) closeSession() {
-	a.sessionMu.Lock()
-	defer a.sessionMu.Unlock()
-	if a.session != nil {
-		_ = a.session.Close()
-		a.session = nil
-	}
-}
 
 // --- Page fetching ---
 
@@ -192,10 +191,22 @@ func (a *amazon) fetchBrowser(ctx context.Context, rawURL string) (*goquery.Docu
 		if a.loginFunc != nil {
 			doLogin = a.loginFunc
 		}
-		err := doLogin(ctx)
+		// Re-check after acquiring the lock — another goroutine may have already logged in.
+		needsLogin := true
+		probe, probeErr := a.fetchBrowserPage(ctx, rawURL)
+		if probeErr == nil && !isLoginDoc(probe) {
+			needsLogin = false
+		}
+		var loginErr error
+		if needsLogin {
+			loginErr = doLogin(ctx)
+		}
 		a.loginMu.Unlock()
-		if err != nil {
-			return nil, err
+		if loginErr != nil {
+			return nil, loginErr
+		}
+		if !needsLogin {
+			return probe, nil
 		}
 		return a.fetchBrowserPage(ctx, rawURL)
 	}
