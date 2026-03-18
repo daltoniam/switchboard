@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -48,6 +49,19 @@ var (
 	date    = "unknown"
 )
 
+// defaultPort returns the default port, checking SWITCHBOARD_PORT env var first.
+func defaultPort() int {
+	if envPort := os.Getenv("SWITCHBOARD_PORT"); envPort != "" {
+		p, err := strconv.Atoi(envPort)
+		if err != nil || p <= 0 || p >= 65536 {
+			log.Printf("WARN: invalid SWITCHBOARD_PORT=%q, using default 3847", envPort)
+			return 3847
+		}
+		return p
+	}
+	return 3847
+}
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "daemon" {
 		handleDaemon(os.Args[2:])
@@ -55,7 +69,7 @@ func main() {
 	}
 
 	stdioMode := flag.Bool("stdio", false, "Run MCP server over stdio transport (default is HTTP)")
-	port := flag.Int("port", 3847, "Port for the HTTP server")
+	port := flag.Int("port", defaultPort(), "Port for the HTTP server (env: SWITCHBOARD_PORT)")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
@@ -69,7 +83,7 @@ func main() {
 
 func handleDaemon(args []string) {
 	fs := flag.NewFlagSet("daemon", flag.ExitOnError)
-	port := fs.Int("port", 3847, "Port for the HTTP server")
+	port := fs.Int("port", defaultPort(), "Port for the HTTP server (env: SWITCHBOARD_PORT)")
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, `Usage: switchboard daemon <command> [options]
 

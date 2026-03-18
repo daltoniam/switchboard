@@ -157,6 +157,7 @@ func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 		HealthyCount:      healthyCount,
 		TotalTools:        totalTools,
 		Integrations:      summaries,
+		Port:              w.port,
 	}
 
 	pages.Dashboard(page, data).Render(r.Context(), rw)
