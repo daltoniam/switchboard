@@ -10,15 +10,25 @@ import (
 // ── Teams Extended ────────────────────────────────────────────────
 
 func createTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	t := gh.NewTeam{
-		Name:        argStr(args, "name"),
-		Description: gh.Ptr(argStr(args, "description")),
-		Privacy:     gh.Ptr(argStr(args, "privacy")),
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	name := r.Str("name")
+	description := r.Str("description")
+	privacy := r.Str("privacy")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if perm := argStr(args, "permission"); perm != "" {
+	t := gh.NewTeam{
+		Name:        name,
+		Description: gh.Ptr(description),
+		Privacy:     gh.Ptr(privacy),
+	}
+	if perm, err := mcp.ArgStr(args, "permission"); err != nil {
+		return mcp.ErrResult(err)
+	} else if perm != "" {
 		t.Permission = gh.Ptr(perm)
 	}
-	team, _, err := g.client.Teams.CreateTeam(ctx, argStr(args, "org"), t)
+	team, _, err := g.client.Teams.CreateTeam(ctx, org, t)
 	if err != nil {
 		return errResult(err)
 	}
@@ -26,17 +36,30 @@ func createTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func editTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	t := gh.NewTeam{Name: argStr(args, "name")}
-	if v := argStr(args, "description"); v != "" {
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	slug := r.Str("slug")
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	t := gh.NewTeam{Name: name}
+	if v, err := mcp.ArgStr(args, "description"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		t.Description = gh.Ptr(v)
 	}
-	if v := argStr(args, "privacy"); v != "" {
+	if v, err := mcp.ArgStr(args, "privacy"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		t.Privacy = gh.Ptr(v)
 	}
-	if v := argStr(args, "permission"); v != "" {
+	if v, err := mcp.ArgStr(args, "permission"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		t.Permission = gh.Ptr(v)
 	}
-	team, _, err := g.client.Teams.EditTeamBySlug(ctx, argStr(args, "org"), argStr(args, "slug"), t, false)
+	team, _, err := g.client.Teams.EditTeamBySlug(ctx, org, slug, t, false)
 	if err != nil {
 		return errResult(err)
 	}
@@ -44,7 +67,13 @@ func editTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 }
 
 func deleteTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Teams.DeleteTeamBySlug(ctx, argStr(args, "org"), argStr(args, "slug"))
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	slug := r.Str("slug")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Teams.DeleteTeamBySlug(ctx, org, slug)
 	if err != nil {
 		return errResult(err)
 	}
@@ -52,11 +81,20 @@ func deleteTeam(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func addTeamMember(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	slug := r.Str("slug")
+	username := r.Str("username")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	opts := &gh.TeamAddTeamMembershipOptions{}
-	if role := argStr(args, "role"); role != "" {
+	if role, err := mcp.ArgStr(args, "role"); err != nil {
+		return mcp.ErrResult(err)
+	} else if role != "" {
 		opts.Role = role
 	}
-	membership, _, err := g.client.Teams.AddTeamMembershipBySlug(ctx, argStr(args, "org"), argStr(args, "slug"), argStr(args, "username"), opts)
+	membership, _, err := g.client.Teams.AddTeamMembershipBySlug(ctx, org, slug, username, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -64,7 +102,14 @@ func addTeamMember(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func removeTeamMember(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Teams.RemoveTeamMembershipBySlug(ctx, argStr(args, "org"), argStr(args, "slug"), argStr(args, "username"))
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	slug := r.Str("slug")
+	username := r.Str("username")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Teams.RemoveTeamMembershipBySlug(ctx, org, slug, username)
 	if err != nil {
 		return errResult(err)
 	}
@@ -72,11 +117,21 @@ func removeTeamMember(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func addTeamRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	slug := r.Str("slug")
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	opts := &gh.TeamAddTeamRepoOptions{}
-	if perm := argStr(args, "permission"); perm != "" {
+	if perm, err := mcp.ArgStr(args, "permission"); err != nil {
+		return mcp.ErrResult(err)
+	} else if perm != "" {
 		opts.Permission = perm
 	}
-	_, err := g.client.Teams.AddTeamRepoBySlug(ctx, argStr(args, "org"), argStr(args, "slug"), argStr(args, "owner"), argStr(args, "repo"), opts)
+	_, err := g.client.Teams.AddTeamRepoBySlug(ctx, org, slug, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -84,7 +139,15 @@ func addTeamRepo(ctx context.Context, g *integration, args map[string]any) (*mcp
 }
 
 func removeTeamRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Teams.RemoveTeamRepoBySlug(ctx, argStr(args, "org"), argStr(args, "slug"), argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	slug := r.Str("slug")
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Teams.RemoveTeamRepoBySlug(ctx, org, slug, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
@@ -94,8 +157,16 @@ func removeTeamRepo(ctx context.Context, g *integration, args map[string]any) (*
 // ── Organizations Extended ────────────────────────────────────────
 
 func listPendingOrgInvitations(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	invitations, _, err := g.client.Organizations.ListPendingOrgInvitations(ctx, argStr(args, "org"), opts)
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	org, err := mcp.ArgStr(args, "org")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: lo.Page, PerPage: lo.PerPage}
+	invitations, _, err := g.client.Organizations.ListPendingOrgInvitations(ctx, org, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -103,11 +174,21 @@ func listPendingOrgInvitations(ctx context.Context, g *integration, args map[str
 }
 
 func listOutsideCollaborators(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOutsideCollaboratorsOptions{ListOptions: listOpts(args)}
-	if filter := argStr(args, "filter"); filter != "" {
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	org, err := mcp.ArgStr(args, "org")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOutsideCollaboratorsOptions{ListOptions: lo}
+	if filter, err := mcp.ArgStr(args, "filter"); err != nil {
+		return mcp.ErrResult(err)
+	} else if filter != "" {
 		opts.Filter = filter
 	}
-	users, _, err := g.client.Organizations.ListOutsideCollaborators(ctx, argStr(args, "org"), opts)
+	users, _, err := g.client.Organizations.ListOutsideCollaborators(ctx, org, opts)
 	if err != nil {
 		return errResult(err)
 	}

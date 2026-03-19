@@ -17,8 +17,16 @@ func searchResult(total int, items any) (*mcp.ToolResult, error) {
 }
 
 func searchCode(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.SearchOptions{ListOptions: listOpts(args)}
-	resp, _, err := g.client.Search.Code(ctx, argStr(args, "query"), opts)
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	query, err := mcp.ArgStr(args, "query")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.SearchOptions{ListOptions: lo}
+	resp, _, err := g.client.Search.Code(ctx, query, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -26,12 +34,23 @@ func searchCode(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func searchIssues(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.SearchOptions{
-		Sort:        argStr(args, "sort"),
-		Order:       argStr(args, "order"),
-		ListOptions: listOpts(args),
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	resp, _, err := g.client.Search.Issues(ctx, argStr(args, "query"), opts)
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	sort := r.Str("sort")
+	order := r.Str("order")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.SearchOptions{
+		Sort:        sort,
+		Order:       order,
+		ListOptions: lo,
+	}
+	resp, _, err := g.client.Search.Issues(ctx, query, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -39,12 +58,23 @@ func searchIssues(ctx context.Context, g *integration, args map[string]any) (*mc
 }
 
 func searchUsers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.SearchOptions{
-		Sort:        argStr(args, "sort"),
-		Order:       argStr(args, "order"),
-		ListOptions: listOpts(args),
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	resp, _, err := g.client.Search.Users(ctx, argStr(args, "query"), opts)
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	sort := r.Str("sort")
+	order := r.Str("order")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.SearchOptions{
+		Sort:        sort,
+		Order:       order,
+		ListOptions: lo,
+	}
+	resp, _, err := g.client.Search.Users(ctx, query, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -52,12 +82,23 @@ func searchUsers(ctx context.Context, g *integration, args map[string]any) (*mcp
 }
 
 func searchCommits(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.SearchOptions{
-		Sort:        argStr(args, "sort"),
-		Order:       argStr(args, "order"),
-		ListOptions: listOpts(args),
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	resp, _, err := g.client.Search.Commits(ctx, argStr(args, "query"), opts)
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	sort := r.Str("sort")
+	order := r.Str("order")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.SearchOptions{
+		Sort:        sort,
+		Order:       order,
+		ListOptions: lo,
+	}
+	resp, _, err := g.client.Search.Commits(ctx, query, opts)
 	if err != nil {
 		return errResult(err)
 	}

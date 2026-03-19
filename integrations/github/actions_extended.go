@@ -10,10 +10,18 @@ import (
 // ── Workflows Extended ────────────────────────────────────────────
 
 func triggerWorkflow(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	event := gh.CreateWorkflowDispatchEventRequest{
-		Ref: argStr(args, "ref"),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	workflowID := r.Str("workflow_id")
+	ref := r.Str("ref")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	_, err := g.client.Actions.CreateWorkflowDispatchEventByFileName(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "workflow_id"), event)
+	event := gh.CreateWorkflowDispatchEventRequest{
+		Ref: ref,
+	}
+	_, err := g.client.Actions.CreateWorkflowDispatchEventByFileName(ctx, owner, repo, workflowID, event)
 	if err != nil {
 		return errResult(err)
 	}
@@ -21,7 +29,14 @@ func triggerWorkflow(ctx context.Context, g *integration, args map[string]any) (
 }
 
 func rerunFailedJobs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Actions.RerunFailedJobsByID(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "run_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	runID := r.Int64("run_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Actions.RerunFailedJobsByID(ctx, owner, repo, runID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -29,7 +44,14 @@ func rerunFailedJobs(ctx context.Context, g *integration, args map[string]any) (
 }
 
 func getWorkflowJob(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	job, _, err := g.client.Actions.GetWorkflowJobByID(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "job_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	jobID := r.Int64("job_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	job, _, err := g.client.Actions.GetWorkflowJobByID(ctx, owner, repo, jobID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -37,7 +59,14 @@ func getWorkflowJob(ctx context.Context, g *integration, args map[string]any) (*
 }
 
 func getWorkflowJobLogs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	url, _, err := g.client.Actions.GetWorkflowJobLogs(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "job_id"), 0)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	jobID := r.Int64("job_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	url, _, err := g.client.Actions.GetWorkflowJobLogs(ctx, owner, repo, jobID, 0)
 	if err != nil {
 		return errResult(err)
 	}
@@ -45,7 +74,14 @@ func getWorkflowJobLogs(ctx context.Context, g *integration, args map[string]any
 }
 
 func deleteWorkflowRun(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Actions.DeleteWorkflowRun(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "run_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	runID := r.Int64("run_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Actions.DeleteWorkflowRun(ctx, owner, repo, runID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -55,8 +91,18 @@ func deleteWorkflowRun(ctx context.Context, g *integration, args map[string]any)
 // ── Actions Variables ─────────────────────────────────────────────
 
 func listRepoVariables(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	resp, _, err := g.client.Actions.ListRepoVariables(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: lo.Page, PerPage: lo.PerPage}
+	resp, _, err := g.client.Actions.ListRepoVariables(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -64,11 +110,19 @@ func listRepoVariables(ctx context.Context, g *integration, args map[string]any)
 }
 
 func createRepoVariable(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	v := &gh.ActionsVariable{
-		Name:  argStr(args, "name"),
-		Value: argStr(args, "value"),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	name := r.Str("name")
+	value := r.Str("value")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	_, err := g.client.Actions.CreateRepoVariable(ctx, argStr(args, "owner"), argStr(args, "repo"), v)
+	v := &gh.ActionsVariable{
+		Name:  name,
+		Value: value,
+	}
+	_, err := g.client.Actions.CreateRepoVariable(ctx, owner, repo, v)
 	if err != nil {
 		return errResult(err)
 	}
@@ -76,11 +130,19 @@ func createRepoVariable(ctx context.Context, g *integration, args map[string]any
 }
 
 func updateRepoVariable(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	v := &gh.ActionsVariable{
-		Name:  argStr(args, "name"),
-		Value: argStr(args, "value"),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	name := r.Str("name")
+	value := r.Str("value")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	_, err := g.client.Actions.UpdateRepoVariable(ctx, argStr(args, "owner"), argStr(args, "repo"), v)
+	v := &gh.ActionsVariable{
+		Name:  name,
+		Value: value,
+	}
+	_, err := g.client.Actions.UpdateRepoVariable(ctx, owner, repo, v)
 	if err != nil {
 		return errResult(err)
 	}
@@ -88,7 +150,14 @@ func updateRepoVariable(ctx context.Context, g *integration, args map[string]any
 }
 
 func deleteRepoVariable(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Actions.DeleteRepoVariable(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "name"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Actions.DeleteRepoVariable(ctx, owner, repo, name)
 	if err != nil {
 		return errResult(err)
 	}
@@ -96,8 +165,16 @@ func deleteRepoVariable(ctx context.Context, g *integration, args map[string]any
 }
 
 func listOrgVariables(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	resp, _, err := g.client.Actions.ListOrgVariables(ctx, argStr(args, "org"), opts)
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	org, err := mcp.ArgStr(args, "org")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: lo.Page, PerPage: lo.PerPage}
+	resp, _, err := g.client.Actions.ListOrgVariables(ctx, org, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -105,8 +182,19 @@ func listOrgVariables(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func listEnvVariables(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	resp, _, err := g.client.Actions.ListEnvVariables(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "environment"), opts)
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	environment := r.Str("environment")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: lo.Page, PerPage: lo.PerPage}
+	resp, _, err := g.client.Actions.ListEnvVariables(ctx, owner, repo, environment, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -116,8 +204,18 @@ func listEnvVariables(ctx context.Context, g *integration, args map[string]any) 
 // ── Runners ───────────────────────────────────────────────────────
 
 func listRunners(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListRunnersOptions{ListOptions: listOpts(args)}
-	resp, _, err := g.client.Actions.ListRunners(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListRunnersOptions{ListOptions: lo}
+	resp, _, err := g.client.Actions.ListRunners(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -125,8 +223,16 @@ func listRunners(ctx context.Context, g *integration, args map[string]any) (*mcp
 }
 
 func listOrgRunners(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListRunnersOptions{ListOptions: listOpts(args)}
-	resp, _, err := g.client.Actions.ListOrganizationRunners(ctx, argStr(args, "org"), opts)
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	org, err := mcp.ArgStr(args, "org")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListRunnersOptions{ListOptions: lo}
+	resp, _, err := g.client.Actions.ListOrganizationRunners(ctx, org, opts)
 	if err != nil {
 		return errResult(err)
 	}

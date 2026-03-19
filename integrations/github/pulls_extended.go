@@ -10,10 +10,19 @@ import (
 // ── PR Extended ───────────────────────────────────────────────────
 
 func dismissPullReview(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	req := &gh.PullRequestReviewDismissalRequest{
-		Message: gh.Ptr(argStr(args, "message")),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	pull := r.Int("pull_number")
+	reviewID := r.Int64("review_id")
+	message := r.Str("message")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	review, _, err := g.client.PullRequests.DismissReview(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), argInt64(args, "review_id"), req)
+	req := &gh.PullRequestReviewDismissalRequest{
+		Message: gh.Ptr(message),
+	}
+	review, _, err := g.client.PullRequests.DismissReview(ctx, owner, repo, pull, reviewID, req)
 	if err != nil {
 		return errResult(err)
 	}
@@ -21,11 +30,20 @@ func dismissPullReview(ctx context.Context, g *integration, args map[string]any)
 }
 
 func updatePullBranch(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	pull := r.Int("pull_number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	opts := &gh.PullRequestBranchUpdateOptions{}
-	if sha := argStr(args, "expected_head_sha"); sha != "" {
+	if sha, err := mcp.ArgStr(args, "expected_head_sha"); err != nil {
+		return mcp.ErrResult(err)
+	} else if sha != "" {
 		opts.ExpectedHeadSHA = gh.Ptr(sha)
 	}
-	result, _, err := g.client.PullRequests.UpdateBranch(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), opts)
+	result, _, err := g.client.PullRequests.UpdateBranch(ctx, owner, repo, pull, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -33,11 +51,20 @@ func updatePullBranch(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func removeReviewers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	req := gh.ReviewersRequest{
-		Reviewers:     argStrSlice(args, "reviewers"),
-		TeamReviewers: argStrSlice(args, "team_reviewers"),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	pull := r.Int("pull_number")
+	reviewers := r.StrSlice("reviewers")
+	teamReviewers := r.StrSlice("team_reviewers")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	_, err := g.client.PullRequests.RemoveReviewers(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "pull_number"), req)
+	req := gh.ReviewersRequest{
+		Reviewers:     reviewers,
+		TeamReviewers: teamReviewers,
+	}
+	_, err := g.client.PullRequests.RemoveReviewers(ctx, owner, repo, pull, req)
 	if err != nil {
 		return errResult(err)
 	}
@@ -45,8 +72,19 @@ func removeReviewers(ctx context.Context, g *integration, args map[string]any) (
 }
 
 func listPullsWithCommit(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	prs, _, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "sha"), opts)
+	lo, err := listOpts(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	sha := r.Str("sha")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: lo.Page, PerPage: lo.PerPage}
+	prs, _, err := g.client.PullRequests.ListPullRequestsWithCommit(ctx, owner, repo, sha, opts)
 	if err != nil {
 		return errResult(err)
 	}
