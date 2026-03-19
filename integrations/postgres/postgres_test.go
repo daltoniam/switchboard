@@ -119,6 +119,14 @@ func TestExecute_UnknownTool(t *testing.T) {
 	assert.Contains(t, result.Data, "unknown tool")
 }
 
+func TestExecute_NilDB(t *testing.T) {
+	p := &postgres{}
+	result, err := p.Execute(context.Background(), "postgres_query", map[string]any{"sql": "SELECT 1"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not configured")
+}
+
 func TestDispatchMap_AllToolsCovered(t *testing.T) {
 	i := New()
 	for _, tool := range i.Tools() {

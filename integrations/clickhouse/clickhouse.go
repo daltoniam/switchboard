@@ -98,6 +98,9 @@ func (c *clickhouseInt) CompactSpec(toolName string) ([]mcp.CompactField, bool) 
 }
 
 func (c *clickhouseInt) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+	if c.conn == nil {
+		return &mcp.ToolResult{Data: "clickhouse: not configured (connection failed)", IsError: true}, nil
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil

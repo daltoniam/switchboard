@@ -246,6 +246,29 @@ func TestConfigureIntegrations_SkipsFailedConfigure(t *testing.T) {
 	require.NotNil(t, s)
 }
 
+func TestConfigureIntegrations_DisablesPreviouslyEnabledOnFailure(t *testing.T) {
+	mi := &mockIntegration{
+		name:      "failint",
+		configErr: fmt.Errorf("connection timeout"),
+	}
+
+	reg := newMockRegistry()
+	reg.Register(mi)
+
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"failint": {Enabled: true, Credentials: mcp.Credentials{"host": "unreachable"}},
+	})
+
+	services := &mcp.Services{Config: cfgService, Registry: reg}
+	s := New(services)
+	require.NotNil(t, s)
+
+	ic, ok := cfgService.GetIntegration("failint")
+	require.True(t, ok)
+	assert.False(t, ic.Enabled, "integration should be disabled after Configure failure")
+	assert.Empty(t, cfgService.EnabledIntegrations())
+}
+
 func TestHandleSearch_Integration(t *testing.T) {
 	mi := &mockIntegration{
 		name:    "testint",

@@ -113,6 +113,9 @@ func (p *postgres) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
 }
 
 func (p *postgres) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+	if p.db == nil {
+		return &mcp.ToolResult{Data: "postgres: not configured (connection failed)", IsError: true}, nil
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
