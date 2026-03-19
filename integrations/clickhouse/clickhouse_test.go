@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	ch "github.com/ClickHouse/clickhouse-go/v2"
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,11 +53,21 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
-	c := &clickhouseInt{}
+	conn, err := ch.Open(&ch.Options{Addr: []string{"localhost:9000"}})
+	require.NoError(t, err)
+	c := &clickhouseInt{conn: conn}
 	result, err := c.Execute(context.Background(), "clickhouse_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "unknown tool")
+}
+
+func TestExecute_NilConn(t *testing.T) {
+	c := &clickhouseInt{}
+	result, err := c.Execute(context.Background(), "clickhouse_query", map[string]any{"sql": "SELECT 1"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not configured")
 }
 
 func TestDispatchMap_AllToolsCovered(t *testing.T) {

@@ -197,6 +197,10 @@ func (s *Server) configureIntegrations() {
 
 		if err := integration.Configure(context.Background(), ic.Credentials); err != nil {
 			log.Printf("WARN: failed to configure %q: %v", name, err)
+			if ic.Enabled {
+				ic.Enabled = false
+				_ = s.services.Config.SetIntegration(name, ic)
+			}
 			continue
 		}
 
