@@ -324,6 +324,38 @@ func TestCompleteFlow_FailureStatus(t *testing.T) {
 	assert.Equal(t, "failure", gotBody["status"])
 }
 
+func TestEmptyRequiredArgs(t *testing.T) {
+	o := New().(*overmind)
+	_ = o.Configure(context.Background(), mcp.Credentials{
+		"base_url":     "http://overmind:80",
+		"token":        "tok",
+		"agent_run_id": "ar_1",
+		"flow_run_id":  "fr_1",
+	})
+
+	tests := []struct {
+		name    string
+		tool    string
+		args    map[string]any
+		wantErr string
+	}{
+		{"launch_agent empty agent_id", "overmind_launch_agent", map[string]any{"agent_id": "", "prompt": "go"}, "agent_id is required"},
+		{"launch_agent empty prompt", "overmind_launch_agent", map[string]any{"agent_id": "a1", "prompt": ""}, "prompt is required"},
+		{"get_agent_status empty id", "overmind_get_agent_status", map[string]any{"agent_run_id": ""}, "agent_run_id is required"},
+		{"get_agent_result empty id", "overmind_get_agent_result", map[string]any{"agent_run_id": ""}, "agent_run_id is required"},
+		{"complete_flow empty summary", "overmind_complete_flow", map[string]any{"summary": ""}, "summary is required"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := o.Execute(context.Background(), tt.tool, tt.args)
+			require.NoError(t, err)
+			assert.True(t, result.IsError)
+			assert.Contains(t, result.Data, tt.wantErr)
+		})
+	}
+}
+
 func TestHTTPErrors(t *testing.T) {
 	tests := []struct {
 		name       string

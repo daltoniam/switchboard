@@ -650,7 +650,7 @@ func (s *Server) findTool(toolName string) (mcp.Integration, mcp.ToolDefinition,
 		for _, tool := range integration.Tools() {
 			if tool.Name == toolName {
 				if ic != nil && !ic.ToolAllowed(tool.Name) {
-					return nil, mcp.ToolDefinition{}, false
+					continue
 				}
 				return integration, tool, true
 			}

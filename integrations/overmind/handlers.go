@@ -10,7 +10,13 @@ import (
 
 func launchAgent(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
 	agentID := argStr(args, "agent_id")
+	if agentID == "" {
+		return mcp.ErrResult(fmt.Errorf("agent_id is required"))
+	}
 	prompt := argStr(args, "prompt")
+	if prompt == "" {
+		return mcp.ErrResult(fmt.Errorf("prompt is required"))
+	}
 	agentContext := argStr(args, "context")
 
 	body := map[string]any{
@@ -31,6 +37,9 @@ func launchAgent(ctx context.Context, o *overmind, args map[string]any) (*mcp.To
 
 func getAgentStatus(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
 	agentRunID := argStr(args, "agent_run_id")
+	if agentRunID == "" {
+		return mcp.ErrResult(fmt.Errorf("agent_run_id is required"))
+	}
 
 	data, err := o.get(ctx, "/api/agent_runs/%s/status", url.PathEscape(agentRunID))
 	if err != nil {
@@ -41,6 +50,9 @@ func getAgentStatus(ctx context.Context, o *overmind, args map[string]any) (*mcp
 
 func getAgentResult(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
 	agentRunID := argStr(args, "agent_run_id")
+	if agentRunID == "" {
+		return mcp.ErrResult(fmt.Errorf("agent_run_id is required"))
+	}
 
 	data, err := o.get(ctx, "/api/agent_runs/%s/result", url.PathEscape(agentRunID))
 	if err != nil {
@@ -51,6 +63,9 @@ func getAgentResult(ctx context.Context, o *overmind, args map[string]any) (*mcp
 
 func completeFlow(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
 	summary := argStr(args, "summary")
+	if summary == "" {
+		return mcp.ErrResult(fmt.Errorf("summary is required"))
+	}
 	status := argStr(args, "status")
 	if status == "" {
 		status = "success"
