@@ -266,7 +266,12 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 			continue
 		}
 
+		ic, _ := s.services.Config.GetIntegration(name)
+
 		for _, tool := range integration.Tools() {
+			if ic != nil && !ic.ToolAllowed(tool.Name) {
+				continue
+			}
 			if query == "" || matches(tool, name, query) {
 				params := make(map[string]string, len(tool.Parameters))
 				for k, v := range tool.Parameters {
@@ -633,14 +638,20 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 }
 
 // findTool returns the integration and tool definition that owns toolName, or false if not found.
+// Respects ABAC tool glob restrictions: a tool that doesn't match the integration's
+// configured globs is treated as if it doesn't exist.
 func (s *Server) findTool(toolName string) (mcp.Integration, mcp.ToolDefinition, bool) {
 	for _, name := range s.services.Config.EnabledIntegrations() {
 		integration, ok := s.services.Registry.Get(name)
 		if !ok {
 			continue
 		}
+		ic, _ := s.services.Config.GetIntegration(name)
 		for _, tool := range integration.Tools() {
 			if tool.Name == toolName {
+				if ic != nil && !ic.ToolAllowed(tool.Name) {
+					continue
+				}
 				return integration, tool, true
 			}
 		}

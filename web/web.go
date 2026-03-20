@@ -267,6 +267,9 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 		Enabled:     enabled,
 		Credentials: creds,
 	}
+	if existingIC, ok := w.services.Config.GetIntegration(name); ok {
+		ic.ToolGlobs = existingIC.ToolGlobs
+	}
 
 	if err := w.services.Config.SetIntegration(name, ic); err != nil {
 		http.Redirect(rw, r, "/integrations/"+name+"?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
