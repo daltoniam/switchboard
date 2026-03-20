@@ -172,6 +172,7 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Jira | `domain` | `JIRA_DOMAIN` |
 | Readarr | `api_key` | `READARR_API_KEY` |
 | Readarr | `base_url` | `READARR_URL` |
+| DigitalOcean | `api_token` | `DIGITALOCEAN_TOKEN` |
 
 ### OAuth Setup
 
