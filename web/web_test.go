@@ -157,6 +157,25 @@ func TestIntegrationSave(t *testing.T) {
 	assert.Equal(t, "new_token_value", ic.Credentials["token"])
 }
 
+func TestIntegrationSave_PreservesToolGlobs(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	cfgService.cfg.Integrations["testint"].ToolGlobs = []string{"testint_list_*", "testint_get_*"}
+	handler := ws.Handler()
+
+	form := strings.NewReader("enabled=true&cred_token=updated_token")
+	req := httptest.NewRequest("POST", "/integrations/testint", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+
+	ic, ok := cfgService.GetIntegration("testint")
+	require.True(t, ok)
+	assert.Equal(t, "updated_token", ic.Credentials["token"])
+	assert.Equal(t, []string{"testint_list_*", "testint_get_*"}, ic.ToolGlobs)
+}
+
 func TestIntegrationSave_NotFound(t *testing.T) {
 	ws, _, _ := setupTestWeb()
 	handler := ws.Handler()
