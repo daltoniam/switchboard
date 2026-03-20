@@ -7,16 +7,20 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-// ── Persons ─────────────────────────────────────────────────────────
+// -- Persons --
 
 func listPersons(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"search":      argStr(args, "search"),
-		"distinct_id": argStr(args, "distinct_id"),
-		"email":       argStr(args, "email"),
-		"limit":       argStr(args, "limit"),
-		"offset":      argStr(args, "offset"),
+		"search":      r.Str("search"),
+		"distinct_id": r.Str("distinct_id"),
+		"email":       r.Str("email"),
+		"limit":       r.Str("limit"),
+		"offset":      r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/persons/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -25,7 +29,11 @@ func listPersons(ctx context.Context, p *posthog, args map[string]any) (*mcp.Too
 }
 
 func getPerson(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/persons/%s/", p.proj(args), argStr(args, "person_id"))
+	personID, err := mcp.ArgStr(args, "person_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/persons/%s/", p.proj(args), personID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -33,7 +41,11 @@ func getPerson(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolR
 }
 
 func deletePerson(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.del(ctx, "/api/projects/%s/persons/%s/", p.proj(args), argStr(args, "person_id"))
+	personID, err := mcp.ArgStr(args, "person_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.del(ctx, "/api/projects/%s/persons/%s/", p.proj(args), personID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -41,8 +53,15 @@ func deletePerson(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func updatePersonProperty(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{"key": argStr(args, "key"), "value": argStr(args, "value")}
-	path := fmt.Sprintf("/api/projects/%s/persons/%s/update_property/", p.proj(args), argStr(args, "person_id"))
+	r := mcp.NewArgs(args)
+	personID := r.Str("person_id")
+	key := r.Str("key")
+	value := r.Str("value")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{"key": key, "value": value}
+	path := fmt.Sprintf("/api/projects/%s/persons/%s/update_property/", p.proj(args), personID)
 	data, err := p.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -51,8 +70,14 @@ func updatePersonProperty(ctx context.Context, p *posthog, args map[string]any) 
 }
 
 func deletePersonProperty(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{"$unset": argStr(args, "key")}
-	path := fmt.Sprintf("/api/projects/%s/persons/%s/delete_property/", p.proj(args), argStr(args, "person_id"))
+	r := mcp.NewArgs(args)
+	personID := r.Str("person_id")
+	key := r.Str("key")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{"$unset": key}
+	path := fmt.Sprintf("/api/projects/%s/persons/%s/delete_property/", p.proj(args), personID)
 	data, err := p.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -60,14 +85,18 @@ func deletePersonProperty(ctx context.Context, p *posthog, args map[string]any) 
 	return mcp.RawResult(data)
 }
 
-// ── Groups ──────────────────────────────────────────────────────────
+// -- Groups --
 
 func listGroups(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"group_type_index": argStr(args, "group_type_index"),
-		"search":           argStr(args, "search"),
-		"cursor":           argStr(args, "cursor"),
+		"group_type_index": r.Str("group_type_index"),
+		"search":           r.Str("search"),
+		"cursor":           r.Str("cursor"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/groups/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -76,10 +105,14 @@ func listGroups(ctx context.Context, p *posthog, args map[string]any) (*mcp.Tool
 }
 
 func findGroup(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"group_type_index": argStr(args, "group_type_index"),
-		"group_key":        argStr(args, "group_key"),
+		"group_type_index": r.Str("group_type_index"),
+		"group_key":        r.Str("group_key"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/groups/find/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)

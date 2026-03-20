@@ -12,7 +12,12 @@ import (
 // ── Profile ─────────────────────────────────────────────────────────
 
 func getProfile(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := g.get(ctx, "/gmail/v1/users/%s/profile", user(args))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := g.get(ctx, "/gmail/v1/users/%s/profile", u)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -22,18 +27,23 @@ func getProfile(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRe
 // ── Messages ────────────────────────────────────────────────────────
 
 func listMessages(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	params := map[string]string{
-		"q":                argStr(args, "q"),
-		"maxResults":       argStr(args, "max_results"),
-		"pageToken":        argStr(args, "page_token"),
-		"includeSpamTrash": argStr(args, "include_spam_trash"),
+		"q":                r.Str("q"),
+		"maxResults":       r.Str("max_results"),
+		"pageToken":        r.Str("page_token"),
+		"includeSpamTrash": r.Str("include_spam_trash"),
 	}
 	var multi map[string][]string
-	if ids := argStr(args, "label_ids"); ids != "" {
-		multi = map[string][]string{"labelIds": argStrSlice(args, "label_ids")}
+	if ids := r.Str("label_ids"); ids != "" {
+		multi = map[string][]string{"labelIds": r.StrSlice("label_ids")}
+	}
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	q := queryEncodeMulti(params, multi)
-	data, err := g.get(ctx, "/gmail/v1/users/%s/messages%s", user(args), q)
+	data, err := g.get(ctx, "/gmail/v1/users/%s/messages%s", u, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -41,14 +51,20 @@ func listMessages(ctx context.Context, g *gmail, args map[string]any) (*mcp.Tool
 }
 
 func getMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	params := map[string]string{
-		"format": argStr(args, "format"),
+	r := mcp.NewArgs(args)
+	format := r.Str("format")
+	hdrs := r.Str("metadata_headers")
+	u := user(r)
+	msgID := r.Str("message_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if hdrs := argStr(args, "metadata_headers"); hdrs != "" {
+	params := map[string]string{"format": format}
+	if hdrs != "" {
 		params["metadataHeaders"] = hdrs
 	}
 	q := queryEncode(params)
-	data, err := g.get(ctx, "/gmail/v1/users/%s/messages/%s%s", user(args), argStr(args, "message_id"), q)
+	data, err := g.get(ctx, "/gmail/v1/users/%s/messages/%s%s", u, msgID, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -59,14 +75,14 @@ func sanitizeHeader(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(s, "\r", ""), "\n", "")
 }
 
-func buildRawMessage(args map[string]any) string {
-	if raw := argStr(args, "raw"); raw != "" {
+func buildRawMessage(r *mcp.Args) string {
+	if raw := r.Str("raw"); raw != "" {
 		return raw
 	}
-	to := sanitizeHeader(argStr(args, "to"))
-	from := sanitizeHeader(argStr(args, "from"))
-	subject := sanitizeHeader(argStr(args, "subject"))
-	body := argStr(args, "body")
+	to := sanitizeHeader(r.Str("to"))
+	from := sanitizeHeader(r.Str("from"))
+	subject := sanitizeHeader(r.Str("subject"))
+	body := r.Str("body")
 	if to == "" && subject == "" && body == "" {
 		return ""
 	}
@@ -87,12 +103,17 @@ func buildRawMessage(args map[string]any) string {
 }
 
 func sendMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	raw := buildRawMessage(args)
+	r := mcp.NewArgs(args)
+	raw := buildRawMessage(r)
 	body := map[string]any{"raw": raw}
-	if tid := argStr(args, "thread_id"); tid != "" {
+	if tid := r.Str("thread_id"); tid != "" {
 		body["threadId"] = tid
 	}
-	path := fmt.Sprintf("/gmail/v1/users/%s/messages/send", user(args))
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/messages/send", u)
 	data, err := g.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -101,7 +122,13 @@ func sendMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 }
 
 func deleteMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := g.del(ctx, "/gmail/v1/users/%s/messages/%s", user(args), argStr(args, "message_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	msgID := r.Str("message_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := g.del(ctx, "/gmail/v1/users/%s/messages/%s", u, msgID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -109,7 +136,13 @@ func deleteMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.Too
 }
 
 func trashMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/gmail/v1/users/%s/messages/%s/trash", user(args), argStr(args, "message_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	msgID := r.Str("message_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/messages/%s/trash", u, msgID)
 	data, err := g.post(ctx, path, nil)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -118,7 +151,13 @@ func trashMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.Tool
 }
 
 func untrashMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/gmail/v1/users/%s/messages/%s/untrash", user(args), argStr(args, "message_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	msgID := r.Str("message_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/messages/%s/untrash", u, msgID)
 	data, err := g.post(ctx, path, nil)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -127,14 +166,20 @@ func untrashMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.To
 }
 
 func modifyMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	body := map[string]any{}
-	if ids := argStrSlice(args, "add_label_ids"); len(ids) > 0 {
+	if ids := r.StrSlice("add_label_ids"); len(ids) > 0 {
 		body["addLabelIds"] = ids
 	}
-	if ids := argStrSlice(args, "remove_label_ids"); len(ids) > 0 {
+	if ids := r.StrSlice("remove_label_ids"); len(ids) > 0 {
 		body["removeLabelIds"] = ids
 	}
-	path := fmt.Sprintf("/gmail/v1/users/%s/messages/%s/modify", user(args), argStr(args, "message_id"))
+	u := user(r)
+	msgID := r.Str("message_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/messages/%s/modify", u, msgID)
 	data, err := g.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -143,16 +188,21 @@ func modifyMessage(ctx context.Context, g *gmail, args map[string]any) (*mcp.Too
 }
 
 func batchModifyMessages(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	body := map[string]any{
-		"ids": argStrSlice(args, "message_ids"),
+		"ids": r.StrSlice("message_ids"),
 	}
-	if ids := argStrSlice(args, "add_label_ids"); len(ids) > 0 {
+	if ids := r.StrSlice("add_label_ids"); len(ids) > 0 {
 		body["addLabelIds"] = ids
 	}
-	if ids := argStrSlice(args, "remove_label_ids"); len(ids) > 0 {
+	if ids := r.StrSlice("remove_label_ids"); len(ids) > 0 {
 		body["removeLabelIds"] = ids
 	}
-	path := fmt.Sprintf("/gmail/v1/users/%s/messages/batchModify", user(args))
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/messages/batchModify", u)
 	data, err := g.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -161,10 +211,15 @@ func batchModifyMessages(ctx context.Context, g *gmail, args map[string]any) (*m
 }
 
 func batchDeleteMessages(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	body := map[string]any{
-		"ids": argStrSlice(args, "message_ids"),
+		"ids": r.StrSlice("message_ids"),
 	}
-	path := fmt.Sprintf("/gmail/v1/users/%s/messages/batchDelete", user(args))
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/messages/batchDelete", u)
 	data, err := g.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -173,8 +228,14 @@ func batchDeleteMessages(ctx context.Context, g *gmail, args map[string]any) (*m
 }
 
 func getAttachment(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := g.get(ctx, "/gmail/v1/users/%s/messages/%s/attachments/%s",
-		user(args), argStr(args, "message_id"), argStr(args, "attachment_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	msgID := r.Str("message_id")
+	attID := r.Str("attachment_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := g.get(ctx, "/gmail/v1/users/%s/messages/%s/attachments/%s", u, msgID, attID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -184,18 +245,23 @@ func getAttachment(ctx context.Context, g *gmail, args map[string]any) (*mcp.Too
 // ── History ─────────────────────────────────────────────────────────
 
 func listHistory(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	params := map[string]string{
-		"startHistoryId": argStr(args, "start_history_id"),
-		"labelId":        argStr(args, "label_id"),
-		"maxResults":     argStr(args, "max_results"),
-		"pageToken":      argStr(args, "page_token"),
+		"startHistoryId": r.Str("start_history_id"),
+		"labelId":        r.Str("label_id"),
+		"maxResults":     r.Str("max_results"),
+		"pageToken":      r.Str("page_token"),
 	}
 	var multi map[string][]string
-	if types := argStr(args, "history_types"); types != "" {
-		multi = map[string][]string{"historyTypes": argStrSlice(args, "history_types")}
+	if types := r.Str("history_types"); types != "" {
+		multi = map[string][]string{"historyTypes": r.StrSlice("history_types")}
+	}
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	q := queryEncodeMulti(params, multi)
-	data, err := g.get(ctx, "/gmail/v1/users/%s/history%s", user(args), q)
+	data, err := g.get(ctx, "/gmail/v1/users/%s/history%s", u, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

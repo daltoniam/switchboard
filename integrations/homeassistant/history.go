@@ -10,28 +10,32 @@ import (
 )
 
 func getHistory(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	entityID := argStr(args, "entity_id")
+	r := mcp.NewArgs(args)
+	entityID := r.Str("entity_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if entityID == "" {
 		return mcp.ErrResult(fmt.Errorf("entity_id is required"))
 	}
 
 	path := "/api/history/period"
-	if v := argStr(args, "start_time"); v != "" {
+	if v := r.Str("start_time"); v != "" {
 		path += "/" + url.PathEscape(v)
 	}
 
 	params := url.Values{}
 	params.Set("filter_entity_id", entityID)
-	if v := argStr(args, "end_time"); v != "" {
+	if v := r.Str("end_time"); v != "" {
 		params.Set("end_time", v)
 	}
-	if argBool(args, "minimal_response") {
+	if r.Bool("minimal_response") {
 		params.Set("minimal_response", "")
 	}
-	if argBool(args, "no_attributes") {
+	if r.Bool("no_attributes") {
 		params.Set("no_attributes", "")
 	}
-	if argBool(args, "significant_changes_only") {
+	if r.Bool("significant_changes_only") {
 		params.Set("significant_changes_only", "")
 	}
 
@@ -48,16 +52,17 @@ func getHistory(ctx context.Context, h *homeassistant, args map[string]any) (*mc
 }
 
 func getLogbook(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	path := "/api/logbook"
-	if v := argStr(args, "start_time"); v != "" {
+	if v := r.Str("start_time"); v != "" {
 		path += "/" + url.PathEscape(v)
 	}
 
 	params := map[string]string{}
-	if v := argStr(args, "entity_id"); v != "" {
+	if v := r.Str("entity_id"); v != "" {
 		params["entity"] = v
 	}
-	if v := argStr(args, "end_time"); v != "" {
+	if v := r.Str("end_time"); v != "" {
 		params["end_time"] = v
 	}
 

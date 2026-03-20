@@ -8,10 +8,14 @@ import (
 )
 
 func listCohorts(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -20,7 +24,12 @@ func listCohorts(ctx context.Context, p *posthog, args map[string]any) (*mcp.Too
 }
 
 func getCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/", p.proj(args), argStr(args, "cohort_id"))
+	r := mcp.NewArgs(args)
+	cohortID := r.Str("cohort_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/", p.proj(args), cohortID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -28,9 +37,16 @@ func getCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolR
 }
 
 func createCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{"name": argStr(args, "name")}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	isStatic := r.Bool("is_static")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{"name": name}
+	if description != "" {
+		body["description"] = description
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
 		return mcp.ErrResult(err)
@@ -38,7 +54,7 @@ func createCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 		body["filters"] = filters
 	}
 	if _, ok := args["is_static"]; ok {
-		body["is_static"] = argBool(args, "is_static")
+		body["is_static"] = isStatic
 	}
 	path := fmt.Sprintf("/api/projects/%s/cohorts/", p.proj(args))
 	data, err := p.post(ctx, path, body)
@@ -49,19 +65,26 @@ func createCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func updateCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	r := mcp.NewArgs(args)
+	cohortID := r.Str("cohort_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	if description != "" {
+		body["description"] = description
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
 		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
-	path := fmt.Sprintf("/api/projects/%s/cohorts/%s/", p.proj(args), argStr(args, "cohort_id"))
+	path := fmt.Sprintf("/api/projects/%s/cohorts/%s/", p.proj(args), cohortID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -70,7 +93,11 @@ func updateCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func deleteCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/api/projects/%s/cohorts/%s/", p.proj(args), argStr(args, "cohort_id"))
+	cohortID, err := mcp.ArgStr(args, "cohort_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/api/projects/%s/cohorts/%s/", p.proj(args), cohortID)
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
@@ -80,11 +107,16 @@ func deleteCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func listCohortPersons(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	cohortID := r.Str("cohort_id")
 	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
 	})
-	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/persons/%s", p.proj(args), argStr(args, "cohort_id"), q)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/persons/%s", p.proj(args), cohortID, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

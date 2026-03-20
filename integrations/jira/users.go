@@ -15,7 +15,11 @@ func getMyself(ctx context.Context, j *jira, _ map[string]any) (*mcp.ToolResult,
 }
 
 func searchUsers(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	q := queryEncode(map[string]string{"query": argStr(args, "query")})
+	r := mcp.NewArgs(args)
+	q := queryEncode(map[string]string{"query": r.Str("query")})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := j.get(ctx, "/user/search%s", q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -24,7 +28,11 @@ func searchUsers(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 }
 
 func getUser(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	q := queryEncode(map[string]string{"accountId": argStr(args, "account_id")})
+	r := mcp.NewArgs(args)
+	q := queryEncode(map[string]string{"accountId": r.Str("account_id")})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := j.get(ctx, "/user%s", q)
 	if err != nil {
 		return mcp.ErrResult(err)

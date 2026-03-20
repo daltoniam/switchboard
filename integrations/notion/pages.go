@@ -8,7 +8,13 @@ import (
 )
 
 func createPage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	parent := argMap(args, "parent")
+	r := mcp.NewArgs(args)
+	parent := r.Map("parent")
+	properties := r.Map("properties")
+	title := r.Str("title")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if parent == nil {
 		return mcp.ErrResult(fmt.Errorf("parent is required"))
 	}
@@ -36,10 +42,10 @@ func createPage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolR
 		"last_edited_time":     now,
 	}
 
-	if props := argMap(args, "properties"); props != nil {
-		blockData["properties"] = props
+	if properties != nil {
+		blockData["properties"] = properties
 	}
-	if title := argStr(args, "title"); title != "" {
+	if title != "" {
 		if blockData["properties"] == nil {
 			blockData["properties"] = map[string]any{}
 		}
@@ -64,7 +70,10 @@ func createPage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolR
 }
 
 func retrievePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	pageID := argStr(args, "page_id")
+	pageID, err := mcp.ArgStr(args, "page_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if pageID == "" {
 		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
@@ -72,18 +81,24 @@ func retrievePage(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 }
 
 func updatePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	pageID := argStr(args, "page_id")
+	r := mcp.NewArgs(args)
+	pageID := r.Str("page_id")
+	props := r.Map("properties")
+	archived := r.Bool("archived")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if pageID == "" {
 		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
 
 	var ops []op
 
-	if props := argMap(args, "properties"); props != nil {
+	if props != nil {
 		ops = append(ops, buildSetOp("block", pageID, []string{"properties"}, props))
 	}
 
-	if argBool(args, "archived") {
+	if archived {
 		ops = append(ops, buildSetOp("block", pageID, []string{"alive"}, false))
 	}
 
@@ -100,11 +115,15 @@ func updatePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolR
 }
 
 func movePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	pageID := argStr(args, "page_id")
+	r := mcp.NewArgs(args)
+	pageID := r.Str("page_id")
+	newParent := r.Map("parent")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if pageID == "" {
 		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
-	newParent := argMap(args, "parent")
 	if newParent == nil {
 		return mcp.ErrResult(fmt.Errorf("parent is required"))
 	}
@@ -155,11 +174,15 @@ func movePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolRes
 }
 
 func retrievePageProperty(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	pageID := argStr(args, "page_id")
+	r := mcp.NewArgs(args)
+	pageID := r.Str("page_id")
+	propertyID := r.Str("property_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if pageID == "" {
 		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
-	propertyID := argStr(args, "property_id")
 	if propertyID == "" {
 		return mcp.ErrResult(fmt.Errorf("property_id is required"))
 	}
@@ -193,12 +216,16 @@ func retrievePageProperty(ctx context.Context, n *notion, args map[string]any) (
 }
 
 func getPageContent(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	pageID := argStr(args, "page_id")
+	r := mcp.NewArgs(args)
+	pageID := r.Str("page_id")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if pageID == "" {
 		return mcp.ErrResult(fmt.Errorf("page_id is required"))
 	}
 
-	limit := argInt(args, "limit")
 	if limit <= 0 {
 		limit = 100
 	}
@@ -239,7 +266,13 @@ func getPageContent(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 }
 
 func createPageWithContent(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	parent := argMap(args, "parent")
+	r := mcp.NewArgs(args)
+	parent := r.Map("parent")
+	properties := r.Map("properties")
+	title := r.Str("title")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if parent == nil {
 		return mcp.ErrResult(fmt.Errorf("parent is required"))
 	}
@@ -272,10 +305,10 @@ func createPageWithContent(ctx context.Context, n *notion, args map[string]any) 
 		"last_edited_time":     now,
 	}
 
-	if props := argMap(args, "properties"); props != nil {
-		blockData["properties"] = props
+	if properties != nil {
+		blockData["properties"] = properties
 	}
-	if title := argStr(args, "title"); title != "" {
+	if title != "" {
 		if blockData["properties"] == nil {
 			blockData["properties"] = map[string]any{}
 		}

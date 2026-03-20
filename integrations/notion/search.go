@@ -23,9 +23,19 @@ func stripHighlightTags(s string) string {
 }
 
 func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	typeFilter := r.Str("type")
+	limit := r.Int("limit")
+	filters := r.Map("filters")
+	sortArg := r.Map("sort")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	body := map[string]any{
 		"type":    "BlocksInSpace",
-		"query":   argStr(args, "query"),
+		"query":   query,
 		"spaceId": n.spaceID,
 		"limit":   20,
 		"source":  "quick_find",
@@ -47,20 +57,17 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 		"sort": map[string]any{"field": "relevance"},
 	}
 
-	// type filter: v3 API requires type=BlocksInSpace; filter results post-hoc by block type
-	typeFilter := argStr(args, "type")
-
-	if v := argInt(args, "limit"); v > 0 {
-		if v > 100 {
-			v = 100
+	if limit > 0 {
+		if limit > 100 {
+			limit = 100
 		}
-		body["limit"] = v
+		body["limit"] = limit
 	}
-	if v := argMap(args, "filters"); v != nil {
-		body["filters"] = v
+	if filters != nil {
+		body["filters"] = filters
 	}
-	if v := argMap(args, "sort"); v != nil {
-		body["sort"] = v
+	if sortArg != nil {
+		body["sort"] = sortArg
 	}
 
 	data, err := n.doRequest(ctx, "/api/v3/search", body)
@@ -87,13 +94,13 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 
 	// Merge results with block data — include all fields, let compaction strip noise.
 	var results []map[string]any
-	for _, r := range resp.Results {
+	for _, sr := range resp.Results {
 		entry := map[string]any{
-			"id":        r.ID,
-			"highlight": cleanHighlight(r.Highlight),
-			"url":       "https://www.notion.so/" + strings.ReplaceAll(r.ID, "-", ""),
+			"id":        sr.ID,
+			"highlight": cleanHighlight(sr.Highlight),
+			"url":       "https://www.notion.so/" + strings.ReplaceAll(sr.ID, "-", ""),
 		}
-		block, ok := blocks[r.ID]
+		block, ok := blocks[sr.ID]
 		if !ok {
 			results = append(results, entry)
 			continue
@@ -110,9 +117,9 @@ func searchNotion(ctx context.Context, n *notion, args map[string]any) (*mcp.Too
 	// v3 has no server-side type filter — filter post-hoc by block type
 	if typeFilter != "" {
 		filtered := results[:0]
-		for _, r := range results {
-			if matchesTypeFilter(r, typeFilter) {
-				filtered = append(filtered, r)
+		for _, sr := range results {
+			if matchesTypeFilter(sr, typeFilter) {
+				filtered = append(filtered, sr)
 			}
 		}
 		results = filtered
@@ -167,8 +174,8 @@ func parseBlockTable(recordMap map[string]json.RawMessage) map[string]map[string
 // matchesTypeFilter checks if a search result matches the user-requested type.
 // Maps user-facing types to v3 block types:
 //
-//	"page"        → block type "page"
-//	"data_source" → block type "collection_view_page" or "collection_view"
+//	"page"        -> block type "page"
+//	"data_source" -> block type "collection_view_page" or "collection_view"
 func matchesTypeFilter(result map[string]any, filter string) bool {
 	blockType, _ := result["type"].(string)
 	switch filter {

@@ -9,15 +9,19 @@ import (
 )
 
 func listProjects(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	params := map[string]string{}
-	if v := argInt(args, "start_at"); v > 0 {
+	if v := r.Int("start_at"); v > 0 {
 		params["startAt"] = fmt.Sprintf("%d", v)
 	}
-	if v := argInt(args, "max_results"); v > 0 {
+	if v := r.Int("max_results"); v > 0 {
 		params["maxResults"] = fmt.Sprintf("%d", v)
 	}
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		params["query"] = v
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	q := queryEncode(params)
 	data, err := j.get(ctx, "/project/search%s", q)
@@ -28,7 +32,12 @@ func listProjects(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 }
 
 func getProject(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/project/%s", url.PathEscape(argStr(args, "project_key")))
+	r := mcp.NewArgs(args)
+	projectKey := r.Str("project_key")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := j.get(ctx, "/project/%s", url.PathEscape(projectKey))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -36,7 +45,12 @@ func getProject(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRes
 }
 
 func listProjectComponents(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/project/%s/components", url.PathEscape(argStr(args, "project_key")))
+	r := mcp.NewArgs(args)
+	projectKey := r.Str("project_key")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := j.get(ctx, "/project/%s/components", url.PathEscape(projectKey))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -44,7 +58,12 @@ func listProjectComponents(ctx context.Context, j *jira, args map[string]any) (*
 }
 
 func listProjectVersions(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/project/%s/versions", url.PathEscape(argStr(args, "project_key")))
+	r := mcp.NewArgs(args)
+	projectKey := r.Str("project_key")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := j.get(ctx, "/project/%s/versions", url.PathEscape(projectKey))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -52,7 +71,12 @@ func listProjectVersions(ctx context.Context, j *jira, args map[string]any) (*mc
 }
 
 func listProjectStatuses(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/project/%s/statuses", url.PathEscape(argStr(args, "project_key")))
+	r := mcp.NewArgs(args)
+	projectKey := r.Str("project_key")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := j.get(ctx, "/project/%s/statuses", url.PathEscape(projectKey))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

@@ -11,7 +11,11 @@ import (
 )
 
 func runListServices(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	location := argStr(args, "location")
+	r := mcp.NewArgs(args)
+	location := r.Str("location")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	parent := fmt.Sprintf("projects/%s/locations/%s", g.projectID, location)
 
 	req := &runpb.ListServicesRequest{
@@ -34,8 +38,13 @@ func runListServices(ctx context.Context, g *integration, args map[string]any) (
 }
 
 func runGetService(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	svc, err := g.runServicesClient.GetService(ctx, &runpb.GetServiceRequest{
-		Name: argStr(args, "name"),
+		Name: name,
 	})
 	if err != nil {
 		return errResult(err)
@@ -44,8 +53,13 @@ func runGetService(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func runListRevisions(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	serviceName := r.Str("service_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	req := &runpb.ListRevisionsRequest{
-		Parent: argStr(args, "service_name"),
+		Parent: serviceName,
 	}
 
 	var revisions []*runpb.Revision
@@ -64,8 +78,13 @@ func runListRevisions(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func runGetRevision(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	rev, err := g.runRevisionsClient.GetRevision(ctx, &runpb.GetRevisionRequest{
-		Name: argStr(args, "name"),
+		Name: name,
 	})
 	if err != nil {
 		return errResult(err)

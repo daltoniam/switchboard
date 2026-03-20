@@ -18,15 +18,20 @@ func commentBasePath(parentType, parentID string) string {
 }
 
 func listComments(ctx context.Context, c *confluence, args map[string]any) (*mcp.ToolResult, error) {
-	basePath := commentBasePath(argStr(args, "parent_type"), url.PathEscape(argStr(args, "parent_id")))
-
+	r := mcp.NewArgs(args)
+	parentType := r.Str("parent_type")
+	parentID := r.Str("parent_id")
 	params := map[string]string{}
-	if v := argStr(args, "cursor"); v != "" {
+	if v := r.Str("cursor"); v != "" {
 		params["cursor"] = v
 	}
-	if v := argInt(args, "limit"); v > 0 {
+	if v := r.Int("limit"); v > 0 {
 		params["limit"] = fmt.Sprintf("%d", v)
 	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	basePath := commentBasePath(parentType, url.PathEscape(parentID))
 	q := queryEncode(params)
 	data, err := c.get(ctx, "%s%s", basePath, q)
 	if err != nil {
@@ -36,16 +41,24 @@ func listComments(ctx context.Context, c *confluence, args map[string]any) (*mcp
 }
 
 func createComment(ctx context.Context, c *confluence, args map[string]any) (*mcp.ToolResult, error) {
-	basePath := commentBasePath(argStr(args, "parent_type"), url.PathEscape(argStr(args, "parent_id")))
+	r := mcp.NewArgs(args)
+	parentType := r.Str("parent_type")
+	parentID := r.Str("parent_id")
+	bodyFormat := r.Str("body_format")
+	bodyValue := r.Str("body_value")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 
-	bodyFormat := argStr(args, "body_format")
+	basePath := commentBasePath(parentType, url.PathEscape(parentID))
+
 	if bodyFormat == "" {
 		bodyFormat = "storage"
 	}
 	body := map[string]any{
 		"body": map[string]any{
 			"representation": bodyFormat,
-			"value":          argStr(args, "body_value"),
+			"value":          bodyValue,
 		},
 	}
 	data, err := c.post(ctx, basePath, body)
@@ -56,7 +69,12 @@ func createComment(ctx context.Context, c *confluence, args map[string]any) (*mc
 }
 
 func deleteComment(ctx context.Context, c *confluence, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := c.del(ctx, "/footer-comments/%s", url.PathEscape(argStr(args, "comment_id")))
+	r := mcp.NewArgs(args)
+	commentID := r.Str("comment_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := c.del(ctx, "/footer-comments/%s", url.PathEscape(commentID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

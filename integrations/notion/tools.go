@@ -152,7 +152,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "Append new child blocks to a page or block. Use for adding content to existing pages.",
 		Parameters: map[string]string{
 			"block_id": "ID of the parent block",
-			"children": "Array of v3 block objects: {\"type\": \"text\", \"properties\": {\"title\": [[\"content\"]]}}. Types: text, header, sub_header, sub_sub_header, bulleted_list, numbered_list, to_do, quote, callout, code, divider, toggle",
+			"children": "Array of v3 block objects: {\"type\": \"text\", \"properties\": {\"title\": [[\"content\"]]}}. Types: text, header, sub_header, sub_sub_header, bulleted_list (unordered), numbered_list (ordered, auto-numbered — do not add manual number/letter prefixes), to_do, quote, callout, code (set language via format: {\"code_language\": \"Python\"}), divider, toggle",
 		},
 		Required: []string{"block_id", "children"},
 	},
@@ -228,7 +228,7 @@ var tools = []mcp.ToolDefinition{
 			"parent":     "Parent object with page_id or database_id",
 			"properties": "Page property values object",
 			"title":      "Page title (convenience)",
-			"children":   "Array of v3 block objects: {\"type\": \"text\", \"properties\": {\"title\": [[\"content\"]]}}. Types: text, header, sub_header, sub_sub_header, bulleted_list, numbered_list, to_do, quote, callout, code, divider, toggle",
+			"children":   "Array of v3 block objects: {\"type\": \"text\", \"properties\": {\"title\": [[\"content\"]]}}. Types: text, header, sub_header, sub_sub_header, bulleted_list (unordered), numbered_list (ordered, auto-numbered — do not add manual number/letter prefixes), to_do, quote, callout, code (set language via format: {\"code_language\": \"Python\"}), divider, toggle",
 		},
 		Required: []string{"parent", "children"},
 	},

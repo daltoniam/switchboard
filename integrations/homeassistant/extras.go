@@ -26,7 +26,11 @@ func checkConfig(ctx context.Context, h *homeassistant, _ map[string]any) (*mcp.
 }
 
 func renderTemplate(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	tmpl := argStr(args, "template")
+	r := mcp.NewArgs(args)
+	tmpl := r.Str("template")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if tmpl == "" {
 		return mcp.ErrResult(fmt.Errorf("template is required"))
 	}
@@ -55,9 +59,13 @@ func listCalendars(ctx context.Context, h *homeassistant, _ map[string]any) (*mc
 }
 
 func getCalendarEvents(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	entityID := argStr(args, "entity_id")
-	start := argStr(args, "start")
-	end := argStr(args, "end")
+	r := mcp.NewArgs(args)
+	entityID := r.Str("entity_id")
+	start := r.Str("start")
+	end := r.Str("end")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if entityID == "" || start == "" || end == "" {
 		return mcp.ErrResult(fmt.Errorf("entity_id, start, and end are required"))
 	}
@@ -71,13 +79,17 @@ func getCalendarEvents(ctx context.Context, h *homeassistant, args map[string]an
 }
 
 func handleIntent(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	name := argStr(args, "name")
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if name == "" {
 		return mcp.ErrResult(fmt.Errorf("name is required"))
 	}
 
 	body := map[string]any{"name": name}
-	if v := argStr(args, "data"); v != "" {
+	if v := r.Str("data"); v != "" {
 		var d map[string]any
 		if err := json.Unmarshal([]byte(v), &d); err != nil {
 			return mcp.ErrResult(fmt.Errorf("invalid JSON for data: %w", err))

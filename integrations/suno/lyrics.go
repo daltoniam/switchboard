@@ -7,12 +7,19 @@ import (
 )
 
 func generateLyrics(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{
-		"prompt": argStr(args, "prompt"),
+	r := mcp.NewArgs(args)
+	prompt := r.Str("prompt")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	body := map[string]any{
+		"prompt": prompt,
+	}
+
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/lyrics", body)
@@ -23,7 +30,11 @@ func generateLyrics(ctx context.Context, s *suno, args map[string]any) (*mcp.Too
 }
 
 func getLyrics(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	taskID := argStr(args, "task_id")
+	r := mcp.NewArgs(args)
+	taskID := r.Str("task_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := s.get(ctx, "/api/v1/lyrics/record-info?taskId=%s", taskID)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -32,8 +43,14 @@ func getLyrics(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResu
 }
 
 func getAlignedLyrics(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	audioID := r.Str("audio_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	body := map[string]any{
-		"audioId": argStr(args, "audio_id"),
+		"audioId": audioID,
 	}
 
 	data, err := s.post(ctx, "/api/v1/lyrics/aligned", body)

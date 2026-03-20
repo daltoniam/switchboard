@@ -20,11 +20,9 @@ func listIssues(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	sort := r.Str("sort")
 	direction := r.Str("direction")
 	assignee := r.Str("assignee")
+	milestone := r.Str("milestone")
+	labels := r.StrSlice("labels")
 	if err := r.Err(); err != nil {
-		return mcp.ErrResult(err)
-	}
-	labels, err := mcp.ArgStrSlice(args, "labels")
-	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	opts := &gh.IssueListByRepoOptions{
@@ -33,16 +31,8 @@ func listIssues(ctx context.Context, g *integration, args map[string]any) (*mcp.
 		Sort:        sort,
 		Direction:   direction,
 		Assignee:    assignee,
+		Milestone:   milestone,
 		ListOptions: lo,
-	}
-	if m, err := mcp.ArgInt(args, "milestone"); err != nil {
-		return mcp.ErrResult(err)
-	} else if m > 0 {
-		if ms, err := mcp.ArgStr(args, "milestone"); err != nil {
-			return mcp.ErrResult(err)
-		} else {
-			opts.Milestone = ms
-		}
 	}
 	issues, _, err := g.client.Issues.ListByRepo(ctx, owner, repo, opts)
 	if err != nil {

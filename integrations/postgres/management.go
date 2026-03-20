@@ -25,7 +25,10 @@ func databaseInfo(ctx context.Context, p *postgres, _ map[string]any) (*mcp.Tool
 }
 
 func databaseSize(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	limit := argInt(args, "limit")
+	limit, err := mcp.ArgInt(args, "limit")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = 20
 	}
@@ -49,11 +52,15 @@ func databaseSize(ctx context.Context, p *postgres, args map[string]any) (*mcp.T
 }
 
 func tableStats(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	ra := mcp.NewArgs(args)
+	table := ra.Str("table")
+	schema := ra.Str("schema")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-	schema := argStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -103,11 +110,15 @@ func listRoles(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolRes
 }
 
 func listGrants(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	ra := mcp.NewArgs(args)
+	schema := ra.Str("schema")
+	table := ra.Str("table")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if schema == "" {
 		schema = "public"
 	}
-	table := argStr(args, "table")
 
 	if table != "" {
 		data, err := p.query(ctx, `
@@ -148,7 +159,10 @@ func listExtensions(ctx context.Context, p *postgres, _ map[string]any) (*mcp.To
 }
 
 func listActiveConnections(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	state := argStr(args, "state")
+	state, err := mcp.ArgStr(args, "state")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 
 	if state != "" {
 		data, err := p.query(ctx, `
@@ -214,7 +228,10 @@ func listLocks(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolRes
 }
 
 func runningQueries(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	minDuration := argStr(args, "min_duration")
+	minDuration, err := mcp.ArgStr(args, "min_duration")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 
 	if minDuration != "" {
 		data, err := p.query(ctx, `

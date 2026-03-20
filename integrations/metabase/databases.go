@@ -31,7 +31,10 @@ func unwrapData(data json.RawMessage) json.RawMessage {
 }
 
 func getDatabase(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	id := argInt(args, "database_id")
+	id, err := mcp.ArgInt(args, "database_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == 0 {
 		return mcp.ErrResult(fmt.Errorf("database_id is required"))
 	}
@@ -43,7 +46,10 @@ func getDatabase(ctx context.Context, m *metabase, args map[string]any) (*mcp.To
 }
 
 func listTables(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	id := argInt(args, "database_id")
+	id, err := mcp.ArgInt(args, "database_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == 0 {
 		return mcp.ErrResult(fmt.Errorf("database_id is required"))
 	}
@@ -55,7 +61,10 @@ func listTables(ctx context.Context, m *metabase, args map[string]any) (*mcp.Too
 }
 
 func getTable(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	id := argInt(args, "table_id")
+	id, err := mcp.ArgInt(args, "table_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == 0 {
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}
@@ -67,7 +76,10 @@ func getTable(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolR
 }
 
 func getTableFields(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	id := argInt(args, "table_id")
+	id, err := mcp.ArgInt(args, "table_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == 0 {
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}

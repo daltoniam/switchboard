@@ -31,6 +31,13 @@ failure rates, identify silent data loss, and report impediments to LLM tool usa
 - At least one integration enabled with valid credentials
 - Access to `search` and `execute` MCP tools
 
+## Hard Rules (apply to ALL phases)
+
+1. **Discovery before identity**: NEVER pass an org name, team slug, channel ID, project name, or any entity identifier to a tool unless you discovered it from a prior list/search call in this session. Use authenticated-user tools (e.g., `github_list_user_repos`) as safe entry points.
+2. **Read-only**: NEVER call create/update/delete/send tools. All scripts must be read-only.
+3. **Record everything**: Every call gets a row in the results table, even failures.
+4. **`{}` is failure**: An empty object response means compaction stripped all fields. Flag as Critical.
+
 ## Protocol
 
 Execute phases in order. Record every result. Do not skip phases.
@@ -58,7 +65,7 @@ safest entry point (list, not create/update/delete).
 
 | Integration | Tool | Args |
 |-------------|------|------|
-| github | `github_list_user_repos` or `github_list_org_repos` | `{limit: 5}` |
+| github | `github_list_user_repos` (safe — uses authenticated user; `github_list_org_repos` requires a known org name — discover first via `github_list_user_orgs`) | `{per_page: 3}` |
 | linear | `linear_list_issues` | `{first: 5}` |
 | sentry | `sentry_list_org_issues` | `{query: "is:unresolved"}` |
 | slack | `slack_list_conversations` | `{limit: 5}` |
@@ -202,8 +209,10 @@ Calculate metrics from all phases:
 
 - **Writing during benchmarks**: NEVER send messages, create issues, or mutate
   state. All scripts must be read-only.
-- **Guessing org/repo/channel names**: Always discover via list tools first.
-  Don't assume IDs or names.
+- **Guessing org/repo/channel names**: NEVER pass a name to a tool that requires
+  an org, team, channel, or project unless you discovered it from a prior list call.
+  `github_list_user_repos` is safe (uses authenticated user); `github_list_org_repos`
+  requires a known org — discover via `github_list_user_orgs` first.
 - **Using `api.call` for optional steps**: Use `api.tryCall` for cross-integration
   calls where partial results are acceptable.
 - **Not checking for `{}`**: An empty object response looks like success but means

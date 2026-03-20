@@ -20,12 +20,12 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: "linear_create_issue", Description: "Create a new issue (ticket). Requires team_id — use list_teams to find it. Use list_workflow_states to discover valid state names.",
-		Parameters: map[string]string{"title": "Issue title", "team": "Team name or key", "description": "Description (markdown)", "assignee": "Assignee name or email", "priority": "Priority (0=none, 1=urgent, 2=high, 3=normal, 4=low)", "state": "Workflow state name", "labels": "Comma-separated label names", "project": "Project name", "cycle": "Cycle name or number", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)", "parent_id": "Parent issue ID for sub-issues"},
+		Parameters: map[string]string{"title": "Issue title", "team": "Team name or key", "description": "Description (markdown)", "assignee": "Assignee name or email", "priority": "Priority (0=none, 1=urgent, 2=high, 3=normal, 4=low)", "state": "Workflow state name", "labels": "Comma-separated label names", "project": "Project name", "milestone": "Project milestone name or UUID", "cycle": "Cycle name or number", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)", "parent_id": "Parent issue ID for sub-issues"},
 		Required:   []string{"title", "team"},
 	},
 	{
 		Name: "linear_update_issue", Description: "Update an existing issue. Accepts issue ID (UUID) or identifier (e.g., ENG-123). Use list_workflow_states to discover valid state names. Use list_teams to find team names for transfers.",
-		Parameters: map[string]string{"id": "Issue identifier (e.g., ENG-123) or UUID", "title": "New title", "description": "New description", "assignee": "Assignee name or email", "priority": "Priority (0-4)", "state": "Workflow state name", "team": "Team name or key (moves issue to this team)", "labels": "Comma-separated label names", "project": "Project name", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)"},
+		Parameters: map[string]string{"id": "Issue identifier (e.g., ENG-123) or UUID", "title": "New title", "description": "New description", "assignee": "Assignee name or email", "priority": "Priority (0-4)", "state": "Workflow state name", "team": "Team name or key (moves issue to this team)", "labels": "Comma-separated label names", "project": "Project name", "milestone": "Project milestone name or UUID", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)"},
 		Required:   []string{"id"},
 	},
 	{

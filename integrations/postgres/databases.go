@@ -21,7 +21,7 @@ func listSchemas(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolR
 }
 
 func listTables(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -46,11 +46,11 @@ func listTables(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 }
 
 func describeTable(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	table, _ := mcp.ArgStr(args, "table")
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -83,11 +83,11 @@ func describeTable(ctx context.Context, p *postgres, args map[string]any) (*mcp.
 }
 
 func listColumns(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	table, _ := mcp.ArgStr(args, "table")
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -104,11 +104,11 @@ func listColumns(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 }
 
 func listIndexes(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	table, _ := mcp.ArgStr(args, "table")
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -132,11 +132,11 @@ func listIndexes(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 }
 
 func listConstraints(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	table, _ := mcp.ArgStr(args, "table")
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -166,11 +166,11 @@ func listConstraints(ctx context.Context, p *postgres, args map[string]any) (*mc
 }
 
 func listForeignKeys(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	table, _ := mcp.ArgStr(args, "table")
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -200,7 +200,7 @@ func listForeignKeys(ctx context.Context, p *postgres, args map[string]any) (*mc
 }
 
 func listViews(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -220,7 +220,7 @@ func listViews(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 }
 
 func listFunctions(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -243,11 +243,11 @@ func listFunctions(ctx context.Context, p *postgres, args map[string]any) (*mcp.
 }
 
 func listTriggers(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
-	table := argStr(args, "table")
+	table, _ := mcp.ArgStr(args, "table")
 
 	q := `
 		SELECT trigger_name,
@@ -277,7 +277,7 @@ func listTriggers(ctx context.Context, p *postgres, args map[string]any) (*mcp.T
 }
 
 func listEnums(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}

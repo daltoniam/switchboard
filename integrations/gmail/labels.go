@@ -8,7 +8,12 @@ import (
 )
 
 func listLabels(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := g.get(ctx, "/gmail/v1/users/%s/labels", user(args))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := g.get(ctx, "/gmail/v1/users/%s/labels", u)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -16,7 +21,13 @@ func listLabels(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRe
 }
 
 func getLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := g.get(ctx, "/gmail/v1/users/%s/labels/%s", user(args), argStr(args, "label_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	labelID := r.Str("label_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := g.get(ctx, "/gmail/v1/users/%s/labels/%s", u, labelID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -24,26 +35,31 @@ func getLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResu
 }
 
 func createLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	body := map[string]any{
-		"name": argStr(args, "name"),
+		"name": r.Str("name"),
 	}
-	if v := argStr(args, "message_list_visibility"); v != "" {
+	if v := r.Str("message_list_visibility"); v != "" {
 		body["messageListVisibility"] = v
 	}
-	if v := argStr(args, "label_list_visibility"); v != "" {
+	if v := r.Str("label_list_visibility"); v != "" {
 		body["labelListVisibility"] = v
 	}
-	if bg := argStr(args, "background_color"); bg != "" || argStr(args, "text_color") != "" {
+	if bg := r.Str("background_color"); bg != "" || r.Str("text_color") != "" {
 		color := map[string]string{}
 		if bg != "" {
 			color["backgroundColor"] = bg
 		}
-		if tc := argStr(args, "text_color"); tc != "" {
+		if tc := r.Str("text_color"); tc != "" {
 			color["textColor"] = tc
 		}
 		body["color"] = color
 	}
-	path := fmt.Sprintf("/gmail/v1/users/%s/labels", user(args))
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/labels", u)
 	data, err := g.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -52,29 +68,35 @@ func createLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 }
 
 func updateLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	body := map[string]any{
-		"id": argStr(args, "label_id"),
+		"id": r.Str("label_id"),
 	}
-	if v := argStr(args, "name"); v != "" {
+	if v := r.Str("name"); v != "" {
 		body["name"] = v
 	}
-	if v := argStr(args, "message_list_visibility"); v != "" {
+	if v := r.Str("message_list_visibility"); v != "" {
 		body["messageListVisibility"] = v
 	}
-	if v := argStr(args, "label_list_visibility"); v != "" {
+	if v := r.Str("label_list_visibility"); v != "" {
 		body["labelListVisibility"] = v
 	}
-	if bg := argStr(args, "background_color"); bg != "" || argStr(args, "text_color") != "" {
+	if bg := r.Str("background_color"); bg != "" || r.Str("text_color") != "" {
 		color := map[string]string{}
 		if bg != "" {
 			color["backgroundColor"] = bg
 		}
-		if tc := argStr(args, "text_color"); tc != "" {
+		if tc := r.Str("text_color"); tc != "" {
 			color["textColor"] = tc
 		}
 		body["color"] = color
 	}
-	path := fmt.Sprintf("/gmail/v1/users/%s/labels/%s", user(args), argStr(args, "label_id"))
+	u := user(r)
+	labelID := r.Str("label_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/labels/%s", u, labelID)
 	data, err := g.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -83,7 +105,13 @@ func updateLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 }
 
 func deleteLabel(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := g.del(ctx, "/gmail/v1/users/%s/labels/%s", user(args), argStr(args, "label_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	labelID := r.Str("label_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := g.del(ctx, "/gmail/v1/users/%s/labels/%s", u, labelID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

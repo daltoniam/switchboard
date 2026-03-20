@@ -22,9 +22,13 @@ func getProject(ctx context.Context, g *integration, _ map[string]any) (*mcp.Too
 }
 
 func listProjects(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	req := &resourcemanagerpb.SearchProjectsRequest{}
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		req.Query = v
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
 	var projects []*resourcemanagerpb.Project
@@ -43,8 +47,13 @@ func listProjects(ctx context.Context, g *integration, args map[string]any) (*mc
 }
 
 func listFolders(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	parent := r.Str("parent")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	req := &resourcemanagerpb.ListFoldersRequest{
-		Parent: argStr(args, "parent"),
+		Parent: parent,
 	}
 
 	var folders []*resourcemanagerpb.Folder
@@ -63,8 +72,13 @@ func listFolders(ctx context.Context, g *integration, args map[string]any) (*mcp
 }
 
 func getFolder(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	folderID := r.Str("folder_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	folder, err := g.foldersClient.GetFolder(ctx, &resourcemanagerpb.GetFolderRequest{
-		Name: fmt.Sprintf("folders/%s", argStr(args, "folder_id")),
+		Name: fmt.Sprintf("folders/%s", folderID),
 	})
 	if err != nil {
 		return errResult(err)

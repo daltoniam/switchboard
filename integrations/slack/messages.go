@@ -11,12 +11,19 @@ import (
 var _ *mcp.ToolResult // type anchor
 
 func sendMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := []slack.MsgOption{slack.MsgOptionText(argStr(args, "text"), false)}
-	if ts := argStr(args, "thread_ts"); ts != "" {
-		opts = append(opts, slack.MsgOptionTS(ts))
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	text := r.Str("text")
+	threadTS := r.Str("thread_ts")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := []slack.MsgOption{slack.MsgOptionText(text, false)}
+	if threadTS != "" {
+		opts = append(opts, slack.MsgOptionTS(threadTS))
 	}
 
-	channel, ts, err := s.getClient().PostMessageContext(ctx, argStr(args, "channel_id"), opts...)
+	channel, ts, err := s.getClient().PostMessageContext(ctx, channelID, opts...)
 	if err != nil {
 		return errResult(err)
 	}
@@ -24,29 +31,47 @@ func sendMessage(ctx context.Context, s *slackIntegration, args map[string]any) 
 }
 
 func updateMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := []slack.MsgOption{slack.MsgOptionText(argStr(args, "text"), false)}
-	channel, ts, _, err := s.getClient().UpdateMessageContext(ctx, argStr(args, "channel_id"), argStr(args, "ts"), opts...)
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	ts := r.Str("ts")
+	text := r.Str("text")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := []slack.MsgOption{slack.MsgOptionText(text, false)}
+	channel, respTS, _, err := s.getClient().UpdateMessageContext(ctx, channelID, ts, opts...)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(map[string]any{"status": "updated", "channel": channel, "ts": ts})
+	return mcp.JSONResult(map[string]any{"status": "updated", "channel": channel, "ts": respTS})
 }
 
 func deleteMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	channel, ts, err := s.getClient().DeleteMessageContext(ctx, argStr(args, "channel_id"), argStr(args, "ts"))
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	ts := r.Str("ts")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	channel, respTS, err := s.getClient().DeleteMessageContext(ctx, channelID, ts)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(map[string]any{"status": "deleted", "channel": channel, "ts": ts})
+	return mcp.JSONResult(map[string]any{"status": "deleted", "channel": channel, "ts": respTS})
 }
 
 func searchMessages(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	params := slack.SearchParameters{
 		Sort:          "timestamp",
 		SortDirection: "desc",
-		Count:         optInt(args, "count", 20),
+		Count:         mcp.OptInt(args, "count", 20),
 	}
-	result, err := s.getClient().SearchMessagesContext(ctx, argStr(args, "query"), params)
+	result, err := s.getClient().SearchMessagesContext(ctx, query, params)
 	if err != nil {
 		return errResult(err)
 	}
@@ -71,32 +96,52 @@ func searchMessages(ctx context.Context, s *slackIntegration, args map[string]an
 		})
 	}
 	return mcp.JSONResult(map[string]any{
-		"query":   argStr(args, "query"),
+		"query":   query,
 		"total":   result.Total,
 		"matches": matches,
 	})
 }
 
 func addReaction(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
-	err := s.getClient().AddReactionContext(ctx, argStr(args, "emoji"), ref)
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	ts := r.Str("ts")
+	emoji := r.Str("emoji")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	ref := slack.ItemRef{Channel: channelID, Timestamp: ts}
+	err := s.getClient().AddReactionContext(ctx, emoji, ref)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(map[string]any{"status": "added", "emoji": argStr(args, "emoji")})
+	return mcp.JSONResult(map[string]any{"status": "added", "emoji": emoji})
 }
 
 func removeReaction(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
-	err := s.getClient().RemoveReactionContext(ctx, argStr(args, "emoji"), ref)
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	ts := r.Str("ts")
+	emoji := r.Str("emoji")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	ref := slack.ItemRef{Channel: channelID, Timestamp: ts}
+	err := s.getClient().RemoveReactionContext(ctx, emoji, ref)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(map[string]any{"status": "removed", "emoji": argStr(args, "emoji")})
+	return mcp.JSONResult(map[string]any{"status": "removed", "emoji": emoji})
 }
 
 func getReactions(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	ts := r.Str("ts")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	ref := slack.ItemRef{Channel: channelID, Timestamp: ts}
 	reactedItem, err := s.getClient().GetReactionsContext(ctx, ref, slack.GetReactionsParameters{})
 	if err != nil {
 		return errResult(err)
@@ -114,8 +159,14 @@ func getReactions(ctx context.Context, s *slackIntegration, args map[string]any)
 }
 
 func addPin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
-	err := s.getClient().AddPinContext(ctx, argStr(args, "channel_id"), ref)
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	ts := r.Str("ts")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	ref := slack.ItemRef{Channel: channelID, Timestamp: ts}
+	err := s.getClient().AddPinContext(ctx, channelID, ref)
 	if err != nil {
 		return errResult(err)
 	}
@@ -123,8 +174,14 @@ func addPin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp
 }
 
 func removePin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	ref := slack.ItemRef{Channel: argStr(args, "channel_id"), Timestamp: argStr(args, "ts")}
-	err := s.getClient().RemovePinContext(ctx, argStr(args, "channel_id"), ref)
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	ts := r.Str("ts")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	ref := slack.ItemRef{Channel: channelID, Timestamp: ts}
+	err := s.getClient().RemovePinContext(ctx, channelID, ref)
 	if err != nil {
 		return errResult(err)
 	}
@@ -132,7 +189,12 @@ func removePin(ctx context.Context, s *slackIntegration, args map[string]any) (*
 }
 
 func listPins(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	items, _, err := s.getClient().ListPinsContext(ctx, argStr(args, "channel_id"))
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	items, _, err := s.getClient().ListPinsContext(ctx, channelID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -156,13 +218,20 @@ func listPins(ctx context.Context, s *slackIntegration, args map[string]any) (*m
 }
 
 func scheduleMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	postAt := argStr(args, "post_at")
-	opts := []slack.MsgOption{slack.MsgOptionText(argStr(args, "text"), false)}
-	if ts := argStr(args, "thread_ts"); ts != "" {
-		opts = append(opts, slack.MsgOptionTS(ts))
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	text := r.Str("text")
+	postAt := r.Str("post_at")
+	threadTS := r.Str("thread_ts")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := []slack.MsgOption{slack.MsgOptionText(text, false)}
+	if threadTS != "" {
+		opts = append(opts, slack.MsgOptionTS(threadTS))
 	}
 
-	channel, scheduledID, err := s.getClient().ScheduleMessageContext(ctx, argStr(args, "channel_id"), postAt, opts...)
+	channel, scheduledID, err := s.getClient().ScheduleMessageContext(ctx, channelID, postAt, opts...)
 	if err != nil {
 		return errResult(err)
 	}

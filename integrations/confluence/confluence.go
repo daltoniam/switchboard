@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -156,26 +155,6 @@ func (c *confluence) v1Get(ctx context.Context, pathFmt string, args ...any) (js
 }
 
 type handlerFunc func(ctx context.Context, c *confluence, args map[string]any) (*mcp.ToolResult, error)
-
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
 
 // queryEncode builds a query string from non-empty key/value pairs.
 func queryEncode(params map[string]string) string {

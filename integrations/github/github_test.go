@@ -2,10 +2,14 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	gh "github.com/google/go-github/v68/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -125,4 +129,96 @@ func TestListOpts(t *testing.T) {
 		assert.Equal(t, 3, opts.Page)
 		assert.Equal(t, 50, opts.PerPage)
 	})
+}
+
+// newTestGitHub creates a *integration backed by a test HTTP server.
+func newTestGitHub(handler http.Handler) (*integration, *httptest.Server) {
+	ts := httptest.NewServer(handler)
+	client := gh.NewClient(nil).WithAuthToken("test-token")
+	url, _ := client.BaseURL.Parse(ts.URL + "/")
+	client.BaseURL = url
+	return &integration{token: "test-token", client: client}, ts
+}
+
+func TestCreateHook_ActiveBool(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       map[string]any
+		wantActive bool
+	}{
+		{name: "missing defaults to true", args: map[string]any{"owner": "o", "repo": "r", "url": "http://example.com"}, wantActive: true},
+		{name: "bool true", args: map[string]any{"owner": "o", "repo": "r", "url": "http://example.com", "active": true}, wantActive: true},
+		{name: "bool false", args: map[string]any{"owner": "o", "repo": "r", "url": "http://example.com", "active": false}, wantActive: false},
+		{name: "string false", args: map[string]any{"owner": "o", "repo": "r", "url": "http://example.com", "active": "false"}, wantActive: false},
+		{name: "string 0", args: map[string]any{"owner": "o", "repo": "r", "url": "http://example.com", "active": "0"}, wantActive: false},
+		{name: "string f", args: map[string]any{"owner": "o", "repo": "r", "url": "http://example.com", "active": "f"}, wantActive: false},
+		{name: "string FALSE", args: map[string]any{"owner": "o", "repo": "r", "url": "http://example.com", "active": "FALSE"}, wantActive: false},
+		{name: "string true", args: map[string]any{"owner": "o", "repo": "r", "url": "http://example.com", "active": "true"}, wantActive: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedActive *bool
+			g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var hook gh.Hook
+				json.NewDecoder(r.Body).Decode(&hook)
+				capturedActive = hook.Active
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(&hook)
+			}))
+			defer ts.Close()
+
+			result, err := createHook(context.Background(), g, tt.args)
+			require.NoError(t, err)
+			assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+			require.NotNil(t, capturedActive)
+			assert.Equal(t, tt.wantActive, *capturedActive)
+		})
+	}
+}
+
+func TestCreateHook_ActiveInvalidType(t *testing.T) {
+	g := &integration{token: "test"}
+	result, err := createHook(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "url": "http://example.com",
+		"active": 42, // int is not a valid bool type
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "parameter")
+}
+
+func TestListIssues_MilestonePassthrough(t *testing.T) {
+	tests := []struct {
+		name          string
+		milestone     any
+		wantMilestone string
+	}{
+		{name: "star", milestone: "*", wantMilestone: "%2A"},
+		{name: "none", milestone: "none", wantMilestone: "none"},
+		{name: "numeric string", milestone: "3", wantMilestone: "3"},
+		{name: "missing", milestone: nil, wantMilestone: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedPath string
+			g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedPath = r.URL.RawQuery
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode([]any{})
+			}))
+			defer ts.Close()
+
+			args := map[string]any{"owner": "o", "repo": "r"}
+			if tt.milestone != nil {
+				args["milestone"] = tt.milestone
+			}
+			result, err := listIssues(context.Background(), g, args)
+			require.NoError(t, err)
+			assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+
+			if tt.wantMilestone != "" {
+				assert.Contains(t, capturedPath, "milestone="+tt.wantMilestone)
+			}
+		})
+	}
 }

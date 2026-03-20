@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -136,36 +135,6 @@ func (y *ynab) del(ctx context.Context, pathFmt string, args ...any) (json.RawMe
 
 type handlerFunc func(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error)
 
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
 func queryEncode(params map[string]string) string {
 	vals := url.Values{}
 	for k, v := range params {
@@ -181,7 +150,8 @@ func queryEncode(params map[string]string) string {
 
 // budget returns the budget_id from args, defaulting to "last-used".
 func budget(args map[string]any) string {
-	if v := argStr(args, "budget_id"); v != "" {
+	v, _ := mcp.ArgStr(args, "budget_id")
+	if v != "" {
 		return v
 	}
 	return "last-used"

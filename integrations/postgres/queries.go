@@ -18,12 +18,18 @@ var validExplainFormats = map[string]bool{
 }
 
 func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	sqlStr := argStr(args, "sql")
+	sqlStr, err := mcp.ArgStr(args, "sql")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if sqlStr == "" {
 		return mcp.ErrResult(fmt.Errorf("sql is required"))
 	}
 
-	limit := argInt(args, "limit")
+	limit, err := mcp.ArgInt(args, "limit")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = 100
 	}
@@ -57,7 +63,10 @@ func executeTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		return mcp.ErrResult(fmt.Errorf("execute is disabled: set read_only=false in postgres credentials to enable"))
 	}
 
-	sqlStr := argStr(args, "sql")
+	sqlStr, err := mcp.ArgStr(args, "sql")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if sqlStr == "" {
 		return mcp.ErrResult(fmt.Errorf("sql is required"))
 	}
@@ -77,19 +86,24 @@ func executeTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 }
 
 func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	sqlStr := argStr(args, "sql")
+	ra := mcp.NewArgs(args)
+	sqlStr := ra.Str("sql")
+	format := ra.Str("format")
+	analyze := ra.Bool("analyze")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if sqlStr == "" {
 		return mcp.ErrResult(fmt.Errorf("sql is required"))
 	}
 
-	format := strings.ToLower(argStr(args, "format"))
+	format = strings.ToLower(format)
 	if format == "" {
 		format = "text"
 	}
 	if !validExplainFormats[format] {
 		return mcp.ErrResult(fmt.Errorf("invalid format %q: must be one of text, json, yaml, xml", format))
 	}
-	analyze := argBool(args, "analyze")
 
 	var explain string
 	if analyze {
@@ -118,11 +132,20 @@ func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 }
 
 func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	ra := mcp.NewArgs(args)
+	table := ra.Str("table")
+	schema := ra.Str("schema")
+	columns := ra.Str("columns")
+	where := ra.Str("where")
+	orderBy := ra.Str("order_by")
+	limit := ra.Int("limit")
+	offset := ra.Int("offset")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-	schema := argStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
@@ -136,7 +159,6 @@ func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		return mcp.ErrResult(err)
 	}
 
-	columns := argStr(args, "columns")
 	if columns == "" {
 		columns = "*"
 	} else if err := validateSQLFragment(columns); err != nil {
@@ -145,26 +167,25 @@ func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 
 	q := fmt.Sprintf("SELECT %s FROM %s.%s", columns, safeSchema, safeTable) // #nosec G201 -- identifiers are sanitized via sanitizeIdentifier
 
-	if where := argStr(args, "where"); where != "" {
+	if where != "" {
 		if err := validateSQLFragment(where); err != nil {
 			return mcp.ErrResult(fmt.Errorf("where: %w", err))
 		}
 		q += " WHERE " + where
 	}
-	if orderBy := argStr(args, "order_by"); orderBy != "" {
+	if orderBy != "" {
 		if err := validateSQLFragment(orderBy); err != nil {
 			return mcp.ErrResult(fmt.Errorf("order_by: %w", err))
 		}
 		q += " ORDER BY " + orderBy
 	}
 
-	limit := argInt(args, "limit")
 	if limit <= 0 {
 		limit = 100
 	}
 	q += fmt.Sprintf(" LIMIT %d", limit)
 
-	if offset := argInt(args, "offset"); offset > 0 {
+	if offset > 0 {
 		q += fmt.Sprintf(" OFFSET %d", offset)
 	}
 

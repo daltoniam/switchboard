@@ -8,10 +8,14 @@ import (
 )
 
 func listProjects(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s", q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -28,7 +32,11 @@ func getProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.Tool
 }
 
 func createProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{"name": argStr(args, "name")}
+	name, err := mcp.ArgStr(args, "name")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{"name": name}
 	data, err := p.post(ctx, "/api/projects/", body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -37,9 +45,13 @@ func createProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 }
 
 func updateProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	name, err := mcp.ArgStr(args, "name")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	if name != "" {
+		body["name"] = name
 	}
 	path := fmt.Sprintf("/api/projects/%s/", p.proj(args))
 	data, err := p.patch(ctx, path, body)
@@ -49,10 +61,14 @@ func updateProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 	return mcp.RawResult(data)
 }
 
-// Intentionally uses argStr instead of p.proj to require an explicit project_id,
+// Intentionally uses mcp.ArgStr instead of p.proj to require an explicit project_id,
 // preventing accidental deletion of the default project.
 func deleteProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.del(ctx, "/api/projects/%s/", argStr(args, "project_id"))
+	projectID, err := mcp.ArgStr(args, "project_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.del(ctx, "/api/projects/%s/", projectID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

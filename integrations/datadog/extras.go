@@ -18,21 +18,22 @@ import (
 // ── Hosts ────────────────────────────────────────────────────────────
 
 func listHosts(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewHostsApi(d.client)
 	opts := datadogV1.NewListHostsOptionalParameters()
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		opts = opts.WithFilter(v)
 	}
-	if v := argStr(args, "sort_field"); v != "" {
+	if v := r.Str("sort_field"); v != "" {
 		opts = opts.WithSortField(v)
 	}
-	if v := argStr(args, "sort_dir"); v != "" {
+	if v := r.Str("sort_dir"); v != "" {
 		opts = opts.WithSortDir(v)
 	}
-	if v := argInt64(args, "count"); v > 0 {
+	if v := r.Int64("count"); v > 0 {
 		opts = opts.WithCount(v)
 	}
-	if v := argInt64(args, "from"); v > 0 {
+	if v := r.Int64("from"); v > 0 {
 		opts = opts.WithFrom(v)
 	}
 	resp, _, err := api.ListHosts(ctx, *opts)
@@ -43,9 +44,10 @@ func listHosts(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult
 }
 
 func getHostTotals(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewHostsApi(d.client)
 	opts := datadogV1.NewGetHostTotalsOptionalParameters()
-	if v := argInt64(args, "from"); v > 0 {
+	if v := r.Int64("from"); v > 0 {
 		opts = opts.WithFrom(v)
 	}
 	resp, _, err := api.GetHostTotals(ctx, *opts)
@@ -56,18 +58,19 @@ func getHostTotals(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 }
 
 func muteHost(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewHostsApi(d.client)
 	body := datadogV1.HostMuteSettings{}
-	if v := argStr(args, "message"); v != "" {
+	if v := r.Str("message"); v != "" {
 		body.Message = datadog.PtrString(v)
 	}
-	if v := argInt64(args, "end"); v > 0 {
+	if v := r.Int64("end"); v > 0 {
 		body.End = datadog.PtrInt64(v)
 	}
-	if argBool(args, "override") {
+	if r.Bool("override") {
 		body.Override = datadog.PtrBool(true)
 	}
-	resp, _, err := api.MuteHost(ctx, argStr(args, "hostname"), body)
+	resp, _, err := api.MuteHost(ctx, r.Str("hostname"), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -75,8 +78,9 @@ func muteHost(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult,
 }
 
 func unmuteHost(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewHostsApi(d.client)
-	resp, _, err := api.UnmuteHost(ctx, argStr(args, "hostname"))
+	resp, _, err := api.UnmuteHost(ctx, r.Str("hostname"))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -86,9 +90,10 @@ func unmuteHost(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResul
 // ── Tags ─────────────────────────────────────────────────────────────
 
 func listTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewTagsApi(d.client)
 	opts := datadogV1.NewListHostTagsOptionalParameters()
-	if v := argStr(args, "source"); v != "" {
+	if v := r.Str("source"); v != "" {
 		opts = opts.WithSource(v)
 	}
 	resp, _, err := api.ListHostTags(ctx, *opts)
@@ -99,12 +104,13 @@ func listTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult,
 }
 
 func getHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewTagsApi(d.client)
 	opts := datadogV1.NewGetHostTagsOptionalParameters()
-	if v := argStr(args, "source"); v != "" {
+	if v := r.Str("source"); v != "" {
 		opts = opts.WithSource(v)
 	}
-	resp, _, err := api.GetHostTags(ctx, argStr(args, "hostname"), *opts)
+	resp, _, err := api.GetHostTags(ctx, r.Str("hostname"), *opts)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -112,14 +118,18 @@ func getHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 }
 
 func createHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewTagsApi(d.client)
-	tags := argStrSlice(args, "tags")
+	tags := r.StrSlice("tags")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := datadogV1.HostTags{Tags: tags}
 	opts := datadogV1.NewCreateHostTagsOptionalParameters()
-	if v := argStr(args, "source"); v != "" {
+	if v := r.Str("source"); v != "" {
 		opts = opts.WithSource(v)
 	}
-	resp, _, err := api.CreateHostTags(ctx, argStr(args, "hostname"), body, *opts)
+	resp, _, err := api.CreateHostTags(ctx, r.Str("hostname"), body, *opts)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -127,14 +137,18 @@ func createHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 }
 
 func updateHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewTagsApi(d.client)
-	tags := argStrSlice(args, "tags")
+	tags := r.StrSlice("tags")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := datadogV1.HostTags{Tags: tags}
 	opts := datadogV1.NewUpdateHostTagsOptionalParameters()
-	if v := argStr(args, "source"); v != "" {
+	if v := r.Str("source"); v != "" {
 		opts = opts.WithSource(v)
 	}
-	resp, _, err := api.UpdateHostTags(ctx, argStr(args, "hostname"), body, *opts)
+	resp, _, err := api.UpdateHostTags(ctx, r.Str("hostname"), body, *opts)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -142,12 +156,13 @@ func updateHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 }
 
 func deleteHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewTagsApi(d.client)
 	opts := datadogV1.NewDeleteHostTagsOptionalParameters()
-	if v := argStr(args, "source"); v != "" {
+	if v := r.Str("source"); v != "" {
 		opts = opts.WithSource(v)
 	}
-	_, err := api.DeleteHostTags(ctx, argStr(args, "hostname"), *opts)
+	_, err := api.DeleteHostTags(ctx, r.Str("hostname"), *opts)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -157,21 +172,22 @@ func deleteHostTags(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 // ── SLOs ─────────────────────────────────────────────────────────────
 
 func listSLOs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewServiceLevelObjectivesApi(d.client)
 	opts := datadogV1.NewListSLOsOptionalParameters()
-	if v := argStr(args, "ids"); v != "" {
+	if v := r.Str("ids"); v != "" {
 		opts = opts.WithIds(v)
 	}
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		opts = opts.WithQuery(v)
 	}
-	if v := argStr(args, "tags_query"); v != "" {
+	if v := r.Str("tags_query"); v != "" {
 		opts = opts.WithTagsQuery(v)
 	}
-	if v := argInt64(args, "limit"); v > 0 {
+	if v := r.Int64("limit"); v > 0 {
 		opts = opts.WithLimit(v)
 	}
-	if v := argInt64(args, "offset"); v > 0 {
+	if v := r.Int64("offset"); v > 0 {
 		opts = opts.WithOffset(v)
 	}
 	resp, _, err := api.ListSLOs(ctx, *opts)
@@ -182,15 +198,16 @@ func listSLOs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult,
 }
 
 func searchSLOs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewServiceLevelObjectivesApi(d.client)
 	opts := datadogV1.NewSearchSLOOptionalParameters()
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		opts = opts.WithQuery(v)
 	}
-	if v := argInt64(args, "page_size"); v > 0 {
+	if v := r.Int64("page_size"); v > 0 {
 		opts = opts.WithPageSize(v)
 	}
-	if v := argInt64(args, "page_number"); v > 0 {
+	if v := r.Int64("page_number"); v > 0 {
 		opts = opts.WithPageNumber(v)
 	}
 	resp, _, err := api.SearchSLO(ctx, *opts)
@@ -201,8 +218,12 @@ func searchSLOs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResul
 }
 
 func getSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	api := datadogV1.NewServiceLevelObjectivesApi(d.client)
-	resp, _, err := api.GetSLO(ctx, argStr(args, "id"), *datadogV1.NewGetSLOOptionalParameters())
+	resp, _, err := api.GetSLO(ctx, id, *datadogV1.NewGetSLOOptionalParameters())
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -210,10 +231,15 @@ func getSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, e
 }
 
 func getSLOHistory(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	id := r.Str("id")
+	fromTs := r.Int64("from")
+	toTs := r.Int64("to")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	api := datadogV1.NewServiceLevelObjectivesApi(d.client)
-	fromTs := argInt64(args, "from")
-	toTs := argInt64(args, "to")
-	resp, _, err := api.GetSLOHistory(ctx, argStr(args, "id"), fromTs, toTs, *datadogV1.NewGetSLOHistoryOptionalParameters())
+	resp, _, err := api.GetSLOHistory(ctx, id, fromTs, toTs, *datadogV1.NewGetSLOHistoryOptionalParameters())
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -221,38 +247,39 @@ func getSLOHistory(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 }
 
 func createSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewServiceLevelObjectivesApi(d.client)
 
-	sloType, _ := datadogV1.NewSLOTypeFromValue(argStr(args, "type"))
+	sloType, _ := datadogV1.NewSLOTypeFromValue(r.Str("type"))
 	if sloType == nil {
 		t := datadogV1.SLOTYPE_METRIC
 		sloType = &t
 	}
 
-	target, _ := strconv.ParseFloat(argStr(args, "target"), 64)
-	timeframe, _ := datadogV1.NewSLOTimeframeFromValue(argStr(args, "timeframe"))
+	target, _ := strconv.ParseFloat(r.Str("target"), 64)
+	timeframe, _ := datadogV1.NewSLOTimeframeFromValue(r.Str("timeframe"))
 	if timeframe == nil {
 		tf := datadogV1.SLOTIMEFRAME_THIRTY_DAYS
 		timeframe = &tf
 	}
 
 	body := datadogV1.ServiceLevelObjectiveRequest{
-		Name: argStr(args, "name"),
+		Name: r.Str("name"),
 		Type: *sloType,
 		Thresholds: []datadogV1.SLOThreshold{
 			{Target: target, Timeframe: *timeframe},
 		},
 	}
 
-	if v := argStr(args, "description"); v != "" {
+	if v := r.Str("description"); v != "" {
 		body.Description = *datadog.NewNullableString(&v)
 	}
-	if tags := argStrSlice(args, "tags"); len(tags) > 0 {
+	if tags := r.StrSlice("tags"); len(tags) > 0 {
 		body.Tags = tags
 	}
 
 	if *sloType == datadogV1.SLOTYPE_MONITOR {
-		if ids := argStr(args, "monitor_ids"); ids != "" {
+		if ids := r.Str("monitor_ids"); ids != "" {
 			var monitorIDs []int64
 			for _, s := range strings.Split(ids, ",") {
 				s = strings.TrimSpace(s)
@@ -265,8 +292,8 @@ func createSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult
 	}
 
 	if *sloType == datadogV1.SLOTYPE_METRIC {
-		num := argStr(args, "query_numerator")
-		den := argStr(args, "query_denominator")
+		num := r.Str("query_numerator")
+		den := r.Str("query_denominator")
 		if num != "" && den != "" {
 			body.Query = &datadogV1.ServiceLevelObjectiveQuery{
 				Numerator:   num,
@@ -283,8 +310,9 @@ func createSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult
 }
 
 func deleteSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewServiceLevelObjectivesApi(d.client)
-	resp, _, err := api.DeleteSLO(ctx, argStr(args, "id"), *datadogV1.NewDeleteSLOOptionalParameters())
+	resp, _, err := api.DeleteSLO(ctx, r.Str("id"), *datadogV1.NewDeleteSLOOptionalParameters())
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -294,9 +322,10 @@ func deleteSLO(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult
 // ── Downtimes ────────────────────────────────────────────────────────
 
 func listDowntimes(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewDowntimesApi(d.client)
 	opts := datadogV2.NewListDowntimesOptionalParameters()
-	if argBool(args, "current_only") {
+	if r.Bool("current_only") {
 		opts = opts.WithCurrentOnly(true)
 	}
 	resp, _, err := api.ListDowntimes(ctx, *opts)
@@ -307,8 +336,9 @@ func listDowntimes(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 }
 
 func getDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewDowntimesApi(d.client)
-	resp, _, err := api.GetDowntime(ctx, argStr(args, "id"), *datadogV2.NewGetDowntimeOptionalParameters())
+	resp, _, err := api.GetDowntime(ctx, r.Str("id"), *datadogV2.NewGetDowntimeOptionalParameters())
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -316,25 +346,35 @@ func getDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 }
 
 func createDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewDowntimesApi(d.client)
 
 	attrs := datadogV2.DowntimeCreateRequestAttributes{
-		Scope: argStr(args, "scope"),
+		Scope: r.Str("scope"),
 	}
 
-	if v := argStr(args, "message"); v != "" {
+	if v := r.Str("message"); v != "" {
 		attrs.Message = *datadog.NewNullableString(&v)
 	}
 
-	idType := argStr(args, "monitor_identifier_type")
+	idType := r.Str("monitor_identifier_type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	switch idType {
 	case "id":
-		monID := argInt64(args, "monitor_identifier_id")
+		monID, err := mcp.ArgInt64(args, "monitor_identifier_id")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
 		attrs.MonitorIdentifier = datadogV2.DowntimeMonitorIdentifierIdAsDowntimeMonitorIdentifier(
 			&datadogV2.DowntimeMonitorIdentifierId{MonitorId: monID},
 		)
 	case "tags":
-		tags := argStrSlice(args, "monitor_identifier_tags")
+		tags, err := mcp.ArgStrSlice(args, "monitor_identifier_tags")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
 		attrs.MonitorIdentifier = datadogV2.DowntimeMonitorIdentifierTagsAsDowntimeMonitorIdentifier(
 			&datadogV2.DowntimeMonitorIdentifierTags{MonitorTags: tags},
 		)
@@ -359,8 +399,9 @@ func createDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 }
 
 func cancelDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewDowntimesApi(d.client)
-	_, err := api.CancelDowntime(ctx, argStr(args, "id"))
+	_, err := api.CancelDowntime(ctx, r.Str("id"))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -370,12 +411,13 @@ func cancelDowntime(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 // ── Incidents ────────────────────────────────────────────────────────
 
 func listIncidents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewIncidentsApi(d.client)
 	opts := datadogV2.NewListIncidentsOptionalParameters()
-	if v := argInt64(args, "page_size"); v > 0 {
+	if v := r.Int64("page_size"); v > 0 {
 		opts = opts.WithPageSize(v)
 	}
-	if v := argInt64(args, "page_offset"); v > 0 {
+	if v := r.Int64("page_offset"); v > 0 {
 		opts = opts.WithPageOffset(v)
 	}
 	resp, _, err := api.ListIncidents(ctx, *opts)
@@ -386,8 +428,9 @@ func listIncidents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 }
 
 func getIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewIncidentsApi(d.client)
-	resp, _, err := api.GetIncident(ctx, argStr(args, "id"), *datadogV2.NewGetIncidentOptionalParameters())
+	resp, _, err := api.GetIncident(ctx, r.Str("id"), *datadogV2.NewGetIncidentOptionalParameters())
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -395,14 +438,15 @@ func getIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 }
 
 func createIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewIncidentsApi(d.client)
 
 	attrs := datadogV2.IncidentCreateAttributes{
-		Title:            argStr(args, "title"),
-		CustomerImpacted: argBool(args, "customer_impacted"),
+		Title:            r.Str("title"),
+		CustomerImpacted: r.Bool("customer_impacted"),
 	}
 
-	if sev := argStr(args, "severity"); sev != "" {
+	if sev := r.Str("severity"); sev != "" {
 		sevField := datadogV2.NewIncidentFieldAttributesSingleValue()
 		sevField.SetValue(sev)
 		sevField.SetType(datadogV2.INCIDENTFIELDATTRIBUTESSINGLEVALUETYPE_DROPDOWN)
@@ -426,25 +470,29 @@ func createIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 }
 
 func updateIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewIncidentsApi(d.client)
 
-	incidentID := argStr(args, "id")
+	incidentID := r.Str("id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	attrs := datadogV2.IncidentUpdateAttributes{}
-	if v := argStr(args, "title"); v != "" {
+	if v := r.Str("title"); v != "" {
 		attrs.Title = datadog.PtrString(v)
 	}
 	if _, ok := args["customer_impacted"]; ok {
-		attrs.CustomerImpacted = datadog.PtrBool(argBool(args, "customer_impacted"))
+		attrs.CustomerImpacted = datadog.PtrBool(r.Bool("customer_impacted"))
 	}
 
 	fields := map[string]datadogV2.IncidentFieldAttributes{}
-	if sev := argStr(args, "severity"); sev != "" {
+	if sev := r.Str("severity"); sev != "" {
 		sevField := datadogV2.NewIncidentFieldAttributesSingleValue()
 		sevField.SetValue(sev)
 		sevField.SetType(datadogV2.INCIDENTFIELDATTRIBUTESSINGLEVALUETYPE_DROPDOWN)
 		fields["severity"] = datadogV2.IncidentFieldAttributesSingleValueAsIncidentFieldAttributes(sevField)
 	}
-	if status := argStr(args, "status"); status != "" {
+	if status := r.Str("status"); status != "" {
 		statusField := datadogV2.NewIncidentFieldAttributesSingleValue()
 		statusField.SetValue(status)
 		statusField.SetType(datadogV2.INCIDENTFIELDATTRIBUTESSINGLEVALUETYPE_DROPDOWN)
@@ -472,12 +520,13 @@ func updateIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 // ── Synthetics ───────────────────────────────────────────────────────
 
 func listSyntheticsTests(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewSyntheticsApi(d.client)
 	opts := datadogV1.NewListTestsOptionalParameters()
-	if v := argInt64(args, "page_size"); v > 0 {
+	if v := r.Int64("page_size"); v > 0 {
 		opts = opts.WithPageSize(v)
 	}
-	if v := argInt64(args, "page_number"); v > 0 {
+	if v := r.Int64("page_number"); v > 0 {
 		opts = opts.WithPageNumber(v)
 	}
 	resp, _, err := api.ListTests(ctx, *opts)
@@ -488,8 +537,9 @@ func listSyntheticsTests(ctx context.Context, d *dd, args map[string]any) (*mcp.
 }
 
 func getSyntheticsAPITest(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewSyntheticsApi(d.client)
-	resp, _, err := api.GetAPITest(ctx, argStr(args, "id"))
+	resp, _, err := api.GetAPITest(ctx, r.Str("id"))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -497,8 +547,9 @@ func getSyntheticsAPITest(ctx context.Context, d *dd, args map[string]any) (*mcp
 }
 
 func getSyntheticsTestResult(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewSyntheticsApi(d.client)
-	resp, _, err := api.GetAPITestLatestResults(ctx, argStr(args, "id"), *datadogV1.NewGetAPITestLatestResultsOptionalParameters())
+	resp, _, err := api.GetAPITestLatestResults(ctx, r.Str("id"), *datadogV1.NewGetAPITestLatestResultsOptionalParameters())
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -506,8 +557,12 @@ func getSyntheticsTestResult(ctx context.Context, d *dd, args map[string]any) (*
 }
 
 func triggerSyntheticsTests(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewSyntheticsApi(d.client)
-	ids := argStrSlice(args, "public_ids")
+	ids := r.StrSlice("public_ids")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	var tests []datadogV1.SyntheticsTriggerTest
 	for _, id := range ids {
 		tests = append(tests, datadogV1.SyntheticsTriggerTest{PublicId: id})
@@ -522,21 +577,22 @@ func triggerSyntheticsTests(ctx context.Context, d *dd, args map[string]any) (*m
 // ── Notebooks ────────────────────────────────────────────────────────
 
 func listNotebooks(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewNotebooksApi(d.client)
 	opts := datadogV1.NewListNotebooksOptionalParameters()
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		opts = opts.WithQuery(v)
 	}
-	if v := argInt64(args, "count"); v > 0 {
+	if v := r.Int64("count"); v > 0 {
 		opts = opts.WithCount(v)
 	}
-	if v := argInt64(args, "start"); v > 0 {
+	if v := r.Int64("start"); v > 0 {
 		opts = opts.WithStart(v)
 	}
-	if v := argStr(args, "sort_field"); v != "" {
+	if v := r.Str("sort_field"); v != "" {
 		opts = opts.WithSortField(v)
 	}
-	if v := argStr(args, "sort_dir"); v != "" {
+	if v := r.Str("sort_dir"); v != "" {
 		opts = opts.WithSortDir(v)
 	}
 	resp, _, err := api.ListNotebooks(ctx, *opts)
@@ -547,8 +603,9 @@ func listNotebooks(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 }
 
 func getNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewNotebooksApi(d.client)
-	resp, _, err := api.GetNotebook(ctx, argInt64(args, "id"))
+	resp, _, err := api.GetNotebook(ctx, r.Int64("id"))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -556,10 +613,11 @@ func getNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 }
 
 func createNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewNotebooksApi(d.client)
 
 	var cells []datadogV1.NotebookCellCreateRequest
-	if cj := argStr(args, "cells_json"); cj != "" {
+	if cj := r.Str("cells_json"); cj != "" {
 		if err := json.Unmarshal([]byte(cj), &cells); err != nil {
 			return mcp.ErrResult(fmt.Errorf("invalid cells_json: %w", err))
 		}
@@ -573,7 +631,7 @@ func createNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 	body := datadogV1.NotebookCreateRequest{
 		Data: datadogV1.NotebookCreateData{
 			Attributes: datadogV1.NotebookCreateDataAttributes{
-				Name:  argStr(args, "name"),
+				Name:  r.Str("name"),
 				Cells: cells,
 				Time:  globalTime,
 			},
@@ -589,8 +647,9 @@ func createNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 }
 
 func deleteNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewNotebooksApi(d.client)
-	_, err := api.DeleteNotebook(ctx, argInt64(args, "id"))
+	_, err := api.DeleteNotebook(ctx, r.Int64("id"))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -600,18 +659,19 @@ func deleteNotebook(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 // ── Users ────────────────────────────────────────────────────────────
 
 func listUsers(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewUsersApi(d.client)
 	opts := datadogV2.NewListUsersOptionalParameters()
-	if v := argInt64(args, "page_size"); v > 0 {
+	if v := r.Int64("page_size"); v > 0 {
 		opts = opts.WithPageSize(v)
 	}
-	if v := argInt64(args, "page_number"); v > 0 {
+	if v := r.Int64("page_number"); v > 0 {
 		opts = opts.WithPageNumber(v)
 	}
-	if v := argStr(args, "sort"); v != "" {
+	if v := r.Str("sort"); v != "" {
 		opts = opts.WithSort(v)
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		opts = opts.WithFilter(v)
 	}
 	resp, _, err := api.ListUsers(ctx, *opts)
@@ -622,8 +682,9 @@ func listUsers(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult
 }
 
 func getUser(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewUsersApi(d.client)
-	resp, _, err := api.GetUser(ctx, argStr(args, "id"))
+	resp, _, err := api.GetUser(ctx, r.Str("id"))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -633,24 +694,25 @@ func getUser(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, 
 // ── Spans / APM ──────────────────────────────────────────────────────
 
 func searchSpans(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewSpansApi(d.client)
 	opts := datadogV2.NewListSpansGetOptionalParameters()
 
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		opts = opts.WithFilterQuery(v)
 	}
 
-	from := parseTime(argStr(args, "from"), -time.Hour)
-	to := parseTime(argStr(args, "to"), 0)
+	from := parseTime(r.Str("from"), -time.Hour)
+	to := parseTime(r.Str("to"), 0)
 	opts = opts.WithFilterFrom(from.Format(time.RFC3339))
 	opts = opts.WithFilterTo(to.Format(time.RFC3339))
 
-	if v := argInt(args, "limit"); v > 0 && v <= math.MaxInt32 {
+	if v := r.Int("limit"); v > 0 && v <= math.MaxInt32 {
 		opts = opts.WithPageLimit(int32(v))
 	}
 
 	sort := datadogV2.SPANSSORT_TIMESTAMP_DESCENDING
-	if argStr(args, "sort") == "timestamp" {
+	if r.Str("sort") == "timestamp" {
 		sort = datadogV2.SPANSSORT_TIMESTAMP_ASCENDING
 	}
 	opts = opts.WithSort(sort)
@@ -665,12 +727,13 @@ func searchSpans(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 // ── Software Catalog ─────────────────────────────────────────────────
 
 func listServices(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewSoftwareCatalogApi(d.client)
 	opts := datadogV2.NewListCatalogEntityOptionalParameters()
-	if v := argInt64(args, "page_size"); v > 0 {
+	if v := r.Int64("page_size"); v > 0 {
 		opts = opts.WithPageLimit(v)
 	}
-	if v := argInt64(args, "page_offset"); v > 0 {
+	if v := r.Int64("page_offset"); v > 0 {
 		opts = opts.WithPageOffset(v)
 	}
 	resp, _, err := api.ListCatalogEntity(ctx, *opts)
@@ -682,7 +745,7 @@ func listServices(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRes
 
 // ── IP Ranges ────────────────────────────────────────────────────────
 
-func getIPRanges(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+func getIPRanges(ctx context.Context, d *dd, _ map[string]any) (*mcp.ToolResult, error) {
 	api := datadogV1.NewIPRangesApi(d.client)
 	resp, _, err := api.GetIPRanges(ctx)
 	if err != nil {

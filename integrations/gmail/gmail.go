@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -188,7 +187,10 @@ type handlerFunc func(ctx context.Context, g *gmail, args map[string]any) (*mcp.
 // --- Argument helpers ---
 
 func parseJSON(args map[string]any, key string) (any, error) {
-	v := argStr(args, key)
+	v, err := mcp.ArgStr(args, key)
+	if err != nil {
+		return nil, err
+	}
 	if v == "" {
 		return nil, nil
 	}
@@ -197,49 +199,6 @@ func parseJSON(args map[string]any, key string) (any, error) {
 		return nil, fmt.Errorf("invalid JSON for %s: %w", key, err)
 	}
 	return out, nil
-}
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
-func argStrSlice(args map[string]any, key string) []string {
-	v := argStr(args, key)
-	if v == "" {
-		return nil
-	}
-	parts := strings.Split(v, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if s := strings.TrimSpace(p); s != "" {
-			out = append(out, s)
-		}
-	}
-	return out
 }
 
 func queryEncode(params map[string]string) string {
@@ -274,8 +233,8 @@ func queryEncodeMulti(params map[string]string, multi map[string][]string) strin
 }
 
 // user returns the userId from args, falling back to "me".
-func user(args map[string]any) string {
-	if v := argStr(args, "user_id"); v != "" {
+func user(r *mcp.Args) string {
+	if v := r.Str("user_id"); v != "" {
 		return v
 	}
 	return "me"

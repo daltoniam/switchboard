@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -203,49 +202,14 @@ func notionPageURL(id string) string {
 	return "https://www.notion.so/" + strings.ReplaceAll(id, "-", "")
 }
 
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
-func argMap(args map[string]any, key string) map[string]any {
-	v, _ := args[key].(map[string]any)
-	return v
-}
-
 // --- Write helpers ---
 
 // resolveParent extracts parent ID and table from a parent arg object.
 func resolveParent(parent map[string]any) (string, string) {
-	if pid := argStr(parent, "page_id"); pid != "" {
+	if pid, _ := mcp.ArgStr(parent, "page_id"); pid != "" {
 		return pid, "block"
 	}
-	if dbid := argStr(parent, "database_id"); dbid != "" {
+	if dbid, _ := mcp.ArgStr(parent, "database_id"); dbid != "" {
 		return dbid, "collection"
 	}
 	return "", ""
@@ -281,6 +245,9 @@ func buildChildBlockOps(n *notion, parentID string, child map[string]any, now in
 
 	if props, ok := child["properties"].(map[string]any); ok {
 		blockData["properties"] = props
+	}
+	if format, ok := child["format"].(map[string]any); ok {
+		blockData["format"] = format
 	}
 
 	return []op{

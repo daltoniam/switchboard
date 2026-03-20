@@ -202,22 +202,42 @@ func TestErrResult(t *testing.T) {
 // --- Argument helper tests ---
 
 func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
+	v, err := mcp.ArgStr(map[string]any{"k": "val"}, "k")
+	assert.NoError(t, err)
+	assert.Equal(t, "val", v)
+	v, err = mcp.ArgStr(map[string]any{}, "k")
+	assert.NoError(t, err)
+	assert.Empty(t, v)
 }
 
 func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
+	v, err := mcp.ArgInt(map[string]any{"n": float64(42)}, "n")
+	assert.NoError(t, err)
+	assert.Equal(t, 42, v)
+	v, err = mcp.ArgInt(map[string]any{"n": 42}, "n")
+	assert.NoError(t, err)
+	assert.Equal(t, 42, v)
+	v, err = mcp.ArgInt(map[string]any{"n": "42"}, "n")
+	assert.NoError(t, err)
+	assert.Equal(t, 42, v)
+	v, err = mcp.ArgInt(map[string]any{}, "n")
+	assert.NoError(t, err)
+	assert.Equal(t, 0, v)
 }
 
 func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
+	v, err := mcp.ArgBool(map[string]any{"b": true}, "b")
+	assert.NoError(t, err)
+	assert.True(t, v)
+	v, err = mcp.ArgBool(map[string]any{"b": false}, "b")
+	assert.NoError(t, err)
+	assert.False(t, v)
+	v, err = mcp.ArgBool(map[string]any{"b": "true"}, "b")
+	assert.NoError(t, err)
+	assert.True(t, v)
+	v, err = mcp.ArgBool(map[string]any{}, "b")
+	assert.NoError(t, err)
+	assert.False(t, v)
 }
 
 func TestQueryEncode(t *testing.T) {

@@ -635,14 +635,12 @@ func createHook(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	if contentType == "" {
 		contentType = "json"
 	}
-	active := true
-	if v, ok := args["active"]; ok {
-		if s, ok := v.(string); ok && s == "false" {
-			active = false
-		}
-		if b, ok := v.(bool); ok {
-			active = b
-		}
+	active, err := mcp.ArgBool(args, "active")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	if _, ok := args["active"]; !ok {
+		active = true
 	}
 	events, err := mcp.ArgStrSlice(args, "events")
 	if err != nil {
