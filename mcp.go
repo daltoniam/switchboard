@@ -71,16 +71,32 @@ type IntegrationConfig struct {
 // ToolAllowed reports whether toolName is permitted by the integration's tool glob
 // restrictions. An empty ToolGlobs slice means all tools are permitted.
 // Multiple globs are OR'd: the tool is allowed if any glob matches.
+// Invalid patterns are skipped (use ValidateToolGlobs to catch them at config time).
 func (ic *IntegrationConfig) ToolAllowed(toolName string) bool {
 	if len(ic.ToolGlobs) == 0 {
 		return true
 	}
 	for _, pattern := range ic.ToolGlobs {
-		if matched, _ := path.Match(pattern, toolName); matched {
+		matched, err := path.Match(pattern, toolName)
+		if err != nil {
+			continue
+		}
+		if matched {
 			return true
 		}
 	}
 	return false
+}
+
+// ValidateToolGlobs checks that all tool glob patterns are syntactically valid.
+// Returns an error naming the first invalid pattern.
+func ValidateToolGlobs(globs []string) error {
+	for _, pattern := range globs {
+		if _, err := path.Match(pattern, ""); err != nil {
+			return fmt.Errorf("invalid tool glob pattern %q: %w", pattern, err)
+		}
+	}
+	return nil
 }
 
 // Config is the top-level configuration containing all integrations.

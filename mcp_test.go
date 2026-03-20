@@ -301,6 +301,20 @@ func TestToolAllowed_PathMatchSemantics(t *testing.T) {
 	}
 }
 
+func TestValidateToolGlobs(t *testing.T) {
+	assert.NoError(t, ValidateToolGlobs(nil))
+	assert.NoError(t, ValidateToolGlobs([]string{}))
+	assert.NoError(t, ValidateToolGlobs([]string{"github_*", "datadog_get_?"}))
+	assert.Error(t, ValidateToolGlobs([]string{"github_[unclosed"}))
+	assert.Error(t, ValidateToolGlobs([]string{"valid_*", "[bad"}))
+}
+
+func TestToolAllowed_InvalidPatternSkipped(t *testing.T) {
+	ic := &IntegrationConfig{ToolGlobs: []string{"[bad", "github_*"}}
+	assert.True(t, ic.ToolAllowed("github_list_issues"))
+	assert.False(t, ic.ToolAllowed("datadog_search_logs"))
+}
+
 func TestIsRetryable_DistinguishesRetryableFromPermanentErrors(t *testing.T) {
 	tests := []struct {
 		name      string

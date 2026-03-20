@@ -78,9 +78,9 @@ var envMapping = map[string]map[string]string{
 	},
 	"overmind": {
 		"base_url":     "OVERMIND_URL",
-		"token":        "API_ACCESS_TOKEN",
-		"agent_run_id": "AGENT_RUN_ID",
-		"flow_run_id":  "FLOW_RUN_ID",
+		"token":        "OVERMIND_TOKEN",
+		"agent_run_id": "OVERMIND_AGENT_RUN_ID",
+		"flow_run_id":  "OVERMIND_FLOW_RUN_ID",
 	},
 }
 
@@ -313,6 +313,11 @@ func (m *manager) Get() *mcp.Config {
 }
 
 func (m *manager) Update(cfg *mcp.Config) error {
+	for name, ic := range cfg.Integrations {
+		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
+			return fmt.Errorf("integration %q: %w", name, err)
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cfg = cfg
@@ -327,6 +332,9 @@ func (m *manager) GetIntegration(name string) (*mcp.IntegrationConfig, bool) {
 }
 
 func (m *manager) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
+	if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
+		return fmt.Errorf("integration %q: %w", name, err)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cfg.Integrations[name] = ic

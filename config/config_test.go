@@ -466,9 +466,9 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "CONFLUENCE_API_TOKEN", m["confluence"]["api_token"])
 	assert.Equal(t, "CONFLUENCE_DOMAIN", m["confluence"]["domain"])
 	assert.Equal(t, "OVERMIND_URL", m["overmind"]["base_url"])
-	assert.Equal(t, "API_ACCESS_TOKEN", m["overmind"]["token"])
-	assert.Equal(t, "AGENT_RUN_ID", m["overmind"]["agent_run_id"])
-	assert.Equal(t, "FLOW_RUN_ID", m["overmind"]["flow_run_id"])
+	assert.Equal(t, "OVERMIND_TOKEN", m["overmind"]["token"])
+	assert.Equal(t, "OVERMIND_AGENT_RUN_ID", m["overmind"]["agent_run_id"])
+	assert.Equal(t, "OVERMIND_FLOW_RUN_ID", m["overmind"]["flow_run_id"])
 }
 
 func TestToolGlobs_PersistThroughSaveLoad(t *testing.T) {
@@ -523,4 +523,40 @@ func TestToolGlobs_OmittedFromJSONWhenEmpty(t *testing.T) {
 	data, err = json.Marshal(icWithGlobs)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "tool_globs")
+}
+
+func TestSetIntegration_RejectsInvalidGlob(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	err := m.SetIntegration("github", &mcp.IntegrationConfig{
+		Enabled:   true,
+		ToolGlobs: []string{"github_[unclosed"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid tool glob pattern")
+}
+
+func TestSetIntegration_AcceptsValidGlobs(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	err := m.SetIntegration("github", &mcp.IntegrationConfig{
+		Enabled:   true,
+		ToolGlobs: []string{"github_*", "github_get_?"},
+	})
+	require.NoError(t, err)
+}
+
+func TestUpdate_RejectsInvalidGlob(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	err := m.Update(&mcp.Config{
+		Integrations: map[string]*mcp.IntegrationConfig{
+			"github": {Enabled: true, ToolGlobs: []string{"[bad"}},
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid tool glob pattern")
 }
