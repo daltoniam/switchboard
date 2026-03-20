@@ -56,10 +56,7 @@ func completeFlow(ctx context.Context, o *overmind, args map[string]any) (*mcp.T
 		status = "success"
 	}
 	if status != "success" && status != "failure" {
-		return &mcp.ToolResult{
-			Data:    fmt.Sprintf("status must be 'success' or 'failure', got %q", status),
-			IsError: true,
-		}, nil
+		return mcp.ErrResult(fmt.Errorf("status must be 'success' or 'failure', got %q", status))
 	}
 
 	body := map[string]any{

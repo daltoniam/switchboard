@@ -100,6 +100,28 @@ func TestLoad_InvalidJSON(t *testing.T) {
 	assert.Contains(t, err.Error(), "parse config")
 }
 
+func TestLoad_RejectsInvalidToolGlobs(t *testing.T) {
+	m, path := newTestManager(t)
+
+	cfg := &mcp.Config{
+		Integrations: map[string]*mcp.IntegrationConfig{
+			"github": {
+				Enabled:   true,
+				ToolGlobs: []string{"[unclosed"},
+			},
+		},
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
+	require.NoError(t, os.WriteFile(path, data, 0600))
+
+	err = m.Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid tool glob pattern")
+	assert.Contains(t, err.Error(), "github")
+}
+
 func TestSave(t *testing.T) {
 	m, path := newTestManager(t)
 	m.cfg = defaultConfig()

@@ -236,6 +236,11 @@ func (m *manager) Load() error {
 		return fmt.Errorf("parse config: %w", err)
 	}
 	m.cfg = mergeWithDefaults(&cfg)
+	for name, ic := range m.cfg.Integrations {
+		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
+			return fmt.Errorf("config: integration %q: %w", name, err)
+		}
+	}
 	m.applyEnvOverrides()
 	return nil
 }
