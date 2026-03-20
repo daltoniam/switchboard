@@ -1,0 +1,10 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  entrypoint = "./tmp/main"
+  cmd = "templ generate && go build -o ./tmp/main ./cmd/server"
+  include_ext = ["go", "templ"]
+  exclude_dir = ["tmp", "dist", "node_modules", ".git"]
+  exclude_regex = ["_test\\.go$", "_templ\\.go$"]
+  delay = 1000
