@@ -4,6 +4,14 @@ import mcp "github.com/daltoniam/switchboard"
 
 var tools = []mcp.ToolDefinition{
 	{
+		Name: "overmind_list_available_agents",
+		Description: `List all agents available to launch in the current flow. Returns each agent's ID, name, and description.
+
+Call this first to discover which agents you can dispatch with overmind_launch_agent. The returned agent IDs are the values you pass as agent_id to overmind_launch_agent.`,
+		Parameters: map[string]string{},
+		Required:   []string{},
+	},
+	{
 		Name: "overmind_launch_agent",
 		Description: `Launch a child agent within the current flow. Returns the new AgentRun ID which can be polled for status and results.
 
