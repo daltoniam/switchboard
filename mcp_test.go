@@ -272,7 +272,7 @@ func TestToolAllowed(t *testing.T) {
 	}
 }
 
-func TestMatchGlob(t *testing.T) {
+func TestToolAllowed_PathMatchSemantics(t *testing.T) {
 	tests := []struct {
 		pattern string
 		name    string
@@ -295,9 +295,8 @@ func TestMatchGlob(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.pattern+"/"+tt.name, func(t *testing.T) {
-			got, err := matchGlob(tt.pattern, tt.name)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
+			ic := &IntegrationConfig{ToolGlobs: []string{tt.pattern}}
+			assert.Equal(t, tt.want, ic.ToolAllowed(tt.name))
 		})
 	}
 }

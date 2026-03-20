@@ -124,10 +124,10 @@ func TestTools(t *testing.T) {
 		names[i] = tool.Name
 	}
 	assert.ElementsMatch(t, []string{
-		"flow_launch_agent",
-		"flow_get_agent_status",
-		"flow_get_agent_result",
-		"flow_complete",
+		"overmind_launch_agent",
+		"overmind_get_agent_status",
+		"overmind_get_agent_result",
+		"overmind_complete_flow",
 	}, names)
 }
 
@@ -175,7 +175,7 @@ func TestLaunchAgent(t *testing.T) {
 		fmt.Fprintf(w, `{"agent_run_id":"ar_child_789","status":"pending"}`)
 	})
 
-	result, err := o.Execute(context.Background(), "flow_launch_agent", map[string]any{
+	result, err := o.Execute(context.Background(), "overmind_launch_agent", map[string]any{
 		"agent_id": "agent_writer",
 		"prompt":   "Write the report",
 		"context":  "Q4 results",
@@ -201,7 +201,7 @@ func TestLaunchAgent_NoContext(t *testing.T) {
 		fmt.Fprintf(w, `{"agent_run_id":"ar_child"}`)
 	})
 
-	result, err := o.Execute(context.Background(), "flow_launch_agent", map[string]any{
+	result, err := o.Execute(context.Background(), "overmind_launch_agent", map[string]any{
 		"agent_id": "agent_writer",
 		"prompt":   "Do the thing",
 	})
@@ -219,7 +219,7 @@ func TestGetAgentStatus(t *testing.T) {
 		fmt.Fprintf(w, `{"agent_run_id":"ar_child","status":"running"}`)
 	})
 
-	result, err := o.Execute(context.Background(), "flow_get_agent_status", map[string]any{
+	result, err := o.Execute(context.Background(), "overmind_get_agent_status", map[string]any{
 		"agent_run_id": "ar_child",
 	})
 	require.NoError(t, err)
@@ -237,7 +237,7 @@ func TestGetAgentResult(t *testing.T) {
 		fmt.Fprintf(w, `{"agent_run_id":"ar_child","result":"The report is ready."}`)
 	})
 
-	result, err := o.Execute(context.Background(), "flow_get_agent_result", map[string]any{
+	result, err := o.Execute(context.Background(), "overmind_get_agent_result", map[string]any{
 		"agent_run_id": "ar_child",
 	})
 	require.NoError(t, err)
@@ -257,7 +257,7 @@ func TestCompleteFlow(t *testing.T) {
 		fmt.Fprintf(w, `{"status":"completed"}`)
 	})
 
-	result, err := o.Execute(context.Background(), "flow_complete", map[string]any{
+	result, err := o.Execute(context.Background(), "overmind_complete_flow", map[string]any{
 		"summary": "All agents completed successfully",
 		"status":  "success",
 	})
@@ -280,12 +280,48 @@ func TestCompleteFlow_DefaultStatus(t *testing.T) {
 		fmt.Fprintf(w, `{"status":"completed"}`)
 	})
 
-	result, err := o.Execute(context.Background(), "flow_complete", map[string]any{
+	result, err := o.Execute(context.Background(), "overmind_complete_flow", map[string]any{
 		"summary": "Done",
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, "success", gotBody["status"])
+}
+
+func TestCompleteFlow_InvalidStatus(t *testing.T) {
+	o := New().(*overmind)
+	_ = o.Configure(context.Background(), mcp.Credentials{
+		"base_url":     "http://overmind:80",
+		"token":        "tok_123",
+		"agent_run_id": "ar_abc",
+		"flow_run_id":  "fr_xyz",
+	})
+
+	result, err := o.Execute(context.Background(), "overmind_complete_flow", map[string]any{
+		"summary": "Done",
+		"status":  "done",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "must be 'success' or 'failure'")
+}
+
+func TestCompleteFlow_FailureStatus(t *testing.T) {
+	var gotBody map[string]any
+
+	o, _ := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(200)
+		fmt.Fprintf(w, `{"status":"completed"}`)
+	})
+
+	result, err := o.Execute(context.Background(), "overmind_complete_flow", map[string]any{
+		"summary": "Agent crashed",
+		"status":  "failure",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Equal(t, "failure", gotBody["status"])
 }
 
 func TestHTTPErrors(t *testing.T) {
@@ -308,7 +344,7 @@ func TestHTTPErrors(t *testing.T) {
 				fmt.Fprintf(w, `{"error":"test error"}`)
 			})
 
-			result, err := o.Execute(context.Background(), "flow_get_agent_status", map[string]any{
+			result, err := o.Execute(context.Background(), "overmind_get_agent_status", map[string]any{
 				"agent_run_id": "ar_test",
 			})
 
@@ -322,6 +358,23 @@ func TestHTTPErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPathEscape(t *testing.T) {
+	var gotURI string
+
+	o, _ := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotURI = r.RequestURI
+		w.WriteHeader(200)
+		fmt.Fprintf(w, `{"status":"ok"}`)
+	})
+
+	result, err := o.Execute(context.Background(), "overmind_get_agent_status", map[string]any{
+		"agent_run_id": "ar/../secret",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, gotURI, "ar%2F..%2Fsecret")
 }
 
 func TestHealthy(t *testing.T) {

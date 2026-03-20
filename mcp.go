@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"strconv"
 	"time"
 )
@@ -75,42 +76,11 @@ func (ic *IntegrationConfig) ToolAllowed(toolName string) bool {
 		return true
 	}
 	for _, pattern := range ic.ToolGlobs {
-		if matched, _ := matchGlob(pattern, toolName); matched {
+		if matched, _ := path.Match(pattern, toolName); matched {
 			return true
 		}
 	}
 	return false
-}
-
-// matchGlob matches a tool name against a glob pattern.
-// '*' matches any sequence of characters (including empty).
-func matchGlob(pattern, name string) (bool, error) {
-	px, nx := 0, 0
-	starPx, starNx := -1, -1
-	for nx < len(name) {
-		if px < len(pattern) && pattern[px] == '*' {
-			starPx = px
-			starNx = nx
-			px++
-			continue
-		}
-		if px < len(pattern) && (pattern[px] == '?' || pattern[px] == name[nx]) {
-			px++
-			nx++
-			continue
-		}
-		if starPx >= 0 {
-			px = starPx + 1
-			starNx++
-			nx = starNx
-			continue
-		}
-		return false, nil
-	}
-	for px < len(pattern) && pattern[px] == '*' {
-		px++
-	}
-	return px == len(pattern), nil
 }
 
 // Config is the top-level configuration containing all integrations.

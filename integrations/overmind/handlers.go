@@ -3,6 +3,7 @@ package overmind
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -21,7 +22,7 @@ func launchAgent(ctx context.Context, o *overmind, args map[string]any) (*mcp.To
 		body["context"] = agentContext
 	}
 
-	data, err := o.post(ctx, fmt.Sprintf("/api/flow_runs/%s/launch_agent", o.flowRunID), body)
+	data, err := o.post(ctx, fmt.Sprintf("/api/flow_runs/%s/launch_agent", url.PathEscape(o.flowRunID)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -31,7 +32,7 @@ func launchAgent(ctx context.Context, o *overmind, args map[string]any) (*mcp.To
 func getAgentStatus(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
 	agentRunID := argStr(args, "agent_run_id")
 
-	data, err := o.get(ctx, "/api/agent_runs/%s/status", agentRunID)
+	data, err := o.get(ctx, "/api/agent_runs/%s/status", url.PathEscape(agentRunID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -41,7 +42,7 @@ func getAgentStatus(ctx context.Context, o *overmind, args map[string]any) (*mcp
 func getAgentResult(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
 	agentRunID := argStr(args, "agent_run_id")
 
-	data, err := o.get(ctx, "/api/agent_runs/%s/result", agentRunID)
+	data, err := o.get(ctx, "/api/agent_runs/%s/result", url.PathEscape(agentRunID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -54,6 +55,12 @@ func completeFlow(ctx context.Context, o *overmind, args map[string]any) (*mcp.T
 	if status == "" {
 		status = "success"
 	}
+	if status != "success" && status != "failure" {
+		return &mcp.ToolResult{
+			Data:    fmt.Sprintf("status must be 'success' or 'failure', got %q", status),
+			IsError: true,
+		}, nil
+	}
 
 	body := map[string]any{
 		"summary":      summary,
@@ -61,7 +68,7 @@ func completeFlow(ctx context.Context, o *overmind, args map[string]any) (*mcp.T
 		"agent_run_id": o.agentRunID,
 	}
 
-	data, err := o.post(ctx, fmt.Sprintf("/api/flow_runs/%s/complete", o.flowRunID), body)
+	data, err := o.post(ctx, fmt.Sprintf("/api/flow_runs/%s/complete", url.PathEscape(o.flowRunID)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
