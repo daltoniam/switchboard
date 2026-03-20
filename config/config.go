@@ -76,6 +76,12 @@ var envMapping = map[string]map[string]string{
 		"access_token": "RWX_ACCESS_TOKEN",
 		"cli_path":     "RWX_CLI_PATH",
 	},
+	"overmind": {
+		"base_url":     "OVERMIND_URL",
+		"token":        "API_ACCESS_TOKEN",
+		"agent_run_id": "AGENT_RUN_ID",
+		"flow_run_id":  "FLOW_RUN_ID",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -200,6 +206,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"cookies": "", "domain": ""},
 			},
+			"overmind": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": "", "agent_run_id": "", "flow_run_id": ""},
+			},
 		},
 	}
 }
@@ -242,6 +252,7 @@ func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 			continue
 		}
 		defIC.Enabled = fileIC.Enabled
+		defIC.ToolGlobs = fileIC.ToolGlobs
 		for k, v := range fileIC.Credentials {
 			defIC.Credentials[k] = v
 		}

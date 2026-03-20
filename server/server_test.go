@@ -2241,3 +2241,178 @@ func TestSearch_SharedParametersDoNotMutateOriginalTools(t *testing.T) {
 		"repo":  "Repository name",
 	}, shared, "second search should produce the same shared_parameters")
 }
+
+// --- ABAC tool glob filtering tests ---
+
+func setupTestServerWithGlobs(integrations map[string]*mockIntegration, globs map[string][]string) *Server {
+	reg := newMockRegistry()
+	cfgIntegrations := make(map[string]*mcp.IntegrationConfig)
+
+	for name, i := range integrations {
+		reg.Register(i)
+		cfgIntegrations[name] = &mcp.IntegrationConfig{
+			Enabled:     true,
+			Credentials: mcp.Credentials{"token": "test"},
+			ToolGlobs:   globs[name],
+		}
+	}
+
+	services := &mcp.Services{
+		Config:   newMockConfigService(cfgIntegrations),
+		Registry: reg,
+	}
+	return New(services)
+}
+
+func TestABAC_SearchFiltersToolsByGlob(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues"},
+			{Name: "github_get_issue", Description: "Get an issue"},
+			{Name: "github_list_pulls", Description: "List pulls"},
+			{Name: "github_get_pull", Description: "Get a pull"},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		globs     []string
+		wantTools []string
+	}{
+		{
+			name:      "empty globs allows all tools",
+			globs:     nil,
+			wantTools: []string{"github_get_issue", "github_get_pull", "github_list_issues", "github_list_pulls"},
+		},
+		{
+			name:      "glob restricts to matching tools",
+			globs:     []string{"github_get_*"},
+			wantTools: []string{"github_get_issue", "github_get_pull"},
+		},
+		{
+			name:      "multiple globs ORd",
+			globs:     []string{"github_list_issues", "github_get_pull"},
+			wantTools: []string{"github_get_pull", "github_list_issues"},
+		},
+		{
+			name:      "no matching globs hides all tools",
+			globs:     []string{"datadog_*"},
+			wantTools: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := setupTestServerWithGlobs(
+				map[string]*mockIntegration{"github": mi},
+				map[string][]string{"github": tt.globs},
+			)
+
+			result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+			require.NoError(t, err)
+
+			resp := parseSearchResponse(t, result)
+			names := searchToolNames(t, resp)
+			if tt.wantTools == nil {
+				assert.Empty(t, names)
+			} else {
+				assert.Equal(t, tt.wantTools, names)
+			}
+		})
+	}
+}
+
+func TestABAC_ExecuteRejectsBlockedTool(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues"},
+			{Name: "github_delete_repo", Description: "Delete a repository"},
+		},
+		execFn: func(_ context.Context, toolName string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `{"ok":true}`}, nil
+		},
+	}
+
+	s := setupTestServerWithGlobs(
+		map[string]*mockIntegration{"github": mi},
+		map[string][]string{"github": {"github_list_*"}},
+	)
+
+	t.Run("allowed tool executes", func(t *testing.T) {
+		_, result, err := s.executeTool(context.Background(), "github_list_issues", map[string]any{})
+		require.NoError(t, err)
+		assert.False(t, result.IsError)
+	})
+
+	t.Run("blocked tool returns not found", func(t *testing.T) {
+		_, result, err := s.executeTool(context.Background(), "github_delete_repo", map[string]any{})
+		require.NoError(t, err)
+		assert.True(t, result.IsError)
+		assert.Contains(t, result.Data, "not found")
+	})
+}
+
+func TestABAC_ScriptCannotCallBlockedTool(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues"},
+			{Name: "github_delete_repo", Description: "Delete a repository"},
+		},
+		execFn: func(_ context.Context, toolName string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `{"ok":true}`}, nil
+		},
+	}
+
+	s := setupTestServerWithGlobs(
+		map[string]*mockIntegration{"github": mi},
+		map[string][]string{"github": {"github_list_*"}},
+	)
+
+	result, err := s.scriptEngine.Run(context.Background(), `api.call("github_delete_repo", {});`)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not found")
+}
+
+func TestABAC_MultiIntegrationGlobIsolation(t *testing.T) {
+	gh := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues"},
+			{Name: "github_get_pull", Description: "Get a pull"},
+		},
+	}
+	dd := &mockIntegration{
+		name:    "datadog",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "datadog_search_logs", Description: "Search logs"},
+			{Name: "datadog_get_metric", Description: "Get metric"},
+		},
+	}
+
+	s := setupTestServerWithGlobs(
+		map[string]*mockIntegration{"github": gh, "datadog": dd},
+		map[string][]string{
+			"github":  {"github_list_*"},
+			"datadog": nil,
+		},
+	)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+	require.NoError(t, err)
+
+	resp := parseSearchResponse(t, result)
+	names := searchToolNames(t, resp)
+	assert.Contains(t, names, "github_list_issues")
+	assert.NotContains(t, names, "github_get_pull")
+	assert.Contains(t, names, "datadog_search_logs")
+	assert.Contains(t, names, "datadog_get_metric")
+}

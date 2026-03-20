@@ -28,6 +28,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
+	"github.com/daltoniam/switchboard/integrations/overmind"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
@@ -209,6 +210,7 @@ func runServer(stdioMode bool, port int) {
 		notionInt.New(),
 		gcpInt.New(),
 		suno.New(),
+		overmind.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)

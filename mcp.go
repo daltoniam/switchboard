@@ -64,6 +64,53 @@ type Credentials map[string]string
 type IntegrationConfig struct {
 	Enabled     bool        `json:"enabled"`
 	Credentials Credentials `json:"credentials"`
+	ToolGlobs   []string    `json:"tool_globs,omitempty"`
+}
+
+// ToolAllowed reports whether toolName is permitted by the integration's tool glob
+// restrictions. An empty ToolGlobs slice means all tools are permitted.
+// Multiple globs are OR'd: the tool is allowed if any glob matches.
+func (ic *IntegrationConfig) ToolAllowed(toolName string) bool {
+	if len(ic.ToolGlobs) == 0 {
+		return true
+	}
+	for _, pattern := range ic.ToolGlobs {
+		if matched, _ := matchGlob(pattern, toolName); matched {
+			return true
+		}
+	}
+	return false
+}
+
+// matchGlob matches a tool name against a glob pattern.
+// '*' matches any sequence of characters (including empty).
+func matchGlob(pattern, name string) (bool, error) {
+	px, nx := 0, 0
+	starPx, starNx := -1, -1
+	for nx < len(name) {
+		if px < len(pattern) && pattern[px] == '*' {
+			starPx = px
+			starNx = nx
+			px++
+			continue
+		}
+		if px < len(pattern) && (pattern[px] == '?' || pattern[px] == name[nx]) {
+			px++
+			nx++
+			continue
+		}
+		if starPx >= 0 {
+			px = starPx + 1
+			starNx++
+			nx = starNx
+			continue
+		}
+		return false, nil
+	}
+	for px < len(pattern) && pattern[px] == '*' {
+		px++
+	}
+	return px == len(pattern), nil
 }
 
 // Config is the top-level configuration containing all integrations.
