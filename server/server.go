@@ -87,6 +87,9 @@ Search returns exact names, parameters, and descriptions.
 You can filter by integration name, tool name, or keyword. Returns tool definitions
 with their parameters and descriptions. Results are paginated (default limit: 20).
 
+Search uses AND matching — all query words must appear in the tool name or description.
+Use fewer, specific words: {"query": "slack send"} not {"query": "slack send message channel"}.
+
 Examples:
 - Filter by integration: {"integration": "github"}
 - Search by action: {"query": "list issues"}

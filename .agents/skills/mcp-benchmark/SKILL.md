@@ -209,16 +209,6 @@ Calculate metrics from all phases:
 
 - **Writing during benchmarks**: NEVER send messages, create issues, or mutate
   state. All scripts must be read-only.
-- **Guessing org/repo/channel names**: NEVER pass a name to a tool that requires
-  an org, team, channel, or project unless you discovered it from a prior list call.
-  `github_list_user_repos` is safe (uses authenticated user); `github_list_org_repos`
-  requires a known org — discover via `github_list_user_orgs` first.
-- **Using `api.call` for optional steps**: Use `api.tryCall` for cross-integration
-  calls where partial results are acceptable.
-- **Not checking for `{}`**: An empty object response looks like success but means
-  compaction stripped everything. Always check response shape.
-- **AND-matching gotcha**: Search requires ALL words to match. Use fewer, more
-  specific words. `"slack send"` is better than `"slack send message channel"`.
 - **Ignoring parameter defaults**: If a tool ignores your `per_page`/`limit`,
   that's a bug worth flagging.
 - **Skipping discovery**: Don't assume which integrations are enabled. Run Phase 1
