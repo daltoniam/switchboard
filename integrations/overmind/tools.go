@@ -5,9 +5,9 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	{
 		Name: "overmind_launch_agent",
-		Description: `Launch a child agent within the current flow. The agent must be in the flow's available_agent_ids list. Returns the new AgentRun ID which can be polled for status and results.
+		Description: `Launch a child agent within the current flow. Returns the new AgentRun ID which can be polled for status and results.
 
-Use this to delegate subtasks to specialized agents. The child agent runs in its own Pod with its own MCP integrations.`,
+The agent_id is provided in your initial prompt or flow context. Use this to delegate subtasks to specialized agents. The child agent runs in its own Pod with its own MCP integrations.`,
 		Parameters: map[string]string{
 			"agent_id": "The ID of the agent to launch (must be in the flow's available_agent_ids)",
 			"prompt":   "The task prompt to give the child agent",
@@ -37,7 +37,7 @@ Use overmind_get_agent_status first to verify the agent has completed before cal
 	},
 	{
 		Name: "overmind_complete_flow",
-		Description: `Signal that the current flow is complete. This marks the flow as finished and triggers cleanup of all running agent Pods.
+		Description: `Signal that the current flow is complete. This marks the flow as finished and triggers cleanup of all running agent Pods. The calling agent's identity is injected automatically.
 
 Call this when all work is done and results have been collected. After calling this, no further agent launches or tool calls should be made.`,
 		Parameters: map[string]string{

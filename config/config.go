@@ -236,7 +236,8 @@ func (m *manager) Load() error {
 		return fmt.Errorf("parse config: %w", err)
 	}
 	m.cfg = mergeWithDefaults(&cfg)
-	for name, ic := range m.cfg.Integrations {
+	// Validate user-supplied globs from the config file (defaults have no globs).
+	for name, ic := range cfg.Integrations {
 		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
 			return fmt.Errorf("config: integration %q: %w", name, err)
 		}
