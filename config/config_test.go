@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 28)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "homeassistant", "notion", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "readarr", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake"} {
+	assert.Len(t, m.cfg.Integrations, 29)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "homeassistant", "notion", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "readarr", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "x"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 28)
+	assert.Len(t, cfg.Integrations, 29)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 28)
+	assert.Len(t, cfg.Integrations, 29)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 28)
+	assert.Len(t, cfg.Integrations, 29)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -486,13 +486,14 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "RWX_ACCESS_TOKEN", m["rwx"]["access_token"])
 	assert.Equal(t, "RWX_ORG", m["rwx"]["org"])
 	assert.Equal(t, "RWX_CLI_PATH", m["rwx"]["cli_path"])
-	assert.Len(t, m, 19)
 	assert.Equal(t, "JIRA_EMAIL", m["jira"]["email"])
 	assert.Equal(t, "JIRA_API_TOKEN", m["jira"]["api_token"])
 	assert.Equal(t, "JIRA_DOMAIN", m["jira"]["domain"])
 	assert.Equal(t, "CONFLUENCE_EMAIL", m["confluence"]["email"])
 	assert.Equal(t, "CONFLUENCE_API_TOKEN", m["confluence"]["api_token"])
 	assert.Equal(t, "CONFLUENCE_DOMAIN", m["confluence"]["domain"])
+	assert.Equal(t, "X_BEARER_TOKEN", m["x"]["bearer_token"])
+	assert.Len(t, m, 20)
 }
 
 func TestToolGlobs_PersistThroughSaveLoad(t *testing.T) {
