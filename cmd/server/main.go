@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/browser"
+	"github.com/daltoniam/switchboard/cmd/server/portutil"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
 	gcpInt "github.com/daltoniam/switchboard/gcp"
@@ -49,17 +49,25 @@ var (
 	date    = "unknown"
 )
 
-// defaultPort returns the default port, checking SWITCHBOARD_PORT env var first.
-func defaultPort() int {
-	if envPort := os.Getenv("SWITCHBOARD_PORT"); envPort != "" {
-		p, err := strconv.Atoi(envPort)
-		if err != nil || p <= 0 || p >= 65536 {
-			log.Printf("WARN: invalid SWITCHBOARD_PORT=%q, using default 3847", envPort)
-			return 3847
+// resolvePort returns the effective port after flag parsing. If --port was
+// not explicitly provided, the SWITCHBOARD_PORT env var is consulted. Any
+// validation warning is only logged when the env-derived value is actually
+// used (i.e. the flag was not set).
+func resolvePort(flagPort *int) int {
+	explicit := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "port" {
+			explicit = true
 		}
-		return p
+	})
+	if explicit {
+		return *flagPort
 	}
-	return 3847
+	p, warn := portutil.FromEnv()
+	if warn != "" {
+		log.Printf("WARN: %s", warn)
+	}
+	return p
 }
 
 func main() {
@@ -69,21 +77,23 @@ func main() {
 	}
 
 	stdioMode := flag.Bool("stdio", false, "Run MCP server over stdio transport (default is HTTP)")
-	port := flag.Int("port", defaultPort(), "Port for the HTTP server (env: SWITCHBOARD_PORT)")
+	flagPort := flag.Int("port", portutil.DefaultPort, "Port for the HTTP server (env: SWITCHBOARD_PORT)")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+
+	port := resolvePort(flagPort)
 
 	if *showVersion {
 		fmt.Printf("switchboard %s (commit: %s, built: %s)\n", version, commit, date)
 		os.Exit(0)
 	}
 
-	runServer(*stdioMode, *port)
+	runServer(*stdioMode, port)
 }
 
 func handleDaemon(args []string) {
 	fs := flag.NewFlagSet("daemon", flag.ExitOnError)
-	port := fs.Int("port", defaultPort(), "Port for the HTTP server (env: SWITCHBOARD_PORT)")
+	flagPort := fs.Int("port", portutil.DefaultPort, "Port for the HTTP server (env: SWITCHBOARD_PORT)")
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, `Usage: switchboard daemon <command> [options]
 
@@ -106,6 +116,22 @@ Options:
 	}
 
 	_ = fs.Parse(args)
+
+	explicit := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "port" {
+			explicit = true
+		}
+	})
+	port := *flagPort
+	if !explicit {
+		p, warn := portutil.FromEnv()
+		if warn != "" {
+			log.Printf("WARN: %s", warn)
+		}
+		port = p
+	}
+
 	remaining := fs.Args()
 
 	if len(remaining) == 0 {
@@ -117,7 +143,7 @@ Options:
 
 	switch cmd {
 	case "install":
-		if err := daemon.Install(*port); err != nil {
+		if err := daemon.Install(port); err != nil {
 			log.Fatalf("Install failed: %v", err)
 		}
 		fmt.Println("Service installed. Run 'switchboard daemon start' to start.")
@@ -126,18 +152,18 @@ Options:
 			log.Fatalf("Uninstall failed: %v", err)
 		}
 	case "start":
-		status, _ := daemon.GetStatus(*port)
+		status, _ := daemon.GetStatus(port)
 		if status != nil && status.Running {
 			fmt.Printf("Switchboard is already running (PID %d)\n", status.PID)
 			os.Exit(0)
 		}
-		if err := daemon.Start(*port); err != nil {
+		if err := daemon.Start(port); err != nil {
 			log.Fatalf("Start failed: %v", err)
 		}
 		time.Sleep(time.Second)
-		status, _ = daemon.GetStatus(*port)
+		status, _ = daemon.GetStatus(port)
 		if status != nil && status.Running {
-			fmt.Printf("Switchboard started (PID %d) on port %d\n", status.PID, *port)
+			fmt.Printf("Switchboard started (PID %d) on port %d\n", status.PID, port)
 			if status.Healthy {
 				fmt.Println("Health check: OK")
 			}
@@ -151,7 +177,7 @@ Options:
 		}
 		fmt.Println("Switchboard stopped")
 	case "status":
-		status, err := daemon.GetStatus(*port)
+		status, err := daemon.GetStatus(port)
 		if err != nil {
 			log.Fatalf("Status check failed: %v", err)
 		}
@@ -164,9 +190,9 @@ Options:
 		}
 		fmt.Printf("Switchboard is running (PID %d)\n", status.PID)
 		if status.Healthy {
-			fmt.Printf("Health: OK (port %d)\n", *port)
+			fmt.Printf("Health: OK (port %d)\n", port)
 		} else {
-			fmt.Printf("Health: NOT OK (port %d)\n", *port)
+			fmt.Printf("Health: NOT OK (port %d)\n", port)
 		}
 		if daemon.IsServiceInstalled() {
 			fmt.Println("Service: installed")
