@@ -36,6 +36,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/integrations/suno"
+	"github.com/daltoniam/switchboard/integrations/twitter"
 	"github.com/daltoniam/switchboard/integrations/ynab"
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
@@ -211,6 +212,7 @@ func runServer(stdioMode bool, port int) {
 		gcpInt.New(),
 		suno.New(),
 		overmind.New(),
+		twitter.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
