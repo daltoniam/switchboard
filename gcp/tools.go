@@ -65,7 +65,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Compute Engine ───────────────────────────────────────────────
 	{
-		Name: "gcp_compute_list_instances", Description: "List Compute Engine instances in a zone (default limit 500)",
+		Name: "gcp_compute_list_instances", Description: "List Compute Engine VM instances (virtual machines) in a zone. View production server infrastructure. Default limit 500.",
 		Parameters: map[string]string{"zone": "Zone name (e.g. us-central1-a)", "filter": "Filter expression", "max_results": "Page size for API requests", "limit": "Maximum total results to return (default 500)"},
 		Required:   []string{"zone"},
 	},
@@ -110,7 +110,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Cloud Functions ──────────────────────────────────────────────
 	{
-		Name: "gcp_functions_list", Description: "List Cloud Functions in a location",
+		Name: "gcp_functions_list", Description: "List Cloud Functions (serverless) in a location. View deployed functions and their configurations.",
 		Parameters: map[string]string{"location": "Location (e.g. us-central1, or - for all locations)"},
 	},
 	{
@@ -126,7 +126,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── IAM ──────────────────────────────────────────────────────────
 	{
-		Name: "gcp_iam_list_service_accounts", Description: "List service accounts in the project",
+		Name: "gcp_iam_list_service_accounts", Description: "List service accounts (automation identities) in the project. Review access credentials and security configuration.",
 		Parameters: map[string]string{},
 	},
 	{
@@ -155,12 +155,12 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"filter": "Metric filter (e.g. metric.type = starts_with(\"compute.googleapis.com\"))"},
 	},
 	{
-		Name: "gcp_monitoring_list_time_series", Description: "Get time series data for a metric",
+		Name: "gcp_monitoring_list_time_series", Description: "Get Cloud Monitoring time series data for a metric. Query production performance, CPU, memory, and custom metric graphs.",
 		Parameters: map[string]string{"filter": "Time series filter (e.g. metric.type=\"compute.googleapis.com/instance/cpu/utilization\")", "start_time": "Start time (RFC3339)", "end_time": "End time (RFC3339, default now)", "alignment_period": "Alignment period in seconds (e.g. 60s)", "per_series_aligner": "Aligner: ALIGN_MEAN, ALIGN_SUM, ALIGN_MAX, ALIGN_MIN, etc."},
 		Required:   []string{"filter", "start_time"},
 	},
 	{
-		Name: "gcp_monitoring_list_alert_policies", Description: "List alert policies in the project",
+		Name: "gcp_monitoring_list_alert_policies", Description: "List Cloud Monitoring alert policies for production threshold warnings and notifications",
 		Parameters: map[string]string{"filter": "Filter expression"},
 	},
 	{
@@ -175,7 +175,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Cloud Run ────────────────────────────────────────────────────
 	{
-		Name: "gcp_run_list_services", Description: "List Cloud Run services in a location",
+		Name: "gcp_run_list_services", Description: "List Cloud Run serverless container services in a location. View production deployments and configurations.",
 		Parameters: map[string]string{"location": "Location (e.g. us-central1)"},
 		Required:   []string{"location"},
 	},
@@ -258,7 +258,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Cloud Logging ────────────────────────────────────────────────
 	{
-		Name: "gcp_logging_list_entries", Description: "List log entries for the project",
+		Name: "gcp_logging_list_entries", Description: "List Cloud Logging entries for the project. Search production logs for errors, debugging, and observability.",
 		Parameters: map[string]string{"filter": "Logging filter (e.g. severity>=ERROR)", "order_by": "Order: timestamp asc or timestamp desc (default desc)", "page_size": "Maximum entries to return (default 50)"},
 	},
 	{

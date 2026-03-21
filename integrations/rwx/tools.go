@@ -6,7 +6,7 @@ var tools = []mcp.ToolDefinition{
 	// ── Runs ────────────────────────────────────────────────────────
 	{
 		Name:        "rwx_launch_ci_run",
-		Description: "Launch a CI run using the rwx CLI. Runs .rwx/ci.yml by default.",
+		Description: "Launch a CI/CD pipeline run using the rwx CLI. Executes continuous integration tests and builds from .rwx/ci.yml by default.",
 		Parameters: map[string]string{
 			"targets": "JSON array of specific task keys to target (optional)",
 			"wait":    "Wait for the run to complete before returning (true/false, default: false)",
@@ -33,7 +33,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "rwx_get_run_results",
-		Description: "Get structured results for a completed run, including per-task status and summary",
+		Description: "Get structured CI/CD pipeline results for a completed run, including per-task pass/fail status and build summary",
 		Parameters: map[string]string{
 			"run_id": "RWX run ID or full URL to get results for",
 		},
@@ -43,7 +43,7 @@ var tools = []mcp.ToolDefinition{
 	// ── Logs ────────────────────────────────────────────────────────
 	{
 		Name:        "rwx_get_task_logs",
-		Description: "Download and return full logs for a task, with failure highlights",
+		Description: "Download and return full CI/CD task logs with build failure and test failure highlights",
 		Parameters: map[string]string{
 			"task_id": "RWX task ID (32-char hex) or task URL",
 		},
@@ -71,7 +71,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "rwx_grep_logs",
-		Description: "Search logs for a pattern with context lines. Results are paginated (50 lines per page).",
+		Description: "Search CI/CD build and test logs for a pattern with context lines. Results are paginated (50 lines per page).",
 		Parameters: map[string]string{
 			"id":      "RWX run ID or task ID",
 			"pattern": "Pattern to search for in the logs (case-insensitive)",

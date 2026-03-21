@@ -11,11 +11,11 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Messages ────────────────────────────────────────────────────
 	{
-		Name: "gmail_list_messages", Description: "List messages in the user's mailbox",
+		Name: "gmail_list_messages", Description: "List email messages in the user's inbox. Search and find mail using Gmail query syntax.",
 		Parameters: map[string]string{"user_id": "User ID (defaults to 'me')", "q": "Gmail search query (same as Gmail search box)", "label_ids": "Comma-separated label IDs to filter by", "max_results": "Max results per page (default 10, max 500)", "page_token": "Token for next page", "include_spam_trash": "Include SPAM and TRASH (true/false)"},
 	},
 	{
-		Name: "gmail_get_message", Description: "Get a specific message by ID",
+		Name: "gmail_get_message", Description: "Get a specific email message by ID. Read the full mail content, headers, and attachments.",
 		Parameters: map[string]string{"user_id": "User ID (defaults to 'me')", "message_id": "Message ID", "format": "Format: full, metadata, minimal, raw (default full)", "metadata_headers": "Comma-separated headers to include when format=metadata"},
 		Required:   []string{"message_id"},
 	},
@@ -118,7 +118,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Drafts ──────────────────────────────────────────────────────
 	{
-		Name: "gmail_list_drafts", Description: "List drafts in the user's mailbox",
+		Name: "gmail_list_drafts", Description: "List email drafts in the user's mailbox. View unsent composed messages.",
 		Parameters: map[string]string{"user_id": "User ID (defaults to 'me')", "q": "Gmail search query", "max_results": "Max results per page", "page_token": "Token for next page", "include_spam_trash": "Include SPAM and TRASH (true/false)"},
 	},
 	{
@@ -127,11 +127,11 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"draft_id"},
 	},
 	{
-		Name: "gmail_create_draft", Description: "Create a new draft",
+		Name: "gmail_create_draft", Description: "Create a new email draft. Compose and write a message to send later or save as a reply draft.",
 		Parameters: map[string]string{"user_id": "User ID (defaults to 'me')", "to": "Recipient email address(es), comma-separated", "subject": "Email subject", "body": "Email body (plain text)", "raw": "Base64url-encoded RFC 2822 message (overrides to/subject/body)", "thread_id": "Thread ID for reply drafts"},
 	},
 	{
-		Name: "gmail_update_draft", Description: "Update an existing draft",
+		Name: "gmail_update_draft", Description: "Update an existing email draft. Edit the composed mail message before sending.",
 		Parameters: map[string]string{"user_id": "User ID (defaults to 'me')", "draft_id": "Draft ID", "to": "Recipient email address(es), comma-separated", "subject": "Email subject", "body": "Email body (plain text)", "raw": "Base64url-encoded RFC 2822 message (overrides to/subject/body)", "thread_id": "Thread ID for reply drafts"},
 		Required:   []string{"draft_id"},
 	},
@@ -141,7 +141,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"draft_id"},
 	},
 	{
-		Name: "gmail_send_draft", Description: "Send an existing draft",
+		Name: "gmail_send_draft", Description: "Send an existing email draft. Deliver a previously composed mail message.",
 		Parameters: map[string]string{"user_id": "User ID (defaults to 'me')", "draft_id": "Draft ID"},
 		Required:   []string{"draft_id"},
 	},

@@ -94,7 +94,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Query Execution ---
 	{
 		Name:        "postgres_query",
-		Description: "Execute a read-only SQL query and return results as JSON. Automatically wrapped in a read-only transaction.",
+		Description: "Execute a read-only SQL query and return results as JSON. Use for database exploration and performance investigation. Automatically wrapped in a read-only transaction.",
 		Parameters: map[string]string{
 			"sql":   "SQL query to execute (SELECT, SHOW, EXPLAIN, etc.)",
 			"limit": "Max rows to return (default: 100, max: 1000)",
@@ -111,7 +111,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "postgres_explain",
-		Description: "Run EXPLAIN ANALYZE on a query to show the execution plan with actual timing",
+		Description: "Run EXPLAIN ANALYZE on a SQL query to show the execution plan with actual timing. Use to diagnose slow queries and optimize database performance.",
 		Parameters: map[string]string{
 			"sql":     "SQL query to explain",
 			"analyze": "Run EXPLAIN ANALYZE with actual execution (default: false)",
@@ -194,7 +194,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "postgres_running_queries",
-		Description: "List currently running queries with duration and state",
+		Description: "List currently running queries with duration and state. Use to find slow or long-running queries that may be blocking database operations.",
 		Parameters: map[string]string{
 			"min_duration": "Minimum duration in seconds to filter by (optional)",
 		},

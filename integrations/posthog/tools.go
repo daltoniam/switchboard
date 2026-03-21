@@ -29,7 +29,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Feature Flags ───────────────────────────────────────────────
 	{
-		Name: "posthog_list_feature_flags", Description: "List feature flags",
+		Name: "posthog_list_feature_flags", Description: "List feature flags for rollout targeting and release management. Filter by active state, type, or experiment.",
 		Parameters: map[string]string{"project_id": "Project ID (defaults to configured project)", "search": "Search by key or name", "active": "Filter by active state (true/false)", "type": "Filter by type: boolean, multivariant, experiment", "limit": "Max results", "offset": "Pagination offset"},
 	},
 	{
@@ -60,7 +60,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Cohorts ─────────────────────────────────────────────────────
 	{
-		Name: "posthog_list_cohorts", Description: "List all cohorts",
+		Name: "posthog_list_cohorts", Description: "List all user cohorts for audience segmentation and analytics targeting",
 		Parameters: map[string]string{"project_id": "Project ID (defaults to configured project)", "limit": "Max results", "offset": "Pagination offset"},
 	},
 	{
@@ -91,11 +91,11 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Insights ────────────────────────────────────────────────────
 	{
-		Name: "posthog_list_insights", Description: "List saved insights (trends, funnels, etc.)",
+		Name: "posthog_list_insights", Description: "List saved product analytics insights (trends, funnels, retention, etc.). View reports, charts, and metrics.",
 		Parameters: map[string]string{"project_id": "Project ID (defaults to configured project)", "search": "Search by name", "limit": "Max results", "offset": "Pagination offset", "created_by": "Filter by creator user ID"},
 	},
 	{
-		Name: "posthog_get_insight", Description: "Get details of a specific insight",
+		Name: "posthog_get_insight", Description: "Get details of a specific product analytics insight, including chart data for trends, funnels, and retention",
 		Parameters: map[string]string{"project_id": "Project ID (defaults to configured project)", "insight_id": "Insight ID"},
 		Required:   []string{"insight_id"},
 	},
@@ -116,7 +116,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Persons ─────────────────────────────────────────────────────
 	{
-		Name: "posthog_list_persons", Description: "List persons (users) tracked by PostHog",
+		Name: "posthog_list_persons", Description: "List persons (users and customers) tracked by PostHog analytics. Search by email, distinct ID, or visitor profile.",
 		Parameters: map[string]string{"project_id": "Project ID (defaults to configured project)", "search": "Search by email or distinct ID", "distinct_id": "Filter by exact distinct ID", "email": "Filter by email", "limit": "Max results", "offset": "Pagination offset"},
 	},
 	{
@@ -179,7 +179,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Dashboards ──────────────────────────────────────────────────
 	{
-		Name: "posthog_list_dashboards", Description: "List dashboards",
+		Name: "posthog_list_dashboards", Description: "List PostHog product analytics dashboards for metrics overview and monitoring",
 		Parameters: map[string]string{"project_id": "Project ID (defaults to configured project)", "limit": "Max results", "offset": "Pagination offset"},
 	},
 	{
@@ -205,7 +205,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Actions ─────────────────────────────────────────────────────
 	{
-		Name: "posthog_list_actions", Description: "List actions (event groupings)",
+		Name: "posthog_list_actions", Description: "List actions (custom event groupings) for analytics tracking and conversion metrics",
 		Parameters: map[string]string{"project_id": "Project ID (defaults to configured project)", "limit": "Max results", "offset": "Pagination offset"},
 	},
 	{
@@ -231,7 +231,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Events ──────────────────────────────────────────────────────
 	{
-		Name: "posthog_list_events", Description: "List captured events",
+		Name: "posthog_list_events", Description: "List captured product analytics events. View user behavior tracking and activity data.",
 		Parameters: map[string]string{"project_id": "Project ID (defaults to configured project)", "event": "Filter by event name", "person_id": "Filter by person UUID", "distinct_id": "Filter by distinct ID", "properties": "JSON string of property filters", "before": "ISO 8601 timestamp upper bound", "after": "ISO 8601 timestamp lower bound", "limit": "Max results", "offset": "Pagination offset"},
 	},
 	{
@@ -242,7 +242,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Experiments ─────────────────────────────────────────────────
 	{
-		Name: "posthog_list_experiments", Description: "List A/B test experiments",
+		Name: "posthog_list_experiments", Description: "List A/B test experiments for conversion optimization. View variant results and analytics.",
 		Parameters: map[string]string{"project_id": "Project ID (defaults to configured project)", "limit": "Max results", "offset": "Pagination offset"},
 	},
 	{
