@@ -33,7 +33,7 @@ func New() mcp.Integration {
 
 func (s *slackIntegration) Name() string { return "slack" }
 
-func (s *slackIntegration) Configure(_ context.Context, creds mcp.Credentials) error {
+func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials) error {
 	s.store = newTokenStore()
 	s.mu.Lock()
 	s.clients = make(map[string]*slack.Client)
@@ -73,7 +73,7 @@ func (s *slackIntegration) Configure(_ context.Context, creds mcp.Credentials) e
 	}
 
 	s.buildAllClients()
-	s.resolveWorkspaceIdentities()
+	s.resolveWorkspaceIdentities(ctx)
 
 	if tid := creds["team_id"]; tid != "" {
 		s.store.setDefault(tid)
@@ -81,6 +81,9 @@ func (s *slackIntegration) Configure(_ context.Context, creds mcp.Credentials) e
 
 	_ = s.store.saveToFile()
 
+	if s.stopBg != nil {
+		close(s.stopBg)
+	}
 	s.stopBg = make(chan struct{})
 	go s.backgroundRefresh()
 
@@ -103,13 +106,13 @@ func (s *slackIntegration) buildClientForWorkspace(ws *workspace) {
 	s.mu.Unlock()
 }
 
-func (s *slackIntegration) resolveWorkspaceIdentities() {
+func (s *slackIntegration) resolveWorkspaceIdentities(ctx context.Context) {
 	for _, ws := range s.store.allWorkspaces() {
 		client := s.getClientForTeam(ws.TeamID)
 		if client == nil {
 			continue
 		}
-		resp, err := client.AuthTest()
+		resp, err := client.AuthTestContext(ctx)
 		if err != nil {
 			log.Printf("slack: auth test failed for workspace %s: %v", ws.TeamID, err)
 			continue
