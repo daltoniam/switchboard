@@ -10,7 +10,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Budgets ────────────────────────────────────────────────────
 	{
-		Name: "ynab_list_budgets", Description: "List all budgets the user has access to",
+		Name: "ynab_list_budgets", Description: "List all personal finance budgets the user has access to. Start here for budget, spending, and money management workflows.",
 		Parameters: map[string]string{"include_accounts": "Include account data (true/false)"},
 	},
 	{
@@ -140,7 +140,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Transactions ───────────────────────────────────────────────
 	{
-		Name: "ynab_list_transactions", Description: "List transactions for a budget, optionally filtered by date or type",
+		Name: "ynab_list_transactions", Description: "List financial transactions (spending, expenses, purchases) for a budget, optionally filtered by date or type",
 		Parameters: map[string]string{
 			"budget_id":  "Budget ID (defaults to last-used)",
 			"since_date": "Only return transactions on or after this date (ISO format, e.g. 2024-01-01)",

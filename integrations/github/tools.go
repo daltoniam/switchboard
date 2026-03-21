@@ -110,7 +110,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo"},
 	},
 	{
-		Name: "github_compare_commits", Description: "Compare two commits, branches, or tags. Returns commit list and diff between base and head.",
+		Name: "github_compare_commits", Description: "Compare two commits, branches, or tags. Use to see what changed between refs (commit list and diff). Start here for 'what changed in prod' queries.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base ref (branch, tag, or SHA)", "head": "Head ref (branch, tag, or SHA)", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo", "base", "head"},
 	},
@@ -167,7 +167,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo", "sha", "state"},
 	},
 	{
-		Name: "github_list_deployments", Description: "List deployments for a repository",
+		Name: "github_list_deployments", Description: "List deployments for a repository. Start here for deploy status, recent deploys, and rollout history.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "environment": "Filter by environment", "ref": "Filter by ref", "task": "Filter by task", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo"},
 	},
@@ -182,7 +182,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo", "ref"},
 	},
 	{
-		Name: "github_list_deployment_statuses", Description: "List statuses for a deployment",
+		Name: "github_list_deployment_statuses", Description: "List statuses for a deployment. Use after list_deployments to check deploy progress or failure.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "deployment_id": "Deployment ID", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo", "deployment_id"},
 	},
@@ -804,7 +804,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Releases ──────────────────────────────────────────────────────
 	{
-		Name: "github_list_releases", Description: "List releases for a repository",
+		Name: "github_list_releases", Description: "List releases for a repository. Start here for release history, versioning, and what shipped.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo"},
 	},
@@ -814,7 +814,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo", "release_id"},
 	},
 	{
-		Name: "github_get_latest_release", Description: "Get the latest release",
+		Name: "github_get_latest_release", Description: "Get the latest release for a repository. Use to find what version is current or what shipped most recently.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
 		Required:   []string{"owner", "repo"},
 	},
@@ -867,7 +867,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"query"},
 	},
 	{
-		Name: "github_search_issues", Description: "Search issues and pull requests across GitHub. Start here for cross-repo issue/PR discovery. Add is:pr or is:issue to filter.",
+		Name: "github_search_issues", Description: "Search issues and pull requests across GitHub. Start here for cross-repo issue/PR discovery. Add is:pr or is:issue to filter. Use for cross-repo bug, ticket, or PR discovery.",
 		Parameters: map[string]string{"query": "Search query (supports qualifiers like is:issue, is:pr, repo:owner/name, state:open)", "sort": "Sort: comments, reactions, created, updated", "order": "Order: asc, desc", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"query"},
 	},
@@ -925,7 +925,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Code Scanning ─────────────────────────────────────────────────
 	{
-		Name: "github_list_code_scanning_alerts", Description: "List code scanning alerts for a repository",
+		Name: "github_list_code_scanning_alerts", Description: "List code scanning (SAST) alerts for a repository. Start here for security vulnerabilities found by CodeQL or other analyzers.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "State: open, closed, dismissed, fixed", "ref": "Git ref to filter by", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo"},
 	},
@@ -951,7 +951,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Dependabot ────────────────────────────────────────────────────
 	{
-		Name: "github_list_dependabot_alerts", Description: "List Dependabot alerts for a repository",
+		Name: "github_list_dependabot_alerts", Description: "List Dependabot dependency vulnerability alerts for a repository. Start here for CVE impact on dependencies.",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "State: auto_dismissed, dismissed, fixed, open", "severity": "Severity: low, medium, high, critical", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo"},
 	},

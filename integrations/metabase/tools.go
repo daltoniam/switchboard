@@ -37,7 +37,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Queries ---
 	{
 		Name:        "metabase_execute_query",
-		Description: "Execute a native SQL query against a database and return results as JSON",
+		Description: "Execute a native SQL analytics query against a Metabase-connected database and return results as JSON. Use for ad-hoc analytics, BI reporting, and data exploration.",
 		Parameters: map[string]string{
 			"database_id": "Database ID to query",
 			"query":       "SQL query string",
@@ -105,7 +105,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Dashboards ---
 	{
 		Name:        "metabase_list_dashboards",
-		Description: "List all dashboards",
+		Description: "List all Metabase analytics dashboards for reporting and data visualization",
 		Parameters:  map[string]string{},
 	},
 	{
@@ -193,7 +193,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Search ---
 	{
 		Name:        "metabase_search",
-		Description: "Search across all Metabase content (questions, dashboards, collections, tables, databases)",
+		Description: "Search across all Metabase content (questions, dashboards, collections, tables, databases). Start here for BI and reporting workflows.",
 		Parameters: map[string]string{
 			"query":  "Search query string",
 			"models": "Comma-separated types to search: card, dashboard, collection, table, database",
