@@ -60,7 +60,7 @@ func TestExtractResult_Fields(t *testing.T) {
 }
 
 func TestSaveTokensForWeb_EmptyToken(t *testing.T) {
-	_, err := SaveTokensForWeb("", "cookie")
+	_, err := SaveTokensForWeb("", "cookie", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "token is required")
 }

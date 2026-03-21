@@ -2,16 +2,25 @@ package slack
 
 import mcp "github.com/daltoniam/switchboard"
 
+const teamIDDesc = "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
 var tools = []mcp.ToolDefinition{
 	// --- Token Management ---
 	{
 		Name:        "slack_token_status",
-		Description: "Check token health, type (OAuth vs browser session), age, auto-refresh status, and source.",
+		Description: "Check token health for all workspaces: type (OAuth vs browser session), age, auto-refresh status, and source.",
 		Parameters:  map[string]string{},
 	},
 	{
 		Name:        "slack_refresh_tokens",
 		Description: "Force refresh browser session tokens. Tries cookie-based HTTP refresh first (works on all platforms), then Chrome LevelDB extraction (macOS). OAuth tokens (xoxp-) don't need refresh.",
+		Parameters: map[string]string{
+			"team_id": teamIDDesc,
+		},
+	},
+	{
+		Name:        "slack_list_workspaces",
+		Description: "List all configured Slack workspaces with team IDs and names. Use to find the team_id for a specific workspace.",
 		Parameters:  map[string]string{},
 	},
 
@@ -24,6 +33,7 @@ var tools = []mcp.ToolDefinition{
 			"limit":            "Max results per page (default 100, max 1000)",
 			"cursor":           "Pagination cursor from previous response",
 			"exclude_archived": "Exclude archived channels (default true)",
+			"team_id":          teamIDDesc,
 		},
 	},
 	{
@@ -31,6 +41,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "Get detailed information about a specific channel or DM, including topic, purpose, and member count. Use after list_conversations to inspect a channel.",
 		Parameters: map[string]string{
 			"channel_id": "Channel or DM ID",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id"},
 	},
@@ -43,6 +54,7 @@ var tools = []mcp.ToolDefinition{
 			"oldest":     "Unix timestamp — get messages after this time",
 			"latest":     "Unix timestamp — get messages before this time",
 			"cursor":     "Pagination cursor from previous response",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id"},
 	},
@@ -52,6 +64,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel or DM ID",
 			"thread_ts":  "Thread parent message timestamp",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "thread_ts"},
 	},
@@ -61,6 +74,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"name":       "Channel name (lowercase, no spaces, max 80 chars)",
 			"is_private": "Create as private channel (default false)",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"name"},
 	},
@@ -69,6 +83,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "Archive a channel.",
 		Parameters: map[string]string{
 			"channel_id": "Channel ID to archive",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id"},
 	},
@@ -78,6 +93,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 			"user_ids":   "Comma-separated user IDs to invite",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "user_ids"},
 	},
@@ -87,6 +103,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 			"user_id":    "User ID to remove",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "user_id"},
 	},
@@ -96,6 +113,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 			"topic":      "New topic text",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "topic"},
 	},
@@ -105,6 +123,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 			"purpose":    "New purpose text",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "purpose"},
 	},
@@ -113,6 +132,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "Join a public channel.",
 		Parameters: map[string]string{
 			"channel_id": "Channel ID to join",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id"},
 	},
@@ -121,6 +141,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "Leave a channel.",
 		Parameters: map[string]string{
 			"channel_id": "Channel ID to leave",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id"},
 	},
@@ -130,6 +151,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 			"name":       "New channel name",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "name"},
 	},
@@ -142,6 +164,7 @@ var tools = []mcp.ToolDefinition{
 			"channel_id": "Channel or DM ID to send to",
 			"text":       "Message text (supports Slack mrkdwn)",
 			"thread_ts":  "Thread timestamp to reply in a thread (optional)",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "text"},
 	},
@@ -152,6 +175,7 @@ var tools = []mcp.ToolDefinition{
 			"channel_id": "Channel ID where the message is",
 			"ts":         "Timestamp of the message to update",
 			"text":       "New message text",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "ts", "text"},
 	},
@@ -161,6 +185,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 			"ts":         "Timestamp of the message to delete",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "ts"},
 	},
@@ -168,8 +193,9 @@ var tools = []mcp.ToolDefinition{
 		Name:        "slack_search_messages",
 		Description: "Start here to find messages. Search across the entire Slack workspace. Supports Slack search syntax: from:@user, in:#channel, has:link, before:2024-01-01, after:2024-01-01.",
 		Parameters: map[string]string{
-			"query": "Search query (supports Slack search modifiers)",
-			"count": "Number of results (default 20, max 100)",
+			"query":   "Search query (supports Slack search modifiers)",
+			"count":   "Number of results (default 20, max 100)",
+			"team_id": teamIDDesc,
 		},
 		Required: []string{"query"},
 	},
@@ -180,6 +206,7 @@ var tools = []mcp.ToolDefinition{
 			"channel_id": "Channel ID",
 			"ts":         "Message timestamp",
 			"emoji":      "Emoji name without colons (e.g., thumbsup)",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "ts", "emoji"},
 	},
@@ -190,6 +217,7 @@ var tools = []mcp.ToolDefinition{
 			"channel_id": "Channel ID",
 			"ts":         "Message timestamp",
 			"emoji":      "Emoji name without colons",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "ts", "emoji"},
 	},
@@ -199,6 +227,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 			"ts":         "Message timestamp",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "ts"},
 	},
@@ -208,6 +237,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 			"ts":         "Message timestamp to pin",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "ts"},
 	},
@@ -217,6 +247,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
 			"ts":         "Message timestamp to unpin",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "ts"},
 	},
@@ -225,6 +256,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "List all pinned items in a channel. Use to find important messages and references pinned by the team.",
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id"},
 	},
@@ -236,6 +268,7 @@ var tools = []mcp.ToolDefinition{
 			"text":       "Message text",
 			"post_at":    "Unix timestamp for when to send the message",
 			"thread_ts":  "Thread timestamp to reply in a thread (optional)",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "text", "post_at"},
 	},
@@ -245,8 +278,9 @@ var tools = []mcp.ToolDefinition{
 		Name:        "slack_list_users",
 		Description: "Start here to find users. List all users in the workspace with display names, emails, and IDs. Supports pagination for large workspaces.",
 		Parameters: map[string]string{
-			"limit":  "Max users per page (default 200, max 1000)",
-			"cursor": "Pagination cursor",
+			"limit":   "Max users per page (default 200, max 1000)",
+			"cursor":  "Pagination cursor",
+			"team_id": teamIDDesc,
 		},
 	},
 	{
@@ -254,6 +288,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "Get detailed profile for a single user including status, timezone, and admin status. Use after list_users when you need full details for a specific person.",
 		Parameters: map[string]string{
 			"user_id": "Slack user ID",
+			"team_id": teamIDDesc,
 		},
 		Required: []string{"user_id"},
 	},
@@ -262,6 +297,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "Get a user's current presence status (active/away). Use after list_users to check if someone is online.",
 		Parameters: map[string]string{
 			"user_id": "Slack user ID",
+			"team_id": teamIDDesc,
 		},
 		Required: []string{"user_id"},
 	},
@@ -271,6 +307,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"include_users":    "Include list of member user IDs (default false)",
 			"include_disabled": "Include disabled user groups (default false)",
+			"team_id":          teamIDDesc,
 		},
 	},
 	{
@@ -278,6 +315,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "Get members of a specific user group.",
 		Parameters: map[string]string{
 			"usergroup_id": "User group ID",
+			"team_id":      teamIDDesc,
 		},
 		Required: []string{"usergroup_id"},
 	},
@@ -286,12 +324,16 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        "slack_auth_test",
 		Description: "Test authentication and get current user/workspace info. Use to verify credentials and find your own user ID.",
-		Parameters:  map[string]string{},
+		Parameters: map[string]string{
+			"team_id": teamIDDesc,
+		},
 	},
 	{
 		Name:        "slack_team_info",
 		Description: "Get information about the workspace/team.",
-		Parameters:  map[string]string{},
+		Parameters: map[string]string{
+			"team_id": teamIDDesc,
+		},
 	},
 	{
 		Name:        "slack_upload_file",
@@ -304,6 +346,7 @@ var tools = []mcp.ToolDefinition{
 			"filetype":        "File type identifier (e.g., text, python, javascript)",
 			"initial_comment": "Message to include with the file",
 			"thread_ts":       "Thread timestamp to upload into a thread (optional)",
+			"team_id":         teamIDDesc,
 		},
 		Required: []string{"channels", "content", "filename"},
 	},
@@ -315,6 +358,7 @@ var tools = []mcp.ToolDefinition{
 			"user_id":    "Filter by user ID (optional)",
 			"types":      "Filter by file type: spaces, snippets, images, gdocs, zips, pdfs (optional)",
 			"count":      "Number of files to return (default 20, max 100)",
+			"team_id":    teamIDDesc,
 		},
 	},
 	{
@@ -322,13 +366,16 @@ var tools = []mcp.ToolDefinition{
 		Description: "Delete a file.",
 		Parameters: map[string]string{
 			"file_id": "File ID to delete",
+			"team_id": teamIDDesc,
 		},
 		Required: []string{"file_id"},
 	},
 	{
 		Name:        "slack_list_emoji",
 		Description: "List all custom emoji in the workspace.",
-		Parameters:  map[string]string{},
+		Parameters: map[string]string{
+			"team_id": teamIDDesc,
+		},
 	},
 	{
 		Name:        "slack_set_status",
@@ -337,6 +384,7 @@ var tools = []mcp.ToolDefinition{
 			"status_text":       "Status text",
 			"status_emoji":      "Status emoji (e.g., :house_with_garden:)",
 			"status_expiration": "Unix timestamp when status expires (0 for no expiration)",
+			"team_id":           teamIDDesc,
 		},
 		Required: []string{"status_text"},
 	},
@@ -345,6 +393,7 @@ var tools = []mcp.ToolDefinition{
 		Description: "List bookmarks in a channel.",
 		Parameters: map[string]string{
 			"channel_id": "Channel ID",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id"},
 	},
@@ -356,6 +405,7 @@ var tools = []mcp.ToolDefinition{
 			"title":      "Bookmark title",
 			"link":       "URL to bookmark",
 			"emoji":      "Emoji for the bookmark (optional)",
+			"team_id":    teamIDDesc,
 		},
 		Required: []string{"channel_id", "title", "link"},
 	},
@@ -365,6 +415,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"channel_id":  "Channel ID",
 			"bookmark_id": "Bookmark ID to remove",
+			"team_id":     teamIDDesc,
 		},
 		Required: []string{"channel_id", "bookmark_id"},
 	},
@@ -372,22 +423,26 @@ var tools = []mcp.ToolDefinition{
 		Name:        "slack_add_reminder",
 		Description: "Create a reminder. Time can be natural language (e.g., 'in 15 minutes', 'tomorrow at 9am').",
 		Parameters: map[string]string{
-			"text": "Reminder text",
-			"time": "When to remind (natural language or Unix timestamp)",
-			"user": "User ID to remind (defaults to authenticated user)",
+			"text":    "Reminder text",
+			"time":    "When to remind (natural language or Unix timestamp)",
+			"user":    "User ID to remind (defaults to authenticated user)",
+			"team_id": teamIDDesc,
 		},
 		Required: []string{"text", "time"},
 	},
 	{
 		Name:        "slack_list_reminders",
 		Description: "List all reminders for the authenticated user.",
-		Parameters:  map[string]string{},
+		Parameters: map[string]string{
+			"team_id": teamIDDesc,
+		},
 	},
 	{
 		Name:        "slack_delete_reminder",
 		Description: "Delete a reminder.",
 		Parameters: map[string]string{
 			"reminder_id": "Reminder ID to delete",
+			"team_id":     teamIDDesc,
 		},
 		Required: []string{"reminder_id"},
 	},

@@ -8,8 +8,10 @@ import (
 
 var rawFieldCompactionSpecs = map[string][]string{
 	// ── Token Management ─────────────────────────────────────────────
-	// Handler: mcp.JSONResult(map{status, token_type, age_hours, source, updated_at, auto_refresh})
-	"slack_token_status": {"status", "token_type", "age_hours", "source", "updated_at", "auto_refresh"},
+	// Handler: mcp.JSONResult(map{workspace_count, default_team_id, workspaces, auto_refresh})
+	"slack_token_status": {"workspace_count", "default_team_id", "workspaces", "auto_refresh"},
+	// Handler: mcp.JSONResult(map{count, default_team_id, workspaces})
+	"slack_list_workspaces": {"count", "default_team_id", "workspaces"},
 
 	// ── Conversations ────────────────────────────────────────────────
 	// Handler: mcp.JSONResult(map{count, conversations: []ch, next_cursor})

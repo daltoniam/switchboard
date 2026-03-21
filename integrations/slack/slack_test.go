@@ -1,8 +1,11 @@
 package slack
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -65,7 +68,7 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
-	s := &slackIntegration{}
+	s := &slackIntegration{clients: make(map[string]*slack.Client)}
 	result, err := s.Execute(t.Context(), "slack_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -206,10 +209,147 @@ func TestWrapRetryable_NilError(t *testing.T) {
 }
 
 func TestErrResult_PropagatesSlackRateLimitedError(t *testing.T) {
-	// errResult composes wrapRetryable internally — no explicit wrapping needed at call sites.
 	rle := &slack.RateLimitedError{RetryAfter: 10 * time.Second}
 	result, err := errResult(rle)
 	assert.Nil(t, result, "retryable error should not produce a ToolResult")
 	require.Error(t, err)
 	assert.True(t, mcp.IsRetryable(err))
+}
+
+// --- multi-workspace token store tests ---
+
+func TestTokenStore_SetAndGetWorkspace(t *testing.T) {
+	ts := &tokenStore{workspaces: make(map[string]*workspace)}
+	ts.setWorkspace(&workspace{TeamID: "T1", TeamName: "Acme", Token: "xoxc-1", Cookie: "xoxd-1"})
+
+	ws := ts.getWorkspace("T1")
+	require.NotNil(t, ws)
+	assert.Equal(t, "xoxc-1", ws.Token)
+	assert.Equal(t, "Acme", ws.TeamName)
+}
+
+func TestTokenStore_DefaultWorkspace(t *testing.T) {
+	ts := &tokenStore{workspaces: make(map[string]*workspace)}
+	ts.setWorkspace(&workspace{TeamID: "T1", Token: "xoxc-1"})
+	ts.setWorkspace(&workspace{TeamID: "T2", Token: "xoxc-2"})
+
+	assert.Equal(t, "T1", ts.defaultID(), "first workspace set becomes default")
+
+	ws := ts.getDefault()
+	require.NotNil(t, ws)
+	assert.Equal(t, "T1", ws.TeamID)
+
+	ts.setDefault("T2")
+	ws = ts.getDefault()
+	require.NotNil(t, ws)
+	assert.Equal(t, "T2", ws.TeamID)
+}
+
+func TestTokenStore_BackwardCompatGet(t *testing.T) {
+	ts := &tokenStore{workspaces: make(map[string]*workspace)}
+	ts.setWorkspace(&workspace{TeamID: "T1", Token: "xoxc-tok", Cookie: "xoxd-cook"})
+
+	tok, cook := ts.get()
+	assert.Equal(t, "xoxc-tok", tok)
+	assert.Equal(t, "xoxd-cook", cook)
+}
+
+func TestTokenStore_SaveAndLoadV2(t *testing.T) {
+	dir := t.TempDir()
+	fp := filepath.Join(dir, "tokens.json")
+
+	ts := &tokenStore{workspaces: make(map[string]*workspace), filePath: fp}
+	ts.setWorkspace(&workspace{TeamID: "T1", TeamName: "Acme", Token: "xoxc-1", Cookie: "xoxd-1", Source: "chrome"})
+	ts.setWorkspace(&workspace{TeamID: "T2", TeamName: "Beta", Token: "xoxc-2", Cookie: "xoxd-2", Source: "web"})
+	ts.setDefault("T2")
+
+	require.NoError(t, ts.saveToFile())
+
+	ts2 := &tokenStore{workspaces: make(map[string]*workspace), filePath: fp}
+	ts2.loadFromFile()
+
+	assert.Equal(t, "T2", ts2.defaultID())
+	assert.Len(t, ts2.allWorkspaces(), 2)
+
+	ws1 := ts2.getWorkspace("T1")
+	require.NotNil(t, ws1)
+	assert.Equal(t, "Acme", ws1.TeamName)
+	assert.Equal(t, "xoxc-1", ws1.Token)
+}
+
+func TestTokenStore_LoadLegacyFormat(t *testing.T) {
+	dir := t.TempDir()
+	fp := filepath.Join(dir, "tokens.json")
+
+	legacy := map[string]string{
+		"token":      "xoxc-legacy",
+		"cookie":     "xoxd-legacy",
+		"team_id":    "TLEGACY",
+		"updated_at": time.Now().UTC().Format(time.RFC3339),
+	}
+	data, _ := json.MarshalIndent(legacy, "", "  ")
+	require.NoError(t, os.WriteFile(fp, data, 0600))
+
+	ts := &tokenStore{workspaces: make(map[string]*workspace), filePath: fp}
+	ts.loadFromFile()
+
+	assert.Equal(t, "TLEGACY", ts.defaultID())
+	ws := ts.getWorkspace("TLEGACY")
+	require.NotNil(t, ws)
+	assert.Equal(t, "xoxc-legacy", ws.Token)
+	assert.Equal(t, "xoxd-legacy", ws.Cookie)
+}
+
+func TestTokenStore_AllWorkspaces(t *testing.T) {
+	ts := &tokenStore{workspaces: make(map[string]*workspace)}
+	ts.setWorkspace(&workspace{TeamID: "T2", TeamName: "Beta", Token: "xoxc-2"})
+	ts.setWorkspace(&workspace{TeamID: "T1", TeamName: "Alpha", Token: "xoxc-1"})
+
+	all := ts.allWorkspaces()
+	require.Len(t, all, 2)
+	assert.Equal(t, "Alpha", all[0].TeamName, "should be sorted by name")
+	assert.Equal(t, "Beta", all[1].TeamName)
+}
+
+func TestGetClientForArgs_DefaultWorkspace(t *testing.T) {
+	s := &slackIntegration{
+		clients: map[string]*slack.Client{"T1": slack.New("xoxc-1")},
+		store:   &tokenStore{workspaces: make(map[string]*workspace), defaultTeamID: "T1"},
+	}
+
+	client, err := s.getClientForArgs(map[string]any{})
+	require.NoError(t, err)
+	assert.NotNil(t, client)
+}
+
+func TestGetClientForArgs_SpecificWorkspace(t *testing.T) {
+	s := &slackIntegration{
+		clients: map[string]*slack.Client{
+			"T1": slack.New("xoxc-1"),
+			"T2": slack.New("xoxc-2"),
+		},
+		store: &tokenStore{workspaces: make(map[string]*workspace), defaultTeamID: "T1"},
+	}
+
+	client, err := s.getClientForArgs(map[string]any{"team_id": "T2"})
+	require.NoError(t, err)
+	assert.NotNil(t, client)
+}
+
+func TestGetClientForArgs_UnknownWorkspace(t *testing.T) {
+	s := &slackIntegration{
+		clients: map[string]*slack.Client{"T1": slack.New("xoxc-1")},
+		store:   &tokenStore{workspaces: make(map[string]*workspace), defaultTeamID: "T1"},
+	}
+
+	_, err := s.getClientForArgs(map[string]any{"team_id": "T_UNKNOWN"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown workspace")
+}
+
+func TestErrClientResult(t *testing.T) {
+	result, err := errClientResult(fmt.Errorf("no workspace"))
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Equal(t, "no workspace", result.Data)
 }

@@ -94,8 +94,10 @@ func TestFieldCompactionSpecs_ShapeParity(t *testing.T) {
 		"slack_list_bookmarks": `{"count":1,"bookmarks":[{"id":"B1","title":"Wiki","link":"https://wiki.com","emoji":":book:","type":"link"}]}`,
 		// Reminders
 		"slack_list_reminders": `{"count":1,"reminders":[{"id":"R1","text":"standup","user":"U1","time":1234567890}]}`,
-		// Token status
-		"slack_token_status": `{"status":"healthy","token_type":"browser_session","age_hours":2.5,"source":"config","updated_at":"2024-01-01T00:00:00Z","auto_refresh":{"enabled":true,"interval":"4 hours"}}`,
+		// Token status (multi-workspace)
+		"slack_token_status": `{"workspace_count":1,"default_team_id":"T1","workspaces":[{"team_id":"T1","team_name":"Acme","status":"healthy","token_type":"browser_session","age_hours":2.5,"source":"config","is_default":true}],"auto_refresh":{"enabled":true,"interval":"4 hours"}}`,
+		// List workspaces
+		"slack_list_workspaces": `{"count":2,"default_team_id":"T1","workspaces":[{"team_id":"T1","team_name":"Acme","is_default":true},{"team_id":"T2","team_name":"Beta","is_default":false}]}`,
 	}
 
 	for toolName, jsonPayload := range handlerOutputs {

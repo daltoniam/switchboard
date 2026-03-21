@@ -35,8 +35,9 @@ var envMapping = map[string]map[string]string{
 		"organization": "SENTRY_ORG",
 	},
 	"slack": {
-		"token":  "SLACK_TOKEN",
-		"cookie": "SLACK_COOKIE",
+		"token":   "SLACK_TOKEN",
+		"cookie":  "SLACK_COOKIE",
+		"team_id": "SLACK_TEAM_ID",
 	},
 	"metabase": {
 		"api_key": "METABASE_API_KEY",
@@ -140,7 +141,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"slack": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"token": "", "cookie": "", "token_source": ""},
+				Credentials: mcp.Credentials{"token": "", "cookie": "", "team_id": "", "token_source": ""},
 			},
 			"metabase": {
 				Enabled:     false,
