@@ -38,15 +38,25 @@ func teamInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*m
 }
 
 func uploadFile(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	params := slack.UploadFileParameters{
-		Content:         argStr(args, "content"),
-		Filename:        argStr(args, "filename"),
-		Title:           argStr(args, "title"),
-		InitialComment:  argStr(args, "initial_comment"),
-		SnippetType:     argStr(args, "filetype"),
-		ThreadTimestamp: argStr(args, "thread_ts"),
+	r := mcp.NewArgs(args)
+	content := r.Str("content")
+	filename := r.Str("filename")
+	title := r.Str("title")
+	initialComment := r.Str("initial_comment")
+	filetype := r.Str("filetype")
+	threadTS := r.Str("thread_ts")
+	channels := r.Str("channels")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	channels := argStr(args, "channels")
+	params := slack.UploadFileParameters{
+		Content:         content,
+		Filename:        filename,
+		Title:           title,
+		InitialComment:  initialComment,
+		SnippetType:     filetype,
+		ThreadTimestamp: threadTS,
+	}
 	if channels != "" {
 		params.Channel = strings.Split(channels, ",")[0]
 	}
@@ -62,11 +72,18 @@ func uploadFile(ctx context.Context, s *slackIntegration, args map[string]any) (
 }
 
 func listFiles(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	userID := r.Str("user_id")
+	types := r.Str("types")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	params := slack.ListFilesParameters{
-		Channel: argStr(args, "channel_id"),
-		User:    argStr(args, "user_id"),
-		Types:   argStr(args, "types"),
-		Limit:   optInt(args, "count", 20),
+		Channel: channelID,
+		User:    userID,
+		Types:   types,
+		Limit:   mcp.OptInt(args, "count", 20),
 	}
 
 	files, _, err := s.getClient().ListFilesContext(ctx, params)
@@ -97,11 +114,16 @@ func listFiles(ctx context.Context, s *slackIntegration, args map[string]any) (*
 }
 
 func deleteFile(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	err := s.getClient().DeleteFileContext(ctx, argStr(args, "file_id"))
+	r := mcp.NewArgs(args)
+	fileID := r.Str("file_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	err := s.getClient().DeleteFileContext(ctx, fileID)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(map[string]any{"status": "deleted", "file_id": argStr(args, "file_id")})
+	return mcp.JSONResult(map[string]any{"status": "deleted", "file_id": fileID})
 }
 
 func listEmoji(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -113,19 +135,30 @@ func listEmoji(ctx context.Context, s *slackIntegration, args map[string]any) (*
 }
 
 func setStatus(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	expiration := int64(argInt(args, "status_expiration"))
-	err := s.getClient().SetUserCustomStatusContext(ctx, argStr(args, "status_text"), argStr(args, "status_emoji"), expiration)
+	r := mcp.NewArgs(args)
+	statusText := r.Str("status_text")
+	statusEmoji := r.Str("status_emoji")
+	statusExpiration := r.Int("status_expiration")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	err := s.getClient().SetUserCustomStatusContext(ctx, statusText, statusEmoji, int64(statusExpiration))
 	if err != nil {
 		return errResult(err)
 	}
 	return mcp.JSONResult(map[string]any{
 		"status":      "set",
-		"status_text": argStr(args, "status_text"),
+		"status_text": statusText,
 	})
 }
 
 func listBookmarks(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	bookmarks, err := s.getClient().ListBookmarksContext(ctx, argStr(args, "channel_id"))
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	bookmarks, err := s.getClient().ListBookmarksContext(ctx, channelID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -151,13 +184,21 @@ func listBookmarks(ctx context.Context, s *slackIntegration, args map[string]any
 }
 
 func addBookmark(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	params := slack.AddBookmarkParameters{
-		Title: argStr(args, "title"),
-		Type:  "link",
-		Link:  argStr(args, "link"),
-		Emoji: argStr(args, "emoji"),
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	title := r.Str("title")
+	link := r.Str("link")
+	emoji := r.Str("emoji")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	bm, err := s.getClient().AddBookmarkContext(ctx, argStr(args, "channel_id"), params)
+	params := slack.AddBookmarkParameters{
+		Title: title,
+		Type:  "link",
+		Link:  link,
+		Emoji: emoji,
+	}
+	bm, err := s.getClient().AddBookmarkContext(ctx, channelID, params)
 	if err != nil {
 		return errResult(err)
 	}
@@ -169,19 +210,31 @@ func addBookmark(ctx context.Context, s *slackIntegration, args map[string]any) 
 }
 
 func removeBookmark(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	err := s.getClient().RemoveBookmarkContext(ctx, argStr(args, "channel_id"), argStr(args, "bookmark_id"))
+	r := mcp.NewArgs(args)
+	channelID := r.Str("channel_id")
+	bookmarkID := r.Str("bookmark_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	err := s.getClient().RemoveBookmarkContext(ctx, channelID, bookmarkID)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(map[string]any{"status": "removed", "bookmark_id": argStr(args, "bookmark_id")})
+	return mcp.JSONResult(map[string]any{"status": "removed", "bookmark_id": bookmarkID})
 }
 
 func addReminder(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	user := argStr(args, "user")
+	r := mcp.NewArgs(args)
+	user := r.Str("user")
+	text := r.Str("text")
+	timeStr := r.Str("time")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if user == "" {
 		user = "me"
 	}
-	reminder, err := s.getClient().AddUserReminder(user, argStr(args, "text"), argStr(args, "time"))
+	reminder, err := s.getClient().AddUserReminder(user, text, timeStr)
 	if err != nil {
 		return errResult(err)
 	}
@@ -217,9 +270,14 @@ func listReminders(ctx context.Context, s *slackIntegration, args map[string]any
 }
 
 func deleteReminder(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	err := s.getClient().DeleteReminder(argStr(args, "reminder_id"))
+	r := mcp.NewArgs(args)
+	reminderID := r.Str("reminder_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	err := s.getClient().DeleteReminder(reminderID)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(map[string]any{"status": "deleted", "reminder_id": argStr(args, "reminder_id")})
+	return mcp.JSONResult(map[string]any{"status": "deleted", "reminder_id": reminderID})
 }

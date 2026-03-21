@@ -9,41 +9,66 @@ import (
 )
 
 func generateMusic(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	prompt := r.Str("prompt")
+	model := r.Str("model")
+	style := r.Str("style")
+	title := r.Str("title")
+	callbackURL := r.Str("callback_url")
+	personaID := r.Str("persona_id")
+	negativeTags := r.Str("negative_tags")
+	vocalGender := r.Str("vocal_gender")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	body := map[string]any{
-		"prompt":     argStr(args, "prompt"),
+		"prompt":     prompt,
 		"model":      "V4_5ALL",
 		"customMode": true,
 	}
 
-	if v := argStr(args, "model"); v != "" {
-		body["model"] = v
+	if model != "" {
+		body["model"] = model
 	}
-	if v := argStr(args, "style"); v != "" {
-		body["style"] = v
+	if style != "" {
+		body["style"] = style
 	}
-	if v := argStr(args, "title"); v != "" {
-		body["title"] = v
+	if title != "" {
+		body["title"] = title
 	}
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
-	if v := argStr(args, "persona_id"); v != "" {
-		body["personaId"] = v
+	if personaID != "" {
+		body["personaId"] = personaID
 	}
-	if v := argStr(args, "negative_tags"); v != "" {
-		body["negativeTags"] = v
+	if negativeTags != "" {
+		body["negativeTags"] = negativeTags
 	}
-	if v := argStr(args, "vocal_gender"); v != "" {
-		body["vocalGender"] = v
+	if vocalGender != "" {
+		body["vocalGender"] = vocalGender
 	}
 	if args["custom_mode"] != nil {
-		body["customMode"] = argBool(args, "custom_mode")
+		v, err := mcp.ArgBool(args, "custom_mode")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		body["customMode"] = v
 	}
 	if args["instrumental"] != nil {
-		body["instrumental"] = argBool(args, "instrumental")
+		v, err := mcp.ArgBool(args, "instrumental")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		body["instrumental"] = v
 	}
 	if args["style_weight"] != nil {
-		body["styleWeight"] = argFloat(args, "style_weight")
+		v, err := mcp.ArgFloat64(args, "style_weight")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		body["styleWeight"] = v
 	}
 
 	data, err := s.post(ctx, "/api/v1/generate", body)
@@ -54,7 +79,11 @@ func generateMusic(ctx context.Context, s *suno, args map[string]any) (*mcp.Tool
 }
 
 func getGeneration(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	taskID := argStr(args, "task_id")
+	r := mcp.NewArgs(args)
+	taskID := r.Str("task_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := s.get(ctx, "/api/v1/generate/record-info?taskId=%s", taskID)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -63,29 +92,45 @@ func getGeneration(ctx context.Context, s *suno, args map[string]any) (*mcp.Tool
 }
 
 func extendMusic(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	audioID := r.Str("audio_id")
+	useDefaultParams := r.Bool("use_default_params")
+	model := r.Str("model")
+	prompt := r.Str("prompt")
+	style := r.Str("style")
+	title := r.Str("title")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	body := map[string]any{
-		"audioId":          argStr(args, "audio_id"),
-		"defaultParamFlag": argBool(args, "use_default_params"),
+		"audioId":          audioID,
+		"defaultParamFlag": useDefaultParams,
 		"model":            "V4_5ALL",
 	}
 
-	if v := argStr(args, "model"); v != "" {
-		body["model"] = v
+	if model != "" {
+		body["model"] = model
 	}
-	if v := argStr(args, "prompt"); v != "" {
-		body["prompt"] = v
+	if prompt != "" {
+		body["prompt"] = prompt
 	}
-	if v := argStr(args, "style"); v != "" {
-		body["style"] = v
+	if style != "" {
+		body["style"] = style
 	}
-	if v := argStr(args, "title"); v != "" {
-		body["title"] = v
+	if title != "" {
+		body["title"] = title
 	}
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 	if args["continue_at"] != nil {
-		body["continueAt"] = argInt(args, "continue_at")
+		v, err := mcp.ArgInt(args, "continue_at")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		body["continueAt"] = v
 	}
 
 	data, err := s.post(ctx, "/api/v1/generate/extend", body)
@@ -104,29 +149,44 @@ func getCredits(ctx context.Context, s *suno, _ map[string]any) (*mcp.ToolResult
 }
 
 func coverAudio(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	uploadURL := r.Str("upload_url")
+	model := r.Str("model")
+	style := r.Str("style")
+	title := r.Str("title")
+	prompt := r.Str("prompt")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	body := map[string]any{
-		"uploadUrl":  argStr(args, "upload_url"),
+		"uploadUrl":  uploadURL,
 		"customMode": true,
 		"model":      "V4_5ALL",
 	}
 
-	if v := argStr(args, "model"); v != "" {
-		body["model"] = v
+	if model != "" {
+		body["model"] = model
 	}
-	if v := argStr(args, "style"); v != "" {
-		body["style"] = v
+	if style != "" {
+		body["style"] = style
 	}
-	if v := argStr(args, "title"); v != "" {
-		body["title"] = v
+	if title != "" {
+		body["title"] = title
 	}
-	if v := argStr(args, "prompt"); v != "" {
-		body["prompt"] = v
+	if prompt != "" {
+		body["prompt"] = prompt
 	}
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 	if args["custom_mode"] != nil {
-		body["customMode"] = argBool(args, "custom_mode")
+		v, err := mcp.ArgBool(args, "custom_mode")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		body["customMode"] = v
 	}
 
 	data, err := s.post(ctx, "/api/v1/generate/cover", body)
@@ -137,25 +197,36 @@ func coverAudio(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolRes
 }
 
 func uploadExtend(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	uploadURL := r.Str("upload_url")
+	model := r.Str("model")
+	prompt := r.Str("prompt")
+	style := r.Str("style")
+	title := r.Str("title")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	body := map[string]any{
-		"uploadUrl": argStr(args, "upload_url"),
+		"uploadUrl": uploadURL,
 		"model":     "V4_5ALL",
 	}
 
-	if v := argStr(args, "model"); v != "" {
-		body["model"] = v
+	if model != "" {
+		body["model"] = model
 	}
-	if v := argStr(args, "prompt"); v != "" {
-		body["prompt"] = v
+	if prompt != "" {
+		body["prompt"] = prompt
 	}
-	if v := argStr(args, "style"); v != "" {
-		body["style"] = v
+	if style != "" {
+		body["style"] = style
 	}
-	if v := argStr(args, "title"); v != "" {
-		body["title"] = v
+	if title != "" {
+		body["title"] = title
 	}
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/generate/upload-extend", body)
@@ -166,22 +237,32 @@ func uploadExtend(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolR
 }
 
 func addVocals(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	audioID := r.Str("audio_id")
+	model := r.Str("model")
+	prompt := r.Str("prompt")
+	style := r.Str("style")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	body := map[string]any{
-		"audioId": argStr(args, "audio_id"),
+		"audioId": audioID,
 		"model":   "V4_5ALL",
 	}
 
-	if v := argStr(args, "model"); v != "" {
-		body["model"] = v
+	if model != "" {
+		body["model"] = model
 	}
-	if v := argStr(args, "prompt"); v != "" {
-		body["prompt"] = v
+	if prompt != "" {
+		body["prompt"] = prompt
 	}
-	if v := argStr(args, "style"); v != "" {
-		body["style"] = v
+	if style != "" {
+		body["style"] = style
 	}
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/generate/add-vocals", body)
@@ -192,22 +273,32 @@ func addVocals(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResu
 }
 
 func addInstrumental(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	audioID := r.Str("audio_id")
+	model := r.Str("model")
+	prompt := r.Str("prompt")
+	style := r.Str("style")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	body := map[string]any{
-		"audioId": argStr(args, "audio_id"),
+		"audioId": audioID,
 		"model":   "V4_5ALL",
 	}
 
-	if v := argStr(args, "model"); v != "" {
-		body["model"] = v
+	if model != "" {
+		body["model"] = model
 	}
-	if v := argStr(args, "prompt"); v != "" {
-		body["prompt"] = v
+	if prompt != "" {
+		body["prompt"] = prompt
 	}
-	if v := argStr(args, "style"); v != "" {
-		body["style"] = v
+	if style != "" {
+		body["style"] = style
 	}
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/generate/add-instrumental", body)
@@ -218,7 +309,16 @@ func addInstrumental(ctx context.Context, s *suno, args map[string]any) (*mcp.To
 }
 
 func generateMashup(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	audioIDsStr := argStr(args, "audio_ids")
+	r := mcp.NewArgs(args)
+	audioIDsStr := r.Str("audio_ids")
+	model := r.Str("model")
+	style := r.Str("style")
+	prompt := r.Str("prompt")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	if audioIDsStr == "" {
 		return mcp.ErrResult(fmt.Errorf("audio_ids is required"))
 	}
@@ -232,17 +332,17 @@ func generateMashup(ctx context.Context, s *suno, args map[string]any) (*mcp.Too
 		"model":    "V4_5ALL",
 	}
 
-	if v := argStr(args, "model"); v != "" {
-		body["model"] = v
+	if model != "" {
+		body["model"] = model
 	}
-	if v := argStr(args, "style"); v != "" {
-		body["style"] = v
+	if style != "" {
+		body["style"] = style
 	}
-	if v := argStr(args, "prompt"); v != "" {
-		body["prompt"] = v
+	if prompt != "" {
+		body["prompt"] = prompt
 	}
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/generate/mashup", body)
@@ -253,7 +353,13 @@ func generateMashup(ctx context.Context, s *suno, args map[string]any) (*mcp.Too
 }
 
 func generatePersona(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	audioIDsStr := argStr(args, "audio_ids")
+	r := mcp.NewArgs(args)
+	audioIDsStr := r.Str("audio_ids")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	if audioIDsStr == "" {
 		return mcp.ErrResult(fmt.Errorf("audio_ids is required"))
 	}
@@ -266,8 +372,8 @@ func generatePersona(ctx context.Context, s *suno, args map[string]any) (*mcp.To
 		"audioIds": audioIDs,
 	}
 
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/generate/persona", body)

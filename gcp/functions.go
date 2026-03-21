@@ -12,7 +12,11 @@ import (
 )
 
 func functionsList(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	location := argStr(args, "location")
+	r := mcp.NewArgs(args)
+	location := r.Str("location")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if location == "" {
 		location = "-"
 	}
@@ -38,8 +42,13 @@ func functionsList(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func functionsGet(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	fn, err := g.functionsClient.GetFunction(ctx, &functionspb.GetFunctionRequest{
-		Name: argStr(args, "name"),
+		Name: name,
 	})
 	if err != nil {
 		return errResult(err)
@@ -48,8 +57,13 @@ func functionsGet(ctx context.Context, g *integration, args map[string]any) (*mc
 }
 
 func functionsGetIAMPolicy(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	policy, err := g.functionsClient.GetIamPolicy(ctx, &iampb.GetIamPolicyRequest{
-		Resource: argStr(args, "name"),
+		Resource: name,
 	})
 	if err != nil {
 		return errResult(err)

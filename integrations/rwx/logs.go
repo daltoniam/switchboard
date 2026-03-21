@@ -139,7 +139,11 @@ func findLogFiles(dir string) ([]string, error) {
 // --- Log tool handlers ---
 
 func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "task_id"))
+	taskIDRaw, err := mcp.ArgStr(args, "task_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(taskIDRaw)
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -177,12 +181,17 @@ func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRes
 }
 
 func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "id"))
-	numLines := argInt(args, "lines")
+	ra := mcp.NewArgs(args)
+	idRaw := ra.Str("id")
+	numLines := ra.Int("lines")
+	offset := ra.Int("offset")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(idRaw)
 	if numLines <= 0 || numLines > maxLinesPerPage {
 		numLines = maxLinesPerPage
 	}
-	offset := argInt(args, "offset")
 
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
@@ -218,12 +227,17 @@ func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 }
 
 func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "id"))
-	numLines := argInt(args, "lines")
+	ra := mcp.NewArgs(args)
+	idRaw := ra.Str("id")
+	numLines := ra.Int("lines")
+	offset := ra.Int("offset")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(idRaw)
 	if numLines <= 0 || numLines > maxLinesPerPage {
 		numLines = maxLinesPerPage
 	}
-	offset := argInt(args, "offset")
 
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
@@ -261,13 +275,18 @@ func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 }
 
 func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "id"))
-	pattern := argStr(args, "pattern")
-	contextLines := argInt(args, "context")
+	ra := mcp.NewArgs(args)
+	idRaw := ra.Str("id")
+	pattern := ra.Str("pattern")
+	contextLines := ra.Int("context")
+	page := ra.Int("page")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(idRaw)
 	if contextLines <= 0 {
 		contextLines = 3
 	}
-	page := argInt(args, "page")
 	if page <= 0 {
 		page = 1
 	}

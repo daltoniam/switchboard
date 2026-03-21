@@ -9,15 +9,19 @@ import (
 )
 
 func launchAgent(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
-	agentID := argStr(args, "agent_id")
+	r := mcp.NewArgs(args)
+	agentID := r.Str("agent_id")
+	prompt := r.Str("prompt")
+	agentContext := r.Str("context")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if agentID == "" {
 		return mcp.ErrResult(fmt.Errorf("agent_id is required"))
 	}
-	prompt := argStr(args, "prompt")
 	if prompt == "" {
 		return mcp.ErrResult(fmt.Errorf("prompt is required"))
 	}
-	agentContext := argStr(args, "context")
 
 	body := map[string]any{
 		"agent_id":      agentID,
@@ -36,7 +40,10 @@ func launchAgent(ctx context.Context, o *overmind, args map[string]any) (*mcp.To
 }
 
 func getAgentStatus(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
-	agentRunID := argStr(args, "agent_run_id")
+	agentRunID, err := mcp.ArgStr(args, "agent_run_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if agentRunID == "" {
 		return mcp.ErrResult(fmt.Errorf("agent_run_id is required"))
 	}
@@ -49,7 +56,10 @@ func getAgentStatus(ctx context.Context, o *overmind, args map[string]any) (*mcp
 }
 
 func getAgentResult(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
-	agentRunID := argStr(args, "agent_run_id")
+	agentRunID, err := mcp.ArgStr(args, "agent_run_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if agentRunID == "" {
 		return mcp.ErrResult(fmt.Errorf("agent_run_id is required"))
 	}
@@ -62,11 +72,15 @@ func getAgentResult(ctx context.Context, o *overmind, args map[string]any) (*mcp
 }
 
 func completeFlow(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
-	summary := argStr(args, "summary")
+	r := mcp.NewArgs(args)
+	summary := r.Str("summary")
+	status := r.Str("status")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if summary == "" {
 		return mcp.ErrResult(fmt.Errorf("summary is required"))
 	}
-	status := argStr(args, "status")
 	if status == "" {
 		status = "success"
 	}

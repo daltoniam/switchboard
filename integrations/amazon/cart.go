@@ -113,7 +113,11 @@ func getCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult,
 }
 
 func addToCart(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error) {
-	asin := argStr(args, "asin")
+	r := mcp.NewArgs(args)
+	asin := r.Str("asin")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if !asinRe.MatchString(asin) {
 		return mcp.ErrResult(fmt.Errorf("asin must be exactly 10 uppercase alphanumeric characters (e.g. B0CHXKM5GK)"))
 	}

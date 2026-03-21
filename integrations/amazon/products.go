@@ -15,7 +15,11 @@ const maxSearchResults = 20
 var asinRe = regexp.MustCompile(`^[A-Z0-9]{10}$`)
 
 func searchProducts(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error) {
-	term := argStr(args, "search_term")
+	r := mcp.NewArgs(args)
+	term := r.Str("search_term")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if term == "" {
 		return mcp.ErrResult(fmt.Errorf("search_term is required"))
 	}
@@ -100,7 +104,11 @@ func searchProducts(ctx context.Context, a *amazon, args map[string]any) (*mcp.T
 }
 
 func getProduct(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolResult, error) {
-	asin := argStr(args, "asin")
+	r := mcp.NewArgs(args)
+	asin := r.Str("asin")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if !asinRe.MatchString(asin) {
 		return mcp.ErrResult(fmt.Errorf("asin must be exactly 10 uppercase alphanumeric characters (e.g. B0CHXKM5GK)"))
 	}

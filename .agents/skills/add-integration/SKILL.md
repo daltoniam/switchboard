@@ -100,7 +100,7 @@ Add integration-specific helpers when a pattern repeats 3+ times *within* an ada
 - Entity ID resolution by name (see `integrations/linear/resolveTeamID()`)
 - Query string building from optional params (see `integrations/sentry/queryEncode()`)
 
-Note: arg helpers (`argStr`, `argInt`, `argBool`) are intentionally duplicated *across* adapters — see `AGENTS.md > Gotchas`. Result constructors (`mcp.JSONResult`, `mcp.RawResult`, `mcp.ErrResult`) are shared from the root package. Some adapters wrap `mcp.ErrResult` in a local `errResult` to inject retry semantics.
+Note: arg helpers are **shared** from `args.go` — use `mcp.NewArgs(args)` reader for bulk extraction or standalone `mcp.ArgStr`/`mcp.ArgInt`/etc. for conditional fields. NEVER define local `argStr`/`argInt` in adapters. Use `r.OptInt("page", 1)` for pagination defaults. See [docs/go-anti-patterns.md](docs/go-anti-patterns.md) for extraction pitfalls. Result constructors (`mcp.JSONResult`, `mcp.RawResult`, `mcp.ErrResult`) are shared from the root package. Some adapters wrap `mcp.ErrResult` in a local `errResult` to inject retry semantics.
 
 ## 4. Testing Requirements
 
@@ -115,7 +115,7 @@ Every adapter must have these test categories (see existing `*_test.go` files):
   - `TestDispatchMap_NoOrphanHandlers` — every dispatch key has a `ToolDefinition`
 - [ ] **Execute unknown tool**: Returns `IsError: true`, `"unknown tool"` in Data
 - [ ] **HTTP helpers**: `httptest.NewServer` for success, API errors (>=400), 204 no-content
-- [ ] **Arg helpers**: Unit tests for type coercion (`float64→int`, `string→bool`)
+- [ ] **Arg extraction**: Uses shared `mcp.NewArgs(args)` reader with `r.Err()` check — type coercion is tested in root `args_test.go`. `TestNewArgs_ErrCheckParity` automatically covers new adapters
 
 ## 5. Wiring and Verification
 

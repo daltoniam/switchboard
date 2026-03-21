@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 
 	ch "github.com/ClickHouse/clickhouse-go/v2"
@@ -151,34 +150,6 @@ func (c *clickhouseInt) query(ctx context.Context, q string, args ...any) (json.
 
 func (c *clickhouseInt) exec(ctx context.Context, q string) error {
 	return c.conn.Exec(ctx, q)
-}
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
 }
 
 func escapeIdentifier(s string) string {

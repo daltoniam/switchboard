@@ -9,8 +9,12 @@ import (
 )
 
 func executeQuery(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	dbID := argInt(args, "database_id")
-	query := argStr(args, "query")
+	r := mcp.NewArgs(args)
+	dbID := r.Int("database_id")
+	query := r.Str("query")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if dbID == 0 || query == "" {
 		return mcp.ErrResult(fmt.Errorf("database_id and query are required"))
 	}
@@ -32,13 +36,17 @@ func executeQuery(ctx context.Context, m *metabase, args map[string]any) (*mcp.T
 }
 
 func executeCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	cardID := argInt(args, "card_id")
+	r := mcp.NewArgs(args)
+	cardID := r.Int("card_id")
+	params := r.Str("parameters")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if cardID == 0 {
 		return mcp.ErrResult(fmt.Errorf("card_id is required"))
 	}
 
 	path := fmt.Sprintf("/api/card/%d/query", cardID)
-	params := argStr(args, "parameters")
 	if params != "" {
 		var p []any
 		if err := json.Unmarshal([]byte(params), &p); err != nil {
@@ -59,7 +67,10 @@ func executeCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.To
 }
 
 func listCards(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	filter := argStr(args, "filter")
+	filter, err := mcp.ArgStr(args, "filter")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	path := "/api/card"
 	if filter != "" {
 		path = fmt.Sprintf("/api/card?f=%s", filter)
@@ -72,7 +83,10 @@ func listCards(ctx context.Context, m *metabase, args map[string]any) (*mcp.Tool
 }
 
 func getCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	id := argInt(args, "card_id")
+	id, err := mcp.ArgInt(args, "card_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == 0 {
 		return mcp.ErrResult(fmt.Errorf("card_id is required"))
 	}
@@ -84,14 +98,20 @@ func getCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolRe
 }
 
 func createCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	name := argStr(args, "name")
-	dbID := argInt(args, "database_id")
-	query := argStr(args, "query")
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	dbID := r.Int("database_id")
+	query := r.Str("query")
+	display := r.Str("display")
+	desc := r.Str("description")
+	cid := r.Int("collection_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if name == "" || dbID == 0 || query == "" {
 		return mcp.ErrResult(fmt.Errorf("name, database_id, and query are required"))
 	}
 
-	display := argStr(args, "display")
 	if display == "" {
 		display = "table"
 	}
@@ -110,10 +130,10 @@ func createCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.Too
 		"visualization_settings": map[string]any{},
 	}
 
-	if desc := argStr(args, "description"); desc != "" {
+	if desc != "" {
 		body["description"] = desc
 	}
-	if cid := argInt(args, "collection_id"); cid != 0 {
+	if cid != 0 {
 		body["collection_id"] = cid
 	}
 
@@ -125,27 +145,36 @@ func createCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.Too
 }
 
 func updateCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	id := argInt(args, "card_id")
+	r := mcp.NewArgs(args)
+	id := r.Int("card_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	display := r.Str("display")
+	archived := r.Bool("archived")
+	q := r.Str("query")
+	dbID := r.Int("database_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == 0 {
 		return mcp.ErrResult(fmt.Errorf("card_id is required"))
 	}
 
 	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	if name != "" {
+		body["name"] = name
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	if description != "" {
+		body["description"] = description
 	}
-	if v := argStr(args, "display"); v != "" {
-		body["display"] = v
+	if display != "" {
+		body["display"] = display
 	}
-	if argBool(args, "archived") {
+	if archived {
 		body["archived"] = true
 	}
 
-	if q := argStr(args, "query"); q != "" {
-		dbID := argInt(args, "database_id")
+	if q != "" {
 		if dbID == 0 {
 			return mcp.ErrResult(fmt.Errorf("database_id is required when updating query"))
 		}
@@ -167,7 +196,10 @@ func updateCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.Too
 }
 
 func deleteCard(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	id := argInt(args, "card_id")
+	id, err := mcp.ArgInt(args, "card_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == 0 {
 		return mcp.ErrResult(fmt.Errorf("card_id is required"))
 	}

@@ -199,37 +199,6 @@ func TestErrResult(t *testing.T) {
 	assert.Equal(t, "test error", result.Data)
 }
 
-// --- argument helper tests ---
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
-
-func TestArgStrSlice(t *testing.T) {
-	result := argStrSlice(map[string]any{"ids": "a,b,c"}, "ids")
-	assert.Equal(t, []string{"a", "b", "c"}, result)
-
-	result = argStrSlice(map[string]any{"ids": "a, b, c"}, "ids")
-	assert.Equal(t, []string{"a", "b", "c"}, result)
-
-	assert.Nil(t, argStrSlice(map[string]any{}, "ids"))
-}
-
 func TestQueryEncode(t *testing.T) {
 	t.Run("with values", func(t *testing.T) {
 		result := queryEncode(map[string]string{"key": "val", "empty": ""})
@@ -304,8 +273,8 @@ func TestListHistory_MultipleTypes(t *testing.T) {
 }
 
 func TestUser(t *testing.T) {
-	assert.Equal(t, "me", user(map[string]any{}))
-	assert.Equal(t, "user@example.com", user(map[string]any{"user_id": "user@example.com"}))
+	assert.Equal(t, "me", user(mcp.NewArgs(map[string]any{})))
+	assert.Equal(t, "user@example.com", user(mcp.NewArgs(map[string]any{"user_id": "user@example.com"})))
 }
 
 func TestParseJSON_Valid(t *testing.T) {
@@ -332,22 +301,22 @@ func TestParseJSON_Empty(t *testing.T) {
 
 func TestBuildRawMessage(t *testing.T) {
 	t.Run("from to/subject/body", func(t *testing.T) {
-		raw := buildRawMessage(map[string]any{
+		raw := buildRawMessage(mcp.NewArgs(map[string]any{
 			"to":      "user@example.com",
 			"subject": "Hello",
 			"body":    "World",
-		})
+		}))
 		assert.NotEmpty(t, raw)
 		assert.NotContains(t, raw, "=", "base64url must not contain padding")
 	})
 
 	t.Run("raw passthrough", func(t *testing.T) {
-		raw := buildRawMessage(map[string]any{"raw": "preencoded-base64"})
+		raw := buildRawMessage(mcp.NewArgs(map[string]any{"raw": "preencoded-base64"}))
 		assert.Equal(t, "preencoded-base64", raw)
 	})
 
 	t.Run("empty", func(t *testing.T) {
-		raw := buildRawMessage(map[string]any{})
+		raw := buildRawMessage(mcp.NewArgs(map[string]any{}))
 		assert.Empty(t, raw)
 	})
 }

@@ -424,6 +424,238 @@ func TestUpdateIssue_OnlyBasicFields(t *testing.T) {
 	assert.NotContains(t, capturedInput, "labelIds")
 }
 
+func TestUpdateIssue_SetsMilestone(t *testing.T) {
+	var capturedInput map[string]any
+	callCount := 0
+
+	l, ts := newTestLinear(gqlHandler(func(query string, vars map[string]any) any {
+		callCount++
+		switch callCount {
+		case 1: // resolveIssueID
+			return map[string]any{"issue": map[string]any{"id": "issue-uuid"}}
+		case 2: // resolveProjectID
+			return map[string]any{"searchProjects": map[string]any{"nodes": []map[string]any{{"id": "proj-uuid", "name": "My Project"}}}}
+		case 3: // resolveMilestoneID — queries project milestones
+			assert.Contains(t, query, "projectMilestones")
+			assert.Equal(t, "proj-uuid", vars["id"])
+			return map[string]any{"project": map[string]any{"projectMilestones": map[string]any{"nodes": []map[string]any{
+				{"id": "ms-other", "name": "M1: Planning"},
+				{"id": "ms-uuid", "name": "M2: Projects"},
+			}}}}
+		default: // issueUpdate mutation
+			capturedInput, _ = vars["input"].(map[string]any)
+			return map[string]any{
+				"issueUpdate": map[string]any{
+					"issue": map[string]any{"id": "issue-uuid", "title": "Updated"},
+				},
+			}
+		}
+	}))
+	defer ts.Close()
+	origURL := graphqlURL
+	setGraphqlURL(ts.URL)
+	defer setGraphqlURL(origURL)
+
+	result, err := updateIssue(context.Background(), l, map[string]any{
+		"id":        "ENG-456",
+		"project":   "My Project",
+		"milestone": "M2: Projects",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	assert.Equal(t, "proj-uuid", capturedInput["projectId"])
+	assert.Equal(t, "ms-uuid", capturedInput["projectMilestoneId"])
+}
+
+func TestUpdateIssue_MilestoneResolvesFromIssueProject(t *testing.T) {
+	var capturedInput map[string]any
+	callCount := 0
+
+	l, ts := newTestLinear(gqlHandler(func(query string, vars map[string]any) any {
+		callCount++
+		switch callCount {
+		case 1: // resolveIssueID
+			return map[string]any{"issue": map[string]any{"id": "issue-uuid"}}
+		case 2: // resolveIssueProjectID — no explicit project arg, so fetches from issue
+			assert.Contains(t, query, "project")
+			return map[string]any{"issue": map[string]any{"project": map[string]any{"id": "proj-uuid"}}}
+		case 3: // resolveMilestoneID
+			return map[string]any{"project": map[string]any{"projectMilestones": map[string]any{"nodes": []map[string]any{
+				{"id": "ms-uuid", "name": "M2: Projects"},
+			}}}}
+		default: // issueUpdate mutation
+			capturedInput, _ = vars["input"].(map[string]any)
+			return map[string]any{
+				"issueUpdate": map[string]any{
+					"issue": map[string]any{"id": "issue-uuid"},
+				},
+			}
+		}
+	}))
+	defer ts.Close()
+	origURL := graphqlURL
+	setGraphqlURL(ts.URL)
+	defer setGraphqlURL(origURL)
+
+	result, err := updateIssue(context.Background(), l, map[string]any{
+		"id":        "ENG-456",
+		"milestone": "M2: Projects",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	assert.Equal(t, "ms-uuid", capturedInput["projectMilestoneId"])
+	assert.NotContains(t, capturedInput, "projectId") // no explicit project
+}
+
+func TestUpdateIssue_MilestoneWithNoProjectErrors(t *testing.T) {
+	callCount := 0
+
+	l, ts := newTestLinear(gqlHandler(func(_ string, _ map[string]any) any {
+		callCount++
+		switch callCount {
+		case 1: // resolveIssueID
+			return map[string]any{"issue": map[string]any{"id": "issue-uuid"}}
+		default: // resolveIssueProjectID — issue has no project
+			return map[string]any{"issue": map[string]any{"project": map[string]any{"id": ""}}}
+		}
+	}))
+	defer ts.Close()
+	origURL := graphqlURL
+	setGraphqlURL(ts.URL)
+	defer setGraphqlURL(origURL)
+
+	result, err := updateIssue(context.Background(), l, map[string]any{
+		"id":        "ENG-789",
+		"milestone": "M1: Launch",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "has no project assigned")
+}
+
+func TestCreateIssue_SetsMilestone(t *testing.T) {
+	var capturedInput map[string]any
+	callCount := 0
+
+	l, ts := newTestLinear(gqlHandler(func(query string, vars map[string]any) any {
+		callCount++
+		switch callCount {
+		case 1: // resolveTeamID (by name)
+			return map[string]any{"teams": map[string]any{"nodes": []map[string]any{{"id": "team-uuid"}}}}
+		case 2: // resolveProjectID
+			return map[string]any{"searchProjects": map[string]any{"nodes": []map[string]any{{"id": "proj-uuid", "name": "My Project"}}}}
+		case 3: // resolveMilestoneID
+			assert.Contains(t, query, "projectMilestones")
+			return map[string]any{"project": map[string]any{"projectMilestones": map[string]any{"nodes": []map[string]any{
+				{"id": "ms-uuid", "name": "M2: Projects"},
+			}}}}
+		default: // issueCreate mutation
+			capturedInput, _ = vars["input"].(map[string]any)
+			return map[string]any{
+				"issueCreate": map[string]any{
+					"issue": map[string]any{"id": "issue-uuid", "identifier": "ENG-456", "title": "New Issue", "url": "https://linear.app/issue", "state": map[string]any{"name": "Todo"}},
+				},
+			}
+		}
+	}))
+	defer ts.Close()
+	origURL := graphqlURL
+	setGraphqlURL(ts.URL)
+	defer setGraphqlURL(origURL)
+
+	result, err := createIssue(context.Background(), l, map[string]any{
+		"title":     "New Issue",
+		"team":      "Engineering",
+		"project":   "My Project",
+		"milestone": "M2: Projects",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	assert.Equal(t, "proj-uuid", capturedInput["projectId"])
+	assert.Equal(t, "ms-uuid", capturedInput["projectMilestoneId"])
+}
+
+func TestCreateIssue_MilestoneWithoutProjectErrors(t *testing.T) {
+	callCount := 0
+
+	l, ts := newTestLinear(gqlHandler(func(_ string, _ map[string]any) any {
+		callCount++
+		switch callCount {
+		case 1: // resolveTeamID
+			return map[string]any{"teams": map[string]any{"nodes": []map[string]any{{"id": "team-uuid"}}}}
+		default:
+			t.Fatal("unexpected GQL call")
+			return nil
+		}
+	}))
+	defer ts.Close()
+	origURL := graphqlURL
+	setGraphqlURL(ts.URL)
+	defer setGraphqlURL(origURL)
+
+	result, err := createIssue(context.Background(), l, map[string]any{
+		"title":     "New Issue",
+		"team":      "Engineering",
+		"milestone": "M2: Projects",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "milestone requires a project")
+}
+
+func TestResolveMilestoneID(t *testing.T) {
+	t.Run("UUID passthrough", func(t *testing.T) {
+		l, ts := newTestLinear(gqlHandler(func(_ string, _ map[string]any) any {
+			t.Fatal("should not call GQL for UUID input")
+			return nil
+		}))
+		defer ts.Close()
+		origURL := graphqlURL
+		setGraphqlURL(ts.URL)
+		defer setGraphqlURL(origURL)
+
+		id, err := l.resolveMilestoneID(context.Background(), "550e8400-e29b-41d4-a716-446655440000", "proj-1")
+		require.NoError(t, err)
+		assert.Equal(t, "550e8400-e29b-41d4-a716-446655440000", id)
+	})
+
+	t.Run("found by name case-insensitive", func(t *testing.T) {
+		l, ts := newTestLinear(gqlHandler(func(_ string, vars map[string]any) any {
+			assert.Equal(t, "proj-1", vars["id"])
+			return map[string]any{"project": map[string]any{"projectMilestones": map[string]any{"nodes": []map[string]any{
+				{"id": "ms-1", "name": "M1: Planning"},
+				{"id": "ms-2", "name": "M2: Projects"},
+			}}}}
+		}))
+		defer ts.Close()
+		origURL := graphqlURL
+		setGraphqlURL(ts.URL)
+		defer setGraphqlURL(origURL)
+
+		id, err := l.resolveMilestoneID(context.Background(), "m2: projects", "proj-1")
+		require.NoError(t, err)
+		assert.Equal(t, "ms-2", id)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		l, ts := newTestLinear(gqlHandler(func(_ string, _ map[string]any) any {
+			return map[string]any{"project": map[string]any{"projectMilestones": map[string]any{"nodes": []map[string]any{
+				{"id": "ms-1", "name": "M1: Planning"},
+			}}}}
+		}))
+		defer ts.Close()
+		origURL := graphqlURL
+		setGraphqlURL(ts.URL)
+		defer setGraphqlURL(origURL)
+
+		_, err := l.resolveMilestoneID(context.Background(), "NonExistent", "proj-1")
+		assert.ErrorContains(t, err, "milestone not found")
+	})
+}
+
 func TestUpdateIssue_StateResolvesFromIssueTeam(t *testing.T) {
 	var capturedInput map[string]any
 	callCount := 0

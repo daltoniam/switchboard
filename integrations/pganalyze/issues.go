@@ -29,17 +29,26 @@ func getIssues(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.Too
 		}
 	`
 
+	r := mcp.NewArgs(args)
+	serverID := r.Str("server_id")
+	databaseID := r.Str("database_id")
+	includeResolved := r.Bool("include_resolved")
+	severity := r.Str("severity")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	variables := make(map[string]any)
 	if v := p.orgSlug(args); v != "" {
 		variables["organizationSlug"] = v
 	}
-	if v := argStr(args, "server_id"); v != "" {
-		variables["serverId"] = v
+	if serverID != "" {
+		variables["serverId"] = serverID
 	}
-	if v := argStr(args, "database_id"); v != "" {
-		variables["databaseId"] = v
+	if databaseID != "" {
+		variables["databaseId"] = databaseID
 	}
-	if !argBool(args, "include_resolved") {
+	if !includeResolved {
 		variables["state"] = "open"
 	}
 
@@ -55,7 +64,7 @@ func getIssues(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.Too
 		return mcp.ErrResult(err)
 	}
 
-	if severity := argStr(args, "severity"); severity != "" {
+	if severity != "" {
 		var issues []map[string]any
 		if err := json.Unmarshal(resp.GetIssues, &issues); err != nil {
 			return mcp.ErrResult(err)

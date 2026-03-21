@@ -12,16 +12,23 @@ import (
 )
 
 func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "run_id"))
+	ra := mcp.NewArgs(args)
+	runIDRaw := ra.Str("run_id")
+	download := ra.Bool("download")
+	artifactKey := ra.Str("artifact_key")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	id := extractRunID(runIDRaw)
 	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, id)
-	download := argBool(args, "download")
 
 	cmdArgs := []string{"artifacts", id, "--output", "json"}
 	if !download {
 		cmdArgs = append(cmdArgs, "--list")
 	}
-	if key := argStr(args, "artifact_key"); key != "" && download {
-		cmdArgs = append(cmdArgs, "--key", key)
+	if artifactKey != "" && download {
+		cmdArgs = append(cmdArgs, "--key", artifactKey)
 	}
 
 	output, err := r.runRWXCommand(cmdArgs, 0)
@@ -61,7 +68,10 @@ func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResu
 }
 
 func validateWorkflow(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	filePath := argStr(args, "file_path")
+	filePath, err := mcp.ArgStr(args, "file_path")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if filePath == "" {
 		filePath = ".rwx/ci.yml"
 	}

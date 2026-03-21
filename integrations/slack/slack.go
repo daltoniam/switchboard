@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -251,45 +250,4 @@ func wrapRetryable(err error) error {
 
 func errResult(err error) (*mcp.ToolResult, error) {
 	return mcp.ErrResult(wrapRetryable(err))
-}
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case float64:
-		return v != 0
-	case string:
-		return strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes")
-	}
-	return false
-}
-
-func optInt(args map[string]any, key string, def int) int {
-	if _, ok := args[key]; !ok {
-		return def
-	}
-	v := argInt(args, key)
-	if v == 0 {
-		return def
-	}
-	return v
 }

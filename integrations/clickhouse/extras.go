@@ -42,7 +42,11 @@ func listProcesses(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mc
 }
 
 func killQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	queryID := argStr(args, "query_id")
+	r := mcp.NewArgs(args)
+	queryID := r.Str("query_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if queryID == "" {
 		return mcp.ErrResult(fmt.Errorf("query_id is required"))
 	}
@@ -55,7 +59,11 @@ func killQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp
 }
 
 func listSettings(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	pattern := argStr(args, "pattern")
+	r := mcp.NewArgs(args)
+	pattern := r.Str("pattern")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if pattern != "" {
 		data, err := c.query(ctx,
 			"SELECT name, value, changed, description, type FROM system.settings WHERE name LIKE ? ORDER BY name LIMIT 200",
@@ -130,13 +138,16 @@ func diskUsage(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.To
 }
 
 func listParts(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	r := mcp.NewArgs(args)
+	table := r.Str("table")
+	db := r.Str("database")
+	activeOnly := r.Str("active") != "false"
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-
-	db := argStr(args, "database")
-	activeOnly := argStr(args, "active") != "false"
 
 	q := `SELECT partition, name, active, rows, bytes_on_disk,
 		formatReadableSize(bytes_on_disk) AS readable_size, modification_time
@@ -197,13 +208,16 @@ func listRoles(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mcp.To
 }
 
 func queryLog(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	limit := argInt(args, "limit")
+	r := mcp.NewArgs(args)
+	limit := r.Int("limit")
+	pattern := r.Str("query_pattern")
+	qtype := r.Str("query_type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = 50
 	}
-
-	pattern := argStr(args, "query_pattern")
-	qtype := argStr(args, "query_type")
 
 	baseQuery := `SELECT type, event_time, query_id, query_duration_ms, read_rows, read_bytes,
 		result_rows, result_bytes, memory_usage, exception, query

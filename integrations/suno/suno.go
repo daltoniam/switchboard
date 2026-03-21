@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -117,49 +116,6 @@ func (s *suno) post(ctx context.Context, path string, body any) (json.RawMessage
 // --- Result helpers ---
 
 type handlerFunc func(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error)
-
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
-func argFloat(args map[string]any, key string) float64 {
-	switch v := args[key].(type) {
-	case float64:
-		return v
-	case int:
-		return float64(v)
-	case string:
-		f, _ := strconv.ParseFloat(v, 64)
-		return f
-	}
-	return 0
-}
 
 // --- Dispatch map ---
 

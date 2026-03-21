@@ -10,11 +10,16 @@ import (
 var _ *mcp.ToolResult // type anchor
 
 func listUsers(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := []slack.GetUsersOption{
-		slack.GetUsersOptionLimit(optInt(args, "limit", 200)),
+	r := mcp.NewArgs(args)
+	cursor := r.Str("cursor")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if c := argStr(args, "cursor"); c != "" {
-		opts = append(opts, slack.GetUsersOptionCursor(c))
+	opts := []slack.GetUsersOption{
+		slack.GetUsersOptionLimit(mcp.OptInt(args, "limit", 200)),
+	}
+	if cursor != "" {
+		opts = append(opts, slack.GetUsersOptionCursor(cursor))
 	}
 
 	users, err := s.getClient().GetUsersContext(ctx, opts...)
@@ -51,7 +56,12 @@ func listUsers(ctx context.Context, s *slackIntegration, args map[string]any) (*
 }
 
 func getUserInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	user, err := s.getClient().GetUserInfoContext(ctx, argStr(args, "user_id"))
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	user, err := s.getClient().GetUserInfoContext(ctx, userID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -73,21 +83,32 @@ func getUserInfo(ctx context.Context, s *slackIntegration, args map[string]any) 
 }
 
 func getUserPresence(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	presence, err := s.getClient().GetUserPresenceContext(ctx, argStr(args, "user_id"))
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	presence, err := s.getClient().GetUserPresenceContext(ctx, userID)
 	if err != nil {
 		return errResult(err)
 	}
 	return mcp.JSONResult(map[string]any{
-		"user_id":  argStr(args, "user_id"),
+		"user_id":  userID,
 		"presence": presence.Presence,
 		"online":   presence.Online,
 	})
 }
 
 func listUserGroups(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	includeUsers := r.Bool("include_users")
+	includeDisabled := r.Bool("include_disabled")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	opts := []slack.GetUserGroupsOption{
-		slack.GetUserGroupsOptionIncludeUsers(argBool(args, "include_users")),
-		slack.GetUserGroupsOptionIncludeDisabled(argBool(args, "include_disabled")),
+		slack.GetUserGroupsOptionIncludeUsers(includeUsers),
+		slack.GetUserGroupsOptionIncludeDisabled(includeDisabled),
 		slack.GetUserGroupsOptionIncludeCount(true),
 	}
 
@@ -119,12 +140,17 @@ func listUserGroups(ctx context.Context, s *slackIntegration, args map[string]an
 }
 
 func getUserGroup(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
-	members, err := s.getClient().GetUserGroupMembersContext(ctx, argStr(args, "usergroup_id"))
+	r := mcp.NewArgs(args)
+	usergroupID := r.Str("usergroup_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	members, err := s.getClient().GetUserGroupMembersContext(ctx, usergroupID)
 	if err != nil {
 		return errResult(err)
 	}
 	return mcp.JSONResult(map[string]any{
-		"usergroup_id": argStr(args, "usergroup_id"),
+		"usergroup_id": usergroupID,
 		"count":        len(members),
 		"members":      members,
 	})
