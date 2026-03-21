@@ -16,7 +16,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
 	github.com/DataDog/datadog-api-client-go/v2 v2.55.0
 	github.com/PuerkitoBio/goquery v1.11.0
-	github.com/a-h/templ v0.3.977
+	github.com/a-h/templ v0.3.1001
 	github.com/aws/aws-sdk-go-v2 v1.41.2
 	github.com/aws/aws-sdk-go-v2/config v1.32.10
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.10

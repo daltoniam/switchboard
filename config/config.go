@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -370,4 +371,24 @@ func (m *manager) DefaultCredentialKeys(name string) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (m *manager) GetTenantConfig(_ context.Context, _ string) (*mcp.Config, error) {
+	return m.Get(), nil
+}
+
+func (m *manager) GetTenantIntegration(_ context.Context, _, name string) (*mcp.IntegrationConfig, error) {
+	ic, ok := m.GetIntegration(name)
+	if !ok {
+		return nil, fmt.Errorf("integration %q not found", name)
+	}
+	return ic, nil
+}
+
+func (m *manager) SetTenantIntegration(_ context.Context, _, name string, ic *mcp.IntegrationConfig) error {
+	return m.SetIntegration(name, ic)
+}
+
+func (m *manager) TenantEnabledIntegrations(_ context.Context, _ string) ([]string, error) {
+	return m.EnabledIntegrations(), nil
 }

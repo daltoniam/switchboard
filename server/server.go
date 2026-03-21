@@ -15,6 +15,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/integrationcache"
 	"github.com/daltoniam/switchboard/script"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -45,6 +46,7 @@ type Server struct {
 	breakers         map[string]*breaker
 	breakerThreshold int
 	breakerCooldown  time.Duration
+	cache            *integrationcache.Cache // nil in local mode
 }
 
 // New creates a Server that exposes two MCP tools — search and execute —
@@ -71,6 +73,13 @@ func New(services *mcp.Services) *Server {
 
 	s.registerTools()
 	return s
+}
+
+// SetCache sets the integration instance cache for hosted mode.
+// When set, the server resolves integrations per-tenant from the cache
+// instead of using the singleton registry instances.
+func (s *Server) SetCache(cache *integrationcache.Cache) {
+	s.cache = cache
 }
 
 func (s *Server) registerTools() {
@@ -254,19 +263,22 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 
 	type toolInfo = searchToolInfo
 
-	enabled := s.services.Config.EnabledIntegrations()
+	enabled, err := s.tenantEnabledIntegrations(ctx)
+	if err != nil {
+		return errorResult("failed to load enabled integrations: " + err.Error()), nil
+	}
 	var all []toolInfo
 
 	for _, name := range enabled {
 		if args.Integration != "" && name != args.Integration {
 			continue
 		}
-		integration, ok := s.services.Registry.Get(name)
+		integration, ok := s.tenantGetIntegrationInstance(ctx, name)
 		if !ok {
 			continue
 		}
 
-		ic, _ := s.services.Config.GetIntegration(name)
+		ic, _ := s.tenantIntegrationConfig(ctx, name)
 
 		for _, tool := range integration.Tools() {
 			if ic != nil && !ic.ToolAllowed(tool.Name) {
@@ -433,15 +445,18 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 
 	integration, result, err := s.executeTool(ctx, args.ToolName, args.Arguments)
 	if err != nil {
+		s.auditLogExecute(ctx, args.ToolName, extractIntegrationName(args.ToolName), args.Arguments, true)
 		return errorResult(err.Error()), nil
 	}
 	if result.IsError {
+		s.auditLogExecute(ctx, args.ToolName, extractIntegrationName(args.ToolName), args.Arguments, true)
 		return &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
 			IsError: true,
 		}, nil
 	}
 	result.Data = processResult(integration, args.ToolName, result.Data)
+	s.auditLogExecute(ctx, args.ToolName, extractIntegrationName(args.ToolName), args.Arguments, false)
 	if len(result.Data) > maxResponseBytes {
 		return errorResult(fmt.Sprintf(
 			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
@@ -578,7 +593,7 @@ func (s *Server) getBreaker(integrationName string) *breaker {
 // Retries automatically on RetryableError (5xx, 429) with exponential backoff.
 // Respects per-integration circuit breakers to avoid hammering down services.
 func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (mcp.Integration, *mcp.ToolResult, error) {
-	integration, toolDef, found := s.findTool(toolName)
+	integration, toolDef, found := s.findTool(ctx, toolName)
 	if !found {
 		return nil, &mcp.ToolResult{
 			Data:    fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", toolName),
@@ -640,13 +655,17 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 // findTool returns the integration and tool definition that owns toolName, or false if not found.
 // Respects ABAC tool glob restrictions: a tool that doesn't match the integration's
 // configured globs is treated as if it doesn't exist.
-func (s *Server) findTool(toolName string) (mcp.Integration, mcp.ToolDefinition, bool) {
-	for _, name := range s.services.Config.EnabledIntegrations() {
-		integration, ok := s.services.Registry.Get(name)
+func (s *Server) findTool(ctx context.Context, toolName string) (mcp.Integration, mcp.ToolDefinition, bool) {
+	enabled, err := s.tenantEnabledIntegrations(ctx)
+	if err != nil {
+		return nil, mcp.ToolDefinition{}, false
+	}
+	for _, name := range enabled {
+		integration, ok := s.tenantGetIntegrationInstance(ctx, name)
 		if !ok {
 			continue
 		}
-		ic, _ := s.services.Config.GetIntegration(name)
+		ic, _ := s.tenantIntegrationConfig(ctx, name)
 		for _, tool := range integration.Tools() {
 			if tool.Name == toolName {
 				if ic != nil && !ic.ToolAllowed(tool.Name) {

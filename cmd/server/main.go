@@ -12,10 +12,13 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/audit"
+	"github.com/daltoniam/switchboard/authn"
 	"github.com/daltoniam/switchboard/browser"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
 	gcpInt "github.com/daltoniam/switchboard/gcp"
+	"github.com/daltoniam/switchboard/integrationcache"
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
@@ -172,18 +175,35 @@ Options:
 }
 
 func runServer(stdioMode bool, port int) {
-	cfgMgr, err := config.NewManager()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+	mode := os.Getenv("SWITCHBOARD_MODE") // "" or "hosted"
+	hostedMode := mode == "hosted"
+
+	var cfgSvc mcp.ConfigService
+	var auditLogger audit.Logger
+	var cache *integrationcache.Cache
+
+	if hostedMode {
+		cfgSvc, auditLogger, cache = initHostedMode()
+	} else {
+		var err error
+		cfgSvc, err = config.NewManager()
+		if err != nil {
+			log.Fatalf("Failed to load config: %v", err)
+		}
+		auditLogger = audit.Noop{}
 	}
 
-	browserSvc, err := browser.New(true /* headless */)
-	if err != nil {
-		log.Printf("browser service unavailable (%v) — browser-based integrations disabled", err)
-		browserSvc = nil
-	}
-	if browserSvc != nil {
-		defer browserSvc.Close() //nolint:errcheck
+	var browserSvc mcp.BrowserService
+	if !hostedMode {
+		var err error
+		browserSvc, err = browser.New(true /* headless */)
+		if err != nil {
+			log.Printf("browser service unavailable (%v) — browser-based integrations disabled", err)
+			browserSvc = nil
+		}
+		if browserSvc != nil {
+			defer browserSvc.Close() //nolint:errcheck
+		}
 	}
 
 	gmailIntegration := gmail.New()
@@ -218,17 +238,24 @@ func runServer(stdioMode bool, port int) {
 	}
 
 	services := &mcp.Services{
-		Config:   cfgMgr,
+		Config:   cfgSvc,
 		Registry: reg,
 		Browser:  browserSvc,
+		Audit:    auditLogger,
 	}
 
-	gmail.SetConfigService(gmailIntegration, cfgMgr)
+	if !hostedMode {
+		gmail.SetConfigService(gmailIntegration, cfgSvc)
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	srv := server.New(services)
+
+	if hostedMode && cache != nil {
+		srv.SetCache(cache)
+	}
 
 	if stdioMode {
 		if err := srv.RunStdio(ctx); err != nil {
@@ -256,11 +283,30 @@ func runServer(stdioMode bool, port int) {
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/mcp", srv.Handler())
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	mcpHandler := srv.Handler()
+	if hostedMode {
+		auth := authn.New()
+		if h := os.Getenv("SWITCHBOARD_TENANT_HEADER"); h != "" {
+			auth.TenantHeader = h
+		}
+		if h := os.Getenv("SWITCHBOARD_USER_HEADER"); h != "" {
+			auth.UserHeader = h
+		}
+		mcpHandler = auth.Wrap(mcpHandler)
+	}
+
+	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/{project}", projectRouter.Handler())
 
-	ws := web.New(services, port)
-	mux.Handle("/", ws.Handler())
+	if !hostedMode {
+		ws := web.New(services, port)
+		mux.Handle("/", ws.Handler())
+	}
 
 	addr := fmt.Sprintf(":%d", port)
 	fmt.Fprintf(os.Stderr, "Switchboard on http://localhost:%d\n", port)
@@ -277,4 +323,9 @@ func runServer(stdioMode bool, port int) {
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("HTTP server error: %v", err)
 	}
+}
+
+func initHostedMode() (mcp.ConfigService, audit.Logger, *integrationcache.Cache) {
+	log.Fatal("hosted mode requires a ConfigService implementation. See docs/remote-hosted-spec.md for details.")
+	return nil, nil, nil
 }
