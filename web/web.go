@@ -15,6 +15,7 @@ import (
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
+	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/remotemcp"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
@@ -89,6 +90,12 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /integrations/notion/setup", w.handleNotionSetup)
 	mux.HandleFunc("POST /api/notion/save-token", w.handleNotionSaveToken)
+
+	mux.HandleFunc("GET /integrations/x/setup", w.handleXSetup)
+	mux.HandleFunc("POST /api/x/oauth/start", w.handleXOAuthStart)
+	mux.HandleFunc("GET /api/x/oauth/callback", w.handleXOAuthCallback)
+	mux.HandleFunc("POST /api/x/save-token", w.handleXSaveToken)
+	mux.HandleFunc("POST /api/x/save-oauth-credentials", w.handleXSaveOAuthCredentials)
 
 	mux.HandleFunc("PUT /api/integrations/{name}/credentials", w.handleUpdateCredentials)
 
@@ -214,6 +221,7 @@ var setupIntegrations = map[string]bool{
 	"sentry": true,
 	"gmail":  true,
 	"notion": true,
+	"x":      true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
@@ -1387,4 +1395,164 @@ func (w *WebServer) handleSettingsSave(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 	http.Redirect(rw, r, "/settings?success=Settings+saved.+Restart+Switchboard+to+apply+changes.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleXSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("x")
+	hasToken := exists && ic.Credentials["bearer_token"] != ""
+	hasOAuth := exists && ic.Credentials["client_id"] != "" && ic.Credentials["client_secret"] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials["client_id"]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("x")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials["token_source"] != "" {
+		tokenSource = ic.Credentials["token_source"]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/x/oauth/callback", w.port)
+
+	var tools []string
+	if integration, ok := w.services.Registry.Get("x"); ok {
+		for _, t := range integration.Tools() {
+			tools = append(tools, string(t.Name))
+		}
+	}
+
+	page := w.pageData(r, "X Setup", "/integrations")
+	data := pages.XSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+		Tools:       tools,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.XSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleXOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("x")
+	if !exists || ic.Credentials["client_id"] == "" || ic.Credentials["client_secret"] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "X OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/x/oauth/callback", w.port)
+	result, err := xInt.StartXOAuth(ic.Credentials["client_id"], ic.Credentials["client_secret"], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleXOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/x/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := xInt.HandleXCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/x/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := xInt.PollXOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/x/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("x")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["bearer_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials["token_source"] = "oauth"
+	_ = w.services.Config.SetIntegration("x", ic)
+
+	http.Redirect(rw, r, "/integrations/x/setup?result=Connected+to+X+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleXSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/x/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	bearerToken := strings.TrimSpace(r.FormValue("bearer_token"))
+	if bearerToken == "" {
+		http.Redirect(rw, r, "/integrations/x/setup?error=Bearer+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("x")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["bearer_token"] = bearerToken
+	ic.Credentials["token_source"] = "manual"
+	_ = w.services.Config.SetIntegration("x", ic)
+
+	http.Redirect(rw, r, "/integrations/x/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleXSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/x/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/x/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("x")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials["client_id"] = clientID
+	ic.Credentials["client_secret"] = clientSecret
+	_ = w.services.Config.SetIntegration("x", ic)
+
+	http.Redirect(rw, r, "/integrations/x/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+X.", http.StatusSeeOther)
 }

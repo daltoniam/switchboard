@@ -44,6 +44,7 @@ import (
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
 	"github.com/daltoniam/switchboard/integrations/suno"
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
+	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/integrations/ynab"
 	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/project"
@@ -229,6 +230,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		acpInt.New(),
 		webfetchInt.New(),
 		botidentity.New(),
+		xInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
