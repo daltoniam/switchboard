@@ -8,14 +8,19 @@ import (
 )
 
 func listDrafts(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	params := map[string]string{
-		"q":                argStr(args, "q"),
-		"maxResults":       argStr(args, "max_results"),
-		"pageToken":        argStr(args, "page_token"),
-		"includeSpamTrash": argStr(args, "include_spam_trash"),
+		"q":                r.Str("q"),
+		"maxResults":       r.Str("max_results"),
+		"pageToken":        r.Str("page_token"),
+		"includeSpamTrash": r.Str("include_spam_trash"),
+	}
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	q := queryEncode(params)
-	data, err := g.get(ctx, "/gmail/v1/users/%s/drafts%s", user(args), q)
+	data, err := g.get(ctx, "/gmail/v1/users/%s/drafts%s", u, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -23,11 +28,17 @@ func listDrafts(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRe
 }
 
 func getDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	params := map[string]string{
-		"format": argStr(args, "format"),
+		"format": r.Str("format"),
+	}
+	u := user(r)
+	draftID := r.Str("draft_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	q := queryEncode(params)
-	data, err := g.get(ctx, "/gmail/v1/users/%s/drafts/%s%s", user(args), argStr(args, "draft_id"), q)
+	data, err := g.get(ctx, "/gmail/v1/users/%s/drafts/%s%s", u, draftID, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -35,15 +46,20 @@ func getDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResu
 }
 
 func createDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	msg := map[string]any{}
-	if raw := buildRawMessage(args); raw != "" {
+	if raw := buildRawMessage(r); raw != "" {
 		msg["raw"] = raw
 	}
-	if tid := argStr(args, "thread_id"); tid != "" {
+	if tid := r.Str("thread_id"); tid != "" {
 		msg["threadId"] = tid
 	}
 	body := map[string]any{"message": msg}
-	path := fmt.Sprintf("/gmail/v1/users/%s/drafts", user(args))
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/drafts", u)
 	data, err := g.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -52,15 +68,21 @@ func createDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 }
 
 func updateDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	msg := map[string]any{}
-	if raw := buildRawMessage(args); raw != "" {
+	if raw := buildRawMessage(r); raw != "" {
 		msg["raw"] = raw
 	}
-	if tid := argStr(args, "thread_id"); tid != "" {
+	if tid := r.Str("thread_id"); tid != "" {
 		msg["threadId"] = tid
 	}
 	body := map[string]any{"message": msg}
-	path := fmt.Sprintf("/gmail/v1/users/%s/drafts/%s", user(args), argStr(args, "draft_id"))
+	u := user(r)
+	draftID := r.Str("draft_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/drafts/%s", u, draftID)
 	data, err := g.put(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -69,7 +91,13 @@ func updateDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 }
 
 func deleteDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := g.del(ctx, "/gmail/v1/users/%s/drafts/%s", user(args), argStr(args, "draft_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	draftID := r.Str("draft_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := g.del(ctx, "/gmail/v1/users/%s/drafts/%s", u, draftID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -77,10 +105,15 @@ func deleteDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 }
 
 func sendDraft(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	body := map[string]any{
-		"id": argStr(args, "draft_id"),
+		"id": r.Str("draft_id"),
 	}
-	path := fmt.Sprintf("/gmail/v1/users/%s/drafts/send", user(args))
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/drafts/send", u)
 	data, err := g.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)

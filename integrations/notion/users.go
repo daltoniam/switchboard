@@ -55,7 +55,10 @@ func syncRecordValue(ctx context.Context, n *notion, table, id string) (*mcp.Too
 }
 
 func retrieveUser(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	userID := argStr(args, "user_id")
+	userID, err := mcp.ArgStr(args, "user_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if userID == "" {
 		return mcp.ErrResult(fmt.Errorf("user_id is required"))
 	}

@@ -10,8 +10,15 @@ import (
 // ── Search Extended ───────────────────────────────────────────────
 
 func searchTopics(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.SearchOptions{ListOptions: listOpts(args)}
-	resp, _, err := g.client.Search.Topics(ctx, argStr(args, "query"), opts)
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.SearchOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	resp, _, err := g.client.Search.Topics(ctx, query, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -19,12 +26,22 @@ func searchTopics(ctx context.Context, g *integration, args map[string]any) (*mc
 }
 
 func searchLabels(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.SearchOptions{
-		Sort:        argStr(args, "sort"),
-		Order:       argStr(args, "order"),
-		ListOptions: listOpts(args),
+	r := mcp.NewArgs(args)
+	repositoryID := r.Int64("repository_id")
+	query := r.Str("query")
+	sort := r.Str("sort")
+	order := r.Str("order")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	resp, _, err := g.client.Search.Labels(ctx, argInt64(args, "repository_id"), argStr(args, "query"), opts)
+	opts := &gh.SearchOptions{
+		Sort:        sort,
+		Order:       order,
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
+	}
+	resp, _, err := g.client.Search.Labels(ctx, repositoryID, query, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -34,7 +51,14 @@ func searchLabels(ctx context.Context, g *integration, args map[string]any) (*mc
 // ── Security Extended ─────────────────────────────────────────────
 
 func getSecretScanningAlert(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	alert, _, err := g.client.SecretScanning.GetAlert(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "alert_number"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	alertNumber := r.Int64("alert_number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	alert, _, err := g.client.SecretScanning.GetAlert(ctx, owner, repo, alertNumber)
 	if err != nil {
 		return errResult(err)
 	}
@@ -42,7 +66,14 @@ func getSecretScanningAlert(ctx context.Context, g *integration, args map[string
 }
 
 func getDependabotAlert(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	alert, _, err := g.client.Dependabot.GetRepoAlert(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "alert_number"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	alertNumber := r.Int("alert_number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	alert, _, err := g.client.Dependabot.GetRepoAlert(ctx, owner, repo, alertNumber)
 	if err != nil {
 		return errResult(err)
 	}
@@ -50,14 +81,23 @@ func getDependabotAlert(ctx context.Context, g *integration, args map[string]any
 }
 
 func listCodeScanningAnalyses(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	ref := r.Str("ref")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	opts := &gh.AnalysesListOptions{
-		Ref: gh.Ptr(argStr(args, "ref")),
+		Ref: gh.Ptr(ref),
 		ListOptions: gh.ListOptions{
-			Page:    listOpts(args).Page,
-			PerPage: listOpts(args).PerPage,
+			Page:    page,
+			PerPage: perPage,
 		},
 	}
-	analyses, _, err := g.client.CodeScanning.ListAnalysesForRepo(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	analyses, _, err := g.client.CodeScanning.ListAnalysesForRepo(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -67,7 +107,13 @@ func listCodeScanningAnalyses(ctx context.Context, g *integration, args map[stri
 // ── SBOM ──────────────────────────────────────────────────────────
 
 func getSBOM(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	sbom, _, err := g.client.DependencyGraph.GetSBOM(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	sbom, _, err := g.client.DependencyGraph.GetSBOM(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
@@ -85,7 +131,13 @@ func markNotificationsRead(ctx context.Context, g *integration, args map[string]
 }
 
 func starRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Activity.Star(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Activity.Star(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
@@ -93,7 +145,13 @@ func starRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 }
 
 func unstarRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Activity.Unstar(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Activity.Unstar(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
@@ -101,12 +159,21 @@ func unstarRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func listStarred(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ActivityListStarredOptions{
-		Sort:        argStr(args, "sort"),
-		Direction:   argStr(args, "direction"),
-		ListOptions: listOpts(args),
+	r := mcp.NewArgs(args)
+	username := r.Str("username")
+	sort := r.Str("sort")
+	direction := r.Str("direction")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	repos, _, err := g.client.Activity.ListStarred(ctx, argStr(args, "username"), opts)
+	opts := &gh.ActivityListStarredOptions{
+		Sort:        sort,
+		Direction:   direction,
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
+	}
+	repos, _, err := g.client.Activity.ListStarred(ctx, username, opts)
 	if err != nil {
 		return errResult(err)
 	}

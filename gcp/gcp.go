@@ -3,8 +3,6 @@ package gcp
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -210,83 +208,6 @@ func wrapRetryable(err error) error {
 
 func errResult(err error) (*mcp.ToolResult, error) {
 	return mcp.ErrResult(wrapRetryable(err))
-}
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argInt32(args map[string]any, key string) int32 {
-	switch v := args[key].(type) {
-	case float64:
-		return int32(v)
-	case int:
-		return int32(v)
-	case string:
-		n, _ := strconv.ParseInt(v, 10, 32)
-		return int32(n)
-	}
-	return 0
-}
-
-func argInt64(args map[string]any, key string) int64 {
-	switch v := args[key].(type) {
-	case float64:
-		return int64(v)
-	case int:
-		return int64(v)
-	case int64:
-		return v
-	case string:
-		n, _ := strconv.ParseInt(v, 10, 64)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
-func argStrSlice(args map[string]any, key string) []string {
-	switch v := args[key].(type) {
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []string:
-		return v
-	case string:
-		if v == "" {
-			return nil
-		}
-		return strings.Split(v, ",")
-	}
-	return nil
 }
 
 func (g *integration) projectName() string {

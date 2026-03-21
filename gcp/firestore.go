@@ -27,8 +27,12 @@ func firestoreListCollections(ctx context.Context, g *integration, _ map[string]
 }
 
 func firestoreListDocuments(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	collection := argStr(args, "collection")
-	limit := argInt(args, "limit")
+	r := mcp.NewArgs(args)
+	collection := r.Str("collection")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = 100
 	}
@@ -55,7 +59,12 @@ func firestoreListDocuments(ctx context.Context, g *integration, args map[string
 }
 
 func firestoreGetDocument(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	doc, err := g.firestoreClient.Doc(argStr(args, "path")).Get(ctx)
+	r := mcp.NewArgs(args)
+	path := r.Str("path")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	doc, err := g.firestoreClient.Doc(path).Get(ctx)
 	if err != nil {
 		return errResult(err)
 	}
@@ -69,13 +78,18 @@ func firestoreGetDocument(ctx context.Context, g *integration, args map[string]a
 }
 
 func firestoreSetDocument(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	dataStr := argStr(args, "data")
+	r := mcp.NewArgs(args)
+	dataStr := r.Str("data")
+	path := r.Str("path")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	var data map[string]any
 	if err := json.Unmarshal([]byte(dataStr), &data); err != nil {
 		return errResult(err)
 	}
 
-	_, err := g.firestoreClient.Doc(argStr(args, "path")).Set(ctx, data)
+	_, err := g.firestoreClient.Doc(path).Set(ctx, data)
 	if err != nil {
 		return errResult(err)
 	}
@@ -83,7 +97,12 @@ func firestoreSetDocument(ctx context.Context, g *integration, args map[string]a
 }
 
 func firestoreDeleteDocument(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.firestoreClient.Doc(argStr(args, "path")).Delete(ctx)
+	r := mcp.NewArgs(args)
+	path := r.Str("path")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.firestoreClient.Doc(path).Delete(ctx)
 	if err != nil {
 		return errResult(err)
 	}
@@ -91,28 +110,37 @@ func firestoreDeleteDocument(ctx context.Context, g *integration, args map[strin
 }
 
 func firestoreQuery(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	collection := argStr(args, "collection")
-	q := g.firestoreClient.Collection(collection).Query
-
-	if field := argStr(args, "where_field"); field != "" {
-		op := argStr(args, "where_op")
-		valueStr := argStr(args, "where_value")
-		var value any
-		if err := json.Unmarshal([]byte(valueStr), &value); err != nil {
-			value = valueStr
-		}
-		q = q.Where(field, op, value)
+	r := mcp.NewArgs(args)
+	collection := r.Str("collection")
+	whereField := r.Str("where_field")
+	whereOp := r.Str("where_op")
+	whereValue := r.Str("where_value")
+	orderBy := r.Str("order_by")
+	orderDir := r.Str("order_dir")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	if orderBy := argStr(args, "order_by"); orderBy != "" {
+	q := g.firestoreClient.Collection(collection).Query
+
+	if whereField != "" {
+		var value any
+		if err := json.Unmarshal([]byte(whereValue), &value); err != nil {
+			value = whereValue
+		}
+		q = q.Where(whereField, whereOp, value)
+	}
+
+	if orderBy != "" {
 		dir := firestore.Asc
-		if argStr(args, "order_dir") == "desc" {
+		if orderDir == "desc" {
 			dir = firestore.Desc
 		}
 		q = q.OrderBy(orderBy, dir)
 	}
 
-	if limit := argInt(args, "limit"); limit > 0 {
+	if limit > 0 {
 		q = q.Limit(limit)
 	}
 

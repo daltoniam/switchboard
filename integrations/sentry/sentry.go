@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -176,36 +175,6 @@ func (s *sentry) del(ctx context.Context, pathFmt string, args ...any) (json.Raw
 
 type handlerFunc func(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error)
 
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
 // queryEncode builds a query string from non-empty key/value pairs.
 func queryEncode(params map[string]string) string {
 	vals := url.Values{}
@@ -222,7 +191,8 @@ func queryEncode(params map[string]string) string {
 
 // org returns the organization slug from args, falling back to the configured default.
 func (s *sentry) org(args map[string]any) string {
-	if v := argStr(args, "organization"); v != "" {
+	v, _ := mcp.ArgStr(args, "organization")
+	if v != "" {
 		return v
 	}
 	return s.organization

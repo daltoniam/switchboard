@@ -18,7 +18,12 @@ func listMetricAlerts(ctx context.Context, s *sentry, args map[string]any) (*mcp
 }
 
 func getMetricAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.get(ctx, "/organizations/%s/alert-rules/%s/", s.org(args), argStr(args, "alert_rule_id"))
+	r := mcp.NewArgs(args)
+	alertRuleID := r.Str("alert_rule_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.get(ctx, "/organizations/%s/alert-rules/%s/", s.org(args), alertRuleID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -26,7 +31,12 @@ func getMetricAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.T
 }
 
 func deleteMetricAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.del(ctx, "/organizations/%s/alert-rules/%s/", s.org(args), argStr(args, "alert_rule_id"))
+	r := mcp.NewArgs(args)
+	alertRuleID := r.Str("alert_rule_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.del(ctx, "/organizations/%s/alert-rules/%s/", s.org(args), alertRuleID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -34,7 +44,12 @@ func deleteMetricAlert(ctx context.Context, s *sentry, args map[string]any) (*mc
 }
 
 func listIssueAlerts(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.get(ctx, "/projects/%s/%s/rules/", s.org(args), argStr(args, "project"))
+	r := mcp.NewArgs(args)
+	project := r.Str("project")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.get(ctx, "/projects/%s/%s/rules/", s.org(args), project)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -42,7 +57,13 @@ func listIssueAlerts(ctx context.Context, s *sentry, args map[string]any) (*mcp.
 }
 
 func getIssueAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.get(ctx, "/projects/%s/%s/rules/%s/", s.org(args), argStr(args, "project"), argStr(args, "alert_rule_id"))
+	r := mcp.NewArgs(args)
+	project := r.Str("project")
+	alertRuleID := r.Str("alert_rule_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.get(ctx, "/projects/%s/%s/rules/%s/", s.org(args), project, alertRuleID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -50,7 +71,13 @@ func getIssueAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 }
 
 func deleteIssueAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.del(ctx, "/projects/%s/%s/rules/%s/", s.org(args), argStr(args, "project"), argStr(args, "alert_rule_id"))
+	r := mcp.NewArgs(args)
+	project := r.Str("project")
+	alertRuleID := r.Str("alert_rule_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.del(ctx, "/projects/%s/%s/rules/%s/", s.org(args), project, alertRuleID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -60,9 +87,15 @@ func deleteIssueAlert(ctx context.Context, s *sentry, args map[string]any) (*mcp
 // ── Monitors (Cron) ──────────────────────────────────────────────────
 
 func listMonitors(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	params := map[string]string{"cursor": argStr(args, "cursor")}
-	if v := argStr(args, "project"); v != "" {
-		params["project"] = v
+	r := mcp.NewArgs(args)
+	cursor := r.Str("cursor")
+	project := r.Str("project")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	params := map[string]string{"cursor": cursor}
+	if project != "" {
+		params["project"] = project
 	}
 	q := queryEncode(params)
 	data, err := s.get(ctx, "/organizations/%s/monitors/%s", s.org(args), q)
@@ -73,7 +106,13 @@ func listMonitors(ctx context.Context, s *sentry, args map[string]any) (*mcp.Too
 }
 
 func getMonitor(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.get(ctx, "/projects/%s/%s/monitors/%s/", s.org(args), argStr(args, "project"), argStr(args, "monitor_id"))
+	r := mcp.NewArgs(args)
+	project := r.Str("project")
+	monitorID := r.Str("monitor_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.get(ctx, "/projects/%s/%s/monitors/%s/", s.org(args), project, monitorID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -81,7 +120,13 @@ func getMonitor(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolR
 }
 
 func deleteMonitor(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.del(ctx, "/projects/%s/%s/monitors/%s/", s.org(args), argStr(args, "project"), argStr(args, "monitor_id"))
+	r := mcp.NewArgs(args)
+	project := r.Str("project")
+	monitorID := r.Str("monitor_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.del(ctx, "/projects/%s/%s/monitors/%s/", s.org(args), project, monitorID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -91,9 +136,15 @@ func deleteMonitor(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 // ── Discover ─────────────────────────────────────────────────────────
 
 func listSavedQueries(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	cursor := r.Str("cursor")
+	sortBy := r.Str("sortBy")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	params := map[string]string{
-		"cursor": argStr(args, "cursor"),
-		"sortBy": argStr(args, "sortBy"),
+		"cursor": cursor,
+		"sortBy": sortBy,
 	}
 	q := queryEncode(params)
 	data, err := s.get(ctx, "/organizations/%s/discover/saved/%s", s.org(args), q)
@@ -104,7 +155,12 @@ func listSavedQueries(ctx context.Context, s *sentry, args map[string]any) (*mcp
 }
 
 func getSavedQuery(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.get(ctx, "/organizations/%s/discover/saved/%s/", s.org(args), argStr(args, "query_id"))
+	r := mcp.NewArgs(args)
+	queryID := r.Str("query_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.get(ctx, "/organizations/%s/discover/saved/%s/", s.org(args), queryID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -112,7 +168,12 @@ func getSavedQuery(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 }
 
 func deleteSavedQuery(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.del(ctx, "/organizations/%s/discover/saved/%s/", s.org(args), argStr(args, "query_id"))
+	r := mcp.NewArgs(args)
+	queryID := r.Str("query_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.del(ctx, "/organizations/%s/discover/saved/%s/", s.org(args), queryID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -122,13 +183,21 @@ func deleteSavedQuery(ctx context.Context, s *sentry, args map[string]any) (*mcp
 // ── Replays ──────────────────────────────────────────────────────────
 
 func listReplays(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	params := map[string]string{
-		"query":       argStr(args, "query"),
-		"cursor":      argStr(args, "cursor"),
-		"statsPeriod": argStr(args, "statsPeriod"),
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	cursor := r.Str("cursor")
+	statsPeriod := r.Str("statsPeriod")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argInt(args, "limit"); v > 0 {
-		params["per_page"] = fmt.Sprintf("%d", v)
+	params := map[string]string{
+		"query":       query,
+		"cursor":      cursor,
+		"statsPeriod": statsPeriod,
+	}
+	if limit > 0 {
+		params["per_page"] = fmt.Sprintf("%d", limit)
 	}
 	q := queryEncode(params)
 	data, err := s.get(ctx, "/organizations/%s/replays/%s", s.org(args), q)
@@ -139,7 +208,12 @@ func listReplays(ctx context.Context, s *sentry, args map[string]any) (*mcp.Tool
 }
 
 func getReplay(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.get(ctx, "/organizations/%s/replays/%s/", s.org(args), argStr(args, "replay_id"))
+	r := mcp.NewArgs(args)
+	replayID := r.Str("replay_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.get(ctx, "/organizations/%s/replays/%s/", s.org(args), replayID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -147,7 +221,12 @@ func getReplay(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolRe
 }
 
 func deleteReplay(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.del(ctx, "/organizations/%s/replays/%s/", s.org(args), argStr(args, "replay_id"))
+	r := mcp.NewArgs(args)
+	replayID := r.Str("replay_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.del(ctx, "/organizations/%s/replays/%s/", s.org(args), replayID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

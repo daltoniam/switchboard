@@ -9,12 +9,19 @@ import (
 )
 
 func listReleases(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	params := map[string]string{
-		"query":  argStr(args, "query"),
-		"cursor": argStr(args, "cursor"),
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	cursor := r.Str("cursor")
+	project := r.Str("project")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "project"); v != "" {
-		params["project"] = v
+	params := map[string]string{
+		"query":  query,
+		"cursor": cursor,
+	}
+	if project != "" {
+		params["project"] = project
 	}
 	q := queryEncode(params)
 	data, err := s.get(ctx, "/organizations/%s/releases/%s", s.org(args), q)
@@ -25,7 +32,12 @@ func listReleases(ctx context.Context, s *sentry, args map[string]any) (*mcp.Too
 }
 
 func getRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.get(ctx, "/organizations/%s/releases/%s/", s.org(args), argStr(args, "version"))
+	r := mcp.NewArgs(args)
+	version := r.Str("version")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.get(ctx, "/organizations/%s/releases/%s/", s.org(args), version)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -33,18 +45,27 @@ func getRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolR
 }
 
 func createRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	version := r.Str("version")
+	projects := r.Str("projects")
+	ref := r.Str("ref")
+	u := r.Str("url")
+	dateReleased := r.Str("dateReleased")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := map[string]any{
-		"version":  argStr(args, "version"),
-		"projects": strings.Split(argStr(args, "projects"), ","),
+		"version":  version,
+		"projects": strings.Split(projects, ","),
 	}
-	if v := argStr(args, "ref"); v != "" {
-		body["ref"] = v
+	if ref != "" {
+		body["ref"] = ref
 	}
-	if v := argStr(args, "url"); v != "" {
-		body["url"] = v
+	if u != "" {
+		body["url"] = u
 	}
-	if v := argStr(args, "dateReleased"); v != "" {
-		body["dateReleased"] = v
+	if dateReleased != "" {
+		body["dateReleased"] = dateReleased
 	}
 	path := fmt.Sprintf("/organizations/%s/releases/", s.org(args))
 	data, err := s.post(ctx, path, body)
@@ -55,7 +76,12 @@ func createRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 }
 
 func deleteRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.del(ctx, "/organizations/%s/releases/%s/", s.org(args), argStr(args, "version"))
+	r := mcp.NewArgs(args)
+	version := r.Str("version")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.del(ctx, "/organizations/%s/releases/%s/", s.org(args), version)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -63,8 +89,14 @@ func deleteRelease(ctx context.Context, s *sentry, args map[string]any) (*mcp.To
 }
 
 func listReleaseCommits(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
-	data, err := s.get(ctx, "/organizations/%s/releases/%s/commits/%s", s.org(args), argStr(args, "version"), q)
+	r := mcp.NewArgs(args)
+	version := r.Str("version")
+	cursor := r.Str("cursor")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	q := queryEncode(map[string]string{"cursor": cursor})
+	data, err := s.get(ctx, "/organizations/%s/releases/%s/commits/%s", s.org(args), version, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -72,7 +104,12 @@ func listReleaseCommits(ctx context.Context, s *sentry, args map[string]any) (*m
 }
 
 func listReleaseDeploys(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := s.get(ctx, "/organizations/%s/releases/%s/deploys/", s.org(args), argStr(args, "version"))
+	r := mcp.NewArgs(args)
+	version := r.Str("version")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := s.get(ctx, "/organizations/%s/releases/%s/deploys/", s.org(args), version)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -80,22 +117,32 @@ func listReleaseDeploys(ctx context.Context, s *sentry, args map[string]any) (*m
 }
 
 func createDeploy(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	version := r.Str("version")
+	environment := r.Str("environment")
+	name := r.Str("name")
+	u := r.Str("url")
+	dateStarted := r.Str("dateStarted")
+	dateFinished := r.Str("dateFinished")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := map[string]string{
-		"environment": argStr(args, "environment"),
+		"environment": environment,
 	}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	if name != "" {
+		body["name"] = name
 	}
-	if v := argStr(args, "url"); v != "" {
-		body["url"] = v
+	if u != "" {
+		body["url"] = u
 	}
-	if v := argStr(args, "dateStarted"); v != "" {
-		body["dateStarted"] = v
+	if dateStarted != "" {
+		body["dateStarted"] = dateStarted
 	}
-	if v := argStr(args, "dateFinished"); v != "" {
-		body["dateFinished"] = v
+	if dateFinished != "" {
+		body["dateFinished"] = dateFinished
 	}
-	path := fmt.Sprintf("/organizations/%s/releases/%s/deploys/", s.org(args), argStr(args, "version"))
+	path := fmt.Sprintf("/organizations/%s/releases/%s/deploys/", s.org(args), version)
 	data, err := s.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -104,8 +151,14 @@ func createDeploy(ctx context.Context, s *sentry, args map[string]any) (*mcp.Too
 }
 
 func listReleaseFiles(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error) {
-	q := queryEncode(map[string]string{"cursor": argStr(args, "cursor")})
-	data, err := s.get(ctx, "/organizations/%s/releases/%s/files/%s", s.org(args), argStr(args, "version"), q)
+	r := mcp.NewArgs(args)
+	version := r.Str("version")
+	cursor := r.Str("cursor")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	q := queryEncode(map[string]string{"cursor": cursor})
+	data, err := s.get(ctx, "/organizations/%s/releases/%s/files/%s", s.org(args), version, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

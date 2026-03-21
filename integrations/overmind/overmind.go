@@ -133,14 +133,7 @@ func (o *overmind) post(ctx context.Context, path string, body any) (json.RawMes
 	return o.doRequest(ctx, "POST", path, body)
 }
 
-// --- Argument helpers ---
-
 type handlerFunc func(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error)
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
 
 // --- Dispatch map ---
 

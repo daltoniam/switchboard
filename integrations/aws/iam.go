@@ -10,12 +10,16 @@ import (
 )
 
 func iamListUsers(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &iam.ListUsersInput{}
-	if v := argStr(args, "path_prefix"); v != "" {
+	if v := r.Str("path_prefix"); v != "" {
 		input.PathPrefix = aws.String(v)
 	}
-	if v := argInt32(args, "max_items"); v > 0 {
+	if v := r.Int32("max_items"); v > 0 {
 		input.MaxItems = aws.Int32(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.iamClient.ListUsers(ctx, input)
 	if err != nil {
@@ -25,9 +29,13 @@ func iamListUsers(ctx context.Context, a *integration, args map[string]any) (*mc
 }
 
 func iamGetUser(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &iam.GetUserInput{}
-	if v := argStr(args, "username"); v != "" {
+	if v := r.Str("username"); v != "" {
 		input.UserName = aws.String(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.iamClient.GetUser(ctx, input)
 	if err != nil {
@@ -37,12 +45,16 @@ func iamGetUser(ctx context.Context, a *integration, args map[string]any) (*mcp.
 }
 
 func iamListRoles(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &iam.ListRolesInput{}
-	if v := argStr(args, "path_prefix"); v != "" {
+	if v := r.Str("path_prefix"); v != "" {
 		input.PathPrefix = aws.String(v)
 	}
-	if v := argInt32(args, "max_items"); v > 0 {
+	if v := r.Int32("max_items"); v > 0 {
 		input.MaxItems = aws.Int32(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.iamClient.ListRoles(ctx, input)
 	if err != nil {
@@ -52,8 +64,13 @@ func iamListRoles(ctx context.Context, a *integration, args map[string]any) (*mc
 }
 
 func iamGetRole(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	roleName := r.Str("role_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.iamClient.GetRole(ctx, &iam.GetRoleInput{
-		RoleName: aws.String(argStr(args, "role_name")),
+		RoleName: aws.String(roleName),
 	})
 	if err != nil {
 		return errResult(err)
@@ -62,18 +79,22 @@ func iamGetRole(ctx context.Context, a *integration, args map[string]any) (*mcp.
 }
 
 func iamListPolicies(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &iam.ListPoliciesInput{}
-	if v := argStr(args, "scope"); v != "" {
+	if v := r.Str("scope"); v != "" {
 		input.Scope = iamtypes.PolicyScopeType(v)
 	}
-	if argBool(args, "only_attached") {
+	if r.Bool("only_attached") {
 		input.OnlyAttached = true
 	}
-	if v := argStr(args, "path_prefix"); v != "" {
+	if v := r.Str("path_prefix"); v != "" {
 		input.PathPrefix = aws.String(v)
 	}
-	if v := argInt32(args, "max_items"); v > 0 {
+	if v := r.Int32("max_items"); v > 0 {
 		input.MaxItems = aws.Int32(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.iamClient.ListPolicies(ctx, input)
 	if err != nil {
@@ -83,8 +104,13 @@ func iamListPolicies(ctx context.Context, a *integration, args map[string]any) (
 }
 
 func iamGetPolicy(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	policyArn := r.Str("policy_arn")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
-		PolicyArn: aws.String(argStr(args, "policy_arn")),
+		PolicyArn: aws.String(policyArn),
 	})
 	if err != nil {
 		return errResult(err)
@@ -93,12 +119,16 @@ func iamGetPolicy(ctx context.Context, a *integration, args map[string]any) (*mc
 }
 
 func iamListGroups(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &iam.ListGroupsInput{}
-	if v := argStr(args, "path_prefix"); v != "" {
+	if v := r.Str("path_prefix"); v != "" {
 		input.PathPrefix = aws.String(v)
 	}
-	if v := argInt32(args, "max_items"); v > 0 {
+	if v := r.Int32("max_items"); v > 0 {
 		input.MaxItems = aws.Int32(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.iamClient.ListGroups(ctx, input)
 	if err != nil {
@@ -108,11 +138,15 @@ func iamListGroups(ctx context.Context, a *integration, args map[string]any) (*m
 }
 
 func iamListAttachedRolePolicies(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &iam.ListAttachedRolePoliciesInput{
-		RoleName: aws.String(argStr(args, "role_name")),
+		RoleName: aws.String(r.Str("role_name")),
 	}
-	if v := argStr(args, "path_prefix"); v != "" {
+	if v := r.Str("path_prefix"); v != "" {
 		input.PathPrefix = aws.String(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.iamClient.ListAttachedRolePolicies(ctx, input)
 	if err != nil {
@@ -122,11 +156,15 @@ func iamListAttachedRolePolicies(ctx context.Context, a *integration, args map[s
 }
 
 func iamListAttachedUserPolicies(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &iam.ListAttachedUserPoliciesInput{
-		UserName: aws.String(argStr(args, "username")),
+		UserName: aws.String(r.Str("username")),
 	}
-	if v := argStr(args, "path_prefix"); v != "" {
+	if v := r.Str("path_prefix"); v != "" {
 		input.PathPrefix = aws.String(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.iamClient.ListAttachedUserPolicies(ctx, input)
 	if err != nil {
@@ -136,11 +174,15 @@ func iamListAttachedUserPolicies(ctx context.Context, a *integration, args map[s
 }
 
 func iamListAttachedGroupPolicies(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &iam.ListAttachedGroupPoliciesInput{
-		GroupName: aws.String(argStr(args, "group_name")),
+		GroupName: aws.String(r.Str("group_name")),
 	}
-	if v := argStr(args, "path_prefix"); v != "" {
+	if v := r.Str("path_prefix"); v != "" {
 		input.PathPrefix = aws.String(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.iamClient.ListAttachedGroupPolicies(ctx, input)
 	if err != nil {

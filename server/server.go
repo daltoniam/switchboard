@@ -79,10 +79,16 @@ func (s *Server) registerTools() {
 	searchTool := &mcpsdk.Tool{
 		Name: "search",
 		Description: `Search available tools across all configured integrations (GitHub, Datadog, Linear, Sentry, etc.).
-Use this to discover what operations are available before calling execute.
+
+IMPORTANT: Always search before calling execute. Do NOT guess tool names — there are hundreds
+of tools and names are not predictable (e.g., "github_get_pull" not "github_get_pr").
+Search returns exact names, parameters, and descriptions.
 
 You can filter by integration name, tool name, or keyword. Returns tool definitions
 with their parameters and descriptions. Results are paginated (default limit: 20).
+
+Search uses AND matching — all query words must appear in the tool name or description.
+Use fewer, specific words: {"query": "slack send"} not {"query": "slack send message channel"}.
 
 Examples:
 - Filter by integration: {"integration": "github"}
@@ -144,7 +150,8 @@ Use single-item get tools (e.g., github_get_issue) for full detail.
 Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
 Script output is also capped at 50KB — return only the fields you need, not entire API responses.
 
-Use search first to discover available tools and their parameter schemas.
+CRITICAL: Use search first to discover tool names and parameter schemas. Do NOT guess
+tool names — call search with a keyword (e.g., {"query": "list repos"}) to find the exact name.
 
 Script examples:
 

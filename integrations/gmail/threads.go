@@ -8,18 +8,23 @@ import (
 )
 
 func listThreads(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	params := map[string]string{
-		"q":                argStr(args, "q"),
-		"maxResults":       argStr(args, "max_results"),
-		"pageToken":        argStr(args, "page_token"),
-		"includeSpamTrash": argStr(args, "include_spam_trash"),
+		"q":                r.Str("q"),
+		"maxResults":       r.Str("max_results"),
+		"pageToken":        r.Str("page_token"),
+		"includeSpamTrash": r.Str("include_spam_trash"),
 	}
 	var multi map[string][]string
-	if ids := argStr(args, "label_ids"); ids != "" {
-		multi = map[string][]string{"labelIds": argStrSlice(args, "label_ids")}
+	if ids := r.Str("label_ids"); ids != "" {
+		multi = map[string][]string{"labelIds": r.StrSlice("label_ids")}
+	}
+	u := user(r)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	q := queryEncodeMulti(params, multi)
-	data, err := g.get(ctx, "/gmail/v1/users/%s/threads%s", user(args), q)
+	data, err := g.get(ctx, "/gmail/v1/users/%s/threads%s", u, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -27,14 +32,20 @@ func listThreads(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 }
 
 func getThread(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	params := map[string]string{
-		"format": argStr(args, "format"),
+		"format": r.Str("format"),
 	}
-	if hdrs := argStr(args, "metadata_headers"); hdrs != "" {
+	if hdrs := r.Str("metadata_headers"); hdrs != "" {
 		params["metadataHeaders"] = hdrs
 	}
+	u := user(r)
+	threadID := r.Str("thread_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	q := queryEncode(params)
-	data, err := g.get(ctx, "/gmail/v1/users/%s/threads/%s%s", user(args), argStr(args, "thread_id"), q)
+	data, err := g.get(ctx, "/gmail/v1/users/%s/threads/%s%s", u, threadID, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -42,7 +53,13 @@ func getThread(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolRes
 }
 
 func deleteThread(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := g.del(ctx, "/gmail/v1/users/%s/threads/%s", user(args), argStr(args, "thread_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	threadID := r.Str("thread_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := g.del(ctx, "/gmail/v1/users/%s/threads/%s", u, threadID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -50,7 +67,13 @@ func deleteThread(ctx context.Context, g *gmail, args map[string]any) (*mcp.Tool
 }
 
 func trashThread(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/gmail/v1/users/%s/threads/%s/trash", user(args), argStr(args, "thread_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	threadID := r.Str("thread_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/threads/%s/trash", u, threadID)
 	data, err := g.post(ctx, path, nil)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -59,7 +82,13 @@ func trashThread(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolR
 }
 
 func untrashThread(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/gmail/v1/users/%s/threads/%s/untrash", user(args), argStr(args, "thread_id"))
+	r := mcp.NewArgs(args)
+	u := user(r)
+	threadID := r.Str("thread_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/threads/%s/untrash", u, threadID)
 	data, err := g.post(ctx, path, nil)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -68,14 +97,20 @@ func untrashThread(ctx context.Context, g *gmail, args map[string]any) (*mcp.Too
 }
 
 func modifyThread(ctx context.Context, g *gmail, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	body := map[string]any{}
-	if ids := argStrSlice(args, "add_label_ids"); len(ids) > 0 {
+	if ids := r.StrSlice("add_label_ids"); len(ids) > 0 {
 		body["addLabelIds"] = ids
 	}
-	if ids := argStrSlice(args, "remove_label_ids"); len(ids) > 0 {
+	if ids := r.StrSlice("remove_label_ids"); len(ids) > 0 {
 		body["removeLabelIds"] = ids
 	}
-	path := fmt.Sprintf("/gmail/v1/users/%s/threads/%s/modify", user(args), argStr(args, "thread_id"))
+	u := user(r)
+	threadID := r.Str("thread_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/gmail/v1/users/%s/threads/%s/modify", u, threadID)
 	data, err := g.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)

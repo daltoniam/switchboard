@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -198,43 +197,6 @@ func (l *linear) gql(ctx context.Context, query string, variables map[string]any
 	return gqlResp.Data, nil
 }
 
-// --- arg helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
-func optInt(args map[string]any, key string, def int) int {
-	if v := argInt(args, key); v > 0 {
-		return v
-	}
-	return def
-}
-
 // resolveTeamID looks up a team by name or key and returns its UUID.
 func (l *linear) resolveTeamID(ctx context.Context, nameOrKey string) (string, error) {
 	data, err := l.gql(ctx, `query($filter: TeamFilter) {
@@ -353,6 +315,69 @@ func (l *linear) resolveProjectID(ctx context.Context, name string) (string, err
 		return resp.SearchProjects.Nodes[0].ID, nil
 	}
 	return "", fmt.Errorf("project not found: %s", name)
+}
+
+// resolveIssueProjectID fetches the project ID for an already-resolved issue UUID.
+func (l *linear) resolveIssueProjectID(ctx context.Context, issueID string) (string, error) {
+	data, err := l.gql(ctx, `query($id: String!) {
+		issue(id: $id) { project { id } }
+	}`, map[string]any{"id": issueID})
+	if err != nil {
+		return "", err
+	}
+	var resp struct {
+		Issue struct {
+			Project struct {
+				ID string `json:"id"`
+			} `json:"project"`
+		} `json:"issue"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return "", fmt.Errorf("failed to parse issue response: %w", err)
+	}
+	if resp.Issue.Project.ID == "" {
+		return "", fmt.Errorf("issue %s has no project assigned — pass the project parameter explicitly", issueID)
+	}
+	return resp.Issue.Project.ID, nil
+}
+
+// resolveMilestoneID resolves a milestone name or UUID to a UUID within a project.
+// If nameOrID looks like a UUID (36 chars, contains hyphens), it is returned directly.
+// Otherwise, queries project milestones and matches by name (case-insensitive).
+func (l *linear) resolveMilestoneID(ctx context.Context, nameOrID, projectID string) (string, error) {
+	// Heuristic: 36-char string with hyphens is assumed to be a UUID passthrough.
+	// A milestone name matching this shape (e.g., "2024-release-v1.0.0-rc") would
+	// be treated as a UUID — low real-world risk but worth noting.
+	if len(nameOrID) == 36 && strings.Contains(nameOrID, "-") {
+		return nameOrID, nil
+	}
+	data, err := l.gql(ctx, `query($id: String!) {
+		project(id: $id) {
+			projectMilestones { nodes { id name } }
+		}
+	}`, map[string]any{"id": projectID})
+	if err != nil {
+		return "", err
+	}
+	var resp struct {
+		Project struct {
+			ProjectMilestones struct {
+				Nodes []struct {
+					ID   string `json:"id"`
+					Name string `json:"name"`
+				} `json:"nodes"`
+			} `json:"projectMilestones"`
+		} `json:"project"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return "", err
+	}
+	for _, n := range resp.Project.ProjectMilestones.Nodes {
+		if strings.EqualFold(n.Name, nameOrID) {
+			return n.ID, nil
+		}
+	}
+	return "", fmt.Errorf("milestone not found: %s", nameOrID)
 }
 
 // resolveUserID looks up a user by name or email and returns their UUID.

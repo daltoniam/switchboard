@@ -89,44 +89,6 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	}
 }
 
-// --- Argument helper tests ---
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
-
-func TestArgStrSlice(t *testing.T) {
-	t.Run("from []any", func(t *testing.T) {
-		result := argStrSlice(map[string]any{"tags": []any{"a", "b"}}, "tags")
-		assert.Equal(t, []string{"a", "b"}, result)
-	})
-
-	t.Run("from []string", func(t *testing.T) {
-		result := argStrSlice(map[string]any{"tags": []string{"x", "y"}}, "tags")
-		assert.Equal(t, []string{"x", "y"}, result)
-	})
-
-	t.Run("missing key", func(t *testing.T) {
-		result := argStrSlice(map[string]any{}, "tags")
-		assert.Nil(t, result)
-	})
-}
-
 // --- Result helper tests ---
 
 func TestRawResult(t *testing.T) {

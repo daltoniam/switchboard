@@ -111,7 +111,7 @@ var tools = []mcp.ToolDefinition{
 	// ── Issues & Events ──────────────────────────────────────────────
 	{
 		Name: "sentry_list_issues", Description: "List issues for a project",
-		Parameters: map[string]string{"project": "Project slug", "query": "Search query (e.g., 'is:unresolved', 'assigned:me')", "cursor": "Pagination cursor", "sort": "Sort: date, new, freq, user (default: date)", "statsPeriod": "Stats period (e.g., 24h, 14d)"},
+		Parameters: map[string]string{"project": "Project slug", "query": "Search query (e.g., 'is:unresolved', 'assigned:me')", "cursor": "Pagination cursor", "sort": "Sort: date, new, freq, user (default: date)", "statsPeriod": "Stats period: '' (default), '24h', or '14d'"},
 		Required:   []string{"project"},
 	},
 	{
@@ -156,7 +156,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: "sentry_list_org_issues", Description: "List issues across the entire organization",
-		Parameters: map[string]string{"query": "Search query (e.g., 'is:unresolved level:error')", "project": "Filter by project slug", "cursor": "Pagination cursor", "sort": "Sort: date, new, freq, user", "statsPeriod": "Stats period (e.g., 24h, 14d)"},
+		Parameters: map[string]string{"query": "Search query (e.g., 'is:unresolved level:error')", "project": "Filter by project slug", "cursor": "Pagination cursor", "sort": "Sort: date, new, freq, user", "statsPeriod": "Stats period: '' (default), '24h', or '14d'"},
 	},
 
 	// ── Releases ─────────────────────────────────────────────────────
@@ -266,7 +266,7 @@ var tools = []mcp.ToolDefinition{
 	// ── Replays ──────────────────────────────────────────────────────
 	{
 		Name: "sentry_list_replays", Description: "List session replays",
-		Parameters: map[string]string{"query": "Search query", "cursor": "Pagination cursor", "limit": "Max results (default 50)", "statsPeriod": "Stats period (e.g., 24h, 14d)"},
+		Parameters: map[string]string{"query": "Search query", "cursor": "Pagination cursor", "limit": "Max results (default 50)", "statsPeriod": "Stats period: '' (default), '24h', or '14d'"},
 	},
 	{
 		Name: "sentry_get_replay", Description: "Get details of a specific replay",

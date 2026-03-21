@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -158,51 +157,7 @@ func isExecutable(path string) bool {
 
 type handlerFunc func(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error)
 
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
-func argStrSlice(args map[string]any, key string) []string {
-	switch v := args[key].(type) {
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []string:
-		return v
-	}
-	return nil
-}
+// --- Argument helpers (use shared mcp.Arg* / mcp.Args) ---
 
 // --- Dispatch map ---
 

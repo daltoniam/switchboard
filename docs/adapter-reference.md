@@ -27,13 +27,35 @@ Only `slack`, `aws`, `notion`, and `gcp` require aliases to avoid collision with
 Tools are prefixed with integration name: `github_search_repos`, `datadog_search_logs`, `linear_list_issues`, `sentry_list_issues`.
 
 ### Argument Parsing
-Each adapter has a local `argStr` helper:
+Use shared helpers from `args.go`. NEVER define local arg helpers in adapters.
+
+**Bulk extraction** (2+ args at handler start — preferred):
 ```go
-func argStr(args map[string]any, key string) string {
-    v, _ := args[key].(string)
-    return v
+r := mcp.NewArgs(args)
+owner := r.Str("owner")
+repo := r.Str("repo")
+if err := r.Err(); err != nil {
+    return mcp.ErrResult(err)
 }
 ```
+
+**Conditional extraction** (inside if-blocks):
+```go
+if v, err := mcp.ArgStr(args, "project"); err != nil {
+    return mcp.ErrResult(err)
+} else if v != "" {
+    // resolve project...
+}
+```
+
+Available: `Str`, `Int`, `Int32`, `Int64`, `Float64`, `Bool`, `StrSlice`, `Map` — on both `Args` reader and as standalone `mcp.Arg*` functions. All return `(value, error)`.
+
+**Pagination defaults** (reader only):
+```go
+page := r.OptInt("page", 1)
+perPage := r.OptInt("per_page", 10)
+```
+`OptInt` returns the default when the value is missing, zero, or negative. Type coercion errors are silently ignored (returns default).
 
 ### Dispatch Map Test Parity
 
@@ -82,7 +104,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 
 ## Gotchas
 
-- **Arg helpers are duplicated** per adapter — intentional. All have `argStr`, `argInt`, `argBool`. GitHub/Datadog/AWS/GCP also have `argInt64`, `argStrSlice`
+- **Arg helpers are shared** in `args.go` — NEVER create local copies. Use `mcp.NewArgs(args)` or standalone `mcp.ArgStr`/`mcp.ArgInt`/etc.
 - **All seventeen adapters use dispatch maps** (`var dispatch map[string]handlerFunc`). Tool counts: GitHub ~100, AWS ~65, Datadog ~60, Linear ~60, Sentry ~55, GCP ~55, PostHog ~50, Gmail ~44, Slack ~40, YNAB ~37, Postgres ~25, Notion ~24, Metabase ~22, ClickHouse ~20, Home Assistant ~17, RWX ~11, pganalyze ~3
 - **Linear is the only GraphQL adapter**. `gql()` helper, entity resolution (`resolveTeamID`, `resolveIssueID`), field fragment constants (`issueFields`, `projectFields`)
 - **AWS adapter uses `aws-sdk-go-v2`** — 11 typed service clients (S3, EC2, Lambda, IAM, CloudWatch, STS, ECS, SNS, SQS, DynamoDB, CloudFormation). Custom `unmarshalDynamoJSON` for DynamoDB AttributeValue marshalling. S3 `GetObject` capped at 10MB via `io.LimitReader`

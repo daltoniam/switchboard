@@ -390,34 +390,6 @@ func TestErrResult_WrapsErrorMessage(t *testing.T) {
 	assert.Equal(t, "test error", result.Data)
 }
 
-// --- Argument helpers ---
-
-func TestArgStr_ExtractsStringValue(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt_CoercesMultipleTypes(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool_CoercesBoolAndString(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
-
-func TestArgMap_ExtractsNestedMap(t *testing.T) {
-	inner := map[string]any{"nested": "value"}
-	assert.Equal(t, inner, argMap(map[string]any{"m": inner}, "m"))
-	assert.Nil(t, argMap(map[string]any{}, "m"))
-	assert.Nil(t, argMap(map[string]any{"m": "not-a-map"}, "m"))
-}
-
 // --- Healthy ---
 
 func TestHealthy_ReturnsTrueWhenGetSpacesSucceeds(t *testing.T) {
@@ -1527,6 +1499,47 @@ func TestAppendBlockChildren_SubmitsSetAndListAfterPerChild(t *testing.T) {
 		"children": []any{
 			map[string]any{"type": "text", "properties": map[string]any{"title": [](any){[](any){"First"}}}},
 			map[string]any{"type": "text", "properties": map[string]any{"title": [](any){[](any){"Second"}}}},
+		},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestAppendBlockChildren_CodeBlockIncludesFormat(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
+		var body transaction
+		_ = json.NewDecoder(r.Body).Decode(&body)
+
+		// Find the set op for the code block
+		var found bool
+		for _, op := range body.Operations {
+			if op.Command != "set" || len(op.Path) != 0 {
+				continue
+			}
+			args, ok := op.Args.(map[string]any)
+			if !ok {
+				continue
+			}
+			if args["type"] == "code" {
+				found = true
+				// Verify format is included in the block data
+				format, hasFormat := args["format"].(map[string]any)
+				assert.True(t, hasFormat, "code block must include format field")
+				assert.Equal(t, "Python", format["code_language"])
+			}
+		}
+		assert.True(t, found, "expected a set op for a code block")
+		okJSON(w, `{}`)
+	})
+	result, err := appendBlockChildren(context.Background(), n, map[string]any{
+		"block_id": "parent-blk",
+		"children": []any{
+			map[string]any{
+				"type":       "code",
+				"properties": map[string]any{"title": [](any){[](any){"print('hello')"}}},
+				"format":     map[string]any{"code_language": "Python"},
+			},
 		},
 	})
 	require.NoError(t, err)

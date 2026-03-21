@@ -11,12 +11,17 @@ import (
 )
 
 func executeQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	query := argStr(args, "query")
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	db := r.Str("database")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if query == "" {
 		return mcp.ErrResult(fmt.Errorf("query is required"))
 	}
 
-	if db := argStr(args, "database"); db != "" {
+	if db != "" {
 		ctx = ch.Context(ctx, ch.WithSettings(ch.Settings{
 			"database": db,
 		}))
@@ -48,12 +53,15 @@ func executeQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*
 }
 
 func explainQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	query := argStr(args, "query")
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	explainType := strings.ToUpper(r.Str("type"))
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if query == "" {
 		return mcp.ErrResult(fmt.Errorf("query is required"))
 	}
-
-	explainType := strings.ToUpper(argStr(args, "type"))
 	switch explainType {
 	case "PIPELINE", "SYNTAX", "AST", "ESTIMATE":
 	case "PLAN", "":

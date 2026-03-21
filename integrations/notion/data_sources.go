@@ -8,12 +8,21 @@ import (
 )
 
 func createDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	parent := argMap(args, "parent")
+	r := mcp.NewArgs(args)
+	parent := r.Map("parent")
+	properties := r.Map("properties")
+	title := r.Str("title")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if parent == nil {
 		return mcp.ErrResult(fmt.Errorf("parent is required"))
 	}
 
-	parentID, _ := resolveParent(parent)
+	parentID, _, err := resolveParent(parent)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if parentID == "" {
 		return mcp.ErrResult(fmt.Errorf("parent must contain page_id or database_id"))
 	}
@@ -27,12 +36,11 @@ func createDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 	schema := map[string]any{
 		"title": map[string]any{"name": "Name", "type": "title"},
 	}
-	if props := argMap(args, "properties"); props != nil {
-		schema = props
+	if properties != nil {
+		schema = properties
 	}
 
 	// Collection name
-	title := argStr(args, "title")
 	var nameValue any
 	if title != "" {
 		nameValue = []any{[]any{title}}
@@ -92,7 +100,7 @@ func createDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 		}),
 	}
 
-	_, err := submitTransaction(ctx, n, ops)
+	_, err = submitTransaction(ctx, n, ops)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -105,7 +113,10 @@ func createDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 }
 
 func retrieveDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	dataSourceID := argStr(args, "data_source_id")
+	dataSourceID, err := mcp.ArgStr(args, "data_source_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if dataSourceID == "" {
 		return mcp.ErrResult(fmt.Errorf("data_source_id is required"))
 	}
@@ -137,7 +148,13 @@ func retrieveDataSource(ctx context.Context, n *notion, args map[string]any) (*m
 }
 
 func updateDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	dataSourceID := argStr(args, "data_source_id")
+	r := mcp.NewArgs(args)
+	dataSourceID := r.Str("data_source_id")
+	title := r.Str("title")
+	props := r.Map("properties")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if dataSourceID == "" {
 		return mcp.ErrResult(fmt.Errorf("data_source_id is required"))
 	}
@@ -151,11 +168,11 @@ func updateDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp
 
 	var ops []op
 
-	if title := argStr(args, "title"); title != "" {
+	if title != "" {
 		ops = append(ops, buildSetOp("collection", collectionID, []string{"name"}, []any{[]any{title}}))
 	}
 
-	if props := argMap(args, "properties"); props != nil {
+	if props != nil {
 		ops = append(ops, buildSetOp("collection", collectionID, []string{"schema"}, props))
 	}
 
@@ -171,7 +188,13 @@ func updateDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp
 }
 
 func queryDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	dataSourceID := argStr(args, "data_source_id")
+	r := mcp.NewArgs(args)
+	dataSourceID := r.Str("data_source_id")
+	pageSize := r.Int("page_size")
+	filter := r.Map("filter")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if dataSourceID == "" {
 		return mcp.ErrResult(fmt.Errorf("data_source_id is required"))
 	}
@@ -185,11 +208,11 @@ func queryDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.
 	// Step 2: Build queryCollection request — source + reducer format
 	// Pattern confirmed via Playwright capture and shell script testing.
 	limit := 50
-	if v := argInt(args, "page_size"); v > 0 {
-		if v > 100 {
-			v = 100
+	if pageSize > 0 {
+		if pageSize > 100 {
+			pageSize = 100
 		}
-		limit = v
+		limit = pageSize
 	}
 
 	sortVal := []any{}
@@ -209,8 +232,8 @@ func queryDataSource(ctx context.Context, n *notion, args map[string]any) (*mcp.
 		"userTimeZone": "America/Los_Angeles",
 	}
 
-	if v := argMap(args, "filter"); v != nil {
-		loader["filter"] = v
+	if filter != nil {
+		loader["filter"] = filter
 	}
 
 	body := map[string]any{
@@ -344,7 +367,10 @@ func extractCollectionSchema(recordMap map[string]any, collectionID string) map[
 }
 
 func retrieveDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	databaseID := argStr(args, "database_id")
+	databaseID, err := mcp.ArgStr(args, "database_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if databaseID == "" {
 		return mcp.ErrResult(fmt.Errorf("database_id is required"))
 	}
@@ -373,7 +399,10 @@ func retrieveDatabase(ctx context.Context, n *notion, args map[string]any) (*mcp
 }
 
 func listDataSourceTemplates(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	dataSourceID := argStr(args, "data_source_id")
+	dataSourceID, err := mcp.ArgStr(args, "data_source_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if dataSourceID == "" {
 		return mcp.ErrResult(fmt.Errorf("data_source_id is required"))
 	}

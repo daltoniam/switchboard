@@ -17,7 +17,10 @@ func listCollections(ctx context.Context, m *metabase, _ map[string]any) (*mcp.T
 }
 
 func getCollection(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "collection_id")
+	id, err := mcp.ArgStr(args, "collection_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("collection_id is required"))
 	}
@@ -29,17 +32,23 @@ func getCollection(ctx context.Context, m *metabase, args map[string]any) (*mcp.
 }
 
 func createCollection(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	name := argStr(args, "name")
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	parentID := r.Int("parent_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if name == "" {
 		return mcp.ErrResult(fmt.Errorf("name is required"))
 	}
 
 	body := map[string]any{"name": name}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	if description != "" {
+		body["description"] = description
 	}
-	if pid := argInt(args, "parent_id"); pid != 0 {
-		body["parent_id"] = pid
+	if parentID != 0 {
+		body["parent_id"] = parentID
 	}
 
 	data, err := m.post(ctx, "/api/collection", body)
@@ -50,22 +59,30 @@ func createCollection(ctx context.Context, m *metabase, args map[string]any) (*m
 }
 
 func updateCollection(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "collection_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("collection_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	parentID := r.Int("parent_id")
+	archived := r.Bool("archived")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("collection_id is required"))
 	}
 
 	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	if name != "" {
+		body["name"] = name
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	if description != "" {
+		body["description"] = description
 	}
-	if pid := argInt(args, "parent_id"); pid != 0 {
-		body["parent_id"] = pid
+	if parentID != 0 {
+		body["parent_id"] = parentID
 	}
-	if argBool(args, "archived") {
+	if archived {
 		body["archived"] = true
 	}
 
@@ -77,13 +94,18 @@ func updateCollection(ctx context.Context, m *metabase, args map[string]any) (*m
 }
 
 func search(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error) {
-	query := argStr(args, "query")
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	models := r.Str("models")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if query == "" {
 		return mcp.ErrResult(fmt.Errorf("query is required"))
 	}
 
 	path := fmt.Sprintf("/api/search?q=%s", query)
-	if models := argStr(args, "models"); models != "" {
+	if models != "" {
 		for _, model := range strings.Split(models, ",") {
 			path += "&models=" + strings.TrimSpace(model)
 		}

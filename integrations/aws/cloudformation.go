@@ -11,9 +11,14 @@ import (
 )
 
 func cfnListStacks(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &cloudformation.ListStacksInput{}
-	if v := argStr(args, "status_filter"); v != "" {
-		parts := strings.Split(v, ",")
+	statusFilter := r.Str("status_filter")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if statusFilter != "" {
+		parts := strings.Split(statusFilter, ",")
 		var statuses []cfntypes.StackStatus
 		for _, p := range parts {
 			statuses = append(statuses, cfntypes.StackStatus(strings.TrimSpace(p)))
@@ -28,8 +33,13 @@ func cfnListStacks(ctx context.Context, a *integration, args map[string]any) (*m
 }
 
 func cfnDescribeStack(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	stackName := r.Str("stack_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
-		StackName: aws.String(argStr(args, "stack_name")),
+		StackName: aws.String(stackName),
 	})
 	if err != nil {
 		return errResult(err)
@@ -38,8 +48,13 @@ func cfnDescribeStack(ctx context.Context, a *integration, args map[string]any) 
 }
 
 func cfnListStackResources(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	stackName := r.Str("stack_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.cfnClient.ListStackResources(ctx, &cloudformation.ListStackResourcesInput{
-		StackName: aws.String(argStr(args, "stack_name")),
+		StackName: aws.String(stackName),
 	})
 	if err != nil {
 		return errResult(err)
@@ -48,8 +63,13 @@ func cfnListStackResources(ctx context.Context, a *integration, args map[string]
 }
 
 func cfnGetTemplate(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	stackName := r.Str("stack_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.cfnClient.GetTemplate(ctx, &cloudformation.GetTemplateInput{
-		StackName: aws.String(argStr(args, "stack_name")),
+		StackName: aws.String(stackName),
 	})
 	if err != nil {
 		return errResult(err)
@@ -58,8 +78,13 @@ func cfnGetTemplate(ctx context.Context, a *integration, args map[string]any) (*
 }
 
 func cfnDescribeStackEvents(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	stackName := r.Str("stack_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.cfnClient.DescribeStackEvents(ctx, &cloudformation.DescribeStackEventsInput{
-		StackName: aws.String(argStr(args, "stack_name")),
+		StackName: aws.String(stackName),
 	})
 	if err != nil {
 		return errResult(err)

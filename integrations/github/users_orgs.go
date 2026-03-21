@@ -18,7 +18,11 @@ func getAuthenticatedUser(ctx context.Context, g *integration, _ map[string]any)
 }
 
 func getUser(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	user, _, err := g.client.Users.Get(ctx, argStr(args, "username"))
+	username, err := mcp.ArgStr(args, "username")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	user, _, err := g.client.Users.Get(ctx, username)
 	if err != nil {
 		return errResult(err)
 	}
@@ -26,8 +30,15 @@ func getUser(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 }
 
 func listUserFollowers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	users, _, err := g.client.Users.ListFollowers(ctx, argStr(args, "username"), opts)
+	r := mcp.NewArgs(args)
+	username := r.Str("username")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	users, _, err := g.client.Users.ListFollowers(ctx, username, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -35,8 +46,15 @@ func listUserFollowers(ctx context.Context, g *integration, args map[string]any)
 }
 
 func listUserFollowing(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	users, _, err := g.client.Users.ListFollowing(ctx, argStr(args, "username"), opts)
+	r := mcp.NewArgs(args)
+	username := r.Str("username")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	users, _, err := g.client.Users.ListFollowing(ctx, username, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -44,8 +62,15 @@ func listUserFollowing(ctx context.Context, g *integration, args map[string]any)
 }
 
 func listUserKeys(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	keys, _, err := g.client.Users.ListKeys(ctx, argStr(args, "username"), opts)
+	r := mcp.NewArgs(args)
+	username := r.Str("username")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	keys, _, err := g.client.Users.ListKeys(ctx, username, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -55,16 +80,27 @@ func listUserKeys(ctx context.Context, g *integration, args map[string]any) (*mc
 // ── Organizations ─────────────────────────────────────────────────
 
 func getOrg(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	org, _, err := g.client.Organizations.Get(ctx, argStr(args, "org"))
+	org, err := mcp.ArgStr(args, "org")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	result, _, err := g.client.Organizations.Get(ctx, org)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(org)
+	return mcp.JSONResult(result)
 }
 
 func listUserOrgs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	orgs, _, err := g.client.Organizations.List(ctx, argStr(args, "username"), opts)
+	r := mcp.NewArgs(args)
+	username := r.Str("username")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	orgs, _, err := g.client.Organizations.List(ctx, username, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -72,14 +108,23 @@ func listUserOrgs(ctx context.Context, g *integration, args map[string]any) (*mc
 }
 
 func listOrgMembers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	opts := &gh.ListMembersOptions{
 		PublicOnly:  false,
-		ListOptions: listOpts(args),
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
 	}
-	if role := argStr(args, "role"); role != "" {
+	if role, err := mcp.ArgStr(args, "role"); err != nil {
+		return mcp.ErrResult(err)
+	} else if role != "" {
 		opts.Role = role
 	}
-	members, _, err := g.client.Organizations.ListMembers(ctx, argStr(args, "org"), opts)
+	members, _, err := g.client.Organizations.ListMembers(ctx, org, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -87,8 +132,15 @@ func listOrgMembers(ctx context.Context, g *integration, args map[string]any) (*
 }
 
 func listOrgTeams(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	teams, _, err := g.client.Teams.ListTeams(ctx, argStr(args, "org"), opts)
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	teams, _, err := g.client.Teams.ListTeams(ctx, org, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -96,7 +148,13 @@ func listOrgTeams(ctx context.Context, g *integration, args map[string]any) (*mc
 }
 
 func getTeamBySlug(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	team, _, err := g.client.Teams.GetTeamBySlug(ctx, argStr(args, "org"), argStr(args, "slug"))
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	slug := r.Str("slug")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	team, _, err := g.client.Teams.GetTeamBySlug(ctx, org, slug)
 	if err != nil {
 		return errResult(err)
 	}
@@ -104,11 +162,21 @@ func getTeamBySlug(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func listTeamMembers(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.TeamListTeamMembersOptions{ListOptions: listOpts(args)}
-	if role := argStr(args, "role"); role != "" {
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	slug := r.Str("slug")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.TeamListTeamMembersOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	if role, err := mcp.ArgStr(args, "role"); err != nil {
+		return mcp.ErrResult(err)
+	} else if role != "" {
 		opts.Role = role
 	}
-	members, _, err := g.client.Teams.ListTeamMembersBySlug(ctx, argStr(args, "org"), argStr(args, "slug"), opts)
+	members, _, err := g.client.Teams.ListTeamMembersBySlug(ctx, org, slug, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -116,8 +184,16 @@ func listTeamMembers(ctx context.Context, g *integration, args map[string]any) (
 }
 
 func listTeamRepos(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	repos, _, err := g.client.Teams.ListTeamReposBySlug(ctx, argStr(args, "org"), argStr(args, "slug"), opts)
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	slug := r.Str("slug")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	repos, _, err := g.client.Teams.ListTeamReposBySlug(ctx, org, slug, opts)
 	if err != nil {
 		return errResult(err)
 	}
