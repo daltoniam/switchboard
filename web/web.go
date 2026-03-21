@@ -14,6 +14,7 @@ import (
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
+	twitterInt "github.com/daltoniam/switchboard/integrations/twitter"
 	"github.com/daltoniam/switchboard/remotemcp"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/pages"
@@ -81,6 +82,12 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /integrations/notion/setup", w.handleNotionSetup)
 	mux.HandleFunc("POST /api/notion/save-token", w.handleNotionSaveToken)
+
+	mux.HandleFunc("GET /integrations/twitter/setup", w.handleTwitterSetup)
+	mux.HandleFunc("POST /api/twitter/oauth/start", w.handleTwitterOAuthStart)
+	mux.HandleFunc("GET /api/twitter/oauth/callback", w.handleTwitterOAuthCallback)
+	mux.HandleFunc("POST /api/twitter/save-token", w.handleTwitterSaveToken)
+	mux.HandleFunc("POST /api/twitter/save-oauth-credentials", w.handleTwitterSaveOAuthCredentials)
 
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
@@ -176,7 +183,8 @@ var setupIntegrations = map[string]bool{
 	"linear": true,
 	"sentry": true,
 	"gmail":  true,
-	"notion": true,
+	"notion":  true,
+	"twitter": true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
@@ -1036,4 +1044,164 @@ func (w *WebServer) handleGmailSaveOAuthCredentials(rw http.ResponseWriter, r *h
 	_ = w.services.Config.SetIntegration("gmail", ic)
 
 	http.Redirect(rw, r, "/integrations/gmail/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleTwitterSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("twitter")
+	hasToken := exists && ic.Credentials["bearer_token"] != ""
+	hasOAuth := exists && ic.Credentials["client_id"] != "" && ic.Credentials["client_secret"] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials["client_id"]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("twitter")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials["token_source"] != "" {
+		tokenSource = ic.Credentials["token_source"]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/twitter/oauth/callback", w.port)
+
+	var tools []string
+	if integration, ok := w.services.Registry.Get("twitter"); ok {
+		for _, t := range integration.Tools() {
+			tools = append(tools, t.Name)
+		}
+	}
+
+	page := w.pageData(r, "Twitter Setup", "/integrations")
+	data := pages.TwitterSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+		Tools:       tools,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.TwitterSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleTwitterOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("twitter")
+	if !exists || ic.Credentials["client_id"] == "" || ic.Credentials["client_secret"] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Twitter OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/twitter/oauth/callback", w.port)
+	result, err := twitterInt.StartTwitterOAuth(ic.Credentials["client_id"], ic.Credentials["client_secret"], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleTwitterOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/twitter/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := twitterInt.HandleTwitterCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/twitter/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := twitterInt.PollTwitterOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/twitter/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("twitter")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["bearer_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials["token_source"] = "oauth"
+	_ = w.services.Config.SetIntegration("twitter", ic)
+
+	http.Redirect(rw, r, "/integrations/twitter/setup?result=Connected+to+X+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleTwitterSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/twitter/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	bearerToken := strings.TrimSpace(r.FormValue("bearer_token"))
+	if bearerToken == "" {
+		http.Redirect(rw, r, "/integrations/twitter/setup?error=Bearer+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("twitter")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["bearer_token"] = bearerToken
+	ic.Credentials["token_source"] = "manual"
+	_ = w.services.Config.SetIntegration("twitter", ic)
+
+	http.Redirect(rw, r, "/integrations/twitter/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleTwitterSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/twitter/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/twitter/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("twitter")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials["client_id"] = clientID
+	ic.Credentials["client_secret"] = clientSecret
+	_ = w.services.Config.SetIntegration("twitter", ic)
+
+	http.Redirect(rw, r, "/integrations/twitter/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+X.", http.StatusSeeOther)
 }

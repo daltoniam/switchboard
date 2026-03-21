@@ -1,0 +1,161 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type TwitterSetupData struct {
+	HasToken    bool
+	Healthy     bool
+	TokenSource string
+	HasOAuth    bool
+	ClientID    string
+	RedirectURI string
+	FlashResult string
+	FlashError  string
+	Tools       []string
+}
+
+func twitterStatusBadge(hasToken bool, healthy bool) string {
+	if healthy {
+		return "green"
+	}
+	if hasToken {
+		return "red"
+	}
+	return "muted"
+}
+
+func twitterStatusLabel(hasToken bool, healthy bool) string {
+	if healthy {
+		return "Connected"
+	}
+	if hasToken {
+		return "Invalid Token"
+	}
+	return "Not Connected"
+}
+
+templ TwitterSetup(page layouts.PageData, data TwitterSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Twitter / X Setup</h1>
+			@components.Badge(twitterStatusLabel(data.HasToken, data.Healthy), twitterStatusBadge(data.HasToken, data.Healthy))
+		</div>
+		if data.FlashResult != "" {
+			<div class="flash flash-success">{ data.FlashResult }</div>
+		}
+		if data.FlashError != "" {
+			<div class="flash flash-error">{ data.FlashError }</div>
+		}
+		if data.HasToken && data.Healthy {
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Current Connection</div>
+					@components.Badge("Connected", "green")
+				</div>
+				<p style="color: var(--text-muted); font-size: 0.85rem;">
+					Twitter is connected
+					if data.TokenSource != "" {
+						<span> via <strong>{ data.TokenSource }</strong></span>
+					}
+					. You can re-authenticate below to get a new token.
+				</p>
+			</div>
+		}
+		<div class="card">
+			<div class="card-title" style="margin-bottom: 0.75rem;">X OAuth App</div>
+			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+				Create an app in the
+				<a href="https://developer.x.com/en/portal/dashboard" target="_blank" style="color: var(--accent);">X Developer Portal</a>.
+				Under <strong>User authentication settings</strong>, enable OAuth 2.0 with type <strong>Web App</strong>, and add
+				<code style="font-size: 0.8rem; background: var(--bg); padding: 0.15em 0.4em; border-radius: 3px;">{ data.RedirectURI }</code>
+				as a callback URL.
+			</p>
+			<form method="POST" action="/api/twitter/save-oauth-credentials">
+				@components.FormGroup("Client ID", "client_id", "text", data.ClientID, "Your X OAuth 2.0 Client ID")
+				@components.FormGroup("Client Secret", "client_secret", "password", "", "Your X OAuth 2.0 Client Secret")
+				<button type="submit" class="btn">Save OAuth Credentials</button>
+			</form>
+		</div>
+		if data.HasOAuth {
+			<div class="card">
+				<div class="card-title" style="margin-bottom: 0.75rem;">Sign in with X</div>
+				<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+					Authenticate using X's OAuth 2.0 PKCE flow. You'll be redirected to X to authorize access, then sent back automatically.
+				</p>
+				<div id="oauth-container">
+					<button type="button" class="btn" id="oauth-start-btn" onclick="startTwitterOAuth()">
+						Sign in with X
+					</button>
+				</div>
+				<div id="oauth-error" style="display: none;">
+					<div class="flash flash-error" id="oauth-error-msg"></div>
+					<button type="button" class="btn btn-outline" onclick="resetOAuth()" style="margin-top: 0.5rem;">Try Again</button>
+				</div>
+			</div>
+		}
+		<div class="card">
+			<div class="card-title" style="margin-bottom: 0.75rem;">
+				if data.HasOAuth {
+					Manual Bearer Token Entry
+				} else {
+					Bearer Token
+				}
+			</div>
+			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+				Paste an X API Bearer Token directly. You can find this in your
+				<a href="https://developer.x.com/en/portal/dashboard" target="_blank" style="color: var(--accent);">X Developer Portal</a>
+				under your app's Keys and Tokens section.
+			</p>
+			<form method="POST" action="/api/twitter/save-token">
+				@components.FormGroup("Bearer Token", "bearer_token", "password", "", "AAAAAAAAAAAAAAAAAAAAAx...")
+				<button type="submit" class="btn">Save Token</button>
+			</form>
+		</div>
+		if len(data.Tools) > 0 {
+			<div class="card">
+				<div class="card-title" style="margin-bottom: 0.5rem;">Available Tools</div>
+				<div class="tools-list">
+					for _, t := range data.Tools {
+						@components.ToolTag(t)
+					}
+				</div>
+			</div>
+		}
+		<script>
+			function startTwitterOAuth() {
+				document.getElementById('oauth-start-btn').disabled = true;
+				document.getElementById('oauth-start-btn').textContent = 'Starting...';
+
+				fetch('/api/twitter/oauth/start', { method: 'POST' })
+					.then(function(r) { return r.json(); })
+					.then(function(data) {
+						if (data.error) {
+							showOAuthError(data.error);
+							return;
+						}
+						window.location.href = data.authorize_url;
+					})
+					.catch(function(err) {
+						showOAuthError('Failed to start OAuth flow: ' + err.message);
+					});
+			}
+
+			function showOAuthError(msg) {
+				document.getElementById('oauth-container').style.display = 'none';
+				document.getElementById('oauth-error').style.display = 'block';
+				document.getElementById('oauth-error-msg').textContent = msg;
+			}
+
+			function resetOAuth() {
+				document.getElementById('oauth-error').style.display = 'none';
+				document.getElementById('oauth-container').style.display = 'block';
+				document.getElementById('oauth-start-btn').disabled = false;
+				document.getElementById('oauth-start-btn').textContent = 'Sign in with X';
+			}
+		</script>
+	}
+}
