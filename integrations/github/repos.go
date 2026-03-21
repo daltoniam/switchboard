@@ -2,11 +2,32 @@ package github
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
 	gh "github.com/google/go-github/v68/github"
 )
+
+// decodeContentArg tries base64 decoding; if it fails, treats the input as raw text.
+// This handles both LLMs that base64-encode (matching old tool description) and
+// LLMs that pass raw text (matching new tool description).
+func decodeContentArg(s string) []byte {
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err == nil && looksLikePlainText(decoded) {
+		return decoded
+	}
+	return []byte(s)
+}
+
+func looksLikePlainText(b []byte) bool {
+	for _, c := range b {
+		if c == 0 {
+			return false
+		}
+	}
+	return true
+}
 
 func searchRepos(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	opts := &gh.SearchOptions{ListOptions: listOpts(args)}
@@ -156,7 +177,7 @@ func getFileContents(ctx context.Context, g *integration, args map[string]any) (
 func createOrUpdateFile(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	opts := &gh.RepositoryContentFileOptions{
 		Message: gh.Ptr(argStr(args, "message")),
-		Content: []byte(argStr(args, "content")),
+		Content: decodeContentArg(argStr(args, "content")),
 		Branch:  gh.Ptr(argStr(args, "branch")),
 	}
 	if sha := argStr(args, "sha"); sha != "" {
