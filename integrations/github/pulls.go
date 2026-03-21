@@ -257,6 +257,70 @@ func createPRComment(ctx context.Context, g *integration, args map[string]any) (
 	return mcp.JSONResult(c)
 }
 
+func getPRComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	commentID := r.Int64("comment_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	c, _, err := g.client.PullRequests.GetComment(ctx, owner, repo, commentID)
+	if err != nil {
+		return errResult(err)
+	}
+	return mcp.JSONResult(c)
+}
+
+func replyToPRComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	pull := r.Int("pull_number")
+	body := r.Str("body")
+	commentID := r.Int64("comment_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	c, _, err := g.client.PullRequests.CreateCommentInReplyTo(ctx, owner, repo, pull, body, commentID)
+	if err != nil {
+		return errResult(err)
+	}
+	return mcp.JSONResult(c)
+}
+
+func updatePRComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	commentID := r.Int64("comment_id")
+	body := r.Str("body")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	comment := &gh.PullRequestComment{Body: gh.Ptr(body)}
+	c, _, err := g.client.PullRequests.EditComment(ctx, owner, repo, commentID, comment)
+	if err != nil {
+		return errResult(err)
+	}
+	return mcp.JSONResult(c)
+}
+
+func deletePRComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	commentID := r.Int64("comment_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.PullRequests.DeleteComment(ctx, owner, repo, commentID)
+	if err != nil {
+		return errResult(err)
+	}
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
+}
+
 func mergePR(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	owner := r.Str("owner")
