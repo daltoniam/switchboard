@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -45,6 +46,23 @@ func (m *mockConfigService) EnabledIntegrations() []string {
 	return names
 }
 func (m *mockConfigService) DefaultCredentialKeys(_ string) []string { return nil }
+func (m *mockConfigService) GetTenantConfig(_ context.Context, _ string) (*mcp.Config, error) {
+	return m.cfg, nil
+}
+func (m *mockConfigService) GetTenantIntegration(_ context.Context, _, name string) (*mcp.IntegrationConfig, error) {
+	ic, ok := m.cfg.Integrations[name]
+	if !ok {
+		return nil, fmt.Errorf("integration %q not found", name)
+	}
+	return ic, nil
+}
+func (m *mockConfigService) SetTenantIntegration(_ context.Context, _, name string, ic *mcp.IntegrationConfig) error {
+	m.cfg.Integrations[name] = ic
+	return nil
+}
+func (m *mockConfigService) TenantEnabledIntegrations(_ context.Context, _ string) ([]string, error) {
+	return m.EnabledIntegrations(), nil
+}
 
 type mockIntegration struct {
 	name    string
@@ -89,6 +107,10 @@ func (r *mockRegistry) Names() []string {
 		names = append(names, name)
 	}
 	return names
+}
+func (r *mockRegistry) RegisterFactory(_ string, _ mcp.IntegrationFactory) error { return nil }
+func (r *mockRegistry) NewInstance(name string) (mcp.Integration, error) {
+	return nil, fmt.Errorf("no factory for %q", name)
 }
 
 func setupTestWeb() (*WebServer, *mockRegistry, *mockConfigService) {

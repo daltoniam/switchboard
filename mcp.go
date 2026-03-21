@@ -8,6 +8,9 @@ import (
 	"path"
 	"strconv"
 	"time"
+
+	"github.com/daltoniam/switchboard/audit"
+	"github.com/daltoniam/switchboard/tenant"
 )
 
 // ErrNotConfigured is returned when an integration is used before being configured.
@@ -194,7 +197,9 @@ type PlainTextCredentials interface {
 }
 
 // ConfigService manages loading and saving configuration.
+// Implementations must be safe for concurrent use.
 type ConfigService interface {
+	// --- Single-user methods (local mode) ---
 	Load() error
 	Save() error
 	Get() *Config
@@ -203,12 +208,26 @@ type ConfigService interface {
 	SetIntegration(name string, ic *IntegrationConfig) error
 	EnabledIntegrations() []string
 	DefaultCredentialKeys(name string) []string
+
+	// --- Tenant-scoped methods (hosted mode) ---
+	// In local mode, implementations ignore tenantID and delegate
+	// to the single-user methods above.
+	GetTenantConfig(ctx context.Context, tenantID string) (*Config, error)
+	GetTenantIntegration(ctx context.Context, tenantID, name string) (*IntegrationConfig, error)
+	SetTenantIntegration(ctx context.Context, tenantID, name string, ic *IntegrationConfig) error
+	TenantEnabledIntegrations(ctx context.Context, tenantID string) ([]string, error)
 }
+
+// IntegrationFactory creates a new unconfigured instance of an integration.
+// Used in hosted mode to create per-tenant instances.
+type IntegrationFactory func() Integration
 
 // Registry holds all registered integrations and provides lookup.
 type Registry interface {
 	Register(i Integration) error
+	RegisterFactory(name string, factory IntegrationFactory) error
 	Get(name string) (Integration, bool)
+	NewInstance(name string) (Integration, error)
 	All() []Integration
 	Names() []string
 }
@@ -218,6 +237,8 @@ type Services struct {
 	Config   ConfigService
 	Registry Registry
 	Browser  BrowserService // nil if playwright driver is not installed
+	Audit    audit.Logger   // nil in local mode (no audit)
+	Tenant   *tenant.Info   // nil in local mode
 }
 
 // BrowserService manages browser lifecycle for web automation.
