@@ -478,6 +478,26 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo", "pull_number", "body", "commit_id", "path"},
 	},
 	{
+		Name: "github_get_pull_comment", Description: "Get a single review comment on a pull request by its comment ID",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "comment_id": "Comment ID"},
+		Required:   []string{"owner", "repo", "comment_id"},
+	},
+	{
+		Name: "github_reply_to_pull_comment", Description: "Reply to an existing review comment thread on a pull request",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "body": "Reply body", "comment_id": "ID of the comment to reply to"},
+		Required:   []string{"owner", "repo", "pull_number", "body", "comment_id"},
+	},
+	{
+		Name: "github_update_pull_comment", Description: "Update the body of a review comment on a pull request",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "comment_id": "Comment ID", "body": "New comment body (markdown)"},
+		Required:   []string{"owner", "repo", "comment_id", "body"},
+	},
+	{
+		Name: "github_delete_pull_comment", Description: "Delete a review comment on a pull request",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "comment_id": "Comment ID"},
+		Required:   []string{"owner", "repo", "comment_id"},
+	},
+	{
 		Name: "github_merge_pull", Description: "Merge a pull request",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "commit_message": "Merge commit message", "merge_method": "Method: merge, squash, rebase"},
 		Required:   []string{"owner", "repo", "pull_number"},

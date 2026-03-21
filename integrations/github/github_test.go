@@ -171,6 +171,198 @@ func TestCreateHook_ActiveInvalidType(t *testing.T) {
 	assert.Contains(t, result.Data, "parameter")
 }
 
+// ── PR Review Comment CRUD Tests ─────────────────────────────────
+
+func TestGetPRComment(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Contains(t, r.URL.Path, "/repos/o/r/pulls/comments/42")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(gh.PullRequestComment{
+			ID:   gh.Ptr(int64(42)),
+			Body: gh.Ptr("looks good"),
+		})
+	}))
+	defer ts.Close()
+
+	result, err := getPRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "comment_id": float64(42),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+	assert.Contains(t, result.Data, `"looks good"`)
+}
+
+func TestReplyToPRComment(t *testing.T) {
+	var capturedBody struct {
+		Body      string `json:"body"`
+		InReplyTo int64  `json:"in_reply_to"`
+	}
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Contains(t, r.URL.Path, "/repos/o/r/pulls/7/comments")
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&capturedBody))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(gh.PullRequestComment{
+			ID:   gh.Ptr(int64(99)),
+			Body: gh.Ptr(capturedBody.Body),
+		})
+	}))
+	defer ts.Close()
+
+	result, err := replyToPRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "pull_number": float64(7),
+		"body": "thanks!", "comment_id": float64(42),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+	assert.Equal(t, int64(42), capturedBody.InReplyTo)
+	assert.Equal(t, "thanks!", capturedBody.Body)
+}
+
+func TestUpdatePRComment(t *testing.T) {
+	var capturedBody gh.PullRequestComment
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method)
+		assert.Contains(t, r.URL.Path, "/repos/o/r/pulls/comments/42")
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&capturedBody))
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(gh.PullRequestComment{
+			ID:   gh.Ptr(int64(42)),
+			Body: gh.Ptr("updated body"),
+		})
+	}))
+	defer ts.Close()
+
+	result, err := updatePRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "comment_id": float64(42), "body": "updated body",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+	assert.Equal(t, "updated body", capturedBody.GetBody())
+	assert.Contains(t, result.Data, `"updated body"`)
+}
+
+func TestDeletePRComment(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodDelete, r.Method)
+		assert.Contains(t, r.URL.Path, "/repos/o/r/pulls/comments/42")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	result, err := deletePRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "comment_id": float64(42),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+	assert.Contains(t, result.Data, `"deleted"`)
+}
+
+func TestGetPRComment_APIError(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"message":"Not Found"}`)
+	}))
+	defer ts.Close()
+
+	result, err := getPRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "comment_id": float64(999),
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "Not Found")
+}
+
+func TestGetPRComment_ServerError(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, `{"message":"Internal Server Error"}`)
+	}))
+	defer ts.Close()
+
+	_, err := getPRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "comment_id": float64(42),
+	})
+	require.Error(t, err, "500 should propagate as retryable Go error")
+	var re *mcp.RetryableError
+	assert.ErrorAs(t, err, &re)
+	assert.Equal(t, 500, re.StatusCode)
+}
+
+func TestReplyToPRComment_APIError(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprint(w, `{"message":"Validation Failed"}`)
+	}))
+	defer ts.Close()
+
+	result, err := replyToPRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "pull_number": float64(7),
+		"body": "reply", "comment_id": float64(999),
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "Validation Failed")
+}
+
+func TestUpdatePRComment_APIError(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"message":"Not Found"}`)
+	}))
+	defer ts.Close()
+
+	result, err := updatePRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "comment_id": float64(999), "body": "new body",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "Not Found")
+}
+
+func TestDeletePRComment_APIError(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"message":"Not Found"}`)
+	}))
+	defer ts.Close()
+
+	result, err := deletePRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "comment_id": float64(999),
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "Not Found")
+}
+
+func TestReplyToPRComment_ServerError(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, `{"message":"Internal Server Error"}`)
+	}))
+	defer ts.Close()
+
+	_, err := replyToPRComment(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r", "pull_number": float64(7),
+		"body": "reply", "comment_id": float64(42),
+	})
+	require.Error(t, err, "500 should propagate as retryable Go error")
+	var re *mcp.RetryableError
+	assert.ErrorAs(t, err, &re)
+	assert.Equal(t, 500, re.StatusCode)
+}
+
 func TestListIssues_MilestonePassthrough(t *testing.T) {
 	tests := []struct {
 		name          string
