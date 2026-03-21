@@ -67,6 +67,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | [docs/response-optimizations.md](docs/response-optimizations.md) | Modifying server response pipeline |
 | [docs/adapter-reference.md](docs/adapter-reference.md) | Working on a specific integration adapter |
 | [docs/go-anti-patterns.md](docs/go-anti-patterns.md) | Writing/reviewing handler arg extraction (prevents silent error swallowing) |
+| [docs/tool-search.md](docs/tool-search.md) | Search scoring engine, synonym groups, tool description guidelines, benchmarking |
 | [docs/web-ui.md](docs/web-ui.md) | Modifying the web config UI |
 
 ## Skills
@@ -76,5 +77,6 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | `add-integration` | Adding a new external API integration adapter |
 | `optimize-integration` | Improving an existing adapter's LLM usability |
 | `mcp-benchmark` | Running live benchmark sequences against integrations |
+| `search-benchmark` | Cross-model search quality benchmark after scoring changes |
 | `pr-review` | Reviewing a pull request |
 | `pr-comments` | Submitting inline PR review comments |
