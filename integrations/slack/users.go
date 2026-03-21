@@ -12,7 +12,7 @@ var _ *mcp.ToolResult // type anchor
 func listUsers(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	cursor := r.Str("cursor")
@@ -48,7 +48,7 @@ func listUsers(ctx context.Context, s *slackIntegration, args map[string]any) (*
 func getUserInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	userID := r.Str("user_id")
@@ -70,7 +70,7 @@ func getUserInfo(ctx context.Context, s *slackIntegration, args map[string]any) 
 func getUserPresence(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	userID := r.Str("user_id")
@@ -87,7 +87,7 @@ func getUserPresence(ctx context.Context, s *slackIntegration, args map[string]a
 func listUserGroups(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	includeUsers := r.Bool("include_users")
@@ -122,7 +122,7 @@ func listUserGroups(ctx context.Context, s *slackIntegration, args map[string]an
 func getUserGroup(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	usergroupID := r.Str("usergroup_id")

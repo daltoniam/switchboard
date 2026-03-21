@@ -58,13 +58,12 @@ func (s *slackIntegration) Configure(_ context.Context, creds mcp.Credentials) e
 	s.store.loadFromFile()
 
 	if len(s.store.allWorkspaces()) == 0 {
-		all, _ := extractAllFromChrome()
-		for _, extracted := range all {
+		wss, _ := listWorkspacesFromChrome()
+		for _, ws := range wss {
 			s.store.setWorkspace(&workspace{
-				Token:  extracted.token,
-				Cookie: extracted.cookie,
-				Source: "chrome",
-				TeamID: "_chrome_pending",
+				TeamID:   ws.TeamID,
+				TeamName: ws.Name,
+				Source:   "chrome",
 			})
 		}
 	}
@@ -328,8 +327,4 @@ func wrapRetryable(err error) error {
 
 func errResult(err error) (*mcp.ToolResult, error) {
 	return mcp.ErrResult(wrapRetryable(err))
-}
-
-func errClientResult(err error) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 }

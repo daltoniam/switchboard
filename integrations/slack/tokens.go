@@ -290,49 +290,6 @@ func extractFromChrome(teamID string) *chromeTokens {
 	return result
 }
 
-// extractAllFromChrome extracts tokens for every workspace found in Chrome.
-func extractAllFromChrome() ([]*chromeTokens, error) {
-	if runtime.GOOS != "darwin" {
-		return nil, fmt.Errorf("chrome extraction is only available on macOS")
-	}
-
-	extractMu.Lock()
-	defer extractMu.Unlock()
-
-	profiles, err := findChromeProfiles()
-	if err != nil {
-		return nil, fmt.Errorf("could not find Chrome profiles: %w", err)
-	}
-
-	var cookie string
-	for _, profile := range profiles {
-		if c, err := extractCookieFromChrome(profile); err == nil {
-			cookie = c
-			break
-		}
-	}
-
-	seen := make(map[string]bool)
-	var results []*chromeTokens
-	for _, profile := range profiles {
-		cfg, err := readSlackLocalConfig(profile)
-		if err != nil {
-			continue
-		}
-		for id, team := range cfg.Teams {
-			if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
-				continue
-			}
-			seen[id] = true
-			results = append(results, &chromeTokens{
-				token:  team.Token,
-				cookie: cookie,
-			})
-		}
-	}
-	return results, nil
-}
-
 func extractFromChromeWithError(teamID string) (*chromeTokens, error) {
 	if runtime.GOOS != "darwin" {
 		return nil, fmt.Errorf("chrome extraction is only available on macOS")

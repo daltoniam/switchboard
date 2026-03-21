@@ -13,7 +13,7 @@ var _ *mcp.ToolResult // type anchor
 func sendMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -36,7 +36,7 @@ func sendMessage(ctx context.Context, s *slackIntegration, args map[string]any) 
 func updateMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -56,7 +56,7 @@ func updateMessage(ctx context.Context, s *slackIntegration, args map[string]any
 func deleteMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -74,7 +74,7 @@ func deleteMessage(ctx context.Context, s *slackIntegration, args map[string]any
 func searchMessages(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	query := r.Str("query")
@@ -104,7 +104,7 @@ func searchMessages(ctx context.Context, s *slackIntegration, args map[string]an
 func addReaction(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -122,7 +122,7 @@ func addReaction(ctx context.Context, s *slackIntegration, args map[string]any) 
 func removeReaction(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -140,7 +140,7 @@ func removeReaction(ctx context.Context, s *slackIntegration, args map[string]an
 func getReactions(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -167,7 +167,7 @@ func getReactions(ctx context.Context, s *slackIntegration, args map[string]any)
 func addPin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -184,7 +184,7 @@ func addPin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp
 func removePin(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -201,7 +201,7 @@ func removePin(ctx context.Context, s *slackIntegration, args map[string]any) (*
 func listPins(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -233,7 +233,7 @@ func listPins(ctx context.Context, s *slackIntegration, args map[string]any) (*m
 func scheduleMessage(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")

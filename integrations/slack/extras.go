@@ -13,7 +13,7 @@ var _ *mcp.ToolResult // type anchor
 func authTest(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	resp, err := client.AuthTestContext(ctx)
 	if err != nil {
@@ -25,7 +25,7 @@ func authTest(ctx context.Context, s *slackIntegration, args map[string]any) (*m
 func teamInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	info, err := client.GetTeamInfoContext(ctx)
 	if err != nil {
@@ -37,7 +37,7 @@ func teamInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*m
 func uploadFile(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	content := r.Str("content")
@@ -67,7 +67,7 @@ func uploadFile(ctx context.Context, s *slackIntegration, args map[string]any) (
 func listFiles(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -99,7 +99,7 @@ func listFiles(ctx context.Context, s *slackIntegration, args map[string]any) (*
 func deleteFile(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	fileID := r.Str("file_id")
@@ -115,7 +115,7 @@ func deleteFile(ctx context.Context, s *slackIntegration, args map[string]any) (
 func listEmoji(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	emoji, err := client.GetEmojiContext(ctx)
 	if err != nil {
@@ -127,7 +127,7 @@ func listEmoji(ctx context.Context, s *slackIntegration, args map[string]any) (*
 func setStatus(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	statusText := r.Str("status_text")
@@ -145,7 +145,7 @@ func setStatus(ctx context.Context, s *slackIntegration, args map[string]any) (*
 func listBookmarks(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -173,7 +173,7 @@ func listBookmarks(ctx context.Context, s *slackIntegration, args map[string]any
 func addBookmark(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -193,7 +193,7 @@ func addBookmark(ctx context.Context, s *slackIntegration, args map[string]any) 
 func removeBookmark(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	channelID := r.Str("channel_id")
@@ -210,7 +210,7 @@ func removeBookmark(ctx context.Context, s *slackIntegration, args map[string]an
 func addReminder(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	user := r.Str("user")
@@ -232,7 +232,7 @@ func addReminder(ctx context.Context, s *slackIntegration, args map[string]any) 
 func listReminders(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	reminders, err := client.ListReminders()
 	if err != nil {
@@ -254,7 +254,7 @@ func listReminders(ctx context.Context, s *slackIntegration, args map[string]any
 func deleteReminder(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
-		return errClientResult(err)
+		return mcp.ErrResult(err)
 	}
 	r := mcp.NewArgs(args)
 	reminderID := r.Str("reminder_id")

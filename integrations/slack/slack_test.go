@@ -347,8 +347,8 @@ func TestGetClientForArgs_UnknownWorkspace(t *testing.T) {
 	assert.Contains(t, err.Error(), "unknown workspace")
 }
 
-func TestErrClientResult(t *testing.T) {
-	result, err := errClientResult(fmt.Errorf("no workspace"))
+func TestErrResult_NonRetryableProducesToolResult(t *testing.T) {
+	result, err := mcp.ErrResult(fmt.Errorf("no workspace"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "no workspace", result.Data)
