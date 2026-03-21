@@ -99,25 +99,15 @@ For any integration not listed, use the first list/search tool found via
 
 ### Phase 3: Search Discoverability Tests
 
-Test natural-language queries that an LLM would realistically use. These validate
-that search AND-matching, descriptions, and synonyms work correctly.
+**Moved to `/search-benchmark` skill.** Use that skill for cross-model search
+quality benchmarking with synonym expansion, TF-IDF scoring, and stop-word
+analysis. This phase is retained here only as a lightweight sanity check.
 
-| Query | Expected Tool | Why |
-|-------|--------------|-----|
-| `send message slack` | `slack_send_message` | Common verb "send" |
-| `post message` | `slack_send_message` | Synonym "post" |
-| `list issues` | github/linear/sentry list issues | Cross-integration |
-| `create ticket` | `linear_create_issue` | Synonym "ticket" for "issue" |
-| `run query` | metabase/postgres execute query | Ambiguous intent |
-| `get pull request` | `github_get_pull` | Noun phrase |
+Quick smoke test — verify these return non-zero results:
+- `search({"query": "create ticket"})` → should find `linear_create_issue`
+- `search({"query": "send message"})` → should find `slack_send_message`
 
-**For each query, record:**
-
-| Field | How to check |
-|-------|-------------|
-| Total results | Count returned tools |
-| 0 results | **FLAG as search gap (High)** |
-| Expected tool missing from first page | **FLAG as ranking issue (Medium)** |
+For full search quality analysis, run `/search-benchmark` instead.
 
 ### Phase 4: Cross-Integration Scripts
 

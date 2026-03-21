@@ -50,6 +50,46 @@ One tool per API operation. Follow naming and dispatch conventions in `AGENTS.md
 | 30-60 | 3-5 handler files split by domain (see `sentry/`) |
 | 60+ | 5+ handler files (see `github/`, `datadog/`) |
 
+### Tool Description Quality (Search Discoverability)
+
+Tool descriptions are scored by a TF-IDF search engine with synonym expansion.
+They're the ONLY text an LLM sees when deciding which tool to use. Write them
+for discoverability, not just accuracy.
+
+**Three-tier pattern** (from the GitHub adapter — the gold standard):
+
+1. **Entry points** — tools users search for first:
+   ```
+   "List error and exception issues for a project. Start here for error tracking, debugging, and finding unresolved bugs or crashes."
+   ```
+
+2. **Drill-down tools** — used after entry points:
+   ```
+   "Get details of a specific error issue, including stacktrace and debugging context. Use after list_issues."
+   ```
+
+3. **Action tools** — mutations with chaining hints:
+   ```
+   "Update an error issue (resolve, assign, triage). Use after list_issues or get_issue."
+   ```
+
+**Rules:**
+
+- **Include domain keywords users would search for.** "List issues" is invisible to someone searching "find bugs" or "error tracking". Add the words: "List error and exception issues... bugs, crashes, unresolved problems."
+- **Include synonym-group words in descriptions.** The search engine expands "ticket" to {"ticket","issue","task","bug"}, but the tool still needs at least one variant in its description to score. Don't rely on synonyms alone.
+- **Scope descriptions to prevent false positives.** HomeAssistant tools should say "smart home" not just "state". CI/CD tools should say "CI/CD pipeline" not just "run" or "logs". Generic words cause tools to surface as noise in unrelated queries.
+- **Add workflow hints.** "Start here for..." on entry points. "Use after X..." on drill-down tools. "Preferred over X because..." when tools overlap.
+- **Don't pad with stop words.** Words like "a", "the", "to", "for" are filtered by the search engine. Every word in the description should carry meaning.
+- **Include both singular and plural forms.** The search engine does exact token matching with NO stemming. "errors" ≠ "error". If users might search for either form, include both: "List errors and exceptions" covers both "sentry errors" and "sentry error". Check the synonym groups in `server/search.go` — common plurals are covered there, but new domain words need explicit plural coverage either in the description or as a synonym group.
+
+**Anti-patterns:**
+- `"List issues for a project"` — too generic, no domain keywords
+- `"Get a specific message by ID"` — no "email", "mail", or "read"
+- `"List events with optional filters"` — what kind of events? For what purpose?
+
+**Verify with benchmark:** After adding tools, run `/search-benchmark` to check
+that your tools surface for natural-language queries users would actually type.
+
 ### Auth Pattern
 
 | Auth type | Pattern | Example adapter |
@@ -109,7 +149,8 @@ Every adapter must have these test categories (see existing `*_test.go` files):
 - [ ] **Constructor**: `New()` returns valid integration, `Name()` matches
 - [ ] **Configure success**: Valid credentials accepted
 - [ ] **Configure failures**: One test per required credential, verifying error message
-- [ ] **Tools metadata**: All have Name + Description, prefix matches `Name()`, no duplicates
+- [ ] **Tools metadata**: All have Name + Description, prefix matches `Name()`, no duplicates. Descriptions follow the three-tier pattern (see "Tool Description Quality" above)
+- [ ] **Search discoverability**: Run `/search-benchmark` — new tools surface for natural-language queries. Check synonym coverage with existing `synonymGroups` in `server/search.go`
 - [ ] **Dispatch parity (non-negotiable)**:
   - `TestDispatchMap_AllToolsCovered` — every `Tools()` entry has a dispatch handler
   - `TestDispatchMap_NoOrphanHandlers` — every dispatch key has a `ToolDefinition`
