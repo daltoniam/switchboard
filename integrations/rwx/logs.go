@@ -1,6 +1,7 @@
 package rwx
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -381,12 +382,19 @@ func (r *rwx) runRWXCommand(args []string, timeoutMs int) (string, error) {
 		cmd.Env = os.Environ()
 	}
 
-	output, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
 	if err != nil {
-		if len(output) > 0 {
-			return string(output), nil
+		if stdout.Len() > 0 {
+			return stdout.String(), nil
+		}
+		if stderr.Len() > 0 {
+			return "", fmt.Errorf("rwx command failed: %w: %s", err, stderr.String())
 		}
 		return "", fmt.Errorf("rwx command failed: %w", err)
 	}
-	return string(output), nil
+	return stdout.String(), nil
 }
