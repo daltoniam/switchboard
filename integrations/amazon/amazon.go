@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -27,11 +28,12 @@ type amazon struct {
 	domain         string
 	baseURL        string // test-only override; when set, URL helpers use this prefix instead of domain
 
-	browserSvc mcp.BrowserService
-	session    mcp.BrowserSession
-	sessionMu  sync.Mutex
-	loginMu    sync.Mutex
-	loginFunc  func(ctx context.Context) error // overridden in tests
+	browserSvc   mcp.BrowserService
+	session      mcp.BrowserSession
+	sessionMu    sync.Mutex
+	loginMu      sync.Mutex
+	loginVersion atomic.Uint64
+	loginFunc    func(ctx context.Context) error // overridden in tests
 }
 
 var _ mcp.FieldCompactionIntegration = (*amazon)(nil)
@@ -61,36 +63,41 @@ func SetBrowserService(i mcp.Integration, svc mcp.BrowserService) {
 func (a *amazon) Name() string { return "amazon" }
 
 func (a *amazon) Configure(_ context.Context, creds mcp.Credentials) error {
-	a.sessionMu.Lock()
+	email := strings.TrimSpace(creds["email"])
+	password := creds["password"]
+	otpSecret := strings.TrimSpace(creds["otp_secret"])
 
-	a.email = strings.TrimSpace(creds["email"])
-	a.password = creds["password"]
-	a.otpSecret = strings.TrimSpace(creds["otp_secret"])
-
+	domain := defaultDomain
 	if v := creds["domain"]; v != "" {
-		a.domain = strings.TrimPrefix(v, "www.")
+		domain = strings.TrimPrefix(v, "www.")
 	}
 
-	// Parse seed cookies if provided (optional — helps with bot detection).
+	var browserCookies []mcp.BrowserCookie
+	var httpCookies []*http.Cookie
+
 	raw := creds["cookies"]
 	if raw != "" {
 		var parsed []cookieJSON
 		if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
-			a.sessionMu.Unlock()
 			return fmt.Errorf("amazon: invalid cookies JSON: %w", err)
 		}
-		a.browserCookies = make([]mcp.BrowserCookie, 0, len(parsed))
-		a.httpCookies = make([]*http.Cookie, 0, len(parsed))
+		browserCookies = make([]mcp.BrowserCookie, 0, len(parsed))
+		httpCookies = make([]*http.Cookie, 0, len(parsed))
 		for _, c := range parsed {
-			a.browserCookies = append(a.browserCookies, mcp.BrowserCookie{
+			bc := mcp.BrowserCookie{
 				Name:     c.Name,
 				Value:    c.Value,
 				Domain:   c.Domain,
 				Path:     c.Path,
 				Secure:   c.Secure,
 				HTTPOnly: c.HTTPOnly,
-			})
-			a.httpCookies = append(a.httpCookies, &http.Cookie{
+			}
+			if c.Expires != nil {
+				t := time.Unix(int64(*c.Expires), 0)
+				bc.Expires = &t
+			}
+			browserCookies = append(browserCookies, bc)
+			httpCookies = append(httpCookies, &http.Cookie{
 				Name:     c.Name,
 				Value:    c.Value,
 				Domain:   c.Domain,
@@ -99,35 +106,32 @@ func (a *amazon) Configure(_ context.Context, creds mcp.Credentials) error {
 				HttpOnly: c.HTTPOnly,
 			})
 		}
-		if a.domain == defaultDomain {
-			a.domain = detectDomain(parsed)
+		if domain == defaultDomain {
+			domain = detectDomain(parsed)
 		}
 	}
 
-	if a.email == "" && len(a.browserCookies) == 0 {
-		a.sessionMu.Unlock()
+	if email == "" && len(browserCookies) == 0 {
 		return fmt.Errorf("amazon: either email+password or cookies is required")
 	}
 
-	// Reset any existing session so next fetch picks up new credentials.
+	a.sessionMu.Lock()
+	defer a.sessionMu.Unlock()
+	a.email = email
+	a.password = password
+	a.otpSecret = otpSecret
+	a.domain = domain
+	a.browserCookies = browserCookies
+	a.httpCookies = httpCookies
 	if a.session != nil {
 		_ = a.session.Close()
 		a.session = nil
 	}
-	a.sessionMu.Unlock()
-
 	return nil
 }
 
-func (a *amazon) Healthy(ctx context.Context) bool {
-	if a.email == "" && len(a.browserCookies) == 0 {
-		return false
-	}
-	doc, err := a.fetch(ctx, a.ordersURL())
-	if err != nil {
-		return false
-	}
-	return !isLoginDoc(doc)
+func (a *amazon) Healthy(_ context.Context) bool {
+	return a.email != "" || len(a.browserCookies) > 0
 }
 
 func (a *amazon) Tools() []mcp.ToolDefinition {
@@ -147,8 +151,6 @@ func (a *amazon) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
 	return fields, ok
 }
 
-// --- Browser session management ---
-
 // --- Page fetching ---
 
 func (a *amazon) fetch(ctx context.Context, rawURL string) (*goquery.Document, error) {
@@ -158,7 +160,8 @@ func (a *amazon) fetch(ctx context.Context, rawURL string) (*goquery.Document, e
 	return a.fetchHTTP(ctx, rawURL)
 }
 
-func (a *amazon) fetchBrowser(ctx context.Context, rawURL string) (*goquery.Document, error) {
+// openPage navigates a browser page and returns the parsed HTML document.
+func (a *amazon) openPage(ctx context.Context, rawURL string) (*goquery.Document, error) {
 	sess, err := a.ensureSession(ctx)
 	if err != nil {
 		return nil, err
@@ -178,35 +181,34 @@ func (a *amazon) fetchBrowser(ctx context.Context, rawURL string) (*goquery.Docu
 		return nil, fmt.Errorf("amazon: get page content: %w", err)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	return goquery.NewDocumentFromReader(strings.NewReader(html))
+}
+
+func (a *amazon) fetchBrowser(ctx context.Context, rawURL string) (*goquery.Document, error) {
+	doc, err := a.openPage(ctx, rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("amazon: parse HTML: %w", err)
+		return nil, err
 	}
 
-	// Auto-login on session expiry if credentials are available.
-	// loginMu prevents concurrent tool calls from racing through login simultaneously.
 	if isLoginDoc(doc) && a.email != "" {
+		versionBefore := a.loginVersion.Load()
 		a.loginMu.Lock()
+		// If another goroutine logged in while we waited, skip re-login.
+		if a.loginVersion.Load() != versionBefore {
+			a.loginMu.Unlock()
+			return a.fetchBrowserPage(ctx, rawURL)
+		}
 		doLogin := a.login
 		if a.loginFunc != nil {
 			doLogin = a.loginFunc
 		}
-		// Re-check after acquiring the lock — another goroutine may have already logged in.
-		needsLogin := true
-		probe, probeErr := a.fetchBrowserPage(ctx, rawURL)
-		if probeErr == nil && !isLoginDoc(probe) {
-			needsLogin = false
-		}
-		var loginErr error
-		if needsLogin {
-			loginErr = doLogin(ctx)
+		loginErr := doLogin(ctx)
+		if loginErr == nil {
+			a.loginVersion.Add(1)
 		}
 		a.loginMu.Unlock()
 		if loginErr != nil {
 			return nil, loginErr
-		}
-		if !needsLogin {
-			return probe, nil
 		}
 		return a.fetchBrowserPage(ctx, rawURL)
 	}
@@ -218,36 +220,14 @@ func (a *amazon) fetchBrowser(ctx context.Context, rawURL string) (*goquery.Docu
 	return doc, nil
 }
 
-// fetchBrowserPage is a simple page fetch without login retry (used after login to avoid recursion).
 func (a *amazon) fetchBrowserPage(ctx context.Context, rawURL string) (*goquery.Document, error) {
-	sess, err := a.ensureSession(ctx)
+	doc, err := a.openPage(ctx, rawURL)
 	if err != nil {
 		return nil, err
 	}
-	pg, err := sess.NewPage(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("amazon: new page: %w", err)
-	}
-	defer pg.Close() //nolint:errcheck
-
-	if err := pg.Navigate(ctx, rawURL); err != nil {
-		return nil, fmt.Errorf("amazon: navigate %s: %w", rawURL, err)
-	}
-
-	html, err := pg.Content(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("amazon: get page content: %w", err)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		return nil, fmt.Errorf("amazon: parse HTML: %w", err)
-	}
-
 	if isLoginDoc(doc) {
 		return nil, fmt.Errorf("amazon: login failed — still redirected to sign-in page")
 	}
-
 	return doc, nil
 }
 
@@ -300,6 +280,15 @@ func (a *amazon) withPage(ctx context.Context, rawURL string, fn func(ctx contex
 	if err := pg.Navigate(ctx, rawURL); err != nil {
 		return fmt.Errorf("amazon: navigate %s: %w", rawURL, err)
 	}
+
+	html, err := pg.Content(ctx)
+	if err != nil {
+		return fmt.Errorf("amazon: read page: %w", err)
+	}
+	if isLoginPage(html) {
+		return fmt.Errorf("amazon: session expired — not logged in")
+	}
+
 	return fn(ctx, pg)
 }
 
@@ -322,12 +311,13 @@ func isLoginDoc(doc *goquery.Document) bool {
 // --- Cookie parsing ---
 
 type cookieJSON struct {
-	Name     string `json:"name"`
-	Value    string `json:"value"`
-	Domain   string `json:"domain"`
-	Path     string `json:"path"`
-	Secure   bool   `json:"secure"`
-	HTTPOnly bool   `json:"httpOnly"`
+	Name     string   `json:"name"`
+	Value    string   `json:"value"`
+	Domain   string   `json:"domain"`
+	Path     string   `json:"path"`
+	Secure   bool     `json:"secure"`
+	HTTPOnly bool     `json:"httpOnly"`
+	Expires  *float64 `json:"expirationDate"`
 }
 
 func detectDomain(cookies []cookieJSON) string {

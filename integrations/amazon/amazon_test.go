@@ -259,7 +259,6 @@ func TestFetchBrowser_AutoLoginOnExpiredSession(t *testing.T) {
 	mockSess := &mockBrowserSession{}
 	mockSess.pages = []*mockBrowserPage{
 		{html: loginPage},
-		{html: loginPage},
 		{html: loggedInPage},
 	}
 

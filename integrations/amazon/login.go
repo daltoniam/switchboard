@@ -159,11 +159,8 @@ func ctxSleep(ctx context.Context, d time.Duration) error {
 func generateTOTP(secret string) (string, error) {
 	secret = strings.TrimSpace(strings.ToUpper(secret))
 	secret = strings.ReplaceAll(secret, " ", "")
-	// Pad to multiple of 8 for base32.
-	for len(secret)%8 != 0 {
-		secret += "="
-	}
-	key, err := base32.StdEncoding.DecodeString(secret)
+	secret = strings.TrimRight(secret, "=")
+	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(secret)
 	if err != nil {
 		return "", fmt.Errorf("invalid base32 OTP secret: %w", err)
 	}

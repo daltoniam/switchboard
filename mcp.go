@@ -207,6 +207,8 @@ type BrowserCookie struct {
 
 // BrowserSession is an isolated browser context (own cookies, local storage).
 // One session per integration; pages within the same session share auth state.
+// AddCookies should be called before navigating any pages — cookies injected
+// after the first navigation may not apply to already-loaded page contexts.
 type BrowserSession interface {
 	AddCookies(ctx context.Context, cookies []BrowserCookie) error
 	NewPage(ctx context.Context) (BrowserPage, error)
