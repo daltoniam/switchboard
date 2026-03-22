@@ -227,9 +227,23 @@ type BrowserService interface {
 	Close() error
 }
 
+// BrowserCookie represents a browser cookie for injection into a BrowserSession.
+type BrowserCookie struct {
+	Name     string
+	Value    string
+	Domain   string
+	Path     string
+	Secure   bool
+	HTTPOnly bool
+	Expires  *time.Time
+}
+
 // BrowserSession is an isolated browser context (own cookies, local storage).
 // One session per integration; pages within the same session share auth state.
+// AddCookies should be called before navigating any pages — cookies injected
+// after the first navigation may not apply to already-loaded page contexts.
 type BrowserSession interface {
+	AddCookies(ctx context.Context, cookies []BrowserCookie) error
 	NewPage(ctx context.Context) (BrowserPage, error)
 	Close() error
 }

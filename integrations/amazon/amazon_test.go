@@ -26,11 +26,20 @@ func TestConfigure_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestConfigure_MissingCookies(t *testing.T) {
+func TestConfigure_EmailPassword(t *testing.T) {
 	i := New()
-	err := i.Configure(context.Background(), mcp.Credentials{"cookies": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"email": "user@example.com", "password": "secret"})
+	assert.NoError(t, err)
+	a := i.(*amazon)
+	assert.Equal(t, "user@example.com", a.email)
+	assert.Equal(t, "secret", a.password)
+}
+
+func TestConfigure_NeitherEmailNorCookies(t *testing.T) {
+	i := New()
+	err := i.Configure(context.Background(), mcp.Credentials{})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cookies is required")
+	assert.Contains(t, err.Error(), "either email+password or cookies is required")
 }
 
 func TestConfigure_InvalidJSON(t *testing.T) {
@@ -38,13 +47,6 @@ func TestConfigure_InvalidJSON(t *testing.T) {
 	err := i.Configure(context.Background(), mcp.Credentials{"cookies": "not json"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid cookies JSON")
-}
-
-func TestConfigure_EmptyArray(t *testing.T) {
-	i := New()
-	err := i.Configure(context.Background(), mcp.Credentials{"cookies": "[]"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cookies array is empty")
 }
 
 func TestConfigure_DomainDetection(t *testing.T) {
@@ -93,6 +95,294 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 	}
 }
 
+func TestSetBrowserService(t *testing.T) {
+	i := New()
+	a := i.(*amazon)
+	assert.Nil(t, a.browserSvc)
+
+	mock := &mockBrowserSvc{}
+	SetBrowserService(i, mock)
+	assert.Equal(t, mock, a.browserSvc)
+}
+
+func TestSetBrowserService_WrongType(t *testing.T) {
+	type other struct{ mcp.Integration }
+	SetBrowserService(&other{}, &mockBrowserSvc{})
+}
+
+func TestConfigure_ResetsBrowserSession(t *testing.T) {
+	a := &amazon{client: &http.Client{}, domain: defaultDomain}
+	mockSess := &mockBrowserSession{}
+	a.session = mockSess
+
+	cookies := `[{"name":"session-id","value":"123","domain":".amazon.com","path":"/"}]`
+	err := a.Configure(context.Background(), mcp.Credentials{"cookies": cookies})
+	require.NoError(t, err)
+	assert.Nil(t, a.session)
+	assert.True(t, mockSess.closed)
+}
+
+func TestConfigure_PopulatesBrowserCookies(t *testing.T) {
+	a := &amazon{client: &http.Client{}, domain: defaultDomain}
+	cookies := `[{"name":"session-id","value":"abc","domain":".amazon.com","path":"/","secure":true,"httpOnly":true}]`
+	err := a.Configure(context.Background(), mcp.Credentials{"cookies": cookies})
+	require.NoError(t, err)
+	require.Len(t, a.browserCookies, 1)
+	assert.Equal(t, "session-id", a.browserCookies[0].Name)
+	assert.Equal(t, "abc", a.browserCookies[0].Value)
+	assert.True(t, a.browserCookies[0].Secure)
+	assert.True(t, a.browserCookies[0].HTTPOnly)
+	require.Len(t, a.httpCookies, 1)
+}
+
+func TestFetchHTTPFallback_NoBrowser(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`<html><body><h1>OK</h1></body></html>`))
+	}))
+	defer ts.Close()
+
+	a := newTestAmazon(ts)
+	doc, err := a.fetch(context.Background(), ts.URL+"/test")
+	require.NoError(t, err)
+	assert.Equal(t, "OK", doc.Find("h1").Text())
+}
+
+func TestFetchBrowser_UsesSessionAndPage(t *testing.T) {
+	mockPage := &mockBrowserPage{
+		html: `<html><body><h1>Browser Content</h1></body></html>`,
+	}
+	mockSess := &mockBrowserSession{}
+	mockSess.pages = append(mockSess.pages, mockPage)
+
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: &mockBrowserSvc{session: mockSess},
+		session:    mockSess,
+	}
+
+	doc, err := a.fetchBrowser(context.Background(), "https://www.amazon.com/s?k=test")
+	require.NoError(t, err)
+	assert.Equal(t, "Browser Content", doc.Find("h1").Text())
+	assert.Equal(t, "https://www.amazon.com/s?k=test", mockSess.pages[len(mockSess.pages)-1].navigatedURL)
+}
+
+func TestFetchBrowser_LoginPageDetected(t *testing.T) {
+	mockPage := &mockBrowserPage{
+		html: `<html><body><input id="ap_email"><input id="signInSubmit"></body></html>`,
+	}
+	mockSess := &mockBrowserSession{}
+	mockSess.pages = append(mockSess.pages, mockPage)
+
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: &mockBrowserSvc{session: mockSess},
+		session:    mockSess,
+	}
+
+	_, err := a.fetchBrowser(context.Background(), "https://www.amazon.com/orders")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not logged in")
+}
+
+func TestGetSession_InjectsCookies(t *testing.T) {
+	mockSess := &mockBrowserSession{}
+	mockSvc := &mockBrowserSvc{session: mockSess}
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: mockSvc,
+		browserCookies: []mcp.BrowserCookie{
+			{Name: "session-id", Value: "abc", Domain: ".amazon.com"},
+		},
+	}
+
+	sess, err := a.ensureSession(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, mockSess, sess)
+	require.Len(t, mockSess.cookies, 1)
+	assert.Equal(t, "session-id", mockSess.cookies[0].Name)
+}
+
+func TestGetSession_ReusesExisting(t *testing.T) {
+	mockSess := &mockBrowserSession{}
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: &mockBrowserSvc{},
+		session:    mockSess,
+	}
+
+	sess, err := a.ensureSession(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, mockSess, sess)
+}
+
+// --- TOTP tests ---
+
+func TestGenerateTOTP(t *testing.T) {
+	code, err := generateTOTP("JBSWY3DPEHPK3PXP")
+	require.NoError(t, err)
+	assert.Len(t, code, 6)
+	assert.Regexp(t, `^\d{6}$`, code)
+}
+
+func TestGenerateTOTP_InvalidSecret(t *testing.T) {
+	_, err := generateTOTP("!!!invalid!!!")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid base32")
+}
+
+func TestGenerateTOTP_PaddedSecret(t *testing.T) {
+	code, err := generateTOTP("JBSWY3DPEHPK3PXP")
+	require.NoError(t, err)
+	codeSpaced, err := generateTOTP("JBSW Y3DP EHPK 3PXP")
+	require.NoError(t, err)
+	assert.Equal(t, code, codeSpaced)
+}
+
+// --- Login tests ---
+
+func TestLogin_MissingCredentials(t *testing.T) {
+	a := &amazon{client: &http.Client{}, domain: "amazon.com", browserSvc: &mockBrowserSvc{}}
+	err := a.login(context.Background())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "email and password are required")
+}
+
+func TestFetchBrowser_AutoLoginOnExpiredSession(t *testing.T) {
+	loginPage := `<html><body><input id="ap_email"><input id="signInSubmit"></body></html>`
+	loggedInPage := `<html><body><h1>Products</h1></body></html>`
+	callCount := 0
+
+	mockSess := &mockBrowserSession{}
+	mockSess.pages = []*mockBrowserPage{
+		{html: loginPage},
+		{html: loggedInPage},
+	}
+
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		email:      "user@example.com",
+		password:   "secret",
+		browserSvc: &mockBrowserSvc{session: mockSess},
+		session:    mockSess,
+		loginFunc: func(ctx context.Context) error {
+			callCount++
+			return nil
+		},
+	}
+
+	doc, err := a.fetchBrowser(context.Background(), "https://www.amazon.com/s?k=test")
+	require.NoError(t, err)
+	assert.Equal(t, "Products", doc.Find("h1").Text())
+	assert.Equal(t, 1, callCount)
+}
+
+// --- Mock browser types ---
+
+type mockBrowserSvc struct {
+	sessionErr error
+	session    *mockBrowserSession
+}
+
+func (m *mockBrowserSvc) NewSession(_ context.Context) (mcp.BrowserSession, error) {
+	if m.sessionErr != nil {
+		return nil, m.sessionErr
+	}
+	if m.session == nil {
+		m.session = &mockBrowserSession{}
+	}
+	return m.session, nil
+}
+
+func (m *mockBrowserSvc) Close() error { return nil }
+
+type mockBrowserSession struct {
+	closed     bool
+	cookies    []mcp.BrowserCookie
+	cookiesErr error
+	pages      []*mockBrowserPage
+	pageIdx    int
+}
+
+func (m *mockBrowserSession) AddCookies(_ context.Context, cookies []mcp.BrowserCookie) error {
+	if m.cookiesErr != nil {
+		return m.cookiesErr
+	}
+	m.cookies = cookies
+	return nil
+}
+
+func (m *mockBrowserSession) NewPage(_ context.Context) (mcp.BrowserPage, error) {
+	if m.pageIdx < len(m.pages) {
+		pg := m.pages[m.pageIdx]
+		m.pageIdx++
+		return pg, nil
+	}
+	pg := &mockBrowserPage{}
+	m.pages = append(m.pages, pg)
+	m.pageIdx++
+	return pg, nil
+}
+
+func (m *mockBrowserSession) Close() error {
+	m.closed = true
+	return nil
+}
+
+type mockBrowserPage struct {
+	navigatedURL  string
+	html          string
+	postClickHTML string
+	clicked       bool
+	closed        bool
+	clickErr      error
+}
+
+func (m *mockBrowserPage) Navigate(_ context.Context, url string) error {
+	m.navigatedURL = url
+	return nil
+}
+
+func (m *mockBrowserPage) Content(_ context.Context) (string, error) {
+	html := m.html
+	if m.clicked && m.postClickHTML != "" {
+		html = m.postClickHTML
+	}
+	if html == "" {
+		return "<html><body></body></html>", nil
+	}
+	return html, nil
+}
+
+func (m *mockBrowserPage) Click(_ context.Context, _ string) error {
+	m.clicked = true
+	return m.clickErr
+}
+func (m *mockBrowserPage) Fill(_ context.Context, _, _ string) error { return nil }
+func (m *mockBrowserPage) SelectOption(_ context.Context, _, _ string) error {
+	return nil
+}
+func (m *mockBrowserPage) InnerText(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+func (m *mockBrowserPage) InnerHTML(_ context.Context, _ string) (string, error) {
+	return "", nil
+}
+func (m *mockBrowserPage) WaitForSelector(_ context.Context, _ string) error { return nil }
+func (m *mockBrowserPage) Screenshot(_ context.Context) ([]byte, error)      { return nil, nil }
+func (m *mockBrowserPage) Evaluate(_ context.Context, _ string, _ ...any) (any, error) {
+	return nil, nil
+}
+
+func (m *mockBrowserPage) Close() error {
+	m.closed = true
+	return nil
+}
+
 func TestExecute_UnknownTool(t *testing.T) {
 	a := &amazon{client: &http.Client{}, domain: "amazon.com"}
 	result, err := a.Execute(context.Background(), "amazon_nonexistent", nil)
@@ -131,10 +421,10 @@ func TestFetch_Success(t *testing.T) {
 	defer ts.Close()
 
 	a := &amazon{
-		client:  ts.Client(),
-		domain:  "amazon.com",
-		baseURL: ts.URL,
-		cookies: []*http.Cookie{{Name: "test", Value: "val"}},
+		client:      ts.Client(),
+		domain:      "amazon.com",
+		baseURL:     ts.URL,
+		httpCookies: []*http.Cookie{{Name: "test", Value: "val"}},
 	}
 
 	doc, err := a.fetch(context.Background(), ts.URL+"/test")
@@ -440,6 +730,68 @@ func TestAddToCart_InvalidASIN(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "asin must be exactly 10 uppercase alphanumeric characters")
+}
+
+func TestAddToCartBrowser(t *testing.T) {
+	productPage := `<html><body><button id="add-to-cart-button">Add to Cart</button></body></html>`
+	confirmPage := `<html><body><div id="sw-atc-confirmation">Added to cart</div></body></html>`
+
+	mockSess := &mockBrowserSession{}
+	mockSess.pages = []*mockBrowserPage{
+		{html: productPage, postClickHTML: confirmPage},
+	}
+
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: &mockBrowserSvc{session: mockSess},
+		session:    mockSess,
+	}
+
+	result, err := addToCartBrowser(context.Background(), a, "B0CHXKM5GK")
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "added to cart")
+}
+
+func TestClearCartBrowser(t *testing.T) {
+	cartWithItem := `<html><body><div id="sc-active-cart"><div data-asin="B0CHXKM5GK"></div></div></body></html>`
+	emptyCart := `<html><body><div id="sc-active-cart"></div></body></html>`
+
+	mockPg := &mockBrowserPage{html: cartWithItem, postClickHTML: emptyCart}
+	mockSess := &mockBrowserSession{}
+	mockSess.pages = []*mockBrowserPage{mockPg}
+
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: &mockBrowserSvc{session: mockSess},
+		session:    mockSess,
+	}
+
+	result, err := clearCartBrowser(context.Background(), a)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Removed 1 item")
+}
+
+func TestClearCartBrowser_AlreadyEmpty(t *testing.T) {
+	emptyCart := `<html><body><div id="sc-active-cart"></div></body></html>`
+
+	mockSess := &mockBrowserSession{}
+	mockSess.pages = []*mockBrowserPage{{html: emptyCart}}
+
+	a := &amazon{
+		client:     &http.Client{},
+		domain:     "amazon.com",
+		browserSvc: &mockBrowserSvc{session: mockSess},
+		session:    mockSess,
+	}
+
+	result, err := clearCartBrowser(context.Background(), a)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "already empty")
 }
 
 func TestClearCart(t *testing.T) {

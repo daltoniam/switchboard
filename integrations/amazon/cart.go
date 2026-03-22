@@ -122,6 +122,48 @@ func addToCart(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolRe
 		return mcp.ErrResult(fmt.Errorf("asin must be exactly 10 uppercase alphanumeric characters (e.g. B0CHXKM5GK)"))
 	}
 
+	if a.browserSvc != nil {
+		return addToCartBrowser(ctx, a, asin)
+	}
+	return addToCartHTTP(ctx, a, asin)
+}
+
+func addToCartBrowser(ctx context.Context, a *amazon, asin string) (*mcp.ToolResult, error) {
+	type addResult struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+
+	var success bool
+	err := a.withPage(ctx, a.productURL(asin), func(ctx context.Context, pg mcp.BrowserPage) error {
+		if err := pg.Click(ctx, "#add-to-cart-button"); err != nil {
+			return fmt.Errorf("click add-to-cart: %w", err)
+		}
+		if err := ctxSleep(ctx, 2*time.Second); err != nil {
+			return err
+		}
+
+		html, err := pg.Content(ctx)
+		if err != nil {
+			return err
+		}
+		success = strings.Contains(html, "Added to cart") ||
+			strings.Contains(html, "Added to basket") ||
+			strings.Contains(html, "Added to Cart") ||
+			strings.Contains(html, "sw-atc-confirmation")
+		return nil
+	})
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	if success {
+		return mcp.JSONResult(addResult{Success: true, Message: fmt.Sprintf("Product %s added to cart", asin)})
+	}
+	return mcp.JSONResult(addResult{Success: false, Message: fmt.Sprintf("Failed to add product %s to cart", asin)})
+}
+
+func addToCartHTTP(ctx context.Context, a *amazon, asin string) (*mcp.ToolResult, error) {
 	doc, err := a.fetch(ctx, a.productURL(asin))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -156,7 +198,7 @@ func addToCart(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolRe
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	a.setCookies(req)
+	a.setHTTPCookies(req)
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Referer", a.productURL(asin))
@@ -188,6 +230,78 @@ func addToCart(ctx context.Context, a *amazon, args map[string]any) (*mcp.ToolRe
 }
 
 func clearCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResult, error) {
+	if a.browserSvc != nil {
+		return clearCartBrowser(ctx, a)
+	}
+	return clearCartHTTP(ctx, a)
+}
+
+func clearCartBrowser(ctx context.Context, a *amazon) (*mcp.ToolResult, error) {
+	type clearResult struct {
+		Success      bool   `json:"success"`
+		Message      string `json:"message"`
+		ItemsRemoved int    `json:"items_removed"`
+	}
+
+	sess, err := a.ensureSession(ctx)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	pg, err := sess.NewPage(ctx)
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("amazon: new page: %w", err))
+	}
+	defer pg.Close() //nolint:errcheck
+
+	if err := pg.Navigate(ctx, a.cartURL()); err != nil {
+		return mcp.ErrResult(fmt.Errorf("amazon: navigate cart: %w", err))
+	}
+
+	if firstHTML, _ := pg.Content(ctx); isLoginPage(firstHTML) {
+		return mcp.ErrResult(fmt.Errorf("amazon: session expired — not logged in"))
+	}
+
+	removed := 0
+	const maxCartItems = 100
+	for i := 0; i < maxCartItems; i++ {
+		html, err := pg.Content(ctx)
+		if err != nil {
+			break
+		}
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+		if err != nil {
+			break
+		}
+
+		items := doc.Find("#sc-active-cart [data-asin]")
+		if items.Length() == 0 {
+			break
+		}
+
+		// Amazon renders delete controls as <input value="Delete"> or <input data-action="delete">
+		// depending on locale and A/B variant. If this selector breaks, inspect the cart page
+		// for the current delete element and update accordingly.
+		deleteSelector := `input[value="Delete"], input[data-action="delete"]`
+		if err := pg.Click(ctx, deleteSelector); err != nil {
+			break
+		}
+		removed++
+		if err := ctxSleep(ctx, 1*time.Second); err != nil {
+			break
+		}
+	}
+
+	if removed == 0 {
+		return mcp.JSONResult(clearResult{Success: true, Message: "Cart is already empty", ItemsRemoved: 0})
+	}
+	return mcp.JSONResult(clearResult{
+		Success:      true,
+		Message:      fmt.Sprintf("Removed %d item(s) from cart", removed),
+		ItemsRemoved: removed,
+	})
+}
+
+func clearCartHTTP(ctx context.Context, a *amazon) (*mcp.ToolResult, error) {
 	doc, err := a.fetch(ctx, a.cartURL())
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -196,12 +310,13 @@ func clearCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 	items := doc.Find("#sc-active-cart [data-asin]")
 	count := items.Length()
 
+	type clearResult struct {
+		Success      bool   `json:"success"`
+		Message      string `json:"message"`
+		ItemsRemoved int    `json:"items_removed"`
+	}
+
 	if count == 0 {
-		type clearResult struct {
-			Success      bool   `json:"success"`
-			Message      string `json:"message"`
-			ItemsRemoved int    `json:"items_removed"`
-		}
 		return mcp.JSONResult(clearResult{Success: true, Message: "Cart is already empty", ItemsRemoved: 0})
 	}
 
@@ -242,7 +357,7 @@ func clearCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 				lastErr = e
 				return
 			}
-			a.setCookies(req)
+			a.setHTTPCookies(req)
 			req.Header.Set("User-Agent", userAgent)
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
@@ -256,12 +371,6 @@ func clearCart(ctx context.Context, a *amazon, _ map[string]any) (*mcp.ToolResul
 			time.Sleep(800 * time.Millisecond)
 		}
 	})
-
-	type clearResult struct {
-		Success      bool   `json:"success"`
-		Message      string `json:"message"`
-		ItemsRemoved int    `json:"items_removed"`
-	}
 
 	if lastErr != nil && removed == 0 {
 		return mcp.ErrResult(lastErr)

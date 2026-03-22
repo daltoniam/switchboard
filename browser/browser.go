@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
-	"github.com/playwright-community/playwright-go"
+	playwright "github.com/playwright-community/playwright-go"
 )
 
 // service implements mcp.BrowserService backed by Playwright.
@@ -57,6 +57,28 @@ func (s *service) Close() error {
 // session implements mcp.BrowserSession.
 type session struct {
 	ctx playwright.BrowserContext
+}
+
+func (s *session) AddCookies(_ context.Context, cookies []mcp.BrowserCookie) error {
+	opts := make([]playwright.OptionalCookie, len(cookies))
+	for i, c := range cookies {
+		opts[i] = playwright.OptionalCookie{
+			Name:     c.Name,
+			Value:    c.Value,
+			Domain:   playwright.String(c.Domain),
+			Path:     playwright.String(c.Path),
+			Secure:   playwright.Bool(c.Secure),
+			HttpOnly: playwright.Bool(c.HTTPOnly),
+		}
+		if c.Expires != nil {
+			epoch := float64(c.Expires.Unix())
+			opts[i].Expires = &epoch
+		}
+	}
+	if err := s.ctx.AddCookies(opts); err != nil {
+		return fmt.Errorf("browser: add cookies: %w", err)
+	}
+	return nil
 }
 
 func (s *session) NewPage(_ context.Context) (mcp.BrowserPage, error) {

@@ -188,6 +188,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	}
 
 	gmailIntegration := gmail.New()
+	amazonIntegration := amazon.New()
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
 		github.New(),
@@ -203,7 +204,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		pganalyze.New(),
 		rwx.New(),
 		ynab.New(),
-		amazon.New(),
+		amazonIntegration,
 		gmailIntegration,
 		homeassistant.New(),
 		jira.New(),
@@ -225,6 +226,9 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	}
 
 	gmail.SetConfigService(gmailIntegration, cfgMgr)
+	if browserSvc != nil {
+		amazon.SetBrowserService(amazonIntegration, browserSvc)
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
