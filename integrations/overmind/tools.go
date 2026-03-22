@@ -54,4 +54,72 @@ Call this when all work is done and results have been collected. After calling t
 		},
 		Required: []string{"summary"},
 	},
+
+	// --- CRUD tools ---
+
+	{
+		Name:        "overmind_list_mcp_roles",
+		Description: `List all MCP roles in the system. Returns each role's ID, name, and description.`,
+		Parameters:  map[string]string{},
+		Required:    []string{},
+	},
+	{
+		Name: "overmind_create_mcp_role",
+		Description: `Create a new MCP role. An MCP role groups tool-access permissions and is assigned to agents.
+
+Returns the created role with its generated ID.`,
+		Parameters: map[string]string{
+			"name":        "Name for the new role",
+			"description": "Optional description of the role's purpose",
+		},
+		Required: []string{"name"},
+	},
+	{
+		Name:        "overmind_list_agents",
+		Description: `List all agents in the system. Returns each agent's ID, name, description, model, and MCP role.`,
+		Parameters:  map[string]string{},
+		Required:    []string{},
+	},
+	{
+		Name: "overmind_create_agent",
+		Description: `Create a new agent definition. An agent has a base prompt, model configuration, and an MCP role that controls its tool access.
+
+Returns the created agent with its generated ID.`,
+		Parameters: map[string]string{
+			"name":           "Name for the new agent",
+			"description":    "Optional description of the agent's purpose",
+			"base_prompt":    "The system prompt that defines the agent's behavior",
+			"model":          "The model to use (e.g. 'claude-sonnet-4-20250514')",
+			"model_provider": "The model provider (e.g. 'anthropic')",
+			"mcp_role_id":    "The ID of the MCP role to assign (from overmind_list_mcp_roles or overmind_create_mcp_role)",
+		},
+		Required: []string{"name", "base_prompt", "model", "model_provider", "mcp_role_id"},
+	},
+	{
+		Name:        "overmind_list_flows",
+		Description: `List all flows in the system. Returns each flow's ID, name, description, initial agent, webhook params, and enabled status.`,
+		Parameters:  map[string]string{},
+		Required:    []string{},
+	},
+	{
+		Name: "overmind_create_flow",
+		Description: `Create a new flow. A flow defines a multi-agent pipeline with a webhook trigger, prompt template, and initial agent.
+
+The prompt_template uses Go template syntax with webhook param names (e.g. '{{ .param_name }}').
+webhook_params is a JSON array of param objects: [{"name":"param_name","type":"string","required":true}].
+output_params is a JSON array of output param objects: [{"name":"result","type":"string"}].
+
+Returns the created flow with its generated ID and webhook secret.`,
+		Parameters: map[string]string{
+			"name":              "Name for the new flow",
+			"description":       "Optional description of the flow's purpose",
+			"initial_agent_id":  "The ID of the agent that runs first when the flow is triggered",
+			"prompt_template":   "Go template for the agent prompt, rendered with webhook params",
+			"webhook_params":    "JSON array of webhook parameter definitions",
+			"output_params":     "JSON array of output parameter definitions",
+			"enabled":           "Whether the flow is enabled (default: true)",
+			"timeout_minutes":   "Max runtime in minutes before the flow is failed (default: 30)",
+		},
+		Required: []string{"name", "initial_agent_id", "prompt_template"},
+	},
 }

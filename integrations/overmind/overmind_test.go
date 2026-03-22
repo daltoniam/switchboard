@@ -117,17 +117,24 @@ func TestConfigure_StripsTrailingSlash(t *testing.T) {
 func TestTools(t *testing.T) {
 	o := New()
 	tt := o.Tools()
-	assert.Len(t, tt, 4)
+	assert.Len(t, tt, 11)
 
 	names := make([]string, len(tt))
 	for i, tool := range tt {
 		names[i] = tool.Name
 	}
 	assert.ElementsMatch(t, []string{
+		"overmind_list_available_agents",
 		"overmind_launch_agent",
 		"overmind_get_agent_status",
 		"overmind_get_agent_result",
 		"overmind_complete_flow",
+		"overmind_list_mcp_roles",
+		"overmind_create_mcp_role",
+		"overmind_list_agents",
+		"overmind_create_agent",
+		"overmind_list_flows",
+		"overmind_create_flow",
 	}, names)
 }
 

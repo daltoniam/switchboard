@@ -147,7 +147,13 @@ func argStr(args map[string]any, key string) string {
 var dispatch = map[string]handlerFunc{
 	"overmind_list_available_agents": listAvailableAgents,
 	"overmind_launch_agent":          launchAgent,
-	"overmind_get_agent_status": getAgentStatus,
-	"overmind_get_agent_result": getAgentResult,
-	"overmind_complete_flow":    completeFlow,
+	"overmind_get_agent_status":      getAgentStatus,
+	"overmind_get_agent_result":      getAgentResult,
+	"overmind_complete_flow":         completeFlow,
+	"overmind_list_mcp_roles":        listMCPRoles,
+	"overmind_create_mcp_role":       createMCPRole,
+	"overmind_list_agents":           listAgents,
+	"overmind_create_agent":          createAgent,
+	"overmind_list_flows":            listFlows,
+	"overmind_create_flow":           createFlow,
 }
