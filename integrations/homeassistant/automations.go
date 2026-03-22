@@ -12,7 +12,11 @@ import (
 // --- Automations ---
 
 func getAutomation(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "automation_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("automation_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("automation_id is required"))
 	}
@@ -24,11 +28,18 @@ func getAutomation(ctx context.Context, h *homeassistant, args map[string]any) (
 }
 
 func saveAutomation(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "automation_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("automation_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("automation_id is required"))
 	}
-	configJSON := argStr(args, "config")
+	configJSON := r.Str("config")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if configJSON == "" {
 		return mcp.ErrResult(fmt.Errorf("config is required"))
 	}
@@ -44,7 +55,11 @@ func saveAutomation(ctx context.Context, h *homeassistant, args map[string]any) 
 }
 
 func deleteAutomation(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "automation_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("automation_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("automation_id is required"))
 	}
@@ -58,7 +73,11 @@ func deleteAutomation(ctx context.Context, h *homeassistant, args map[string]any
 // --- Scenes ---
 
 func getScene(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "scene_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("scene_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("scene_id is required"))
 	}
@@ -70,11 +89,18 @@ func getScene(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.
 }
 
 func saveScene(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "scene_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("scene_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("scene_id is required"))
 	}
-	configJSON := argStr(args, "config")
+	configJSON := r.Str("config")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if configJSON == "" {
 		return mcp.ErrResult(fmt.Errorf("config is required"))
 	}
@@ -90,7 +116,11 @@ func saveScene(ctx context.Context, h *homeassistant, args map[string]any) (*mcp
 }
 
 func deleteScene(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "scene_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("scene_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("scene_id is required"))
 	}
@@ -104,7 +134,11 @@ func deleteScene(ctx context.Context, h *homeassistant, args map[string]any) (*m
 // --- Scripts ---
 
 func getScript(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "script_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("script_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("script_id is required"))
 	}
@@ -116,11 +150,18 @@ func getScript(ctx context.Context, h *homeassistant, args map[string]any) (*mcp
 }
 
 func saveScript(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "script_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("script_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("script_id is required"))
 	}
-	configJSON := argStr(args, "config")
+	configJSON := r.Str("config")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if configJSON == "" {
 		return mcp.ErrResult(fmt.Errorf("config is required"))
 	}
@@ -136,7 +177,11 @@ func saveScript(ctx context.Context, h *homeassistant, args map[string]any) (*mc
 }
 
 func deleteScript(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "script_id")
+	r := mcp.NewArgs(args)
+	id := r.Str("script_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if id == "" {
 		return mcp.ErrResult(fmt.Errorf("script_id is required"))
 	}

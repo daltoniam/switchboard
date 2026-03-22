@@ -6,7 +6,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Queries ---
 	{
 		Name:        "clickhouse_execute_query",
-		Description: "Execute a SQL query (SELECT, SHOW, DESCRIBE, or DDL) against ClickHouse and return results as JSON rows",
+		Description: "Execute a SQL query (SELECT, SHOW, DESCRIBE, or DDL) against a ClickHouse analytics database and return results as JSON rows",
 		Parameters: map[string]string{
 			"query":    "SQL query string to execute",
 			"database": "Optional database context to run the query in (overrides configured default)",

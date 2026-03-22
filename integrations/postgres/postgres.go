@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -113,6 +112,9 @@ func (p *postgres) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
 }
 
 func (p *postgres) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+	if p.db == nil {
+		return &mcp.ToolResult{Data: "postgres: not configured (connection failed)", IsError: true}, nil
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -193,35 +195,7 @@ func (p *postgres) queryRow(ctx context.Context, query string, args ...any) (jso
 
 type handlerFunc func(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error)
 
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
+// --- Argument helpers (use shared mcp.Arg* / mcp.Args) ---
 
 // sanitizeIdentifier validates and quotes a SQL identifier to prevent injection.
 func sanitizeIdentifier(name string) (string, error) {

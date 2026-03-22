@@ -246,6 +246,29 @@ func TestConfigureIntegrations_SkipsFailedConfigure(t *testing.T) {
 	require.NotNil(t, s)
 }
 
+func TestConfigureIntegrations_DisablesPreviouslyEnabledOnFailure(t *testing.T) {
+	mi := &mockIntegration{
+		name:      "failint",
+		configErr: fmt.Errorf("connection timeout"),
+	}
+
+	reg := newMockRegistry()
+	reg.Register(mi)
+
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"failint": {Enabled: true, Credentials: mcp.Credentials{"host": "unreachable"}},
+	})
+
+	services := &mcp.Services{Config: cfgService, Registry: reg}
+	s := New(services)
+	require.NotNil(t, s)
+
+	ic, ok := cfgService.GetIntegration("failint")
+	require.True(t, ok)
+	assert.False(t, ic.Enabled, "integration should be disabled after Configure failure")
+	assert.Empty(t, cfgService.EnabledIntegrations())
+}
+
 func TestHandleSearch_Integration(t *testing.T) {
 	mi := &mockIntegration{
 		name:    "testint",
@@ -450,6 +473,23 @@ func searchToolIntegrations(t *testing.T, resp searchResponse) []string {
 }
 
 // makeManyTools generates n tool definitions for testing pagination.
+// diverseMockTools returns a set of tools with diverse vocabulary so that
+// IDF has meaningful contrast in small test fixtures. Without this,
+// single-tool test servers produce IDF=0 for all words (every word
+// appears in 100% of the corpus).
+func diverseMockTools() []mcp.ToolDefinition {
+	return []mcp.ToolDefinition{
+		{Name: "bg_upload_photo", Description: "Upload a photo to storage"},
+		{Name: "bg_analyze_report", Description: "Analyze a quarterly report"},
+		{Name: "bg_schedule_meeting", Description: "Schedule a calendar meeting"},
+		{Name: "bg_export_csv", Description: "Export data as CSV format"},
+		{Name: "bg_validate_schema", Description: "Validate JSON schema definitions"},
+		{Name: "bg_rotate_credentials", Description: "Rotate API keys and secrets"},
+		{Name: "bg_generate_invoice", Description: "Generate a billing invoice"},
+		{Name: "bg_compress_archive", Description: "Compress files into an archive"},
+	}
+}
+
 func makeManyTools(prefix string, n int) []mcp.ToolDefinition {
 	tools := make([]mcp.ToolDefinition, n)
 	for i := range n {
@@ -668,7 +708,7 @@ func TestHandleSearch_ResponseIncludesIntegrations(t *testing.T) {
 
 	t.Run("present even when query filters out all tools", func(t *testing.T) {
 		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
-			"query": "nonexistent_tool_xyz",
+			"query": "zzzznonexistent zzzzxyz",
 		}))
 		require.NoError(t, err)
 
@@ -1651,7 +1691,13 @@ func TestSearch_ScriptHint_MultipleIntegrations(t *testing.T) {
 		healthy: true,
 		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
 	}
-	s := setupTestServer(alpha, beta)
+	// Background tools give IDF contrast so "list" and "issues" have nonzero weight.
+	bg := &mockIntegration{
+		name:    "slack",
+		healthy: true,
+		tools:   diverseMockTools(),
+	}
+	s := setupTestServer(alpha, beta, bg)
 
 	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "list issues"}))
 	require.NoError(t, err)
@@ -1668,7 +1714,12 @@ func TestSearch_ScriptHint_SingleIntegrationMultipleTools(t *testing.T) {
 			{Name: "github_get_pull_diff", Description: "Get diff"},
 		},
 	}
-	s := setupTestServer(mi)
+	bg := &mockIntegration{
+		name:    "slack",
+		healthy: true,
+		tools:   diverseMockTools(),
+	}
+	s := setupTestServer(mi, bg)
 
 	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "pull"}))
 	require.NoError(t, err)
@@ -1797,7 +1848,12 @@ func TestSearch_SynonymMatching(t *testing.T) {
 			{Name: "slack_send_message", Description: "Send (post) a message to a channel or DM"},
 		},
 	}
-	s := setupTestServer(slack)
+	bg := &mockIntegration{
+		name:    "testbg",
+		healthy: true,
+		tools:   diverseMockTools(),
+	}
+	s := setupTestServer(slack, bg)
 
 	// "post message" should match because "post" is now in the description.
 	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
@@ -1832,16 +1888,17 @@ func TestFindTool_ReturnsToolDefinition(t *testing.T) {
 	s := setupTestServer(mi)
 
 	t.Run("returns matching tool definition", func(t *testing.T) {
-		integration, toolDef, found := s.findTool("testint_get_item")
-		require.True(t, found)
+		integration, toolDef, err := s.findTool("testint_get_item")
+		require.NoError(t, err)
 		assert.Equal(t, "testint", integration.Name())
 		assert.Equal(t, "testint_get_item", toolDef.Name)
 		assert.Equal(t, []string{"id"}, toolDef.Required)
 	})
 
-	t.Run("returns false for unknown tool", func(t *testing.T) {
-		_, _, found := s.findTool("nonexistent_tool")
-		assert.False(t, found)
+	t.Run("returns error for unknown tool", func(t *testing.T) {
+		_, _, err := s.findTool("nonexistent_tool")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
 	})
 }
 
@@ -2217,4 +2274,420 @@ func TestSearch_SharedParametersDoNotMutateOriginalTools(t *testing.T) {
 		"owner": "Repository owner",
 		"repo":  "Repository name",
 	}, shared, "second search should produce the same shared_parameters")
+}
+
+// --- ABAC tool glob filtering tests ---
+
+func setupTestServerWithGlobs(integrations map[string]*mockIntegration, globs map[string][]string) *Server {
+	reg := newMockRegistry()
+	cfgIntegrations := make(map[string]*mcp.IntegrationConfig)
+
+	for name, i := range integrations {
+		reg.Register(i)
+		cfgIntegrations[name] = &mcp.IntegrationConfig{
+			Enabled:     true,
+			Credentials: mcp.Credentials{"token": "test"},
+			ToolGlobs:   globs[name],
+		}
+	}
+
+	services := &mcp.Services{
+		Config:   newMockConfigService(cfgIntegrations),
+		Registry: reg,
+	}
+	return New(services)
+}
+
+func TestABAC_SearchFiltersToolsByGlob(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues"},
+			{Name: "github_get_issue", Description: "Get an issue"},
+			{Name: "github_list_pulls", Description: "List pulls"},
+			{Name: "github_get_pull", Description: "Get a pull"},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		globs     []string
+		wantTools []string
+	}{
+		{
+			name:      "empty globs allows all tools",
+			globs:     nil,
+			wantTools: []string{"github_get_issue", "github_get_pull", "github_list_issues", "github_list_pulls"},
+		},
+		{
+			name:      "glob restricts to matching tools",
+			globs:     []string{"github_get_*"},
+			wantTools: []string{"github_get_issue", "github_get_pull"},
+		},
+		{
+			name:      "multiple globs ORd",
+			globs:     []string{"github_list_issues", "github_get_pull"},
+			wantTools: []string{"github_get_pull", "github_list_issues"},
+		},
+		{
+			name:      "no matching globs hides all tools",
+			globs:     []string{"datadog_*"},
+			wantTools: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := setupTestServerWithGlobs(
+				map[string]*mockIntegration{"github": mi},
+				map[string][]string{"github": tt.globs},
+			)
+
+			result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+			require.NoError(t, err)
+
+			resp := parseSearchResponse(t, result)
+			names := searchToolNames(t, resp)
+			if tt.wantTools == nil {
+				assert.Empty(t, names)
+			} else {
+				assert.Equal(t, tt.wantTools, names)
+			}
+		})
+	}
+}
+
+func TestABAC_ScoredSearchFiltersToolsByGlob(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues for a repository"},
+			{Name: "github_delete_repo", Description: "Delete a repository"},
+		},
+	}
+	bg := &mockIntegration{
+		name:    "testbg",
+		healthy: true,
+		tools:   diverseMockTools(),
+	}
+
+	reg := newMockRegistry()
+	reg.Register(mi)
+	reg.Register(bg)
+
+	cfgIntegrations := map[string]*mcp.IntegrationConfig{
+		"github": {Enabled: true, Credentials: mcp.Credentials{"token": "test"}, ToolGlobs: []string{"github_list_*"}},
+		"testbg": {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+	}
+	services := &mcp.Services{Config: newMockConfigService(cfgIntegrations), Registry: reg}
+	s := New(services)
+
+	// Scored search with a query should respect ABAC globs.
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"query": "github",
+	}))
+	require.NoError(t, err)
+	resp := parseSearchResponse(t, result)
+	names := searchToolNames(t, resp)
+
+	assert.Contains(t, names, "github_list_issues", "allowed tool should appear in scored search")
+	assert.NotContains(t, names, "github_delete_repo", "blocked tool should NOT appear in scored search")
+}
+
+func TestABAC_ExecuteRejectsBlockedTool(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues"},
+			{Name: "github_delete_repo", Description: "Delete a repository"},
+		},
+		execFn: func(_ context.Context, toolName string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `{"ok":true}`}, nil
+		},
+	}
+
+	s := setupTestServerWithGlobs(
+		map[string]*mockIntegration{"github": mi},
+		map[string][]string{"github": {"github_list_*"}},
+	)
+
+	t.Run("allowed tool executes", func(t *testing.T) {
+		_, result, err := s.executeTool(context.Background(), "github_list_issues", map[string]any{})
+		require.NoError(t, err)
+		assert.False(t, result.IsError)
+	})
+
+	t.Run("blocked tool returns not found", func(t *testing.T) {
+		_, result, err := s.executeTool(context.Background(), "github_delete_repo", map[string]any{})
+		require.NoError(t, err)
+		assert.True(t, result.IsError)
+		assert.Contains(t, result.Data, "not found")
+	})
+}
+
+func TestABAC_ScriptCannotCallBlockedTool(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues"},
+			{Name: "github_delete_repo", Description: "Delete a repository"},
+		},
+		execFn: func(_ context.Context, toolName string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `{"ok":true}`}, nil
+		},
+	}
+
+	s := setupTestServerWithGlobs(
+		map[string]*mockIntegration{"github": mi},
+		map[string][]string{"github": {"github_list_*"}},
+	)
+
+	result, err := s.scriptEngine.Run(context.Background(), `api.call("github_delete_repo", {});`)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not found")
+}
+
+func TestABAC_MultiIntegrationGlobIsolation(t *testing.T) {
+	gh := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "github_list_issues", Description: "List issues"},
+			{Name: "github_get_pull", Description: "Get a pull"},
+		},
+	}
+	dd := &mockIntegration{
+		name:    "datadog",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "datadog_search_logs", Description: "Search logs"},
+			{Name: "datadog_get_metric", Description: "Get metric"},
+		},
+	}
+
+	s := setupTestServerWithGlobs(
+		map[string]*mockIntegration{"github": gh, "datadog": dd},
+		map[string][]string{
+			"github":  {"github_list_*"},
+			"datadog": nil,
+		},
+	)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+	require.NoError(t, err)
+
+	resp := parseSearchResponse(t, result)
+	names := searchToolNames(t, resp)
+	assert.Contains(t, names, "github_list_issues")
+	assert.NotContains(t, names, "github_get_pull")
+	assert.Contains(t, names, "datadog_search_logs")
+	assert.Contains(t, names, "datadog_get_metric")
+}
+
+func TestSearch_DiscoverAll_IncludesUnconfiguredTools(t *testing.T) {
+	// "github" is configured (enabled), "linear" is registered but NOT in config.
+	configured := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "github_list_repos", Description: "List repositories"}},
+	}
+	unconfigured := &mockIntegration{
+		name:    "linear",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+	}
+	bg := &mockIntegration{
+		name:    "testbg",
+		healthy: true,
+		tools:   diverseMockTools(),
+	}
+
+	reg := newMockRegistry()
+	reg.Register(configured)
+	reg.Register(unconfigured)
+	reg.Register(bg)
+
+	// Only github and testbg are in the config; linear is not.
+	cfgIntegrations := map[string]*mcp.IntegrationConfig{
+		"github": {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+		"testbg": {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+	}
+
+	services := &mcp.Services{
+		Config:   newMockConfigService(cfgIntegrations),
+		Registry: reg,
+	}
+	s := New(services, WithDiscoverAll(true))
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"query": "list",
+	}))
+	require.NoError(t, err)
+	resp := parseSearchResponse(t, result)
+
+	// Should find tools from both configured AND unconfigured integrations.
+	names := searchToolNames(t, resp)
+	assert.Contains(t, names, "github_list_repos", "configured tool should appear")
+	assert.Contains(t, names, "linear_list_issues", "unconfigured tool should appear with discoverAll")
+}
+
+func TestSearch_DiscoverAll_MarksUnconfiguredTools(t *testing.T) {
+	configured := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "github_list_repos", Description: "List repositories"}},
+	}
+	unconfigured := &mockIntegration{
+		name:    "linear",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+	}
+	bg := &mockIntegration{
+		name:    "testbg",
+		healthy: true,
+		tools:   diverseMockTools(),
+	}
+
+	reg := newMockRegistry()
+	reg.Register(configured)
+	reg.Register(unconfigured)
+	reg.Register(bg)
+
+	cfgIntegrations := map[string]*mcp.IntegrationConfig{
+		"github": {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+		"testbg": {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+	}
+
+	services := &mcp.Services{
+		Config:   newMockConfigService(cfgIntegrations),
+		Registry: reg,
+	}
+	s := New(services, WithDiscoverAll(true))
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"query": "list issues",
+	}))
+	require.NoError(t, err)
+
+	// Parse raw JSON to check for "configured" field on tools.
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &raw))
+
+	var tools []struct {
+		Name       string `json:"name"`
+		Configured *bool  `json:"configured"`
+	}
+	require.NoError(t, json.Unmarshal(raw["tools"], &tools))
+
+	for _, tool := range tools {
+		if tool.Name == "github_list_repos" {
+			// Configured tools should either have configured=true or omit the field.
+			if tool.Configured != nil {
+				assert.True(t, *tool.Configured, "configured tool should have configured=true")
+			}
+		}
+		if tool.Name == "linear_list_issues" {
+			require.NotNil(t, tool.Configured, "unconfigured tool must have configured field")
+			assert.False(t, *tool.Configured, "unconfigured tool should have configured=false")
+		}
+	}
+}
+
+func TestSearch_DiscoverAllOff_ExcludesUnconfiguredTools(t *testing.T) {
+	configured := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "github_list_repos", Description: "List repositories"}},
+	}
+	unconfigured := &mockIntegration{
+		name:    "linear",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+	}
+	bg := &mockIntegration{
+		name:    "testbg",
+		healthy: true,
+		tools:   diverseMockTools(),
+	}
+
+	reg := newMockRegistry()
+	reg.Register(configured)
+	reg.Register(unconfigured)
+	reg.Register(bg)
+
+	cfgIntegrations := map[string]*mcp.IntegrationConfig{
+		"github": {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+		"testbg": {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+	}
+
+	services := &mcp.Services{
+		Config:   newMockConfigService(cfgIntegrations),
+		Registry: reg,
+	}
+	// discoverAll defaults to false — unconfigured tools should NOT appear.
+	s := New(services)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"query": "list",
+	}))
+	require.NoError(t, err)
+	resp := parseSearchResponse(t, result)
+
+	names := searchToolNames(t, resp)
+	assert.Contains(t, names, "github_list_repos", "configured tool should appear")
+	assert.NotContains(t, names, "linear_list_issues", "unconfigured tool should NOT appear without discoverAll")
+}
+
+func TestExecute_UnconfiguredTool_ReturnsConfigurationError(t *testing.T) {
+	configured := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "github_list_repos", Description: "List repositories"}},
+		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `[{"name":"test"}]`}, nil
+		},
+	}
+	unconfigured := &mockIntegration{
+		name:    "linear",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+	}
+
+	reg := newMockRegistry()
+	reg.Register(configured)
+	reg.Register(unconfigured)
+
+	// Only github is configured; linear is registered but not in config.
+	cfgIntegrations := map[string]*mcp.IntegrationConfig{
+		"github": {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+	}
+
+	services := &mcp.Services{
+		Config:   newMockConfigService(cfgIntegrations),
+		Registry: reg,
+	}
+	s := New(services, WithDiscoverAll(true))
+
+	// Execute a configured tool — should succeed.
+	result, err := s.handleExecute(context.Background(), executeRequest("github_list_repos", nil))
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "configured tool should execute successfully")
+
+	// Execute an unconfigured tool — should get a specific "not configured" error,
+	// NOT the generic "tool not found" message.
+	result, err = s.handleExecute(context.Background(), executeRequest("linear_list_issues", nil))
+	require.NoError(t, err)
+	assert.True(t, result.IsError, "unconfigured tool should return an error")
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Contains(t, tc.Text, "not configured",
+		"error should mention 'not configured', not 'not found'")
+	assert.Contains(t, tc.Text, "linear",
+		"error should name the unconfigured integration")
 }

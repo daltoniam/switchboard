@@ -8,13 +8,16 @@ import (
 )
 
 func createComment(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	text := argStr(args, "text")
+	r := mcp.NewArgs(args)
+	text := r.Str("text")
+	pageID := r.Str("page_id")
+	discussionID := r.Str("discussion_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if text == "" {
 		return mcp.ErrResult(fmt.Errorf("text is required"))
 	}
-
-	pageID := argStr(args, "page_id")
-	discussionID := argStr(args, "discussion_id")
 	if pageID == "" && discussionID == "" {
 		return mcp.ErrResult(fmt.Errorf("page_id or discussion_id is required"))
 	}
@@ -73,7 +76,10 @@ func createComment(ctx context.Context, n *notion, args map[string]any) (*mcp.To
 }
 
 func retrieveComments(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	blockID := argStr(args, "block_id")
+	blockID, err := mcp.ArgStr(args, "block_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if blockID == "" {
 		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}

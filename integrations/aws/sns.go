@@ -17,8 +17,13 @@ func snsListTopics(ctx context.Context, a *integration, _ map[string]any) (*mcp.
 }
 
 func snsGetTopicAttributes(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	topicArn := r.Str("topic_arn")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.snsClient.GetTopicAttributes(ctx, &sns.GetTopicAttributesInput{
-		TopicArn: aws.String(argStr(args, "topic_arn")),
+		TopicArn: aws.String(topicArn),
 	})
 	if err != nil {
 		return errResult(err)
@@ -27,7 +32,12 @@ func snsGetTopicAttributes(ctx context.Context, a *integration, args map[string]
 }
 
 func snsListSubscriptions(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
-	if arn := argStr(args, "topic_arn"); arn != "" {
+	r := mcp.NewArgs(args)
+	arn := r.Str("topic_arn")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if arn != "" {
 		out, err := a.snsClient.ListSubscriptionsByTopic(ctx, &sns.ListSubscriptionsByTopicInput{
 			TopicArn: aws.String(arn),
 		})
@@ -44,12 +54,16 @@ func snsListSubscriptions(ctx context.Context, a *integration, args map[string]a
 }
 
 func snsPublish(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &sns.PublishInput{
-		TopicArn: aws.String(argStr(args, "topic_arn")),
-		Message:  aws.String(argStr(args, "message")),
+		TopicArn: aws.String(r.Str("topic_arn")),
+		Message:  aws.String(r.Str("message")),
 	}
-	if v := argStr(args, "subject"); v != "" {
+	if v := r.Str("subject"); v != "" {
 		input.Subject = aws.String(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.snsClient.Publish(ctx, input)
 	if err != nil {

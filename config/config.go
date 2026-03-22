@@ -58,6 +58,11 @@ var envMapping = map[string]map[string]string{
 		"api_token": "JIRA_API_TOKEN",
 		"domain":    "JIRA_DOMAIN",
 	},
+	"confluence": {
+		"email":     "CONFLUENCE_EMAIL",
+		"api_token": "CONFLUENCE_API_TOKEN",
+		"domain":    "CONFLUENCE_DOMAIN",
+	},
 	"postgres": {
 		"connection_string": "DATABASE_URL",
 		"host":              "PGHOST",
@@ -70,6 +75,12 @@ var envMapping = map[string]map[string]string{
 	"rwx": {
 		"access_token": "RWX_ACCESS_TOKEN",
 		"cli_path":     "RWX_CLI_PATH",
+	},
+	"overmind": {
+		"base_url":     "OVERMIND_URL",
+		"token":        "OVERMIND_TOKEN",
+		"agent_run_id": "OVERMIND_AGENT_RUN_ID",
+		"flow_run_id":  "OVERMIND_FLOW_RUN_ID",
 	},
 }
 
@@ -179,6 +190,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"email": "", "api_token": "", "domain": ""},
 			},
+			"confluence": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"email": "", "api_token": "", "domain": ""},
+			},
 			"gcp": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"project_id": "", "credentials_json": ""},
@@ -190,6 +205,10 @@ func defaultConfig() *mcp.Config {
 			"amazon": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"email": "", "password": "", "otp_secret": "", "cookies": "", "domain": ""},
+			},
+			"overmind": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": "", "agent_run_id": "", "flow_run_id": ""},
 			},
 		},
 	}
@@ -217,6 +236,12 @@ func (m *manager) Load() error {
 		return fmt.Errorf("parse config: %w", err)
 	}
 	m.cfg = mergeWithDefaults(&cfg)
+	// Validate user-supplied globs from the config file (defaults have no globs).
+	for name, ic := range cfg.Integrations {
+		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
+			return fmt.Errorf("config: integration %q: %w", name, err)
+		}
+	}
 	m.applyEnvOverrides()
 	return nil
 }
@@ -233,6 +258,7 @@ func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 			continue
 		}
 		defIC.Enabled = fileIC.Enabled
+		defIC.ToolGlobs = fileIC.ToolGlobs
 		for k, v := range fileIC.Credentials {
 			defIC.Credentials[k] = v
 		}
@@ -293,6 +319,11 @@ func (m *manager) Get() *mcp.Config {
 }
 
 func (m *manager) Update(cfg *mcp.Config) error {
+	for name, ic := range cfg.Integrations {
+		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
+			return fmt.Errorf("integration %q: %w", name, err)
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cfg = cfg
@@ -307,6 +338,9 @@ func (m *manager) GetIntegration(name string) (*mcp.IntegrationConfig, bool) {
 }
 
 func (m *manager) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
+	if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
+		return fmt.Errorf("integration %q: %w", name, err)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cfg.Integrations[name] = ic

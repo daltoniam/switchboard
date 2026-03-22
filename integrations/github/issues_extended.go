@@ -11,8 +11,16 @@ import (
 // ── Issue Comments Extended ───────────────────────────────────────
 
 func updateIssueComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	comment := &gh.IssueComment{Body: gh.Ptr(argStr(args, "body"))}
-	c, _, err := g.client.Issues.EditComment(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "comment_id"), comment)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	commentID := r.Int64("comment_id")
+	body := r.Str("body")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	comment := &gh.IssueComment{Body: gh.Ptr(body)}
+	c, _, err := g.client.Issues.EditComment(ctx, owner, repo, commentID, comment)
 	if err != nil {
 		return errResult(err)
 	}
@@ -20,7 +28,14 @@ func updateIssueComment(ctx context.Context, g *integration, args map[string]any
 }
 
 func deleteIssueComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Issues.DeleteComment(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "comment_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	commentID := r.Int64("comment_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Issues.DeleteComment(ctx, owner, repo, commentID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -30,23 +45,38 @@ func deleteIssueComment(ctx context.Context, g *integration, args map[string]any
 // ── Milestones Extended ───────────────────────────────────────────
 
 func updateMilestone(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	m := &gh.Milestone{}
-	if v := argStr(args, "title"); v != "" {
+	if v, err := mcp.ArgStr(args, "title"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		m.Title = gh.Ptr(v)
 	}
-	if v := argStr(args, "description"); v != "" {
+	if v, err := mcp.ArgStr(args, "description"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		m.Description = gh.Ptr(v)
 	}
-	if v := argStr(args, "state"); v != "" {
+	if v, err := mcp.ArgStr(args, "state"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		m.State = gh.Ptr(v)
 	}
-	if due := argStr(args, "due_on"); due != "" {
+	if due, err := mcp.ArgStr(args, "due_on"); err != nil {
+		return mcp.ErrResult(err)
+	} else if due != "" {
 		if t, err := time.Parse(time.RFC3339, due); err == nil {
 			ts := gh.Timestamp{Time: t}
 			m.DueOn = &ts
 		}
 	}
-	milestone, _, err := g.client.Issues.EditMilestone(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), m)
+	milestone, _, err := g.client.Issues.EditMilestone(ctx, owner, repo, number, m)
 	if err != nil {
 		return errResult(err)
 	}
@@ -54,7 +84,14 @@ func updateMilestone(ctx context.Context, g *integration, args map[string]any) (
 }
 
 func deleteMilestone(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Issues.DeleteMilestone(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Issues.DeleteMilestone(ctx, owner, repo, number)
 	if err != nil {
 		return errResult(err)
 	}
@@ -64,8 +101,16 @@ func deleteMilestone(ctx context.Context, g *integration, args map[string]any) (
 // ── Labels (Repo-Level) ──────────────────────────────────────────
 
 func listLabels(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	labels, _, err := g.client.Issues.ListLabels(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	labels, _, err := g.client.Issues.ListLabels(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -73,12 +118,21 @@ func listLabels(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func createLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	label := &gh.Label{
-		Name:        gh.Ptr(argStr(args, "name")),
-		Color:       gh.Ptr(argStr(args, "color")),
-		Description: gh.Ptr(argStr(args, "description")),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	name := r.Str("name")
+	color := r.Str("color")
+	description := r.Str("description")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	l, _, err := g.client.Issues.CreateLabel(ctx, argStr(args, "owner"), argStr(args, "repo"), label)
+	label := &gh.Label{
+		Name:        gh.Ptr(name),
+		Color:       gh.Ptr(color),
+		Description: gh.Ptr(description),
+	}
+	l, _, err := g.client.Issues.CreateLabel(ctx, owner, repo, label)
 	if err != nil {
 		return errResult(err)
 	}
@@ -86,17 +140,30 @@ func createLabel(ctx context.Context, g *integration, args map[string]any) (*mcp
 }
 
 func editLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	label := &gh.Label{}
-	if v := argStr(args, "new_name"); v != "" {
+	if v, err := mcp.ArgStr(args, "new_name"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		label.Name = gh.Ptr(v)
 	}
-	if v := argStr(args, "color"); v != "" {
+	if v, err := mcp.ArgStr(args, "color"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		label.Color = gh.Ptr(v)
 	}
-	if v := argStr(args, "description"); v != "" {
+	if v, err := mcp.ArgStr(args, "description"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		label.Description = gh.Ptr(v)
 	}
-	l, _, err := g.client.Issues.EditLabel(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "name"), label)
+	l, _, err := g.client.Issues.EditLabel(ctx, owner, repo, name, label)
 	if err != nil {
 		return errResult(err)
 	}
@@ -104,7 +171,14 @@ func editLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 }
 
 func deleteLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Issues.DeleteLabel(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "name"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Issues.DeleteLabel(ctx, owner, repo, name)
 	if err != nil {
 		return errResult(err)
 	}
@@ -114,7 +188,15 @@ func deleteLabel(ctx context.Context, g *integration, args map[string]any) (*mcp
 // ── Reactions ─────────────────────────────────────────────────────
 
 func createIssueReaction(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	reaction, _, err := g.client.Reactions.CreateIssueReaction(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), argStr(args, "content"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	content := r.Str("content")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	reaction, _, err := g.client.Reactions.CreateIssueReaction(ctx, owner, repo, number, content)
 	if err != nil {
 		return errResult(err)
 	}
@@ -122,7 +204,15 @@ func createIssueReaction(ctx context.Context, g *integration, args map[string]an
 }
 
 func createIssueCommentReaction(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	reaction, _, err := g.client.Reactions.CreateIssueCommentReaction(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "comment_id"), argStr(args, "content"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	commentID := r.Int64("comment_id")
+	content := r.Str("content")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	reaction, _, err := g.client.Reactions.CreateIssueCommentReaction(ctx, owner, repo, commentID, content)
 	if err != nil {
 		return errResult(err)
 	}
@@ -130,8 +220,17 @@ func createIssueCommentReaction(ctx context.Context, g *integration, args map[st
 }
 
 func listIssueReactions(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	reactions, _, err := g.client.Reactions.ListIssueReactions(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	reactions, _, err := g.client.Reactions.ListIssueReactions(ctx, owner, repo, number, opts)
 	if err != nil {
 		return errResult(err)
 	}

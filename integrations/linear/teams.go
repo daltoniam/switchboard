@@ -19,7 +19,7 @@ func listTeams(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolRe
 				cycles(first: 3, orderBy: createdAt) { nodes { id name number startsAt endsAt } }
 			}
 		}
-	}`, map[string]any{"first": optInt(args, "first", 50)})
+	}`, map[string]any{"first": mcp.OptInt(args, "first", 50)})
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -27,7 +27,10 @@ func listTeams(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolRe
 }
 
 func getTeam(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
-	id := argStr(args, "id")
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `query($id: String!) {
 		team(id: $id) {
 			id name key description private
@@ -84,7 +87,7 @@ func listUsers(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolRe
 				teams { nodes { id name key } }
 			}
 		}
-	}`, map[string]any{"first": optInt(args, "first", 50)})
+	}`, map[string]any{"first": mcp.OptInt(args, "first", 50)})
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -92,6 +95,10 @@ func listUsers(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolRe
 }
 
 func getUser(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `query($id: String!) {
 		user(id: $id) {
 			id name displayName email admin active url
@@ -100,7 +107,7 @@ func getUser(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResu
 				nodes { id identifier title state { name } }
 			}
 		}
-	}`, map[string]any{"id": argStr(args, "id")})
+	}`, map[string]any{"id": id})
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

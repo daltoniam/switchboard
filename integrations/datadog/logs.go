@@ -11,14 +11,19 @@ import (
 )
 
 func searchLogs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewLogsApi(d.client)
 
-	from := parseTime(argStr(args, "from"), -time.Hour)
-	to := parseTime(argStr(args, "to"), 0)
-	limit := int32(min(optInt(args, "limit", 50), math.MaxInt32))
-	query := argStr(args, "query")
+	from := parseTime(r.Str("from"), -time.Hour)
+	to := parseTime(r.Str("to"), 0)
+	limit := int32(min(mcp.OptInt(args, "limit", 50), math.MaxInt32))
+	query := r.Str("query")
+	sortStr := r.Str("sort")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	sort := datadogV2.LOGSSORT_TIMESTAMP_DESCENDING
-	if argStr(args, "sort") == "timestamp" {
+	if sortStr == "timestamp" {
 		sort = datadogV2.LOGSSORT_TIMESTAMP_ASCENDING
 	}
 
@@ -42,13 +47,14 @@ func searchLogs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResul
 }
 
 func aggregateLogs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewLogsApi(d.client)
 
-	from := parseTime(argStr(args, "from"), -time.Hour)
-	to := parseTime(argStr(args, "to"), 0)
-	query := argStr(args, "query")
+	from := parseTime(r.Str("from"), -time.Hour)
+	to := parseTime(r.Str("to"), 0)
+	query := r.Str("query")
 
-	computeType, _ := datadogV2.NewLogsAggregationFunctionFromValue(argStr(args, "compute_type"))
+	computeType, _ := datadogV2.NewLogsAggregationFunctionFromValue(r.Str("compute_type"))
 	if computeType == nil {
 		ct := datadogV2.LOGSAGGREGATIONFUNCTION_COUNT
 		computeType = &ct
@@ -57,7 +63,7 @@ func aggregateLogs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 	compute := datadogV2.LogsCompute{
 		Aggregation: *computeType,
 	}
-	if field := argStr(args, "compute_field"); field != "" {
+	if field := r.Str("compute_field"); field != "" {
 		compute.Metric = &field
 	}
 
@@ -70,7 +76,11 @@ func aggregateLogs(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 		Compute: []datadogV2.LogsCompute{compute},
 	}
 
-	if groupBy := argStr(args, "group_by"); groupBy != "" {
+	groupBy := r.Str("group_by")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if groupBy != "" {
 		body.GroupBy = []datadogV2.LogsGroupBy{
 			{Facet: groupBy},
 		}

@@ -5,19 +5,19 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Logs ──────────────────────────────────────────────────────────
 	{
-		Name: "datadog_search_logs", Description: "Search Datadog logs with a query string",
+		Name: "datadog_search_logs", Description: "Search Datadog logs for production debugging and observability. Find errors, traces, and events by query string.",
 		Parameters: map[string]string{"query": "Log search query (e.g., 'service:nginx status:error')", "from": "Start time (ISO 8601, epoch seconds, or relative like 'now-1h')", "to": "End time (default: now)", "limit": "Max results (default 50, max 1000)", "sort": "Sort order: timestamp (asc) or -timestamp (desc, default)"},
 		Required:   []string{"query"},
 	},
 	{
-		Name: "datadog_aggregate_logs", Description: "Aggregate logs using compute operations (count, sum, avg, etc.)",
+		Name: "datadog_aggregate_logs", Description: "Aggregate Datadog logs for monitoring analytics (count, sum, avg, etc.). Use for production observability and trend analysis.",
 		Parameters: map[string]string{"query": "Log search query", "compute_type": "Aggregation type: count, cardinality, avg, sum, min, max, percentile", "compute_field": "Field to aggregate on (required for non-count types, e.g., @duration)", "group_by": "Field to group by (e.g., service, @http.status_code)", "from": "Start time", "to": "End time"},
 		Required:   []string{"query", "compute_type"},
 	},
 
 	// ── Metrics ───────────────────────────────────────────────────────
 	{
-		Name: "datadog_query_metrics", Description: "Query Datadog metrics timeseries data",
+		Name: "datadog_query_metrics", Description: "Query Datadog metrics timeseries data for production monitoring. Analyze performance, CPU, memory, latency, and custom metrics.",
 		Parameters: map[string]string{"query": "Metrics query (e.g., 'avg:system.cpu.user{*}')", "from": "Start time (epoch seconds or relative)", "to": "End time"},
 		Required:   []string{"query"},
 	},
@@ -38,11 +38,11 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Monitors ──────────────────────────────────────────────────────
 	{
-		Name: "datadog_list_monitors", Description: "List Datadog monitors with optional filters",
+		Name: "datadog_list_monitors", Description: "List Datadog monitors for production alerting and observability. Filter by status, tags, or environment.",
 		Parameters: map[string]string{"query": "Filter query (e.g., 'status:alert tag:env:prod')", "page": "Page number (0-based)", "page_size": "Results per page (default 100)"},
 	},
 	{
-		Name: "datadog_search_monitors", Description: "Search monitors by query string",
+		Name: "datadog_search_monitors", Description: "Search Datadog monitors and alerts by query string. Find production monitoring rules and notification policies.",
 		Parameters: map[string]string{"query": "Search query (e.g., 'type:metric status:alert')", "page": "Page number", "per_page": "Results per page (default 30)"},
 	},
 	{
@@ -51,7 +51,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"id"},
 	},
 	{
-		Name: "datadog_create_monitor", Description: "Create a new monitor",
+		Name: "datadog_create_monitor", Description: "Create a new Datadog monitor for production alerting. Set thresholds and notification rules for metrics, logs, or services.",
 		Parameters: map[string]string{"name": "Monitor name", "type": "Monitor type: metric alert, service check, event alert, query alert, composite, log alert, etc.", "query": "Monitor query", "message": "Notification message (supports @mentions)", "tags": "Comma-separated tags", "priority": "Priority (1-5)"},
 		Required:   []string{"name", "type", "query"},
 	},
@@ -73,7 +73,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Dashboards ────────────────────────────────────────────────────
 	{
-		Name: "datadog_list_dashboards", Description: "List all dashboards",
+		Name: "datadog_list_dashboards", Description: "List all Datadog dashboards for production monitoring and observability visualization",
 		Parameters: map[string]string{"filter_shared": "Filter shared dashboards (true/false)", "filter_deleted": "Include deleted (true/false)", "count": "Max results (default 100)", "start": "Offset for pagination"},
 	},
 	{
@@ -94,11 +94,11 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Events ────────────────────────────────────────────────────────
 	{
-		Name: "datadog_list_events", Description: "List events with optional filters",
+		Name: "datadog_list_events", Description: "List Datadog events for production monitoring. Track deployments, changes, alerts, and system events.",
 		Parameters: map[string]string{"query": "Event search query", "from": "Start time", "to": "End time", "limit": "Max results (default 10)", "sort": "Sort: timestamp (asc) or -timestamp (desc)"},
 	},
 	{
-		Name: "datadog_search_events", Description: "Search events with a query",
+		Name: "datadog_search_events", Description: "Search Datadog events by query. Find production changes, deployments, and system events.",
 		Parameters: map[string]string{"query": "Event search query", "from": "Start time", "to": "End time", "limit": "Max results (default 10)", "sort": "Sort: timestamp or -timestamp"},
 		Required:   []string{"query"},
 	},
@@ -115,7 +115,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Hosts ─────────────────────────────────────────────────────────
 	{
-		Name: "datadog_list_hosts", Description: "List hosts with optional filters",
+		Name: "datadog_list_hosts", Description: "List Datadog hosts (servers and infrastructure). Filter production machines by environment, CPU, load, or tags.",
 		Parameters: map[string]string{"filter": "Filter string (e.g., 'env:prod')", "sort_field": "Sort by: apps, cpu, iowait, load, etc.", "sort_dir": "Sort direction: asc or desc", "count": "Max results (default 100)", "from": "Seconds since hosts last reported"},
 	},
 	{
@@ -212,11 +212,11 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Incidents ─────────────────────────────────────────────────────
 	{
-		Name: "datadog_list_incidents", Description: "List incidents",
+		Name: "datadog_list_incidents", Description: "List Datadog incidents for production outages and service disruptions. Track severity and incident response.",
 		Parameters: map[string]string{"page_size": "Results per page (default 10)", "page_offset": "Pagination offset"},
 	},
 	{
-		Name: "datadog_get_incident", Description: "Get a specific incident by ID",
+		Name: "datadog_get_incident", Description: "Get details of a specific Datadog incident, including timeline and response data for outage investigation",
 		Parameters: map[string]string{"id": "Incident ID"},
 		Required:   []string{"id"},
 	},
@@ -286,14 +286,14 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Spans / APM ───────────────────────────────────────────────────
 	{
-		Name: "datadog_search_spans", Description: "Search APM spans/traces",
+		Name: "datadog_search_spans", Description: "Search Datadog APM spans and distributed traces for production performance debugging. Investigate latency and service dependencies.",
 		Parameters: map[string]string{"query": "Span search query (e.g., 'service:web-store resource_name:GET')", "from": "Start time", "to": "End time", "limit": "Max results (default 10)", "sort": "Sort: timestamp or -timestamp"},
 		Required:   []string{"query"},
 	},
 
 	// ── Software Catalog ──────────────────────────────────────────────
 	{
-		Name: "datadog_list_services", Description: "List services from the Datadog Software Catalog",
+		Name: "datadog_list_services", Description: "List services from the Datadog Software Catalog. View production microservices, dependencies, and ownership.",
 		Parameters: map[string]string{"page_size": "Results per page (default 20)", "page_offset": "Pagination offset"},
 	},
 

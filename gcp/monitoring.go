@@ -14,11 +14,15 @@ import (
 )
 
 func monitoringListMetricDescriptors(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	req := &monitoringpb.ListMetricDescriptorsRequest{
 		Name: g.projectName(),
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		req.Filter = v
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
 	var descriptors []map[string]any
@@ -44,15 +48,24 @@ func monitoringListMetricDescriptors(ctx context.Context, g *integration, args m
 }
 
 func monitoringListTimeSeries(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	startStr := argStr(args, "start_time")
+	r := mcp.NewArgs(args)
+	startStr := r.Str("start_time")
+	endStr := r.Str("end_time")
+	filter := r.Str("filter")
+	alignPeriod := r.Str("alignment_period")
+	aligner := r.Str("per_series_aligner")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	startTime, err := time.Parse(time.RFC3339, startStr)
 	if err != nil {
 		return errResult(fmt.Errorf("invalid start_time: %w", err))
 	}
 
 	endTime := time.Now().UTC()
-	if v := argStr(args, "end_time"); v != "" {
-		t, err := time.Parse(time.RFC3339, v)
+	if endStr != "" {
+		t, err := time.Parse(time.RFC3339, endStr)
 		if err != nil {
 			return errResult(fmt.Errorf("invalid end_time: %w", err))
 		}
@@ -61,7 +74,7 @@ func monitoringListTimeSeries(ctx context.Context, g *integration, args map[stri
 
 	req := &monitoringpb.ListTimeSeriesRequest{
 		Name:   g.projectName(),
-		Filter: argStr(args, "filter"),
+		Filter: filter,
 		Interval: &monitoringpb.TimeInterval{
 			StartTime: timestamppb.New(startTime),
 			EndTime:   timestamppb.New(endTime),
@@ -69,20 +82,20 @@ func monitoringListTimeSeries(ctx context.Context, g *integration, args map[stri
 		View: monitoringpb.ListTimeSeriesRequest_FULL,
 	}
 
-	if v := argStr(args, "alignment_period"); v != "" {
-		d, err := time.ParseDuration(v)
+	if alignPeriod != "" {
+		d, err := time.ParseDuration(alignPeriod)
 		if err != nil {
 			return errResult(fmt.Errorf("invalid alignment_period: %w", err))
 		}
-		aligner := monitoringpb.Aggregation_ALIGN_NONE
-		if a := argStr(args, "per_series_aligner"); a != "" {
-			if val, ok := monitoringpb.Aggregation_Aligner_value[a]; ok {
-				aligner = monitoringpb.Aggregation_Aligner(val)
+		alignerVal := monitoringpb.Aggregation_ALIGN_NONE
+		if aligner != "" {
+			if val, ok := monitoringpb.Aggregation_Aligner_value[aligner]; ok {
+				alignerVal = monitoringpb.Aggregation_Aligner(val)
 			}
 		}
 		req.Aggregation = &monitoringpb.Aggregation{
 			AlignmentPeriod:  durationpb.New(d),
-			PerSeriesAligner: aligner,
+			PerSeriesAligner: alignerVal,
 		}
 	}
 
@@ -102,11 +115,15 @@ func monitoringListTimeSeries(ctx context.Context, g *integration, args map[stri
 }
 
 func monitoringListAlertPolicies(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	req := &monitoringpb.ListAlertPoliciesRequest{
 		Name: g.projectName(),
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		req.Filter = v
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
 	var policies []any
@@ -125,8 +142,13 @@ func monitoringListAlertPolicies(ctx context.Context, g *integration, args map[s
 }
 
 func monitoringGetAlertPolicy(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	policy, err := g.alertClient.GetAlertPolicy(ctx, &monitoringpb.GetAlertPolicyRequest{
-		Name: argStr(args, "name"),
+		Name: name,
 	})
 	if err != nil {
 		return errResult(err)
@@ -135,11 +157,15 @@ func monitoringGetAlertPolicy(ctx context.Context, g *integration, args map[stri
 }
 
 func monitoringListMonitoredResources(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	req := &monitoringpb.ListMonitoredResourceDescriptorsRequest{
 		Name: g.projectName(),
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		req.Filter = v
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
 	var resources []map[string]any

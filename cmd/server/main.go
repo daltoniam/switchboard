@@ -19,6 +19,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
+	"github.com/daltoniam/switchboard/integrations/confluence"
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
@@ -27,6 +28,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
+	"github.com/daltoniam/switchboard/integrations/overmind"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
@@ -55,6 +57,7 @@ func main() {
 
 	stdioMode := flag.Bool("stdio", false, "Run MCP server over stdio transport (default is HTTP)")
 	port := flag.Int("port", 3847, "Port for the HTTP server")
+	discoverAll := flag.Bool("discover-all", false, "Search returns tools from all registered integrations, not just enabled ones")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
@@ -63,7 +66,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	runServer(*stdioMode, *port)
+	runServer(*stdioMode, *port, *discoverAll)
 }
 
 func handleDaemon(args []string) {
@@ -169,7 +172,7 @@ Options:
 	}
 }
 
-func runServer(stdioMode bool, port int) {
+func runServer(stdioMode bool, port int, discoverAll bool) {
 	cfgMgr, err := config.NewManager()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -205,9 +208,11 @@ func runServer(stdioMode bool, port int) {
 		gmailIntegration,
 		homeassistant.New(),
 		jira.New(),
+		confluence.New(),
 		notionInt.New(),
 		gcpInt.New(),
 		suno.New(),
+		overmind.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
@@ -228,7 +233,11 @@ func runServer(stdioMode bool, port int) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	srv := server.New(services)
+	var serverOpts []server.Option
+	if discoverAll {
+		serverOpts = append(serverOpts, server.WithDiscoverAll(true))
+	}
+	srv := server.New(services, serverOpts...)
 
 	if stdioMode {
 		if err := srv.RunStdio(ctx); err != nil {
@@ -252,7 +261,7 @@ func runServer(stdioMode bool, port int) {
 		log.Printf("Loaded %d project(s): %v", len(names), names)
 	}
 
-	projectRouter := server.NewProjectRouter(services, projectStore, "")
+	projectRouter := server.NewProjectRouter(services, projectStore, "", srv.SearchIndex())
 
 	mux := http.NewServeMux()
 

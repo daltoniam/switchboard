@@ -239,6 +239,82 @@ func TestParseRetryAfter(t *testing.T) {
 	}
 }
 
+func TestToolAllowed(t *testing.T) {
+	tests := []struct {
+		name      string
+		globs     []string
+		toolName  string
+		wantAllow bool
+	}{
+		{"empty globs allows all", nil, "github_list_issues", true},
+		{"empty slice allows all", []string{}, "github_list_issues", true},
+		{"exact match", []string{"github_list_issues"}, "github_list_issues", true},
+		{"no match", []string{"github_list_issues"}, "github_get_pull", false},
+		{"wildcard suffix", []string{"github_*"}, "github_list_issues", true},
+		{"wildcard suffix no match", []string{"github_*"}, "datadog_search_logs", false},
+		{"wildcard prefix", []string{"*_issues"}, "github_list_issues", true},
+		{"star matches everything", []string{"*"}, "anything_at_all", true},
+		{"partial prefix match", []string{"github_get_*"}, "github_get_issue", true},
+		{"partial prefix no match", []string{"github_get_*"}, "github_list_issues", false},
+		{"multiple globs OR'd first match", []string{"github_*", "datadog_*"}, "github_list_issues", true},
+		{"multiple globs OR'd second match", []string{"github_*", "datadog_*"}, "datadog_search_logs", true},
+		{"multiple globs OR'd no match", []string{"github_*", "datadog_*"}, "slack_post_message", false},
+		{"question mark wildcard", []string{"github_get_?"}, "github_get_x", true},
+		{"question mark no match longer", []string{"github_get_?"}, "github_get_xy", false},
+		{"empty tool name with star", []string{"*"}, "", true},
+		{"empty tool name with pattern", []string{"github_*"}, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ic := &IntegrationConfig{ToolGlobs: tt.globs}
+			assert.Equal(t, tt.wantAllow, ic.ToolAllowed(tt.toolName))
+		})
+	}
+}
+
+func TestToolAllowed_PathMatchSemantics(t *testing.T) {
+	tests := []struct {
+		pattern string
+		name    string
+		want    bool
+	}{
+		{"*", "anything", true},
+		{"*", "", true},
+		{"foo", "foo", true},
+		{"foo", "bar", false},
+		{"foo*", "foobar", true},
+		{"foo*", "foo", true},
+		{"*bar", "foobar", true},
+		{"f*r", "foobar", true},
+		{"f*r", "foo", false},
+		{"f?o", "foo", true},
+		{"f?o", "fooo", false},
+		{"*_*", "github_list", true},
+		{"github_get_*", "github_get_issue", true},
+		{"github_get_*", "github_list_issues", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.pattern+"/"+tt.name, func(t *testing.T) {
+			ic := &IntegrationConfig{ToolGlobs: []string{tt.pattern}}
+			assert.Equal(t, tt.want, ic.ToolAllowed(tt.name))
+		})
+	}
+}
+
+func TestValidateToolGlobs(t *testing.T) {
+	assert.NoError(t, ValidateToolGlobs(nil))
+	assert.NoError(t, ValidateToolGlobs([]string{}))
+	assert.NoError(t, ValidateToolGlobs([]string{"github_*", "datadog_get_?"}))
+	assert.Error(t, ValidateToolGlobs([]string{"github_[unclosed"}))
+	assert.Error(t, ValidateToolGlobs([]string{"valid_*", "[bad"}))
+}
+
+func TestToolAllowed_InvalidPatternSkipped(t *testing.T) {
+	ic := &IntegrationConfig{ToolGlobs: []string{"[bad", "github_*"}}
+	assert.True(t, ic.ToolAllowed("github_list_issues"))
+	assert.False(t, ic.ToolAllowed("datadog_search_logs"))
+}
+
 func TestIsRetryable_DistinguishesRetryableFromPermanentErrors(t *testing.T) {
 	tests := []struct {
 		name      string

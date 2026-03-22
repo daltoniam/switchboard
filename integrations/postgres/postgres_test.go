@@ -119,6 +119,14 @@ func TestExecute_UnknownTool(t *testing.T) {
 	assert.Contains(t, result.Data, "unknown tool")
 }
 
+func TestExecute_NilDB(t *testing.T) {
+	p := &postgres{}
+	result, err := p.Execute(context.Background(), "postgres_query", map[string]any{"sql": "SELECT 1"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not configured")
+}
+
 func TestDispatchMap_AllToolsCovered(t *testing.T) {
 	i := New()
 	for _, tool := range i.Tools() {
@@ -153,27 +161,6 @@ func TestErrResult(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
-}
-
-// --- Argument helper tests ---
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
 }
 
 // --- Sanitize identifier tests ---

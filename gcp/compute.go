@@ -11,18 +11,22 @@ import (
 )
 
 func computeListInstances(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	req := &computepb.ListInstancesRequest{
 		Project: g.projectID,
-		Zone:    argStr(args, "zone"),
+		Zone:    r.Str("zone"),
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		req.Filter = proto.String(v)
 	}
-	if v := argInt32(args, "max_results"); v > 0 {
+	if v := r.Int32("max_results"); v > 0 {
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
-	limit := argInt(args, "limit")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = defaultComputeLimit
 	}
@@ -43,10 +47,16 @@ func computeListInstances(ctx context.Context, g *integration, args map[string]a
 }
 
 func computeGetInstance(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	zone := r.Str("zone")
+	instance := r.Str("instance")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	inst, err := g.instancesClient.Get(ctx, &computepb.GetInstanceRequest{
 		Project:  g.projectID,
-		Zone:     argStr(args, "zone"),
-		Instance: argStr(args, "instance"),
+		Zone:     zone,
+		Instance: instance,
 	})
 	if err != nil {
 		return errResult(err)
@@ -55,10 +65,16 @@ func computeGetInstance(ctx context.Context, g *integration, args map[string]any
 }
 
 func computeStartInstance(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	zone := r.Str("zone")
+	instance := r.Str("instance")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	op, err := g.instancesClient.Start(ctx, &computepb.StartInstanceRequest{
 		Project:  g.projectID,
-		Zone:     argStr(args, "zone"),
-		Instance: argStr(args, "instance"),
+		Zone:     zone,
+		Instance: instance,
 	})
 	if err != nil {
 		return errResult(err)
@@ -70,10 +86,16 @@ func computeStartInstance(ctx context.Context, g *integration, args map[string]a
 }
 
 func computeStopInstance(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	zone := r.Str("zone")
+	instance := r.Str("instance")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	op, err := g.instancesClient.Stop(ctx, &computepb.StopInstanceRequest{
 		Project:  g.projectID,
-		Zone:     argStr(args, "zone"),
-		Instance: argStr(args, "instance"),
+		Zone:     zone,
+		Instance: instance,
 	})
 	if err != nil {
 		return errResult(err)
@@ -85,18 +107,22 @@ func computeStopInstance(ctx context.Context, g *integration, args map[string]an
 }
 
 func computeListDisks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	req := &computepb.ListDisksRequest{
 		Project: g.projectID,
-		Zone:    argStr(args, "zone"),
+		Zone:    r.Str("zone"),
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		req.Filter = proto.String(v)
 	}
-	if v := argInt32(args, "max_results"); v > 0 {
+	if v := r.Int32("max_results"); v > 0 {
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
-	limit := argInt(args, "limit")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = defaultComputeLimit
 	}
@@ -117,17 +143,21 @@ func computeListDisks(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func computeListNetworks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	req := &computepb.ListNetworksRequest{
 		Project: g.projectID,
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		req.Filter = proto.String(v)
 	}
-	if v := argInt32(args, "max_results"); v > 0 {
+	if v := r.Int32("max_results"); v > 0 {
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
-	limit := argInt(args, "limit")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = defaultComputeLimit
 	}
@@ -148,18 +178,22 @@ func computeListNetworks(ctx context.Context, g *integration, args map[string]an
 }
 
 func computeListSubnetworks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	req := &computepb.ListSubnetworksRequest{
 		Project: g.projectID,
-		Region:  argStr(args, "region"),
+		Region:  r.Str("region"),
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		req.Filter = proto.String(v)
 	}
-	if v := argInt32(args, "max_results"); v > 0 {
+	if v := r.Int32("max_results"); v > 0 {
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
-	limit := argInt(args, "limit")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = defaultComputeLimit
 	}
@@ -180,17 +214,21 @@ func computeListSubnetworks(ctx context.Context, g *integration, args map[string
 }
 
 func computeListFirewalls(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	req := &computepb.ListFirewallsRequest{
 		Project: g.projectID,
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		req.Filter = proto.String(v)
 	}
-	if v := argInt32(args, "max_results"); v > 0 {
+	if v := r.Int32("max_results"); v > 0 {
 		req.MaxResults = proto.Uint32(uint32(v))
 	}
 
-	limit := argInt(args, "limit")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = defaultComputeLimit
 	}
@@ -211,9 +249,14 @@ func computeListFirewalls(ctx context.Context, g *integration, args map[string]a
 }
 
 func computeGetFirewall(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	firewall := r.Str("firewall")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	fw, err := g.firewallsClient.Get(ctx, &computepb.GetFirewallRequest{
 		Project:  g.projectID,
-		Firewall: argStr(args, "firewall"),
+		Firewall: firewall,
 	})
 	if err != nil {
 		return errResult(err)

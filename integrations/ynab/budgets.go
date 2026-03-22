@@ -16,8 +16,13 @@ func getUser(ctx context.Context, y *ynab, _ map[string]any) (*mcp.ToolResult, e
 }
 
 func listBudgets(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	includeAccounts := r.Str("include_accounts")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	q := queryEncode(map[string]string{
-		"include_accounts": argStr(args, "include_accounts"),
+		"include_accounts": includeAccounts,
 	})
 	data, err := y.get(ctx, "/budgets%s", q)
 	if err != nil {
@@ -51,7 +56,12 @@ func listAccounts(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolR
 }
 
 func getAccount(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := y.get(ctx, "/budgets/%s/accounts/%s", budget(args), argStr(args, "account_id"))
+	r := mcp.NewArgs(args)
+	accountID := r.Str("account_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := y.get(ctx, "/budgets/%s/accounts/%s", budget(args), accountID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -59,11 +69,18 @@ func getAccount(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolRes
 }
 
 func createAccount(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	typ := r.Str("type")
+	balance := r.Int("balance")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := map[string]any{
 		"account": map[string]any{
-			"name":    argStr(args, "name"),
-			"type":    argStr(args, "type"),
-			"balance": argInt(args, "balance"),
+			"name":    name,
+			"type":    typ,
+			"balance": balance,
 		},
 	}
 	path := fmt.Sprintf("/budgets/%s/accounts", budget(args))

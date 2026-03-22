@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -145,7 +144,10 @@ type handlerFunc func(ctx context.Context, p *posthog, args map[string]any) (*mc
 
 // parseJSON unmarshals a JSON string arg, returning an error result if invalid.
 func parseJSON(args map[string]any, key string) (any, error) {
-	v := argStr(args, key)
+	v, err := mcp.ArgStr(args, key)
+	if err != nil {
+		return nil, err
+	}
 	if v == "" {
 		return nil, nil
 	}
@@ -154,34 +156,6 @@ func parseJSON(args map[string]any, key string) (any, error) {
 		return nil, fmt.Errorf("invalid JSON for %s: %w", key, err)
 	}
 	return out, nil
-}
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
 }
 
 func queryEncode(params map[string]string) string {
@@ -199,7 +173,7 @@ func queryEncode(params map[string]string) string {
 
 // proj returns the project ID from args, falling back to the configured default.
 func (p *posthog) proj(args map[string]any) string {
-	if v := argStr(args, "project_id"); v != "" {
+	if v, _ := mcp.ArgStr(args, "project_id"); v != "" {
 		return v
 	}
 	return p.projectID

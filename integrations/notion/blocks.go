@@ -8,7 +8,10 @@ import (
 )
 
 func retrieveBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	blockID := argStr(args, "block_id")
+	blockID, err := mcp.ArgStr(args, "block_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if blockID == "" {
 		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
@@ -16,23 +19,29 @@ func retrieveBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.To
 }
 
 func updateBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	blockID := argStr(args, "block_id")
+	r := mcp.NewArgs(args)
+	blockID := r.Str("block_id")
+	typeContent := r.Map("type_content")
+	archived := r.Bool("archived")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if blockID == "" {
 		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
 
 	var ops []op
 
-	if content := argMap(args, "type_content"); content != nil {
-		if props, ok := content["properties"].(map[string]any); ok {
+	if typeContent != nil {
+		if props, ok := typeContent["properties"].(map[string]any); ok {
 			ops = append(ops, buildSetOp("block", blockID, []string{"properties"}, props))
 		}
-		if format, ok := content["format"].(map[string]any); ok {
+		if format, ok := typeContent["format"].(map[string]any); ok {
 			ops = append(ops, buildSetOp("block", blockID, []string{"format"}, format))
 		}
 	}
 
-	if argBool(args, "archived") {
+	if archived {
 		ops = append(ops, buildSetOp("block", blockID, []string{"alive"}, false))
 	}
 
@@ -49,7 +58,10 @@ func updateBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.Tool
 }
 
 func deleteBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	blockID := argStr(args, "block_id")
+	blockID, err := mcp.ArgStr(args, "block_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if blockID == "" {
 		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
@@ -92,7 +104,10 @@ func deleteBlock(ctx context.Context, n *notion, args map[string]any) (*mcp.Tool
 }
 
 func getBlockChildren(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	blockID := argStr(args, "block_id")
+	blockID, err := mcp.ArgStr(args, "block_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if blockID == "" {
 		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
@@ -146,7 +161,10 @@ func getBlockChildren(ctx context.Context, n *notion, args map[string]any) (*mcp
 }
 
 func appendBlockChildren(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
-	blockID := argStr(args, "block_id")
+	blockID, err := mcp.ArgStr(args, "block_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if blockID == "" {
 		return mcp.ErrResult(fmt.Errorf("block_id is required"))
 	}
@@ -173,7 +191,7 @@ func appendBlockChildren(ctx context.Context, n *notion, args map[string]any) (*
 		}
 	}
 
-	_, err := submitTransaction(ctx, n, ops)
+	_, err = submitTransaction(ctx, n, ops)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

@@ -8,12 +8,16 @@ import (
 )
 
 func listInsights(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"search":     argStr(args, "search"),
-		"created_by": argStr(args, "created_by"),
-		"limit":      argStr(args, "limit"),
-		"offset":     argStr(args, "offset"),
+		"search":     r.Str("search"),
+		"created_by": r.Str("created_by"),
+		"limit":      r.Str("limit"),
+		"offset":     r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/insights/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -22,7 +26,11 @@ func listInsights(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func getInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/insights/%s/", p.proj(args), argStr(args, "insight_id"))
+	insightID, err := mcp.ArgStr(args, "insight_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/insights/%s/", p.proj(args), insightID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -30,12 +38,18 @@ func getInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.Tool
 }
 
 func createInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	if description != "" {
+		body["description"] = description
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
 		return mcp.ErrResult(err)
@@ -56,12 +70,19 @@ func createInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 }
 
 func updateInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	r := mcp.NewArgs(args)
+	insightID := r.Str("insight_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	if description != "" {
+		body["description"] = description
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
 		return mcp.ErrResult(err)
@@ -73,7 +94,7 @@ func updateInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 	} else if query != nil {
 		body["query"] = query
 	}
-	path := fmt.Sprintf("/api/projects/%s/insights/%s/", p.proj(args), argStr(args, "insight_id"))
+	path := fmt.Sprintf("/api/projects/%s/insights/%s/", p.proj(args), insightID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -82,7 +103,11 @@ func updateInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 }
 
 func deleteInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/api/projects/%s/insights/%s/", p.proj(args), argStr(args, "insight_id"))
+	insightID, err := mcp.ArgStr(args, "insight_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/api/projects/%s/insights/%s/", p.proj(args), insightID)
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {

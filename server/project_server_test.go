@@ -36,7 +36,18 @@ func setupProjectRouter(t *testing.T, def *project.Definition, integrations ...*
 		Registry: reg,
 	}
 
-	router := NewProjectRouter(services, store, "switchboard")
+	// Build search index from test integrations so project-scoped search
+	// gets TF-IDF + synonym scoring.
+	sm := buildSynonymMap(synonymGroups)
+	var tools []toolWithIntegration
+	for _, i := range integrations {
+		for _, tool := range i.Tools() {
+			tools = append(tools, toolWithIntegration{Integration: i.Name(), Tool: tool})
+		}
+	}
+	idf := computeIDF(tools)
+
+	router := NewProjectRouter(services, store, "switchboard", SearchIndex{IDF: idf, SynMap: sm, AllTools: tools})
 	return router, store
 }
 
@@ -259,7 +270,7 @@ func TestProjectRouter_ContextManifest(t *testing.T) {
 		Config:   newMockConfigService(nil),
 		Registry: newMockRegistry(),
 	}
-	router := NewProjectRouter(services, store, "switchboard")
+	router := NewProjectRouter(services, store, "switchboard", SearchIndex{})
 
 	handler := router.makeContextHandler(def)
 

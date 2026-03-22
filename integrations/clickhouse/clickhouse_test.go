@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	ch "github.com/ClickHouse/clickhouse-go/v2"
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,11 +53,21 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
-	c := &clickhouseInt{}
+	conn, err := ch.Open(&ch.Options{Addr: []string{"localhost:9000"}})
+	require.NoError(t, err)
+	c := &clickhouseInt{conn: conn}
 	result, err := c.Execute(context.Background(), "clickhouse_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "unknown tool")
+}
+
+func TestExecute_NilConn(t *testing.T) {
+	c := &clickhouseInt{}
+	result, err := c.Execute(context.Background(), "clickhouse_query", map[string]any{"sql": "SELECT 1"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not configured")
 }
 
 func TestDispatchMap_AllToolsCovered(t *testing.T) {
@@ -98,24 +109,7 @@ func TestErrResult(t *testing.T) {
 	assert.Equal(t, "test error", result.Data)
 }
 
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
+// Argument helper tests removed — shared helpers are tested in args_test.go.
 
 func TestEscapeIdentifier(t *testing.T) {
 	assert.Equal(t, "`my_table`", escapeIdentifier("my_table"))

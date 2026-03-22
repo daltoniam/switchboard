@@ -18,13 +18,17 @@ func listEvents(ctx context.Context, h *homeassistant, _ map[string]any) (*mcp.T
 }
 
 func fireEvent(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	eventType := argStr(args, "event_type")
+	r := mcp.NewArgs(args)
+	eventType := r.Str("event_type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if eventType == "" {
 		return mcp.ErrResult(fmt.Errorf("event_type is required"))
 	}
 
 	var body any
-	if v := argStr(args, "event_data"); v != "" {
+	if v := r.Str("event_data"); v != "" {
 		var data map[string]any
 		if err := json.Unmarshal([]byte(v), &data); err != nil {
 			return mcp.ErrResult(fmt.Errorf("invalid JSON for event_data: %w", err))

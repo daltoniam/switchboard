@@ -15,12 +15,18 @@ import (
 func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
 	cmdArgs := []string{"run", ".rwx/ci.yml", "--output", "json"}
 
-	wait := argBool(args, "wait")
+	wait, err := mcp.ArgBool(args, "wait")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if wait {
 		cmdArgs = append(cmdArgs, "--wait")
 	}
 
-	targets := argStrSlice(args, "targets")
+	targets, err := mcp.ArgStrSlice(args, "targets")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	for _, t := range targets {
 		cmdArgs = append(cmdArgs, "--target", t)
 	}
@@ -80,14 +86,20 @@ func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResul
 }
 
 func waitForCIRun(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "run_id"))
+	ra := mcp.NewArgs(args)
+	runIDRaw := ra.Str("run_id")
+	timeoutSec := ra.Int("timeout_seconds")
+	pollSec := ra.Int("poll_interval_seconds")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	id := extractRunID(runIDRaw)
 	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, id)
 
-	timeoutSec := argInt(args, "timeout_seconds")
 	if timeoutSec <= 0 {
 		timeoutSec = 1800
 	}
-	pollSec := argInt(args, "poll_interval_seconds")
 	if pollSec <= 0 {
 		pollSec = 30
 	}
@@ -138,8 +150,12 @@ func waitForCIRun(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRe
 }
 
 func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	ref := argStr(args, "ref")
-	limit := argInt(args, "limit")
+	ra := mcp.NewArgs(args)
+	ref := ra.Str("ref")
+	limit := ra.Int("limit")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = 5
 	}
@@ -218,7 +234,11 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 }
 
 func getRunResults(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "run_id"))
+	runIDRaw, err := mcp.ArgStr(args, "run_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(runIDRaw)
 	output, err := r.runRWXCommand([]string{"results", id, "--output", "json"}, 0)
 	if err != nil {
 		return mcp.ErrResult(err)
