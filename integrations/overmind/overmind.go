@@ -147,10 +147,11 @@ type handlerFunc func(ctx context.Context, o *overmind, args map[string]any) (*m
 
 var dispatch = map[string]handlerFunc{
 	// Flow tools (agent-facing)
-	"overmind_launch_agent":     launchAgent,
-	"overmind_get_agent_status": getAgentStatus,
-	"overmind_get_agent_result": getAgentResult,
-	"overmind_complete_flow":    completeFlow,
+	"overmind_list_available_agents": listAvailableAgents,
+	"overmind_launch_agent":          launchAgent,
+	"overmind_get_agent_status":      getAgentStatus,
+	"overmind_get_agent_result":      getAgentResult,
+	"overmind_complete_flow":         completeFlow,
 
 	// Agents admin
 	"overmind_list_agents":  listAgents,

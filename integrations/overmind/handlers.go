@@ -8,6 +8,14 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+func listAvailableAgents(ctx context.Context, o *overmind, _ map[string]any) (*mcp.ToolResult, error) {
+	data, err := o.get(ctx, "/api/flow_runs/%s/available_agents", url.PathEscape(o.flowRunID))
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
+}
+
 func launchAgent(ctx context.Context, o *overmind, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	agentID := r.Str("agent_id")
