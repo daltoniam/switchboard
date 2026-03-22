@@ -78,23 +78,22 @@ func validateWorkflow(_ context.Context, r *rwx, args map[string]any) (*mcp.Tool
 
 	output, err := r.runRWXCommand([]string{"lint", filePath, "--output", "json"}, 30000)
 	if err != nil {
-		exitErr, ok := err.(*exec.ExitError)
-		if ok && len(exitErr.Stderr) > 0 {
-			return mcp.JSONResult(map[string]any{
-				"isValid": false,
-				"errors": []map[string]string{
-					{"severity": "error", "message": string(exitErr.Stderr)},
-				},
-				"warnings": []any{},
-			})
-		}
-		if output != "" {
-			return &mcp.ToolResult{Data: output, IsError: true}, nil
-		}
-		return mcp.ErrResult(err)
+		return mcp.JSONResult(map[string]any{
+			"isValid": false,
+			"errors": []map[string]string{
+				{"severity": "error", "message": err.Error()},
+			},
+			"warnings": []any{},
+		})
 	}
-
-	return &mcp.ToolResult{Data: output}, nil
+	if output != "" {
+		return &mcp.ToolResult{Data: output}, nil
+	}
+	return mcp.JSONResult(map[string]any{
+		"isValid":  true,
+		"errors":   []any{},
+		"warnings": []any{},
+	})
 }
 
 func verifyCLI(_ context.Context, r *rwx, _ map[string]any) (*mcp.ToolResult, error) {
