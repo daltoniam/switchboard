@@ -21,6 +21,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
 	"github.com/daltoniam/switchboard/integrations/confluence"
 	"github.com/daltoniam/switchboard/integrations/datadog"
+	flyInt "github.com/daltoniam/switchboard/integrations/fly"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
 	"github.com/daltoniam/switchboard/integrations/homeassistant"
@@ -213,6 +214,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		gcpInt.New(),
 		suno.New(),
 		overmind.New(),
+		flyInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)

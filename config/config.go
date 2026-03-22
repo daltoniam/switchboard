@@ -82,6 +82,9 @@ var envMapping = map[string]map[string]string{
 		"agent_run_id": "OVERMIND_AGENT_RUN_ID",
 		"flow_run_id":  "OVERMIND_FLOW_RUN_ID",
 	},
+	"fly": {
+		"api_token": "FLY_API_TOKEN",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -209,6 +212,10 @@ func defaultConfig() *mcp.Config {
 			"overmind": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "token": "", "agent_run_id": "", "flow_run_id": ""},
+			},
+			"fly": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "base_url": ""},
 			},
 		},
 	}
