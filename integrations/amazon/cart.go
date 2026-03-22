@@ -253,6 +253,10 @@ func clearCartBrowser(ctx context.Context, a *amazon) (*mcp.ToolResult, error) {
 		return mcp.ErrResult(fmt.Errorf("amazon: navigate cart: %w", err))
 	}
 
+	if firstHTML, _ := pg.Content(ctx); isLoginPage(firstHTML) {
+		return mcp.ErrResult(fmt.Errorf("amazon: session expired — not logged in"))
+	}
+
 	removed := 0
 	const maxCartItems = 100
 	for i := 0; i < maxCartItems; i++ {

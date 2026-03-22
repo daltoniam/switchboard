@@ -131,7 +131,11 @@ func (a *amazon) Configure(_ context.Context, creds mcp.Credentials) error {
 }
 
 func (a *amazon) Healthy(_ context.Context) bool {
-	return a.email != "" || len(a.browserCookies) > 0
+	a.sessionMu.Lock()
+	hasEmail := a.email != ""
+	hasCookies := len(a.browserCookies) > 0
+	a.sessionMu.Unlock()
+	return hasEmail || hasCookies
 }
 
 func (a *amazon) Tools() []mcp.ToolDefinition {
