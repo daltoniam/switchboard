@@ -16,7 +16,11 @@ func listDatabases(ctx context.Context, c *clickhouseInt, _ map[string]any) (*mc
 }
 
 func listTables(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	db := argStr(args, "database")
+	r := mcp.NewArgs(args)
+	db := r.Str("database")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 
 	if db == "" {
 		q := `SELECT database, name, engine, total_rows, total_bytes, comment
@@ -38,12 +42,15 @@ func listTables(ctx context.Context, c *clickhouseInt, args map[string]any) (*mc
 }
 
 func describeTable(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	r := mcp.NewArgs(args)
+	table := r.Str("table")
+	db := r.Str("database")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-
-	db := argStr(args, "database")
 	var fqn string
 	if db != "" {
 		fqn = escapeIdentifier(db) + "." + escapeIdentifier(table)
@@ -59,12 +66,15 @@ func describeTable(ctx context.Context, c *clickhouseInt, args map[string]any) (
 }
 
 func listColumns(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	r := mcp.NewArgs(args)
+	table := r.Str("table")
+	db := r.Str("database")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-
-	db := argStr(args, "database")
 
 	if db != "" {
 		q := `SELECT name, type, default_kind, default_expression, comment,
@@ -92,12 +102,15 @@ func listColumns(ctx context.Context, c *clickhouseInt, args map[string]any) (*m
 }
 
 func showCreateTable(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
+	r := mcp.NewArgs(args)
+	table := r.Str("table")
+	db := r.Str("database")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if table == "" {
 		return mcp.ErrResult(fmt.Errorf("table is required"))
 	}
-
-	db := argStr(args, "database")
 	var fqn string
 	if db != "" {
 		fqn = escapeIdentifier(db) + "." + escapeIdentifier(table)

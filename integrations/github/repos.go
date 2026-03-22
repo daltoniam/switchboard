@@ -2,36 +2,21 @@ package github
 
 import (
 	"context"
-	"encoding/base64"
-	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
 	gh "github.com/google/go-github/v68/github"
 )
 
-// decodeContentArg tries base64 decoding; if it fails, treats the input as raw text.
-// This handles both LLMs that base64-encode (matching old tool description) and
-// LLMs that pass raw text (matching new tool description).
-func decodeContentArg(s string) []byte {
-	decoded, err := base64.StdEncoding.DecodeString(s)
-	if err == nil && looksLikePlainText(decoded) {
-		return decoded
-	}
-	return []byte(s)
-}
-
-func looksLikePlainText(b []byte) bool {
-	for _, c := range b {
-		if c == 0 {
-			return false
-		}
-	}
-	return true
-}
-
 func searchRepos(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.SearchOptions{ListOptions: listOpts(args)}
-	resp, _, err := g.client.Search.Repositories(ctx, argStr(args, "query"), opts)
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.SearchOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	resp, _, err := g.client.Search.Repositories(ctx, query, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -39,20 +24,35 @@ func searchRepos(ctx context.Context, g *integration, args map[string]any) (*mcp
 }
 
 func getRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	repo, _, err := g.client.Repositories.Get(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	result, _, err := g.client.Repositories.Get(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(repo)
+	return mcp.JSONResult(result)
 }
 
 func listUserRepos(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.RepositoryListOptions{
-		Type:        argStr(args, "type"),
-		Sort:        argStr(args, "sort"),
-		ListOptions: listOpts(args),
+	r := mcp.NewArgs(args)
+	username := r.Str("username")
+	typ := r.Str("type")
+	sort := r.Str("sort")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	repos, _, err := g.client.Repositories.List(ctx, argStr(args, "username"), opts)
+	opts := &gh.RepositoryListOptions{
+		Type:        typ,
+		Sort:        sort,
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
+	}
+	repos, _, err := g.client.Repositories.List(ctx, username, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -60,12 +60,21 @@ func listUserRepos(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func listOrgRepos(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.RepositoryListByOrgOptions{
-		Type:        argStr(args, "type"),
-		Sort:        argStr(args, "sort"),
-		ListOptions: listOpts(args),
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	typ := r.Str("type")
+	sort := r.Str("sort")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	repos, _, err := g.client.Repositories.ListByOrg(ctx, argStr(args, "org"), opts)
+	opts := &gh.RepositoryListByOrgOptions{
+		Type:        typ,
+		Sort:        sort,
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
+	}
+	repos, _, err := g.client.Repositories.ListByOrg(ctx, org, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -73,21 +82,36 @@ func listOrgRepos(ctx context.Context, g *integration, args map[string]any) (*mc
 }
 
 func createRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	r := &gh.Repository{
-		Name:        gh.Ptr(argStr(args, "name")),
-		Description: gh.Ptr(argStr(args, "description")),
-		Private:     gh.Ptr(argBool(args, "private")),
-		AutoInit:    gh.Ptr(argBool(args, "auto_init")),
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	private := r.Bool("private")
+	autoInit := r.Bool("auto_init")
+	org := r.Str("org")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	repo, _, err := g.client.Repositories.Create(ctx, argStr(args, "org"), r)
+	repo := &gh.Repository{
+		Name:        gh.Ptr(name),
+		Description: gh.Ptr(description),
+		Private:     gh.Ptr(private),
+		AutoInit:    gh.Ptr(autoInit),
+	}
+	result, _, err := g.client.Repositories.Create(ctx, org, repo)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(repo)
+	return mcp.JSONResult(result)
 }
 
 func deleteRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Repositories.Delete(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Repositories.Delete(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
@@ -95,8 +119,16 @@ func deleteRepo(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func listBranches(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.BranchListOptions{ListOptions: listOpts(args)}
-	branches, _, err := g.client.Repositories.ListBranches(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.BranchListOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	branches, _, err := g.client.Repositories.ListBranches(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -104,16 +136,31 @@ func listBranches(ctx context.Context, g *integration, args map[string]any) (*mc
 }
 
 func getBranch(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	branch, _, err := g.client.Repositories.GetBranch(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "branch"), 0)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	branch := r.Str("branch")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	result, _, err := g.client.Repositories.GetBranch(ctx, owner, repo, branch, 0)
 	if err != nil {
 		return errResult(err)
 	}
-	return mcp.JSONResult(branch)
+	return mcp.JSONResult(result)
 }
 
 func listTags(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	tags, _, err := g.client.Repositories.ListTags(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	tags, _, err := g.client.Repositories.ListTags(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -121,8 +168,16 @@ func listTags(ctx context.Context, g *integration, args map[string]any) (*mcp.To
 }
 
 func listContributors(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListContributorsOptions{ListOptions: listOpts(args)}
-	contributors, _, err := g.client.Repositories.ListContributors(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListContributorsOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	contributors, _, err := g.client.Repositories.ListContributors(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -130,7 +185,13 @@ func listContributors(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func listLanguages(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	langs, _, err := g.client.Repositories.ListLanguages(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	langs, _, err := g.client.Repositories.ListLanguages(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
@@ -138,7 +199,13 @@ func listLanguages(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func listTopics(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	topics, _, err := g.client.Repositories.ListAllTopics(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	topics, _, err := g.client.Repositories.ListAllTopics(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
@@ -146,8 +213,15 @@ func listTopics(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func getReadme(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.RepositoryContentGetOptions{Ref: argStr(args, "ref")}
-	readme, _, err := g.client.Repositories.GetReadme(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	ref := r.Str("ref")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.RepositoryContentGetOptions{Ref: ref}
+	readme, _, err := g.client.Repositories.GetReadme(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -159,8 +233,16 @@ func getReadme(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 }
 
 func getFileContents(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.RepositoryContentGetOptions{Ref: argStr(args, "ref")}
-	fileContent, dirContent, _, err := g.client.Repositories.GetContents(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "path"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	path := r.Str("path")
+	ref := r.Str("ref")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.RepositoryContentGetOptions{Ref: ref}
+	fileContent, dirContent, _, err := g.client.Repositories.GetContents(ctx, owner, repo, path, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -175,15 +257,26 @@ func getFileContents(ctx context.Context, g *integration, args map[string]any) (
 }
 
 func createOrUpdateFile(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.RepositoryContentFileOptions{
-		Message: gh.Ptr(argStr(args, "message")),
-		Content: decodeContentArg(argStr(args, "content")),
-		Branch:  gh.Ptr(argStr(args, "branch")),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	path := r.Str("path")
+	message := r.Str("message")
+	content := r.Str("content")
+	branch := r.Str("branch")
+	sha := r.Str("sha")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if sha := argStr(args, "sha"); sha != "" {
+	opts := &gh.RepositoryContentFileOptions{
+		Message: gh.Ptr(message),
+		Content: []byte(content),
+		Branch:  gh.Ptr(branch),
+	}
+	if sha != "" {
 		opts.SHA = gh.Ptr(sha)
 	}
-	resp, _, err := g.client.Repositories.CreateFile(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "path"), opts)
+	resp, _, err := g.client.Repositories.CreateFile(ctx, owner, repo, path, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -191,12 +284,22 @@ func createOrUpdateFile(ctx context.Context, g *integration, args map[string]any
 }
 
 func deleteFile(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.RepositoryContentFileOptions{
-		Message: gh.Ptr(argStr(args, "message")),
-		SHA:     gh.Ptr(argStr(args, "sha")),
-		Branch:  gh.Ptr(argStr(args, "branch")),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	path := r.Str("path")
+	message := r.Str("message")
+	sha := r.Str("sha")
+	branch := r.Str("branch")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	resp, _, err := g.client.Repositories.DeleteFile(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "path"), opts)
+	opts := &gh.RepositoryContentFileOptions{
+		Message: gh.Ptr(message),
+		SHA:     gh.Ptr(sha),
+		Branch:  gh.Ptr(branch),
+	}
+	resp, _, err := g.client.Repositories.DeleteFile(ctx, owner, repo, path, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -204,11 +307,20 @@ func deleteFile(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func listForks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.RepositoryListForksOptions{
-		Sort:        argStr(args, "sort"),
-		ListOptions: listOpts(args),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	sort := r.Str("sort")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	forks, _, err := g.client.Repositories.ListForks(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	opts := &gh.RepositoryListForksOptions{
+		Sort:        sort,
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
+	}
+	forks, _, err := g.client.Repositories.ListForks(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -216,23 +328,38 @@ func listForks(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 }
 
 func createFork(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.RepositoryCreateForkOptions{}
-	if org := argStr(args, "organization"); org != "" {
-		opts.Organization = org
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	organization := r.Str("organization")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	repo, _, err := g.client.Repositories.CreateFork(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	opts := &gh.RepositoryCreateForkOptions{}
+	if organization != "" {
+		opts.Organization = organization
+	}
+	result, _, err := g.client.Repositories.CreateFork(ctx, owner, repo, opts)
 	if err != nil {
 		if _, ok := err.(*gh.AcceptedError); ok {
 			return mcp.JSONResult(map[string]string{"status": "forking", "message": "Fork is being created asynchronously"})
 		}
 		return errResult(err)
 	}
-	return mcp.JSONResult(repo)
+	return mcp.JSONResult(result)
 }
 
 func listCollaborators(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListCollaboratorsOptions{ListOptions: listOpts(args)}
-	users, _, err := g.client.Repositories.ListCollaborators(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListCollaboratorsOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	users, _, err := g.client.Repositories.ListCollaborators(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -240,7 +367,13 @@ func listCollaborators(ctx context.Context, g *integration, args map[string]any)
 }
 
 func listCommitActivity(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	activity, _, err := g.client.Repositories.ListCommitActivity(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	activity, _, err := g.client.Repositories.ListCommitActivity(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
@@ -248,8 +381,16 @@ func listCommitActivity(ctx context.Context, g *integration, args map[string]any
 }
 
 func listRepoTeams(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	teams, _, err := g.client.Repositories.ListTeams(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	teams, _, err := g.client.Repositories.ListTeams(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -257,8 +398,18 @@ func listRepoTeams(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func compareCommits(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	comparison, _, err := g.client.Repositories.CompareCommits(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "base"), argStr(args, "head"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	base := r.Str("base")
+	head := r.Str("head")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	comparison, _, err := g.client.Repositories.CompareCommits(ctx, owner, repo, base, head, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -266,8 +417,15 @@ func compareCommits(ctx context.Context, g *integration, args map[string]any) (*
 }
 
 func mergeUpstream(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	req := &gh.RepoMergeUpstreamRequest{Branch: gh.Ptr(argStr(args, "branch"))}
-	result, _, err := g.client.Repositories.MergeUpstream(ctx, argStr(args, "owner"), argStr(args, "repo"), req)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	branch := r.Str("branch")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	req := &gh.RepoMergeUpstreamRequest{Branch: gh.Ptr(branch)}
+	result, _, err := g.client.Repositories.MergeUpstream(ctx, owner, repo, req)
 	if err != nil {
 		return errResult(err)
 	}
@@ -275,8 +433,15 @@ func mergeUpstream(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func listAutolinks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: argInt(args, "page")}
-	links, _, err := g.client.Repositories.ListAutolinks(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page}
+	links, _, err := g.client.Repositories.ListAutolinks(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -286,8 +451,16 @@ func listAutolinks(ctx context.Context, g *integration, args map[string]any) (*m
 // ── Releases ──────────────────────────────────────────────────────
 
 func listReleases(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	releases, _, err := g.client.Repositories.ListReleases(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	releases, _, err := g.client.Repositories.ListReleases(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -295,7 +468,14 @@ func listReleases(ctx context.Context, g *integration, args map[string]any) (*mc
 }
 
 func getRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	release, _, err := g.client.Repositories.GetRelease(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "release_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	releaseID := r.Int64("release_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	release, _, err := g.client.Repositories.GetRelease(ctx, owner, repo, releaseID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -303,7 +483,13 @@ func getRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func getLatestRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	release, _, err := g.client.Repositories.GetLatestRelease(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	release, _, err := g.client.Repositories.GetLatestRelease(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
@@ -311,15 +497,27 @@ func getLatestRelease(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func createRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	r := &gh.RepositoryRelease{
-		TagName:         gh.Ptr(argStr(args, "tag_name")),
-		Name:            gh.Ptr(argStr(args, "name")),
-		Body:            gh.Ptr(argStr(args, "body")),
-		Draft:           gh.Ptr(argBool(args, "draft")),
-		Prerelease:      gh.Ptr(argBool(args, "prerelease")),
-		TargetCommitish: gh.Ptr(argStr(args, "target_commitish")),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	tagName := r.Str("tag_name")
+	name := r.Str("name")
+	body := r.Str("body")
+	draft := r.Bool("draft")
+	prerelease := r.Bool("prerelease")
+	targetCommitish := r.Str("target_commitish")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	release, _, err := g.client.Repositories.CreateRelease(ctx, argStr(args, "owner"), argStr(args, "repo"), r)
+	rel := &gh.RepositoryRelease{
+		TagName:         gh.Ptr(tagName),
+		Name:            gh.Ptr(name),
+		Body:            gh.Ptr(body),
+		Draft:           gh.Ptr(draft),
+		Prerelease:      gh.Ptr(prerelease),
+		TargetCommitish: gh.Ptr(targetCommitish),
+	}
+	release, _, err := g.client.Repositories.CreateRelease(ctx, owner, repo, rel)
 	if err != nil {
 		return errResult(err)
 	}
@@ -327,7 +525,14 @@ func createRelease(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func deleteRelease(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Repositories.DeleteRelease(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "release_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	releaseID := r.Int64("release_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Repositories.DeleteRelease(ctx, owner, repo, releaseID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -335,8 +540,17 @@ func deleteRelease(ctx context.Context, g *integration, args map[string]any) (*m
 }
 
 func listReleaseAssets(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	assets, _, err := g.client.Repositories.ListReleaseAssets(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "release_id"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	releaseID := r.Int64("release_id")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	assets, _, err := g.client.Repositories.ListReleaseAssets(ctx, owner, repo, releaseID, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -346,8 +560,16 @@ func listReleaseAssets(ctx context.Context, g *integration, args map[string]any)
 // ── Deploy Keys ───────────────────────────────────────────────────
 
 func listDeployKeys(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	keys, _, err := g.client.Repositories.ListKeys(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	keys, _, err := g.client.Repositories.ListKeys(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -357,8 +579,16 @@ func listDeployKeys(ctx context.Context, g *integration, args map[string]any) (*
 // ── Webhooks ──────────────────────────────────────────────────────
 
 func listHooks(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	hooks, _, err := g.client.Repositories.ListHooks(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	hooks, _, err := g.client.Repositories.ListHooks(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
@@ -366,32 +596,40 @@ func listHooks(ctx context.Context, g *integration, args map[string]any) (*mcp.T
 }
 
 func createHook(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	contentType := argStr(args, "content_type")
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	url := r.Str("url")
+	contentType := r.Str("content_type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if contentType == "" {
 		contentType = "json"
 	}
-	active := true
-	if v, ok := args["active"]; ok {
-		if s, ok := v.(string); ok && s == "false" {
-			active = false
-		}
-		if b, ok := v.(bool); ok {
-			active = b
-		}
+	active, err := mcp.ArgBool(args, "active")
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	events := argStrSlice(args, "events")
+	if _, ok := args["active"]; !ok {
+		active = true
+	}
+	events, err := mcp.ArgStrSlice(args, "events")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if len(events) == 0 {
 		events = []string{"push"}
 	}
 	hook := &gh.Hook{
 		Config: &gh.HookConfig{
-			URL:         gh.Ptr(argStr(args, "url")),
+			URL:         gh.Ptr(url),
 			ContentType: gh.Ptr(contentType),
 		},
 		Events: events,
 		Active: gh.Ptr(active),
 	}
-	h, _, err := g.client.Repositories.CreateHook(ctx, argStr(args, "owner"), argStr(args, "repo"), hook)
+	h, _, err := g.client.Repositories.CreateHook(ctx, owner, repo, hook)
 	if err != nil {
 		return errResult(err)
 	}
@@ -399,7 +637,14 @@ func createHook(ctx context.Context, g *integration, args map[string]any) (*mcp.
 }
 
 func deleteHook(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Repositories.DeleteHook(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "hook_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	hookID := r.Int64("hook_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Repositories.DeleteHook(ctx, owner, repo, hookID)
 	if err != nil {
 		return errResult(err)
 	}
@@ -415,6 +660,3 @@ func getRateLimit(ctx context.Context, g *integration, _ map[string]any) (*mcp.T
 	}
 	return mcp.JSONResult(rl)
 }
-
-// unused but keeps the import
-var _ = fmt.Sprint

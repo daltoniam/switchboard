@@ -23,6 +23,7 @@ type ProjectRouter struct {
 	services *mcp.Services
 	store    *project.Store
 	serverID string
+	search   SearchIndex
 
 	mu      sync.RWMutex
 	servers map[string]*projectMCPServer
@@ -35,7 +36,7 @@ type projectMCPServer struct {
 
 // NewProjectRouter creates a router that dispatches /mcp/{project} requests
 // to per-project MCP servers with tool scoping and context delivery.
-func NewProjectRouter(services *mcp.Services, store *project.Store, serverID string) *ProjectRouter {
+func NewProjectRouter(services *mcp.Services, store *project.Store, serverID string, search SearchIndex) *ProjectRouter {
 	if serverID == "" {
 		serverID = defaultServerID
 	}
@@ -43,6 +44,7 @@ func NewProjectRouter(services *mcp.Services, store *project.Store, serverID str
 		services: services,
 		store:    store,
 		serverID: serverID,
+		search:   search,
 		servers:  make(map[string]*projectMCPServer),
 	}
 }
@@ -204,49 +206,33 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 		}
 		query := strings.ToLower(args.Query)
 
-		type toolInfo struct {
-			Integration string            `json:"integration"`
-			Name        string            `json:"name"`
-			Description string            `json:"description"`
-			Parameters  map[string]string `json:"parameters"`
-			Required    []string          `json:"required,omitempty"`
+		// Filter indexed tools to project-permitted ones.
+		var permitted []toolWithIntegration
+		for _, ti := range pr.search.AllTools {
+			if project.IsToolPermitted(ti.Tool.Name, scopeRule) {
+				permitted = append(permitted, ti)
+			}
 		}
 
-		enabled := pr.services.Config.EnabledIntegrations()
-		var all []toolInfo
-
-		for _, name := range enabled {
-			integration, ok := pr.services.Registry.Get(name)
-			if !ok {
-				continue
+		// Score if query present, otherwise return all alphabetically.
+		var results []searchToolInfo
+		if query != "" {
+			for _, r := range scoreTools(query, permitted, pr.search.IDF, pr.search.SynMap) {
+				results = append(results, toToolInfo(r))
 			}
-
-			permitted := project.FilterTools(integration.Tools(), scopeRule)
-			for _, tool := range permitted {
-				if query == "" || matches(tool, name, query) {
-					params := make(map[string]string, len(tool.Parameters))
-					for k, v := range tool.Parameters {
-						params[k] = v
-					}
-					all = append(all, toolInfo{
-						Integration: name,
-						Name:        tool.Name,
-						Description: tool.Description,
-						Parameters:  params,
-						Required:    tool.Required,
-					})
+		} else {
+			for _, ti := range permitted {
+				results = append(results, toolDefToInfo(ti.Integration, ti.Tool))
+			}
+			slices.SortFunc(results, func(a, b searchToolInfo) int {
+				if c := cmp.Compare(a.Integration, b.Integration); c != 0 {
+					return c
 				}
-			}
+				return cmp.Compare(a.Name, b.Name)
+			})
 		}
 
-		slices.SortFunc(all, func(a, b toolInfo) int {
-			if c := cmp.Compare(a.Integration, b.Integration); c != 0 {
-				return c
-			}
-			return cmp.Compare(a.Name, b.Name)
-		})
-
-		total := len(all)
+		total := len(results)
 		offset := args.Offset
 		if offset > total {
 			offset = total
@@ -255,16 +241,16 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 		if end > total {
 			end = total
 		}
-		page := all[offset:end]
+		page := results[offset:end]
 
 		type response struct {
-			Summary      string     `json:"summary"`
-			Total        int        `json:"total"`
-			Offset       int        `json:"offset"`
-			Limit        int        `json:"limit"`
-			HasMore      bool       `json:"has_more"`
-			Integrations []string   `json:"integrations"`
-			Tools        []toolInfo `json:"tools"`
+			Summary      string           `json:"summary"`
+			Total        int              `json:"total"`
+			Offset       int              `json:"offset"`
+			Limit        int              `json:"limit"`
+			HasMore      bool             `json:"has_more"`
+			Integrations []string         `json:"integrations"`
+			Tools        []searchToolInfo `json:"tools"`
 		}
 
 		summary := fmt.Sprintf("Found %d tools", total)
@@ -272,15 +258,18 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 			summary += fmt.Sprintf(" matching %q", args.Query)
 		}
 
-		data, _ := json.Marshal(response{
+		data, err := json.Marshal(response{
 			Summary:      summary,
 			Total:        total,
 			Offset:       offset,
 			Limit:        limit,
 			HasMore:      limit > 0 && offset+limit < total,
-			Integrations: enabled,
+			Integrations: pr.services.Config.EnabledIntegrations(),
 			Tools:        page,
 		})
+		if err != nil {
+			return errorResult("marshal search response: " + err.Error()), nil
+		}
 
 		return &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: string(data)}},

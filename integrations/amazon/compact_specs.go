@@ -8,9 +8,9 @@ import (
 
 var rawFieldCompactionSpecs = map[string][]string{
 	"amazon_search_products": {
-		"[].asin", "[].title", "[].is_sponsored", "[].brand",
-		"[].price", "[].reviews.average_rating", "[].reviews.review_count",
-		"[].is_prime_eligible", "[].product_url",
+		"asin", "title", "is_sponsored", "brand",
+		"price", "reviews.average_rating", "reviews.review_count",
+		"is_prime_eligible", "product_url",
 	},
 	"amazon_get_product": {
 		"asin", "title", "price", "can_use_subscribe_and_save",
@@ -19,9 +19,9 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"main_image_url",
 	},
 	"amazon_get_orders": {
-		"[].order_info.order_number", "[].order_info.order_date",
-		"[].order_info.total", "[].order_info.status",
-		"[].items[].title", "[].items[].asin", "[].items[].return_eligible",
+		"order_info.order_number", "order_info.order_date",
+		"order_info.total", "order_info.status",
+		"items[].title", "items[].asin", "items[].return_eligible",
 	},
 	"amazon_get_cart": {
 		"is_empty", "subtotal", "total_items",

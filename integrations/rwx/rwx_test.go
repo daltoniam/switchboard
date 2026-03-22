@@ -89,44 +89,6 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	}
 }
 
-// --- Argument helper tests ---
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
-
-func TestArgStrSlice(t *testing.T) {
-	t.Run("from []any", func(t *testing.T) {
-		result := argStrSlice(map[string]any{"tags": []any{"a", "b"}}, "tags")
-		assert.Equal(t, []string{"a", "b"}, result)
-	})
-
-	t.Run("from []string", func(t *testing.T) {
-		result := argStrSlice(map[string]any{"tags": []string{"x", "y"}}, "tags")
-		assert.Equal(t, []string{"x", "y"}, result)
-	})
-
-	t.Run("missing key", func(t *testing.T) {
-		result := argStrSlice(map[string]any{}, "tags")
-		assert.Nil(t, result)
-	})
-}
-
 // --- Result helper tests ---
 
 func TestRawResult(t *testing.T) {
@@ -409,4 +371,54 @@ func TestConfigure_StoresCliPath(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, fakeBin, r.cliPath)
+}
+
+// --- runRWXCommand stdout/stderr separation tests ---
+
+func TestRunRWXCommand_StdoutOnly(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho '{\"ok\":true}'\n"), 0o755))
+
+	r := &rwx{cliPath: bin}
+	out, err := r.runRWXCommand(nil, 0)
+	require.NoError(t, err)
+	assert.Equal(t, "{\"ok\":true}\n", out)
+}
+
+func TestRunRWXCommand_StderrIgnored(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho 'Authenticating...' >&2\necho '{\"ok\":true}'\n"), 0o755))
+
+	r := &rwx{cliPath: bin}
+	out, err := r.runRWXCommand(nil, 0)
+	require.NoError(t, err)
+	assert.Equal(t, "{\"ok\":true}\n", out)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &parsed), "stdout should be valid JSON without stderr contamination")
+	assert.Equal(t, true, parsed["ok"])
+}
+
+func TestRunRWXCommand_FailureIncludesStderr(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho 'something went wrong' >&2\nexit 1\n"), 0o755))
+
+	r := &rwx{cliPath: bin}
+	_, err := r.runRWXCommand(nil, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "something went wrong")
+}
+
+func TestRunRWXCommand_FailureWithStdoutReturnsStdout(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho '{\"partial\":true}'\nexit 1\n"), 0o755))
+
+	r := &rwx{cliPath: bin}
+	out, err := r.runRWXCommand(nil, 0)
+	require.NoError(t, err, "should return stdout on failure when stdout has content")
+	assert.Contains(t, out, "{\"partial\":true}")
 }

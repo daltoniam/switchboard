@@ -3,6 +3,7 @@ package amazon
 import (
 	"testing"
 
+	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,5 +52,26 @@ func TestFieldCompactionSpec_NoMissingReadToolSpecs(t *testing.T) {
 	for toolName := range readTools {
 		_, ok := fieldCompactionSpecs[toolName]
 		assert.True(t, ok, "read tool %q should have a field compaction spec", toolName)
+	}
+}
+
+func TestFieldCompactionSpecs_ShapeParity(t *testing.T) {
+	handlerOutputs := map[string]string{
+		"amazon_search_products": `[{"asin":"B0CHXKM5GK","title":"Test Product","is_sponsored":false,"brand":"BrandX","price":"$29.99","reviews":{"average_rating":"4.5 out of 5 stars","review_count":"1,234"},"is_prime_eligible":true,"product_url":"https://www.amazon.com/dp/B0CHXKM5GK"}]`,
+		"amazon_get_product":     `{"asin":"B0CHXKM5GK","title":"Test Product","price":"$29.99","can_use_subscribe_and_save":true,"description":{"overview":"Great","features":"Fast"},"reviews":{"average_rating":"4.5","reviews_count":"1,234"},"main_image_url":"https://img.example.com/img.jpg"}`,
+		"amazon_get_orders":      `[{"order_info":{"order_number":"123-456","order_date":"March 1","total":"$50.00","status":"Delivered"},"items":[{"title":"Widget","asin":"B0CHXKM5GK","return_eligible":true}]}]`,
+		"amazon_get_cart":        `{"is_empty":false,"subtotal":"$49.98","total_items":2,"items":[{"title":"Mouse","price":"$24.99","quantity":2,"asin":"B0CHXKM5GK","availability":"In Stock"}]}`,
+	}
+
+	for toolName, payload := range handlerOutputs {
+		t.Run(toolName, func(t *testing.T) {
+			fields, ok := fieldCompactionSpecs[toolName]
+			require.True(t, ok, "missing compaction spec for %s", toolName)
+			compacted, err := mcp.CompactJSON([]byte(payload), fields)
+			require.NoError(t, err)
+			assert.NotEqual(t, "{}", string(compacted), "compaction returned empty object — spec paths likely don't match response shape")
+			assert.NotEqual(t, "[]", string(compacted), "compaction returned empty array — spec paths likely don't match response shape")
+			assert.NotEqual(t, "[{}]", string(compacted), "compaction returned array of empty objects — spec paths likely don't match response shape")
+		})
 	}
 }

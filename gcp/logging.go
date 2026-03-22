@@ -11,7 +11,8 @@ import (
 )
 
 func loggingListEntries(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	pageSize := argInt32(args, "page_size")
+	r := mcp.NewArgs(args)
+	pageSize := r.Int32("page_size")
 	if pageSize <= 0 {
 		pageSize = 50
 	}
@@ -20,13 +21,16 @@ func loggingListEntries(ctx context.Context, g *integration, args map[string]any
 		ResourceNames: []string{g.projectName()},
 		PageSize:      pageSize,
 	}
-	if v := argStr(args, "filter"); v != "" {
+	if v := r.Str("filter"); v != "" {
 		req.Filter = v
 	}
-	if v := argStr(args, "order_by"); v != "" {
+	if v := r.Str("order_by"); v != "" {
 		req.OrderBy = v
 	} else {
 		req.OrderBy = "timestamp desc"
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
 	var entries []any
@@ -85,7 +89,11 @@ func loggingListSinks(ctx context.Context, g *integration, _ map[string]any) (*m
 }
 
 func loggingGetSink(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	sinkName := argStr(args, "sink_name")
+	r := mcp.NewArgs(args)
+	sinkName := r.Str("sink_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	name := fmt.Sprintf("%s/sinks/%s", g.projectName(), sinkName)
 	sink, err := g.loggingConfigClient.GetSink(ctx, &loggingpb.GetSinkRequest{
 		SinkName: name,

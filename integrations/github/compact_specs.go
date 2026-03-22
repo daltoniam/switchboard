@@ -100,6 +100,10 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"github_list_pull_comments": {
 		"id", "body", "user.login", "created_at", "path", "line", "html_url",
 	},
+	"github_get_pull_comment": {
+		"id", "body", "user.login", "path", "line", "side", "created_at", "updated_at",
+		"html_url", "in_reply_to_id", "commit_id", "subject_type",
+	},
 
 	// ── Git (low-level) ───────────────────────────────────────────────
 	"github_list_commits": commitListFields,

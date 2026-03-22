@@ -5,11 +5,11 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── States / Entities ───────────────────────────────────────────
 	{
-		Name: "homeassistant_list_states", Description: "List all entity states in Home Assistant",
+		Name: "homeassistant_list_states", Description: "List all smart home device and entity states in Home Assistant. Returns sensors, lights, switches, and other IoT device states.",
 		Parameters: map[string]string{},
 	},
 	{
-		Name: "homeassistant_get_state", Description: "Get the current state of a specific entity",
+		Name: "homeassistant_get_state", Description: "Get the current state of a specific smart home entity (e.g. light, sensor, switch, thermostat)",
 		Parameters: map[string]string{"entity_id": "Entity ID (e.g. light.living_room, sensor.temperature)"},
 		Required:   []string{"entity_id"},
 	},
@@ -37,7 +37,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Events ──────────────────────────────────────────────────────
 	{
-		Name: "homeassistant_list_events", Description: "List available event types with listener counts",
+		Name: "homeassistant_list_events", Description: "List available home automation event types with listener counts in Home Assistant",
 		Parameters: map[string]string{},
 	},
 	{
@@ -55,7 +55,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Logbook ─────────────────────────────────────────────────────
 	{
-		Name: "homeassistant_get_logbook", Description: "Get logbook entries showing what happened and when",
+		Name: "homeassistant_get_logbook", Description: "Get Home Assistant smart home logbook entries showing what home automation events happened and when",
 		Parameters: map[string]string{"start_time": "Start time in ISO 8601 format (defaults to 1 day ago)", "end_time": "End time in ISO 8601 format", "entity_id": "Filter by single entity ID"},
 	},
 
@@ -78,7 +78,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Error Log ───────────────────────────────────────────────────
 	{
-		Name: "homeassistant_get_error_log", Description: "Get the Home Assistant error log for the current session",
+		Name: "homeassistant_get_error_log", Description: "Get the Home Assistant smart home server error log. Only contains home automation errors, not application or production logs.",
 		Parameters: map[string]string{},
 	},
 

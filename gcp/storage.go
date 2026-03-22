@@ -16,7 +16,11 @@ import (
 const maxGCSGetObjectSize = 10 * 1024 * 1024
 
 func storageListBuckets(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	limit := argInt(args, "limit")
+	r := mcp.NewArgs(args)
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = defaultStorageLimit
 	}
@@ -42,7 +46,12 @@ func storageListBuckets(ctx context.Context, g *integration, args map[string]any
 }
 
 func storageGetBucket(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	bucket := g.storageClient.Bucket(argStr(args, "bucket"))
+	r := mcp.NewArgs(args)
+	bucketName := r.Str("bucket")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	bucket := g.storageClient.Bucket(bucketName)
 	attrs, err := bucket.Attrs(ctx)
 	if err != nil {
 		return errResult(err)
@@ -51,20 +60,25 @@ func storageGetBucket(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func storageListObjects(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	query := &storage.Query{}
-	if v := argStr(args, "prefix"); v != "" {
+	if v := r.Str("prefix"); v != "" {
 		query.Prefix = v
 	}
-	if v := argStr(args, "delimiter"); v != "" {
+	if v := r.Str("delimiter"); v != "" {
 		query.Delimiter = v
 	}
 
-	limit := argInt(args, "limit")
+	limit := r.Int("limit")
+	bucketName := r.Str("bucket")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = defaultStorageLimit
 	}
 
-	bucket := g.storageClient.Bucket(argStr(args, "bucket"))
+	bucket := g.storageClient.Bucket(bucketName)
 	var objects []map[string]any
 	it := bucket.Objects(ctx, query)
 	for i := 0; i < limit; i++ {
@@ -87,8 +101,14 @@ func storageListObjects(ctx context.Context, g *integration, args map[string]any
 }
 
 func storageGetObject(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	bucket := g.storageClient.Bucket(argStr(args, "bucket"))
-	obj := bucket.Object(argStr(args, "object"))
+	r := mcp.NewArgs(args)
+	bucketName := r.Str("bucket")
+	objectName := r.Str("object")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	bucket := g.storageClient.Bucket(bucketName)
+	obj := bucket.Object(objectName)
 
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
@@ -137,17 +157,24 @@ func storageGetObject(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func storagePutObject(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	bucket := g.storageClient.Bucket(argStr(args, "bucket"))
-	obj := bucket.Object(argStr(args, "object"))
+	r := mcp.NewArgs(args)
+	bucketName := r.Str("bucket")
+	objectName := r.Str("object")
+	contentType := r.Str("content_type")
+	body := r.Str("body")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 
-	contentType := argStr(args, "content_type")
+	bucket := g.storageClient.Bucket(bucketName)
+	obj := bucket.Object(objectName)
+
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
 
 	writer := obj.NewWriter(ctx)
 	writer.ContentType = contentType
-	body := argStr(args, "body")
 	if _, err := io.Copy(writer, strings.NewReader(body)); err != nil {
 		_ = writer.Close()
 		return errResult(err)
@@ -159,8 +186,14 @@ func storagePutObject(ctx context.Context, g *integration, args map[string]any) 
 }
 
 func storageDeleteObject(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	bucket := g.storageClient.Bucket(argStr(args, "bucket"))
-	obj := bucket.Object(argStr(args, "object"))
+	r := mcp.NewArgs(args)
+	bucketName := r.Str("bucket")
+	objectName := r.Str("object")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	bucket := g.storageClient.Bucket(bucketName)
+	obj := bucket.Object(objectName)
 	if err := obj.Delete(ctx); err != nil {
 		return errResult(err)
 	}
@@ -168,11 +201,20 @@ func storageDeleteObject(ctx context.Context, g *integration, args map[string]an
 }
 
 func storageCopyObject(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	srcBucket := g.storageClient.Bucket(argStr(args, "source_bucket"))
-	srcObj := srcBucket.Object(argStr(args, "source_object"))
+	r := mcp.NewArgs(args)
+	srcBucketName := r.Str("source_bucket")
+	srcObjectName := r.Str("source_object")
+	dstBucketName := r.Str("dest_bucket")
+	dstObjectName := r.Str("dest_object")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 
-	dstBucket := g.storageClient.Bucket(argStr(args, "dest_bucket"))
-	dstObj := dstBucket.Object(argStr(args, "dest_object"))
+	srcBucket := g.storageClient.Bucket(srcBucketName)
+	srcObj := srcBucket.Object(srcObjectName)
+
+	dstBucket := g.storageClient.Bucket(dstBucketName)
+	dstObj := dstBucket.Object(dstObjectName)
 
 	copier := dstObj.CopierFrom(srcObj)
 	attrs, err := copier.Run(ctx)

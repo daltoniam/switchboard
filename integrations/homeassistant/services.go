@@ -18,14 +18,18 @@ func listServices(ctx context.Context, h *homeassistant, _ map[string]any) (*mcp
 }
 
 func callService(ctx context.Context, h *homeassistant, args map[string]any) (*mcp.ToolResult, error) {
-	domain := argStr(args, "domain")
-	service := argStr(args, "service")
+	r := mcp.NewArgs(args)
+	domain := r.Str("domain")
+	service := r.Str("service")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if domain == "" || service == "" {
 		return mcp.ErrResult(fmt.Errorf("domain and service are required"))
 	}
 
 	var body any
-	if v := argStr(args, "service_data"); v != "" {
+	if v := r.Str("service_data"); v != "" {
 		var data map[string]any
 		if err := json.Unmarshal([]byte(v), &data); err != nil {
 			return mcp.ErrResult(fmt.Errorf("invalid JSON for service_data: %w", err))
@@ -34,7 +38,7 @@ func callService(ctx context.Context, h *homeassistant, args map[string]any) (*m
 	}
 
 	path := fmt.Sprintf("/api/services/%s/%s", url.PathEscape(domain), url.PathEscape(service))
-	if argBool(args, "return_response") {
+	if r.Bool("return_response") {
 		path += "?return_response"
 	}
 

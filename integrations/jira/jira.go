@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -164,36 +163,6 @@ func (j *jira) agilePut(ctx context.Context, path string, body any) (json.RawMes
 }
 
 type handlerFunc func(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error)
-
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
 
 // queryEncode builds a query string from non-empty key/value pairs.
 func queryEncode(params map[string]string) string {

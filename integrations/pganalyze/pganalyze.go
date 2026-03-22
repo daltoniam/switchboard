@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -74,7 +73,7 @@ func (p *pganalyze) PlainTextKeys() []string {
 }
 
 func (p *pganalyze) orgSlug(args map[string]any) string {
-	if v := argStr(args, "organization_slug"); v != "" {
+	if v, _ := mcp.ArgStr(args, "organization_slug"); v != "" {
 		return v
 	}
 	return p.organizationSlug
@@ -145,36 +144,6 @@ func (p *pganalyze) gql(ctx context.Context, query string, variables map[string]
 		return nil, fmt.Errorf("graphql errors: %s", strings.Join(msgs, "; "))
 	}
 	return gqlResp.Data, nil
-}
-
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
 }
 
 type handlerFunc func(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.ToolResult, error)

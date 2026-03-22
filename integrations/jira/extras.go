@@ -51,15 +51,19 @@ func listFields(ctx context.Context, j *jira, _ map[string]any) (*mcp.ToolResult
 }
 
 func listFilters(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	params := map[string]string{}
-	if v := argStr(args, "filter_name"); v != "" {
+	if v := r.Str("filter_name"); v != "" {
 		params["filterName"] = v
 	}
-	if v := argInt(args, "start_at"); v > 0 {
+	if v := r.Int("start_at"); v > 0 {
 		params["startAt"] = fmt.Sprintf("%d", v)
 	}
-	if v := argInt(args, "max_results"); v > 0 {
+	if v := r.Int("max_results"); v > 0 {
 		params["maxResults"] = fmt.Sprintf("%d", v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	q := queryEncode(params)
 	data, err := j.get(ctx, "/filter/search%s", q)
@@ -70,7 +74,12 @@ func listFilters(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 }
 
 func getFilter(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := j.get(ctx, "/filter/%s", url.PathEscape(argStr(args, "filter_id")))
+	r := mcp.NewArgs(args)
+	filterID := r.Str("filter_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := j.get(ctx, "/filter/%s", url.PathEscape(filterID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -80,15 +89,20 @@ func getFilter(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResu
 // ── Worklogs ─────────────────────────────────────────────────────────
 
 func listWorklogs(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	params := map[string]string{}
-	if v := argInt(args, "start_at"); v > 0 {
+	if v := r.Int("start_at"); v > 0 {
 		params["startAt"] = fmt.Sprintf("%d", v)
 	}
-	if v := argInt(args, "max_results"); v > 0 {
+	if v := r.Int("max_results"); v > 0 {
 		params["maxResults"] = fmt.Sprintf("%d", v)
 	}
+	issueKey := r.Str("issue_key")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	q := queryEncode(params)
-	data, err := j.get(ctx, "/issue/%s/worklog%s", url.PathEscape(argStr(args, "issue_key")), q)
+	data, err := j.get(ctx, "/issue/%s/worklog%s", url.PathEscape(issueKey), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -96,16 +110,21 @@ func listWorklogs(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 }
 
 func addWorklog(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	body := map[string]any{
-		"timeSpent": argStr(args, "time_spent"),
+		"timeSpent": r.Str("time_spent"),
 	}
-	if v := argStr(args, "comment"); v != "" {
+	if v := r.Str("comment"); v != "" {
 		body["comment"] = textToADF(v)
 	}
-	if v := argStr(args, "started"); v != "" {
+	if v := r.Str("started"); v != "" {
 		body["started"] = v
 	}
-	path := fmt.Sprintf("/issue/%s/worklog", url.PathEscape(argStr(args, "issue_key")))
+	issueKey := r.Str("issue_key")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/issue/%s/worklog", url.PathEscape(issueKey))
 	data, err := j.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)

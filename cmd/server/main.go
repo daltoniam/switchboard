@@ -57,6 +57,7 @@ func main() {
 
 	stdioMode := flag.Bool("stdio", false, "Run MCP server over stdio transport (default is HTTP)")
 	port := flag.Int("port", 3847, "Port for the HTTP server")
+	discoverAll := flag.Bool("discover-all", false, "Search returns tools from all registered integrations, not just enabled ones")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
@@ -65,7 +66,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	runServer(*stdioMode, *port)
+	runServer(*stdioMode, *port, *discoverAll)
 }
 
 func handleDaemon(args []string) {
@@ -171,7 +172,7 @@ Options:
 	}
 }
 
-func runServer(stdioMode bool, port int) {
+func runServer(stdioMode bool, port int, discoverAll bool) {
 	cfgMgr, err := config.NewManager()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -187,6 +188,7 @@ func runServer(stdioMode bool, port int) {
 	}
 
 	gmailIntegration := gmail.New()
+	amazonIntegration := amazon.New()
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
 		github.New(),
@@ -202,7 +204,7 @@ func runServer(stdioMode bool, port int) {
 		pganalyze.New(),
 		rwx.New(),
 		ynab.New(),
-		amazon.New(),
+		amazonIntegration,
 		gmailIntegration,
 		homeassistant.New(),
 		jira.New(),
@@ -224,11 +226,18 @@ func runServer(stdioMode bool, port int) {
 	}
 
 	gmail.SetConfigService(gmailIntegration, cfgMgr)
+	if browserSvc != nil {
+		amazon.SetBrowserService(amazonIntegration, browserSvc)
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	srv := server.New(services)
+	var serverOpts []server.Option
+	if discoverAll {
+		serverOpts = append(serverOpts, server.WithDiscoverAll(true))
+	}
+	srv := server.New(services, serverOpts...)
 
 	if stdioMode {
 		if err := srv.RunStdio(ctx); err != nil {
@@ -252,7 +261,7 @@ func runServer(stdioMode bool, port int) {
 		log.Printf("Loaded %d project(s): %v", len(names), names)
 	}
 
-	projectRouter := server.NewProjectRouter(services, projectStore, "")
+	projectRouter := server.NewProjectRouter(services, projectStore, "", srv.SearchIndex())
 
 	mux := http.NewServeMux()
 

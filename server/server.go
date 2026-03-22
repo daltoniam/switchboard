@@ -29,6 +29,13 @@ type searchToolInfo struct {
 	Description string            `json:"description"`
 	Parameters  map[string]string `json:"parameters"`
 	Required    []string          `json:"required,omitempty"`
+	Configured  *bool             `json:"configured,omitempty"` // nil = omitted (configured); false = not yet configured
+}
+
+// searchableIntegration pairs an integration with its name for iteration.
+type searchableIntegration struct {
+	name        string
+	integration mcp.Integration
 }
 
 const (
@@ -45,12 +52,26 @@ type Server struct {
 	breakers         map[string]*breaker
 	breakerThreshold int
 	breakerCooldown  time.Duration
+	idf              map[string]float64
+	synMap           map[string][]string
+	allTools         []toolWithIntegration // pre-indexed tools with token sets
+	discoverAll      bool
+}
+
+// Option configures optional Server behavior.
+type Option func(*Server)
+
+// WithDiscoverAll makes search return tools from all registered
+// integrations, not just enabled ones. Unconfigured tools are marked
+// with configured=false so LLMs know they can't be executed yet.
+func WithDiscoverAll(v bool) Option {
+	return func(s *Server) { s.discoverAll = v }
 }
 
 // New creates a Server that exposes two MCP tools — search and execute —
 // following the Cloudflare "code mode" pattern for progressive discovery
 // and efficient tool execution.
-func New(services *mcp.Services) *Server {
+func New(services *mcp.Services, opts ...Option) *Server {
 	mcpServer := mcpsdk.NewServer(
 		&mcpsdk.Implementation{
 			Name:    "switchboard",
@@ -67,6 +88,9 @@ func New(services *mcp.Services) *Server {
 		breakerThreshold: defaultBreakerThreshold,
 		breakerCooldown:  defaultBreakerCooldown,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
 	s.scriptEngine = script.New(&toolExecutor{server: s})
 
 	s.registerTools()
@@ -75,22 +99,18 @@ func New(services *mcp.Services) *Server {
 
 func (s *Server) registerTools() {
 	s.configureIntegrations()
+	s.buildSearchIndex()
 
 	searchTool := &mcpsdk.Tool{
 		Name: "search",
-		Description: `Search available tools across all configured integrations (GitHub, Datadog, Linear, Sentry, etc.).
-Use this to discover what operations are available before calling execute.
+		Description: `Search available tools across all integrations (GitHub, Datadog, Linear, Sentry, Slack, etc.).
 
-You can filter by integration name, tool name, or keyword. Returns tool definitions
-with their parameters and descriptions. Results are paginated (default limit: 20).
+IMPORTANT: Always search before calling execute. Do NOT guess tool names.
 
-Examples:
-- Filter by integration: {"integration": "github"}
-- Search by action: {"query": "list issues"}
-- Combined filter: {"integration": "slack", "query": "send message"}
-- Search specific tool: {"query": "datadog_search_logs"}
-- Page through results: {"query": "github", "offset": 20, "limit": 20}
-- Count all tools: {"limit": 0}`,
+Query format — use 2-3 keywords, not full sentences:
+- {"query": "create ticket"} — synonym matching finds linear_create_issue
+- {"query": "slack send message"} — always include the integration name
+- {"integration": "sentry", "query": "errors"} — or use the integration filter`,
 		InputSchema: objectSchema(map[string]any{
 			"query": map[string]any{
 				"type":        "string",
@@ -144,7 +164,8 @@ Use single-item get tools (e.g., github_get_issue) for full detail.
 Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
 Script output is also capped at 50KB — return only the fields you need, not entire API responses.
 
-Use search first to discover available tools and their parameter schemas.
+CRITICAL: Use search first to discover tool names and parameter schemas. Do NOT guess
+tool names — call search with a keyword (e.g., {"query": "list repos"}) to find the exact name.
 
 Script examples:
 
@@ -229,6 +250,48 @@ func hasCredentials(creds mcp.Credentials) bool {
 	return false
 }
 
+// searchableIntegrationNames returns the list of integration names included in search.
+func (s *Server) searchableIntegrationNames() []string {
+	if s.discoverAll {
+		return s.services.Registry.Names()
+	}
+	return s.services.Config.EnabledIntegrations()
+}
+
+// SearchIndex returns the pre-computed search index for sharing with
+// ProjectRouter. The returned data is read-only after init.
+func (s *Server) SearchIndex() SearchIndex {
+	return SearchIndex{IDF: s.idf, SynMap: s.synMap, AllTools: s.allTools}
+}
+
+// buildSearchIndex builds the synonym map and IDF index for scored search.
+// When discoverAll is true, indexes all registered integrations (not just enabled).
+func (s *Server) buildSearchIndex() {
+	s.synMap = buildSynonymMap(synonymGroups)
+
+	var tools []toolWithIntegration
+	if s.discoverAll {
+		for _, integration := range s.services.Registry.All() {
+			name := integration.Name()
+			for _, tool := range integration.Tools() {
+				tools = append(tools, toolWithIntegration{Integration: name, Tool: tool})
+			}
+		}
+	} else {
+		for _, name := range s.services.Config.EnabledIntegrations() {
+			integration, ok := s.services.Registry.Get(name)
+			if !ok {
+				continue
+			}
+			for _, tool := range integration.Tools() {
+				tools = append(tools, toolWithIntegration{Integration: name, Tool: tool})
+			}
+		}
+	}
+	s.idf = computeIDF(tools) // also populates tools[i].tokens
+	s.allTools = tools
+}
+
 func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 	var args struct {
 		Query       string `json:"query"`
@@ -254,46 +317,44 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 
 	type toolInfo = searchToolInfo
 
-	enabled := s.services.Config.EnabledIntegrations()
-	var all []toolInfo
+	// Build the set of enabled integrations for configured/unconfigured tagging.
+	enabledList := s.services.Config.EnabledIntegrations()
+	enabledSet := make(map[string]bool, len(enabledList))
+	for _, name := range enabledList {
+		enabledSet[name] = true
+	}
 
-	for _, name := range enabled {
-		if args.Integration != "" && name != args.Integration {
-			continue
+	// Collect searchable integrations: enabled only, or all registered if discoverAll.
+	var searchable []searchableIntegration
+	if s.discoverAll {
+		for _, i := range s.services.Registry.All() {
+			searchable = append(searchable, searchableIntegration{name: i.Name(), integration: i})
 		}
-		integration, ok := s.services.Registry.Get(name)
-		if !ok {
-			continue
-		}
-
-		ic, _ := s.services.Config.GetIntegration(name)
-
-		for _, tool := range integration.Tools() {
-			if ic != nil && !ic.ToolAllowed(tool.Name) {
-				continue
-			}
-			if query == "" || matches(tool, name, query) {
-				params := make(map[string]string, len(tool.Parameters))
-				for k, v := range tool.Parameters {
-					params[k] = v
-				}
-				all = append(all, toolInfo{
-					Integration: name,
-					Name:        tool.Name,
-					Description: tool.Description,
-					Parameters:  params,
-					Required:    tool.Required,
-				})
+	} else {
+		for _, name := range enabledList {
+			if i, ok := s.services.Registry.Get(name); ok {
+				searchable = append(searchable, searchableIntegration{name: name, integration: i})
 			}
 		}
 	}
 
-	slices.SortFunc(all, func(a, b toolInfo) int {
-		if c := cmp.Compare(a.Integration, b.Integration); c != 0 {
-			return c
+	var all []toolInfo
+
+	if query != "" {
+		all = s.scoredSearch(query, args.Integration)
+	} else {
+		all = s.unrankedSearch(args.Integration, searchable)
+	}
+
+	// Tag unconfigured tools when discoverAll is active.
+	if s.discoverAll {
+		for i := range all {
+			if !enabledSet[all[i].Integration] {
+				f := false
+				all[i].Configured = &f
+			}
 		}
-		return cmp.Compare(a.Name, b.Name)
-	})
+	}
 
 	total := len(all)
 
@@ -342,7 +403,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 
 	shared := extractSharedParameters(page)
 
-	data, _ := json.Marshal(response{
+	data, err := json.Marshal(response{
 		Summary:          summary,
 		ScriptHint:       scriptHint,
 		SharedParameters: shared,
@@ -350,15 +411,65 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		Offset:           offset,
 		Limit:            limit,
 		HasMore:          limit > 0 && offset+limit < total,
-		Integrations:     enabled,
+		Integrations:     s.searchableIntegrationNames(),
 		Tools:            page,
 	})
+	if err != nil {
+		return errorResult("marshal search response: " + err.Error()), nil
+	}
 
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
 			&mcpsdk.TextContent{Text: columnarizeResult(string(data))},
 		},
 	}, nil
+}
+
+// scoredSearch returns tools ranked by TF-IDF + synonym relevance,
+// respecting integration filter and ABAC tool globs.
+func (s *Server) scoredSearch(query, integration string) []searchToolInfo {
+	var candidates []toolWithIntegration
+	for _, ti := range s.allTools {
+		if integration != "" && ti.Integration != integration {
+			continue
+		}
+		ic, _ := s.services.Config.GetIntegration(ti.Integration)
+		if ic != nil && !ic.ToolAllowed(ti.Tool.Name) {
+			continue
+		}
+		candidates = append(candidates, ti)
+	}
+
+	scored := scoreTools(query, candidates, s.idf, s.synMap)
+	all := make([]searchToolInfo, len(scored))
+	for i, r := range scored {
+		all[i] = toToolInfo(r)
+	}
+	return all
+}
+
+// unrankedSearch returns all tools sorted alphabetically, respecting ABAC globs.
+func (s *Server) unrankedSearch(integration string, searchable []searchableIntegration) []searchToolInfo {
+	var all []searchToolInfo
+	for _, si := range searchable {
+		if integration != "" && si.name != integration {
+			continue
+		}
+		ic, _ := s.services.Config.GetIntegration(si.name)
+		for _, tool := range si.integration.Tools() {
+			if ic != nil && !ic.ToolAllowed(tool.Name) {
+				continue
+			}
+			all = append(all, toolDefToInfo(si.name, tool))
+		}
+	}
+	slices.SortFunc(all, func(a, b searchToolInfo) int {
+		if c := cmp.Compare(a.Integration, b.Integration); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Name, b.Name)
+	})
+	return all
 }
 
 // extractSharedParameters finds parameters with identical name+description
@@ -578,10 +689,10 @@ func (s *Server) getBreaker(integrationName string) *breaker {
 // Retries automatically on RetryableError (5xx, 429) with exponential backoff.
 // Respects per-integration circuit breakers to avoid hammering down services.
 func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (mcp.Integration, *mcp.ToolResult, error) {
-	integration, toolDef, found := s.findTool(toolName)
-	if !found {
+	integration, toolDef, err := s.findTool(toolName)
+	if err != nil {
 		return nil, &mcp.ToolResult{
-			Data:    fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", toolName),
+			Data:    err.Error(),
 			IsError: true,
 		}, nil
 	}
@@ -637,10 +748,10 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 	return nil, &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }
 
-// findTool returns the integration and tool definition that owns toolName, or false if not found.
-// Respects ABAC tool glob restrictions: a tool that doesn't match the integration's
-// configured globs is treated as if it doesn't exist.
-func (s *Server) findTool(toolName string) (mcp.Integration, mcp.ToolDefinition, bool) {
+// findTool returns the integration and tool definition that owns toolName.
+// Respects ABAC tool glob restrictions. Returns a descriptive error when
+// the tool exists but its integration is not configured.
+func (s *Server) findTool(toolName string) (mcp.Integration, mcp.ToolDefinition, error) {
 	for _, name := range s.services.Config.EnabledIntegrations() {
 		integration, ok := s.services.Registry.Get(name)
 		if !ok {
@@ -652,11 +763,28 @@ func (s *Server) findTool(toolName string) (mcp.Integration, mcp.ToolDefinition,
 				if ic != nil && !ic.ToolAllowed(tool.Name) {
 					continue
 				}
-				return integration, tool, true
+				return integration, tool, nil
 			}
 		}
 	}
-	return nil, mcp.ToolDefinition{}, false
+
+	// When discoverAll is active, check if the tool exists in an unconfigured
+	// integration. This gives LLMs an actionable "not configured" error instead
+	// of a generic "not found" that triggers a retry loop.
+	if s.discoverAll {
+		for _, integration := range s.services.Registry.All() {
+			for _, tool := range integration.Tools() {
+				if tool.Name == toolName {
+					return nil, mcp.ToolDefinition{}, fmt.Errorf(
+						"tool %q exists but integration %q is not configured. Configure it via the web UI or config file",
+						toolName, integration.Name())
+				}
+			}
+		}
+	}
+
+	return nil, mcp.ToolDefinition{}, fmt.Errorf(
+		"tool %q not found. Use the search tool to discover available tools", toolName)
 }
 
 // validateArgs checks that all required parameters are present and all provided

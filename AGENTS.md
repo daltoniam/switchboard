@@ -43,7 +43,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 ## Architecture
 
 - Root package: `package mcp` — import as `mcp "github.com/daltoniam/switchboard"`
-- Core: `mcp.go` (types + port interfaces), `compact.go` (field compaction engine)
+- Core: `mcp.go` (types + port interfaces), `compact.go` (field compaction engine), `args.go` (shared arg extraction)
 - Server: `server/server.go`, composition root: `cmd/server/main.go`
 - Every integration implements the `Integration` interface (see [docs/architecture.md](docs/architecture.md))
 
@@ -54,6 +54,8 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 - **Dispatch map test parity** (MUST): `TestDispatchMap_AllToolsCovered` + `TestDispatchMap_NoOrphanHandlers` in every adapter
 - **Compaction spec tests** (MUST): every adapter with `compact_specs.go` has parity + shape tests
 - **Shared result helpers** (MUST): use `mcp.JSONResult(v)`, `mcp.RawResult(data)`, `mcp.ErrResult(err)` — never define per-adapter copies
+- **Shared arg helpers** (MUST): use `mcp.NewArgs(args)` reader or standalone `mcp.ArgStr`/`mcp.ArgInt`/etc. from `args.go` — never define local `argStr`/`argInt` in adapters. All return `(value, error)`. Use `r.OptInt("page", 1)` for pagination defaults. See `args.go` for the full API and [docs/go-anti-patterns.md](docs/go-anti-patterns.md) for extraction pitfalls that cause silent errors.
+- **Args parity test** (MUST): `TestNewArgs_ErrCheckParity` in `args_test.go` walks all adapters verifying every `NewArgs` call has a matching `.Err()` check — new adapters are covered automatically
 - **Parse at boundary, not throughout** (MUST): JSON is unmarshalled once at ingress and marshalled once at egress. Use `CompactAny`/`ColumnarizeAny` for already-parsed data — never re-serialize to `[]byte` just to call `CompactJSON`/`ColumnarizeJSON`. Redundant marshal/unmarshal cycles are the #1 performance regression to guard against in the response pipeline.
 
 ## Reference Docs
@@ -64,6 +66,8 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | [docs/field-compaction.md](docs/field-compaction.md) | Writing/editing compaction specs, tool descriptions |
 | [docs/response-optimizations.md](docs/response-optimizations.md) | Modifying server response pipeline |
 | [docs/adapter-reference.md](docs/adapter-reference.md) | Working on a specific integration adapter |
+| [docs/go-anti-patterns.md](docs/go-anti-patterns.md) | Writing/reviewing handler arg extraction (prevents silent error swallowing) |
+| [docs/tool-search.md](docs/tool-search.md) | Search scoring engine, synonym groups, tool description guidelines, benchmarking |
 | [docs/web-ui.md](docs/web-ui.md) | Modifying the web config UI |
 
 ## Skills
@@ -73,5 +77,6 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | `add-integration` | Adding a new external API integration adapter |
 | `optimize-integration` | Improving an existing adapter's LLM usability |
 | `mcp-benchmark` | Running live benchmark sequences against integrations |
+| `search-benchmark` | Cross-model search quality benchmark after scoring changes |
 | `pr-review` | Reviewing a pull request |
 | `pr-comments` | Submitting inline PR review comments |

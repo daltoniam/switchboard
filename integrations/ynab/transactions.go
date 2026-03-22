@@ -8,9 +8,15 @@ import (
 )
 
 func listTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	sinceDate := r.Str("since_date")
+	typ := r.Str("type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	q := queryEncode(map[string]string{
-		"since_date": argStr(args, "since_date"),
-		"type":       argStr(args, "type"),
+		"since_date": sinceDate,
+		"type":       typ,
 	})
 	data, err := y.get(ctx, "/budgets/%s/transactions%s", budget(args), q)
 	if err != nil {
@@ -20,7 +26,12 @@ func listTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.T
 }
 
 func getTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := y.get(ctx, "/budgets/%s/transactions/%s", budget(args), argStr(args, "transaction_id"))
+	r := mcp.NewArgs(args)
+	transactionID := r.Str("transaction_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := y.get(ctx, "/budgets/%s/transactions/%s", budget(args), transactionID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -28,12 +39,19 @@ func getTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.Too
 }
 
 func listAccountTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	accountID := r.Str("account_id")
+	sinceDate := r.Str("since_date")
+	typ := r.Str("type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	q := queryEncode(map[string]string{
-		"since_date": argStr(args, "since_date"),
-		"type":       argStr(args, "type"),
+		"since_date": sinceDate,
+		"type":       typ,
 	})
 	data, err := y.get(ctx, "/budgets/%s/accounts/%s/transactions%s",
-		budget(args), argStr(args, "account_id"), q)
+		budget(args), accountID, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -41,12 +59,19 @@ func listAccountTransactions(ctx context.Context, y *ynab, args map[string]any) 
 }
 
 func listCategoryTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	categoryID := r.Str("category_id")
+	sinceDate := r.Str("since_date")
+	typ := r.Str("type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	q := queryEncode(map[string]string{
-		"since_date": argStr(args, "since_date"),
-		"type":       argStr(args, "type"),
+		"since_date": sinceDate,
+		"type":       typ,
 	})
 	data, err := y.get(ctx, "/budgets/%s/categories/%s/transactions%s",
-		budget(args), argStr(args, "category_id"), q)
+		budget(args), categoryID, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -54,12 +79,19 @@ func listCategoryTransactions(ctx context.Context, y *ynab, args map[string]any)
 }
 
 func listPayeeTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	payeeID := r.Str("payee_id")
+	sinceDate := r.Str("since_date")
+	typ := r.Str("type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	q := queryEncode(map[string]string{
-		"since_date": argStr(args, "since_date"),
-		"type":       argStr(args, "type"),
+		"since_date": sinceDate,
+		"type":       typ,
 	})
 	data, err := y.get(ctx, "/budgets/%s/payees/%s/transactions%s",
-		budget(args), argStr(args, "payee_id"), q)
+		budget(args), payeeID, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -67,31 +99,49 @@ func listPayeeTransactions(ctx context.Context, y *ynab, args map[string]any) (*
 }
 
 func createTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	accountID := r.Str("account_id")
+	date := r.Str("date")
+	amount := r.Int("amount")
+	payeeID := r.Str("payee_id")
+	payeeName := r.Str("payee_name")
+	categoryID := r.Str("category_id")
+	memo := r.Str("memo")
+	cleared := r.Str("cleared")
+	flagColor := r.Str("flag_color")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	txn := map[string]any{
-		"account_id": argStr(args, "account_id"),
-		"date":       argStr(args, "date"),
-		"amount":     argInt(args, "amount"),
+		"account_id": accountID,
+		"date":       date,
+		"amount":     amount,
 	}
-	if v := argStr(args, "payee_id"); v != "" {
-		txn["payee_id"] = v
+	if payeeID != "" {
+		txn["payee_id"] = payeeID
 	}
-	if v := argStr(args, "payee_name"); v != "" {
-		txn["payee_name"] = v
+	if payeeName != "" {
+		txn["payee_name"] = payeeName
 	}
-	if v := argStr(args, "category_id"); v != "" {
-		txn["category_id"] = v
+	if categoryID != "" {
+		txn["category_id"] = categoryID
 	}
-	if v := argStr(args, "memo"); v != "" {
-		txn["memo"] = v
+	if memo != "" {
+		txn["memo"] = memo
 	}
-	if v := argStr(args, "cleared"); v != "" {
-		txn["cleared"] = v
+	if cleared != "" {
+		txn["cleared"] = cleared
 	}
-	if v := argStr(args, "approved"); v != "" {
-		txn["approved"] = argBool(args, "approved")
+	if _, ok := args["approved"]; ok {
+		v, err := mcp.ArgBool(args, "approved")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		txn["approved"] = v
 	}
-	if v := argStr(args, "flag_color"); v != "" {
-		txn["flag_color"] = v
+	if flagColor != "" {
+		txn["flag_color"] = flagColor
 	}
 
 	body := map[string]any{"transaction": txn}
@@ -104,40 +154,63 @@ func createTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.
 }
 
 func updateTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	transactionID := r.Str("transaction_id")
+	accountID := r.Str("account_id")
+	date := r.Str("date")
+	payeeID := r.Str("payee_id")
+	payeeName := r.Str("payee_name")
+	categoryID := r.Str("category_id")
+	memo := r.Str("memo")
+	cleared := r.Str("cleared")
+	flagColor := r.Str("flag_color")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	txn := map[string]any{}
-	if v := argStr(args, "account_id"); v != "" {
-		txn["account_id"] = v
+	if accountID != "" {
+		txn["account_id"] = accountID
 	}
-	if v := argStr(args, "date"); v != "" {
-		txn["date"] = v
+	if date != "" {
+		txn["date"] = date
 	}
-	if argStr(args, "amount") != "" {
-		txn["amount"] = argInt(args, "amount")
+	// Check if amount was explicitly provided (even as 0).
+	if _, ok := args["amount"]; ok {
+		v, err := mcp.ArgInt(args, "amount")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		txn["amount"] = v
 	}
-	if v := argStr(args, "payee_id"); v != "" {
-		txn["payee_id"] = v
+	if payeeID != "" {
+		txn["payee_id"] = payeeID
 	}
-	if v := argStr(args, "payee_name"); v != "" {
-		txn["payee_name"] = v
+	if payeeName != "" {
+		txn["payee_name"] = payeeName
 	}
-	if v := argStr(args, "category_id"); v != "" {
-		txn["category_id"] = v
+	if categoryID != "" {
+		txn["category_id"] = categoryID
 	}
-	if v := argStr(args, "memo"); v != "" {
-		txn["memo"] = v
+	if memo != "" {
+		txn["memo"] = memo
 	}
-	if v := argStr(args, "cleared"); v != "" {
-		txn["cleared"] = v
+	if cleared != "" {
+		txn["cleared"] = cleared
 	}
-	if v := argStr(args, "approved"); v != "" {
-		txn["approved"] = argBool(args, "approved")
+	if _, ok := args["approved"]; ok {
+		v, err := mcp.ArgBool(args, "approved")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		txn["approved"] = v
 	}
-	if v := argStr(args, "flag_color"); v != "" {
-		txn["flag_color"] = v
+	if flagColor != "" {
+		txn["flag_color"] = flagColor
 	}
 
 	body := map[string]any{"transaction": txn}
-	path := fmt.Sprintf("/budgets/%s/transactions/%s", budget(args), argStr(args, "transaction_id"))
+	path := fmt.Sprintf("/budgets/%s/transactions/%s", budget(args), transactionID)
 	data, err := y.put(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -146,7 +219,12 @@ func updateTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.
 }
 
 func deleteTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := y.del(ctx, "/budgets/%s/transactions/%s", budget(args), argStr(args, "transaction_id"))
+	r := mcp.NewArgs(args)
+	transactionID := r.Str("transaction_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := y.del(ctx, "/budgets/%s/transactions/%s", budget(args), transactionID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -162,8 +240,13 @@ func listScheduledTransactions(ctx context.Context, y *ynab, args map[string]any
 }
 
 func getScheduledTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	scheduledTransactionID := r.Str("scheduled_transaction_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := y.get(ctx, "/budgets/%s/scheduled_transactions/%s",
-		budget(args), argStr(args, "scheduled_transaction_id"))
+		budget(args), scheduledTransactionID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -171,12 +254,19 @@ func getScheduledTransaction(ctx context.Context, y *ynab, args map[string]any) 
 }
 
 func listMonthTransactions(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	month := r.Str("month")
+	sinceDate := r.Str("since_date")
+	typ := r.Str("type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	q := queryEncode(map[string]string{
-		"since_date": argStr(args, "since_date"),
-		"type":       argStr(args, "type"),
+		"since_date": sinceDate,
+		"type":       typ,
 	})
 	data, err := y.get(ctx, "/budgets/%s/months/%s/transactions%s",
-		budget(args), argStr(args, "month"), q)
+		budget(args), month, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -184,26 +274,40 @@ func listMonthTransactions(ctx context.Context, y *ynab, args map[string]any) (*
 }
 
 func createScheduledTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	accountID := r.Str("account_id")
+	date := r.Str("date")
+	amount := r.Int("amount")
+	frequency := r.Str("frequency")
+	payeeID := r.Str("payee_id")
+	payeeName := r.Str("payee_name")
+	categoryID := r.Str("category_id")
+	memo := r.Str("memo")
+	flagColor := r.Str("flag_color")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	st := map[string]any{
-		"account_id": argStr(args, "account_id"),
-		"date":       argStr(args, "date"),
-		"amount":     argInt(args, "amount"),
-		"frequency":  argStr(args, "frequency"),
+		"account_id": accountID,
+		"date":       date,
+		"amount":     amount,
+		"frequency":  frequency,
 	}
-	if v := argStr(args, "payee_id"); v != "" {
-		st["payee_id"] = v
+	if payeeID != "" {
+		st["payee_id"] = payeeID
 	}
-	if v := argStr(args, "payee_name"); v != "" {
-		st["payee_name"] = v
+	if payeeName != "" {
+		st["payee_name"] = payeeName
 	}
-	if v := argStr(args, "category_id"); v != "" {
-		st["category_id"] = v
+	if categoryID != "" {
+		st["category_id"] = categoryID
 	}
-	if v := argStr(args, "memo"); v != "" {
-		st["memo"] = v
+	if memo != "" {
+		st["memo"] = memo
 	}
-	if v := argStr(args, "flag_color"); v != "" {
-		st["flag_color"] = v
+	if flagColor != "" {
+		st["flag_color"] = flagColor
 	}
 
 	body := map[string]any{"scheduled_transaction": st}
@@ -216,38 +320,57 @@ func createScheduledTransaction(ctx context.Context, y *ynab, args map[string]an
 }
 
 func updateScheduledTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	scheduledTransactionID := r.Str("scheduled_transaction_id")
+	accountID := r.Str("account_id")
+	date := r.Str("date")
+	frequency := r.Str("frequency")
+	payeeID := r.Str("payee_id")
+	payeeName := r.Str("payee_name")
+	categoryID := r.Str("category_id")
+	memo := r.Str("memo")
+	flagColor := r.Str("flag_color")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	st := map[string]any{}
-	if v := argStr(args, "account_id"); v != "" {
-		st["account_id"] = v
+	if accountID != "" {
+		st["account_id"] = accountID
 	}
-	if v := argStr(args, "date"); v != "" {
-		st["date"] = v
+	if date != "" {
+		st["date"] = date
 	}
-	if argStr(args, "amount") != "" {
-		st["amount"] = argInt(args, "amount")
+	// Check if amount was explicitly provided (even as 0).
+	if _, ok := args["amount"]; ok {
+		v, err := mcp.ArgInt(args, "amount")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		st["amount"] = v
 	}
-	if v := argStr(args, "frequency"); v != "" {
-		st["frequency"] = v
+	if frequency != "" {
+		st["frequency"] = frequency
 	}
-	if v := argStr(args, "payee_id"); v != "" {
-		st["payee_id"] = v
+	if payeeID != "" {
+		st["payee_id"] = payeeID
 	}
-	if v := argStr(args, "payee_name"); v != "" {
-		st["payee_name"] = v
+	if payeeName != "" {
+		st["payee_name"] = payeeName
 	}
-	if v := argStr(args, "category_id"); v != "" {
-		st["category_id"] = v
+	if categoryID != "" {
+		st["category_id"] = categoryID
 	}
-	if v := argStr(args, "memo"); v != "" {
-		st["memo"] = v
+	if memo != "" {
+		st["memo"] = memo
 	}
-	if v := argStr(args, "flag_color"); v != "" {
-		st["flag_color"] = v
+	if flagColor != "" {
+		st["flag_color"] = flagColor
 	}
 
 	body := map[string]any{"scheduled_transaction": st}
 	path := fmt.Sprintf("/budgets/%s/scheduled_transactions/%s",
-		budget(args), argStr(args, "scheduled_transaction_id"))
+		budget(args), scheduledTransactionID)
 	data, err := y.put(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -256,8 +379,13 @@ func updateScheduledTransaction(ctx context.Context, y *ynab, args map[string]an
 }
 
 func deleteScheduledTransaction(ctx context.Context, y *ynab, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	scheduledTransactionID := r.Str("scheduled_transaction_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := y.del(ctx, "/budgets/%s/scheduled_transactions/%s",
-		budget(args), argStr(args, "scheduled_transaction_id"))
+		budget(args), scheduledTransactionID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

@@ -100,50 +100,6 @@ func TestErrResult(t *testing.T) {
 	assert.Equal(t, "test error", result.Data)
 }
 
-// --- Argument helper tests ---
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgInt32(t *testing.T) {
-	assert.Equal(t, int32(42), argInt32(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, int32(42), argInt32(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, int32(42), argInt32(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, int32(0), argInt32(map[string]any{}, "n"))
-}
-
-func TestArgInt64(t *testing.T) {
-	assert.Equal(t, int64(42), argInt64(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, int64(42), argInt64(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, int64(42), argInt64(map[string]any{"n": int64(42)}, "n"))
-	assert.Equal(t, int64(42), argInt64(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, int64(0), argInt64(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
-
-func TestArgStrSlice(t *testing.T) {
-	assert.Equal(t, []string{"a", "b"}, argStrSlice(map[string]any{"s": []any{"a", "b"}}, "s"))
-	assert.Equal(t, []string{"a", "b"}, argStrSlice(map[string]any{"s": []string{"a", "b"}}, "s"))
-	assert.Equal(t, []string{"a", "b"}, argStrSlice(map[string]any{"s": "a,b"}, "s"))
-	assert.Nil(t, argStrSlice(map[string]any{}, "s"))
-	assert.Nil(t, argStrSlice(map[string]any{"s": ""}, "s"))
-}
-
 func TestHealthy_NilClient(t *testing.T) {
 	a := &integration{}
 	assert.False(t, a.Healthy(context.Background()))

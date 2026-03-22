@@ -8,14 +8,18 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-// ── Annotations ─────────────────────────────────────────────────────
+// -- Annotations --
 
 func listAnnotations(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"search": argStr(args, "search"),
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
+		"search": r.Str("search"),
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/annotations/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -24,7 +28,11 @@ func listAnnotations(ctx context.Context, p *posthog, args map[string]any) (*mcp
 }
 
 func getAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/annotations/%s/", p.proj(args), argStr(args, "annotation_id"))
+	annotationID, err := mcp.ArgStr(args, "annotation_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/annotations/%s/", p.proj(args), annotationID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -32,12 +40,19 @@ func getAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 }
 
 func createAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{
-		"content":     argStr(args, "content"),
-		"date_marker": argStr(args, "date_marker"),
+	r := mcp.NewArgs(args)
+	content := r.Str("content")
+	dateMarker := r.Str("date_marker")
+	scope := r.Str("scope")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "scope"); v != "" {
-		body["scope"] = v
+	body := map[string]any{
+		"content":     content,
+		"date_marker": dateMarker,
+	}
+	if scope != "" {
+		body["scope"] = scope
 	}
 	path := fmt.Sprintf("/api/projects/%s/annotations/", p.proj(args))
 	data, err := p.post(ctx, path, body)
@@ -48,17 +63,25 @@ func createAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mc
 }
 
 func updateAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	annotationID := r.Str("annotation_id")
+	content := r.Str("content")
+	dateMarker := r.Str("date_marker")
+	scope := r.Str("scope")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := map[string]any{}
-	if v := argStr(args, "content"); v != "" {
-		body["content"] = v
+	if content != "" {
+		body["content"] = content
 	}
-	if v := argStr(args, "date_marker"); v != "" {
-		body["date_marker"] = v
+	if dateMarker != "" {
+		body["date_marker"] = dateMarker
 	}
-	if v := argStr(args, "scope"); v != "" {
-		body["scope"] = v
+	if scope != "" {
+		body["scope"] = scope
 	}
-	path := fmt.Sprintf("/api/projects/%s/annotations/%s/", p.proj(args), argStr(args, "annotation_id"))
+	path := fmt.Sprintf("/api/projects/%s/annotations/%s/", p.proj(args), annotationID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -67,20 +90,28 @@ func updateAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mc
 }
 
 func deleteAnnotation(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.del(ctx, "/api/projects/%s/annotations/%s/", p.proj(args), argStr(args, "annotation_id"))
+	annotationID, err := mcp.ArgStr(args, "annotation_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.del(ctx, "/api/projects/%s/annotations/%s/", p.proj(args), annotationID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	return mcp.RawResult(data)
 }
 
-// ── Dashboards ──────────────────────────────────────────────────────
+// -- Dashboards --
 
 func listDashboards(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/dashboards/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -89,7 +120,11 @@ func listDashboards(ctx context.Context, p *posthog, args map[string]any) (*mcp.
 }
 
 func getDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/dashboards/%s/", p.proj(args), argStr(args, "dashboard_id"))
+	dashboardID, err := mcp.ArgStr(args, "dashboard_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/dashboards/%s/", p.proj(args), dashboardID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -97,15 +132,23 @@ func getDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func createDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{"name": argStr(args, "name")}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	pinned := r.Bool("pinned")
+	tags := r.Str("tags")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{"name": name}
+	if description != "" {
+		body["description"] = description
 	}
 	if _, ok := args["pinned"]; ok {
-		body["pinned"] = argBool(args, "pinned")
+		body["pinned"] = pinned
 	}
-	if v := argStr(args, "tags"); v != "" {
-		body["tags"] = strings.Split(v, ",")
+	if tags != "" {
+		body["tags"] = strings.Split(tags, ",")
 	}
 	path := fmt.Sprintf("/api/projects/%s/dashboards/", p.proj(args))
 	data, err := p.post(ctx, path, body)
@@ -116,20 +159,29 @@ func createDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp
 }
 
 func updateDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	r := mcp.NewArgs(args)
+	dashboardID := r.Str("dashboard_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	pinned := r.Bool("pinned")
+	tags := r.Str("tags")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	if description != "" {
+		body["description"] = description
 	}
 	if _, ok := args["pinned"]; ok {
-		body["pinned"] = argBool(args, "pinned")
+		body["pinned"] = pinned
 	}
-	if v := argStr(args, "tags"); v != "" {
-		body["tags"] = strings.Split(v, ",")
+	if tags != "" {
+		body["tags"] = strings.Split(tags, ",")
 	}
-	path := fmt.Sprintf("/api/projects/%s/dashboards/%s/", p.proj(args), argStr(args, "dashboard_id"))
+	path := fmt.Sprintf("/api/projects/%s/dashboards/%s/", p.proj(args), dashboardID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -138,7 +190,11 @@ func updateDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp
 }
 
 func deleteDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/api/projects/%s/dashboards/%s/", p.proj(args), argStr(args, "dashboard_id"))
+	dashboardID, err := mcp.ArgStr(args, "dashboard_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/api/projects/%s/dashboards/%s/", p.proj(args), dashboardID)
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
@@ -147,13 +203,17 @@ func deleteDashboard(ctx context.Context, p *posthog, args map[string]any) (*mcp
 	return mcp.RawResult(data)
 }
 
-// ── Actions ─────────────────────────────────────────────────────────
+// -- Actions --
 
 func listActions(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/actions/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -162,7 +222,11 @@ func listActions(ctx context.Context, p *posthog, args map[string]any) (*mcp.Too
 }
 
 func getAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/actions/%s/", p.proj(args), argStr(args, "action_id"))
+	actionID, err := mcp.ArgStr(args, "action_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/actions/%s/", p.proj(args), actionID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -170,17 +234,24 @@ func getAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolR
 }
 
 func createAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{"name": argStr(args, "name")}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	tags := r.Str("tags")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{"name": name}
+	if description != "" {
+		body["description"] = description
 	}
 	if steps, err := parseJSON(args, "steps"); err != nil {
 		return mcp.ErrResult(err)
 	} else if steps != nil {
 		body["steps"] = steps
 	}
-	if v := argStr(args, "tags"); v != "" {
-		body["tags"] = strings.Split(v, ",")
+	if tags != "" {
+		body["tags"] = strings.Split(tags, ",")
 	}
 	path := fmt.Sprintf("/api/projects/%s/actions/", p.proj(args))
 	data, err := p.post(ctx, path, body)
@@ -191,22 +262,30 @@ func createAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func updateAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	r := mcp.NewArgs(args)
+	actionID := r.Str("action_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	tags := r.Str("tags")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	if description != "" {
+		body["description"] = description
 	}
 	if steps, err := parseJSON(args, "steps"); err != nil {
 		return mcp.ErrResult(err)
 	} else if steps != nil {
 		body["steps"] = steps
 	}
-	if v := argStr(args, "tags"); v != "" {
-		body["tags"] = strings.Split(v, ",")
+	if tags != "" {
+		body["tags"] = strings.Split(tags, ",")
 	}
-	path := fmt.Sprintf("/api/projects/%s/actions/%s/", p.proj(args), argStr(args, "action_id"))
+	path := fmt.Sprintf("/api/projects/%s/actions/%s/", p.proj(args), actionID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -215,7 +294,11 @@ func updateAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func deleteAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/api/projects/%s/actions/%s/", p.proj(args), argStr(args, "action_id"))
+	actionID, err := mcp.ArgStr(args, "action_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/api/projects/%s/actions/%s/", p.proj(args), actionID)
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
@@ -224,19 +307,23 @@ func deleteAction(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 	return mcp.RawResult(data)
 }
 
-// ── Events ──────────────────────────────────────────────────────────
+// -- Events --
 
 func listEvents(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"event":       argStr(args, "event"),
-		"person_id":   argStr(args, "person_id"),
-		"distinct_id": argStr(args, "distinct_id"),
-		"properties":  argStr(args, "properties"),
-		"before":      argStr(args, "before"),
-		"after":       argStr(args, "after"),
-		"limit":       argStr(args, "limit"),
-		"offset":      argStr(args, "offset"),
+		"event":       r.Str("event"),
+		"person_id":   r.Str("person_id"),
+		"distinct_id": r.Str("distinct_id"),
+		"properties":  r.Str("properties"),
+		"before":      r.Str("before"),
+		"after":       r.Str("after"),
+		"limit":       r.Str("limit"),
+		"offset":      r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/events/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -245,20 +332,28 @@ func listEvents(ctx context.Context, p *posthog, args map[string]any) (*mcp.Tool
 }
 
 func getEvent(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/events/%s/", p.proj(args), argStr(args, "event_id"))
+	eventID, err := mcp.ArgStr(args, "event_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/events/%s/", p.proj(args), eventID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	return mcp.RawResult(data)
 }
 
-// ── Experiments ─────────────────────────────────────────────────────
+// -- Experiments --
 
 func listExperiments(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/experiments/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -267,7 +362,11 @@ func listExperiments(ctx context.Context, p *posthog, args map[string]any) (*mcp
 }
 
 func getExperiment(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/experiments/%s/", p.proj(args), argStr(args, "experiment_id"))
+	experimentID, err := mcp.ArgStr(args, "experiment_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/experiments/%s/", p.proj(args), experimentID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -275,18 +374,27 @@ func getExperiment(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 }
 
 func createExperiment(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	featureFlagKey := r.Str("feature_flag_key")
+	description := r.Str("description")
+	startDate := r.Str("start_date")
+	endDate := r.Str("end_date")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := map[string]any{
-		"name":             argStr(args, "name"),
-		"feature_flag_key": argStr(args, "feature_flag_key"),
+		"name":             name,
+		"feature_flag_key": featureFlagKey,
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	if description != "" {
+		body["description"] = description
 	}
-	if v := argStr(args, "start_date"); v != "" {
-		body["start_date"] = v
+	if startDate != "" {
+		body["start_date"] = startDate
 	}
-	if v := argStr(args, "end_date"); v != "" {
-		body["end_date"] = v
+	if endDate != "" {
+		body["end_date"] = endDate
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
 		return mcp.ErrResult(err)
@@ -302,20 +410,29 @@ func createExperiment(ctx context.Context, p *posthog, args map[string]any) (*mc
 }
 
 func updateExperiment(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	experimentID := r.Str("experiment_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	startDate := r.Str("start_date")
+	endDate := r.Str("end_date")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	if name != "" {
+		body["name"] = name
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	if description != "" {
+		body["description"] = description
 	}
-	if v := argStr(args, "start_date"); v != "" {
-		body["start_date"] = v
+	if startDate != "" {
+		body["start_date"] = startDate
 	}
-	if v := argStr(args, "end_date"); v != "" {
-		body["end_date"] = v
+	if endDate != "" {
+		body["end_date"] = endDate
 	}
-	path := fmt.Sprintf("/api/projects/%s/experiments/%s/", p.proj(args), argStr(args, "experiment_id"))
+	path := fmt.Sprintf("/api/projects/%s/experiments/%s/", p.proj(args), experimentID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -324,7 +441,11 @@ func updateExperiment(ctx context.Context, p *posthog, args map[string]any) (*mc
 }
 
 func deleteExperiment(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/api/projects/%s/experiments/%s/", p.proj(args), argStr(args, "experiment_id"))
+	experimentID, err := mcp.ArgStr(args, "experiment_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/api/projects/%s/experiments/%s/", p.proj(args), experimentID)
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
@@ -333,13 +454,17 @@ func deleteExperiment(ctx context.Context, p *posthog, args map[string]any) (*mc
 	return mcp.RawResult(data)
 }
 
-// ── Surveys ─────────────────────────────────────────────────────────
+// -- Surveys --
 
 func listSurveys(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
 	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := p.get(ctx, "/api/projects/%s/surveys/%s", p.proj(args), q)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -348,7 +473,11 @@ func listSurveys(ctx context.Context, p *posthog, args map[string]any) (*mcp.Too
 }
 
 func getSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/surveys/%s/", p.proj(args), argStr(args, "survey_id"))
+	surveyID, err := mcp.ArgStr(args, "survey_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/surveys/%s/", p.proj(args), surveyID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -356,12 +485,19 @@ func getSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolR
 }
 
 func createSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{"name": argStr(args, "name")}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	surveyType := r.Str("type")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "type"); v != "" {
-		body["type"] = v
+	body := map[string]any{"name": name}
+	if description != "" {
+		body["description"] = description
+	}
+	if surveyType != "" {
+		body["type"] = surveyType
 	}
 	if questions, err := parseJSON(args, "questions"); err != nil {
 		return mcp.ErrResult(err)
@@ -382,19 +518,26 @@ func createSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func updateSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	r := mcp.NewArgs(args)
+	surveyID := r.Str("survey_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	if description != "" {
+		body["description"] = description
 	}
 	if questions, err := parseJSON(args, "questions"); err != nil {
 		return mcp.ErrResult(err)
 	} else if questions != nil {
 		body["questions"] = questions
 	}
-	path := fmt.Sprintf("/api/projects/%s/surveys/%s/", p.proj(args), argStr(args, "survey_id"))
+	path := fmt.Sprintf("/api/projects/%s/surveys/%s/", p.proj(args), surveyID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -403,7 +546,11 @@ func updateSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func deleteSurvey(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/api/projects/%s/surveys/%s/", p.proj(args), argStr(args, "survey_id"))
+	surveyID, err := mcp.ArgStr(args, "survey_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/api/projects/%s/surveys/%s/", p.proj(args), surveyID)
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {

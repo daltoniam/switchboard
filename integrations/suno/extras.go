@@ -7,12 +7,19 @@ import (
 )
 
 func separateStems(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{
-		"audioId": argStr(args, "audio_id"),
+	r := mcp.NewArgs(args)
+	audioID := r.Str("audio_id")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	body := map[string]any{
+		"audioId": audioID,
+	}
+
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/vocal-removal/generate", body)
@@ -23,7 +30,11 @@ func separateStems(ctx context.Context, s *suno, args map[string]any) (*mcp.Tool
 }
 
 func getStemSeparation(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	taskID := argStr(args, "task_id")
+	r := mcp.NewArgs(args)
+	taskID := r.Str("task_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := s.get(ctx, "/api/v1/vocal-removal/record-info?taskId=%s", taskID)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -32,12 +43,19 @@ func getStemSeparation(ctx context.Context, s *suno, args map[string]any) (*mcp.
 }
 
 func convertWav(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{
-		"audioId": argStr(args, "audio_id"),
+	r := mcp.NewArgs(args)
+	audioID := r.Str("audio_id")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	body := map[string]any{
+		"audioId": audioID,
+	}
+
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/convert/wav", body)
@@ -48,7 +66,11 @@ func convertWav(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolRes
 }
 
 func getWavConversion(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	taskID := argStr(args, "task_id")
+	r := mcp.NewArgs(args)
+	taskID := r.Str("task_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := s.get(ctx, "/api/v1/convert/wav/record-info?taskId=%s", taskID)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -57,18 +79,27 @@ func getWavConversion(ctx context.Context, s *suno, args map[string]any) (*mcp.T
 }
 
 func generateVideo(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{
-		"audioId": argStr(args, "audio_id"),
+	r := mcp.NewArgs(args)
+	audioID := r.Str("audio_id")
+	author := r.Str("author")
+	domainName := r.Str("domain_name")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	if v := argStr(args, "author"); v != "" {
-		body["author"] = v
+	body := map[string]any{
+		"audioId": audioID,
 	}
-	if v := argStr(args, "domain_name"); v != "" {
-		body["domainName"] = v
+
+	if author != "" {
+		body["author"] = author
 	}
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	if domainName != "" {
+		body["domainName"] = domainName
+	}
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/video/generate", body)
@@ -79,7 +110,11 @@ func generateVideo(ctx context.Context, s *suno, args map[string]any) (*mcp.Tool
 }
 
 func getVideo(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	taskID := argStr(args, "task_id")
+	r := mcp.NewArgs(args)
+	taskID := r.Str("task_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := s.get(ctx, "/api/v1/video/record-info?taskId=%s", taskID)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -88,12 +123,19 @@ func getVideo(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResul
 }
 
 func generateMidi(ctx context.Context, s *suno, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{
-		"audioId": argStr(args, "audio_id"),
+	r := mcp.NewArgs(args)
+	audioID := r.Str("audio_id")
+	callbackURL := r.Str("callback_url")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	if v := argStr(args, "callback_url"); v != "" {
-		body["callBackUrl"] = v
+	body := map[string]any{
+		"audioId": audioID,
+	}
+
+	if callbackURL != "" {
+		body["callBackUrl"] = callbackURL
 	}
 
 	data, err := s.post(ctx, "/api/v1/midi/generate", body)

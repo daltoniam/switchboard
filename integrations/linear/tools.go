@@ -5,11 +5,11 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Issues ────────────────────────────────────────────────────────
 	{
-		Name: "linear_list_issues", Description: "List Linear issues with optional filters. Start here for filtered queries (by assignee, state, label, project). Use list_workflow_states to discover valid state names.",
+		Name: "linear_list_issues", Description: "List Linear issues (tickets/bugs/tasks) with optional filters. Start here for filtered queries (by assignee, state, label, project). Use list_workflow_states to discover valid state names.",
 		Parameters: map[string]string{"team": "Filter by team name or key", "assignee": "Filter by assignee name or 'me'", "state": "Filter by state name (e.g., 'In Progress', 'Done')", "label": "Filter by label name", "priority": "Filter by priority (1=urgent, 2=high, 3=normal, 4=low)", "project": "Filter by project name", "cycle": "Filter by cycle name or number", "first": "Max results (default 50)", "after": "Pagination cursor"},
 	},
 	{
-		Name: "linear_search_issues", Description: "Full-text search Linear issues by keyword. For filtering by assignee, state, or label, use list_issues with filter parameters instead.",
+		Name: "linear_search_issues", Description: "Full-text search Linear issues (tickets/bugs) by keyword. Start here to find issues by text. For filtering by assignee, state, or label, prefer list_issues instead.",
 		Parameters: map[string]string{"query": "Search query text", "first": "Max results (default 50)", "after": "Pagination cursor"},
 		Required:   []string{"query"},
 	},
@@ -19,13 +19,13 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"id"},
 	},
 	{
-		Name: "linear_create_issue", Description: "Create a new issue (ticket). Requires team_id — use list_teams to find it. Use list_workflow_states to discover valid state names.",
-		Parameters: map[string]string{"title": "Issue title", "team": "Team name or key", "description": "Description (markdown)", "assignee": "Assignee name or email", "priority": "Priority (0=none, 1=urgent, 2=high, 3=normal, 4=low)", "state": "Workflow state name", "labels": "Comma-separated label names", "project": "Project name", "cycle": "Cycle name or number", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)", "parent_id": "Parent issue ID for sub-issues"},
+		Name: "linear_create_issue", Description: "Create a new issue (ticket/bug/task). Requires team_id — use list_teams to find it. Use list_workflow_states to discover valid state names.",
+		Parameters: map[string]string{"title": "Issue title", "team": "Team name or key", "description": "Description (markdown)", "assignee": "Assignee name or email", "priority": "Priority (0=none, 1=urgent, 2=high, 3=normal, 4=low)", "state": "Workflow state name", "labels": "Comma-separated label names", "project": "Project name", "milestone": "Project milestone name or UUID", "cycle": "Cycle name or number", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)", "parent_id": "Parent issue ID for sub-issues"},
 		Required:   []string{"title", "team"},
 	},
 	{
 		Name: "linear_update_issue", Description: "Update an existing issue. Accepts issue ID (UUID) or identifier (e.g., ENG-123). Use list_workflow_states to discover valid state names. Use list_teams to find team names for transfers.",
-		Parameters: map[string]string{"id": "Issue identifier (e.g., ENG-123) or UUID", "title": "New title", "description": "New description", "assignee": "Assignee name or email", "priority": "Priority (0-4)", "state": "Workflow state name", "team": "Team name or key (moves issue to this team)", "labels": "Comma-separated label names", "project": "Project name", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)"},
+		Parameters: map[string]string{"id": "Issue identifier (e.g., ENG-123) or UUID", "title": "New title", "description": "New description", "assignee": "Assignee name or email", "priority": "Priority (0-4)", "state": "Workflow state name", "team": "Team name or key (moves issue to this team)", "labels": "Comma-separated label names", "project": "Project name", "milestone": "Project milestone name or UUID", "estimate": "Story point estimate", "due_date": "Due date (YYYY-MM-DD)"},
 		Required:   []string{"id"},
 	},
 	{

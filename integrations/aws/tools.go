@@ -47,7 +47,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── EC2 ──────────────────────────────────────────────────────────
 	{
-		Name: "aws_ec2_describe_instances", Description: "List EC2 instances with optional filters",
+		Name: "aws_ec2_describe_instances", Description: "List EC2 instances (servers/VMs) with optional filters. Start here for infrastructure inventory and production servers.",
 		Parameters: map[string]string{"instance_ids": "Comma-separated instance IDs", "filters": "JSON array of filters [{\"Name\":\"tag:Env\",\"Values\":[\"prod\"]}]", "max_results": "Maximum number of results"},
 	},
 	{
@@ -105,7 +105,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"function_name"},
 	},
 	{
-		Name: "aws_lambda_invoke", Description: "Invoke a Lambda function",
+		Name: "aws_lambda_invoke", Description: "Invoke (run/trigger) a Lambda function. Use after list_functions to find the function name.",
 		Parameters: map[string]string{"function_name": "Function name or ARN", "payload": "JSON payload to pass to the function", "invocation_type": "RequestResponse (sync, default), Event (async), or DryRun"},
 		Required:   []string{"function_name"},
 	},
@@ -121,7 +121,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── IAM ──────────────────────────────────────────────────────────
 	{
-		Name: "aws_iam_list_users", Description: "List IAM users",
+		Name: "aws_iam_list_users", Description: "List IAM users. Start here for access audits and finding who has AWS access.",
 		Parameters: map[string]string{"path_prefix": "Path prefix for filtering (default /)", "max_items": "Maximum number of users to return"},
 	},
 	{
@@ -172,12 +172,12 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"namespace": "Metric namespace (e.g. AWS/EC2)", "metric_name": "Metric name filter"},
 	},
 	{
-		Name: "aws_cloudwatch_get_metric_data", Description: "Get CloudWatch metric data points",
+		Name: "aws_cloudwatch_get_metric_data", Description: "Get CloudWatch metric data points (time series). Use for monitoring performance over a time range. Use after list_metrics to discover available metrics.",
 		Parameters: map[string]string{"metric_name": "Metric name", "namespace": "Metric namespace", "stat": "Statistic: Average, Sum, Minimum, Maximum, SampleCount", "period": "Period in seconds (default 300)", "start_time": "Start time (RFC3339 or relative e.g. -1h)", "end_time": "End time (RFC3339 or relative, default now)", "dimensions": "JSON object of dimension key-value pairs"},
 		Required:   []string{"metric_name", "namespace", "stat"},
 	},
 	{
-		Name: "aws_cloudwatch_describe_alarms", Description: "List CloudWatch alarms",
+		Name: "aws_cloudwatch_describe_alarms", Description: "List CloudWatch alarms for active alerts, firing monitors, and threshold warnings. Filter by state (ALARM, OK, INSUFFICIENT_DATA).",
 		Parameters: map[string]string{"alarm_names": "Comma-separated alarm names", "state_value": "Filter by state: OK, ALARM, INSUFFICIENT_DATA", "max_records": "Maximum number of alarms to return"},
 	},
 	{
@@ -197,12 +197,12 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"clusters"},
 	},
 	{
-		Name: "aws_ecs_list_services", Description: "List services in an ECS cluster",
+		Name: "aws_ecs_list_services", Description: "List services (deployed containers) in an ECS cluster. Use after list_clusters to find the cluster name.",
 		Parameters: map[string]string{"cluster": "Cluster name or ARN"},
 		Required:   []string{"cluster"},
 	},
 	{
-		Name: "aws_ecs_describe_services", Description: "Get details about one or more ECS services",
+		Name: "aws_ecs_describe_services", Description: "Get details about ECS services including deploy status, health, and running/desired count. Use after list_services.",
 		Parameters: map[string]string{"cluster": "Cluster name or ARN", "services": "Comma-separated service names or ARNs"},
 		Required:   []string{"cluster", "services"},
 	},
@@ -240,7 +240,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"topic_arn": "Filter by topic ARN"},
 	},
 	{
-		Name: "aws_sns_publish", Description: "Publish a message to an SNS topic",
+		Name: "aws_sns_publish", Description: "Publish (send) a notification message to an SNS topic. Use after list_topics to find the topic ARN.",
 		Parameters: map[string]string{"topic_arn": "SNS topic ARN", "message": "Message body", "subject": "Message subject (for email subscriptions)"},
 		Required:   []string{"topic_arn", "message"},
 	},
@@ -333,7 +333,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"stack_name"},
 	},
 	{
-		Name: "aws_cloudformation_describe_stack_events", Description: "List events for a CloudFormation stack",
+		Name: "aws_cloudformation_describe_stack_events", Description: "List events for a CloudFormation stack. Use to debug deploy failures, rollbacks, or track infrastructure change history.",
 		Parameters: map[string]string{"stack_name": "Stack name or ID"},
 		Required:   []string{"stack_name"},
 	},

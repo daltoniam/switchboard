@@ -30,7 +30,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"cursor": "Pagination cursor"},
 	},
 	{
-		Name: "sentry_resolve_short_id", Description: "Resolve a Sentry short ID (e.g., PROJECT-123) to full issue details",
+		Name: "sentry_resolve_short_id", Description: "Resolve a Sentry short ID (e.g., PROJECT-123) to full error issue details. Use to look up a bug by its short reference.",
 		Parameters: map[string]string{"short_id": "Short ID (e.g., PROJECT-123)"},
 		Required:   []string{"short_id"},
 	},
@@ -76,7 +76,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"project"},
 	},
 	{
-		Name: "sentry_get_project_stats", Description: "Get event count statistics for a project",
+		Name: "sentry_get_project_stats", Description: "Get error and crash event count statistics for a project. Use to monitor error rate and volume.",
 		Parameters: map[string]string{"project": "Project slug", "stat": "Stat type: received, rejected, blacklisted, generated (default: received)", "since": "Unix timestamp for start", "until": "Unix timestamp for end", "resolution": "Resolution in seconds (e.g., 3600 for hourly)"},
 		Required:   []string{"project"},
 	},
@@ -110,17 +110,17 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Issues & Events ──────────────────────────────────────────────
 	{
-		Name: "sentry_list_issues", Description: "List issues for a project",
-		Parameters: map[string]string{"project": "Project slug", "query": "Search query (e.g., 'is:unresolved', 'assigned:me')", "cursor": "Pagination cursor", "sort": "Sort: date, new, freq, user (default: date)", "statsPeriod": "Stats period (e.g., 24h, 14d)"},
+		Name: "sentry_list_issues", Description: "List errors and exceptions for a project. Start here for error tracking, debugging, and finding unresolved bugs or crashes.",
+		Parameters: map[string]string{"project": "Project slug", "query": "Search query (e.g., 'is:unresolved', 'assigned:me')", "cursor": "Pagination cursor", "sort": "Sort: date, new, freq, user (default: date)", "statsPeriod": "Stats period: '' (default), '24h', or '14d'"},
 		Required:   []string{"project"},
 	},
 	{
-		Name: "sentry_get_issue", Description: "Get details of a specific issue",
+		Name: "sentry_get_issue", Description: "Get details of a specific error or exception issue, including stacktrace and debugging context",
 		Parameters: map[string]string{"issue_id": "Issue ID"},
 		Required:   []string{"issue_id"},
 	},
 	{
-		Name: "sentry_update_issue", Description: "Update an issue (resolve, assign, etc.)",
+		Name: "sentry_update_issue", Description: "Update an error issue (resolve, assign, triage, etc.)",
 		Parameters: map[string]string{"issue_id": "Issue ID", "status": "Status: resolved, unresolved, ignored", "assignedTo": "Assign to user (email or username, empty to unassign)", "hasSeen": "Mark as seen (true/false)", "isBookmarked": "Bookmark (true/false)", "isSubscribed": "Subscribe (true/false)", "isPublic": "Make public (true/false)"},
 		Required:   []string{"issue_id"},
 	},
@@ -130,7 +130,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"issue_id"},
 	},
 	{
-		Name: "sentry_list_issue_events", Description: "List events for a specific issue",
+		Name: "sentry_list_issue_events", Description: "List error occurrences and crash events for a specific issue",
 		Parameters: map[string]string{"issue_id": "Issue ID", "cursor": "Pagination cursor"},
 		Required:   []string{"issue_id"},
 	},
@@ -145,7 +145,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"issue_id", "tag_name"},
 	},
 	{
-		Name: "sentry_list_project_events", Description: "List error events for a project",
+		Name: "sentry_list_project_events", Description: "List error and exception events for a project. Use to investigate crashes and debug production issues.",
 		Parameters: map[string]string{"project": "Project slug", "cursor": "Pagination cursor"},
 		Required:   []string{"project"},
 	},
@@ -155,8 +155,8 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"project", "event_id"},
 	},
 	{
-		Name: "sentry_list_org_issues", Description: "List issues across the entire organization",
-		Parameters: map[string]string{"query": "Search query (e.g., 'is:unresolved level:error')", "project": "Filter by project slug", "cursor": "Pagination cursor", "sort": "Sort: date, new, freq, user", "statsPeriod": "Stats period (e.g., 24h, 14d)"},
+		Name: "sentry_list_org_issues", Description: "List error and exception issues across the entire organization. Search all projects for bugs, crashes, and unresolved problems.",
+		Parameters: map[string]string{"query": "Search query (e.g., 'is:unresolved level:error')", "project": "Filter by project slug", "cursor": "Pagination cursor", "sort": "Sort: date, new, freq, user", "statsPeriod": "Stats period: '' (default), '24h', or '14d'"},
 	},
 
 	// ── Releases ─────────────────────────────────────────────────────
@@ -202,7 +202,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Alerts ───────────────────────────────────────────────────────
 	{
-		Name: "sentry_list_metric_alerts", Description: "List metric alert rules for the organization",
+		Name: "sentry_list_metric_alerts", Description: "List metric alert rules for monitoring thresholds and warnings across the organization",
 		Parameters: map[string]string{},
 	},
 	{
@@ -216,7 +216,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"alert_rule_id"},
 	},
 	{
-		Name: "sentry_list_issue_alerts", Description: "List issue alert rules for a project",
+		Name: "sentry_list_issue_alerts", Description: "List error alert rules that trigger notifications for a project",
 		Parameters: map[string]string{"project": "Project slug"},
 		Required:   []string{"project"},
 	},
@@ -265,8 +265,8 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Replays ──────────────────────────────────────────────────────
 	{
-		Name: "sentry_list_replays", Description: "List session replays",
-		Parameters: map[string]string{"query": "Search query", "cursor": "Pagination cursor", "limit": "Max results (default 50)", "statsPeriod": "Stats period (e.g., 24h, 14d)"},
+		Name: "sentry_list_replays", Description: "List session replay recordings. Use to visually reproduce and investigate specific user sessions.",
+		Parameters: map[string]string{"query": "Search query", "cursor": "Pagination cursor", "limit": "Max results (default 50)", "statsPeriod": "Stats period: '' (default), '24h', or '14d'"},
 	},
 	{
 		Name: "sentry_get_replay", Description: "Get details of a specific replay",

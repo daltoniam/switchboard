@@ -38,7 +38,12 @@ func pubsubListTopics(ctx context.Context, g *integration, _ map[string]any) (*m
 }
 
 func pubsubGetTopic(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	topic := g.pubsubClient.Topic(argStr(args, "topic"))
+	r := mcp.NewArgs(args)
+	topicName := r.Str("topic")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	topic := g.pubsubClient.Topic(topicName)
 	exists, err := topic.Exists(ctx)
 	if err != nil {
 		return errResult(err)
@@ -60,12 +65,19 @@ func pubsubGetTopic(ctx context.Context, g *integration, args map[string]any) (*
 }
 
 func pubsubPublish(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	topic := g.pubsubClient.Topic(argStr(args, "topic"))
+	r := mcp.NewArgs(args)
+	topicName := r.Str("topic")
+	message := r.Str("message")
+	attrsStr := r.Str("attributes")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	topic := g.pubsubClient.Topic(topicName)
 
 	msg := &pubsub.Message{
-		Data: []byte(argStr(args, "message")),
+		Data: []byte(message),
 	}
-	if v := argStr(args, "attributes"); v != "" {
+	if v := attrsStr; v != "" {
 		var attrs map[string]string
 		if err := json.Unmarshal([]byte(v), &attrs); err != nil {
 			return errResult(err)
@@ -109,7 +121,12 @@ func pubsubListSubscriptions(ctx context.Context, g *integration, _ map[string]a
 }
 
 func pubsubGetSubscription(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	sub := g.pubsubClient.Subscription(argStr(args, "subscription"))
+	r := mcp.NewArgs(args)
+	subName := r.Str("subscription")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	sub := g.pubsubClient.Subscription(subName)
 	exists, err := sub.Exists(ctx)
 	if err != nil {
 		return errResult(err)
@@ -133,9 +150,16 @@ func pubsubGetSubscription(ctx context.Context, g *integration, args map[string]
 }
 
 func pubsubPull(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	sub := g.pubsubClient.Subscription(argStr(args, "subscription"))
+	r := mcp.NewArgs(args)
+	subName := r.Str("subscription")
+	maxMessages := r.Int("max_messages")
+	timeout := r.Int("timeout")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 
-	maxMessages := argInt(args, "max_messages")
+	sub := g.pubsubClient.Subscription(subName)
+
 	if maxMessages <= 0 {
 		maxMessages = 10
 	}
@@ -145,7 +169,6 @@ func pubsubPull(ctx context.Context, g *integration, args map[string]any) (*mcp.
 	var messages []map[string]any
 	var mu sync.Mutex
 
-	timeout := argInt(args, "timeout")
 	if timeout <= 0 {
 		timeout = 10
 	}

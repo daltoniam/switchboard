@@ -1,6 +1,7 @@
 package rwx
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -139,7 +140,11 @@ func findLogFiles(dir string) ([]string, error) {
 // --- Log tool handlers ---
 
 func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "task_id"))
+	taskIDRaw, err := mcp.ArgStr(args, "task_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(taskIDRaw)
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -177,12 +182,17 @@ func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRes
 }
 
 func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "id"))
-	numLines := argInt(args, "lines")
+	ra := mcp.NewArgs(args)
+	idRaw := ra.Str("id")
+	numLines := ra.Int("lines")
+	offset := ra.Int("offset")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(idRaw)
 	if numLines <= 0 || numLines > maxLinesPerPage {
 		numLines = maxLinesPerPage
 	}
-	offset := argInt(args, "offset")
 
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
@@ -218,12 +228,17 @@ func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 }
 
 func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "id"))
-	numLines := argInt(args, "lines")
+	ra := mcp.NewArgs(args)
+	idRaw := ra.Str("id")
+	numLines := ra.Int("lines")
+	offset := ra.Int("offset")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(idRaw)
 	if numLines <= 0 || numLines > maxLinesPerPage {
 		numLines = maxLinesPerPage
 	}
-	offset := argInt(args, "offset")
 
 	logs, err := downloadLogs(ctx, r, id)
 	if err != nil {
@@ -261,13 +276,18 @@ func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 }
 
 func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "id"))
-	pattern := argStr(args, "pattern")
-	contextLines := argInt(args, "context")
+	ra := mcp.NewArgs(args)
+	idRaw := ra.Str("id")
+	pattern := ra.Str("pattern")
+	contextLines := ra.Int("context")
+	page := ra.Int("page")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(idRaw)
 	if contextLines <= 0 {
 		contextLines = 3
 	}
-	page := argInt(args, "page")
 	if page <= 0 {
 		page = 1
 	}
@@ -362,12 +382,19 @@ func (r *rwx) runRWXCommand(args []string, timeoutMs int) (string, error) {
 		cmd.Env = os.Environ()
 	}
 
-	output, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
 	if err != nil {
-		if len(output) > 0 {
-			return string(output), nil
+		if stdout.Len() > 0 {
+			return stdout.String(), nil
+		}
+		if stderr.Len() > 0 {
+			return "", fmt.Errorf("rwx command failed: %w: %s", err, stderr.String())
 		}
 		return "", fmt.Errorf("rwx command failed: %w", err)
 	}
-	return string(output), nil
+	return stdout.String(), nil
 }

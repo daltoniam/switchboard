@@ -17,18 +17,25 @@ const projectFields = `
 `
 
 func listProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	state := r.Str("state")
+	after := r.Str("after")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	filter := map[string]any{}
-	if state := argStr(args, "state"); state != "" {
+	if state != "" {
 		filter["state"] = map[string]any{"eq": state}
 	}
 
 	vars := map[string]any{
-		"first": optInt(args, "first", 50),
+		"first": mcp.OptInt(args, "first", 50),
 	}
 	if len(filter) > 0 {
 		vars["filter"] = filter
 	}
-	if after := argStr(args, "after"); after != "" {
+	if after != "" {
 		vars["after"] = after
 	}
 
@@ -45,13 +52,17 @@ func listProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.Too
 }
 
 func searchProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	query, err := mcp.ArgStr(args, "query")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, fmt.Sprintf(`query($term: String!, $first: Int) {
 		searchProjects(term: $term, first: $first) {
 			nodes { %s }
 		}
 	}`, projectFields), map[string]any{
-		"term":  argStr(args, "query"),
-		"first": optInt(args, "first", 50),
+		"term":  query,
+		"first": mcp.OptInt(args, "first", 50),
 	})
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -60,6 +71,10 @@ func searchProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 }
 
 func getProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, fmt.Sprintf(`query($id: String!) {
 		project(id: $id) { %s
 			projectUpdates(first: 5) {
@@ -67,7 +82,7 @@ func getProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 			}
 			projectMilestones { nodes { id name targetDate } }
 		}
-	}`, projectFields), map[string]any{"id": argStr(args, "id")})
+	}`, projectFields), map[string]any{"id": id})
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -75,8 +90,19 @@ func getProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 }
 
 func createProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	team := r.Str("team")
+	name := r.Str("name")
+	description := r.Str("description")
+	state := r.Str("state")
+	targetDate := r.Str("target_date")
+	startDate := r.Str("start_date")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	teamIDs := []string{}
-	if team := argStr(args, "team"); team != "" {
+	if team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
 			return mcp.ErrResult(err)
@@ -85,20 +111,20 @@ func createProject(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 	}
 
 	input := map[string]any{
-		"name":    argStr(args, "name"),
+		"name":    name,
 		"teamIds": teamIDs,
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
-	if v := argStr(args, "state"); v != "" {
-		input["state"] = v
+	if state != "" {
+		input["state"] = state
 	}
-	if v := argStr(args, "target_date"); v != "" {
-		input["targetDate"] = v
+	if targetDate != "" {
+		input["targetDate"] = targetDate
 	}
-	if v := argStr(args, "start_date"); v != "" {
-		input["startDate"] = v
+	if startDate != "" {
+		input["startDate"] = startDate
 	}
 
 	data, err := l.gql(ctx, `mutation($input: ProjectCreateInput!) {
@@ -113,28 +139,39 @@ func createProject(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 }
 
 func updateProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	id := r.Str("id")
+	name := r.Str("name")
+	description := r.Str("description")
+	state := r.Str("state")
+	targetDate := r.Str("target_date")
+	startDate := r.Str("start_date")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		input["name"] = v
+	if name != "" {
+		input["name"] = name
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
-	if v := argStr(args, "state"); v != "" {
-		input["state"] = v
+	if state != "" {
+		input["state"] = state
 	}
-	if v := argStr(args, "target_date"); v != "" {
-		input["targetDate"] = v
+	if targetDate != "" {
+		input["targetDate"] = targetDate
 	}
-	if v := argStr(args, "start_date"); v != "" {
-		input["startDate"] = v
+	if startDate != "" {
+		input["startDate"] = startDate
 	}
 
 	data, err := l.gql(ctx, fmt.Sprintf(`mutation($id: String!, $input: ProjectUpdateInput!) {
 		projectUpdate(id: $id, input: $input) {
 			project { %s }
 		}
-	}`, projectFields), map[string]any{"id": argStr(args, "id"), "input": input})
+	}`, projectFields), map[string]any{"id": id, "input": input})
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -142,9 +179,13 @@ func updateProject(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 }
 
 func archiveProject(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `mutation($id: String!) {
 		projectArchive(id: $id) { success }
-	}`, map[string]any{"id": argStr(args, "id")})
+	}`, map[string]any{"id": id})
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -152,6 +193,10 @@ func archiveProject(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 }
 
 func listProjectUpdates(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	projectID, err := mcp.ArgStr(args, "project_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `query($id: String!, $first: Int) {
 		project(id: $id) {
 			projectUpdates(first: $first) {
@@ -159,8 +204,8 @@ func listProjectUpdates(ctx context.Context, l *linear, args map[string]any) (*m
 			}
 		}
 	}`, map[string]any{
-		"id":    argStr(args, "project_id"),
-		"first": optInt(args, "first", 10),
+		"id":    projectID,
+		"first": mcp.OptInt(args, "first", 10),
 	})
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -169,12 +214,19 @@ func listProjectUpdates(ctx context.Context, l *linear, args map[string]any) (*m
 }
 
 func createProjectUpdate(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
-	input := map[string]any{
-		"projectId": argStr(args, "project_id"),
-		"body":      argStr(args, "body"),
+	r := mcp.NewArgs(args)
+	projectID := r.Str("project_id")
+	body := r.Str("body")
+	health := r.Str("health")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "health"); v != "" {
-		input["health"] = v
+	input := map[string]any{
+		"projectId": projectID,
+		"body":      body,
+	}
+	if health != "" {
+		input["health"] = health
 	}
 	data, err := l.gql(ctx, `mutation($input: ProjectUpdateCreateInput!) {
 		projectUpdateCreate(input: $input) {
@@ -188,6 +240,10 @@ func createProjectUpdate(ctx context.Context, l *linear, args map[string]any) (*
 }
 
 func listProjectMilestones(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	projectID, err := mcp.ArgStr(args, "project_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `query($id: String!, $first: Int) {
 		project(id: $id) {
 			projectMilestones(first: $first) {
@@ -195,8 +251,8 @@ func listProjectMilestones(ctx context.Context, l *linear, args map[string]any) 
 			}
 		}
 	}`, map[string]any{
-		"id":    argStr(args, "project_id"),
-		"first": optInt(args, "first", 50),
+		"id":    projectID,
+		"first": mcp.OptInt(args, "first", 50),
 	})
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -205,15 +261,23 @@ func listProjectMilestones(ctx context.Context, l *linear, args map[string]any) 
 }
 
 func createProjectMilestone(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	projectID := r.Str("project_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	targetDate := r.Str("target_date")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	input := map[string]any{
-		"projectId": argStr(args, "project_id"),
-		"name":      argStr(args, "name"),
+		"projectId": projectID,
+		"name":      name,
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
-	if v := argStr(args, "target_date"); v != "" {
-		input["targetDate"] = v
+	if targetDate != "" {
+		input["targetDate"] = targetDate
 	}
 
 	data, err := l.gql(ctx, `mutation($input: ProjectMilestoneCreateInput!) {

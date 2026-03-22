@@ -12,6 +12,16 @@ Post review findings as inline comments on specific diff lines via the GitHub Pu
 - After `pr-review` produces findings and user wants them posted to the PR
 - User asks to "add comments", "submit the review", "comment on the lines", or "do an actual review"
 
+## Step 0: Decide Whether to Post Comments
+
+**Before doing anything else**, check the pr-review output:
+
+- If the review found **zero Must Fix and zero Should Fix items**, submit an `APPROVE` review with a short body like "Clean PR — builds, tests pass, lint clean. LGTM." and **no inline comments**. Then stop.
+- If only "Consider" items exist and they're truly optional, approve without inline comments.
+- Only proceed to Step 1 if there are **concrete, actionable findings** worth commenting on.
+
+**Never post test/placeholder comments.** Every comment submitted to the PR must contain real, substantive feedback.
+
 ## Workflow
 
 ### Step 1: Gather Data

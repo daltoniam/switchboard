@@ -28,16 +28,24 @@ func getQueryStats(ctx context.Context, p *pganalyze, args map[string]any) (*mcp
 		}
 	`
 
+	r := mcp.NewArgs(args)
+	databaseID := r.Str("database_id")
+	startTs := r.Int("start_ts")
+	endTs := r.Int("end_ts")
+	limit := r.Int("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	variables := map[string]any{
-		"databaseId": argStr(args, "database_id"),
+		"databaseId": databaseID,
 	}
-	if v := argInt(args, "start_ts"); v > 0 {
-		variables["startTs"] = v
+	if startTs > 0 {
+		variables["startTs"] = startTs
 	}
-	if v := argInt(args, "end_ts"); v > 0 {
-		variables["endTs"] = v
+	if endTs > 0 {
+		variables["endTs"] = endTs
 	}
-	limit := argInt(args, "limit")
 	if limit <= 0 {
 		limit = 20
 	}
