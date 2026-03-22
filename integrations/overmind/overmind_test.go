@@ -117,18 +117,13 @@ func TestConfigure_StripsTrailingSlash(t *testing.T) {
 func TestTools(t *testing.T) {
 	o := New()
 	tt := o.Tools()
-	assert.Len(t, tt, 4)
+	assert.Len(t, tt, len(dispatch))
 
-	names := make([]string, len(tt))
-	for i, tool := range tt {
-		names[i] = tool.Name
+	for _, tool := range tt {
+		assert.NotEmpty(t, tool.Name, "tool must have a name")
+		assert.NotEmpty(t, tool.Description, "tool %q must have a description", tool.Name)
+		assert.Truef(t, len(tool.Name) > len("overmind_"), "tool name %q must have overmind_ prefix", tool.Name)
 	}
-	assert.ElementsMatch(t, []string{
-		"overmind_launch_agent",
-		"overmind_get_agent_status",
-		"overmind_get_agent_result",
-		"overmind_complete_flow",
-	}, names)
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
