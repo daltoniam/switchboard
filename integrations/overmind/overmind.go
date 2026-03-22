@@ -179,11 +179,11 @@ var dispatch = map[string]handlerFunc{
 	"overmind_get_agent_run":   getAgentRun,
 
 	// MCP identities admin
-	"overmind_list_mcp_identities":  listMCPIdentities,
-	"overmind_get_mcp_identity":     getMCPIdentity,
-	"overmind_create_mcp_identity":  createMCPIdentity,
-	"overmind_update_mcp_identity":  updateMCPIdentity,
-	"overmind_delete_mcp_identity":  deleteMCPIdentity,
+	"overmind_list_mcp_identities": listMCPIdentities,
+	"overmind_get_mcp_identity":    getMCPIdentity,
+	"overmind_create_mcp_identity": createMCPIdentity,
+	"overmind_update_mcp_identity": updateMCPIdentity,
+	"overmind_delete_mcp_identity": deleteMCPIdentity,
 
 	// MCP roles admin
 	"overmind_list_mcp_roles":        listMCPRoles,

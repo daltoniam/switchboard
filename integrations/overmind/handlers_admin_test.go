@@ -440,9 +440,9 @@ func TestCreateMCPRoleEntry(t *testing.T) {
 	})
 
 	result, err := o.Execute(context.Background(), "overmind_create_mcp_role_entry", map[string]any{
-		"role_id":          "r1",
-		"mcp_identity_id":  "id1",
-		"tool_globs":       []any{"github_*"},
+		"role_id":         "r1",
+		"mcp_identity_id": "id1",
+		"tool_globs":      []any{"github_*"},
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)

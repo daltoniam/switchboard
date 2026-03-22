@@ -61,7 +61,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required:    []string{"id"},
 	},
 	{
-		Name: "overmind_create_agent",
+		Name:        "overmind_create_agent",
 		Description: `Create a new agent definition. Agents are AI workers with a model, prompt, and MCP role that determines which integrations and tools they can access.`,
 		Parameters: map[string]string{
 			"name":           "Unique agent name",
@@ -74,7 +74,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required: []string{"name"},
 	},
 	{
-		Name: "overmind_update_agent",
+		Name:        "overmind_update_agent",
 		Description: `Update an existing agent definition. Use after get_agent to modify name, model, prompt, or role assignment.`,
 		Parameters: map[string]string{
 			"id":             "Agent ID (UUID)",
@@ -101,7 +101,7 @@ Call this when all work is done and results have been collected. After calling t
 		Parameters:  map[string]string{},
 	},
 	{
-		Name: "overmind_get_flow",
+		Name:        "overmind_get_flow",
 		Description: `Get a flow definition by ID. Returns name, prompt_template, available agents, webhook config, repo_url, and timeout. Use expand=agents to include agent details.`,
 		Parameters: map[string]string{
 			"id":     "Flow ID (UUID)",
@@ -110,7 +110,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required: []string{"id"},
 	},
 	{
-		Name: "overmind_create_flow",
+		Name:        "overmind_create_flow",
 		Description: `Create a new flow definition. A flow orchestrates multiple agents with a prompt template, webhook triggers, and output configuration.`,
 		Parameters: map[string]string{
 			"name":                    "Unique flow name",
@@ -129,7 +129,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required: []string{"name"},
 	},
 	{
-		Name: "overmind_update_flow",
+		Name:        "overmind_update_flow",
 		Description: `Update an existing flow definition. Use after get_flow.`,
 		Parameters: map[string]string{
 			"id":                      "Flow ID (UUID)",
@@ -155,7 +155,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required:    []string{"id"},
 	},
 	{
-		Name: "overmind_clone_flow",
+		Name:        "overmind_clone_flow",
 		Description: `Clone an existing flow, creating a copy with a new name. Duplicates all settings including agent assignments.`,
 		Parameters: map[string]string{
 			"id":   "Flow ID (UUID) to clone",
@@ -164,7 +164,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required: []string{"id"},
 	},
 	{
-		Name: "overmind_run_flow",
+		Name:        "overmind_run_flow",
 		Description: `Trigger a flow run directly with a prompt or template parameters. Returns the flow_run_id and initial_agent_run_id. Use after get_flow.`,
 		Parameters: map[string]string{
 			"id":     "Flow ID (UUID) to run",
@@ -239,23 +239,23 @@ Call this when all work is done and results have been collected. After calling t
 		Required:    []string{"id"},
 	},
 	{
-		Name: "overmind_create_mcp_identity",
+		Name:        "overmind_create_mcp_identity",
 		Description: `Create an MCP identity with encrypted credentials for an integration. Used in MCP role entries to grant agents access to specific integrations.`,
 		Parameters: map[string]string{
 			"name":             "Unique identity name",
 			"integration_name": "Integration this identity authenticates (e.g. github, slack, datadog)",
-			"credentials":     "JSON object of credential key-value pairs for the integration",
+			"credentials":      "JSON object of credential key-value pairs for the integration",
 		},
 		Required: []string{"name", "integration_name", "credentials"},
 	},
 	{
-		Name: "overmind_update_mcp_identity",
+		Name:        "overmind_update_mcp_identity",
 		Description: "Update an MCP identity's name, integration, or credentials. Use after get_mcp_identity.",
 		Parameters: map[string]string{
 			"id":               "MCP Identity ID (UUID)",
 			"name":             "Identity name",
 			"integration_name": "Integration name",
-			"credentials":     "JSON object of credential key-value pairs",
+			"credentials":      "JSON object of credential key-value pairs",
 		},
 		Required: []string{"id"},
 	},
@@ -279,7 +279,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required:    []string{"id"},
 	},
 	{
-		Name: "overmind_create_mcp_role",
+		Name:        "overmind_create_mcp_role",
 		Description: `Create an MCP role. Roles are assigned to agents and contain entries that pair MCP identities with tool glob patterns.`,
 		Parameters: map[string]string{
 			"name":        "Unique role name",
@@ -288,7 +288,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required: []string{"name"},
 	},
 	{
-		Name: "overmind_update_mcp_role",
+		Name:        "overmind_update_mcp_role",
 		Description: "Update an MCP role's name or description. Use after get_mcp_role.",
 		Parameters: map[string]string{
 			"id":          "MCP Role ID (UUID)",
@@ -304,7 +304,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required:    []string{"id"},
 	},
 	{
-		Name: "overmind_create_mcp_role_entry",
+		Name:        "overmind_create_mcp_role_entry",
 		Description: `Add an entry to an MCP role. Each entry grants access to an MCP identity's integration, optionally restricted by tool glob patterns.`,
 		Parameters: map[string]string{
 			"role_id":         "MCP Role ID (UUID)",
@@ -314,7 +314,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required: []string{"role_id", "mcp_identity_id"},
 	},
 	{
-		Name: "overmind_update_mcp_role_entry",
+		Name:        "overmind_update_mcp_role_entry",
 		Description: "Update an MCP role entry's identity or tool glob patterns. Use after get_mcp_role.",
 		Parameters: map[string]string{
 			"role_id":         "MCP Role ID (UUID)",
@@ -349,7 +349,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required:    []string{"id"},
 	},
 	{
-		Name: "overmind_create_pipeline",
+		Name:        "overmind_create_pipeline",
 		Description: "Create a pipeline under a global context.",
 		Parameters: map[string]string{
 			"name":              "Pipeline name",
@@ -359,7 +359,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required: []string{"name", "global_context_id"},
 	},
 	{
-		Name: "overmind_update_pipeline",
+		Name:        "overmind_update_pipeline",
 		Description: "Update a pipeline's name or context. Use after get_pipeline.",
 		Parameters: map[string]string{
 			"id":      "Pipeline ID (UUID)",
@@ -389,7 +389,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required:    []string{"id"},
 	},
 	{
-		Name: "overmind_create_task",
+		Name:        "overmind_create_task",
 		Description: "Create a task within a pipeline.",
 		Parameters: map[string]string{
 			"name":        "Task name",
@@ -400,7 +400,7 @@ Call this when all work is done and results have been collected. After calling t
 		Required: []string{"name", "pipeline_id"},
 	},
 	{
-		Name: "overmind_update_task",
+		Name:        "overmind_update_task",
 		Description: "Update a task's name, context, or dependencies. Use after get_task.",
 		Parameters: map[string]string{
 			"id":         "Task ID (UUID)",
