@@ -26,6 +26,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
+	"github.com/daltoniam/switchboard/integrations/mixpanel"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
@@ -204,6 +205,7 @@ func runServer(stdioMode bool, port int) {
 		gmailIntegration,
 		homeassistant.New(),
 		jira.New(),
+		mixpanel.New(),
 		notionInt.New(),
 		gcpInt.New(),
 		suno.New(),

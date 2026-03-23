@@ -71,6 +71,12 @@ var envMapping = map[string]map[string]string{
 		"access_token": "RWX_ACCESS_TOKEN",
 		"cli_path":     "RWX_CLI_PATH",
 	},
+	"mixpanel": {
+		"username":   "MIXPANEL_USERNAME",
+		"secret":     "MIXPANEL_SECRET",
+		"project_id": "MIXPANEL_PROJECT_ID",
+		"base_url":   "MIXPANEL_URL",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -190,6 +196,10 @@ func defaultConfig() *mcp.Config {
 			"amazon": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"cookies": "", "domain": ""},
+			},
+			"mixpanel": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"username": "", "secret": "", "project_id": "", "base_url": ""},
 			},
 		},
 	}
