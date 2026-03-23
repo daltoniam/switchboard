@@ -81,14 +81,14 @@ func ExtractAllFromChromeForWeb() (int, error) {
 		return 0, fmt.Errorf("chrome extraction is only available on macOS")
 	}
 
-	workspaces, err := listWorkspacesFromChrome()
+	extractMu.Lock()
+	profiles, err := findChromeProfiles()
 	if err != nil {
-		return 0, err
+		extractMu.Unlock()
+		return 0, fmt.Errorf("could not find Chrome profiles: %w", err)
 	}
 
-	// Get the shared cookie (all workspaces use the same d= cookie).
-	extractMu.Lock()
-	profiles, _ := findChromeProfiles()
+	// Extract cookie and all workspace tokens in a single pass.
 	var cookie string
 	for _, profile := range profiles {
 		if c, err := extractCookieFromChrome(profile); err == nil {
@@ -96,7 +96,12 @@ func ExtractAllFromChromeForWeb() (int, error) {
 			break
 		}
 	}
+	workspaces := listWorkspacesWithTokensFromChrome(profiles)
 	extractMu.Unlock()
+
+	if len(workspaces) == 0 {
+		return 0, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in Chrome")
+	}
 
 	home, _ := os.UserHomeDir()
 	fp := filepath.Join(home, ".slack-mcp-tokens.json")
@@ -106,34 +111,20 @@ func ExtractAllFromChromeForWeb() (int, error) {
 	}
 	store.loadFromFile()
 
-	extracted := 0
 	for _, ws := range workspaces {
-		result := ExtractFromChromeForWeb(ws.TeamID)
-		if !result.Success {
-			continue
-		}
-		c := cookie
-		if result.Cookie != "" {
-			c = result.Cookie
-		}
 		store.setWorkspace(&workspace{
 			TeamID:   ws.TeamID,
 			TeamName: ws.Name,
-			Token:    result.Token,
-			Cookie:   c,
+			Token:    ws.Token,
+			Cookie:   cookie,
 			Source:   "chrome",
 		})
-		extracted++
-	}
-
-	if extracted == 0 {
-		return 0, fmt.Errorf("could not extract any workspace tokens from Chrome")
 	}
 
 	if err := store.saveToFile(); err != nil {
-		return extracted, err
+		return len(workspaces), err
 	}
-	return extracted, nil
+	return len(workspaces), nil
 }
 
 // SaveTokensForWeb saves the given token/cookie to the persistent file

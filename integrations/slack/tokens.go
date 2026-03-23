@@ -114,8 +114,9 @@ func (ts *tokenStore) removeWorkspace(teamID string) {
 	if ts.defaultTeamID == teamID {
 		ts.defaultTeamID = ""
 		for id := range ts.workspaces {
-			ts.defaultTeamID = id
-			break
+			if ts.defaultTeamID == "" || id < ts.defaultTeamID {
+				ts.defaultTeamID = id
+			}
 		}
 	}
 }
@@ -500,6 +501,44 @@ func listWorkspacesFromChrome() ([]WorkspaceInfo, error) {
 	return workspaces, nil
 }
 
+// chromeWorkspace is an internal type that includes the token from Chrome extraction.
+type chromeWorkspace struct {
+	TeamID string
+	Name   string
+	Token  string
+}
+
+// listWorkspacesWithTokensFromChrome scans all Chrome profiles and returns
+// every Slack workspace with its xoxc-* token. Unlike listWorkspacesFromChrome,
+// this includes the token so callers don't need to re-read the LevelDB.
+// Must be called with extractMu held.
+func listWorkspacesWithTokensFromChrome(profiles []string) []chromeWorkspace {
+	seen := make(map[string]bool)
+	var workspaces []chromeWorkspace
+	for _, profile := range profiles {
+		cfg, err := readSlackLocalConfig(profile)
+		if err != nil {
+			continue
+		}
+		for id, team := range cfg.Teams {
+			if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
+				continue
+			}
+			seen[id] = true
+			name := team.Name
+			if name == "" {
+				name = id
+			}
+			workspaces = append(workspaces, chromeWorkspace{
+				TeamID: id,
+				Name:   name,
+				Token:  team.Token,
+			})
+		}
+	}
+	return workspaces
+}
+
 // extractTokenFromLevelDB reads the xoxc-* token from Chrome's localStorage
 // LevelDB. Chrome holds a lock on the DB while running, so we copy the files
 // to a temp directory first. If teamID is non-empty, only that workspace's
@@ -731,7 +770,7 @@ func tokenStatus(_ context.Context, s *slackIntegration, args map[string]any) (*
 	})
 }
 
-func refreshTokens(_ context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
+func refreshTokens(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	teamID, _ := mcp.ArgStr(args, "team_id")
 
 	if teamID != "" {
@@ -758,7 +797,7 @@ func refreshTokens(_ context.Context, s *slackIntegration, args map[string]any) 
 	if client == nil {
 		return mcp.JSONResult(map[string]any{"status": "refreshed"})
 	}
-	resp, err := client.AuthTest()
+	resp, err := client.AuthTestContext(ctx)
 	if err != nil {
 		return errResult(fmt.Errorf("refreshed tokens but auth failed: %w", err))
 	}

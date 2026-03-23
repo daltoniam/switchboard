@@ -1,12 +1,14 @@
 package slack
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var xoxcPattern = regexp.MustCompile(`"token"\s*:\s*"(xoxc-[a-zA-Z0-9-]+)"`)
@@ -118,7 +120,9 @@ func (s *slackIntegration) tryRefreshViaCookieForTeam(teamID string) bool {
 	// Validate that the refreshed token still belongs to the expected workspace.
 	client := s.getClientForTeam(teamID)
 	if client != nil {
-		resp, err := client.AuthTest()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		resp, err := client.AuthTestContext(ctx)
 		if err != nil {
 			log.Printf("slack: cookie refresh auth test failed for %s: %v", teamID, err)
 			return false
