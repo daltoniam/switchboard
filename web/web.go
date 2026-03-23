@@ -52,6 +52,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/slack/list-workspaces", w.handleSlackListWorkspaces)
 	mux.HandleFunc("POST /api/slack/extract-chrome", w.handleSlackExtractChrome)
 	mux.HandleFunc("POST /api/slack/save-tokens", w.handleSlackSaveTokens)
+	mux.HandleFunc("POST /api/slack/set-default", w.handleSlackSetDefault)
 
 	mux.HandleFunc("GET /integrations/github/setup", w.handleGitHubSetup)
 	mux.HandleFunc("POST /api/github/oauth/start", w.handleGitHubOAuthStart)
@@ -324,6 +325,18 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 		CanAutoExtract: slackInt.CanExtractFromChrome(),
 		ExtractSnippet: slackInt.ExtractionSnippet(),
 		Healthy:        healthy,
+		WorkspaceCount: info.WorkspaceCount,
+		DefaultTeamID:  info.TeamID,
+	}
+
+	// Populate workspace list for the default workspace selector.
+	cwsList, _ := slackInt.GetConfiguredWorkspacesForWeb()
+	for _, cws := range cwsList {
+		data.Workspaces = append(data.Workspaces, pages.SlackWorkspaceItem{
+			TeamID:    cws.TeamID,
+			TeamName:  cws.TeamName,
+			IsDefault: cws.IsDefault,
+		})
 	}
 
 	if flash := r.URL.Query().Get("result"); flash != "" {
@@ -351,31 +364,23 @@ func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Req
 		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
 		return
 	}
-	teamID := strings.TrimSpace(r.FormValue("team_id"))
-	result := slackInt.ExtractFromChromeForWeb(teamID)
-	if !result.Success {
-		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(result.Error, " ", "+"), http.StatusSeeOther)
-		return
-	}
 
-	_, err := slackInt.SaveTokensForWeb(result.Token, result.Cookie)
+	count, err := slackInt.ExtractAllFromChromeForWeb()
 	if err != nil {
-		http.Redirect(rw, r, "/integrations/slack/setup?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
 		return
 	}
 
-	// Also save to config so the integration picks it up.
+	// Enable the integration in config.
 	ic, _ := w.services.Config.GetIntegration("slack")
 	if ic == nil {
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials["token"] = result.Token
-	ic.Credentials["cookie"] = result.Cookie
 	ic.Credentials["token_source"] = "chrome"
 	_ = w.services.Config.SetIntegration("slack", ic)
 
-	http.Redirect(rw, r, "/integrations/slack/setup?result=Tokens+extracted+from+Chrome+and+saved", http.StatusSeeOther)
+	http.Redirect(rw, r, fmt.Sprintf("/integrations/slack/setup?result=Extracted+%d+workspaces+from+Chrome", count), http.StatusSeeOther)
 }
 
 func (w *WebServer) handleGitHubSetup(rw http.ResponseWriter, r *http.Request) {
@@ -726,7 +731,7 @@ func (w *WebServer) handleSlackSaveTokens(rw http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	_, err := slackInt.SaveTokensForWeb(token, cookie)
+	_, err := slackInt.SaveTokensForWeb(token, cookie, "")
 	if err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
 		return
@@ -744,6 +749,34 @@ func (w *WebServer) handleSlackSaveTokens(rw http.ResponseWriter, r *http.Reques
 	_ = w.services.Config.SetIntegration("slack", ic)
 
 	http.Redirect(rw, r, "/integrations/slack/setup?result=Tokens+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleSlackSetDefault(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	teamID := strings.TrimSpace(r.FormValue("team_id"))
+	if teamID == "" {
+		http.Redirect(rw, r, "/integrations/slack/setup?error=No+workspace+selected", http.StatusSeeOther)
+		return
+	}
+
+	if err := slackInt.SetDefaultWorkspaceForWeb(teamID); err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	// Also update config.
+	ic, _ := w.services.Config.GetIntegration("slack")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials["team_id"] = teamID
+	_ = w.services.Config.SetIntegration("slack", ic)
+
+	http.Redirect(rw, r, "/integrations/slack/setup?result=Default+workspace+updated", http.StatusSeeOther)
 }
 
 func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {

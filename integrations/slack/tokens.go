@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -26,87 +27,228 @@ import (
 
 var _ *mcp.ToolResult // type anchor
 
-// --- token store ---
+// --- multi-workspace token store ---
 
-// tokenStore holds the current session token and cookie with thread-safe access.
+// workspace holds credentials for a single Slack workspace.
+type workspace struct {
+	TeamID    string    `json:"team_id"`
+	TeamName  string    `json:"team_name"`
+	Token     string    `json:"token"`
+	Cookie    string    `json:"cookie"`
+	Source    string    `json:"source"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// tokenStore holds credentials for multiple Slack workspaces.
 type tokenStore struct {
-	mu        sync.RWMutex
-	token     string
-	cookie    string
-	updatedAt time.Time
-	source    string
-	filePath  string
+	mu            sync.RWMutex
+	workspaces    map[string]*workspace // keyed by team_id
+	defaultTeamID string
+	filePath      string
 }
 
 func newTokenStore() *tokenStore {
 	home, _ := os.UserHomeDir()
 	return &tokenStore{
-		filePath: filepath.Join(home, ".slack-mcp-tokens.json"),
+		workspaces: make(map[string]*workspace),
+		filePath:   filepath.Join(home, ".slack-mcp-tokens.json"),
 	}
 }
 
-func (ts *tokenStore) get() (token, cookie string) {
+func (ts *tokenStore) getWorkspace(teamID string) *workspace {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
-	return ts.token, ts.cookie
+	if teamID == "" {
+		teamID = ts.defaultTeamID
+	}
+	ws := ts.workspaces[teamID]
+	if ws == nil {
+		return nil
+	}
+	cp := *ws
+	return &cp
 }
 
-func (ts *tokenStore) set(token, cookie string) {
+func (ts *tokenStore) getDefault() *workspace {
+	return ts.getWorkspace("")
+}
+
+func (ts *tokenStore) defaultID() string {
+	ts.mu.RLock()
+	defer ts.mu.RUnlock()
+	return ts.defaultTeamID
+}
+
+func (ts *tokenStore) setDefault(teamID string) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	ts.token = token
-	ts.cookie = cookie
-	ts.updatedAt = time.Now()
+	ts.defaultTeamID = teamID
 }
 
-func (ts *tokenStore) info() (token, cookie, source string, updatedAt time.Time) {
+func (ts *tokenStore) allWorkspaces() []*workspace {
 	ts.mu.RLock()
 	defer ts.mu.RUnlock()
-	return ts.token, ts.cookie, ts.source, ts.updatedAt
+	out := make([]*workspace, 0, len(ts.workspaces))
+	for _, ws := range ts.workspaces {
+		cp := *ws
+		out = append(out, &cp)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].TeamName < out[j].TeamName })
+	return out
 }
 
-// loadFromFile reads the persisted token file. Overwrites in-memory values
-// only if the file exists and contains valid data.
+func (ts *tokenStore) setWorkspace(ws *workspace) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ws.UpdatedAt = time.Now()
+	ts.workspaces[ws.TeamID] = ws
+	if ts.defaultTeamID == "" {
+		ts.defaultTeamID = ws.TeamID
+	}
+}
+
+func (ts *tokenStore) removeWorkspace(teamID string) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	delete(ts.workspaces, teamID)
+	if ts.defaultTeamID == teamID {
+		ts.defaultTeamID = ""
+		for id := range ts.workspaces {
+			if ts.defaultTeamID == "" || id < ts.defaultTeamID {
+				ts.defaultTeamID = id
+			}
+		}
+	}
+}
+
+func (ts *tokenStore) updateTokens(teamID, token, cookie string) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ws, ok := ts.workspaces[teamID]
+	if !ok {
+		ws = &workspace{TeamID: teamID}
+		ts.workspaces[teamID] = ws
+		if ts.defaultTeamID == "" {
+			ts.defaultTeamID = teamID
+		}
+	}
+	ws.Token = token
+	ws.Cookie = cookie
+	ws.UpdatedAt = time.Now()
+}
+
+// --- backward-compatible file persistence ---
+
+// tokenFileV2 is the new multi-workspace file format.
+type tokenFileV2 struct {
+	Version       int               `json:"version"`
+	DefaultTeamID string            `json:"default_team_id"`
+	Workspaces    []*tokenFileEntry `json:"workspaces"`
+}
+
+type tokenFileEntry struct {
+	TeamID    string `json:"team_id"`
+	TeamName  string `json:"team_name"`
+	Token     string `json:"token"`
+	Cookie    string `json:"cookie"`
+	Source    string `json:"source"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+// loadFromFile reads the persisted token file. Handles both the legacy
+// single-token format and the new multi-workspace format.
 func (ts *tokenStore) loadFromFile() {
 	data, err := os.ReadFile(ts.filePath)
 	if err != nil {
 		return
 	}
-	var f struct {
+
+	// Try v2 format first.
+	var v2 tokenFileV2
+	if err := json.Unmarshal(data, &v2); err == nil && v2.Version == 2 {
+		ts.mu.Lock()
+		defer ts.mu.Unlock()
+		for _, entry := range v2.Workspaces {
+			if entry.Token == "" {
+				continue
+			}
+			ws := &workspace{
+				TeamID:   entry.TeamID,
+				TeamName: entry.TeamName,
+				Token:    entry.Token,
+				Cookie:   entry.Cookie,
+				Source:   entry.Source,
+			}
+			if t, err := time.Parse(time.RFC3339, entry.UpdatedAt); err == nil {
+				ws.UpdatedAt = t
+			} else {
+				ws.UpdatedAt = time.Now()
+			}
+			ts.workspaces[ws.TeamID] = ws
+		}
+		if v2.DefaultTeamID != "" {
+			ts.defaultTeamID = v2.DefaultTeamID
+		}
+		return
+	}
+
+	// Fall back to legacy single-token format.
+	var legacy struct {
 		Token     string `json:"token"`
 		Cookie    string `json:"cookie"`
+		TeamID    string `json:"team_id"`
 		UpdatedAt string `json:"updated_at"`
 	}
-	if err := json.Unmarshal(data, &f); err != nil {
+	if err := json.Unmarshal(data, &legacy); err != nil || legacy.Token == "" {
 		return
 	}
-	if f.Token == "" {
-		return
-	}
+
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	ts.token = f.Token
-	ts.cookie = f.Cookie
-	ts.source = "file"
-	if t, err := time.Parse(time.RFC3339, f.UpdatedAt); err == nil {
-		ts.updatedAt = t
+	teamID := legacy.TeamID
+	if teamID == "" {
+		teamID = "_unknown"
+	}
+	ws := &workspace{
+		TeamID: teamID,
+		Token:  legacy.Token,
+		Cookie: legacy.Cookie,
+		Source: "file",
+	}
+	if t, err := time.Parse(time.RFC3339, legacy.UpdatedAt); err == nil {
+		ws.UpdatedAt = t
 	} else {
-		ts.updatedAt = time.Now()
+		ws.UpdatedAt = time.Now()
+	}
+	ts.workspaces[teamID] = ws
+	if ts.defaultTeamID == "" {
+		ts.defaultTeamID = teamID
 	}
 }
 
-// saveToFile atomically writes the current token/cookie to disk.
 func (ts *tokenStore) saveToFile() error {
 	ts.mu.RLock()
-	tok := ts.token
-	cook := ts.cookie
+	v2 := tokenFileV2{
+		Version:       2,
+		DefaultTeamID: ts.defaultTeamID,
+	}
+	for _, ws := range ts.workspaces {
+		v2.Workspaces = append(v2.Workspaces, &tokenFileEntry{
+			TeamID:    ws.TeamID,
+			TeamName:  ws.TeamName,
+			Token:     ws.Token,
+			Cookie:    ws.Cookie,
+			Source:    ws.Source,
+			UpdatedAt: ws.UpdatedAt.UTC().Format(time.RFC3339),
+		})
+	}
 	ts.mu.RUnlock()
 
-	data, err := json.MarshalIndent(map[string]string{
-		"token":      tok,
-		"cookie":     cook,
-		"updated_at": time.Now().UTC().Format(time.RFC3339),
-	}, "", "  ")
+	sort.Slice(v2.Workspaces, func(i, j int) bool {
+		return v2.Workspaces[i].TeamID < v2.Workspaces[j].TeamID
+	})
+
+	data, err := json.MarshalIndent(v2, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -116,6 +258,17 @@ func (ts *tokenStore) saveToFile() error {
 		return err
 	}
 	return os.Rename(tmp, ts.filePath)
+}
+
+// --- backward-compat helpers for single-workspace callers ---
+
+// get returns the default workspace's token and cookie.
+func (ts *tokenStore) get() (token, cookie string) {
+	ws := ts.getDefault()
+	if ws == nil {
+		return "", ""
+	}
+	return ws.Token, ws.Cookie
 }
 
 // --- Chrome extraction (macOS only) ---
@@ -133,8 +286,8 @@ type chromeTokens struct {
 
 var extractMu sync.Mutex
 
-func extractFromChrome() *chromeTokens {
-	result, _ := extractFromChromeWithError("")
+func extractFromChrome(teamID string) *chromeTokens {
+	result, _ := extractFromChromeWithError(teamID)
 	return result
 }
 
@@ -292,13 +445,13 @@ func readSlackLocalConfig(profilePath string) (*slackLocalConfig, error) {
 		return nil, fmt.Errorf("key not found in profile %s", filepath.Base(profilePath))
 	}
 
-	data := val
-	if len(data) > 0 && data[0] == 0x01 {
-		data = data[1:]
+	d := val
+	if len(d) > 0 && d[0] == 0x01 {
+		d = d[1:]
 	}
 
 	var cfg slackLocalConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	if err := json.Unmarshal(d, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing localConfig: %w", err)
 	}
 	return &cfg, nil
@@ -346,6 +499,44 @@ func listWorkspacesFromChrome() ([]WorkspaceInfo, error) {
 		return nil, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in Chrome, make sure you are logged in to Slack at app.slack.com")
 	}
 	return workspaces, nil
+}
+
+// chromeWorkspace is an internal type that includes the token from Chrome extraction.
+type chromeWorkspace struct {
+	TeamID string
+	Name   string
+	Token  string
+}
+
+// listWorkspacesWithTokensFromChrome scans all Chrome profiles and returns
+// every Slack workspace with its xoxc-* token. Unlike listWorkspacesFromChrome,
+// this includes the token so callers don't need to re-read the LevelDB.
+// Must be called with extractMu held.
+func listWorkspacesWithTokensFromChrome(profiles []string) []chromeWorkspace {
+	seen := make(map[string]bool)
+	var workspaces []chromeWorkspace
+	for _, profile := range profiles {
+		cfg, err := readSlackLocalConfig(profile)
+		if err != nil {
+			continue
+		}
+		for id, team := range cfg.Teams {
+			if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
+				continue
+			}
+			seen[id] = true
+			name := team.Name
+			if name == "" {
+				name = id
+			}
+			workspaces = append(workspaces, chromeWorkspace{
+				TeamID: id,
+				Name:   name,
+				Token:  team.Token,
+			})
+		}
+	}
+	return workspaces
 }
 
 // extractTokenFromLevelDB reads the xoxc-* token from Chrome's localStorage
@@ -514,60 +705,85 @@ func copyFile(src, dst string) error {
 
 // --- token management tool handlers ---
 
-func tokenStatus(_ context.Context, s *slackIntegration, _ map[string]any) (*mcp.ToolResult, error) {
-	tok, cookie, source, updatedAt := s.store.info()
-	ageHours := 0.0
-	if !updatedAt.IsZero() {
-		ageHours = math.Round(time.Since(updatedAt).Hours()*10) / 10
+func tokenStatus(_ context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
+	workspaces := s.store.allWorkspaces()
+	defaultID := s.store.defaultID()
+
+	type wsStatus struct {
+		TeamID    string  `json:"team_id"`
+		TeamName  string  `json:"team_name"`
+		Status    string  `json:"status"`
+		TokenType string  `json:"token_type"`
+		AgeHours  float64 `json:"age_hours"`
+		Source    string  `json:"source"`
+		IsDefault bool    `json:"is_default"`
 	}
 
-	tokenType := "unknown"
-	if strings.HasPrefix(tok, "xoxp-") {
-		tokenType = "oauth_user"
-	} else if strings.HasPrefix(tok, "xoxc-") {
-		tokenType = "browser_session"
-	} else if strings.HasPrefix(tok, "xoxb-") {
-		tokenType = "bot"
-	}
-
-	needsRefresh := tokenType == "browser_session"
-	status := "healthy"
-	if needsRefresh {
-		if ageHours > 10 {
-			status = "critical"
-		} else if ageHours > 6 {
-			status = "warning"
+	var statuses []wsStatus
+	for _, ws := range workspaces {
+		ageHours := 0.0
+		if !ws.UpdatedAt.IsZero() {
+			ageHours = math.Round(time.Since(ws.UpdatedAt).Hours()*10) / 10
 		}
+
+		tokenType := "unknown"
+		if strings.HasPrefix(ws.Token, "xoxp-") {
+			tokenType = "oauth_user"
+		} else if strings.HasPrefix(ws.Token, "xoxc-") {
+			tokenType = "browser_session"
+		} else if strings.HasPrefix(ws.Token, "xoxb-") {
+			tokenType = "bot"
+		}
+
+		status := "healthy"
+		if tokenType == "browser_session" {
+			if ageHours > 10 {
+				status = "critical"
+			} else if ageHours > 6 {
+				status = "warning"
+			}
+		}
+
+		statuses = append(statuses, wsStatus{
+			TeamID:    ws.TeamID,
+			TeamName:  ws.TeamName,
+			Status:    status,
+			TokenType: tokenType,
+			AgeHours:  ageHours,
+			Source:    ws.Source,
+			IsDefault: ws.TeamID == defaultID,
+		})
 	}
 
 	refreshInfo := map[string]any{
-		"enabled":        needsRefresh,
+		"enabled":        true,
 		"interval":       "4 hours",
-		"cookie_refresh": cookie != "" && needsRefresh,
 		"chrome_refresh": CanExtractFromChrome(),
 		"platform":       runtime.GOOS,
 	}
-	if !needsRefresh {
-		refreshInfo["note"] = "OAuth tokens (xoxp-) do not expire — no refresh needed"
-	}
 
 	return mcp.JSONResult(map[string]any{
-		"status":       status,
-		"token_type":   tokenType,
-		"age_hours":    ageHours,
-		"source":       source,
-		"updated_at":   updatedAt.Format(time.RFC3339),
-		"auto_refresh": refreshInfo,
+		"workspace_count": len(statuses),
+		"default_team_id": defaultID,
+		"workspaces":      statuses,
+		"auto_refresh":    refreshInfo,
 	})
 }
 
-func refreshTokens(_ context.Context, s *slackIntegration, _ map[string]any) (*mcp.ToolResult, error) {
-	tok, _ := s.store.get()
-	if strings.HasPrefix(tok, "xoxp-") {
-		return mcp.JSONResult(map[string]any{
-			"status": "not_needed",
-			"note":   "You have an OAuth token (xoxp-) which does not expire. No refresh needed.",
-		})
+func refreshTokens(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
+	teamID, _ := mcp.ArgStr(args, "team_id")
+
+	if teamID != "" {
+		ws := s.store.getWorkspace(teamID)
+		if ws == nil {
+			return &mcp.ToolResult{Data: fmt.Sprintf("unknown workspace: %s", teamID), IsError: true}, nil
+		}
+		if strings.HasPrefix(ws.Token, "xoxp-") {
+			return mcp.JSONResult(map[string]any{
+				"status": "not_needed",
+				"note":   "OAuth tokens (xoxp-) do not expire. No refresh needed.",
+			})
+		}
 	}
 
 	if ok := s.tryRefresh(); !ok {
@@ -577,7 +793,11 @@ func refreshTokens(_ context.Context, s *slackIntegration, _ map[string]any) (*m
 		}, nil
 	}
 
-	resp, err := s.getClient().AuthTest()
+	client := s.getClientForTeam(teamID)
+	if client == nil {
+		return mcp.JSONResult(map[string]any{"status": "refreshed"})
+	}
+	resp, err := client.AuthTestContext(ctx)
 	if err != nil {
 		return errResult(fmt.Errorf("refreshed tokens but auth failed: %w", err))
 	}
@@ -586,5 +806,31 @@ func refreshTokens(_ context.Context, s *slackIntegration, _ map[string]any) (*m
 		"user":    resp.User,
 		"team":    resp.Team,
 		"user_id": resp.UserID,
+	})
+}
+
+func listWorkspaces(_ context.Context, s *slackIntegration, _ map[string]any) (*mcp.ToolResult, error) {
+	workspaces := s.store.allWorkspaces()
+	defaultID := s.store.defaultID()
+
+	type wsInfo struct {
+		TeamID    string `json:"team_id"`
+		TeamName  string `json:"team_name"`
+		IsDefault bool   `json:"is_default"`
+	}
+
+	out := make([]wsInfo, 0, len(workspaces))
+	for _, ws := range workspaces {
+		out = append(out, wsInfo{
+			TeamID:    ws.TeamID,
+			TeamName:  ws.TeamName,
+			IsDefault: ws.TeamID == defaultID,
+		})
+	}
+
+	return mcp.JSONResult(map[string]any{
+		"count":           len(out),
+		"default_team_id": defaultID,
+		"workspaces":      out,
 	})
 }
