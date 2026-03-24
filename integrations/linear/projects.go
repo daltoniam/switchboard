@@ -62,7 +62,7 @@ func searchProjects(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 		}
 	}`, projectFields), map[string]any{
 		"term":  query,
-		"first": mcp.OptInt(args, "first", 50),
+		"first": mcp.OptInt(args, "first", 10),
 	})
 	if err != nil {
 		return mcp.ErrResult(err)
