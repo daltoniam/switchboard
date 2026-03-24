@@ -16,7 +16,15 @@ import (
 var (
 	_ mcp.Integration                = (*metabase)(nil)
 	_ mcp.FieldCompactionIntegration = (*metabase)(nil)
+	_ mcp.PlainTextCredentials       = (*metabase)(nil)
+	_ mcp.PlaceholderHints           = (*metabase)(nil)
 )
+
+func (m *metabase) PlainTextKeys() []string { return []string{"url"} }
+
+func (m *metabase) Placeholders() map[string]string {
+	return map[string]string{"url": "https://your-metabase-instance.com"}
+}
 
 type metabase struct {
 	apiKey  string

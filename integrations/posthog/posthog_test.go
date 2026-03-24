@@ -32,11 +32,10 @@ func TestConfigure_MissingAPIKey(t *testing.T) {
 	assert.Contains(t, err.Error(), "api_key is required")
 }
 
-func TestConfigure_MissingProjectID(t *testing.T) {
+func TestConfigure_NoProjectID(t *testing.T) {
 	i := New()
-	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "phx_test123", "project_id": ""})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "project_id is required")
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "phx_test123"})
+	assert.NoError(t, err)
 }
 
 func TestConfigure_CustomBaseURL(t *testing.T) {
@@ -208,10 +207,33 @@ func TestQueryEncode(t *testing.T) {
 }
 
 func TestProj(t *testing.T) {
-	p := &posthog{projectID: "default-proj"}
+	t.Run("with default", func(t *testing.T) {
+		p := &posthog{projectID: "default-proj"}
+		v, err := p.proj(map[string]any{})
+		assert.NoError(t, err)
+		assert.Equal(t, "default-proj", v)
+	})
 
-	assert.Equal(t, "default-proj", p.proj(map[string]any{}))
-	assert.Equal(t, "custom-proj", p.proj(map[string]any{"project_id": "custom-proj"}))
+	t.Run("override", func(t *testing.T) {
+		p := &posthog{projectID: "default-proj"}
+		v, err := p.proj(map[string]any{"project_id": "custom-proj"})
+		assert.NoError(t, err)
+		assert.Equal(t, "custom-proj", v)
+	})
+
+	t.Run("no default no arg", func(t *testing.T) {
+		p := &posthog{}
+		_, err := p.proj(map[string]any{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "project_id is required")
+	})
+
+	t.Run("no default with arg", func(t *testing.T) {
+		p := &posthog{}
+		v, err := p.proj(map[string]any{"project_id": "explicit"})
+		assert.NoError(t, err)
+		assert.Equal(t, "explicit", v)
+	})
 }
 
 func TestParseJSON_Valid(t *testing.T) {
@@ -383,6 +405,29 @@ func TestProjectOverride(t *testing.T) {
 	p := &posthog{apiKey: "token", projectID: "1", client: ts.Client(), baseURL: ts.URL}
 	result, err := p.Execute(context.Background(), "posthog_get_project", map[string]any{
 		"project_id": "99",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestNoDefaultProject_RequiresArg(t *testing.T) {
+	p := &posthog{apiKey: "token", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := p.Execute(context.Background(), "posthog_list_feature_flags", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "project_id is required")
+}
+
+func TestNoDefaultProject_WithArg(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.URL.Path, "/api/projects/42/feature_flags/")
+		_, _ = w.Write([]byte(`{"results":[]}`))
+	}))
+	defer ts.Close()
+
+	p := &posthog{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := p.Execute(context.Background(), "posthog_list_feature_flags", map[string]any{
+		"project_id": "42",
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)

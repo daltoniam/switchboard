@@ -9,18 +9,53 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"sort"
+
 	"github.com/daltoniam/switchboard/web/templates/components"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 )
 
+type CredentialField struct {
+	Key   string
+	Value string
+}
+
 type IntegrationDetailData struct {
-	Name           string
-	Enabled        bool
-	Healthy        bool
-	Credentials    map[string]string
-	CredentialKeys []string
-	PlainTextKeys  map[string]bool
-	Tools          []string
+	Name          string
+	Enabled       bool
+	Healthy       bool
+	Credentials   []CredentialField
+	PlainTextKeys map[string]bool
+	Placeholders  map[string]string
+	OptionalKeys  map[string]bool
+	Tools         []string
+}
+
+func SortedCredentials(creds map[string]string) []CredentialField {
+	keys := make([]string, 0, len(creds))
+	for k := range creds {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	fields := make([]CredentialField, len(keys))
+	for i, k := range keys {
+		fields[i] = CredentialField{Key: k, Value: creds[k]}
+	}
+	return fields
+}
+
+func credPlaceholder(key string, placeholders map[string]string) string {
+	if v, ok := placeholders[key]; ok {
+		return v
+	}
+	return "Enter " + key
+}
+
+func credLabel(key string, optionalKeys map[string]bool) string {
+	if optionalKeys[key] {
+		return key + " (optional)"
+	}
+	return key
 }
 
 func credInputType(key string, plainTextKeys map[string]bool) string {
@@ -70,7 +105,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 29, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 64, Col: 91}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -91,7 +126,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 			var templ_7745c5c3_Var4 templ.SafeURL
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/integrations/" + data.Name))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 32, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 67, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -109,8 +144,8 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for _, key := range data.CredentialKeys {
-				templ_7745c5c3_Err = components.FormGroup(key, "cred_"+key, credInputType(key, data.PlainTextKeys), data.Credentials[key], "Enter "+key).Render(ctx, templ_7745c5c3_Buffer)
+			for _, cred := range data.Credentials {
+				templ_7745c5c3_Err = components.FormGroup(credLabel(cred.Key, data.OptionalKeys), "cred_"+cred.Key, credInputType(cred.Key, data.PlainTextKeys), cred.Value, credPlaceholder(cred.Key, data.Placeholders)).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
