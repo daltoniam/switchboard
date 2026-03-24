@@ -316,7 +316,7 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 		}
 
 		if !result.IsError {
-			result.Data = processResult(integration, args.ToolName, result.Data)
+			result.Data = processResult(integration, args.ToolName, result.Data, pr.services.Metrics)
 
 			if len(result.Data) > maxResponseBytes {
 				return errorResult(fmt.Sprintf(

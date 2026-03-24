@@ -2,8 +2,10 @@ package pages
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
+	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/components"
 )
@@ -14,6 +16,8 @@ type DashboardData struct {
 	HealthyCount      int
 	TotalTools        int
 	Integrations      []IntegrationSummary
+	Metrics           *mcp.MetricsSnapshot
+	TopTools          []mcp.ToolRank
 }
 
 type IntegrationSummary struct {
@@ -62,33 +66,208 @@ func lastCheckLabel(t time.Time) string {
 	}
 }
 
+func formatUptime(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		h := int(d.Hours())
+		m := int(d.Minutes()) % 60
+		if m == 0 {
+			return fmt.Sprintf("%dh", h)
+		}
+		return fmt.Sprintf("%dh %dm", h, m)
+	}
+	days := int(d.Hours()) / 24
+	h := int(d.Hours()) % 24
+	if h == 0 {
+		return fmt.Sprintf("%dd", days)
+	}
+	return fmt.Sprintf("%dd %dh", days, h)
+}
+
+func formatLatency(d time.Duration) string {
+	if d < time.Millisecond {
+		return fmt.Sprintf("%dµs", d.Microseconds())
+	}
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.1fs", d.Seconds())
+}
+
+func formatBytes(b int64) string {
+	if b < 1024 {
+		return fmt.Sprintf("%dB", b)
+	}
+	if b < 1024*1024 {
+		return fmt.Sprintf("%.1fKB", float64(b)/1024)
+	}
+	return fmt.Sprintf("%.1fMB", float64(b)/(1024*1024))
+}
+
+func sortedIntegrationNames(m map[string]mcp.IntegrationSnapshot) []string {
+	names := make([]string, 0, len(m))
+	for name := range m {
+		names = append(names, name)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		return m[names[i]].Calls > m[names[j]].Calls
+	})
+	return names
+}
+
+func errorRatePct(snap *mcp.MetricsSnapshot) string {
+	if snap.TotalExecutions == 0 {
+		return "0"
+	}
+	rate := float64(snap.TotalErrors) / float64(snap.TotalExecutions) * 100
+	if rate < 1 && rate > 0 {
+		return fmt.Sprintf("%.1f", rate)
+	}
+	return fmt.Sprintf("%.0f", rate)
+}
+
 templ Dashboard(page layouts.PageData, data DashboardData) {
 	@layouts.Base(page) {
-		<h1 class="page-title">Dashboard</h1>
+		<div class="dash-header">
+			<h1 class="page-title">Dashboard</h1>
+			if data.Metrics != nil {
+				<span class="uptime-badge">up { formatUptime(data.Metrics.Uptime) }</span>
+			}
+		</div>
 		<div class="stats-grid">
 			@components.StatCard(data.TotalIntegrations, "Integrations")
 			@components.StatCard(data.EnabledCount, "Enabled")
 			@components.StatCard(data.HealthyCount, "Healthy")
 			@components.StatCard(data.TotalTools, "Total Tools")
 		</div>
-		<h2 style="font-size: 1.1rem; margin-bottom: 0.75rem;">Integrations</h2>
-		for _, i := range data.Integrations {
-			<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-link">
-				<div>
-					<span class="name">{ i.Name }</span>
-					<span style="margin-left: 0.5rem;">
-						@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
-					</span>
-					if i.Healthy && lastCheckLabel(i.LastCheck) != "" {
-						<span class="last-check">last check: { lastCheckLabel(i.LastCheck) }</span>
-					}
+		if data.Metrics != nil {
+			<section class="metrics-section">
+				<h2 class="section-title">Activity</h2>
+				<div class="metrics-grid">
+					<div class="metric-card">
+						<div class="metric-value">{ fmt.Sprint(data.Metrics.TotalExecutions) }</div>
+						<div class="metric-label">Executions</div>
+					</div>
+					<div class="metric-card">
+						<div class="metric-value">{ fmt.Sprint(data.Metrics.SearchCount) }</div>
+						<div class="metric-label">Searches</div>
+					</div>
+					<div class="metric-card">
+						<div class="metric-value">{ fmt.Sprint(data.Metrics.ScriptCount) }</div>
+						<div class="metric-label">Scripts</div>
+					</div>
+					<div class="metric-card">
+						<div class="metric-value">
+							<span class={ templ.KV("err-rate-warn", data.Metrics.ErrorRate() > 10) }>
+								{ errorRatePct(data.Metrics) }%
+							</span>
+						</div>
+						<div class="metric-label">Error Rate</div>
+					</div>
 				</div>
-				<div class="meta">
-					<span>{ fmt.Sprintf("%d tools", i.ToolCount) }</span>
-					<span>→</span>
-				</div>
-			</a>
+			</section>
+			if len(data.Metrics.Integrations) > 0 {
+				<section class="metrics-section">
+					<h2 class="section-title">Integration Usage</h2>
+					<div class="table-wrap">
+						<table class="metrics-table">
+							<thead>
+								<tr>
+									<th>Integration</th>
+									<th>Calls</th>
+									<th>Errors</th>
+									<th>Avg Latency</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, name := range sortedIntegrationNames(data.Metrics.Integrations) {
+									<tr>
+										<td class="integration-name-cell">
+											<a href={ templ.SafeURL("/integrations/" + name) }>{ name }</a>
+										</td>
+										<td class="num">{ fmt.Sprint(data.Metrics.Integrations[name].Calls) }</td>
+										<td class={ "num", templ.KV("has-errors", data.Metrics.Integrations[name].Errors > 0) }>
+											{ fmt.Sprint(data.Metrics.Integrations[name].Errors) }
+										</td>
+										<td class="num latency">{ formatLatency(data.Metrics.Integrations[name].AvgLatency) }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				</section>
+			}
+			<div class="metrics-row">
+				if len(data.TopTools) > 0 {
+					<section class="metrics-section metrics-half">
+						<h2 class="section-title">Top Tools</h2>
+						<div class="top-tools-list">
+							for rank, tool := range data.TopTools {
+								<div class="top-tool-item">
+									<span class="top-tool-rank">{ fmt.Sprint(rank + 1) }</span>
+									<span class="top-tool-name">{ tool.Name }</span>
+									<span class="top-tool-calls">{ fmt.Sprint(tool.Calls) }</span>
+								</div>
+							}
+						</div>
+					</section>
+				}
+				if data.Metrics.CompactionSamples > 0 || data.Metrics.TotalRetries > 0 || data.Metrics.Truncations > 0 {
+					<section class="metrics-section metrics-half">
+						<h2 class="section-title">Efficiency</h2>
+						<div class="efficiency-grid">
+							if data.Metrics.CompactionSamples > 0 {
+								<div class="efficiency-item">
+									<span class="efficiency-value">{ fmt.Sprint(data.Metrics.CompactionSavingsPct) }%</span>
+									<span class="efficiency-label">Compaction savings</span>
+								</div>
+								<div class="efficiency-item">
+									<span class="efficiency-value">{ formatBytes(data.Metrics.CompactionBytesSaved) }</span>
+									<span class="efficiency-label">Bytes saved</span>
+								</div>
+							}
+							if data.Metrics.TotalRetries > 0 {
+								<div class="efficiency-item">
+									<span class="efficiency-value">{ fmt.Sprint(data.Metrics.TotalRetries) }</span>
+									<span class="efficiency-label">Retries</span>
+								</div>
+							}
+							if data.Metrics.Truncations > 0 {
+								<div class="efficiency-item">
+									<span class="efficiency-value err-rate-warn">{ fmt.Sprint(data.Metrics.Truncations) }</span>
+									<span class="efficiency-label">Truncations</span>
+								</div>
+							}
+						</div>
+					</section>
+				}
+			</div>
 		}
+		<section class="metrics-section">
+			<h2 class="section-title">Integrations</h2>
+			for _, i := range data.Integrations {
+				<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-link">
+					<div>
+						<span class="name">{ i.Name }</span>
+						<span style="margin-left: 0.5rem;">
+							@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
+						</span>
+						if i.Healthy && lastCheckLabel(i.LastCheck) != "" {
+							<span class="last-check">{ lastCheckLabel(i.LastCheck) }</span>
+						}
+					</div>
+					<div class="meta">
+						<span>{ fmt.Sprintf("%d tools", i.ToolCount) }</span>
+						<span>→</span>
+					</div>
+				</a>
+			}
+		</section>
 		<div class="footer">
 			<p>Add to your MCP client config:</p>
 			<code>&#123; "mcpServers": &#123; "switchboard": &#123; "url": "http://localhost:3847/mcp" &#125; &#125; &#125;</code>

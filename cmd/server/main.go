@@ -225,6 +225,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		Config:   cfgMgr,
 		Registry: reg,
 		Browser:  browserSvc,
+		Metrics:  mcp.NewMetrics(),
 	}
 
 	gmail.SetConfigService(gmailIntegration, cfgMgr)

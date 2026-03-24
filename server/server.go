@@ -293,6 +293,9 @@ func (s *Server) buildSearchIndex() {
 }
 
 func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+	if s.services.Metrics != nil {
+		s.services.Metrics.RecordSearch()
+	}
 	var args struct {
 		Query       string `json:"query"`
 		Integration string `json:"integration"`
@@ -552,8 +555,11 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 			IsError: true,
 		}, nil
 	}
-	result.Data = processResult(integration, args.ToolName, result.Data)
+	result.Data = processResult(integration, args.ToolName, result.Data, s.services.Metrics)
 	if len(result.Data) > maxResponseBytes {
+		if s.services.Metrics != nil {
+			s.services.Metrics.RecordTruncation()
+		}
 		return errorResult(fmt.Sprintf(
 			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
 			maxResponseBytes/1024,
@@ -570,6 +576,9 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 const maxScriptRetries = 10
 
 func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsdk.CallToolResult, error) {
+	if s.services.Metrics != nil {
+		s.services.Metrics.RecordScript()
+	}
 	ctx = withRetryBudget(ctx, maxScriptRetries)
 	result, err := s.scriptEngine.Run(ctx, source)
 	if err != nil {
@@ -583,6 +592,9 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 	}
 	result.Data = columnarizeResult(result.Data)
 	if len(result.Data) > maxResponseBytes {
+		if s.services.Metrics != nil {
+			s.services.Metrics.RecordTruncation()
+		}
 		return errorResult(fmt.Sprintf(
 			"Script output exceeded %dKB (actual: %dKB). Return only the fields you need from each api.call() result.",
 			maxResponseBytes/1024,
@@ -598,7 +610,7 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 
 // processResult applies compaction and columnarization in a single parse/serialize cycle.
 // Parses JSON once, applies compact specs (if any), columnarizes arrays, and serializes once.
-func processResult(integration mcp.Integration, toolName string, data string) string {
+func processResult(integration mcp.Integration, toolName string, data string, metrics *mcp.Metrics) string {
 	trimmed := strings.TrimLeft(data, " \t\n\r")
 	if len(trimmed) == 0 || (trimmed[0] != '[' && trimmed[0] != '{') {
 		return data
@@ -636,6 +648,10 @@ func processResult(integration mcp.Integration, toolName string, data string) st
 			"after_bytes", len(result),
 			"savings_pct", savings,
 		)
+	}
+
+	if metrics != nil {
+		metrics.RecordCompaction(toolName, originalLen, len(result))
 	}
 
 	return string(result)
@@ -689,6 +705,7 @@ func (s *Server) getBreaker(integrationName string) *breaker {
 // Retries automatically on RetryableError (5xx, 429) with exponential backoff.
 // Respects per-integration circuit breakers to avoid hammering down services.
 func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (mcp.Integration, *mcp.ToolResult, error) {
+	start := time.Now()
 	integration, toolDef, err := s.findTool(toolName)
 	if err != nil {
 		return nil, &mcp.ToolResult{
@@ -703,6 +720,9 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 
 	cb := s.getBreaker(integration.Name())
 	if !cb.allow() {
+		if s.services.Metrics != nil {
+			s.services.Metrics.RecordCircuitBreak(integration.Name())
+		}
 		return nil, &mcp.ToolResult{
 			Data: fmt.Sprintf(
 				"integration %q temporarily unavailable (circuit breaker open, try again in ~%ds). Other integrations still work.",
@@ -713,14 +733,21 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 	}
 
 	var lastErr error
+	retries := 0
 	for attempt := range maxRetries {
 		result, err := integration.Execute(ctx, toolName, args)
 		if err == nil {
 			cb.recordSuccess()
+			if s.services.Metrics != nil {
+				s.services.Metrics.RecordExecution(integration.Name(), toolName, time.Since(start), false, retries)
+			}
 			return integration, result, nil
 		}
 
 		if !mcp.IsRetryable(err) {
+			if s.services.Metrics != nil {
+				s.services.Metrics.RecordExecution(integration.Name(), toolName, time.Since(start), true, retries)
+			}
 			return nil, result, err
 		}
 		lastErr = err
@@ -730,6 +757,7 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 		if !consumeRetry(ctx) {
 			break // script retry budget exhausted
 		}
+		retries++
 		backoff := s.computeBackoff(attempt)
 		// Prefer server-suggested Retry-After over computed backoff.
 		var re *mcp.RetryableError
@@ -745,6 +773,9 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 
 	// All retries exhausted — record one failure per call (not per attempt).
 	cb.recordFailure()
+	if s.services.Metrics != nil {
+		s.services.Metrics.RecordExecution(integration.Name(), toolName, time.Since(start), true, retries)
+	}
 	return nil, &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }
 

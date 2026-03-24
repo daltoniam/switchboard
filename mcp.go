@@ -154,6 +154,10 @@ type HealthStatus struct {
 	Error   string `json:"error,omitempty"`
 }
 
+// MetricsRecorder is satisfied by *Metrics and allows nil-safe recording.
+// The server checks for nil before calling methods.
+type MetricsRecorder = Metrics
+
 // --- Port Interfaces (the hexagonal boundaries) ---
 
 // Integration is the primary port that all integration adapters implement.
@@ -230,6 +234,7 @@ type Services struct {
 	Config   ConfigService
 	Registry Registry
 	Browser  BrowserService // nil if playwright driver is not installed
+	Metrics  *Metrics       // nil until initialized; callers must nil-check
 }
 
 // BrowserService manages browser lifecycle for web automation.

@@ -85,6 +85,7 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
+	mux.HandleFunc("GET /api/metrics", w.handleMetricsAPI)
 
 	return mux
 }
@@ -158,6 +159,12 @@ func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 		HealthyCount:      healthyCount,
 		TotalTools:        totalTools,
 		Integrations:      summaries,
+	}
+
+	if w.services.Metrics != nil {
+		snap := w.services.Metrics.Snapshot()
+		data.Metrics = &snap
+		data.TopTools = w.services.Metrics.TopTools(5)
 	}
 
 	pages.Dashboard(page, data).Render(r.Context(), rw)
@@ -1083,4 +1090,14 @@ func (w *WebServer) handleGmailSaveOAuthCredentials(rw http.ResponseWriter, r *h
 	_ = w.services.Config.SetIntegration("gmail", ic)
 
 	http.Redirect(rw, r, "/integrations/gmail/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleMetricsAPI(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	if w.services.Metrics == nil {
+		rw.Write([]byte(`{"error":"metrics not initialized"}`))
+		return
+	}
+	snap := w.services.Metrics.Snapshot()
+	json.NewEncoder(rw).Encode(snap)
 }
