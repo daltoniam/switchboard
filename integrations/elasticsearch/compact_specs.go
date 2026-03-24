@@ -9,11 +9,14 @@ import (
 var rawFieldCompactionSpecs = map[string][]string{
 	// ── Cluster ──────────────────────────────────────────────────────
 	"elasticsearch_cluster_health": {"cluster_name", "status", "number_of_nodes", "number_of_data_nodes", "active_primary_shards", "active_shards", "relocating_shards", "initializing_shards", "unassigned_shards", "pending_tasks"},
+	"elasticsearch_cluster_stats":  {"cluster_name", "status", "nodes.count", "nodes.jvm.mem", "nodes.fs", "indices.count", "indices.docs", "indices.store"},
+	"elasticsearch_node_stats":     {"nodes.*"},
 	"elasticsearch_cat_nodes":      {"name", "ip", "heap.percent", "ram.percent", "cpu", "load_1m", "node.role", "master", "version"},
 	"elasticsearch_pending_tasks":  {"tasks"},
 
 	// ── Indices ──────────────────────────────────────────────────────
 	"elasticsearch_list_indices": {"index", "health", "status", "docs.count", "store.size", "pri", "rep"},
+	"elasticsearch_index_stats":  {"_all.total.indexing", "_all.total.search", "_all.total.store", "_all.total.docs"},
 	"elasticsearch_get_mapping":  {"-defaults"},
 	"elasticsearch_get_settings": {"-defaults"},
 

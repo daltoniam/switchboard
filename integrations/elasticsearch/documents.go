@@ -172,30 +172,30 @@ func bulkOp(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResult
 
 		switch action {
 		case "index":
-			line, _ := json.Marshal(map[string]any{"index": meta})
-			buf.Write(line)
-			buf.WriteByte('\n')
-			docLine, _ := json.Marshal(doc)
-			buf.Write(docLine)
-			buf.WriteByte('\n')
+			if err := ndjsonLine(&buf, map[string]any{"index": meta}); err != nil {
+				return mcp.ErrResult(err)
+			}
+			if err := ndjsonLine(&buf, doc); err != nil {
+				return mcp.ErrResult(err)
+			}
 		case "create":
-			line, _ := json.Marshal(map[string]any{"create": meta})
-			buf.Write(line)
-			buf.WriteByte('\n')
-			docLine, _ := json.Marshal(doc)
-			buf.Write(docLine)
-			buf.WriteByte('\n')
+			if err := ndjsonLine(&buf, map[string]any{"create": meta}); err != nil {
+				return mcp.ErrResult(err)
+			}
+			if err := ndjsonLine(&buf, doc); err != nil {
+				return mcp.ErrResult(err)
+			}
 		case "update":
-			line, _ := json.Marshal(map[string]any{"update": meta})
-			buf.Write(line)
-			buf.WriteByte('\n')
-			updateBody, _ := json.Marshal(map[string]any{"doc": doc})
-			buf.Write(updateBody)
-			buf.WriteByte('\n')
+			if err := ndjsonLine(&buf, map[string]any{"update": meta}); err != nil {
+				return mcp.ErrResult(err)
+			}
+			if err := ndjsonLine(&buf, map[string]any{"doc": doc}); err != nil {
+				return mcp.ErrResult(err)
+			}
 		case "delete":
-			line, _ := json.Marshal(map[string]any{"delete": meta})
-			buf.Write(line)
-			buf.WriteByte('\n')
+			if err := ndjsonLine(&buf, map[string]any{"delete": meta}); err != nil {
+				return mcp.ErrResult(err)
+			}
 		default:
 			return mcp.ErrResult(fmt.Errorf("unknown action %q (valid: index, create, update, delete)", action))
 		}
@@ -345,4 +345,14 @@ func updateByQuery(ctx context.Context, e *esInt, args map[string]any) (*mcp.Too
 		return mcp.ErrResult(err)
 	}
 	return mcp.RawResult(data)
+}
+
+func ndjsonLine(buf *bytes.Buffer, v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	buf.Write(data)
+	buf.WriteByte('\n')
+	return nil
 }

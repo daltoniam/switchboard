@@ -229,7 +229,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "elasticsearch_reindex",
-		Description: "Copy documents from one index to another, optionally transforming with a script or filtering with a query",
+		Description: "Copy documents from one index to another, optionally transforming with a script or filtering with a query. Runs asynchronously — returns a task ID that can be monitored with elasticsearch_list_tasks",
 		Parameters: map[string]string{
 			"source_index": "Source index name",
 			"dest_index":   "Destination index name",
