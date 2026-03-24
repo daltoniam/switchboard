@@ -84,10 +84,10 @@ var envMapping = map[string]map[string]string{
 		"flow_run_id":  "OVERMIND_FLOW_RUN_ID",
 	},
 	"elasticsearch": {
-		"base_url":  "ELASTICSEARCH_URL",
-		"api_key":   "ELASTICSEARCH_API_KEY",
-		"username":  "ELASTICSEARCH_USERNAME",
-		"password":  "ELASTICSEARCH_PASSWORD",
+		"base_url": "ELASTICSEARCH_URL",
+		"api_key":  "ELASTICSEARCH_API_KEY",
+		"username": "ELASTICSEARCH_USERNAME",
+		"password": "ELASTICSEARCH_PASSWORD",
 	},
 }
 
