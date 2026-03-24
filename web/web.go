@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -226,14 +227,21 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 		tools = append(tools, t.Name)
 	}
 
+	credKeys := make([]string, 0, len(creds))
+	for k := range creds {
+		credKeys = append(credKeys, k)
+	}
+	sort.Strings(credKeys)
+
 	page := w.pageData(r, integration.Name(), "/integrations")
 	data := pages.IntegrationDetailData{
-		Name:          name,
-		Enabled:       enabled,
-		Healthy:       healthy,
-		Credentials:   creds,
-		PlainTextKeys: plainTextKeys,
-		Tools:         tools,
+		Name:           name,
+		Enabled:        enabled,
+		Healthy:        healthy,
+		Credentials:    creds,
+		CredentialKeys: credKeys,
+		PlainTextKeys:  plainTextKeys,
+		Tools:          tools,
 	}
 
 	pages.IntegrationDetail(page, data).Render(r.Context(), rw)

@@ -15,6 +15,7 @@ import (
 var (
 	_ mcp.Integration                = (*esInt)(nil)
 	_ mcp.FieldCompactionIntegration = (*esInt)(nil)
+	_ mcp.PlainTextCredentials       = (*esInt)(nil)
 )
 
 type esInt struct {
@@ -74,6 +75,10 @@ func (e *esInt) Execute(ctx context.Context, toolName string, args map[string]an
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
 	}
 	return fn(ctx, e, args)
+}
+
+func (e *esInt) PlainTextKeys() []string {
+	return []string{"base_url", "username"}
 }
 
 type handlerFunc func(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResult, error)
