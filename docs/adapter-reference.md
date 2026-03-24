@@ -21,7 +21,7 @@ Only `slack`, `aws`, `notion`, and `gcp` require aliases to avoid collision with
 | `.../switchboard/integrations/github` | `ghInt` | `web/web.go` |
 | `.../switchboard/integrations/linear` | `linearInt` | `web/web.go` |
 | `.../switchboard/integrations/sentry` | `sentryInt` | `web/web.go` |
-| `.../switchboard/gcp` | `gcpInt` | `cmd/server/main.go` |
+| `.../switchboard/integrations/gcp` | `gcpInt` | `cmd/server/main.go` |
 
 ### Tool Naming
 Tools are prefixed with integration name: `github_search_repos`, `datadog_search_logs`, `linear_list_issues`, `sentry_list_issues`.

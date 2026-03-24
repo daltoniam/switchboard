@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -222,26 +221,33 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	placeholders := map[string]string{}
+	if ph, ok := integration.(mcp.PlaceholderHints); ok {
+		placeholders = ph.Placeholders()
+	}
+
+	optionalKeys := map[string]bool{}
+	if oc, ok := integration.(mcp.OptionalCredentials); ok {
+		for _, k := range oc.OptionalKeys() {
+			optionalKeys[k] = true
+		}
+	}
+
 	var tools []string
 	for _, t := range integration.Tools() {
 		tools = append(tools, t.Name)
 	}
 
-	credKeys := make([]string, 0, len(creds))
-	for k := range creds {
-		credKeys = append(credKeys, k)
-	}
-	sort.Strings(credKeys)
-
 	page := w.pageData(r, integration.Name(), "/integrations")
 	data := pages.IntegrationDetailData{
-		Name:           name,
-		Enabled:        enabled,
-		Healthy:        healthy,
-		Credentials:    creds,
-		CredentialKeys: credKeys,
-		PlainTextKeys:  plainTextKeys,
-		Tools:          tools,
+		Name:          name,
+		Enabled:       enabled,
+		Healthy:       healthy,
+		Credentials:   pages.SortedCredentials(creds),
+		PlainTextKeys: plainTextKeys,
+		Placeholders:  placeholders,
+		OptionalKeys:  optionalKeys,
+		Tools:         tools,
 	}
 
 	pages.IntegrationDetail(page, data).Render(r.Context(), rw)

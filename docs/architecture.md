@@ -164,19 +164,19 @@ integrations/
     budgets.go               User, budgets, budget settings, accounts handlers
     categories.go            Categories, payees, months handlers
     transactions.go          Transactions, scheduled transactions handlers
-gcp/
-  gcp.go                     GCP integration adapter (core, dispatch, typed SDK clients, helpers)
-  tools.go                   GCP tool definitions (~55 tools)
-  resourcemanager.go         Projects, folders, IAM policy handlers
-  storage.go                 Cloud Storage buckets, objects CRUD, copy handlers
-  compute.go                 Compute Engine instances, disks, networks, subnetworks, firewalls handlers
-  functions.go               Cloud Functions list, get, IAM policy handlers
-  iam.go                     IAM service accounts, keys, roles handlers
-  monitoring.go              Cloud Monitoring metrics, time series, alert policies handlers
-  run.go                     Cloud Run services, revisions handlers
-  pubsub.go                  Pub/Sub topics, subscriptions, publish, pull handlers
-  firestore.go               Firestore collections, documents CRUD, query handlers
-  logging.go                 Cloud Logging entries, log names, sinks handlers
+  gcp/
+    gcp.go                   GCP integration adapter (core, dispatch, typed SDK clients, helpers)
+    tools.go                 GCP tool definitions (~55 tools)
+    resourcemanager.go       Projects, folders, IAM policy handlers
+    storage.go               Cloud Storage buckets, objects CRUD, copy handlers
+    compute.go               Compute Engine instances, disks, networks, subnetworks, firewalls handlers
+    functions.go             Cloud Functions list, get, IAM policy handlers
+    iam.go                   IAM service accounts, keys, roles handlers
+    monitoring.go            Cloud Monitoring metrics, time series, alert policies handlers
+    run.go                   Cloud Run services, revisions handlers
+    pubsub.go                Pub/Sub topics, subscriptions, publish, pull handlers
+    firestore.go             Firestore collections, documents CRUD, query handlers
+    logging.go               Cloud Logging entries, log names, sinks handlers
 web/
   web.go                     Web UI HTTP server for config dashboard + Slack token setup routes
   templates/                 Templ-based templates — do not edit *_templ.go (generated)

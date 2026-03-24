@@ -193,6 +193,18 @@ type PlainTextCredentials interface {
 	PlainTextKeys() []string
 }
 
+// PlaceholderHints is an optional interface that integrations can implement
+// to provide custom placeholder text for credential input fields in the web UI.
+type PlaceholderHints interface {
+	Placeholders() map[string]string
+}
+
+// OptionalCredentials is an optional interface that integrations can implement
+// to declare which credential keys are not required, so the web UI can label them.
+type OptionalCredentials interface {
+	OptionalKeys() []string
+}
+
 // ConfigService manages loading and saving configuration.
 type ConfigService interface {
 	Load() error

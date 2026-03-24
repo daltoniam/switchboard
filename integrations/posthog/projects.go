@@ -24,7 +24,11 @@ func listProjects(ctx context.Context, p *posthog, args map[string]any) (*mcp.To
 }
 
 func getProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/", p.proj(args))
+	projID, err := p.proj(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/", projID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -45,6 +49,10 @@ func createProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 }
 
 func updateProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	projID, err := p.proj(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	name, err := mcp.ArgStr(args, "name")
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -53,7 +61,7 @@ func updateProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 	if name != "" {
 		body["name"] = name
 	}
-	path := fmt.Sprintf("/api/projects/%s/", p.proj(args))
+	path := fmt.Sprintf("/api/projects/%s/", projID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -61,8 +69,6 @@ func updateProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 	return mcp.RawResult(data)
 }
 
-// Intentionally uses mcp.ArgStr instead of p.proj to require an explicit project_id,
-// preventing accidental deletion of the default project.
 func deleteProject(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
 	projectID, err := mcp.ArgStr(args, "project_id")
 	if err != nil {

@@ -1,18 +1,53 @@
 package pages
 
 import (
+	"sort"
+
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/components"
 )
 
+type CredentialField struct {
+	Key   string
+	Value string
+}
+
 type IntegrationDetailData struct {
-	Name           string
-	Enabled        bool
-	Healthy        bool
-	Credentials    map[string]string
-	CredentialKeys []string
-	PlainTextKeys  map[string]bool
-	Tools          []string
+	Name          string
+	Enabled       bool
+	Healthy       bool
+	Credentials   []CredentialField
+	PlainTextKeys map[string]bool
+	Placeholders  map[string]string
+	OptionalKeys  map[string]bool
+	Tools         []string
+}
+
+func SortedCredentials(creds map[string]string) []CredentialField {
+	keys := make([]string, 0, len(creds))
+	for k := range creds {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	fields := make([]CredentialField, len(keys))
+	for i, k := range keys {
+		fields[i] = CredentialField{Key: k, Value: creds[k]}
+	}
+	return fields
+}
+
+func credPlaceholder(key string, placeholders map[string]string) string {
+	if v, ok := placeholders[key]; ok {
+		return v
+	}
+	return "Enter " + key
+}
+
+func credLabel(key string, optionalKeys map[string]bool) string {
+	if optionalKeys[key] {
+		return key + " (optional)"
+	}
+	return key
 }
 
 func credInputType(key string, plainTextKeys map[string]bool) string {
@@ -36,8 +71,8 @@ templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
 					@components.Toggle("enabled", data.Enabled)
 				</div>
 				<div>
-						for _, key := range data.CredentialKeys {
-						@components.FormGroup(key, "cred_" + key, credInputType(key, data.PlainTextKeys), data.Credentials[key], "Enter " + key)
+					for _, cred := range data.Credentials {
+						@components.FormGroup(credLabel(cred.Key, data.OptionalKeys), "cred_" + cred.Key, credInputType(cred.Key, data.PlainTextKeys), cred.Value, credPlaceholder(cred.Key, data.Placeholders))
 					}
 				</div>
 			</div>

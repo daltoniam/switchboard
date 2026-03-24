@@ -15,7 +15,7 @@ import (
 	"github.com/daltoniam/switchboard/browser"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
-	gcpInt "github.com/daltoniam/switchboard/gcp"
+	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"

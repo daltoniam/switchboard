@@ -27,7 +27,21 @@ const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 var (
 	_ mcp.Integration                = (*posthog)(nil)
 	_ mcp.FieldCompactionIntegration = (*posthog)(nil)
+	_ mcp.PlainTextCredentials       = (*posthog)(nil)
+	_ mcp.PlaceholderHints           = (*posthog)(nil)
+	_ mcp.OptionalCredentials        = (*posthog)(nil)
 )
+
+func (p *posthog) PlainTextKeys() []string { return []string{"project_id", "base_url"} }
+
+func (p *posthog) Placeholders() map[string]string {
+	return map[string]string{
+		"project_id": "Default project ID (leave blank to specify per-request)",
+		"base_url":   "https://us.posthog.com (default) or https://eu.posthog.com",
+	}
+}
+
+func (p *posthog) OptionalKeys() []string { return []string{"project_id", "base_url"} }
 
 func New() mcp.Integration {
 	return &posthog{
@@ -44,9 +58,6 @@ func (p *posthog) Configure(_ context.Context, creds mcp.Credentials) error {
 	if p.apiKey == "" {
 		return fmt.Errorf("posthog: api_key is required")
 	}
-	if p.projectID == "" {
-		return fmt.Errorf("posthog: project_id is required")
-	}
 	if v := creds["base_url"]; v != "" {
 		p.baseURL = strings.TrimRight(v, "/")
 	}
@@ -54,7 +65,11 @@ func (p *posthog) Configure(_ context.Context, creds mcp.Credentials) error {
 }
 
 func (p *posthog) Healthy(ctx context.Context) bool {
-	_, err := p.get(ctx, "/api/projects/%s/", p.projectID)
+	if p.projectID != "" {
+		_, err := p.get(ctx, "/api/projects/%s/", p.projectID)
+		return err == nil
+	}
+	_, err := p.get(ctx, "/api/projects/")
 	return err == nil
 }
 
@@ -172,11 +187,15 @@ func queryEncode(params map[string]string) string {
 }
 
 // proj returns the project ID from args, falling back to the configured default.
-func (p *posthog) proj(args map[string]any) string {
+// Returns an error if no project ID is available from either source.
+func (p *posthog) proj(args map[string]any) (string, error) {
 	if v, _ := mcp.ArgStr(args, "project_id"); v != "" {
-		return v
+		return v, nil
 	}
-	return p.projectID
+	if p.projectID != "" {
+		return p.projectID, nil
+	}
+	return "", fmt.Errorf("project_id is required (no default configured)")
 }
 
 // --- Dispatch map ---
