@@ -133,7 +133,7 @@ func TestMetrics_Uptime(t *testing.T) {
 	m := NewMetrics()
 	time.Sleep(10 * time.Millisecond)
 	snap := m.Snapshot()
-	assert.Greater(t, snap.Uptime, time.Duration(0))
+	assert.Greater(t, snap.UptimeSeconds, float64(0))
 }
 
 func TestMetrics_CompactionSampleCap(t *testing.T) {

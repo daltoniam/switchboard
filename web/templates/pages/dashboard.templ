@@ -66,7 +66,8 @@ func lastCheckLabel(t time.Time) string {
 	}
 }
 
-func formatUptime(d time.Duration) string {
+func formatUptime(secs float64) string {
+	d := time.Duration(secs * float64(time.Second))
 	if d < time.Minute {
 		return fmt.Sprintf("%ds", int(d.Seconds()))
 	}
@@ -89,14 +90,14 @@ func formatUptime(d time.Duration) string {
 	return fmt.Sprintf("%dd %dh", days, h)
 }
 
-func formatLatency(d time.Duration) string {
-	if d < time.Millisecond {
-		return fmt.Sprintf("%dµs", d.Microseconds())
+func formatLatency(ms float64) string {
+	if ms < 1 {
+		return fmt.Sprintf("%dµs", int(ms*1000))
 	}
-	if d < time.Second {
-		return fmt.Sprintf("%dms", d.Milliseconds())
+	if ms < 1000 {
+		return fmt.Sprintf("%dms", int(ms))
 	}
-	return fmt.Sprintf("%.1fs", d.Seconds())
+	return fmt.Sprintf("%.1fs", ms/1000)
 }
 
 func formatBytes(b int64) string {
@@ -136,7 +137,7 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 		<div class="dash-header">
 			<h1 class="page-title">Dashboard</h1>
 			if data.Metrics != nil {
-				<span class="uptime-badge">up { formatUptime(data.Metrics.Uptime) }</span>
+				<span class="uptime-badge">up { formatUptime(data.Metrics.UptimeSeconds) }</span>
 			}
 		</div>
 		<div class="stats-grid">
@@ -194,7 +195,7 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 										<td class={ "num", templ.KV("has-errors", data.Metrics.Integrations[name].Errors > 0) }>
 											{ fmt.Sprint(data.Metrics.Integrations[name].Errors) }
 										</td>
-										<td class="num latency">{ formatLatency(data.Metrics.Integrations[name].AvgLatency) }</td>
+										<td class="num latency">{ formatLatency(data.Metrics.Integrations[name].AvgLatencyMs) }</td>
 									</tr>
 								}
 							</tbody>

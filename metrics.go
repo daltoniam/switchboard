@@ -139,7 +139,7 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 	defer m.mu.RUnlock()
 
 	s := MetricsSnapshot{
-		Uptime:          time.Since(m.startTime),
+		UptimeSeconds:   time.Since(m.startTime).Seconds(),
 		TotalExecutions: m.totalExecutions.Load(),
 		TotalErrors:     m.totalErrors.Load(),
 		TotalRetries:    m.totalRetries.Load(),
@@ -158,10 +158,10 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 			avgNs = tm.TotalNs.Load() / calls
 		}
 		s.Tools[name] = ToolSnapshot{
-			Calls:      calls,
-			Errors:     tm.Errors.Load(),
-			AvgLatency: time.Duration(avgNs),
-			Retries:    tm.Retries.Load(),
+			Calls:        calls,
+			Errors:       tm.Errors.Load(),
+			AvgLatencyMs: float64(avgNs) / 1e6,
+			Retries:      tm.Retries.Load(),
 		}
 	}
 
@@ -172,9 +172,9 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 			avgNs = im.TotalNs.Load() / calls
 		}
 		s.Integrations[name] = IntegrationSnapshot{
-			Calls:      calls,
-			Errors:     im.Errors.Load(),
-			AvgLatency: time.Duration(avgNs),
+			Calls:        calls,
+			Errors:       im.Errors.Load(),
+			AvgLatencyMs: float64(avgNs) / 1e6,
 		}
 	}
 
@@ -209,8 +209,11 @@ func (m *Metrics) TopTools(n int) []ToolRank {
 			Calls: tm.Calls.Load(),
 		})
 	}
-	sort.Slice(ranks, func(i, j int) bool {
-		return ranks[i].Calls > ranks[j].Calls
+	sort.SliceStable(ranks, func(i, j int) bool {
+		if ranks[i].Calls != ranks[j].Calls {
+			return ranks[i].Calls > ranks[j].Calls
+		}
+		return ranks[i].Name < ranks[j].Name
 	})
 	if n > 0 && n < len(ranks) {
 		ranks = ranks[:n]
@@ -254,19 +257,19 @@ func (m *Metrics) getIntegrationMetric(integration string) *integrationMetric {
 
 // MetricsSnapshot is a point-in-time copy of all metrics, safe to read without locks.
 type MetricsSnapshot struct {
-	Uptime               time.Duration
-	TotalExecutions      int64
-	TotalErrors          int64
-	TotalRetries         int64
-	SearchCount          int64
-	ScriptCount          int64
-	Truncations          int64
-	CompactionSamples    int
-	CompactionSavingsPct int
-	CompactionBytesSaved int64
-	Tools                map[string]ToolSnapshot
-	Integrations         map[string]IntegrationSnapshot
-	CircuitBreaks        map[string]int64
+	UptimeSeconds        float64                        `json:"uptime_seconds"`
+	TotalExecutions      int64                          `json:"total_executions"`
+	TotalErrors          int64                          `json:"total_errors"`
+	TotalRetries         int64                          `json:"total_retries"`
+	SearchCount          int64                          `json:"search_count"`
+	ScriptCount          int64                          `json:"script_count"`
+	Truncations          int64                          `json:"truncations"`
+	CompactionSamples    int                            `json:"compaction_samples"`
+	CompactionSavingsPct int                            `json:"compaction_savings_pct"`
+	CompactionBytesSaved int64                          `json:"compaction_bytes_saved"`
+	Tools                map[string]ToolSnapshot        `json:"tools"`
+	Integrations         map[string]IntegrationSnapshot `json:"integrations"`
+	CircuitBreaks        map[string]int64               `json:"circuit_breaks"`
 }
 
 // ErrorRate returns the error rate as a percentage (0-100).
@@ -279,21 +282,21 @@ func (s MetricsSnapshot) ErrorRate() float64 {
 
 // ToolSnapshot holds metrics for a single tool.
 type ToolSnapshot struct {
-	Calls      int64
-	Errors     int64
-	AvgLatency time.Duration
-	Retries    int64
+	Calls        int64   `json:"calls"`
+	Errors       int64   `json:"errors"`
+	AvgLatencyMs float64 `json:"avg_latency_ms"`
+	Retries      int64   `json:"retries"`
 }
 
 // IntegrationSnapshot holds metrics for a single integration.
 type IntegrationSnapshot struct {
-	Calls      int64
-	Errors     int64
-	AvgLatency time.Duration
+	Calls        int64   `json:"calls"`
+	Errors       int64   `json:"errors"`
+	AvgLatencyMs float64 `json:"avg_latency_ms"`
 }
 
 // ToolRank pairs a tool name with its call count for ranking.
 type ToolRank struct {
-	Name  string
-	Calls int64
+	Name  string `json:"name"`
+	Calls int64  `json:"calls"`
 }

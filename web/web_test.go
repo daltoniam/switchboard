@@ -265,3 +265,33 @@ func TestIntegrationSummaries_UsesCache(t *testing.T) {
 	assert.True(t, s.Enabled)
 	assert.False(t, s.LastCheck.IsZero())
 }
+
+func TestMetricsAPI_NilMetrics(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, httptest.NewRequest("GET", "/api/metrics", nil))
+
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	assert.Contains(t, rr.Body.String(), "metrics not initialized")
+}
+
+func TestMetricsAPI(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	ws.services.Metrics = mcp.NewMetrics()
+	handler := ws.Handler()
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, httptest.NewRequest("GET", "/api/metrics", nil))
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &body))
+	assert.Contains(t, body, "uptime_seconds")
+	assert.Contains(t, body, "total_executions")
+	assert.Contains(t, body, "tools")
+	assert.Contains(t, body, "integrations")
+}
