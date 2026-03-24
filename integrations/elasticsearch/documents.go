@@ -25,7 +25,7 @@ func getDocument(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolR
 		return mcp.ErrResult(fmt.Errorf("id is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s/_doc/%s", index, id), nil)
+	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s/_doc/%s", pathEscape(index), pathEscape(id)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -51,16 +51,21 @@ func indexDocument(ctx context.Context, e *esInt, args map[string]any) (*mcp.Too
 		return mcp.ErrResult(fmt.Errorf("document is required"))
 	}
 
+	reader, err := jsonBody(doc)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	var method, path string
 	if id != "" {
 		method = http.MethodPut
-		path = fmt.Sprintf("/%s/_doc/%s", index, id)
+		path = fmt.Sprintf("/%s/_doc/%s", pathEscape(index), pathEscape(id))
 	} else {
 		method = http.MethodPost
-		path = fmt.Sprintf("/%s/_doc", index)
+		path = fmt.Sprintf("/%s/_doc", pathEscape(index))
 	}
 
-	data, err := e.doJSON(ctx, method, path, jsonBody(doc))
+	data, err := e.doJSON(ctx, method, path, reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -104,7 +109,11 @@ func updateDocument(ctx context.Context, e *esInt, args map[string]any) (*mcp.To
 		return mcp.ErrResult(fmt.Errorf("either doc or script is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_update/%s", index, id), jsonBody(body))
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_update/%s", pathEscape(index), pathEscape(id)), reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -125,7 +134,7 @@ func deleteDocument(ctx context.Context, e *esInt, args map[string]any) (*mcp.To
 		return mcp.ErrResult(fmt.Errorf("id is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodDelete, fmt.Sprintf("/%s/_doc/%s", index, id), nil)
+	data, err := e.doJSON(ctx, http.MethodDelete, fmt.Sprintf("/%s/_doc/%s", pathEscape(index), pathEscape(id)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -149,13 +158,13 @@ func bulkOp(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResult
 			return mcp.ErrResult(fmt.Errorf("each operation must be a JSON object"))
 		}
 		action, _ := op["action"].(string)
-		index, _ := op["index"].(string)
+		idx, _ := op["index"].(string)
 		id, _ := op["id"].(string)
 		doc, _ := op["doc"].(map[string]any)
 
 		meta := map[string]any{}
-		if index != "" {
-			meta["_index"] = index
+		if idx != "" {
+			meta["_index"] = idx
 		}
 		if id != "" {
 			meta["_id"] = id
@@ -192,20 +201,11 @@ func bulkOp(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResult
 		}
 	}
 
-	resp, err := e.do(ctx, http.MethodPost, "/_bulk", &buf)
+	data, err := e.doNDJSON(ctx, "/_bulk", &buf)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	defer resp.Body.Close() //nolint:errcheck
-
-	respData, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-	if readErr != nil {
-		return mcp.ErrResult(readErr)
-	}
-	if resp.StatusCode >= 400 {
-		return mcp.ErrResult(fmt.Errorf("elasticsearch %d: %s", resp.StatusCode, string(respData)))
-	}
-	return mcp.RawResult(respData)
+	return mcp.RawResult(data)
 }
 
 func mget(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResult, error) {
@@ -221,12 +221,17 @@ func mget(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResult, 
 	}
 
 	body := map[string]any{"docs": docsRaw}
-	path := "/_mget"
-	if index != "" {
-		path = fmt.Sprintf("/%s/_mget", index)
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, path, jsonBody(body))
+	path := "/_mget"
+	if index != "" {
+		path = fmt.Sprintf("/%s/_mget", pathEscape(index))
+	}
+
+	data, err := e.doJSON(ctx, http.MethodPost, path, reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -252,10 +257,14 @@ func countDocs(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRes
 
 	var reader io.Reader
 	if len(body) > 0 {
-		reader = jsonBody(body)
+		var err error
+		reader, err = jsonBody(body)
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_count", index), reader)
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_count", pathEscape(index)), reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -281,7 +290,11 @@ func deleteByQuery(ctx context.Context, e *esInt, args map[string]any) (*mcp.Too
 	}
 
 	body := map[string]any{"query": query}
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_delete_by_query", index), jsonBody(body))
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_delete_by_query", pathEscape(index)), reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -323,7 +336,11 @@ func updateByQuery(ctx context.Context, e *esInt, args map[string]any) (*mcp.Too
 		body["script"] = script
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_update_by_query", index), jsonBody(body))
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_update_by_query", pathEscape(index)), reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

@@ -1,11 +1,13 @@
 package elasticsearch
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -49,7 +51,7 @@ func (e *esInt) Healthy(ctx context.Context) bool {
 	if e.client == nil {
 		return false
 	}
-	resp, err := e.do(ctx, http.MethodGet, "/_cluster/health", nil)
+	resp, err := e.do(ctx, http.MethodGet, "/_cluster/health", "", nil)
 	if err != nil {
 		return false
 	}
@@ -85,14 +87,17 @@ type handlerFunc func(ctx context.Context, e *esInt, args map[string]any) (*mcp.
 
 const maxResponseBytes = 2 * 1024 * 1024
 
-func (e *esInt) do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	url := e.baseURL + path
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+func (e *esInt) do(ctx context.Context, method, path, contentType string, body io.Reader) (*http.Response, error) {
+	u := e.baseURL + path
+	req, err := http.NewRequestWithContext(ctx, method, u, body)
 	if err != nil {
 		return nil, err
 	}
 	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+		if contentType == "" {
+			contentType = "application/json"
+		}
+		req.Header.Set("Content-Type", contentType)
 	}
 	if e.apiKey != "" {
 		req.Header.Set("Authorization", "ApiKey "+e.apiKey)
@@ -119,7 +124,7 @@ func (e *esInt) do(ctx context.Context, method, path string, body io.Reader) (*h
 }
 
 func (e *esInt) doJSON(ctx context.Context, method, path string, body io.Reader) (json.RawMessage, error) {
-	resp, err := e.do(ctx, method, path, body)
+	resp, err := e.do(ctx, method, path, "", body)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +142,33 @@ func (e *esInt) doJSON(ctx context.Context, method, path string, body io.Reader)
 	return json.RawMessage(data), nil
 }
 
-func jsonBody(v any) io.Reader {
-	data, _ := json.Marshal(v)
-	return strings.NewReader(string(data))
+func (e *esInt) doNDJSON(ctx context.Context, path string, body io.Reader) (json.RawMessage, error) {
+	resp, err := e.do(ctx, http.MethodPost, path, "application/x-ndjson", body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("elasticsearch %d: %s", resp.StatusCode, string(data))
+	}
+
+	return json.RawMessage(data), nil
+}
+
+func jsonBody(v any) (io.Reader, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(data), nil
+}
+
+func pathEscape(s string) string {
+	return url.PathEscape(s)
 }

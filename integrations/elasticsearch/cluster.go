@@ -33,7 +33,7 @@ func nodeStats(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRes
 
 	path := "/_nodes/stats"
 	if nodeID != "" {
-		path = fmt.Sprintf("/_nodes/%s/stats", nodeID)
+		path = fmt.Sprintf("/_nodes/%s/stats", pathEscape(nodeID))
 	}
 
 	data, err := e.doJSON(ctx, http.MethodGet, path, nil)

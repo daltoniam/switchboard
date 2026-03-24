@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -18,7 +19,7 @@ func listIndices(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolR
 
 	path := "/_cat/indices?format=json&h=health,status,index,uuid,pri,rep,docs.count,docs.deleted,store.size,pri.store.size&s=index"
 	if pattern != "" {
-		path = fmt.Sprintf("/_cat/indices/%s?format=json&h=health,status,index,uuid,pri,rep,docs.count,docs.deleted,store.size,pri.store.size&s=index", pattern)
+		path = fmt.Sprintf("/_cat/indices/%s?format=json&h=health,status,index,uuid,pri,rep,docs.count,docs.deleted,store.size,pri.store.size&s=index", pathEscape(pattern))
 	}
 
 	data, err := e.doJSON(ctx, http.MethodGet, path, nil)
@@ -38,7 +39,7 @@ func getIndex(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResu
 		return mcp.ErrResult(fmt.Errorf("index is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s", index), nil)
+	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s", pathEscape(index)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -67,7 +68,11 @@ func createIndex(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolR
 		body["mappings"] = v
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPut, fmt.Sprintf("/%s", index), jsonBody(body))
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPut, fmt.Sprintf("/%s", pathEscape(index)), reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -84,7 +89,7 @@ func deleteIndex(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolR
 		return mcp.ErrResult(fmt.Errorf("index is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodDelete, fmt.Sprintf("/%s", index), nil)
+	data, err := e.doJSON(ctx, http.MethodDelete, fmt.Sprintf("/%s", pathEscape(index)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -101,7 +106,7 @@ func getMapping(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRe
 		return mcp.ErrResult(fmt.Errorf("index is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s/_mapping", index), nil)
+	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s/_mapping", pathEscape(index)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -127,7 +132,11 @@ func putMapping(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRe
 	}
 
 	body := map[string]any{"properties": props}
-	data, err := e.doJSON(ctx, http.MethodPut, fmt.Sprintf("/%s/_mapping", index), jsonBody(body))
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPut, fmt.Sprintf("/%s/_mapping", pathEscape(index)), reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -144,7 +153,7 @@ func getSettings(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolR
 		return mcp.ErrResult(fmt.Errorf("index is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s/_settings", index), nil)
+	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s/_settings", pathEscape(index)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -169,7 +178,11 @@ func putSettings(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolR
 		return mcp.ErrResult(fmt.Errorf("settings is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPut, fmt.Sprintf("/%s/_settings", index), jsonBody(settings))
+	reader, err := jsonBody(settings)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPut, fmt.Sprintf("/%s/_settings", pathEscape(index)), reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -186,7 +199,7 @@ func indexStats(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRe
 		return mcp.ErrResult(fmt.Errorf("index is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s/_stats", index), nil)
+	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/%s/_stats", pathEscape(index)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -203,7 +216,7 @@ func openIndex(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRes
 		return mcp.ErrResult(fmt.Errorf("index is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_open", index), nil)
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_open", pathEscape(index)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -220,7 +233,7 @@ func closeIndex(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRe
 		return mcp.ErrResult(fmt.Errorf("index is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_close", index), nil)
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_close", pathEscape(index)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -237,7 +250,7 @@ func refreshIndex(ctx context.Context, e *esInt, args map[string]any) (*mcp.Tool
 		return mcp.ErrResult(fmt.Errorf("index is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_refresh", index), nil)
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_refresh", pathEscape(index)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -255,7 +268,7 @@ func forcemergeIndex(ctx context.Context, e *esInt, args map[string]any) (*mcp.T
 		return mcp.ErrResult(fmt.Errorf("index is required"))
 	}
 
-	path := fmt.Sprintf("/%s/_forcemerge", index)
+	path := fmt.Sprintf("/%s/_forcemerge", pathEscape(index))
 	if maxSegs > 0 {
 		path += fmt.Sprintf("?max_num_segments=%d", maxSegs)
 	}
@@ -276,7 +289,7 @@ func listAliases(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolR
 
 	path := "/_cat/aliases?format=json&h=alias,index,filter,routing.index,routing.search,is_write_index&s=alias"
 	if index != "" {
-		path = fmt.Sprintf("/_cat/aliases/%s?format=json&h=alias,index,filter,routing.index,routing.search,is_write_index&s=alias", index)
+		path = fmt.Sprintf("/_cat/aliases/%s?format=json&h=alias,index,filter,routing.index,routing.search,is_write_index&s=alias", pathEscape(index))
 	}
 
 	data, err := e.doJSON(ctx, http.MethodGet, path, nil)
@@ -293,7 +306,11 @@ func updateAliases(ctx context.Context, e *esInt, args map[string]any) (*mcp.Too
 	}
 
 	body := map[string]any{"actions": actionsRaw}
-	data, err := e.doJSON(ctx, http.MethodPost, "/_aliases", jsonBody(body))
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPost, "/_aliases", reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -318,7 +335,7 @@ func getIndexTemplate(ctx context.Context, e *esInt, args map[string]any) (*mcp.
 		return mcp.ErrResult(fmt.Errorf("name is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/_index_template/%s", name), nil)
+	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/_index_template/%s", pathEscape(name)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -343,7 +360,7 @@ func listSnapshots(ctx context.Context, e *esInt, args map[string]any) (*mcp.Too
 		return mcp.ErrResult(fmt.Errorf("repository is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/_snapshot/%s/_all", repo), nil)
+	data, err := e.doJSON(ctx, http.MethodGet, fmt.Sprintf("/_snapshot/%s/_all", pathEscape(repo)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -359,7 +376,7 @@ func listTasks(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRes
 
 	path := "/_tasks?detailed=true&group_by=none"
 	if actions != "" {
-		path += fmt.Sprintf("&actions=%s", actions)
+		path += "&actions=" + url.QueryEscape(actions)
 	}
 
 	data, err := e.doJSON(ctx, http.MethodGet, path, nil)
@@ -379,7 +396,7 @@ func cancelTask(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRe
 		return mcp.ErrResult(fmt.Errorf("task_id is required"))
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/_tasks/%s/_cancel", taskID), nil)
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/_tasks/%s/_cancel", pathEscape(taskID)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -395,7 +412,7 @@ func catShards(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolRes
 
 	path := "/_cat/shards?format=json&h=index,shard,prirep,state,docs,store,ip,node&s=index"
 	if index != "" {
-		path = fmt.Sprintf("/_cat/shards/%s?format=json&h=index,shard,prirep,state,docs,store,ip,node&s=index", index)
+		path = fmt.Sprintf("/_cat/shards/%s?format=json&h=index,shard,prirep,state,docs,store,ip,node&s=index", pathEscape(index))
 	}
 
 	data, err := e.doJSON(ctx, http.MethodGet, path, nil)
@@ -452,7 +469,11 @@ func reindex(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResul
 		}
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, "/_reindex?wait_for_completion=false", jsonBody(body))
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPost, "/_reindex?wait_for_completion=false", reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

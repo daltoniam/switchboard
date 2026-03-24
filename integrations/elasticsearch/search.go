@@ -47,7 +47,11 @@ func search(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResult
 		body["highlight"] = hlRaw
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_search", index), jsonBody(body))
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/%s/_search", pathEscape(index)), reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -89,11 +93,15 @@ func msearch(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResul
 		ndjson.WriteByte('\n')
 	}
 
-	data, err := e.doJSON(ctx, http.MethodPost, "/_msearch", strings.NewReader(ndjson.String()))
+	data, err := e.doNDJSON(ctx, "/_msearch", strings.NewReader(ndjson.String()))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	return mcp.RawResult(data)
+}
+
+var validSQLFormats = map[string]bool{
+	"json": true, "csv": true, "tsv": true, "txt": true, "yaml": true,
 }
 
 func sqlQuery(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResult, error) {
@@ -109,9 +117,16 @@ func sqlQuery(ctx context.Context, e *esInt, args map[string]any) (*mcp.ToolResu
 	if format == "" {
 		format = "json"
 	}
+	if !validSQLFormats[format] {
+		return mcp.ErrResult(fmt.Errorf("invalid format %q: must be one of json, csv, tsv, txt, yaml", format))
+	}
 
 	body := map[string]any{"query": query}
-	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/_sql?format=%s", format), jsonBody(body))
+	reader, err := jsonBody(body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := e.doJSON(ctx, http.MethodPost, fmt.Sprintf("/_sql?format=%s", format), reader)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
