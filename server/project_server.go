@@ -187,6 +187,9 @@ Use search first to discover available tools and their parameter schemas.`,
 
 func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.ToolHandler {
 	return func(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+		if pr.services.Metrics != nil {
+			pr.services.Metrics.RecordSearch()
+		}
 		var args struct {
 			Query  string `json:"query"`
 			Limit  *int   `json:"limit"`
