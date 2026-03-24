@@ -135,6 +135,9 @@ func (m *Metrics) RecordTruncation() {
 
 // Snapshot returns a point-in-time copy of all metrics.
 func (m *Metrics) Snapshot() MetricsSnapshot {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	s := MetricsSnapshot{
 		Uptime:          time.Since(m.startTime),
 		TotalExecutions: m.totalExecutions.Load(),
@@ -147,9 +150,6 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		Integrations:    make(map[string]IntegrationSnapshot),
 		CircuitBreaks:   make(map[string]int64),
 	}
-
-	m.mu.RLock()
-	defer m.mu.RUnlock()
 
 	for name, tm := range m.toolCalls {
 		calls := tm.Calls.Load()

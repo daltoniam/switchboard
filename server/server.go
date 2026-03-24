@@ -623,9 +623,11 @@ func processResult(integration mcp.Integration, toolName string, data string, me
 		return data
 	}
 
+	compacted := false
 	if pi, ok := integration.(mcp.FieldCompactionIntegration); ok {
 		if fields, ok := pi.CompactSpec(toolName); ok {
 			parsed = mcp.CompactAny(parsed, fields)
+			compacted = true
 		}
 	}
 
@@ -650,7 +652,7 @@ func processResult(integration mcp.Integration, toolName string, data string, me
 		)
 	}
 
-	if metrics != nil {
+	if compacted && metrics != nil {
 		metrics.RecordCompaction(toolName, originalLen, len(result))
 	}
 

@@ -1095,7 +1095,8 @@ func (w *WebServer) handleGmailSaveOAuthCredentials(rw http.ResponseWriter, r *h
 func (w *WebServer) handleMetricsAPI(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	if w.services.Metrics == nil {
-		rw.Write([]byte(`{"error":"metrics not initialized"}`))
+		rw.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = rw.Write([]byte(`{"error":"metrics not initialized"}`))
 		return
 	}
 	snap := w.services.Metrics.Snapshot()
