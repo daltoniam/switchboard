@@ -707,7 +707,6 @@ func (s *Server) getBreaker(integrationName string) *breaker {
 // Retries automatically on RetryableError (5xx, 429) with exponential backoff.
 // Respects per-integration circuit breakers to avoid hammering down services.
 func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (mcp.Integration, *mcp.ToolResult, error) {
-	start := time.Now()
 	integration, toolDef, err := s.findTool(toolName)
 	if err != nil {
 		return nil, &mcp.ToolResult{
@@ -736,19 +735,22 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 
 	var lastErr error
 	retries := 0
+	var callDuration time.Duration
 	for attempt := range maxRetries {
+		callStart := time.Now()
 		result, err := integration.Execute(ctx, toolName, args)
+		callDuration += time.Since(callStart)
 		if err == nil {
 			cb.recordSuccess()
 			if s.services.Metrics != nil {
-				s.services.Metrics.RecordExecution(integration.Name(), toolName, time.Since(start), false, retries)
+				s.services.Metrics.RecordExecution(integration.Name(), toolName, callDuration, false, retries)
 			}
 			return integration, result, nil
 		}
 
 		if !mcp.IsRetryable(err) {
 			if s.services.Metrics != nil {
-				s.services.Metrics.RecordExecution(integration.Name(), toolName, time.Since(start), true, retries)
+				s.services.Metrics.RecordExecution(integration.Name(), toolName, callDuration, true, retries)
 			}
 			return nil, result, err
 		}
@@ -776,7 +778,7 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 	// All retries exhausted — record one failure per call (not per attempt).
 	cb.recordFailure()
 	if s.services.Metrics != nil {
-		s.services.Metrics.RecordExecution(integration.Name(), toolName, time.Since(start), true, retries)
+		s.services.Metrics.RecordExecution(integration.Name(), toolName, callDuration, true, retries)
 	}
 	return nil, &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }

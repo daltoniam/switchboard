@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/project"
@@ -310,15 +311,27 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 			return errorResult(fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", args.ToolName)), nil
 		}
 
+		callStart := time.Now()
 		result, err := integration.Execute(ctx, args.ToolName, args.Arguments)
+		callDuration := time.Since(callStart)
 		if err != nil {
+			if pr.services.Metrics != nil {
+				pr.services.Metrics.RecordExecution(integration.Name(), args.ToolName, callDuration, true, 0)
+			}
 			return errorResult(err.Error()), nil
+		}
+
+		if pr.services.Metrics != nil {
+			pr.services.Metrics.RecordExecution(integration.Name(), args.ToolName, callDuration, result.IsError, 0)
 		}
 
 		if !result.IsError {
 			result.Data = processResult(integration, args.ToolName, result.Data, pr.services.Metrics)
 
 			if len(result.Data) > maxResponseBytes {
+				if pr.services.Metrics != nil {
+					pr.services.Metrics.RecordTruncation()
+				}
 				return errorResult(fmt.Sprintf(
 					"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
 					maxResponseBytes/1024, len(result.Data)/1024,
