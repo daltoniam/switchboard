@@ -249,6 +249,7 @@ func (m *manager) Load() error {
 
 func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 	cfg := defaultConfig()
+	cfg.WasmModules = file.WasmModules
 	if file.Integrations == nil {
 		return cfg
 	}
