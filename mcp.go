@@ -154,10 +154,6 @@ type HealthStatus struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// MetricsRecorder is satisfied by *Metrics and allows nil-safe recording.
-// The server checks for nil before calling methods.
-type MetricsRecorder = Metrics
-
 // --- Port Interfaces (the hexagonal boundaries) ---
 
 // Integration is the primary port that all integration adapters implement.

@@ -47,7 +47,6 @@ type compactionSample struct {
 	Tool       string
 	BeforeSize int
 	AfterSize  int
-	Timestamp  time.Time
 }
 
 // NewMetrics returns an initialized Metrics collector.
@@ -123,7 +122,6 @@ func (m *Metrics) RecordCompaction(tool string, beforeSize, afterSize int) {
 		Tool:       tool,
 		BeforeSize: beforeSize,
 		AfterSize:  afterSize,
-		Timestamp:  time.Now(),
 	})
 	if len(m.compactionSavings) > 1000 {
 		m.compactionSavings = m.compactionSavings[len(m.compactionSavings)-1000:]
@@ -175,7 +173,7 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		}
 		s.Integrations[name] = IntegrationSnapshot{
 			Calls:      calls,
-			Errors:     calls - (calls - im.Errors.Load()),
+			Errors:     im.Errors.Load(),
 			AvgLatency: time.Duration(avgNs),
 		}
 	}
