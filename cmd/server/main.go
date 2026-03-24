@@ -19,6 +19,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
+	"github.com/daltoniam/switchboard/integrations/elasticsearch"
 	"github.com/daltoniam/switchboard/integrations/confluence"
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/github"
@@ -201,6 +202,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		posthog.New(),
 		postgres.New(),
 		clickhouse.New(),
+		elasticsearch.New(),
 		pganalyze.New(),
 		rwx.New(),
 		ynab.New(),
