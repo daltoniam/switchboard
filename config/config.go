@@ -83,6 +83,12 @@ var envMapping = map[string]map[string]string{
 		"agent_run_id": "OVERMIND_AGENT_RUN_ID",
 		"flow_run_id":  "OVERMIND_FLOW_RUN_ID",
 	},
+	"elasticsearch": {
+		"base_url": "ELASTICSEARCH_URL",
+		"api_key":  "ELASTICSEARCH_API_KEY",
+		"username": "ELASTICSEARCH_USERNAME",
+		"password": "ELASTICSEARCH_PASSWORD",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -162,6 +168,10 @@ func defaultConfig() *mcp.Config {
 			"clickhouse": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"host": "", "port": "", "username": "", "password": "", "database": "", "secure": "", "skip_verify": ""},
+			},
+			"elasticsearch": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_key": "", "username": "", "password": ""},
 			},
 			"pganalyze": {
 				Enabled:     false,

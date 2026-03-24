@@ -14,12 +14,13 @@ import (
 )
 
 type IntegrationDetailData struct {
-	Name          string
-	Enabled       bool
-	Healthy       bool
-	Credentials   map[string]string
-	PlainTextKeys map[string]bool
-	Tools         []string
+	Name           string
+	Enabled        bool
+	Healthy        bool
+	Credentials    map[string]string
+	CredentialKeys []string
+	PlainTextKeys  map[string]bool
+	Tools          []string
 }
 
 func credInputType(key string, plainTextKeys map[string]bool) string {
@@ -69,7 +70,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 28, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 29, Col: 91}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -90,7 +91,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 			var templ_7745c5c3_Var4 templ.SafeURL
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/integrations/" + data.Name))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 31, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 32, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -108,8 +109,8 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for key, val := range data.Credentials {
-				templ_7745c5c3_Err = components.FormGroup(key, "cred_"+key, credInputType(key, data.PlainTextKeys), val, "Enter "+key).Render(ctx, templ_7745c5c3_Buffer)
+			for _, key := range data.CredentialKeys {
+				templ_7745c5c3_Err = components.FormGroup(key, "cred_"+key, credInputType(key, data.PlainTextKeys), data.Credentials[key], "Enter "+key).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

@@ -6,12 +6,13 @@ import (
 )
 
 type IntegrationDetailData struct {
-	Name          string
-	Enabled       bool
-	Healthy       bool
-	Credentials   map[string]string
-	PlainTextKeys map[string]bool
-	Tools         []string
+	Name           string
+	Enabled        bool
+	Healthy        bool
+	Credentials    map[string]string
+	CredentialKeys []string
+	PlainTextKeys  map[string]bool
+	Tools          []string
 }
 
 func credInputType(key string, plainTextKeys map[string]bool) string {
@@ -35,8 +36,8 @@ templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
 					@components.Toggle("enabled", data.Enabled)
 				</div>
 				<div>
-					for key, val := range data.Credentials {
-						@components.FormGroup(key, "cred_" + key, credInputType(key, data.PlainTextKeys), val, "Enter " + key)
+						for _, key := range data.CredentialKeys {
+						@components.FormGroup(key, "cred_" + key, credInputType(key, data.PlainTextKeys), data.Credentials[key], "Enter " + key)
 					}
 				</div>
 			</div>
