@@ -26,9 +26,11 @@ var (
 	_ mcp.OptionalCredentials        = (*suno)(nil)
 )
 
-func (s *suno) PlainTextKeys() []string          { return []string{"base_url"} }
-func (s *suno) Placeholders() map[string]string   { return map[string]string{"base_url": "https://api.sunoapi.org (default)"} }
-func (s *suno) OptionalKeys() []string            { return []string{"base_url"} }
+func (s *suno) PlainTextKeys() []string { return []string{"base_url"} }
+func (s *suno) Placeholders() map[string]string {
+	return map[string]string{"base_url": "https://api.sunoapi.org (default)"}
+}
+func (s *suno) OptionalKeys() []string { return []string{"base_url"} }
 
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 
