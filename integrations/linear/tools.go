@@ -95,12 +95,12 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"team": "Filter by team name or key", "state": "Filter by state: planned, started, paused, completed, canceled", "first": "Max results (default 50)", "after": "Pagination cursor"},
 	},
 	{
-		Name: "linear_search_projects", Description: "Full-text search Linear projects",
-		Parameters: map[string]string{"query": "Search query", "first": "Max results (default 50)"},
+		Name: "linear_search_projects", Description: "Find Linear projects by name or keyword. Returns project IDs needed by get_project and list_project_updates. Start here when you know the project name.",
+		Parameters: map[string]string{"query": "Project name or keyword", "first": "Max results (default 10)"},
 		Required:   []string{"query"},
 	},
 	{
-		Name: "linear_get_project", Description: "Get a specific project with full detail including progress and members. Accepts project UUID or slug.",
+		Name: "linear_get_project", Description: "Get a specific project with full detail including progress, members, recent status updates, and milestones. Accepts project UUID or slug. Use search_projects to find the ID first.",
 		Parameters: map[string]string{"id": "Project UUID or slug"},
 		Required:   []string{"id"},
 	},
@@ -120,7 +120,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"id"},
 	},
 	{
-		Name: "linear_list_project_updates", Description: "List status updates for a project",
+		Name: "linear_list_project_updates", Description: "List status updates (health reports) for a project. Requires project UUID — use search_projects to find it. For a quick summary, get_project already includes the 5 most recent updates.",
 		Parameters: map[string]string{"project_id": "Project UUID", "first": "Max results (default 10)"},
 		Required:   []string{"project_id"},
 	},

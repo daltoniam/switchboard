@@ -91,6 +91,13 @@ var singleToolCases = []searchBenchmarkCase{
 	{Name: "synonym/search-logs", Query: "find logs", ExpectedTools: []string{"datadog_search_logs"}, K: 5},
 	{Name: "synonym/query-database", Query: "query database", ExpectedTools: []string{"postgres_execute_query", "clickhouse_execute_query"}, K: 5},
 
+	// Workflow: project updates — the LLM should find search_projects and get_project
+	// in a single search call, avoiding the 40+ tool call discovery spiral.
+	// K=20 matches the default search limit the LLM sees.
+	{Name: "workflow/project-update", Query: "project update", ExpectedTools: []string{"linear_get_project", "linear_list_project_updates"}, K: 20},
+	{Name: "workflow/project-status", Query: "project status", ExpectedTools: []string{"linear_list_projects", "linear_search_projects"}, K: 20},
+	{Name: "workflow/find-project-by-name", Query: "find project by name", ExpectedTools: []string{"linear_search_projects"}, K: 10},
+
 	// Regression guard: exact matches that should always work
 	{Name: "exact/github-list-issues", Query: "github list issues", ExpectedTools: []string{"github_list_issues"}, K: 5},
 	{Name: "exact/linear-create-issue", Query: "linear create issue", ExpectedTools: []string{"linear_create_issue"}, K: 5},
