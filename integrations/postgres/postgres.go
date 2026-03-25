@@ -18,6 +18,7 @@ import (
 var (
 	_ mcp.Integration                = (*postgres)(nil)
 	_ mcp.FieldCompactionIntegration = (*postgres)(nil)
+	_ mcp.PlainTextCredentials       = (*postgres)(nil)
 )
 
 type postgres struct {
@@ -31,6 +32,10 @@ func New() mcp.Integration {
 }
 
 func (p *postgres) Name() string { return "postgres" }
+
+func (p *postgres) PlainTextKeys() []string {
+	return []string{"host", "port", "user", "database", "sslmode", "read_only"}
+}
 
 func (p *postgres) Configure(ctx context.Context, creds mcp.Credentials) error {
 	p.readOnly = creds["read_only"] != "false"

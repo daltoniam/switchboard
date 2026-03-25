@@ -230,6 +230,7 @@ type Services struct {
 	Config   ConfigService
 	Registry Registry
 	Browser  BrowserService // nil if playwright driver is not installed
+	Metrics  *Metrics       // nil until initialized; callers must nil-check
 }
 
 // BrowserService manages browser lifecycle for web automation.
