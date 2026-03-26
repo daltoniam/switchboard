@@ -1210,6 +1210,67 @@ func TestCreatePage_SupportsParentDatabaseID(t *testing.T) {
 	assert.False(t, result.IsError)
 }
 
+func TestCreatePage_CollectionParent_UsesSetParent(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		var body transaction
+		_ = json.NewDecoder(r.Body).Decode(&body)
+
+		// Find setParent op
+		var foundSetParent bool
+		for _, op := range body.Operations {
+			if op.Command == "setParent" {
+				foundSetParent = true
+				require.NotNil(t, op.Pointer)
+				assert.Equal(t, "block", op.Pointer.Table)
+				assert.Equal(t, "space-1", op.Pointer.SpaceID)
+				args, _ := op.Args.(map[string]any)
+				assert.Equal(t, "coll-1", args["parentId"])
+				assert.Equal(t, "collection", args["parentTable"])
+			}
+			// Must NOT have listAfter targeting the collection ID
+			if op.Command == "listAfter" {
+				assert.NotEqual(t, "coll-1", op.ID, "listAfter must not target collection ID")
+			}
+		}
+		assert.True(t, foundSetParent, "expected setParent op for collection parent")
+
+		okJSON(w, `{}`)
+	})
+	result, err := createPage(context.Background(), n, map[string]any{
+		"parent": map[string]any{"database_id": "coll-1"},
+		"title":  "New Row",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestCreatePage_BlockParent_StillUsesListAfter(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		var body transaction
+		_ = json.NewDecoder(r.Body).Decode(&body)
+
+		var foundListAfter, foundSetParent bool
+		for _, op := range body.Operations {
+			if op.Command == "listAfter" && op.ID == "page-parent-1" {
+				foundListAfter = true
+			}
+			if op.Command == "setParent" {
+				foundSetParent = true
+			}
+		}
+		assert.True(t, foundListAfter, "block parent should use listAfter")
+		assert.False(t, foundSetParent, "block parent should not use setParent")
+
+		okJSON(w, `{}`)
+	})
+	result, err := createPage(context.Background(), n, map[string]any{
+		"parent": map[string]any{"page_id": "page-parent-1"},
+		"title":  "Subpage",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
 // --- updatePage via submitTransaction ---
 
 func TestUpdatePage_SubmitsPropertyUpdates(t *testing.T) {
@@ -1389,6 +1450,154 @@ func TestCreatePageWithContent_RequiresParentAndChildren(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "children is required")
+}
+
+func TestCreatePageWithContent_CollectionParent_UsesSetParent(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		var body transaction
+		_ = json.NewDecoder(r.Body).Decode(&body)
+
+		var foundSetParent bool
+		for _, op := range body.Operations {
+			if op.Command == "setParent" {
+				foundSetParent = true
+				require.NotNil(t, op.Pointer)
+				args, _ := op.Args.(map[string]any)
+				assert.Equal(t, "coll-1", args["parentId"])
+				assert.Equal(t, "collection", args["parentTable"])
+			}
+			if op.Command == "listAfter" {
+				assert.NotEqual(t, "coll-1", op.ID, "listAfter must not target collection ID")
+			}
+		}
+		assert.True(t, foundSetParent, "expected setParent op for collection parent")
+
+		okJSON(w, `{}`)
+	})
+	result, err := createPageWithContent(context.Background(), n, map[string]any{
+		"parent": map[string]any{"database_id": "coll-1"},
+		"title":  "Row with content",
+		"children": []any{
+			map[string]any{"type": "text", "properties": map[string]any{"title": [](any){[](any){"Block text"}}}},
+		},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestMovePage_BlockToCollection_UsesSetParent(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v3/loadCachedPageChunkV2":
+			okJSON(w, `{
+				"recordMap": {
+					"block": {
+						"page-1": {"value": {"id": "page-1", "parent_id": "old-block-parent", "parent_table": "block"}}
+					}
+				}
+			}`)
+		case "/api/v3/submitTransaction":
+			var body transaction
+			_ = json.NewDecoder(r.Body).Decode(&body)
+
+			commands := make([]string, len(body.Operations))
+			for i, op := range body.Operations {
+				commands[i] = op.Command
+			}
+			// Should still listRemove from old block parent
+			assert.Contains(t, commands, "listRemove")
+			// Should use setParent for new collection parent
+			assert.Contains(t, commands, "setParent")
+			// Should NOT listAfter on the collection
+			for _, op := range body.Operations {
+				if op.Command == "listAfter" {
+					assert.NotEqual(t, "new-coll", op.ID, "listAfter must not target collection ID")
+				}
+			}
+
+			okJSON(w, `{}`)
+		}
+	})
+	result, err := movePage(context.Background(), n, map[string]any{
+		"page_id": "page-1",
+		"parent":  map[string]any{"database_id": "new-coll"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestMovePage_CollectionToBlock_SkipsListRemoveOnCollection(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v3/loadCachedPageChunkV2":
+			// Page currently lives in a collection
+			okJSON(w, `{
+				"recordMap": {
+					"block": {
+						"page-1": {"value": {"id": "page-1", "parent_id": "old-coll", "parent_table": "collection"}}
+					}
+				}
+			}`)
+		case "/api/v3/submitTransaction":
+			var body transaction
+			_ = json.NewDecoder(r.Body).Decode(&body)
+
+			// Should NOT listRemove on the collection (collections have no content list)
+			for _, op := range body.Operations {
+				if op.Command == "listRemove" {
+					t.Fatal("should not listRemove from collection parent")
+				}
+			}
+			// Should listAfter on the new block parent
+			commands := make([]string, len(body.Operations))
+			for i, op := range body.Operations {
+				commands[i] = op.Command
+			}
+			assert.Contains(t, commands, "listAfter")
+
+			okJSON(w, `{}`)
+		}
+	})
+	result, err := movePage(context.Background(), n, map[string]any{
+		"page_id": "page-1",
+		"parent":  map[string]any{"page_id": "new-block-parent"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestMovePage_MissingParentTable_DefaultsToBlock(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v3/loadCachedPageChunkV2":
+			// parent_table missing from response
+			okJSON(w, `{
+				"recordMap": {
+					"block": {
+						"page-1": {"value": {"id": "page-1", "parent_id": "old-parent"}}
+					}
+				}
+			}`)
+		case "/api/v3/submitTransaction":
+			var body transaction
+			_ = json.NewDecoder(r.Body).Decode(&body)
+
+			// Should default to block behavior: listRemove from old parent
+			commands := make([]string, len(body.Operations))
+			for i, op := range body.Operations {
+				commands[i] = op.Command
+			}
+			assert.Contains(t, commands, "listRemove")
+
+			okJSON(w, `{}`)
+		}
+	})
+	result, err := movePage(context.Background(), n, map[string]any{
+		"page_id": "page-1",
+		"parent":  map[string]any{"page_id": "new-parent"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
 }
 
 // --- updateBlock via submitTransaction ---
