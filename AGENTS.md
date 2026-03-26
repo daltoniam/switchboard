@@ -68,6 +68,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | [docs/adapter-reference.md](docs/adapter-reference.md) | Working on a specific integration adapter |
 | [docs/go-anti-patterns.md](docs/go-anti-patterns.md) | Writing/reviewing handler arg extraction (prevents silent error swallowing) |
 | [docs/tool-search.md](docs/tool-search.md) | Search scoring engine, synonym groups, tool description guidelines, benchmarking |
+| [docs/notion-v3-transactions.md](docs/notion-v3-transactions.md) | Debugging Notion v3 400 errors, transaction patterns, ID disambiguation |
 | [docs/web-ui.md](docs/web-ui.md) | Modifying the web config UI |
 
 ## Skills
