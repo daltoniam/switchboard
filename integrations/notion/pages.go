@@ -7,6 +7,34 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// buildParentLinkOps returns the ops to link a new page to its parent.
+// Collection parents use setParent; block parents use listAfter on content.
+func buildParentLinkOps(n *notion, pageID, parentID, parentTable string) []op {
+	if parentTable == "collection" {
+		return []op{
+			buildSetParentOp(n.spaceID, pageID, parentID, parentTable),
+		}
+	}
+	return []op{
+		buildListAfterOp("block", parentID, []string{"content"}, map[string]any{
+			"id": pageID,
+		}),
+	}
+}
+
+// buildParentUnlinkOps returns the ops to unlink a page from its current parent.
+// Collection parents have no content list, so no listRemove is needed.
+func buildParentUnlinkOps(pageID, parentID, parentTable string) []op {
+	if parentTable == "collection" {
+		return nil
+	}
+	return []op{
+		buildListRemoveOp("block", parentID, []string{"content"}, map[string]any{
+			"id": pageID,
+		}),
+	}
+}
+
 func createPage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	parent := r.Map("parent")
@@ -60,10 +88,8 @@ func createPage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolR
 		buildUpdateOp("block", pageID, []string{}, map[string]any{
 			"last_edited_time": now,
 		}),
-		buildListAfterOp("block", parentID, []string{"content"}, map[string]any{
-			"id": pageID,
-		}),
 	}
+	ops = append(ops, buildParentLinkOps(n, pageID, parentID, parentTable)...)
 
 	_, err = submitTransaction(ctx, n, ops)
 	if err != nil {
@@ -153,24 +179,29 @@ func movePage(ctx context.Context, n *notion, args map[string]any) (*mcp.ToolRes
 		return mcp.ErrResult(err)
 	}
 	oldParentID, _ := page["parent_id"].(string)
+	oldParentTable, _ := page["parent_table"].(string)
+	if oldParentTable == "" {
+		oldParentTable = "block"
+	}
 
 	now := currentTimeMillis()
-	ops := []op{
-		// Remove from old parent
-		buildListRemoveOp("block", oldParentID, []string{"content"}, map[string]any{
-			"id": pageID,
-		}),
-		// Update parent_id and parent_table
+	var ops []op
+
+	// Remove from old parent (no-op for collection parents)
+	ops = append(ops, buildParentUnlinkOps(pageID, oldParentID, oldParentTable)...)
+
+	// Update parent_id and parent_table
+	ops = append(ops,
 		buildSetOp("block", pageID, []string{"parent_id"}, newParentID),
 		buildSetOp("block", pageID, []string{"parent_table"}, newParentTable),
-		// Add to new parent
-		buildListAfterOp("block", newParentID, []string{"content"}, map[string]any{
-			"id": pageID,
-		}),
-		buildUpdateOp("block", pageID, []string{}, map[string]any{
-			"last_edited_time": now,
-		}),
-	}
+	)
+
+	// Link to new parent
+	ops = append(ops, buildParentLinkOps(n, pageID, newParentID, newParentTable)...)
+
+	ops = append(ops, buildUpdateOp("block", pageID, []string{}, map[string]any{
+		"last_edited_time": now,
+	}))
 
 	_, err = submitTransaction(ctx, n, ops)
 	if err != nil {
@@ -330,11 +361,9 @@ func createPageWithContent(ctx context.Context, n *notion, args map[string]any) 
 		buildUpdateOp("block", pageID, []string{}, map[string]any{
 			"last_edited_time": now,
 		}),
-		// Link page to parent
-		buildListAfterOp("block", parentID, []string{"content"}, map[string]any{
-			"id": pageID,
-		}),
 	}
+	// Link page to parent
+	ops = append(ops, buildParentLinkOps(n, pageID, parentID, parentTable)...)
 
 	// Create child blocks
 	for _, child := range children {

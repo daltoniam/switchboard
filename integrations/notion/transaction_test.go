@@ -107,6 +107,60 @@ func TestSubmitTransaction_PostsToCorrectEndpointWithOps(t *testing.T) {
 	assert.Equal(t, "{}", string(data))
 }
 
+// --- buildSetParentOp ---
+
+func TestBuildSetParentOp_CreatesPointerFormat(t *testing.T) {
+	op := buildSetParentOp("space-1", "page-1", "collection-1", "collection")
+
+	assert.Equal(t, "setParent", op.Command)
+	require.NotNil(t, op.Pointer)
+	assert.Equal(t, "block", op.Pointer.Table)
+	assert.Equal(t, "page-1", op.Pointer.ID)
+	assert.Equal(t, "space-1", op.Pointer.SpaceID)
+	assert.Empty(t, op.Table)
+	assert.Empty(t, op.ID)
+
+	args, ok := op.Args.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "collection-1", args["parentId"])
+	assert.Equal(t, "collection", args["parentTable"])
+}
+
+func TestOp_OmitsTableAndID_WhenPointerSet(t *testing.T) {
+	op := buildSetParentOp("space-1", "page-1", "coll-1", "collection")
+
+	data, err := json.Marshal(op)
+	require.NoError(t, err)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(data, &parsed))
+
+	// Must have pointer, must NOT have top-level table/id
+	assert.Contains(t, parsed, "pointer")
+	assert.NotContains(t, parsed, "table")
+	assert.NotContains(t, parsed, "id")
+
+	ptr := parsed["pointer"].(map[string]any)
+	assert.Equal(t, "block", ptr["table"])
+	assert.Equal(t, "page-1", ptr["id"])
+	assert.Equal(t, "space-1", ptr["spaceId"])
+}
+
+func TestOp_IncludesTableAndID_WhenFlatFormat(t *testing.T) {
+	op := buildSetOp("block", "b1", []string{"type"}, "page")
+
+	data, err := json.Marshal(op)
+	require.NoError(t, err)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(data, &parsed))
+
+	// Must have table/id, must NOT have pointer
+	assert.Equal(t, "block", parsed["table"])
+	assert.Equal(t, "b1", parsed["id"])
+	assert.NotContains(t, parsed, "pointer")
+}
+
 // --- newBlockID ---
 
 func TestNewBlockID_ReturnsValidUUID(t *testing.T) {
