@@ -25,6 +25,9 @@ Before writing code, answer these questions:
 - [ ] **Pagination**: Cursor-based, offset, or link-header? Consistent across endpoints?
 - [ ] **Error format**: Structured JSON errors or plain text? Status code conventions?
 - [ ] **Scope**: Which API resources/operations are needed? Group by domain (e.g., issues, projects, users)
+- [ ] **Parent types**: Do entities have polymorphic parent relationships? Do different parent types require different mutation commands? (e.g., Notion block parents use `listAfter`, collection parents use `setParent`)
+
+**Undocumented APIs**: When working with internal or undocumented APIs (no OpenAPI spec, no public docs), intercept the first-party client's network traffic to discover expected payload shapes. For web apps: monkey-patch `window.fetch` in Chrome DevTools to log request bodies. For mobile apps: use a MITM proxy. This is often the only way to discover commands, required fields, and transaction formats.
 
 ## 2. Design Decisions
 

@@ -49,7 +49,7 @@ For each tool, apply these patterns where applicable:
 
 - **Workflow entry points** (Tier 1): Tell the LLM this is where to start and what to chain next
 - **Prefer-over hints** (Tier 3): Explicitly name the better alternative — LLMs won't infer this
-- **Gotcha prevention**: Surface ID confusion, parameter constraints, and common mistakes directly in the description AND parameter strings
+- **Gotcha prevention**: Surface ID confusion, parameter constraints, and common mistakes directly in the description AND parameter strings. When descriptions disambiguate IDs for the LLM, also verify handler code branches correctly on those same ID types — description-level fixes don't prevent handler-level hardcoding bugs
 - **Mutual exclusion**: When two parameters are alternatives, say which to use when and which to omit
 
 Keep descriptions to 1-3 sentences. No paragraphs.
@@ -206,3 +206,4 @@ Use `"-*_url"` to exclude all fields matching a glob pattern. Valid in exclusion
 | Enriching Tier 4 tools that are already clear | Description churn with no routing improvement | Don't touch what doesn't need touching |
 | Broad glob exclusions like `-*_url` | Silently excludes future upstream API fields that match the glob | Use targeted exclusions when field set is small and stable |
 | Aliasing `ToolDefinition.Parameters` map in search | Progressive silent corruption — `extractSharedParameters` deletes from shared map | Always deep-copy the Parameters map when building `searchToolInfo` |
+| Mutation handler hardcodes one parent type when API has polymorphic parents | 400/silent failure for other parent types (e.g., `listAfter` on a collection ID in Notion) | Branch on parent type at the op-building layer; verify API uses the same write mechanism for all parent types |
