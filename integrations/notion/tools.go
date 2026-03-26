@@ -67,9 +67,9 @@ var tools = []mcp.ToolDefinition{
 	// --- Pages ---
 	{
 		Name:        "notion_create_page",
-		Description: "Create a new page with properties only (no content blocks). For pages with content, prefer create_page_with_content.",
+		Description: "Create a new page or database row with properties only (no content blocks). page_id parent creates a subpage; database_id parent creates a row. For pages with content, prefer create_page_with_content.",
 		Parameters: map[string]string{
-			"parent":     "Parent object with page_id or database_id",
+			"parent":     `Parent: {"page_id": "..."} for subpage, or {"database_id": "<collection_id>"} for database row. Use collection_id from search results, NOT the search result id field`,
 			"properties": "Page property values object",
 			"title":      "Page title (convenience — sets the title property)",
 		},
@@ -160,7 +160,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Search ---
 	{
 		Name:        "notion_search",
-		Description: "Search across all pages and data sources in the workspace. Start here for most workflows. For database results, use the returned id (block ID) as the data_source_id for query_data_source and retrieve_data_source.",
+		Description: "Search across all pages and data sources in the workspace. Start here for most workflows. For database results: use id (block ID) for retrieve_data_source and query_data_source; use collection_id for creating rows via create_page with database_id parent.",
 		Parameters: map[string]string{
 			"query":    "Search query text. Searches page titles and content.",
 			"type":     "Filter by type: \"page\" or \"data_source\"",
@@ -223,9 +223,9 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        "notion_create_page_with_content",
-		Description: "Create a page with properties and block content in a single atomic transaction. Preferred over create_page + append_block_children — fewer calls, atomic.",
+		Description: "Create a page or database row with properties and block content in a single atomic transaction. Preferred over create_page + append_block_children — fewer calls, atomic. page_id parent creates a subpage; database_id parent creates a row.",
 		Parameters: map[string]string{
-			"parent":     "Parent object with page_id or database_id",
+			"parent":     `Parent: {"page_id": "..."} for subpage, or {"database_id": "<collection_id>"} for database row. Use collection_id from search results, NOT the search result id field`,
 			"properties": "Page property values object",
 			"title":      "Page title (convenience)",
 			"children":   "Array of v3 block objects: {\"type\": \"text\", \"properties\": {\"title\": [[\"content\"]]}}. Types: text, header, sub_header, sub_sub_header, bulleted_list (unordered), numbered_list (ordered, auto-numbered — do not add manual number/letter prefixes), to_do, quote, callout, code (set language via format: {\"code_language\": \"Python\"}), divider, toggle",
