@@ -41,6 +41,7 @@ require (
 	github.com/slack-go/slack v0.18.0
 	github.com/stretchr/testify v1.11.1
 	github.com/syndtr/goleveldb v1.0.0
+	github.com/tetratelabs/wazero v1.11.0
 	golang.org/x/crypto v0.48.0
 	google.golang.org/api v0.239.0
 	google.golang.org/grpc v1.75.0

@@ -41,6 +41,7 @@ import (
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
 	"github.com/daltoniam/switchboard/server"
+	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web"
 )
 
@@ -226,6 +227,34 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		Registry: reg,
 		Browser:  browserSvc,
 		Metrics:  mcp.NewMetrics(),
+	}
+
+	// Load WASM modules from config.
+	cfg := cfgMgr.Get()
+	if len(cfg.WasmModules) > 0 {
+		wasmCtx := context.Background()
+		wasmRT, err := wasmmod.NewRuntime(wasmCtx)
+		if err != nil {
+			log.Fatalf("Failed to create WASM runtime: %v", err)
+		}
+		defer wasmRT.Close(wasmCtx) //nolint:errcheck
+		for _, wc := range cfg.WasmModules {
+			wasmBytes, err := os.ReadFile(wc.Path)
+			if err != nil {
+				log.Printf("WARN: failed to read WASM module %q: %v", wc.Path, err)
+				continue
+			}
+			mod, err := wasmRT.LoadModule(wasmCtx, wasmBytes)
+			if err != nil {
+				log.Printf("WARN: failed to load WASM module %q: %v", wc.Path, err)
+				continue
+			}
+			if err := reg.Register(mod); err != nil {
+				log.Printf("WARN: failed to register WASM module %q: %v", wc.Path, err)
+				continue
+			}
+			log.Printf("Loaded WASM integration %q from %s", mod.Name(), wc.Path)
+		}
 	}
 
 	gmail.SetConfigService(gmailIntegration, cfgMgr)

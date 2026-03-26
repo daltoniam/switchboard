@@ -99,9 +99,16 @@ func ValidateToolGlobs(globs []string) error {
 	return nil
 }
 
+// WasmModuleConfig describes a WASM module to load as an integration.
+type WasmModuleConfig struct {
+	Path        string      `json:"path"`
+	Credentials Credentials `json:"credentials,omitempty"`
+}
+
 // Config is the top-level configuration containing all integrations.
 type Config struct {
 	Integrations map[string]*IntegrationConfig `json:"integrations"`
+	WasmModules  []WasmModuleConfig            `json:"wasm_modules,omitempty"`
 }
 
 // ToolDefinition describes an API operation an integration exposes.

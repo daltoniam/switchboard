@@ -1,4 +1,4 @@
-.PHONY: build generate test test-race vet lint fmt security gosec govulncheck ci clean install deploy help
+.PHONY: build generate test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test
 
 BIN        := dist/switchboard
 INSTALL_DIR := $(HOME)/.local/bin
@@ -15,6 +15,15 @@ generate: ## Generate templ templates
 
 clean: ## Remove build artifacts
 	rm -rf dist/ coverage.out
+
+## WASM
+
+wasm-build: ## Build WASM modules (requires Rust with wasm32-wasip1 target)
+	cd wasm/guest-rust && cargo build --target wasm32-wasip1 --release -p overmind-wasm
+	cp wasm/guest-rust/target/wasm32-wasip1/release/overmind_wasm.wasm wasm/testdata/overmind.wasm
+
+wasm-test: wasm-build ## Build WASM modules and run WASM tests
+	go test -v ./wasm/
 
 ## Test
 
