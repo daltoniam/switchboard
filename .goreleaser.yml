@@ -46,13 +46,24 @@ changelog:
       - "^ci:"
       - "^chore:"
 
+brews:
+  - repository:
+      owner: daltoniam
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/daltoniam/switchboard"
+    description: "Unified MCP server aggregating 17+ integrations (GitHub, Datadog, Linear, Slack, AWS, GCP, and more) behind a single endpoint"
+    license: "MIT"
+    test: |
+      system "#{bin}/switchboard", "--help"
+
 homebrew_casks:
   - repository:
       owner: daltoniam
       name: homebrew-tap
     directory: Casks
     homepage: "https://github.com/daltoniam/switchboard"
-    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    description: "Unified MCP server aggregating 17+ integrations (GitHub, Datadog, Linear, Slack, AWS, GCP, and more) behind a single endpoint"
     hooks:
       post:
         install: |
@@ -71,13 +82,13 @@ scoops:
       owner: daltoniam
       name: scoop-bucket
     homepage: "https://github.com/daltoniam/switchboard"
-    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    description: "Unified MCP server aggregating 17+ integrations (GitHub, Datadog, Linear, Slack, AWS, GCP, and more) behind a single endpoint"
     license: "MIT"
 
 nfpms:
   - package_name: switchboard
     homepage: "https://github.com/daltoniam/switchboard"
-    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    description: "Unified MCP server aggregating 17+ integrations (GitHub, Datadog, Linear, Slack, AWS, GCP, and more) behind a single endpoint"
     maintainer: "Austin Cherry <austin@daltoniam.com>"
     license: "MIT"
     formats:
