@@ -89,6 +89,10 @@ var envMapping = map[string]map[string]string{
 		"username": "ELASTICSEARCH_USERNAME",
 		"password": "ELASTICSEARCH_PASSWORD",
 	},
+	"readarr": {
+		"api_key":  "READARR_API_KEY",
+		"base_url": "READARR_URL",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -220,6 +224,10 @@ func defaultConfig() *mcp.Config {
 			"overmind": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "token": "", "agent_run_id": "", "flow_run_id": ""},
+			},
+			"readarr": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "base_url": ""},
 			},
 		},
 	}
