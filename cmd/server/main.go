@@ -33,6 +33,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
+	"github.com/daltoniam/switchboard/integrations/readarr"
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
@@ -216,6 +217,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		gcpInt.New(),
 		suno.New(),
 		overmind.New(),
+		readarr.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
