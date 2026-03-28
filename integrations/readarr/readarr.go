@@ -164,10 +164,15 @@ var dispatch = map[string]handlerFunc{
 	"readarr_get_book":      getBook,
 	"readarr_search_books":  searchBooks,
 	"readarr_monitor_books": monitorBooks,
+	"readarr_add_book":      addBook,
+	"readarr_delete_book":   deleteBook,
 
 	// Authors
-	"readarr_list_authors": listAuthors,
-	"readarr_get_author":   getAuthor,
+	"readarr_list_authors":  listAuthors,
+	"readarr_get_author":    getAuthor,
+	"readarr_add_author":    addAuthor,
+	"readarr_update_author": updateAuthor,
+	"readarr_delete_author": deleteAuthor,
 
 	// Calendar
 	"readarr_get_calendar": getCalendar,
@@ -186,6 +191,7 @@ var dispatch = map[string]handlerFunc{
 	"readarr_get_history":        getHistory,
 	"readarr_get_history_author": getHistoryAuthor,
 	"readarr_get_history_since":  getHistorySince,
+	"readarr_mark_failed":        markFailed,
 
 	// Commands
 	"readarr_list_commands": listCommands,
@@ -205,5 +211,22 @@ var dispatch = map[string]handlerFunc{
 	"readarr_list_metadata_profiles": listMetadataProfiles,
 
 	// Tags
-	"readarr_list_tags": listTags,
+	"readarr_list_tags":  listTags,
+	"readarr_create_tag": createTag,
+	"readarr_delete_tag": deleteTag,
+
+	// Book Files
+	"readarr_list_book_files":  listBookFiles,
+	"readarr_delete_book_file": deleteBookFile,
+
+	// Blocklist
+	"readarr_list_blocklist":        listBlocklist,
+	"readarr_delete_blocklist_item": deleteBlocklistItem,
+
+	// Rename / Retag
+	"readarr_get_rename": getRename,
+	"readarr_get_retag":  getRetag,
+
+	// Manual Import
+	"readarr_get_manual_import": getManualImport,
 }

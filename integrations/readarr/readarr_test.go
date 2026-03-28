@@ -720,3 +720,335 @@ func TestErrResult(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
 }
+
+// --- New tool handler tests ---
+
+func TestAddBook(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/v1/book", r.URL.Path)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "12345", body["foreignBookId"])
+		assert.Equal(t, true, body["monitored"])
+		_, _ = w.Write([]byte(`{"id":1,"title":"New Book"}`))
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_add_book", map[string]any{
+		"foreign_book_id":   "12345",
+		"foreign_author_id": "67890",
+		"root_folder_path":  "/books",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "New Book")
+}
+
+func TestAddBook_MissingFields(t *testing.T) {
+	ra := &readarr{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ra.Execute(context.Background(), "readarr_add_book", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "foreign_book_id is required")
+}
+
+func TestDeleteBook(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Contains(t, r.URL.Path, "/api/v1/book/1")
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_delete_book", map[string]any{"id": float64(1)})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestDeleteBook_WithOptions(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.URL.RawQuery, "deleteFiles=true")
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_delete_book", map[string]any{
+		"id": float64(1), "delete_files": true,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestAddAuthor(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/v1/author", r.URL.Path)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "12345", body["foreignAuthorId"])
+		assert.Equal(t, true, body["monitored"])
+		_, _ = w.Write([]byte(`{"id":1,"authorName":"New Author"}`))
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_add_author", map[string]any{
+		"foreign_author_id": "12345",
+		"root_folder_path":  "/books",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "New Author")
+}
+
+func TestAddAuthor_MissingFields(t *testing.T) {
+	ra := &readarr{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ra.Execute(context.Background(), "readarr_add_author", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "foreign_author_id is required")
+}
+
+func TestUpdateAuthor(t *testing.T) {
+	callCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if r.Method == "GET" {
+			_, _ = w.Write([]byte(`{"id":1,"authorName":"Author","monitored":true,"qualityProfileId":1}`))
+			return
+		}
+		assert.Equal(t, "PUT", r.Method)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, false, body["monitored"])
+		_, _ = w.Write([]byte(`{"id":1,"authorName":"Author","monitored":false}`))
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_update_author", map[string]any{
+		"id": float64(1), "monitored": false,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "false")
+}
+
+func TestUpdateAuthor_MissingID(t *testing.T) {
+	ra := &readarr{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ra.Execute(context.Background(), "readarr_update_author", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "id is required")
+}
+
+func TestDeleteAuthor(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Contains(t, r.URL.Path, "/api/v1/author/1")
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_delete_author", map[string]any{"id": float64(1)})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestDeleteAuthor_MissingID(t *testing.T) {
+	ra := &readarr{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ra.Execute(context.Background(), "readarr_delete_author", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "id is required")
+}
+
+func TestCreateTag(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/v1/tag", r.URL.Path)
+		var body map[string]string
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "scifi", body["label"])
+		_, _ = w.Write([]byte(`{"id":1,"label":"scifi"}`))
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_create_tag", map[string]any{"label": "scifi"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "scifi")
+}
+
+func TestCreateTag_MissingLabel(t *testing.T) {
+	ra := &readarr{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ra.Execute(context.Background(), "readarr_create_tag", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "label is required")
+}
+
+func TestDeleteTag(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Equal(t, "/api/v1/tag/1", r.URL.Path)
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_delete_tag", map[string]any{"id": float64(1)})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestListBookFiles(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/api/v1/bookfile")
+		assert.Contains(t, r.URL.RawQuery, "authorId=1")
+		_, _ = w.Write([]byte(`[{"id":1,"path":"/books/author/book.m4b","size":1024}]`))
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_list_book_files", map[string]any{"author_id": "1"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "book.m4b")
+}
+
+func TestDeleteBookFile(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Equal(t, "/api/v1/bookfile/1", r.URL.Path)
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_delete_book_file", map[string]any{"id": float64(1)})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestListBlocklist(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/api/v1/blocklist")
+		_, _ = w.Write([]byte(`{"page":1,"pageSize":20,"totalRecords":1,"records":[{"id":1,"sourceTitle":"Bad Release"}]}`))
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_list_blocklist", map[string]any{})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Bad Release")
+}
+
+func TestDeleteBlocklistItem(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Equal(t, "/api/v1/blocklist/1", r.URL.Path)
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_delete_blocklist_item", map[string]any{"id": float64(1)})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestGetRename(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/api/v1/rename")
+		assert.Contains(t, r.URL.RawQuery, "authorId=1")
+		_, _ = w.Write([]byte(`[{"bookFileId":1,"existingPath":"/old.m4b","newPath":"/new.m4b"}]`))
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_get_rename", map[string]any{"author_id": float64(1)})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "new.m4b")
+}
+
+func TestGetRename_MissingAuthorID(t *testing.T) {
+	ra := &readarr{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ra.Execute(context.Background(), "readarr_get_rename", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "author_id is required")
+}
+
+func TestGetRetag(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/api/v1/retag")
+		assert.Contains(t, r.URL.RawQuery, "authorId=1")
+		_, _ = w.Write([]byte(`[{"bookFileId":1,"path":"/book.m4b","changes":[]}]`))
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_get_retag", map[string]any{"author_id": float64(1)})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "book.m4b")
+}
+
+func TestGetManualImport(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/api/v1/manualimport")
+		assert.Contains(t, r.URL.RawQuery, "folder=")
+		_, _ = w.Write([]byte(`[{"id":1,"path":"/incoming/book.m4b","name":"book.m4b"}]`))
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_get_manual_import", map[string]any{"folder": "/incoming"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "book.m4b")
+}
+
+func TestGetManualImport_MissingFolder(t *testing.T) {
+	ra := &readarr{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ra.Execute(context.Background(), "readarr_get_manual_import", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "folder is required")
+}
+
+func TestMarkFailed(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/v1/history/failed/1", r.URL.Path)
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
+	result, err := ra.Execute(context.Background(), "readarr_mark_failed", map[string]any{"id": float64(1)})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestMarkFailed_MissingID(t *testing.T) {
+	ra := &readarr{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := ra.Execute(context.Background(), "readarr_mark_failed", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "id is required")
+}
