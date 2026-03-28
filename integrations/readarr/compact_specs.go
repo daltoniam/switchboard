@@ -90,6 +90,28 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"readarr_list_tags": {
 		"id", "label",
 	},
+	"readarr_list_book_files": {
+		"id", "path", "size", "quality.quality.name",
+		"bookId", "authorId",
+	},
+	"readarr_list_blocklist": {
+		"records[].id", "records[].authorId", "records[].bookIds",
+		"records[].sourceTitle", "records[].date",
+		"page", "pageSize", "totalRecords",
+	},
+	"readarr_get_rename": {
+		"bookId", "bookFileId", "existingPath", "newPath",
+	},
+	"readarr_get_retag": {
+		"bookId", "bookFileId", "path",
+		"changes[].field", "changes[].oldValue", "changes[].newValue",
+	},
+	"readarr_get_manual_import": {
+		"id", "path", "name", "size",
+		"author.id", "author.authorName",
+		"book.id", "book.title",
+		"quality.quality.name", "rejections",
+	},
 }
 
 var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(rawFieldCompactionSpecs)
