@@ -279,7 +279,7 @@ func TestMonitorBooks(t *testing.T) {
 	ra := &readarr{apiKey: "key", client: ts.Client(), baseURL: ts.URL}
 	result, err := ra.Execute(context.Background(), "readarr_monitor_books", map[string]any{
 		"book_ids":  "1,2",
-		"monitored": "true",
+		"monitored": true,
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
@@ -287,7 +287,7 @@ func TestMonitorBooks(t *testing.T) {
 
 func TestMonitorBooks_MissingIDs(t *testing.T) {
 	ra := &readarr{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
-	result, err := ra.Execute(context.Background(), "readarr_monitor_books", map[string]any{"monitored": "true"})
+	result, err := ra.Execute(context.Background(), "readarr_monitor_books", map[string]any{"monitored": true})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "book_ids is required")

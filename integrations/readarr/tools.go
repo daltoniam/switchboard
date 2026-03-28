@@ -21,7 +21,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name: "readarr_monitor_books", Description: "Bulk update monitoring status for books. Set which books Readarr should actively search for downloads.",
 		Parameters: map[string]string{"book_ids": "Comma-separated list of book IDs to update", "monitored": "Whether to monitor the books (true/false)"},
-		Required:   []string{"book_ids", "monitored"},
+		Required:   []string{"book_ids"},
 	},
 
 	// ── Authors ─────────────────────────────────────────────────────

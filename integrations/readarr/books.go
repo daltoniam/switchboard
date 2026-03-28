@@ -66,15 +66,12 @@ func searchBooks(ctx context.Context, r *readarr, args map[string]any) (*mcp.Too
 func monitorBooks(ctx context.Context, r *readarr, args map[string]any) (*mcp.ToolResult, error) {
 	a := mcp.NewArgs(args)
 	idsStr := a.Str("book_ids")
-	monitored := a.Str("monitored")
+	monitored := a.Bool("monitored")
 	if err := a.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 	if idsStr == "" {
 		return mcp.ErrResult(fmt.Errorf("book_ids is required"))
-	}
-	if monitored == "" {
-		return mcp.ErrResult(fmt.Errorf("monitored is required"))
 	}
 
 	var bookIDs []int
@@ -92,7 +89,7 @@ func monitorBooks(ctx context.Context, r *readarr, args map[string]any) (*mcp.To
 
 	body := map[string]any{
 		"bookIds":   bookIDs,
-		"monitored": monitored == "true",
+		"monitored": monitored,
 	}
 	data, err := r.put(ctx, "/api/v1/book/monitor", body)
 	if err != nil {
