@@ -19,8 +19,8 @@ clean: ## Remove build artifacts
 ## WASM
 
 wasm-build: ## Build WASM modules (requires Rust with wasm32-wasip1 target)
-	cd wasm/guest-rust && cargo build --target wasm32-wasip1 --release -p overmind-wasm
-	cp wasm/guest-rust/target/wasm32-wasip1/release/overmind_wasm.wasm wasm/testdata/overmind.wasm
+	cd wasm/guest-rust && cargo build --target wasm32-wasip1 --release -p example-wasm
+	cp wasm/guest-rust/target/wasm32-wasip1/release/example_wasm.wasm wasm/testdata/example.wasm
 
 wasm-test: wasm-build ## Build WASM modules and run WASM tests
 	go test -v ./wasm/

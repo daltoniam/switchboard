@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Go MCP server aggregating 17 integrations (GitHub, Datadog, Linear, Sentry, Slack, Notion, AWS, GCP, PostHog, Postgres, ClickHouse, and more) behind one endpoint
+- Go MCP server aggregating integrations (GitHub, Datadog, Linear, Sentry, Slack, Notion, AWS, GCP, PostHog, Postgres, ClickHouse, and more) behind one endpoint
 - Two meta-tools only: **search** (discover operations) and **execute** (run them)
 - Hexagonal architecture (ports and adapters) — see [docs/architecture.md](docs/architecture.md)
 

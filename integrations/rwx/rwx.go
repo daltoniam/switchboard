@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	rwxOrg          = "curri"
 	minRWXVersion   = "3.0.0"
 	rwxAPIBase      = "https://cloud.rwx.com"
 	maxResponseSize = 10 * 1024 * 1024 // 10 MB
@@ -27,6 +26,7 @@ var (
 
 type rwx struct {
 	accessToken string
+	org         string
 	cliPath     string
 	client      *http.Client
 	proxy       *proxyClient
@@ -46,6 +46,10 @@ func (r *rwx) Configure(_ context.Context, creds mcp.Credentials) error {
 	r.accessToken = creds["access_token"]
 	if r.accessToken == "" {
 		return fmt.Errorf("rwx: access_token is required")
+	}
+	r.org = creds["org"]
+	if r.org == "" {
+		return fmt.Errorf("rwx: org is required")
 	}
 	r.cliPath = resolveRWXBinary(creds["cli_path"])
 	return nil

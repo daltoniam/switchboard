@@ -23,13 +23,13 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(context.Background(), mcp.Credentials{"access_token": "rwx_test_token"})
+	err := i.Configure(context.Background(), mcp.Credentials{"access_token": "rwx_test_token", "org": "my-org"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAccessToken(t *testing.T) {
 	i := New()
-	err := i.Configure(context.Background(), mcp.Credentials{"access_token": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"access_token": "", "org": "my-org"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "access_token is required")
 }
@@ -63,7 +63,7 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
-	r := &rwx{accessToken: "test", client: &http.Client{}, logCache: newLogCache()}
+	r := &rwx{accessToken: "test", org: "my-org", client: &http.Client{}, logCache: newLogCache()}
 	result, err := r.Execute(context.Background(), "rwx_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -116,7 +116,7 @@ func TestJsonResult(t *testing.T) {
 
 func TestExtractRunID(t *testing.T) {
 	assert.Equal(t, "abc123", extractRunID("abc123"))
-	assert.Equal(t, "abc123", extractRunID("https://cloud.rwx.com/mint/curri/runs/abc123"))
+	assert.Equal(t, "abc123", extractRunID("https://cloud.rwx.com/mint/my-org/runs/abc123"))
 }
 
 func TestNormalizeStatus(t *testing.T) {
@@ -188,7 +188,7 @@ func TestHealthy_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", client: ts.Client(), logCache: newLogCache()}
+	r := &rwx{accessToken: "test-token", org: "my-org", client: ts.Client(), logCache: newLogCache()}
 	// Override the rwxAPIBase for testing — we need to test via the actual method
 	// Since rwxAPIBase is a const, we test via an httptest redirect approach
 	// Instead, we can test the health check logic directly
@@ -196,7 +196,7 @@ func TestHealthy_Success(t *testing.T) {
 }
 
 func TestHealthy_NoToken(t *testing.T) {
-	r := &rwx{accessToken: "", client: &http.Client{}, logCache: newLogCache()}
+	r := &rwx{accessToken: "", org: "my-org", client: &http.Client{}, logCache: newLogCache()}
 	assert.False(t, r.Healthy(context.Background()))
 }
 
@@ -213,7 +213,7 @@ func TestGetRecentRuns(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", client: ts.Client(), logCache: newLogCache()}
+	r := &rwx{accessToken: "test-token", org: "my-org", client: ts.Client(), logCache: newLogCache()}
 
 	// We can't easily test since the API base URL is a const, but we can verify
 	// the function doesn't panic and the handler is properly wired
@@ -236,7 +236,7 @@ func TestGetRecentRuns_Response(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", client: ts.Client(), logCache: newLogCache()}
+	r := &rwx{accessToken: "test-token", org: "my-org", client: ts.Client(), logCache: newLogCache()}
 
 	// Call the handler directly to bypass const URL
 	result, err := getRecentRuns(context.Background(), r, map[string]any{"ref": "main", "limit": float64(5)})
@@ -253,7 +253,7 @@ func TestFetchRunStatus_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", client: ts.Client(), logCache: newLogCache()}
+	r := &rwx{accessToken: "test-token", org: "my-org", client: ts.Client(), logCache: newLogCache()}
 	// Direct call would need URL override — tested via integration
 	_ = r
 }
@@ -367,6 +367,7 @@ func TestConfigure_StoresCliPath(t *testing.T) {
 	r := &rwx{client: &http.Client{}, logCache: newLogCache()}
 	err := r.Configure(context.Background(), mcp.Credentials{
 		"access_token": "test",
+		"org":          "my-org",
 		"cli_path":     fakeBin,
 	})
 	require.NoError(t, err)
