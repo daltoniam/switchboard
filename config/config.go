@@ -93,6 +93,10 @@ var envMapping = map[string]map[string]string{
 		"instance_url": "SALESFORCE_INSTANCE_URL",
 		"api_version":  "SALESFORCE_API_VERSION",
 	},
+	"cloudflare": {
+		"api_token":  "CLOUDFLARE_API_TOKEN",
+		"account_id": "CLOUDFLARE_ACCOUNT_ID",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -228,6 +232,10 @@ func defaultConfig() *mcp.Config {
 			"salesforce": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "instance_url": "", "api_version": ""},
+			},
+			"cloudflare": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "account_id": ""},
 			},
 		},
 	}

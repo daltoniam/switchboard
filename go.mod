@@ -1,6 +1,6 @@
 module github.com/daltoniam/switchboard
 
-go 1.26
+go 1.26.1
 
 require (
 	cloud.google.com/go/compute v1.38.0
