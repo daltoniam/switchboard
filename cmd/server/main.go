@@ -29,7 +29,6 @@ import (
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
-	"github.com/daltoniam/switchboard/integrations/overmind"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
@@ -216,7 +215,6 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		notionInt.New(),
 		gcpInt.New(),
 		suno.New(),
-		overmind.New(),
 		readarr.New(),
 	} {
 		if err := reg.Register(i); err != nil {

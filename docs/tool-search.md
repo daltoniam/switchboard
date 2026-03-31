@@ -9,7 +9,7 @@ search({"query": "create ticket"}) → [{name: "linear_create_issue", ...}]
 execute({"tool_name": "linear_create_issue", "arguments": {...}}) → result
 ```
 
-Search scores ~900 tools across 17 integrations using synonym-expanded TF-IDF. The index is built once at startup; queries are zero-allocation beyond the result slice.
+Search scores ~850 tools across integrations using synonym-expanded TF-IDF. The index is built once at startup; queries are zero-allocation beyond the result slice.
 
 ## How Scoring Works
 
@@ -23,7 +23,7 @@ When a query arrives:
 4. **Sort** by score descending, then by integration name and tool name for stable tiebreaking.
 5. **Filter** zero-score tools — if no query word (or synonym) matched, the tool is excluded.
 
-The formula: `IDF(word) = log(totalTools / toolsContainingWord)`. A word appearing in 1 of 900 tools scores ~6.8; a word in 450 of 900 scores ~0.7.
+The formula: `IDF(word) = log(totalTools / toolsContainingWord)`. A word appearing in 1 of 850 tools scores ~6.7; a word in 425 of 850 scores ~0.7.
 
 ## Synonym Groups
 

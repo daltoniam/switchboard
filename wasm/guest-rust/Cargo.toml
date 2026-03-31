@@ -1,5 +1,5 @@
 [workspace]
-members = ["sdk", "overmind"]
+members = ["sdk", "example"]
 resolver = "2"
 
 [profile.release]

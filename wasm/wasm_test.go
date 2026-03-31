@@ -3,8 +3,6 @@ package wasm
 import (
 	"context"
 	_ "embed"
-	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,8 +11,8 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-//go:embed testdata/overmind.wasm
-var overmindWasm []byte
+//go:embed testdata/example.wasm
+var exampleWasm []byte
 
 func loadTestModule(t *testing.T) *Module {
 	t.Helper()
@@ -25,7 +23,7 @@ func loadTestModule(t *testing.T) *Module {
 	}
 	t.Cleanup(func() { rt.Close(ctx) })
 
-	mod, err := rt.LoadModule(ctx, overmindWasm)
+	mod, err := rt.LoadModule(ctx, exampleWasm)
 	if err != nil {
 		t.Fatalf("LoadModule: %v", err)
 	}
@@ -36,8 +34,8 @@ func loadTestModule(t *testing.T) *Module {
 
 func TestName(t *testing.T) {
 	mod := loadTestModule(t)
-	if got := mod.Name(); got != "overmind" {
-		t.Errorf("Name() = %q, want %q", got, "overmind")
+	if got := mod.Name(); got != "example" {
+		t.Errorf("Name() = %q, want %q", got, "example")
 	}
 }
 
@@ -48,22 +46,18 @@ func TestTools(t *testing.T) {
 		t.Fatal("Tools() returned empty slice")
 	}
 
-	// Verify we have the expected tool count (46 tools, matching native overmind)
-	if got := len(tools); got != 46 {
-		t.Errorf("Tools() returned %d tools, want 46", got)
+	if got := len(tools); got != 3 {
+		t.Errorf("Tools() returned %d tools, want 3", got)
 	}
 
-	// Spot-check a few tool names
 	names := make(map[string]bool)
 	for _, tool := range tools {
 		names[tool.Name] = true
 	}
 	for _, want := range []string{
-		"overmind_list_available_agents",
-		"overmind_launch_agent",
-		"overmind_complete_flow",
-		"overmind_list_agents",
-		"overmind_list_mcp_roles",
+		"example_echo",
+		"example_http_get",
+		"example_list_items",
 	} {
 		if !names[want] {
 			t.Errorf("missing tool %q", want)
@@ -74,10 +68,8 @@ func TestTools(t *testing.T) {
 func TestConfigure_Success(t *testing.T) {
 	mod := loadTestModule(t)
 	err := mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     "https://example.com",
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"base_url": "https://example.com",
+		"api_key":  "test-key",
 	})
 	if err != nil {
 		t.Fatalf("Configure: %v", err)
@@ -87,9 +79,7 @@ func TestConfigure_Success(t *testing.T) {
 func TestConfigure_MissingBaseURL(t *testing.T) {
 	mod := loadTestModule(t)
 	err := mod.Configure(context.Background(), mcp.Credentials{
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"api_key": "test-key",
 	})
 	if err == nil {
 		t.Fatal("expected error for missing base_url")
@@ -99,28 +89,24 @@ func TestConfigure_MissingBaseURL(t *testing.T) {
 	}
 }
 
-func TestConfigure_MissingToken(t *testing.T) {
+func TestConfigure_MissingAPIKey(t *testing.T) {
 	mod := loadTestModule(t)
 	err := mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     "https://example.com",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"base_url": "https://example.com",
 	})
 	if err == nil {
-		t.Fatal("expected error for missing token")
+		t.Fatal("expected error for missing api_key")
 	}
-	if !strings.Contains(err.Error(), "token") {
-		t.Errorf("error should mention token: %v", err)
+	if !strings.Contains(err.Error(), "api_key") {
+		t.Errorf("error should mention api_key: %v", err)
 	}
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
 	mod := loadTestModule(t)
 	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     "https://example.com",
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"base_url": "https://example.com",
+		"api_key":  "test-key",
 	})
 
 	result, err := mod.Execute(context.Background(), "nonexistent_tool", map[string]any{})
@@ -135,75 +121,15 @@ func TestExecute_UnknownTool(t *testing.T) {
 	}
 }
 
-func TestExecute_ListAvailableAgents(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/api/flow_runs/flow-456/available_agents") {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-		if auth := r.Header.Get("Authorization"); auth != "Bearer test-token" {
-			t.Errorf("unexpected auth: %s", auth)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`[{"id":"agent-1","name":"test-agent"}]`))
-	}))
-	defer srv.Close()
-
+func TestExecute_Echo(t *testing.T) {
 	mod := loadTestModule(t)
 	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     srv.URL,
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"base_url": "https://example.com",
+		"api_key":  "test-key",
 	})
 
-	result, err := mod.Execute(context.Background(), "overmind_list_available_agents", map[string]any{})
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("unexpected error: %s", result.Data)
-	}
-	if !strings.Contains(result.Data, "agent-1") {
-		t.Errorf("response should contain agent-1: %s", result.Data)
-	}
-}
-
-func TestExecute_LaunchAgent(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		body, _ := io.ReadAll(r.Body)
-		var req map[string]any
-		json.Unmarshal(body, &req)
-		if req["agent_id"] != "agent-1" {
-			t.Errorf("expected agent_id=agent-1, got %v", req["agent_id"])
-		}
-		if req["prompt"] != "do something" {
-			t.Errorf("expected prompt='do something', got %v", req["prompt"])
-		}
-		if req["parent_run_id"] != "run-123" {
-			t.Errorf("expected parent_run_id=run-123, got %v", req["parent_run_id"])
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"agent_run_id":"new-run-789"}`))
-	}))
-	defer srv.Close()
-
-	mod := loadTestModule(t)
-	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     srv.URL,
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
-	})
-
-	result, err := mod.Execute(context.Background(), "overmind_launch_agent", map[string]any{
-		"agent_id": "agent-1",
-		"prompt":   "do something",
+	result, err := mod.Execute(context.Background(), "example_echo", map[string]any{
+		"message": "hello world",
 	})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -211,61 +137,54 @@ func TestExecute_LaunchAgent(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("unexpected error: %s", result.Data)
 	}
-	if !strings.Contains(result.Data, "new-run-789") {
-		t.Errorf("response should contain new-run-789: %s", result.Data)
+	if !strings.Contains(result.Data, "hello world") {
+		t.Errorf("response should contain 'hello world': %s", result.Data)
 	}
 }
 
-func TestExecute_LaunchAgent_MissingArgs(t *testing.T) {
+func TestExecute_Echo_MissingArgs(t *testing.T) {
 	mod := loadTestModule(t)
 	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     "https://example.com",
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"base_url": "https://example.com",
+		"api_key":  "test-key",
 	})
 
-	result, err := mod.Execute(context.Background(), "overmind_launch_agent", map[string]any{})
+	result, err := mod.Execute(context.Background(), "example_echo", map[string]any{})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	if !result.IsError {
 		t.Fatal("expected error for missing args")
 	}
-	if !strings.Contains(result.Data, "agent_id") {
-		t.Errorf("error should mention agent_id: %s", result.Data)
+	if !strings.Contains(result.Data, "message") {
+		t.Errorf("error should mention message: %s", result.Data)
 	}
 }
 
-func TestExecute_CompleteFlow(t *testing.T) {
+func TestExecute_HTTPGet(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("expected POST, got %s", r.Method)
+		if r.Method != "GET" {
+			t.Errorf("expected GET, got %s", r.Method)
 		}
-		body, _ := io.ReadAll(r.Body)
-		var req map[string]any
-		json.Unmarshal(body, &req)
-		if req["summary"] != "all done" {
-			t.Errorf("expected summary='all done', got %v", req["summary"])
+		if !strings.Contains(r.URL.Path, "/users") {
+			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		if req["status"] != "success" {
-			t.Errorf("expected status='success', got %v", req["status"])
+		if auth := r.Header.Get("Authorization"); auth != "Bearer test-key" {
+			t.Errorf("unexpected auth: %s", auth)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"completed"}`))
+		_, _ = w.Write([]byte(`[{"id":1,"name":"alice"}]`))
 	}))
 	defer srv.Close()
 
 	mod := loadTestModule(t)
 	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     srv.URL,
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"base_url": srv.URL,
+		"api_key":  "test-key",
 	})
 
-	result, err := mod.Execute(context.Background(), "overmind_complete_flow", map[string]any{
-		"summary": "all done",
+	result, err := mod.Execute(context.Background(), "example_http_get", map[string]any{
+		"path": "/users",
 	})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -273,105 +192,52 @@ func TestExecute_CompleteFlow(t *testing.T) {
 	if result.IsError {
 		t.Fatalf("unexpected error: %s", result.Data)
 	}
-}
-
-func TestExecute_CompleteFlow_InvalidStatus(t *testing.T) {
-	mod := loadTestModule(t)
-	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     "https://example.com",
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
-	})
-
-	result, err := mod.Execute(context.Background(), "overmind_complete_flow", map[string]any{
-		"summary": "done",
-		"status":  "invalid",
-	})
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if !result.IsError {
-		t.Fatal("expected error for invalid status")
+	if !strings.Contains(result.Data, "alice") {
+		t.Errorf("response should contain alice: %s", result.Data)
 	}
 }
 
-func TestExecute_GetAgentStatus(t *testing.T) {
+func TestExecute_ListItems(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.Path, "/api/agent_runs/run-abc/status") {
+		if r.URL.Path != "/items" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		w.Write([]byte(`{"state":"completed"}`))
+		_, _ = w.Write([]byte(`[{"id":"item-1","name":"widget"}]`))
 	}))
 	defer srv.Close()
 
 	mod := loadTestModule(t)
 	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     srv.URL,
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"base_url": srv.URL,
+		"api_key":  "test-key",
 	})
 
-	result, err := mod.Execute(context.Background(), "overmind_get_agent_status", map[string]any{
-		"agent_run_id": "run-abc",
-	})
+	result, err := mod.Execute(context.Background(), "example_list_items", map[string]any{})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	if result.IsError {
 		t.Fatalf("unexpected error: %s", result.Data)
 	}
-	if !strings.Contains(result.Data, "completed") {
-		t.Errorf("response should contain completed: %s", result.Data)
-	}
-}
-
-func TestExecute_ListAgents_Admin(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/agents" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-		w.Write([]byte(`[{"id":"a1","name":"agent1"}]`))
-	}))
-	defer srv.Close()
-
-	mod := loadTestModule(t)
-	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     srv.URL,
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
-	})
-
-	result, err := mod.Execute(context.Background(), "overmind_list_agents", map[string]any{})
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("unexpected error: %s", result.Data)
-	}
-	if !strings.Contains(result.Data, "agent1") {
-		t.Errorf("response should contain agent1: %s", result.Data)
+	if !strings.Contains(result.Data, "widget") {
+		t.Errorf("response should contain widget: %s", result.Data)
 	}
 }
 
 func TestExecute_HTTPError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error":"not found"}`))
+		_, _ = w.Write([]byte(`{"error":"not found"}`))
 	}))
 	defer srv.Close()
 
 	mod := loadTestModule(t)
 	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     srv.URL,
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"base_url": srv.URL,
+		"api_key":  "test-key",
 	})
 
-	result, err := mod.Execute(context.Background(), "overmind_list_agents", map[string]any{})
+	result, err := mod.Execute(context.Background(), "example_list_items", map[string]any{})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -382,9 +248,9 @@ func TestExecute_HTTPError(t *testing.T) {
 
 func TestHealthy(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/health" {
+		if r.URL.Path == "/health" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status":"ok"}`))
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -393,10 +259,8 @@ func TestHealthy(t *testing.T) {
 
 	mod := loadTestModule(t)
 	_ = mod.Configure(context.Background(), mcp.Credentials{
-		"base_url":     srv.URL,
-		"token":        "test-token",
-		"agent_run_id": "run-123",
-		"flow_run_id":  "flow-456",
+		"base_url": srv.URL,
+		"api_key":  "test-key",
 	})
 
 	if !mod.Healthy(context.Background()) {
@@ -411,11 +275,8 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 	for _, tool := range tools {
 		result, err := mod.Execute(context.Background(), tool.Name, map[string]any{})
 		if err != nil {
-			// This would be a runtime/wasm error, which means the tool was dispatched
 			continue
 		}
-		// The tool should either succeed (unlikely without config) or return an error result
-		// but should NOT return "unknown tool"
 		if result != nil && result.IsError && strings.Contains(result.Data, "unknown tool") {
 			t.Errorf("tool %q is defined but not in dispatch map", tool.Name)
 		}

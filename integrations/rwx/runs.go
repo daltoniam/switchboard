@@ -53,7 +53,7 @@ func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResul
 
 	runURL := parsed.RunURL
 	if runURL == "" {
-		runURL = fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, parsed.RunID)
+		runURL = fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, r.org, parsed.RunID)
 	}
 
 	if wait {
@@ -95,7 +95,7 @@ func waitForCIRun(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRe
 	}
 
 	id := extractRunID(runIDRaw)
-	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, id)
+	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, r.org, id)
 
 	if timeoutSec <= 0 {
 		timeoutSec = 1800
@@ -219,7 +219,7 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 			"status":     status,
 			"commit_sha": run.CommitSHA,
 			"title":      run.Title,
-			"url":        fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, run.ID),
+			"url":        fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, r.org, run.ID),
 		})
 		if len(runs) >= limit {
 			break
@@ -260,7 +260,7 @@ func getRunResults(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolRes
 		return mcp.ErrResult(fmt.Errorf("parse results: %w", err))
 	}
 
-	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, id)
+	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, r.org, id)
 	status := normalizeStatus(parsed.Result)
 
 	var failedKeys []string

@@ -75,13 +75,8 @@ var envMapping = map[string]map[string]string{
 	},
 	"rwx": {
 		"access_token": "RWX_ACCESS_TOKEN",
+		"org":          "RWX_ORG",
 		"cli_path":     "RWX_CLI_PATH",
-	},
-	"overmind": {
-		"base_url":     "OVERMIND_URL",
-		"token":        "OVERMIND_TOKEN",
-		"agent_run_id": "OVERMIND_AGENT_RUN_ID",
-		"flow_run_id":  "OVERMIND_FLOW_RUN_ID",
 	},
 	"elasticsearch": {
 		"base_url": "ELASTICSEARCH_URL",
@@ -183,7 +178,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"rwx": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"access_token": "", "cli_path": ""},
+				Credentials: mcp.Credentials{"access_token": "", "org": "", "cli_path": ""},
 			},
 			"gmail": {
 				Enabled:     false,
@@ -220,10 +215,6 @@ func defaultConfig() *mcp.Config {
 			"amazon": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"email": "", "password": "", "otp_secret": "", "cookies": "", "domain": ""},
-			},
-			"overmind": {
-				Enabled:     false,
-				Credentials: mcp.Credentials{"base_url": "", "token": "", "agent_run_id": "", "flow_run_id": ""},
 			},
 			"readarr": {
 				Enabled:     false,
