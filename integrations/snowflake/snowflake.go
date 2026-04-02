@@ -117,6 +117,8 @@ type handlerFunc func(ctx context.Context, s *snowflake, args map[string]any) (*
 
 // --- HTTP helpers ---
 
+const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+
 type statementRequest struct {
 	Statement  string            `json:"statement"`
 	Timeout    int               `json:"timeout,omitempty"`
@@ -213,7 +215,6 @@ func (s *snowflake) doStatementRequest(ctx context.Context, method, path string,
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("User-Agent", "Switchboard/1.0")
-	httpReq.Header.Set("X-Snowflake-Authorization-Token-Type", "KEYPAIR_JWT")
 
 	resp, err := s.client.Do(httpReq)
 	if err != nil {
@@ -221,7 +222,7 @@ func (s *snowflake) doStatementRequest(ctx context.Context, method, path string,
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		return nil, fmt.Errorf("snowflake: read response: %w", err)
 	}

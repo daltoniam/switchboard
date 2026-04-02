@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -239,6 +240,13 @@ func (s *snowflake) execSimpleQuery(ctx context.Context, sql, role string) (*mcp
 	resp, err := s.submitStatement(ctx, sql, opts)
 	if err != nil {
 		return mcp.ErrResult(err)
+	}
+
+	if resp.StatementHandle != "" && resp.Data == nil {
+		resp, err = s.pollUntilComplete(ctx, resp.StatementHandle, 60*time.Second)
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
 	}
 
 	data, err := formatResults(resp)
