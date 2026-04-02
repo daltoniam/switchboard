@@ -32,10 +32,10 @@ func TestFieldCompactionSpecs_OnlyReadTools(t *testing.T) {
 	}
 }
 
-func TestFieldCompactionSpec_ReturnsFieldsForQueryTool(t *testing.T) {
+func TestFieldCompactionSpec_ReturnsFieldsForDescribeTool(t *testing.T) {
 	s := &salesforce{}
-	fields, ok := s.CompactSpec("salesforce_query")
-	require.True(t, ok, "salesforce_query should have field compaction spec")
+	fields, ok := s.CompactSpec("salesforce_describe_global")
+	require.True(t, ok, "salesforce_describe_global should have field compaction spec")
 	assert.NotEmpty(t, fields)
 }
 

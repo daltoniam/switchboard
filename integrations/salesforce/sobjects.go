@@ -23,7 +23,7 @@ func describeSObject(ctx context.Context, s *salesforce, args map[string]any) (*
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.get(ctx, "%s/sobjects/%s/describe", s.ver(), sobject)
+	data, err := s.get(ctx, "%s/sobjects/%s/describe", s.ver(), url.PathEscape(sobject))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -42,7 +42,7 @@ func getRecord(ctx context.Context, s *salesforce, args map[string]any) (*mcp.To
 	if fields != "" {
 		q = "?fields=" + url.QueryEscape(fields)
 	}
-	data, err := s.get(ctx, "%s/sobjects/%s/%s%s", s.ver(), sobject, id, q)
+	data, err := s.get(ctx, "%s/sobjects/%s/%s%s", s.ver(), url.PathEscape(sobject), url.PathEscape(id), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -60,7 +60,7 @@ func createRecord(ctx context.Context, s *salesforce, args map[string]any) (*mcp
 	if err := json.Unmarshal([]byte(dataStr), &body); err != nil {
 		return mcp.ErrResult(fmt.Errorf("invalid JSON for data: %w", err))
 	}
-	path := fmt.Sprintf("%s/sobjects/%s/", s.ver(), sobject)
+	path := fmt.Sprintf("%s/sobjects/%s/", s.ver(), url.PathEscape(sobject))
 	data, err := s.post(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -80,7 +80,7 @@ func updateRecord(ctx context.Context, s *salesforce, args map[string]any) (*mcp
 	if err := json.Unmarshal([]byte(dataStr), &body); err != nil {
 		return mcp.ErrResult(fmt.Errorf("invalid JSON for data: %w", err))
 	}
-	path := fmt.Sprintf("%s/sobjects/%s/%s", s.ver(), sobject, id)
+	path := fmt.Sprintf("%s/sobjects/%s/%s", s.ver(), url.PathEscape(sobject), url.PathEscape(id))
 	data, err := s.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -95,7 +95,7 @@ func deleteRecord(ctx context.Context, s *salesforce, args map[string]any) (*mcp
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.del(ctx, "%s/sobjects/%s/%s", s.ver(), sobject, id)
+	data, err := s.del(ctx, "%s/sobjects/%s/%s", s.ver(), url.PathEscape(sobject), url.PathEscape(id))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -110,7 +110,7 @@ func getRecordByExternalID(ctx context.Context, s *salesforce, args map[string]a
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.get(ctx, "%s/sobjects/%s/%s/%s", s.ver(), sobject, field, url.PathEscape(value))
+	data, err := s.get(ctx, "%s/sobjects/%s/%s/%s", s.ver(), url.PathEscape(sobject), url.PathEscape(field), url.PathEscape(value))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -130,7 +130,7 @@ func upsertByExternalID(ctx context.Context, s *salesforce, args map[string]any)
 	if err := json.Unmarshal([]byte(dataStr), &body); err != nil {
 		return mcp.ErrResult(fmt.Errorf("invalid JSON for data: %w", err))
 	}
-	path := fmt.Sprintf("%s/sobjects/%s/%s/%s", s.ver(), sobject, field, url.PathEscape(value))
+	path := fmt.Sprintf("%s/sobjects/%s/%s/%s", s.ver(), url.PathEscape(sobject), url.PathEscape(field), url.PathEscape(value))
 	data, err := s.patch(ctx, path, body)
 	if err != nil {
 		return mcp.ErrResult(err)
