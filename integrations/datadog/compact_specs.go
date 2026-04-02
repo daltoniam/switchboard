@@ -48,8 +48,35 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"datadog_get_downtime":   {"id", "scope", "message", "start", "end", "monitor_id", "active", "disabled", "recurrence"},
 
 	// ── Incidents ────────────────────────────────────────────────────
-	"datadog_list_incidents": {"data[].id", "data[].attributes.title", "data[].attributes.severity", "data[].attributes.status", "data[].attributes.created", "data[].attributes.modified"},
-	"datadog_get_incident":   {"data.id", "data.attributes.title", "data.attributes.severity", "data.attributes.status", "data.attributes.fields", "data.attributes.created", "data.attributes.modified"},
+	"datadog_list_incidents":            {"data[].id", "data[].attributes.title", "data[].attributes.severity", "data[].attributes.status", "data[].attributes.created", "data[].attributes.modified"},
+	"datadog_search_incidents":          {"data[].id", "data[].attributes.title", "data[].attributes.severity", "data[].attributes.status", "data[].attributes.created", "data[].attributes.modified"},
+	"datadog_get_incident":              {"data.id", "data.attributes.title", "data.attributes.severity", "data.attributes.status", "data.attributes.fields", "data.attributes.created", "data.attributes.modified"},
+	"datadog_list_incident_attachments": {"data[].id", "data[].type", "data[].attributes.attachment_type", "data[].attributes.modified"},
+	"datadog_list_incident_todos":       {"data[].id", "data[].attributes.content", "data[].attributes.completed", "data[].attributes.due_date", "data[].attributes.created", "data[].attributes.modified"},
+
+	// ── Incident Services ────────────────────────────────────────────
+	"datadog_list_incident_services": {"data[].id", "data[].attributes.name", "data[].attributes.created", "data[].attributes.modified"},
+	"datadog_get_incident_service":   {"data.id", "data.attributes.name", "data.attributes.created", "data.attributes.modified"},
+
+	// ── Incident Teams ───────────────────────────────────────────────
+	"datadog_list_incident_teams": {"data[].id", "data[].attributes.name", "data[].attributes.created", "data[].attributes.modified"},
+	"datadog_get_incident_team":   {"data.id", "data.attributes.name", "data.attributes.created", "data.attributes.modified"},
+
+	// ── On-Call ──────────────────────────────────────────────────────
+	"datadog_get_oncall_schedule":           {"data.id", "data.attributes.name", "data.attributes.time_zone", "data.relationships"},
+	"datadog_get_schedule_oncall_user":      {"data.id", "data.attributes", "data.relationships"},
+	"datadog_get_oncall_escalation_policy":  {"data.id", "data.attributes.name", "data.relationships"},
+	"datadog_get_oncall_team_routing_rules": {"data.id", "data.attributes", "data.relationships"},
+	"datadog_get_team_oncall_users":         {"data.id", "data.relationships"},
+
+	// ── Teams ────────────────────────────────────────────────────────
+	"datadog_list_teams":                   {"data[].id", "data[].attributes.name", "data[].attributes.handle", "data[].attributes.description", "data[].attributes.user_count", "data[].attributes.link_count"},
+	"datadog_get_team":                     {"data.id", "data.attributes.name", "data.attributes.handle", "data.attributes.description", "data.attributes.user_count", "data.attributes.link_count", "data.attributes.created_at", "data.attributes.modified_at"},
+	"datadog_list_team_members":            {"data[].id", "data[].attributes.role", "data[].relationships.user.data.id"},
+	"datadog_get_user_team_memberships":    {"data[].id", "data[].attributes.role", "data[].relationships.team.data.id"},
+	"datadog_list_team_links":              {"data[].id", "data[].attributes.label", "data[].attributes.url", "data[].attributes.position"},
+	"datadog_get_team_link":                {"data.id", "data.attributes.label", "data.attributes.url", "data.attributes.position"},
+	"datadog_get_team_permission_settings": {"data[].id", "data[].attributes.action", "data[].attributes.editable", "data[].attributes.title", "data[].attributes.value"},
 
 	// ── Synthetics ───────────────────────────────────────────────────
 	"datadog_list_synthetics_tests":      {"tests[].public_id", "tests[].name", "tests[].type", "tests[].status", "tests[].tags", "tests[].locations"},

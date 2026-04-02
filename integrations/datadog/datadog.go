@@ -44,6 +44,19 @@ func (d *dd) Configure(_ context.Context, creds mcp.Credentials) error {
 	cfg.SetUnstableOperationEnabled("v2.GetIncident", true)
 	cfg.SetUnstableOperationEnabled("v2.CreateIncident", true)
 	cfg.SetUnstableOperationEnabled("v2.UpdateIncident", true)
+	cfg.SetUnstableOperationEnabled("v2.SearchIncidents", true)
+	cfg.SetUnstableOperationEnabled("v2.ListIncidentAttachments", true)
+	cfg.SetUnstableOperationEnabled("v2.ListIncidentTodos", true)
+	cfg.SetUnstableOperationEnabled("v2.ListIncidentServices", true)
+	cfg.SetUnstableOperationEnabled("v2.GetIncidentService", true)
+	cfg.SetUnstableOperationEnabled("v2.CreateIncidentService", true)
+	cfg.SetUnstableOperationEnabled("v2.UpdateIncidentService", true)
+	cfg.SetUnstableOperationEnabled("v2.DeleteIncidentService", true)
+	cfg.SetUnstableOperationEnabled("v2.ListIncidentTeams", true)
+	cfg.SetUnstableOperationEnabled("v2.GetIncidentTeam", true)
+	cfg.SetUnstableOperationEnabled("v2.CreateIncidentTeam", true)
+	cfg.SetUnstableOperationEnabled("v2.UpdateIncidentTeam", true)
+	cfg.SetUnstableOperationEnabled("v2.DeleteIncidentTeam", true)
 	d.client = datadog.NewAPIClient(cfg)
 	return nil
 }
@@ -172,10 +185,27 @@ var dispatch = map[string]handlerFunc{
 	"datadog_cancel_downtime": cancelDowntime,
 
 	// Incidents
-	"datadog_list_incidents":  listIncidents,
-	"datadog_get_incident":    getIncident,
-	"datadog_create_incident": createIncident,
-	"datadog_update_incident": updateIncident,
+	"datadog_list_incidents":            listIncidents,
+	"datadog_search_incidents":          searchIncidents,
+	"datadog_get_incident":              getIncident,
+	"datadog_create_incident":           createIncident,
+	"datadog_update_incident":           updateIncident,
+	"datadog_list_incident_attachments": listIncidentAttachments,
+	"datadog_list_incident_todos":       listIncidentTodos,
+
+	// Incident Services
+	"datadog_list_incident_services":  listIncidentServices,
+	"datadog_get_incident_service":    getIncidentService,
+	"datadog_create_incident_service": createIncidentService,
+	"datadog_update_incident_service": updateIncidentService,
+	"datadog_delete_incident_service": deleteIncidentService,
+
+	// Incident Teams
+	"datadog_list_incident_teams":  listIncidentTeams,
+	"datadog_get_incident_team":    getIncidentTeam,
+	"datadog_create_incident_team": createIncidentTeam,
+	"datadog_update_incident_team": updateIncidentTeam,
+	"datadog_delete_incident_team": deleteIncidentTeam,
 
 	// Synthetics
 	"datadog_list_synthetics_tests":      listSyntheticsTests,
@@ -193,11 +223,50 @@ var dispatch = map[string]handlerFunc{
 	"datadog_list_users": listUsers,
 	"datadog_get_user":   getUser,
 
+	// Teams
+	"datadog_list_teams":                     listTeams,
+	"datadog_get_team":                       getTeam,
+	"datadog_create_team":                    createTeam,
+	"datadog_update_team":                    updateTeam,
+	"datadog_delete_team":                    deleteTeam,
+	"datadog_list_team_members":              listTeamMembers,
+	"datadog_add_team_member":                addTeamMember,
+	"datadog_update_team_member":             updateTeamMember,
+	"datadog_remove_team_member":             removeTeamMember,
+	"datadog_get_user_team_memberships":      getUserTeamMemberships,
+	"datadog_list_team_links":                listTeamLinks,
+	"datadog_get_team_link":                  getTeamLink,
+	"datadog_create_team_link":               createTeamLink,
+	"datadog_update_team_link":               updateTeamLink,
+	"datadog_delete_team_link":               deleteTeamLink,
+	"datadog_get_team_permission_settings":   getTeamPermissionSettings,
+	"datadog_update_team_permission_setting": updateTeamPermissionSetting,
+
 	// Spans / APM
 	"datadog_search_spans": searchSpans,
 
 	// Service Definition / Software Catalog
 	"datadog_list_services": listServices,
+
+	// On-Call
+	"datadog_get_oncall_schedule":             getOnCallSchedule,
+	"datadog_create_oncall_schedule":          createOnCallSchedule,
+	"datadog_update_oncall_schedule":          updateOnCallSchedule,
+	"datadog_delete_oncall_schedule":          deleteOnCallSchedule,
+	"datadog_get_schedule_oncall_user":        getScheduleOnCallUser,
+	"datadog_get_oncall_escalation_policy":    getOnCallEscalationPolicy,
+	"datadog_create_oncall_escalation_policy": createOnCallEscalationPolicy,
+	"datadog_update_oncall_escalation_policy": updateOnCallEscalationPolicy,
+	"datadog_delete_oncall_escalation_policy": deleteOnCallEscalationPolicy,
+	"datadog_get_oncall_team_routing_rules":   getOnCallTeamRoutingRules,
+	"datadog_set_oncall_team_routing_rules":   setOnCallTeamRoutingRules,
+	"datadog_get_team_oncall_users":           getTeamOnCallUsers,
+
+	// On-Call Paging
+	"datadog_create_oncall_page":      createOnCallPage,
+	"datadog_acknowledge_oncall_page": acknowledgeOnCallPage,
+	"datadog_escalate_oncall_page":    escalateOnCallPage,
+	"datadog_resolve_oncall_page":     resolveOnCallPage,
 
 	// IP Ranges
 	"datadog_get_ip_ranges": getIPRanges,
