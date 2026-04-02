@@ -15,10 +15,6 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"childRelationships[].childSObject", "childRelationships[].field", "childRelationships[].relationshipName",
 	},
 
-	// ── SObject CRUD ────────────────────────────────────────────────
-	"salesforce_get_record":                {"attributes.type", "attributes.url", "Id", "Name"},
-	"salesforce_get_record_by_external_id": {"attributes.type", "attributes.url", "Id", "Name"},
-
 	// ── Queries ─────────────────────────────────────────────────────
 	"salesforce_query":      {"totalSize", "done", "records[].attributes.type", "records[].Id", "records[].Name", "nextRecordsUrl"},
 	"salesforce_query_more": {"totalSize", "done", "records[].attributes.type", "records[].Id", "records[].Name", "nextRecordsUrl"},
