@@ -253,6 +253,18 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 				log.Printf("WARN: failed to register WASM module %q: %v", wc.Path, err)
 				continue
 			}
+			// Pre-configure WASM modules with their inline credentials and
+			// create a config entry so configureIntegrations() sees them as enabled.
+			if len(wc.Credentials) > 0 {
+				if err := mod.Configure(wasmCtx, mcp.Credentials(wc.Credentials)); err != nil {
+					log.Printf("WARN: failed to configure WASM module %q: %v", wc.Path, err)
+					continue
+				}
+			}
+			_ = cfgMgr.SetIntegration(mod.Name(), &mcp.IntegrationConfig{
+				Enabled:     true,
+				Credentials: mcp.Credentials(wc.Credentials),
+			})
 			log.Printf("Loaded WASM integration %q from %s", mod.Name(), wc.Path)
 		}
 	}
