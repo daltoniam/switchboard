@@ -103,6 +103,15 @@ var envMapping = map[string]map[string]string{
 	"fly": {
 		"api_token": "FLY_API_TOKEN",
 	},
+	"snowflake": {
+		"account":     "SNOWFLAKE_ACCOUNT",
+		"token":       "SNOWFLAKE_TOKEN",
+		"warehouse":   "SNOWFLAKE_WAREHOUSE",
+		"database":    "SNOWFLAKE_DATABASE",
+		"schema":      "SNOWFLAKE_SCHEMA",
+		"role":        "SNOWFLAKE_ROLE",
+		"account_url": "SNOWFLAKE_ACCOUNT_URL",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -250,6 +259,10 @@ func defaultConfig() *mcp.Config {
 			"fly": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "base_url": ""},
+			},
+			"snowflake": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"account": "", "token": "", "warehouse": "", "database": "", "schema": "", "role": "", "account_url": ""},
 			},
 		},
 	}
