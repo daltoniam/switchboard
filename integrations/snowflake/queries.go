@@ -2,6 +2,7 @@ package snowflake
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -99,11 +100,13 @@ func cancelQuery(ctx context.Context, s *snowflake, args map[string]any) (*mcp.T
 	return mcp.RawResult([]byte(`{"status":"cancelled"}`))
 }
 
-// pollUntilComplete polls the statement status until the query finishes or times out.
+// pollUntilComplete polls the statement status until the query finishes or times out,
+// then fetches all remaining partitions and merges them into a single response.
 func (s *snowflake) pollUntilComplete(ctx context.Context, handle string, timeout time.Duration) (*statementResponse, error) {
 	deadline := time.Now().Add(timeout)
 	backoff := 500 * time.Millisecond
 
+	var resp *statementResponse
 	for {
 		if time.Now().After(deadline) {
 			return nil, fmt.Errorf("snowflake: query timed out after %s", timeout)
@@ -115,17 +118,56 @@ func (s *snowflake) pollUntilComplete(ctx context.Context, handle string, timeou
 		case <-time.After(backoff):
 		}
 
-		resp, err := s.getStatementStatus(ctx, handle, 0)
+		var err error
+		resp, err = s.getStatementStatus(ctx, handle, 0)
 		if err != nil {
 			return nil, err
 		}
 
 		if resp.Data != nil || resp.Code == "090001" {
-			return resp, nil
+			break
 		}
 
 		if backoff < 4*time.Second {
 			backoff *= 2
 		}
 	}
+
+	if resp.ResultSetMetaData == nil {
+		return resp, nil
+	}
+	var meta resultSetMetaData
+	if err := json.Unmarshal(resp.ResultSetMetaData, &meta); err != nil {
+		return resp, nil
+	}
+	if len(meta.PartitionInfo) <= 1 {
+		return resp, nil
+	}
+
+	var allRows []json.RawMessage
+	if err := json.Unmarshal(resp.Data, &allRows); err != nil {
+		return resp, nil
+	}
+
+	for p := 1; p < len(meta.PartitionInfo); p++ {
+		part, err := s.getStatementStatus(ctx, handle, p)
+		if err != nil {
+			return nil, err
+		}
+		if part.Data == nil {
+			continue
+		}
+		var partRows []json.RawMessage
+		if err := json.Unmarshal(part.Data, &partRows); err != nil {
+			continue
+		}
+		allRows = append(allRows, partRows...)
+	}
+
+	merged, err := json.Marshal(allRows)
+	if err != nil {
+		return resp, nil
+	}
+	resp.Data = merged
+	return resp, nil
 }

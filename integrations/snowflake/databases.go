@@ -47,6 +47,8 @@ func listTables(ctx context.Context, s *snowflake, args map[string]any) (*mcp.To
 		query += " IN " + quoteIdentifier(db) + "." + quoteIdentifier(schema)
 	} else if db != "" {
 		query += " IN DATABASE " + quoteIdentifier(db)
+	} else if schema != "" {
+		query += " IN SCHEMA " + quoteIdentifier(schema)
 	}
 	return s.execSimpleQuery(ctx, query, role)
 }
@@ -65,6 +67,8 @@ func listViews(ctx context.Context, s *snowflake, args map[string]any) (*mcp.Too
 		query += " IN " + quoteIdentifier(db) + "." + quoteIdentifier(schema)
 	} else if db != "" {
 		query += " IN DATABASE " + quoteIdentifier(db)
+	} else if schema != "" {
+		query += " IN SCHEMA " + quoteIdentifier(schema)
 	}
 	return s.execSimpleQuery(ctx, query, role)
 }
@@ -170,6 +174,8 @@ func listStages(ctx context.Context, s *snowflake, args map[string]any) (*mcp.To
 		query += " IN " + quoteIdentifier(db) + "." + quoteIdentifier(schema)
 	} else if db != "" {
 		query += " IN DATABASE " + quoteIdentifier(db)
+	} else if schema != "" {
+		query += " IN SCHEMA " + quoteIdentifier(schema)
 	}
 	return s.execSimpleQuery(ctx, query, role)
 }
@@ -188,6 +194,8 @@ func listTasks(ctx context.Context, s *snowflake, args map[string]any) (*mcp.Too
 		query += " IN " + quoteIdentifier(db) + "." + quoteIdentifier(schema)
 	} else if db != "" {
 		query += " IN DATABASE " + quoteIdentifier(db)
+	} else if schema != "" {
+		query += " IN SCHEMA " + quoteIdentifier(schema)
 	}
 	return s.execSimpleQuery(ctx, query, role)
 }
@@ -206,6 +214,8 @@ func listPipes(ctx context.Context, s *snowflake, args map[string]any) (*mcp.Too
 		query += " IN " + quoteIdentifier(db) + "." + quoteIdentifier(schema)
 	} else if db != "" {
 		query += " IN DATABASE " + quoteIdentifier(db)
+	} else if schema != "" {
+		query += " IN SCHEMA " + quoteIdentifier(schema)
 	}
 	return s.execSimpleQuery(ctx, query, role)
 }
@@ -224,6 +234,8 @@ func listStreams(ctx context.Context, s *snowflake, args map[string]any) (*mcp.T
 		query += " IN " + quoteIdentifier(db) + "." + quoteIdentifier(schema)
 	} else if db != "" {
 		query += " IN DATABASE " + quoteIdentifier(db)
+	} else if schema != "" {
+		query += " IN SCHEMA " + quoteIdentifier(schema)
 	}
 	return s.execSimpleQuery(ctx, query, role)
 }

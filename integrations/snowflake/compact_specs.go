@@ -8,12 +8,11 @@ import (
 
 var rawFieldCompactionSpecs = map[string][]string{
 	// ── Schema Discovery ────────────────────────────────────────────
-	"snowflake_list_databases":    {"name", "owner", "created_on", "options"},
-	"snowflake_list_schemas":      {"name", "database_name", "owner", "created_on"},
-	"snowflake_list_tables":       {"name", "database_name", "schema_name", "rows", "bytes", "owner", "created_on"},
-	"snowflake_list_views":        {"name", "database_name", "schema_name", "owner", "created_on", "text"},
-	"snowflake_describe_table":    {"name", "type", "kind", "null?", "default", "primary key", "comment"},
-	"snowflake_show_create_table": {"GET_DDL('TABLE', ?)"},
+	"snowflake_list_databases": {"name", "owner", "created_on", "options"},
+	"snowflake_list_schemas":   {"name", "database_name", "owner", "created_on"},
+	"snowflake_list_tables":    {"name", "database_name", "schema_name", "rows", "bytes", "owner", "created_on"},
+	"snowflake_list_views":     {"name", "database_name", "schema_name", "owner", "created_on", "text"},
+	"snowflake_describe_table": {"name", "type", "kind", "null?", "default", "primary key", "comment"},
 
 	// ── Warehouse & Compute ─────────────────────────────────────────
 	"snowflake_list_warehouses": {"name", "state", "type", "size", "running", "queued", "owner"},
