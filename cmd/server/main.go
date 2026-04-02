@@ -34,6 +34,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/posthog"
 	"github.com/daltoniam/switchboard/integrations/readarr"
 	"github.com/daltoniam/switchboard/integrations/rwx"
+	"github.com/daltoniam/switchboard/integrations/salesforce"
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/integrations/suno"
@@ -216,6 +217,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		gcpInt.New(),
 		suno.New(),
 		readarr.New(),
+		salesforce.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
