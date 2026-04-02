@@ -104,7 +104,8 @@ func showCreateTable(ctx context.Context, s *snowflake, args map[string]any) (*m
 	}
 
 	fqn := qualifyTable(db, schema, table)
-	return s.execSimpleQuery(ctx, "SELECT GET_DDL('TABLE', "+fqn+")", role) // #nosec G201 -- identifiers quoted via quoteIdentifier
+	fqnLiteral := "'" + strings.ReplaceAll(fqn, "'", "''") + "'"
+	return s.execSimpleQuery(ctx, "SELECT GET_DDL('TABLE', "+fqnLiteral+")", role) // #nosec G201 -- identifiers quoted via quoteIdentifier; single quotes escaped
 }
 
 func listWarehouses(ctx context.Context, s *snowflake, args map[string]any) (*mcp.ToolResult, error) {
