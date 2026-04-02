@@ -422,3 +422,194 @@ func TestErrResult(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
 }
+
+func TestQueryMore(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/services/data/v62.0/query/01gxx")
+		_, _ = w.Write([]byte(`{"totalSize":500,"done":true,"records":[{"Id":"002xx"}]}`))
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_query_more", map[string]any{
+		"next_url": "/services/data/v62.0/query/01gxx",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "002xx")
+}
+
+func TestQueryMore_InvalidPath(t *testing.T) {
+	s := &salesforce{accessToken: "token", instanceURL: "http://localhost", apiVersion: "v62.0", client: &http.Client{}}
+	result, err := s.Execute(context.Background(), "salesforce_query_more", map[string]any{
+		"next_url": "https://evil.com/steal",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "must be a Salesforce-relative path")
+}
+
+func TestListRecentlyViewed(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/services/data/v62.0/recent")
+		_, _ = w.Write([]byte(`[{"attributes":{"type":"Account"},"Id":"001xx","Name":"Acme"}]`))
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_list_recently_viewed", map[string]any{})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Acme")
+}
+
+func TestDescribeSObject(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/services/data/v62.0/sobjects/Account/describe")
+		_, _ = w.Write([]byte(`{"name":"Account","fields":[{"name":"Id","type":"id"}]}`))
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_describe_sobject", map[string]any{
+		"sobject": "Account",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Account")
+}
+
+func TestGetRecordByExternalID(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/services/data/v62.0/sobjects/Account/External_Id__c/ext-123")
+		_, _ = w.Write([]byte(`{"Id":"001xx","Name":"Acme","External_Id__c":"ext-123"}`))
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_get_record_by_external_id", map[string]any{
+		"sobject": "Account",
+		"field":   "External_Id__c",
+		"value":   "ext-123",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "ext-123")
+}
+
+func TestUpsertByExternalID(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "PATCH", r.Method)
+		assert.Contains(t, r.URL.Path, "/services/data/v62.0/sobjects/Account/External_Id__c/ext-456")
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "Acme Updated", body["Name"])
+		_, _ = w.Write([]byte(`{"id":"001xx","success":true,"created":false}`))
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_upsert_by_external_id", map[string]any{
+		"sobject": "Account",
+		"field":   "External_Id__c",
+		"value":   "ext-456",
+		"data":    `{"Name":"Acme Updated"}`,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "001xx")
+}
+
+func TestListAPIVersions(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/services/data/", r.URL.Path)
+		_, _ = w.Write([]byte(`[{"version":"62.0","label":"Winter '25","url":"/services/data/v62.0"}]`))
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_list_api_versions", map[string]any{})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "62.0")
+}
+
+func TestUpdateRecord(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "PATCH", r.Method)
+		assert.Contains(t, r.URL.Path, "/services/data/v62.0/sobjects/Account/001xx")
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "New Name", body["Name"])
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_update_record", map[string]any{
+		"sobject": "Account",
+		"id":      "001xx",
+		"data":    `{"Name":"New Name"}`,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestSObjectCollections_Create(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Contains(t, r.URL.Path, "/services/data/v62.0/composite/sobjects")
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.NotNil(t, body["records"])
+		_, _ = w.Write([]byte(`[{"id":"001xx","success":true},{"id":"002xx","success":true}]`))
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_sobject_collections", map[string]any{
+		"method":  "POST",
+		"records": `[{"attributes":{"type":"Account"},"Name":"Acme1"},{"attributes":{"type":"Account"},"Name":"Acme2"}]`,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "001xx")
+}
+
+func TestSObjectCollections_Update(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "PATCH", r.Method)
+		_, _ = w.Write([]byte(`[{"id":"001xx","success":true}]`))
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_sobject_collections", map[string]any{
+		"method":  "PATCH",
+		"records": `[{"attributes":{"type":"Account"},"Id":"001xx","Name":"Updated"}]`,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestSObjectCollections_Delete(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Contains(t, r.URL.RawQuery, "ids=001xx%2C002xx")
+		_, _ = w.Write([]byte(`[{"id":"001xx","success":true},{"id":"002xx","success":true}]`))
+	}))
+	defer ts.Close()
+
+	s := &salesforce{accessToken: "token", instanceURL: ts.URL, apiVersion: "v62.0", client: ts.Client()}
+	result, err := s.Execute(context.Background(), "salesforce_sobject_collections", map[string]any{
+		"method": "DELETE",
+		"ids":    "001xx,002xx",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}

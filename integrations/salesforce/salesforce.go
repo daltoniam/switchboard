@@ -68,7 +68,7 @@ func (s *salesforce) Configure(_ context.Context, creds mcp.Credentials) error {
 }
 
 func (s *salesforce) Healthy(ctx context.Context) bool {
-	_, err := s.get(ctx, "/services/data/%s/limits", s.apiVersion)
+	_, err := s.get(ctx, "%s/limits", s.ver())
 	return err == nil
 }
 
