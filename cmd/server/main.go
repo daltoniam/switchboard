@@ -229,19 +229,20 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		Metrics:  mcp.NewMetrics(),
 	}
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	// Load WASM modules from config.
 	cfg := cfgMgr.Get()
 	if len(cfg.WasmModules) > 0 {
-		loadWasmModules(cfg.WasmModules, reg, cfgMgr)
+		wasmRT := loadWasmModules(cfg.WasmModules, reg, cfgMgr)
+		defer wasmRT.Close(ctx) //nolint:errcheck
 	}
 
 	gmail.SetConfigService(gmailIntegration, cfgMgr)
 	if browserSvc != nil {
 		amazon.SetBrowserService(amazonIntegration, browserSvc)
 	}
-
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
 
 	var serverOpts []server.Option
 	if discoverAll {
@@ -298,16 +299,16 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	}
 }
 
-func loadWasmModules(modules []mcp.WasmModuleConfig, reg mcp.Registry, cfgMgr mcp.ConfigService) {
+func loadWasmModules(modules []mcp.WasmModuleConfig, reg mcp.Registry, cfgMgr mcp.ConfigService) *wasmmod.Runtime {
 	wasmCtx := context.Background()
 	wasmRT, err := wasmmod.NewRuntime(wasmCtx)
 	if err != nil {
 		log.Fatalf("Failed to create WASM runtime: %v", err)
 	}
-	defer wasmRT.Close(wasmCtx) //nolint:errcheck
 	for _, wc := range modules {
 		loadWasmModule(wasmCtx, wasmRT, wc, reg, cfgMgr)
 	}
+	return wasmRT
 }
 
 func loadWasmModule(ctx context.Context, rt *wasmmod.Runtime, wc mcp.WasmModuleConfig, reg mcp.Registry, cfgMgr mcp.ConfigService) {
