@@ -328,15 +328,27 @@ func loadWasmModule(ctx context.Context, rt *wasmmod.Runtime, wc mcp.WasmModuleC
 	}
 	// Pre-configure WASM modules with their inline credentials and
 	// create a config entry so configureIntegrations() sees them as enabled.
-	if len(wc.Credentials) > 0 {
-		if err := mod.Configure(ctx, mcp.Credentials(wc.Credentials)); err != nil {
+	// Merge with any existing config entry (e.g. from the config file) so
+	// we don't overwrite credentials set by the agent supervisor.
+	existing, hasExisting := cfgMgr.GetIntegration(mod.Name())
+	configureCreds := mcp.Credentials(wc.Credentials)
+	if hasExisting && len(existing.Credentials) > 0 {
+		configureCreds = existing.Credentials
+	}
+	if len(configureCreds) > 0 {
+		if err := mod.Configure(ctx, configureCreds); err != nil {
 			log.Printf("WARN: failed to configure WASM module %q: %v", wc.Path, err)
 			return
 		}
 	}
-	_ = cfgMgr.SetIntegration(mod.Name(), &mcp.IntegrationConfig{
-		Enabled:     true,
-		Credentials: mcp.Credentials(wc.Credentials),
-	})
+	if !hasExisting {
+		_ = cfgMgr.SetIntegration(mod.Name(), &mcp.IntegrationConfig{
+			Enabled:     true,
+			Credentials: configureCreds,
+		})
+	} else if !existing.Enabled {
+		existing.Enabled = true
+		_ = cfgMgr.SetIntegration(mod.Name(), existing)
+	}
 	log.Printf("Loaded WASM integration %q from %s", mod.Name(), wc.Path)
 }
