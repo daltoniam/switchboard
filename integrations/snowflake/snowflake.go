@@ -23,7 +23,6 @@ var (
 
 type snowflake struct {
 	client    *http.Client
-	accountID string
 	token     string
 	baseURL   string
 	warehouse string
@@ -48,7 +47,6 @@ func (s *snowflake) Configure(_ context.Context, creds mcp.Credentials) error {
 		return fmt.Errorf("snowflake: token (JWT or OAuth) is required")
 	}
 
-	s.accountID = account
 	s.token = token
 	s.warehouse = creds["warehouse"]
 	s.database = creds["database"]

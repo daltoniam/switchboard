@@ -430,3 +430,46 @@ func TestListDatabases_Integration(t *testing.T) {
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, "MY_DB")
 }
+
+func TestShowCreateTable_SQLConstruction(t *testing.T) {
+	tests := []struct {
+		name         string
+		db, schema   string
+		table        string
+		wantContains string
+	}{
+		{"simple", "", "", "my_table", `GET_DDL('TABLE', '"my_table"')`},
+		{"fully qualified", "db", "sch", "t", `GET_DDL('TABLE', '"db"."sch"."t"')`},
+		{"single quote in name", "", "", "it's", `GET_DDL('TABLE', '"it''s"')`},
+		{"dot in name", "", "", "my.table", `GET_DDL('TABLE', '"my.table"')`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var captured string
+			s := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				var req statementRequest
+				json.NewDecoder(r.Body).Decode(&req) //nolint:errcheck
+				captured = req.Statement
+
+				meta := resultSetMetaData{NumRows: 0, RowType: []rowType{{Name: "ddl", Type: "TEXT"}}}
+				metaJSON, _ := json.Marshal(meta)
+				resp := statementResponse{Code: "090001", ResultSetMetaData: metaJSON, Data: json.RawMessage("[]")}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(resp) //nolint:errcheck
+			})
+
+			args := map[string]any{"table": tt.table}
+			if tt.db != "" {
+				args["database"] = tt.db
+			}
+			if tt.schema != "" {
+				args["schema"] = tt.schema
+			}
+
+			result, err := showCreateTable(context.Background(), s, args)
+			require.NoError(t, err)
+			assert.False(t, result.IsError)
+			assert.Contains(t, captured, tt.wantContains, "SQL: %s", captured)
+		})
+	}
+}
