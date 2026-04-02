@@ -294,6 +294,20 @@ func formatResults(resp *statementResponse) (json.RawMessage, error) {
 		results = append(results, m)
 	}
 
+	if len(meta.PartitionInfo) > 1 {
+		envelope := map[string]any{
+			"rows":               results,
+			"partitions_total":   len(meta.PartitionInfo),
+			"partitions_fetched": 1,
+			"statement_handle":   resp.StatementHandle,
+		}
+		data, err := json.Marshal(envelope)
+		if err != nil {
+			return nil, fmt.Errorf("marshal results: %w", err)
+		}
+		return json.RawMessage(data), nil
+	}
+
 	data, err := json.Marshal(results)
 	if err != nil {
 		return nil, fmt.Errorf("marshal results: %w", err)

@@ -215,6 +215,34 @@ func TestFormatResults_NilData(t *testing.T) {
 	assert.Equal(t, "[]", string(result))
 }
 
+func TestFormatResults_MultiPartition(t *testing.T) {
+	meta := resultSetMetaData{
+		NumRows: 100,
+		RowType: []rowType{{Name: "id", Type: "FIXED"}},
+		PartitionInfo: []struct {
+			RowCount int `json:"rowCount"`
+		}{{RowCount: 50}, {RowCount: 50}},
+	}
+	metaJSON, _ := json.Marshal(meta)
+	dataJSON, _ := json.Marshal([][]any{{"1"}, {"2"}})
+
+	resp := &statementResponse{
+		StatementHandle:   "handle-123",
+		ResultSetMetaData: metaJSON,
+		Data:              dataJSON,
+	}
+
+	result, err := formatResults(resp)
+	require.NoError(t, err)
+
+	var envelope map[string]any
+	require.NoError(t, json.Unmarshal(result, &envelope))
+	assert.Equal(t, float64(2), envelope["partitions_total"])
+	assert.Equal(t, float64(1), envelope["partitions_fetched"])
+	assert.Equal(t, "handle-123", envelope["statement_handle"])
+	assert.NotNil(t, envelope["rows"])
+}
+
 func TestErrResult(t *testing.T) {
 	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
