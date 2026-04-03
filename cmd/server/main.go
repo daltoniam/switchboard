@@ -42,6 +42,7 @@ import (
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
 	"github.com/daltoniam/switchboard/integrations/suno"
+	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/integrations/ynab"
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
@@ -226,6 +227,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		digitalocean.New(),
 		flyInt.New(),
 		snowflakeInt.New(),
+		xInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
