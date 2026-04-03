@@ -164,6 +164,15 @@ integrations/
     budgets.go               User, budgets, budget settings, accounts handlers
     categories.go            Categories, payees, months handlers
     transactions.go          Transactions, scheduled transactions handlers
+  digitalocean/
+    digitalocean.go          DigitalOcean integration adapter (core, dispatch, godo SDK client, helpers)
+    tools.go                 DigitalOcean tool definitions (~45 tools)
+    droplets.go              Droplets CRUD, reboot, power on/off handlers
+    kubernetes.go            Kubernetes clusters, node pools handlers
+    databases.go             Managed databases, DBs, users, connection pools handlers
+    networking.go            Domains, DNS records, load balancers, firewalls, VPCs, volumes handlers
+    extras.go                Account, apps, regions, sizes, images, SSH keys, snapshots,
+                             projects, billing, CDN, certificates, registry, tags handlers
   gcp/
     gcp.go                   GCP integration adapter (core, dispatch, typed SDK clients, helpers)
     tools.go                 GCP tool definitions (~55 tools)

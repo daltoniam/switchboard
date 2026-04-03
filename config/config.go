@@ -97,6 +97,9 @@ var envMapping = map[string]map[string]string{
 		"api_token":  "CLOUDFLARE_API_TOKEN",
 		"account_id": "CLOUDFLARE_ACCOUNT_ID",
 	},
+	"digitalocean": {
+		"api_token": "DIGITALOCEAN_TOKEN",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -236,6 +239,10 @@ func defaultConfig() *mcp.Config {
 			"cloudflare": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "account_id": ""},
+			},
+			"digitalocean": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": ""},
 			},
 		},
 	}
