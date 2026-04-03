@@ -216,6 +216,11 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"page_size": "Results per page (default 10)", "page_offset": "Pagination offset"},
 	},
 	{
+		Name: "datadog_search_incidents", Description: "Search Datadog incidents by query. Find production outages, disruptions, and postmortems by severity, status, or team.",
+		Parameters: map[string]string{"query": "Incident search query (e.g., 'state:active AND severity:SEV-1')", "sort": "Sort order: created or -created (default)", "page_size": "Results per page (default 10)", "page_offset": "Pagination offset"},
+		Required:   []string{"query"},
+	},
+	{
 		Name: "datadog_get_incident", Description: "Get details of a specific Datadog incident, including timeline and response data for outage investigation",
 		Parameters: map[string]string{"id": "Incident ID"},
 		Required:   []string{"id"},
@@ -229,6 +234,68 @@ var tools = []mcp.ToolDefinition{
 		Name: "datadog_update_incident", Description: "Update an incident",
 		Parameters: map[string]string{"id": "Incident ID", "title": "New title", "severity": "New severity", "status": "Status: active, stable, resolved", "customer_impacted": "Customer impacted (true/false)"},
 		Required:   []string{"id"},
+	},
+	{
+		Name: "datadog_list_incident_attachments", Description: "List attachments for a Datadog incident. View postmortems and linked resources attached to an outage.",
+		Parameters: map[string]string{"incident_id": "Incident ID"},
+		Required:   []string{"incident_id"},
+	},
+	{
+		Name: "datadog_list_incident_todos", Description: "List todos and action items for a Datadog incident. Track remediation tasks and follow-up work.",
+		Parameters: map[string]string{"incident_id": "Incident ID"},
+		Required:   []string{"incident_id"},
+	},
+
+	// ── Incident Services ────────────────────────────────────────────
+	{
+		Name: "datadog_list_incident_services", Description: "List Datadog incident services. View services configured for incident management and response.",
+		Parameters: map[string]string{"page_size": "Results per page (default 10)", "page_offset": "Pagination offset", "filter": "Filter services by name"},
+	},
+	{
+		Name: "datadog_get_incident_service", Description: "Get details of a specific incident service. Use after list_incident_services.",
+		Parameters: map[string]string{"service_id": "Incident service ID"},
+		Required:   []string{"service_id"},
+	},
+	{
+		Name: "datadog_create_incident_service", Description: "Create a new incident service for incident management",
+		Parameters: map[string]string{"name": "Service name"},
+		Required:   []string{"name"},
+	},
+	{
+		Name: "datadog_update_incident_service", Description: "Update an existing incident service",
+		Parameters: map[string]string{"service_id": "Incident service ID", "name": "New service name"},
+		Required:   []string{"service_id", "name"},
+	},
+	{
+		Name: "datadog_delete_incident_service", Description: "Delete an incident service",
+		Parameters: map[string]string{"service_id": "Incident service ID"},
+		Required:   []string{"service_id"},
+	},
+
+	// ── Incident Teams ───────────────────────────────────────────────
+	{
+		Name: "datadog_list_incident_teams", Description: "List Datadog incident teams. View teams configured for incident response and on-call rotation.",
+		Parameters: map[string]string{"page_size": "Results per page (default 10)", "page_offset": "Pagination offset", "filter": "Filter teams by name"},
+	},
+	{
+		Name: "datadog_get_incident_team", Description: "Get details of a specific incident team. Use after list_incident_teams.",
+		Parameters: map[string]string{"team_id": "Incident team ID"},
+		Required:   []string{"team_id"},
+	},
+	{
+		Name: "datadog_create_incident_team", Description: "Create a new incident team for incident response",
+		Parameters: map[string]string{"name": "Team name"},
+		Required:   []string{"name"},
+	},
+	{
+		Name: "datadog_update_incident_team", Description: "Update an existing incident team",
+		Parameters: map[string]string{"team_id": "Incident team ID", "name": "New team name"},
+		Required:   []string{"team_id", "name"},
+	},
+	{
+		Name: "datadog_delete_incident_team", Description: "Delete an incident team",
+		Parameters: map[string]string{"team_id": "Incident team ID"},
+		Required:   []string{"team_id"},
 	},
 
 	// ── Synthetics ────────────────────────────────────────────────────
@@ -284,6 +351,92 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"id"},
 	},
 
+	// ── Teams ─────────────────────────────────────────────────────────
+	{
+		Name: "datadog_list_teams", Description: "List Datadog teams. View organizational teams, ownership, and membership. Start here for team management.",
+		Parameters: map[string]string{"page_size": "Results per page (default 10)", "page_number": "Page number", "filter": "Filter teams by keyword/name", "sort": "Sort: name, -name, user_count, -user_count"},
+	},
+	{
+		Name: "datadog_get_team", Description: "Get details of a specific Datadog team including handle, description, and member count. Use after list_teams.",
+		Parameters: map[string]string{"team_id": "Team ID"},
+		Required:   []string{"team_id"},
+	},
+	{
+		Name: "datadog_create_team", Description: "Create a new Datadog team",
+		Parameters: map[string]string{"name": "Team name", "handle": "Team handle (URL-safe identifier)", "description": "Team description"},
+		Required:   []string{"name", "handle"},
+	},
+	{
+		Name: "datadog_update_team", Description: "Update an existing team",
+		Parameters: map[string]string{"team_id": "Team ID", "name": "New team name", "handle": "New team handle", "description": "New description"},
+		Required:   []string{"team_id", "name", "handle"},
+	},
+	{
+		Name: "datadog_delete_team", Description: "Delete a team",
+		Parameters: map[string]string{"team_id": "Team ID"},
+		Required:   []string{"team_id"},
+	},
+	{
+		Name: "datadog_list_team_members", Description: "List members of a Datadog team. View who belongs to a team and their roles.",
+		Parameters: map[string]string{"team_id": "Team ID", "page_size": "Results per page (default 10)", "page_number": "Page number", "filter": "Filter members by keyword"},
+		Required:   []string{"team_id"},
+	},
+	{
+		Name: "datadog_add_team_member", Description: "Add a user to a team",
+		Parameters: map[string]string{"team_id": "Team ID", "user_id": "User ID to add", "role": "Role: admin (omit for regular member)"},
+		Required:   []string{"team_id", "user_id"},
+	},
+	{
+		Name: "datadog_update_team_member", Description: "Update a team member's role",
+		Parameters: map[string]string{"team_id": "Team ID", "user_id": "User ID", "role": "New role: admin (omit for regular member)"},
+		Required:   []string{"team_id", "user_id"},
+	},
+	{
+		Name: "datadog_remove_team_member", Description: "Remove a user from a team",
+		Parameters: map[string]string{"team_id": "Team ID", "user_id": "User ID to remove"},
+		Required:   []string{"team_id", "user_id"},
+	},
+	{
+		Name: "datadog_get_user_team_memberships", Description: "Get all team memberships for a user. Find which teams a user belongs to.",
+		Parameters: map[string]string{"user_id": "User ID"},
+		Required:   []string{"user_id"},
+	},
+	{
+		Name: "datadog_list_team_links", Description: "List external links for a team. View runbooks, dashboards, and documentation links associated with a team.",
+		Parameters: map[string]string{"team_id": "Team ID"},
+		Required:   []string{"team_id"},
+	},
+	{
+		Name: "datadog_get_team_link", Description: "Get a specific team link. Use after list_team_links.",
+		Parameters: map[string]string{"team_id": "Team ID", "link_id": "Link ID"},
+		Required:   []string{"team_id", "link_id"},
+	},
+	{
+		Name: "datadog_create_team_link", Description: "Add a link to a team (runbook, dashboard, documentation)",
+		Parameters: map[string]string{"team_id": "Team ID", "label": "Link label", "url": "Link URL"},
+		Required:   []string{"team_id", "label", "url"},
+	},
+	{
+		Name: "datadog_update_team_link", Description: "Update a team link",
+		Parameters: map[string]string{"team_id": "Team ID", "link_id": "Link ID", "label": "New label", "url": "New URL"},
+		Required:   []string{"team_id", "link_id", "label", "url"},
+	},
+	{
+		Name: "datadog_delete_team_link", Description: "Delete a team link",
+		Parameters: map[string]string{"team_id": "Team ID", "link_id": "Link ID"},
+		Required:   []string{"team_id", "link_id"},
+	},
+	{
+		Name: "datadog_get_team_permission_settings", Description: "Get permission settings for a team. View who can manage membership and edit the team.",
+		Parameters: map[string]string{"team_id": "Team ID"},
+		Required:   []string{"team_id"},
+	},
+	{
+		Name: "datadog_update_team_permission_setting", Description: "Update a team permission setting",
+		Parameters: map[string]string{"team_id": "Team ID", "action": "Permission action: manage_membership or edit", "value": "Permission value: admins, members, organization, user_access_manage, teams_manage"},
+		Required:   []string{"team_id", "action", "value"},
+	},
+
 	// ── Spans / APM ───────────────────────────────────────────────────
 	{
 		Name: "datadog_search_spans", Description: "Search Datadog APM spans and distributed traces for production performance debugging. Investigate latency and service dependencies.",
@@ -295,6 +448,90 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name: "datadog_list_services", Description: "List services from the Datadog Software Catalog. View production microservices, dependencies, and ownership.",
 		Parameters: map[string]string{"page_size": "Results per page (default 20)", "page_offset": "Pagination offset"},
+	},
+
+	// ── On-Call ──────────────────────────────────────────────────────
+	{
+		Name: "datadog_get_oncall_schedule", Description: "Get a Datadog On-Call schedule with layers, members, and rotation details. View who is on-call and when.",
+		Parameters: map[string]string{"schedule_id": "On-Call schedule ID"},
+		Required:   []string{"schedule_id"},
+	},
+	{
+		Name: "datadog_create_oncall_schedule", Description: "Create a new On-Call schedule with layers, rotation intervals, and members. Use body_json with Datadog schedule create schema.",
+		Parameters: map[string]string{"body_json": "JSON body matching Datadog ScheduleCreateRequest schema: {\"data\":{\"type\":\"schedules\",\"attributes\":{\"name\":\"...\",\"time_zone\":\"...\",\"layers\":[{\"name\":\"...\",\"effective_date\":\"...\",\"rotation_start\":\"...\",\"interval\":{\"days\":7},\"members\":[{\"user\":{\"id\":\"...\"}}]}]}}}"},
+		Required:   []string{"body_json"},
+	},
+	{
+		Name: "datadog_update_oncall_schedule", Description: "Update an existing On-Call schedule (layers, members, rotations). Fetch current schedule with get_oncall_schedule first, then modify and submit.",
+		Parameters: map[string]string{"schedule_id": "Schedule ID", "body_json": "JSON body matching Datadog ScheduleUpdateRequest schema"},
+		Required:   []string{"schedule_id", "body_json"},
+	},
+	{
+		Name: "datadog_delete_oncall_schedule", Description: "Delete an On-Call schedule",
+		Parameters: map[string]string{"schedule_id": "Schedule ID"},
+		Required:   []string{"schedule_id"},
+	},
+	{
+		Name: "datadog_get_schedule_oncall_user", Description: "Get the current on-call user for a schedule. Find who is on-call right now for a given rotation.",
+		Parameters: map[string]string{"schedule_id": "On-Call schedule ID"},
+		Required:   []string{"schedule_id"},
+	},
+	{
+		Name: "datadog_get_oncall_escalation_policy", Description: "Get a Datadog On-Call escalation policy with steps, targets, and notification chain. View escalation rules and timing.",
+		Parameters: map[string]string{"policy_id": "Escalation policy ID"},
+		Required:   []string{"policy_id"},
+	},
+	{
+		Name: "datadog_create_oncall_escalation_policy", Description: "Create a new On-Call escalation policy with steps and targets. Use body_json with Datadog escalation policy create schema.",
+		Parameters: map[string]string{"body_json": "JSON body matching Datadog EscalationPolicyCreateRequest schema: {\"data\":{\"type\":\"policies\",\"attributes\":{\"name\":\"...\",\"steps\":[{\"targets\":[{\"type\":\"users\",\"id\":\"...\"}],\"escalate_after_seconds\":300}]}}}"},
+		Required:   []string{"body_json"},
+	},
+	{
+		Name: "datadog_update_oncall_escalation_policy", Description: "Update an existing On-Call escalation policy (steps, targets, timing). Fetch current policy with get_oncall_escalation_policy first, then modify and submit.",
+		Parameters: map[string]string{"policy_id": "Escalation policy ID", "body_json": "JSON body matching Datadog EscalationPolicyUpdateRequest schema"},
+		Required:   []string{"policy_id", "body_json"},
+	},
+	{
+		Name: "datadog_delete_oncall_escalation_policy", Description: "Delete an On-Call escalation policy",
+		Parameters: map[string]string{"policy_id": "Escalation policy ID"},
+		Required:   []string{"policy_id"},
+	},
+	{
+		Name: "datadog_get_oncall_team_routing_rules", Description: "Get On-Call routing rules for a team. View how pages are routed to schedules and escalation policies.",
+		Parameters: map[string]string{"team_id": "Team ID"},
+		Required:   []string{"team_id"},
+	},
+	{
+		Name: "datadog_set_oncall_team_routing_rules", Description: "Set (replace) On-Call routing rules for a team. Define how pages are routed to escalation policies. Fetch current rules with get_oncall_team_routing_rules first.",
+		Parameters: map[string]string{"team_id": "Team ID", "body_json": "JSON body matching Datadog TeamRoutingRulesRequest schema: {\"data\":{\"type\":\"team_routing_rules\",\"attributes\":{\"rules\":[{\"policy_id\":\"...\",\"urgency\":\"high\"}]}}}"},
+		Required:   []string{"team_id", "body_json"},
+	},
+	{
+		Name: "datadog_get_team_oncall_users", Description: "Get the current on-call users for a team. Find who is on-call right now across all team schedules.",
+		Parameters: map[string]string{"team_id": "Team ID"},
+		Required:   []string{"team_id"},
+	},
+
+	// ── On-Call Paging ───────────────────────────────────────────────
+	{
+		Name: "datadog_create_oncall_page", Description: "Create a new On-Call page to alert responders. Page a team or user for production incidents and urgent issues.",
+		Parameters: map[string]string{"title": "Page title", "urgency": "Urgency: low or high (default high)", "target_id": "Target identifier (team handle, team ID, or user ID)", "target_type": "Target type: team_handle, team_id, or user_id (default team_handle)", "description": "Page description with details", "tags": "Comma-separated tags"},
+		Required:   []string{"title", "target_id"},
+	},
+	{
+		Name: "datadog_acknowledge_oncall_page", Description: "Acknowledge an On-Call page to indicate responder awareness",
+		Parameters: map[string]string{"page_id": "Page UUID"},
+		Required:   []string{"page_id"},
+	},
+	{
+		Name: "datadog_escalate_oncall_page", Description: "Escalate an On-Call page to the next responder in the escalation policy",
+		Parameters: map[string]string{"page_id": "Page UUID"},
+		Required:   []string{"page_id"},
+	},
+	{
+		Name: "datadog_resolve_oncall_page", Description: "Resolve an On-Call page to mark the issue as handled",
+		Parameters: map[string]string{"page_id": "Page UUID"},
+		Required:   []string{"page_id"},
 	},
 
 	// ── IP Ranges ─────────────────────────────────────────────────────
