@@ -169,6 +169,9 @@ func (s *snowflake) pollUntilComplete(ctx context.Context, handle string, timeou
 		return resp, nil
 	}
 	resp.Data = merged
-	resp.ResultSetMetaData = nil
+	meta.PartitionInfo = nil
+	if reencoded, err := json.Marshal(meta); err == nil {
+		resp.ResultSetMetaData = reencoded
+	}
 	return resp, nil
 }
