@@ -88,6 +88,11 @@ var envMapping = map[string]map[string]string{
 		"api_key":  "READARR_API_KEY",
 		"base_url": "READARR_URL",
 	},
+	"salesforce": {
+		"access_token": "SALESFORCE_ACCESS_TOKEN",
+		"instance_url": "SALESFORCE_INSTANCE_URL",
+		"api_version":  "SALESFORCE_API_VERSION",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -219,6 +224,10 @@ func defaultConfig() *mcp.Config {
 			"readarr": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "base_url": ""},
+			},
+			"salesforce": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "instance_url": "", "api_version": ""},
 			},
 		},
 	}
