@@ -100,6 +100,9 @@ var envMapping = map[string]map[string]string{
 	"digitalocean": {
 		"api_token": "DIGITALOCEAN_TOKEN",
 	},
+	"fly": {
+		"api_token": "FLY_API_TOKEN",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -243,6 +246,10 @@ func defaultConfig() *mcp.Config {
 			"digitalocean": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": ""},
+			},
+			"fly": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "base_url": ""},
 			},
 		},
 	}

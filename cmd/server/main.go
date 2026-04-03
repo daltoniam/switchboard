@@ -23,6 +23,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
+	flyInt "github.com/daltoniam/switchboard/integrations/fly"
 	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
@@ -222,6 +223,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		salesforce.New(),
 		cloudflare.New(),
 		digitalocean.New(),
+		flyInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
