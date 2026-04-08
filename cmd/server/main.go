@@ -15,6 +15,7 @@ import (
 	"github.com/daltoniam/switchboard/browser"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
+	acpInt "github.com/daltoniam/switchboard/integrations/acp"
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
@@ -226,6 +227,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		digitalocean.New(),
 		flyInt.New(),
 		snowflakeInt.New(),
+		acpInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
