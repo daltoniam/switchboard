@@ -33,7 +33,7 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Len(t, m.cfg.Integrations, 31)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "readarr", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "web", "botidentity", "x"} {
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "readarr", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "acp", "web", "botidentity", "x"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
