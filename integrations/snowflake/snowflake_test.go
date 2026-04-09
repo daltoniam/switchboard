@@ -13,6 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testPEM returns a PEM-encoded PKCS#1 RSA private key for testing.
+func testPEM(t *testing.T) string {
+	t.Helper()
+	return pemEncodePKCS1(testKey(t))
+}
+
 func TestNew(t *testing.T) {
 	i := New()
 	require.NotNil(t, i)
@@ -26,11 +32,59 @@ func TestConfigure_MissingAccount(t *testing.T) {
 	assert.Contains(t, err.Error(), "account is required")
 }
 
-func TestConfigure_MissingToken(t *testing.T) {
+func TestConfigure_MissingAuth(t *testing.T) {
 	s := &snowflake{}
 	err := s.Configure(context.Background(), mcp.Credentials{"account": "acct"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "token")
+	assert.Contains(t, err.Error(), "token or private_key is required")
+}
+
+func TestConfigure_KeyPairAuth(t *testing.T) {
+	s := &snowflake{}
+	err := s.Configure(context.Background(), mcp.Credentials{
+		"account":     "xy12345.us-east-1",
+		"user":        "myuser",
+		"private_key": testPEM(t),
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, s.privateKey)
+	assert.Equal(t, "MYUSER", s.user)
+	assert.Equal(t, "xy12345.us-east-1", s.account)
+	assert.Empty(t, s.token, "token should be empty when using key-pair auth")
+}
+
+func TestConfigure_KeyPairAuth_MissingUser(t *testing.T) {
+	s := &snowflake{}
+	err := s.Configure(context.Background(), mcp.Credentials{
+		"account":     "acct",
+		"private_key": testPEM(t),
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "user is required")
+}
+
+func TestConfigure_KeyPairAuth_InvalidKey(t *testing.T) {
+	s := &snowflake{}
+	err := s.Configure(context.Background(), mcp.Credentials{
+		"account":     "acct",
+		"user":        "myuser",
+		"private_key": "not-a-pem",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid private_key")
+}
+
+func TestConfigure_KeyPairPrecedence(t *testing.T) {
+	s := &snowflake{}
+	err := s.Configure(context.Background(), mcp.Credentials{
+		"account":     "acct",
+		"token":       "should-be-ignored",
+		"user":        "myuser",
+		"private_key": testPEM(t),
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, s.privateKey, "key-pair auth should take precedence")
+	assert.Empty(t, s.token, "token should be empty when private_key is provided")
 }
 
 func TestConfigure_DefaultURL(t *testing.T) {
@@ -141,8 +195,10 @@ func TestPlainTextKeys(t *testing.T) {
 	s := &snowflake{}
 	keys := s.PlainTextKeys()
 	assert.Contains(t, keys, "account")
+	assert.Contains(t, keys, "user")
 	assert.Contains(t, keys, "warehouse")
 	assert.NotContains(t, keys, "token")
+	assert.NotContains(t, keys, "private_key")
 }
 
 func TestOptionalKeys(t *testing.T) {
@@ -150,8 +206,10 @@ func TestOptionalKeys(t *testing.T) {
 	keys := s.OptionalKeys()
 	assert.Contains(t, keys, "warehouse")
 	assert.Contains(t, keys, "database")
+	assert.Contains(t, keys, "token")
+	assert.Contains(t, keys, "user")
+	assert.Contains(t, keys, "private_key")
 	assert.NotContains(t, keys, "account")
-	assert.NotContains(t, keys, "token")
 }
 
 func TestPlaceholders(t *testing.T) {
@@ -159,6 +217,8 @@ func TestPlaceholders(t *testing.T) {
 	ph := s.Placeholders()
 	assert.NotEmpty(t, ph["account"])
 	assert.NotEmpty(t, ph["token"])
+	assert.NotEmpty(t, ph["user"])
+	assert.NotEmpty(t, ph["private_key"])
 }
 
 func TestQuoteIdentifier(t *testing.T) {

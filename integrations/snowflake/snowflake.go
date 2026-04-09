@@ -3,6 +3,7 @@ package snowflake
 import (
 	"bytes"
 	"context"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,13 +23,17 @@ var (
 )
 
 type snowflake struct {
-	client    *http.Client
-	token     string
-	baseURL   string
-	warehouse string
-	database  string
-	schema    string
-	role      string
+	client     *http.Client
+	token      string
+	baseURL    string
+	warehouse  string
+	database   string
+	schema     string
+	role       string
+	account    string
+	user       string
+	privateKey *rsa.PrivateKey
+	jwtCache   jwtCache
 }
 
 func New() mcp.Integration {
@@ -42,16 +47,32 @@ func (s *snowflake) Configure(_ context.Context, creds mcp.Credentials) error {
 	if account == "" {
 		return fmt.Errorf("snowflake: account is required")
 	}
-	token := creds["token"]
-	if token == "" {
-		return fmt.Errorf("snowflake: token (JWT or OAuth) is required")
-	}
 
-	s.token = token
+	s.account = account
 	s.warehouse = creds["warehouse"]
 	s.database = creds["database"]
 	s.schema = creds["schema"]
 	s.role = creds["role"]
+
+	// Key-pair auth takes precedence over a static token.
+	if pk := creds["private_key"]; pk != "" {
+		user := creds["user"]
+		if user == "" {
+			return fmt.Errorf("snowflake: user is required when using private_key authentication")
+		}
+		key, err := parsePrivateKey(pk)
+		if err != nil {
+			return fmt.Errorf("snowflake: invalid private_key: %w", err)
+		}
+		s.privateKey = key
+		s.user = strings.ToUpper(user)
+	} else {
+		token := creds["token"]
+		if token == "" {
+			return fmt.Errorf("snowflake: token or private_key is required")
+		}
+		s.token = token
+	}
 
 	if url := creds["account_url"]; url != "" {
 		s.baseURL = strings.TrimRight(url, "/")
@@ -64,11 +85,21 @@ func (s *snowflake) Configure(_ context.Context, creds mcp.Credentials) error {
 }
 
 func (s *snowflake) Healthy(ctx context.Context) bool {
-	if s.client == nil || s.token == "" {
+	if s.client == nil || (s.token == "" && s.privateKey == nil) {
 		return false
 	}
 	_, err := s.submitStatement(ctx, "SELECT 1", nil)
 	return err == nil
+}
+
+// getToken returns the bearer token for the current request. For key-pair auth
+// this generates (or returns a cached) JWT; for static token auth it returns
+// the configured token directly.
+func (s *snowflake) getToken() (string, error) {
+	if s.privateKey != nil {
+		return s.jwtCache.getOrGenerate(s.privateKey, s.account, s.user)
+	}
+	return s.token, nil
 }
 
 func (s *snowflake) Tools() []mcp.ToolDefinition {
@@ -92,13 +123,15 @@ func (s *snowflake) Execute(ctx context.Context, toolName string, args map[strin
 }
 
 func (s *snowflake) PlainTextKeys() []string {
-	return []string{"account", "warehouse", "database", "schema", "role", "account_url"}
+	return []string{"account", "user", "warehouse", "database", "schema", "role", "account_url"}
 }
 
 func (s *snowflake) Placeholders() map[string]string {
 	return map[string]string{
 		"account":     "xy12345.us-east-1",
 		"token":       "JWT or OAuth token",
+		"user":        "MYUSER",
+		"private_key": "PEM-encoded RSA private key",
 		"warehouse":   "COMPUTE_WH",
 		"database":    "MY_DB",
 		"schema":      "PUBLIC",
@@ -108,7 +141,7 @@ func (s *snowflake) Placeholders() map[string]string {
 }
 
 func (s *snowflake) OptionalKeys() []string {
-	return []string{"warehouse", "database", "schema", "role", "account_url"}
+	return []string{"token", "user", "private_key", "warehouse", "database", "schema", "role", "account_url"}
 }
 
 type handlerFunc func(ctx context.Context, s *snowflake, args map[string]any) (*mcp.ToolResult, error)
@@ -209,7 +242,11 @@ func (s *snowflake) doStatementRequest(ctx context.Context, method, path string,
 		return nil, fmt.Errorf("snowflake: create request: %w", err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+s.token)
+	token, err := s.getToken()
+	if err != nil {
+		return nil, fmt.Errorf("snowflake: get auth token: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+token)
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("User-Agent", "Switchboard/1.0")

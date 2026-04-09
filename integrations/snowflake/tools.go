@@ -173,6 +173,18 @@ var tools = []mcp.ToolDefinition{
 			"role":     "Role to use (overrides configured default)",
 		},
 	},
+
+	// --- Cortex Analyst ---
+	{
+		Name:        "snowflake_cortex_analyst",
+		Description: "Ask a natural-language question against a Snowflake Cortex Analyst semantic model. Returns generated SQL, an explanation, and follow-up suggestions. Use snowflake_execute_query to run the returned SQL",
+		Parameters: map[string]string{
+			"question":            "Natural-language question to ask (e.g. 'What were our top 10 products by revenue last quarter?')",
+			"semantic_model_file": "Stage path to the semantic model YAML (e.g. @MY_DB.MY_SCHEMA.MY_STAGE/model.yaml)",
+			"semantic_model":      "Inline semantic model YAML (alternative to semantic_model_file)",
+		},
+		Required: []string{"question"},
+	},
 }
 
 var dispatch = map[string]handlerFunc{
@@ -209,4 +221,7 @@ var dispatch = map[string]handlerFunc{
 
 	// Streams
 	"snowflake_list_streams": listStreams,
+
+	// Cortex Analyst
+	"snowflake_cortex_analyst": cortexAnalyst,
 }
