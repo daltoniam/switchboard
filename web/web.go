@@ -83,6 +83,8 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations/notion/setup", w.handleNotionSetup)
 	mux.HandleFunc("POST /api/notion/save-token", w.handleNotionSaveToken)
 
+	mux.HandleFunc("GET /integrations/postgres/setup", w.handlePostgresSetup)
+
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
 	mux.HandleFunc("GET /api/metrics", w.handleMetricsAPI)
@@ -179,12 +181,13 @@ func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Reque
 const notionExtractionSnippet = `(function(){var c=document.cookie.split(';').find(function(c){return c.trim().startsWith('token_v2=')});if(!c){alert('token_v2 cookie not found. Make sure you are on notion.so and signed in.');return;}var t=c.split('=').slice(1).join('=').trim();prompt('Copy this token_v2 value:',t);})()`
 
 var setupIntegrations = map[string]bool{
-	"slack":  true,
-	"github": true,
-	"linear": true,
-	"sentry": true,
-	"gmail":  true,
-	"notion": true,
+	"slack":    true,
+	"github":   true,
+	"linear":   true,
+	"sentry":   true,
+	"gmail":    true,
+	"notion":   true,
+	"postgres": true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
@@ -294,11 +297,19 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 	}
 
 	if err := w.services.Config.SetIntegration(name, ic); err != nil {
-		http.Redirect(rw, r, "/integrations/"+name+"?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
+		redirect := "/integrations/" + name
+		if setupIntegrations[name] {
+			redirect += "/setup"
+		}
+		http.Redirect(rw, r, redirect+"?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(rw, r, "/integrations/"+name+"?success=Configuration+saved", http.StatusSeeOther)
+	redirect := "/integrations/" + name
+	if setupIntegrations[name] {
+		redirect += "/setup"
+	}
+	http.Redirect(rw, r, redirect+"?success=Configuration+saved", http.StatusSeeOther)
 }
 
 func (w *WebServer) handleHealthAPI(rw http.ResponseWriter, r *http.Request) {
@@ -852,6 +863,55 @@ func (w *WebServer) handleNotionSaveToken(rw http.ResponseWriter, r *http.Reques
 	_ = w.services.Config.SetIntegration("notion", ic)
 
 	http.Redirect(rw, r, "/integrations/notion/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handlePostgresSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("postgres")
+	enabled := exists && ic.Enabled
+
+	var healthy bool
+	if enabled {
+		integration, ok := w.services.Registry.Get("postgres")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	data := pages.PostgresSetupData{
+		Enabled: enabled,
+		Healthy: healthy,
+	}
+
+	if exists && ic.Credentials != nil {
+		data.Default = pages.PostgresConnection{
+			ConnectionString: ic.Credentials["connection_string"],
+			Host:             ic.Credentials["host"],
+			Port:             ic.Credentials["port"],
+			User:             ic.Credentials["user"],
+			Password:         ic.Credentials["password"],
+			Database:         ic.Credentials["database"],
+			SSLMode:          ic.Credentials["sslmode"],
+			ReadOnly:         ic.Credentials["read_only"],
+		}
+		if raw := ic.Credentials["connections"]; raw != "" {
+			var conns []pages.PostgresConnection
+			if err := json.Unmarshal([]byte(raw), &conns); err == nil {
+				data.Connections = conns
+			}
+		}
+	}
+
+	integration, ok := w.services.Registry.Get("postgres")
+	if ok {
+		for _, t := range integration.Tools() {
+			data.Tools = append(data.Tools, t.Name)
+		}
+	}
+
+	page := w.pageData(r, "Postgres Setup", "/integrations")
+	pages.PostgresSetup(page, data).Render(r.Context(), rw)
 }
 
 func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
