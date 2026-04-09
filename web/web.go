@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -379,8 +380,8 @@ func (w *WebServer) handleWasmModuleDelete(rw http.ResponseWriter, r *http.Reque
 	}
 
 	indexStr := r.FormValue("index")
-	var index int
-	if _, err := fmt.Sscanf(indexStr, "%d", &index); err != nil {
+	index, err := strconv.Atoi(indexStr)
+	if err != nil {
 		http.Redirect(rw, r, "/wasm?error=Invalid+module+index", http.StatusSeeOther)
 		return
 	}

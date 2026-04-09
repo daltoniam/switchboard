@@ -424,12 +424,14 @@ func TestWasmModuleDelete_BadIndex(t *testing.T) {
 	ws, _, _ := setupTestWeb()
 	handler := ws.Handler()
 
-	form := strings.NewReader("index=abc")
-	req := httptest.NewRequest("POST", "/wasm/delete", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	for _, idx := range []string{"abc", "1abc", ""} {
+		form := strings.NewReader("index=" + idx)
+		req := httptest.NewRequest("POST", "/wasm/delete", form)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "error")
+		assert.Equal(t, http.StatusSeeOther, rr.Code, "index=%q", idx)
+		assert.Contains(t, rr.Header().Get("Location"), "error", "index=%q", idx)
+	}
 }
