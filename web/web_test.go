@@ -35,6 +35,10 @@ func (m *mockConfigService) SetIntegration(name string, ic *mcp.IntegrationConfi
 	m.cfg.Integrations[name] = ic
 	return nil
 }
+func (m *mockConfigService) SetWasmModules(modules []mcp.WasmModuleConfig) error {
+	m.cfg.WasmModules = modules
+	return nil
+}
 func (m *mockConfigService) EnabledIntegrations() []string {
 	var names []string
 	for name, ic := range m.cfg.Integrations {
@@ -294,4 +298,138 @@ func TestMetricsAPI(t *testing.T) {
 	assert.Contains(t, body, "total_executions")
 	assert.Contains(t, body, "tools")
 	assert.Contains(t, body, "integrations")
+}
+
+func TestWasmModulesPage_Empty(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("GET", "/wasm", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "WASM Modules")
+	assert.Contains(t, rr.Body.String(), "No WASM modules configured")
+}
+
+func TestWasmModulesPage_WithModules(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
+		{Path: "/tmp/test.wasm"},
+		{Path: "/tmp/other.wasm", Credentials: mcp.Credentials{"key": "val"}},
+	}
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("GET", "/wasm", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "/tmp/test.wasm")
+	assert.Contains(t, rr.Body.String(), "/tmp/other.wasm")
+	assert.Contains(t, rr.Body.String(), "1 credential(s) configured")
+}
+
+func TestWasmModuleAdd(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	handler := ws.Handler()
+
+	form := strings.NewReader("path=/tmp/new.wasm&cred_key_0=api_key&cred_val_0=secret")
+	req := httptest.NewRequest("POST", "/wasm", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "/wasm")
+	assert.Contains(t, rr.Header().Get("Location"), "success")
+
+	require.Len(t, cfgService.cfg.WasmModules, 1)
+	assert.Equal(t, "/tmp/new.wasm", cfgService.cfg.WasmModules[0].Path)
+	assert.Equal(t, "secret", cfgService.cfg.WasmModules[0].Credentials["api_key"])
+}
+
+func TestWasmModuleAdd_EmptyPath(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	form := strings.NewReader("path=")
+	req := httptest.NewRequest("POST", "/wasm", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error")
+}
+
+func TestWasmModuleAdd_NoCreds(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	handler := ws.Handler()
+
+	form := strings.NewReader("path=/tmp/plain.wasm")
+	req := httptest.NewRequest("POST", "/wasm", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	require.Len(t, cfgService.cfg.WasmModules, 1)
+	assert.Nil(t, cfgService.cfg.WasmModules[0].Credentials)
+}
+
+func TestWasmModuleDelete(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
+		{Path: "/tmp/a.wasm"},
+		{Path: "/tmp/b.wasm"},
+		{Path: "/tmp/c.wasm"},
+	}
+	handler := ws.Handler()
+
+	form := strings.NewReader("index=1")
+	req := httptest.NewRequest("POST", "/wasm/delete", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "success")
+
+	require.Len(t, cfgService.cfg.WasmModules, 2)
+	assert.Equal(t, "/tmp/a.wasm", cfgService.cfg.WasmModules[0].Path)
+	assert.Equal(t, "/tmp/c.wasm", cfgService.cfg.WasmModules[1].Path)
+}
+
+func TestWasmModuleDelete_InvalidIndex(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
+		{Path: "/tmp/a.wasm"},
+	}
+	handler := ws.Handler()
+
+	form := strings.NewReader("index=5")
+	req := httptest.NewRequest("POST", "/wasm/delete", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error")
+	require.Len(t, cfgService.cfg.WasmModules, 1)
+}
+
+func TestWasmModuleDelete_BadIndex(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	form := strings.NewReader("index=abc")
+	req := httptest.NewRequest("POST", "/wasm/delete", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error")
 }

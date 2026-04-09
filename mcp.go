@@ -220,6 +220,7 @@ type ConfigService interface {
 	Update(cfg *Config) error
 	GetIntegration(name string) (*IntegrationConfig, bool)
 	SetIntegration(name string, ic *IntegrationConfig) error
+	SetWasmModules(modules []WasmModuleConfig) error
 	EnabledIntegrations() []string
 	DefaultCredentialKeys(name string) []string
 }
