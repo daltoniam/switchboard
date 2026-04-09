@@ -24,6 +24,17 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"book_ids"},
 	},
 
+	{
+		Name: "readarr_add_book", Description: "Add a book to the Readarr library from search results. Use search_books first to get the foreign_book_id. The book's author must already exist in Readarr or will be created.",
+		Parameters: map[string]string{"foreign_book_id": "Foreign book ID from search results", "foreign_author_id": "Foreign author ID from search results", "quality_profile_id": "Quality profile ID (use list_quality_profiles, default 1)", "metadata_profile_id": "Metadata profile ID (use list_metadata_profiles, default 1)", "root_folder_path": "Root folder path (use list_root_folders)", "monitored": "Whether to monitor the book (true/false, default true)", "search_for_book": "Trigger automatic search after adding (true/false, default false)"},
+		Required:   []string{"foreign_book_id", "foreign_author_id", "root_folder_path"},
+	},
+	{
+		Name: "readarr_delete_book", Description: "Delete a book from the Readarr library. Can optionally delete files and add to import exclusion list.",
+		Parameters: map[string]string{"id": "Book ID (integer)", "delete_files": "Delete book files from disk (true/false, default false)", "add_import_list_exclusion": "Add to import exclusion list (true/false, default false)"},
+		Required:   []string{"id"},
+	},
+
 	// ── Authors ─────────────────────────────────────────────────────
 	{
 		Name: "readarr_list_authors", Description: "List all authors in the Readarr library. Shows monitored authors, book counts, and quality profiles.",
@@ -32,6 +43,21 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name: "readarr_get_author", Description: "Get details of a specific author by ID, including books, statistics, and metadata. Use after list_authors.",
 		Parameters: map[string]string{"id": "Author ID (integer)"},
+		Required:   []string{"id"},
+	},
+	{
+		Name: "readarr_add_author", Description: "Add an author to the Readarr library from search results. Use search_books first to get the foreign_author_id. All of the author's books will be added based on the metadata profile.",
+		Parameters: map[string]string{"foreign_author_id": "Foreign author ID from search results", "quality_profile_id": "Quality profile ID (use list_quality_profiles, default 1)", "metadata_profile_id": "Metadata profile ID (use list_metadata_profiles, default 1)", "root_folder_path": "Root folder path (use list_root_folders)", "monitored": "Whether to monitor the author (true/false, default true)", "monitor": "Which books to monitor: all, future, missing, existing, first, latest, none (default all)", "search_for_missing_books": "Trigger automatic search for missing books after adding (true/false, default false)"},
+		Required:   []string{"foreign_author_id", "root_folder_path"},
+	},
+	{
+		Name: "readarr_update_author", Description: "Update an author's settings in Readarr (monitoring, quality profile, path). Get the author first, modify fields, and pass the full JSON body.",
+		Parameters: map[string]string{"id": "Author ID (integer)", "monitored": "Whether to monitor the author (true/false)", "quality_profile_id": "Quality profile ID", "metadata_profile_id": "Metadata profile ID", "path": "Author folder path", "move_files": "Move files to new path when path changes (true/false, default false)"},
+		Required:   []string{"id"},
+	},
+	{
+		Name: "readarr_delete_author", Description: "Delete an author and optionally their files from the Readarr library.",
+		Parameters: map[string]string{"id": "Author ID (integer)", "delete_files": "Delete author folder and files from disk (true/false, default false)", "add_import_list_exclusion": "Add to import exclusion list (true/false, default false)"},
 		Required:   []string{"id"},
 	},
 
@@ -132,5 +158,63 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name: "readarr_list_tags", Description: "List all tags used to organize and filter books and authors in Readarr.",
 		Parameters: map[string]string{},
+	},
+	{
+		Name: "readarr_create_tag", Description: "Create a new tag for organizing books and authors in Readarr.",
+		Parameters: map[string]string{"label": "Tag label name"},
+		Required:   []string{"label"},
+	},
+	{
+		Name: "readarr_delete_tag", Description: "Delete a tag from Readarr by ID.",
+		Parameters: map[string]string{"id": "Tag ID (integer)"},
+		Required:   []string{"id"},
+	},
+
+	// ── Book Files ──────────────────────────────────────────────────
+	{
+		Name: "readarr_list_book_files", Description: "List book files on disk for a specific author or book. Shows file paths, quality, and size. Use to audit library files.",
+		Parameters: map[string]string{"author_id": "Filter by author ID (integer)", "book_id": "Filter by book ID (integer)"},
+	},
+	{
+		Name: "readarr_delete_book_file", Description: "Delete a specific book file from disk. Use after list_book_files to get the file ID.",
+		Parameters: map[string]string{"id": "Book file ID (integer)"},
+		Required:   []string{"id"},
+	},
+
+	// ── Blocklist ───────────────────────────────────────────────────
+	{
+		Name: "readarr_list_blocklist", Description: "List blocklisted releases that Readarr will skip when searching for downloads. Paginated.",
+		Parameters: map[string]string{"page": "Page number (default 1)", "page_size": "Items per page (default 20)", "sort_key": "Sort field", "sort_direction": "Sort direction (asc/desc)"},
+	},
+	{
+		Name: "readarr_delete_blocklist_item", Description: "Remove an item from the blocklist, allowing Readarr to grab that release again.",
+		Parameters: map[string]string{"id": "Blocklist item ID (integer)"},
+		Required:   []string{"id"},
+	},
+
+	// ── Rename / Retag ──────────────────────────────────────────────
+	{
+		Name: "readarr_get_rename", Description: "Preview file rename operations for an author. Shows what files would be renamed based on naming rules.",
+		Parameters: map[string]string{"author_id": "Author ID (integer)", "book_id": "Book ID to filter renames (integer, optional)"},
+		Required:   []string{"author_id"},
+	},
+	{
+		Name: "readarr_get_retag", Description: "Preview file retagging operations for an author. Shows what metadata tags would be updated in audio/ebook files.",
+		Parameters: map[string]string{"author_id": "Author ID (integer)", "book_id": "Book ID to filter retags (integer, optional)"},
+		Required:   []string{"author_id"},
+	},
+
+	// ── Manual Import ───────────────────────────────────────────────
+	{
+		Name: "readarr_get_manual_import", Description: "List files in a folder that can be manually imported into Readarr. Shows unmatched files with suggested book/author matches.",
+		Parameters: map[string]string{"folder": "Folder path to scan for importable files", "filter_existing_files": "Hide files already in library (true/false, default true)"},
+		Required:   []string{"folder"},
+	},
+
+	// ── History ─────────────────────────────────────────────────────
+	{
+		Name: "readarr_mark_failed", Description: "Mark a download history item as failed. Triggers Readarr to search for an alternative release.",
+		Parameters: map[string]string{"id": "History item ID (integer)"},
+		Required:   []string{"id"},
 	},
 }
