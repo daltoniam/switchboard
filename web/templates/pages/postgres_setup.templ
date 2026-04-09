@@ -1,0 +1,229 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type PostgresConnection struct {
+	Alias            string
+	ConnectionString string
+	Host             string
+	Port             string
+	User             string
+	Password         string
+	Database         string
+	SSLMode          string
+	ReadOnly         string
+}
+
+type PostgresSetupData struct {
+	Enabled     bool
+	Healthy     bool
+	Tools       []string
+	Default     PostgresConnection
+	Connections []PostgresConnection
+}
+
+templ PostgresSetup(page layouts.PageData, data PostgresSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Postgres</h1>
+			@components.Badge(healthLabel(data.Enabled, data.Healthy), healthBadge(data.Enabled, data.Healthy))
+		</div>
+		<form method="POST" action="/integrations/postgres">
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Default Connection</div>
+					@components.Toggle("enabled", data.Enabled)
+				</div>
+				<div>
+					@components.FormGroup("connection_string", "cred_connection_string", "password", data.Default.ConnectionString, "postgres://user:pass@host:5432/dbname?sslmode=require")
+					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+						@components.FormGroup("host", "cred_host", "text", data.Default.Host, "localhost")
+						@components.FormGroup("port", "cred_port", "text", data.Default.Port, "5432")
+					</div>
+					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+						@components.FormGroup("user", "cred_user", "text", data.Default.User, "postgres")
+						@components.FormGroup("password", "cred_password", "password", data.Default.Password, "Enter password")
+					</div>
+					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+						@components.FormGroup("database", "cred_database", "text", data.Default.Database, "mydb")
+						@components.FormGroup("sslmode", "cred_sslmode", "text", data.Default.SSLMode, "prefer")
+					</div>
+					@components.FormGroup("read_only", "cred_read_only", "text", data.Default.ReadOnly, "true (set to false to enable writes)")
+				</div>
+			</div>
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Additional Connections</div>
+					<button type="button" class="btn btn-sm btn-outline" onclick="addConnection()">+ Add Connection</button>
+				</div>
+				<p style="color: var(--text-secondary); font-size: 0.8125rem; margin-bottom: 0.75rem;">
+					Add additional database connections. Each requires a unique alias used to target it via the <code style="background: var(--bg); padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-family: var(--font-mono);">database</code> parameter.
+				</p>
+				<div id="connections-list">
+					for i, conn := range data.Connections {
+						@connectionCard(i, conn)
+					}
+				</div>
+			</div>
+			if len(data.Tools) > 0 {
+				<div class="card">
+					<div class="card-title" style="margin-bottom: 0.5rem;">Available Tools</div>
+					<div class="tools-list">
+						for _, t := range data.Tools {
+							@components.ToolTag(t)
+						}
+					</div>
+				</div>
+			}
+			<button type="submit" class="btn">Save Configuration</button>
+		</form>
+		<template id="connection-template">
+			<div class="pg-conn-card" style="background: var(--bg); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.5rem;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+					<div class="form-group" style="margin-bottom: 0; flex: 1; margin-right: 0.5rem;">
+						<label class="form-label">alias</label>
+						<input class="form-input" type="text" data-field="alias" placeholder="e.g. analytics, staging, prod" required/>
+					</div>
+					<button type="button" class="btn btn-sm btn-outline" onclick="removeConnection(this)" style="margin-top: 1.1rem; color: var(--red);">Remove</button>
+				</div>
+				<div class="form-group">
+					<label class="form-label">connection_string (optional)</label>
+					<input class="form-input" type="password" data-field="connection_string" placeholder="postgres://user:pass@host:5432/dbname"/>
+				</div>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+					<div class="form-group">
+						<label class="form-label">host</label>
+						<input class="form-input" type="text" data-field="host" placeholder="localhost"/>
+					</div>
+					<div class="form-group">
+						<label class="form-label">port</label>
+						<input class="form-input" type="text" data-field="port" placeholder="5432"/>
+					</div>
+				</div>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+					<div class="form-group">
+						<label class="form-label">user</label>
+						<input class="form-input" type="text" data-field="user" placeholder="postgres"/>
+					</div>
+					<div class="form-group">
+						<label class="form-label">password</label>
+						<input class="form-input" type="password" data-field="password" placeholder="Enter password"/>
+					</div>
+				</div>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+					<div class="form-group">
+						<label class="form-label">database</label>
+						<input class="form-input" type="text" data-field="database" placeholder="mydb"/>
+					</div>
+					<div class="form-group">
+						<label class="form-label">sslmode</label>
+						<input class="form-input" type="text" data-field="sslmode" placeholder="prefer"/>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="form-label">read_only</label>
+					<input class="form-input" type="text" data-field="read_only" placeholder="true"/>
+				</div>
+			</div>
+		</template>
+		<input type="hidden" name="cred_connections" id="connections-json" value=""/>
+		<script>
+			function addConnection() {
+				var template = document.getElementById('connection-template');
+				var clone = template.content.cloneNode(true);
+				document.getElementById('connections-list').appendChild(clone);
+			}
+			function removeConnection(btn) {
+				var card = btn.closest('.pg-conn-card');
+				if (card) card.remove();
+			}
+			function gatherConnections() {
+				var cards = document.querySelectorAll('#connections-list .pg-conn-card');
+				var conns = [];
+				for (var i = 0; i < cards.length; i++) {
+					var card = cards[i];
+					var conn = {};
+					var inputs = card.querySelectorAll('[data-field]');
+					for (var j = 0; j < inputs.length; j++) {
+						var field = inputs[j].getAttribute('data-field');
+						var val = inputs[j].value;
+						if (val) conn[field] = val;
+					}
+					if (conn.alias) conns.push(conn);
+				}
+				document.getElementById('connections-json').value = conns.length > 0 ? JSON.stringify(conns) : '';
+			}
+			var form = document.querySelector('form[method="POST"]');
+			if (form) {
+				form.addEventListener('submit', function() {
+					gatherConnections();
+				});
+			}
+		</script>
+	}
+}
+
+templ connectionCard(index int, conn PostgresConnection) {
+	<div class="pg-conn-card" style="background: var(--bg); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.5rem;">
+		<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+			<div class="form-group" style="margin-bottom: 0; flex: 1; margin-right: 0.5rem;">
+				<label class="form-label">alias</label>
+				<input class="form-input" type="text" data-field="alias" value={ conn.Alias } placeholder="e.g. analytics, staging, prod" required/>
+			</div>
+			<button type="button" class="btn btn-sm btn-outline" onclick="removeConnection(this)" style="margin-top: 1.1rem; color: var(--red);">Remove</button>
+		</div>
+		<div class="form-group">
+			<label class="form-label">connection_string (optional)</label>
+			<input class="form-input" type="password" data-field="connection_string" value={ conn.ConnectionString } placeholder="postgres://user:pass@host:5432/dbname"/>
+		</div>
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+			<div class="form-group">
+				<label class="form-label">host</label>
+				<input class="form-input" type="text" data-field="host" value={ conn.Host } placeholder="localhost"/>
+			</div>
+			<div class="form-group">
+				<label class="form-label">port</label>
+				<input class="form-input" type="text" data-field="port" value={ conn.Port } placeholder="5432"/>
+			</div>
+		</div>
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+			<div class="form-group">
+				<label class="form-label">user</label>
+				<input class="form-input" type="text" data-field="user" value={ conn.User } placeholder="postgres"/>
+			</div>
+			<div class="form-group">
+				<label class="form-label">password</label>
+				<input class="form-input" type="password" data-field="password" value={ conn.Password } placeholder="Enter password"/>
+			</div>
+		</div>
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+			<div class="form-group">
+				<label class="form-label">database</label>
+				<input class="form-input" type="text" data-field="database" value={ conn.Database } placeholder="mydb"/>
+			</div>
+			<div class="form-group">
+				<label class="form-label">sslmode</label>
+				<input class="form-input" type="text" data-field="sslmode" value={ conn.SSLMode } placeholder="prefer"/>
+			</div>
+		</div>
+		<div class="form-group">
+			<label class="form-label">read_only</label>
+			<input class="form-input" type="text" data-field="read_only" value={ conn.ReadOnly } placeholder="true"/>
+		</div>
+	</div>
+}
+
+func pgConnCount(conns []PostgresConnection) string {
+	if len(conns) == 0 {
+		return "No additional connections configured."
+	}
+	if len(conns) == 1 {
+		return "1 additional connection configured."
+	}
+	return fmt.Sprintf("%d additional connections configured.", len(conns))
+}
