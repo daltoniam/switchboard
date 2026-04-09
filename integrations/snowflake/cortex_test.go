@@ -96,7 +96,89 @@ func TestCortexAnalyst_MissingModel(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Data, "semantic_model_file or semantic_model is required")
+	assert.Contains(t, result.Data, "semantic_view, semantic_model_file, or semantic_model is required")
+}
+
+func TestCortexAnalyst_SemanticView(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req analystRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		assert.Equal(t, "MY_DB.MY_SCHEMA.MY_VIEW", req.SemanticView)
+		assert.Empty(t, req.SemanticModelFile)
+		assert.Empty(t, req.SemanticModel)
+
+		resp := analystResponse{
+			RequestID: "req-789",
+			Message: analystMessage{
+				Role:    "analyst",
+				Content: []analystContent{{Type: "text", Text: "ok"}},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	}))
+	defer ts.Close()
+
+	s := &snowflake{client: ts.Client(), baseURL: ts.URL, token: "test-token"}
+	result, err := cortexAnalyst(context.Background(), s, map[string]any{
+		"question":      "How many users?",
+		"semantic_view": "MY_DB.MY_SCHEMA.MY_VIEW",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestCortexAnalyst_DefaultSemanticView(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req analystRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		assert.Equal(t, "DB.SCH.DEFAULT_VIEW", req.SemanticView)
+
+		resp := analystResponse{
+			RequestID: "req-default",
+			Message: analystMessage{
+				Role:    "analyst",
+				Content: []analystContent{{Type: "text", Text: "ok"}},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	}))
+	defer ts.Close()
+
+	s := &snowflake{client: ts.Client(), baseURL: ts.URL, token: "test-token", semanticView: "DB.SCH.DEFAULT_VIEW"}
+	result, err := cortexAnalyst(context.Background(), s, map[string]any{
+		"question": "How many users?",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestCortexAnalyst_ExplicitOverridesDefault(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req analystRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		assert.Equal(t, "DB.SCH.EXPLICIT_VIEW", req.SemanticView, "explicit should override default")
+
+		resp := analystResponse{
+			RequestID: "req-override",
+			Message: analystMessage{
+				Role:    "analyst",
+				Content: []analystContent{{Type: "text", Text: "ok"}},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	}))
+	defer ts.Close()
+
+	s := &snowflake{client: ts.Client(), baseURL: ts.URL, token: "test-token", semanticView: "DB.SCH.DEFAULT_VIEW"}
+	result, err := cortexAnalyst(context.Background(), s, map[string]any{
+		"question":      "How many users?",
+		"semantic_view": "DB.SCH.EXPLICIT_VIEW",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
 }
 
 func TestCortexAnalyst_Unauthorized(t *testing.T) {

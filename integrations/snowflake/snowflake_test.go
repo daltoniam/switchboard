@@ -197,6 +197,7 @@ func TestPlainTextKeys(t *testing.T) {
 	assert.Contains(t, keys, "account")
 	assert.Contains(t, keys, "user")
 	assert.Contains(t, keys, "warehouse")
+	assert.Contains(t, keys, "semantic_view")
 	assert.NotContains(t, keys, "token")
 	assert.NotContains(t, keys, "private_key")
 }
@@ -209,6 +210,7 @@ func TestOptionalKeys(t *testing.T) {
 	assert.Contains(t, keys, "token")
 	assert.Contains(t, keys, "user")
 	assert.Contains(t, keys, "private_key")
+	assert.Contains(t, keys, "semantic_view")
 	assert.NotContains(t, keys, "account")
 }
 
@@ -219,6 +221,7 @@ func TestPlaceholders(t *testing.T) {
 	assert.NotEmpty(t, ph["token"])
 	assert.NotEmpty(t, ph["user"])
 	assert.NotEmpty(t, ph["private_key"])
+	assert.NotEmpty(t, ph["semantic_view"])
 }
 
 func TestQuoteIdentifier(t *testing.T) {

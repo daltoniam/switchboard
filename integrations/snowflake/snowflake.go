@@ -23,17 +23,18 @@ var (
 )
 
 type snowflake struct {
-	client     *http.Client
-	token      string
-	baseURL    string
-	warehouse  string
-	database   string
-	schema     string
-	role       string
-	account    string
-	user       string
-	privateKey *rsa.PrivateKey
-	jwtCache   jwtCache
+	client       *http.Client
+	token        string
+	baseURL      string
+	warehouse    string
+	database     string
+	schema       string
+	role         string
+	account      string
+	user         string
+	semanticView string
+	privateKey   *rsa.PrivateKey
+	jwtCache     jwtCache
 }
 
 func New() mcp.Integration {
@@ -53,6 +54,7 @@ func (s *snowflake) Configure(_ context.Context, creds mcp.Credentials) error {
 	s.database = creds["database"]
 	s.schema = creds["schema"]
 	s.role = creds["role"]
+	s.semanticView = creds["semantic_view"]
 
 	// Key-pair auth takes precedence over a static token.
 	if pk := creds["private_key"]; pk != "" {
@@ -123,25 +125,26 @@ func (s *snowflake) Execute(ctx context.Context, toolName string, args map[strin
 }
 
 func (s *snowflake) PlainTextKeys() []string {
-	return []string{"account", "user", "warehouse", "database", "schema", "role", "account_url"}
+	return []string{"account", "user", "warehouse", "database", "schema", "role", "semantic_view", "account_url"}
 }
 
 func (s *snowflake) Placeholders() map[string]string {
 	return map[string]string{
-		"account":     "xy12345.us-east-1",
-		"token":       "JWT or OAuth token",
-		"user":        "MYUSER",
-		"private_key": "PEM-encoded RSA private key",
-		"warehouse":   "COMPUTE_WH",
-		"database":    "MY_DB",
-		"schema":      "PUBLIC",
-		"role":        "SYSADMIN",
-		"account_url": "https://xy12345.us-east-1.snowflakecomputing.com",
+		"account":       "xy12345.us-east-1",
+		"token":         "JWT or OAuth token",
+		"user":          "MYUSER",
+		"private_key":   "PEM-encoded RSA private key",
+		"warehouse":     "COMPUTE_WH",
+		"database":      "MY_DB",
+		"schema":        "PUBLIC",
+		"role":          "SYSADMIN",
+		"semantic_view": "MY_DB.MY_SCHEMA.MY_SEMANTIC_VIEW",
+		"account_url":   "https://xy12345.us-east-1.snowflakecomputing.com",
 	}
 }
 
 func (s *snowflake) OptionalKeys() []string {
-	return []string{"token", "user", "private_key", "warehouse", "database", "schema", "role", "account_url"}
+	return []string{"token", "user", "private_key", "warehouse", "database", "schema", "role", "semantic_view", "account_url"}
 }
 
 type handlerFunc func(ctx context.Context, s *snowflake, args map[string]any) (*mcp.ToolResult, error)

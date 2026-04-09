@@ -177,11 +177,12 @@ var tools = []mcp.ToolDefinition{
 	// --- Cortex Analyst ---
 	{
 		Name:        "snowflake_cortex_analyst",
-		Description: "Ask a natural-language question against a Snowflake Cortex Analyst semantic model. Returns generated SQL, an explanation, and follow-up suggestions. Use snowflake_execute_query to run the returned SQL",
+		Description: "Ask a natural-language question against a Snowflake Cortex Analyst semantic layer. Returns generated SQL, an explanation, and follow-up suggestions. Use snowflake_execute_query to run the returned SQL",
 		Parameters: map[string]string{
 			"question":            "Natural-language question to ask (e.g. 'What were our top 10 products by revenue last quarter?')",
-			"semantic_model_file": "Stage path to the semantic model YAML (e.g. @MY_DB.MY_SCHEMA.MY_STAGE/model.yaml)",
-			"semantic_model":      "Inline semantic model YAML (alternative to semantic_model_file)",
+			"semantic_view":       "Fully qualified semantic view name (overrides configured default)",
+			"semantic_model_file": "Stage path to a semantic model YAML (e.g. @MY_DB.MY_SCHEMA.MY_STAGE/model.yaml)",
+			"semantic_model":      "Inline semantic model YAML (alternative to semantic_model_file and semantic_view)",
 		},
 		Required: []string{"question"},
 	},

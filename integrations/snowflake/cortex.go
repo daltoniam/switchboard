@@ -29,6 +29,7 @@ type analystRequest struct {
 	Messages          []analystMessage `json:"messages"`
 	SemanticModelFile string           `json:"semantic_model_file,omitempty"`
 	SemanticModel     string           `json:"semantic_model,omitempty"`
+	SemanticView      string           `json:"semantic_view,omitempty"`
 }
 
 type analystResponse struct {
@@ -43,14 +44,19 @@ func cortexAnalyst(ctx context.Context, s *snowflake, args map[string]any) (*mcp
 	question := r.Str("question")
 	modelFile := r.Str("semantic_model_file")
 	model := r.Str("semantic_model")
+	semanticView := r.Str("semantic_view")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 	if question == "" {
 		return mcp.ErrResult(fmt.Errorf("question is required"))
 	}
-	if modelFile == "" && model == "" {
-		return mcp.ErrResult(fmt.Errorf("semantic_model_file or semantic_model is required"))
+	// Fall back to the configured default semantic view.
+	if semanticView == "" && modelFile == "" && model == "" {
+		semanticView = s.semanticView
+	}
+	if modelFile == "" && model == "" && semanticView == "" {
+		return mcp.ErrResult(fmt.Errorf("semantic_view, semantic_model_file, or semantic_model is required"))
 	}
 
 	req := analystRequest{
@@ -64,6 +70,7 @@ func cortexAnalyst(ctx context.Context, s *snowflake, args map[string]any) (*mcp
 		},
 		SemanticModelFile: modelFile,
 		SemanticModel:     model,
+		SemanticView:      semanticView,
 	}
 
 	resp, err := s.doAnalystRequest(ctx, &req)
