@@ -186,7 +186,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"postgres": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"connection_string": "", "host": "", "port": "", "user": "", "password": "", "database": "", "sslmode": "", "read_only": ""},
+				Credentials: mcp.Credentials{"connection_string": "", "host": "", "port": "", "user": "", "password": "", "database": "", "sslmode": "", "read_only": "", "connections": ""},
 			},
 			"clickhouse": {
 				Enabled:     false,

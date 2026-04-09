@@ -2,26 +2,39 @@ package postgres
 
 import mcp "github.com/daltoniam/switchboard"
 
+const databaseParamDesc = "Connection alias (omit to use default). Use postgres_list_databases to see available connections."
+
 var tools = []mcp.ToolDefinition{
+	// --- Connection Management ---
+	{
+		Name:        "postgres_list_databases",
+		Description: "List all configured database connections with their alias, host, database name, and read-only status",
+		Parameters:  map[string]string{},
+	},
+
 	// --- Schema Discovery ---
 	{
 		Name:        "postgres_list_schemas",
 		Description: "List all schemas in the database",
-		Parameters:  map[string]string{},
+		Parameters: map[string]string{
+			"database": databaseParamDesc,
+		},
 	},
 	{
 		Name:        "postgres_list_tables",
 		Description: "List all tables in a schema with row counts and size estimates",
 		Parameters: map[string]string{
-			"schema": "Schema name (default: public)",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 	},
 	{
 		Name:        "postgres_describe_table",
 		Description: "Get detailed column info for a table including types, nullability, defaults, and constraints",
 		Parameters: map[string]string{
-			"table":  "Table name",
-			"schema": "Schema name (default: public)",
+			"table":    "Table name",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"table"},
 	},
@@ -29,8 +42,9 @@ var tools = []mcp.ToolDefinition{
 		Name:        "postgres_list_columns",
 		Description: "List all columns for a table with data types and ordinal positions",
 		Parameters: map[string]string{
-			"table":  "Table name",
-			"schema": "Schema name (default: public)",
+			"table":    "Table name",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"table"},
 	},
@@ -38,8 +52,9 @@ var tools = []mcp.ToolDefinition{
 		Name:        "postgres_list_indexes",
 		Description: "List all indexes on a table with definitions and size",
 		Parameters: map[string]string{
-			"table":  "Table name",
-			"schema": "Schema name (default: public)",
+			"table":    "Table name",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"table"},
 	},
@@ -47,8 +62,9 @@ var tools = []mcp.ToolDefinition{
 		Name:        "postgres_list_constraints",
 		Description: "List all constraints (primary key, foreign key, unique, check) on a table",
 		Parameters: map[string]string{
-			"table":  "Table name",
-			"schema": "Schema name (default: public)",
+			"table":    "Table name",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"table"},
 	},
@@ -56,8 +72,9 @@ var tools = []mcp.ToolDefinition{
 		Name:        "postgres_list_foreign_keys",
 		Description: "List all foreign key relationships for a table (both referencing and referenced)",
 		Parameters: map[string]string{
-			"table":  "Table name",
-			"schema": "Schema name (default: public)",
+			"table":    "Table name",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"table"},
 	},
@@ -65,29 +82,33 @@ var tools = []mcp.ToolDefinition{
 		Name:        "postgres_list_views",
 		Description: "List all views in a schema with their definitions",
 		Parameters: map[string]string{
-			"schema": "Schema name (default: public)",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 	},
 	{
 		Name:        "postgres_list_functions",
 		Description: "List user-defined functions in a schema",
 		Parameters: map[string]string{
-			"schema": "Schema name (default: public)",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 	},
 	{
 		Name:        "postgres_list_triggers",
 		Description: "List all triggers on a table or in a schema",
 		Parameters: map[string]string{
-			"table":  "Table name (optional, lists all triggers in schema if omitted)",
-			"schema": "Schema name (default: public)",
+			"table":    "Table name (optional, lists all triggers in schema if omitted)",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 	},
 	{
 		Name:        "postgres_list_enums",
 		Description: "List all enum types in the database with their values",
 		Parameters: map[string]string{
-			"schema": "Schema name (default: public)",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 	},
 
@@ -96,8 +117,9 @@ var tools = []mcp.ToolDefinition{
 		Name:        "postgres_query",
 		Description: "Execute a read-only SQL query and return results as JSON. Use for database exploration and performance investigation. Automatically wrapped in a read-only transaction.",
 		Parameters: map[string]string{
-			"sql":   "SQL query to execute (SELECT, SHOW, EXPLAIN, etc.)",
-			"limit": "Max rows to return (default: 100, max: 1000)",
+			"sql":      "SQL query to execute (SELECT, SHOW, EXPLAIN, etc.)",
+			"limit":    "Max rows to return (default: 100, max: 1000)",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"sql"},
 	},
@@ -105,7 +127,8 @@ var tools = []mcp.ToolDefinition{
 		Name:        "postgres_execute",
 		Description: "Execute a data-modifying SQL statement (INSERT, UPDATE, DELETE, CREATE, ALTER, DROP). Returns rows affected. **CAUTION: executes arbitrary SQL including DDL/DML. Disabled by default -- set read_only=false in credentials to enable.** DROP DATABASE and TRUNCATE are always denied.",
 		Parameters: map[string]string{
-			"sql": "SQL statement to execute",
+			"sql":      "SQL statement to execute",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"sql"},
 	},
@@ -113,9 +136,10 @@ var tools = []mcp.ToolDefinition{
 		Name:        "postgres_explain",
 		Description: "Run EXPLAIN ANALYZE on a SQL query to show the execution plan with actual timing. Use to diagnose slow queries and optimize database performance.",
 		Parameters: map[string]string{
-			"sql":     "SQL query to explain",
-			"analyze": "Run EXPLAIN ANALYZE with actual execution (default: false)",
-			"format":  "Output format: text, json, yaml, xml (default: text)",
+			"sql":      "SQL query to explain",
+			"analyze":  "Run EXPLAIN ANALYZE with actual execution (default: false)",
+			"format":   "Output format: text, json, yaml, xml (default: text)",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"sql"},
 	},
@@ -132,6 +156,7 @@ var tools = []mcp.ToolDefinition{
 			"order_by": "ORDER BY clause without the ORDER BY keyword (SQL expression)",
 			"limit":    "Max rows to return (default: 100)",
 			"offset":   "Number of rows to skip",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"table"},
 	},
@@ -140,21 +165,25 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        "postgres_database_info",
 		Description: "Get database-level info: version, current database, current user, server settings",
-		Parameters:  map[string]string{},
+		Parameters: map[string]string{
+			"database": databaseParamDesc,
+		},
 	},
 	{
 		Name:        "postgres_database_size",
 		Description: "Get the size of the current database and its largest tables",
 		Parameters: map[string]string{
-			"limit": "Number of largest tables to return (default: 20)",
+			"limit":    "Number of largest tables to return (default: 20)",
+			"database": databaseParamDesc,
 		},
 	},
 	{
 		Name:        "postgres_table_stats",
 		Description: "Get detailed statistics for a table including row count, dead tuples, last vacuum/analyze times",
 		Parameters: map[string]string{
-			"table":  "Table name",
-			"schema": "Schema name (default: public)",
+			"table":    "Table name",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 		Required: []string{"table"},
 	},
@@ -163,14 +192,17 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        "postgres_list_roles",
 		Description: "List all database roles with their attributes (superuser, createdb, login, etc.)",
-		Parameters:  map[string]string{},
+		Parameters: map[string]string{
+			"database": databaseParamDesc,
+		},
 	},
 	{
 		Name:        "postgres_list_grants",
 		Description: "List privileges granted on a table or schema",
 		Parameters: map[string]string{
-			"table":  "Table name (optional, shows schema-level grants if omitted)",
-			"schema": "Schema name (default: public)",
+			"table":    "Table name (optional, shows schema-level grants if omitted)",
+			"schema":   "Schema name (default: public)",
+			"database": databaseParamDesc,
 		},
 	},
 
@@ -178,30 +210,39 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        "postgres_list_extensions",
 		Description: "List all installed extensions with versions",
-		Parameters:  map[string]string{},
+		Parameters: map[string]string{
+			"database": databaseParamDesc,
+		},
 	},
 	{
 		Name:        "postgres_list_active_connections",
 		Description: "List active database connections with query state, duration, and client info",
 		Parameters: map[string]string{
-			"state": "Filter by state: active, idle, idle in transaction (optional)",
+			"state":    "Filter by state: active, idle, idle in transaction (optional)",
+			"database": databaseParamDesc,
 		},
 	},
 	{
 		Name:        "postgres_list_locks",
 		Description: "List current lock activity showing blocked and blocking queries",
-		Parameters:  map[string]string{},
+		Parameters: map[string]string{
+			"database": databaseParamDesc,
+		},
 	},
 	{
 		Name:        "postgres_running_queries",
 		Description: "List currently running queries with duration and state. Use to find slow or long-running queries that may be blocking database operations.",
 		Parameters: map[string]string{
 			"min_duration": "Minimum duration in seconds to filter by (optional)",
+			"database":     databaseParamDesc,
 		},
 	},
 }
 
 var dispatch = map[string]handlerFunc{
+	// Connection Management
+	"postgres_list_databases": listDatabases,
+
 	// Schema Discovery
 	"postgres_list_schemas":      listSchemas,
 	"postgres_list_tables":       listTables,

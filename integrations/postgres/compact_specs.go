@@ -7,6 +7,9 @@ import (
 )
 
 var rawFieldCompactionSpecs = map[string][]string{
+	// ── Connection Management ────────────────────────────────────────
+	"postgres_list_databases": {"alias", "host", "database", "read_only", "is_default"},
+
 	// ── Schema Discovery ─────────────────────────────────────────────
 	"postgres_list_schemas":      {"schema_name"},
 	"postgres_list_tables":       {"table_name", "schema_name", "row_count", "total_size"},
