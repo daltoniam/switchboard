@@ -131,9 +131,9 @@ func (s *snowflake) PlainTextKeys() []string {
 func (s *snowflake) Placeholders() map[string]string {
 	return map[string]string{
 		"account":       "xy12345.us-east-1",
-		"token":         "JWT or OAuth token",
-		"user":          "MYUSER",
-		"private_key":   "PEM-encoded RSA private key",
+		"token":         "JWT or OAuth token (if not using key-pair auth)",
+		"user":          "Username (required with private_key)",
+		"private_key":   "PEM-encoded RSA private key (alternative to token)",
 		"warehouse":     "COMPUTE_WH",
 		"database":      "MY_DB",
 		"schema":        "PUBLIC",
@@ -230,7 +230,12 @@ func (s *snowflake) cancelStatement(ctx context.Context, handle string) error {
 	return err
 }
 
-func (s *snowflake) doStatementRequest(ctx context.Context, method, path string, body any) (*statementResponse, error) {
+// doJSON performs a JSON API request with common Snowflake auth headers and shared
+// error handling (401, 429, 5xx). On 200 OK the response is unmarshalled into T.
+// The optional extraStatus callback handles endpoint-specific status codes (e.g.
+// 202, 422 for the SQL Statements API); return (nil, nil) to fall through to the
+// shared error handler.
+func doJSON[T any](ctx context.Context, s *snowflake, method, path string, body any, extraStatus func(int, []byte) (*T, error)) (*T, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -265,43 +270,58 @@ func (s *snowflake) doStatementRequest(ctx context.Context, method, path string,
 		return nil, fmt.Errorf("snowflake: read response: %w", err)
 	}
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-		var result statementResponse
+	if resp.StatusCode == http.StatusOK {
+		var result T
 		if err := json.Unmarshal(respBody, &result); err != nil {
 			return nil, fmt.Errorf("snowflake: parse response: %w", err)
 		}
 		return &result, nil
-	case http.StatusAccepted:
-		var result statementResponse
-		if err := json.Unmarshal(respBody, &result); err != nil {
-			return nil, fmt.Errorf("snowflake: parse 202 response: %w", err)
+	}
+
+	if extraStatus != nil {
+		if result, err := extraStatus(resp.StatusCode, respBody); result != nil || err != nil {
+			return result, err
 		}
-		return &result, nil
-	case http.StatusUnauthorized:
+	}
+
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
 		return nil, fmt.Errorf("snowflake: unauthorized (401) — check token")
-	case http.StatusTooManyRequests:
+	case resp.StatusCode == http.StatusTooManyRequests:
 		retryAfter := mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
 		return nil, &mcp.RetryableError{
 			StatusCode: resp.StatusCode,
 			Err:        fmt.Errorf("snowflake: rate limited (429)"),
 			RetryAfter: retryAfter,
 		}
-	case http.StatusUnprocessableEntity:
-		var result statementResponse
-		if err := json.Unmarshal(respBody, &result); err != nil {
-			return nil, fmt.Errorf("snowflake: execution error (422): %s", string(respBody))
+	case resp.StatusCode >= 500:
+		return nil, &mcp.RetryableError{
+			StatusCode: resp.StatusCode,
+			Err:        fmt.Errorf("snowflake: server error (%d): %s", resp.StatusCode, string(respBody)),
 		}
-		return nil, fmt.Errorf("snowflake: execution error (422): %s", result.Message)
 	default:
-		if resp.StatusCode >= 500 {
-			return nil, &mcp.RetryableError{
-				StatusCode: resp.StatusCode,
-				Err:        fmt.Errorf("snowflake: server error (%d): %s", resp.StatusCode, string(respBody)),
-			}
-		}
 		return nil, fmt.Errorf("snowflake: unexpected status %d: %s", resp.StatusCode, string(respBody))
 	}
+}
+
+func (s *snowflake) doStatementRequest(ctx context.Context, method, path string, body any) (*statementResponse, error) {
+	return doJSON[statementResponse](ctx, s, method, path, body, func(status int, respBody []byte) (*statementResponse, error) {
+		switch status {
+		case http.StatusAccepted:
+			var result statementResponse
+			if err := json.Unmarshal(respBody, &result); err != nil {
+				return nil, fmt.Errorf("snowflake: parse 202 response: %w", err)
+			}
+			return &result, nil
+		case http.StatusUnprocessableEntity:
+			var result statementResponse
+			if err := json.Unmarshal(respBody, &result); err != nil {
+				return nil, fmt.Errorf("snowflake: execution error (422): %s", string(respBody))
+			}
+			return nil, fmt.Errorf("snowflake: execution error (422): %s", result.Message)
+		}
+		return nil, nil
+	})
 }
 
 // formatResults converts the Snowflake columnar response (array of arrays + metadata)
