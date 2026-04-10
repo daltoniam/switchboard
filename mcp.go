@@ -102,6 +102,7 @@ func ValidateToolGlobs(globs []string) error {
 // WasmModuleConfig describes a WASM module to load as an integration.
 type WasmModuleConfig struct {
 	Path        string      `json:"path"`
+	Name        string      `json:"name,omitempty"`
 	Credentials Credentials `json:"credentials,omitempty"`
 }
 

@@ -1,0 +1,72 @@
+package pages
+
+import (
+	"fmt"
+
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+type WasmModuleEditData struct {
+	Index       int
+	Path        string
+	Name        string
+	Credentials []CredentialField
+}
+
+templ WasmModuleEdit(page layouts.PageData, data WasmModuleEditData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/wasm" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Edit WASM Module</h1>
+		</div>
+		<div class="card" style="margin-bottom: 1rem; background: var(--yellow-dim); border-color: oklch(72% 0.15 80 / 0.25);">
+			<p style="font-size: 0.8125rem; color: var(--yellow); margin: 0;">
+				WASM modules are loaded at server startup. Restart Switchboard to activate changes.
+			</p>
+		</div>
+		<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/wasm/%d", data.Index)) }>
+			<div class="card">
+				<div class="form-group">
+					<label class="form-label" for="wasm_path">Module Path</label>
+					<input class="form-input" type="text" name="path" id="wasm_path" value={ data.Path } placeholder="/path/to/module.wasm" required/>
+				</div>
+				<div class="form-group">
+					<label class="form-label" for="wasm_name">Name (optional)</label>
+					<input class="form-input" type="text" name="name" id="wasm_name" value={ data.Name } placeholder="Override the module's built-in name"/>
+				</div>
+				<div id="cred-rows">
+					for i, cred := range data.Credentials {
+						<div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:end;" class="cred-row">
+							<div style="flex:1">
+								<label class="form-label">Key</label>
+								<input class="form-input" type="text" name={ fmt.Sprintf("cred_key_%d", i) } value={ cred.Key } placeholder="api_key"/>
+							</div>
+							<div style="flex:1">
+								<label class="form-label">Value</label>
+								<input class="form-input" type="text" name={ fmt.Sprintf("cred_val_%d", i) } value={ cred.Value } placeholder="value"/>
+							</div>
+							<button type="button" class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);margin-bottom:1px;" onclick="this.parentElement.remove()">✕</button>
+						</div>
+					}
+				</div>
+				<button type="button" class="btn btn-sm btn-outline" id="add-cred-btn" style="margin-bottom: 0.75rem;">+ Add Credential</button>
+			</div>
+			<button type="submit" class="btn">Save Changes</button>
+		</form>
+		<script>
+			(function() {
+				var idx = { fmt.Sprint(len(data.Credentials)) };
+				document.getElementById('add-cred-btn').addEventListener('click', function() {
+					var row = document.createElement('div');
+					row.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:end;';
+					row.className = 'cred-row';
+					row.innerHTML = '<div style="flex:1"><label class="form-label">Key</label><input class="form-input" type="text" name="cred_key_' + idx + '" placeholder="api_key"/></div>' +
+						'<div style="flex:1"><label class="form-label">Value</label><input class="form-input" type="text" name="cred_val_' + idx + '" placeholder="value"/></div>' +
+						'<button type="button" class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red);margin-bottom:1px;" onclick="this.parentElement.remove()">✕</button>';
+					document.getElementById('cred-rows').appendChild(row);
+					idx++;
+				});
+			})();
+		</script>
+	}
+}

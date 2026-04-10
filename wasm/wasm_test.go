@@ -39,6 +39,22 @@ func TestName(t *testing.T) {
 	}
 }
 
+func TestSetName(t *testing.T) {
+	mod := loadTestModule(t)
+	mod.SetName("custom")
+	if got := mod.Name(); got != "custom" {
+		t.Errorf("Name() = %q, want %q", got, "custom")
+	}
+}
+
+func TestSetName_Empty(t *testing.T) {
+	mod := loadTestModule(t)
+	mod.SetName("")
+	if got := mod.Name(); got != "example" {
+		t.Errorf("Name() = %q, want %q (should fall back to wasm export)", got, "example")
+	}
+}
+
 func TestTools(t *testing.T) {
 	mod := loadTestModule(t)
 	tools := mod.Tools()

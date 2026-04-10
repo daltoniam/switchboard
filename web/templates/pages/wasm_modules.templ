@@ -9,6 +9,7 @@ import (
 type WasmModuleEntry struct {
 	Index       int
 	Path        string
+	Name        string
 	Credentials map[string]string
 }
 
@@ -33,16 +34,24 @@ templ WasmModules(page layouts.PageData, data WasmModulesData) {
 							<div style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
 								{ m.Path }
 							</div>
+							if m.Name != "" {
+								<div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;">
+									Name: { m.Name }
+								</div>
+							}
 							if len(m.Credentials) > 0 {
 								<div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;">
 									{ fmt.Sprintf("%d credential(s) configured", len(m.Credentials)) }
 								</div>
 							}
 						</div>
-						<form method="POST" action="/wasm/delete" style="margin-left: 0.75rem;" onsubmit="return confirm('Remove this WASM module?')">
-							<input type="hidden" name="index" value={ fmt.Sprint(m.Index) }/>
-							<button type="submit" class="btn btn-sm btn-outline" style="color: var(--red); border-color: var(--red);">Remove</button>
-						</form>
+						<div style="display: flex; gap: 0.5rem; margin-left: 0.75rem;">
+							<a href={ templ.SafeURL(fmt.Sprintf("/wasm/%d", m.Index)) } class="btn btn-sm btn-outline">Edit</a>
+							<form method="POST" action="/wasm/delete" onsubmit="return confirm('Remove this WASM module?')">
+								<input type="hidden" name="index" value={ fmt.Sprint(m.Index) }/>
+								<button type="submit" class="btn btn-sm btn-outline" style="color: var(--red); border-color: var(--red);">Remove</button>
+							</form>
+						</div>
 					</div>
 				</div>
 			}
@@ -57,6 +66,10 @@ templ WasmModules(page layouts.PageData, data WasmModulesData) {
 				<div class="form-group">
 					<label class="form-label" for="wasm_path">Module Path</label>
 					<input class="form-input" type="text" name="path" id="wasm_path" placeholder="/path/to/module.wasm" required/>
+				</div>
+				<div class="form-group">
+					<label class="form-label" for="wasm_name">Name (optional)</label>
+					<input class="form-input" type="text" name="name" id="wasm_name" placeholder="Override the module's built-in name"/>
 				</div>
 				<div id="cred-rows">
 				</div>

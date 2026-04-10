@@ -186,14 +186,17 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	browserSvc, err := browser.New(true /* headless */)
-	if err != nil {
-		log.Printf("browser service unavailable (%v) — browser-based integrations disabled", err)
-		browserSvc = nil
-	}
-	if browserSvc != nil {
-		defer browserSvc.Close() //nolint:errcheck
-	}
+	browserDone := make(chan struct{})
+	var browserSvc mcp.BrowserService
+	go func() {
+		defer close(browserDone)
+		svc, err := browser.New(true /* headless */)
+		if err != nil {
+			log.Printf("browser service unavailable (%v) — browser-based integrations disabled", err)
+			return
+		}
+		browserSvc = svc
+	}()
 
 	gmailIntegration := gmail.New()
 	amazonIntegration := amazon.New()
@@ -252,9 +255,13 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	}
 
 	gmail.SetConfigService(gmailIntegration, cfgMgr)
-	if browserSvc != nil {
-		amazon.SetBrowserService(amazonIntegration, browserSvc)
-	}
+	go func() {
+		<-browserDone
+		if browserSvc != nil {
+			amazon.SetBrowserService(amazonIntegration, browserSvc)
+			log.Println("browser service ready — Amazon browser features enabled")
+		}
+	}()
 
 	var serverOpts []server.Option
 	if discoverAll {
@@ -309,6 +316,11 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("HTTP server error: %v", err)
 	}
+
+	<-browserDone
+	if browserSvc != nil {
+		browserSvc.Close() //nolint:errcheck
+	}
 }
 
 func loadWasmModules(modules []mcp.WasmModuleConfig, reg mcp.Registry, cfgMgr mcp.ConfigService) *wasmmod.Runtime {
@@ -334,33 +346,44 @@ func loadWasmModule(ctx context.Context, rt *wasmmod.Runtime, wc mcp.WasmModuleC
 		log.Printf("WARN: failed to load WASM module %q: %v", wc.Path, err)
 		return
 	}
+	if wc.Name != "" {
+		mod.SetName(wc.Name)
+	}
 	if err := reg.Register(mod); err != nil {
 		log.Printf("WARN: failed to register WASM module %q: %v", wc.Path, err)
 		return
 	}
-	// Pre-configure WASM modules with their inline credentials and
-	// create a config entry so configureIntegrations() sees them as enabled.
-	// Merge with any existing config entry (e.g. from the config file) so
-	// we don't overwrite credentials set by the agent supervisor.
-	existing, hasExisting := cfgMgr.GetIntegration(mod.Name())
-	configureCreds := mcp.Credentials(wc.Credentials)
-	if hasExisting && len(existing.Credentials) > 0 {
-		configureCreds = existing.Credentials
+
+	// Merge credentials: WASM inline creds are the baseline, existing config
+	// creds (e.g. set via the web UI integration page) override them.
+	mergedCreds := mcp.Credentials{}
+	for k, v := range wc.Credentials {
+		mergedCreds[k] = v
 	}
-	if len(configureCreds) > 0 {
-		if err := mod.Configure(ctx, configureCreds); err != nil {
+	existing, hasExisting := cfgMgr.GetIntegration(mod.Name())
+	if hasExisting {
+		for k, v := range existing.Credentials {
+			mergedCreds[k] = v
+		}
+	}
+
+	if len(mergedCreds) > 0 {
+		if err := mod.Configure(ctx, mergedCreds); err != nil {
 			log.Printf("WARN: failed to configure WASM module %q: %v", wc.Path, err)
 			return
 		}
 	}
-	if !hasExisting {
-		_ = cfgMgr.SetIntegration(mod.Name(), &mcp.IntegrationConfig{
-			Enabled:     true,
-			Credentials: configureCreds,
-		})
-	} else if !existing.Enabled {
-		existing.Enabled = true
-		_ = cfgMgr.SetIntegration(mod.Name(), existing)
+
+	// Always persist the integration config entry so the web UI shows
+	// the correct credentials and enabled state.
+	ic := &mcp.IntegrationConfig{
+		Enabled:     true,
+		Credentials: mergedCreds,
 	}
+	if hasExisting {
+		ic.ToolGlobs = existing.ToolGlobs
+	}
+	_ = cfgMgr.SetIntegration(mod.Name(), ic)
+
 	log.Printf("Loaded WASM integration %q from %s", mod.Name(), wc.Path)
 }

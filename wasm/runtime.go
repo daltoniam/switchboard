@@ -83,12 +83,13 @@ func (r *Runtime) Close(ctx context.Context) error {
 
 // Module wraps an instantiated WASM module and implements mcp.Integration.
 type Module struct {
-	mod       api.Module
-	fnName    api.Function
-	fnTools   api.Function
-	fnConfig  api.Function
-	fnExec    api.Function
-	fnHealthy api.Function
+	mod          api.Module
+	nameOverride string
+	fnName       api.Function
+	fnTools      api.Function
+	fnConfig     api.Function
+	fnExec       api.Function
+	fnHealthy    api.Function
 }
 
 func (m *Module) resolveExports() error {
