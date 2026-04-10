@@ -6,7 +6,7 @@ var tools = []mcp.ToolDefinition{
 	// ── Runs ────────────────────────────────────────────────────────
 	{
 		Name:        "rwx_launch_ci_run",
-		Description: "Launch a CI/CD pipeline run using the rwx CLI. Executes continuous integration tests and builds from .rwx/ci.yml by default.",
+		Description: "Launch a CI/CD pipeline run using the rwx CLI. Start here to run CI. Executes continuous integration tests and builds from .rwx/ci.yml by default.",
 		Parameters: map[string]string{
 			"targets": "JSON array of specific task keys to target (optional)",
 			"wait":    "Wait for the run to complete before returning (true/false, default: false)",

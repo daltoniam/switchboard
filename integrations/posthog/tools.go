@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Projects ────────────────────────────────────────────────────
 	{
-		Name: "posthog_list_projects", Description: "List all projects in the PostHog organization",
+		Name: "posthog_list_projects", Description: "List all projects in the PostHog organization. Start here to discover projects.",
 		Parameters: map[string]string{"limit": "Max results", "offset": "Pagination offset"},
 	},
 	{

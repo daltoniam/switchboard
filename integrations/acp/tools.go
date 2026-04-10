@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	{
 		Name:        "acp_list_agents",
-		Description: "List available remote agents on ACP servers. Discover AI agents, bots, and autonomous workers before invoking them. Returns agent names, descriptions, and capabilities",
+		Description: "List available remote agents on ACP servers. Start here to discover AI agents, bots, and autonomous workers before invoking them. Returns agent names, descriptions, and capabilities",
 		Parameters: map[string]string{
 			"server":         "Name of a pre-configured ACP server to query. Uses the first configured server if omitted",
 			"server_url":     "URL of an ACP server to query directly (e.g. http://localhost:8199). Overrides server name lookup",

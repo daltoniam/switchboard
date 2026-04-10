@@ -26,7 +26,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Databases ---
 	{
 		Name:        "clickhouse_list_databases",
-		Description: "List all databases in the ClickHouse server",
+		Description: "List all databases in the ClickHouse server. Start here for schema discovery.",
 		Parameters:  map[string]string{},
 	},
 	{

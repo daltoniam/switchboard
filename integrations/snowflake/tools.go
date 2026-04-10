@@ -38,7 +38,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Schema Discovery ---
 	{
 		Name:        "snowflake_list_databases",
-		Description: "List all databases accessible in the Snowflake account",
+		Description: "List all databases accessible in the Snowflake account. Start here for schema discovery.",
 		Parameters: map[string]string{
 			"role": "Role to use (overrides configured default)",
 		},

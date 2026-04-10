@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Resource Manager ─────────────────────────────────────────────
 	{
-		Name: "gcp_get_project", Description: "Get details about the configured GCP project",
+		Name: "gcp_get_project", Description: "Get details about the configured GCP project. Start here to verify project access.",
 		Parameters: map[string]string{},
 	},
 	{
