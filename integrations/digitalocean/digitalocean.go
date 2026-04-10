@@ -132,8 +132,16 @@ var dispatch = map[string]handlerFunc{
 	"digitalocean_get_volume":   getVolume,
 
 	// Apps
-	"digitalocean_list_apps": listApps,
-	"digitalocean_get_app":   getApp,
+	"digitalocean_list_apps":             listApps,
+	"digitalocean_get_app":               getApp,
+	"digitalocean_delete_app":            deleteApp,
+	"digitalocean_restart_app":           restartApp,
+	"digitalocean_list_app_deployments":  listAppDeployments,
+	"digitalocean_get_app_deployment":    getAppDeployment,
+	"digitalocean_create_app_deployment": createAppDeployment,
+	"digitalocean_get_app_logs":          getAppLogs,
+	"digitalocean_get_app_health":        getAppHealth,
+	"digitalocean_list_app_alerts":       listAppAlerts,
 
 	// Extras
 	"digitalocean_list_regions":       listRegions,
