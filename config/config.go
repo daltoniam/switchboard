@@ -405,6 +405,13 @@ func (m *manager) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
 	return m.saveLocked()
 }
 
+func (m *manager) SetWasmModules(modules []mcp.WasmModuleConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cfg.WasmModules = modules
+	return m.saveLocked()
+}
+
 func (m *manager) EnabledIntegrations() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

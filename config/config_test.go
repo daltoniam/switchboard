@@ -584,3 +584,58 @@ func TestUpdate_RejectsInvalidGlob(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid tool glob pattern")
 }
+
+func TestSetWasmModules(t *testing.T) {
+	m, path := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	modules := []mcp.WasmModuleConfig{
+		{Path: "/tmp/mod1.wasm", Credentials: mcp.Credentials{"key": "val"}},
+		{Path: "/tmp/mod2.wasm"},
+	}
+	err := m.SetWasmModules(modules)
+	require.NoError(t, err)
+
+	got := m.Get()
+	require.Len(t, got.WasmModules, 2)
+	assert.Equal(t, "/tmp/mod1.wasm", got.WasmModules[0].Path)
+	assert.Equal(t, "val", got.WasmModules[0].Credentials["key"])
+	assert.Equal(t, "/tmp/mod2.wasm", got.WasmModules[1].Path)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var persisted mcp.Config
+	require.NoError(t, json.Unmarshal(data, &persisted))
+	require.Len(t, persisted.WasmModules, 2)
+	assert.Equal(t, "/tmp/mod1.wasm", persisted.WasmModules[0].Path)
+}
+
+func TestSetWasmModules_EmptySlice(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	modules := []mcp.WasmModuleConfig{
+		{Path: "/tmp/mod.wasm"},
+	}
+	require.NoError(t, m.SetWasmModules(modules))
+	require.Len(t, m.Get().WasmModules, 1)
+
+	require.NoError(t, m.SetWasmModules(nil))
+	assert.Empty(t, m.Get().WasmModules)
+}
+
+func TestSetWasmModules_PreservedOnReload(t *testing.T) {
+	m, path := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	modules := []mcp.WasmModuleConfig{
+		{Path: "/tmp/persist.wasm", Credentials: mcp.Credentials{"token": "abc"}},
+	}
+	require.NoError(t, m.SetWasmModules(modules))
+
+	m2 := &manager{filePath: path, envLookup: noEnv}
+	require.NoError(t, m2.Load())
+	require.Len(t, m2.Get().WasmModules, 1)
+	assert.Equal(t, "/tmp/persist.wasm", m2.Get().WasmModules[0].Path)
+	assert.Equal(t, "abc", m2.Get().WasmModules[0].Credentials["token"])
+}
