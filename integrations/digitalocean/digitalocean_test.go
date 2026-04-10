@@ -2,9 +2,12 @@ package digitalocean
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/digitalocean/godo"
 
@@ -139,4 +142,134 @@ func TestWrapRetryable_NonRetryable(t *testing.T) {
 
 func TestWrapRetryable_Nil(t *testing.T) {
 	assert.Nil(t, wrapRetryable(nil))
+}
+
+// --- HTTP helper tests ---
+
+func TestDoRequest_BearerAuth(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"id":"123"}`))
+	}))
+	defer ts.Close()
+
+	d := &integration{token: "test-token", httpClient: ts.Client(), baseURL: ts.URL}
+	data, err := d.doGet(context.Background(), "/test")
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "123")
+}
+
+func TestDoRequest_APIError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(403)
+		w.Write([]byte(`{"error":"forbidden"}`))
+	}))
+	defer ts.Close()
+
+	d := &integration{token: "bad", httpClient: ts.Client(), baseURL: ts.URL}
+	_, err := d.doGet(context.Background(), "/test")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "digitalocean API error (403)")
+}
+
+func TestDoRequest_204NoContent(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	d := &integration{token: "tok", httpClient: ts.Client(), baseURL: ts.URL}
+	data, err := d.doRequest(context.Background(), "DELETE", "/test", nil)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "success")
+}
+
+func TestDoRequest_Post(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		var body map[string]string
+		json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "val", body["key"])
+		w.Write([]byte(`{"created":true}`))
+	}))
+	defer ts.Close()
+
+	d := &integration{token: "tok", httpClient: ts.Client(), baseURL: ts.URL}
+	data, err := d.doPost(context.Background(), "/test", map[string]string{"key": "val"})
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "created")
+}
+
+func TestDoRequest_Put(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "PUT", r.Method)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		w.Write([]byte(`{"updated":true}`))
+	}))
+	defer ts.Close()
+
+	d := &integration{token: "tok", httpClient: ts.Client(), baseURL: ts.URL}
+	data, err := d.doPut(context.Background(), "/test", map[string]string{"key": "val"})
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "updated")
+}
+
+func TestDoRequest_Delete(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "DELETE", r.Method)
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	d := &integration{token: "tok", httpClient: ts.Client(), baseURL: ts.URL}
+	data, err := d.doDel(context.Background(), "/test")
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "success")
+}
+
+func TestDoRequest_RetryableOn429(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "30")
+		w.WriteHeader(429)
+		w.Write([]byte(`{"error":"rate limited"}`))
+	}))
+	defer ts.Close()
+
+	d := &integration{token: "tok", httpClient: ts.Client(), baseURL: ts.URL}
+	_, err := d.doGet(context.Background(), "/test")
+	require.Error(t, err)
+	assert.True(t, mcp.IsRetryable(err), "429 should produce RetryableError")
+
+	var re *mcp.RetryableError
+	require.ErrorAs(t, err, &re)
+	assert.Equal(t, 429, re.StatusCode)
+	assert.Equal(t, 30*time.Second, re.RetryAfter)
+}
+
+func TestDoRequest_RetryableOn5xx(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(503)
+		w.Write([]byte(`service unavailable`))
+	}))
+	defer ts.Close()
+
+	d := &integration{token: "tok", httpClient: ts.Client(), baseURL: ts.URL}
+	_, err := d.doGet(context.Background(), "/test")
+	require.Error(t, err)
+	assert.True(t, mcp.IsRetryable(err), "503 should produce RetryableError")
+}
+
+func TestDoRequest_NonRetryableOn4xx(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(404)
+		w.Write([]byte(`not found`))
+	}))
+	defer ts.Close()
+
+	d := &integration{token: "tok", httpClient: ts.Client(), baseURL: ts.URL}
+	_, err := d.doGet(context.Background(), "/test")
+	require.Error(t, err)
+	assert.False(t, mcp.IsRetryable(err), "404 should NOT be retryable")
 }

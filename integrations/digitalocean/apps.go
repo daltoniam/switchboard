@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -180,13 +181,15 @@ func getAppLogs(ctx context.Context, d *integration, args map[string]any) (*mcp.
 	logType, _ := mcp.ArgStr(args, "log_type")
 
 	path := fmt.Sprintf("/v2/apps/%s/deployments/%s/logs", appID, deployID)
-	sep := "?"
+	params := url.Values{}
 	if component != "" {
-		path += sep + "component_name=" + component
-		sep = "&"
+		params.Set("component_name", component)
 	}
 	if logType != "" {
-		path += sep + "type=" + logType
+		params.Set("type", logType)
+	}
+	if len(params) > 0 {
+		path += "?" + params.Encode()
 	}
 
 	data, err := d.doGet(ctx, "%s", path)
