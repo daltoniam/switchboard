@@ -108,7 +108,7 @@ func (pr *ProjectRouter) buildServer(def *project.Definition) *projectMCPServer 
 		},
 		&mcpsdk.ServerOptions{
 			Instructions: fmt.Sprintf(
-				"Project-scoped MCP server for %q. Use the search tool to discover available operations and project_context to retrieve project context.",
+				"Project-scoped MCP server for %q. Use the search tool to discover available operations — do not guess tool names. Use project_context to retrieve project context.",
 				def.Name,
 			),
 			Logger: slog.Default(),
