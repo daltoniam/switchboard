@@ -6,7 +6,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Servers ---
 	{
 		Name:        "pganalyze_get_servers",
-		Description: "List all monitored PostgreSQL servers and their databases from pganalyze",
+		Description: "List all monitored PostgreSQL servers and their databases from pganalyze. Start here to discover monitored servers.",
 		Parameters: map[string]string{
 			"organization_slug": "Organization slug to filter servers (e.g. 'my-org')",
 		},

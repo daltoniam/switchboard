@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── States / Entities ───────────────────────────────────────────
 	{
-		Name: "homeassistant_list_states", Description: "List all smart home device and entity states in Home Assistant. Returns sensors, lights, switches, and other IoT device states.",
+		Name: "homeassistant_list_states", Description: "List all smart home device and entity states in Home Assistant. Start here to discover devices. Returns sensors, lights, switches, and other IoT device states.",
 		Parameters: map[string]string{},
 	},
 	{

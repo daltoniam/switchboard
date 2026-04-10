@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Profile ─────────────────────────────────────────────────────
 	{
-		Name: "gmail_get_profile", Description: "Get the current user's Gmail profile (email, messages total, threads total, history ID)",
+		Name: "gmail_get_profile", Description: "Get the current user's Gmail profile (email, messages total, threads total, history ID). Start here to verify access.",
 		Parameters: map[string]string{"user_id": "User ID (defaults to 'me' for authenticated user)"},
 	},
 

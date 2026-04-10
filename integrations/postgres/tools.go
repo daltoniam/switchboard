@@ -6,7 +6,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Schema Discovery ---
 	{
 		Name:        "postgres_list_schemas",
-		Description: "List all schemas in the database",
+		Description: "List all schemas in the database. Start here for schema discovery.",
 		Parameters:  map[string]string{},
 	},
 	{

@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── SObject Describe ────────────────────────────────────────────
 	{
-		Name: "salesforce_describe_global", Description: "List all SObjects available in the org with metadata (name, label, keyPrefix, queryable, createable, etc.)",
+		Name: "salesforce_describe_global", Description: "List all SObjects available in the org with metadata (name, label, keyPrefix, queryable, createable, etc.). Start here for schema discovery.",
 		Parameters: map[string]string{},
 	},
 	{

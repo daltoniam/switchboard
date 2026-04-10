@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Account ─────────────────────────────────────────────────────
 	{
-		Name: "digitalocean_get_account", Description: "Get current account information including email, droplet limit, and status",
+		Name: "digitalocean_get_account", Description: "Get current account information including email, droplet limit, and status. Start here to verify access.",
 		Parameters: map[string]string{},
 	},
 
