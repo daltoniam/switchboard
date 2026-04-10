@@ -57,7 +57,7 @@ func publicKeyFingerprint(key *rsa.PrivateKey) (string, error) {
 
 // accountLocator extracts the account locator from a full Snowflake account
 // identifier. For "xy12345.us-east-1" it returns "XY12345". Identifiers without
-// dots (e.g. "wnumjgh-ex36922") are returned uppercased as-is, which is the
+// dots (e.g. "abcdefg-xz213456") are returned uppercased as-is, which is the
 // common format for org-based accounts.
 func accountLocator(account string) string {
 	if idx := strings.IndexByte(account, '.'); idx >= 0 {
