@@ -238,7 +238,6 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	services := &mcp.Services{
 		Config:   cfgMgr,
 		Registry: reg,
-		Browser:  browserSvc,
 		Metrics:  mcp.NewMetrics(),
 	}
 
@@ -347,10 +346,6 @@ func loadWasmModule(ctx context.Context, rt *wasmmod.Runtime, wc mcp.WasmModuleC
 	if wc.Name != "" {
 		mod.SetName(wc.Name)
 	}
-	if err := reg.Register(mod); err != nil {
-		log.Printf("WARN: failed to register WASM module %q: %v", wc.Path, err)
-		return
-	}
 
 	// Merge credentials: WASM inline creds are the baseline, existing config
 	// creds (e.g. set via the web UI integration page) override them.
@@ -370,6 +365,11 @@ func loadWasmModule(ctx context.Context, rt *wasmmod.Runtime, wc mcp.WasmModuleC
 			log.Printf("WARN: failed to configure WASM module %q: %v", wc.Path, err)
 			return
 		}
+	}
+
+	if err := reg.Register(mod); err != nil {
+		log.Printf("WARN: failed to register WASM module %q: %v", wc.Path, err)
+		return
 	}
 
 	// Always persist the integration config entry so the web UI shows
