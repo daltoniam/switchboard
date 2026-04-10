@@ -16,26 +16,6 @@ func getAccount(ctx context.Context, d *integration, _ map[string]any) (*mcp.Too
 	return mcp.JSONResult(acct)
 }
 
-func listApps(ctx context.Context, d *integration, args map[string]any) (*mcp.ToolResult, error) {
-	apps, _, err := d.client.Apps.List(ctx, listOpts(args))
-	if err != nil {
-		return errResult(err)
-	}
-	return mcp.JSONResult(apps)
-}
-
-func getApp(ctx context.Context, d *integration, args map[string]any) (*mcp.ToolResult, error) {
-	id, err := mcp.ArgStr(args, "app_id")
-	if err != nil {
-		return mcp.ErrResult(err)
-	}
-	app, _, err := d.client.Apps.Get(ctx, id)
-	if err != nil {
-		return errResult(err)
-	}
-	return mcp.JSONResult(app)
-}
-
 func listRegions(ctx context.Context, d *integration, _ map[string]any) (*mcp.ToolResult, error) {
 	regions, _, err := d.client.Regions.List(ctx, &godo.ListOptions{PerPage: 200})
 	if err != nil {

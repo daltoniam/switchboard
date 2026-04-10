@@ -1,10 +1,14 @@
 package digitalocean
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/digitalocean/godo"
 	"golang.org/x/oauth2"
@@ -14,12 +18,20 @@ import (
 
 var _ mcp.Integration = (*integration)(nil)
 
+const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+
 type integration struct {
-	client *godo.Client
+	client     *godo.Client
+	token      string
+	httpClient *http.Client
+	baseURL    string
 }
 
 func New() mcp.Integration {
-	return &integration{}
+	return &integration{
+		httpClient: &http.Client{Timeout: 30 * time.Second},
+		baseURL:    "https://api.digitalocean.com",
+	}
 }
 
 func (d *integration) Name() string { return "digitalocean" }
@@ -30,12 +42,15 @@ func (d *integration) Configure(ctx context.Context, creds mcp.Credentials) erro
 		return fmt.Errorf("digitalocean: api_token is required")
 	}
 
+	d.token = token
+
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	oauthClient := oauth2.NewClient(ctx, ts)
 	d.client = godo.NewClient(oauthClient)
 
 	if v := creds["base_url"]; v != "" {
-		d.client.BaseURL, _ = d.client.BaseURL.Parse(strings.TrimRight(v, "/") + "/")
+		d.baseURL = strings.TrimRight(v, "/")
+		d.client.BaseURL, _ = d.client.BaseURL.Parse(d.baseURL + "/")
 	}
 
 	return nil
@@ -89,6 +104,67 @@ func listOpts(args map[string]any) *godo.ListOptions {
 	}
 }
 
+// --- HTTP helpers (used by App Platform handlers) ---
+
+func (d *integration) doRequest(ctx context.Context, method, path string, body any) (json.RawMessage, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		bodyReader = bytes.NewReader(data)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, d.baseURL+path, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+d.token)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := d.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("digitalocean API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("digitalocean API error (%d): %s", resp.StatusCode, string(data))
+	}
+	if resp.StatusCode == 204 || len(data) == 0 {
+		return json.RawMessage(`{"status":"success"}`), nil
+	}
+	return json.RawMessage(data), nil
+}
+
+func (d *integration) doGet(ctx context.Context, pathFmt string, args ...any) (json.RawMessage, error) {
+	return d.doRequest(ctx, "GET", fmt.Sprintf(pathFmt, args...), nil)
+}
+
+func (d *integration) doPost(ctx context.Context, path string, body any) (json.RawMessage, error) {
+	return d.doRequest(ctx, "POST", path, body)
+}
+
+func (d *integration) doPut(ctx context.Context, path string, body any) (json.RawMessage, error) {
+	return d.doRequest(ctx, "PUT", path, body)
+}
+
+func (d *integration) doDel(ctx context.Context, pathFmt string, args ...any) (json.RawMessage, error) {
+	return d.doRequest(ctx, "DELETE", fmt.Sprintf(pathFmt, args...), nil)
+}
+
 // --- Dispatch map ---
 
 var dispatch = map[string]handlerFunc{
@@ -132,8 +208,20 @@ var dispatch = map[string]handlerFunc{
 	"digitalocean_get_volume":   getVolume,
 
 	// Apps
-	"digitalocean_list_apps": listApps,
-	"digitalocean_get_app":   getApp,
+	"digitalocean_list_apps":             listApps,
+	"digitalocean_get_app":               getApp,
+	"digitalocean_create_app":            createApp,
+	"digitalocean_update_app":            updateApp,
+	"digitalocean_delete_app":            deleteApp,
+	"digitalocean_restart_app":           restartApp,
+	"digitalocean_list_app_deployments":  listAppDeployments,
+	"digitalocean_get_app_deployment":    getAppDeployment,
+	"digitalocean_create_app_deployment": createAppDeployment,
+	"digitalocean_cancel_app_deployment": cancelAppDeployment,
+	"digitalocean_get_app_logs":          getAppLogs,
+	"digitalocean_get_app_health":        getAppHealth,
+	"digitalocean_list_app_alerts":       listAppAlerts,
+	"digitalocean_rollback_app":          rollbackApp,
 
 	// Extras
 	"digitalocean_list_regions":       listRegions,

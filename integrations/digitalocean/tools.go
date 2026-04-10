@@ -147,9 +147,69 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"page": "Page number", "per_page": "Results per page"},
 	},
 	{
-		Name: "digitalocean_get_app", Description: "Get details of an App Platform app",
+		Name: "digitalocean_get_app", Description: "Get details of an App Platform app including its spec, active deployment, and domain info",
 		Parameters: map[string]string{"app_id": "App UUID"},
 		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_create_app", Description: "Create a new App Platform app from a JSON spec. The spec defines services, workers, jobs, databases, and static sites",
+		Parameters: map[string]string{"spec": "App spec as JSON string (see DO App Spec reference)", "project_id": "Optional project UUID to assign the app to"},
+		Required:   []string{"spec"},
+	},
+	{
+		Name: "digitalocean_update_app", Description: "Update an App Platform app's spec. Triggers a new deployment with the updated configuration",
+		Parameters: map[string]string{"app_id": "App UUID", "spec": "Updated app spec as JSON string"},
+		Required:   []string{"app_id", "spec"},
+	},
+	{
+		Name: "digitalocean_delete_app", Description: "Delete an App Platform app and all its resources",
+		Parameters: map[string]string{"app_id": "App UUID"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_restart_app", Description: "Restart an App Platform app. Optionally restart only specific components",
+		Parameters: map[string]string{"app_id": "App UUID", "components": "Comma-separated component names to restart (omit to restart all)"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_list_app_deployments", Description: "List deployment history for an App Platform app",
+		Parameters: map[string]string{"app_id": "App UUID", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_get_app_deployment", Description: "Get details of a specific deployment including phase, progress, and timing",
+		Parameters: map[string]string{"app_id": "App UUID", "deployment_id": "Deployment UUID"},
+		Required:   []string{"app_id", "deployment_id"},
+	},
+	{
+		Name: "digitalocean_create_app_deployment", Description: "Trigger a new deployment for an App Platform app",
+		Parameters: map[string]string{"app_id": "App UUID", "force_build": "Force rebuild even if no changes detected (true/false)"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_cancel_app_deployment", Description: "Cancel an in-progress deployment",
+		Parameters: map[string]string{"app_id": "App UUID", "deployment_id": "Deployment UUID"},
+		Required:   []string{"app_id", "deployment_id"},
+	},
+	{
+		Name: "digitalocean_get_app_logs", Description: "Get logs for a specific deployment. Use digitalocean_list_app_deployments to find deployment IDs",
+		Parameters: map[string]string{"app_id": "App UUID", "deployment_id": "Deployment UUID", "component": "Component name to filter logs", "log_type": "Log type: BUILD, DEPLOY, or RUN (defaults to RUN)"},
+		Required:   []string{"app_id", "deployment_id"},
+	},
+	{
+		Name: "digitalocean_get_app_health", Description: "Get health status of an App Platform app and its components",
+		Parameters: map[string]string{"app_id": "App UUID"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_list_app_alerts", Description: "List all configured alerts for an App Platform app",
+		Parameters: map[string]string{"app_id": "App UUID"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_rollback_app", Description: "Rollback an App Platform app to a previous deployment",
+		Parameters: map[string]string{"app_id": "App UUID", "deployment_id": "Deployment UUID to rollback to"},
+		Required:   []string{"app_id", "deployment_id"},
 	},
 
 	// ── Extras ──────────────────────────────────────────────────────
