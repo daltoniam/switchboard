@@ -130,7 +130,7 @@ func (s *snowflake) PlainTextKeys() []string {
 
 func (s *snowflake) Placeholders() map[string]string {
 	return map[string]string{
-		"account":       "xy12345.us-east-1",
+		"account":       "abc1234-xy56789",
 		"token":         "JWT or OAuth token (if not using key-pair auth)",
 		"user":          "Username (required with private_key)",
 		"private_key":   "PEM-encoded RSA private key (alternative to token)",
@@ -139,7 +139,7 @@ func (s *snowflake) Placeholders() map[string]string {
 		"schema":        "PUBLIC",
 		"role":          "SYSADMIN",
 		"semantic_view": "MY_DB.MY_SCHEMA.MY_SEMANTIC_VIEW",
-		"account_url":   "https://xy12345.us-east-1.snowflakecomputing.com",
+		"account_url":   "https://abc1234-xy56789.snowflakecomputing.com",
 	}
 }
 
