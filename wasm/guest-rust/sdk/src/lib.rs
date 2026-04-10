@@ -115,11 +115,19 @@ pub fn arg_str_slice(args: &HashMap<String, serde_json::Value>, key: &str) -> Ve
 }
 
 pub fn arg_int(args: &HashMap<String, serde_json::Value>, key: &str) -> Option<i64> {
-    args.get(key).and_then(|v| v.as_i64())
+    args.get(key).and_then(|v| {
+        v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
+    })
 }
 
 pub fn arg_bool(args: &HashMap<String, serde_json::Value>, key: &str) -> Option<bool> {
-    args.get(key).and_then(|v| v.as_bool())
+    args.get(key).and_then(|v| {
+        v.as_bool().or_else(|| v.as_str().and_then(|s| match s {
+            "true" | "1" | "yes" => Some(true),
+            "false" | "0" | "no" => Some(false),
+            _ => None,
+        }))
+    })
 }
 
 pub fn arg_map(
