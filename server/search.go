@@ -129,7 +129,7 @@ var synonymGroups = [][]string{
 	{"channel", "conversation", "room"},
 	{"state", "status"},
 	{"cycle", "sprint", "iteration"},
-	{"dashboard", "dashboards", "board", "view"},
+	{"dashboard", "dashboards", "board"},
 	{"credential", "secret", "key", "token"},
 	{"member", "user", "participant"},
 	{"email", "mail", "gmail"},
@@ -144,6 +144,8 @@ var synonymGroups = [][]string{
 	{"find", "search", "query", "queries", "lookup", "discover", "filter"},
 	{"send", "post", "publish"},
 	{"execute", "run", "invoke", "trigger"},
+	{"get", "retrieve", "fetch", "read", "show", "view", "describe"},
+	{"list", "ls", "enumerate"},
 }
 
 // buildSynonymMap expands synonym groups into a self-inclusive lookup map.

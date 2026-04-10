@@ -87,6 +87,8 @@ var singleToolCases = []searchBenchmarkCase{
 	{Name: "synonym/remove-ref", Query: "remove branch", ExpectedTools: []string{"github_delete_ref"}, K: 5},
 	{Name: "synonym/edit-issue", Query: "edit issue", ExpectedTools: []string{"linear_update_issue"}, K: 5},
 	{Name: "synonym/lookup-user", Query: "lookup user", ExpectedTools: []string{"github_get_user"}, K: 5},
+	{Name: "synonym/get-page", Query: "get page", ExpectedTools: []string{"notion_retrieve_page", "notion_get_page_content"}, K: 5},
+	{Name: "synonym/describe-table", Query: "describe table", ExpectedTools: []string{"postgres_describe_table"}, K: 5},
 	{Name: "synonym/post-notification", Query: "post notification", ExpectedTools: []string{"slack_send_message"}, K: 5},
 	{Name: "synonym/search-logs", Query: "find logs", ExpectedTools: []string{"datadog_search_logs"}, K: 5},
 	{Name: "synonym/query-database", Query: "query database", ExpectedTools: []string{"postgres_execute_query", "clickhouse_execute_query"}, K: 5},
