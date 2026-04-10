@@ -77,7 +77,13 @@ func New(services *mcp.Services, opts ...Option) *Server {
 			Name:    "switchboard",
 			Version: "0.2.0",
 		},
-		nil,
+		&mcpsdk.ServerOptions{
+			Instructions: "Switchboard aggregates tools from multiple integrations " +
+				"behind two meta-tools: search and execute. " +
+				"Always search before calling execute — do not guess tool names. " +
+				"Search uses synonym matching, so short keyword queries work best " +
+				"(e.g., {\"query\": \"get page\"} finds notion_retrieve_page).",
+		},
 	)
 
 	s := &Server{
@@ -150,14 +156,15 @@ Mode 2 — Single tool (provide tool_name + arguments):
   {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
 
 Script API:
-  api.call(toolName, args[, opts]) — call any tool, returns parsed JSON. Throws on error (kills script).
+  api.call(toolName, args[, opts]) — call any integration tool, returns parsed JSON. Throws on error (kills script).
     Optional opts object with fields key applies server-side field projection: {fields: ["id", "title", "user.login"]}.
     Uses dot-notation: {fields: ["id", "title", "user.login", "labels[].name"]}. Only specified fields are kept.
   api.tryCall(toolName, args[, opts]) — like call, but returns {ok: true, data: ...} or {ok: false, error: "..."}.
     Also supports the optional opts with field projection. Prefer tryCall for cross-integration scripts where partial results are useful.
   console.log(...) — debug logging (included in output on error)
 
-Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
+Scripts can call integration tools — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
+Scripts CANNOT call the search or execute meta-tools. Use search before writing a script to discover tool names.
 
 List and search responses are automatically compacted to essential fields.
 Use single-item get tools (e.g., github_get_issue) for full detail.
@@ -913,6 +920,15 @@ type toolExecutor struct {
 }
 
 func (te *toolExecutor) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+	if toolName == "search" || toolName == "execute" {
+		return &mcp.ToolResult{
+			Data: fmt.Sprintf(
+				"tool %q is a meta-tool and cannot be called from scripts. "+
+					"Use the search MCP tool before writing a script to discover tool names.",
+				toolName),
+			IsError: true,
+		}, nil
+	}
 	// Integration is discarded: script-path calls intentionally skip per-tool
 	// compaction so scripts can access all fields by name before projecting.
 	_, result, err := te.server.executeTool(ctx, toolName, args)

@@ -1208,6 +1208,21 @@ func TestScriptExecution_ToolNotFound(t *testing.T) {
 	assert.Contains(t, result.Data, "not found")
 }
 
+func TestScriptExecution_MetaToolReturnsSpecificError(t *testing.T) {
+	s := setupTestServer()
+	for _, toolName := range []string{"search", "execute"} {
+		t.Run(toolName, func(t *testing.T) {
+			result, err := s.scriptEngine.Run(context.Background(),
+				`api.call("`+toolName+`", {});`,
+			)
+			require.NoError(t, err)
+			assert.True(t, result.IsError)
+			assert.Contains(t, result.Data, "meta-tool")
+			assert.Contains(t, result.Data, "cannot")
+		})
+	}
+}
+
 func TestHandleExecute_EmptyArgs(t *testing.T) {
 	s := setupTestServer()
 	_, result, err := s.executeTool(context.Background(), "", map[string]any{})
