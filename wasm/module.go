@@ -8,8 +8,16 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// SetName overrides the name returned by the WASM module's name() export.
+func (m *Module) SetName(name string) {
+	m.nameOverride = name
+}
+
 // Name implements mcp.Integration.
 func (m *Module) Name() string {
+	if m.nameOverride != "" {
+		return m.nameOverride
+	}
 	ctx := context.Background()
 	results, err := m.fnName.Call(ctx)
 	if err != nil {

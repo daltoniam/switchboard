@@ -17,6 +17,7 @@ import (
 type WasmModuleEntry struct {
 	Index       int
 	Path        string
+	Name        string
 	Credentials map[string]string
 }
 
@@ -74,7 +75,7 @@ func WasmModules(page layouts.PageData, data WasmModulesData) templ.Component {
 					var templ_7745c5c3_Var3 string
 					templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(m.Path)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/wasm_modules.templ`, Line: 34, Col: 16}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/wasm_modules.templ`, Line: 35, Col: 16}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 					if templ_7745c5c3_Err != nil {
@@ -84,15 +85,15 @@ func WasmModules(page layouts.PageData, data WasmModulesData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					if len(m.Credentials) > 0 {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div style=\"font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;\">")
+					if m.Name != "" {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div style=\"font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;\">Name: ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var4 string
-						templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d credential(s) configured", len(m.Credentials)))
+						templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(m.Name)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/wasm_modules.templ`, Line: 38, Col: 73}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/wasm_modules.templ`, Line: 39, Col: 23}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 						if templ_7745c5c3_Err != nil {
@@ -103,31 +104,63 @@ func WasmModules(page layouts.PageData, data WasmModulesData) templ.Component {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div><form method=\"POST\" action=\"/wasm/delete\" style=\"margin-left: 0.75rem;\" onsubmit=\"return confirm('Remove this WASM module?')\"><input type=\"hidden\" name=\"index\" value=\"")
+					if len(m.Credentials) > 0 {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div style=\"font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;\">")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var5 string
+						templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d credential(s) configured", len(m.Credentials)))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/wasm_modules.templ`, Line: 44, Col: 73}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><div style=\"display: flex; gap: 0.5rem; margin-left: 0.75rem;\"><a href=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var5 string
-					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(m.Index))
+					var templ_7745c5c3_Var6 templ.SafeURL
+					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/wasm/%d", m.Index)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/wasm_modules.templ`, Line: 43, Col: 68}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/wasm_modules.templ`, Line: 49, Col: 64}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"> <button type=\"submit\" class=\"btn btn-sm btn-outline\" style=\"color: var(--red); border-color: var(--red);\">Remove</button></form></div></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" class=\"btn btn-sm btn-outline\">Edit</a><form method=\"POST\" action=\"/wasm/delete\" onsubmit=\"return confirm('Remove this WASM module?')\"><input type=\"hidden\" name=\"index\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var7 string
+					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(m.Index))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/wasm_modules.templ`, Line: 51, Col: 69}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"> <button type=\"submit\" class=\"btn btn-sm btn-outline\" style=\"color: var(--red); border-color: var(--red);\">Remove</button></form></div></div></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"card\" style=\"text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.8125rem;\">No WASM modules configured. Add one below.</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"card\" style=\"text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.8125rem;\">No WASM modules configured. Add one below.</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, " <div class=\"section-title\" style=\"margin-top: 1.5rem;\">Add Module</div><form method=\"POST\" action=\"/wasm\"><div class=\"card\"><div class=\"form-group\"><label class=\"form-label\" for=\"wasm_path\">Module Path</label> <input class=\"form-input\" type=\"text\" name=\"path\" id=\"wasm_path\" placeholder=\"/path/to/module.wasm\" required></div><div id=\"cred-rows\"></div><button type=\"button\" class=\"btn btn-sm btn-outline\" id=\"add-cred-btn\" style=\"margin-bottom: 0.75rem;\">+ Add Credential</button></div><button type=\"submit\" class=\"btn\">Add Module</button></form><script>\n\t\t\t(function() {\n\t\t\t\tvar idx = 0;\n\t\t\t\tdocument.getElementById('add-cred-btn').addEventListener('click', function() {\n\t\t\t\t\tvar row = document.createElement('div');\n\t\t\t\t\trow.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:end;';\n\t\t\t\t\trow.innerHTML = '<div style=\"flex:1\"><label class=\"form-label\">Key</label><input class=\"form-input\" type=\"text\" name=\"cred_key_' + idx + '\" placeholder=\"api_key\"/></div>' +\n\t\t\t\t\t\t'<div style=\"flex:1\"><label class=\"form-label\">Value</label><input class=\"form-input\" type=\"text\" name=\"cred_val_' + idx + '\" placeholder=\"value\"/></div>' +\n\t\t\t\t\t\t'<button type=\"button\" class=\"btn btn-sm btn-outline\" style=\"color:var(--red);border-color:var(--red);margin-bottom:1px;\" onclick=\"this.parentElement.remove()\">✕</button>';\n\t\t\t\t\tdocument.getElementById('cred-rows').appendChild(row);\n\t\t\t\t\tidx++;\n\t\t\t\t});\n\t\t\t})();\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, " <div class=\"section-title\" style=\"margin-top: 1.5rem;\">Add Module</div><form method=\"POST\" action=\"/wasm\"><div class=\"card\"><div class=\"form-group\"><label class=\"form-label\" for=\"wasm_path\">Module Path</label> <input class=\"form-input\" type=\"text\" name=\"path\" id=\"wasm_path\" placeholder=\"/path/to/module.wasm\" required></div><div class=\"form-group\"><label class=\"form-label\" for=\"wasm_name\">Name (optional)</label> <input class=\"form-input\" type=\"text\" name=\"name\" id=\"wasm_name\" placeholder=\"Override the module's built-in name\"></div><div id=\"cred-rows\"></div><button type=\"button\" class=\"btn btn-sm btn-outline\" id=\"add-cred-btn\" style=\"margin-bottom: 0.75rem;\">+ Add Credential</button></div><button type=\"submit\" class=\"btn\">Add Module</button></form><script>\n\t\t\t(function() {\n\t\t\t\tvar idx = 0;\n\t\t\t\tdocument.getElementById('add-cred-btn').addEventListener('click', function() {\n\t\t\t\t\tvar row = document.createElement('div');\n\t\t\t\t\trow.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:end;';\n\t\t\t\t\trow.innerHTML = '<div style=\"flex:1\"><label class=\"form-label\">Key</label><input class=\"form-input\" type=\"text\" name=\"cred_key_' + idx + '\" placeholder=\"api_key\"/></div>' +\n\t\t\t\t\t\t'<div style=\"flex:1\"><label class=\"form-label\">Value</label><input class=\"form-input\" type=\"text\" name=\"cred_val_' + idx + '\" placeholder=\"value\"/></div>' +\n\t\t\t\t\t\t'<button type=\"button\" class=\"btn btn-sm btn-outline\" style=\"color:var(--red);border-color:var(--red);margin-bottom:1px;\" onclick=\"this.parentElement.remove()\">✕</button>';\n\t\t\t\t\tdocument.getElementById('cred-rows').appendChild(row);\n\t\t\t\t\tidx++;\n\t\t\t\t});\n\t\t\t})();\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
