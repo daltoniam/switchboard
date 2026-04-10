@@ -3,6 +3,7 @@ package snowflake
 import (
 	"bytes"
 	"context"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,13 +23,18 @@ var (
 )
 
 type snowflake struct {
-	client    *http.Client
-	token     string
-	baseURL   string
-	warehouse string
-	database  string
-	schema    string
-	role      string
+	client       *http.Client
+	token        string
+	baseURL      string
+	warehouse    string
+	database     string
+	schema       string
+	role         string
+	account      string
+	user         string
+	semanticView string
+	privateKey   *rsa.PrivateKey
+	jwtCache     jwtCache
 }
 
 func New() mcp.Integration {
@@ -42,16 +48,33 @@ func (s *snowflake) Configure(_ context.Context, creds mcp.Credentials) error {
 	if account == "" {
 		return fmt.Errorf("snowflake: account is required")
 	}
-	token := creds["token"]
-	if token == "" {
-		return fmt.Errorf("snowflake: token (JWT or OAuth) is required")
-	}
 
-	s.token = token
+	s.account = account
 	s.warehouse = creds["warehouse"]
 	s.database = creds["database"]
 	s.schema = creds["schema"]
 	s.role = creds["role"]
+	s.semanticView = creds["semantic_view"]
+
+	// Key-pair auth takes precedence over a static token.
+	if pk := creds["private_key"]; pk != "" {
+		user := creds["user"]
+		if user == "" {
+			return fmt.Errorf("snowflake: user is required when using private_key authentication")
+		}
+		key, err := parsePrivateKey(pk)
+		if err != nil {
+			return fmt.Errorf("snowflake: invalid private_key: %w", err)
+		}
+		s.privateKey = key
+		s.user = strings.ToUpper(user)
+	} else {
+		token := creds["token"]
+		if token == "" {
+			return fmt.Errorf("snowflake: token or private_key is required")
+		}
+		s.token = token
+	}
 
 	if url := creds["account_url"]; url != "" {
 		s.baseURL = strings.TrimRight(url, "/")
@@ -64,11 +87,21 @@ func (s *snowflake) Configure(_ context.Context, creds mcp.Credentials) error {
 }
 
 func (s *snowflake) Healthy(ctx context.Context) bool {
-	if s.client == nil || s.token == "" {
+	if s.client == nil || (s.token == "" && s.privateKey == nil) {
 		return false
 	}
 	_, err := s.submitStatement(ctx, "SELECT 1", nil)
 	return err == nil
+}
+
+// getToken returns the bearer token for the current request. For key-pair auth
+// this generates (or returns a cached) JWT; for static token auth it returns
+// the configured token directly.
+func (s *snowflake) getToken() (string, error) {
+	if s.privateKey != nil {
+		return s.jwtCache.getOrGenerate(s.privateKey, s.account, s.user)
+	}
+	return s.token, nil
 }
 
 func (s *snowflake) Tools() []mcp.ToolDefinition {
@@ -92,23 +125,26 @@ func (s *snowflake) Execute(ctx context.Context, toolName string, args map[strin
 }
 
 func (s *snowflake) PlainTextKeys() []string {
-	return []string{"account", "warehouse", "database", "schema", "role", "account_url"}
+	return []string{"account", "user", "warehouse", "database", "schema", "role", "semantic_view", "account_url"}
 }
 
 func (s *snowflake) Placeholders() map[string]string {
 	return map[string]string{
-		"account":     "xy12345.us-east-1",
-		"token":       "JWT or OAuth token",
-		"warehouse":   "COMPUTE_WH",
-		"database":    "MY_DB",
-		"schema":      "PUBLIC",
-		"role":        "SYSADMIN",
-		"account_url": "https://xy12345.us-east-1.snowflakecomputing.com",
+		"account":       "abc1234-xy56789",
+		"token":         "JWT or OAuth token (if not using key-pair auth)",
+		"user":          "Username (required with private_key)",
+		"private_key":   "PEM-encoded RSA private key (alternative to token)",
+		"warehouse":     "COMPUTE_WH",
+		"database":      "MY_DB",
+		"schema":        "PUBLIC",
+		"role":          "SYSADMIN",
+		"semantic_view": "MY_DB.MY_SCHEMA.MY_SEMANTIC_VIEW",
+		"account_url":   "https://abc1234-xy56789.snowflakecomputing.com",
 	}
 }
 
 func (s *snowflake) OptionalKeys() []string {
-	return []string{"warehouse", "database", "schema", "role", "account_url"}
+	return []string{"token", "user", "private_key", "warehouse", "database", "schema", "role", "semantic_view", "account_url"}
 }
 
 type handlerFunc func(ctx context.Context, s *snowflake, args map[string]any) (*mcp.ToolResult, error)
@@ -194,7 +230,12 @@ func (s *snowflake) cancelStatement(ctx context.Context, handle string) error {
 	return err
 }
 
-func (s *snowflake) doStatementRequest(ctx context.Context, method, path string, body any) (*statementResponse, error) {
+// doJSON performs a JSON API request with common Snowflake auth headers and shared
+// error handling (401, 429, 5xx). On 200 OK the response is unmarshalled into T.
+// The optional extraStatus callback handles endpoint-specific status codes (e.g.
+// 202, 422 for the SQL Statements API); return (nil, nil) to fall through to the
+// shared error handler.
+func doJSON[T any](ctx context.Context, s *snowflake, method, path string, body any, extraStatus func(int, []byte) (*T, error)) (*T, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -209,7 +250,11 @@ func (s *snowflake) doStatementRequest(ctx context.Context, method, path string,
 		return nil, fmt.Errorf("snowflake: create request: %w", err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+s.token)
+	token, err := s.getToken()
+	if err != nil {
+		return nil, fmt.Errorf("snowflake: get auth token: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+token)
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("User-Agent", "Switchboard/1.0")
@@ -225,43 +270,58 @@ func (s *snowflake) doStatementRequest(ctx context.Context, method, path string,
 		return nil, fmt.Errorf("snowflake: read response: %w", err)
 	}
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-		var result statementResponse
+	if resp.StatusCode == http.StatusOK {
+		var result T
 		if err := json.Unmarshal(respBody, &result); err != nil {
 			return nil, fmt.Errorf("snowflake: parse response: %w", err)
 		}
 		return &result, nil
-	case http.StatusAccepted:
-		var result statementResponse
-		if err := json.Unmarshal(respBody, &result); err != nil {
-			return nil, fmt.Errorf("snowflake: parse 202 response: %w", err)
+	}
+
+	if extraStatus != nil {
+		if result, err := extraStatus(resp.StatusCode, respBody); result != nil || err != nil {
+			return result, err
 		}
-		return &result, nil
-	case http.StatusUnauthorized:
+	}
+
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
 		return nil, fmt.Errorf("snowflake: unauthorized (401) — check token")
-	case http.StatusTooManyRequests:
+	case resp.StatusCode == http.StatusTooManyRequests:
 		retryAfter := mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
 		return nil, &mcp.RetryableError{
 			StatusCode: resp.StatusCode,
 			Err:        fmt.Errorf("snowflake: rate limited (429)"),
 			RetryAfter: retryAfter,
 		}
-	case http.StatusUnprocessableEntity:
-		var result statementResponse
-		if err := json.Unmarshal(respBody, &result); err != nil {
-			return nil, fmt.Errorf("snowflake: execution error (422): %s", string(respBody))
+	case resp.StatusCode >= 500:
+		return nil, &mcp.RetryableError{
+			StatusCode: resp.StatusCode,
+			Err:        fmt.Errorf("snowflake: server error (%d): %s", resp.StatusCode, string(respBody)),
 		}
-		return nil, fmt.Errorf("snowflake: execution error (422): %s", result.Message)
 	default:
-		if resp.StatusCode >= 500 {
-			return nil, &mcp.RetryableError{
-				StatusCode: resp.StatusCode,
-				Err:        fmt.Errorf("snowflake: server error (%d): %s", resp.StatusCode, string(respBody)),
-			}
-		}
 		return nil, fmt.Errorf("snowflake: unexpected status %d: %s", resp.StatusCode, string(respBody))
 	}
+}
+
+func (s *snowflake) doStatementRequest(ctx context.Context, method, path string, body any) (*statementResponse, error) {
+	return doJSON[statementResponse](ctx, s, method, path, body, func(status int, respBody []byte) (*statementResponse, error) {
+		switch status {
+		case http.StatusAccepted:
+			var result statementResponse
+			if err := json.Unmarshal(respBody, &result); err != nil {
+				return nil, fmt.Errorf("snowflake: parse 202 response: %w", err)
+			}
+			return &result, nil
+		case http.StatusUnprocessableEntity:
+			var result statementResponse
+			if err := json.Unmarshal(respBody, &result); err != nil {
+				return nil, fmt.Errorf("snowflake: execution error (422): %s", string(respBody))
+			}
+			return nil, fmt.Errorf("snowflake: execution error (422): %s", result.Message)
+		}
+		return nil, nil
+	})
 }
 
 // formatResults converts the Snowflake columnar response (array of arrays + metadata)

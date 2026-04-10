@@ -104,13 +104,16 @@ var envMapping = map[string]map[string]string{
 		"api_token": "FLY_API_TOKEN",
 	},
 	"snowflake": {
-		"account":     "SNOWFLAKE_ACCOUNT",
-		"token":       "SNOWFLAKE_TOKEN",
-		"warehouse":   "SNOWFLAKE_WAREHOUSE",
-		"database":    "SNOWFLAKE_DATABASE",
-		"schema":      "SNOWFLAKE_SCHEMA",
-		"role":        "SNOWFLAKE_ROLE",
-		"account_url": "SNOWFLAKE_ACCOUNT_URL",
+		"account":       "SNOWFLAKE_ACCOUNT",
+		"token":         "SNOWFLAKE_TOKEN",
+		"user":          "SNOWFLAKE_USER",
+		"private_key":   "SNOWFLAKE_PRIVATE_KEY",
+		"warehouse":     "SNOWFLAKE_WAREHOUSE",
+		"database":      "SNOWFLAKE_DATABASE",
+		"schema":        "SNOWFLAKE_SCHEMA",
+		"role":          "SNOWFLAKE_ROLE",
+		"semantic_view": "SNOWFLAKE_SEMANTIC_VIEW",
+		"account_url":   "SNOWFLAKE_ACCOUNT_URL",
 	},
 }
 
@@ -262,7 +265,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"snowflake": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"account": "", "token": "", "warehouse": "", "database": "", "schema": "", "role": "", "account_url": ""},
+				Credentials: mcp.Credentials{"account": "", "token": "", "user": "", "private_key": "", "warehouse": "", "database": "", "schema": "", "role": "", "semantic_view": "", "account_url": ""},
 			},
 		},
 	}
