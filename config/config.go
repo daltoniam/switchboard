@@ -115,6 +115,9 @@ var envMapping = map[string]map[string]string{
 		"semantic_view": "SNOWFLAKE_SEMANTIC_VIEW",
 		"account_url":   "SNOWFLAKE_ACCOUNT_URL",
 	},
+	"acp": {
+		"config": "ACP_CONFIG",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -266,6 +269,10 @@ func defaultConfig() *mcp.Config {
 			"snowflake": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"account": "", "token": "", "user": "", "private_key": "", "warehouse": "", "database": "", "schema": "", "role": "", "semantic_view": "", "account_url": ""},
+			},
+			"acp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"config": ""},
 			},
 		},
 	}
