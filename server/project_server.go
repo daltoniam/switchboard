@@ -331,13 +331,14 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 		if !result.IsError {
 			result.Data = processResult(integration, args.ToolName, result.Data, pr.services.Metrics)
 
-			if len(result.Data) > maxResponseBytes {
+			limit := responseLimitFor(integration)
+			if len(result.Data) > limit {
 				if pr.services.Metrics != nil {
 					pr.services.Metrics.RecordTruncation()
 				}
 				return errorResult(fmt.Sprintf(
 					"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
-					maxResponseBytes/1024, len(result.Data)/1024,
+					limit/1024, len(result.Data)/1024,
 				)), nil
 			}
 		}

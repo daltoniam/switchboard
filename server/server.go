@@ -20,7 +20,19 @@ import (
 )
 
 const defaultSearchLimit = 20
-const maxResponseBytes = 50 * 1024 // 50KB
+const defaultMaxResponseBytes = 50 * 1024 // 50KB
+
+// responseLimitFor returns the effective response byte cap for an integration.
+// Integrations that implement MaxResponseBytesIntegration may declare a higher
+// cap; values at or below the default are ignored.
+func responseLimitFor(integration mcp.Integration) int {
+	if mri, ok := integration.(mcp.MaxResponseBytesIntegration); ok {
+		if v := mri.MaxResponseBytes(); v > defaultMaxResponseBytes {
+			return v
+		}
+	}
+	return defaultMaxResponseBytes
+}
 
 // searchToolInfo represents a tool in search results.
 type searchToolInfo struct {
@@ -566,13 +578,14 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		}, nil
 	}
 	result.Data = processResult(integration, args.ToolName, result.Data, s.services.Metrics)
-	if len(result.Data) > maxResponseBytes {
+	limit := responseLimitFor(integration)
+	if len(result.Data) > limit {
 		if s.services.Metrics != nil {
 			s.services.Metrics.RecordTruncation()
 		}
 		return errorResult(fmt.Sprintf(
 			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
-			maxResponseBytes/1024,
+			limit/1024,
 			len(result.Data)/1024,
 		)), nil
 	}
@@ -601,13 +614,13 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 		}, nil
 	}
 	result.Data = columnarizeResult(result.Data)
-	if len(result.Data) > maxResponseBytes {
+	if len(result.Data) > defaultMaxResponseBytes {
 		if s.services.Metrics != nil {
 			s.services.Metrics.RecordTruncation()
 		}
 		return errorResult(fmt.Sprintf(
 			"Script output exceeded %dKB (actual: %dKB). Return only the fields you need from each api.call() result.",
-			maxResponseBytes/1024,
+			defaultMaxResponseBytes/1024,
 			len(result.Data)/1024,
 		)), nil
 	}

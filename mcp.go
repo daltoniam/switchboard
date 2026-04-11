@@ -194,6 +194,19 @@ type FieldCompactionIntegration interface {
 	CompactSpec(toolName string) ([]CompactField, bool)
 }
 
+// MaxResponseBytesIntegration is an optional interface that integrations can implement
+// to raise the response size cap above the server's default. Content-heavy integrations
+// (e.g. Confluence pages, Notion documents) can declare a higher cap when a single
+// record legitimately exceeds the default. Integrations that don't implement this
+// interface use the server default and are expected to stay under it via filters,
+// pagination, and field compaction.
+type MaxResponseBytesIntegration interface {
+	// MaxResponseBytes returns the maximum response size in bytes that this
+	// integration's tools are allowed to produce. Values at or below the server
+	// default are ignored (the default applies).
+	MaxResponseBytes() int
+}
+
 // PlainTextCredentials is an optional interface that integrations can implement
 // to declare which credential keys should be rendered as plain text inputs
 // instead of password fields in the web UI.
