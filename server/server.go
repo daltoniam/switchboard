@@ -172,9 +172,6 @@ Use single-item get tools (e.g., github_get_issue) for full detail.
 Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
 Script output is also capped at 50KB — return only the fields you need, not entire API responses.
 
-CRITICAL: Use search first to discover tool names and parameter schemas. Do NOT guess
-tool names — call search with a keyword (e.g., {"query": "list repos"}) to find the exact name.
-
 Script examples:
 
 Fetch a GitHub PR with field projection (only title, state, and branch refs returned):
