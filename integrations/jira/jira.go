@@ -19,6 +19,7 @@ import (
 var (
 	_ mcp.Integration                = (*jira)(nil)
 	_ mcp.FieldCompactionIntegration = (*jira)(nil)
+	_ mcp.MarkdownIntegration        = (*jira)(nil)
 	_ mcp.PlainTextCredentials       = (*jira)(nil)
 )
 
@@ -68,12 +69,12 @@ func (j *jira) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (j *jira) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (j *jira) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (j *jira) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (j *jira) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return mcp.ErrResult(fmt.Errorf("unknown tool: %s", toolName))
@@ -207,59 +208,59 @@ func textToADF(text string) map[string]any {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Issues
-	"jira_search_issues":     searchIssues,
-	"jira_get_issue":         getIssue,
-	"jira_create_issue":      createIssue,
-	"jira_update_issue":      updateIssue,
-	"jira_delete_issue":      deleteIssue,
-	"jira_transition_issue":  transitionIssue,
-	"jira_get_transitions":   getTransitions,
-	"jira_assign_issue":      assignIssue,
-	"jira_list_comments":     listComments,
-	"jira_add_comment":       addComment,
-	"jira_update_comment":    updateComment,
-	"jira_delete_comment":    deleteComment,
-	"jira_list_issue_links":  listIssueLinks,
-	"jira_create_issue_link": createIssueLink,
-	"jira_delete_issue_link": deleteIssueLink,
+	mcp.ToolName("jira_search_issues"):     searchIssues,
+	mcp.ToolName("jira_get_issue"):         getIssue,
+	mcp.ToolName("jira_create_issue"):      createIssue,
+	mcp.ToolName("jira_update_issue"):      updateIssue,
+	mcp.ToolName("jira_delete_issue"):      deleteIssue,
+	mcp.ToolName("jira_transition_issue"):  transitionIssue,
+	mcp.ToolName("jira_get_transitions"):   getTransitions,
+	mcp.ToolName("jira_assign_issue"):      assignIssue,
+	mcp.ToolName("jira_list_comments"):     listComments,
+	mcp.ToolName("jira_add_comment"):       addComment,
+	mcp.ToolName("jira_update_comment"):    updateComment,
+	mcp.ToolName("jira_delete_comment"):    deleteComment,
+	mcp.ToolName("jira_list_issue_links"):  listIssueLinks,
+	mcp.ToolName("jira_create_issue_link"): createIssueLink,
+	mcp.ToolName("jira_delete_issue_link"): deleteIssueLink,
 
 	// Projects
-	"jira_list_projects":           listProjects,
-	"jira_get_project":             getProject,
-	"jira_list_project_components": listProjectComponents,
-	"jira_list_project_versions":   listProjectVersions,
-	"jira_list_project_statuses":   listProjectStatuses,
+	mcp.ToolName("jira_list_projects"):           listProjects,
+	mcp.ToolName("jira_get_project"):             getProject,
+	mcp.ToolName("jira_list_project_components"): listProjectComponents,
+	mcp.ToolName("jira_list_project_versions"):   listProjectVersions,
+	mcp.ToolName("jira_list_project_statuses"):   listProjectStatuses,
 
 	// Boards & Sprints
-	"jira_list_boards":           listBoards,
-	"jira_get_board":             getBoard,
-	"jira_list_sprints":          listSprints,
-	"jira_get_sprint":            getSprint,
-	"jira_create_sprint":         createSprint,
-	"jira_update_sprint":         updateSprint,
-	"jira_get_sprint_issues":     getSprintIssues,
-	"jira_move_issues_to_sprint": moveIssuesToSprint,
-	"jira_list_board_backlog":    listBoardBacklog,
-	"jira_get_board_config":      getBoardConfig,
+	mcp.ToolName("jira_list_boards"):           listBoards,
+	mcp.ToolName("jira_get_board"):             getBoard,
+	mcp.ToolName("jira_list_sprints"):          listSprints,
+	mcp.ToolName("jira_get_sprint"):            getSprint,
+	mcp.ToolName("jira_create_sprint"):         createSprint,
+	mcp.ToolName("jira_update_sprint"):         updateSprint,
+	mcp.ToolName("jira_get_sprint_issues"):     getSprintIssues,
+	mcp.ToolName("jira_move_issues_to_sprint"): moveIssuesToSprint,
+	mcp.ToolName("jira_list_board_backlog"):    listBoardBacklog,
+	mcp.ToolName("jira_get_board_config"):      getBoardConfig,
 
 	// Users
-	"jira_get_myself":   getMyself,
-	"jira_search_users": searchUsers,
-	"jira_get_user":     getUser,
+	mcp.ToolName("jira_get_myself"):   getMyself,
+	mcp.ToolName("jira_search_users"): searchUsers,
+	mcp.ToolName("jira_get_user"):     getUser,
 
 	// Metadata
-	"jira_list_issue_types": listIssueTypes,
-	"jira_list_priorities":  listPriorities,
-	"jira_list_statuses":    listStatuses,
-	"jira_list_labels":      listLabels,
-	"jira_list_fields":      listFields,
-	"jira_list_filters":     listFilters,
-	"jira_get_filter":       getFilter,
+	mcp.ToolName("jira_list_issue_types"): listIssueTypes,
+	mcp.ToolName("jira_list_priorities"):  listPriorities,
+	mcp.ToolName("jira_list_statuses"):    listStatuses,
+	mcp.ToolName("jira_list_labels"):      listLabels,
+	mcp.ToolName("jira_list_fields"):      listFields,
+	mcp.ToolName("jira_list_filters"):     listFilters,
+	mcp.ToolName("jira_get_filter"):       getFilter,
 
 	// Worklogs & Info
-	"jira_list_worklogs":   listWorklogs,
-	"jira_add_worklog":     addWorklog,
-	"jira_get_server_info": getServerInfo,
+	mcp.ToolName("jira_list_worklogs"):   listWorklogs,
+	mcp.ToolName("jira_add_worklog"):     addWorklog,
+	mcp.ToolName("jira_get_server_info"): getServerInfo,
 }

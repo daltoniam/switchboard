@@ -26,7 +26,10 @@ type gmail struct {
 	mu           sync.Mutex
 }
 
-var _ mcp.FieldCompactionIntegration = (*gmail)(nil)
+var (
+	_ mcp.FieldCompactionIntegration = (*gmail)(nil)
+	_ mcp.MarkdownIntegration        = (*gmail)(nil)
+)
 
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 
@@ -70,7 +73,7 @@ func (g *gmail) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (g *gmail) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (g *gmail) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -78,7 +81,7 @@ func (g *gmail) Execute(ctx context.Context, toolName string, args map[string]an
 	return fn(ctx, g, args)
 }
 
-func (g *gmail) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (g *gmail) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
@@ -242,83 +245,83 @@ func user(r *mcp.Args) string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Profile
-	"gmail_get_profile": getProfile,
+	mcp.ToolName("gmail_get_profile"): getProfile,
 
 	// Messages
-	"gmail_list_messages":   listMessages,
-	"gmail_get_message":     getMessage,
-	"gmail_send_message":    sendMessage,
-	"gmail_delete_message":  deleteMessage,
-	"gmail_trash_message":   trashMessage,
-	"gmail_untrash_message": untrashMessage,
-	"gmail_modify_message":  modifyMessage,
-	"gmail_batch_modify":    batchModifyMessages,
-	"gmail_batch_delete":    batchDeleteMessages,
-	"gmail_get_attachment":  getAttachment,
+	mcp.ToolName("gmail_list_messages"):   listMessages,
+	mcp.ToolName("gmail_get_message"):     getMessage,
+	mcp.ToolName("gmail_send_message"):    sendMessage,
+	mcp.ToolName("gmail_delete_message"):  deleteMessage,
+	mcp.ToolName("gmail_trash_message"):   trashMessage,
+	mcp.ToolName("gmail_untrash_message"): untrashMessage,
+	mcp.ToolName("gmail_modify_message"):  modifyMessage,
+	mcp.ToolName("gmail_batch_modify"):    batchModifyMessages,
+	mcp.ToolName("gmail_batch_delete"):    batchDeleteMessages,
+	mcp.ToolName("gmail_get_attachment"):  getAttachment,
 
 	// Threads
-	"gmail_list_threads":   listThreads,
-	"gmail_get_thread":     getThread,
-	"gmail_delete_thread":  deleteThread,
-	"gmail_trash_thread":   trashThread,
-	"gmail_untrash_thread": untrashThread,
-	"gmail_modify_thread":  modifyThread,
+	mcp.ToolName("gmail_list_threads"):   listThreads,
+	mcp.ToolName("gmail_get_thread"):     getThread,
+	mcp.ToolName("gmail_delete_thread"):  deleteThread,
+	mcp.ToolName("gmail_trash_thread"):   trashThread,
+	mcp.ToolName("gmail_untrash_thread"): untrashThread,
+	mcp.ToolName("gmail_modify_thread"):  modifyThread,
 
 	// Labels
-	"gmail_list_labels":  listLabels,
-	"gmail_get_label":    getLabel,
-	"gmail_create_label": createLabel,
-	"gmail_update_label": updateLabel,
-	"gmail_delete_label": deleteLabel,
+	mcp.ToolName("gmail_list_labels"):  listLabels,
+	mcp.ToolName("gmail_get_label"):    getLabel,
+	mcp.ToolName("gmail_create_label"): createLabel,
+	mcp.ToolName("gmail_update_label"): updateLabel,
+	mcp.ToolName("gmail_delete_label"): deleteLabel,
 
 	// Drafts
-	"gmail_list_drafts":  listDrafts,
-	"gmail_get_draft":    getDraft,
-	"gmail_create_draft": createDraft,
-	"gmail_update_draft": updateDraft,
-	"gmail_delete_draft": deleteDraft,
-	"gmail_send_draft":   sendDraft,
+	mcp.ToolName("gmail_list_drafts"):  listDrafts,
+	mcp.ToolName("gmail_get_draft"):    getDraft,
+	mcp.ToolName("gmail_create_draft"): createDraft,
+	mcp.ToolName("gmail_update_draft"): updateDraft,
+	mcp.ToolName("gmail_delete_draft"): deleteDraft,
+	mcp.ToolName("gmail_send_draft"):   sendDraft,
 
 	// History
-	"gmail_list_history": listHistory,
+	mcp.ToolName("gmail_list_history"): listHistory,
 
 	// Settings
-	"gmail_get_vacation":           getVacation,
-	"gmail_update_vacation":        updateVacation,
-	"gmail_get_auto_forwarding":    getAutoForwarding,
-	"gmail_update_auto_forwarding": updateAutoForwarding,
-	"gmail_get_imap":               getImap,
-	"gmail_update_imap":            updateImap,
-	"gmail_get_pop":                getPop,
-	"gmail_update_pop":             updatePop,
-	"gmail_get_language":           getLanguage,
-	"gmail_update_language":        updateLanguage,
+	mcp.ToolName("gmail_get_vacation"):           getVacation,
+	mcp.ToolName("gmail_update_vacation"):        updateVacation,
+	mcp.ToolName("gmail_get_auto_forwarding"):    getAutoForwarding,
+	mcp.ToolName("gmail_update_auto_forwarding"): updateAutoForwarding,
+	mcp.ToolName("gmail_get_imap"):               getImap,
+	mcp.ToolName("gmail_update_imap"):            updateImap,
+	mcp.ToolName("gmail_get_pop"):                getPop,
+	mcp.ToolName("gmail_update_pop"):             updatePop,
+	mcp.ToolName("gmail_get_language"):           getLanguage,
+	mcp.ToolName("gmail_update_language"):        updateLanguage,
 
 	// Filters
-	"gmail_list_filters":  listFilters,
-	"gmail_get_filter":    getFilter,
-	"gmail_create_filter": createFilter,
-	"gmail_delete_filter": deleteFilter,
+	mcp.ToolName("gmail_list_filters"):  listFilters,
+	mcp.ToolName("gmail_get_filter"):    getFilter,
+	mcp.ToolName("gmail_create_filter"): createFilter,
+	mcp.ToolName("gmail_delete_filter"): deleteFilter,
 
 	// Forwarding Addresses
-	"gmail_list_forwarding_addresses": listForwardingAddresses,
-	"gmail_get_forwarding_address":    getForwardingAddress,
-	"gmail_create_forwarding_address": createForwardingAddress,
-	"gmail_delete_forwarding_address": deleteForwardingAddress,
+	mcp.ToolName("gmail_list_forwarding_addresses"): listForwardingAddresses,
+	mcp.ToolName("gmail_get_forwarding_address"):    getForwardingAddress,
+	mcp.ToolName("gmail_create_forwarding_address"): createForwardingAddress,
+	mcp.ToolName("gmail_delete_forwarding_address"): deleteForwardingAddress,
 
 	// Send As
-	"gmail_list_send_as":   listSendAs,
-	"gmail_get_send_as":    getSendAs,
-	"gmail_create_send_as": createSendAs,
-	"gmail_update_send_as": updateSendAs,
-	"gmail_delete_send_as": deleteSendAs,
-	"gmail_verify_send_as": verifySendAs,
+	mcp.ToolName("gmail_list_send_as"):   listSendAs,
+	mcp.ToolName("gmail_get_send_as"):    getSendAs,
+	mcp.ToolName("gmail_create_send_as"): createSendAs,
+	mcp.ToolName("gmail_update_send_as"): updateSendAs,
+	mcp.ToolName("gmail_delete_send_as"): deleteSendAs,
+	mcp.ToolName("gmail_verify_send_as"): verifySendAs,
 
 	// Delegates
-	"gmail_list_delegates":  listDelegates,
-	"gmail_get_delegate":    getDelegate,
-	"gmail_create_delegate": createDelegate,
-	"gmail_delete_delegate": deleteDelegate,
+	mcp.ToolName("gmail_list_delegates"):  listDelegates,
+	mcp.ToolName("gmail_get_delegate"):    getDelegate,
+	mcp.ToolName("gmail_create_delegate"): createDelegate,
+	mcp.ToolName("gmail_delete_delegate"): deleteDelegate,
 }
