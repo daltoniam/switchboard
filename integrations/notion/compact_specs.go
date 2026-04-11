@@ -73,42 +73,42 @@ var blockFields = []string{
 //   - "Who's in this workspace?" → needs id, name, email
 //   - "What comments are on this page?" → needs discussion + comment text/author
 //   - "What templates does this database have?" → needs id, properties.title
-var rawFieldCompactionSpecs = map[string][]string{
+var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
 	// ── List/search tools ────────────────────────────────────────────
-	"notion_search": prefixFields("results[]", searchResultFields),
-	"notion_query_data_source": append(
+	mcp.ToolName("notion_search"): prefixFields("results[]", searchResultFields),
+	mcp.ToolName("notion_query_data_source"): append(
 		[]string{"schema"},
 		prefixFields("results[]", queryResultFields)...,
 	),
-	"notion_list_users":                 prefixFields("results[]", userFields),
-	"notion_retrieve_comments":          prefixFields("results[]", commentFields),
-	"notion_list_data_source_templates": prefixFields("results[]", templateFields),
+	mcp.ToolName("notion_list_users"):                 prefixFields("results[]", userFields),
+	mcp.ToolName("notion_retrieve_comments"):          prefixFields("results[]", commentFields),
+	mcp.ToolName("notion_list_data_source_templates"): prefixFields("results[]", templateFields),
 
 	// ── Composite read tools ─────────────────────────────────────────
-	// get_page_content returns {page: {...}, blocks: [...]}.
-	// Both page and blocks get field-level compaction to strip CRDT noise.
-	// page.* specs (2+ sharing root "page") auto-group into nested {"page": {...}}.
-	"notion_get_page_content": append(
+	// get_page_content and retrieve_comments are rendered as Markdown by
+	// MarkdownIntegration.RenderMarkdown — these specs serve as fallback
+	// if markdown rendering is bypassed.
+	mcp.ToolName("notion_get_page_content"): append(
 		prefixFields("page", blockFields),
 		prefixFields("blocks[]", blockFields)...,
 	),
 
 	// get_block_children returns {results: [...]}, same block noise.
-	"notion_get_block_children": prefixFields("results[]", blockFields),
+	mcp.ToolName("notion_get_block_children"): prefixFields("results[]", blockFields),
 
 	// ── Single-record get tools ──────────────────────────────────────
-	"notion_retrieve_page":        blockFields,
-	"notion_retrieve_block":       blockFields,
-	"notion_retrieve_database":    dataSourceFields,
-	"notion_retrieve_data_source": dataSourceFields,
-	"notion_retrieve_user":        singleUserFields,
-	"notion_get_self":             singleUserFields,
+	mcp.ToolName("notion_retrieve_page"):        blockFields,
+	mcp.ToolName("notion_retrieve_block"):       blockFields,
+	mcp.ToolName("notion_retrieve_database"):    dataSourceFields,
+	mcp.ToolName("notion_retrieve_data_source"): dataSourceFields,
+	mcp.ToolName("notion_retrieve_user"):        singleUserFields,
+	mcp.ToolName("notion_get_self"):             singleUserFields,
 }
 
 var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(rawFieldCompactionSpecs)
 
-func mustBuildFieldCompactionSpecs(raw map[string][]string) map[string][]mcp.CompactField {
-	parsed := make(map[string][]mcp.CompactField, len(raw))
+func mustBuildFieldCompactionSpecs(raw map[mcp.ToolName][]string) map[mcp.ToolName][]mcp.CompactField {
+	parsed := make(map[mcp.ToolName][]mcp.CompactField, len(raw))
 	for tool, specs := range raw {
 		fields, err := mcp.ParseCompactSpecs(specs)
 		if err != nil {
