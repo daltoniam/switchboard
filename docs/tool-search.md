@@ -30,10 +30,22 @@ The formula: `IDF(word) = log(totalTools / toolsContainingWord)`. A word appeari
 Synonym groups define equivalence sets of words that match interchangeably. Defined in `server/search.go` as `synonymGroups`:
 
 ```go
+// Nouns
 {"ticket", "issue", "issues", "task", "bug"},
+{"table", "tables"},
+{"label", "labels", "tag", "tags"},
+{"diff", "patch", "changes"},
+{"database", "databases", "db"},
+// ... and more (see server/search.go for full list)
+
+// Verbs
 {"create", "add", "new", "make", "generate"},
+{"get", "retrieve", "fetch", "read", "show", "view", "describe"},
+{"list", "ls", "enumerate"},
 {"deploy", "deploys", "deployment", "deployments", "release", "releases", "rollout", "ship"},
 ```
+
+**IDF dilution warning**: Noun synonym groups where the union covers >60 tools can degrade search quality. The MAX-per-word scoring makes verb synonyms inherently safe (rare variants like "retrieve" carry the score), but noun groups with many common words dilute the IDF signal. Test with the search benchmark before adding high-union noun groups.
 
 At startup, `buildSynonymMap` expands these into a bidirectional lookup map where each word maps to its full group (including itself). Groups must be disjoint — no word in multiple groups.
 
