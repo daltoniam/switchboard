@@ -6,13 +6,13 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-var rawFieldCompactionSpecs = map[string][]string{
-	"readarr_list_books": {
+var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
+	mcp.ToolName("readarr_list_books"): {
 		"id", "title", "authorTitle", "releaseDate", "monitored",
 		"grabbed", "statistics.bookFileCount", "statistics.percentOfBooks",
 		"ratings.value",
 	},
-	"readarr_get_book": {
+	mcp.ToolName("readarr_get_book"): {
 		"id", "title", "authorTitle", "releaseDate", "monitored",
 		"overview", "grabbed", "pageCount",
 		"ratings.value", "ratings.votes",
@@ -20,82 +20,82 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"editions[].id", "editions[].title", "editions[].monitored", "editions[].grabbed",
 		"author.id", "author.authorName",
 	},
-	"readarr_search_books": {
+	mcp.ToolName("readarr_search_books"): {
 		"foreignId", "author.authorName",
 		"book.id", "book.title", "book.releaseDate",
 		"book.ratings.value",
 	},
-	"readarr_list_authors": {
+	mcp.ToolName("readarr_list_authors"): {
 		"id", "authorName", "monitored", "status", "path",
 		"qualityProfileId", "metadataProfileId",
 		"statistics.bookFileCount", "statistics.bookCount", "statistics.percentOfBooks",
 		"ratings.value",
 	},
-	"readarr_get_author": {
+	mcp.ToolName("readarr_get_author"): {
 		"id", "authorName", "monitored", "status", "path", "overview",
 		"qualityProfileId", "metadataProfileId",
 		"statistics.bookFileCount", "statistics.bookCount", "statistics.sizeOnDisk",
 		"ratings.value", "ratings.votes",
 	},
-	"readarr_get_calendar": {
+	mcp.ToolName("readarr_get_calendar"): {
 		"id", "title", "authorTitle", "releaseDate", "monitored",
 		"grabbed",
 	},
-	"readarr_get_missing": {
+	mcp.ToolName("readarr_get_missing"): {
 		"records[].id", "records[].title", "records[].authorTitle",
 		"records[].releaseDate", "records[].monitored",
 		"page", "pageSize", "totalRecords",
 	},
-	"readarr_get_cutoff": {
+	mcp.ToolName("readarr_get_cutoff"): {
 		"records[].id", "records[].title", "records[].authorTitle",
 		"records[].releaseDate", "records[].monitored",
 		"page", "pageSize", "totalRecords",
 	},
-	"readarr_get_queue": {
+	mcp.ToolName("readarr_get_queue"): {
 		"records[].id", "records[].title", "records[].status",
 		"records[].timeleft", "records[].estimatedCompletionTime",
 		"records[].protocol", "records[].downloadClient",
 		"records[].bookId", "records[].authorId",
 		"page", "pageSize", "totalRecords",
 	},
-	"readarr_get_history": {
+	mcp.ToolName("readarr_get_history"): {
 		"records[].id", "records[].bookId", "records[].authorId",
 		"records[].eventType", "records[].date",
 		"records[].sourceTitle",
 		"page", "pageSize", "totalRecords",
 	},
-	"readarr_get_history_author": {
+	mcp.ToolName("readarr_get_history_author"): {
 		"id", "bookId", "authorId", "eventType", "date", "sourceTitle",
 	},
-	"readarr_get_history_since": {
+	mcp.ToolName("readarr_get_history_since"): {
 		"id", "bookId", "authorId", "eventType", "date", "sourceTitle",
 	},
-	"readarr_list_commands": {
+	mcp.ToolName("readarr_list_commands"): {
 		"id", "name", "commandName", "status", "started", "ended",
 		"stateChangeTime",
 	},
-	"readarr_get_command": {
+	mcp.ToolName("readarr_get_command"): {
 		"id", "name", "commandName", "status", "started", "ended",
 		"stateChangeTime", "body",
 	},
-	"readarr_list_root_folders": {
+	mcp.ToolName("readarr_list_root_folders"): {
 		"id", "path", "name", "accessible", "freeSpace",
 	},
-	"readarr_list_quality_profiles": {
+	mcp.ToolName("readarr_list_quality_profiles"): {
 		"id", "name", "cutoff.id", "cutoff.name",
 	},
-	"readarr_list_metadata_profiles": {
+	mcp.ToolName("readarr_list_metadata_profiles"): {
 		"id", "name", "minPopularity",
 	},
-	"readarr_list_tags": {
+	mcp.ToolName("readarr_list_tags"): {
 		"id", "label",
 	},
 }
 
 var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(rawFieldCompactionSpecs)
 
-func mustBuildFieldCompactionSpecs(raw map[string][]string) map[string][]mcp.CompactField {
-	parsed := make(map[string][]mcp.CompactField, len(raw))
+func mustBuildFieldCompactionSpecs(raw map[mcp.ToolName][]string) map[mcp.ToolName][]mcp.CompactField {
+	parsed := make(map[mcp.ToolName][]mcp.CompactField, len(raw))
 	for tool, specs := range raw {
 		fields, err := mcp.ParseCompactSpecs(specs)
 		if err != nil {

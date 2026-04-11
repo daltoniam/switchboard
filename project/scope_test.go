@@ -84,10 +84,10 @@ func TestIsToolPermitted(t *testing.T) {
 
 func TestFilterTools(t *testing.T) {
 	tools := []mcp.ToolDefinition{
-		{Name: "github_list_issues"},
-		{Name: "github_delete_repo"},
-		{Name: "linear_list_issues"},
-		{Name: "datadog_search_logs"},
+		{Name: mcp.ToolName("github_list_issues")},
+		{Name: mcp.ToolName("github_delete_repo")},
+		{Name: mcp.ToolName("linear_list_issues")},
+		{Name: mcp.ToolName("datadog_search_logs")},
 	}
 
 	rule := &ScopeRule{
@@ -97,13 +97,13 @@ func TestFilterTools(t *testing.T) {
 
 	result := FilterTools(tools, rule)
 	assert.Len(t, result, 2)
-	assert.Equal(t, "github_list_issues", result[0].Name)
-	assert.Equal(t, "linear_list_issues", result[1].Name)
+	assert.Equal(t, mcp.ToolName("github_list_issues"), result[0].Name)
+	assert.Equal(t, mcp.ToolName("linear_list_issues"), result[1].Name)
 }
 
 func TestFilterTools_NilRule(t *testing.T) {
 	tools := []mcp.ToolDefinition{
-		{Name: "github_list_issues"},
+		{Name: mcp.ToolName("github_list_issues")},
 	}
 	result := FilterTools(tools, nil)
 	assert.Len(t, result, 1)

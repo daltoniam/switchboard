@@ -84,7 +84,7 @@ func toToolInfo(r scoredResult) searchToolInfo {
 	}
 	return searchToolInfo{
 		Integration: r.Integration,
-		Name:        r.Tool.Name,
+		Name:        string(r.Tool.Name),
 		Description: r.Tool.Description,
 		Parameters:  params,
 		Required:    r.Tool.Required,
@@ -99,7 +99,7 @@ func toolDefToInfo(integration string, tool mcp.ToolDefinition) searchToolInfo {
 	}
 	return searchToolInfo{
 		Integration: integration,
-		Name:        tool.Name,
+		Name:        string(tool.Name),
 		Description: tool.Description,
 		Parameters:  params,
 		Required:    tool.Required,
@@ -191,7 +191,7 @@ func computeIDF(tools []toolWithIntegration) map[string]float64 {
 	seen := make(map[string]bool)
 	for i := range tools {
 		clear(seen)
-		searchable := tools[i].Tool.Name + " " + tools[i].Tool.Description + " " + tools[i].Integration
+		searchable := string(tools[i].Tool.Name) + " " + tools[i].Tool.Description + " " + tools[i].Integration
 		words := tokenize(searchable)
 		tokenSet := make(map[string]bool, len(words))
 		for _, word := range words {

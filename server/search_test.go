@@ -76,16 +76,16 @@ func TestBuildSynonymMap(t *testing.T) {
 
 func TestComputeIDF(t *testing.T) {
 	tools := []toolWithIntegration{
-		{Integration: "a", Tool: mcp.ToolDefinition{Name: "a_list_items", Description: "List all items"}},
-		{Integration: "a", Tool: mcp.ToolDefinition{Name: "a_get_item", Description: "Get a single item"}},
-		{Integration: "b", Tool: mcp.ToolDefinition{Name: "b_list_items", Description: "List all items"}},
-		{Integration: "b", Tool: mcp.ToolDefinition{Name: "b_create_item", Description: "Create an item"}},
-		{Integration: "c", Tool: mcp.ToolDefinition{Name: "c_delete_item", Description: "Delete an item"}},
-		{Integration: "c", Tool: mcp.ToolDefinition{Name: "c_list_things", Description: "List all things"}},
-		{Integration: "c", Tool: mcp.ToolDefinition{Name: "c_get_thing", Description: "Get a thing"}},
-		{Integration: "d", Tool: mcp.ToolDefinition{Name: "d_list_widgets", Description: "List widgets"}},
-		{Integration: "d", Tool: mcp.ToolDefinition{Name: "d_create_widget", Description: "Create a widget"}},
-		{Integration: "d", Tool: mcp.ToolDefinition{Name: "d_get_widget", Description: "Get a widget"}},
+		{Integration: "a", Tool: mcp.ToolDefinition{Name: mcp.ToolName("a_list_items"), Description: "List all items"}},
+		{Integration: "a", Tool: mcp.ToolDefinition{Name: mcp.ToolName("a_get_item"), Description: "Get a single item"}},
+		{Integration: "b", Tool: mcp.ToolDefinition{Name: mcp.ToolName("b_list_items"), Description: "List all items"}},
+		{Integration: "b", Tool: mcp.ToolDefinition{Name: mcp.ToolName("b_create_item"), Description: "Create an item"}},
+		{Integration: "c", Tool: mcp.ToolDefinition{Name: mcp.ToolName("c_delete_item"), Description: "Delete an item"}},
+		{Integration: "c", Tool: mcp.ToolDefinition{Name: mcp.ToolName("c_list_things"), Description: "List all things"}},
+		{Integration: "c", Tool: mcp.ToolDefinition{Name: mcp.ToolName("c_get_thing"), Description: "Get a thing"}},
+		{Integration: "d", Tool: mcp.ToolDefinition{Name: mcp.ToolName("d_list_widgets"), Description: "List widgets"}},
+		{Integration: "d", Tool: mcp.ToolDefinition{Name: mcp.ToolName("d_create_widget"), Description: "Create a widget"}},
+		{Integration: "d", Tool: mcp.ToolDefinition{Name: mcp.ToolName("d_get_widget"), Description: "Get a widget"}},
 	}
 
 	idf := computeIDF(tools)
@@ -132,10 +132,10 @@ func TestScoreTool(t *testing.T) {
 	})
 
 	tools := []toolWithIntegration{
-		{Integration: "linear", Tool: mcp.ToolDefinition{Name: "linear_create_issue", Description: "Create a new issue"}},
-		{Integration: "linear", Tool: mcp.ToolDefinition{Name: "linear_list_issues", Description: "List issues"}},
-		{Integration: "github", Tool: mcp.ToolDefinition{Name: "github_list_issues", Description: "List issues"}},
-		{Integration: "slack", Tool: mcp.ToolDefinition{Name: "slack_send_message", Description: "Send a message"}},
+		{Integration: "linear", Tool: mcp.ToolDefinition{Name: mcp.ToolName("linear_create_issue"), Description: "Create a new issue"}},
+		{Integration: "linear", Tool: mcp.ToolDefinition{Name: mcp.ToolName("linear_list_issues"), Description: "List issues"}},
+		{Integration: "github", Tool: mcp.ToolDefinition{Name: mcp.ToolName("github_list_issues"), Description: "List issues"}},
+		{Integration: "slack", Tool: mcp.ToolDefinition{Name: mcp.ToolName("slack_send_message"), Description: "Send a message"}},
 	}
 
 	idf := computeIDF(tools)
@@ -184,9 +184,9 @@ func TestScoreTools_Sorting(t *testing.T) {
 	})
 
 	tools := []toolWithIntegration{
-		{Integration: "github", Tool: mcp.ToolDefinition{Name: "github_list_issues", Description: "List issues for a repository"}},
-		{Integration: "linear", Tool: mcp.ToolDefinition{Name: "linear_list_issues", Description: "List issues in a project"}},
-		{Integration: "slack", Tool: mcp.ToolDefinition{Name: "slack_send_message", Description: "Send a message"}},
+		{Integration: "github", Tool: mcp.ToolDefinition{Name: mcp.ToolName("github_list_issues"), Description: "List issues for a repository"}},
+		{Integration: "linear", Tool: mcp.ToolDefinition{Name: mcp.ToolName("linear_list_issues"), Description: "List issues in a project"}},
+		{Integration: "slack", Tool: mcp.ToolDefinition{Name: mcp.ToolName("slack_send_message"), Description: "Send a message"}},
 	}
 
 	idf := computeIDF(tools)
@@ -224,14 +224,14 @@ func TestStopWords_FilteredFromQuery(t *testing.T) {
 	synMap := buildSynonymMap(synonymGroups)
 
 	tools := []toolWithIntegration{
-		{Integration: "slack", Tool: mcp.ToolDefinition{Name: "slack_send_message", Description: "Send a message to a channel"}},
-		{Integration: "github", Tool: mcp.ToolDefinition{Name: "github_list_repos", Description: "List repositories"}},
-		{Integration: "linear", Tool: mcp.ToolDefinition{Name: "linear_create_issue", Description: "Create a new issue"}},
-		{Integration: "sentry", Tool: mcp.ToolDefinition{Name: "sentry_list_issues", Description: "List issues for a project"}},
-		{Integration: "datadog", Tool: mcp.ToolDefinition{Name: "datadog_search_logs", Description: "Search logs by query"}},
-		{Integration: "aws", Tool: mcp.ToolDefinition{Name: "aws_sns_publish", Description: "Publish a message to SNS topic"}},
-		{Integration: "notion", Tool: mcp.ToolDefinition{Name: "notion_search", Description: "Search pages and databases"}},
-		{Integration: "gmail", Tool: mcp.ToolDefinition{Name: "gmail_create_draft", Description: "Create an email draft"}},
+		{Integration: "slack", Tool: mcp.ToolDefinition{Name: mcp.ToolName("slack_send_message"), Description: "Send a message to a channel"}},
+		{Integration: "github", Tool: mcp.ToolDefinition{Name: mcp.ToolName("github_list_repos"), Description: "List repositories"}},
+		{Integration: "linear", Tool: mcp.ToolDefinition{Name: mcp.ToolName("linear_create_issue"), Description: "Create a new issue"}},
+		{Integration: "sentry", Tool: mcp.ToolDefinition{Name: mcp.ToolName("sentry_list_issues"), Description: "List issues for a project"}},
+		{Integration: "datadog", Tool: mcp.ToolDefinition{Name: mcp.ToolName("datadog_search_logs"), Description: "Search logs by query"}},
+		{Integration: "aws", Tool: mcp.ToolDefinition{Name: mcp.ToolName("aws_sns_publish"), Description: "Publish a message to SNS topic"}},
+		{Integration: "notion", Tool: mcp.ToolDefinition{Name: mcp.ToolName("notion_search"), Description: "Search pages and databases"}},
+		{Integration: "gmail", Tool: mcp.ToolDefinition{Name: mcp.ToolName("gmail_create_draft"), Description: "Create an email draft"}},
 	}
 
 	idf := computeIDF(tools)
@@ -266,9 +266,9 @@ func TestStopWords_FilteredFromQuery(t *testing.T) {
 
 func TestPreComputedTokens(t *testing.T) {
 	tools := []toolWithIntegration{
-		{Integration: "slack", Tool: mcp.ToolDefinition{Name: "slack_send_message", Description: "Send a message to a channel"}},
-		{Integration: "github", Tool: mcp.ToolDefinition{Name: "github_list_repos", Description: "List repositories"}},
-		{Integration: "linear", Tool: mcp.ToolDefinition{Name: "linear_create_issue", Description: "Create a new issue"}},
+		{Integration: "slack", Tool: mcp.ToolDefinition{Name: mcp.ToolName("slack_send_message"), Description: "Send a message to a channel"}},
+		{Integration: "github", Tool: mcp.ToolDefinition{Name: mcp.ToolName("github_list_repos"), Description: "List repositories"}},
+		{Integration: "linear", Tool: mcp.ToolDefinition{Name: mcp.ToolName("linear_create_issue"), Description: "Create a new issue"}},
 	}
 
 	computeIDF(tools) // populates tools[i].tokens as a side effect

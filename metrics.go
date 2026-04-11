@@ -13,7 +13,7 @@ type Metrics struct {
 	mu sync.RWMutex
 
 	// Per-tool execution tracking.
-	toolCalls   map[string]*toolMetric // key: tool name
+	toolCalls   map[ToolName]*toolMetric
 	searchCount atomic.Int64
 	scriptCount atomic.Int64
 
@@ -21,6 +21,7 @@ type Metrics struct {
 	integrationCalls  map[string]*integrationMetric // key: integration name
 	circuitBreaks     map[string]*atomic.Int64      // key: integration name
 	compactionSavings []compactionSample
+	markdownRenders   []compactionSample // reuses compactionSample shape
 
 	// Global counters.
 	totalExecutions atomic.Int64
@@ -44,7 +45,7 @@ type integrationMetric struct {
 }
 
 type compactionSample struct {
-	Tool       string
+	Tool       ToolName
 	BeforeSize int
 	AfterSize  int
 }
@@ -52,7 +53,7 @@ type compactionSample struct {
 // NewMetrics returns an initialized Metrics collector.
 func NewMetrics() *Metrics {
 	return &Metrics{
-		toolCalls:        make(map[string]*toolMetric),
+		toolCalls:        make(map[ToolName]*toolMetric),
 		integrationCalls: make(map[string]*integrationMetric),
 		circuitBreaks:    make(map[string]*atomic.Int64),
 		startTime:        time.Now(),
@@ -60,7 +61,7 @@ func NewMetrics() *Metrics {
 }
 
 // RecordExecution records a tool execution with its outcome.
-func (m *Metrics) RecordExecution(integration, tool string, duration time.Duration, isError bool, retries int) {
+func (m *Metrics) RecordExecution(integration string, tool ToolName, duration time.Duration, isError bool, retries int) {
 	m.totalExecutions.Add(1)
 	if isError {
 		m.totalErrors.Add(1)
@@ -115,7 +116,7 @@ func (m *Metrics) RecordCircuitBreak(integration string) {
 }
 
 // RecordCompaction records a compaction result.
-func (m *Metrics) RecordCompaction(tool string, beforeSize, afterSize int) {
+func (m *Metrics) RecordCompaction(tool ToolName, beforeSize, afterSize int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.compactionSavings = append(m.compactionSavings, compactionSample{
@@ -125,6 +126,20 @@ func (m *Metrics) RecordCompaction(tool string, beforeSize, afterSize int) {
 	})
 	if len(m.compactionSavings) > 1000 {
 		m.compactionSavings = m.compactionSavings[len(m.compactionSavings)-1000:]
+	}
+}
+
+// RecordMarkdownRender records a markdown rendering result.
+func (m *Metrics) RecordMarkdownRender(tool ToolName, beforeSize, afterSize int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.markdownRenders = append(m.markdownRenders, compactionSample{
+		Tool:       tool,
+		BeforeSize: beforeSize,
+		AfterSize:  afterSize,
+	})
+	if len(m.markdownRenders) > 1000 {
+		m.markdownRenders = m.markdownRenders[len(m.markdownRenders)-1000:]
 	}
 }
 
@@ -157,7 +172,7 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		if calls > 0 {
 			avgNs = tm.TotalNs.Load() / calls
 		}
-		s.Tools[name] = ToolSnapshot{
+		s.Tools[string(name)] = ToolSnapshot{
 			Calls:        calls,
 			Errors:       tm.Errors.Load(),
 			AvgLatencyMs: float64(avgNs) / 1e6,
@@ -221,7 +236,7 @@ func (m *Metrics) TopTools(n int) []ToolRank {
 	return ranks
 }
 
-func (m *Metrics) getToolMetric(tool string) *toolMetric {
+func (m *Metrics) getToolMetric(tool ToolName) *toolMetric {
 	m.mu.RLock()
 	tm, ok := m.toolCalls[tool]
 	m.mu.RUnlock()
@@ -297,6 +312,6 @@ type IntegrationSnapshot struct {
 
 // ToolRank pairs a tool name with its call count for ranking.
 type ToolRank struct {
-	Name  string `json:"name"`
-	Calls int64  `json:"calls"`
+	Name  ToolName `json:"name"`
+	Calls int64    `json:"calls"`
 }

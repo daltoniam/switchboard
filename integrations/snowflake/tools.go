@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// --- Queries ---
 	{
-		Name:        "snowflake_execute_query",
+		Name:        mcp.ToolName("snowflake_execute_query"),
 		Description: "Execute a SQL query against a Snowflake data warehouse and return results as JSON rows. Supports SELECT, SHOW, DESCRIBE, DDL, and DML statements",
 		Parameters: map[string]string{
 			"query":     "SQL statement to execute",
@@ -18,7 +18,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"query"},
 	},
 	{
-		Name:        "snowflake_get_query_status",
+		Name:        mcp.ToolName("snowflake_get_query_status"),
 		Description: "Check the status of an async Snowflake query and retrieve results when complete. Use the statement handle returned from snowflake_execute_query",
 		Parameters: map[string]string{
 			"statement_handle": "UUID statement handle from a previous query submission",
@@ -27,7 +27,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"statement_handle"},
 	},
 	{
-		Name:        "snowflake_cancel_query",
+		Name:        mcp.ToolName("snowflake_cancel_query"),
 		Description: "Cancel a running Snowflake query by its statement handle",
 		Parameters: map[string]string{
 			"statement_handle": "UUID statement handle of the query to cancel",
@@ -37,14 +37,14 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Schema Discovery ---
 	{
-		Name:        "snowflake_list_databases",
+		Name:        mcp.ToolName("snowflake_list_databases"),
 		Description: "List all databases accessible in the Snowflake account. Start here for schema discovery.",
 		Parameters: map[string]string{
 			"role": "Role to use (overrides configured default)",
 		},
 	},
 	{
-		Name:        "snowflake_list_schemas",
+		Name:        mcp.ToolName("snowflake_list_schemas"),
 		Description: "List all schemas in a Snowflake database",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to configured database)",
@@ -52,7 +52,7 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name:        "snowflake_list_tables",
+		Name:        mcp.ToolName("snowflake_list_tables"),
 		Description: "List tables in a Snowflake database/schema with row counts and sizes",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to configured database)",
@@ -61,7 +61,7 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name:        "snowflake_list_views",
+		Name:        mcp.ToolName("snowflake_list_views"),
 		Description: "List views in a Snowflake database/schema",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to configured database)",
@@ -70,7 +70,7 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name:        "snowflake_describe_table",
+		Name:        mcp.ToolName("snowflake_describe_table"),
 		Description: "Describe a table's columns with names, types, and constraints in Snowflake",
 		Parameters: map[string]string{
 			"table":    "Table name",
@@ -81,7 +81,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"table"},
 	},
 	{
-		Name:        "snowflake_show_create_table",
+		Name:        mcp.ToolName("snowflake_show_create_table"),
 		Description: "Show the DDL CREATE statement for a Snowflake table",
 		Parameters: map[string]string{
 			"table":    "Table name",
@@ -94,7 +94,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Warehouse & Compute ---
 	{
-		Name:        "snowflake_list_warehouses",
+		Name:        mcp.ToolName("snowflake_list_warehouses"),
 		Description: "List all warehouses in the Snowflake account with state, size, and cluster info",
 		Parameters: map[string]string{
 			"role": "Role to use (overrides configured default)",
@@ -103,7 +103,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- System Info ---
 	{
-		Name:        "snowflake_list_running_queries",
+		Name:        mcp.ToolName("snowflake_list_running_queries"),
 		Description: "List currently running and recently completed queries in Snowflake",
 		Parameters: map[string]string{
 			"limit": "Maximum number of queries to return (default: 50)",
@@ -111,21 +111,21 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name:        "snowflake_current_session",
+		Name:        mcp.ToolName("snowflake_current_session"),
 		Description: "Get current Snowflake session info including user, role, warehouse, and database",
 		Parameters:  map[string]string{},
 	},
 
 	// --- Users & Roles ---
 	{
-		Name:        "snowflake_list_users",
+		Name:        mcp.ToolName("snowflake_list_users"),
 		Description: "List all users in the Snowflake account",
 		Parameters: map[string]string{
 			"role": "Role to use (overrides configured default)",
 		},
 	},
 	{
-		Name:        "snowflake_list_roles",
+		Name:        mcp.ToolName("snowflake_list_roles"),
 		Description: "List all roles in the Snowflake account",
 		Parameters: map[string]string{
 			"role": "Role to use (overrides configured default)",
@@ -134,7 +134,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Stages & Storage ---
 	{
-		Name:        "snowflake_list_stages",
+		Name:        mcp.ToolName("snowflake_list_stages"),
 		Description: "List stages in a Snowflake database/schema for data loading",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to configured database)",
@@ -145,7 +145,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Tasks & Pipes ---
 	{
-		Name:        "snowflake_list_tasks",
+		Name:        mcp.ToolName("snowflake_list_tasks"),
 		Description: "List tasks (scheduled SQL jobs) in a Snowflake database/schema",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to configured database)",
@@ -154,7 +154,7 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name:        "snowflake_list_pipes",
+		Name:        mcp.ToolName("snowflake_list_pipes"),
 		Description: "List Snowpipe definitions for continuous data ingestion",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to configured database)",
@@ -165,7 +165,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Streams ---
 	{
-		Name:        "snowflake_list_streams",
+		Name:        mcp.ToolName("snowflake_list_streams"),
 		Description: "List streams (change data capture) in a Snowflake database/schema",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to configured database)",
@@ -176,7 +176,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Cortex Analyst ---
 	{
-		Name:        "snowflake_cortex_analyst",
+		Name:        mcp.ToolName("snowflake_cortex_analyst"),
 		Description: "Ask a natural-language question against a Snowflake Cortex Analyst semantic layer. Returns generated SQL, an explanation, and follow-up suggestions. Use snowflake_execute_query to run the returned SQL",
 		Parameters: map[string]string{
 			"question":            "Natural-language question to ask (e.g. 'What were our top 10 products by revenue last quarter?')",
@@ -188,41 +188,41 @@ var tools = []mcp.ToolDefinition{
 	},
 }
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Queries
-	"snowflake_execute_query":    executeQuery,
-	"snowflake_get_query_status": getQueryStatus,
-	"snowflake_cancel_query":     cancelQuery,
+	mcp.ToolName("snowflake_execute_query"):    executeQuery,
+	mcp.ToolName("snowflake_get_query_status"): getQueryStatus,
+	mcp.ToolName("snowflake_cancel_query"):     cancelQuery,
 
 	// Schema Discovery
-	"snowflake_list_databases":    listDatabases,
-	"snowflake_list_schemas":      listSchemas,
-	"snowflake_list_tables":       listTables,
-	"snowflake_list_views":        listViews,
-	"snowflake_describe_table":    describeTable,
-	"snowflake_show_create_table": showCreateTable,
+	mcp.ToolName("snowflake_list_databases"):    listDatabases,
+	mcp.ToolName("snowflake_list_schemas"):      listSchemas,
+	mcp.ToolName("snowflake_list_tables"):       listTables,
+	mcp.ToolName("snowflake_list_views"):        listViews,
+	mcp.ToolName("snowflake_describe_table"):    describeTable,
+	mcp.ToolName("snowflake_show_create_table"): showCreateTable,
 
 	// Warehouse & Compute
-	"snowflake_list_warehouses": listWarehouses,
+	mcp.ToolName("snowflake_list_warehouses"): listWarehouses,
 
 	// System Info
-	"snowflake_list_running_queries": listRunningQueries,
-	"snowflake_current_session":      currentSession,
+	mcp.ToolName("snowflake_list_running_queries"): listRunningQueries,
+	mcp.ToolName("snowflake_current_session"):      currentSession,
 
 	// Users & Roles
-	"snowflake_list_users": listUsers,
-	"snowflake_list_roles": listRoles,
+	mcp.ToolName("snowflake_list_users"): listUsers,
+	mcp.ToolName("snowflake_list_roles"): listRoles,
 
 	// Stages & Storage
-	"snowflake_list_stages": listStages,
+	mcp.ToolName("snowflake_list_stages"): listStages,
 
 	// Tasks & Pipes
-	"snowflake_list_tasks": listTasks,
-	"snowflake_list_pipes": listPipes,
+	mcp.ToolName("snowflake_list_tasks"): listTasks,
+	mcp.ToolName("snowflake_list_pipes"): listPipes,
 
 	// Streams
-	"snowflake_list_streams": listStreams,
+	mcp.ToolName("snowflake_list_streams"): listStreams,
 
 	// Cortex Analyst
-	"snowflake_cortex_analyst": cortexAnalyst,
+	mcp.ToolName("snowflake_cortex_analyst"): cortexAnalyst,
 }

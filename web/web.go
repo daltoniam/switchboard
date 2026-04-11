@@ -249,7 +249,7 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 
 	var tools []string
 	for _, t := range integration.Tools() {
-		tools = append(tools, t.Name)
+		tools = append(tools, string(t.Name))
 	}
 
 	page := w.pageData(r, integration.Name(), "/integrations")

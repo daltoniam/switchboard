@@ -59,7 +59,7 @@ type mockIntegration struct {
 func (mi *mockIntegration) Name() string                                         { return mi.name }
 func (mi *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error { return nil }
 func (mi *mockIntegration) Tools() []mcp.ToolDefinition                          { return mi.tools }
-func (mi *mockIntegration) Execute(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+func (mi *mockIntegration) Execute(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 	return &mcp.ToolResult{Data: "ok"}, nil
 }
 func (mi *mockIntegration) Healthy(_ context.Context) bool { return mi.healthy }
@@ -103,7 +103,7 @@ func setupTestWeb() (*WebServer, *mockRegistry, *mockConfigService) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_list", Description: "List things"},
+			{Name: mcp.ToolName("testint_list"), Description: "List things"},
 		},
 	})
 	cfgService.cfg.Integrations["testint"] = &mcp.IntegrationConfig{

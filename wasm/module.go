@@ -98,12 +98,12 @@ func (m *Module) Tools() []mcp.ToolDefinition {
 }
 
 // Execute implements mcp.Integration.
-func (m *Module) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (m *Module) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	req := struct {
 		ToolName string         `json:"tool_name"`
 		Args     map[string]any `json:"args"`
 	}{
-		ToolName: toolName,
+		ToolName: string(toolName),
 		Args:     args,
 	}
 

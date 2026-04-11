@@ -66,11 +66,11 @@ func TestTools(t *testing.T) {
 		t.Errorf("Tools() returned %d tools, want 3", got)
 	}
 
-	names := make(map[string]bool)
+	names := make(map[mcp.ToolName]bool)
 	for _, tool := range tools {
 		names[tool.Name] = true
 	}
-	for _, want := range []string{
+	for _, want := range []mcp.ToolName{
 		"example_echo",
 		"example_http_get",
 		"example_list_items",
@@ -289,7 +289,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 	tools := mod.Tools()
 
 	for _, tool := range tools {
-		result, err := mod.Execute(context.Background(), tool.Name, map[string]any{})
+		result, err := mod.Execute(context.Background(), mcp.ToolName(tool.Name), map[string]any{})
 		if err != nil {
 			continue
 		}

@@ -50,7 +50,7 @@ func TestFieldCompactionSpec_NoMissingReadToolSpecs(t *testing.T) {
 		"amazon_get_cart":        true,
 	}
 	for toolName := range readTools {
-		_, ok := fieldCompactionSpecs[toolName]
+		_, ok := fieldCompactionSpecs[mcp.ToolName(toolName)]
 		assert.True(t, ok, "read tool %q should have a field compaction spec", toolName)
 	}
 }
@@ -65,7 +65,7 @@ func TestFieldCompactionSpecs_ShapeParity(t *testing.T) {
 
 	for toolName, payload := range handlerOutputs {
 		t.Run(toolName, func(t *testing.T) {
-			fields, ok := fieldCompactionSpecs[toolName]
+			fields, ok := fieldCompactionSpecs[mcp.ToolName(toolName)]
 			require.True(t, ok, "missing compaction spec for %s", toolName)
 			compacted, err := mcp.CompactJSON([]byte(payload), fields)
 			require.NoError(t, err)

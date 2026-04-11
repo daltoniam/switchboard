@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// --- Servers ---
 	{
-		Name:        "pganalyze_get_servers",
+		Name:        mcp.ToolName("pganalyze_get_servers"),
 		Description: "List all monitored PostgreSQL servers and their databases from pganalyze. Start here to discover monitored servers.",
 		Parameters: map[string]string{
 			"organization_slug": "Organization slug to filter servers (e.g. 'my-org')",
@@ -14,7 +14,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Issues ---
 	{
-		Name:        "pganalyze_get_issues",
+		Name:        mcp.ToolName("pganalyze_get_issues"),
 		Description: "Get check-up issues and performance alerts for monitored databases. Surfaces slow query warnings, index problems, and health issues. Returns open issues by default.",
 		Parameters: map[string]string{
 			"organization_slug": "Organization slug to filter issues",
@@ -27,7 +27,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Query Stats ---
 	{
-		Name:        "pganalyze_get_query_stats",
+		Name:        mcp.ToolName("pganalyze_get_query_stats"),
 		Description: "Get query performance statistics for a database, sorted by impact. Shows top queries by total runtime. Use to find slow and expensive query bottlenecks.",
 		Parameters: map[string]string{
 			"database_id": "Database ID (use pganalyze_get_servers to find this)",

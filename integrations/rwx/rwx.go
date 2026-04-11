@@ -80,12 +80,12 @@ func (r *rwx) Tools() []mcp.ToolDefinition {
 	return nativeTools
 }
 
-func (r *rwx) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (r *rwx) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (r *rwx) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (r *rwx) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if ok {
 		return fn(ctx, r, args)
@@ -165,25 +165,25 @@ type handlerFunc func(ctx context.Context, r *rwx, args map[string]any) (*mcp.To
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Runs
-	"rwx_launch_ci_run":   launchCIRun,
-	"rwx_wait_for_ci_run": waitForCIRun,
-	"rwx_get_recent_runs": getRecentRuns,
-	"rwx_get_run_results": getRunResults,
+	mcp.ToolName("rwx_launch_ci_run"):   launchCIRun,
+	mcp.ToolName("rwx_wait_for_ci_run"): waitForCIRun,
+	mcp.ToolName("rwx_get_recent_runs"): getRecentRuns,
+	mcp.ToolName("rwx_get_run_results"): getRunResults,
 
 	// Logs
-	"rwx_get_task_logs": getTaskLogs,
-	"rwx_head_logs":     headLogs,
-	"rwx_tail_logs":     tailLogs,
-	"rwx_grep_logs":     grepLogs,
+	mcp.ToolName("rwx_get_task_logs"): getTaskLogs,
+	mcp.ToolName("rwx_head_logs"):     headLogs,
+	mcp.ToolName("rwx_tail_logs"):     tailLogs,
+	mcp.ToolName("rwx_grep_logs"):     grepLogs,
 
 	// Artifacts
-	"rwx_get_artifacts": getArtifacts,
+	mcp.ToolName("rwx_get_artifacts"): getArtifacts,
 
 	// Workflow
-	"rwx_validate_workflow": validateWorkflow,
+	mcp.ToolName("rwx_validate_workflow"): validateWorkflow,
 
 	// CLI
-	"rwx_verify_cli": verifyCLI,
+	mcp.ToolName("rwx_verify_cli"): verifyCLI,
 }

@@ -111,12 +111,12 @@ func (p *postgres) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (p *postgres) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (p *postgres) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (p *postgres) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (p *postgres) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	if p.db == nil {
 		return &mcp.ToolResult{Data: "postgres: not configured (connection failed)", IsError: true}, nil
 	}

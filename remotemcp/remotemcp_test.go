@@ -57,7 +57,7 @@ func TestConfigure_SameToken_NoReset(t *testing.T) {
 	assert.NoError(t, err)
 
 	r.toolsFetched = true
-	r.cachedTools = []mcp.ToolDefinition{{Name: "test_foo"}}
+	r.cachedTools = []mcp.ToolDefinition{{Name: mcp.ToolName("test_foo")}}
 
 	err = r.Configure(context.Background(), mcp.Credentials{"access_token": "tok1"})
 	assert.NoError(t, err)
@@ -175,7 +175,7 @@ type mockIntegration struct{}
 func (m *mockIntegration) Name() string                                         { return "mock" }
 func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error { return nil }
 func (m *mockIntegration) Tools() []mcp.ToolDefinition                          { return nil }
-func (m *mockIntegration) Execute(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+func (m *mockIntegration) Execute(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 	return nil, nil
 }
 func (m *mockIntegration) Healthy(_ context.Context) bool { return false }

@@ -102,7 +102,7 @@ func TestFieldCompactionSpecs_ShapeParity(t *testing.T) {
 
 	for toolName, jsonPayload := range handlerOutputs {
 		t.Run(toolName, func(t *testing.T) {
-			fields, ok := fieldCompactionSpecs[toolName]
+			fields, ok := fieldCompactionSpecs[mcp.ToolName(toolName)]
 			require.True(t, ok, "spec must exist for %s", toolName)
 
 			compacted, err := mcp.CompactJSON([]byte(jsonPayload), fields)

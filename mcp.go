@@ -72,12 +72,12 @@ type IntegrationConfig struct {
 // restrictions. An empty ToolGlobs slice means all tools are permitted.
 // Multiple globs are OR'd: the tool is allowed if any glob matches.
 // Invalid patterns are skipped (use ValidateToolGlobs to catch them at config time).
-func (ic *IntegrationConfig) ToolAllowed(toolName string) bool {
+func (ic *IntegrationConfig) ToolAllowed(toolName ToolName) bool {
 	if len(ic.ToolGlobs) == 0 {
 		return true
 	}
 	for _, pattern := range ic.ToolGlobs {
-		matched, err := path.Match(pattern, toolName)
+		matched, err := path.Match(pattern, string(toolName))
 		if err != nil {
 			continue
 		}
@@ -115,7 +115,7 @@ type Config struct {
 // ToolDefinition describes an API operation an integration exposes.
 // These are used by the search tool to let the AI discover available operations.
 type ToolDefinition struct {
-	Name        string            `json:"name"`
+	Name        ToolName          `json:"name"`
 	Description string            `json:"description"`
 	Parameters  map[string]string `json:"parameters"` // param name -> description
 	Required    []string          `json:"required,omitempty"`
@@ -178,7 +178,7 @@ type Integration interface {
 	Tools() []ToolDefinition
 
 	// Execute runs a named tool with the given arguments and returns the result.
-	Execute(ctx context.Context, toolName string, args map[string]any) (*ToolResult, error)
+	Execute(ctx context.Context, toolName ToolName, args map[string]any) (*ToolResult, error)
 
 	// Healthy returns true if the integration can reach its upstream API.
 	Healthy(ctx context.Context) bool
@@ -191,7 +191,26 @@ type FieldCompactionIntegration interface {
 	// CompactSpec returns pre-parsed field compaction specs for a tool.
 	// Returns false if the tool has no specs (skip compaction).
 	// Adapters should parse specs once at init time via ParseCompactSpecs.
-	CompactSpec(toolName string) ([]CompactField, bool)
+	CompactSpec(toolName ToolName) ([]CompactField, bool)
+}
+
+// ToolName identifies a tool by its integration-prefixed name (e.g. "notion_get_page_content").
+// Semantic type prevents mixing with arbitrary strings at interface boundaries.
+type ToolName string
+
+// Markdown is rendered Markdown content returned by MarkdownIntegration.
+// Semantic type prevents mixing with JSON strings or raw HTML in the response pipeline.
+type Markdown string
+
+// MarkdownIntegration is an optional interface that integrations can implement
+// to render tool responses as Markdown instead of JSON. The server calls
+// RenderMarkdown in processResult before compaction — if it returns rendered
+// content, compaction and columnarization are skipped entirely.
+type MarkdownIntegration interface {
+	// RenderMarkdown converts a tool's JSON response to Markdown.
+	// Returns (markdown, true) if the tool supports rendering.
+	// Returns ("", false) for tools that return JSON normally.
+	RenderMarkdown(toolName ToolName, data []byte) (Markdown, bool)
 }
 
 // MaxResponseBytesIntegration is an optional interface that integrations can implement
