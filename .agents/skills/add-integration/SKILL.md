@@ -85,10 +85,21 @@ for discoverability, not just accuracy.
 - **Don't pad with stop words.** Words like "a", "the", "to", "for" are filtered by the search engine. Every word in the description should carry meaning.
 - **Include both singular and plural forms.** The search engine does exact token matching with NO stemming. "errors" ≠ "error". If users might search for either form, include both: "List errors and exceptions" covers both "sentry errors" and "sentry error". Check the synonym groups in `server/search.go` — common plurals are covered there, but new domain words need explicit plural coverage either in the description or as a synonym group.
 
+**Entry-point guidance (MUST):** Every integration's first/primary tool MUST include "Start here" in its description. This is wayfinding — models use it to orient when browsing an unfamiliar integration. Examples:
+- `"List all schemas in the database. Start here for schema discovery."`
+- `"List all projects in the PostHog organization. Start here to discover projects."`
+
+**Naming deviation callouts:** When the integration uses non-standard verb prefixes (e.g., Notion uses `retrieve_*` where others use `get_*`), add the standard verb in parentheses: `"Retrieve (get) a page's metadata"`. This helps both search scoring and models that skip search.
+
+**Noun synonym awareness:** The search engine has noun synonym groups (table/tables, label/labels/tag/tags, diff/patch/changes, database/databases/db, etc.) in `server/search.go`. When adding tools with domain-specific nouns, check if your nouns are covered. If not, either add a synonym group or include both forms in the description.
+
+**IDF dilution warning:** Avoid creating synonym groups where the union covers too many tools (>60). High-union groups dilute IDF scores and can cause regressions. Verb groups are safe because MAX-per-word scoring means rare synonyms carry the score. Noun groups need more care — test with `/search-benchmark` before and after.
+
 **Anti-patterns:**
 - `"List issues for a project"` — too generic, no domain keywords
 - `"Get a specific message by ID"` — no "email", "mail", or "read"
 - `"List events with optional filters"` — what kind of events? For what purpose?
+- Missing "Start here" on entry-point tool — model has no wayfinding signal
 
 **Verify with benchmark:** After adding tools, run `/search-benchmark` to check
 that your tools surface for natural-language queries users would actually type.

@@ -57,6 +57,8 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 - **Shared arg helpers** (MUST): use `mcp.NewArgs(args)` reader or standalone `mcp.ArgStr`/`mcp.ArgInt`/etc. from `args.go` — never define local `argStr`/`argInt` in adapters. All return `(value, error)`. Use `r.OptInt("page", 1)` for pagination defaults. See `args.go` for the full API and [docs/go-anti-patterns.md](docs/go-anti-patterns.md) for extraction pitfalls that cause silent errors.
 - **Args parity test** (MUST): `TestNewArgs_ErrCheckParity` in `args_test.go` walks all adapters verifying every `NewArgs` call has a matching `.Err()` check — new adapters are covered automatically
 - **Parse at boundary, not throughout** (MUST): JSON is unmarshalled once at ingress and marshalled once at egress. Use `CompactAny`/`ColumnarizeAny` for already-parsed data — never re-serialize to `[]byte` just to call `CompactJSON`/`ColumnarizeJSON`. Redundant marshal/unmarshal cycles are the #1 performance regression to guard against in the response pipeline.
+- **Entry-point guidance** (MUST): Every integration's primary tool description must include "Start here" text for wayfinding. See `add-integration` skill for pattern.
+- **Script scope**: `api.call()` in scripts can only call integration tools — the `search` and `execute` meta-tools are not callable from scripts. The `toolExecutor` returns a specific error for this.
 
 ## Reference Docs
 
