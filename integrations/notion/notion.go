@@ -19,6 +19,7 @@ const maxResponseSize = 512 << 10 // 512 KB — largest real response ~230KB, ca
 var (
 	_ mcp.Integration                = (*notion)(nil)
 	_ mcp.FieldCompactionIntegration = (*notion)(nil)
+	_ mcp.MarkdownIntegration        = (*notion)(nil)
 )
 
 type notion struct {
@@ -115,12 +116,12 @@ func (n *notion) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (n *notion) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (n *notion) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (n *notion) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (n *notion) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil

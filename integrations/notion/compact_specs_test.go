@@ -63,7 +63,7 @@ func TestFieldCompactionSpec_ReturnsFieldsForGetTool(t *testing.T) {
 		"notion_retrieve_user",
 		"notion_get_self",
 	} {
-		fields, ok := n.CompactSpec(tool)
+		fields, ok := n.CompactSpec(mcp.ToolName(tool))
 		assert.True(t, ok, "%s should have field compaction spec", tool)
 		assert.NotEmpty(t, fields, "%s spec should not be empty", tool)
 	}
@@ -77,7 +77,7 @@ func TestFieldCompactionSpec_ReturnsFalseForUnknownTool(t *testing.T) {
 
 // ── Reduction tests (moved from notion_test.go) ─────────────────────
 
-func TestGetPageContent_CompactionStripsBlockNoise(t *testing.T) {
+func TestGetPageContent_ReturnsMarkdown(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, _ *http.Request) {
 		okJSON(w, `{
 			"recordMap": {
@@ -86,23 +86,16 @@ func TestGetPageContent_CompactionStripsBlockNoise(t *testing.T) {
 						"id": "page-1", "type": "page",
 						"properties": {"title": [["My Page"]]},
 						"content": ["child-1"],
-						"format": {"page_icon": "📄", "copied_from_pointer": {"id": "tmpl-1"}},
+						"format": {"page_icon": "📄"},
 						"space_id": "noise", "crdt_data": "noise",
-						"permissions": [{"role": "editor"}],
-						"created_by_id": "u1", "created_by_table": "notion_user",
-						"last_edited_by_id": "u1", "last_edited_by_table": "notion_user",
-						"version": 42, "alive": true,
-						"created_time": 1000, "last_edited_time": 2000
+						"alive": true,
+						"created_time": 1000, "last_edited_time": 1700000000000
 					}},
 					"child-1": {"value": {
 						"id": "child-1", "type": "text",
 						"properties": {"title": [["Hello"]]},
 						"parent_id": "page-1", "parent_table": "block",
-						"space_id": "noise", "crdt_data": "noise",
-						"copied_from": "some-block",
-						"permissions": [{"role": "reader"}],
-						"created_by_id": "u1", "created_by_table": "notion_user",
-						"version": 7, "ignore_block_count": true,
+						"space_id": "noise",
 						"alive": true, "created_time": 1000, "last_edited_time": 2000
 					}}
 				}
@@ -114,44 +107,17 @@ func TestGetPageContent_CompactionStripsBlockNoise(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 
-	// Apply compaction as the server would
-	adapter := New().(*notion)
-	fields, ok := adapter.CompactSpec("notion_get_page_content")
-	require.True(t, ok, "get_page_content must have a compaction spec")
+	// Handler returns JSON; RenderMarkdown converts to Markdown.
+	md, ok := n.RenderMarkdown("notion_get_page_content", []byte(result.Data))
+	require.True(t, ok, "RenderMarkdown should handle get_page_content")
 
-	compacted, err := mcp.CompactJSON([]byte(result.Data), fields)
-	require.NoError(t, err)
+	assert.Contains(t, md, "<!-- notion:page_id=page-1 -->")
+	assert.Contains(t, md, "# My Page")
+	assert.Contains(t, md, "Hello")
 
-	var resp map[string]any
-	require.NoError(t, json.Unmarshal(compacted, &resp))
-
-	// Page compacted — essential fields preserved, noise stripped
-	page := resp["page"].(map[string]any)
-	assert.Equal(t, "page-1", page["id"])
-	assert.Equal(t, "page", page["type"])
-	assert.NotNil(t, page["properties"])
-	assert.NotNil(t, page["content"])
-	assert.NotNil(t, page["format"])
-
-	// Page noise fields stripped by compaction
-	for _, key := range []string{"space_id", "crdt_data", "permissions", "created_by_id", "created_by_table", "last_edited_by_id", "last_edited_by_table", "version"} {
-		_, present := page[key]
-		assert.False(t, present, "compaction should strip %q from page", key)
-	}
-
-	// Blocks compacted — only listed fields survive
-	blocks := resp["blocks"].([]any)
-	require.Len(t, blocks, 1)
-	child := blocks[0].(map[string]any)
-	assert.Equal(t, "child-1", child["id"])
-	assert.Equal(t, "text", child["type"])
-	assert.Equal(t, "page-1", child["parent_id"])
-
-	// Noise fields stripped by compaction
-	for _, key := range []string{"space_id", "crdt_data", "copied_from", "permissions", "created_by_id", "version", "ignore_block_count"} {
-		_, present := child[key]
-		assert.False(t, present, "compaction should strip %q from blocks", key)
-	}
+	// Noise fields stripped by markdown rendering.
+	assert.NotContains(t, md, "crdt_data")
+	assert.NotContains(t, md, "space_id")
 }
 
 func TestFieldCompactionSpecs_SearchReducesResponseSize(t *testing.T) {
@@ -224,11 +190,12 @@ func TestFieldCompactionSpecs_ListUsersReducesResponseSize(t *testing.T) {
 	assert.NotContains(t, string(compacted), "profile_photo")
 }
 
-func TestFieldCompactionSpecs_RetrieveCommentsReducesResponseSize(t *testing.T) {
+func TestFieldCompactionSpecs_RetrieveCommentsHasSpec(t *testing.T) {
 	n := New().(*notion)
+	// Spec exists as fallback; MarkdownIntegration.RenderMarkdown takes priority at runtime.
 	fields, ok := n.CompactSpec("notion_retrieve_comments")
-	require.True(t, ok, "notion_retrieve_comments should have compaction spec")
-	require.NotEmpty(t, fields)
+	assert.True(t, ok, "notion_retrieve_comments should have compaction spec as fallback")
+	assert.NotEmpty(t, fields)
 }
 
 func TestFieldCompactionSpecs_ListDataSourceTemplatesReducesResponseSize(t *testing.T) {

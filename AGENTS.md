@@ -43,7 +43,8 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 ## Architecture
 
 - Root package: `package mcp` — import as `mcp "github.com/daltoniam/switchboard"`
-- Core: `mcp.go` (types + port interfaces), `compact.go` (field compaction engine), `args.go` (shared arg extraction), `mdbuilder.go` (markdown builder), `htmltomd.go` (HTML→Markdown converter)
+- Core: `mcp.go` (types + port interfaces), `compact.go` (field compaction engine), `args.go` (shared arg extraction)
+- Markdown: `markdown/` package — `Builder`, `FromHTML`, `ApplyMarks`, `WriteTable` (see [docs/markdown-rendering.md](docs/markdown-rendering.md))
 - Server: `server/server.go`, composition root: `cmd/server/main.go`
 - Every integration implements the `Integration` interface (see [docs/architecture.md](docs/architecture.md))
 
@@ -58,10 +59,9 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 - **Args parity test** (MUST): `TestNewArgs_ErrCheckParity` in `args_test.go` walks all adapters verifying every `NewArgs` call has a matching `.Err()` check — new adapters are covered automatically
 - **Parse at boundary, not throughout** (MUST): JSON is unmarshalled once at ingress and marshalled once at egress. Use `CompactAny`/`ColumnarizeAny` for already-parsed data — never re-serialize to `[]byte` just to call `CompactJSON`/`ColumnarizeJSON`. Redundant marshal/unmarshal cycles are the #1 performance regression to guard against in the response pipeline.
 - **Entry-point guidance** (MUST): Every integration's primary tool description must include "Start here" text for wayfinding. See `add-integration` skill for pattern.
-- **Semantic types** (MUST): Use `mcp.ToolName` for all tool name parameters across interfaces, dispatch maps, compact spec maps, and metrics. Use `mcp.Markdown` for all markdown return values. Never cast these back to `string` in the dispatch chain — `string()` is only permitted at I/O boundaries (stdlib calls, JSON serialization, string parsing).
-- **Markdown rendering** (optional interface): Integrations with document content can implement `mcp.MarkdownIntegration` to render tool responses as Markdown instead of JSON. The server calls `RenderMarkdown` in `processResult` before compaction — if it returns content, compaction and columnarization are skipped. Scripts (`api.call()`) always get raw JSON regardless. Use `mcp.MarkdownBuilder` for document assembly, `mcp.ApplyMarks` for inline formatting, `mcp.HTMLToMarkdown` for HTML conversion, `mcp.WriteMarkdownTable` for tables.
-- **Markdown parity test** (MUST when implementing `MarkdownIntegration`): `TestRenderMarkdown_ToolsCovered` verifies tool names in `RenderMarkdown` match actual tools — mirrors dispatch map parity test.
-- **Script scope**: `api.call()` in scripts can only call integration tools — the `search` and `execute` meta-tools are not callable from scripts. The `toolExecutor` returns a specific error for this. Scripts skip `processResult` entirely (no compaction, no markdown rendering) so tools always return raw JSON for programmatic access.
+- **Semantic types** (MUST): `mcp.ToolName` for all tool name parameters, `mcp.Markdown` for markdown return values — never cast back to `string` in the dispatch chain. `string()` only at I/O boundaries.
+- **Markdown rendering**: When a tool returns document content (pages, emails, comments), implement `mcp.MarkdownIntegration` with types from the `markdown` package — see [docs/markdown-rendering.md](docs/markdown-rendering.md) for decision framework and implementation checklist. Parity test `TestRenderMarkdown_ToolsCovered` is MUST.
+- **Script scope**: `api.call()` in scripts can only call integration tools — the `search` and `execute` meta-tools are not callable from scripts. Scripts skip `processResult` entirely (no compaction, no markdown rendering) so tools always return raw JSON for programmatic access.
 
 ## Reference Docs
 
@@ -74,6 +74,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | [docs/go-anti-patterns.md](docs/go-anti-patterns.md) | Writing/reviewing handler arg extraction (prevents silent error swallowing) |
 | [docs/tool-search.md](docs/tool-search.md) | Search scoring engine, synonym groups, tool description guidelines, benchmarking |
 | [docs/notion-v3-transactions.md](docs/notion-v3-transactions.md) | Debugging Notion v3 400 errors, transaction patterns, ID disambiguation |
+| [docs/markdown-rendering.md](docs/markdown-rendering.md) | Adding markdown rendering to an integration (decision framework, shared utilities, implementation checklist) |
 | [docs/web-ui.md](docs/web-ui.md) | Modifying the web config UI |
 
 ## Skills

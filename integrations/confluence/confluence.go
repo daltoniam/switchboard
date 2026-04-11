@@ -18,6 +18,7 @@ import (
 var (
 	_ mcp.Integration                 = (*confluence)(nil)
 	_ mcp.FieldCompactionIntegration  = (*confluence)(nil)
+	_ mcp.MarkdownIntegration         = (*confluence)(nil)
 	_ mcp.PlainTextCredentials        = (*confluence)(nil)
 	_ mcp.MaxResponseBytesIntegration = (*confluence)(nil)
 )
@@ -75,14 +76,14 @@ func (c *confluence) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (c *confluence) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (c *confluence) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
 func (c *confluence) MaxResponseBytes() int { return confluenceMaxResponseBytes }
 
-func (c *confluence) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (c *confluence) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return mcp.ErrResult(fmt.Errorf("unknown tool: %s", toolName))
@@ -181,29 +182,29 @@ func queryEncode(params map[string]string) string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Spaces
-	"confluence_list_spaces": listSpaces,
-	"confluence_get_space":   getSpace,
-	"confluence_search":      search,
+	mcp.ToolName("confluence_list_spaces"): listSpaces,
+	mcp.ToolName("confluence_get_space"):   getSpace,
+	mcp.ToolName("confluence_search"):      search,
 
 	// Pages
-	"confluence_list_pages":        listPages,
-	"confluence_get_page":          getPage,
-	"confluence_create_page":       createPage,
-	"confluence_update_page":       updatePage,
-	"confluence_delete_page":       deletePage,
-	"confluence_get_page_children": getPageChildren,
+	mcp.ToolName("confluence_list_pages"):        listPages,
+	mcp.ToolName("confluence_get_page"):          getPage,
+	mcp.ToolName("confluence_create_page"):       createPage,
+	mcp.ToolName("confluence_update_page"):       updatePage,
+	mcp.ToolName("confluence_delete_page"):       deletePage,
+	mcp.ToolName("confluence_get_page_children"): getPageChildren,
 
 	// Blog Posts
-	"confluence_list_blog_posts":  listBlogPosts,
-	"confluence_get_blog_post":    getBlogPost,
-	"confluence_create_blog_post": createBlogPost,
-	"confluence_update_blog_post": updateBlogPost,
-	"confluence_delete_blog_post": deleteBlogPost,
+	mcp.ToolName("confluence_list_blog_posts"):  listBlogPosts,
+	mcp.ToolName("confluence_get_blog_post"):    getBlogPost,
+	mcp.ToolName("confluence_create_blog_post"): createBlogPost,
+	mcp.ToolName("confluence_update_blog_post"): updateBlogPost,
+	mcp.ToolName("confluence_delete_blog_post"): deleteBlogPost,
 
 	// Comments
-	"confluence_list_comments":  listComments,
-	"confluence_create_comment": createComment,
-	"confluence_delete_comment": deleteComment,
+	mcp.ToolName("confluence_list_comments"):  listComments,
+	mcp.ToolName("confluence_create_comment"): createComment,
+	mcp.ToolName("confluence_delete_comment"): deleteComment,
 }
