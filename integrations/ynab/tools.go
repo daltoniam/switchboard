@@ -5,35 +5,35 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── User ───────────────────────────────────────────────────────
 	{
-		Name: "ynab_get_user", Description: "Get the authenticated user's information",
+		Name: mcp.ToolName("ynab_get_user"), Description: "Get the authenticated user's information",
 	},
 
 	// ── Budgets ────────────────────────────────────────────────────
 	{
-		Name: "ynab_list_budgets", Description: "List all personal finance budgets the user has access to. Start here for budget, spending, and money management workflows.",
+		Name: mcp.ToolName("ynab_list_budgets"), Description: "List all personal finance budgets the user has access to. Start here for budget, spending, and money management workflows.",
 		Parameters: map[string]string{"include_accounts": "Include account data (true/false)"},
 	},
 	{
-		Name: "ynab_get_budget", Description: "Get a single budget with all related entities (accounts, categories, payees, transactions, etc.)",
+		Name: mcp.ToolName("ynab_get_budget"), Description: "Get a single budget with all related entities (accounts, categories, payees, transactions, etc.)",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)"},
 	},
 	{
-		Name: "ynab_get_budget_settings", Description: "Get budget settings including date and currency format",
+		Name: mcp.ToolName("ynab_get_budget_settings"), Description: "Get budget settings including date and currency format",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)"},
 	},
 
 	// ── Accounts ───────────────────────────────────────────────────
 	{
-		Name: "ynab_list_accounts", Description: "List all accounts in a budget",
+		Name: mcp.ToolName("ynab_list_accounts"), Description: "List all accounts in a budget",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)"},
 	},
 	{
-		Name: "ynab_get_account", Description: "Get a single account by ID",
+		Name: mcp.ToolName("ynab_get_account"), Description: "Get a single account by ID",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "account_id": "Account ID"},
 		Required:   []string{"account_id"},
 	},
 	{
-		Name: "ynab_create_account", Description: "Create a new account in a budget",
+		Name: mcp.ToolName("ynab_create_account"), Description: "Create a new account in a budget",
 		Parameters: map[string]string{
 			"budget_id": "Budget ID (defaults to last-used)",
 			"name":      "Account name",
@@ -45,16 +45,16 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Categories ─────────────────────────────────────────────────
 	{
-		Name: "ynab_list_categories", Description: "List all category groups and their categories for a budget",
+		Name: mcp.ToolName("ynab_list_categories"), Description: "List all category groups and their categories for a budget",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)"},
 	},
 	{
-		Name: "ynab_get_category", Description: "Get a single category by ID",
+		Name: mcp.ToolName("ynab_get_category"), Description: "Get a single category by ID",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "category_id": "Category ID"},
 		Required:   []string{"category_id"},
 	},
 	{
-		Name: "ynab_create_category", Description: "Create a new category in a category group",
+		Name: mcp.ToolName("ynab_create_category"), Description: "Create a new category in a category group",
 		Parameters: map[string]string{
 			"budget_id":         "Budget ID (defaults to last-used)",
 			"name":              "Category name",
@@ -63,7 +63,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"name", "category_group_id"},
 	},
 	{
-		Name: "ynab_update_category", Description: "Update a category's name or note",
+		Name: mcp.ToolName("ynab_update_category"), Description: "Update a category's name or note",
 		Parameters: map[string]string{
 			"budget_id":   "Budget ID (defaults to last-used)",
 			"category_id": "Category ID",
@@ -73,74 +73,74 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"category_id"},
 	},
 	{
-		Name: "ynab_get_month_category", Description: "Get a category's budget amounts for a specific month",
+		Name: mcp.ToolName("ynab_get_month_category"), Description: "Get a category's budget amounts for a specific month",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "month": "Month in ISO date format (e.g. 2024-01-01) or 'current'", "category_id": "Category ID"},
 		Required:   []string{"month", "category_id"},
 	},
 	{
-		Name: "ynab_update_month_category", Description: "Update the budgeted/assigned amount for a category in a specific month",
+		Name: mcp.ToolName("ynab_update_month_category"), Description: "Update the budgeted/assigned amount for a category in a specific month",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "month": "Month in ISO date format or 'current'", "category_id": "Category ID", "budgeted": "Assigned amount in milliunits (1000 = $1.00)"},
 		Required:   []string{"month", "category_id", "budgeted"},
 	},
 
 	// ── Category Groups ────────────────────────────────────────────
 	{
-		Name: "ynab_create_category_group", Description: "Create a new category group",
+		Name: mcp.ToolName("ynab_create_category_group"), Description: "Create a new category group",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "name": "Category group name (max 50 chars)"},
 		Required:   []string{"name"},
 	},
 	{
-		Name: "ynab_update_category_group", Description: "Update a category group's name",
+		Name: mcp.ToolName("ynab_update_category_group"), Description: "Update a category group's name",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "category_group_id": "Category group ID", "name": "New category group name (max 50 chars)"},
 		Required:   []string{"category_group_id", "name"},
 	},
 
 	// ── Payees ─────────────────────────────────────────────────────
 	{
-		Name: "ynab_list_payees", Description: "List all payees in a budget",
+		Name: mcp.ToolName("ynab_list_payees"), Description: "List all payees in a budget",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)"},
 	},
 	{
-		Name: "ynab_get_payee", Description: "Get a single payee by ID",
+		Name: mcp.ToolName("ynab_get_payee"), Description: "Get a single payee by ID",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "payee_id": "Payee ID"},
 		Required:   []string{"payee_id"},
 	},
 	{
-		Name: "ynab_update_payee", Description: "Update a payee's name",
+		Name: mcp.ToolName("ynab_update_payee"), Description: "Update a payee's name",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "payee_id": "Payee ID", "name": "New payee name (max 500 chars)"},
 		Required:   []string{"payee_id", "name"},
 	},
 
 	// ── Payee Locations ────────────────────────────────────────────
 	{
-		Name: "ynab_list_payee_locations", Description: "List all payee locations (latitude/longitude) in a budget",
+		Name: mcp.ToolName("ynab_list_payee_locations"), Description: "List all payee locations (latitude/longitude) in a budget",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)"},
 	},
 	{
-		Name: "ynab_get_payee_location", Description: "Get a single payee location by ID",
+		Name: mcp.ToolName("ynab_get_payee_location"), Description: "Get a single payee location by ID",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "payee_location_id": "Payee location ID"},
 		Required:   []string{"payee_location_id"},
 	},
 	{
-		Name: "ynab_list_locations_for_payee", Description: "List all locations for a specific payee",
+		Name: mcp.ToolName("ynab_list_locations_for_payee"), Description: "List all locations for a specific payee",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "payee_id": "Payee ID"},
 		Required:   []string{"payee_id"},
 	},
 
 	// ── Months ─────────────────────────────────────────────────────
 	{
-		Name: "ynab_list_months", Description: "List all budget months (summary of each month's budget status)",
+		Name: mcp.ToolName("ynab_list_months"), Description: "List all budget months (summary of each month's budget status)",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)"},
 	},
 	{
-		Name: "ynab_get_month", Description: "Get a single budget month with category details",
+		Name: mcp.ToolName("ynab_get_month"), Description: "Get a single budget month with category details",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "month": "Month in ISO date format (e.g. 2024-01-01) or 'current'"},
 		Required:   []string{"month"},
 	},
 
 	// ── Transactions ───────────────────────────────────────────────
 	{
-		Name: "ynab_list_transactions", Description: "List financial transactions (spending, expenses, purchases) for a budget, optionally filtered by date or type",
+		Name: mcp.ToolName("ynab_list_transactions"), Description: "List financial transactions (spending, expenses, purchases) for a budget, optionally filtered by date or type",
 		Parameters: map[string]string{
 			"budget_id":  "Budget ID (defaults to last-used)",
 			"since_date": "Only return transactions on or after this date (ISO format, e.g. 2024-01-01)",
@@ -148,12 +148,12 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name: "ynab_get_transaction", Description: "Get a single transaction by ID",
+		Name: mcp.ToolName("ynab_get_transaction"), Description: "Get a single transaction by ID",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "transaction_id": "Transaction ID"},
 		Required:   []string{"transaction_id"},
 	},
 	{
-		Name: "ynab_list_account_transactions", Description: "List transactions for a specific account",
+		Name: mcp.ToolName("ynab_list_account_transactions"), Description: "List transactions for a specific account",
 		Parameters: map[string]string{
 			"budget_id":  "Budget ID (defaults to last-used)",
 			"account_id": "Account ID",
@@ -163,7 +163,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"account_id"},
 	},
 	{
-		Name: "ynab_list_category_transactions", Description: "List transactions for a specific category",
+		Name: mcp.ToolName("ynab_list_category_transactions"), Description: "List transactions for a specific category",
 		Parameters: map[string]string{
 			"budget_id":   "Budget ID (defaults to last-used)",
 			"category_id": "Category ID",
@@ -173,7 +173,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"category_id"},
 	},
 	{
-		Name: "ynab_list_payee_transactions", Description: "List transactions for a specific payee",
+		Name: mcp.ToolName("ynab_list_payee_transactions"), Description: "List transactions for a specific payee",
 		Parameters: map[string]string{
 			"budget_id":  "Budget ID (defaults to last-used)",
 			"payee_id":   "Payee ID",
@@ -183,7 +183,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"payee_id"},
 	},
 	{
-		Name: "ynab_list_month_transactions", Description: "List transactions for a specific month",
+		Name: mcp.ToolName("ynab_list_month_transactions"), Description: "List transactions for a specific month",
 		Parameters: map[string]string{
 			"budget_id":  "Budget ID (defaults to last-used)",
 			"month":      "Month in ISO date format (e.g. 2024-01-01) or 'current'",
@@ -193,7 +193,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"month"},
 	},
 	{
-		Name: "ynab_create_transaction", Description: "Create a new transaction. Amounts are in milliunits (1000 = $1.00). Outflows are negative.",
+		Name: mcp.ToolName("ynab_create_transaction"), Description: "Create a new transaction. Amounts are in milliunits (1000 = $1.00). Outflows are negative.",
 		Parameters: map[string]string{
 			"budget_id":   "Budget ID (defaults to last-used)",
 			"account_id":  "Account ID (required)",
@@ -210,7 +210,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"account_id", "date", "amount"},
 	},
 	{
-		Name: "ynab_update_transaction", Description: "Update an existing transaction",
+		Name: mcp.ToolName("ynab_update_transaction"), Description: "Update an existing transaction",
 		Parameters: map[string]string{
 			"budget_id":      "Budget ID (defaults to last-used)",
 			"transaction_id": "Transaction ID",
@@ -228,23 +228,23 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"transaction_id"},
 	},
 	{
-		Name: "ynab_delete_transaction", Description: "Delete a transaction",
+		Name: mcp.ToolName("ynab_delete_transaction"), Description: "Delete a transaction",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "transaction_id": "Transaction ID"},
 		Required:   []string{"transaction_id"},
 	},
 
 	// ── Scheduled Transactions ─────────────────────────────────────
 	{
-		Name: "ynab_list_scheduled_transactions", Description: "List all scheduled (recurring) transactions for a budget",
+		Name: mcp.ToolName("ynab_list_scheduled_transactions"), Description: "List all scheduled (recurring) transactions for a budget",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)"},
 	},
 	{
-		Name: "ynab_get_scheduled_transaction", Description: "Get a single scheduled transaction by ID",
+		Name: mcp.ToolName("ynab_get_scheduled_transaction"), Description: "Get a single scheduled transaction by ID",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "scheduled_transaction_id": "Scheduled transaction ID"},
 		Required:   []string{"scheduled_transaction_id"},
 	},
 	{
-		Name: "ynab_create_scheduled_transaction", Description: "Create a new scheduled (recurring) transaction",
+		Name: mcp.ToolName("ynab_create_scheduled_transaction"), Description: "Create a new scheduled (recurring) transaction",
 		Parameters: map[string]string{
 			"budget_id":   "Budget ID (defaults to last-used)",
 			"account_id":  "Account ID (required)",
@@ -260,7 +260,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"account_id", "date", "amount", "frequency"},
 	},
 	{
-		Name: "ynab_update_scheduled_transaction", Description: "Update an existing scheduled transaction",
+		Name: mcp.ToolName("ynab_update_scheduled_transaction"), Description: "Update an existing scheduled transaction",
 		Parameters: map[string]string{
 			"budget_id":                "Budget ID (defaults to last-used)",
 			"scheduled_transaction_id": "Scheduled transaction ID",
@@ -277,7 +277,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"scheduled_transaction_id"},
 	},
 	{
-		Name: "ynab_delete_scheduled_transaction", Description: "Delete a scheduled transaction",
+		Name: mcp.ToolName("ynab_delete_scheduled_transaction"), Description: "Delete a scheduled transaction",
 		Parameters: map[string]string{"budget_id": "Budget ID (defaults to last-used)", "scheduled_transaction_id": "Scheduled transaction ID"},
 		Required:   []string{"scheduled_transaction_id"},
 	},

@@ -92,7 +92,7 @@ func TestTools_AllHaveACPPrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -117,7 +117,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}

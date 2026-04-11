@@ -65,7 +65,7 @@ func (r *readarr) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (r *readarr) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (r *readarr) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -73,7 +73,7 @@ func (r *readarr) Execute(ctx context.Context, toolName string, args map[string]
 	return fn(ctx, r, args)
 }
 
-func (r *readarr) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (r *readarr) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
@@ -158,52 +158,52 @@ func queryEncode(params map[string]string) string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Books
-	"readarr_list_books":    listBooks,
-	"readarr_get_book":      getBook,
-	"readarr_search_books":  searchBooks,
-	"readarr_monitor_books": monitorBooks,
+	mcp.ToolName("readarr_list_books"):    listBooks,
+	mcp.ToolName("readarr_get_book"):      getBook,
+	mcp.ToolName("readarr_search_books"):  searchBooks,
+	mcp.ToolName("readarr_monitor_books"): monitorBooks,
 
 	// Authors
-	"readarr_list_authors": listAuthors,
-	"readarr_get_author":   getAuthor,
+	mcp.ToolName("readarr_list_authors"): listAuthors,
+	mcp.ToolName("readarr_get_author"):   getAuthor,
 
 	// Calendar
-	"readarr_get_calendar": getCalendar,
+	mcp.ToolName("readarr_get_calendar"): getCalendar,
 
 	// Wanted / Missing
-	"readarr_get_missing": getMissing,
-	"readarr_get_cutoff":  getCutoff,
+	mcp.ToolName("readarr_get_missing"): getMissing,
+	mcp.ToolName("readarr_get_cutoff"):  getCutoff,
 
 	// Queue
-	"readarr_get_queue":         getQueue,
-	"readarr_delete_queue_item": deleteQueueItem,
-	"readarr_delete_queue_bulk": deleteQueueBulk,
-	"readarr_grab_queue_item":   grabQueueItem,
+	mcp.ToolName("readarr_get_queue"):         getQueue,
+	mcp.ToolName("readarr_delete_queue_item"): deleteQueueItem,
+	mcp.ToolName("readarr_delete_queue_bulk"): deleteQueueBulk,
+	mcp.ToolName("readarr_grab_queue_item"):   grabQueueItem,
 
 	// History
-	"readarr_get_history":        getHistory,
-	"readarr_get_history_author": getHistoryAuthor,
-	"readarr_get_history_since":  getHistorySince,
+	mcp.ToolName("readarr_get_history"):        getHistory,
+	mcp.ToolName("readarr_get_history_author"): getHistoryAuthor,
+	mcp.ToolName("readarr_get_history_since"):  getHistorySince,
 
 	// Commands
-	"readarr_list_commands": listCommands,
-	"readarr_run_command":   runCommand,
-	"readarr_get_command":   getCommand,
+	mcp.ToolName("readarr_list_commands"): listCommands,
+	mcp.ToolName("readarr_run_command"):   runCommand,
+	mcp.ToolName("readarr_get_command"):   getCommand,
 
 	// System
-	"readarr_get_system_status": getSystemStatus,
+	mcp.ToolName("readarr_get_system_status"): getSystemStatus,
 
 	// Root Folders
-	"readarr_list_root_folders": listRootFolders,
+	mcp.ToolName("readarr_list_root_folders"): listRootFolders,
 
 	// Quality Profiles
-	"readarr_list_quality_profiles": listQualityProfiles,
+	mcp.ToolName("readarr_list_quality_profiles"): listQualityProfiles,
 
 	// Metadata Profiles
-	"readarr_list_metadata_profiles": listMetadataProfiles,
+	mcp.ToolName("readarr_list_metadata_profiles"): listMetadataProfiles,
 
 	// Tags
-	"readarr_list_tags": listTags,
+	mcp.ToolName("readarr_list_tags"): listTags,
 }

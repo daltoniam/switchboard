@@ -282,18 +282,33 @@ func getPageContent(ctx context.Context, n *notion, args map[string]any) (*mcp.T
 		return mcp.ErrResult(err)
 	}
 
+	// Index blocks by ID for ordered retrieval.
+	blockByID := make(map[string]map[string]any, len(blocks))
 	var page map[string]any
-	var children []map[string]any
 	for _, block := range blocks {
 		id, _ := block["id"].(string)
 		if id == pageID {
 			page = block
 			continue
 		}
-		children = append(children, block)
+		blockByID[id] = block
 	}
 	if page == nil {
 		return mcp.ErrResult(fmt.Errorf("page %q not found in response", pageID))
+	}
+
+	// Order children by the page's content array (defines display order).
+	contentIDs := toStringSlice(page["content"])
+	children := make([]map[string]any, 0, len(blockByID))
+	for _, id := range contentIDs {
+		if block, ok := blockByID[id]; ok {
+			children = append(children, block)
+			delete(blockByID, id)
+		}
+	}
+	// Append any remaining blocks not in content array (nested children).
+	for _, block := range blockByID {
+		children = append(children, block)
 	}
 
 	return mcp.JSONResult(map[string]any{

@@ -43,7 +43,23 @@ func extractRecord(data json.RawMessage, table, id string) (map[string]any, erro
 	if wrapper.Value == nil {
 		return nil, fmt.Errorf("record %q has nil value", id)
 	}
-	return wrapper.Value, nil
+	return unwrapRecordValue(wrapper.Value), nil
+}
+
+// unwrapRecordValue handles Notion's recordMap version 3 format change.
+// Old format: {value: {id, type, properties, ...}}
+// New format: {value: {value: {id, type, properties, ...}}}
+// Detects the double-nest by checking if the outer map has a single "value" key
+// whose value is a map containing an "id" field.
+func unwrapRecordValue(v map[string]any) map[string]any {
+	inner, ok := v["value"].(map[string]any)
+	if !ok {
+		return v
+	}
+	if _, hasID := inner["id"]; hasID {
+		return inner
+	}
+	return v
 }
 
 // extractAllRecords pulls all records from a table in a v3 recordMap response.
@@ -78,7 +94,7 @@ func extractAllRecords(data json.RawMessage, table string) ([]map[string]any, er
 		if wrapper.Value == nil {
 			continue
 		}
-		result = append(result, wrapper.Value)
+		result = append(result, unwrapRecordValue(wrapper.Value))
 	}
 	return result, nil
 }

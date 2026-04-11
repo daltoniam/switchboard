@@ -54,7 +54,7 @@ func (m *mockConfigService) DefaultCredentialKeys(_ string) []string { return ni
 type mockIntegration struct {
 	name      string
 	tools     []mcp.ToolDefinition
-	execFn    func(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error)
+	execFn    func(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error)
 	healthy   bool
 	configErr error
 }
@@ -64,7 +64,7 @@ func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error 
 	return m.configErr
 }
 func (m *mockIntegration) Tools() []mcp.ToolDefinition { return m.tools }
-func (m *mockIntegration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (m *mockIntegration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	if m.execFn != nil {
 		return m.execFn(ctx, toolName, args)
 	}
@@ -133,7 +133,7 @@ func TestNew(t *testing.T) {
 
 func TestMatches(t *testing.T) {
 	tool := mcp.ToolDefinition{
-		Name:        "github_list_issues",
+		Name:        mcp.ToolName("github_list_issues"),
 		Description: "List issues in a repository",
 	}
 
@@ -160,7 +160,7 @@ func TestMatches(t *testing.T) {
 
 func TestMatches_MultiWord(t *testing.T) {
 	tool := mcp.ToolDefinition{
-		Name:        "datadog_search_logs",
+		Name:        mcp.ToolName("datadog_search_logs"),
 		Description: "Search Datadog logs",
 	}
 
@@ -207,12 +207,12 @@ func TestServerWithIntegration(t *testing.T) {
 		healthy: true,
 		tools: []mcp.ToolDefinition{
 			{
-				Name:        "testint_list_items",
+				Name:        mcp.ToolName("testint_list_items"),
 				Description: "List test items",
 				Parameters:  map[string]string{"query": "Search query"},
 			},
 		},
-		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `{"items":["a","b"]}`}, nil
 		},
 	}
@@ -278,8 +278,8 @@ func TestHandleSearch_Integration(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_alpha", Description: "Alpha tool"},
-			{Name: "testint_beta", Description: "Beta tool for searching"},
+			{Name: mcp.ToolName("testint_alpha"), Description: "Alpha tool"},
+			{Name: mcp.ToolName("testint_beta"), Description: "Beta tool for searching"},
 		},
 	}
 
@@ -289,7 +289,7 @@ func TestHandleSearch_Integration(t *testing.T) {
 	var matchedTools []string
 	for _, tool := range mi.Tools() {
 		if matches(tool, "testint", "alpha") {
-			matchedTools = append(matchedTools, tool.Name)
+			matchedTools = append(matchedTools, string(tool.Name))
 		}
 	}
 	assert.Equal(t, []string{"testint_alpha"}, matchedTools)
@@ -298,7 +298,7 @@ func TestHandleSearch_Integration(t *testing.T) {
 	var allTools []string
 	for _, tool := range mi.Tools() {
 		if matches(tool, "testint", "") {
-			allTools = append(allTools, tool.Name)
+			allTools = append(allTools, string(tool.Name))
 		}
 	}
 	assert.Len(t, allTools, 2)
@@ -483,14 +483,14 @@ func searchToolIntegrations(t *testing.T, resp searchResponse) []string {
 // appears in 100% of the corpus).
 func diverseMockTools() []mcp.ToolDefinition {
 	return []mcp.ToolDefinition{
-		{Name: "bg_upload_photo", Description: "Upload a photo to storage"},
-		{Name: "bg_analyze_report", Description: "Analyze a quarterly report"},
-		{Name: "bg_schedule_meeting", Description: "Schedule a calendar meeting"},
-		{Name: "bg_export_csv", Description: "Export data as CSV format"},
-		{Name: "bg_validate_schema", Description: "Validate JSON schema definitions"},
-		{Name: "bg_rotate_credentials", Description: "Rotate API keys and secrets"},
-		{Name: "bg_generate_invoice", Description: "Generate a billing invoice"},
-		{Name: "bg_compress_archive", Description: "Compress files into an archive"},
+		{Name: mcp.ToolName("bg_upload_photo"), Description: "Upload a photo to storage"},
+		{Name: mcp.ToolName("bg_analyze_report"), Description: "Analyze a quarterly report"},
+		{Name: mcp.ToolName("bg_schedule_meeting"), Description: "Schedule a calendar meeting"},
+		{Name: mcp.ToolName("bg_export_csv"), Description: "Export data as CSV format"},
+		{Name: mcp.ToolName("bg_validate_schema"), Description: "Validate JSON schema definitions"},
+		{Name: mcp.ToolName("bg_rotate_credentials"), Description: "Rotate API keys and secrets"},
+		{Name: mcp.ToolName("bg_generate_invoice"), Description: "Generate a billing invoice"},
+		{Name: mcp.ToolName("bg_compress_archive"), Description: "Compress files into an archive"},
 	}
 }
 
@@ -498,7 +498,7 @@ func makeManyTools(prefix string, n int) []mcp.ToolDefinition {
 	tools := make([]mcp.ToolDefinition, n)
 	for i := range n {
 		tools[i] = mcp.ToolDefinition{
-			Name:        fmt.Sprintf("%s_tool_%d", prefix, i),
+			Name:        mcp.ToolName(fmt.Sprintf("%s_tool_%d", prefix, i)),
 			Description: fmt.Sprintf("Tool %d for %s", i, prefix),
 			Parameters:  map[string]string{"id": "the id"},
 		}
@@ -594,10 +594,10 @@ func TestHandleSearch_QueryFiltersCombinedWithPagination(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_list_a", Description: "List A items"},
-			{Name: "testint_list_b", Description: "List B items"},
-			{Name: "testint_list_c", Description: "List C items"},
-			{Name: "testint_get_x", Description: "Get X"},
+			{Name: mcp.ToolName("testint_list_a"), Description: "List A items"},
+			{Name: mcp.ToolName("testint_list_b"), Description: "List B items"},
+			{Name: mcp.ToolName("testint_list_c"), Description: "List C items"},
+			{Name: mcp.ToolName("testint_get_x"), Description: "Get X"},
 		},
 	}
 	s := setupTestServer(mi)
@@ -638,15 +638,15 @@ func TestHandleSearch_MultiIntegrationSortedDeterministically(t *testing.T) {
 		name:    "alpha",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "alpha_b", Description: "B"},
-			{Name: "alpha_a", Description: "A"},
+			{Name: mcp.ToolName("alpha_b"), Description: "B"},
+			{Name: mcp.ToolName("alpha_a"), Description: "A"},
 		},
 	}
 	beta := &mockIntegration{
 		name:    "beta",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "beta_a", Description: "A"},
+			{Name: mcp.ToolName("beta_a"), Description: "A"},
 		},
 	}
 	s := setupTestServer(alpha, beta)
@@ -774,10 +774,10 @@ func TestSmoke_SearchResponseShape(t *testing.T) {
 
 type mockFieldCompactionIntegration struct {
 	mockIntegration
-	specs map[string][]mcp.CompactField
+	specs map[mcp.ToolName][]mcp.CompactField
 }
 
-func (m *mockFieldCompactionIntegration) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (m *mockFieldCompactionIntegration) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := m.specs[toolName]
 	return fields, ok
 }
@@ -809,14 +809,14 @@ func TestHandleExecute_CompactionApplied(t *testing.T) {
 			name:    "testint",
 			healthy: true,
 			tools: []mcp.ToolDefinition{
-				{Name: "testint_list_items", Description: "List items"},
+				{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
 			},
-			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 				return &mcp.ToolResult{Data: `[{"id":1,"name":"a","secret":"s"},{"id":2,"name":"b","secret":"s"},{"id":3,"name":"c","secret":"s"},{"id":4,"name":"d","secret":"s"},{"id":5,"name":"e","secret":"s"},{"id":6,"name":"f","secret":"s"},{"id":7,"name":"g","secret":"s"},{"id":8,"name":"h","secret":"s"}]`}, nil
 			},
 		},
-		specs: map[string][]mcp.CompactField{
-			"testint_list_items": mustParseCompactSpecs(t, []string{"id", "name"}),
+		specs: map[mcp.ToolName][]mcp.CompactField{
+			mcp.ToolName("testint_list_items"): mustParseCompactSpecs(t, []string{"id", "name"}),
 		},
 	}
 
@@ -853,14 +853,14 @@ func TestHandleExecute_CompactionSingleObjectStaysPerRecord(t *testing.T) {
 			name:    "testint",
 			healthy: true,
 			tools: []mcp.ToolDefinition{
-				{Name: "testint_get_item", Description: "Get item"},
+				{Name: mcp.ToolName("testint_get_item"), Description: "Get item"},
 			},
-			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 				return &mcp.ToolResult{Data: `{"id":1,"name":"foo","secret":"hidden"}`}, nil
 			},
 		},
-		specs: map[string][]mcp.CompactField{
-			"testint_get_item": mustParseCompactSpecs(t, []string{"id", "name"}),
+		specs: map[mcp.ToolName][]mcp.CompactField{
+			mcp.ToolName("testint_get_item"): mustParseCompactSpecs(t, []string{"id", "name"}),
 		},
 	}
 
@@ -888,14 +888,14 @@ func TestScriptExecution_CompactedToolReturnsPerRecord(t *testing.T) {
 			name:    "testint",
 			healthy: true,
 			tools: []mcp.ToolDefinition{
-				{Name: "testint_list_items", Description: "List items"},
+				{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
 			},
-			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 				return &mcp.ToolResult{Data: `[{"id":1,"name":"foo","secret":"x"},{"id":2,"name":"bar","secret":"y"},{"id":3,"name":"baz","secret":"z"},{"id":4,"name":"qux","secret":"w"}]`}, nil
 			},
 		},
-		specs: map[string][]mcp.CompactField{
-			"testint_list_items": mustParseCompactSpecs(t, []string{"id", "name"}),
+		specs: map[mcp.ToolName][]mcp.CompactField{
+			mcp.ToolName("testint_list_items"): mustParseCompactSpecs(t, []string{"id", "name"}),
 		},
 	}
 
@@ -922,9 +922,9 @@ func TestHandleScriptExecute_OutputColumnarized(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_list_items", Description: "List items"},
+			{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `[{"id":1,"name":"a"},{"id":2,"name":"b"},{"id":3,"name":"c"},{"id":4,"name":"d"},{"id":5,"name":"e"},{"id":6,"name":"f"},{"id":7,"name":"g"},{"id":8,"name":"h"}]`}, nil
 		},
 	}
@@ -954,9 +954,9 @@ func TestHandleExecute_CompactionSkippedWhenNotImplemented(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_get_item", Description: "Get item"},
+			{Name: mcp.ToolName("testint_get_item"), Description: "Get item"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `{"id":1,"secret":"visible"}`}, nil
 		},
 	}
@@ -976,13 +976,13 @@ func TestHandleExecute_CompactionSkippedOnNilSpec(t *testing.T) {
 			name:    "testint",
 			healthy: true,
 			tools: []mcp.ToolDefinition{
-				{Name: "testint_create_item", Description: "Create item"},
+				{Name: mcp.ToolName("testint_create_item"), Description: "Create item"},
 			},
-			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 				return &mcp.ToolResult{Data: `{"id":1,"all_fields":"present"}`}, nil
 			},
 		},
-		specs: map[string][]mcp.CompactField{}, // no spec for testint_create_item
+		specs: map[mcp.ToolName][]mcp.CompactField{}, // no spec for testint_create_item
 	}
 
 	s := setupTestServer(&mi.mockIntegration)
@@ -1002,14 +1002,14 @@ func TestHandleExecute_CompactionSkippedOnErrorResult(t *testing.T) {
 			name:    "testint",
 			healthy: true,
 			tools: []mcp.ToolDefinition{
-				{Name: "testint_list_items", Description: "List items"},
+				{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
 			},
-			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 				return &mcp.ToolResult{Data: "API rate limit exceeded", IsError: true}, nil
 			},
 		},
-		specs: map[string][]mcp.CompactField{
-			"testint_list_items": mustParseCompactSpecs(t, []string{"id", "name"}),
+		specs: map[mcp.ToolName][]mcp.CompactField{
+			mcp.ToolName("testint_list_items"): mustParseCompactSpecs(t, []string{"id", "name"}),
 		},
 	}
 
@@ -1031,9 +1031,9 @@ func TestHandleExecute_ByteCapEnforced(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_big", Description: "Returns huge data"},
+			{Name: mcp.ToolName("testint_big"), Description: "Returns huge data"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: bigData}, nil
 		},
 	}
@@ -1054,9 +1054,9 @@ func TestHandleExecute_ByteCapSkippedOnError(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_big_err", Description: "Returns huge error"},
+			{Name: mcp.ToolName("testint_big_err"), Description: "Returns huge error"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: bigErr, IsError: true}, nil
 		},
 	}
@@ -1087,9 +1087,9 @@ func TestExecuteTool_SingleTool(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_get_item", Description: "Get an item"},
+			{Name: mcp.ToolName("testint_get_item"), Description: "Get an item"},
 		},
-		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `{"id":"123","name":"widget"}`}, nil
 		},
 	}
@@ -1117,9 +1117,9 @@ func TestScriptExecution_SingleCall(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_list_items", Description: "List items"},
+			{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
 		},
-		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `[{"id":1,"name":"alpha"},{"id":2,"name":"beta"}]`}, nil
 		},
 	}
@@ -1139,10 +1139,10 @@ func TestScriptExecution_ChainedCalls(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_list_items", Description: "List items"},
-			{Name: "testint_get_detail", Description: "Get item detail"},
+			{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
+			{Name: mcp.ToolName("testint_get_detail"), Description: "Get item detail"},
 		},
-		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			switch toolName {
 			case "testint_list_items":
 				return &mcp.ToolResult{Data: `[{"id":"abc"},{"id":"def"}]`}, nil
@@ -1177,9 +1177,9 @@ func TestScriptExecution_FilterResults(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_list_items", Description: "List items"},
+			{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
 		},
-		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `[{"name":"a","active":true},{"name":"b","active":false},{"name":"c","active":true}]`}, nil
 		},
 	}
@@ -1236,9 +1236,9 @@ func TestExecuteTool_RetriesOnRetryableError(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_flaky", Description: "flaky tool"},
+			{Name: mcp.ToolName("test_flaky"), Description: "flaky tool"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			calls++
 			if calls < 3 {
 				return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("service unavailable")}
@@ -1260,9 +1260,9 @@ func TestExecuteTool_ReturnsErrorAfterMaxRetries(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_down", Description: "always 503"},
+			{Name: mcp.ToolName("test_down"), Description: "always 503"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			calls++
 			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("service unavailable")}
 		},
@@ -1307,9 +1307,9 @@ func TestExecuteTool_DoesNotRetryNonRetryableErrors(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_bad", Description: "permanent error"},
+			{Name: mcp.ToolName("test_bad"), Description: "permanent error"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			calls++
 			return nil, fmt.Errorf("json marshal failed")
 		},
@@ -1326,9 +1326,9 @@ func TestExecuteTool_DoesNotRetryToolResultErrors(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_4xx", Description: "client error"},
+			{Name: mcp.ToolName("test_4xx"), Description: "client error"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			calls++
 			return &mcp.ToolResult{Data: "not found", IsError: true}, nil
 		},
@@ -1346,9 +1346,9 @@ func TestExecuteTool_RespectsContextCancellationDuringBackoff(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_slow", Description: "fails then cancelled"},
+			{Name: mcp.ToolName("test_slow"), Description: "fails then cancelled"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			calls++
 			if calls == 1 {
 				cancel() // cancel during first failure — should abort before retry
@@ -1369,9 +1369,9 @@ func TestExecuteTool_UsesRetryAfterWhenProvided(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_ratelimit", Description: "429 with retry-after"},
+			{Name: mcp.ToolName("test_ratelimit"), Description: "429 with retry-after"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			calls++
 			if calls == 1 {
 				return nil, &mcp.RetryableError{StatusCode: 429, Err: fmt.Errorf("rate limited"), RetryAfter: 15 * time.Millisecond}
@@ -1398,9 +1398,9 @@ func TestExecuteTool_CircuitBreakerTripsAfterRepeatedFailures(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_breaker", Description: "always 503"},
+			{Name: mcp.ToolName("test_breaker"), Description: "always 503"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			calls++
 			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
 		},
@@ -1430,9 +1430,9 @@ func TestExecuteTool_CircuitBreakerResetsOnSuccess(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_recover", Description: "fails then recovers"},
+			{Name: mcp.ToolName("test_recover"), Description: "fails then recovers"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			callCount++
 			if callCount <= 15 {
 				return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
@@ -1464,9 +1464,9 @@ func TestExecuteTool_BudgetExhaustionRecordsFailure(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_budget_breaker", Description: "always 503"},
+			{Name: mcp.ToolName("test_budget_breaker"), Description: "always 503"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
 		},
 		healthy: true,
@@ -1493,13 +1493,13 @@ func TestScriptExecution_RetriesShareBudget(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_flaky_a", Description: "flaky a"},
-			{Name: "test_flaky_b", Description: "flaky b"},
+			{Name: mcp.ToolName("test_flaky_a"), Description: "flaky a"},
+			{Name: mcp.ToolName("test_flaky_b"), Description: "flaky b"},
 		},
-		execFn: func(_ context.Context, toolName string, _ map[string]any) (*mcp.ToolResult, error) {
-			callCounts[toolName]++
+		execFn: func(_ context.Context, toolName mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			callCounts[string(toolName)]++
 			// Each tool fails twice then succeeds on 3rd attempt (needs 2 retries).
-			if callCounts[toolName] <= 2 {
+			if callCounts[string(toolName)] <= 2 {
 				return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("unavailable")}
 			}
 			return &mcp.ToolResult{Data: fmt.Sprintf(`{"tool":"%s"}`, toolName)}, nil
@@ -1540,10 +1540,10 @@ func TestScriptExecution_PRReviewScript(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_get_pull", Description: "Get a pull request"},
-			{Name: "github_get_pull_diff", Description: "Get the raw diff"},
+			{Name: mcp.ToolName("github_get_pull"), Description: "Get a pull request"},
+			{Name: mcp.ToolName("github_get_pull_diff"), Description: "Get the raw diff"},
 		},
-		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			switch toolName {
 			case "github_get_pull":
 				return &mcp.ToolResult{Data: `{"title":"Fix bug","state":"open","body":"Fixes issue #1","base":{"ref":"main"},"head":{"ref":"fix-branch"}}`}, nil
@@ -1577,9 +1577,9 @@ func TestScriptExecution_CrossIntegration(t *testing.T) {
 		name:    "linear",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "linear_create_issue", Description: "Create a Linear issue"},
+			{Name: mcp.ToolName("linear_create_issue"), Description: "Create a Linear issue"},
 		},
-		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			title, _ := args["title"].(string)
 			return &mcp.ToolResult{Data: fmt.Sprintf(`{"identifier":"ENG-42","title":"%s","url":"https://linear.app/team/issue/ENG-42"}`, title)}, nil
 		},
@@ -1589,9 +1589,9 @@ func TestScriptExecution_CrossIntegration(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_create_pull", Description: "Create a pull request"},
+			{Name: mcp.ToolName("github_create_pull"), Description: "Create a pull request"},
 		},
-		execFn: func(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			title, _ := args["title"].(string)
 			body, _ := args["body"].(string)
 			return &mcp.ToolResult{Data: fmt.Sprintf(`{"html_url":"https://github.com/o/r/pull/99","title":"%s","body":"%s"}`, title, body)}, nil
@@ -1625,9 +1625,9 @@ func TestScriptExecution_OutputByteCapEnforced(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_chunk", Description: "Returns a chunk of data"},
+			{Name: mcp.ToolName("testint_chunk"), Description: "Returns a chunk of data"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: chunkData}, nil
 		},
 	}
@@ -1675,9 +1675,9 @@ func TestScriptExecution_FieldProjection(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "testint_list_items", Description: "List items"},
+			{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `[{"id":1,"name":"alpha","secret":"hidden","meta":{"tag":"v1"}},{"id":2,"name":"beta","secret":"also hidden","meta":{"tag":"v2"}}]`}, nil
 		},
 	}
@@ -1703,12 +1703,12 @@ func TestSearch_ScriptHint_MultipleIntegrations(t *testing.T) {
 	alpha := &mockIntegration{
 		name:    "github",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "github_list_issues", Description: "List issues"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("github_list_issues"), Description: "List issues"}},
 	}
 	beta := &mockIntegration{
 		name:    "linear",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("linear_list_issues"), Description: "List issues"}},
 	}
 	// Background tools give IDF contrast so "list" and "issues" have nonzero weight.
 	bg := &mockIntegration{
@@ -1729,8 +1729,8 @@ func TestSearch_ScriptHint_SingleIntegrationMultipleTools(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_get_pull", Description: "Get a pull request"},
-			{Name: "github_get_pull_diff", Description: "Get diff"},
+			{Name: mcp.ToolName("github_get_pull"), Description: "Get a pull request"},
+			{Name: mcp.ToolName("github_get_pull_diff"), Description: "Get diff"},
 		},
 	}
 	bg := &mockIntegration{
@@ -1751,9 +1751,9 @@ func TestExecuteTool_BreakerCountsPerCallNotPerAttempt(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_counter", Description: "always 503"},
+			{Name: mcp.ToolName("test_counter"), Description: "always 503"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			calls++
 			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
 		},
@@ -1785,9 +1785,9 @@ func TestExecuteTool_BreakerErrorIncludesCooldownDuration(t *testing.T) {
 	s := setupTestServer(&mockIntegration{
 		name: "test",
 		tools: []mcp.ToolDefinition{
-			{Name: "test_cooldown", Description: "always 503"},
+			{Name: mcp.ToolName("test_cooldown"), Description: "always 503"},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return nil, &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("down")}
 		},
 		healthy: true,
@@ -1812,16 +1812,16 @@ func TestSearch_IntegrationFilter(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
-			{Name: "github_list_pulls", Description: "List pull requests"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_list_pulls"), Description: "List pull requests"},
 		},
 	}
 	slack := &mockIntegration{
 		name:    "slack",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "slack_send_message", Description: "Send a message"},
-			{Name: "slack_list_conversations", Description: "List conversations"},
+			{Name: mcp.ToolName("slack_send_message"), Description: "Send a message"},
+			{Name: mcp.ToolName("slack_list_conversations"), Description: "List conversations"},
 		},
 	}
 	s := setupTestServer(gh, slack)
@@ -1864,7 +1864,7 @@ func TestSearch_SynonymMatching(t *testing.T) {
 		name:    "slack",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "slack_send_message", Description: "Send (post) a message to a channel or DM"},
+			{Name: mcp.ToolName("slack_send_message"), Description: "Send (post) a message to a channel or DM"},
 		},
 	}
 	bg := &mockIntegration{
@@ -1892,13 +1892,13 @@ func TestFindTool_ReturnsToolDefinition(t *testing.T) {
 		healthy: true,
 		tools: []mcp.ToolDefinition{
 			{
-				Name:        "testint_get_item",
+				Name:        mcp.ToolName("testint_get_item"),
 				Description: "Get an item",
 				Parameters:  map[string]string{"id": "Item ID"},
 				Required:    []string{"id"},
 			},
 			{
-				Name:        "testint_list_items",
+				Name:        mcp.ToolName("testint_list_items"),
 				Description: "List items",
 				Parameters:  map[string]string{"query": "Search query"},
 			},
@@ -1910,7 +1910,7 @@ func TestFindTool_ReturnsToolDefinition(t *testing.T) {
 		integration, toolDef, err := s.findTool("testint_get_item")
 		require.NoError(t, err)
 		assert.Equal(t, "testint", integration.Name())
-		assert.Equal(t, "testint_get_item", toolDef.Name)
+		assert.Equal(t, mcp.ToolName("testint_get_item"), toolDef.Name)
 		assert.Equal(t, []string{"id"}, toolDef.Required)
 	})
 
@@ -1923,7 +1923,7 @@ func TestFindTool_ReturnsToolDefinition(t *testing.T) {
 
 func TestValidateArgs(t *testing.T) {
 	tool := mcp.ToolDefinition{
-		Name:       "github_get_issue",
+		Name:       mcp.ToolName("github_get_issue"),
 		Parameters: map[string]string{"owner": "Repo owner", "repo": "Repo name", "number": "Issue number"},
 		Required:   []string{"owner", "repo", "number"},
 	}
@@ -1966,7 +1966,7 @@ func TestValidateArgs(t *testing.T) {
 		{
 			name: "optional param present",
 			tool: mcp.ToolDefinition{
-				Name:       "testint_list",
+				Name:       mcp.ToolName("testint_list"),
 				Parameters: map[string]string{"query": "Search", "page": "Page number"},
 				Required:   []string{"query"},
 			},
@@ -1975,7 +1975,7 @@ func TestValidateArgs(t *testing.T) {
 		{
 			name: "empty args with no required",
 			tool: mcp.ToolDefinition{
-				Name:       "testint_list",
+				Name:       mcp.ToolName("testint_list"),
 				Parameters: map[string]string{"query": "Search"},
 			},
 			args: map[string]any{},
@@ -1983,7 +1983,7 @@ func TestValidateArgs(t *testing.T) {
 		{
 			name: "nil args with no required",
 			tool: mcp.ToolDefinition{
-				Name:       "testint_list",
+				Name:       mcp.ToolName("testint_list"),
 				Parameters: map[string]string{"query": "Search"},
 			},
 			args: nil,
@@ -2015,13 +2015,13 @@ func TestExecuteTool_ValidationRejectsMissingRequired(t *testing.T) {
 		healthy: true,
 		tools: []mcp.ToolDefinition{
 			{
-				Name:        "testint_get_item",
+				Name:        mcp.ToolName("testint_get_item"),
 				Description: "Get an item",
 				Parameters:  map[string]string{"id": "Item ID", "format": "Output format"},
 				Required:    []string{"id"},
 			},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			t.Fatal("handler should not be called when validation fails")
 			return nil, nil
 		},
@@ -2041,13 +2041,13 @@ func TestExecuteTool_ValidationRejectsUnknownParam(t *testing.T) {
 		healthy: true,
 		tools: []mcp.ToolDefinition{
 			{
-				Name:        "testint_get_item",
+				Name:        mcp.ToolName("testint_get_item"),
 				Description: "Get an item",
 				Parameters:  map[string]string{"id": "Item ID"},
 				Required:    []string{"id"},
 			},
 		},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			t.Fatal("handler should not be called when validation fails")
 			return nil, nil
 		},
@@ -2064,7 +2064,7 @@ func TestSearch_ScriptHint_SingleResult(t *testing.T) {
 	mi := &mockIntegration{
 		name:    "github",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "github_get_pull", Description: "Get a pull request"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("github_get_pull"), Description: "Get a pull request"}},
 	}
 	s := setupTestServer(mi)
 
@@ -2147,14 +2147,14 @@ func TestSearch_SharedParametersExtracted(t *testing.T) {
 		{
 			name: "extracts params with identical description across 3+ tools",
 			tools: []mcp.ToolDefinition{
-				{Name: "t_list_issues", Description: "List issues", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "open or closed"}},
-				{Name: "t_get_issue", Description: "Get issue", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "issue_number": "Issue number"}},
-				{Name: "t_list_pulls", Description: "List pulls", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base branch"}},
-				{Name: "t_get_pull", Description: "Get pull", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull number"}},
-				{Name: "t_list_commits", Description: "List commits", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Branch or SHA"}},
-				{Name: "t_list_branches", Description: "List branches", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
-				{Name: "t_list_releases", Description: "List releases", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
-				{Name: "t_list_tags", Description: "List tags", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+				{Name: mcp.ToolName("t_list_issues"), Description: "List issues", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "open or closed"}},
+				{Name: mcp.ToolName("t_get_issue"), Description: "Get issue", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "issue_number": "Issue number"}},
+				{Name: mcp.ToolName("t_list_pulls"), Description: "List pulls", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base branch"}},
+				{Name: mcp.ToolName("t_get_pull"), Description: "Get pull", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull number"}},
+				{Name: mcp.ToolName("t_list_commits"), Description: "List commits", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Branch or SHA"}},
+				{Name: mcp.ToolName("t_list_branches"), Description: "List branches", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+				{Name: mcp.ToolName("t_list_releases"), Description: "List releases", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+				{Name: mcp.ToolName("t_list_tags"), Description: "List tags", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
 			},
 			wantSharedParams: map[string]string{
 				"owner": "Repository owner",
@@ -2165,14 +2165,14 @@ func TestSearch_SharedParametersExtracted(t *testing.T) {
 		{
 			name: "keeps params with same name but different description per-tool",
 			tools: []mcp.ToolDefinition{
-				{Name: "t_one", Description: "One", Parameters: map[string]string{"id": "The issue ID"}},
-				{Name: "t_two", Description: "Two", Parameters: map[string]string{"id": "The pull request ID"}},
-				{Name: "t_three", Description: "Three", Parameters: map[string]string{"id": "The commit SHA"}},
-				{Name: "t_four", Description: "Four", Parameters: map[string]string{"id": "The release ID"}},
-				{Name: "t_five", Description: "Five", Parameters: map[string]string{"id": "The tag name"}},
-				{Name: "t_six", Description: "Six", Parameters: map[string]string{"id": "The branch name"}},
-				{Name: "t_seven", Description: "Seven", Parameters: map[string]string{"id": "The deploy ID"}},
-				{Name: "t_eight", Description: "Eight", Parameters: map[string]string{"id": "The run ID"}},
+				{Name: mcp.ToolName("t_one"), Description: "One", Parameters: map[string]string{"id": "The issue ID"}},
+				{Name: mcp.ToolName("t_two"), Description: "Two", Parameters: map[string]string{"id": "The pull request ID"}},
+				{Name: mcp.ToolName("t_three"), Description: "Three", Parameters: map[string]string{"id": "The commit SHA"}},
+				{Name: mcp.ToolName("t_four"), Description: "Four", Parameters: map[string]string{"id": "The release ID"}},
+				{Name: mcp.ToolName("t_five"), Description: "Five", Parameters: map[string]string{"id": "The tag name"}},
+				{Name: mcp.ToolName("t_six"), Description: "Six", Parameters: map[string]string{"id": "The branch name"}},
+				{Name: mcp.ToolName("t_seven"), Description: "Seven", Parameters: map[string]string{"id": "The deploy ID"}},
+				{Name: mcp.ToolName("t_eight"), Description: "Eight", Parameters: map[string]string{"id": "The run ID"}},
 			},
 			wantSharedParams: nil, // all different descriptions
 			wantKeptPerTool:  []string{"id"},
@@ -2180,14 +2180,14 @@ func TestSearch_SharedParametersExtracted(t *testing.T) {
 		{
 			name: "preserves tool-specific value hints even when name matches",
 			tools: []mcp.ToolDefinition{
-				{Name: "t_a", Description: "A", Parameters: map[string]string{"event": "APPROVE, REQUEST_CHANGES, COMMENT", "owner": "Repo owner"}},
-				{Name: "t_b", Description: "B", Parameters: map[string]string{"event": "push, pull_request", "owner": "Repo owner"}},
-				{Name: "t_c", Description: "C", Parameters: map[string]string{"event": "issues, created", "owner": "Repo owner"}},
-				{Name: "t_d", Description: "D", Parameters: map[string]string{"owner": "Repo owner"}},
-				{Name: "t_e", Description: "E", Parameters: map[string]string{"event": "deployment", "owner": "Repo owner"}},
-				{Name: "t_f", Description: "F", Parameters: map[string]string{"event": "release", "owner": "Repo owner"}},
-				{Name: "t_g", Description: "G", Parameters: map[string]string{"owner": "Repo owner"}},
-				{Name: "t_h", Description: "H", Parameters: map[string]string{"owner": "Repo owner"}},
+				{Name: mcp.ToolName("t_a"), Description: "A", Parameters: map[string]string{"event": "APPROVE, REQUEST_CHANGES, COMMENT", "owner": "Repo owner"}},
+				{Name: mcp.ToolName("t_b"), Description: "B", Parameters: map[string]string{"event": "push, pull_request", "owner": "Repo owner"}},
+				{Name: mcp.ToolName("t_c"), Description: "C", Parameters: map[string]string{"event": "issues, created", "owner": "Repo owner"}},
+				{Name: mcp.ToolName("t_d"), Description: "D", Parameters: map[string]string{"owner": "Repo owner"}},
+				{Name: mcp.ToolName("t_e"), Description: "E", Parameters: map[string]string{"event": "deployment", "owner": "Repo owner"}},
+				{Name: mcp.ToolName("t_f"), Description: "F", Parameters: map[string]string{"event": "release", "owner": "Repo owner"}},
+				{Name: mcp.ToolName("t_g"), Description: "G", Parameters: map[string]string{"owner": "Repo owner"}},
+				{Name: mcp.ToolName("t_h"), Description: "H", Parameters: map[string]string{"owner": "Repo owner"}},
 			},
 			wantSharedParams: map[string]string{"owner": "Repo owner"},
 			wantKeptPerTool:  []string{"event"}, // different descriptions → stays per-tool
@@ -2254,14 +2254,14 @@ func TestSearch_SharedParametersDoNotMutateOriginalTools(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "t_list_issues", Description: "List issues", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "open or closed"}},
-			{Name: "t_get_issue", Description: "Get issue", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "issue_number": "Issue number"}},
-			{Name: "t_list_pulls", Description: "List pulls", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base branch"}},
-			{Name: "t_get_pull", Description: "Get pull", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull number"}},
-			{Name: "t_list_commits", Description: "List commits", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Branch or SHA"}},
-			{Name: "t_list_branches", Description: "List branches", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
-			{Name: "t_list_releases", Description: "List releases", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
-			{Name: "t_list_tags", Description: "List tags", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+			{Name: mcp.ToolName("t_list_issues"), Description: "List issues", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "open or closed"}},
+			{Name: mcp.ToolName("t_get_issue"), Description: "Get issue", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "issue_number": "Issue number"}},
+			{Name: mcp.ToolName("t_list_pulls"), Description: "List pulls", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base branch"}},
+			{Name: mcp.ToolName("t_get_pull"), Description: "Get pull", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull number"}},
+			{Name: mcp.ToolName("t_list_commits"), Description: "List commits", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Branch or SHA"}},
+			{Name: mcp.ToolName("t_list_branches"), Description: "List branches", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+			{Name: mcp.ToolName("t_list_releases"), Description: "List releases", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+			{Name: mcp.ToolName("t_list_tags"), Description: "List tags", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
 		},
 	}
 	s := setupTestServer(mi)
@@ -2322,10 +2322,10 @@ func TestABAC_SearchFiltersToolsByGlob(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
-			{Name: "github_get_issue", Description: "Get an issue"},
-			{Name: "github_list_pulls", Description: "List pulls"},
-			{Name: "github_get_pull", Description: "Get a pull"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_get_issue"), Description: "Get an issue"},
+			{Name: mcp.ToolName("github_list_pulls"), Description: "List pulls"},
+			{Name: mcp.ToolName("github_get_pull"), Description: "Get a pull"},
 		},
 	}
 
@@ -2382,8 +2382,8 @@ func TestABAC_ScoredSearchFiltersToolsByGlob(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues for a repository"},
-			{Name: "github_delete_repo", Description: "Delete a repository"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues for a repository"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete a repository"},
 		},
 	}
 	bg := &mockIntegration{
@@ -2420,10 +2420,10 @@ func TestABAC_ExecuteRejectsBlockedTool(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
-			{Name: "github_delete_repo", Description: "Delete a repository"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete a repository"},
 		},
-		execFn: func(_ context.Context, toolName string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `{"ok":true}`}, nil
 		},
 	}
@@ -2452,10 +2452,10 @@ func TestABAC_ScriptCannotCallBlockedTool(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
-			{Name: "github_delete_repo", Description: "Delete a repository"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete a repository"},
 		},
-		execFn: func(_ context.Context, toolName string, _ map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, toolName mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `{"ok":true}`}, nil
 		},
 	}
@@ -2476,16 +2476,16 @@ func TestABAC_MultiIntegrationGlobIsolation(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
-			{Name: "github_get_pull", Description: "Get a pull"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_get_pull"), Description: "Get a pull"},
 		},
 	}
 	dd := &mockIntegration{
 		name:    "datadog",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "datadog_search_logs", Description: "Search logs"},
-			{Name: "datadog_get_metric", Description: "Get metric"},
+			{Name: mcp.ToolName("datadog_search_logs"), Description: "Search logs"},
+			{Name: mcp.ToolName("datadog_get_metric"), Description: "Get metric"},
 		},
 	}
 
@@ -2513,12 +2513,12 @@ func TestSearch_DiscoverAll_IncludesUnconfiguredTools(t *testing.T) {
 	configured := &mockIntegration{
 		name:    "github",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "github_list_repos", Description: "List repositories"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("github_list_repos"), Description: "List repositories"}},
 	}
 	unconfigured := &mockIntegration{
 		name:    "linear",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("linear_list_issues"), Description: "List issues"}},
 	}
 	bg := &mockIntegration{
 		name:    "testbg",
@@ -2559,12 +2559,12 @@ func TestSearch_DiscoverAll_MarksUnconfiguredTools(t *testing.T) {
 	configured := &mockIntegration{
 		name:    "github",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "github_list_repos", Description: "List repositories"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("github_list_repos"), Description: "List repositories"}},
 	}
 	unconfigured := &mockIntegration{
 		name:    "linear",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("linear_list_issues"), Description: "List issues"}},
 	}
 	bg := &mockIntegration{
 		name:    "testbg",
@@ -2622,12 +2622,12 @@ func TestSearch_DiscoverAllOff_ExcludesUnconfiguredTools(t *testing.T) {
 	configured := &mockIntegration{
 		name:    "github",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "github_list_repos", Description: "List repositories"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("github_list_repos"), Description: "List repositories"}},
 	}
 	unconfigured := &mockIntegration{
 		name:    "linear",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("linear_list_issues"), Description: "List issues"}},
 	}
 	bg := &mockIntegration{
 		name:    "testbg",
@@ -2667,15 +2667,15 @@ func TestExecute_UnconfiguredTool_ReturnsConfigurationError(t *testing.T) {
 	configured := &mockIntegration{
 		name:    "github",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "github_list_repos", Description: "List repositories"}},
-		execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("github_list_repos"), Description: "List repositories"}},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 			return &mcp.ToolResult{Data: `[{"name":"test"}]`}, nil
 		},
 	}
 	unconfigured := &mockIntegration{
 		name:    "linear",
 		healthy: true,
-		tools:   []mcp.ToolDefinition{{Name: "linear_list_issues", Description: "List issues"}},
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("linear_list_issues"), Description: "List issues"}},
 	}
 
 	reg := newMockRegistry()

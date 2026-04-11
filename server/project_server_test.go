@@ -67,7 +67,7 @@ func TestProjectRouter_GetOrCreate(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
 		},
 	}
 	router, _ := setupProjectRouter(t, def, mi)
@@ -104,9 +104,9 @@ func TestProjectRouter_SearchFiltersTools(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
-			{Name: "github_delete_repo", Description: "Delete repo"},
-			{Name: "github_get_issue", Description: "Get issue"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete repo"},
+			{Name: mcp.ToolName("github_get_issue"), Description: "Get issue"},
 		},
 	}
 	router, _ := setupProjectRouter(t, def, mi)
@@ -148,9 +148,9 @@ func TestProjectRouter_ExecuteInjectsDefaults(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
 		},
-		execFn: func(_ context.Context, _ string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			capturedArgs = args
 			return &mcp.ToolResult{Data: `[]`}, nil
 		},
@@ -189,9 +189,9 @@ func TestProjectRouter_ExecuteAgentOverridesDefaults(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
 		},
-		execFn: func(_ context.Context, _ string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			capturedArgs = args
 			return &mcp.ToolResult{Data: `[]`}, nil
 		},
@@ -224,7 +224,7 @@ func TestProjectRouter_ExecuteDenied(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_delete_repo", Description: "Delete repo"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete repo"},
 		},
 	}
 	router, _ := setupProjectRouter(t, def, mi)
@@ -410,9 +410,9 @@ func TestProjectRouter_ProjectTools(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
-			{Name: "github_get_issue", Description: "Get issue"},
-			{Name: "github_delete_repo", Description: "Delete repo"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_get_issue"), Description: "Get issue"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete repo"},
 		},
 	}
 	router, _ := setupProjectRouter(t, def, mi)

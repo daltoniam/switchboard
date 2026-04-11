@@ -24,12 +24,12 @@ type executorCall struct {
 	Args     map[string]any
 }
 
-func (m *mockExecutor) Execute(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
-	m.calls = append(m.calls, executorCall{ToolName: toolName, Args: args})
+func (m *mockExecutor) Execute(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	m.calls = append(m.calls, executorCall{ToolName: string(toolName), Args: args})
 	if m.err != nil {
 		return nil, m.err
 	}
-	if r, ok := m.results[toolName]; ok {
+	if r, ok := m.results[string(toolName)]; ok {
 		return r, nil
 	}
 	return &mcp.ToolResult{Data: `{"ok":true}`, IsError: false}, nil

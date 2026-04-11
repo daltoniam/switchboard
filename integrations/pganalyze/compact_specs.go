@@ -6,17 +6,17 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-var rawFieldCompactionSpecs = map[string][]string{
-	"pganalyze_get_servers": {
+var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
+	mcp.ToolName("pganalyze_get_servers"): {
 		"id", "name", "humanId", "lastSnapshotAt",
 		"databases[].id", "databases[].datname", "databases[].displayName",
 	},
-	"pganalyze_get_issues": {
+	mcp.ToolName("pganalyze_get_issues"): {
 		"id", "checkGroupAndName", "severity", "state",
 		"description", "createdAt", "updatedAt",
 		"references[].kind", "references[].name", "references[].url",
 	},
-	"pganalyze_get_query_stats": {
+	mcp.ToolName("pganalyze_get_query_stats"): {
 		"queryId", "truncatedQuery", "queryUrl", "statementTypes",
 		"totalCalls", "avgTime", "bufferHitRatio", "pctOfTotal", "callsPerMinute",
 	},
@@ -24,8 +24,8 @@ var rawFieldCompactionSpecs = map[string][]string{
 
 var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(rawFieldCompactionSpecs)
 
-func mustBuildFieldCompactionSpecs(raw map[string][]string) map[string][]mcp.CompactField {
-	parsed := make(map[string][]mcp.CompactField, len(raw))
+func mustBuildFieldCompactionSpecs(raw map[mcp.ToolName][]string) map[mcp.ToolName][]mcp.CompactField {
+	parsed := make(map[mcp.ToolName][]mcp.CompactField, len(raw))
 	for tool, specs := range raw {
 		fields, err := mcp.ParseCompactSpecs(specs)
 		if err != nil {

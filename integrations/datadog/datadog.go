@@ -85,12 +85,12 @@ func (d *dd) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (d *dd) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (d *dd) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (d *dd) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (d *dd) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -125,149 +125,149 @@ func parseTime(s string, fallback time.Duration) time.Time {
 
 type handlerFunc func(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error)
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Logs
-	"datadog_search_logs":    searchLogs,
-	"datadog_aggregate_logs": aggregateLogs,
+	mcp.ToolName("datadog_search_logs"):    searchLogs,
+	mcp.ToolName("datadog_aggregate_logs"): aggregateLogs,
 
 	// Metrics
-	"datadog_query_metrics":       queryMetrics,
-	"datadog_list_active_metrics": listActiveMetrics,
-	"datadog_search_metrics":      searchMetrics,
-	"datadog_get_metric_metadata": getMetricMetadata,
+	mcp.ToolName("datadog_query_metrics"):       queryMetrics,
+	mcp.ToolName("datadog_list_active_metrics"): listActiveMetrics,
+	mcp.ToolName("datadog_search_metrics"):      searchMetrics,
+	mcp.ToolName("datadog_get_metric_metadata"): getMetricMetadata,
 
 	// Monitors
-	"datadog_list_monitors":   listMonitors,
-	"datadog_search_monitors": searchMonitors,
-	"datadog_get_monitor":     getMonitor,
-	"datadog_create_monitor":  createMonitor,
-	"datadog_update_monitor":  updateMonitor,
-	"datadog_delete_monitor":  deleteMonitor,
-	"datadog_mute_monitor":    muteMonitor,
+	mcp.ToolName("datadog_list_monitors"):   listMonitors,
+	mcp.ToolName("datadog_search_monitors"): searchMonitors,
+	mcp.ToolName("datadog_get_monitor"):     getMonitor,
+	mcp.ToolName("datadog_create_monitor"):  createMonitor,
+	mcp.ToolName("datadog_update_monitor"):  updateMonitor,
+	mcp.ToolName("datadog_delete_monitor"):  deleteMonitor,
+	mcp.ToolName("datadog_mute_monitor"):    muteMonitor,
 
 	// Dashboards
-	"datadog_list_dashboards":  listDashboards,
-	"datadog_get_dashboard":    getDashboard,
-	"datadog_create_dashboard": createDashboard,
-	"datadog_delete_dashboard": deleteDashboard,
+	mcp.ToolName("datadog_list_dashboards"):  listDashboards,
+	mcp.ToolName("datadog_get_dashboard"):    getDashboard,
+	mcp.ToolName("datadog_create_dashboard"): createDashboard,
+	mcp.ToolName("datadog_delete_dashboard"): deleteDashboard,
 
 	// Events
-	"datadog_list_events":   listEvents,
-	"datadog_search_events": searchEvents,
-	"datadog_get_event":     getEvent,
-	"datadog_create_event":  createEvent,
+	mcp.ToolName("datadog_list_events"):   listEvents,
+	mcp.ToolName("datadog_search_events"): searchEvents,
+	mcp.ToolName("datadog_get_event"):     getEvent,
+	mcp.ToolName("datadog_create_event"):  createEvent,
 
 	// Hosts
-	"datadog_list_hosts":      listHosts,
-	"datadog_get_host_totals": getHostTotals,
-	"datadog_mute_host":       muteHost,
-	"datadog_unmute_host":     unmuteHost,
+	mcp.ToolName("datadog_list_hosts"):      listHosts,
+	mcp.ToolName("datadog_get_host_totals"): getHostTotals,
+	mcp.ToolName("datadog_mute_host"):       muteHost,
+	mcp.ToolName("datadog_unmute_host"):     unmuteHost,
 
 	// Tags
-	"datadog_list_tags":        listTags,
-	"datadog_get_host_tags":    getHostTags,
-	"datadog_create_host_tags": createHostTags,
-	"datadog_update_host_tags": updateHostTags,
-	"datadog_delete_host_tags": deleteHostTags,
+	mcp.ToolName("datadog_list_tags"):        listTags,
+	mcp.ToolName("datadog_get_host_tags"):    getHostTags,
+	mcp.ToolName("datadog_create_host_tags"): createHostTags,
+	mcp.ToolName("datadog_update_host_tags"): updateHostTags,
+	mcp.ToolName("datadog_delete_host_tags"): deleteHostTags,
 
 	// SLOs
-	"datadog_list_slos":       listSLOs,
-	"datadog_search_slos":     searchSLOs,
-	"datadog_get_slo":         getSLO,
-	"datadog_get_slo_history": getSLOHistory,
-	"datadog_create_slo":      createSLO,
-	"datadog_delete_slo":      deleteSLO,
+	mcp.ToolName("datadog_list_slos"):       listSLOs,
+	mcp.ToolName("datadog_search_slos"):     searchSLOs,
+	mcp.ToolName("datadog_get_slo"):         getSLO,
+	mcp.ToolName("datadog_get_slo_history"): getSLOHistory,
+	mcp.ToolName("datadog_create_slo"):      createSLO,
+	mcp.ToolName("datadog_delete_slo"):      deleteSLO,
 
 	// Downtimes
-	"datadog_list_downtimes":  listDowntimes,
-	"datadog_get_downtime":    getDowntime,
-	"datadog_create_downtime": createDowntime,
-	"datadog_cancel_downtime": cancelDowntime,
+	mcp.ToolName("datadog_list_downtimes"):  listDowntimes,
+	mcp.ToolName("datadog_get_downtime"):    getDowntime,
+	mcp.ToolName("datadog_create_downtime"): createDowntime,
+	mcp.ToolName("datadog_cancel_downtime"): cancelDowntime,
 
 	// Incidents
-	"datadog_list_incidents":            listIncidents,
-	"datadog_search_incidents":          searchIncidents,
-	"datadog_get_incident":              getIncident,
-	"datadog_create_incident":           createIncident,
-	"datadog_update_incident":           updateIncident,
-	"datadog_list_incident_attachments": listIncidentAttachments,
-	"datadog_list_incident_todos":       listIncidentTodos,
+	mcp.ToolName("datadog_list_incidents"):            listIncidents,
+	mcp.ToolName("datadog_search_incidents"):          searchIncidents,
+	mcp.ToolName("datadog_get_incident"):              getIncident,
+	mcp.ToolName("datadog_create_incident"):           createIncident,
+	mcp.ToolName("datadog_update_incident"):           updateIncident,
+	mcp.ToolName("datadog_list_incident_attachments"): listIncidentAttachments,
+	mcp.ToolName("datadog_list_incident_todos"):       listIncidentTodos,
 
 	// Incident Services
-	"datadog_list_incident_services":  listIncidentServices,
-	"datadog_get_incident_service":    getIncidentService,
-	"datadog_create_incident_service": createIncidentService,
-	"datadog_update_incident_service": updateIncidentService,
-	"datadog_delete_incident_service": deleteIncidentService,
+	mcp.ToolName("datadog_list_incident_services"):  listIncidentServices,
+	mcp.ToolName("datadog_get_incident_service"):    getIncidentService,
+	mcp.ToolName("datadog_create_incident_service"): createIncidentService,
+	mcp.ToolName("datadog_update_incident_service"): updateIncidentService,
+	mcp.ToolName("datadog_delete_incident_service"): deleteIncidentService,
 
 	// Incident Teams
-	"datadog_list_incident_teams":  listIncidentTeams,
-	"datadog_get_incident_team":    getIncidentTeam,
-	"datadog_create_incident_team": createIncidentTeam,
-	"datadog_update_incident_team": updateIncidentTeam,
-	"datadog_delete_incident_team": deleteIncidentTeam,
+	mcp.ToolName("datadog_list_incident_teams"):  listIncidentTeams,
+	mcp.ToolName("datadog_get_incident_team"):    getIncidentTeam,
+	mcp.ToolName("datadog_create_incident_team"): createIncidentTeam,
+	mcp.ToolName("datadog_update_incident_team"): updateIncidentTeam,
+	mcp.ToolName("datadog_delete_incident_team"): deleteIncidentTeam,
 
 	// Synthetics
-	"datadog_list_synthetics_tests":      listSyntheticsTests,
-	"datadog_get_synthetics_api_test":    getSyntheticsAPITest,
-	"datadog_get_synthetics_test_result": getSyntheticsTestResult,
-	"datadog_trigger_synthetics_tests":   triggerSyntheticsTests,
+	mcp.ToolName("datadog_list_synthetics_tests"):      listSyntheticsTests,
+	mcp.ToolName("datadog_get_synthetics_api_test"):    getSyntheticsAPITest,
+	mcp.ToolName("datadog_get_synthetics_test_result"): getSyntheticsTestResult,
+	mcp.ToolName("datadog_trigger_synthetics_tests"):   triggerSyntheticsTests,
 
 	// Notebooks
-	"datadog_list_notebooks":  listNotebooks,
-	"datadog_get_notebook":    getNotebook,
-	"datadog_create_notebook": createNotebook,
-	"datadog_delete_notebook": deleteNotebook,
+	mcp.ToolName("datadog_list_notebooks"):  listNotebooks,
+	mcp.ToolName("datadog_get_notebook"):    getNotebook,
+	mcp.ToolName("datadog_create_notebook"): createNotebook,
+	mcp.ToolName("datadog_delete_notebook"): deleteNotebook,
 
 	// Users
-	"datadog_list_users": listUsers,
-	"datadog_get_user":   getUser,
+	mcp.ToolName("datadog_list_users"): listUsers,
+	mcp.ToolName("datadog_get_user"):   getUser,
 
 	// Teams
-	"datadog_list_teams":                     listTeams,
-	"datadog_get_team":                       getTeam,
-	"datadog_create_team":                    createTeam,
-	"datadog_update_team":                    updateTeam,
-	"datadog_delete_team":                    deleteTeam,
-	"datadog_list_team_members":              listTeamMembers,
-	"datadog_add_team_member":                addTeamMember,
-	"datadog_update_team_member":             updateTeamMember,
-	"datadog_remove_team_member":             removeTeamMember,
-	"datadog_get_user_team_memberships":      getUserTeamMemberships,
-	"datadog_list_team_links":                listTeamLinks,
-	"datadog_get_team_link":                  getTeamLink,
-	"datadog_create_team_link":               createTeamLink,
-	"datadog_update_team_link":               updateTeamLink,
-	"datadog_delete_team_link":               deleteTeamLink,
-	"datadog_get_team_permission_settings":   getTeamPermissionSettings,
-	"datadog_update_team_permission_setting": updateTeamPermissionSetting,
+	mcp.ToolName("datadog_list_teams"):                     listTeams,
+	mcp.ToolName("datadog_get_team"):                       getTeam,
+	mcp.ToolName("datadog_create_team"):                    createTeam,
+	mcp.ToolName("datadog_update_team"):                    updateTeam,
+	mcp.ToolName("datadog_delete_team"):                    deleteTeam,
+	mcp.ToolName("datadog_list_team_members"):              listTeamMembers,
+	mcp.ToolName("datadog_add_team_member"):                addTeamMember,
+	mcp.ToolName("datadog_update_team_member"):             updateTeamMember,
+	mcp.ToolName("datadog_remove_team_member"):             removeTeamMember,
+	mcp.ToolName("datadog_get_user_team_memberships"):      getUserTeamMemberships,
+	mcp.ToolName("datadog_list_team_links"):                listTeamLinks,
+	mcp.ToolName("datadog_get_team_link"):                  getTeamLink,
+	mcp.ToolName("datadog_create_team_link"):               createTeamLink,
+	mcp.ToolName("datadog_update_team_link"):               updateTeamLink,
+	mcp.ToolName("datadog_delete_team_link"):               deleteTeamLink,
+	mcp.ToolName("datadog_get_team_permission_settings"):   getTeamPermissionSettings,
+	mcp.ToolName("datadog_update_team_permission_setting"): updateTeamPermissionSetting,
 
 	// Spans / APM
-	"datadog_search_spans": searchSpans,
+	mcp.ToolName("datadog_search_spans"): searchSpans,
 
 	// Service Definition / Software Catalog
-	"datadog_list_services": listServices,
+	mcp.ToolName("datadog_list_services"): listServices,
 
 	// On-Call
-	"datadog_get_oncall_schedule":             getOnCallSchedule,
-	"datadog_create_oncall_schedule":          createOnCallSchedule,
-	"datadog_update_oncall_schedule":          updateOnCallSchedule,
-	"datadog_delete_oncall_schedule":          deleteOnCallSchedule,
-	"datadog_get_schedule_oncall_user":        getScheduleOnCallUser,
-	"datadog_get_oncall_escalation_policy":    getOnCallEscalationPolicy,
-	"datadog_create_oncall_escalation_policy": createOnCallEscalationPolicy,
-	"datadog_update_oncall_escalation_policy": updateOnCallEscalationPolicy,
-	"datadog_delete_oncall_escalation_policy": deleteOnCallEscalationPolicy,
-	"datadog_get_oncall_team_routing_rules":   getOnCallTeamRoutingRules,
-	"datadog_set_oncall_team_routing_rules":   setOnCallTeamRoutingRules,
-	"datadog_get_team_oncall_users":           getTeamOnCallUsers,
+	mcp.ToolName("datadog_get_oncall_schedule"):             getOnCallSchedule,
+	mcp.ToolName("datadog_create_oncall_schedule"):          createOnCallSchedule,
+	mcp.ToolName("datadog_update_oncall_schedule"):          updateOnCallSchedule,
+	mcp.ToolName("datadog_delete_oncall_schedule"):          deleteOnCallSchedule,
+	mcp.ToolName("datadog_get_schedule_oncall_user"):        getScheduleOnCallUser,
+	mcp.ToolName("datadog_get_oncall_escalation_policy"):    getOnCallEscalationPolicy,
+	mcp.ToolName("datadog_create_oncall_escalation_policy"): createOnCallEscalationPolicy,
+	mcp.ToolName("datadog_update_oncall_escalation_policy"): updateOnCallEscalationPolicy,
+	mcp.ToolName("datadog_delete_oncall_escalation_policy"): deleteOnCallEscalationPolicy,
+	mcp.ToolName("datadog_get_oncall_team_routing_rules"):   getOnCallTeamRoutingRules,
+	mcp.ToolName("datadog_set_oncall_team_routing_rules"):   setOnCallTeamRoutingRules,
+	mcp.ToolName("datadog_get_team_oncall_users"):           getTeamOnCallUsers,
 
 	// On-Call Paging
-	"datadog_create_oncall_page":      createOnCallPage,
-	"datadog_acknowledge_oncall_page": acknowledgeOnCallPage,
-	"datadog_escalate_oncall_page":    escalateOnCallPage,
-	"datadog_resolve_oncall_page":     resolveOnCallPage,
+	mcp.ToolName("datadog_create_oncall_page"):      createOnCallPage,
+	mcp.ToolName("datadog_acknowledge_oncall_page"): acknowledgeOnCallPage,
+	mcp.ToolName("datadog_escalate_oncall_page"):    escalateOnCallPage,
+	mcp.ToolName("datadog_resolve_oncall_page"):     resolveOnCallPage,
 
 	// IP Ranges
-	"datadog_get_ip_ranges": getIPRanges,
+	mcp.ToolName("datadog_get_ip_ranges"): getIPRanges,
 }

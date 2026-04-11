@@ -91,12 +91,12 @@ func (c *clickhouseInt) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (c *clickhouseInt) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (c *clickhouseInt) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (c *clickhouseInt) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (c *clickhouseInt) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	if c.conn == nil {
 		return &mcp.ToolResult{Data: "clickhouse: not configured (connection failed)", IsError: true}, nil
 	}

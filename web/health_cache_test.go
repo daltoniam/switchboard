@@ -14,8 +14,8 @@ func setupHealthCacheServices() (*healthCache, *mockRegistry, *mockConfigService
 	reg := newMockRegistry()
 	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{})
 
-	reg.Register(&mockIntegration{name: "alpha", healthy: true, tools: []mcp.ToolDefinition{{Name: "alpha_list"}}})
-	reg.Register(&mockIntegration{name: "beta", healthy: false, tools: []mcp.ToolDefinition{{Name: "beta_list"}}})
+	reg.Register(&mockIntegration{name: "alpha", healthy: true, tools: []mcp.ToolDefinition{{Name: mcp.ToolName("alpha_list")}}})
+	reg.Register(&mockIntegration{name: "beta", healthy: false, tools: []mcp.ToolDefinition{{Name: mcp.ToolName("beta_list")}}})
 
 	cfgService.cfg.Integrations["alpha"] = &mcp.IntegrationConfig{
 		Enabled:     true,

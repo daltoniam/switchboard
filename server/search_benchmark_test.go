@@ -335,7 +335,7 @@ func TestSearchBenchmark(t *testing.T) {
 		var out []string
 		for _, ti := range raw {
 			if matches(ti.Tool, ti.Integration, q) {
-				out = append(out, ti.Tool.Name)
+				out = append(out, string(ti.Tool.Name))
 			}
 		}
 		return out
@@ -346,7 +346,7 @@ func TestSearchBenchmark(t *testing.T) {
 		results := scoreTools(query, tools, idf, synMap)
 		out := make([]string, len(results))
 		for i, r := range results {
-			out[i] = r.Tool.Name
+			out[i] = string(r.Tool.Name)
 		}
 		return out
 	}

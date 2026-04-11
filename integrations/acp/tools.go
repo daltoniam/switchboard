@@ -4,7 +4,7 @@ import mcp "github.com/daltoniam/switchboard"
 
 var tools = []mcp.ToolDefinition{
 	{
-		Name:        "acp_list_agents",
+		Name:        mcp.ToolName("acp_list_agents"),
 		Description: "List available remote agents on ACP servers. Start here to discover AI agents, bots, and autonomous workers before invoking them. Returns agent names, descriptions, and capabilities",
 		Parameters: map[string]string{
 			"server":         "Name of a pre-configured ACP server to query. Uses the first configured server if omitted",
@@ -13,7 +13,7 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name:        "acp_run_agent",
+		Name:        mcp.ToolName("acp_run_agent"),
 		Description: "Invoke a remote ACP agent with a message and get its response. Send a text prompt to an AI agent on a remote server. Use acp_list_agents first to discover available agents. If the agent enters an awaiting state (needs more input), the response includes a run_id — use acp_resume_run to continue",
 		Parameters: map[string]string{
 			"agent_name":     "Name of the remote agent to invoke",
@@ -26,7 +26,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"agent_name", "input"},
 	},
 	{
-		Name:        "acp_resume_run",
+		Name:        mcp.ToolName("acp_resume_run"),
 		Description: "Resume an ACP agent run that is waiting for additional input. When acp_run_agent returns a response indicating the agent is awaiting input, use this tool to provide the requested information and continue the run",
 		Parameters: map[string]string{
 			"run_id":         "The run_id returned by acp_run_agent when the agent entered awaiting state",

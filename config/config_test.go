@@ -521,13 +521,13 @@ func TestToolGlobs_PersistThroughSaveLoad(t *testing.T) {
 
 	ghIC := m.cfg.Integrations["github"]
 	assert.Equal(t, []string{"github_get_*", "github_list_*"}, ghIC.ToolGlobs)
-	assert.True(t, ghIC.ToolAllowed("github_get_issue"))
-	assert.True(t, ghIC.ToolAllowed("github_list_pulls"))
-	assert.False(t, ghIC.ToolAllowed("github_delete_repo"))
+	assert.True(t, ghIC.ToolAllowed(mcp.ToolName("github_get_issue")))
+	assert.True(t, ghIC.ToolAllowed(mcp.ToolName("github_list_pulls")))
+	assert.False(t, ghIC.ToolAllowed(mcp.ToolName("github_delete_repo")))
 
 	ddIC := m.cfg.Integrations["datadog"]
 	assert.Empty(t, ddIC.ToolGlobs)
-	assert.True(t, ddIC.ToolAllowed("datadog_anything"))
+	assert.True(t, ddIC.ToolAllowed(mcp.ToolName("datadog_anything")))
 }
 
 func TestToolGlobs_OmittedFromJSONWhenEmpty(t *testing.T) {

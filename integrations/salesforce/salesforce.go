@@ -76,12 +76,12 @@ func (s *salesforce) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (s *salesforce) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (s *salesforce) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (s *salesforce) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (s *salesforce) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -176,28 +176,28 @@ func (s *salesforce) ver() string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// SObject CRUD
-	"salesforce_describe_global":           describeGlobal,
-	"salesforce_describe_sobject":          describeSObject,
-	"salesforce_get_record":                getRecord,
-	"salesforce_create_record":             createRecord,
-	"salesforce_update_record":             updateRecord,
-	"salesforce_delete_record":             deleteRecord,
-	"salesforce_get_record_by_external_id": getRecordByExternalID,
-	"salesforce_upsert_by_external_id":     upsertByExternalID,
+	mcp.ToolName("salesforce_describe_global"):           describeGlobal,
+	mcp.ToolName("salesforce_describe_sobject"):          describeSObject,
+	mcp.ToolName("salesforce_get_record"):                getRecord,
+	mcp.ToolName("salesforce_create_record"):             createRecord,
+	mcp.ToolName("salesforce_update_record"):             updateRecord,
+	mcp.ToolName("salesforce_delete_record"):             deleteRecord,
+	mcp.ToolName("salesforce_get_record_by_external_id"): getRecordByExternalID,
+	mcp.ToolName("salesforce_upsert_by_external_id"):     upsertByExternalID,
 
 	// Queries
-	"salesforce_query":      query,
-	"salesforce_query_more": queryMore,
-	"salesforce_search":     search,
+	mcp.ToolName("salesforce_query"):      query,
+	mcp.ToolName("salesforce_query_more"): queryMore,
+	mcp.ToolName("salesforce_search"):     search,
 
 	// Metadata & Org
-	"salesforce_list_api_versions":    listAPIVersions,
-	"salesforce_get_limits":           getLimits,
-	"salesforce_list_recently_viewed": listRecentlyViewed,
+	mcp.ToolName("salesforce_list_api_versions"):    listAPIVersions,
+	mcp.ToolName("salesforce_get_limits"):           getLimits,
+	mcp.ToolName("salesforce_list_recently_viewed"): listRecentlyViewed,
 
 	// Composite
-	"salesforce_composite_batch":     compositeBatch,
-	"salesforce_sobject_collections": sObjectCollections,
+	mcp.ToolName("salesforce_composite_batch"):     compositeBatch,
+	mcp.ToolName("salesforce_sobject_collections"): sObjectCollections,
 }

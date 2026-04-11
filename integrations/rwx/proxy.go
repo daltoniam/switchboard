@@ -259,7 +259,7 @@ func (p *proxyClient) toolDefinitions() []mcp.ToolDefinition {
 		}
 
 		defs = append(defs, mcp.ToolDefinition{
-			Name:        "rwx_proxy_" + t.Name,
+			Name:        mcp.ToolName("rwx_proxy_" + t.Name),
 			Description: "[Proxied from rwx mcp serve] " + desc,
 			Parameters:  params,
 			Required:    requiredFields,
@@ -268,8 +268,8 @@ func (p *proxyClient) toolDefinitions() []mcp.ToolDefinition {
 	return defs
 }
 
-func (p *proxyClient) execute(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
-	originalName := strings.TrimPrefix(toolName, "rwx_proxy_")
+func (p *proxyClient) execute(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	originalName := strings.TrimPrefix(string(toolName), "rwx_proxy_")
 
 	found := false
 	for _, t := range p.tools {
