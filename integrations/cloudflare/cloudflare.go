@@ -58,7 +58,7 @@ func (c *cloudflare) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (c *cloudflare) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (c *cloudflare) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -66,7 +66,7 @@ func (c *cloudflare) Execute(ctx context.Context, toolName string, args map[stri
 	return fn(ctx, c, args)
 }
 
-func (c *cloudflare) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (c *cloudflare) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
@@ -234,35 +234,35 @@ func (c *cloudflare) acctID(args map[string]any) (string, error) {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Zones
-	"cloudflare_list_zones":  listZones,
-	"cloudflare_get_zone":    getZone,
-	"cloudflare_create_zone": createZone,
-	"cloudflare_edit_zone":   editZone,
-	"cloudflare_delete_zone": deleteZone,
-	"cloudflare_purge_cache": purgeCache,
+	mcp.ToolName("cloudflare_list_zones"):  listZones,
+	mcp.ToolName("cloudflare_get_zone"):    getZone,
+	mcp.ToolName("cloudflare_create_zone"): createZone,
+	mcp.ToolName("cloudflare_edit_zone"):   editZone,
+	mcp.ToolName("cloudflare_delete_zone"): deleteZone,
+	mcp.ToolName("cloudflare_purge_cache"): purgeCache,
 
 	// DNS Records
-	"cloudflare_list_dns_records":  listDNSRecords,
-	"cloudflare_get_dns_record":    getDNSRecord,
-	"cloudflare_create_dns_record": createDNSRecord,
-	"cloudflare_update_dns_record": updateDNSRecord,
-	"cloudflare_delete_dns_record": deleteDNSRecord,
+	mcp.ToolName("cloudflare_list_dns_records"):  listDNSRecords,
+	mcp.ToolName("cloudflare_get_dns_record"):    getDNSRecord,
+	mcp.ToolName("cloudflare_create_dns_record"): createDNSRecord,
+	mcp.ToolName("cloudflare_update_dns_record"): updateDNSRecord,
+	mcp.ToolName("cloudflare_delete_dns_record"): deleteDNSRecord,
 
 	// Workers
-	"cloudflare_list_workers":       listWorkers,
-	"cloudflare_get_worker":         getWorker,
-	"cloudflare_delete_worker":      deleteWorker,
-	"cloudflare_list_worker_routes": listWorkerRoutes,
+	mcp.ToolName("cloudflare_list_workers"):       listWorkers,
+	mcp.ToolName("cloudflare_get_worker"):         getWorker,
+	mcp.ToolName("cloudflare_delete_worker"):      deleteWorker,
+	mcp.ToolName("cloudflare_list_worker_routes"): listWorkerRoutes,
 
 	// Pages
-	"cloudflare_list_pages_projects":       listPagesProjects,
-	"cloudflare_get_pages_project":         getPagesProject,
-	"cloudflare_list_pages_deployments":    listPagesDeployments,
-	"cloudflare_get_pages_deployment":      getPagesDeployment,
-	"cloudflare_delete_pages_deployment":   deletePagesDeployment,
-	"cloudflare_rollback_pages_deployment": rollbackPagesDeployment,
+	mcp.ToolName("cloudflare_list_pages_projects"):       listPagesProjects,
+	mcp.ToolName("cloudflare_get_pages_project"):         getPagesProject,
+	mcp.ToolName("cloudflare_list_pages_deployments"):    listPagesDeployments,
+	mcp.ToolName("cloudflare_get_pages_deployment"):      getPagesDeployment,
+	mcp.ToolName("cloudflare_delete_pages_deployment"):   deletePagesDeployment,
+	mcp.ToolName("cloudflare_rollback_pages_deployment"): rollbackPagesDeployment,
 
 	// R2
 	"cloudflare_list_r2_buckets":  listR2Buckets,
@@ -270,13 +270,13 @@ var dispatch = map[string]handlerFunc{
 	"cloudflare_delete_r2_bucket": deleteR2Bucket,
 
 	// KV
-	"cloudflare_list_kv_namespaces":  listKVNamespaces,
-	"cloudflare_create_kv_namespace": createKVNamespace,
-	"cloudflare_delete_kv_namespace": deleteKVNamespace,
-	"cloudflare_list_kv_keys":        listKVKeys,
-	"cloudflare_get_kv_value":        getKVValue,
-	"cloudflare_put_kv_value":        putKVValue,
-	"cloudflare_delete_kv_value":     deleteKVValue,
+	mcp.ToolName("cloudflare_list_kv_namespaces"):  listKVNamespaces,
+	mcp.ToolName("cloudflare_create_kv_namespace"): createKVNamespace,
+	mcp.ToolName("cloudflare_delete_kv_namespace"): deleteKVNamespace,
+	mcp.ToolName("cloudflare_list_kv_keys"):        listKVKeys,
+	mcp.ToolName("cloudflare_get_kv_value"):        getKVValue,
+	mcp.ToolName("cloudflare_put_kv_value"):        putKVValue,
+	mcp.ToolName("cloudflare_delete_kv_value"):     deleteKVValue,
 
 	// D1
 	"cloudflare_list_d1_databases":  listD1Databases,
@@ -286,21 +286,21 @@ var dispatch = map[string]handlerFunc{
 	"cloudflare_query_d1_database":  queryD1Database,
 
 	// Firewall / WAF
-	"cloudflare_list_waf_rulesets": listWAFRulesets,
-	"cloudflare_get_waf_ruleset":   getWAFRuleset,
+	mcp.ToolName("cloudflare_list_waf_rulesets"): listWAFRulesets,
+	mcp.ToolName("cloudflare_get_waf_ruleset"):   getWAFRuleset,
 
 	// Load Balancers
-	"cloudflare_list_load_balancers": listLoadBalancers,
-	"cloudflare_get_load_balancer":   getLoadBalancer,
-	"cloudflare_list_lb_pools":       listLBPools,
-	"cloudflare_get_lb_pool":         getLBPool,
-	"cloudflare_list_lb_monitors":    listLBMonitors,
+	mcp.ToolName("cloudflare_list_load_balancers"): listLoadBalancers,
+	mcp.ToolName("cloudflare_get_load_balancer"):   getLoadBalancer,
+	mcp.ToolName("cloudflare_list_lb_pools"):       listLBPools,
+	mcp.ToolName("cloudflare_get_lb_pool"):         getLBPool,
+	mcp.ToolName("cloudflare_list_lb_monitors"):    listLBMonitors,
 
 	// Analytics
-	"cloudflare_get_zone_analytics": getZoneAnalytics,
+	mcp.ToolName("cloudflare_get_zone_analytics"): getZoneAnalytics,
 
 	// Accounts
-	"cloudflare_list_accounts":        listAccounts,
-	"cloudflare_get_account":          getAccount,
-	"cloudflare_list_account_members": listAccountMembers,
+	mcp.ToolName("cloudflare_list_accounts"):        listAccounts,
+	mcp.ToolName("cloudflare_get_account"):          getAccount,
+	mcp.ToolName("cloudflare_list_account_members"): listAccountMembers,
 }

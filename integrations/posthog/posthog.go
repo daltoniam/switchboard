@@ -77,12 +77,12 @@ func (p *posthog) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (p *posthog) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (p *posthog) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (p *posthog) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (p *posthog) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -200,84 +200,84 @@ func (p *posthog) proj(args map[string]any) (string, error) {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Projects
-	"posthog_list_projects":  listProjects,
-	"posthog_get_project":    getProject,
-	"posthog_update_project": updateProject,
-	"posthog_create_project": createProject,
-	"posthog_delete_project": deleteProject,
+	mcp.ToolName("posthog_list_projects"):  listProjects,
+	mcp.ToolName("posthog_get_project"):    getProject,
+	mcp.ToolName("posthog_update_project"): updateProject,
+	mcp.ToolName("posthog_create_project"): createProject,
+	mcp.ToolName("posthog_delete_project"): deleteProject,
 
 	// Feature Flags
-	"posthog_list_feature_flags":    listFeatureFlags,
-	"posthog_get_feature_flag":      getFeatureFlag,
-	"posthog_create_feature_flag":   createFeatureFlag,
-	"posthog_update_feature_flag":   updateFeatureFlag,
-	"posthog_delete_feature_flag":   deleteFeatureFlag,
-	"posthog_feature_flag_activity": featureFlagActivity,
+	mcp.ToolName("posthog_list_feature_flags"):    listFeatureFlags,
+	mcp.ToolName("posthog_get_feature_flag"):      getFeatureFlag,
+	mcp.ToolName("posthog_create_feature_flag"):   createFeatureFlag,
+	mcp.ToolName("posthog_update_feature_flag"):   updateFeatureFlag,
+	mcp.ToolName("posthog_delete_feature_flag"):   deleteFeatureFlag,
+	mcp.ToolName("posthog_feature_flag_activity"): featureFlagActivity,
 
 	// Cohorts
-	"posthog_list_cohorts":        listCohorts,
-	"posthog_get_cohort":          getCohort,
-	"posthog_create_cohort":       createCohort,
-	"posthog_update_cohort":       updateCohort,
-	"posthog_delete_cohort":       deleteCohort,
-	"posthog_list_cohort_persons": listCohortPersons,
+	mcp.ToolName("posthog_list_cohorts"):        listCohorts,
+	mcp.ToolName("posthog_get_cohort"):          getCohort,
+	mcp.ToolName("posthog_create_cohort"):       createCohort,
+	mcp.ToolName("posthog_update_cohort"):       updateCohort,
+	mcp.ToolName("posthog_delete_cohort"):       deleteCohort,
+	mcp.ToolName("posthog_list_cohort_persons"): listCohortPersons,
 
 	// Insights
-	"posthog_list_insights":  listInsights,
-	"posthog_get_insight":    getInsight,
-	"posthog_create_insight": createInsight,
-	"posthog_update_insight": updateInsight,
-	"posthog_delete_insight": deleteInsight,
+	mcp.ToolName("posthog_list_insights"):  listInsights,
+	mcp.ToolName("posthog_get_insight"):    getInsight,
+	mcp.ToolName("posthog_create_insight"): createInsight,
+	mcp.ToolName("posthog_update_insight"): updateInsight,
+	mcp.ToolName("posthog_delete_insight"): deleteInsight,
 
 	// Persons
-	"posthog_list_persons":           listPersons,
-	"posthog_get_person":             getPerson,
-	"posthog_delete_person":          deletePerson,
-	"posthog_update_person_property": updatePersonProperty,
-	"posthog_delete_person_property": deletePersonProperty,
+	mcp.ToolName("posthog_list_persons"):           listPersons,
+	mcp.ToolName("posthog_get_person"):             getPerson,
+	mcp.ToolName("posthog_delete_person"):          deletePerson,
+	mcp.ToolName("posthog_update_person_property"): updatePersonProperty,
+	mcp.ToolName("posthog_delete_person_property"): deletePersonProperty,
 
 	// Groups
-	"posthog_list_groups": listGroups,
-	"posthog_find_group":  findGroup,
+	mcp.ToolName("posthog_list_groups"): listGroups,
+	mcp.ToolName("posthog_find_group"):  findGroup,
 
 	// Annotations
-	"posthog_list_annotations":  listAnnotations,
-	"posthog_get_annotation":    getAnnotation,
-	"posthog_create_annotation": createAnnotation,
-	"posthog_update_annotation": updateAnnotation,
-	"posthog_delete_annotation": deleteAnnotation,
+	mcp.ToolName("posthog_list_annotations"):  listAnnotations,
+	mcp.ToolName("posthog_get_annotation"):    getAnnotation,
+	mcp.ToolName("posthog_create_annotation"): createAnnotation,
+	mcp.ToolName("posthog_update_annotation"): updateAnnotation,
+	mcp.ToolName("posthog_delete_annotation"): deleteAnnotation,
 
 	// Dashboards
-	"posthog_list_dashboards":  listDashboards,
-	"posthog_get_dashboard":    getDashboard,
-	"posthog_create_dashboard": createDashboard,
-	"posthog_update_dashboard": updateDashboard,
-	"posthog_delete_dashboard": deleteDashboard,
+	mcp.ToolName("posthog_list_dashboards"):  listDashboards,
+	mcp.ToolName("posthog_get_dashboard"):    getDashboard,
+	mcp.ToolName("posthog_create_dashboard"): createDashboard,
+	mcp.ToolName("posthog_update_dashboard"): updateDashboard,
+	mcp.ToolName("posthog_delete_dashboard"): deleteDashboard,
 
 	// Actions
-	"posthog_list_actions":  listActions,
-	"posthog_get_action":    getAction,
-	"posthog_create_action": createAction,
-	"posthog_update_action": updateAction,
-	"posthog_delete_action": deleteAction,
+	mcp.ToolName("posthog_list_actions"):  listActions,
+	mcp.ToolName("posthog_get_action"):    getAction,
+	mcp.ToolName("posthog_create_action"): createAction,
+	mcp.ToolName("posthog_update_action"): updateAction,
+	mcp.ToolName("posthog_delete_action"): deleteAction,
 
 	// Events
-	"posthog_list_events": listEvents,
-	"posthog_get_event":   getEvent,
+	mcp.ToolName("posthog_list_events"): listEvents,
+	mcp.ToolName("posthog_get_event"):   getEvent,
 
 	// Experiments
-	"posthog_list_experiments":  listExperiments,
-	"posthog_get_experiment":    getExperiment,
-	"posthog_create_experiment": createExperiment,
-	"posthog_update_experiment": updateExperiment,
-	"posthog_delete_experiment": deleteExperiment,
+	mcp.ToolName("posthog_list_experiments"):  listExperiments,
+	mcp.ToolName("posthog_get_experiment"):    getExperiment,
+	mcp.ToolName("posthog_create_experiment"): createExperiment,
+	mcp.ToolName("posthog_update_experiment"): updateExperiment,
+	mcp.ToolName("posthog_delete_experiment"): deleteExperiment,
 
 	// Surveys
-	"posthog_list_surveys":  listSurveys,
-	"posthog_get_survey":    getSurvey,
-	"posthog_create_survey": createSurvey,
-	"posthog_update_survey": updateSurvey,
-	"posthog_delete_survey": deleteSurvey,
+	mcp.ToolName("posthog_list_surveys"):  listSurveys,
+	mcp.ToolName("posthog_get_survey"):    getSurvey,
+	mcp.ToolName("posthog_create_survey"): createSurvey,
+	mcp.ToolName("posthog_update_survey"): updateSurvey,
+	mcp.ToolName("posthog_delete_survey"): deleteSurvey,
 }

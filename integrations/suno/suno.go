@@ -63,7 +63,7 @@ func (s *suno) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (s *suno) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (s *suno) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -71,7 +71,7 @@ func (s *suno) Execute(ctx context.Context, toolName string, args map[string]any
 	return fn(ctx, s, args)
 }
 
-func (s *suno) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (s *suno) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
@@ -130,38 +130,38 @@ type handlerFunc func(ctx context.Context, s *suno, args map[string]any) (*mcp.T
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Music generation
-	"suno_generate_music": generateMusic,
-	"suno_get_generation": getGeneration,
-	"suno_extend_music":   extendMusic,
-	"suno_get_credits":    getCredits,
+	mcp.ToolName("suno_generate_music"): generateMusic,
+	mcp.ToolName("suno_get_generation"): getGeneration,
+	mcp.ToolName("suno_extend_music"):   extendMusic,
+	mcp.ToolName("suno_get_credits"):    getCredits,
 
 	// Lyrics
-	"suno_generate_lyrics":    generateLyrics,
-	"suno_get_lyrics":         getLyrics,
-	"suno_get_aligned_lyrics": getAlignedLyrics,
+	mcp.ToolName("suno_generate_lyrics"):    generateLyrics,
+	mcp.ToolName("suno_get_lyrics"):         getLyrics,
+	mcp.ToolName("suno_get_aligned_lyrics"): getAlignedLyrics,
 
 	// Audio processing
-	"suno_separate_stems":      separateStems,
-	"suno_get_stem_separation": getStemSeparation,
-	"suno_convert_wav":         convertWav,
-	"suno_get_wav_conversion":  getWavConversion,
+	mcp.ToolName("suno_separate_stems"):      separateStems,
+	mcp.ToolName("suno_get_stem_separation"): getStemSeparation,
+	mcp.ToolName("suno_convert_wav"):         convertWav,
+	mcp.ToolName("suno_get_wav_conversion"):  getWavConversion,
 
 	// Advanced generation
-	"suno_cover_audio":      coverAudio,
-	"suno_upload_extend":    uploadExtend,
-	"suno_add_vocals":       addVocals,
-	"suno_add_instrumental": addInstrumental,
-	"suno_generate_mashup":  generateMashup,
+	mcp.ToolName("suno_cover_audio"):      coverAudio,
+	mcp.ToolName("suno_upload_extend"):    uploadExtend,
+	mcp.ToolName("suno_add_vocals"):       addVocals,
+	mcp.ToolName("suno_add_instrumental"): addInstrumental,
+	mcp.ToolName("suno_generate_mashup"):  generateMashup,
 
 	// Persona
-	"suno_generate_persona": generatePersona,
+	mcp.ToolName("suno_generate_persona"): generatePersona,
 
 	// Video
-	"suno_generate_video": generateVideo,
-	"suno_get_video":      getVideo,
+	mcp.ToolName("suno_generate_video"): generateVideo,
+	mcp.ToolName("suno_get_video"):      getVideo,
 
 	// MIDI
-	"suno_generate_midi": generateMidi,
+	mcp.ToolName("suno_generate_midi"): generateMidi,
 }

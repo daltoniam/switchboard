@@ -442,7 +442,7 @@ func (s *Server) scoredSearch(query, integration string) []searchToolInfo {
 			continue
 		}
 		ic, _ := s.services.Config.GetIntegration(ti.Integration)
-		if ic != nil && !ic.ToolAllowed(ti.Tool.Name) {
+		if ic != nil && !ic.ToolAllowed(mcp.ToolName(ti.Tool.Name)) {
 			continue
 		}
 		candidates = append(candidates, ti)
@@ -555,7 +555,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		args.Arguments = map[string]any{}
 	}
 
-	integration, result, err := s.executeTool(ctx, args.ToolName, args.Arguments)
+	integration, result, err := s.executeTool(ctx, mcp.ToolName(args.ToolName), args.Arguments)
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
@@ -565,7 +565,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 			IsError: true,
 		}, nil
 	}
-	result.Data = processResult(integration, args.ToolName, result.Data, s.services.Metrics)
+	result.Data = processResult(integration, mcp.ToolName(args.ToolName), result.Data, s.services.Metrics)
 	if len(result.Data) > maxResponseBytes {
 		if s.services.Metrics != nil {
 			s.services.Metrics.RecordTruncation()
@@ -618,13 +618,26 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 	}, nil
 }
 
-// processResult applies compaction and columnarization in a single parse/serialize cycle.
-// Parses JSON once, applies compact specs (if any), columnarizes arrays, and serializes once.
-func processResult(integration mcp.Integration, toolName string, data string, metrics *mcp.Metrics) string {
+// processResult applies markdown rendering, compaction, and columnarization.
+// Markdown rendering takes priority — if the integration implements MarkdownIntegration
+// and returns rendered content for this tool, compaction and columnarization are skipped.
+// Otherwise, parses JSON once, applies compact specs (if any), columnarizes arrays, and serializes once.
+func processResult(integration mcp.Integration, toolName mcp.ToolName, data string, metrics *mcp.Metrics) string {
 	trimmed := strings.TrimLeft(data, " \t\n\r")
 	if len(trimmed) == 0 || (trimmed[0] != '[' && trimmed[0] != '{') {
 		return data
 	}
+
+	// Try markdown rendering first — replaces JSON compaction entirely.
+	if mr, ok := integration.(mcp.MarkdownIntegration); ok {
+		if md, rendered := mr.RenderMarkdown(toolName, []byte(data)); rendered {
+			if metrics != nil {
+				metrics.RecordMarkdownRender(toolName, len(data), len(md))
+			}
+			return string(md)
+		}
+	}
+
 	originalLen := len(data)
 
 	var parsed any
@@ -716,7 +729,7 @@ func (s *Server) getBreaker(integrationName string) *breaker {
 // apply post-processing (e.g. compaction) without a redundant findTool call.
 // Retries automatically on RetryableError (5xx, 429) with exponential backoff.
 // Respects per-integration circuit breakers to avoid hammering down services.
-func (s *Server) executeTool(ctx context.Context, toolName string, args map[string]any) (mcp.Integration, *mcp.ToolResult, error) {
+func (s *Server) executeTool(ctx context.Context, toolName mcp.ToolName, args map[string]any) (mcp.Integration, *mcp.ToolResult, error) {
 	integration, toolDef, err := s.findTool(toolName)
 	if err != nil {
 		return nil, &mcp.ToolResult{
@@ -796,7 +809,7 @@ func (s *Server) executeTool(ctx context.Context, toolName string, args map[stri
 // findTool returns the integration and tool definition that owns toolName.
 // Respects ABAC tool glob restrictions. Returns a descriptive error when
 // the tool exists but its integration is not configured.
-func (s *Server) findTool(toolName string) (mcp.Integration, mcp.ToolDefinition, error) {
+func (s *Server) findTool(toolName mcp.ToolName) (mcp.Integration, mcp.ToolDefinition, error) {
 	for _, name := range s.services.Config.EnabledIntegrations() {
 		integration, ok := s.services.Registry.Get(name)
 		if !ok {
@@ -922,7 +935,7 @@ type toolExecutor struct {
 	server *Server
 }
 
-func (te *toolExecutor) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (te *toolExecutor) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	if toolName == "search" || toolName == "execute" {
 		return &mcp.ToolResult{
 			Data: fmt.Sprintf(
@@ -956,7 +969,7 @@ func (s *Server) RunStdio(ctx context.Context) error {
 }
 
 func matches(tool mcp.ToolDefinition, integrationName, query string) bool {
-	searchable := strings.ToLower(tool.Name + " " + tool.Description + " " + integrationName)
+	searchable := strings.ToLower(string(tool.Name) + " " + tool.Description + " " + integrationName)
 	for _, word := range strings.Fields(query) {
 		if !strings.Contains(searchable, word) {
 			return false

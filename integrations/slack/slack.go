@@ -176,12 +176,12 @@ func (s *slackIntegration) getClient() *slack.Client {
 
 func (s *slackIntegration) Tools() []mcp.ToolDefinition { return tools }
 
-func (s *slackIntegration) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (s *slackIntegration) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (s *slackIntegration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (s *slackIntegration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -267,52 +267,52 @@ func (t *cookieTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 type handlerFunc func(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error)
 
-var dispatch = map[string]handlerFunc{
-	"slack_token_status":             tokenStatus,
-	"slack_refresh_tokens":           refreshTokens,
-	"slack_list_workspaces":          listWorkspaces,
-	"slack_list_conversations":       listConversations,
-	"slack_get_conversation_info":    getConversationInfo,
-	"slack_conversations_history":    conversationsHistory,
-	"slack_get_thread":               getThread,
-	"slack_create_conversation":      createConversation,
-	"slack_archive_conversation":     archiveConversation,
-	"slack_invite_to_conversation":   inviteToConversation,
-	"slack_kick_from_conversation":   kickFromConversation,
-	"slack_set_conversation_topic":   setConversationTopic,
-	"slack_set_conversation_purpose": setConversationPurpose,
-	"slack_join_conversation":        joinConversation,
-	"slack_leave_conversation":       leaveConversation,
-	"slack_rename_conversation":      renameConversation,
-	"slack_send_message":             sendMessage,
-	"slack_update_message":           updateMessage,
-	"slack_delete_message":           deleteMessage,
-	"slack_search_messages":          searchMessages,
-	"slack_add_reaction":             addReaction,
-	"slack_remove_reaction":          removeReaction,
-	"slack_get_reactions":            getReactions,
-	"slack_add_pin":                  addPin,
-	"slack_remove_pin":               removePin,
-	"slack_list_pins":                listPins,
-	"slack_schedule_message":         scheduleMessage,
-	"slack_list_users":               listUsers,
-	"slack_get_user_info":            getUserInfo,
-	"slack_get_user_presence":        getUserPresence,
-	"slack_list_user_groups":         listUserGroups,
-	"slack_get_user_group":           getUserGroup,
-	"slack_auth_test":                authTest,
-	"slack_team_info":                teamInfo,
-	"slack_upload_file":              uploadFile,
-	"slack_list_files":               listFiles,
-	"slack_delete_file":              deleteFile,
-	"slack_list_emoji":               listEmoji,
-	"slack_set_status":               setStatus,
-	"slack_list_bookmarks":           listBookmarks,
-	"slack_add_bookmark":             addBookmark,
-	"slack_remove_bookmark":          removeBookmark,
-	"slack_add_reminder":             addReminder,
-	"slack_list_reminders":           listReminders,
-	"slack_delete_reminder":          deleteReminder,
+var dispatch = map[mcp.ToolName]handlerFunc{
+	mcp.ToolName("slack_token_status"):             tokenStatus,
+	mcp.ToolName("slack_refresh_tokens"):           refreshTokens,
+	mcp.ToolName("slack_list_workspaces"):          listWorkspaces,
+	mcp.ToolName("slack_list_conversations"):       listConversations,
+	mcp.ToolName("slack_get_conversation_info"):    getConversationInfo,
+	mcp.ToolName("slack_conversations_history"):    conversationsHistory,
+	mcp.ToolName("slack_get_thread"):               getThread,
+	mcp.ToolName("slack_create_conversation"):      createConversation,
+	mcp.ToolName("slack_archive_conversation"):     archiveConversation,
+	mcp.ToolName("slack_invite_to_conversation"):   inviteToConversation,
+	mcp.ToolName("slack_kick_from_conversation"):   kickFromConversation,
+	mcp.ToolName("slack_set_conversation_topic"):   setConversationTopic,
+	mcp.ToolName("slack_set_conversation_purpose"): setConversationPurpose,
+	mcp.ToolName("slack_join_conversation"):        joinConversation,
+	mcp.ToolName("slack_leave_conversation"):       leaveConversation,
+	mcp.ToolName("slack_rename_conversation"):      renameConversation,
+	mcp.ToolName("slack_send_message"):             sendMessage,
+	mcp.ToolName("slack_update_message"):           updateMessage,
+	mcp.ToolName("slack_delete_message"):           deleteMessage,
+	mcp.ToolName("slack_search_messages"):          searchMessages,
+	mcp.ToolName("slack_add_reaction"):             addReaction,
+	mcp.ToolName("slack_remove_reaction"):          removeReaction,
+	mcp.ToolName("slack_get_reactions"):            getReactions,
+	mcp.ToolName("slack_add_pin"):                  addPin,
+	mcp.ToolName("slack_remove_pin"):               removePin,
+	mcp.ToolName("slack_list_pins"):                listPins,
+	mcp.ToolName("slack_schedule_message"):         scheduleMessage,
+	mcp.ToolName("slack_list_users"):               listUsers,
+	mcp.ToolName("slack_get_user_info"):            getUserInfo,
+	mcp.ToolName("slack_get_user_presence"):        getUserPresence,
+	mcp.ToolName("slack_list_user_groups"):         listUserGroups,
+	mcp.ToolName("slack_get_user_group"):           getUserGroup,
+	mcp.ToolName("slack_auth_test"):                authTest,
+	mcp.ToolName("slack_team_info"):                teamInfo,
+	mcp.ToolName("slack_upload_file"):              uploadFile,
+	mcp.ToolName("slack_list_files"):               listFiles,
+	mcp.ToolName("slack_delete_file"):              deleteFile,
+	mcp.ToolName("slack_list_emoji"):               listEmoji,
+	mcp.ToolName("slack_set_status"):               setStatus,
+	mcp.ToolName("slack_list_bookmarks"):           listBookmarks,
+	mcp.ToolName("slack_add_bookmark"):             addBookmark,
+	mcp.ToolName("slack_remove_bookmark"):          removeBookmark,
+	mcp.ToolName("slack_add_reminder"):             addReminder,
+	mcp.ToolName("slack_list_reminders"):           listReminders,
+	mcp.ToolName("slack_delete_reminder"):          deleteReminder,
 }
 
 // --- helpers ---

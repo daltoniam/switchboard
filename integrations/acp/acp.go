@@ -87,7 +87,7 @@ func (a *acpIntegration) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (a *acpIntegration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (a *acpIntegration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -97,10 +97,10 @@ func (a *acpIntegration) Execute(ctx context.Context, toolName string, args map[
 
 type handlerFunc func(ctx context.Context, a *acpIntegration, args map[string]any) (*mcp.ToolResult, error)
 
-var dispatch = map[string]handlerFunc{
-	"acp_list_agents": handleListAgents,
-	"acp_run_agent":   handleRunAgent,
-	"acp_resume_run":  handleResumeRun,
+var dispatch = map[mcp.ToolName]handlerFunc{
+	mcp.ToolName("acp_list_agents"): handleListAgents,
+	mcp.ToolName("acp_run_agent"):   handleRunAgent,
+	mcp.ToolName("acp_resume_run"):  handleResumeRun,
 }
 
 // resolveClient returns a client based on the args. Priority:

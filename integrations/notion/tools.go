@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// --- Data Sources ---
 	{
-		Name:        "notion_create_database",
+		Name:        mcp.ToolName("notion_create_database"),
 		Description: "Create a new database under a parent page",
 		Parameters: map[string]string{
 			"parent":     "Parent object with page_id (e.g. {\"page_id\": \"...\"})",
@@ -16,7 +16,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"parent"},
 	},
 	{
-		Name:        "notion_retrieve_data_source",
+		Name:        mcp.ToolName("notion_retrieve_data_source"),
 		Description: "Retrieve a data source's property schema. Use before query_data_source to understand available columns, types, and filter options.",
 		Parameters: map[string]string{
 			"data_source_id": "Block ID of the data source (the id field from search results — NOT collection_id)",
@@ -24,7 +24,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"data_source_id"},
 	},
 	{
-		Name:        "notion_update_data_source",
+		Name:        mcp.ToolName("notion_update_data_source"),
 		Description: "Update a data source's title or property schema",
 		Parameters: map[string]string{
 			"data_source_id": "Block ID of the data source (the id field from search results — NOT collection_id)",
@@ -34,7 +34,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"data_source_id"},
 	},
 	{
-		Name:        "notion_query_data_source",
+		Name:        mcp.ToolName("notion_query_data_source"),
 		Description: "Query a data source (database) with optional filters and sorts, returning paginated rows. Use retrieve_data_source first to see the schema.",
 		Parameters: map[string]string{
 			"data_source_id": "Block ID of the data source (the id field from search results — NOT collection_id). The handler resolves the collection internally.",
@@ -46,7 +46,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"data_source_id"},
 	},
 	{
-		Name:        "notion_list_data_source_templates",
+		Name:        mcp.ToolName("notion_list_data_source_templates"),
 		Description: "List available templates for a data source",
 		Parameters: map[string]string{
 			"data_source_id": "Block ID of the data source (the id field from search results — NOT collection_id)",
@@ -56,7 +56,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Databases ---
 	{
-		Name:        "notion_retrieve_database",
+		Name:        mcp.ToolName("notion_retrieve_database"),
 		Description: "Retrieve a database by block ID. Equivalent to retrieve_data_source — both accept the block ID.",
 		Parameters: map[string]string{
 			"database_id": "ID of the database",
@@ -66,7 +66,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Pages ---
 	{
-		Name:        "notion_create_page",
+		Name:        mcp.ToolName("notion_create_page"),
 		Description: "Create a new page or database row with properties only (no content blocks). page_id parent creates a subpage; database_id parent creates a row. For pages with content, prefer create_page_with_content.",
 		Parameters: map[string]string{
 			"parent":     `Parent: {"page_id": "..."} for subpage, or {"database_id": "<collection_id>"} for database row. Use collection_id from search results, NOT the search result id field`,
@@ -76,7 +76,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"parent"},
 	},
 	{
-		Name:        "notion_retrieve_page",
+		Name:        mcp.ToolName("notion_retrieve_page"),
 		Description: "Retrieve a page's metadata and properties only. For full page content, prefer get_page_content.",
 		Parameters: map[string]string{
 			"page_id": "ID of the page",
@@ -84,7 +84,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"page_id"},
 	},
 	{
-		Name:        "notion_update_page",
+		Name:        mcp.ToolName("notion_update_page"),
 		Description: "Update a page's property values (status, assignee, dates, etc). Does not modify page content blocks — use append_block_children or update_block for that.",
 		Parameters: map[string]string{
 			"page_id":    "ID of the page to update",
@@ -94,7 +94,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"page_id"},
 	},
 	{
-		Name:        "notion_move_page",
+		Name:        mcp.ToolName("notion_move_page"),
 		Description: "Move a page to a new parent page or database",
 		Parameters: map[string]string{
 			"page_id": "ID of the page to move",
@@ -103,7 +103,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"page_id", "parent"},
 	},
 	{
-		Name:        "notion_retrieve_page_property",
+		Name:        mcp.ToolName("notion_retrieve_page_property"),
 		Description: "Retrieve a single property value. Rarely needed — retrieve_page returns all properties at once.",
 		Parameters: map[string]string{
 			"page_id":     "ID of the page",
@@ -114,7 +114,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Blocks ---
 	{
-		Name:        "notion_retrieve_block",
+		Name:        mcp.ToolName("notion_retrieve_block"),
 		Description: "Retrieve a single block by ID. For full page content, prefer get_page_content.",
 		Parameters: map[string]string{
 			"block_id": "ID of the block",
@@ -122,7 +122,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"block_id"},
 	},
 	{
-		Name:        "notion_update_block",
+		Name:        mcp.ToolName("notion_update_block"),
 		Description: "Update a block's content",
 		Parameters: map[string]string{
 			"block_id":     "ID of the block to update",
@@ -132,7 +132,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"block_id"},
 	},
 	{
-		Name:        "notion_delete_block",
+		Name:        mcp.ToolName("notion_delete_block"),
 		Description: "Delete a block by ID (marks as not alive)",
 		Parameters: map[string]string{
 			"block_id": "ID of the block to delete",
@@ -140,7 +140,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"block_id"},
 	},
 	{
-		Name:        "notion_get_block_children",
+		Name:        mcp.ToolName("notion_get_block_children"),
 		Description: "List immediate child blocks of a block. For full page tree, prefer get_page_content.",
 		Parameters: map[string]string{
 			"block_id": "ID of the parent block",
@@ -148,7 +148,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"block_id"},
 	},
 	{
-		Name:        "notion_append_block_children",
+		Name:        mcp.ToolName("notion_append_block_children"),
 		Description: "Append new child blocks to a page or block. Use for adding content to existing pages.",
 		Parameters: map[string]string{
 			"block_id": "ID of the parent block",
@@ -159,7 +159,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Search ---
 	{
-		Name:        "notion_search",
+		Name:        mcp.ToolName("notion_search"),
 		Description: "Search across all pages and data sources in the workspace. Start here for most workflows. For database results: use id (block ID) for retrieve_data_source and query_data_source; use collection_id for creating rows via create_page with database_id parent.",
 		Parameters: map[string]string{
 			"query":    "Search query text. Searches page titles and content.",
@@ -173,12 +173,12 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Users ---
 	{
-		Name:        "notion_list_users",
+		Name:        mcp.ToolName("notion_list_users"),
 		Description: "List all users in the workspace",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "notion_retrieve_user",
+		Name:        mcp.ToolName("notion_retrieve_user"),
 		Description: "Retrieve a user by ID",
 		Parameters: map[string]string{
 			"user_id": "ID of the user",
@@ -186,14 +186,14 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"user_id"},
 	},
 	{
-		Name:        "notion_get_self",
+		Name:        mcp.ToolName("notion_get_self"),
 		Description: "Retrieve the current authenticated user's ID and settings",
 		Parameters:  map[string]string{},
 	},
 
 	// --- Comments ---
 	{
-		Name:        "notion_create_comment",
+		Name:        mcp.ToolName("notion_create_comment"),
 		Description: "Create a comment on a page or in an existing discussion thread. Provide page_id for a new discussion, or discussion_id to reply to an existing thread.",
 		Parameters: map[string]string{
 			"page_id":       "ID of the page (required for new discussion threads, omit when replying via discussion_id)",
@@ -203,7 +203,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"text"},
 	},
 	{
-		Name:        "notion_retrieve_comments",
+		Name:        mcp.ToolName("notion_retrieve_comments"),
 		Description: "Retrieve all comment threads on a page. Returns discussions with their comments.",
 		Parameters: map[string]string{
 			"block_id": "ID of the block or page",
@@ -213,7 +213,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Convenience ---
 	{
-		Name:        "notion_get_page_content",
+		Name:        mcp.ToolName("notion_get_page_content"),
 		Description: "Retrieve a page and all its block content in one call. Preferred over retrieve_page — returns the full page tree, not just metadata.",
 		Parameters: map[string]string{
 			"page_id": "ID of the page (from search results or a known page URL)",
@@ -222,7 +222,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"page_id"},
 	},
 	{
-		Name:        "notion_create_page_with_content",
+		Name:        mcp.ToolName("notion_create_page_with_content"),
 		Description: "Create a page or database row with properties and block content in a single atomic transaction. Preferred over create_page + append_block_children — fewer calls, atomic. page_id parent creates a subpage; database_id parent creates a row.",
 		Parameters: map[string]string{
 			"parent":     `Parent: {"page_id": "..."} for subpage, or {"database_id": "<collection_id>"} for database row. Use collection_id from search results, NOT the search result id field`,
@@ -234,44 +234,44 @@ var tools = []mcp.ToolDefinition{
 	},
 }
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Data Sources
-	"notion_create_database":            createDatabase,
-	"notion_retrieve_data_source":       retrieveDataSource,
-	"notion_update_data_source":         updateDataSource,
-	"notion_query_data_source":          queryDataSource,
-	"notion_list_data_source_templates": listDataSourceTemplates,
+	mcp.ToolName("notion_create_database"):            createDatabase,
+	mcp.ToolName("notion_retrieve_data_source"):       retrieveDataSource,
+	mcp.ToolName("notion_update_data_source"):         updateDataSource,
+	mcp.ToolName("notion_query_data_source"):          queryDataSource,
+	mcp.ToolName("notion_list_data_source_templates"): listDataSourceTemplates,
 
 	// Databases
-	"notion_retrieve_database": retrieveDatabase,
+	mcp.ToolName("notion_retrieve_database"): retrieveDatabase,
 
 	// Pages
-	"notion_create_page":            createPage,
-	"notion_retrieve_page":          retrievePage,
-	"notion_update_page":            updatePage,
-	"notion_move_page":              movePage,
-	"notion_retrieve_page_property": retrievePageProperty,
+	mcp.ToolName("notion_create_page"):            createPage,
+	mcp.ToolName("notion_retrieve_page"):          retrievePage,
+	mcp.ToolName("notion_update_page"):            updatePage,
+	mcp.ToolName("notion_move_page"):              movePage,
+	mcp.ToolName("notion_retrieve_page_property"): retrievePageProperty,
 
 	// Blocks
-	"notion_retrieve_block":        retrieveBlock,
-	"notion_update_block":          updateBlock,
-	"notion_delete_block":          deleteBlock,
-	"notion_get_block_children":    getBlockChildren,
-	"notion_append_block_children": appendBlockChildren,
+	mcp.ToolName("notion_retrieve_block"):        retrieveBlock,
+	mcp.ToolName("notion_update_block"):          updateBlock,
+	mcp.ToolName("notion_delete_block"):          deleteBlock,
+	mcp.ToolName("notion_get_block_children"):    getBlockChildren,
+	mcp.ToolName("notion_append_block_children"): appendBlockChildren,
 
 	// Search
-	"notion_search": searchNotion,
+	mcp.ToolName("notion_search"): searchNotion,
 
 	// Users
-	"notion_list_users":    listUsers,
-	"notion_retrieve_user": retrieveUser,
-	"notion_get_self":      getSelf,
+	mcp.ToolName("notion_list_users"):    listUsers,
+	mcp.ToolName("notion_retrieve_user"): retrieveUser,
+	mcp.ToolName("notion_get_self"):      getSelf,
 
 	// Comments
-	"notion_create_comment":    createComment,
-	"notion_retrieve_comments": retrieveComments,
+	mcp.ToolName("notion_create_comment"):    createComment,
+	mcp.ToolName("notion_retrieve_comments"): retrieveComments,
 
 	// Convenience
-	"notion_get_page_content":         getPageContent,
-	"notion_create_page_with_content": createPageWithContent,
+	mcp.ToolName("notion_get_page_content"):         getPageContent,
+	mcp.ToolName("notion_create_page_with_content"): createPageWithContent,
 }

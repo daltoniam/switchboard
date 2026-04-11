@@ -118,13 +118,13 @@ func TestConfig(t *testing.T) {
 
 func TestToolDefinition(t *testing.T) {
 	td := ToolDefinition{
-		Name:        "github_list_issues",
+		Name:        ToolName("github_list_issues"),
 		Description: "List issues",
 		Parameters:  map[string]string{"owner": "Repo owner", "repo": "Repo name"},
 		Required:    []string{"owner", "repo"},
 	}
 
-	assert.Equal(t, "github_list_issues", td.Name)
+	assert.Equal(t, ToolName("github_list_issues"), td.Name)
 	assert.Equal(t, "List issues", td.Description)
 	assert.Len(t, td.Parameters, 2)
 	assert.Equal(t, []string{"owner", "repo"}, td.Required)
@@ -132,7 +132,7 @@ func TestToolDefinition(t *testing.T) {
 
 func TestToolDefinitionOptionalRequired(t *testing.T) {
 	td := ToolDefinition{
-		Name:        "github_search_repos",
+		Name:        ToolName("github_search_repos"),
 		Description: "Search repos",
 		Parameters:  map[string]string{"query": "Search query"},
 	}
@@ -267,7 +267,7 @@ func TestToolAllowed(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ic := &IntegrationConfig{ToolGlobs: tt.globs}
-			assert.Equal(t, tt.wantAllow, ic.ToolAllowed(tt.toolName))
+			assert.Equal(t, tt.wantAllow, ic.ToolAllowed(ToolName(tt.toolName)))
 		})
 	}
 }
@@ -296,7 +296,7 @@ func TestToolAllowed_PathMatchSemantics(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.pattern+"/"+tt.name, func(t *testing.T) {
 			ic := &IntegrationConfig{ToolGlobs: []string{tt.pattern}}
-			assert.Equal(t, tt.want, ic.ToolAllowed(tt.name))
+			assert.Equal(t, tt.want, ic.ToolAllowed(ToolName(tt.name)))
 		})
 	}
 }
@@ -311,8 +311,8 @@ func TestValidateToolGlobs(t *testing.T) {
 
 func TestToolAllowed_InvalidPatternSkipped(t *testing.T) {
 	ic := &IntegrationConfig{ToolGlobs: []string{"[bad", "github_*"}}
-	assert.True(t, ic.ToolAllowed("github_list_issues"))
-	assert.False(t, ic.ToolAllowed("datadog_search_logs"))
+	assert.True(t, ic.ToolAllowed(ToolName("github_list_issues")))
+	assert.False(t, ic.ToolAllowed(ToolName("datadog_search_logs")))
 }
 
 func TestIsRetryable_DistinguishesRetryableFromPermanentErrors(t *testing.T) {

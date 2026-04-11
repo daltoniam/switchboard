@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Runs ────────────────────────────────────────────────────────
 	{
-		Name:        "rwx_launch_ci_run",
+		Name:        mcp.ToolName("rwx_launch_ci_run"),
 		Description: "Launch a CI/CD pipeline run using the rwx CLI. Start here to run CI. Executes continuous integration tests and builds from .rwx/ci.yml by default.",
 		Parameters: map[string]string{
 			"targets": "JSON array of specific task keys to target (optional)",
@@ -13,7 +13,7 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name:        "rwx_wait_for_ci_run",
+		Name:        mcp.ToolName("rwx_wait_for_ci_run"),
 		Description: "Poll and wait for an RWX CI run to complete or timeout",
 		Parameters: map[string]string{
 			"run_id":                "RWX run ID or full URL to wait for",
@@ -23,7 +23,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"run_id"},
 	},
 	{
-		Name:        "rwx_get_recent_runs",
+		Name:        mcp.ToolName("rwx_get_recent_runs"),
 		Description: "Get recent CI runs for a git branch, filtered to .rwx/ci.yml runs",
 		Parameters: map[string]string{
 			"ref":   "Git ref (branch name) to filter runs by",
@@ -32,7 +32,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"ref"},
 	},
 	{
-		Name:        "rwx_get_run_results",
+		Name:        mcp.ToolName("rwx_get_run_results"),
 		Description: "Get structured CI/CD pipeline results for a completed run, including per-task pass/fail status and build summary",
 		Parameters: map[string]string{
 			"run_id": "RWX run ID or full URL to get results for",
@@ -42,7 +42,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Logs ────────────────────────────────────────────────────────
 	{
-		Name:        "rwx_get_task_logs",
+		Name:        mcp.ToolName("rwx_get_task_logs"),
 		Description: "Download and return full CI/CD task logs with build failure and test failure highlights",
 		Parameters: map[string]string{
 			"task_id": "RWX task ID (32-char hex) or task URL",
@@ -50,7 +50,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"task_id"},
 	},
 	{
-		Name:        "rwx_head_logs",
+		Name:        mcp.ToolName("rwx_head_logs"),
 		Description: "Return the first N lines of logs for a run or task. Supports pagination via offset.",
 		Parameters: map[string]string{
 			"id":     "RWX run ID or task ID",
@@ -60,7 +60,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"id"},
 	},
 	{
-		Name:        "rwx_tail_logs",
+		Name:        mcp.ToolName("rwx_tail_logs"),
 		Description: "Return the last N lines of logs for a run or task. Supports pagination via offset.",
 		Parameters: map[string]string{
 			"id":     "RWX run ID or task ID",
@@ -70,7 +70,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"id"},
 	},
 	{
-		Name:        "rwx_grep_logs",
+		Name:        mcp.ToolName("rwx_grep_logs"),
 		Description: "Search CI/CD build and test logs for a pattern with context lines. Results are paginated (50 lines per page).",
 		Parameters: map[string]string{
 			"id":      "RWX run ID or task ID",
@@ -83,7 +83,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Artifacts ───────────────────────────────────────────────────
 	{
-		Name:        "rwx_get_artifacts",
+		Name:        mcp.ToolName("rwx_get_artifacts"),
 		Description: "List or download artifacts for a run",
 		Parameters: map[string]string{
 			"run_id":       "RWX run ID or full URL to get artifacts for",
@@ -95,7 +95,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Workflow ────────────────────────────────────────────────────
 	{
-		Name:        "rwx_validate_workflow",
+		Name:        mcp.ToolName("rwx_validate_workflow"),
 		Description: "Validate an RWX workflow YAML file using the rwx CLI",
 		Parameters: map[string]string{
 			"file_path": "Path to the RWX workflow YAML file to validate (default: .rwx/ci.yml)",
@@ -104,7 +104,7 @@ var tools = []mcp.ToolDefinition{
 
 	// ── CLI ─────────────────────────────────────────────────────────
 	{
-		Name:        "rwx_verify_cli",
+		Name:        mcp.ToolName("rwx_verify_cli"),
 		Description: "Verify the rwx CLI is installed and meets the minimum version requirement (>= " + minRWXVersion + ")",
 		Parameters:  map[string]string{},
 	},

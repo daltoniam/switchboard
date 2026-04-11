@@ -181,7 +181,7 @@ func (g *integration) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (g *integration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (g *integration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -214,78 +214,78 @@ func (g *integration) projectName() string {
 	return "projects/" + g.projectID
 }
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Resource Manager
-	"gcp_get_project":    getProject,
-	"gcp_list_projects":  listProjects,
-	"gcp_list_folders":   listFolders,
-	"gcp_get_folder":     getFolder,
-	"gcp_get_iam_policy": getIAMPolicy,
+	mcp.ToolName("gcp_get_project"):    getProject,
+	mcp.ToolName("gcp_list_projects"):  listProjects,
+	mcp.ToolName("gcp_list_folders"):   listFolders,
+	mcp.ToolName("gcp_get_folder"):     getFolder,
+	mcp.ToolName("gcp_get_iam_policy"): getIAMPolicy,
 
 	// Storage
-	"gcp_storage_list_buckets":  storageListBuckets,
-	"gcp_storage_get_bucket":    storageGetBucket,
-	"gcp_storage_list_objects":  storageListObjects,
-	"gcp_storage_get_object":    storageGetObject,
-	"gcp_storage_put_object":    storagePutObject,
-	"gcp_storage_delete_object": storageDeleteObject,
-	"gcp_storage_copy_object":   storageCopyObject,
+	mcp.ToolName("gcp_storage_list_buckets"):  storageListBuckets,
+	mcp.ToolName("gcp_storage_get_bucket"):    storageGetBucket,
+	mcp.ToolName("gcp_storage_list_objects"):  storageListObjects,
+	mcp.ToolName("gcp_storage_get_object"):    storageGetObject,
+	mcp.ToolName("gcp_storage_put_object"):    storagePutObject,
+	mcp.ToolName("gcp_storage_delete_object"): storageDeleteObject,
+	mcp.ToolName("gcp_storage_copy_object"):   storageCopyObject,
 
 	// Compute Engine
-	"gcp_compute_list_instances":   computeListInstances,
-	"gcp_compute_get_instance":     computeGetInstance,
-	"gcp_compute_start_instance":   computeStartInstance,
-	"gcp_compute_stop_instance":    computeStopInstance,
-	"gcp_compute_list_disks":       computeListDisks,
-	"gcp_compute_list_networks":    computeListNetworks,
-	"gcp_compute_list_subnetworks": computeListSubnetworks,
-	"gcp_compute_list_firewalls":   computeListFirewalls,
-	"gcp_compute_get_firewall":     computeGetFirewall,
+	mcp.ToolName("gcp_compute_list_instances"):   computeListInstances,
+	mcp.ToolName("gcp_compute_get_instance"):     computeGetInstance,
+	mcp.ToolName("gcp_compute_start_instance"):   computeStartInstance,
+	mcp.ToolName("gcp_compute_stop_instance"):    computeStopInstance,
+	mcp.ToolName("gcp_compute_list_disks"):       computeListDisks,
+	mcp.ToolName("gcp_compute_list_networks"):    computeListNetworks,
+	mcp.ToolName("gcp_compute_list_subnetworks"): computeListSubnetworks,
+	mcp.ToolName("gcp_compute_list_firewalls"):   computeListFirewalls,
+	mcp.ToolName("gcp_compute_get_firewall"):     computeGetFirewall,
 
 	// Cloud Functions
-	"gcp_functions_list":           functionsList,
-	"gcp_functions_get":            functionsGet,
-	"gcp_functions_get_iam_policy": functionsGetIAMPolicy,
+	mcp.ToolName("gcp_functions_list"):           functionsList,
+	mcp.ToolName("gcp_functions_get"):            functionsGet,
+	mcp.ToolName("gcp_functions_get_iam_policy"): functionsGetIAMPolicy,
 
 	// IAM
-	"gcp_iam_list_service_accounts":     iamListServiceAccounts,
-	"gcp_iam_get_service_account":       iamGetServiceAccount,
-	"gcp_iam_list_service_account_keys": iamListServiceAccountKeys,
-	"gcp_iam_list_roles":                iamListRoles,
-	"gcp_iam_get_role":                  iamGetRole,
+	mcp.ToolName("gcp_iam_list_service_accounts"):     iamListServiceAccounts,
+	mcp.ToolName("gcp_iam_get_service_account"):       iamGetServiceAccount,
+	mcp.ToolName("gcp_iam_list_service_account_keys"): iamListServiceAccountKeys,
+	mcp.ToolName("gcp_iam_list_roles"):                iamListRoles,
+	mcp.ToolName("gcp_iam_get_role"):                  iamGetRole,
 
 	// Cloud Monitoring
-	"gcp_monitoring_list_metric_descriptors":  monitoringListMetricDescriptors,
-	"gcp_monitoring_list_time_series":         monitoringListTimeSeries,
-	"gcp_monitoring_list_alert_policies":      monitoringListAlertPolicies,
-	"gcp_monitoring_get_alert_policy":         monitoringGetAlertPolicy,
-	"gcp_monitoring_list_monitored_resources": monitoringListMonitoredResources,
+	mcp.ToolName("gcp_monitoring_list_metric_descriptors"):  monitoringListMetricDescriptors,
+	mcp.ToolName("gcp_monitoring_list_time_series"):         monitoringListTimeSeries,
+	mcp.ToolName("gcp_monitoring_list_alert_policies"):      monitoringListAlertPolicies,
+	mcp.ToolName("gcp_monitoring_get_alert_policy"):         monitoringGetAlertPolicy,
+	mcp.ToolName("gcp_monitoring_list_monitored_resources"): monitoringListMonitoredResources,
 
 	// Cloud Run
-	"gcp_run_list_services":  runListServices,
-	"gcp_run_get_service":    runGetService,
-	"gcp_run_list_revisions": runListRevisions,
-	"gcp_run_get_revision":   runGetRevision,
+	mcp.ToolName("gcp_run_list_services"):  runListServices,
+	mcp.ToolName("gcp_run_get_service"):    runGetService,
+	mcp.ToolName("gcp_run_list_revisions"): runListRevisions,
+	mcp.ToolName("gcp_run_get_revision"):   runGetRevision,
 
 	// Pub/Sub
-	"gcp_pubsub_list_topics":        pubsubListTopics,
-	"gcp_pubsub_get_topic":          pubsubGetTopic,
-	"gcp_pubsub_publish":            pubsubPublish,
-	"gcp_pubsub_list_subscriptions": pubsubListSubscriptions,
-	"gcp_pubsub_get_subscription":   pubsubGetSubscription,
-	"gcp_pubsub_pull":               pubsubPull,
+	mcp.ToolName("gcp_pubsub_list_topics"):        pubsubListTopics,
+	mcp.ToolName("gcp_pubsub_get_topic"):          pubsubGetTopic,
+	mcp.ToolName("gcp_pubsub_publish"):            pubsubPublish,
+	mcp.ToolName("gcp_pubsub_list_subscriptions"): pubsubListSubscriptions,
+	mcp.ToolName("gcp_pubsub_get_subscription"):   pubsubGetSubscription,
+	mcp.ToolName("gcp_pubsub_pull"):               pubsubPull,
 
 	// Firestore
-	"gcp_firestore_list_collections": firestoreListCollections,
-	"gcp_firestore_list_documents":   firestoreListDocuments,
-	"gcp_firestore_get_document":     firestoreGetDocument,
-	"gcp_firestore_set_document":     firestoreSetDocument,
-	"gcp_firestore_delete_document":  firestoreDeleteDocument,
-	"gcp_firestore_query":            firestoreQuery,
+	mcp.ToolName("gcp_firestore_list_collections"): firestoreListCollections,
+	mcp.ToolName("gcp_firestore_list_documents"):   firestoreListDocuments,
+	mcp.ToolName("gcp_firestore_get_document"):     firestoreGetDocument,
+	mcp.ToolName("gcp_firestore_set_document"):     firestoreSetDocument,
+	mcp.ToolName("gcp_firestore_delete_document"):  firestoreDeleteDocument,
+	mcp.ToolName("gcp_firestore_query"):            firestoreQuery,
 
 	// Cloud Logging
-	"gcp_logging_list_entries":   loggingListEntries,
-	"gcp_logging_list_log_names": loggingListLogNames,
-	"gcp_logging_list_sinks":     loggingListSinks,
-	"gcp_logging_get_sink":       loggingGetSink,
+	mcp.ToolName("gcp_logging_list_entries"):   loggingListEntries,
+	mcp.ToolName("gcp_logging_list_log_names"): loggingListLogNames,
+	mcp.ToolName("gcp_logging_list_sinks"):     loggingListSinks,
+	mcp.ToolName("gcp_logging_get_sink"):       loggingGetSink,
 }

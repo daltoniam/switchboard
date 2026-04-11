@@ -6,8 +6,8 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-var rawFieldCompactionSpecs = map[string][]string{
-	"suno_get_generation": {
+var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
+	mcp.ToolName("suno_get_generation"): {
 		"data.taskId", "data.status", "data.type",
 		"data.response.sunoData[].id", "data.response.sunoData[].audioUrl",
 		"data.response.sunoData[].streamAudioUrl", "data.response.sunoData[].imageUrl",
@@ -16,28 +16,28 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"data.response.sunoData[].createTime",
 		"data.errorCode", "data.errorMessage",
 	},
-	"suno_get_credits": {
+	mcp.ToolName("suno_get_credits"): {
 		"code", "msg", "data",
 	},
-	"suno_get_lyrics": {
+	mcp.ToolName("suno_get_lyrics"): {
 		"data.taskId", "data.status", "data.type",
 		"data.response",
 		"data.errorCode", "data.errorMessage",
 	},
-	"suno_get_aligned_lyrics": {
+	mcp.ToolName("suno_get_aligned_lyrics"): {
 		"code", "msg", "data",
 	},
-	"suno_get_stem_separation": {
+	mcp.ToolName("suno_get_stem_separation"): {
 		"data.taskId", "data.status", "data.type",
 		"data.response",
 		"data.errorCode", "data.errorMessage",
 	},
-	"suno_get_wav_conversion": {
+	mcp.ToolName("suno_get_wav_conversion"): {
 		"data.taskId", "data.status", "data.type",
 		"data.response",
 		"data.errorCode", "data.errorMessage",
 	},
-	"suno_get_video": {
+	mcp.ToolName("suno_get_video"): {
 		"data.taskId", "data.status", "data.type",
 		"data.response",
 		"data.errorCode", "data.errorMessage",
@@ -46,8 +46,8 @@ var rawFieldCompactionSpecs = map[string][]string{
 
 var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(rawFieldCompactionSpecs)
 
-func mustBuildFieldCompactionSpecs(raw map[string][]string) map[string][]mcp.CompactField {
-	parsed := make(map[string][]mcp.CompactField, len(raw))
+func mustBuildFieldCompactionSpecs(raw map[mcp.ToolName][]string) map[mcp.ToolName][]mcp.CompactField {
+	parsed := make(map[mcp.ToolName][]mcp.CompactField, len(raw))
 	for tool, specs := range raw {
 		fields, err := mcp.ParseCompactSpecs(specs)
 		if err != nil {

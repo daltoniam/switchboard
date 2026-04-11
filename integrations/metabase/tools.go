@@ -5,30 +5,30 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// --- Databases ---
 	{
-		Name:        "metabase_list_databases",
+		Name:        mcp.ToolName("metabase_list_databases"),
 		Description: "List all databases configured in Metabase",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "metabase_get_database",
+		Name:        mcp.ToolName("metabase_get_database"),
 		Description: "Get details of a specific database including its tables",
 		Parameters:  map[string]string{"database_id": "Database ID"},
 		Required:    []string{"database_id"},
 	},
 	{
-		Name:        "metabase_list_tables",
+		Name:        mcp.ToolName("metabase_list_tables"),
 		Description: "List all tables in a specific database with metadata",
 		Parameters:  map[string]string{"database_id": "Database ID"},
 		Required:    []string{"database_id"},
 	},
 	{
-		Name:        "metabase_get_table",
+		Name:        mcp.ToolName("metabase_get_table"),
 		Description: "Get detailed metadata for a specific table",
 		Parameters:  map[string]string{"table_id": "Table ID"},
 		Required:    []string{"table_id"},
 	},
 	{
-		Name:        "metabase_get_table_fields",
+		Name:        mcp.ToolName("metabase_get_table_fields"),
 		Description: "Get all fields/columns for a specific table with types and metadata",
 		Parameters:  map[string]string{"table_id": "Table ID"},
 		Required:    []string{"table_id"},
@@ -36,7 +36,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Queries ---
 	{
-		Name:        "metabase_execute_query",
+		Name:        mcp.ToolName("metabase_execute_query"),
 		Description: "Execute a native SQL analytics query against a Metabase-connected database and return results as JSON. Use for ad-hoc analytics, BI reporting, and data exploration.",
 		Parameters: map[string]string{
 			"database_id": "Database ID to query",
@@ -45,7 +45,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"database_id", "query"},
 	},
 	{
-		Name:        "metabase_execute_card",
+		Name:        mcp.ToolName("metabase_execute_card"),
 		Description: "Execute a saved question/card and return its results",
 		Parameters: map[string]string{
 			"card_id":    "Card/question ID",
@@ -56,20 +56,20 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Cards (Saved Questions) ---
 	{
-		Name:        "metabase_list_cards",
+		Name:        mcp.ToolName("metabase_list_cards"),
 		Description: "List all saved questions/cards. Optionally filter by type.",
 		Parameters: map[string]string{
 			"filter": "Filter: all (default), mine, bookmarked, archived",
 		},
 	},
 	{
-		Name:        "metabase_get_card",
+		Name:        mcp.ToolName("metabase_get_card"),
 		Description: "Get details of a specific saved question/card",
 		Parameters:  map[string]string{"card_id": "Card ID"},
 		Required:    []string{"card_id"},
 	},
 	{
-		Name:        "metabase_create_card",
+		Name:        mcp.ToolName("metabase_create_card"),
 		Description: "Create a new saved question/card with a native SQL query",
 		Parameters: map[string]string{
 			"name":          "Name of the question",
@@ -82,7 +82,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"name", "database_id", "query"},
 	},
 	{
-		Name:        "metabase_update_card",
+		Name:        mcp.ToolName("metabase_update_card"),
 		Description: "Update a saved question/card (name, description, query, visualization)",
 		Parameters: map[string]string{
 			"card_id":     "Card ID",
@@ -96,7 +96,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"card_id"},
 	},
 	{
-		Name:        "metabase_delete_card",
+		Name:        mcp.ToolName("metabase_delete_card"),
 		Description: "Delete (archive) a saved question/card",
 		Parameters:  map[string]string{"card_id": "Card ID"},
 		Required:    []string{"card_id"},
@@ -104,18 +104,18 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Dashboards ---
 	{
-		Name:        "metabase_list_dashboards",
+		Name:        mcp.ToolName("metabase_list_dashboards"),
 		Description: "List all Metabase analytics dashboards for reporting and data visualization",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "metabase_get_dashboard",
+		Name:        mcp.ToolName("metabase_get_dashboard"),
 		Description: "Get details of a dashboard including its cards and layout",
 		Parameters:  map[string]string{"dashboard_id": "Dashboard ID"},
 		Required:    []string{"dashboard_id"},
 	},
 	{
-		Name:        "metabase_create_dashboard",
+		Name:        mcp.ToolName("metabase_create_dashboard"),
 		Description: "Create a new dashboard",
 		Parameters: map[string]string{
 			"name":          "Dashboard name",
@@ -125,7 +125,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"name"},
 	},
 	{
-		Name:        "metabase_update_dashboard",
+		Name:        mcp.ToolName("metabase_update_dashboard"),
 		Description: "Update a dashboard's name, description, or other properties",
 		Parameters: map[string]string{
 			"dashboard_id": "Dashboard ID",
@@ -136,13 +136,13 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"dashboard_id"},
 	},
 	{
-		Name:        "metabase_delete_dashboard",
+		Name:        mcp.ToolName("metabase_delete_dashboard"),
 		Description: "Delete (archive) a dashboard",
 		Parameters:  map[string]string{"dashboard_id": "Dashboard ID"},
 		Required:    []string{"dashboard_id"},
 	},
 	{
-		Name:        "metabase_add_card_to_dashboard",
+		Name:        mcp.ToolName("metabase_add_card_to_dashboard"),
 		Description: "Add a saved question/card to a dashboard",
 		Parameters: map[string]string{
 			"dashboard_id": "Dashboard ID",
@@ -157,18 +157,18 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Collections ---
 	{
-		Name:        "metabase_list_collections",
+		Name:        mcp.ToolName("metabase_list_collections"),
 		Description: "List all collections (folders for organizing questions and dashboards)",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "metabase_get_collection",
+		Name:        mcp.ToolName("metabase_get_collection"),
 		Description: "Get details and items in a specific collection",
 		Parameters:  map[string]string{"collection_id": "Collection ID (use 'root' for the root collection)"},
 		Required:    []string{"collection_id"},
 	},
 	{
-		Name:        "metabase_create_collection",
+		Name:        mcp.ToolName("metabase_create_collection"),
 		Description: "Create a new collection for organizing questions and dashboards",
 		Parameters: map[string]string{
 			"name":        "Collection name",
@@ -178,7 +178,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"name"},
 	},
 	{
-		Name:        "metabase_update_collection",
+		Name:        mcp.ToolName("metabase_update_collection"),
 		Description: "Update a collection's name, description, or parent",
 		Parameters: map[string]string{
 			"collection_id": "Collection ID",
@@ -192,7 +192,7 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Search ---
 	{
-		Name:        "metabase_search",
+		Name:        mcp.ToolName("metabase_search"),
 		Description: "Search across all Metabase content (questions, dashboards, collections, tables, databases). Start here for BI and reporting workflows.",
 		Parameters: map[string]string{
 			"query":  "Search query string",
@@ -202,39 +202,39 @@ var tools = []mcp.ToolDefinition{
 	},
 }
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Databases
-	"metabase_list_databases":   listDatabases,
-	"metabase_get_database":     getDatabase,
-	"metabase_list_tables":      listTables,
-	"metabase_get_table":        getTable,
-	"metabase_get_table_fields": getTableFields,
+	mcp.ToolName("metabase_list_databases"):   listDatabases,
+	mcp.ToolName("metabase_get_database"):     getDatabase,
+	mcp.ToolName("metabase_list_tables"):      listTables,
+	mcp.ToolName("metabase_get_table"):        getTable,
+	mcp.ToolName("metabase_get_table_fields"): getTableFields,
 
 	// Queries
-	"metabase_execute_query": executeQuery,
-	"metabase_execute_card":  executeCard,
+	mcp.ToolName("metabase_execute_query"): executeQuery,
+	mcp.ToolName("metabase_execute_card"):  executeCard,
 
 	// Cards
-	"metabase_list_cards":  listCards,
-	"metabase_get_card":    getCard,
-	"metabase_create_card": createCard,
-	"metabase_update_card": updateCard,
-	"metabase_delete_card": deleteCard,
+	mcp.ToolName("metabase_list_cards"):  listCards,
+	mcp.ToolName("metabase_get_card"):    getCard,
+	mcp.ToolName("metabase_create_card"): createCard,
+	mcp.ToolName("metabase_update_card"): updateCard,
+	mcp.ToolName("metabase_delete_card"): deleteCard,
 
 	// Dashboards
-	"metabase_list_dashboards":       listDashboards,
-	"metabase_get_dashboard":         getDashboard,
-	"metabase_create_dashboard":      createDashboard,
-	"metabase_update_dashboard":      updateDashboard,
-	"metabase_delete_dashboard":      deleteDashboard,
-	"metabase_add_card_to_dashboard": addCardToDashboard,
+	mcp.ToolName("metabase_list_dashboards"):       listDashboards,
+	mcp.ToolName("metabase_get_dashboard"):         getDashboard,
+	mcp.ToolName("metabase_create_dashboard"):      createDashboard,
+	mcp.ToolName("metabase_update_dashboard"):      updateDashboard,
+	mcp.ToolName("metabase_delete_dashboard"):      deleteDashboard,
+	mcp.ToolName("metabase_add_card_to_dashboard"): addCardToDashboard,
 
 	// Collections
-	"metabase_list_collections":  listCollections,
-	"metabase_get_collection":    getCollection,
-	"metabase_create_collection": createCollection,
-	"metabase_update_collection": updateCollection,
+	mcp.ToolName("metabase_list_collections"):  listCollections,
+	mcp.ToolName("metabase_get_collection"):    getCollection,
+	mcp.ToolName("metabase_create_collection"): createCollection,
+	mcp.ToolName("metabase_update_collection"): updateCollection,
 
 	// Search
-	"metabase_search": search,
+	mcp.ToolName("metabase_search"): search,
 }

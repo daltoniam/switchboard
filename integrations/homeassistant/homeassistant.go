@@ -65,7 +65,7 @@ func (h *homeassistant) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (h *homeassistant) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (h *homeassistant) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -73,7 +73,7 @@ func (h *homeassistant) Execute(ctx context.Context, toolName string, args map[s
 	return fn(ctx, h, args)
 }
 
-func (h *homeassistant) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (h *homeassistant) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
@@ -198,56 +198,56 @@ func queryEncode(params map[string]string) string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// States / Entities
-	"homeassistant_list_states":  listStates,
-	"homeassistant_get_state":    getState,
-	"homeassistant_set_state":    setState,
-	"homeassistant_delete_state": deleteState,
+	mcp.ToolName("homeassistant_list_states"):  listStates,
+	mcp.ToolName("homeassistant_get_state"):    getState,
+	mcp.ToolName("homeassistant_set_state"):    setState,
+	mcp.ToolName("homeassistant_delete_state"): deleteState,
 
 	// Services
-	"homeassistant_list_services": listServices,
-	"homeassistant_call_service":  callService,
+	mcp.ToolName("homeassistant_list_services"): listServices,
+	mcp.ToolName("homeassistant_call_service"):  callService,
 
 	// Events
-	"homeassistant_list_events": listEvents,
-	"homeassistant_fire_event":  fireEvent,
+	mcp.ToolName("homeassistant_list_events"): listEvents,
+	mcp.ToolName("homeassistant_fire_event"):  fireEvent,
 
 	// History
-	"homeassistant_get_history": getHistory,
+	mcp.ToolName("homeassistant_get_history"): getHistory,
 
 	// Logbook
-	"homeassistant_get_logbook": getLogbook,
+	mcp.ToolName("homeassistant_get_logbook"): getLogbook,
 
 	// Config
-	"homeassistant_get_config":   getConfig,
-	"homeassistant_check_config": checkConfig,
+	mcp.ToolName("homeassistant_get_config"):   getConfig,
+	mcp.ToolName("homeassistant_check_config"): checkConfig,
 
 	// Template
-	"homeassistant_render_template": renderTemplate,
+	mcp.ToolName("homeassistant_render_template"): renderTemplate,
 
 	// Error Log
-	"homeassistant_get_error_log": getErrorLog,
+	mcp.ToolName("homeassistant_get_error_log"): getErrorLog,
 
 	// Calendars
-	"homeassistant_list_calendars":      listCalendars,
-	"homeassistant_get_calendar_events": getCalendarEvents,
+	mcp.ToolName("homeassistant_list_calendars"):      listCalendars,
+	mcp.ToolName("homeassistant_get_calendar_events"): getCalendarEvents,
 
 	// Intents
-	"homeassistant_handle_intent": handleIntent,
+	mcp.ToolName("homeassistant_handle_intent"): handleIntent,
 
 	// Automations
-	"homeassistant_get_automation":    getAutomation,
-	"homeassistant_save_automation":   saveAutomation,
-	"homeassistant_delete_automation": deleteAutomation,
+	mcp.ToolName("homeassistant_get_automation"):    getAutomation,
+	mcp.ToolName("homeassistant_save_automation"):   saveAutomation,
+	mcp.ToolName("homeassistant_delete_automation"): deleteAutomation,
 
 	// Scenes
-	"homeassistant_get_scene":    getScene,
-	"homeassistant_save_scene":   saveScene,
-	"homeassistant_delete_scene": deleteScene,
+	mcp.ToolName("homeassistant_get_scene"):    getScene,
+	mcp.ToolName("homeassistant_save_scene"):   saveScene,
+	mcp.ToolName("homeassistant_delete_scene"): deleteScene,
 
 	// Scripts
-	"homeassistant_get_script":    getScript,
-	"homeassistant_save_script":   saveScript,
-	"homeassistant_delete_script": deleteScript,
+	mcp.ToolName("homeassistant_get_script"):    getScript,
+	mcp.ToolName("homeassistant_save_script"):   saveScript,
+	mcp.ToolName("homeassistant_delete_script"): deleteScript,
 }

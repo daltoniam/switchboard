@@ -107,12 +107,12 @@ func (l *linear) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (l *linear) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (l *linear) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (l *linear) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (l *linear) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	if l.useRemote && l.remote != nil {
 		return l.remote.Execute(ctx, toolName, args)
 	}
@@ -477,99 +477,99 @@ func (l *linear) resolveLabelIDs(ctx context.Context, names []string) ([]string,
 
 type handlerFunc func(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error)
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Issues
-	"linear_list_issues":           listIssues,
-	"linear_search_issues":         searchIssues,
-	"linear_get_issue":             getIssue,
-	"linear_create_issue":          createIssue,
-	"linear_update_issue":          updateIssue,
-	"linear_archive_issue":         archiveIssue,
-	"linear_unarchive_issue":       unarchiveIssue,
-	"linear_list_issue_comments":   listIssueComments,
-	"linear_create_comment":        createComment,
-	"linear_update_comment":        updateComment,
-	"linear_delete_comment":        deleteComment,
-	"linear_list_issue_relations":  listIssueRelations,
-	"linear_create_issue_relation": createIssueRelation,
-	"linear_delete_issue_relation": deleteIssueRelation,
-	"linear_list_issue_labels":     listIssueLabels,
-	"linear_list_attachments":      listAttachments,
-	"linear_create_attachment":     createAttachment,
+	mcp.ToolName("linear_list_issues"):           listIssues,
+	mcp.ToolName("linear_search_issues"):         searchIssues,
+	mcp.ToolName("linear_get_issue"):             getIssue,
+	mcp.ToolName("linear_create_issue"):          createIssue,
+	mcp.ToolName("linear_update_issue"):          updateIssue,
+	mcp.ToolName("linear_archive_issue"):         archiveIssue,
+	mcp.ToolName("linear_unarchive_issue"):       unarchiveIssue,
+	mcp.ToolName("linear_list_issue_comments"):   listIssueComments,
+	mcp.ToolName("linear_create_comment"):        createComment,
+	mcp.ToolName("linear_update_comment"):        updateComment,
+	mcp.ToolName("linear_delete_comment"):        deleteComment,
+	mcp.ToolName("linear_list_issue_relations"):  listIssueRelations,
+	mcp.ToolName("linear_create_issue_relation"): createIssueRelation,
+	mcp.ToolName("linear_delete_issue_relation"): deleteIssueRelation,
+	mcp.ToolName("linear_list_issue_labels"):     listIssueLabels,
+	mcp.ToolName("linear_list_attachments"):      listAttachments,
+	mcp.ToolName("linear_create_attachment"):     createAttachment,
 
 	// Projects
-	"linear_list_projects":            listProjects,
-	"linear_search_projects":          searchProjects,
-	"linear_get_project":              getProject,
-	"linear_create_project":           createProject,
-	"linear_update_project":           updateProject,
-	"linear_archive_project":          archiveProject,
-	"linear_list_project_updates":     listProjectUpdates,
-	"linear_create_project_update":    createProjectUpdate,
-	"linear_list_project_milestones":  listProjectMilestones,
-	"linear_create_project_milestone": createProjectMilestone,
+	mcp.ToolName("linear_list_projects"):            listProjects,
+	mcp.ToolName("linear_search_projects"):          searchProjects,
+	mcp.ToolName("linear_get_project"):              getProject,
+	mcp.ToolName("linear_create_project"):           createProject,
+	mcp.ToolName("linear_update_project"):           updateProject,
+	mcp.ToolName("linear_archive_project"):          archiveProject,
+	mcp.ToolName("linear_list_project_updates"):     listProjectUpdates,
+	mcp.ToolName("linear_create_project_update"):    createProjectUpdate,
+	mcp.ToolName("linear_list_project_milestones"):  listProjectMilestones,
+	mcp.ToolName("linear_create_project_milestone"): createProjectMilestone,
 
 	// Cycles
-	"linear_list_cycles":  listCycles,
-	"linear_get_cycle":    getCycle,
-	"linear_create_cycle": createCycle,
-	"linear_update_cycle": updateCycle,
+	mcp.ToolName("linear_list_cycles"):  listCycles,
+	mcp.ToolName("linear_get_cycle"):    getCycle,
+	mcp.ToolName("linear_create_cycle"): createCycle,
+	mcp.ToolName("linear_update_cycle"): updateCycle,
 
 	// Teams
-	"linear_list_teams": listTeams,
-	"linear_get_team":   getTeam,
+	mcp.ToolName("linear_list_teams"): listTeams,
+	mcp.ToolName("linear_get_team"):   getTeam,
 
 	// Users
-	"linear_viewer":     viewer,
-	"linear_list_users": listUsers,
-	"linear_get_user":   getUser,
+	mcp.ToolName("linear_viewer"):     viewer,
+	mcp.ToolName("linear_list_users"): listUsers,
+	mcp.ToolName("linear_get_user"):   getUser,
 
 	// Labels
-	"linear_list_labels":  listLabels,
-	"linear_create_label": createLabel,
-	"linear_update_label": updateLabel,
-	"linear_delete_label": deleteLabel,
+	mcp.ToolName("linear_list_labels"):  listLabels,
+	mcp.ToolName("linear_create_label"): createLabel,
+	mcp.ToolName("linear_update_label"): updateLabel,
+	mcp.ToolName("linear_delete_label"): deleteLabel,
 
 	// Workflow States
-	"linear_list_workflow_states":  listWorkflowStates,
-	"linear_create_workflow_state": createWorkflowState,
+	mcp.ToolName("linear_list_workflow_states"):  listWorkflowStates,
+	mcp.ToolName("linear_create_workflow_state"): createWorkflowState,
 
 	// Documents
-	"linear_list_documents":   listDocuments,
-	"linear_search_documents": searchDocuments,
-	"linear_get_document":     getDocument,
-	"linear_create_document":  createDocument,
-	"linear_update_document":  updateDocument,
+	mcp.ToolName("linear_list_documents"):   listDocuments,
+	mcp.ToolName("linear_search_documents"): searchDocuments,
+	mcp.ToolName("linear_get_document"):     getDocument,
+	mcp.ToolName("linear_create_document"):  createDocument,
+	mcp.ToolName("linear_update_document"):  updateDocument,
 
 	// Initiatives
-	"linear_list_initiatives":  listInitiatives,
-	"linear_get_initiative":    getInitiative,
-	"linear_create_initiative": createInitiative,
-	"linear_update_initiative": updateInitiative,
+	mcp.ToolName("linear_list_initiatives"):  listInitiatives,
+	mcp.ToolName("linear_get_initiative"):    getInitiative,
+	mcp.ToolName("linear_create_initiative"): createInitiative,
+	mcp.ToolName("linear_update_initiative"): updateInitiative,
 
 	// Favorites
-	"linear_list_favorites":  listFavorites,
-	"linear_create_favorite": createFavorite,
-	"linear_delete_favorite": deleteFavorite,
+	mcp.ToolName("linear_list_favorites"):  listFavorites,
+	mcp.ToolName("linear_create_favorite"): createFavorite,
+	mcp.ToolName("linear_delete_favorite"): deleteFavorite,
 
 	// Webhooks
-	"linear_list_webhooks":  listWebhooks,
-	"linear_create_webhook": createWebhook,
-	"linear_delete_webhook": deleteWebhook,
+	mcp.ToolName("linear_list_webhooks"):  listWebhooks,
+	mcp.ToolName("linear_create_webhook"): createWebhook,
+	mcp.ToolName("linear_delete_webhook"): deleteWebhook,
 
 	// Notifications
-	"linear_list_notifications": listNotifications,
+	mcp.ToolName("linear_list_notifications"): listNotifications,
 
 	// Templates
-	"linear_list_templates": listTemplates,
+	mcp.ToolName("linear_list_templates"): listTemplates,
 
 	// Organization
-	"linear_get_organization": getOrganization,
+	mcp.ToolName("linear_get_organization"): getOrganization,
 
 	// Custom Views
-	"linear_list_custom_views":  listCustomViews,
-	"linear_create_custom_view": createCustomView,
+	mcp.ToolName("linear_list_custom_views"):  listCustomViews,
+	mcp.ToolName("linear_create_custom_view"): createCustomView,
 
 	// Rate Limit
-	"linear_rate_limit": rateLimitStatus,
+	mcp.ToolName("linear_rate_limit"): rateLimitStatus,
 }

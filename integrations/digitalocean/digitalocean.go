@@ -53,7 +53,7 @@ func (d *integration) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (d *integration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (d *integration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -91,70 +91,70 @@ func listOpts(args map[string]any) *godo.ListOptions {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Account
-	"digitalocean_get_account": getAccount,
+	mcp.ToolName("digitalocean_get_account"): getAccount,
 
 	// Droplets
-	"digitalocean_list_droplets":    listDroplets,
-	"digitalocean_get_droplet":      getDroplet,
-	"digitalocean_create_droplet":   createDroplet,
-	"digitalocean_delete_droplet":   deleteDroplet,
-	"digitalocean_reboot_droplet":   rebootDroplet,
-	"digitalocean_poweroff_droplet": powerOffDroplet,
-	"digitalocean_poweron_droplet":  powerOnDroplet,
+	mcp.ToolName("digitalocean_list_droplets"):    listDroplets,
+	mcp.ToolName("digitalocean_get_droplet"):      getDroplet,
+	mcp.ToolName("digitalocean_create_droplet"):   createDroplet,
+	mcp.ToolName("digitalocean_delete_droplet"):   deleteDroplet,
+	mcp.ToolName("digitalocean_reboot_droplet"):   rebootDroplet,
+	mcp.ToolName("digitalocean_poweroff_droplet"): powerOffDroplet,
+	mcp.ToolName("digitalocean_poweron_droplet"):  powerOnDroplet,
 
 	// Kubernetes
-	"digitalocean_list_kubernetes_clusters":   listKubernetesClusters,
-	"digitalocean_get_kubernetes_cluster":     getKubernetesCluster,
-	"digitalocean_list_kubernetes_node_pools": listKubernetesNodePools,
+	mcp.ToolName("digitalocean_list_kubernetes_clusters"):   listKubernetesClusters,
+	mcp.ToolName("digitalocean_get_kubernetes_cluster"):     getKubernetesCluster,
+	mcp.ToolName("digitalocean_list_kubernetes_node_pools"): listKubernetesNodePools,
 
 	// Databases
-	"digitalocean_list_databases":      listDatabases,
-	"digitalocean_get_database":        getDatabase,
-	"digitalocean_list_database_dbs":   listDatabaseDBs,
-	"digitalocean_list_database_users": listDatabaseUsers,
-	"digitalocean_list_database_pools": listDatabasePools,
+	mcp.ToolName("digitalocean_list_databases"):      listDatabases,
+	mcp.ToolName("digitalocean_get_database"):        getDatabase,
+	mcp.ToolName("digitalocean_list_database_dbs"):   listDatabaseDBs,
+	mcp.ToolName("digitalocean_list_database_users"): listDatabaseUsers,
+	mcp.ToolName("digitalocean_list_database_pools"): listDatabasePools,
 
 	// Networking
-	"digitalocean_list_domains":        listDomains,
-	"digitalocean_get_domain":          getDomain,
-	"digitalocean_list_domain_records": listDomainRecords,
-	"digitalocean_list_load_balancers": listLoadBalancers,
-	"digitalocean_get_load_balancer":   getLoadBalancer,
-	"digitalocean_list_firewalls":      listFirewalls,
-	"digitalocean_get_firewall":        getFirewall,
-	"digitalocean_list_vpcs":           listVPCs,
-	"digitalocean_get_vpc":             getVPC,
+	mcp.ToolName("digitalocean_list_domains"):        listDomains,
+	mcp.ToolName("digitalocean_get_domain"):          getDomain,
+	mcp.ToolName("digitalocean_list_domain_records"): listDomainRecords,
+	mcp.ToolName("digitalocean_list_load_balancers"): listLoadBalancers,
+	mcp.ToolName("digitalocean_get_load_balancer"):   getLoadBalancer,
+	mcp.ToolName("digitalocean_list_firewalls"):      listFirewalls,
+	mcp.ToolName("digitalocean_get_firewall"):        getFirewall,
+	mcp.ToolName("digitalocean_list_vpcs"):           listVPCs,
+	mcp.ToolName("digitalocean_get_vpc"):             getVPC,
 
 	// Volumes
-	"digitalocean_list_volumes": listVolumes,
-	"digitalocean_get_volume":   getVolume,
+	mcp.ToolName("digitalocean_list_volumes"): listVolumes,
+	mcp.ToolName("digitalocean_get_volume"):   getVolume,
 
 	// Apps
-	"digitalocean_list_apps":             listApps,
-	"digitalocean_get_app":               getApp,
-	"digitalocean_delete_app":            deleteApp,
-	"digitalocean_restart_app":           restartApp,
-	"digitalocean_list_app_deployments":  listAppDeployments,
-	"digitalocean_get_app_deployment":    getAppDeployment,
-	"digitalocean_create_app_deployment": createAppDeployment,
-	"digitalocean_get_app_logs":          getAppLogs,
-	"digitalocean_get_app_health":        getAppHealth,
-	"digitalocean_list_app_alerts":       listAppAlerts,
+	mcp.ToolName("digitalocean_list_apps"):             listApps,
+	mcp.ToolName("digitalocean_get_app"):               getApp,
+	mcp.ToolName("digitalocean_delete_app"):            deleteApp,
+	mcp.ToolName("digitalocean_restart_app"):           restartApp,
+	mcp.ToolName("digitalocean_list_app_deployments"):  listAppDeployments,
+	mcp.ToolName("digitalocean_get_app_deployment"):    getAppDeployment,
+	mcp.ToolName("digitalocean_create_app_deployment"): createAppDeployment,
+	mcp.ToolName("digitalocean_get_app_logs"):          getAppLogs,
+	mcp.ToolName("digitalocean_get_app_health"):        getAppHealth,
+	mcp.ToolName("digitalocean_list_app_alerts"):       listAppAlerts,
 
 	// Extras
-	"digitalocean_list_regions":       listRegions,
-	"digitalocean_list_sizes":         listSizes,
-	"digitalocean_list_images":        listImages,
-	"digitalocean_list_ssh_keys":      listSSHKeys,
-	"digitalocean_list_snapshots":     listSnapshots,
-	"digitalocean_list_projects":      listProjects,
-	"digitalocean_get_project":        getProject,
-	"digitalocean_get_balance":        getBalance,
-	"digitalocean_list_invoices":      listInvoices,
-	"digitalocean_list_cdn_endpoints": listCDNEndpoints,
-	"digitalocean_list_certificates":  listCertificates,
-	"digitalocean_list_registries":    listRegistryRepositories,
-	"digitalocean_list_tags":          listTags,
+	mcp.ToolName("digitalocean_list_regions"):       listRegions,
+	mcp.ToolName("digitalocean_list_sizes"):         listSizes,
+	mcp.ToolName("digitalocean_list_images"):        listImages,
+	mcp.ToolName("digitalocean_list_ssh_keys"):      listSSHKeys,
+	mcp.ToolName("digitalocean_list_snapshots"):     listSnapshots,
+	mcp.ToolName("digitalocean_list_projects"):      listProjects,
+	mcp.ToolName("digitalocean_get_project"):        getProject,
+	mcp.ToolName("digitalocean_get_balance"):        getBalance,
+	mcp.ToolName("digitalocean_list_invoices"):      listInvoices,
+	mcp.ToolName("digitalocean_list_cdn_endpoints"): listCDNEndpoints,
+	mcp.ToolName("digitalocean_list_certificates"):  listCertificates,
+	mcp.ToolName("digitalocean_list_registries"):    listRegistryRepositories,
+	mcp.ToolName("digitalocean_list_tags"):          listTags,
 }

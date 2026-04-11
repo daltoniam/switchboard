@@ -141,7 +141,7 @@ func TestTools_AllPrefixedWithNotion(t *testing.T) {
 
 func TestTools_NamesAreUnique(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -160,7 +160,7 @@ func TestDispatchMap_EveryToolHasHandler(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -681,9 +681,70 @@ func TestGetPageContent_ReturnsPageAndBlocksFromChunkLoad(t *testing.T) {
 	result, err := getPageContent(context.Background(), n, map[string]any{"page_id": "page-1"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
+
+	// Handler returns JSON; RenderMarkdown converts to Markdown.
 	assert.Contains(t, result.Data, "page-1")
-	assert.Contains(t, result.Data, "blk-1")
-	assert.Contains(t, result.Data, "blk-2")
+	md, ok := n.RenderMarkdown("notion_get_page_content", []byte(result.Data))
+	require.True(t, ok)
+	assert.Contains(t, md, "<!-- notion:page_id=page-1 -->")
+	assert.Contains(t, md, "Hello")
+	assert.Contains(t, md, "# World")
+}
+
+func TestGetPageContent_BlocksOrderedByContentArray(t *testing.T) {
+	// The page's content array defines display order: [blk-3, blk-1, blk-2].
+	// Blocks must render in that order, not in map iteration order.
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		okJSON(w, `{
+			"recordMap": {
+				"block": {
+					"page-1": {"value": {"id": "page-1", "type": "page", "content": ["blk-3", "blk-1", "blk-2"], "properties": {"title": [["Ordered Page"]]}}},
+					"blk-2": {"value": {"id": "blk-2", "type": "text", "properties": {"title": [["Second"]]}}},
+					"blk-1": {"value": {"id": "blk-1", "type": "text", "properties": {"title": [["First"]]}}},
+					"blk-3": {"value": {"id": "blk-3", "type": "text", "properties": {"title": [["Third"]]}}}
+				}
+			}
+		}`)
+	})
+	result, err := getPageContent(context.Background(), n, map[string]any{"page_id": "page-1"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	md, ok := n.RenderMarkdown("notion_get_page_content", []byte(result.Data))
+	require.True(t, ok)
+
+	// Verify order: Third, First, Second (matching content array [blk-3, blk-1, blk-2]).
+	mdStr := string(md)
+	thirdIdx := strings.Index(mdStr, "Third")
+	firstIdx := strings.Index(mdStr, "First")
+	secondIdx := strings.Index(mdStr, "Second")
+	assert.Greater(t, firstIdx, thirdIdx, "First should appear after Third (content array order)")
+	assert.Greater(t, secondIdx, firstIdx, "Second should appear after First (content array order)")
+}
+
+func TestGetPageContent_MarkdownSmallerThanJSON(t *testing.T) {
+	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
+		okJSON(w, `{
+			"recordMap": {
+				"block": {
+					"page-1": {"value": {"id": "page-1", "type": "page", "content": ["b1", "b2", "b3"], "properties": {"title": [["Size Test"]]}, "last_edited_time": 1700000000000}},
+					"b1": {"value": {"id": "b1", "type": "header", "properties": {"title": [["Introduction"]]}}},
+					"b2": {"value": {"id": "b2", "type": "text", "properties": {"title": [["This is a paragraph with some content."]]}}},
+					"b3": {"value": {"id": "b3", "type": "bulleted_list", "properties": {"title": [["A list item"]]}}}
+				}
+			}
+		}`)
+	})
+	result, err := getPageContent(context.Background(), n, map[string]any{"page_id": "page-1"})
+	require.NoError(t, err)
+
+	jsonSize := len(result.Data)
+	md, ok := n.RenderMarkdown("notion_get_page_content", []byte(result.Data))
+	require.True(t, ok)
+	mdSize := len(string(md))
+
+	t.Logf("JSON: %d bytes, Markdown: %d bytes, savings: %d%%", jsonSize, mdSize, 100-100*mdSize/jsonSize)
+	assert.Less(t, mdSize, jsonSize, "Markdown should be smaller than JSON")
 }
 
 func TestGetPageContent_RequiresPageID(t *testing.T) {
@@ -1042,8 +1103,13 @@ func TestRetrieveComments_ReturnsCommentsFromPageChunk(t *testing.T) {
 	result, err := retrieveComments(context.Background(), n, map[string]any{"block_id": "page-1"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
+
+	// Handler returns JSON; RenderMarkdown converts to Markdown.
 	assert.Contains(t, result.Data, "Great work!")
-	assert.Contains(t, result.Data, "disc-1")
+	md, ok := n.RenderMarkdown("notion_retrieve_comments", []byte(result.Data))
+	require.True(t, ok)
+	assert.Contains(t, md, "## Comments")
+	assert.Contains(t, md, "user-1")
 }
 
 func TestRetrieveComments_RequiresBlockID(t *testing.T) {
@@ -1067,7 +1133,9 @@ func TestRetrieveComments_NoCommentsReturnsEmptyArray(t *testing.T) {
 	result, err := retrieveComments(context.Background(), n, map[string]any{"block_id": "page-1"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError, "pages with no comments should not error")
-	assert.Contains(t, result.Data, `"results":[]`, "should return empty array, not null")
+	md, ok := n.RenderMarkdown("notion_retrieve_comments", []byte(result.Data))
+	require.True(t, ok)
+	assert.Contains(t, md, "No comments.", "should return 'No comments.' markdown")
 }
 
 // --- listDataSourceTemplates ---

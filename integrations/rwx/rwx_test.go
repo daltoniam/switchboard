@@ -55,7 +55,7 @@ func TestTools_AllHaveRwxPrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -80,7 +80,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -282,7 +282,7 @@ func TestProxyToolDefinitions_TransformsCLIReferences(t *testing.T) {
 
 	defs := p.toolDefinitions()
 	require.Len(t, defs, 1)
-	assert.Equal(t, "rwx_proxy_some_tool", defs[0].Name)
+	assert.Equal(t, mcp.ToolName("rwx_proxy_some_tool"), defs[0].Name)
 	assert.Contains(t, defs[0].Description, "rwx_get_task_logs")
 	assert.Contains(t, defs[0].Parameters["id"], "rwx_get_run_results")
 	assert.Equal(t, []string{"id"}, defs[0].Required)

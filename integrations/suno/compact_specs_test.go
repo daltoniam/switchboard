@@ -3,6 +3,7 @@ package suno
 import (
 	"testing"
 
+	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +51,7 @@ func TestFieldCompactionSpec_NoSpecsOnMutationTools(t *testing.T) {
 		"suno_generate_midi",
 	}
 	for _, name := range mutationTools {
-		_, ok := fieldCompactionSpecs[name]
+		_, ok := fieldCompactionSpecs[mcp.ToolName(name)]
 		assert.False(t, ok, "mutation tool %q should not have compaction spec", name)
 	}
 }

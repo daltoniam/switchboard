@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// --- Queries ---
 	{
-		Name:        "clickhouse_execute_query",
+		Name:        mcp.ToolName("clickhouse_execute_query"),
 		Description: "Execute a SQL query (SELECT, SHOW, DESCRIBE, or DDL) against a ClickHouse analytics database and return results as JSON rows",
 		Parameters: map[string]string{
 			"query":    "SQL query string to execute",
@@ -14,7 +14,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"query"},
 	},
 	{
-		Name:        "clickhouse_explain_query",
+		Name:        mcp.ToolName("clickhouse_explain_query"),
 		Description: "Run EXPLAIN on a query to show the execution plan",
 		Parameters: map[string]string{
 			"query": "SQL query to explain",
@@ -25,19 +25,19 @@ var tools = []mcp.ToolDefinition{
 
 	// --- Databases ---
 	{
-		Name:        "clickhouse_list_databases",
+		Name:        mcp.ToolName("clickhouse_list_databases"),
 		Description: "List all databases in the ClickHouse server. Start here for schema discovery.",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "clickhouse_list_tables",
+		Name:        mcp.ToolName("clickhouse_list_tables"),
 		Description: "List all tables in a database with engine, row count, and size",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to current database)",
 		},
 	},
 	{
-		Name:        "clickhouse_describe_table",
+		Name:        mcp.ToolName("clickhouse_describe_table"),
 		Description: "Describe a table's columns with names, types, default expressions, and comments",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to current database)",
@@ -46,7 +46,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"table"},
 	},
 	{
-		Name:        "clickhouse_list_columns",
+		Name:        mcp.ToolName("clickhouse_list_columns"),
 		Description: "List detailed column metadata for a table from system.columns",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to current database)",
@@ -55,7 +55,7 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"table"},
 	},
 	{
-		Name:        "clickhouse_show_create_table",
+		Name:        mcp.ToolName("clickhouse_show_create_table"),
 		Description: "Show the CREATE TABLE statement for a table",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to current database)",
@@ -66,17 +66,17 @@ var tools = []mcp.ToolDefinition{
 
 	// --- System Info ---
 	{
-		Name:        "clickhouse_server_info",
+		Name:        mcp.ToolName("clickhouse_server_info"),
 		Description: "Get ClickHouse server version, uptime, and OS info",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "clickhouse_list_processes",
+		Name:        mcp.ToolName("clickhouse_list_processes"),
 		Description: "List currently running queries/processes",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "clickhouse_kill_query",
+		Name:        mcp.ToolName("clickhouse_kill_query"),
 		Description: "Kill a running query by its query ID",
 		Parameters: map[string]string{
 			"query_id": "The query_id of the query to kill",
@@ -84,29 +84,29 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"query_id"},
 	},
 	{
-		Name:        "clickhouse_list_settings",
+		Name:        mcp.ToolName("clickhouse_list_settings"),
 		Description: "List ClickHouse server settings. Optionally filter by name pattern",
 		Parameters: map[string]string{
 			"pattern": "Optional LIKE pattern to filter setting names (e.g. '%memory%')",
 		},
 	},
 	{
-		Name:        "clickhouse_list_merges",
+		Name:        mcp.ToolName("clickhouse_list_merges"),
 		Description: "List currently running background merges for MergeTree tables",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "clickhouse_list_replicas",
+		Name:        mcp.ToolName("clickhouse_list_replicas"),
 		Description: "List replica status for replicated tables",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "clickhouse_disk_usage",
+		Name:        mcp.ToolName("clickhouse_disk_usage"),
 		Description: "Show disk usage per database (total bytes, row counts, part counts)",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "clickhouse_list_parts",
+		Name:        mcp.ToolName("clickhouse_list_parts"),
 		Description: "List table parts with sizes for a given table (useful for debugging MergeTree)",
 		Parameters: map[string]string{
 			"database": "Database name (defaults to current database)",
@@ -116,22 +116,22 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"table"},
 	},
 	{
-		Name:        "clickhouse_list_dictionaries",
+		Name:        mcp.ToolName("clickhouse_list_dictionaries"),
 		Description: "List external dictionaries loaded in the server",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "clickhouse_list_users",
+		Name:        mcp.ToolName("clickhouse_list_users"),
 		Description: "List all users configured in ClickHouse",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "clickhouse_list_roles",
+		Name:        mcp.ToolName("clickhouse_list_roles"),
 		Description: "List all roles configured in ClickHouse",
 		Parameters:  map[string]string{},
 	},
 	{
-		Name:        "clickhouse_query_log",
+		Name:        mcp.ToolName("clickhouse_query_log"),
 		Description: "Search recent entries from system.query_log",
 		Parameters: map[string]string{
 			"query_pattern": "Optional LIKE pattern to filter by query text",
@@ -141,29 +141,29 @@ var tools = []mcp.ToolDefinition{
 	},
 }
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Queries
-	"clickhouse_execute_query": executeQuery,
-	"clickhouse_explain_query": explainQuery,
+	mcp.ToolName("clickhouse_execute_query"): executeQuery,
+	mcp.ToolName("clickhouse_explain_query"): explainQuery,
 
 	// Databases
-	"clickhouse_list_databases":    listDatabases,
-	"clickhouse_list_tables":       listTables,
-	"clickhouse_describe_table":    describeTable,
-	"clickhouse_list_columns":      listColumns,
-	"clickhouse_show_create_table": showCreateTable,
+	mcp.ToolName("clickhouse_list_databases"):    listDatabases,
+	mcp.ToolName("clickhouse_list_tables"):       listTables,
+	mcp.ToolName("clickhouse_describe_table"):    describeTable,
+	mcp.ToolName("clickhouse_list_columns"):      listColumns,
+	mcp.ToolName("clickhouse_show_create_table"): showCreateTable,
 
 	// System
-	"clickhouse_server_info":       serverInfo,
-	"clickhouse_list_processes":    listProcesses,
-	"clickhouse_kill_query":        killQuery,
-	"clickhouse_list_settings":     listSettings,
-	"clickhouse_list_merges":       listMerges,
-	"clickhouse_list_replicas":     listReplicas,
-	"clickhouse_disk_usage":        diskUsage,
-	"clickhouse_list_parts":        listParts,
-	"clickhouse_list_dictionaries": listDictionaries,
-	"clickhouse_list_users":        listUsers,
-	"clickhouse_list_roles":        listRoles,
-	"clickhouse_query_log":         queryLog,
+	mcp.ToolName("clickhouse_server_info"):       serverInfo,
+	mcp.ToolName("clickhouse_list_processes"):    listProcesses,
+	mcp.ToolName("clickhouse_kill_query"):        killQuery,
+	mcp.ToolName("clickhouse_list_settings"):     listSettings,
+	mcp.ToolName("clickhouse_list_merges"):       listMerges,
+	mcp.ToolName("clickhouse_list_replicas"):     listReplicas,
+	mcp.ToolName("clickhouse_disk_usage"):        diskUsage,
+	mcp.ToolName("clickhouse_list_parts"):        listParts,
+	mcp.ToolName("clickhouse_list_dictionaries"): listDictionaries,
+	mcp.ToolName("clickhouse_list_users"):        listUsers,
+	mcp.ToolName("clickhouse_list_roles"):        listRoles,
+	mcp.ToolName("clickhouse_query_log"):         queryLog,
 }

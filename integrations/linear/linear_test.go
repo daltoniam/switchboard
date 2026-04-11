@@ -69,7 +69,7 @@ type mockIntegration struct{}
 func (m *mockIntegration) Name() string                                         { return "mock" }
 func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error { return nil }
 func (m *mockIntegration) Tools() []mcp.ToolDefinition                          { return nil }
-func (m *mockIntegration) Execute(context.Context, string, map[string]any) (*mcp.ToolResult, error) {
+func (m *mockIntegration) Execute(context.Context, mcp.ToolName, map[string]any) (*mcp.ToolResult, error) {
 	return nil, nil
 }
 func (m *mockIntegration) Healthy(context.Context) bool { return false }
@@ -94,7 +94,7 @@ func TestTools_AllHaveLinearPrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -119,7 +119,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}

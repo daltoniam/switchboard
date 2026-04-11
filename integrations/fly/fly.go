@@ -62,7 +62,7 @@ func (f *fly) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (f *fly) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (f *fly) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -70,7 +70,7 @@ func (f *fly) Execute(ctx context.Context, toolName string, args map[string]any)
 	return fn(ctx, f, args)
 }
 
-func (f *fly) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (f *fly) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
@@ -163,36 +163,36 @@ func queryEncode(params map[string]string) string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Apps
-	"fly_list_apps":  listApps,
-	"fly_get_app":    getApp,
-	"fly_create_app": createApp,
-	"fly_delete_app": deleteApp,
+	mcp.ToolName("fly_list_apps"):  listApps,
+	mcp.ToolName("fly_get_app"):    getApp,
+	mcp.ToolName("fly_create_app"): createApp,
+	mcp.ToolName("fly_delete_app"): deleteApp,
 
 	// Machines
-	"fly_list_machines":   listMachines,
-	"fly_get_machine":     getMachine,
-	"fly_create_machine":  createMachine,
-	"fly_update_machine":  updateMachine,
-	"fly_delete_machine":  deleteMachine,
-	"fly_start_machine":   startMachine,
-	"fly_stop_machine":    stopMachine,
-	"fly_restart_machine": restartMachine,
-	"fly_signal_machine":  signalMachine,
-	"fly_wait_machine":    waitMachine,
-	"fly_exec_machine":    execMachine,
+	mcp.ToolName("fly_list_machines"):   listMachines,
+	mcp.ToolName("fly_get_machine"):     getMachine,
+	mcp.ToolName("fly_create_machine"):  createMachine,
+	mcp.ToolName("fly_update_machine"):  updateMachine,
+	mcp.ToolName("fly_delete_machine"):  deleteMachine,
+	mcp.ToolName("fly_start_machine"):   startMachine,
+	mcp.ToolName("fly_stop_machine"):    stopMachine,
+	mcp.ToolName("fly_restart_machine"): restartMachine,
+	mcp.ToolName("fly_signal_machine"):  signalMachine,
+	mcp.ToolName("fly_wait_machine"):    waitMachine,
+	mcp.ToolName("fly_exec_machine"):    execMachine,
 
 	// Volumes
-	"fly_list_volumes":          listVolumes,
-	"fly_get_volume":            getVolume,
-	"fly_create_volume":         createVolume,
-	"fly_update_volume":         updateVolume,
-	"fly_delete_volume":         deleteVolume,
-	"fly_list_volume_snapshots": listVolumeSnapshots,
+	mcp.ToolName("fly_list_volumes"):          listVolumes,
+	mcp.ToolName("fly_get_volume"):            getVolume,
+	mcp.ToolName("fly_create_volume"):         createVolume,
+	mcp.ToolName("fly_update_volume"):         updateVolume,
+	mcp.ToolName("fly_delete_volume"):         deleteVolume,
+	mcp.ToolName("fly_list_volume_snapshots"): listVolumeSnapshots,
 
 	// Secrets
-	"fly_list_secrets":  listSecrets,
-	"fly_set_secrets":   setSecrets,
-	"fly_unset_secrets": unsetSecrets,
+	mcp.ToolName("fly_list_secrets"):  listSecrets,
+	mcp.ToolName("fly_set_secrets"):   setSecrets,
+	mcp.ToolName("fly_unset_secrets"): unsetSecrets,
 }
