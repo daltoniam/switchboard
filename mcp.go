@@ -8,6 +8,8 @@ import (
 	"path"
 	"strconv"
 	"time"
+
+	"github.com/daltoniam/switchboard/markdown"
 )
 
 // ErrNotConfigured is returned when an integration is used before being configured.
@@ -198,10 +200,6 @@ type FieldCompactionIntegration interface {
 // Semantic type prevents mixing with arbitrary strings at interface boundaries.
 type ToolName string
 
-// Markdown is rendered Markdown content returned by MarkdownIntegration.
-// Semantic type prevents mixing with JSON strings or raw HTML in the response pipeline.
-type Markdown string
-
 // MarkdownIntegration is an optional interface that integrations can implement
 // to render tool responses as Markdown instead of JSON. The server calls
 // RenderMarkdown in processResult before compaction — if it returns rendered
@@ -210,7 +208,7 @@ type MarkdownIntegration interface {
 	// RenderMarkdown converts a tool's JSON response to Markdown.
 	// Returns (markdown, true) if the tool supports rendering.
 	// Returns ("", false) for tools that return JSON normally.
-	RenderMarkdown(toolName ToolName, data []byte) (Markdown, bool)
+	RenderMarkdown(toolName ToolName, data []byte) (markdown.Markdown, bool)
 }
 
 // MaxResponseBytesIntegration is an optional interface that integrations can implement

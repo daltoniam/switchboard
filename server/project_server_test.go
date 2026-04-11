@@ -288,7 +288,7 @@ func TestProjectRouter_ExecutePerIntegrationCap(t *testing.T) {
 				tools: []mcp.ToolDefinition{
 					{Name: "bigint_get_page", Description: "Returns rich page content"},
 				},
-				execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+				execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 					return &mcp.ToolResult{Data: payload}, nil
 				},
 			},
