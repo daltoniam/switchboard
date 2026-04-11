@@ -97,12 +97,12 @@ func (s *sentry) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (s *sentry) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (s *sentry) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (s *sentry) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (s *sentry) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -200,76 +200,76 @@ func (s *sentry) org(args map[string]any) string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Organizations
-	"sentry_get_organization":  getOrganization,
-	"sentry_list_org_projects": listOrgProjects,
-	"sentry_list_org_teams":    listOrgTeams,
-	"sentry_list_org_members":  listOrgMembers,
-	"sentry_get_org_member":    getOrgMember,
-	"sentry_list_org_repos":    listOrgRepos,
-	"sentry_resolve_short_id":  resolveShortID,
+	mcp.ToolName("sentry_get_organization"):  getOrganization,
+	mcp.ToolName("sentry_list_org_projects"): listOrgProjects,
+	mcp.ToolName("sentry_list_org_teams"):    listOrgTeams,
+	mcp.ToolName("sentry_list_org_members"):  listOrgMembers,
+	mcp.ToolName("sentry_get_org_member"):    getOrgMember,
+	mcp.ToolName("sentry_list_org_repos"):    listOrgRepos,
+	mcp.ToolName("sentry_resolve_short_id"):  resolveShortID,
 
 	// Projects
-	"sentry_list_projects":      listProjects,
-	"sentry_get_project":        getProject,
-	"sentry_update_project":     updateProject,
-	"sentry_delete_project":     deleteProject,
-	"sentry_create_project":     createProject,
-	"sentry_list_project_keys":  listProjectKeys,
-	"sentry_list_project_envs":  listProjectEnvironments,
-	"sentry_list_project_tags":  listProjectTags,
-	"sentry_get_project_stats":  getProjectStats,
-	"sentry_list_project_hooks": listProjectHooks,
+	mcp.ToolName("sentry_list_projects"):      listProjects,
+	mcp.ToolName("sentry_get_project"):        getProject,
+	mcp.ToolName("sentry_update_project"):     updateProject,
+	mcp.ToolName("sentry_delete_project"):     deleteProject,
+	mcp.ToolName("sentry_create_project"):     createProject,
+	mcp.ToolName("sentry_list_project_keys"):  listProjectKeys,
+	mcp.ToolName("sentry_list_project_envs"):  listProjectEnvironments,
+	mcp.ToolName("sentry_list_project_tags"):  listProjectTags,
+	mcp.ToolName("sentry_get_project_stats"):  getProjectStats,
+	mcp.ToolName("sentry_list_project_hooks"): listProjectHooks,
 
 	// Teams
-	"sentry_get_team":           getTeam,
-	"sentry_create_team":        createTeam,
-	"sentry_delete_team":        deleteTeam,
-	"sentry_list_team_projects": listTeamProjects,
+	mcp.ToolName("sentry_get_team"):           getTeam,
+	mcp.ToolName("sentry_create_team"):        createTeam,
+	mcp.ToolName("sentry_delete_team"):        deleteTeam,
+	mcp.ToolName("sentry_list_team_projects"): listTeamProjects,
 
 	// Issues & Events
-	"sentry_list_issues":          listIssues,
-	"sentry_get_issue":            getIssue,
-	"sentry_update_issue":         updateIssue,
-	"sentry_delete_issue":         deleteIssue,
-	"sentry_list_issue_events":    listIssueEvents,
-	"sentry_list_issue_hashes":    listIssueHashes,
-	"sentry_get_issue_tag_values": getIssueTagValues,
-	"sentry_list_project_events":  listProjectEvents,
-	"sentry_get_event":            getEvent,
-	"sentry_list_org_issues":      listOrgIssues,
+	mcp.ToolName("sentry_list_issues"):          listIssues,
+	mcp.ToolName("sentry_get_issue"):            getIssue,
+	mcp.ToolName("sentry_update_issue"):         updateIssue,
+	mcp.ToolName("sentry_delete_issue"):         deleteIssue,
+	mcp.ToolName("sentry_list_issue_events"):    listIssueEvents,
+	mcp.ToolName("sentry_list_issue_hashes"):    listIssueHashes,
+	mcp.ToolName("sentry_get_issue_tag_values"): getIssueTagValues,
+	mcp.ToolName("sentry_list_project_events"):  listProjectEvents,
+	mcp.ToolName("sentry_get_event"):            getEvent,
+	mcp.ToolName("sentry_list_org_issues"):      listOrgIssues,
 
 	// Releases
-	"sentry_list_releases":        listReleases,
-	"sentry_get_release":          getRelease,
-	"sentry_create_release":       createRelease,
-	"sentry_delete_release":       deleteRelease,
-	"sentry_list_release_commits": listReleaseCommits,
-	"sentry_list_release_deploys": listReleaseDeploys,
-	"sentry_create_deploy":        createDeploy,
-	"sentry_list_release_files":   listReleaseFiles,
+	mcp.ToolName("sentry_list_releases"):        listReleases,
+	mcp.ToolName("sentry_get_release"):          getRelease,
+	mcp.ToolName("sentry_create_release"):       createRelease,
+	mcp.ToolName("sentry_delete_release"):       deleteRelease,
+	mcp.ToolName("sentry_list_release_commits"): listReleaseCommits,
+	mcp.ToolName("sentry_list_release_deploys"): listReleaseDeploys,
+	mcp.ToolName("sentry_create_deploy"):        createDeploy,
+	mcp.ToolName("sentry_list_release_files"):   listReleaseFiles,
 
 	// Alerts
-	"sentry_list_metric_alerts":  listMetricAlerts,
-	"sentry_get_metric_alert":    getMetricAlert,
-	"sentry_delete_metric_alert": deleteMetricAlert,
-	"sentry_list_issue_alerts":   listIssueAlerts,
-	"sentry_get_issue_alert":     getIssueAlert,
-	"sentry_delete_issue_alert":  deleteIssueAlert,
+	mcp.ToolName("sentry_list_metric_alerts"):  listMetricAlerts,
+	mcp.ToolName("sentry_get_metric_alert"):    getMetricAlert,
+	mcp.ToolName("sentry_delete_metric_alert"): deleteMetricAlert,
+	mcp.ToolName("sentry_list_issue_alerts"):   listIssueAlerts,
+	mcp.ToolName("sentry_get_issue_alert"):     getIssueAlert,
+	mcp.ToolName("sentry_delete_issue_alert"):  deleteIssueAlert,
 
 	// Monitors (Cron)
-	"sentry_list_monitors":  listMonitors,
-	"sentry_get_monitor":    getMonitor,
-	"sentry_delete_monitor": deleteMonitor,
+	mcp.ToolName("sentry_list_monitors"):  listMonitors,
+	mcp.ToolName("sentry_get_monitor"):    getMonitor,
+	mcp.ToolName("sentry_delete_monitor"): deleteMonitor,
 
 	// Discover
-	"sentry_list_saved_queries": listSavedQueries,
-	"sentry_get_saved_query":    getSavedQuery,
-	"sentry_delete_saved_query": deleteSavedQuery,
+	mcp.ToolName("sentry_list_saved_queries"): listSavedQueries,
+	mcp.ToolName("sentry_get_saved_query"):    getSavedQuery,
+	mcp.ToolName("sentry_delete_saved_query"): deleteSavedQuery,
 
 	// Replays
-	"sentry_list_replays":  listReplays,
-	"sentry_get_replay":    getReplay,
-	"sentry_delete_replay": deleteReplay,
+	mcp.ToolName("sentry_list_replays"):  listReplays,
+	mcp.ToolName("sentry_get_replay"):    getReplay,
+	mcp.ToolName("sentry_delete_replay"): deleteReplay,
 }

@@ -63,7 +63,7 @@ func (p *pganalyze) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (p *pganalyze) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (p *pganalyze) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
@@ -79,7 +79,7 @@ func (p *pganalyze) orgSlug(args map[string]any) string {
 	return p.organizationSlug
 }
 
-func (p *pganalyze) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (p *pganalyze) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -148,13 +148,13 @@ func (p *pganalyze) gql(ctx context.Context, query string, variables map[string]
 
 type handlerFunc func(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.ToolResult, error)
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Servers
-	"pganalyze_get_servers": getServers,
+	mcp.ToolName("pganalyze_get_servers"): getServers,
 
 	// Issues
-	"pganalyze_get_issues": getIssues,
+	mcp.ToolName("pganalyze_get_issues"): getIssues,
 
 	// Query Stats
-	"pganalyze_get_query_stats": getQueryStats,
+	mcp.ToolName("pganalyze_get_query_stats"): getQueryStats,
 }

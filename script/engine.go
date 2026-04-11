@@ -20,7 +20,7 @@ const (
 
 // Executor looks up an integration by tool name prefix and executes the tool.
 type Executor interface {
-	Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error)
+	Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error)
 }
 
 // Engine runs JavaScript scripts with access to integration tools via api.call().
@@ -183,7 +183,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 			panic(vm.NewGoError(fmt.Errorf("api.call() requires a tool name as the first argument")))
 		}
 
-		result, err := e.executor.Execute(ctx, toolName, args)
+		result, err := e.executor.Execute(ctx, mcp.ToolName(toolName), args)
 		if err != nil {
 			panic(vm.NewGoError(fmt.Errorf("api.call(%q) failed: %w", toolName, err)))
 		}
@@ -218,7 +218,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 			return vm.ToValue(map[string]any{"ok": false, "error": "api.tryCall() requires a tool name"})
 		}
 
-		result, err := e.executor.Execute(ctx, toolName, args)
+		result, err := e.executor.Execute(ctx, mcp.ToolName(toolName), args)
 		if err != nil {
 			return vm.ToValue(map[string]any{"ok": false, "error": err.Error()})
 		}

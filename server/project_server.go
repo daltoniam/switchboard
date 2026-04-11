@@ -213,7 +213,7 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 		// Filter indexed tools to project-permitted ones.
 		var permitted []toolWithIntegration
 		for _, ti := range pr.search.AllTools {
-			if project.IsToolPermitted(ti.Tool.Name, scopeRule) {
+			if project.IsToolPermitted(string(ti.Tool.Name), scopeRule) {
 				permitted = append(permitted, ti)
 			}
 		}
@@ -314,22 +314,23 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 			return errorResult(fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", args.ToolName)), nil
 		}
 
+		tool := mcp.ToolName(args.ToolName)
 		callStart := time.Now()
-		result, err := integration.Execute(ctx, args.ToolName, args.Arguments)
+		result, err := integration.Execute(ctx, tool, args.Arguments)
 		callDuration := time.Since(callStart)
 		if err != nil {
 			if pr.services.Metrics != nil {
-				pr.services.Metrics.RecordExecution(integration.Name(), args.ToolName, callDuration, true, 0)
+				pr.services.Metrics.RecordExecution(integration.Name(), tool, callDuration, true, 0)
 			}
 			return errorResult(err.Error()), nil
 		}
 
 		if pr.services.Metrics != nil {
-			pr.services.Metrics.RecordExecution(integration.Name(), args.ToolName, callDuration, result.IsError, 0)
+			pr.services.Metrics.RecordExecution(integration.Name(), tool, callDuration, result.IsError, 0)
 		}
 
 		if !result.IsError {
-			result.Data = processResult(integration, args.ToolName, result.Data, pr.services.Metrics)
+			result.Data = processResult(integration, tool, result.Data, pr.services.Metrics)
 
 			limit := responseLimitFor(integration)
 			if len(result.Data) > limit {
@@ -357,7 +358,7 @@ func (pr *ProjectRouter) findIntegration(toolName string) (mcp.Integration, bool
 			continue
 		}
 		for _, tool := range integration.Tools() {
-			if tool.Name == toolName {
+			if string(tool.Name) == toolName {
 				return integration, true
 			}
 		}
@@ -671,7 +672,7 @@ func (pr *ProjectRouter) makeProjectToolsHandler(boundDef *project.Definition) m
 				continue
 			}
 			for _, tool := range project.FilterTools(integration.Tools(), rule) {
-				toolNames = append(toolNames, tool.Name)
+				toolNames = append(toolNames, string(tool.Name))
 			}
 		}
 

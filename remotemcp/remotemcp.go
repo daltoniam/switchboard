@@ -170,13 +170,13 @@ func (r *remote) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (r *remote) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	session, err := r.connect(ctx)
 	if err != nil {
 		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 	}
 
-	remoteName := strings.TrimPrefix(toolName, r.name+"_")
+	remoteName := strings.TrimPrefix(string(toolName), r.name+"_")
 
 	result, err := session.CallTool(ctx, &mcpsdk.CallToolParams{
 		Name:      remoteName,
@@ -197,7 +197,7 @@ func convertTools(prefix string, tools []*mcpsdk.Tool) []mcp.ToolDefinition {
 		required := extractRequired(t.InputSchema)
 
 		defs = append(defs, mcp.ToolDefinition{
-			Name:        prefix + "_" + t.Name,
+			Name:        mcp.ToolName(prefix + "_" + t.Name),
 			Description: t.Description,
 			Parameters:  params,
 			Required:    required,

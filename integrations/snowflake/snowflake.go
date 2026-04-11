@@ -108,12 +108,12 @@ func (s *snowflake) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (s *snowflake) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (s *snowflake) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (s *snowflake) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (s *snowflake) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	if s.client == nil {
 		return &mcp.ToolResult{Data: "snowflake: not configured", IsError: true}, nil
 	}

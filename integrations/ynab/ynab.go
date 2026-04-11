@@ -53,7 +53,7 @@ func (y *ynab) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (y *ynab) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (y *ynab) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -61,7 +61,7 @@ func (y *ynab) Execute(ctx context.Context, toolName string, args map[string]any
 	return fn(ctx, y, args)
 }
 
-func (y *ynab) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (y *ynab) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
@@ -159,61 +159,61 @@ func budget(args map[string]any) string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// User
-	"ynab_get_user": getUser,
+	mcp.ToolName("ynab_get_user"): getUser,
 
 	// Budgets
-	"ynab_list_budgets":        listBudgets,
-	"ynab_get_budget":          getBudget,
-	"ynab_get_budget_settings": getBudgetSettings,
+	mcp.ToolName("ynab_list_budgets"):        listBudgets,
+	mcp.ToolName("ynab_get_budget"):          getBudget,
+	mcp.ToolName("ynab_get_budget_settings"): getBudgetSettings,
 
 	// Accounts
-	"ynab_list_accounts":  listAccounts,
-	"ynab_get_account":    getAccount,
-	"ynab_create_account": createAccount,
+	mcp.ToolName("ynab_list_accounts"):  listAccounts,
+	mcp.ToolName("ynab_get_account"):    getAccount,
+	mcp.ToolName("ynab_create_account"): createAccount,
 
 	// Categories
-	"ynab_list_categories":       listCategories,
-	"ynab_get_category":          getCategory,
-	"ynab_create_category":       createCategory,
-	"ynab_update_category":       updateCategory,
-	"ynab_get_month_category":    getMonthCategory,
-	"ynab_update_month_category": updateMonthCategory,
+	mcp.ToolName("ynab_list_categories"):       listCategories,
+	mcp.ToolName("ynab_get_category"):          getCategory,
+	mcp.ToolName("ynab_create_category"):       createCategory,
+	mcp.ToolName("ynab_update_category"):       updateCategory,
+	mcp.ToolName("ynab_get_month_category"):    getMonthCategory,
+	mcp.ToolName("ynab_update_month_category"): updateMonthCategory,
 
 	// Category Groups
-	"ynab_create_category_group": createCategoryGroup,
-	"ynab_update_category_group": updateCategoryGroup,
+	mcp.ToolName("ynab_create_category_group"): createCategoryGroup,
+	mcp.ToolName("ynab_update_category_group"): updateCategoryGroup,
 
 	// Payees
-	"ynab_list_payees":  listPayees,
-	"ynab_get_payee":    getPayee,
-	"ynab_update_payee": updatePayee,
+	mcp.ToolName("ynab_list_payees"):  listPayees,
+	mcp.ToolName("ynab_get_payee"):    getPayee,
+	mcp.ToolName("ynab_update_payee"): updatePayee,
 
 	// Payee Locations
-	"ynab_list_payee_locations":     listPayeeLocations,
-	"ynab_get_payee_location":       getPayeeLocation,
-	"ynab_list_locations_for_payee": listLocationsForPayee,
+	mcp.ToolName("ynab_list_payee_locations"):     listPayeeLocations,
+	mcp.ToolName("ynab_get_payee_location"):       getPayeeLocation,
+	mcp.ToolName("ynab_list_locations_for_payee"): listLocationsForPayee,
 
 	// Months
-	"ynab_list_months": listMonths,
-	"ynab_get_month":   getMonth,
+	mcp.ToolName("ynab_list_months"): listMonths,
+	mcp.ToolName("ynab_get_month"):   getMonth,
 
 	// Transactions
-	"ynab_list_transactions":          listTransactions,
-	"ynab_get_transaction":            getTransaction,
-	"ynab_list_account_transactions":  listAccountTransactions,
-	"ynab_list_category_transactions": listCategoryTransactions,
-	"ynab_list_payee_transactions":    listPayeeTransactions,
-	"ynab_list_month_transactions":    listMonthTransactions,
-	"ynab_create_transaction":         createTransaction,
-	"ynab_update_transaction":         updateTransaction,
-	"ynab_delete_transaction":         deleteTransaction,
+	mcp.ToolName("ynab_list_transactions"):          listTransactions,
+	mcp.ToolName("ynab_get_transaction"):            getTransaction,
+	mcp.ToolName("ynab_list_account_transactions"):  listAccountTransactions,
+	mcp.ToolName("ynab_list_category_transactions"): listCategoryTransactions,
+	mcp.ToolName("ynab_list_payee_transactions"):    listPayeeTransactions,
+	mcp.ToolName("ynab_list_month_transactions"):    listMonthTransactions,
+	mcp.ToolName("ynab_create_transaction"):         createTransaction,
+	mcp.ToolName("ynab_update_transaction"):         updateTransaction,
+	mcp.ToolName("ynab_delete_transaction"):         deleteTransaction,
 
 	// Scheduled Transactions
-	"ynab_list_scheduled_transactions":  listScheduledTransactions,
-	"ynab_get_scheduled_transaction":    getScheduledTransaction,
-	"ynab_create_scheduled_transaction": createScheduledTransaction,
-	"ynab_update_scheduled_transaction": updateScheduledTransaction,
-	"ynab_delete_scheduled_transaction": deleteScheduledTransaction,
+	mcp.ToolName("ynab_list_scheduled_transactions"):  listScheduledTransactions,
+	mcp.ToolName("ynab_get_scheduled_transaction"):    getScheduledTransaction,
+	mcp.ToolName("ynab_create_scheduled_transaction"): createScheduledTransaction,
+	mcp.ToolName("ynab_update_scheduled_transaction"): updateScheduledTransaction,
+	mcp.ToolName("ynab_delete_scheduled_transaction"): deleteScheduledTransaction,
 }

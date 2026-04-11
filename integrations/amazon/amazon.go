@@ -141,7 +141,7 @@ func (a *amazon) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (a *amazon) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (a *amazon) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -149,7 +149,7 @@ func (a *amazon) Execute(ctx context.Context, toolName string, args map[string]a
 	return fn(ctx, a, args)
 }
 
-func (a *amazon) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (a *amazon) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
@@ -370,11 +370,11 @@ func (a *amazon) ordersURL() string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
-	"amazon_search_products": searchProducts,
-	"amazon_get_product":     getProduct,
-	"amazon_get_orders":      getOrders,
-	"amazon_get_cart":        getCart,
-	"amazon_add_to_cart":     addToCart,
-	"amazon_clear_cart":      clearCart,
+var dispatch = map[mcp.ToolName]handlerFunc{
+	mcp.ToolName("amazon_search_products"): searchProducts,
+	mcp.ToolName("amazon_get_product"):     getProduct,
+	mcp.ToolName("amazon_get_orders"):      getOrders,
+	mcp.ToolName("amazon_get_cart"):        getCart,
+	mcp.ToolName("amazon_add_to_cart"):     addToCart,
+	mcp.ToolName("amazon_clear_cart"):      clearCart,
 }

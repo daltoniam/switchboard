@@ -61,12 +61,12 @@ func (m *metabase) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (m *metabase) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (m *metabase) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (m *metabase) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (m *metabase) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil

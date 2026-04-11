@@ -6,32 +6,32 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-var rawFieldCompactionSpecs = map[string][]string{
-	"cloudflare_list_zones": {
+var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
+	mcp.ToolName("cloudflare_list_zones"): {
 		"result[].id", "result[].name", "result[].status",
 		"result[].paused", "result[].type",
 		"result[].name_servers",
 		"result[].plan.name",
 		"result[].activated_on", "result[].modified_on",
 	},
-	"cloudflare_list_dns_records": {
+	mcp.ToolName("cloudflare_list_dns_records"): {
 		"result[].id", "result[].type", "result[].name",
 		"result[].content", "result[].ttl", "result[].proxied",
 		"result[].priority", "result[].created_on", "result[].modified_on",
 	},
-	"cloudflare_list_workers": {
+	mcp.ToolName("cloudflare_list_workers"): {
 		"result[].id", "result[].etag",
 		"result[].created_on", "result[].modified_on",
 	},
-	"cloudflare_list_worker_routes": {
+	mcp.ToolName("cloudflare_list_worker_routes"): {
 		"result[].id", "result[].pattern", "result[].script",
 	},
-	"cloudflare_list_pages_projects": {
+	mcp.ToolName("cloudflare_list_pages_projects"): {
 		"result[].id", "result[].name", "result[].subdomain",
 		"result[].created_on", "result[].production_branch",
 		"result[].source.type", "result[].source.config.production_branch",
 	},
-	"cloudflare_list_pages_deployments": {
+	mcp.ToolName("cloudflare_list_pages_deployments"): {
 		"result[].id", "result[].short_id", "result[].environment",
 		"result[].url", "result[].created_on",
 		"result[].source.type",
@@ -42,10 +42,10 @@ var rawFieldCompactionSpecs = map[string][]string{
 	"cloudflare_list_r2_buckets": {
 		"buckets[].name", "buckets[].creation_date", "buckets[].location",
 	},
-	"cloudflare_list_kv_namespaces": {
+	mcp.ToolName("cloudflare_list_kv_namespaces"): {
 		"result[].id", "result[].title", "result[].supports_url_encoding",
 	},
-	"cloudflare_list_kv_keys": {
+	mcp.ToolName("cloudflare_list_kv_keys"): {
 		"result[].name", "result[].expiration", "result[].metadata",
 	},
 	"cloudflare_list_d1_databases": {
@@ -53,12 +53,12 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"result[].num_tables", "result[].file_size",
 		"result[].created_at",
 	},
-	"cloudflare_list_waf_rulesets": {
+	mcp.ToolName("cloudflare_list_waf_rulesets"): {
 		"result[].id", "result[].name", "result[].kind",
 		"result[].phase", "result[].version",
 		"result[].last_updated",
 	},
-	"cloudflare_list_load_balancers": {
+	mcp.ToolName("cloudflare_list_load_balancers"): {
 		"result[].id", "result[].name", "result[].enabled",
 		"result[].default_pools",
 		"result[].fallback_pool",
@@ -66,26 +66,26 @@ var rawFieldCompactionSpecs = map[string][]string{
 		"result[].ttl",
 		"result[].modified_on",
 	},
-	"cloudflare_list_lb_pools": {
+	mcp.ToolName("cloudflare_list_lb_pools"): {
 		"result[].id", "result[].name", "result[].enabled",
 		"result[].healthy", "result[].minimum_origins",
 		"result[].origins[].name", "result[].origins[].address",
 		"result[].origins[].enabled", "result[].origins[].healthy",
 		"result[].modified_on",
 	},
-	"cloudflare_list_lb_monitors": {
+	mcp.ToolName("cloudflare_list_lb_monitors"): {
 		"result[].id", "result[].type", "result[].description",
 		"result[].method", "result[].path",
 		"result[].interval", "result[].timeout",
 		"result[].expected_codes",
 		"result[].modified_on",
 	},
-	"cloudflare_list_accounts": {
+	mcp.ToolName("cloudflare_list_accounts"): {
 		"result[].id", "result[].name", "result[].type",
 		"result[].settings.enforce_twofactor",
 		"result[].created_on",
 	},
-	"cloudflare_list_account_members": {
+	mcp.ToolName("cloudflare_list_account_members"): {
 		"result[].id", "result[].user.email",
 		"result[].user.first_name", "result[].user.last_name",
 		"result[].status",
@@ -95,8 +95,8 @@ var rawFieldCompactionSpecs = map[string][]string{
 
 var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(rawFieldCompactionSpecs)
 
-func mustBuildFieldCompactionSpecs(raw map[string][]string) map[string][]mcp.CompactField {
-	parsed := make(map[string][]mcp.CompactField, len(raw))
+func mustBuildFieldCompactionSpecs(raw map[mcp.ToolName][]string) map[mcp.ToolName][]mcp.CompactField {
+	parsed := make(map[mcp.ToolName][]mcp.CompactField, len(raw))
 	for tool, specs := range raw {
 		fields, err := mcp.ParseCompactSpecs(specs)
 		if err != nil {

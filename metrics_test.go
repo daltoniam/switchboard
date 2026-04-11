@@ -11,10 +11,10 @@ import (
 func TestMetrics_RecordExecution(t *testing.T) {
 	m := NewMetrics()
 
-	m.RecordExecution("github", "github_list_issues", 100*time.Millisecond, false, 0)
-	m.RecordExecution("github", "github_list_issues", 200*time.Millisecond, false, 1)
-	m.RecordExecution("github", "github_get_issue", 50*time.Millisecond, true, 0)
-	m.RecordExecution("slack", "slack_post_message", 75*time.Millisecond, false, 0)
+	m.RecordExecution("github", ToolName("github_list_issues"), 100*time.Millisecond, false, 0)
+	m.RecordExecution("github", ToolName("github_list_issues"), 200*time.Millisecond, false, 1)
+	m.RecordExecution("github", ToolName("github_get_issue"), 50*time.Millisecond, true, 0)
+	m.RecordExecution("slack", ToolName("slack_post_message"), 75*time.Millisecond, false, 0)
 
 	snap := m.Snapshot()
 
@@ -89,20 +89,20 @@ func TestMetrics_TopTools(t *testing.T) {
 	m := NewMetrics()
 
 	for range 10 {
-		m.RecordExecution("github", "github_list_issues", time.Millisecond, false, 0)
+		m.RecordExecution("github", ToolName("github_list_issues"), time.Millisecond, false, 0)
 	}
 	for range 5 {
-		m.RecordExecution("slack", "slack_post_message", time.Millisecond, false, 0)
+		m.RecordExecution("slack", ToolName("slack_post_message"), time.Millisecond, false, 0)
 	}
 	for range 3 {
-		m.RecordExecution("linear", "linear_create_issue", time.Millisecond, false, 0)
+		m.RecordExecution("linear", ToolName("linear_create_issue"), time.Millisecond, false, 0)
 	}
 
 	top := m.TopTools(2)
 	require.Len(t, top, 2)
-	assert.Equal(t, "github_list_issues", top[0].Name)
+	assert.Equal(t, ToolName("github_list_issues"), top[0].Name)
 	assert.Equal(t, int64(10), top[0].Calls)
-	assert.Equal(t, "slack_post_message", top[1].Name)
+	assert.Equal(t, ToolName("slack_post_message"), top[1].Name)
 	assert.Equal(t, int64(5), top[1].Calls)
 }
 
@@ -152,7 +152,7 @@ func TestMetrics_ConcurrentAccess(t *testing.T) {
 	for range 10 {
 		go func() {
 			for range 100 {
-				m.RecordExecution("github", "github_list_issues", time.Millisecond, false, 0)
+				m.RecordExecution("github", ToolName("github_list_issues"), time.Millisecond, false, 0)
 				m.RecordSearch()
 				m.RecordScript()
 				m.RecordCircuitBreak("github")
