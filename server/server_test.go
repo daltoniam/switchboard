@@ -1025,8 +1025,8 @@ func TestHandleExecute_CompactionSkippedOnErrorResult(t *testing.T) {
 }
 
 func TestHandleExecute_ByteCapEnforced(t *testing.T) {
-	// Generate a response over 50KB.
-	bigData := `{"data":"` + string(make([]byte, 60*1024)) + `"}`
+	// Generate a response over the 256KB cap.
+	bigData := `{"data":"` + string(make([]byte, 300*1024)) + `"}`
 	mi := &mockIntegration{
 		name:    "testint",
 		healthy: true,
@@ -1049,7 +1049,7 @@ func TestHandleExecute_ByteCapEnforced(t *testing.T) {
 }
 
 func TestHandleExecute_ByteCapSkippedOnError(t *testing.T) {
-	bigErr := string(make([]byte, 60*1024))
+	bigErr := string(make([]byte, 300*1024))
 	mi := &mockIntegration{
 		name:    "testint",
 		healthy: true,
@@ -1605,7 +1605,7 @@ func TestScriptExecution_CrossIntegration(t *testing.T) {
 }
 
 func TestScriptExecution_OutputByteCapEnforced(t *testing.T) {
-	chunkData := `{"data":"` + strings.Repeat("x", 20*1024) + `"}`
+	chunkData := `{"data":"` + strings.Repeat("x", 100*1024) + `"}`
 	mi := &mockIntegration{
 		name:    "testint",
 		healthy: true,

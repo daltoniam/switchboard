@@ -95,7 +95,7 @@ For any integration not listed, use the first list/search tool found via
 | Columnar format | If 8+ items, verify columnar shape with `columns`+`rows`. Check `constants` for lifted uniform values |
 | Empty object `{}` | **FLAG as compaction shape mismatch (Critical)** |
 | Error | Record error message verbatim |
-| Approximate size | Eyeball response length; flag if approaching 50KB |
+| Approximate size | Eyeball response length; flag if approaching 256KB |
 
 ### Phase 3: Search Discoverability Tests
 
@@ -150,7 +150,7 @@ Calculate metrics from all phases:
 |--------|---------|
 | Script rewrite rate | Scripts rewritten / scripts attempted |
 | Integration error rate | Upstream API errors / total calls |
-| Server error rate | Tool-not-found + 50KB exceeded / total calls |
+| Server error rate | Tool-not-found + 256KB exceeded / total calls |
 | Silent data loss | Responses returning `{}` when data expected |
 | Search miss rate | 0-result queries / total search queries |
 | Search false-negative rate | Expected tool not in results / total queries |

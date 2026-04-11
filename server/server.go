@@ -20,7 +20,7 @@ import (
 )
 
 const defaultSearchLimit = 20
-const maxResponseBytes = 50 * 1024 // 50KB
+const maxResponseBytes = 256 * 1024 // 256KB
 
 // searchToolInfo represents a tool in search results.
 type searchToolInfo struct {
@@ -161,8 +161,8 @@ Scripts can call tools from ANY integration — chain GitHub, Linear, Sentry, Da
 
 List and search responses are automatically compacted to essential fields.
 Use single-item get tools (e.g., github_get_issue) for full detail.
-Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
-Script output is also capped at 50KB — return only the fields you need, not entire API responses.
+Responses over 256KB return an error — use filters, lower limit/per_page, or fetch individual items.
+Script output is also capped at 256KB — return only the fields you need, not entire API responses.
 
 CRITICAL: Use search first to discover tool names and parameter schemas. Do NOT guess
 tool names — call search with a keyword (e.g., {"query": "list repos"}) to find the exact name.
