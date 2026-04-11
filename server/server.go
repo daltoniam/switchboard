@@ -113,10 +113,11 @@ func (s *Server) registerTools() {
 
 IMPORTANT: Always search before calling execute. Do NOT guess tool names.
 
-Query format — use 2-3 keywords, not full sentences:
+Query format — use 1-2 keywords, not full sentences. Fewer words = better results:
 - {"query": "create ticket"} — synonym matching finds linear_create_issue
-- {"query": "slack send message"} — always include the integration name
-- {"integration": "sentry", "query": "errors"} — or use the integration filter`,
+- {"query": "slack send"} — integration name + verb is ideal
+- {"integration": "sentry", "query": "errors"} — or use the integration filter
+Avoid 4+ word queries — they return fewer results. Search twice with short queries instead of once with a long query.`,
 		InputSchema: objectSchema(map[string]any{
 			"query": map[string]any{
 				"type":        "string",

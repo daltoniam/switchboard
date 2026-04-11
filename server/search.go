@@ -135,6 +135,14 @@ var synonymGroups = [][]string{
 	{"email", "mail", "gmail"},
 	{"break", "fail", "crash", "down"},
 	{"metric", "metrics"},
+	{"table", "tables"},
+	{"label", "labels", "tag", "tags"},
+	{"diff", "patch", "changes"},
+	{"column", "columns", "field", "fields"},
+	{"schema", "schemas"},
+	{"database", "databases", "db"},
+	{"branch", "branches"},
+	{"comment", "comments"},
 
 	// Verbs — action synonyms
 	{"create", "add", "new", "make", "generate"},
