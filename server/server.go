@@ -549,6 +549,11 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	if args.ToolName == "" {
 		return errorResult("either tool_name or script is required"), nil
 	}
+	if args.ToolName == "search" || args.ToolName == "execute" {
+		return errorResult(fmt.Sprintf(
+			"tool %q is a meta-tool — use it directly as an MCP tool call, not through execute",
+			args.ToolName)), nil
+	}
 	if args.Arguments == nil {
 		args.Arguments = map[string]any{}
 	}
