@@ -289,6 +289,18 @@ func TestPreComputedTokens(t *testing.T) {
 	})
 }
 
+func TestSynonymGroups_Disjoint(t *testing.T) {
+	seen := make(map[string][]string)
+	for _, group := range synonymGroups {
+		for _, word := range group {
+			if prev, ok := seen[word]; ok {
+				t.Errorf("word %q in two groups: %v and %v", word, prev, group)
+			}
+			seen[word] = group
+		}
+	}
+}
+
 func TestBuildSynonymMap_IncludesSelf(t *testing.T) {
 	synMap := buildSynonymMap([][]string{
 		{"ticket", "issue", "bug"},
