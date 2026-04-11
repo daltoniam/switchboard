@@ -147,7 +147,47 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"page": "Page number", "per_page": "Results per page"},
 	},
 	{
-		Name: "digitalocean_get_app", Description: "Get details of an App Platform app",
+		Name: "digitalocean_get_app", Description: "Get details of an App Platform app including its spec and active deployment",
+		Parameters: map[string]string{"app_id": "App UUID"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_delete_app", Description: "Delete an App Platform app",
+		Parameters: map[string]string{"app_id": "App UUID"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_restart_app", Description: "Restart an App Platform app, optionally targeting specific components",
+		Parameters: map[string]string{"app_id": "App UUID", "components": "Comma-separated component names to restart (omit to restart all)"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_list_app_deployments", Description: "List deployments for an App Platform app",
+		Parameters: map[string]string{"app_id": "App UUID", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_get_app_deployment", Description: "Get details of a specific App Platform deployment",
+		Parameters: map[string]string{"app_id": "App UUID", "deployment_id": "Deployment UUID"},
+		Required:   []string{"app_id", "deployment_id"},
+	},
+	{
+		Name: "digitalocean_create_app_deployment", Description: "Trigger a new deployment for an App Platform app",
+		Parameters: map[string]string{"app_id": "App UUID", "force_build": "Force rebuild even if no source changes (true/false)"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_get_app_logs", Description: "Get logs for an App Platform app. Use log_type BUILD for build logs, DEPLOY for deploy logs, or RUN for runtime logs",
+		Parameters: map[string]string{"app_id": "App UUID", "deployment_id": "Deployment UUID (omit for active deployment)", "component": "Component name (omit for all components)", "log_type": "Log type: BUILD, DEPLOY, RUN, RUN_RESTARTED, or AUTOSCALE_EVENT", "tail_lines": "Number of log lines to return (default 100)"},
+		Required:   []string{"app_id", "log_type"},
+	},
+	{
+		Name: "digitalocean_get_app_health", Description: "Get health status of all components in an App Platform app",
+		Parameters: map[string]string{"app_id": "App UUID"},
+		Required:   []string{"app_id"},
+	},
+	{
+		Name: "digitalocean_list_app_alerts", Description: "List alerts configured for an App Platform app",
 		Parameters: map[string]string{"app_id": "App UUID"},
 		Required:   []string{"app_id"},
 	},
