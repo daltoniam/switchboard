@@ -1044,7 +1044,7 @@ func TestHandleExecute_ByteCapEnforced(t *testing.T) {
 	assert.True(t, result.IsError, "over-cap response should return error")
 
 	tc := result.Content[0].(*mcpsdk.TextContent)
-	capKB := fmt.Sprintf("%dKB", maxResponseBytes/1024)
+	capKB := fmt.Sprintf("%dKB", defaultMaxResponseBytes/1024)
 	assert.Contains(t, tc.Text, capKB)
 }
 
@@ -1067,8 +1067,86 @@ func TestHandleExecute_ByteCapSkippedOnError(t *testing.T) {
 	assert.True(t, result.IsError)
 
 	tc := result.Content[0].(*mcpsdk.TextContent)
-	capKB := fmt.Sprintf("%dKB", maxResponseBytes/1024)
+	capKB := fmt.Sprintf("%dKB", defaultMaxResponseBytes/1024)
 	assert.NotContains(t, tc.Text, capKB, "error results should skip byte cap")
+}
+
+// mockIntegrationWithCap is a mockIntegration that also implements
+// mcp.MaxResponseBytesIntegration, declaring a higher per-integration cap.
+type mockIntegrationWithCap struct {
+	*mockIntegration
+	maxBytes int
+}
+
+func (m *mockIntegrationWithCap) MaxResponseBytes() int { return m.maxBytes }
+
+// setupTestServerWithIntegration builds a Server around a single arbitrary
+// mcp.Integration — unlike setupTestServer which only accepts *mockIntegration.
+// Needed for tests that register wrapper types like mockIntegrationWithCap.
+func setupTestServerWithIntegration(i mcp.Integration) *Server {
+	reg := newMockRegistry()
+	reg.Register(i)
+	services := &mcp.Services{
+		Config: newMockConfigService(map[string]*mcp.IntegrationConfig{
+			i.Name(): {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+		}),
+		Registry: reg,
+	}
+	return New(services)
+}
+
+func TestHandleExecute_PerIntegrationCapHonored(t *testing.T) {
+	// Payload is above the default (50KB) but under the integration's 256KB cap.
+	// A default-capped integration would reject this; the override must allow it.
+	bigData := `{"data":"` + strings.Repeat("x", 100*1024) + `"}`
+	mi := &mockIntegrationWithCap{
+		mockIntegration: &mockIntegration{
+			name:    "bigint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "bigint_get_page", Description: "Returns rich page content"},
+			},
+			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: bigData}, nil
+			},
+		},
+		maxBytes: 256 * 1024,
+	}
+
+	s := setupTestServerWithIntegration(mi)
+	result, err := s.handleExecute(context.Background(), executeRequest("bigint_get_page", nil))
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "response within per-integration cap should succeed")
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Equal(t, bigData, tc.Text)
+}
+
+func TestHandleExecute_PerIntegrationCapStillEnforced(t *testing.T) {
+	// Payload exceeds even the integration's raised cap — must still be rejected,
+	// and the error must report the integration's cap, not the default.
+	bigData := `{"data":"` + strings.Repeat("x", 300*1024) + `"}`
+	mi := &mockIntegrationWithCap{
+		mockIntegration: &mockIntegration{
+			name:    "bigint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "bigint_get_page", Description: "Returns rich page content"},
+			},
+			execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: bigData}, nil
+			},
+		},
+		maxBytes: 256 * 1024,
+	}
+
+	s := setupTestServerWithIntegration(mi)
+	result, err := s.handleExecute(context.Background(), executeRequest("bigint_get_page", nil))
+	require.NoError(t, err)
+	assert.True(t, result.IsError, "response above per-integration cap should be rejected")
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Contains(t, tc.Text, "256KB", "error should report the integration's own cap")
 }
 
 func TestToolResultJSON(t *testing.T) {
@@ -1646,7 +1724,7 @@ func TestScriptExecution_OutputByteCapEnforced(t *testing.T) {
 	assert.True(t, result.IsError, "over-cap script output should return error")
 
 	tc := result.Content[0].(*mcpsdk.TextContent)
-	capKB := fmt.Sprintf("%dKB", maxResponseBytes/1024)
+	capKB := fmt.Sprintf("%dKB", defaultMaxResponseBytes/1024)
 	assert.Contains(t, tc.Text, capKB)
 	assert.Contains(t, tc.Text, "Script output exceeded")
 }

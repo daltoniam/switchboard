@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -44,6 +46,36 @@ func setupProjectRouter(t *testing.T, def *project.Definition, integrations ...*
 		for _, tool := range i.Tools() {
 			tools = append(tools, toolWithIntegration{Integration: i.Name(), Tool: tool})
 		}
+	}
+	idf := computeIDF(tools)
+
+	router := NewProjectRouter(services, store, "switchboard", SearchIndex{IDF: idf, SynMap: sm, AllTools: tools})
+	return router, store
+}
+
+// setupProjectRouterWithIntegration mirrors setupProjectRouter but accepts an
+// arbitrary mcp.Integration so tests can register wrapper types like
+// mockIntegrationWithCap that aren't *mockIntegration directly.
+func setupProjectRouterWithIntegration(t *testing.T, def *project.Definition, i mcp.Integration) (*ProjectRouter, *project.Store) {
+	t.Helper()
+	dir := t.TempDir()
+	store := project.NewStore(dir)
+	require.NoError(t, store.Create(def))
+
+	reg := newMockRegistry()
+	reg.Register(i)
+
+	services := &mcp.Services{
+		Config: newMockConfigService(map[string]*mcp.IntegrationConfig{
+			i.Name(): {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+		}),
+		Registry: reg,
+	}
+
+	sm := buildSynonymMap(synonymGroups)
+	var tools []toolWithIntegration
+	for _, tool := range i.Tools() {
+		tools = append(tools, toolWithIntegration{Integration: i.Name(), Tool: tool})
 	}
 	idf := computeIDF(tools)
 
@@ -240,6 +272,64 @@ func TestProjectRouter_ExecuteDenied(t *testing.T) {
 
 	tc := result.Content[0].(*mcpsdk.TextContent)
 	assert.Contains(t, tc.Text, "denied")
+}
+
+func TestProjectRouter_ExecutePerIntegrationCap(t *testing.T) {
+	// The project router's execute handler and server.handleExecute both call
+	// responseLimitFor. These subtests pin the project router path so a future
+	// refactor can't silently regress the per-integration cap behavior there.
+	def := &project.Definition{Version: "1", Name: "cap-test"}
+
+	buildIntegration := func(payload string) *mockIntegrationWithCap {
+		return &mockIntegrationWithCap{
+			mockIntegration: &mockIntegration{
+				name:    "bigint",
+				healthy: true,
+				tools: []mcp.ToolDefinition{
+					{Name: "bigint_get_page", Description: "Returns rich page content"},
+				},
+				execFn: func(_ context.Context, _ string, _ map[string]any) (*mcp.ToolResult, error) {
+					return &mcp.ToolResult{Data: payload}, nil
+				},
+			},
+			maxBytes: 256 * 1024,
+		}
+	}
+
+	executeTool := func(t *testing.T, mi *mockIntegrationWithCap) *mcpsdk.CallToolResult {
+		t.Helper()
+		router, _ := setupProjectRouterWithIntegration(t, def, mi)
+		scopeRule := project.GetEffectiveRule(def, "switchboard", "")
+		handler := router.makeExecuteHandler(def, scopeRule)
+		result, err := handler(context.Background(), projectToolRequest("execute", map[string]any{
+			"tool_name": "bigint_get_page",
+			"arguments": map[string]any{},
+		}))
+		require.NoError(t, err)
+		return result
+	}
+
+	t.Run("honored above default under override", func(t *testing.T) {
+		// 100KB payload is above the 50KB default but under the 256KB override —
+		// a default-capped integration would reject this, the override must allow it.
+		payload := fmt.Sprintf(`{"data":"%s"}`, strings.Repeat("x", 100*1024))
+		result := executeTool(t, buildIntegration(payload))
+
+		assert.False(t, result.IsError, "response within per-integration cap should succeed")
+		tc := result.Content[0].(*mcpsdk.TextContent)
+		assert.Equal(t, payload, tc.Text)
+	})
+
+	t.Run("still enforced above override", func(t *testing.T) {
+		// 300KB payload exceeds even the raised 256KB cap — must still be rejected,
+		// and the error must report the integration's cap, not the default.
+		payload := fmt.Sprintf(`{"data":"%s"}`, strings.Repeat("x", 300*1024))
+		result := executeTool(t, buildIntegration(payload))
+
+		assert.True(t, result.IsError, "response above per-integration cap should be rejected")
+		tc := result.Content[0].(*mcpsdk.TextContent)
+		assert.Contains(t, tc.Text, "256KB", "error should report the integration's own cap")
+	})
 }
 
 func TestProjectRouter_ContextManifest(t *testing.T) {

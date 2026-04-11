@@ -16,10 +16,17 @@ import (
 
 // Compile-time interface assertions.
 var (
-	_ mcp.Integration                = (*confluence)(nil)
-	_ mcp.FieldCompactionIntegration = (*confluence)(nil)
-	_ mcp.PlainTextCredentials       = (*confluence)(nil)
+	_ mcp.Integration                 = (*confluence)(nil)
+	_ mcp.FieldCompactionIntegration  = (*confluence)(nil)
+	_ mcp.PlainTextCredentials        = (*confluence)(nil)
+	_ mcp.MaxResponseBytesIntegration = (*confluence)(nil)
 )
+
+// confluenceMaxResponseBytes raises the response cap for Confluence above the
+// server default. Confluence page bodies (Atlassian Document Format or Storage
+// Format XHTML) routinely exceed 50KB for richly authored pages, and the whole
+// point of tools like confluence_get_page is to return that content to the LLM.
+const confluenceMaxResponseBytes = 256 * 1024 // 256KB
 
 type confluence struct {
 	email    string
@@ -72,6 +79,8 @@ func (c *confluence) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
+
+func (c *confluence) MaxResponseBytes() int { return confluenceMaxResponseBytes }
 
 func (c *confluence) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
