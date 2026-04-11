@@ -103,11 +103,11 @@ func getAppLogs(ctx context.Context, d *integration, args map[string]any) (*mcp.
 	r := mcp.NewArgs(args)
 	appID := r.Str("app_id")
 	logType := r.Str("log_type")
+	deploymentID := r.Str("deployment_id")
+	component := r.Str("component")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	deploymentID, _ := mcp.ArgStr(args, "deployment_id")
-	component, _ := mcp.ArgStr(args, "component")
 	tailLines := mcp.OptInt(args, "tail_lines", 100)
 	logs, _, err := d.client.Apps.GetLogs(ctx, appID, deploymentID, component, godo.AppLogType(logType), false, tailLines)
 	if err != nil {

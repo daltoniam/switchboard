@@ -178,7 +178,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: "digitalocean_get_app_logs", Description: "Get logs for an App Platform app. Use log_type BUILD for build logs, DEPLOY for deploy logs, or RUN for runtime logs",
-		Parameters: map[string]string{"app_id": "App UUID", "deployment_id": "Deployment UUID (omit for active deployment)", "component": "Component name (omit for all components)", "log_type": "Log type: BUILD, DEPLOY, RUN, or RUN_RESTARTED", "tail_lines": "Number of log lines to return (default 100)"},
+		Parameters: map[string]string{"app_id": "App UUID", "deployment_id": "Deployment UUID (omit for active deployment)", "component": "Component name (omit for all components)", "log_type": "Log type: BUILD, DEPLOY, RUN, RUN_RESTARTED, or AUTOSCALE_EVENT", "tail_lines": "Number of log lines to return (default 100)"},
 		Required:   []string{"app_id", "log_type"},
 	},
 	{
