@@ -9,7 +9,11 @@ search({"query": "create ticket"}) → [{name: "linear_create_issue", ...}]
 execute({"tool_name": "linear_create_issue", "arguments": {...}}) → result
 ```
 
-Search scores ~850 tools across integrations using synonym-expanded TF-IDF. The index is built once at startup; queries are zero-allocation beyond the result slice.
+Search scores ~1100+ tools across integrations using synonym-expanded TF-IDF. The index is built once at startup; queries are zero-allocation beyond the result slice.
+
+<!-- @[MODEL LAUNCH]: Review query guidance in search tool description (server.go) —
+     new models may handle long queries differently. Also check if Instructions
+     field is being surfaced by the new model's MCP client. -->
 
 ## How Scoring Works
 
@@ -66,10 +70,11 @@ The list is a closed linguistic class — English doesn't gain new prepositions.
 The search tool's description coaches LLMs on query strategy:
 
 ```
-Query format — use 2-3 keywords, not full sentences:
+Query format — use 1-2 keywords, not full sentences. Fewer words = better results:
 - {"query": "create ticket"} — synonym matching finds linear_create_issue
-- {"query": "slack send message"} — always include the integration name
+- {"query": "slack send"} — integration name + verb is ideal
 - {"integration": "sentry", "query": "errors"} — or use the integration filter
+Avoid 4+ word queries — they return fewer results.
 ```
 
 Keywords beat sentences because:
@@ -78,6 +83,10 @@ Keywords beat sentences because:
 - Synonym expansion compensates for vocabulary mismatches, so exact tool names aren't required
 
 The `integration` parameter pre-filters tools before scoring, useful when the LLM already knows which integration to target.
+
+<!-- @[MODEL LAUNCH]: The "1-2 keywords" guidance was calibrated for the current
+     TF-IDF engine. If search moves to embedding-based or hybrid scoring,
+     revisit — longer queries may perform better with semantic search. -->
 
 ## Tool Description Guidelines
 
@@ -89,6 +98,20 @@ Tool descriptions are the only context an LLM gets for tool selection. The scori
 - **Gotcha prevention**: surface ID/parameter confusion in descriptions and parameter strings
 
 See [field-compaction.md](field-compaction.md) § "Tool Description Design" for the full style guide.
+
+## Known Failure Modes & Counterweights
+
+Measured failure modes in LLM tool discovery, with the prompt-level mitigations applied.
+
+| Failure | Rate | Counterweight | Bidirectional Check |
+|---------|------|---------------|---------------------|
+| **Tool name hallucination** — model guesses `notion_get_page` instead of searching | Observed in multi-model testing | Server Instructions: "do not guess tool names"; execute description: "Use search first" | Don't overcorrect into always searching for single well-known tools (e.g., `github_list_issues`) — the search call adds latency |
+| **Script meta-tool confusion** — model calls `api.call('search')` inside scripts | Observed in user sessions | Execute description: "Scripts CANNOT call search or execute"; `toolExecutor` returns specific error | Don't block legitimate integration tools named similarly — the check is exact-match on "search"/"execute" only |
+| **Long query degradation** — 4+ word queries return 0 results | Consistent in benchmark testing | Search description: "Avoid 4+ word queries"; "1-2 keywords" guidance | Don't make models afraid of 2-3 word queries — those work well. Only 4+ is problematic |
+| **Verb vocabulary mismatch** — "get" vs "retrieve" vs "describe" | Systemic across integrations | Synonym group: `{"get", "retrieve", "fetch", "read", "show", "view", "describe"}` | The MAX-per-word scoring ensures rare synonyms (retrieve, IDF=5.1) boost results without common synonyms (get, IDF=1.5) causing pollution |
+| **Noun IDF dilution** — synonym group union >60 tools degrades ranking | Measured: page/doc/document group (union=90) caused get-page benchmark regression | Dropped page/doc group; kept targeted pairs (table/tables, label/labels) | `TestSynonymGroups_Disjoint` enforces no word in multiple groups; benchmark catches IDF regressions |
+
+**Removal triggers**: Revisit counterweights when search moves to embedding-based scoring (long queries may work), or when MCP clients universally surface Instructions (reducing reliance on tool-description-level guidance).
 
 ## Benchmarking
 
