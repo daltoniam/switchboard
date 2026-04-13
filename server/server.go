@@ -567,7 +567,8 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		args.Arguments = map[string]any{}
 	}
 
-	integration, result, err := s.executeTool(ctx, mcp.ToolName(args.ToolName), args.Arguments)
+	toolName := mcp.ToolName(args.ToolName)
+	integration, result, err := s.executeTool(ctx, toolName, args.Arguments)
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
@@ -577,7 +578,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 			IsError: true,
 		}, nil
 	}
-	result.Data = processResult(integration, mcp.ToolName(args.ToolName), result.Data, s.services.Metrics)
+	result.Data = processResult(integration, toolName, result.Data, s.services.Metrics)
 	limit := responseLimitFor(integration)
 	if len(result.Data) > limit {
 		if s.services.Metrics != nil {
