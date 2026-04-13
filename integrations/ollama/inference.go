@@ -140,9 +140,8 @@ func embed(ctx context.Context, o *ollama, args map[string]any) (*mcp.ToolResult
 	}
 
 	req := embedRequest{
-		Model:  ModelName(model),
-		Input:  input,
-		Stream: false,
+		Model: ModelName(model),
+		Input: input,
 	}
 	if v, ok := args["truncate"]; ok {
 		if b, ok := v.(bool); ok {

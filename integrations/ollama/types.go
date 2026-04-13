@@ -178,7 +178,6 @@ type generateResponse struct {
 type embedRequest struct {
 	Model      ModelName       `json:"model"`
 	Input      any             `json:"input"`
-	Stream     bool            `json:"stream"`
 	Truncate   *bool           `json:"truncate,omitempty"`
 	Dimensions *int            `json:"dimensions,omitempty"`
 	KeepAlive  json.RawMessage `json:"keep_alive,omitempty"`

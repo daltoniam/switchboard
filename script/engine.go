@@ -23,6 +23,15 @@ type Executor interface {
 	Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error)
 }
 
+// RenderedExecutor is an optional interface that extends Executor with a
+// rendered path. ExecuteRendered applies the same markdown/compaction/columnarization
+// pipeline as the execute meta-tool, returning LLM-readable output instead of raw JSON.
+// If the executor does not implement this, api.callRendered() falls back to api.call().
+type RenderedExecutor interface {
+	Executor
+	ExecuteRendered(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error)
+}
+
 // Engine runs JavaScript scripts with access to integration tools via api.call().
 type Engine struct {
 	executor Executor
@@ -171,7 +180,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 		}
 		callCount++
 		if callCount > e.maxCalls {
-			panic(vm.NewGoError(fmt.Errorf("exceeded maximum of %d api.call() invocations", e.maxCalls)))
+			panic(vm.NewGoError(fmt.Errorf("exceeded maximum of %d api calls per script", e.maxCalls)))
 		}
 	}
 
@@ -210,7 +219,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 		// so partial results from earlier calls are preserved.
 		callCount++
 		if callCount > e.maxCalls {
-			return vm.ToValue(map[string]any{"ok": false, "error": fmt.Sprintf("exceeded maximum of %d api.call() invocations", e.maxCalls)})
+			return vm.ToValue(map[string]any{"ok": false, "error": fmt.Sprintf("exceeded maximum of %d api calls per script", e.maxCalls)})
 		}
 
 		toolName, args, opts := parseCallArgs(call)
@@ -240,6 +249,65 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 		return vm.ToValue(map[string]any{"ok": true, "data": parsed})
 	}); err != nil {
 		return nil, fmt.Errorf("failed to set api.tryCall: %w", err)
+	}
+
+	// executeRenderedOrFallback calls ExecuteRendered if the executor supports it,
+	// otherwise falls back to Execute.
+	executeRenderedOrFallback := func(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+		if re, ok := e.executor.(RenderedExecutor); ok {
+			return re.ExecuteRendered(ctx, toolName, args)
+		}
+		return e.executor.Execute(ctx, toolName, args)
+	}
+
+	if err := apiObj.Set("callRendered", func(call goja.FunctionCall) goja.Value {
+		checkCallLimit()
+
+		toolName, args, _ := parseCallArgs(call)
+		if toolName == "" || toolName == "undefined" {
+			panic(vm.NewGoError(fmt.Errorf("api.callRendered() requires a tool name as the first argument")))
+		}
+
+		result, err := executeRenderedOrFallback(ctx, mcp.ToolName(toolName), args)
+		if err != nil {
+			panic(vm.NewGoError(fmt.Errorf("api.callRendered(%q) failed: %w", toolName, err)))
+		}
+		if result.IsError {
+			panic(vm.NewGoError(fmt.Errorf("api.callRendered(%q) returned error: %s", toolName, result.Data)))
+		}
+
+		// Return as string — rendered output is LLM-readable text, not JSON to parse.
+		return vm.ToValue(result.Data)
+	}); err != nil {
+		return nil, fmt.Errorf("failed to set api.callRendered: %w", err)
+	}
+
+	if err := apiObj.Set("tryCallRendered", func(call goja.FunctionCall) goja.Value {
+		if err := ctx.Err(); err != nil {
+			panic(vm.NewGoError(fmt.Errorf("script cancelled: %w", err)))
+		}
+		callCount++
+		if callCount > e.maxCalls {
+			return vm.ToValue(map[string]any{"ok": false, "error": fmt.Sprintf("exceeded maximum of %d api calls per script", e.maxCalls)})
+		}
+
+		toolName, args, _ := parseCallArgs(call)
+		if toolName == "" || toolName == "undefined" {
+			return vm.ToValue(map[string]any{"ok": false, "error": "api.tryCallRendered() requires a tool name"})
+		}
+
+		result, err := executeRenderedOrFallback(ctx, mcp.ToolName(toolName), args)
+		if err != nil {
+			return vm.ToValue(map[string]any{"ok": false, "error": err.Error()})
+		}
+		if result.IsError {
+			return vm.ToValue(map[string]any{"ok": false, "error": result.Data})
+		}
+
+		// Return as string — no JSON parsing, rendered output is text.
+		return vm.ToValue(map[string]any{"ok": true, "data": result.Data})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to set api.tryCallRendered: %w", err)
 	}
 
 	if err := vm.Set("api", apiObj); err != nil {
