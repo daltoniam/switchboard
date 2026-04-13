@@ -39,14 +39,15 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 	s.clients = make(map[string]*slack.Client)
 	s.mu.Unlock()
 
-	if t := creds["token"]; t != "" {
+	configToken := creds["token"]
+	if configToken != "" {
 		teamID := creds["team_id"]
 		if teamID == "" {
 			teamID = "_config"
 		}
 		s.store.setWorkspace(&workspace{
 			TeamID: teamID,
-			Token:  t,
+			Token:  configToken,
 			Cookie: creds["cookie"],
 			Source: "config",
 		})
@@ -55,16 +56,20 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 		}
 	}
 
-	s.store.loadFromFile()
+	// When a token was provided via config (e.g. OAuth in hosted environments),
+	// skip local file and Chrome extraction — the config token is authoritative.
+	if configToken == "" {
+		s.store.loadFromFile()
 
-	if len(s.store.allWorkspaces()) == 0 {
-		wss, _ := listWorkspacesFromChrome()
-		for _, ws := range wss {
-			s.store.setWorkspace(&workspace{
-				TeamID:   ws.TeamID,
-				TeamName: ws.Name,
-				Source:   "chrome",
-			})
+		if len(s.store.allWorkspaces()) == 0 {
+			wss, _ := listWorkspacesFromChrome()
+			for _, ws := range wss {
+				s.store.setWorkspace(&workspace{
+					TeamID:   ws.TeamID,
+					TeamName: ws.Name,
+					Source:   "chrome",
+				})
+			}
 		}
 	}
 
@@ -79,13 +84,20 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 		s.store.setDefault(tid)
 	}
 
-	_ = s.store.saveToFile()
+	// Only persist and run background refresh for locally-sourced tokens.
+	// Config-provided tokens are managed externally and don't need local refresh.
+	if configToken == "" {
+		_ = s.store.saveToFile()
 
-	if s.stopBg != nil {
+		if s.stopBg != nil {
+			close(s.stopBg)
+		}
+		s.stopBg = make(chan struct{})
+		go s.backgroundRefresh()
+	} else if s.stopBg != nil {
 		close(s.stopBg)
+		s.stopBg = nil
 	}
-	s.stopBg = make(chan struct{})
-	go s.backgroundRefresh()
 
 	return nil
 }
