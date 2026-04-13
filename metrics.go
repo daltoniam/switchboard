@@ -18,8 +18,8 @@ type Metrics struct {
 	scriptCount atomic.Int64
 
 	// Per-integration aggregates.
-	integrationCalls  map[string]*integrationMetric // key: integration name
-	circuitBreaks     map[string]*atomic.Int64      // key: integration name
+	integrationCalls  map[IntegrationName]*integrationMetric
+	circuitBreaks     map[IntegrationName]*atomic.Int64
 	compactionSavings []compactionSample
 	markdownRenders   []compactionSample // reuses compactionSample shape
 
@@ -54,14 +54,14 @@ type compactionSample struct {
 func NewMetrics() *Metrics {
 	return &Metrics{
 		toolCalls:        make(map[ToolName]*toolMetric),
-		integrationCalls: make(map[string]*integrationMetric),
-		circuitBreaks:    make(map[string]*atomic.Int64),
+		integrationCalls: make(map[IntegrationName]*integrationMetric),
+		circuitBreaks:    make(map[IntegrationName]*atomic.Int64),
 		startTime:        time.Now(),
 	}
 }
 
 // RecordExecution records a tool execution with its outcome.
-func (m *Metrics) RecordExecution(integration string, tool ToolName, duration time.Duration, isError bool, retries int) {
+func (m *Metrics) RecordExecution(integration IntegrationName, tool ToolName, duration time.Duration, isError bool, retries int) {
 	m.totalExecutions.Add(1)
 	if isError {
 		m.totalErrors.Add(1)
@@ -99,7 +99,7 @@ func (m *Metrics) RecordScript() {
 }
 
 // RecordCircuitBreak records a circuit breaker trip for an integration.
-func (m *Metrics) RecordCircuitBreak(integration string) {
+func (m *Metrics) RecordCircuitBreak(integration IntegrationName) {
 	m.mu.RLock()
 	counter, ok := m.circuitBreaks[integration]
 	m.mu.RUnlock()
@@ -186,7 +186,7 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 		if calls > 0 {
 			avgNs = im.TotalNs.Load() / calls
 		}
-		s.Integrations[name] = IntegrationSnapshot{
+		s.Integrations[string(name)] = IntegrationSnapshot{
 			Calls:        calls,
 			Errors:       im.Errors.Load(),
 			AvgLatencyMs: float64(avgNs) / 1e6,
@@ -194,7 +194,7 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 	}
 
 	for name, counter := range m.circuitBreaks {
-		s.CircuitBreaks[name] = counter.Load()
+		s.CircuitBreaks[string(name)] = counter.Load()
 	}
 
 	// Compaction summary.
@@ -253,7 +253,7 @@ func (m *Metrics) getToolMetric(tool ToolName) *toolMetric {
 	return tm
 }
 
-func (m *Metrics) getIntegrationMetric(integration string) *integrationMetric {
+func (m *Metrics) getIntegrationMetric(integration IntegrationName) *integrationMetric {
 	m.mu.RLock()
 	im, ok := m.integrationCalls[integration]
 	m.mu.RUnlock()

@@ -506,7 +506,7 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 
 	tokenSource := ""
 	if exists {
-		tokenSource = ic.Credentials["token_source"]
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
 	}
 	if tokenSource == "" && info.Source != "" {
 		tokenSource = info.Source
@@ -574,7 +574,7 @@ func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Req
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials["token_source"] = "chrome"
+	ic.Credentials[mcp.CredKeyTokenSource] = "chrome"
 	_ = w.services.Config.SetIntegration("slack", ic)
 
 	http.Redirect(rw, r, fmt.Sprintf("/integrations/slack/setup?result=Extracted+%d+workspaces+from+Chrome", count), http.StatusSeeOther)
@@ -585,7 +585,7 @@ func (w *WebServer) handleGitHubSetup(rw http.ResponseWriter, r *http.Request) {
 	hasToken := exists && ic.Credentials["token"] != ""
 	clientID := ""
 	if exists {
-		clientID = ic.Credentials["client_id"]
+		clientID = ic.Credentials[mcp.CredKeyClientID]
 	}
 
 	var healthy bool
@@ -599,8 +599,8 @@ func (w *WebServer) handleGitHubSetup(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenSource := ""
-	if exists && ic.Credentials["token_source"] != "" {
-		tokenSource = ic.Credentials["token_source"]
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
 	}
 
 	page := w.pageData(r, "GitHub Setup", "/integrations")
@@ -625,12 +625,12 @@ func (w *WebServer) handleGitHubOAuthStart(rw http.ResponseWriter, r *http.Reque
 	rw.Header().Set("Content-Type", "application/json")
 
 	ic, exists := w.services.Config.GetIntegration("github")
-	if !exists || ic.Credentials["client_id"] == "" {
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "GitHub OAuth client_id is not configured"})
 		return
 	}
 
-	dcr, err := ghInt.StartOAuthFlow(ic.Credentials["client_id"])
+	dcr, err := ghInt.StartOAuthFlow(ic.Credentials[mcp.CredKeyClientID])
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
 		return
@@ -663,7 +663,7 @@ func (w *WebServer) handleGitHubOAuthSave(rw http.ResponseWriter, r *http.Reques
 	}
 	ic.Enabled = true
 	ic.Credentials["token"] = body.Token
-	ic.Credentials["token_source"] = "oauth"
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
 	_ = w.services.Config.SetIntegration("github", ic)
 
 	json.NewEncoder(rw).Encode(map[string]string{"status": "ok"})
@@ -687,7 +687,7 @@ func (w *WebServer) handleGitHubSaveToken(rw http.ResponseWriter, r *http.Reques
 	}
 	ic.Enabled = true
 	ic.Credentials["token"] = token
-	ic.Credentials["token_source"] = "pat"
+	ic.Credentials[mcp.CredKeyTokenSource] = "pat"
 	_ = w.services.Config.SetIntegration("github", ic)
 
 	http.Redirect(rw, r, "/integrations/github/setup?result=Token+saved+successfully", http.StatusSeeOther)
@@ -727,8 +727,8 @@ func (w *WebServer) handleLinearSetup(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenSource := ""
-	if exists && ic.Credentials["token_source"] != "" {
-		tokenSource = ic.Credentials["token_source"]
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
 	}
 
 	page := w.pageData(r, "Linear Setup", "/integrations")
@@ -769,7 +769,7 @@ func (w *WebServer) handleLinearSaveToken(rw http.ResponseWriter, r *http.Reques
 	ic.Enabled = true
 	ic.Credentials["api_key"] = apiKey
 	ic.Credentials["mcp_access_token"] = ""
-	ic.Credentials["token_source"] = "api_key"
+	ic.Credentials[mcp.CredKeyTokenSource] = "api_key"
 	_ = w.services.Config.SetIntegration("linear", ic)
 
 	http.Redirect(rw, r, "/integrations/linear/setup?result=API+key+saved+successfully", http.StatusSeeOther)
@@ -781,7 +781,7 @@ func (w *WebServer) handleSentrySetup(rw http.ResponseWriter, r *http.Request) {
 	clientID := ""
 	organization := ""
 	if exists {
-		clientID = ic.Credentials["client_id"]
+		clientID = ic.Credentials[mcp.CredKeyClientID]
 		organization = ic.Credentials["organization"]
 	}
 
@@ -796,8 +796,8 @@ func (w *WebServer) handleSentrySetup(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenSource := ""
-	if exists && ic.Credentials["token_source"] != "" {
-		tokenSource = ic.Credentials["token_source"]
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
 	}
 
 	page := w.pageData(r, "Sentry Setup", "/integrations")
@@ -823,12 +823,12 @@ func (w *WebServer) handleSentryOAuthStart(rw http.ResponseWriter, r *http.Reque
 	rw.Header().Set("Content-Type", "application/json")
 
 	ic, exists := w.services.Config.GetIntegration("sentry")
-	if !exists || ic.Credentials["client_id"] == "" {
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Sentry OAuth client_id is not configured"})
 		return
 	}
 
-	dcr, err := sentryInt.StartOAuthFlow(ic.Credentials["client_id"])
+	dcr, err := sentryInt.StartOAuthFlow(ic.Credentials[mcp.CredKeyClientID])
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
 		return
@@ -863,7 +863,7 @@ func (w *WebServer) handleSentryOAuthSave(rw http.ResponseWriter, r *http.Reques
 	ic.Enabled = true
 	ic.Credentials["auth_token"] = body.Token
 	ic.Credentials["organization"] = body.Organization
-	ic.Credentials["token_source"] = "oauth"
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
 	_ = w.services.Config.SetIntegration("sentry", ic)
 
 	json.NewEncoder(rw).Encode(map[string]string{"status": "ok"})
@@ -893,7 +893,7 @@ func (w *WebServer) handleSentrySaveToken(rw http.ResponseWriter, r *http.Reques
 	ic.Enabled = true
 	ic.Credentials["auth_token"] = authToken
 	ic.Credentials["organization"] = organization
-	ic.Credentials["token_source"] = "token"
+	ic.Credentials[mcp.CredKeyTokenSource] = "token"
 	_ = w.services.Config.SetIntegration("sentry", ic)
 
 	http.Redirect(rw, r, "/integrations/sentry/setup?result=Token+saved+successfully", http.StatusSeeOther)
@@ -942,7 +942,7 @@ func (w *WebServer) handleSlackSaveTokens(rw http.ResponseWriter, r *http.Reques
 	ic.Enabled = true
 	ic.Credentials["token"] = token
 	ic.Credentials["cookie"] = cookie
-	ic.Credentials["token_source"] = "browser"
+	ic.Credentials[mcp.CredKeyTokenSource] = "browser"
 	_ = w.services.Config.SetIntegration("slack", ic)
 
 	http.Redirect(rw, r, "/integrations/slack/setup?result=Tokens+saved+successfully", http.StatusSeeOther)
@@ -1097,7 +1097,7 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 	ic.Enabled = true
 	ic.Credentials["mcp_access_token"] = token
 	ic.Credentials["api_key"] = ""
-	ic.Credentials["token_source"] = "oauth"
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
 	_ = w.services.Config.SetIntegration(name, ic)
 
 	http.Redirect(rw, r, setupPath+"?result=Connected+via+MCP+OAuth", http.StatusSeeOther)
@@ -1113,10 +1113,10 @@ func (w *WebServer) handleRemoteMCPOAuthPoll(rw http.ResponseWriter, r *http.Req
 func (w *WebServer) handleGmailSetup(rw http.ResponseWriter, r *http.Request) {
 	ic, exists := w.services.Config.GetIntegration("gmail")
 	hasToken := exists && ic.Credentials["access_token"] != ""
-	hasOAuth := exists && ic.Credentials["client_id"] != "" && ic.Credentials["client_secret"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
 	clientID := ""
 	if exists {
-		clientID = ic.Credentials["client_id"]
+		clientID = ic.Credentials[mcp.CredKeyClientID]
 	}
 
 	var healthy bool
@@ -1130,8 +1130,8 @@ func (w *WebServer) handleGmailSetup(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenSource := ""
-	if exists && ic.Credentials["token_source"] != "" {
-		tokenSource = ic.Credentials["token_source"]
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
 	}
 
 	redirectURI := fmt.Sprintf("http://localhost:%d/api/gmail/oauth/callback", w.port)
@@ -1160,13 +1160,13 @@ func (w *WebServer) handleGmailOAuthStart(rw http.ResponseWriter, r *http.Reques
 	rw.Header().Set("Content-Type", "application/json")
 
 	ic, exists := w.services.Config.GetIntegration("gmail")
-	if !exists || ic.Credentials["client_id"] == "" || ic.Credentials["client_secret"] == "" {
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Gmail OAuth client_id/client_secret not configured"})
 		return
 	}
 
 	redirectURI := fmt.Sprintf("http://localhost:%d/api/gmail/oauth/callback", w.port)
-	result, err := gmail.StartGmailOAuth(ic.Credentials["client_id"], ic.Credentials["client_secret"], redirectURI)
+	result, err := gmail.StartGmailOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
 		return
@@ -1208,7 +1208,7 @@ func (w *WebServer) handleGmailOAuthCallback(rw http.ResponseWriter, r *http.Req
 	if result.RefreshToken != "" {
 		ic.Credentials["refresh_token"] = result.RefreshToken
 	}
-	ic.Credentials["token_source"] = "oauth"
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
 	_ = w.services.Config.SetIntegration("gmail", ic)
 
 	http.Redirect(rw, r, "/integrations/gmail/setup?result=Connected+to+Gmail+via+OAuth", http.StatusSeeOther)
@@ -1238,7 +1238,7 @@ func (w *WebServer) handleGmailSaveToken(rw http.ResponseWriter, r *http.Request
 	}
 	ic.Enabled = true
 	ic.Credentials["access_token"] = accessToken
-	ic.Credentials["token_source"] = "manual"
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
 	_ = w.services.Config.SetIntegration("gmail", ic)
 
 	http.Redirect(rw, r, "/integrations/gmail/setup?result=Token+saved+successfully", http.StatusSeeOther)
@@ -1261,8 +1261,8 @@ func (w *WebServer) handleGmailSaveOAuthCredentials(rw http.ResponseWriter, r *h
 	if ic == nil {
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
-	ic.Credentials["client_id"] = clientID
-	ic.Credentials["client_secret"] = clientSecret
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
 	_ = w.services.Config.SetIntegration("gmail", ic)
 
 	http.Redirect(rw, r, "/integrations/gmail/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)

@@ -35,15 +35,16 @@ type renderedJiraComment struct {
 
 // ── Parse boundary ──────────────────────────────────────────────────
 
+var markdownRenderers = map[mcp.ToolName]func([]byte) (markdown.Markdown, bool){
+	"jira_get_issue":     renderIssueMD,
+	"jira_list_comments": renderJiraCommentsMD,
+}
+
 func (j *jira) RenderMarkdown(toolName mcp.ToolName, data []byte) (markdown.Markdown, bool) {
-	switch toolName {
-	case "jira_get_issue":
-		return renderIssueMD(data)
-	case "jira_list_comments":
-		return renderJiraCommentsMD(data)
-	default:
-		return "", false
+	if fn, ok := markdownRenderers[toolName]; ok {
+		return fn(data)
 	}
+	return "", false
 }
 
 // ── Raw JSON parse types ────────────────────────────────────────────

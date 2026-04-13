@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/daltoniam/switchboard/markdown"
@@ -62,6 +63,15 @@ func ParseRetryAfter(header string) time.Duration {
 
 // Credentials holds key-value credential pairs for an integration.
 type Credentials map[string]string
+
+// Credential key constants for OAuth/infrastructure keys that are not
+// real secrets. Centralized here to prevent hasCredentials and web handlers
+// from diverging on which keys to treat as non-credential metadata.
+const (
+	CredKeyClientID     = "client_id"
+	CredKeyClientSecret = "client_secret"
+	CredKeyTokenSource  = "token_source"
+)
 
 // IntegrationConfig stores the enabled state and credentials for a single integration.
 type IntegrationConfig struct {
@@ -196,9 +206,31 @@ type FieldCompactionIntegration interface {
 	CompactSpec(toolName ToolName) ([]CompactField, bool)
 }
 
+// IntegrationName identifies an integration by its canonical lowercase name (e.g. "github").
+// Semantic type prevents silent metric fragmentation from typos or case mismatches.
+// Scoped to metrics boundary; Integration.Name() and Registry still use string.
+type IntegrationName string
+
 // ToolName identifies a tool by its integration-prefixed name (e.g. "notion_get_page_content").
 // Semantic type prevents mixing with arbitrary strings at interface boundaries.
 type ToolName string
+
+// UnmarshalJSON normalizes whitespace and rejects empty tool names at parse time.
+func (tn *ToolName) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return errors.New("tool_name cannot be empty")
+	}
+	*tn = ToolName(s)
+	return nil
+}
 
 // Markdown is rendered markdown content returned by MarkdownIntegration.
 // Alias lets adapter authors use mcp.Markdown without importing the markdown subpackage.

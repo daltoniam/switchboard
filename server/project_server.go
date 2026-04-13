@@ -284,7 +284,7 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *project.ScopeRule) mcpsdk.ToolHandler {
 	return func(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 		var args struct {
-			ToolName  string         `json:"tool_name"`
+			ToolName  mcp.ToolName   `json:"tool_name"`
 			Arguments map[string]any `json:"arguments"`
 			Script    string         `json:"script"`
 		}
@@ -300,37 +300,38 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 			return errorResult("tool_name is required"), nil
 		}
 
-		if !project.IsToolPermitted(args.ToolName, scopeRule) {
+		toolStr := string(args.ToolName)
+		if !project.IsToolPermitted(toolStr, scopeRule) {
 			return errorResult(fmt.Sprintf("tool %q is denied by project scoping rules", args.ToolName)), nil
 		}
 
 		if args.Arguments == nil {
 			args.Arguments = map[string]any{}
 		}
-		args.Arguments = project.ResolveDefaults(args.ToolName, scopeRule, args.Arguments)
+		args.Arguments = project.ResolveDefaults(toolStr, scopeRule, args.Arguments)
 
-		integration, found := pr.findIntegration(args.ToolName)
+		integration, found := pr.findIntegration(toolStr)
 		if !found {
 			return errorResult(fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", args.ToolName)), nil
 		}
 
-		tool := mcp.ToolName(args.ToolName)
+		tool := args.ToolName
 		callStart := time.Now()
 		result, err := integration.Execute(ctx, tool, args.Arguments)
 		callDuration := time.Since(callStart)
 		if err != nil {
 			if pr.services.Metrics != nil {
-				pr.services.Metrics.RecordExecution(integration.Name(), tool, callDuration, true, 0)
+				pr.services.Metrics.RecordExecution(mcp.IntegrationName(integration.Name()), tool, callDuration, true, 0)
 			}
 			return errorResult(err.Error()), nil
 		}
 
 		if pr.services.Metrics != nil {
-			pr.services.Metrics.RecordExecution(integration.Name(), tool, callDuration, result.IsError, 0)
+			pr.services.Metrics.RecordExecution(mcp.IntegrationName(integration.Name()), tool, callDuration, result.IsError, 0)
 		}
 
 		if !result.IsError {
-			result.Data = processResult(integration, tool, result.Data, pr.services.Metrics)
+			result.Data = processResult(buildResultProcessor(integration), tool, result.Data, pr.services.Metrics)
 
 			limit := responseLimitFor(integration)
 			if len(result.Data) > limit {
