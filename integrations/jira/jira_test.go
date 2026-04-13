@@ -345,14 +345,12 @@ func TestSearchIssues(t *testing.T) {
 		wantPath  string
 		wantToken string
 		wantMax   float64
-		noStartAt bool
 	}{
 		{
-			name:      "basic search hits /search/jql",
-			args:      map[string]any{"jql": "project = PROJ"},
-			wantPath:  "/search/jql",
-			wantMax:   200,
-			noStartAt: true,
+			name:     "basic search hits /search/jql",
+			args:     map[string]any{"jql": "project = PROJ"},
+			wantPath: "/search/jql",
+			wantMax:  200,
 		},
 		{
 			name:      "with next_page_token",
@@ -360,14 +358,12 @@ func TestSearchIssues(t *testing.T) {
 			wantPath:  "/search/jql",
 			wantToken: "abc123",
 			wantMax:   200,
-			noStartAt: true,
 		},
 		{
-			name:      "custom max_results",
-			args:      map[string]any{"jql": "project = PROJ", "max_results": float64(500)},
-			wantPath:  "/search/jql",
-			wantMax:   500,
-			noStartAt: true,
+			name:     "custom max_results",
+			args:     map[string]any{"jql": "project = PROJ", "max_results": float64(500)},
+			wantPath: "/search/jql",
+			wantMax:  500,
 		},
 	}
 
@@ -380,12 +376,14 @@ func TestSearchIssues(t *testing.T) {
 				var body map[string]any
 				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 
-				if tt.noStartAt {
-					_, hasStartAt := body["startAt"]
-					assert.False(t, hasStartAt, "request body should not contain startAt")
-				}
+				_, hasStartAt := body["startAt"]
+				assert.False(t, hasStartAt, "request body should not contain startAt")
+
 				if tt.wantToken != "" {
 					assert.Equal(t, tt.wantToken, body["nextPageToken"])
+				} else {
+					_, hasToken := body["nextPageToken"]
+					assert.False(t, hasToken, "nextPageToken should not be sent on first page")
 				}
 				assert.Equal(t, tt.wantMax, body["maxResults"])
 
