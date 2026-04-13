@@ -122,6 +122,7 @@ type WasmModuleConfig struct {
 type Config struct {
 	Integrations map[string]*IntegrationConfig `json:"integrations"`
 	WasmModules  []WasmModuleConfig            `json:"wasm_modules,omitempty"`
+	SessionStore string                        `json:"session_store,omitempty"` // "memory" or "file" (default: "memory")
 }
 
 // ToolDefinition describes an API operation an integration exposes.
