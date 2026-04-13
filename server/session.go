@@ -55,7 +55,6 @@ func (s *Session) SetContext(pairs map[string]any) {
 func (s *Session) GetContext() map[string]any {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	s.touch()
 	cp := make(map[string]any, len(s.Context))
 	for k, v := range s.Context {
 		cp[k] = v
@@ -123,6 +122,12 @@ func (s *Session) RecentBreadcrumbs(n int, toolFilter mcp.ToolName) []Breadcrumb
 		filtered[i], filtered[j] = filtered[j], filtered[i]
 	}
 	return filtered
+}
+
+func (s *Session) TotalBreadcrumbs() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.Breadcrumbs)
 }
 
 func (s *Session) touch() {

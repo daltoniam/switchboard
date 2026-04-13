@@ -24,7 +24,7 @@ func (s *Server) handleSession(ctx context.Context, req *mcpsdk.CallToolRequest)
 
 	sess := sessionFromCtx(ctx)
 	if sess == nil {
-		sess = s.sessionStore.GetOrCreate("default")
+		sess = s.sessionStore.GetOrCreate(sessionIDFromReq(req.Session))
 	}
 
 	switch args.Action {
@@ -76,7 +76,7 @@ func (s *Server) handleHistory(ctx context.Context, req *mcpsdk.CallToolRequest)
 
 	sess := sessionFromCtx(ctx)
 	if sess == nil {
-		sess = s.sessionStore.GetOrCreate("default")
+		sess = s.sessionStore.GetOrCreate(sessionIDFromReq(req.Session))
 	}
 
 	bcs := sess.RecentBreadcrumbs(args.LastN, mcp.ToolName(args.Tool))
@@ -84,7 +84,7 @@ func (s *Server) handleHistory(ctx context.Context, req *mcpsdk.CallToolRequest)
 	result, err := mcp.JSONResult(map[string]any{
 		"session_id":       sess.ID,
 		"breadcrumbs":      bcs,
-		"total_in_session": len(sess.Breadcrumbs),
+		"total_in_session": sess.TotalBreadcrumbs(),
 	})
 	if err != nil {
 		return errorResult(err.Error()), nil

@@ -107,7 +107,10 @@ func New(services *mcp.Services, opts ...Option) *Server {
 				"behind two meta-tools: search and execute. " +
 				"Always search before calling execute — do not guess tool names. " +
 				"Search uses synonym matching, so short keyword queries work best " +
-				"(e.g., {\"query\": \"get page\"} finds notion_retrieve_page).",
+				"(e.g., {\"query\": \"get page\"} finds notion_retrieve_page). " +
+				"Use the session tool to set context (e.g., owner/repo) once — " +
+				"subsequent execute calls auto-inject those values as defaults. " +
+				"Use the history tool to review prior calls after context compression.",
 		},
 	)
 
@@ -630,7 +633,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 
 	sess := sessionFromCtx(ctx)
 	if sess == nil {
-		sess = s.sessionStore.GetOrCreate("default")
+		sess = s.sessionStore.GetOrCreate(sessionIDFromReq(req.Session))
 	}
 	args.Arguments = sess.MergeDefaults(args.Arguments)
 
