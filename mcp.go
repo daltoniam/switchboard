@@ -200,6 +200,10 @@ type FieldCompactionIntegration interface {
 // Semantic type prevents mixing with arbitrary strings at interface boundaries.
 type ToolName string
 
+// Markdown is rendered markdown content returned by MarkdownIntegration.
+// Alias lets adapter authors use mcp.Markdown without importing the markdown subpackage.
+type Markdown = markdown.Markdown
+
 // MarkdownIntegration is an optional interface that integrations can implement
 // to render tool responses as Markdown instead of JSON. The server calls
 // RenderMarkdown in processResult before compaction — if it returns rendered
@@ -208,7 +212,7 @@ type MarkdownIntegration interface {
 	// RenderMarkdown converts a tool's JSON response to Markdown.
 	// Returns (markdown, true) if the tool supports rendering.
 	// Returns ("", false) for tools that return JSON normally.
-	RenderMarkdown(toolName ToolName, data []byte) (markdown.Markdown, bool)
+	RenderMarkdown(toolName ToolName, data []byte) (Markdown, bool)
 }
 
 // MaxResponseBytesIntegration is an optional interface that integrations can implement

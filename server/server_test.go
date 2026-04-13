@@ -770,6 +770,17 @@ func TestSmoke_SearchResponseShape(t *testing.T) {
 	assert.Contains(t, resp.ScriptHint, "script")
 }
 
+// --- markdown integration mock ---
+
+type mockMarkdownIntegration struct {
+	mockIntegration
+	renderFn func(toolName mcp.ToolName, data []byte) (mcp.Markdown, bool)
+}
+
+func (m *mockMarkdownIntegration) RenderMarkdown(toolName mcp.ToolName, data []byte) (mcp.Markdown, bool) {
+	return m.renderFn(toolName, data)
+}
+
 // --- compaction integration mock ---
 
 type mockFieldCompactionIntegration struct {
@@ -1022,6 +1033,63 @@ func TestHandleExecute_CompactionSkippedOnErrorResult(t *testing.T) {
 
 	tc := result.Content[0].(*mcpsdk.TextContent)
 	assert.Equal(t, "API rate limit exceeded", tc.Text, "error results should not be compacted")
+}
+
+func TestProcessResult_MarkdownRendered(t *testing.T) {
+	mi := &mockMarkdownIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("testint_get_page"), Description: "Get page"},
+			},
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: `{"title":"Hello","body":"World"}`}, nil
+			},
+		},
+		renderFn: func(_ mcp.ToolName, _ []byte) (mcp.Markdown, bool) {
+			return mcp.Markdown("# Hello\n\nWorld"), true
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_get_page", nil))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Equal(t, "# Hello\n\nWorld", tc.Text)
+}
+
+func TestProcessResult_MarkdownSkippedWhenNotRendered(t *testing.T) {
+	mi := &mockMarkdownIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
+			},
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: `[{"id":1},{"id":2}]`}, nil
+			},
+		},
+		renderFn: func(_ mcp.ToolName, _ []byte) (mcp.Markdown, bool) {
+			return "", false
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_list_items", nil))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	// RenderMarkdown returned false, so JSON passes through the normal pipeline.
+	assert.Contains(t, tc.Text, `"id"`, "non-rendered tool should return JSON, not markdown")
 }
 
 func TestHandleExecute_ByteCapEnforced(t *testing.T) {
