@@ -60,6 +60,7 @@ type Server struct {
 	mcpServer        *mcpsdk.Server
 	services         *mcp.Services
 	scriptEngine     *script.Engine
+	sessionStore     *SessionStore
 	retryBackoff     time.Duration
 	breakers         map[string]*breaker
 	breakerThreshold int
@@ -78,6 +79,12 @@ type Option func(*Server)
 // with configured=false so LLMs know they can't be executed yet.
 func WithDiscoverAll(v bool) Option {
 	return func(s *Server) { s.discoverAll = v }
+}
+
+// WithSessionTTL configures how long idle sessions are kept before eviction.
+// A zero or negative value uses DefaultSessionTTL (1h).
+func WithSessionTTL(ttl time.Duration) Option {
+	return func(s *Server) { s.sessionStore = NewSessionStore(ttl) }
 }
 
 // New creates a Server that exposes two MCP tools — search and execute —
@@ -101,6 +108,7 @@ func New(services *mcp.Services, opts ...Option) *Server {
 	s := &Server{
 		mcpServer:        mcpServer,
 		services:         services,
+		sessionStore:     NewSessionStore(DefaultSessionTTL),
 		retryBackoff:     500 * time.Millisecond,
 		breakers:         make(map[string]*breaker),
 		breakerThreshold: defaultBreakerThreshold,
@@ -216,8 +224,55 @@ List issues with server-side projection (only id, title, labels — no manual .m
 		}, nil),
 	}
 
+	sessionTool := &mcpsdk.Tool{
+		Name: "session",
+		Description: `Manage session-scoped context to avoid repeating parameters.
+
+Set context once (e.g., owner/repo) and all subsequent execute calls auto-inject those values as defaults.
+Explicit arguments always override session context.
+
+Actions:
+- "set": Upsert key-value pairs into session context
+- "get": Return current session context
+- "clear": Reset session context to empty
+
+Example: {"action": "set", "context": {"owner": "daltoniam", "repo": "switchboard"}}
+Then: execute({tool_name: "github_list_issues", arguments: {state: "open"}}) — owner/repo injected automatically.`,
+		InputSchema: objectSchema(map[string]any{
+			"action": map[string]any{
+				"type":        "string",
+				"description": `The action to perform: "set", "get", or "clear".`,
+				"enum":        []string{"set", "get", "clear"},
+			},
+			"context": map[string]any{
+				"type":        "object",
+				"description": "Key-value pairs to set in session context (only for \"set\" action).",
+			},
+		}, []string{"action"}),
+	}
+
+	historyTool := &mcpsdk.Tool{
+		Name: "history",
+		Description: `Retrieve a compact log of tool calls made in this session.
+
+Useful after context compression to recover what was already fetched without re-executing.
+Returns: [{seq, tool, args, summary, is_error, timestamp}] ordered by time.`,
+		InputSchema: objectSchema(map[string]any{
+			"last_n": map[string]any{
+				"type":        "integer",
+				"description": "Number of recent entries to return (default 20, max 200).",
+			},
+			"tool": map[string]any{
+				"type":        "string",
+				"description": "Filter breadcrumbs to a specific tool name.",
+			},
+		}, nil),
+	}
+
 	s.mcpServer.AddTool(searchTool, s.handleSearch)
 	s.mcpServer.AddTool(executeTool, s.handleExecute)
+	s.mcpServer.AddTool(sessionTool, s.handleSession)
+	s.mcpServer.AddTool(historyTool, s.handleHistory)
 }
 
 func (s *Server) configureIntegrations() {
@@ -558,7 +613,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	if args.ToolName == "" {
 		return errorResult("either tool_name or script is required"), nil
 	}
-	if args.ToolName == "search" || args.ToolName == "execute" {
+	if args.ToolName == "search" || args.ToolName == "execute" || args.ToolName == "session" || args.ToolName == "history" {
 		return errorResult(fmt.Sprintf(
 			"tool %q is a meta-tool — use it directly as an MCP tool call, not through execute",
 			args.ToolName)), nil
@@ -567,10 +622,18 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		args.Arguments = map[string]any{}
 	}
 
+	sess := sessionFromCtx(ctx)
+	if sess == nil {
+		sess = s.sessionStore.GetOrCreate("default")
+	}
+	args.Arguments = sess.MergeDefaults(args.Arguments)
+
 	integration, result, err := s.executeTool(ctx, args.ToolName, args.Arguments)
 	if err != nil {
+		sess.AddBreadcrumb(args.ToolName, args.Arguments, err.Error(), true)
 		return errorResult(err.Error()), nil
 	}
+	sess.AddBreadcrumb(args.ToolName, args.Arguments, result.Data, result.IsError)
 	if result.IsError {
 		return &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
@@ -972,7 +1035,7 @@ type toolExecutor struct {
 }
 
 func (te *toolExecutor) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
-	if toolName == "search" || toolName == "execute" {
+	if toolName == "search" || toolName == "execute" || toolName == "session" || toolName == "history" {
 		return &mcp.ToolResult{
 			Data: fmt.Sprintf(
 				"tool %q is a meta-tool and cannot be called from scripts. "+
