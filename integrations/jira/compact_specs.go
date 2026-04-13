@@ -12,6 +12,7 @@ var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
 		"issues[].key", "issues[].fields.summary", "issues[].fields.status.name",
 		"issues[].fields.assignee.displayName", "issues[].fields.priority.name",
 		"issues[].fields.issuetype.name", "issues[].fields.created", "issues[].fields.updated",
+		"nextPageToken", "isLast",
 	},
 	mcp.ToolName("jira_get_issue"): {
 		"key", "fields.summary", "fields.status.name", "fields.assignee.displayName",

@@ -5,8 +5,8 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	// ── Issues ───────────────────────────────────────────────────────
 	{
-		Name: mcp.ToolName("jira_search_issues"), Description: "Search issues using JQL (Jira Query Language). Start here for most issue workflows. Returns paginated results",
-		Parameters: map[string]string{"jql": "JQL query (e.g., 'project = PROJ AND status = Open')", "fields": "Comma-separated fields to return (default: summary,status,assignee,priority,issuetype)", "start_at": "Pagination offset (0-based)", "max_results": "Max results per page (default 50, max 100)"},
+		Name: mcp.ToolName("jira_search_issues"), Description: "Search issues using JQL (Jira Query Language). Start here for most issue workflows. Returns paginated results; pass nextPageToken from response to fetch next page",
+		Parameters: map[string]string{"jql": "JQL query (e.g., 'project = PROJ AND status = Open')", "fields": "Comma-separated fields to return (default: summary,status,assignee,priority,issuetype)", "next_page_token": "Cursor for next page (from previous response's nextPageToken field)", "max_results": "Max results per page (default 200, server may cap)"},
 		Required:   []string{"jql"},
 	},
 	{

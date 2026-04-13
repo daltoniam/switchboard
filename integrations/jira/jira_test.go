@@ -338,6 +338,68 @@ func TestQueryEncode(t *testing.T) {
 	})
 }
 
+func TestSearchIssues(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      map[string]any
+		wantPath  string
+		wantToken string
+		wantMax   float64
+	}{
+		{
+			name:     "basic search hits /search/jql",
+			args:     map[string]any{"jql": "project = PROJ"},
+			wantPath: "/search/jql",
+			wantMax:  200,
+		},
+		{
+			name:      "with next_page_token",
+			args:      map[string]any{"jql": "project = PROJ", "next_page_token": "abc123"},
+			wantPath:  "/search/jql",
+			wantToken: "abc123",
+			wantMax:   200,
+		},
+		{
+			name:     "custom max_results",
+			args:     map[string]any{"jql": "project = PROJ", "max_results": float64(500)},
+			wantPath: "/search/jql",
+			wantMax:  500,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, tt.wantPath, r.URL.Path)
+				assert.Equal(t, "POST", r.Method)
+
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+
+				_, hasStartAt := body["startAt"]
+				assert.False(t, hasStartAt, "request body should not contain startAt")
+
+				if tt.wantToken != "" {
+					assert.Equal(t, tt.wantToken, body["nextPageToken"])
+				} else {
+					_, hasToken := body["nextPageToken"]
+					assert.False(t, hasToken, "nextPageToken should not be sent on first page")
+				}
+				assert.Equal(t, tt.wantMax, body["maxResults"])
+
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"issues":[],"isLast":true}`))
+			}))
+			defer ts.Close()
+
+			j := &jira{email: "u@test.com", apiToken: "tok", client: ts.Client(), baseURL: ts.URL, agileURL: ts.URL}
+			result, err := searchIssues(context.Background(), j, tt.args)
+			require.NoError(t, err)
+			assert.False(t, result.IsError)
+		})
+	}
+}
+
 func TestTextToADF(t *testing.T) {
 	adf := textToADF("Hello\nWorld")
 	assert.Equal(t, "doc", adf["type"])

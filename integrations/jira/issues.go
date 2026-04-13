@@ -24,19 +24,19 @@ func searchIssues(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolR
 	} else {
 		body["fields"] = []string{"summary", "status", "assignee", "priority", "issuetype"}
 	}
-	if v := r.Int("start_at"); v > 0 {
-		body["startAt"] = v
+	if v := r.Str("next_page_token"); v != "" {
+		body["nextPageToken"] = v
 	}
 	if v := r.Int("max_results"); v > 0 {
 		body["maxResults"] = v
 	} else {
-		body["maxResults"] = 50
+		body["maxResults"] = 200
 	}
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 
-	data, err := j.post(ctx, "/search", body)
+	data, err := j.post(ctx, "/search/jql", body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

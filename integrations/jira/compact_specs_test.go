@@ -56,7 +56,7 @@ func TestFieldCompactionSpecs_ShapeParity(t *testing.T) {
 	// Representative payloads matching the real Jira API response shapes.
 	handlerOutputs := map[string]string{
 		// Issues
-		"jira_search_issues":    `{"issues":[{"key":"PROJ-1","fields":{"summary":"Fix bug","status":{"name":"Open"},"assignee":{"displayName":"Alice"},"priority":{"name":"High"},"issuetype":{"name":"Bug"},"created":"2024-01-01","updated":"2024-01-02"}}],"total":1}`,
+		"jira_search_issues":    `{"issues":[{"key":"PROJ-1","fields":{"summary":"Fix bug","status":{"name":"Open"},"assignee":{"displayName":"Alice"},"priority":{"name":"High"},"issuetype":{"name":"Bug"},"created":"2024-01-01","updated":"2024-01-02"}}],"isLast":false,"nextPageToken":"eyJhIjoiMTIzIn0="}`,
 		"jira_get_issue":        `{"key":"PROJ-1","fields":{"summary":"Fix bug","status":{"name":"Open"},"assignee":{"displayName":"Alice","accountId":"abc"},"reporter":{"displayName":"Bob"},"priority":{"name":"High"},"issuetype":{"name":"Bug"},"description":{"type":"doc"},"created":"2024-01-01","updated":"2024-01-02","labels":["backend"],"components":[{"name":"API"}],"fixVersions":[{"name":"1.0"}]}}`,
 		"jira_get_transitions":  `{"transitions":[{"id":"1","name":"Done","to":{"name":"Done"}}]}`,
 		"jira_list_comments":    `{"comments":[{"id":"1","body":{"type":"doc"},"author":{"displayName":"Alice"},"created":"2024-01-01","updated":"2024-01-02"}]}`,
