@@ -84,6 +84,10 @@ var envMapping = map[string]map[string]string{
 		"username": "ELASTICSEARCH_USERNAME",
 		"password": "ELASTICSEARCH_PASSWORD",
 	},
+	"ollama": {
+		"base_url": "OLLAMA_HOST",
+		"api_key":  "OLLAMA_API_KEY",
+	},
 	"readarr": {
 		"api_key":  "READARR_API_KEY",
 		"base_url": "READARR_URL",
@@ -221,6 +225,10 @@ func defaultConfig() *mcp.Config {
 			"notion": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token_v2": ""},
+			},
+			"ollama": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_key": ""},
 			},
 			"ynab": {
 				Enabled:     false,

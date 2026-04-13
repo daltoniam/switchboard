@@ -33,6 +33,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
+	"github.com/daltoniam/switchboard/integrations/ollama"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
@@ -222,6 +223,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		jira.New(),
 		confluence.New(),
 		notionInt.New(),
+		ollama.New(),
 		gcpInt.New(),
 		suno.New(),
 		readarr.New(),
