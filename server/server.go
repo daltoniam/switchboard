@@ -169,12 +169,22 @@ Mode 2 — Single tool (provide tool_name + arguments):
   {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
 
 Script API:
-  api.call(toolName, args[, opts]) — call any integration tool, returns parsed JSON. Throws on error (kills script).
-    Optional opts object with fields key applies server-side field projection: {fields: ["id", "title", "user.login"]}.
-    Uses dot-notation: {fields: ["id", "title", "user.login", "labels[].name"]}. Only specified fields are kept.
-  api.tryCall(toolName, args[, opts]) — like call, but returns {ok: true, data: ...} or {ok: false, error: "..."}.
-    Also supports the optional opts with field projection. Prefer tryCall for cross-integration scripts where partial results are useful.
+  api.call(toolName, args[, opts]) — returns parsed JSON object. Use for data you need to read fields from (issues, PRs, metrics).
+    Optional opts: {fields: ["id", "title", "user.login"]} for server-side field projection. Dot-notation and brackets supported.
+    Throws on error (kills script). For partial-failure resilience, use tryCall.
+  api.tryCall(toolName, args[, opts]) — non-throwing call. Returns {ok: true, data: ...} or {ok: false, error: "..."}.
+    Also supports field projection. Prefer for cross-integration scripts where partial results are useful.
+  api.callRendered(toolName, args) — returns LLM-readable STRING (markdown or compacted JSON) instead of a JSON object.
+    The return value is a STRING, not an object — use string concatenation (+), not .field access.
+    Use for document content you need as readable text (pages, emails, issues). Do NOT use when you need field access.
+    No field projection. Throws on error.
+  api.tryCallRendered(toolName, args) — non-throwing callRendered. Returns {ok: true, data: "rendered string"} or {ok: false, error: "..."}.
+    The data value is a STRING. Do not JSON.parse() it — it is already the final readable text.
   console.log(...) — debug logging (included in output on error)
+
+When to use call vs callRendered:
+  Need .field access (data.id, result.items[0])? → api.call()
+  Need readable text to pass to another tool or return to user? → api.callRendered()
 
 Scripts can call integration tools — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
 Scripts CANNOT call the search or execute meta-tools. Use search before writing a script to discover tool names.
@@ -199,7 +209,10 @@ Cross-integration correlation with tryCall and field projection:
   {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, {fields: ['title', 'state']}); var linear = api.tryCall('linear_search_issues', {query: pr.title}, {fields: ['issues.nodes[].identifier', 'issues.nodes[].title']}); ({pr: pr, linear: linear.ok ? linear.data : {error: linear.error}});"}
 
 List issues with server-side projection (only id, title, labels — no manual .map() needed):
-  {"script": "api.call('github_list_issues', {owner: 'o', repo: 'r', state: 'open'}, {fields: ['number', 'title', 'labels[].name']});"}`,
+  {"script": "api.call('github_list_issues', {owner: 'o', repo: 'r', state: 'open'}, {fields: ['number', 'title', 'labels[].name']});"}
+
+Pipe rendered document content between tools (callRendered returns readable text, not raw JSON):
+  {"script": "var page = api.callRendered('notion_get_page_content', {page_id: 'abc'}); var summary = api.call('ollama_chat', {model: 'gemma3', messages: [{role: 'user', content: 'Summarize:\\n' + page}]}); ({summary: summary.message.content});"}`,
 		InputSchema: objectSchema(map[string]any{
 			"tool_name": map[string]any{
 				"type":        "string",
@@ -971,7 +984,8 @@ type toolExecutor struct {
 	server *Server
 }
 
-func (te *toolExecutor) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+// checkMetaTool rejects the search and execute meta-tools from script calls.
+func (te *toolExecutor) checkMetaTool(toolName mcp.ToolName) *mcp.ToolResult {
 	if toolName == "search" || toolName == "execute" {
 		return &mcp.ToolResult{
 			Data: fmt.Sprintf(
@@ -979,12 +993,37 @@ func (te *toolExecutor) Execute(ctx context.Context, toolName mcp.ToolName, args
 					"Use the search MCP tool before writing a script to discover tool names.",
 				toolName),
 			IsError: true,
-		}, nil
+		}
+	}
+	return nil
+}
+
+func (te *toolExecutor) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	if r := te.checkMetaTool(toolName); r != nil {
+		return r, nil
 	}
 	// Integration is discarded: script-path calls intentionally skip per-tool
 	// compaction so scripts can access all fields by name before projecting.
 	_, result, err := te.server.executeTool(ctx, toolName, args)
 	return result, err
+}
+
+// ExecuteRendered applies the same markdown/compaction/columnarization pipeline
+// as the execute meta-tool, returning LLM-readable output. Used by api.callRendered().
+func (te *toolExecutor) ExecuteRendered(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	if r := te.checkMetaTool(toolName); r != nil {
+		return r, nil
+	}
+	integration, result, err := te.server.executeTool(ctx, toolName, args)
+	if err != nil {
+		return nil, err
+	}
+	if result.IsError || integration == nil {
+		return result, nil
+	}
+	rp := buildResultProcessor(integration)
+	result.Data = processResult(rp, toolName, result.Data, te.server.services.Metrics)
+	return result, nil
 }
 
 // Handler returns an http.Handler that serves MCP over streamable HTTP transport.

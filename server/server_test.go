@@ -2911,3 +2911,156 @@ func TestExecute_UnconfiguredTool_ReturnsConfigurationError(t *testing.T) {
 	assert.Contains(t, tc.Text, "linear",
 		"error should name the unconfigured integration")
 }
+
+// --- ExecuteRendered (script api.callRendered) ---
+
+func TestToolExecutor_ExecuteRendered_AppliesMarkdown(t *testing.T) {
+	mi := &mockMarkdownIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("testint_get_page"), Description: "Get page"},
+			},
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: `{"title":"Hello","body":"World"}`}, nil
+			},
+		},
+		renderFn: func(_ mcp.ToolName, _ []byte) (mcp.Markdown, bool) {
+			return "# Hello\nWorld\n", true
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	te := &toolExecutor{server: s}
+	result, err := te.ExecuteRendered(context.Background(), "testint_get_page", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Equal(t, "# Hello\nWorld\n", result.Data, "ExecuteRendered should return markdown")
+}
+
+func TestToolExecutor_ExecuteRendered_FallsBackToCompaction(t *testing.T) {
+	// Integration without MarkdownIntegration — should still compact
+	mi := &mockFieldCompactionIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("testint_list_items"), Description: "List items"},
+			},
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: `{"id":1,"name":"kept","secret":"dropped"}`}, nil
+			},
+		},
+		specs: map[mcp.ToolName][]mcp.CompactField{
+			"testint_list_items": mustParseSpecs([]string{"id", "name"}),
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	te := &toolExecutor{server: s}
+	result, err := te.ExecuteRendered(context.Background(), "testint_list_items", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "kept")
+	assert.NotContains(t, result.Data, "secret", "compaction should strip unspecified fields")
+}
+
+func TestToolExecutor_ExecuteRendered_SkipsProcessResultOnError(t *testing.T) {
+	mi := &mockMarkdownIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("testint_get_page"), Description: "Get page"},
+			},
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: "page not found", IsError: true}, nil
+			},
+		},
+		renderFn: func(_ mcp.ToolName, _ []byte) (mcp.Markdown, bool) {
+			return "# Should not render", true
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	te := &toolExecutor{server: s}
+	result, err := te.ExecuteRendered(context.Background(), "testint_get_page", nil)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Equal(t, "page not found", result.Data, "error results should not be rendered")
+}
+
+func TestToolExecutor_ExecuteRendered_BlocksMetaTools(t *testing.T) {
+	s := setupTestServer()
+	te := &toolExecutor{server: s}
+
+	result, err := te.ExecuteRendered(context.Background(), "search", nil)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "meta-tool")
+
+	result, err = te.ExecuteRendered(context.Background(), "execute", nil)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "meta-tool")
+}
+
+func TestScript_CallRendered_EndToEnd(t *testing.T) {
+	mi := &mockMarkdownIntegration{
+		mockIntegration: mockIntegration{
+			name:    "testint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("testint_get_doc"), Description: "Get doc"},
+			},
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: `{"raw":"json","noise":"dropped"}`}, nil
+			},
+		},
+		renderFn: func(_ mcp.ToolName, _ []byte) (mcp.Markdown, bool) {
+			return "# Rendered Document\nClean content.\n", true
+		},
+	}
+
+	s := setupTestServer(&mi.mockIntegration)
+	s.services.Registry.(*mockRegistry).integrations["testint"] = mi
+
+	script := `({text: api.callRendered('testint_get_doc', {id: '123'})})`
+	scriptReq := &mcpsdk.CallToolRequest{
+		Params: &mcpsdk.CallToolParamsRaw{
+			Name:      "execute",
+			Arguments: mustMarshal(map[string]any{"script": script}),
+		},
+	}
+	result, err := s.handleExecute(context.Background(), scriptReq)
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &parsed))
+	assert.Equal(t, "# Rendered Document\nClean content.\n", parsed["text"])
+}
+
+func mustParseSpecs(specs []string) []mcp.CompactField {
+	fields, err := mcp.ParseCompactSpecs(specs)
+	if err != nil {
+		panic(err)
+	}
+	return fields
+}
+
+func mustMarshal(v any) json.RawMessage {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
