@@ -85,7 +85,7 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 	}
 
 	// Only persist and run background refresh for locally-sourced tokens.
-	// OAuth tokens (xoxp-*, xoxb-*) are long-lived and managed externally.
+	// Config-provided tokens are managed externally and don't need local refresh.
 	if configToken == "" {
 		_ = s.store.saveToFile()
 

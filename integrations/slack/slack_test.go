@@ -347,6 +347,60 @@ func TestGetClientForArgs_UnknownWorkspace(t *testing.T) {
 	assert.Contains(t, err.Error(), "unknown workspace")
 }
 
+// --- Configure token-gating tests ---
+
+func TestConfigure_ConfigTokenSkipsFileAndChrome(t *testing.T) {
+	s := &slackIntegration{}
+	s.Configure(t.Context(), mcp.Credentials{
+		"token":   "xoxb-test-token",
+		"team_id": "T_CONFIG",
+	})
+
+	// Exactly one workspace with Source=="config".
+	all := s.store.allWorkspaces()
+	require.Len(t, all, 1)
+	assert.Equal(t, "config", all[0].Source)
+	assert.Equal(t, "xoxb-test-token", all[0].Token)
+	assert.Equal(t, "T_CONFIG", all[0].TeamID)
+
+	// No background refresh started.
+	assert.Nil(t, s.stopBg)
+}
+
+func TestConfigure_ConfigTokenDefaultTeamID(t *testing.T) {
+	s := &slackIntegration{}
+	s.Configure(t.Context(), mcp.Credentials{
+		"token": "xoxb-test-token",
+	})
+
+	// When no team_id is provided, it defaults to "_config".
+	ws := s.store.getWorkspace("_config")
+	require.NotNil(t, ws)
+	assert.Equal(t, "xoxb-test-token", ws.Token)
+}
+
+func TestConfigure_SwitchToConfigTokenStopsBackgroundRefresh(t *testing.T) {
+	stopCh := make(chan struct{})
+	s := &slackIntegration{
+		stopBg: stopCh,
+	}
+	s.Configure(t.Context(), mcp.Credentials{
+		"token":   "xoxb-test-token",
+		"team_id": "T_CONFIG",
+	})
+
+	// The pre-existing stopBg channel should have been closed.
+	select {
+	case <-stopCh:
+		// ok — channel was closed
+	default:
+		t.Fatal("expected previous stopBg channel to be closed")
+	}
+
+	// And stopBg is now nil (no new refresh goroutine).
+	assert.Nil(t, s.stopBg)
+}
+
 func TestErrResult_NonRetryableProducesToolResult(t *testing.T) {
 	result, err := mcp.ErrResult(fmt.Errorf("no workspace"))
 	require.NoError(t, err)
