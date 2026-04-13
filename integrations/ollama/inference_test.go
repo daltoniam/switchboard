@@ -113,7 +113,7 @@ func TestEmbed_Success(t *testing.T) {
 		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
 		assert.Equal(t, "nomic-embed-text", body["model"])
-		assert.Equal(t, false, body["stream"])
+		assert.Nil(t, body["stream"], "embed should not send stream field")
 
 		w.Write([]byte(`{"model":"nomic-embed-text","embeddings":[[0.1,0.2,0.3]],"total_duration":1000000,"load_duration":500000,"prompt_eval_count":5}`))
 	}))

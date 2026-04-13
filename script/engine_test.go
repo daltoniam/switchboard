@@ -35,6 +35,27 @@ func (m *mockExecutor) Execute(_ context.Context, toolName mcp.ToolName, args ma
 	return &mcp.ToolResult{Data: `{"ok":true}`, IsError: false}, nil
 }
 
+// mockRenderedExecutor implements both Executor and RenderedExecutor.
+type mockRenderedExecutor struct {
+	mockExecutor
+	renderedResults map[string]*mcp.ToolResult
+}
+
+func (m *mockRenderedExecutor) ExecuteRendered(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	m.calls = append(m.calls, executorCall{ToolName: string(toolName) + ":rendered", Args: args})
+	if m.err != nil {
+		return nil, m.err
+	}
+	if r, ok := m.renderedResults[string(toolName)]; ok {
+		return r, nil
+	}
+	// Fall through to raw results (simulates tools without rendered output)
+	if r, ok := m.results[string(toolName)]; ok {
+		return r, nil
+	}
+	return &mcp.ToolResult{Data: "rendered fallback"}, nil
+}
+
 func TestEngine_SimpleScript(t *testing.T) {
 	exec := &mockExecutor{results: map[string]*mcp.ToolResult{}}
 	engine := New(exec)
@@ -515,4 +536,134 @@ func TestEngine_FieldProjection(t *testing.T) {
 			}
 		})
 	}
+}
+
+// --- api.callRendered() tests ---
+
+func TestEngine_CallRendered_ReturnsString(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor: mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{
+			"notion_get_page_content": {Data: "# Welcome to Notion\n*Last edited*\n"},
+		},
+	}
+	engine := New(exec)
+
+	// callRendered returns a JS string — usable with + concatenation inside scripts.
+	// Wrap in an object to verify the string value without JSON double-encoding.
+	result, err := engine.Run(context.Background(), `({text: api.callRendered('notion_get_page_content', {page_id: 'abc'})})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "# Welcome to Notion\n*Last edited*\n", parsed["text"])
+}
+
+func TestEngine_CallRendered_UsableInConcatenation(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor: mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{
+			"notion_get_page_content": {Data: "# Page Title"},
+		},
+	}
+	engine := New(exec)
+
+	// The real use case: concatenate rendered output with other strings
+	result, err := engine.Run(context.Background(), `({prompt: 'Summarize:\n' + api.callRendered('notion_get_page_content', {page_id: 'abc'})})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "Summarize:\n# Page Title", parsed["prompt"])
+}
+
+func TestEngine_CallRendered_FallsBackToRawWhenNotImplemented(t *testing.T) {
+	// Plain mockExecutor does NOT implement RenderedExecutor
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"some_tool": {Data: `{"raw":"json"}`},
+		},
+	}
+	engine := New(exec)
+
+	// Falls back to raw Execute — but callRendered still returns result.Data as a string
+	result, err := engine.Run(context.Background(), `({text: api.callRendered('some_tool', {})})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	// Fallback returns the raw JSON string (not parsed)
+	assert.Equal(t, `{"raw":"json"}`, parsed["text"])
+}
+
+func TestEngine_CallRendered_PropagatesError(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor:    mockExecutor{results: map[string]*mcp.ToolResult{}, err: fmt.Errorf("connection refused")},
+		renderedResults: map[string]*mcp.ToolResult{},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `api.callRendered('bad_tool', {})`)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "connection refused")
+}
+
+func TestEngine_TryCallRendered_ReturnsString(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor: mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{
+			"jira_get_issue": {Data: "<!-- jira:key=PROJ-1 -->\n# PROJ-1: Fix bug\n"},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `api.tryCallRendered('jira_get_issue', {issue_key: 'PROJ-1'})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, true, parsed["ok"])
+	assert.Equal(t, "<!-- jira:key=PROJ-1 -->\n# PROJ-1: Fix bug\n", parsed["data"])
+}
+
+func TestEngine_TryCallRendered_ErrorEnvelope(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor: mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{
+			"bad_tool": {Data: "not found", IsError: true},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `api.tryCallRendered('bad_tool', {})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, false, parsed["ok"])
+	assert.Contains(t, parsed["error"], "not found")
+}
+
+func TestEngine_CallRendered_CountsAgainstCallLimit(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor:    mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{},
+	}
+	engine := New(exec, WithMaxCalls(2))
+
+	// 2 callRendered calls should succeed, 3rd should fail
+	result, err := engine.Run(context.Background(), `
+		api.callRendered('tool1', {});
+		api.callRendered('tool2', {});
+		api.callRendered('tool3', {});
+	`)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "exceeded maximum")
 }

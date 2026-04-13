@@ -35,7 +35,10 @@ func TestFieldCompactionSpecs_OnlyReadTools(t *testing.T) {
 }
 
 func TestFieldCompactionSpecs_ExpectedTools(t *testing.T) {
-	expected := []mcp.ToolName{"ollama_list_models", "ollama_list_running"}
+	expected := []mcp.ToolName{
+		"ollama_list_models", "ollama_list_running",
+		"ollama_chat", "ollama_generate", "ollama_embed",
+	}
 	for _, name := range expected {
 		_, ok := fieldCompactionSpecs[name]
 		assert.True(t, ok, "expected compaction spec for %s", name)
