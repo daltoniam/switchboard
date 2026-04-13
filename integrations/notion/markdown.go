@@ -47,17 +47,20 @@ type renderedComment struct {
 
 // ── Parse boundary (RenderMarkdown) ──────────────────────────────────
 
+// markdownRenderers maps tool names to their markdown rendering functions.
+// Adding a new renderable tool only requires a map entry, not a code change.
+var markdownRenderers = map[mcp.ToolName]func([]byte) (markdown.Markdown, bool){
+	"notion_get_page_content":  renderPageContentMD,
+	"notion_retrieve_comments": renderCommentsMD,
+}
+
 // RenderMarkdown converts a tool's JSON response to Markdown.
 // Implements mcp.MarkdownIntegration.
 func (n *notion) RenderMarkdown(toolName mcp.ToolName, data []byte) (markdown.Markdown, bool) {
-	switch toolName {
-	case "notion_get_page_content":
-		return renderPageContentMD(data)
-	case "notion_retrieve_comments":
-		return renderCommentsMD(data)
-	default:
-		return "", false
+	if fn, ok := markdownRenderers[toolName]; ok {
+		return fn(data)
 	}
+	return "", false
 }
 
 // renderPageContentMD parses the getPageContent JSON and renders as Markdown.

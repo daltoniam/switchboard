@@ -160,7 +160,7 @@ func defaultConfig() *mcp.Config {
 		Integrations: map[string]*mcp.IntegrationConfig{
 			"github": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"token": "", "client_id": "", "token_source": ""},
+				Credentials: mcp.Credentials{"token": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
 			},
 			"datadog": {
 				Enabled:     false,
@@ -168,15 +168,15 @@ func defaultConfig() *mcp.Config {
 			},
 			"linear": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"api_key": "", "mcp_access_token": "", "token_source": ""},
+				Credentials: mcp.Credentials{"api_key": "", "mcp_access_token": "", mcp.CredKeyTokenSource: ""},
 			},
 			"sentry": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"auth_token": "", "organization": "", "client_id": "", "token_source": ""},
+				Credentials: mcp.Credentials{"auth_token": "", "organization": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
 			},
 			"slack": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"token": "", "cookie": "", "team_id": "", "token_source": ""},
+				Credentials: mcp.Credentials{"token": "", "cookie": "", "team_id": "", mcp.CredKeyTokenSource: ""},
 			},
 			"metabase": {
 				Enabled:     false,
@@ -212,7 +212,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"gmail": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", "client_id": "", "client_secret": "", "base_url": "", "token_source": ""},
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
 			"homeassistant": {
 				Enabled:     false,

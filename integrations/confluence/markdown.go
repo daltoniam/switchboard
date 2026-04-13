@@ -30,15 +30,17 @@ type renderedComment struct {
 
 // ── Parse boundary ──────────────────────────────────────────────────
 
+var markdownRenderers = map[mcp.ToolName]func([]byte) (markdown.Markdown, bool){
+	"confluence_get_page":      renderPageMD,
+	"confluence_get_blog_post": renderPageMD,
+	"confluence_list_comments": renderCommentsMD,
+}
+
 func (c *confluence) RenderMarkdown(toolName mcp.ToolName, data []byte) (markdown.Markdown, bool) {
-	switch toolName {
-	case "confluence_get_page", "confluence_get_blog_post":
-		return renderPageMD(data)
-	case "confluence_list_comments":
-		return renderCommentsMD(data)
-	default:
-		return "", false
+	if fn, ok := markdownRenderers[toolName]; ok {
+		return fn(data)
 	}
+	return "", false
 }
 
 // ── Raw JSON parse types ────────────────────────────────────────────

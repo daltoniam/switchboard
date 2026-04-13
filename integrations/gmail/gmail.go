@@ -53,8 +53,8 @@ func (g *gmail) Name() string { return "gmail" }
 func (g *gmail) Configure(_ context.Context, creds mcp.Credentials) error {
 	g.accessToken = creds["access_token"]
 	g.refreshToken = creds["refresh_token"]
-	g.clientID = creds["client_id"]
-	g.clientSecret = creds["client_secret"]
+	g.clientID = creds[mcp.CredKeyClientID]
+	g.clientSecret = creds[mcp.CredKeyClientSecret]
 	if g.accessToken == "" {
 		return fmt.Errorf("gmail: access_token is required")
 	}

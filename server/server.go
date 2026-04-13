@@ -258,7 +258,7 @@ func hasCredentials(creds mcp.Credentials) bool {
 			continue
 		}
 		switch k {
-		case "client_id", "client_secret", "token_source":
+		case mcp.CredKeyClientID, mcp.CredKeyClientSecret, mcp.CredKeyTokenSource:
 			continue
 		default:
 			return true
@@ -543,7 +543,7 @@ func extractSharedParameters(tools []searchToolInfo) map[string]string {
 
 func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 	var args struct {
-		ToolName  string         `json:"tool_name"`
+		ToolName  mcp.ToolName   `json:"tool_name"`
 		Arguments map[string]any `json:"arguments"`
 		Script    string         `json:"script"`
 	}
@@ -567,8 +567,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		args.Arguments = map[string]any{}
 	}
 
-	toolName := mcp.ToolName(args.ToolName)
-	integration, result, err := s.executeTool(ctx, toolName, args.Arguments)
+	integration, result, err := s.executeTool(ctx, args.ToolName, args.Arguments)
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
@@ -578,7 +577,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 			IsError: true,
 		}, nil
 	}
-	result.Data = processResult(integration, toolName, result.Data, s.services.Metrics)
+	result.Data = processResult(buildResultProcessor(integration), args.ToolName, result.Data, s.services.Metrics)
 	limit := responseLimitFor(integration)
 	if len(result.Data) > limit {
 		if s.services.Metrics != nil {
@@ -632,19 +631,42 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 	}, nil
 }
 
+// resultProcessor encapsulates an integration's response processing capabilities.
+// Built from an integration via buildResultProcessor; decouples processResult
+// from knowledge of which optional interfaces exist.
+type resultProcessor struct {
+	markdown func(mcp.ToolName, []byte) (mcp.Markdown, bool)
+	compact  func(mcp.ToolName) ([]mcp.CompactField, bool)
+}
+
+// buildResultProcessor inspects an integration's optional interfaces once
+// and captures them as function fields. The returned processor is safe to
+// reuse for the lifetime of the integration (capabilities are static).
+func buildResultProcessor(integration mcp.Integration) resultProcessor {
+	var rp resultProcessor
+	if mr, ok := integration.(mcp.MarkdownIntegration); ok {
+		rp.markdown = mr.RenderMarkdown
+	}
+	if fc, ok := integration.(mcp.FieldCompactionIntegration); ok {
+		rp.compact = fc.CompactSpec
+	}
+	return rp
+}
+
 // processResult applies markdown rendering, compaction, and columnarization.
-// Markdown rendering takes priority — if the integration implements MarkdownIntegration
-// and returns rendered content for this tool, compaction and columnarization are skipped.
-// Otherwise, parses JSON once, applies compact specs (if any), columnarizes arrays, and serializes once.
-func processResult(integration mcp.Integration, toolName mcp.ToolName, data string, metrics *mcp.Metrics) string {
+// Markdown rendering takes priority — if the processor has a markdown function
+// and it returns rendered content for this tool, compaction and columnarization
+// are skipped. Otherwise, parses JSON once, applies compact specs (if any),
+// columnarizes arrays, and serializes once.
+func processResult(rp resultProcessor, toolName mcp.ToolName, data string, metrics *mcp.Metrics) string {
 	trimmed := strings.TrimLeft(data, " \t\n\r")
 	if len(trimmed) == 0 || (trimmed[0] != '[' && trimmed[0] != '{') {
 		return data
 	}
 
 	// Try markdown rendering first — replaces JSON compaction entirely.
-	if mr, ok := integration.(mcp.MarkdownIntegration); ok {
-		if md, rendered := mr.RenderMarkdown(toolName, []byte(data)); rendered {
+	if rp.markdown != nil {
+		if md, rendered := rp.markdown(toolName, []byte(data)); rendered {
 			if metrics != nil {
 				metrics.RecordMarkdownRender(toolName, len(data), len(md))
 			}
@@ -661,8 +683,8 @@ func processResult(integration mcp.Integration, toolName mcp.ToolName, data stri
 	}
 
 	compacted := false
-	if pi, ok := integration.(mcp.FieldCompactionIntegration); ok {
-		if fields, ok := pi.CompactSpec(toolName); ok {
+	if rp.compact != nil {
+		if fields, ok := rp.compact(toolName); ok {
 			parsed = mcp.CompactAny(parsed, fields)
 			compacted = true
 		}
@@ -759,7 +781,7 @@ func (s *Server) executeTool(ctx context.Context, toolName mcp.ToolName, args ma
 	cb := s.getBreaker(integration.Name())
 	if !cb.allow() {
 		if s.services.Metrics != nil {
-			s.services.Metrics.RecordCircuitBreak(integration.Name())
+			s.services.Metrics.RecordCircuitBreak(mcp.IntegrationName(integration.Name()))
 		}
 		return nil, &mcp.ToolResult{
 			Data: fmt.Sprintf(
@@ -780,14 +802,14 @@ func (s *Server) executeTool(ctx context.Context, toolName mcp.ToolName, args ma
 		if err == nil {
 			cb.recordSuccess()
 			if s.services.Metrics != nil {
-				s.services.Metrics.RecordExecution(integration.Name(), toolName, callDuration, false, retries)
+				s.services.Metrics.RecordExecution(mcp.IntegrationName(integration.Name()), toolName, callDuration, false, retries)
 			}
 			return integration, result, nil
 		}
 
 		if !mcp.IsRetryable(err) {
 			if s.services.Metrics != nil {
-				s.services.Metrics.RecordExecution(integration.Name(), toolName, callDuration, true, retries)
+				s.services.Metrics.RecordExecution(mcp.IntegrationName(integration.Name()), toolName, callDuration, true, retries)
 			}
 			return nil, result, err
 		}
@@ -815,7 +837,7 @@ func (s *Server) executeTool(ctx context.Context, toolName mcp.ToolName, args ma
 	// All retries exhausted — record one failure per call (not per attempt).
 	cb.recordFailure()
 	if s.services.Metrics != nil {
-		s.services.Metrics.RecordExecution(integration.Name(), toolName, callDuration, true, retries)
+		s.services.Metrics.RecordExecution(mcp.IntegrationName(integration.Name()), toolName, callDuration, true, retries)
 	}
 	return nil, &mcp.ToolResult{Data: lastErr.Error(), IsError: true}, nil
 }

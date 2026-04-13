@@ -1092,6 +1092,61 @@ func TestProcessResult_MarkdownSkippedWhenNotRendered(t *testing.T) {
 	assert.Contains(t, tc.Text, `"id"`, "non-rendered tool should return JSON, not markdown")
 }
 
+func TestResultProcessor_MarkdownOnly(t *testing.T) {
+	rp := resultProcessor{
+		markdown: func(_ mcp.ToolName, data []byte) (mcp.Markdown, bool) {
+			return mcp.Markdown("# rendered"), true
+		},
+	}
+	got := processResult(rp, "test_tool", `{"title":"Hello"}`, nil)
+	assert.Equal(t, "# rendered", got)
+}
+
+func TestResultProcessor_CompactionOnly(t *testing.T) {
+	specs := mustParseCompactSpecs(t, []string{"id", "name"})
+	rp := resultProcessor{
+		compact: func(_ mcp.ToolName) ([]mcp.CompactField, bool) {
+			return specs, true
+		},
+	}
+	got := processResult(rp, "test_tool", `[{"id":1,"name":"a","secret":"s"},{"id":2,"name":"b","secret":"s"}]`, nil)
+	assert.Contains(t, got, `"id"`)
+	assert.Contains(t, got, `"name"`)
+	assert.NotContains(t, got, `"secret"`)
+}
+
+func TestResultProcessor_MarkdownTakesPriority(t *testing.T) {
+	specs := mustParseCompactSpecs(t, []string{"id"})
+	rp := resultProcessor{
+		markdown: func(_ mcp.ToolName, _ []byte) (mcp.Markdown, bool) {
+			return mcp.Markdown("# markdown wins"), true
+		},
+		compact: func(_ mcp.ToolName) ([]mcp.CompactField, bool) {
+			return specs, true
+		},
+	}
+	got := processResult(rp, "test_tool", `{"id":1,"secret":"s"}`, nil)
+	assert.Equal(t, "# markdown wins", got, "markdown should take priority over compaction")
+}
+
+func TestResultProcessor_NoOp(t *testing.T) {
+	rp := resultProcessor{}
+	input := `[{"id":1},{"id":2}]`
+	got := processResult(rp, "test_tool", input, nil)
+	// With no processors, data passes through columnarization only.
+	assert.Contains(t, got, `"id"`)
+}
+
+func TestResultProcessor_MarkdownReturnsFalse_FallsThrough(t *testing.T) {
+	rp := resultProcessor{
+		markdown: func(_ mcp.ToolName, _ []byte) (mcp.Markdown, bool) {
+			return "", false
+		},
+	}
+	got := processResult(rp, "test_tool", `{"id":1}`, nil)
+	assert.Contains(t, got, `"id"`, "should fall through to JSON processing")
+}
+
 func TestHandleExecute_ByteCapEnforced(t *testing.T) {
 	// Generate a response over 50KB.
 	bigData := `{"data":"` + string(make([]byte, 60*1024)) + `"}`

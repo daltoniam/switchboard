@@ -11,10 +11,10 @@ import (
 func TestMetrics_RecordExecution(t *testing.T) {
 	m := NewMetrics()
 
-	m.RecordExecution("github", ToolName("github_list_issues"), 100*time.Millisecond, false, 0)
-	m.RecordExecution("github", ToolName("github_list_issues"), 200*time.Millisecond, false, 1)
-	m.RecordExecution("github", ToolName("github_get_issue"), 50*time.Millisecond, true, 0)
-	m.RecordExecution("slack", ToolName("slack_post_message"), 75*time.Millisecond, false, 0)
+	m.RecordExecution(IntegrationName("github"), ToolName("github_list_issues"), 100*time.Millisecond, false, 0)
+	m.RecordExecution(IntegrationName("github"), ToolName("github_list_issues"), 200*time.Millisecond, false, 1)
+	m.RecordExecution(IntegrationName("github"), ToolName("github_get_issue"), 50*time.Millisecond, true, 0)
+	m.RecordExecution(IntegrationName("slack"), ToolName("slack_post_message"), 75*time.Millisecond, false, 0)
 
 	snap := m.Snapshot()
 
@@ -66,9 +66,9 @@ func TestMetrics_RecordCompaction(t *testing.T) {
 func TestMetrics_RecordCircuitBreak(t *testing.T) {
 	m := NewMetrics()
 
-	m.RecordCircuitBreak("github")
-	m.RecordCircuitBreak("github")
-	m.RecordCircuitBreak("slack")
+	m.RecordCircuitBreak(IntegrationName("github"))
+	m.RecordCircuitBreak(IntegrationName("github"))
+	m.RecordCircuitBreak(IntegrationName("slack"))
 
 	snap := m.Snapshot()
 	assert.Equal(t, int64(2), snap.CircuitBreaks["github"])
@@ -89,13 +89,13 @@ func TestMetrics_TopTools(t *testing.T) {
 	m := NewMetrics()
 
 	for range 10 {
-		m.RecordExecution("github", ToolName("github_list_issues"), time.Millisecond, false, 0)
+		m.RecordExecution(IntegrationName("github"), ToolName("github_list_issues"), time.Millisecond, false, 0)
 	}
 	for range 5 {
-		m.RecordExecution("slack", ToolName("slack_post_message"), time.Millisecond, false, 0)
+		m.RecordExecution(IntegrationName("slack"), ToolName("slack_post_message"), time.Millisecond, false, 0)
 	}
 	for range 3 {
-		m.RecordExecution("linear", ToolName("linear_create_issue"), time.Millisecond, false, 0)
+		m.RecordExecution(IntegrationName("linear"), ToolName("linear_create_issue"), time.Millisecond, false, 0)
 	}
 
 	top := m.TopTools(2)
@@ -152,10 +152,10 @@ func TestMetrics_ConcurrentAccess(t *testing.T) {
 	for range 10 {
 		go func() {
 			for range 100 {
-				m.RecordExecution("github", ToolName("github_list_issues"), time.Millisecond, false, 0)
+				m.RecordExecution(IntegrationName("github"), ToolName("github_list_issues"), time.Millisecond, false, 0)
 				m.RecordSearch()
 				m.RecordScript()
-				m.RecordCircuitBreak("github")
+				m.RecordCircuitBreak(IntegrationName("github"))
 				m.RecordCompaction("tool", 1000, 500)
 				m.RecordTruncation()
 				m.Snapshot()

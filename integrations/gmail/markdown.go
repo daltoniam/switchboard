@@ -24,15 +24,17 @@ type renderedMessage struct {
 
 // ── Parse boundary ──────────────────────────────────────────────────
 
+var markdownRenderers = map[mcp.ToolName]func([]byte) (markdown.Markdown, bool){
+	"gmail_get_message": renderMessageMD,
+	"gmail_get_draft":   renderMessageMD,
+	"gmail_get_thread":  renderThreadMD,
+}
+
 func (g *gmail) RenderMarkdown(toolName mcp.ToolName, data []byte) (markdown.Markdown, bool) {
-	switch toolName {
-	case "gmail_get_message", "gmail_get_draft":
-		return renderMessageMD(data)
-	case "gmail_get_thread":
-		return renderThreadMD(data)
-	default:
-		return "", false
+	if fn, ok := markdownRenderers[toolName]; ok {
+		return fn(data)
 	}
+	return "", false
 }
 
 // ── Raw JSON parse types ────────────────────────────────────────────

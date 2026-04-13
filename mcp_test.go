@@ -315,6 +315,34 @@ func TestToolAllowed_InvalidPatternSkipped(t *testing.T) {
 	assert.False(t, ic.ToolAllowed(ToolName("datadog_search_logs")))
 }
 
+func TestToolName_UnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    ToolName
+		wantErr bool
+	}{
+		{"normal name", `"github_list_issues"`, ToolName("github_list_issues"), false},
+		{"trims whitespace", `"  github_list_issues  "`, ToolName("github_list_issues"), false},
+		{"empty string errors", `""`, "", true},
+		{"whitespace-only errors", `"   "`, "", true},
+		{"null is zero value", `null`, "", false},
+		{"number errors", `123`, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got ToolName
+			err := got.UnmarshalJSON([]byte(tt.input))
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestIsRetryable_DistinguishesRetryableFromPermanentErrors(t *testing.T) {
 	tests := []struct {
 		name      string
