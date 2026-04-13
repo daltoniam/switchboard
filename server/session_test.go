@@ -150,7 +150,7 @@ func TestSession_RecentBreadcrumbs(t *testing.T) {
 }
 
 func TestSessionStore_GetOrCreate(t *testing.T) {
-	ss := NewSessionStore(time.Hour)
+	ss := NewMemorySessionStore(time.Hour)
 	s1 := ss.GetOrCreate("sess-1")
 	s2 := ss.GetOrCreate("sess-1")
 	assert.Same(t, s1, s2, "should return same session")
@@ -158,7 +158,7 @@ func TestSessionStore_GetOrCreate(t *testing.T) {
 }
 
 func TestSessionStore_TTLExpiry(t *testing.T) {
-	ss := NewSessionStore(10 * time.Millisecond)
+	ss := NewMemorySessionStore(10 * time.Millisecond)
 	s := ss.GetOrCreate("sess-1")
 	_ = s
 	time.Sleep(20 * time.Millisecond)
@@ -168,7 +168,7 @@ func TestSessionStore_TTLExpiry(t *testing.T) {
 }
 
 func TestSessionStore_GetOrCreateEvictsExpired(t *testing.T) {
-	ss := NewSessionStore(10 * time.Millisecond)
+	ss := NewMemorySessionStore(10 * time.Millisecond)
 	ss.GetOrCreate("old-sess")
 	time.Sleep(20 * time.Millisecond)
 
@@ -177,7 +177,7 @@ func TestSessionStore_GetOrCreateEvictsExpired(t *testing.T) {
 }
 
 func TestSessionStore_Delete(t *testing.T) {
-	ss := NewSessionStore(time.Hour)
+	ss := NewMemorySessionStore(time.Hour)
 	ss.GetOrCreate("sess-1")
 	ss.Delete("sess-1")
 	_, ok := ss.Get("sess-1")

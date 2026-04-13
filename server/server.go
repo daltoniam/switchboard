@@ -60,7 +60,7 @@ type Server struct {
 	mcpServer        *mcpsdk.Server
 	services         *mcp.Services
 	scriptEngine     *script.Engine
-	sessionStore     *SessionStore
+	sessionStore     SessionStore
 	retryBackoff     time.Duration
 	breakers         map[string]*breaker
 	breakerThreshold int
@@ -84,7 +84,13 @@ func WithDiscoverAll(v bool) Option {
 // WithSessionTTL configures how long idle sessions are kept before eviction.
 // A zero or negative value uses DefaultSessionTTL (1h).
 func WithSessionTTL(ttl time.Duration) Option {
-	return func(s *Server) { s.sessionStore = NewSessionStore(ttl) }
+	return func(s *Server) { s.sessionStore = NewMemorySessionStore(ttl) }
+}
+
+// WithSessionStore replaces the default in-memory session store with a custom
+// implementation. Use this to plug in durable storage (Postgres, file-backed, etc.).
+func WithSessionStore(store SessionStore) Option {
+	return func(s *Server) { s.sessionStore = store }
 }
 
 // New creates a Server that exposes two MCP tools — search and execute —
@@ -108,7 +114,7 @@ func New(services *mcp.Services, opts ...Option) *Server {
 	s := &Server{
 		mcpServer:        mcpServer,
 		services:         services,
-		sessionStore:     NewSessionStore(DefaultSessionTTL),
+		sessionStore:     NewMemorySessionStore(DefaultSessionTTL),
 		retryBackoff:     500 * time.Millisecond,
 		breakers:         make(map[string]*breaker),
 		breakerThreshold: defaultBreakerThreshold,
@@ -631,9 +637,11 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	integration, result, err := s.executeTool(ctx, args.ToolName, args.Arguments)
 	if err != nil {
 		sess.AddBreadcrumb(args.ToolName, args.Arguments, err.Error(), true)
+		_ = s.sessionStore.Save(sess)
 		return errorResult(err.Error()), nil
 	}
 	sess.AddBreadcrumb(args.ToolName, args.Arguments, result.Data, result.IsError)
+	_ = s.sessionStore.Save(sess)
 	if result.IsError {
 		return &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},

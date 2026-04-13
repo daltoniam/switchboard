@@ -129,23 +129,34 @@ func (s *Session) touch() {
 	s.LastUsed = time.Now()
 }
 
-type SessionStore struct {
+// SessionStore is the pluggable storage interface for sessions.
+// The default implementation is in-memory (MemorySessionStore).
+// The commercial version can plug in Postgres, an API shim, etc.
+type SessionStore interface {
+	GetOrCreate(id string) *Session
+	Get(id string) (*Session, bool)
+	Save(s *Session) error
+	Delete(id string)
+}
+
+// MemorySessionStore keeps sessions in memory with TTL-based eviction.
+type MemorySessionStore struct {
 	mu       sync.RWMutex
 	sessions map[string]*Session
 	ttl      time.Duration
 }
 
-func NewSessionStore(ttl time.Duration) *SessionStore {
+func NewMemorySessionStore(ttl time.Duration) *MemorySessionStore {
 	if ttl <= 0 {
 		ttl = DefaultSessionTTL
 	}
-	return &SessionStore{
+	return &MemorySessionStore{
 		sessions: make(map[string]*Session),
 		ttl:      ttl,
 	}
 }
 
-func (ss *SessionStore) GetOrCreate(id string) *Session {
+func (ss *MemorySessionStore) GetOrCreate(id string) *Session {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 	ss.evictExpired()
@@ -158,7 +169,7 @@ func (ss *SessionStore) GetOrCreate(id string) *Session {
 	return s
 }
 
-func (ss *SessionStore) Get(id string) (*Session, bool) {
+func (ss *MemorySessionStore) Get(id string) (*Session, bool) {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 	s, ok := ss.sessions[id]
@@ -171,19 +182,23 @@ func (ss *SessionStore) Get(id string) (*Session, bool) {
 	return s, true
 }
 
-func (ss *SessionStore) Delete(id string) {
+func (ss *MemorySessionStore) Save(_ *Session) error {
+	return nil
+}
+
+func (ss *MemorySessionStore) Delete(id string) {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 	delete(ss.sessions, id)
 }
 
-func (ss *SessionStore) Len() int {
+func (ss *MemorySessionStore) Len() int {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 	return len(ss.sessions)
 }
 
-func (ss *SessionStore) evictExpired() {
+func (ss *MemorySessionStore) evictExpired() {
 	now := time.Now()
 	for id, s := range ss.sessions {
 		if now.Sub(s.LastUsed) > ss.ttl {

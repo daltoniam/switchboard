@@ -33,10 +33,12 @@ func (s *Server) handleSession(ctx context.Context, req *mcpsdk.CallToolRequest)
 			return errorResult("\"context\" is required for \"set\" action"), nil
 		}
 		sess.SetContext(args.Context)
+		_ = s.sessionStore.Save(sess)
 	case "get":
 		// no-op — we return current context below
 	case "clear":
 		sess.ClearContext()
+		_ = s.sessionStore.Save(sess)
 	default:
 		return errorResult("unknown action: " + args.Action + ". Valid actions: set, get, clear"), nil
 	}
