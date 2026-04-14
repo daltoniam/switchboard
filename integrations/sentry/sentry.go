@@ -17,7 +17,12 @@ import (
 var (
 	_ mcp.Integration                = (*sentry)(nil)
 	_ mcp.FieldCompactionIntegration = (*sentry)(nil)
+	_ mcp.PlainTextCredentials       = (*sentry)(nil)
 )
+
+func (s *sentry) PlainTextKeys() []string {
+	return []string{"organization"}
+}
 
 type sentry struct {
 	authToken    string

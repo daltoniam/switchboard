@@ -35,7 +35,14 @@ type amazon struct {
 	loginFunc    func(ctx context.Context) error // overridden in tests
 }
 
-var _ mcp.FieldCompactionIntegration = (*amazon)(nil)
+var (
+	_ mcp.FieldCompactionIntegration = (*amazon)(nil)
+	_ mcp.PlainTextCredentials       = (*amazon)(nil)
+)
+
+func (a *amazon) PlainTextKeys() []string {
+	return []string{"email", "domain"}
+}
 
 const (
 	maxResponseSize = 5 * 1024 * 1024 // 5 MB

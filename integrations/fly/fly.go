@@ -20,7 +20,14 @@ type fly struct {
 	baseURL string
 }
 
-var _ mcp.FieldCompactionIntegration = (*fly)(nil)
+var (
+	_ mcp.FieldCompactionIntegration = (*fly)(nil)
+	_ mcp.PlainTextCredentials       = (*fly)(nil)
+)
+
+func (f *fly) PlainTextKeys() []string {
+	return []string{"base_url"}
+}
 
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 

@@ -164,7 +164,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"datadog": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"api_key": "", "app_key": ""},
+				Credentials: mcp.Credentials{"api_key": "", "app_key": "", "site": ""},
 			},
 			"linear": {
 				Enabled:     false,
