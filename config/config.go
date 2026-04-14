@@ -274,6 +274,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"config": ""},
 			},
+			"web": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{},
+			},
 		},
 	}
 }
