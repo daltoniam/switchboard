@@ -6,10 +6,11 @@ var tools = []mcp.ToolDefinition{
 	// ── Runs ────────────────────────────────────────────────────────
 	{
 		Name:        mcp.ToolName("rwx_launch_ci_run"),
-		Description: "Launch a CI/CD pipeline run using the rwx CLI. Start here to run CI. Executes continuous integration tests and builds from .rwx/ci.yml by default.",
+		Description: "Launch a CI/CD pipeline run using the rwx CLI. Start here to run CI. Executes the specified workflow file (default: .rwx/ci.yml).",
 		Parameters: map[string]string{
-			"targets": "JSON array of specific task keys to target (optional)",
-			"wait":    "Wait for the run to complete before returning (true/false, default: false)",
+			"workflow": "Path to the RWX workflow YAML file to run (default: .rwx/ci.yml, e.g. .rwx/auto-deploy.yml)",
+			"targets":  "JSON array of specific task keys to target (optional)",
+			"wait":     "Wait for the run to complete before returning (true/false, default: false)",
 		},
 	},
 	{
@@ -24,10 +25,11 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        mcp.ToolName("rwx_get_recent_runs"),
-		Description: "Get recent CI runs for a git branch, filtered to .rwx/ci.yml runs",
+		Description: "Get recent CI/CD runs for a git branch. Returns all workflow runs by default; use definition_path to filter to a specific workflow.",
 		Parameters: map[string]string{
-			"ref":   "Git ref (branch name) to filter runs by",
-			"limit": "Number of runs to return (default: 5)",
+			"ref":             "Git ref (branch name) to filter runs by",
+			"limit":           "Number of runs to return (default: 5)",
+			"definition_path": "Filter to a specific workflow file (e.g. .rwx/ci.yml, .rwx/auto-deploy.yml). Omit to return all workflows.",
 		},
 		Required: []string{"ref"},
 	},

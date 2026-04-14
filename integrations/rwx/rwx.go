@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	minRWXVersion   = "3.0.0"
-	rwxAPIBase      = "https://cloud.rwx.com"
-	maxResponseSize = 10 * 1024 * 1024 // 10 MB
+	minRWXVersion     = "3.0.0"
+	defaultRWXAPIBase = "https://cloud.rwx.com"
+	maxResponseSize   = 10 * 1024 * 1024 // 10 MB
 )
 
 // Compile-time interface assertions.
@@ -28,6 +28,7 @@ type rwx struct {
 	accessToken string
 	org         string
 	cliPath     string
+	baseURL     string
 	client      *http.Client
 	proxy       *proxyClient
 	logCache    *logCache
@@ -36,6 +37,7 @@ type rwx struct {
 func New() mcp.Integration {
 	return &rwx{
 		client:   &http.Client{Timeout: 30 * time.Second},
+		baseURL:  defaultRWXAPIBase,
 		logCache: newLogCache(),
 	}
 }
@@ -59,7 +61,7 @@ func (r *rwx) Healthy(ctx context.Context) bool {
 	if r.accessToken == "" {
 		return false
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", rwxAPIBase+"/mint/api/runs?limit=1", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", r.baseURL+"/mint/api/runs?limit=1", nil)
 	if err != nil {
 		return false
 	}

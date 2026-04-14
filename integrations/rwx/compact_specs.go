@@ -8,8 +8,8 @@ import (
 
 var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
 	// ── Runs ────────────────────────────────────────────────────────
-	// Handler: jsonResult(map{ref, count, runs: [{run_id, status, commit_sha, title, url}]})
-	mcp.ToolName("rwx_get_recent_runs"): {"ref", "count", "runs[].run_id", "runs[].status", "runs[].commit_sha", "runs[].title", "runs[].url"},
+	// Handler: jsonResult(map{ref, count, runs: [{run_id, status, commit_sha, title, definition_path, url}]})
+	mcp.ToolName("rwx_get_recent_runs"): {"ref", "count", "runs[].run_id", "runs[].status", "runs[].commit_sha", "runs[].title", "runs[].definition_path", "runs[].url"},
 	// Handler: jsonResult(map{run_id, url, status, execution, duration_seconds, summary, failed_tasks, tasks: [{key, status, duration_seconds, cache_hit}]})
 	mcp.ToolName("rwx_get_run_results"): {"run_id", "url", "status", "duration_seconds", "summary", "failed_tasks", "tasks[].key", "tasks[].status", "tasks[].duration_seconds", "tasks[].cache_hit"},
 }

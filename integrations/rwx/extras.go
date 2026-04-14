@@ -21,7 +21,7 @@ func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResu
 	}
 
 	id := extractRunID(runIDRaw)
-	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, r.org, id)
+	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
 
 	cmdArgs := []string{"artifacts", id, "--output", "json"}
 	if !download {

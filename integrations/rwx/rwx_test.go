@@ -188,11 +188,8 @@ func TestHealthy_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", org: "my-org", client: ts.Client(), logCache: newLogCache()}
-	// Override the rwxAPIBase for testing — we need to test via the actual method
-	// Since rwxAPIBase is a const, we test via an httptest redirect approach
-	// Instead, we can test the health check logic directly
-	assert.NotNil(t, r)
+	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+	assert.True(t, r.Healthy(context.Background()))
 }
 
 func TestHealthy_NoToken(t *testing.T) {
@@ -213,17 +210,19 @@ func TestGetRecentRuns(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", org: "my-org", client: ts.Client(), logCache: newLogCache()}
+	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
 
-	// We can't easily test since the API base URL is a const, but we can verify
-	// the function doesn't panic and the handler is properly wired
 	result, err := r.Execute(context.Background(), "rwx_get_recent_runs", map[string]any{
 		"ref": "main",
 	})
 	require.NoError(t, err)
-	// Will be an error because the httptest server URL doesn't match rwxAPIBase
-	// but the dispatch works correctly
 	assert.NotNil(t, result)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "main", parsed["ref"])
+	assert.Equal(t, float64(1), parsed["count"])
 }
 
 func TestGetRecentRuns_Response(t *testing.T) {
@@ -231,20 +230,53 @@ func TestGetRecentRuns_Response(t *testing.T) {
 		_, _ = w.Write([]byte(`{"runs":[
 			{"id":"run-1","branch":"main","commit_sha":"abc","result_status":"succeeded","execution_status":"finished","title":"Test","definition_path":".rwx/ci.yml"},
 			{"id":"run-2","branch":"main","commit_sha":"def","result_status":"failed","execution_status":"finished","title":"Test 2","definition_path":".rwx/ci.yml"},
-			{"id":"run-3","branch":"feat","commit_sha":"ghi","result_status":"succeeded","execution_status":"finished","title":"Other","definition_path":".rwx/ci.yml"}
+			{"id":"run-3","branch":"feat","commit_sha":"ghi","result_status":"succeeded","execution_status":"finished","title":"Other","definition_path":".rwx/ci.yml"},
+			{"id":"run-4","branch":"main","commit_sha":"jkl","result_status":"succeeded","execution_status":"finished","title":"Deploy","definition_path":".rwx/auto-deploy.yml"}
 		]}`))
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", org: "my-org", client: ts.Client(), logCache: newLogCache()}
+	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
 
-	// Call the handler directly to bypass const URL
-	result, err := getRecentRuns(context.Background(), r, map[string]any{"ref": "main", "limit": float64(5)})
+	t.Run("no definition_path returns all workflows for branch", func(t *testing.T) {
+		result, err := getRecentRuns(context.Background(), r, map[string]any{"ref": "main", "limit": float64(10)})
+		require.NoError(t, err)
+		assert.False(t, result.IsError)
 
-	// This will fail due to const URL, but we can at least verify it executes
-	// If httptest URL matched, it would filter correctly
-	_ = result
-	_ = err
+		var parsed map[string]any
+		require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+		assert.Equal(t, float64(3), parsed["count"], "should return all 3 main branch runs across workflows")
+
+		runs := parsed["runs"].([]any)
+		run4 := runs[2].(map[string]any)
+		assert.Equal(t, "run-4", run4["run_id"])
+		assert.Equal(t, ".rwx/auto-deploy.yml", run4["definition_path"])
+	})
+
+	t.Run("definition_path filters to specific workflow", func(t *testing.T) {
+		result, err := getRecentRuns(context.Background(), r, map[string]any{"ref": "main", "limit": float64(10), "definition_path": ".rwx/ci.yml"})
+		require.NoError(t, err)
+		assert.False(t, result.IsError)
+
+		var parsed map[string]any
+		require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+		assert.Equal(t, float64(2), parsed["count"], "should return only ci.yml runs")
+	})
+
+	t.Run("definition_path filters to deploy workflow", func(t *testing.T) {
+		result, err := getRecentRuns(context.Background(), r, map[string]any{"ref": "main", "limit": float64(10), "definition_path": ".rwx/auto-deploy.yml"})
+		require.NoError(t, err)
+		assert.False(t, result.IsError)
+
+		var parsed map[string]any
+		require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+		assert.Equal(t, float64(1), parsed["count"], "should return only auto-deploy.yml runs")
+
+		runs := parsed["runs"].([]any)
+		run := runs[0].(map[string]any)
+		assert.Equal(t, "run-4", run["run_id"])
+		assert.Equal(t, ".rwx/auto-deploy.yml", run["definition_path"])
+	})
 }
 
 func TestFetchRunStatus_Success(t *testing.T) {
@@ -253,9 +285,11 @@ func TestFetchRunStatus_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", org: "my-org", client: ts.Client(), logCache: newLogCache()}
-	// Direct call would need URL override — tested via integration
-	_ = r
+	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+	status, isComplete, err := fetchRunStatus(context.Background(), r, "run-123")
+	require.NoError(t, err)
+	assert.True(t, isComplete)
+	assert.Equal(t, "success", status)
 }
 
 // --- Proxy tests ---
