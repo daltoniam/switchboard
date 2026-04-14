@@ -13,7 +13,14 @@ import (
 )
 
 func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	cmdArgs := []string{"run", ".rwx/ci.yml", "--output", "json"}
+	workflow, err := mcp.ArgStr(args, "workflow")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	if workflow == "" {
+		workflow = ".rwx/ci.yml"
+	}
+	cmdArgs := []string{"run", workflow, "--output", "json"}
 
 	wait, err := mcp.ArgBool(args, "wait")
 	if err != nil {
@@ -53,7 +60,7 @@ func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResul
 
 	runURL := parsed.RunURL
 	if runURL == "" {
-		runURL = fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, r.org, parsed.RunID)
+		runURL = fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, parsed.RunID)
 	}
 
 	if wait {
@@ -95,7 +102,7 @@ func waitForCIRun(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRe
 	}
 
 	id := extractRunID(runIDRaw)
-	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, r.org, id)
+	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
 
 	if timeoutSec <= 0 {
 		timeoutSec = 1800
@@ -153,6 +160,7 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 	ra := mcp.NewArgs(args)
 	ref := ra.Str("ref")
 	limit := ra.Int("limit")
+	definitionPath := ra.Str("definition_path")
 	if err := ra.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -165,7 +173,7 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 		fetchLimit = 100
 	}
 
-	apiURL := fmt.Sprintf("%s/mint/api/runs?limit=%d", rwxAPIBase, fetchLimit)
+	apiURL := fmt.Sprintf("%s/mint/api/runs?limit=%d", r.baseURL, fetchLimit)
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -207,7 +215,10 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 
 	var runs []map[string]any
 	for _, run := range data.Runs {
-		if run.Branch != ref || run.DefinitionPath != ".rwx/ci.yml" {
+		if run.Branch != ref {
+			continue
+		}
+		if definitionPath != "" && run.DefinitionPath != definitionPath {
 			continue
 		}
 		status := "running"
@@ -215,11 +226,12 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 			status = normalizeStatus(run.ResultStatus)
 		}
 		runs = append(runs, map[string]any{
-			"run_id":     run.ID,
-			"status":     status,
-			"commit_sha": run.CommitSHA,
-			"title":      run.Title,
-			"url":        fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, r.org, run.ID),
+			"run_id":          run.ID,
+			"status":          status,
+			"commit_sha":      run.CommitSHA,
+			"title":           run.Title,
+			"definition_path": run.DefinitionPath,
+			"url":             fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, run.ID),
 		})
 		if len(runs) >= limit {
 			break
@@ -260,7 +272,7 @@ func getRunResults(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolRes
 		return mcp.ErrResult(fmt.Errorf("parse results: %w", err))
 	}
 
-	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, r.org, id)
+	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
 	status := normalizeStatus(parsed.Result)
 
 	var failedKeys []string
@@ -307,7 +319,7 @@ func getRunResults(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolRes
 // --- helpers ---
 
 func fetchRunStatus(ctx context.Context, r *rwx, runID string) (status string, isComplete bool, err error) {
-	apiURL := fmt.Sprintf("%s/mint/api/runs/%s", rwxAPIBase, runID)
+	apiURL := fmt.Sprintf("%s/mint/api/runs/%s", r.baseURL, runID)
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		return "", false, err
