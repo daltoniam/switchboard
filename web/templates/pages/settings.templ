@@ -1,0 +1,37 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+type SettingsData struct {
+	SessionStore string
+}
+
+templ Settings(page layouts.PageData, data SettingsData) {
+	@layouts.Base(page) {
+		<h1 class="page-title">Settings</h1>
+		<form method="POST" action="/settings">
+			<div class="card" style="margin-bottom: 1rem;">
+				<div class="section-title" style="margin-bottom: 0.75rem;">Session Storage</div>
+				<p style="font-size: 0.8125rem; color: var(--text-muted); margin: 0 0 1rem 0;">
+					Controls where session context and breadcrumb history are stored between requests.
+					Changes take effect on next server restart.
+				</p>
+				<div class="form-group">
+					<label class="form-label">Storage Backend</label>
+					<select name="session_store" class="form-input">
+						if data.SessionStore == "file" {
+							<option value="memory">Memory (ephemeral, lost on restart)</option>
+							<option value="file" selected>File (persisted to ~/.config/switchboard/sessions/)</option>
+						} else {
+							<option value="memory" selected>Memory (ephemeral, lost on restart)</option>
+							<option value="file">File (persisted to ~/.config/switchboard/sessions/)</option>
+						}
+					</select>
+				</div>
+			</div>
+			<button type="submit" class="btn">Save Settings</button>
+		</form>
+	}
+}

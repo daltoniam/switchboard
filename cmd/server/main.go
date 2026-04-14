@@ -266,6 +266,11 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	if discoverAll {
 		serverOpts = append(serverOpts, server.WithDiscoverAll(true))
 	}
+	if cfg.SessionStore == "file" {
+		serverOpts = append(serverOpts, server.WithSessionStore(
+			server.NewFileSessionStore(server.DefaultSessionDir(), server.DefaultSessionTTL),
+		))
+	}
 	srv := server.New(services, serverOpts...)
 
 	if stdioMode {

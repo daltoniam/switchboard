@@ -94,6 +94,9 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /wasm/{index}", w.handleWasmModuleEdit)
 	mux.HandleFunc("POST /wasm/{index}", w.handleWasmModuleUpdate)
 
+	mux.HandleFunc("GET /settings", w.handleSettings)
+	mux.HandleFunc("POST /settings", w.handleSettingsSave)
+
 	return mux
 }
 
@@ -1277,4 +1280,34 @@ func (w *WebServer) handleMetricsAPI(rw http.ResponseWriter, r *http.Request) {
 	}
 	snap := w.services.Metrics.Snapshot()
 	json.NewEncoder(rw).Encode(snap)
+}
+
+func (w *WebServer) handleSettings(rw http.ResponseWriter, r *http.Request) {
+	cfg := w.services.Config.Get()
+	page := w.pageData(r, "Settings", "/settings")
+	data := pages.SettingsData{
+		SessionStore: cfg.SessionStore,
+	}
+	if data.SessionStore == "" {
+		data.SessionStore = "memory"
+	}
+	pages.Settings(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleSettingsSave(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/settings?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+	sessionStore := r.FormValue("session_store")
+	if sessionStore != "memory" && sessionStore != "file" {
+		sessionStore = "memory"
+	}
+	cfg := w.services.Config.Get()
+	cfg.SessionStore = sessionStore
+	if err := w.services.Config.Update(cfg); err != nil {
+		http.Redirect(rw, r, "/settings?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(rw, r, "/settings?success=Settings+saved.+Restart+Switchboard+to+apply+changes.", http.StatusSeeOther)
 }
