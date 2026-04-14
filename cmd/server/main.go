@@ -18,6 +18,7 @@ import (
 	acpInt "github.com/daltoniam/switchboard/integrations/acp"
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
+	"github.com/daltoniam/switchboard/integrations/botidentity"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
 	"github.com/daltoniam/switchboard/integrations/cloudflare"
 	"github.com/daltoniam/switchboard/integrations/confluence"
@@ -233,6 +234,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		snowflakeInt.New(),
 		acpInt.New(),
 		webfetchInt.New(),
+		botidentity.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
