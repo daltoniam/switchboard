@@ -225,6 +225,32 @@ templ Base(data PageData) {
 					border-color: var(--accent);
 					box-shadow: 0 0 0 2px var(--accent-dim);
 				}
+				.input-secret {
+					position: relative;
+					display: flex;
+				}
+				.input-secret .form-input {
+					padding-right: 2.25rem;
+				}
+				.secret-toggle {
+					position: absolute;
+					right: 1px;
+					top: 1px;
+					bottom: 1px;
+					width: 2rem;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					background: transparent;
+					border: none;
+					color: var(--text-muted);
+					cursor: pointer;
+					border-radius: 0 3px 3px 0;
+					transition: color 0.1s;
+				}
+				.secret-toggle:hover {
+					color: var(--text-secondary);
+				}
 
 				/* --- Toggle --- */
 				.toggle {
@@ -645,6 +671,22 @@ templ Base(data PageData) {
 				}
 				{ children... }
 			</main>
+			<script>
+				function toggleSecret(btn) {
+					var input = btn.parentElement.querySelector('input');
+					var eyeOn = btn.querySelector('.eye-icon');
+					var eyeOff = btn.querySelector('.eye-off-icon');
+					if (input.type === 'password') {
+						input.type = 'text';
+						eyeOn.style.display = 'none';
+						eyeOff.style.display = '';
+					} else {
+						input.type = 'password';
+						eyeOn.style.display = '';
+						eyeOff.style.display = 'none';
+					}
+				}
+			</script>
 		</body>
 	</html>
 }

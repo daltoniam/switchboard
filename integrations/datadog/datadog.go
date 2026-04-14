@@ -16,7 +16,12 @@ import (
 var (
 	_ mcp.Integration                = (*dd)(nil)
 	_ mcp.FieldCompactionIntegration = (*dd)(nil)
+	_ mcp.PlainTextCredentials       = (*dd)(nil)
 )
+
+func (d *dd) PlainTextKeys() []string {
+	return []string{"site"}
+}
 
 type dd struct {
 	apiKey string

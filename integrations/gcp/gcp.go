@@ -24,10 +24,17 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// Compile-time interface assertions.
+var _ mcp.PlainTextCredentials = (*integration)(nil)
+
 const (
 	defaultComputeLimit = 500
 	defaultStorageLimit = 1000
 )
+
+func (g *integration) PlainTextKeys() []string {
+	return []string{"project_id"}
+}
 
 type integration struct {
 	projectID string

@@ -29,7 +29,12 @@ type gmail struct {
 var (
 	_ mcp.FieldCompactionIntegration = (*gmail)(nil)
 	_ mcp.MarkdownIntegration        = (*gmail)(nil)
+	_ mcp.PlainTextCredentials       = (*gmail)(nil)
 )
+
+func (g *gmail) PlainTextKeys() []string {
+	return []string{"base_url"}
+}
 
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 

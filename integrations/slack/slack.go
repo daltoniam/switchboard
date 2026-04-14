@@ -18,7 +18,12 @@ import (
 var (
 	_ mcp.Integration                = (*slackIntegration)(nil)
 	_ mcp.FieldCompactionIntegration = (*slackIntegration)(nil)
+	_ mcp.PlainTextCredentials       = (*slackIntegration)(nil)
 )
+
+func (s *slackIntegration) PlainTextKeys() []string {
+	return []string{"team_id"}
+}
 
 type slackIntegration struct {
 	mu      sync.RWMutex

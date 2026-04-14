@@ -18,7 +18,12 @@ import (
 var (
 	_ mcp.Integration                = (*clickhouseInt)(nil)
 	_ mcp.FieldCompactionIntegration = (*clickhouseInt)(nil)
+	_ mcp.PlainTextCredentials       = (*clickhouseInt)(nil)
 )
+
+func (c *clickhouseInt) PlainTextKeys() []string {
+	return []string{"host", "port", "username", "database", "secure", "skip_verify"}
+}
 
 type clickhouseInt struct {
 	conn driver.Conn

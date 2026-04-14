@@ -22,7 +22,12 @@ const (
 var (
 	_ mcp.Integration                = (*rwx)(nil)
 	_ mcp.FieldCompactionIntegration = (*rwx)(nil)
+	_ mcp.PlainTextCredentials       = (*rwx)(nil)
 )
+
+func (r *rwx) PlainTextKeys() []string {
+	return []string{"org", "cli_path"}
+}
 
 type rwx struct {
 	accessToken string

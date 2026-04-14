@@ -27,7 +27,12 @@ import (
 var (
 	_ mcp.Integration                = (*integration)(nil)
 	_ mcp.FieldCompactionIntegration = (*integration)(nil)
+	_ mcp.PlainTextCredentials       = (*integration)(nil)
 )
+
+func (a *integration) PlainTextKeys() []string {
+	return []string{"access_key_id", "region"}
+}
 
 type integration struct {
 	cfg          aws.Config
