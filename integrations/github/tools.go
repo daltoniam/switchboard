@@ -76,7 +76,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: mcp.ToolName("github_create_update_file"), Description: "Create or update a file in a repository",
-		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "path": "File path", "message": "Commit message", "content": "Base64-encoded file content", "sha": "SHA of file being replaced (required for update)", "branch": "Target branch"},
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "path": "File path", "message": "Commit message", "content": "Raw file content (plain text, not base64 — encoding is handled automatically)", "sha": "SHA of file being replaced (required for update)", "branch": "Target branch"},
 		Required:   []string{"owner", "repo", "path", "message", "content"},
 	},
 	{
