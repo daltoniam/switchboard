@@ -143,6 +143,8 @@ var synonymGroups = [][]string{
 	{"database", "databases", "db"},
 	{"branch", "branches"},
 	{"comment", "comments"},
+	{"url", "urls", "webpage", "website", "link"},
+	{"documentation", "docs", "reference", "readme"},
 
 	// Verbs — action synonyms
 	{"create", "add", "new", "make", "generate"},

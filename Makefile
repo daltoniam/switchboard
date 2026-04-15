@@ -74,9 +74,20 @@ deploy: build ## Build, install to ~/.local/bin, and restart the daemon (require
 		exit 1; \
 	fi
 	systemctl --user stop switchboard
+	@sleep 1
+	@if systemctl --user is-active switchboard.service >/dev/null 2>&1; then \
+		echo "Error: switchboard did not stop. Check: systemctl --user status switchboard"; \
+		exit 1; \
+	fi
 	cp $(BIN) $(INSTALL_BIN)
 	systemctl --user start switchboard
-	@echo "Deployed and restarted."
+	@sleep 1
+	@if systemctl --user is-active switchboard.service >/dev/null 2>&1; then \
+		echo "Deployed and restarted."; \
+	else \
+		echo "Error: switchboard failed to start. Check: journalctl --user -u switchboard -n 20"; \
+		exit 1; \
+	fi
 
 ## Help
 
