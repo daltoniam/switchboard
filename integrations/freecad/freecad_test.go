@@ -2,6 +2,7 @@ package freecad
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -24,37 +25,30 @@ func TestConfigure_AutoDetect(t *testing.T) {
 	}
 }
 
-func TestConfigure_WithBinaryPath(t *testing.T) {
+func TestConfigure_WithHost(t *testing.T) {
 	i := New()
 	err := i.Configure(context.Background(), mcp.Credentials{
-		"binary_path": "/nonexistent/freecad",
-		"data_dir":    t.TempDir(),
+		"host":     "127.0.0.1",
+		"data_dir": t.TempDir(),
 	})
-	// May fail if bridge not found, which is expected in CI
-	if err != nil {
-		assert.Contains(t, err.Error(), "freecad")
-	}
+	assert.NoError(t, err)
 }
 
 func TestConfigure_WithDataDir(t *testing.T) {
-	fc := &freecad{}
+	fc := &freecad{client: &http.Client{}}
 	dir := t.TempDir()
 	err := fc.Configure(context.Background(), mcp.Credentials{
-		"binary_path": "/usr/bin/freecad",
-		"data_dir":    dir,
+		"data_dir": dir,
 	})
-	// May fail if bridge not found, which is expected in CI
-	if err != nil {
-		assert.Contains(t, err.Error(), "freecad")
-	} else {
-		assert.Equal(t, dir, fc.dataDir)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, dir, fc.dataDir)
 }
 
 func TestPlainTextKeys(t *testing.T) {
 	fc := &freecad{}
 	keys := fc.PlainTextKeys()
-	assert.Contains(t, keys, "binary_path")
+	assert.Contains(t, keys, "host")
+	assert.Contains(t, keys, "xmlrpc_port")
 	assert.Contains(t, keys, "data_dir")
 }
 
@@ -86,7 +80,7 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -130,7 +124,7 @@ func TestCompactSpec(t *testing.T) {
 }
 
 func TestHealthy_NotConfigured(t *testing.T) {
-	fc := &freecad{}
+	fc := &freecad{client: &http.Client{}}
 	assert.False(t, fc.Healthy(context.Background()))
 }
 
@@ -166,7 +160,7 @@ func TestOptFloat(t *testing.T) {
 // --- Handler validation tests (required arg checking) ---
 
 func TestCreateDocument_MissingName(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_create_document", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -174,7 +168,7 @@ func TestCreateDocument_MissingName(t *testing.T) {
 }
 
 func TestOpenDocument_MissingFilePath(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_open_document", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -182,7 +176,7 @@ func TestOpenDocument_MissingFilePath(t *testing.T) {
 }
 
 func TestGetObject_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 
 	result, err := fc.Execute(context.Background(), "freecad_get_object", map[string]any{})
 	require.NoError(t, err)
@@ -196,14 +190,14 @@ func TestGetObject_MissingArgs(t *testing.T) {
 }
 
 func TestDeleteObject_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_delete_object", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 }
 
 func TestExportSTEP_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_export_step", map[string]any{"file_path": "test.FCStd"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -211,7 +205,7 @@ func TestExportSTEP_MissingArgs(t *testing.T) {
 }
 
 func TestExportSTL_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_export_stl", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -219,7 +213,7 @@ func TestExportSTL_MissingArgs(t *testing.T) {
 }
 
 func TestRunScript_MissingScript(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_run_script", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -227,7 +221,7 @@ func TestRunScript_MissingScript(t *testing.T) {
 }
 
 func TestBooleanCut_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_boolean_cut", map[string]any{"file_path": "test.FCStd"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -235,7 +229,7 @@ func TestBooleanCut_MissingArgs(t *testing.T) {
 }
 
 func TestFillet_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_fillet", map[string]any{"file_path": "test.FCStd"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -243,7 +237,7 @@ func TestFillet_MissingArgs(t *testing.T) {
 }
 
 func TestSetProperty_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_set_property", map[string]any{
 		"file_path":   "test.FCStd",
 		"object_name": "Box",
@@ -254,7 +248,7 @@ func TestSetProperty_MissingArgs(t *testing.T) {
 }
 
 func TestMeasureShape_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_measure_shape", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -262,7 +256,7 @@ func TestMeasureShape_MissingArgs(t *testing.T) {
 }
 
 func TestCheckGeometry_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_check_geometry", map[string]any{"file_path": "t.FCStd"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -270,7 +264,7 @@ func TestCheckGeometry_MissingArgs(t *testing.T) {
 }
 
 func TestImportFile_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_import_file", map[string]any{"file_path": "t.FCStd"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -278,7 +272,7 @@ func TestImportFile_MissingArgs(t *testing.T) {
 }
 
 func TestMirror_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_mirror", map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -286,7 +280,7 @@ func TestMirror_MissingArgs(t *testing.T) {
 }
 
 func TestExtrude_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_extrude", map[string]any{"file_path": "t.FCStd"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -294,7 +288,7 @@ func TestExtrude_MissingArgs(t *testing.T) {
 }
 
 func TestChamfer_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_chamfer", map[string]any{"file_path": "t.FCStd"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -302,7 +296,7 @@ func TestChamfer_MissingArgs(t *testing.T) {
 }
 
 func TestSetPlacement_MissingArgs(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
+	fc := &freecad{host: "localhost", port: "9875", dataDir: t.TempDir(), client: &http.Client{}}
 	result, err := fc.Execute(context.Background(), "freecad_set_placement", map[string]any{"file_path": "t.FCStd"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)

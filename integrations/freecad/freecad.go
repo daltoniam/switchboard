@@ -7,13 +7,10 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -25,16 +22,13 @@ var (
 	_ mcp.PlainTextCredentials       = (*freecad)(nil)
 )
 
-type freecad struct {
-	binary     string
-	dataDir    string
-	bridgePath string
+const defaultXMLRPCPort = "9875"
 
-	mu      sync.Mutex
-	port    int
-	cmd     *exec.Cmd
+type freecad struct {
+	host    string
+	port    string
+	dataDir string
 	client  *http.Client
-	started bool
 }
 
 func New() mcp.Integration {
@@ -46,17 +40,17 @@ func New() mcp.Integration {
 func (f *freecad) Name() string { return "freecad" }
 
 func (f *freecad) PlainTextKeys() []string {
-	return []string{"binary_path", "data_dir"}
+	return []string{"host", "xmlrpc_port", "data_dir"}
 }
 
 func (f *freecad) Configure(_ context.Context, creds mcp.Credentials) error {
-	f.binary = creds["binary_path"]
-	if f.binary == "" {
-		path, err := exec.LookPath("freecad")
-		if err != nil {
-			return fmt.Errorf("freecad: binary_path not set and freecad not found in PATH")
-		}
-		f.binary = path
+	f.host = creds["host"]
+	if f.host == "" {
+		f.host = "localhost"
+	}
+	f.port = creds["xmlrpc_port"]
+	if f.port == "" {
+		f.port = defaultXMLRPCPort
 	}
 	f.dataDir = creds["data_dir"]
 	if f.dataDir == "" {
@@ -69,20 +63,11 @@ func (f *freecad) Configure(_ context.Context, creds mcp.Credentials) error {
 	if err := os.MkdirAll(f.dataDir, 0o750); err != nil {
 		return fmt.Errorf("freecad: cannot create data_dir %q: %w", f.dataDir, err)
 	}
-
-	// Locate bridge script
-	f.bridgePath = locateBridge(f.binary)
-	if f.bridgePath == "" {
-		return fmt.Errorf("freecad: SwitchboardBridge not found — install it in FreeCAD's Mod directory")
-	}
 	return nil
 }
 
 func (f *freecad) Healthy(ctx context.Context) bool {
-	if f.binary == "" {
-		return false
-	}
-	if err := f.ensureServer(ctx); err != nil {
+	if f.host == "" {
 		return false
 	}
 	_, err := f.rpcCall(ctx, "ping")
@@ -104,105 +89,9 @@ func (f *freecad) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) 
 	return fields, ok
 }
 
-// --- Bridge lifecycle ---
-
-// locateBridge finds the SwitchboardBridge bridge.py relative to the FreeCAD binary
-// or in the standard FreeCAD Mod directories.
-func locateBridge(binary string) string {
-	// Check standard FreeCAD user data locations
-	home, _ := os.UserHomeDir()
-	candidates := []string{}
-	if home != "" {
-		// Linux
-		candidates = append(candidates,
-			filepath.Join(home, ".local/share/FreeCAD/v1-1/Mod/SwitchboardBridge/bridge.py"),
-			filepath.Join(home, ".local/share/FreeCAD/Mod/SwitchboardBridge/bridge.py"),
-			filepath.Join(home, ".FreeCAD/Mod/SwitchboardBridge/bridge.py"),
-		)
-		// macOS
-		candidates = append(candidates,
-			filepath.Join(home, "Library/Application Support/FreeCAD/Mod/SwitchboardBridge/bridge.py"),
-			filepath.Join(home, "Library/Preferences/FreeCAD/Mod/SwitchboardBridge/bridge.py"),
-		)
-	}
-	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	return ""
-}
-
-func (f *freecad) ensureServer(ctx context.Context) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.started && f.cmd != nil && f.cmd.ProcessState == nil {
-		return nil
-	}
-	f.started = false
-
-	pr, pw, err := os.Pipe()
-	if err != nil {
-		return fmt.Errorf("freecad: pipe: %w", err)
-	}
-
-	// Launch: echo 'exec(open("bridge.py").read())' | freecad --console
-	launcher := fmt.Sprintf(`exec(open(%q).read())`, f.bridgePath)
-	cmd := exec.CommandContext(ctx, f.binary, "--console") // #nosec G204 -- binary path from trusted config
-	cmd.Stdin = strings.NewReader(launcher)
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
-	cmd.ExtraFiles = []*os.File{pw} // fd 3
-
-	if err := cmd.Start(); err != nil {
-		_ = pr.Close()
-		_ = pw.Close()
-		return fmt.Errorf("freecad: start bridge: %w", err)
-	}
-	_ = pw.Close()
-
-	buf := make([]byte, 64)
-	_ = pr.SetDeadline(time.Now().Add(30 * time.Second))
-	n, err := pr.Read(buf)
-	_ = pr.Close()
-	if err != nil {
-		_ = cmd.Process.Kill()
-		return fmt.Errorf("freecad: read port from bridge: %w", err)
-	}
-
-	portStr := strings.TrimSpace(string(buf[:n]))
-	var port int
-	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
-		_ = cmd.Process.Kill()
-		return fmt.Errorf("freecad: invalid port %q: %w", portStr, err)
-	}
-
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 500*time.Millisecond)
-		if err == nil {
-			_ = conn.Close()
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	f.cmd = cmd
-	f.port = port
-	f.started = true
-	go func() { _ = cmd.Wait() }()
-
-	return nil
-}
-
 // --- XMLRPC client (RobustMCPBridge protocol) ---
 
 func (f *freecad) rpcCall(ctx context.Context, method string, params ...string) (string, error) {
-	if err := f.ensureServer(ctx); err != nil {
-		return "", err
-	}
-
 	var xmlBody string
 	if len(params) > 0 {
 		xmlBody = fmt.Sprintf(`<?xml version="1.0"?><methodCall><methodName>%s</methodName><params><param><value><string>%s</string></value></param></params></methodCall>`,
@@ -211,7 +100,7 @@ func (f *freecad) rpcCall(ctx context.Context, method string, params ...string) 
 		xmlBody = fmt.Sprintf(`<?xml version="1.0"?><methodCall><methodName>%s</methodName><params></params></methodCall>`, method)
 	}
 
-	url := fmt.Sprintf("http://127.0.0.1:%d", f.port)
+	url := fmt.Sprintf("http://%s:%s", f.host, f.port)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(xmlBody))
 	if err != nil {
 		return "", err
@@ -220,10 +109,7 @@ func (f *freecad) rpcCall(ctx context.Context, method string, params ...string) 
 
 	resp, err := f.client.Do(req)
 	if err != nil {
-		f.mu.Lock()
-		f.started = false
-		f.mu.Unlock()
-		return "", fmt.Errorf("freecad: rpc call failed: %w", err)
+		return "", fmt.Errorf("freecad: cannot reach FreeCAD bridge at %s:%s — is FreeCAD running with the RobustMCPBridge addon? %w", f.host, f.port, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -235,16 +121,9 @@ func (f *freecad) rpcCall(ctx context.Context, method string, params ...string) 
 	return parseXMLRPCResponse(body)
 }
 
-// execScript executes Python code in the persistent FreeCAD process.
-// The code should set _result_ to return structured data.
+// execScript executes Python code in the running FreeCAD process.
 func (f *freecad) execScript(ctx context.Context, script string) (string, error) {
-	raw, err := f.rpcCall(ctx, "execute", script)
-	if err != nil {
-		return "", err
-	}
-	// The XMLRPC execute method returns a dict serialized as XMLRPC struct.
-	// Our simple parser returns it as a string — parse the result.
-	return raw, nil
+	return f.rpcCall(ctx, "execute", script)
 }
 
 // --- XMLRPC response parsing ---
@@ -269,11 +148,19 @@ type xmlrpcValue struct {
 	I4      string        `xml:"i4"`
 	Double  string        `xml:"double"`
 	Struct  *xmlrpcStruct `xml:"struct"`
+	Array   *xmlrpcArray  `xml:"array"`
+	Nil     *struct{}     `xml:"nil"`
 	Inner   string        `xml:",chardata"`
 }
 
 type xmlrpcStruct struct {
 	Members []xmlrpcMember `xml:"member"`
+}
+
+type xmlrpcArray struct {
+	Data struct {
+		Values []xmlrpcValue `xml:"value"`
+	} `xml:"data"`
 }
 
 type xmlrpcMember struct {
@@ -296,37 +183,34 @@ func parseXMLRPCResponse(data []byte) (string, error) {
 	}
 
 	v := resp.Params.Param.Value
-	if v.Struct != nil {
-		return structToJSON(v.Struct), nil
+	result := valueToAny(&v)
+	if result == nil {
+		return "", nil
 	}
-	if v.String != "" {
-		return v.String, nil
+	out, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Sprintf("%v", result), nil
 	}
-	if v.Boolean != "" {
-		return v.Boolean, nil
-	}
-	if v.Inner != "" {
-		return strings.TrimSpace(v.Inner), nil
-	}
-	return "", nil
-}
-
-func structToJSON(s *xmlrpcStruct) string {
-	m := make(map[string]any, len(s.Members))
-	for _, mem := range s.Members {
-		m[mem.Name] = valueToAny(&mem.Value)
-	}
-	data, _ := json.Marshal(m)
-	return string(data)
+	return string(out), nil
 }
 
 func valueToAny(v *xmlrpcValue) any {
+	if v.Nil != nil {
+		return nil
+	}
 	if v.Struct != nil {
 		m := make(map[string]any, len(v.Struct.Members))
 		for _, mem := range v.Struct.Members {
 			m[mem.Name] = valueToAny(&mem.Value)
 		}
 		return m
+	}
+	if v.Array != nil {
+		arr := make([]any, len(v.Array.Data.Values))
+		for i := range v.Array.Data.Values {
+			arr[i] = valueToAny(&v.Array.Data.Values[i])
+		}
+		return arr
 	}
 	if v.String != "" {
 		return v.String
@@ -344,9 +228,9 @@ func valueToAny(v *xmlrpcValue) any {
 		return n
 	}
 	if v.Double != "" {
-		var f float64
-		_, _ = fmt.Sscanf(v.Double, "%f", &f)
-		return f
+		var fl float64
+		_, _ = fmt.Sscanf(v.Double, "%f", &fl)
+		return fl
 	}
 	return strings.TrimSpace(v.Inner)
 }
@@ -377,8 +261,6 @@ func (f *freecad) execPython(ctx context.Context, script string) (*mcp.ToolResul
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	// raw is the XMLRPC struct with {success, result, stdout, stderr, ...}
-	// Parse it to extract the _result_ value
 	var resp struct {
 		Success      bool   `json:"success"`
 		Result       any    `json:"result"`
@@ -387,7 +269,6 @@ func (f *freecad) execPython(ctx context.Context, script string) (*mcp.ToolResul
 		Stdout       string `json:"stdout"`
 	}
 	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
-		// Not JSON struct — return as-is
 		if raw == "" {
 			return &mcp.ToolResult{Data: `{"status":"ok"}`}, nil
 		}
@@ -420,6 +301,14 @@ func optFloat(args map[string]any, key string, def float64) float64 {
 		return def
 	}
 	return v
+}
+
+// pyBool converts a Go bool to a Python bool string ("True"/"False").
+func pyBool(b bool) string {
+	if b {
+		return "True"
+	}
+	return "False"
 }
 
 // --- Dispatch map ---
@@ -472,6 +361,30 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("freecad_export_stl"):  exportSTL,
 	mcp.ToolName("freecad_export_brep"): exportBRep,
 	mcp.ToolName("freecad_import_file"): importFile,
+
+	// Sketcher
+	mcp.ToolName("freecad_create_sketch"):          createSketch,
+	mcp.ToolName("freecad_add_sketch_line"):        addSketchLine,
+	mcp.ToolName("freecad_add_sketch_circle"):      addSketchCircle,
+	mcp.ToolName("freecad_add_sketch_arc"):         addSketchArc,
+	mcp.ToolName("freecad_add_sketch_rectangle"):   addSketchRectangle,
+	mcp.ToolName("freecad_add_sketch_polygon"):     addSketchPolygon,
+	mcp.ToolName("freecad_add_constraint"):         addConstraint,
+	mcp.ToolName("freecad_get_sketch"):             getSketch,
+	mcp.ToolName("freecad_delete_sketch_geometry"): deleteSketchGeometry,
+
+	// PartDesign
+	mcp.ToolName("freecad_create_body"):    createBody,
+	mcp.ToolName("freecad_pad"):            pad,
+	mcp.ToolName("freecad_pocket"):         pocket,
+	mcp.ToolName("freecad_revolution"):     revolution,
+	mcp.ToolName("freecad_groove"):         groove,
+	mcp.ToolName("freecad_pd_fillet"):      pdFillet,
+	mcp.ToolName("freecad_pd_chamfer"):     pdChamfer,
+	mcp.ToolName("freecad_pd_mirror"):      pdMirror,
+	mcp.ToolName("freecad_linear_pattern"): linearPattern,
+	mcp.ToolName("freecad_polar_pattern"):  polarPattern,
+	mcp.ToolName("freecad_pd_hole"):        pdHole,
 
 	// Python scripting
 	mcp.ToolName("freecad_run_script"): runUserScript,

@@ -309,4 +309,228 @@ var tools = []mcp.ToolDefinition{
 		},
 		Required: []string{"script"},
 	},
+
+	// ── Sketcher ────────────────────────────────────────────────────
+	{
+		Name: mcp.ToolName("freecad_create_sketch"), Description: "Create a new 2D sketch in a FreeCAD document. Start here for parametric modeling — sketches are the foundation for pad, pocket, and revolution operations.",
+		Parameters: map[string]string{
+			"doc_name":  "Document name (optional, uses active document)",
+			"name":      "Sketch object name (optional, defaults to 'Sketch')",
+			"plane":     "Sketch plane: 'XY', 'XZ', or 'YZ' (default 'XY')",
+			"body_name": "PartDesign Body to attach sketch to (optional)",
+		},
+	},
+	{
+		Name: mcp.ToolName("freecad_add_sketch_line"), Description: "Add a line segment to a sketch. Specify start and end coordinates in mm.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch object name",
+			"x1":          "Start X coordinate in mm",
+			"y1":          "Start Y coordinate in mm",
+			"x2":          "End X coordinate in mm",
+			"y2":          "End Y coordinate in mm",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name", "x1", "y1", "x2", "y2"},
+	},
+	{
+		Name: mcp.ToolName("freecad_add_sketch_circle"), Description: "Add a circle to a sketch. Specify center and radius in mm.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch object name",
+			"cx":          "Center X coordinate in mm",
+			"cy":          "Center Y coordinate in mm",
+			"radius":      "Radius in mm",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name", "cx", "cy", "radius"},
+	},
+	{
+		Name: mcp.ToolName("freecad_add_sketch_arc"), Description: "Add a circular arc to a sketch. Specify center, radius, and angles in degrees.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch object name",
+			"cx":          "Center X coordinate in mm",
+			"cy":          "Center Y coordinate in mm",
+			"radius":      "Radius in mm",
+			"start_angle": "Start angle in degrees",
+			"end_angle":   "End angle in degrees",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name", "cx", "cy", "radius", "start_angle", "end_angle"},
+	},
+	{
+		Name: mcp.ToolName("freecad_add_sketch_rectangle"), Description: "Add a rectangle to a sketch defined by two corner points. Automatically adds coincident, horizontal, and vertical constraints.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch object name",
+			"x1":          "First corner X in mm",
+			"y1":          "First corner Y in mm",
+			"x2":          "Opposite corner X in mm",
+			"y2":          "Opposite corner Y in mm",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name", "x1", "y1", "x2", "y2"},
+	},
+	{
+		Name: mcp.ToolName("freecad_add_sketch_polygon"), Description: "Add a closed polygon to a sketch from a list of vertex points. Automatically adds coincident constraints to close the shape.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch object name",
+			"points":      "JSON array of [x, y] coordinate pairs, e.g. [[0,0],[10,0],[10,10],[0,10]]",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name", "points"},
+	},
+	{
+		Name: mcp.ToolName("freecad_add_constraint"), Description: "Add a geometric or dimensional constraint to a sketch. Supports: Coincident, Horizontal, Vertical, Parallel, Perpendicular, Tangent, Equal, Distance, DistanceX, DistanceY, Radius, Angle, Fixed, Block.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch object name",
+			"type":        "Constraint type (e.g. Coincident, Distance, Horizontal, Vertical, Radius, Angle, Parallel, Perpendicular, Equal, Tangent, Fixed, Block)",
+			"first":       "First geometry index (required for all constraints)",
+			"first_pos":   "First geometry point: 1=start, 2=end, 3=center (for Coincident/Distance)",
+			"second":      "Second geometry index (for two-geometry constraints, -1 if unused)",
+			"second_pos":  "Second geometry point: 1=start, 2=end, 3=center",
+			"value":       "Constraint value in mm or degrees (for Distance, Radius, Angle)",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name", "type", "first"},
+	},
+	{
+		Name: mcp.ToolName("freecad_get_sketch"), Description: "Get detailed information about a sketch: all geometry elements, constraints, and constraint status. Use to inspect sketch state.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch object name",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name"},
+	},
+	{
+		Name: mcp.ToolName("freecad_delete_sketch_geometry"), Description: "Delete a geometry element from a sketch by its index. Related constraints are automatically removed.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch object name",
+			"index":       "Geometry index to delete (0-based)",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name", "index"},
+	},
+
+	// ── PartDesign ──────────────────────────────────────────────────
+	{
+		Name: mcp.ToolName("freecad_create_body"), Description: "Create a PartDesign Body container in a FreeCAD document. Required before using pad, pocket, revolution, and other PartDesign features.",
+		Parameters: map[string]string{
+			"doc_name": "Document name (optional)",
+			"name":     "Body name (optional, defaults to 'Body')",
+		},
+	},
+	{
+		Name: mcp.ToolName("freecad_pad"), Description: "Pad (extrude) a sketch to create a 3D solid. The primary way to turn a 2D sketch into a 3D part. Use after create_sketch.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch to pad",
+			"length":      "Pad length/depth in mm",
+			"name":        "Feature name (optional, defaults to 'Pad')",
+			"body_name":   "Body name (optional, auto-detected from sketch parent)",
+			"doc_name":    "Document name (optional)",
+			"symmetric":   "Pad symmetrically in both directions (true/false, default false)",
+			"reversed":    "Reverse pad direction (true/false, default false)",
+		},
+		Required: []string{"sketch_name", "length"},
+	},
+	{
+		Name: mcp.ToolName("freecad_pocket"), Description: "Create a pocket (cut/hole) by extruding a sketch into existing solid. Subtractive operation — removes material.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch defining the pocket shape",
+			"length":      "Pocket depth in mm (ignored if through_all is true)",
+			"name":        "Feature name (optional, defaults to 'Pocket')",
+			"body_name":   "Body name (optional)",
+			"doc_name":    "Document name (optional)",
+			"through_all": "Cut through entire part (true/false, default false)",
+		},
+		Required: []string{"sketch_name", "length"},
+	},
+	{
+		Name: mcp.ToolName("freecad_revolution"), Description: "Revolve a sketch around an axis to create a solid of revolution (lathe operation). Creates rotationally symmetric parts.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch to revolve",
+			"angle":       "Revolution angle in degrees (optional, default 360 for full revolution)",
+			"axis":        "Revolution axis: 'V_Axis' (vertical), 'H_Axis' (horizontal), or 'N_Axis' (normal). Default 'V_Axis'",
+			"name":        "Feature name (optional)",
+			"body_name":   "Body name (optional)",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name"},
+	},
+	{
+		Name: mcp.ToolName("freecad_groove"), Description: "Create a groove by revolving a sketch profile as a subtractive operation. The rotational equivalent of pocket.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch to revolve (subtractive)",
+			"angle":       "Groove angle in degrees (optional, default 360)",
+			"axis":        "Revolution axis: 'V_Axis', 'H_Axis', or 'N_Axis' (default 'V_Axis')",
+			"name":        "Feature name (optional)",
+			"body_name":   "Body name (optional)",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name"},
+	},
+	{
+		Name: mcp.ToolName("freecad_pd_fillet"), Description: "Add fillets (rounded edges) to a PartDesign body. Rounds specified edges or all edges of the tip feature.",
+		Parameters: map[string]string{
+			"radius":    "Fillet radius in mm",
+			"edges":     "JSON array of edge indices to fillet, e.g. [1,3,5] (optional, defaults to all edges)",
+			"name":      "Feature name (optional)",
+			"body_name": "Body name (optional)",
+			"doc_name":  "Document name (optional)",
+		},
+		Required: []string{"radius"},
+	},
+	{
+		Name: mcp.ToolName("freecad_pd_chamfer"), Description: "Add chamfers (beveled edges) to a PartDesign body. Bevels specified edges or all edges of the tip feature.",
+		Parameters: map[string]string{
+			"size":      "Chamfer size in mm",
+			"edges":     "JSON array of edge indices to chamfer (optional, defaults to all edges)",
+			"name":      "Feature name (optional)",
+			"body_name": "Body name (optional)",
+			"doc_name":  "Document name (optional)",
+		},
+		Required: []string{"size"},
+	},
+	{
+		Name: mcp.ToolName("freecad_pd_mirror"), Description: "Mirror a PartDesign feature across a body origin plane. Creates a symmetric copy.",
+		Parameters: map[string]string{
+			"plane":     "Mirror plane: 'XY_Plane', 'XZ_Plane', or 'YZ_Plane' (default 'XY_Plane')",
+			"name":      "Feature name (optional)",
+			"body_name": "Body name (optional)",
+			"doc_name":  "Document name (optional)",
+		},
+	},
+	{
+		Name: mcp.ToolName("freecad_linear_pattern"), Description: "Create a linear pattern (array) of the tip feature along a direction. Repeats the last feature at equal intervals.",
+		Parameters: map[string]string{
+			"occurrences": "Number of total occurrences (including original)",
+			"length":      "Total pattern length in mm",
+			"direction":   "Pattern direction: 'H_Axis' or 'V_Axis' (default 'H_Axis')",
+			"name":        "Feature name (optional)",
+			"body_name":   "Body name (optional)",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"occurrences", "length"},
+	},
+	{
+		Name: mcp.ToolName("freecad_polar_pattern"), Description: "Create a polar (circular) pattern of the tip feature around an axis. Repeats the last feature in a circular arrangement.",
+		Parameters: map[string]string{
+			"occurrences": "Number of total occurrences (including original)",
+			"angle":       "Total pattern angle in degrees (optional, default 360)",
+			"name":        "Feature name (optional)",
+			"body_name":   "Body name (optional)",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"occurrences"},
+	},
+	{
+		Name: mcp.ToolName("freecad_pd_hole"), Description: "Create a hole feature in a PartDesign body from a sketch containing point(s). Supports simple holes and threaded holes.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch with center point(s) for holes",
+			"diameter":    "Hole diameter in mm",
+			"depth":       "Hole depth in mm",
+			"threaded":    "Create threaded hole (true/false, default false)",
+			"name":        "Feature name (optional)",
+			"body_name":   "Body name (optional)",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name", "diameter", "depth"},
+	},
 }
