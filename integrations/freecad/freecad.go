@@ -26,8 +26,8 @@ var (
 )
 
 type freecad struct {
-	binary    string
-	dataDir   string
+	binary     string
+	dataDir    string
 	bridgePath string
 
 	mu      sync.Mutex
@@ -277,7 +277,7 @@ type xmlrpcStruct struct {
 }
 
 type xmlrpcMember struct {
-	Name  string     `xml:"name"`
+	Name  string      `xml:"name"`
 	Value xmlrpcValue `xml:"value"`
 }
 
@@ -340,12 +340,12 @@ func valueToAny(v *xmlrpcValue) any {
 			s = v.I4
 		}
 		var n int
-		fmt.Sscanf(s, "%d", &n)
+		_, _ = fmt.Sscanf(s, "%d", &n)
 		return n
 	}
 	if v.Double != "" {
 		var f float64
-		fmt.Sscanf(v.Double, "%f", &f)
+		_, _ = fmt.Sscanf(v.Double, "%f", &f)
 		return f
 	}
 	return strings.TrimSpace(v.Inner)
