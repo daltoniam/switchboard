@@ -172,3 +172,78 @@ _result_ = {
 }
 `, fp, objName, objName, objName))
 }
+
+func getDocumentErrors(ctx context.Context, f *freecad, _ map[string]any) (*mcp.ToolResult, error) {
+	return f.execPython(ctx, `
+doc = FreeCAD.ActiveDocument
+if doc is None:
+    raise ValueError("No active document")
+objects = []
+for obj in doc.Objects:
+    info = {"name": obj.Name, "type": obj.TypeId, "state": list(obj.State) if hasattr(obj, "State") else []}
+    try:
+        info["valid"] = obj.isValid()
+    except:
+        info["valid"] = None
+    if hasattr(obj, "Shape") and obj.Shape:
+        if obj.Shape.isNull():
+            info["shape"] = "null"
+        else:
+            info["shape"] = "valid" if obj.Shape.isValid() else "invalid"
+    objects.append(info)
+invalid = [o for o in objects if o.get("valid") == False or "Invalid" in o.get("state", []) or o.get("shape") in ("null", "invalid")]
+_result_ = {
+    "document": doc.Name,
+    "total_objects": len(objects),
+    "invalid_count": len(invalid),
+    "invalid_objects": invalid,
+}
+`)
+}
+
+func getSketchSolverStatus(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	sketchName := r.Str("sketch_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if sketchName == "" {
+		return mcp.ErrResult(fmt.Errorf("sketch_name is required"))
+	}
+	docName, _ := mcp.ArgStr(args, "doc_name")
+
+	return f.execPython(ctx, fmt.Sprintf(`
+import Part, Sketcher
+doc = FreeCAD.getDocument(%q) if %q else FreeCAD.ActiveDocument
+if doc is None:
+    raise ValueError("No document found")
+sketch = doc.getObject(%q)
+if sketch is None:
+    raise ValueError("Sketch not found: " + %q)
+result = {
+    "name": sketch.Name,
+    "geometry_count": sketch.GeometryCount,
+    "constraint_count": sketch.ConstraintCount,
+    "fully_constrained": sketch.FullyConstrained if hasattr(sketch, "FullyConstrained") else None,
+}
+try:
+    result["dof"] = sketch.DOF
+except:
+    pass
+try:
+    result["solver_status"] = sketch.solve()
+except:
+    pass
+if not sketch.FullyConstrained and sketch.GeometryCount > 0:
+    dof = result.get("dof", -1)
+    result["status"] = "under-constrained"
+    result["message"] = "Sketch needs %%d more constraint(s) to be fully defined" %% dof if dof >= 0 else "Sketch is under-constrained"
+elif sketch.FullyConstrained:
+    result["status"] = "fully-constrained"
+    result["message"] = "All geometry is fully defined"
+else:
+    result["status"] = "empty"
+    result["message"] = "Sketch has no geometry"
+_result_ = result
+`, docName, docName, sketchName, sketchName))
+}

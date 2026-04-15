@@ -352,9 +352,11 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("freecad_mirror"):  mirror,
 
 	// Measurement / analysis
-	mcp.ToolName("freecad_measure_shape"):  measureShape,
-	mcp.ToolName("freecad_check_geometry"): checkGeometry,
-	mcp.ToolName("freecad_bounding_box"):   boundingBox,
+	mcp.ToolName("freecad_measure_shape"):       measureShape,
+	mcp.ToolName("freecad_check_geometry"):      checkGeometry,
+	mcp.ToolName("freecad_bounding_box"):        boundingBox,
+	mcp.ToolName("freecad_get_document_errors"): getDocumentErrors,
+	mcp.ToolName("freecad_get_solver_status"):   getSketchSolverStatus,
 
 	// Export / import
 	mcp.ToolName("freecad_export_step"): exportSTEP,

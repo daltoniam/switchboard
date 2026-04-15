@@ -262,6 +262,19 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"file_path", "object_name"},
 	},
 
+	{
+		Name: mcp.ToolName("freecad_get_document_errors"), Description: "Get all object errors, invalid states, and null shapes in the active FreeCAD document. Use to diagnose why a design or feature failed after recompute.",
+		Parameters: map[string]string{},
+	},
+	{
+		Name: mcp.ToolName("freecad_get_solver_status"), Description: "Get the constraint solver status for a sketch: degrees of freedom, fully-constrained state, and solver diagnostics. Use to diagnose under-constrained or over-constrained sketches.",
+		Parameters: map[string]string{
+			"sketch_name": "Sketch object name",
+			"doc_name":    "Document name (optional)",
+		},
+		Required: []string{"sketch_name"},
+	},
+
 	// ── Export / Import ─────────────────────────────────────────────
 	{
 		Name: mcp.ToolName("freecad_export_step"), Description: "Export a 3D object or entire document to STEP format (.step/.stp). Standard CAD exchange format for manufacturing and CNC.",
