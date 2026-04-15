@@ -103,6 +103,11 @@ var envMapping = map[string]map[string]string{
 	"fly": {
 		"api_token": "FLY_API_TOKEN",
 	},
+	"freecad": {
+		"host":        "FREECAD_HOST",
+		"xmlrpc_port": "FREECAD_XMLRPC_PORT",
+		"data_dir":    "FREECAD_DATA_DIR",
+	},
 	"snowflake": {
 		"account":       "SNOWFLAKE_ACCOUNT",
 		"token":         "SNOWFLAKE_TOKEN",
@@ -270,6 +275,10 @@ func defaultConfig() *mcp.Config {
 			"fly": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "base_url": ""},
+			},
+			"freecad": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"host": "", "xmlrpc_port": "", "data_dir": ""},
 			},
 			"snowflake": {
 				Enabled:     false,
