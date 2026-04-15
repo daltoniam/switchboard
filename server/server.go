@@ -110,7 +110,9 @@ func New(services *mcp.Services, opts ...Option) *Server {
 				"(e.g., {\"query\": \"get page\"} finds notion_retrieve_page). " +
 				"Use the session tool to set context (e.g., owner/repo) once — " +
 				"subsequent execute calls auto-inject those values as defaults. " +
-				"Use the history tool to review prior calls after context compression.",
+				"Use the history tool to review prior calls after context compression. " +
+				"Every execute result is auto-pinned ($1, $2, ...) — use pin to retrieve or " +
+				"pass handles like $1.field in execute arguments to reference previous results.",
 		},
 	)
 
@@ -278,10 +280,40 @@ Returns: [{seq, tool, args, summary, is_error, timestamp}] ordered by time.`,
 		}, nil),
 	}
 
+	pinTool := &mcpsdk.Tool{
+		Name: "pin",
+		Description: `Manage pinned results from previous execute calls.
+
+Every successful execute auto-pins its result with a handle ($1, $2, ...).
+Use handles in execute arguments to reference previous results without re-fetching:
+  execute({tool_name: "github_get_issue", arguments: {owner: "$1.owner.login", issue_number: "$2.number"}})
+
+Actions:
+- "list": Show all pinned handles with tool name and size
+- "get": Retrieve a pinned result by handle, optionally extracting a sub-field via path
+- "unpin": Free memory by removing a pinned result`,
+		InputSchema: objectSchema(map[string]any{
+			"action": map[string]any{
+				"type":        "string",
+				"description": `The action to perform: "list", "get", or "unpin".`,
+				"enum":        []string{"list", "get", "unpin"},
+			},
+			"handle": map[string]any{
+				"type":        "string",
+				"description": "The handle to operate on (e.g. \"$1\"). Required for get and unpin.",
+			},
+			"path": map[string]any{
+				"type":        "string",
+				"description": "Dot-notation path to extract a sub-field (e.g. \"user.login\"). Only for get.",
+			},
+		}, []string{"action"}),
+	}
+
 	s.mcpServer.AddTool(searchTool, s.handleSearch)
 	s.mcpServer.AddTool(executeTool, s.handleExecute)
 	s.mcpServer.AddTool(sessionTool, s.handleSession)
 	s.mcpServer.AddTool(historyTool, s.handleHistory)
+	s.mcpServer.AddTool(pinTool, s.handlePin)
 }
 
 func (s *Server) configureIntegrations() {
@@ -622,7 +654,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	if args.ToolName == "" {
 		return errorResult("either tool_name or script is required"), nil
 	}
-	if args.ToolName == "search" || args.ToolName == "execute" || args.ToolName == "session" || args.ToolName == "history" {
+	if args.ToolName == "search" || args.ToolName == "execute" || args.ToolName == "session" || args.ToolName == "history" || args.ToolName == "pin" {
 		return errorResult(fmt.Sprintf(
 			"tool %q is a meta-tool — use it directly as an MCP tool call, not through execute",
 			args.ToolName)), nil
@@ -635,6 +667,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	if sess == nil {
 		sess = s.sessionStore.GetOrCreate(sessionIDFromReq(req.Session))
 	}
+	resolveRefs(sess, args.Arguments)
 	args.Arguments = sess.MergeDefaults(args.Arguments)
 
 	integration, result, err := s.executeTool(ctx, args.ToolName, args.Arguments)
@@ -642,6 +675,10 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		sess.AddBreadcrumb(args.ToolName, args.Arguments, err.Error(), true)
 		_ = s.sessionStore.Save(sess)
 		return errorResult(err.Error()), nil
+	}
+	var handle string
+	if !result.IsError {
+		handle = sess.PinResult(args.ToolName, result.Data)
 	}
 	sess.AddBreadcrumb(args.ToolName, args.Arguments, result.Data, result.IsError)
 	_ = s.sessionStore.Save(sess)
@@ -663,9 +700,18 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 			len(result.Data)/1024,
 		)), nil
 	}
+	text := result.Data
+	if handle != "" {
+		return &mcpsdk.CallToolResult{
+			Content: []mcpsdk.Content{
+				&mcpsdk.TextContent{Text: text},
+				&mcpsdk.TextContent{Text: "pinned as " + handle},
+			},
+		}, nil
+	}
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
-			&mcpsdk.TextContent{Text: result.Data},
+			&mcpsdk.TextContent{Text: text},
 		},
 	}, nil
 }
@@ -1046,7 +1092,7 @@ type toolExecutor struct {
 }
 
 func (te *toolExecutor) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
-	if toolName == "search" || toolName == "execute" || toolName == "session" || toolName == "history" {
+	if toolName == "search" || toolName == "execute" || toolName == "session" || toolName == "history" || toolName == "pin" {
 		return &mcp.ToolResult{
 			Data: fmt.Sprintf(
 				"tool %q is a meta-tool and cannot be called from scripts. "+
