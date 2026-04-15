@@ -3,52 +3,26 @@ package freecad
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
 
 func getVersion(ctx context.Context, f *freecad, _ map[string]any) (*mcp.ToolResult, error) {
-	return jsonScriptResult(ctx, f, `
-import FreeCAD
-import json
+	return f.execPython(ctx, `
 v = FreeCAD.Version()
-print(json.dumps({
-    "version": v[0] + "." + v[1] + "." + v[2],
-    "revision": v[3],
-    "build_date": v[5] if len(v) > 5 else "",
-    "platform": v[6] if len(v) > 6 else ""
-}))
+_result_ = {"version": v[0] + "." + v[1] + "." + v[2], "revision": v[3], "build_date": v[5] if len(v) > 5 else "", "platform": v[6] if len(v) > 6 else ""}
 `)
 }
 
-func listDocuments(_ context.Context, f *freecad, _ map[string]any) (*mcp.ToolResult, error) {
-	entries, err := os.ReadDir(f.dataDir)
-	if err != nil {
-		return mcp.ErrResult(fmt.Errorf("cannot read data_dir: %w", err))
-	}
-	var docs []map[string]any
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".fcstd") {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-		docs = append(docs, map[string]any{
-			"name":     e.Name(),
-			"path":     filepath.Join(f.dataDir, e.Name()),
-			"size":     info.Size(),
-			"modified": info.ModTime().Format("2006-01-02T15:04:05Z"),
-		})
-	}
-	if docs == nil {
-		docs = []map[string]any{}
-	}
-	return mcp.JSONResult(docs)
+func listDocuments(ctx context.Context, f *freecad, _ map[string]any) (*mcp.ToolResult, error) {
+	return f.execPython(ctx, `
+import os
+docs = []
+for doc in FreeCAD.listDocuments().values():
+    info = {"name": doc.Name, "label": doc.Label, "path": doc.FileName or "", "objects": len(doc.Objects), "modified": doc.Modified if hasattr(doc, "Modified") else False}
+    docs.append(info)
+_result_ = docs
+`)
 }
 
 func createDocument(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
@@ -67,19 +41,16 @@ func createDocument(ctx context.Context, f *freecad, args map[string]any) (*mcp.
 
 	fp := f.filePath(name + ".FCStd")
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
+	return f.execPython(ctx, fmt.Sprintf(`
 doc = FreeCAD.newDocument(%q)
 doc.Label = %q
 doc.saveAs(%q)
-print(json.dumps({
+_result_ = {
     "name": doc.Name,
     "label": doc.Label,
     "file_path": %q,
     "objects": len(doc.Objects)
-}))
-FreeCAD.closeDocument(doc.Name)
+}
 `, name, label, fp, fp))
 }
 
@@ -95,10 +66,16 @@ func openDocument(ctx context.Context, f *freecad, args map[string]any) (*mcp.To
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 objects = []
 for obj in doc.Objects:
     info = {"name": obj.Name, "label": obj.Label, "type": obj.TypeId}
@@ -106,15 +83,52 @@ for obj in doc.Objects:
         info["shape_type"] = obj.Shape.ShapeType
         info["volume"] = round(obj.Shape.Volume, 4)
     objects.append(info)
-print(json.dumps({
+_result_ = {
     "name": doc.Name,
     "label": doc.Label,
-    "file_path": %q,
+    "file_path": fp,
     "object_count": len(doc.Objects),
     "objects": objects
-}))
-FreeCAD.closeDocument(doc.Name)
-`, fp, fp))
+}
+`, fp))
+}
+
+func saveDocument(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
+	docName, _ := mcp.ArgStr(args, "doc_name")
+	filePath, _ := mcp.ArgStr(args, "file_path")
+
+	return f.execPython(ctx, fmt.Sprintf(`
+doc_name = %q
+file_path = %q
+if doc_name:
+    doc = FreeCAD.getDocument(doc_name)
+else:
+    doc = FreeCAD.ActiveDocument
+if doc is None:
+    raise ValueError("No document found")
+if file_path:
+    doc.saveAs(file_path)
+else:
+    doc.save()
+_result_ = {"status": "saved", "name": doc.Name, "path": doc.FileName}
+`, docName, filePath))
+}
+
+func closeDocument(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
+	docName, _ := mcp.ArgStr(args, "doc_name")
+
+	return f.execPython(ctx, fmt.Sprintf(`
+doc_name = %q
+if doc_name:
+    FreeCAD.closeDocument(doc_name)
+else:
+    doc = FreeCAD.ActiveDocument
+    if doc:
+        FreeCAD.closeDocument(doc.Name)
+    else:
+        raise ValueError("No active document")
+_result_ = {"status": "closed"}
+`, docName))
 }
 
 func getDocument(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
@@ -129,10 +143,16 @@ func getDocument(ctx context.Context, f *freecad, args map[string]any) (*mcp.Too
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 objects = []
 for obj in doc.Objects:
     info = {"name": obj.Name, "label": obj.Label, "type": obj.TypeId}
@@ -148,13 +168,12 @@ for obj in doc.Objects:
             "z_min": round(bb.ZMin, 4), "z_max": round(bb.ZMax, 4)
         }
     objects.append(info)
-print(json.dumps({
+_result_ = {
     "name": doc.Name,
     "label": doc.Label,
-    "file_path": %q,
+    "file_path": fp,
     "object_count": len(doc.Objects),
     "objects": objects
-}))
-FreeCAD.closeDocument(doc.Name)
-`, fp, fp))
+}
+`, fp))
 }

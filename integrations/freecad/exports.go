@@ -25,40 +25,47 @@ func exportSTEP(ctx context.Context, f *freecad, args map[string]any) (*mcp.Tool
 	fp := f.filePath(filePath)
 	op := f.filePath(outputPath)
 
-	script := fmt.Sprintf(`
-import FreeCAD
-import Part
-import json
-import os
-doc = FreeCAD.open(%q)
-`, fp)
-
 	if objName != "" {
-		script += fmt.Sprintf(`
+		return f.execPython(ctx, fmt.Sprintf(`
+import os
+import Part
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    obj.Shape.exportStep(%q)
-    print(json.dumps({"status": "exported", "format": "STEP", "file": %q, "size": os.path.getsize(%q)}))
-`, objName, objName, op, op, op)
-	} else {
-		script += fmt.Sprintf(`
-shapes = [obj.Shape for obj in doc.Objects if hasattr(obj, "Shape") and obj.Shape and not obj.Shape.isNull()]
-if not shapes:
-    print(json.dumps({"error": "no shapes to export"}))
-else:
-    if len(shapes) == 1:
-        shapes[0].exportStep(%q)
-    else:
-        compound = Part.makeCompound(shapes)
-        compound.exportStep(%q)
-    print(json.dumps({"status": "exported", "format": "STEP", "file": %q, "size": os.path.getsize(%q), "shapes_exported": len(shapes)}))
-`, op, op, op, op)
+    raise ValueError("object not found: %s")
+obj.Shape.exportStep(%q)
+_result_ = {"status": "exported", "format": "STEP", "file": %q, "size": os.path.getsize(%q)}
+`, fp, objName, objName, op, op, op))
 	}
 
-	script += "\nFreeCAD.closeDocument(doc.Name)"
-	return jsonScriptResult(ctx, f, script)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+import Part
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
+shapes = [obj.Shape for obj in doc.Objects if hasattr(obj, "Shape") and obj.Shape and not obj.Shape.isNull()]
+if not shapes:
+    raise ValueError("no shapes to export")
+if len(shapes) == 1:
+    shapes[0].exportStep(%q)
+else:
+    compound = Part.makeCompound(shapes)
+    compound.exportStep(%q)
+_result_ = {"status": "exported", "format": "STEP", "file": %q, "size": os.path.getsize(%q), "shapes_exported": len(shapes)}
+`, fp, op, op, op, op))
 }
 
 func exportSTL(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
@@ -80,44 +87,52 @@ func exportSTL(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolR
 	fp := f.filePath(filePath)
 	op := f.filePath(outputPath)
 
-	script := fmt.Sprintf(`
-import FreeCAD
+	if objName != "" {
+		return f.execPython(ctx, fmt.Sprintf(`
+import os
 import Mesh
 import MeshPart
-import json
-import os
-doc = FreeCAD.open(%q)
-`, fp)
-
-	if objName != "" {
-		script += fmt.Sprintf(`
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    mesh = MeshPart.meshFromShape(obj.Shape, LinearDeflection=%f)
-    mesh.write(%q)
-    print(json.dumps({"status": "exported", "format": "STL", "file": %q, "size": os.path.getsize(%q), "triangles": mesh.CountFacets, "vertices": mesh.CountPoints}))
-`, objName, objName, tolerance, op, op, op)
-	} else {
-		script += fmt.Sprintf(`
-shapes = [obj.Shape for obj in doc.Objects if hasattr(obj, "Shape") and obj.Shape and not obj.Shape.isNull()]
-if not shapes:
-    print(json.dumps({"error": "no shapes to export"}))
-else:
-    import Part
-    if len(shapes) == 1:
-        shape = shapes[0]
-    else:
-        shape = Part.makeCompound(shapes)
-    mesh = MeshPart.meshFromShape(shape, LinearDeflection=%f)
-    mesh.write(%q)
-    print(json.dumps({"status": "exported", "format": "STL", "file": %q, "size": os.path.getsize(%q), "triangles": mesh.CountFacets, "vertices": mesh.CountPoints}))
-`, tolerance, op, op, op)
+    raise ValueError("object not found: %s")
+mesh = MeshPart.meshFromShape(obj.Shape, LinearDeflection=%f)
+mesh.write(%q)
+_result_ = {"status": "exported", "format": "STL", "file": %q, "size": os.path.getsize(%q), "triangles": mesh.CountFacets, "vertices": mesh.CountPoints}
+`, fp, objName, objName, tolerance, op, op, op))
 	}
 
-	script += "\nFreeCAD.closeDocument(doc.Name)"
-	return jsonScriptResult(ctx, f, script)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+import Part
+import Mesh
+import MeshPart
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
+shapes = [obj.Shape for obj in doc.Objects if hasattr(obj, "Shape") and obj.Shape and not obj.Shape.isNull()]
+if not shapes:
+    raise ValueError("no shapes to export")
+if len(shapes) == 1:
+    shape = shapes[0]
+else:
+    shape = Part.makeCompound(shapes)
+mesh = MeshPart.meshFromShape(shape, LinearDeflection=%f)
+mesh.write(%q)
+_result_ = {"status": "exported", "format": "STL", "file": %q, "size": os.path.getsize(%q), "triangles": mesh.CountFacets, "vertices": mesh.CountPoints}
+`, fp, tolerance, op, op, op))
 }
 
 func exportBRep(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
@@ -138,40 +153,47 @@ func exportBRep(ctx context.Context, f *freecad, args map[string]any) (*mcp.Tool
 	fp := f.filePath(filePath)
 	op := f.filePath(outputPath)
 
-	script := fmt.Sprintf(`
-import FreeCAD
-import Part
-import json
-import os
-doc = FreeCAD.open(%q)
-`, fp)
-
 	if objName != "" {
-		script += fmt.Sprintf(`
+		return f.execPython(ctx, fmt.Sprintf(`
+import os
+import Part
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    obj.Shape.exportBrep(%q)
-    print(json.dumps({"status": "exported", "format": "BRep", "file": %q, "size": os.path.getsize(%q)}))
-`, objName, objName, op, op, op)
-	} else {
-		script += fmt.Sprintf(`
-shapes = [obj.Shape for obj in doc.Objects if hasattr(obj, "Shape") and obj.Shape and not obj.Shape.isNull()]
-if not shapes:
-    print(json.dumps({"error": "no shapes to export"}))
-else:
-    if len(shapes) == 1:
-        shapes[0].exportBrep(%q)
-    else:
-        compound = Part.makeCompound(shapes)
-        compound.exportBrep(%q)
-    print(json.dumps({"status": "exported", "format": "BRep", "file": %q, "size": os.path.getsize(%q), "shapes_exported": len(shapes)}))
-`, op, op, op, op)
+    raise ValueError("object not found: %s")
+obj.Shape.exportBrep(%q)
+_result_ = {"status": "exported", "format": "BRep", "file": %q, "size": os.path.getsize(%q)}
+`, fp, objName, objName, op, op, op))
 	}
 
-	script += "\nFreeCAD.closeDocument(doc.Name)"
-	return jsonScriptResult(ctx, f, script)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+import Part
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
+shapes = [obj.Shape for obj in doc.Objects if hasattr(obj, "Shape") and obj.Shape and not obj.Shape.isNull()]
+if not shapes:
+    raise ValueError("no shapes to export")
+if len(shapes) == 1:
+    shapes[0].exportBrep(%q)
+else:
+    compound = Part.makeCompound(shapes)
+    compound.exportBrep(%q)
+_result_ = {"status": "exported", "format": "BRep", "file": %q, "size": os.path.getsize(%q), "shapes_exported": len(shapes)}
+`, fp, op, op, op, op))
 }
 
 func importFile(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
@@ -191,11 +213,17 @@ func importFile(ctx context.Context, f *freecad, args map[string]any) (*mcp.Tool
 	fp := f.filePath(filePath)
 	ip := f.filePath(importPath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
 import Part
-import json
-doc = FreeCAD.open(%q)
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 before = len(doc.Objects)
 Part.insert(%q, doc.Name)
 doc.recompute()
@@ -208,14 +236,13 @@ for obj in doc.Objects[before:]:
         info["volume"] = round(obj.Shape.Volume, 4)
         info["shape_type"] = obj.Shape.ShapeType
     new_objects.append(info)
-print(json.dumps({
+_result_ = {
     "status": "imported",
     "source": %q,
     "new_objects": after - before,
     "total_objects": after,
     "objects": new_objects
-}))
-FreeCAD.closeDocument(doc.Name)
+}
 `, fp, ip, ip))
 }
 
@@ -230,15 +257,22 @@ func runUserScript(ctx context.Context, f *freecad, args map[string]any) (*mcp.T
 	}
 	filePath, _ := mcp.ArgStr(args, "file_path")
 
-	fullScript := "import FreeCAD\nimport Part\nimport Mesh\nimport json\n"
+	fullScript := ""
 	if filePath != "" {
 		fp := f.filePath(filePath)
-		fullScript += fmt.Sprintf("doc = FreeCAD.open(%q)\n", fp)
+		fullScript += fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
+`, fp)
 	}
 	fullScript += script
-	if filePath != "" {
-		fullScript += "\nif FreeCAD.ActiveDocument:\n    FreeCAD.closeDocument(FreeCAD.ActiveDocument.Name)"
-	}
 
-	return scriptResult(ctx, f, fullScript)
+	return f.execPython(ctx, fullScript)
 }

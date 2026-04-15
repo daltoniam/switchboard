@@ -36,6 +36,19 @@ var tools = []mcp.ToolDefinition{
 		},
 		Required: []string{"file_path"},
 	},
+	{
+		Name: mcp.ToolName("freecad_save_document"), Description: "Save the active or named FreeCAD document. Optionally save to a new file path.",
+		Parameters: map[string]string{
+			"doc_name":  "Document name to save (optional, defaults to active document)",
+			"file_path": "Save to this file path (optional, defaults to current path)",
+		},
+	},
+	{
+		Name: mcp.ToolName("freecad_close_document"), Description: "Close an open FreeCAD document by name, or the active document if no name given.",
+		Parameters: map[string]string{
+			"doc_name": "Document name to close (optional, defaults to active document)",
+		},
+	},
 
 	// ── Objects ──────────────────────────────────────────────────────
 	{
@@ -289,9 +302,9 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Python Scripting ────────────────────────────────────────────
 	{
-		Name: mcp.ToolName("freecad_run_script"), Description: "Execute a custom FreeCAD Python script with full access to FreeCAD, Part, Mesh modules. For advanced CAD operations not covered by other tools. Script must print JSON result.",
+		Name: mcp.ToolName("freecad_run_script"), Description: "Execute a custom FreeCAD Python script with full access to FreeCAD, Part, Mesh modules. For advanced CAD operations not covered by other tools. Set _result_ to return data.",
 		Parameters: map[string]string{
-			"script":    "Python script to execute (has access to FreeCAD, Part, Mesh, json modules)",
+			"script":    "Python script to execute (has access to FreeCAD, Part, Mesh modules; set _result_ to return data)",
 			"file_path": "Optional .FCStd file to open before running script",
 		},
 		Required: []string{"script"},

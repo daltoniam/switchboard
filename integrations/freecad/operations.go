@@ -45,29 +45,33 @@ func booleanOp(ctx context.Context, f *freecad, args map[string]any, op string) 
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 base_obj = doc.getObject(%q)
 tool_obj = doc.getObject(%q)
 if base_obj is None:
-    print(json.dumps({"error": "base object not found: %s"}))
-elif tool_obj is None:
-    print(json.dumps({"error": "tool object not found: %s"}))
-else:
-    obj = doc.addObject("Part::%s", %q)
-    obj.Base = base_obj
-    obj.Tool = tool_obj
-    doc.recompute()
-    doc.save()
-    s = obj.Shape
-    print(json.dumps({
-        "name": obj.Name, "label": obj.Label, "type": obj.TypeId,
-        "volume": round(s.Volume, 4), "area": round(s.Area, 4),
-        "vertices": len(s.Vertexes), "edges": len(s.Edges), "faces": len(s.Faces)
-    }))
-FreeCAD.closeDocument(doc.Name)
+    raise ValueError("base object not found: %s")
+if tool_obj is None:
+    raise ValueError("tool object not found: %s")
+obj = doc.addObject("Part::%s", %q)
+obj.Base = base_obj
+obj.Tool = tool_obj
+doc.recompute()
+doc.save()
+s = obj.Shape
+_result_ = {
+    "name": obj.Name, "label": obj.Label, "type": obj.TypeId,
+    "volume": round(s.Volume, 4), "area": round(s.Area, 4),
+    "vertices": len(s.Vertexes), "edges": len(s.Edges), "faces": len(s.Faces)
+}
 `, fp, base, tool, base, tool, op, name))
 }
 
@@ -94,28 +98,32 @@ func fillet(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResu
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
 import Part
-import json
-doc = FreeCAD.open(%q)
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    shape = obj.Shape
-    filleted = shape.makeFillet(%f, shape.Edges)
-    result = doc.addObject("Part::Feature", %q)
-    result.Shape = filleted
-    doc.recompute()
-    doc.save()
-    s = result.Shape
-    print(json.dumps({
-        "name": result.Name, "label": result.Label,
-        "volume": round(s.Volume, 4), "area": round(s.Area, 4),
-        "faces": len(s.Faces), "edges": len(s.Edges)
-    }))
-FreeCAD.closeDocument(doc.Name)
+    raise ValueError("object not found: %s")
+shape = obj.Shape
+filleted = shape.makeFillet(%f, shape.Edges)
+result = doc.addObject("Part::Feature", %q)
+result.Shape = filleted
+doc.recompute()
+doc.save()
+s = result.Shape
+_result_ = {
+    "name": result.Name, "label": result.Label,
+    "volume": round(s.Volume, 4), "area": round(s.Area, 4),
+    "faces": len(s.Faces), "edges": len(s.Edges)
+}
 `, fp, objName, objName, radius, name))
 }
 
@@ -140,28 +148,32 @@ func chamfer(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolRes
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
 import Part
-import json
-doc = FreeCAD.open(%q)
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    shape = obj.Shape
-    chamfered = shape.makeChamfer(%f, shape.Edges)
-    result = doc.addObject("Part::Feature", %q)
-    result.Shape = chamfered
-    doc.recompute()
-    doc.save()
-    s = result.Shape
-    print(json.dumps({
-        "name": result.Name, "label": result.Label,
-        "volume": round(s.Volume, 4), "area": round(s.Area, 4),
-        "faces": len(s.Faces), "edges": len(s.Edges)
-    }))
-FreeCAD.closeDocument(doc.Name)
+    raise ValueError("object not found: %s")
+shape = obj.Shape
+chamfered = shape.makeChamfer(%f, shape.Edges)
+result = doc.addObject("Part::Feature", %q)
+result.Shape = chamfered
+doc.recompute()
+doc.save()
+s = result.Shape
+_result_ = {
+    "name": result.Name, "label": result.Label,
+    "volume": round(s.Volume, 4), "area": round(s.Area, 4),
+    "faces": len(s.Faces), "edges": len(s.Edges)
+}
 `, fp, objName, objName, size, name))
 }
 
@@ -188,28 +200,32 @@ func extrude(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolRes
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
 import Part
-import json
-doc = FreeCAD.open(%q)
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    shape = obj.Shape
-    extruded = shape.extrude(FreeCAD.Vector(%f, %f, %f))
-    result = doc.addObject("Part::Feature", %q)
-    result.Shape = extruded
-    doc.recompute()
-    doc.save()
-    s = result.Shape
-    print(json.dumps({
-        "name": result.Name, "label": result.Label,
-        "shape_type": s.ShapeType,
-        "volume": round(s.Volume, 4), "area": round(s.Area, 4)
-    }))
-FreeCAD.closeDocument(doc.Name)
+    raise ValueError("object not found: %s")
+shape = obj.Shape
+extruded = shape.extrude(FreeCAD.Vector(%f, %f, %f))
+result = doc.addObject("Part::Feature", %q)
+result.Shape = extruded
+doc.recompute()
+doc.save()
+s = result.Shape
+_result_ = {
+    "name": result.Name, "label": result.Label,
+    "shape_type": s.ShapeType,
+    "volume": round(s.Volume, 4), "area": round(s.Area, 4)
+}
 `, fp, objName, objName, dx, dy, dz, name))
 }
 
@@ -248,26 +264,30 @@ func mirror(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResu
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
 import Part
-import json
-doc = FreeCAD.open(%q)
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    shape = obj.Shape
-    mirrored = shape.mirror(FreeCAD.Vector(0,0,0), FreeCAD.Vector(%f, %f, %f))
-    result = doc.addObject("Part::Feature", %q)
-    result.Shape = mirrored
-    doc.recompute()
-    doc.save()
-    s = result.Shape
-    print(json.dumps({
-        "name": result.Name, "label": result.Label,
-        "volume": round(s.Volume, 4), "area": round(s.Area, 4)
-    }))
-FreeCAD.closeDocument(doc.Name)
+    raise ValueError("object not found: %s")
+shape = obj.Shape
+mirrored = shape.mirror(FreeCAD.Vector(0,0,0), FreeCAD.Vector(%f, %f, %f))
+result = doc.addObject("Part::Feature", %q)
+result.Shape = mirrored
+doc.recompute()
+doc.save()
+s = result.Shape
+_result_ = {
+    "name": result.Name, "label": result.Label,
+    "volume": round(s.Volume, 4), "area": round(s.Area, 4)
+}
 `, fp, objName, objName, nx, ny, nz, name))
 }

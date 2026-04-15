@@ -127,28 +127,6 @@ func TestHealthy_NotConfigured(t *testing.T) {
 	assert.False(t, fc.Healthy(context.Background()))
 }
 
-func TestExtractJSON(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{"json only", `{"key":"value"}`, `{"key":"value"}`},
-		{"with banner", "[FreeCAD Console]\n{\"key\":\"value\"}\n", `{"key":"value"}`},
-		{"with progress", "loading...\n(100%)\n{\"result\":true}\n", `{"result":true}`},
-		{"array", "[1,2,3]", "[1,2,3]"},
-		{"no json", "plain text output", "plain text output"},
-		{"empty", "", ""},
-		{"nested noise", "[FreeCAD]\nRecompute...\n(50%)\n(100%)\n{\"ok\":true}\n\n", `{"ok":true}`},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := extractJSON(tt.input)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestFilePath(t *testing.T) {
 	fc := &freecad{dataDir: "/home/user/FreeCAD"}
 
@@ -266,14 +244,6 @@ func TestSetProperty_MissingArgs(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "property is required")
-}
-
-func TestListDocuments_EmptyDir(t *testing.T) {
-	fc := &freecad{binary: "freecad", dataDir: t.TempDir()}
-	result, err := fc.Execute(context.Background(), "freecad_list_documents", map[string]any{})
-	require.NoError(t, err)
-	assert.False(t, result.IsError)
-	assert.Equal(t, "[]", result.Data)
 }
 
 func TestMeasureShape_MissingArgs(t *testing.T) {

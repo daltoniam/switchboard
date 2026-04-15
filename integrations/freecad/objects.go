@@ -19,10 +19,16 @@ func listObjects(ctx context.Context, f *freecad, args map[string]any) (*mcp.Too
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 objects = []
 for obj in doc.Objects:
     info = {"name": obj.Name, "label": obj.Label, "type": obj.TypeId}
@@ -39,8 +45,7 @@ for obj in doc.Objects:
         "x": round(p.Base.x, 4), "y": round(p.Base.y, 4), "z": round(p.Base.z, 4)
     }
     objects.append(info)
-print(json.dumps(objects))
-FreeCAD.closeDocument(doc.Name)
+_result_ = objects
 `, fp))
 }
 
@@ -60,51 +65,55 @@ func getObject(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolR
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    info = {"name": obj.Name, "label": obj.Label, "type": obj.TypeId}
-    p = obj.Placement
-    info["placement"] = {
-        "base": {"x": round(p.Base.x, 4), "y": round(p.Base.y, 4), "z": round(p.Base.z, 4)},
-        "rotation": str(p.Rotation)
+    raise ValueError("object not found: %s")
+info = {"name": obj.Name, "label": obj.Label, "type": obj.TypeId}
+p = obj.Placement
+info["placement"] = {
+    "base": {"x": round(p.Base.x, 4), "y": round(p.Base.y, 4), "z": round(p.Base.z, 4)},
+    "rotation": str(p.Rotation)
+}
+if hasattr(obj, "Shape") and obj.Shape and not obj.Shape.isNull():
+    s = obj.Shape
+    info["shape_type"] = s.ShapeType
+    info["volume"] = round(s.Volume, 4)
+    info["area"] = round(s.Area, 4)
+    com = s.CenterOfMass
+    info["center_of_mass"] = {"x": round(com.x, 4), "y": round(com.y, 4), "z": round(com.z, 4)}
+    info["vertices"] = len(s.Vertexes)
+    info["edges"] = len(s.Edges)
+    info["faces"] = len(s.Faces)
+    bb = s.BoundBox
+    info["bounding_box"] = {
+        "x_min": round(bb.XMin, 4), "x_max": round(bb.XMax, 4),
+        "y_min": round(bb.YMin, 4), "y_max": round(bb.YMax, 4),
+        "z_min": round(bb.ZMin, 4), "z_max": round(bb.ZMax, 4)
     }
-    if hasattr(obj, "Shape") and obj.Shape and not obj.Shape.isNull():
-        s = obj.Shape
-        info["shape_type"] = s.ShapeType
-        info["volume"] = round(s.Volume, 4)
-        info["area"] = round(s.Area, 4)
-        com = s.CenterOfMass
-        info["center_of_mass"] = {"x": round(com.x, 4), "y": round(com.y, 4), "z": round(com.z, 4)}
-        info["vertices"] = len(s.Vertexes)
-        info["edges"] = len(s.Edges)
-        info["faces"] = len(s.Faces)
-        bb = s.BoundBox
-        info["bounding_box"] = {
-            "x_min": round(bb.XMin, 4), "x_max": round(bb.XMax, 4),
-            "y_min": round(bb.YMin, 4), "y_max": round(bb.YMax, 4),
-            "z_min": round(bb.ZMin, 4), "z_max": round(bb.ZMax, 4)
-        }
-    props = {}
-    for pname in obj.PropertiesList:
-        try:
-            val = obj.getPropertyByName(pname)
-            if isinstance(val, (int, float, str, bool)):
-                props[pname] = val
-            elif hasattr(val, "Value"):
-                props[pname] = val.Value
-            else:
-                props[pname] = str(val)
-        except:
-            pass
-    info["properties"] = props
-    print(json.dumps(info))
-FreeCAD.closeDocument(doc.Name)
+props = {}
+for pname in obj.PropertiesList:
+    try:
+        val = obj.getPropertyByName(pname)
+        if isinstance(val, (int, float, str, bool)):
+            props[pname] = val
+        elif hasattr(val, "Value"):
+            props[pname] = val.Value
+        else:
+            props[pname] = str(val)
+    except:
+        pass
+info["properties"] = props
+_result_ = info
 `, fp, objName, objName))
 }
 
@@ -124,19 +133,23 @@ func deleteObject(ctx context.Context, f *freecad, args map[string]any) (*mcp.To
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    doc.removeObject(%q)
-    doc.recompute()
-    doc.save()
-    print(json.dumps({"status": "deleted", "object": %q, "remaining_objects": len(doc.Objects)}))
-FreeCAD.closeDocument(doc.Name)
+    raise ValueError("object not found: %s")
+doc.removeObject(%q)
+doc.recompute()
+doc.save()
+_result_ = {"status": "deleted", "object": %q, "remaining_objects": len(doc.Objects)}
 `, fp, objName, objName, objName, objName))
 }
 
@@ -162,27 +175,31 @@ func setPlacement(ctx context.Context, f *freecad, args map[string]any) (*mcp.To
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    obj.Placement = FreeCAD.Placement(
-        FreeCAD.Vector(%f, %f, %f),
-        FreeCAD.Rotation(%f, %f, %f)
-    )
-    doc.recompute()
-    doc.save()
-    p = obj.Placement
-    print(json.dumps({
-        "status": "placed",
-        "object": %q,
-        "position": {"x": round(p.Base.x, 4), "y": round(p.Base.y, 4), "z": round(p.Base.z, 4)}
-    }))
-FreeCAD.closeDocument(doc.Name)
+    raise ValueError("object not found: %s")
+obj.Placement = FreeCAD.Placement(
+    FreeCAD.Vector(%f, %f, %f),
+    FreeCAD.Rotation(%f, %f, %f)
+)
+doc.recompute()
+doc.save()
+p = obj.Placement
+_result_ = {
+    "status": "placed",
+    "object": %q,
+    "position": {"x": round(p.Base.x, 4), "y": round(p.Base.y, 4), "z": round(p.Base.z, 4)}
+}
 `, fp, objName, objName, x, y, z, yaw, pitch, roll, objName))
 }
 
@@ -202,28 +219,32 @@ func getProperties(ctx context.Context, f *freecad, args map[string]any) (*mcp.T
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    props = {}
-    for pname in obj.PropertiesList:
-        try:
-            val = obj.getPropertyByName(pname)
-            if isinstance(val, (int, float, str, bool)):
-                props[pname] = val
-            elif hasattr(val, "Value"):
-                props[pname] = val.Value
-            else:
-                props[pname] = str(val)
-        except:
-            pass
-    print(json.dumps({"object": obj.Name, "label": obj.Label, "type": obj.TypeId, "properties": props}))
-FreeCAD.closeDocument(doc.Name)
+    raise ValueError("object not found: %s")
+props = {}
+for pname in obj.PropertiesList:
+    try:
+        val = obj.getPropertyByName(pname)
+        if isinstance(val, (int, float, str, bool)):
+            props[pname] = val
+        elif hasattr(val, "Value"):
+            props[pname] = val.Value
+        else:
+            props[pname] = str(val)
+    except:
+        pass
+_result_ = {"object": obj.Name, "label": obj.Label, "type": obj.TypeId, "properties": props}
 `, fp, objName, objName))
 }
 
@@ -251,27 +272,31 @@ func setProperty(ctx context.Context, f *freecad, args map[string]any) (*mcp.Too
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    doc = FreeCAD.open(fp)
 obj = doc.getObject(%q)
 if obj is None:
-    print(json.dumps({"error": "object not found: %s"}))
-else:
-    prop = %q
-    val_str = %q
-    try:
-        val = float(val_str)
-        setattr(obj, prop, val)
-    except (ValueError, TypeError):
-        setattr(obj, prop, val_str)
-    doc.recompute()
-    doc.save()
-    new_val = obj.getPropertyByName(prop)
-    if hasattr(new_val, "Value"):
-        new_val = new_val.Value
-    print(json.dumps({"status": "set", "object": %q, "property": prop, "value": str(new_val)}))
-FreeCAD.closeDocument(doc.Name)
+    raise ValueError("object not found: %s")
+prop = %q
+val_str = %q
+try:
+    val = float(val_str)
+    setattr(obj, prop, val)
+except (ValueError, TypeError):
+    setattr(obj, prop, val_str)
+doc.recompute()
+doc.save()
+new_val = obj.getPropertyByName(prop)
+if hasattr(new_val, "Value"):
+    new_val = new_val.Value
+_result_ = {"status": "set", "object": %q, "property": prop, "value": str(new_val)}
 `, fp, objName, objName, prop, value, objName))
 }

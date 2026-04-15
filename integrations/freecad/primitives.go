@@ -26,24 +26,32 @@ func createBox(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolR
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    if os.path.exists(fp):
+        doc = FreeCAD.open(fp)
+    else:
+        doc = FreeCAD.newDocument(%q)
+        doc.saveAs(fp)
 obj = doc.addObject("Part::Box", %q)
 obj.Length = %f
 obj.Width = %f
 obj.Height = %f
 doc.recompute()
-doc.save()
 s = obj.Shape
-print(json.dumps({
+_result_ = {
     "name": obj.Name, "label": obj.Label, "type": obj.TypeId,
     "length": obj.Length.Value, "width": obj.Width.Value, "height": obj.Height.Value,
     "volume": round(s.Volume, 4), "area": round(s.Area, 4)
-}))
-FreeCAD.closeDocument(doc.Name)
-`, fp, name, length, width, height))
+}
+`, fp, name, name, length, width, height))
 }
 
 func createCylinder(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
@@ -64,23 +72,31 @@ func createCylinder(ctx context.Context, f *freecad, args map[string]any) (*mcp.
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    if os.path.exists(fp):
+        doc = FreeCAD.open(fp)
+    else:
+        doc = FreeCAD.newDocument(%q)
+        doc.saveAs(fp)
 obj = doc.addObject("Part::Cylinder", %q)
 obj.Radius = %f
 obj.Height = %f
 doc.recompute()
-doc.save()
 s = obj.Shape
-print(json.dumps({
+_result_ = {
     "name": obj.Name, "label": obj.Label, "type": obj.TypeId,
     "radius": obj.Radius.Value, "height": obj.Height.Value,
     "volume": round(s.Volume, 4), "area": round(s.Area, 4)
-}))
-FreeCAD.closeDocument(doc.Name)
-`, fp, name, radius, height))
+}
+`, fp, name, name, radius, height))
 }
 
 func createSphere(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
@@ -100,22 +116,30 @@ func createSphere(ctx context.Context, f *freecad, args map[string]any) (*mcp.To
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    if os.path.exists(fp):
+        doc = FreeCAD.open(fp)
+    else:
+        doc = FreeCAD.newDocument(%q)
+        doc.saveAs(fp)
 obj = doc.addObject("Part::Sphere", %q)
 obj.Radius = %f
 doc.recompute()
-doc.save()
 s = obj.Shape
-print(json.dumps({
+_result_ = {
     "name": obj.Name, "label": obj.Label, "type": obj.TypeId,
     "radius": obj.Radius.Value,
     "volume": round(s.Volume, 4), "area": round(s.Area, 4)
-}))
-FreeCAD.closeDocument(doc.Name)
-`, fp, name, radius))
+}
+`, fp, name, name, radius))
 }
 
 func createCone(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
@@ -137,24 +161,32 @@ func createCone(ctx context.Context, f *freecad, args map[string]any) (*mcp.Tool
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    if os.path.exists(fp):
+        doc = FreeCAD.open(fp)
+    else:
+        doc = FreeCAD.newDocument(%q)
+        doc.saveAs(fp)
 obj = doc.addObject("Part::Cone", %q)
 obj.Radius1 = %f
 obj.Radius2 = %f
 obj.Height = %f
 doc.recompute()
-doc.save()
 s = obj.Shape
-print(json.dumps({
+_result_ = {
     "name": obj.Name, "label": obj.Label, "type": obj.TypeId,
     "radius1": obj.Radius1.Value, "radius2": obj.Radius2.Value, "height": obj.Height.Value,
     "volume": round(s.Volume, 4), "area": round(s.Area, 4)
-}))
-FreeCAD.closeDocument(doc.Name)
-`, fp, name, radius1, radius2, height))
+}
+`, fp, name, name, radius1, radius2, height))
 }
 
 func createTorus(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
@@ -175,30 +207,29 @@ func createTorus(ctx context.Context, f *freecad, args map[string]any) (*mcp.Too
 
 	fp := f.filePath(filePath)
 
-	return jsonScriptResult(ctx, f, fmt.Sprintf(`
-import FreeCAD
-import json
-doc = FreeCAD.open(%q)
+	return f.execPython(ctx, fmt.Sprintf(`
+import os
+fp = %q
+doc = None
+for d in FreeCAD.listDocuments().values():
+    if d.FileName == fp:
+        doc = d
+        break
+if doc is None:
+    if os.path.exists(fp):
+        doc = FreeCAD.open(fp)
+    else:
+        doc = FreeCAD.newDocument(%q)
+        doc.saveAs(fp)
 obj = doc.addObject("Part::Torus", %q)
 obj.Radius1 = %f
 obj.Radius2 = %f
 doc.recompute()
-doc.save()
 s = obj.Shape
-print(json.dumps({
+_result_ = {
     "name": obj.Name, "label": obj.Label, "type": obj.TypeId,
     "radius1": obj.Radius1.Value, "radius2": obj.Radius2.Value,
     "volume": round(s.Volume, 4), "area": round(s.Area, 4)
-}))
-FreeCAD.closeDocument(doc.Name)
-`, fp, name, radius1, radius2))
 }
-
-// optFloat extracts a float64 from args with a default value.
-func optFloat(args map[string]any, key string, def float64) float64 {
-	v, err := mcp.ArgFloat64(args, key)
-	if err != nil || v == 0 {
-		return def
-	}
-	return v
+`, fp, name, name, radius1, radius2))
 }
