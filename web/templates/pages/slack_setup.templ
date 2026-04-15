@@ -122,12 +122,12 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 
 		if data.CanAutoExtract {
 			<div class="card">
-				<div class="card-title" style="margin-bottom: 0.75rem;">Option 1: Auto-Extract from Chrome</div>
+				<div class="card-title" style="margin-bottom: 0.75rem;">Option 1: Auto-Extract from Browser</div>
 				<p class="slack-desc">
-					Automatically extracts session tokens and cookies for <strong>all workspaces</strong> from a running Chrome browser with Slack open. Requires macOS and Chrome with a Slack tab at <code>app.slack.com</code>.
+					Automatically extracts session tokens and cookies for <strong>all workspaces</strong> from Chrome, Brave, or the Slack desktop app. Requires macOS with at least one of these installed and signed in to Slack.
 				</p>
 				<form method="POST" action="/api/slack/extract-chrome" style="margin-top: 0.75rem;">
-					<button type="submit" class="btn">Extract All Workspaces from Chrome</button>
+					<button type="submit" class="btn">Extract All Workspaces</button>
 				</form>
 			</div>
 		}

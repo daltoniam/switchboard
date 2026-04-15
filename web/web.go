@@ -600,11 +600,16 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 		tokenSource = info.Source
 	}
 
+	tokenStatus := info.Status
+	if healthy && tokenStatus != "healthy" {
+		tokenStatus = "healthy"
+	}
+
 	page := w.pageData(r, "Slack Setup", "/integrations")
 	data := pages.SlackSetupData{
 		HasToken:       info.HasToken,
 		HasCookie:      info.HasCookie,
-		TokenStatus:    info.Status,
+		TokenStatus:    tokenStatus,
 		TokenAge:       info.AgeHours,
 		TokenSource:    tokenSource,
 		CanAutoExtract: slackInt.CanExtractFromChrome(),
