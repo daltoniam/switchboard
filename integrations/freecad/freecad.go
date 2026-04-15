@@ -113,6 +113,10 @@ func (f *freecad) rpcCall(ctx context.Context, method string, params ...string) 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("freecad: bridge returned HTTP %d — is FreeCAD running with the RobustMCPBridge addon?", resp.StatusCode)
+	}
+
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
 		return "", err
@@ -244,11 +248,17 @@ func xmlEscape(s string) string {
 }
 
 // filePath resolves a file path relative to the data directory.
+// Absolute paths are returned as-is. Relative paths with ".." traversal
+// outside dataDir are rejected (flattened to base name).
 func (f *freecad) filePath(name string) string {
 	if filepath.IsAbs(name) {
 		return name
 	}
-	return filepath.Join(f.dataDir, name)
+	resolved := filepath.Join(f.dataDir, name)
+	if !strings.HasPrefix(resolved, f.dataDir+string(filepath.Separator)) && resolved != f.dataDir {
+		return filepath.Join(f.dataDir, filepath.Base(name))
+	}
+	return resolved
 }
 
 // --- Result helpers ---
@@ -295,9 +305,14 @@ func (f *freecad) execPython(ctx context.Context, script string) (*mcp.ToolResul
 }
 
 // optFloat extracts a float64 from args with a default value.
+// Returns def only when the key is absent or not a number.
+// Zero is a valid explicit value (e.g. radius2=0 for pointed cones).
 func optFloat(args map[string]any, key string, def float64) float64 {
+	if _, ok := args[key]; !ok {
+		return def
+	}
 	v, err := mcp.ArgFloat64(args, key)
-	if err != nil || v == 0 {
+	if err != nil {
 		return def
 	}
 	return v

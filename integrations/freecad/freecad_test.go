@@ -16,13 +16,12 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, "freecad", i.Name())
 }
 
-func TestConfigure_AutoDetect(t *testing.T) {
-	i := New()
-	err := i.Configure(context.Background(), mcp.Credentials{})
-	// May succeed if freecad is in PATH, may fail if not
-	if err != nil {
-		assert.Contains(t, err.Error(), "freecad")
-	}
+func TestConfigure_Defaults(t *testing.T) {
+	fc := &freecad{client: &http.Client{}}
+	err := fc.Configure(context.Background(), mcp.Credentials{"data_dir": t.TempDir()})
+	assert.NoError(t, err)
+	assert.Equal(t, "localhost", fc.host)
+	assert.Equal(t, "9875", fc.port)
 }
 
 func TestConfigure_WithHost(t *testing.T) {
@@ -138,6 +137,11 @@ func TestFilePath(t *testing.T) {
 	t.Run("absolute path", func(t *testing.T) {
 		assert.Equal(t, "/tmp/test.FCStd", fc.filePath("/tmp/test.FCStd"))
 	})
+
+	t.Run("traversal blocked", func(t *testing.T) {
+		result := fc.filePath("../../etc/passwd")
+		assert.Equal(t, "/home/user/FreeCAD/passwd", result)
+	})
 }
 
 func TestOptFloat(t *testing.T) {
@@ -151,9 +155,9 @@ func TestOptFloat(t *testing.T) {
 		assert.Equal(t, float64(10), got)
 	})
 
-	t.Run("zero uses default", func(t *testing.T) {
+	t.Run("zero is valid", func(t *testing.T) {
 		got := optFloat(map[string]any{"x": float64(0)}, "x", 10)
-		assert.Equal(t, float64(10), got)
+		assert.Equal(t, float64(0), got)
 	})
 }
 

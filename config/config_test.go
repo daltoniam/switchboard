@@ -281,6 +281,7 @@ func TestDefaultConfig(t *testing.T) {
 		"digitalocean":  {"api_token"},
 		"fly":           {"api_token", "base_url"},
 		"web":           {},
+		"freecad":       {"host", "xmlrpc_port", "data_dir"},
 	}
 
 	for name, keys := range expected {
