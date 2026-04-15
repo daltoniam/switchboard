@@ -271,41 +271,79 @@ func (ts *tokenStore) get() (token, cookie string) {
 	return ws.Token, ws.Cookie
 }
 
-// --- Chrome extraction (macOS only) ---
+// --- browser extraction (macOS only) ---
 //
-// Reads tokens directly from Chrome's on-disk storage:
+// Reads tokens from Chromium-based browsers and the Slack desktop app:
 //   - Token (xoxc-*): LevelDB localStorage at <profile>/Local Storage/leveldb/
 //   - Cookie (xoxd-*): Encrypted SQLite cookie DB at <profile>/Cookies
 //
+// Supported sources: Chrome, Brave, Slack desktop app.
 // No AppleScript, no "Allow JavaScript from Apple Events" setting required.
 
-type chromeTokens struct {
+// browserSource describes a Chromium-based browser or Electron app that stores
+// Slack session data in LevelDB + encrypted SQLite cookies.
+type browserSource struct {
+	name            string // human-readable name
+	dataDir         string // relative to ~/Library/Application Support/
+	keychainService string // macOS Keychain "Safe Storage" service name
+	hasProfiles     bool   // true for browsers with Default/Profile dirs
+}
+
+var browserSources = []browserSource{
+	{name: "Chrome", dataDir: "Google/Chrome", keychainService: "Chrome Safe Storage", hasProfiles: true},
+	{name: "Brave", dataDir: "BraveSoftware/Brave-Browser", keychainService: "Brave Safe Storage", hasProfiles: true},
+	{name: "Slack", dataDir: "Slack", keychainService: "Slack Safe Storage", hasProfiles: false},
+}
+
+type browserTokens struct {
 	token  string
 	cookie string
+	source string
 }
 
 var extractMu sync.Mutex
 
-func extractFromChrome(teamID string) *chromeTokens {
-	result, _ := extractFromChromeWithError(teamID)
+func extractFromBrowser(teamID string) *browserTokens {
+	result, _ := extractFromBrowserWithError(teamID)
 	return result
 }
 
-func extractFromChromeWithError(teamID string) (*chromeTokens, error) {
+func extractFromBrowserWithError(teamID string) (*browserTokens, error) {
 	if runtime.GOOS != "darwin" {
-		return nil, fmt.Errorf("chrome extraction is only available on macOS")
+		return nil, fmt.Errorf("browser extraction is only available on macOS")
 	}
 
 	extractMu.Lock()
 	defer extractMu.Unlock()
 
-	profiles, err := findChromeProfiles()
+	var lastErr error
+	for _, src := range browserSources {
+		result, err := extractFromSource(src, teamID)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if result != nil {
+			return result, nil
+		}
+	}
+
+	if lastErr != nil {
+		return nil, fmt.Errorf("could not extract Slack credentials from any browser: %w", lastErr)
+	}
+	return nil, fmt.Errorf("no Chromium-based browser or Slack app found with Slack credentials")
+}
+
+func extractFromSource(src browserSource, teamID string) (*browserTokens, error) {
+	profiles, err := findBrowserProfiles(src)
 	if err != nil {
-		return nil, fmt.Errorf("could not find Chrome profiles: %w", err)
+		return nil, err
 	}
 	if len(profiles) == 0 {
-		return nil, fmt.Errorf("no Chrome profiles found at ~/Library/Application Support/Google/Chrome/")
+		return nil, fmt.Errorf("no profiles found for %s", src.name)
 	}
+
+	password, pwErr := browserKeychainPassword(src.keychainService)
 
 	var token, cookie string
 	var lastTokenErr, lastCookieErr error
@@ -318,8 +356,8 @@ func extractFromChromeWithError(teamID string) (*chromeTokens, error) {
 				token = t
 			}
 		}
-		if cookie == "" {
-			if c, err := extractCookieFromChrome(profile); err != nil {
+		if cookie == "" && pwErr == nil {
+			if c, err := extractCookieFromBrowser(profile, password); err != nil {
 				lastCookieErr = err
 			} else {
 				cookie = c
@@ -331,42 +369,36 @@ func extractFromChromeWithError(teamID string) (*chromeTokens, error) {
 	}
 
 	if token == "" && cookie == "" {
-		msg := "could not extract Slack credentials from Chrome."
+		msg := fmt.Sprintf("no Slack credentials in %s.", src.name)
 		if lastTokenErr != nil {
 			msg += " Token: " + lastTokenErr.Error() + "."
 		}
 		if lastCookieErr != nil {
 			msg += " Cookie: " + lastCookieErr.Error() + "."
 		}
-		msg += " Make sure you are logged in to Slack (app.slack.com) in Chrome."
-		return nil, fmt.Errorf("%s", msg)
-	}
-	if token == "" {
-		msg := "found cookie but no xoxc-* token in Chrome localStorage."
-		if lastTokenErr != nil {
-			msg += " " + lastTokenErr.Error()
-		}
-		return nil, fmt.Errorf("%s", msg)
-	}
-	if cookie == "" {
-		msg := "found token but no xoxd-* cookie in Chrome cookie store."
-		if lastCookieErr != nil {
-			msg += " " + lastCookieErr.Error()
-		}
 		return nil, fmt.Errorf("%s", msg)
 	}
 
-	return &chromeTokens{token: token, cookie: cookie}, nil
+	sourceName := strings.ToLower(src.name)
+	return &browserTokens{token: token, cookie: cookie, source: sourceName}, nil
 }
 
-// findChromeProfiles returns paths to all Chrome profile directories.
-func findChromeProfiles() ([]string, error) {
+// findBrowserProfiles returns profile directory paths for a given browser source.
+func findBrowserProfiles(src browserSource) ([]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	chromeDir := filepath.Join(home, "Library", "Application Support", "Google", "Chrome")
-	entries, err := os.ReadDir(chromeDir)
+	baseDir := filepath.Join(home, "Library", "Application Support", src.dataDir)
+
+	if !src.hasProfiles {
+		if _, err := os.Stat(baseDir); err != nil {
+			return nil, err
+		}
+		return []string{baseDir}, nil
+	}
+
+	entries, err := os.ReadDir(baseDir)
 	if err != nil {
 		return nil, err
 	}
@@ -378,10 +410,16 @@ func findChromeProfiles() ([]string, error) {
 		}
 		name := e.Name()
 		if name == "Default" || strings.HasPrefix(name, "Profile ") {
-			profiles = append(profiles, filepath.Join(chromeDir, name))
+			profiles = append(profiles, filepath.Join(baseDir, name))
 		}
 	}
 	return profiles, nil
+}
+
+// findChromeProfiles returns paths to all Chrome profile directories.
+// Kept for backward compatibility with callers that only need Chrome.
+func findChromeProfiles() ([]string, error) {
+	return findBrowserProfiles(browserSources[0])
 }
 
 // slackLocalConfig represents the parsed structure of Chrome's localStorage
@@ -457,46 +495,45 @@ func readSlackLocalConfig(profilePath string) (*slackLocalConfig, error) {
 	return &cfg, nil
 }
 
-// listWorkspacesFromChrome scans all Chrome profiles and returns every Slack
-// workspace that has an xoxc-* token.
-func listWorkspacesFromChrome() ([]WorkspaceInfo, error) {
+// listWorkspacesFromAllBrowsers scans all supported browsers and returns every
+// Slack workspace that has an xoxc-* token.
+func listWorkspacesFromAllBrowsers() ([]WorkspaceInfo, error) {
 	extractMu.Lock()
 	defer extractMu.Unlock()
 
-	profiles, err := findChromeProfiles()
-	if err != nil {
-		return nil, fmt.Errorf("could not find Chrome profiles: %w", err)
-	}
-	if len(profiles) == 0 {
-		return nil, fmt.Errorf("no Chrome profiles found at ~/Library/Application Support/Google/Chrome/")
-	}
-
 	seen := make(map[string]bool)
 	var workspaces []WorkspaceInfo
-	for _, profile := range profiles {
-		cfg, err := readSlackLocalConfig(profile)
+
+	for _, src := range browserSources {
+		profiles, err := findBrowserProfiles(src)
 		if err != nil {
 			continue
 		}
-		for id, team := range cfg.Teams {
-			if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
+		for _, profile := range profiles {
+			cfg, err := readSlackLocalConfig(profile)
+			if err != nil {
 				continue
 			}
-			seen[id] = true
-			name := team.Name
-			if name == "" {
-				name = id
+			for id, team := range cfg.Teams {
+				if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
+					continue
+				}
+				seen[id] = true
+				name := team.Name
+				if name == "" {
+					name = id
+				}
+				workspaces = append(workspaces, WorkspaceInfo{
+					TeamID: id,
+					Name:   name,
+					URL:    team.URL,
+				})
 			}
-			workspaces = append(workspaces, WorkspaceInfo{
-				TeamID: id,
-				Name:   name,
-				URL:    team.URL,
-			})
 		}
 	}
 
 	if len(workspaces) == 0 {
-		return nil, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in Chrome, make sure you are logged in to Slack at app.slack.com")
+		return nil, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in any browser or Slack app")
 	}
 	return workspaces, nil
 }
@@ -508,11 +545,9 @@ type chromeWorkspace struct {
 	Token  string
 }
 
-// listWorkspacesWithTokensFromChrome scans all Chrome profiles and returns
-// every Slack workspace with its xoxc-* token. Unlike listWorkspacesFromChrome,
-// this includes the token so callers don't need to re-read the LevelDB.
-// Must be called with extractMu held.
-func listWorkspacesWithTokensFromChrome(profiles []string) []chromeWorkspace {
+// listWorkspacesWithTokensFromBrowser scans profiles and returns every Slack
+// workspace with its xoxc-* token. Must be called with extractMu held.
+func listWorkspacesWithTokensFromBrowser(profiles []string) []chromeWorkspace {
 	seen := make(map[string]bool)
 	var workspaces []chromeWorkspace
 	for _, profile := range profiles {
@@ -568,11 +603,11 @@ func extractTokenFromLevelDB(profilePath, teamID string) (string, error) {
 	return "", fmt.Errorf("no xoxc-* token in localConfig_v2 for profile %s", filepath.Base(profilePath))
 }
 
-// extractCookieFromChrome reads the xoxd-* session cookie from Chrome's
-// encrypted SQLite cookie database. It copies the DB to a temp file (Chrome
-// holds a lock while running), reads the Chrome Safe Storage password from
-// the macOS Keychain, and decrypts the cookie value using AES-128-CBC.
-func extractCookieFromChrome(profilePath string) (string, error) {
+// extractCookieFromBrowser reads the xoxd-* session cookie from a Chromium-based
+// browser's encrypted SQLite cookie database. It copies the DB to a temp file
+// (the browser holds a lock while running) and decrypts the cookie value using
+// AES-128-CBC with the provided keychain password.
+func extractCookieFromBrowser(profilePath, password string) (string, error) {
 	cookiesFile := filepath.Join(profilePath, "Cookies")
 	if _, err := os.Stat(cookiesFile); err != nil {
 		return "", fmt.Errorf("no Cookies file at %s", cookiesFile)
@@ -587,11 +622,6 @@ func extractCookieFromChrome(profilePath string) (string, error) {
 	tmpFile := filepath.Join(tmpDir, "Cookies")
 	if err := copyFile(cookiesFile, tmpFile); err != nil {
 		return "", fmt.Errorf("copying Cookies DB: %w", err)
-	}
-
-	password, err := chromeKeychainPassword()
-	if err != nil {
-		return "", err
 	}
 
 	db, err := sqlite3.Open(tmpFile)
@@ -633,13 +663,13 @@ func extractCookieFromChrome(profilePath string) (string, error) {
 	return cookie, nil
 }
 
-// chromeKeychainPassword retrieves the Chrome Safe Storage encryption key
-// from the macOS Keychain via the security command.
-func chromeKeychainPassword() (string, error) {
+// browserKeychainPassword retrieves the Safe Storage encryption key for a
+// browser/app from the macOS Keychain via the security command.
+func browserKeychainPassword(service string) (string, error) {
 	out, err := exec.Command("security", "find-generic-password",
-		"-s", "Chrome Safe Storage", "-w").Output()
+		"-s", service, "-w").Output()
 	if err != nil {
-		return "", fmt.Errorf("could not read Chrome Safe Storage from Keychain: %w", err)
+		return "", fmt.Errorf("could not read %s from Keychain: %w", service, err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -756,10 +786,10 @@ func tokenStatus(_ context.Context, s *slackIntegration, args map[string]any) (*
 	}
 
 	refreshInfo := map[string]any{
-		"enabled":        true,
-		"interval":       "4 hours",
-		"chrome_refresh": CanExtractFromChrome(),
-		"platform":       runtime.GOOS,
+		"enabled":         true,
+		"interval":        "4 hours",
+		"browser_refresh": CanExtractFromBrowser(),
+		"platform":        runtime.GOOS,
 	}
 
 	return mcp.JSONResult(map[string]any{
@@ -788,7 +818,7 @@ func refreshTokens(ctx context.Context, s *slackIntegration, args map[string]any
 
 	if ok := s.tryRefresh(); !ok {
 		return &mcp.ToolResult{
-			Data:    "Could not refresh tokens. Tried cookie-based refresh and Chrome extraction. Make sure you have a valid cookie or Chrome is running with Slack open.",
+			Data:    "Could not refresh tokens. Tried cookie-based refresh and browser extraction. Make sure you have a valid cookie or a supported browser (Chrome, Brave, Slack app) is running with Slack open.",
 			IsError: true,
 		}, nil
 	}

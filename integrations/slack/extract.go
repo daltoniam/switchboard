@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -37,27 +38,33 @@ type TokenInfo struct {
 	Status         string    `json:"status"`
 }
 
-// ListWorkspacesFromChrome returns all Slack workspaces found in Chrome's localStorage.
+// ListWorkspacesFromBrowsers returns all Slack workspaces found in any supported
+// browser's localStorage (Chrome, Brave, Slack desktop app).
 // Exported for use by the web UI to let the user pick which workspace to extract.
-func ListWorkspacesFromChrome() ([]WorkspaceInfo, error) {
+func ListWorkspacesFromBrowsers() ([]WorkspaceInfo, error) {
 	if runtime.GOOS != "darwin" {
-		return nil, fmt.Errorf("chrome extraction is only available on macOS")
+		return nil, fmt.Errorf("browser extraction is only available on macOS")
 	}
-	return listWorkspacesFromChrome()
+	return listWorkspacesFromAllBrowsers()
 }
 
-// ExtractFromChromeForWeb triggers Chrome extraction and returns the result.
-// If teamID is non-empty, only the token for that workspace is extracted.
+// ListWorkspacesFromChrome is an alias kept for backward compatibility.
+func ListWorkspacesFromChrome() ([]WorkspaceInfo, error) {
+	return ListWorkspacesFromBrowsers()
+}
+
+// ExtractFromBrowserForWeb triggers extraction from all supported browsers and
+// returns the result. If teamID is non-empty, only that workspace's token is extracted.
 // This is exported for use by the web UI server.
-func ExtractFromChromeForWeb(teamID string) *ExtractResult {
+func ExtractFromBrowserForWeb(teamID string) *ExtractResult {
 	if runtime.GOOS != "darwin" {
 		return &ExtractResult{
 			Success: false,
-			Error:   "Chrome extraction is only available on macOS. Use the manual method below.",
+			Error:   "Browser extraction is only available on macOS. Use the manual method below.",
 		}
 	}
 
-	extracted, err := extractFromChromeWithError(teamID)
+	extracted, err := extractFromBrowserWithError(teamID)
 	if err != nil {
 		return &ExtractResult{
 			Success: false,
@@ -68,39 +75,70 @@ func ExtractFromChromeForWeb(teamID string) *ExtractResult {
 	return &ExtractResult{
 		Token:   extracted.token,
 		Cookie:  extracted.cookie,
-		Source:  "chrome",
+		Source:  extracted.source,
 		Success: true,
 	}
 }
 
-// ExtractAllFromChromeForWeb extracts tokens for every workspace in Chrome
-// and saves them all to the persistent file. Returns the count of workspaces
-// extracted and any error.
-func ExtractAllFromChromeForWeb() (int, error) {
+// ExtractFromChromeForWeb is an alias kept for backward compatibility.
+func ExtractFromChromeForWeb(teamID string) *ExtractResult {
+	return ExtractFromBrowserForWeb(teamID)
+}
+
+// ExtractAllFromBrowsersForWeb extracts tokens for every workspace from all
+// supported browsers and saves them to the persistent file. Returns the count
+// of workspaces extracted and any error.
+func ExtractAllFromBrowsersForWeb() (int, error) {
 	if runtime.GOOS != "darwin" {
-		return 0, fmt.Errorf("chrome extraction is only available on macOS")
+		return 0, fmt.Errorf("browser extraction is only available on macOS")
 	}
 
 	extractMu.Lock()
-	profiles, err := findChromeProfiles()
-	if err != nil {
-		extractMu.Unlock()
-		return 0, fmt.Errorf("could not find Chrome profiles: %w", err)
+
+	type extractedWorkspace struct {
+		chromeWorkspace
+		cookie string
+		source string
 	}
 
-	// Extract cookie and all workspace tokens in a single pass.
-	var cookie string
-	for _, profile := range profiles {
-		if c, err := extractCookieFromChrome(profile); err == nil {
-			cookie = c
-			break
+	var allWorkspaces []extractedWorkspace
+	seen := make(map[string]bool)
+
+	for _, src := range browserSources {
+		profiles, err := findBrowserProfiles(src)
+		if err != nil {
+			continue
+		}
+
+		password, pwErr := browserKeychainPassword(src.keychainService)
+
+		var cookie string
+		if pwErr == nil {
+			for _, profile := range profiles {
+				if c, err := extractCookieFromBrowser(profile, password); err == nil {
+					cookie = c
+					break
+				}
+			}
+		}
+
+		workspaces := listWorkspacesWithTokensFromBrowser(profiles)
+		for _, ws := range workspaces {
+			if seen[ws.TeamID] {
+				continue
+			}
+			seen[ws.TeamID] = true
+			allWorkspaces = append(allWorkspaces, extractedWorkspace{
+				chromeWorkspace: ws,
+				cookie:          cookie,
+				source:          strings.ToLower(src.name),
+			})
 		}
 	}
-	workspaces := listWorkspacesWithTokensFromChrome(profiles)
 	extractMu.Unlock()
 
-	if len(workspaces) == 0 {
-		return 0, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in Chrome")
+	if len(allWorkspaces) == 0 {
+		return 0, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in any browser or Slack app")
 	}
 
 	home, _ := os.UserHomeDir()
@@ -111,20 +149,25 @@ func ExtractAllFromChromeForWeb() (int, error) {
 	}
 	store.loadFromFile()
 
-	for _, ws := range workspaces {
+	for _, ws := range allWorkspaces {
 		store.setWorkspace(&workspace{
 			TeamID:   ws.TeamID,
 			TeamName: ws.Name,
 			Token:    ws.Token,
-			Cookie:   cookie,
-			Source:   "chrome",
+			Cookie:   ws.cookie,
+			Source:   ws.source,
 		})
 	}
 
 	if err := store.saveToFile(); err != nil {
-		return len(workspaces), err
+		return len(allWorkspaces), err
 	}
-	return len(workspaces), nil
+	return len(allWorkspaces), nil
+}
+
+// ExtractAllFromChromeForWeb is an alias kept for backward compatibility.
+func ExtractAllFromChromeForWeb() (int, error) {
+	return ExtractAllFromBrowsersForWeb()
 }
 
 // SaveTokensForWeb saves the given token/cookie to the persistent file
@@ -222,10 +265,15 @@ func GetTokenInfoForWeb() *TokenInfo {
 	return info
 }
 
-// CanExtractFromChrome returns true if the current platform supports
-// automatic Chrome extraction (macOS only).
-func CanExtractFromChrome() bool {
+// CanExtractFromBrowser returns true if the current platform supports
+// automatic browser extraction (macOS only).
+func CanExtractFromBrowser() bool {
 	return runtime.GOOS == "darwin"
+}
+
+// CanExtractFromChrome is an alias kept for backward compatibility.
+func CanExtractFromChrome() bool {
+	return CanExtractFromBrowser()
 }
 
 // ConfiguredWorkspaceInfo describes a workspace from the persistent token file.
