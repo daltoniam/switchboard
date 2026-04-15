@@ -29,8 +29,11 @@ type Session struct {
 	LastUsed    time.Time      `json:"last_used"`
 	Breadcrumbs []Breadcrumb   `json:"breadcrumbs,omitempty"`
 
-	mu      sync.RWMutex
-	nextSeq int
+	mu         sync.RWMutex
+	nextSeq    int
+	pinned     map[string]*PinnedResult
+	nextHandle int
+	pinnedSize int
 }
 
 func newSession(id string) *Session {
