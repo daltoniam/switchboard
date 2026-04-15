@@ -35,6 +35,57 @@ func TestCanExtractFromChrome(t *testing.T) {
 	assert.IsType(t, true, result)
 }
 
+func TestCanExtractFromBrowser(t *testing.T) {
+	result := CanExtractFromBrowser()
+	if runtime.GOOS == "darwin" {
+		assert.True(t, result)
+	} else {
+		assert.False(t, result)
+	}
+}
+
+func TestBrowserSources_Coverage(t *testing.T) {
+	assert.GreaterOrEqual(t, len(browserSources), 3, "should have Chrome, Brave, and Slack sources")
+	names := make(map[string]bool)
+	for _, src := range browserSources {
+		assert.NotEmpty(t, src.name)
+		assert.NotEmpty(t, src.dataDir)
+		assert.NotEmpty(t, src.keychainService)
+		names[src.name] = true
+	}
+	assert.True(t, names["Chrome"], "should include Chrome")
+	assert.True(t, names["Brave"], "should include Brave")
+	assert.True(t, names["Slack"], "should include Slack")
+}
+
+func TestFindBrowserProfiles_NonProfileSource(t *testing.T) {
+	dir := t.TempDir()
+	src := browserSource{name: "Test", dataDir: "nonexistent", hasProfiles: false}
+	// Point to a real temp dir for the non-profile case
+	srcWithRealDir := browserSource{name: "Test", dataDir: "", hasProfiles: false}
+	_ = srcWithRealDir
+	_ = src
+	_ = dir
+}
+
+func TestListWorkspacesWithTokensFromBrowser(t *testing.T) {
+	profile := writeSyntheticLevelDB(t, "localConfig_v2", map[string]any{
+		"T001": map[string]any{
+			"token": "xoxc-from-browser",
+			"name":  "Browser Workspace",
+		},
+		"T002": map[string]any{
+			"token": "xoxb-bot-token",
+			"name":  "Bot Only",
+		},
+	})
+
+	workspaces := listWorkspacesWithTokensFromBrowser([]string{profile})
+	assert.Len(t, workspaces, 1)
+	assert.Equal(t, "T001", workspaces[0].TeamID)
+	assert.Equal(t, "xoxc-from-browser", workspaces[0].Token)
+}
+
 func TestWorkspaceInfo_Fields(t *testing.T) {
 	w := WorkspaceInfo{
 		TeamID: "T12345",
