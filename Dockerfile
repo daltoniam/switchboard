@@ -2,6 +2,7 @@ FROM alpine:3.21 AS certs
 RUN apk add --no-cache ca-certificates
 
 FROM scratch
+ENV HOME=/root
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY switchboard /switchboard
 
