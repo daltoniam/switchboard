@@ -249,10 +249,24 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Load WASM modules from config.
+	// Load WASM modules from config + marketplace installed plugins.
 	cfg := cfgMgr.Get()
-	if len(cfg.WasmModules) > 0 {
-		wasmRT := loadWasmModules(cfg.WasmModules, reg, cfgMgr)
+	allWasmModules := make([]mcp.WasmModuleConfig, len(cfg.WasmModules))
+	copy(allWasmModules, cfg.WasmModules)
+	if cfg.Marketplace != nil {
+		seen := make(map[string]bool)
+		for _, wm := range allWasmModules {
+			seen[wm.Path] = true
+		}
+		for _, ip := range cfg.Marketplace.InstalledPlugins {
+			if ip.Path != "" && !seen[ip.Path] {
+				allWasmModules = append(allWasmModules, mcp.WasmModuleConfig{Path: ip.Path})
+				seen[ip.Path] = true
+			}
+		}
+	}
+	if len(allWasmModules) > 0 {
+		wasmRT := loadWasmModules(allWasmModules, reg, cfgMgr)
 		defer wasmRT.Close(ctx) //nolint:errcheck
 	}
 
