@@ -219,10 +219,6 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
-			"homeassistant": {
-				Enabled:     false,
-				Credentials: mcp.Credentials{"token": "", "base_url": ""},
-			},
 			"notion": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token_v2": ""},

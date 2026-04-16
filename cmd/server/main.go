@@ -29,7 +29,6 @@ import (
 	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
-	"github.com/daltoniam/switchboard/integrations/homeassistant"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
@@ -221,7 +220,6 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		ynab.New(),
 		amazonIntegration,
 		gmailIntegration,
-		homeassistant.New(),
 		jira.New(),
 		confluence.New(),
 		notionInt.New(),
