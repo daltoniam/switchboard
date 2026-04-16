@@ -92,6 +92,20 @@ pub extern "C" fn healthy() -> i32 {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn metadata() -> u64 {
+    sdk::leaked_metadata(&sdk::PluginMetadata {
+        name: "example".into(),
+        version: "0.1.0".into(),
+        abi_version: 1,
+        description: "Example plugin demonstrating the Switchboard WASM plugin SDK".into(),
+        author: "Switchboard".into(),
+        homepage: "https://github.com/daltoniam/switchboard".into(),
+        license: "MIT".into(),
+        capabilities: vec!["http".into()],
+    })
+}
+
 type HandlerFn = fn(HashMap<String, serde_json::Value>) -> sdk::ToolResult;
 
 fn dispatch(tool_name: &str, args: HashMap<String, serde_json::Value>) -> sdk::ToolResult {

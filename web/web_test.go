@@ -112,7 +112,7 @@ func setupTestWeb() (*WebServer, *mockRegistry, *mockConfigService) {
 	}
 
 	services := &mcp.Services{Config: cfgService, Registry: reg}
-	ws := New(services, 3847)
+	ws := New(services, 3847, nil)
 	return ws, reg, cfgService
 }
 

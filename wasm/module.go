@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/marketplace"
 )
 
 // SetName overrides the name returned by the WASM module's name() export.
@@ -150,4 +151,32 @@ func (m *Module) Healthy(ctx context.Context) bool {
 		return false
 	}
 	return results[0] == 1
+}
+
+// Metadata returns plugin metadata from the WASM module's `metadata()` export.
+func (m *Module) Metadata() *marketplace.PluginMetadata {
+	ctx := context.Background()
+	results, err := m.fnMetadata.Call(ctx)
+	if err != nil {
+		return nil
+	}
+	if len(results) == 0 {
+		return nil
+	}
+
+	ptr, size := unpackPtrSize(results[0])
+	if size == 0 {
+		return nil
+	}
+	data, err := readFromGuest(m.mod, ptr, size)
+	freeInGuest(ctx, m.mod, ptr)
+	if err != nil {
+		return nil
+	}
+
+	var meta marketplace.PluginMetadata
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil
+	}
+	return &meta
 }
