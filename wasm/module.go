@@ -180,3 +180,43 @@ func (m *Module) Metadata() *marketplace.PluginMetadata {
 	}
 	return &meta
 }
+
+// PlainTextKeys implements mcp.PlainTextCredentials.
+// Returns plain-text credential keys declared in the plugin metadata.
+func (m *Module) PlainTextKeys() []string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.PlainTextKeys
+}
+
+// Placeholders implements mcp.PlaceholderHints.
+// Returns placeholder hints declared in the plugin metadata.
+func (m *Module) Placeholders() map[string]string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.Placeholders
+}
+
+// OptionalKeys implements mcp.OptionalCredentials.
+// Returns optional credential keys declared in the plugin metadata.
+func (m *Module) OptionalKeys() []string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.OptionalKeys
+}
+
+// CredentialKeys returns the credential keys this plugin expects, as declared
+// in its metadata. Used by loadWasmModule to register default config entries.
+func (m *Module) CredentialKeys() []string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.CredentialKeys
+}

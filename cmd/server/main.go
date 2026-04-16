@@ -420,9 +420,12 @@ func loadWasmModule(ctx context.Context, rt *wasmmod.Runtime, wc mcp.WasmModuleC
 		mod.SetName(wc.Name)
 	}
 
-	// Merge credentials: WASM inline creds are the baseline, existing config
-	// creds (e.g. set via the web UI integration page) override them.
+	// Merge credentials: WASM inline creds are the baseline, metadata
+	// credential_keys provide defaults, existing config creds override all.
 	mergedCreds := mcp.Credentials{}
+	for _, key := range mod.CredentialKeys() {
+		mergedCreds[key] = ""
+	}
 	for k, v := range wc.Credentials {
 		mergedCreds[k] = v
 	}
@@ -433,7 +436,14 @@ func loadWasmModule(ctx context.Context, rt *wasmmod.Runtime, wc mcp.WasmModuleC
 		}
 	}
 
-	if len(mergedCreds) > 0 {
+	hasNonEmpty := false
+	for _, v := range mergedCreds {
+		if v != "" {
+			hasNonEmpty = true
+			break
+		}
+	}
+	if hasNonEmpty {
 		if err := mod.Configure(ctx, mergedCreds); err != nil {
 			log.Printf("WARN: failed to configure WASM module %q: %v", wc.Path, err)
 			return

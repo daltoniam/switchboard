@@ -57,14 +57,18 @@ type PluginVersion struct {
 
 // PluginMetadata is embedded in the WASM binary and returned by the `metadata()` export.
 type PluginMetadata struct {
-	Name         string   `json:"name"`
-	Version      string   `json:"version"`
-	ABIVersion   int      `json:"abi_version"`
-	Description  string   `json:"description,omitempty"`
-	Author       string   `json:"author,omitempty"`
-	Homepage     string   `json:"homepage,omitempty"`
-	License      string   `json:"license,omitempty"`
-	Capabilities []string `json:"capabilities,omitempty"`
+	Name           string            `json:"name"`
+	Version        string            `json:"version"`
+	ABIVersion     int               `json:"abi_version"`
+	Description    string            `json:"description,omitempty"`
+	Author         string            `json:"author,omitempty"`
+	Homepage       string            `json:"homepage,omitempty"`
+	License        string            `json:"license,omitempty"`
+	Capabilities   []string          `json:"capabilities,omitempty"`
+	CredentialKeys []string          `json:"credential_keys,omitempty"`
+	PlainTextKeys  []string          `json:"plain_text_keys,omitempty"`
+	OptionalKeys   []string          `json:"optional_keys,omitempty"`
+	Placeholders   map[string]string `json:"placeholders,omitempty"`
 }
 
 // InstalledPlugin tracks a plugin installed via the marketplace.

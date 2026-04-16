@@ -39,6 +39,14 @@ pub struct PluginMetadata {
     pub license: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub credential_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plain_text_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub optional_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub placeholders: HashMap<String, String>,
 }
 
 /// Helper to export plugin metadata as a WASM function.

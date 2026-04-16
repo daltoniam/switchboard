@@ -1123,6 +1123,29 @@ func TestE2E_WASMMetadataRequired(t *testing.T) {
 	assert.Equal(t, "Switchboard", meta.Author)
 	assert.Equal(t, "MIT", meta.License)
 	assert.Contains(t, meta.Capabilities, "http")
+	assert.Equal(t, []string{"base_url", "api_key"}, meta.CredentialKeys)
+	assert.Equal(t, []string{"base_url"}, meta.PlainTextKeys)
+	assert.Equal(t, "https://api.example.com", meta.Placeholders["base_url"])
+	assert.Equal(t, "your-api-key", meta.Placeholders["api_key"])
+}
+
+// ─── WASM credential interfaces ──
+
+func TestE2E_WASMCredentialInterfaces(t *testing.T) {
+	wasmData := realWasmBytes(t)
+	ctx := context.Background()
+	rt, err := wasmmod.NewRuntime(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { rt.Close(ctx) }) //nolint:errcheck
+
+	mod, err := rt.LoadModule(ctx, wasmData)
+	require.NoError(t, err)
+	t.Cleanup(func() { mod.Close(ctx) }) //nolint:errcheck
+
+	assert.Equal(t, []string{"base_url"}, mod.PlainTextKeys())
+	assert.Equal(t, "https://api.example.com", mod.Placeholders()["base_url"])
+	assert.Empty(t, mod.OptionalKeys())
+	assert.Equal(t, []string{"base_url", "api_key"}, mod.CredentialKeys())
 }
 
 // ─── Config persistence round-trip ──

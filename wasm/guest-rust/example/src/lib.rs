@@ -103,6 +103,13 @@ pub extern "C" fn metadata() -> u64 {
         homepage: "https://github.com/daltoniam/switchboard".into(),
         license: "MIT".into(),
         capabilities: vec!["http".into()],
+        credential_keys: vec!["base_url".into(), "api_key".into()],
+        plain_text_keys: vec!["base_url".into()],
+        optional_keys: vec![],
+        placeholders: HashMap::from([
+            ("base_url".into(), "https://api.example.com".into()),
+            ("api_key".into(), "your-api-key".into()),
+        ]),
     })
 }
 
