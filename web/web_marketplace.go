@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -98,7 +99,8 @@ func (w *WebServer) handlePluginInstall(rw http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+%s@%s.+Restart+Switchboard+to+load+it.", ip.Name, ip.Version), http.StatusSeeOther)
+	w.liveLoadPlugin(r.Context(), ip.Path, "")
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s@%s.", ip.Name, ip.Version), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginInstallURL(rw http.ResponseWriter, r *http.Request) {
@@ -125,7 +127,8 @@ func (w *WebServer) handlePluginInstallURL(rw http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+%s.+Restart+Switchboard+to+load+it.", ip.Name), http.StatusSeeOther)
+	w.liveLoadPlugin(r.Context(), ip.Path, "")
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s.", ip.Name), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginUpload(rw http.ResponseWriter, r *http.Request) {
@@ -159,7 +162,8 @@ func (w *WebServer) handlePluginUpload(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uploaded+%s.+Restart+Switchboard+to+load+it.", ip.Name), http.StatusSeeOther)
+	w.liveLoadPlugin(r.Context(), ip.Path, "")
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uploaded+and+loaded+%s.", ip.Name), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginUninstall(rw http.ResponseWriter, r *http.Request) {
@@ -173,12 +177,15 @@ func (w *WebServer) handlePluginUninstall(rw http.ResponseWriter, r *http.Reques
 	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
+
+	w.liveUnloadPlugin(r.Context(), name)
+
 	if err := w.marketplace.UninstallPlugin(name); err != nil {
 		http.Redirect(rw, r, "/plugins?error=Uninstall+failed:+"+urlEncode(err.Error()), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uninstalled+%s.+Restart+Switchboard+to+apply.", name), http.StatusSeeOther)
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uninstalled+%s.", name), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginUpdate(rw http.ResponseWriter, r *http.Request) {
@@ -205,7 +212,8 @@ func (w *WebServer) handlePluginUpdate(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Updated+%s+to+%s.+Restart+Switchboard+to+apply.", ip.Name, ip.Version), http.StatusSeeOther)
+	w.liveLoadPlugin(r.Context(), ip.Path, "")
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Updated+and+reloaded+%s+to+%s.", ip.Name, ip.Version), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginCheckUpdates(rw http.ResponseWriter, r *http.Request) {
@@ -303,6 +311,24 @@ func (w *WebServer) handlePluginRemoveManifest(rw http.ResponseWriter, r *http.R
 	}
 
 	http.Redirect(rw, r, "/plugins?success=Manifest+source+removed.", http.StatusSeeOther)
+}
+
+func (w *WebServer) liveLoadPlugin(ctx context.Context, path, nameOverride string) {
+	if w.wasmLoader == nil {
+		return
+	}
+	if err := w.wasmLoader.LoadPlugin(ctx, path, nameOverride); err != nil {
+		log.Printf("WARN: live-load plugin %q failed: %v", path, err)
+	}
+}
+
+func (w *WebServer) liveUnloadPlugin(ctx context.Context, name string) {
+	if w.wasmLoader == nil {
+		return
+	}
+	if err := w.wasmLoader.UnloadPlugin(ctx, name); err != nil {
+		log.Printf("WARN: live-unload plugin %q failed: %v", name, err)
+	}
 }
 
 func urlEncode(s string) string {

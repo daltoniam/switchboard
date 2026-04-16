@@ -76,6 +76,13 @@ func (r *mockRegistry) Register(i mcp.Integration) error {
 	r.integrations[i.Name()] = i
 	return nil
 }
+func (r *mockRegistry) Unregister(name string) (mcp.Integration, bool) {
+	i, ok := r.integrations[name]
+	if ok {
+		delete(r.integrations, name)
+	}
+	return i, ok
+}
 func (r *mockRegistry) Get(name string) (mcp.Integration, bool) {
 	i, ok := r.integrations[name]
 	return i, ok
@@ -112,7 +119,7 @@ func setupTestWeb() (*WebServer, *mockRegistry, *mockConfigService) {
 	}
 
 	services := &mcp.Services{Config: cfgService, Registry: reg}
-	ws := New(services, 3847, nil)
+	ws := New(services, 3847, nil, nil)
 	return ws, reg, cfgService
 }
 

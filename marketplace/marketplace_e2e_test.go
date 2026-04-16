@@ -148,7 +148,7 @@ func webServer(t *testing.T, mp *marketplace.Manager) *httptest.Server {
 	reg := registry.New()
 	cfgSvc := newStubConfigService()
 	services := &mcp.Services{Config: cfgSvc, Registry: reg}
-	ws := web.New(services, 0, mp)
+	ws := web.New(services, 0, mp, nil)
 	srv := httptest.NewServer(ws.Handler())
 	t.Cleanup(srv.Close)
 	return srv

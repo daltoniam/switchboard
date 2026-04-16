@@ -17,6 +17,7 @@ import (
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/remotemcp"
+	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 )
@@ -27,15 +28,17 @@ type WebServer struct {
 	port        int
 	health      *healthCache
 	marketplace *marketplace.Manager
+	wasmLoader  *wasmmod.Loader
 }
 
 // New returns a WebServer that provides a browser-based config UI.
-func New(services *mcp.Services, port int, mp *marketplace.Manager) *WebServer {
+func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.Loader) *WebServer {
 	ws := &WebServer{
 		services:    services,
 		port:        port,
 		health:      newHealthCache(services),
 		marketplace: mp,
+		wasmLoader:  wl,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

@@ -84,6 +84,13 @@ func (r *mockRegistry) Register(i mcp.Integration) error {
 	r.integrations[i.Name()] = i
 	return nil
 }
+func (r *mockRegistry) Unregister(name string) (mcp.Integration, bool) {
+	i, ok := r.integrations[name]
+	if ok {
+		delete(r.integrations, name)
+	}
+	return i, ok
+}
 func (r *mockRegistry) Get(name string) (mcp.Integration, bool) {
 	i, ok := r.integrations[name]
 	return i, ok

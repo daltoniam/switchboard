@@ -326,6 +326,7 @@ type ConfigService interface {
 // Registry holds all registered integrations and provides lookup.
 type Registry interface {
 	Register(i Integration) error
+	Unregister(name string) (Integration, bool)
 	Get(name string) (Integration, bool)
 	All() []Integration
 	Names() []string

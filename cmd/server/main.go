@@ -249,8 +249,17 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Load WASM modules from config + marketplace installed plugins.
+	// Create WASM runtime and loader (always — needed for live-reload from web UI).
 	cfg := cfgMgr.Get()
+	wasmCtx := context.Background()
+	wasmRT, err := wasmmod.NewRuntime(wasmCtx)
+	if err != nil {
+		log.Fatalf("Failed to create WASM runtime: %v", err)
+	}
+	defer wasmRT.Close(ctx) //nolint:errcheck
+	wasmLoader := wasmmod.NewLoader(wasmRT, reg, cfgMgr)
+
+	// Load WASM modules from config + marketplace installed plugins.
 	allWasmModules := make([]mcp.WasmModuleConfig, len(cfg.WasmModules))
 	copy(allWasmModules, cfg.WasmModules)
 	if cfg.Marketplace != nil {
@@ -265,9 +274,10 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 			}
 		}
 	}
-	if len(allWasmModules) > 0 {
-		wasmRT := loadWasmModules(allWasmModules, reg, cfgMgr)
-		defer wasmRT.Close(ctx) //nolint:errcheck
+	for _, wc := range allWasmModules {
+		if err := wasmLoader.LoadPlugin(wasmCtx, wc.Path, wc.Name); err != nil {
+			log.Printf("WARN: %v", err)
+		}
 	}
 
 	gmail.SetConfigService(gmailIntegration, cfgMgr)
@@ -382,7 +392,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	cancelAutoUpdate := mp.StartAutoUpdateLoop(ctx)
 	defer cancelAutoUpdate()
 
-	ws := web.New(services, port, mp)
+	ws := web.New(services, port, mp, wasmLoader)
 	mux.Handle("/", ws.Handler())
 
 	addr := fmt.Sprintf(":%d", port)
@@ -405,80 +415,4 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	if browserSvc != nil {
 		browserSvc.Close() //nolint:errcheck
 	}
-}
-
-func loadWasmModules(modules []mcp.WasmModuleConfig, reg mcp.Registry, cfgMgr mcp.ConfigService) *wasmmod.Runtime {
-	wasmCtx := context.Background()
-	wasmRT, err := wasmmod.NewRuntime(wasmCtx)
-	if err != nil {
-		log.Fatalf("Failed to create WASM runtime: %v", err)
-	}
-	for _, wc := range modules {
-		loadWasmModule(wasmCtx, wasmRT, wc, reg, cfgMgr)
-	}
-	return wasmRT
-}
-
-func loadWasmModule(ctx context.Context, rt *wasmmod.Runtime, wc mcp.WasmModuleConfig, reg mcp.Registry, cfgMgr mcp.ConfigService) {
-	wasmBytes, err := os.ReadFile(wc.Path)
-	if err != nil {
-		log.Printf("WARN: failed to read WASM module %q: %v", wc.Path, err)
-		return
-	}
-	mod, err := rt.LoadModule(ctx, wasmBytes)
-	if err != nil {
-		log.Printf("WARN: failed to load WASM module %q: %v", wc.Path, err)
-		return
-	}
-	if wc.Name != "" {
-		mod.SetName(wc.Name)
-	}
-
-	// Merge credentials: WASM inline creds are the baseline, metadata
-	// credential_keys provide defaults, existing config creds override all.
-	mergedCreds := mcp.Credentials{}
-	for _, key := range mod.CredentialKeys() {
-		mergedCreds[key] = ""
-	}
-	for k, v := range wc.Credentials {
-		mergedCreds[k] = v
-	}
-	existing, hasExisting := cfgMgr.GetIntegration(mod.Name())
-	if hasExisting {
-		for k, v := range existing.Credentials {
-			mergedCreds[k] = v
-		}
-	}
-
-	hasNonEmpty := false
-	for _, v := range mergedCreds {
-		if v != "" {
-			hasNonEmpty = true
-			break
-		}
-	}
-	if hasNonEmpty {
-		if err := mod.Configure(ctx, mergedCreds); err != nil {
-			log.Printf("WARN: failed to configure WASM module %q: %v", wc.Path, err)
-			return
-		}
-	}
-
-	if err := reg.Register(mod); err != nil {
-		log.Printf("WARN: failed to register WASM module %q: %v", wc.Path, err)
-		return
-	}
-
-	// Always persist the integration config entry so the web UI shows
-	// the correct credentials and enabled state.
-	ic := &mcp.IntegrationConfig{
-		Enabled:     true,
-		Credentials: mergedCreds,
-	}
-	if hasExisting {
-		ic.ToolGlobs = existing.ToolGlobs
-	}
-	_ = cfgMgr.SetIntegration(mod.Name(), ic)
-
-	log.Printf("Loaded WASM integration %q from %s", mod.Name(), wc.Path)
 }
