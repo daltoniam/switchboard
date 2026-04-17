@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "name": "switchboard-official",
+  "description": "Official Switchboard plugin registry",
+  "plugins": [
+    {
+      "name": "example",
+      "description": "Example plugin demonstrating the Switchboard WASM plugin SDK. Provides echo, HTTP proxy, and list operations.",
+      "author": "Switchboard",
+      "homepage": "https://github.com/daltoniam/switchboard",
+      "license": "MIT",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "abi_min": 1,
+          "abi_max": 1,
+          "url": "https://github.com/daltoniam/switchboard/raw/main/wasm/testdata/example.wasm",
+          "sha256": "",
+          "released_at": "2025-01-01T00:00:00Z",
+          "changelog": "Initial release of the example plugin."
+        }
+      ]
+    }
+  ]
+}

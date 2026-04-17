@@ -1,0 +1,250 @@
+package pages
+
+import (
+	"fmt"
+
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+type PluginEntry struct {
+	Name             string
+	Description      string
+	Author           string
+	Homepage         string
+	License          string
+	LatestVersion    string
+	ManifestSource   string
+	Installed        bool
+	InstalledVersion string
+	UpdateAvailable  bool
+}
+
+type InstalledPluginEntry struct {
+	Name          string
+	Version       string
+	Path          string
+	InstalledAt   string
+	AutoUpdate    bool
+	LatestVersion string
+	UpdateAvail   bool
+}
+
+type ManifestSourceEntry struct {
+	Index   int
+	URL     string
+	Name    string
+	Enabled bool
+}
+
+type PluginMarketplaceData struct {
+	Available        []PluginEntry
+	Installed        []InstalledPluginEntry
+	ManifestSources  []ManifestSourceEntry
+	AutoUpdate       bool
+	LastCheck        string
+	FetchError       string
+}
+
+templ PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) {
+	@layouts.Base(page) {
+		<h1 class="page-title">Plugin Marketplace</h1>
+		<!-- Auto-Update Settings -->
+		<div class="card" style="margin-bottom: 1rem;">
+			<div style="display: flex; align-items: center; justify-content: space-between;">
+				<div>
+					<div style="font-size: 0.8125rem; font-weight: 600;">Automatic Updates</div>
+					<div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.125rem;">
+						if data.LastCheck != "" {
+							Last checked: { data.LastCheck }
+						} else {
+							Never checked for updates
+						}
+					</div>
+				</div>
+				<div style="display: flex; align-items: center; gap: 0.75rem;">
+					<form method="POST" action="/plugins/check-updates" style="display:inline;">
+						<button type="submit" class="btn btn-sm btn-outline">Check Now</button>
+					</form>
+					<form method="POST" action="/plugins/auto-update">
+						if data.AutoUpdate {
+							<input type="hidden" name="enabled" value="false"/>
+							<button type="submit" class="btn btn-sm btn-green">Auto-Update: ON</button>
+						} else {
+							<input type="hidden" name="enabled" value="true"/>
+							<button type="submit" class="btn btn-sm btn-outline">Auto-Update: OFF</button>
+						}
+					</form>
+				</div>
+			</div>
+		</div>
+		<!-- Installed Plugins -->
+		<div class="section-title">Installed Plugins</div>
+		if len(data.Installed) > 0 {
+			for _, p := range data.Installed {
+				<div class="card" style="margin-bottom: 0.5rem;">
+					<div style="display: flex; align-items: center; justify-content: space-between;">
+						<div style="flex: 1; min-width: 0;">
+							<div style="display: flex; align-items: center; gap: 0.5rem;">
+								<span style="font-weight: 600; font-size: 0.875rem;">{ p.Name }</span>
+								<span class="badge badge-muted">{ p.Version }</span>
+								if p.UpdateAvail {
+									<span class="badge badge-yellow">Update: { p.LatestVersion }</span>
+								}
+							</div>
+							<div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+								{ p.Path }
+							</div>
+						</div>
+						<div style="display: flex; gap: 0.5rem; margin-left: 0.75rem;">
+							if p.UpdateAvail {
+								<form method="POST" action="/plugins/update">
+									<input type="hidden" name="name" value={ p.Name }/>
+									<button type="submit" class="btn btn-sm btn-green">Update</button>
+								</form>
+							}
+							<form method="POST" action="/plugins/uninstall" onsubmit="return confirm('Uninstall this plugin?')">
+								<input type="hidden" name="name" value={ p.Name }/>
+								<button type="submit" class="btn btn-sm btn-outline" style="color: var(--red); border-color: var(--red);">Uninstall</button>
+							</form>
+						</div>
+					</div>
+				</div>
+			}
+		} else {
+			<div class="card" style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 1rem;">
+				No plugins installed yet. Browse available plugins below or upload your own.
+			</div>
+		}
+		<!-- Available Plugins from Manifests -->
+		<div class="section-title" style="margin-top: 1.5rem;">Available Plugins</div>
+		if data.FetchError != "" {
+			<div class="card" style="background: var(--red-dim); border-color: oklch(62% 0.2 25 / 0.25); margin-bottom: 0.75rem;">
+				<p style="font-size: 0.8125rem; color: var(--red); margin: 0;">
+					Failed to fetch manifests: { data.FetchError }
+				</p>
+			</div>
+		}
+		if len(data.Available) > 0 {
+			for _, p := range data.Available {
+				<div class="card" style="margin-bottom: 0.5rem;">
+					<div style="display: flex; align-items: center; justify-content: space-between;">
+						<div style="flex: 1; min-width: 0;">
+							<div style="display: flex; align-items: center; gap: 0.5rem;">
+								<span style="font-weight: 600; font-size: 0.875rem;">{ p.Name }</span>
+								<span class="badge badge-muted">{ p.LatestVersion }</span>
+								if p.Installed {
+									if p.UpdateAvailable {
+										<span class="badge badge-yellow">Update Available</span>
+									} else {
+										<span class="badge badge-green">Installed</span>
+									}
+								}
+								if p.ManifestSource != "" {
+									<span style="font-size: 0.625rem; color: var(--text-muted);">via { p.ManifestSource }</span>
+								}
+							</div>
+							<div style="font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.25rem;">
+								{ p.Description }
+							</div>
+							<div style="display: flex; gap: 1rem; font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem;">
+								if p.Author != "" {
+									<span>by { p.Author }</span>
+								}
+								if p.License != "" {
+									<span>{ p.License }</span>
+								}
+							</div>
+						</div>
+						<div style="margin-left: 0.75rem;">
+							if !p.Installed {
+								<form method="POST" action="/plugins/install">
+									<input type="hidden" name="name" value={ p.Name }/>
+									<button type="submit" class="btn btn-sm">Install</button>
+								</form>
+							} else if p.UpdateAvailable {
+								<form method="POST" action="/plugins/update">
+									<input type="hidden" name="name" value={ p.Name }/>
+									<button type="submit" class="btn btn-sm btn-green">Update</button>
+								</form>
+							}
+						</div>
+					</div>
+				</div>
+			}
+		} else if data.FetchError == "" {
+			<div class="card" style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.8125rem; margin-bottom: 1rem;">
+				No manifest sources configured. Add one below to browse available plugins.
+			</div>
+		}
+		<!-- Install from URL -->
+		<div class="section-title" style="margin-top: 1.5rem;">Install from URL</div>
+		<form method="POST" action="/plugins/install-url">
+			<div class="card">
+				<div class="form-group">
+					<label class="form-label" for="plugin_url">WASM Plugin URL</label>
+					<input class="form-input" type="url" name="url" id="plugin_url" placeholder="https://example.com/my-plugin.wasm" required/>
+				</div>
+			</div>
+			<button type="submit" class="btn" style="margin-bottom: 1.5rem;">Install from URL</button>
+		</form>
+		<!-- Upload WASM -->
+		<div class="section-title">Upload Plugin</div>
+		<form method="POST" action="/plugins/upload" enctype="multipart/form-data">
+			<div class="card">
+				<div class="form-group">
+					<label class="form-label" for="plugin_name">Plugin Name (optional)</label>
+					<input class="form-input" type="text" name="name" id="plugin_name" placeholder="my-plugin"/>
+				</div>
+				<div class="form-group">
+					<label class="form-label" for="plugin_file">WASM File</label>
+					<input class="form-input" type="file" name="wasm" id="plugin_file" accept=".wasm" required style="padding: 0.375rem;"/>
+				</div>
+			</div>
+			<button type="submit" class="btn" style="margin-bottom: 1.5rem;">Upload Plugin</button>
+		</form>
+		<!-- Manifest Sources -->
+		<div class="section-title">Manifest Sources</div>
+		if len(data.ManifestSources) > 0 {
+			for _, src := range data.ManifestSources {
+				<div class="card" style="margin-bottom: 0.5rem;">
+					<div style="display: flex; align-items: center; justify-content: space-between;">
+						<div style="flex: 1; min-width: 0;">
+							<div style="font-family: var(--font-mono); font-size: 0.8125rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+								{ src.URL }
+							</div>
+							if src.Name != "" {
+								<div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.125rem;">
+									{ src.Name }
+								</div>
+							}
+						</div>
+						<div style="display: flex; gap: 0.5rem; margin-left: 0.75rem;">
+							if src.Enabled {
+								<span class="badge badge-green">enabled</span>
+							} else {
+								<span class="badge badge-muted">disabled</span>
+							}
+							<form method="POST" action="/plugins/remove-manifest" onsubmit="return confirm('Remove this manifest source?')">
+								<input type="hidden" name="url" value={ src.URL }/>
+								<button type="submit" class="btn btn-sm btn-outline" style="color: var(--red); border-color: var(--red);">Remove</button>
+							</form>
+						</div>
+					</div>
+				</div>
+			}
+		}
+		<form method="POST" action="/plugins/add-manifest">
+			<div class="card">
+				<div class="form-group">
+					<label class="form-label" for="manifest_url">Manifest URL</label>
+					<input class="form-input" type="url" name="url" id="manifest_url" placeholder="https://example.com/plugins/manifest.json" required/>
+				</div>
+				<div class="form-group">
+					<label class="form-label" for="manifest_name">Label (optional)</label>
+					<input class="form-input" type="text" name="name" id="manifest_name" placeholder={ fmt.Sprintf("e.g. %q", "Community Plugins") }/>
+				</div>
+			</div>
+			<button type="submit" class="btn">Add Manifest Source</button>
+		</form>
+	}
+}

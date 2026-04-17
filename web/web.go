@@ -15,24 +15,30 @@ import (
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
+	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/remotemcp"
+	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 )
 
 // WebServer serves the configuration web UI using templ templates.
 type WebServer struct {
-	services *mcp.Services
-	port     int
-	health   *healthCache
+	services    *mcp.Services
+	port        int
+	health      *healthCache
+	marketplace *marketplace.Manager
+	wasmLoader  *wasmmod.Loader
 }
 
 // New returns a WebServer that provides a browser-based config UI.
-func New(services *mcp.Services, port int) *WebServer {
+func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.Loader) *WebServer {
 	ws := &WebServer{
-		services: services,
-		port:     port,
-		health:   newHealthCache(services),
+		services:    services,
+		port:        port,
+		health:      newHealthCache(services),
+		marketplace: mp,
+		wasmLoader:  wl,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -96,6 +102,17 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /settings", w.handleSettings)
 	mux.HandleFunc("POST /settings", w.handleSettingsSave)
+
+	mux.HandleFunc("GET /plugins", w.handlePluginMarketplace)
+	mux.HandleFunc("POST /plugins/install", w.handlePluginInstall)
+	mux.HandleFunc("POST /plugins/install-url", w.handlePluginInstallURL)
+	mux.HandleFunc("POST /plugins/upload", w.handlePluginUpload)
+	mux.HandleFunc("POST /plugins/uninstall", w.handlePluginUninstall)
+	mux.HandleFunc("POST /plugins/update", w.handlePluginUpdate)
+	mux.HandleFunc("POST /plugins/check-updates", w.handlePluginCheckUpdates)
+	mux.HandleFunc("POST /plugins/auto-update", w.handlePluginAutoUpdate)
+	mux.HandleFunc("POST /plugins/add-manifest", w.handlePluginAddManifest)
+	mux.HandleFunc("POST /plugins/remove-manifest", w.handlePluginRemoveManifest)
 
 	return mux
 }

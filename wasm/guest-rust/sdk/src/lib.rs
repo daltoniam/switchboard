@@ -24,6 +24,38 @@ fn is_false(v: &bool) -> bool {
     !v
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PluginMetadata {
+    pub name: String,
+    pub version: String,
+    pub abi_version: i32,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub author: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub homepage: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub license: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub credential_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plain_text_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub optional_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub placeholders: HashMap<String, String>,
+}
+
+/// Helper to export plugin metadata as a WASM function.
+/// Call this from your `#[no_mangle] pub extern "C" fn metadata() -> u64` export.
+pub fn leaked_metadata(meta: &PluginMetadata) -> u64 {
+    let data = serde_json::to_vec(meta).unwrap_or_default();
+    leaked_result(&data)
+}
+
 #[derive(Deserialize)]
 pub struct ExecuteRequest {
     pub tool_name: String,

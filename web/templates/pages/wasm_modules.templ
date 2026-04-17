@@ -20,11 +20,6 @@ type WasmModulesData struct {
 templ WasmModules(page layouts.PageData, data WasmModulesData) {
 	@layouts.Base(page) {
 		<h1 class="page-title">WASM Modules</h1>
-		<div class="card" style="margin-bottom: 1rem; background: var(--yellow-dim); border-color: oklch(72% 0.15 80 / 0.25);">
-			<p style="font-size: 0.8125rem; color: var(--yellow); margin: 0;">
-				WASM modules are loaded at server startup. Restart Switchboard to activate changes.
-			</p>
-		</div>
 		if len(data.Modules) > 0 {
 			<div class="section-title">Configured Modules</div>
 			for _, m := range data.Modules {

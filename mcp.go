@@ -118,10 +118,40 @@ type WasmModuleConfig struct {
 	Credentials Credentials `json:"credentials,omitempty"`
 }
 
+// MarketplaceConfig holds plugin marketplace settings.
+type MarketplaceConfig struct {
+	ManifestSources  []MarketplaceManifestSource  `json:"manifest_sources,omitempty"`
+	InstalledPlugins []MarketplaceInstalledPlugin `json:"installed_plugins,omitempty"`
+	AutoUpdate       bool                         `json:"auto_update"`
+	CheckInterval    string                       `json:"check_interval,omitempty"`
+	PluginDir        string                       `json:"plugin_dir,omitempty"`
+	LastCheck        string                       `json:"last_check,omitempty"`
+}
+
+// MarketplaceManifestSource is a configured manifest URL.
+type MarketplaceManifestSource struct {
+	URL     string `json:"url"`
+	Name    string `json:"name,omitempty"`
+	Enabled bool   `json:"enabled"`
+}
+
+// MarketplaceInstalledPlugin tracks a plugin installed via the marketplace.
+type MarketplaceInstalledPlugin struct {
+	Name          string `json:"name"`
+	Version       string `json:"version"`
+	ManifestURL   string `json:"manifest_url,omitempty"`
+	InstalledAt   string `json:"installed_at"`
+	Path          string `json:"path"`
+	SHA256        string `json:"sha256"`
+	AutoUpdate    bool   `json:"auto_update"`
+	LatestVersion string `json:"latest_version,omitempty"`
+}
+
 // Config is the top-level configuration containing all integrations.
 type Config struct {
 	Integrations map[string]*IntegrationConfig `json:"integrations"`
 	WasmModules  []WasmModuleConfig            `json:"wasm_modules,omitempty"`
+	Marketplace  *MarketplaceConfig            `json:"marketplace,omitempty"`
 	SessionStore string                        `json:"session_store,omitempty"` // "memory" or "file" (default: "memory")
 }
 
@@ -296,6 +326,7 @@ type ConfigService interface {
 // Registry holds all registered integrations and provides lookup.
 type Registry interface {
 	Register(i Integration) error
+	Unregister(name string) (Integration, bool)
 	Get(name string) (Integration, bool)
 	All() []Integration
 	Names() []string

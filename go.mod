@@ -15,6 +15,7 @@ require (
 	cloud.google.com/go/storage v1.53.0
 	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
 	github.com/DataDog/datadog-api-client-go/v2 v2.55.0
+	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/a-h/templ v0.3.1001
 	github.com/aws/aws-sdk-go-v2 v1.41.5
@@ -79,7 +80,6 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.29.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.51.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.51.0 // indirect
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/MirrexOne/unqueryvet v1.5.3 // indirect
 	github.com/OpenPeeDeeP/depguard/v2 v2.2.1 // indirect
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect

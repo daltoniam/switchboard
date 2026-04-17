@@ -10,7 +10,6 @@ import (
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
-	"github.com/daltoniam/switchboard/integrations/homeassistant"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/notion"
@@ -54,7 +53,6 @@ func collectAllTools() []struct {
 		pganalyze.New(),
 		gmail.New(),
 		ynab.New(),
-		homeassistant.New(),
 	}
 
 	var all []struct {
