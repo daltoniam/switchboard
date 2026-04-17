@@ -90,6 +90,15 @@ func createIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 	if v := r.Str("parent_key"); v != "" {
 		fields["parent"] = map[string]string{"key": v}
 	}
+	if cfStr := r.Str("custom_fields"); cfStr != "" {
+		var cf map[string]any
+		if err := json.Unmarshal([]byte(cfStr), &cf); err != nil {
+			return mcp.ErrResult(fmt.Errorf("invalid JSON for custom_fields: %w", err))
+		}
+		for k, v := range cf {
+			fields[k] = v
+		}
+	}
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -127,6 +136,15 @@ func updateIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 			rawLabels[i] = strings.TrimSpace(l)
 		}
 		fields["labels"] = rawLabels
+	}
+	if cfStr := r.Str("custom_fields"); cfStr != "" {
+		var cf map[string]any
+		if err := json.Unmarshal([]byte(cfStr), &cf); err != nil {
+			return mcp.ErrResult(fmt.Errorf("invalid JSON for custom_fields: %w", err))
+		}
+		for k, v := range cf {
+			fields[k] = v
+		}
 	}
 	issueKey := r.Str("issue_key")
 	if err := r.Err(); err != nil {
