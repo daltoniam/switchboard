@@ -449,6 +449,22 @@ func TestUpdateIssue_CustomFields(t *testing.T) {
 			},
 		},
 		{
+			name: "standard field keys in custom_fields are ignored",
+			args: map[string]any{
+				"issue_key":     "PROJ-1",
+				"priority":      "High",
+				"custom_fields": `{"priority": "Low", "customfield_10001": "value"}`,
+			},
+			checkBody: func(t *testing.T, body map[string]any) {
+				fields := body["fields"].(map[string]any)
+				// explicit priority param wins — custom_fields must not overwrite it
+				prio := fields["priority"].(map[string]any)
+				assert.Equal(t, "High", prio["name"])
+				// non-standard field still set
+				assert.Equal(t, "value", fields["customfield_10001"])
+			},
+		},
+		{
 			name: "invalid JSON returns error",
 			args: map[string]any{
 				"issue_key":     "PROJ-1",

@@ -10,6 +10,15 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// standardFields are the Jira field keys managed by explicit tool parameters.
+// Custom fields passed via custom_fields must not collide with these to prevent
+// overwriting already-formatted values (e.g. priority as {"name":"High"}).
+var standardFields = map[string]bool{
+	"project": true, "issuetype": true, "summary": true,
+	"description": true, "priority": true, "assignee": true,
+	"labels": true, "parent": true,
+}
+
 func searchIssues(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	body := map[string]any{
@@ -96,7 +105,9 @@ func createIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 			return mcp.ErrResult(fmt.Errorf("invalid JSON for custom_fields: %w", err))
 		}
 		for k, v := range cf {
-			fields[k] = v
+			if !standardFields[k] {
+				fields[k] = v
+			}
 		}
 	}
 	if err := r.Err(); err != nil {
@@ -143,7 +154,9 @@ func updateIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 			return mcp.ErrResult(fmt.Errorf("invalid JSON for custom_fields: %w", err))
 		}
 		for k, v := range cf {
-			fields[k] = v
+			if !standardFields[k] {
+				fields[k] = v
+			}
 		}
 	}
 	issueKey := r.Str("issue_key")
