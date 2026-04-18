@@ -10,6 +10,15 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// standardFields are the Jira field keys managed by explicit tool parameters.
+// Custom fields passed via custom_fields must not collide with these to prevent
+// overwriting already-formatted values (e.g. priority as {"name":"High"}).
+var standardFields = map[string]bool{
+	"project": true, "issuetype": true, "summary": true,
+	"description": true, "priority": true, "assignee": true,
+	"labels": true, "parent": true,
+}
+
 func searchIssues(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	body := map[string]any{
@@ -90,6 +99,17 @@ func createIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 	if v := r.Str("parent_key"); v != "" {
 		fields["parent"] = map[string]string{"key": v}
 	}
+	if cfStr := r.Str("custom_fields"); cfStr != "" {
+		var cf map[string]any
+		if err := json.Unmarshal([]byte(cfStr), &cf); err != nil {
+			return mcp.ErrResult(fmt.Errorf("invalid JSON for custom_fields: %w", err))
+		}
+		for k, v := range cf {
+			if !standardFields[k] {
+				fields[k] = v
+			}
+		}
+	}
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -127,6 +147,17 @@ func updateIssue(ctx context.Context, j *jira, args map[string]any) (*mcp.ToolRe
 			rawLabels[i] = strings.TrimSpace(l)
 		}
 		fields["labels"] = rawLabels
+	}
+	if cfStr := r.Str("custom_fields"); cfStr != "" {
+		var cf map[string]any
+		if err := json.Unmarshal([]byte(cfStr), &cf); err != nil {
+			return mcp.ErrResult(fmt.Errorf("invalid JSON for custom_fields: %w", err))
+		}
+		for k, v := range cf {
+			if !standardFields[k] {
+				fields[k] = v
+			}
+		}
 	}
 	issueKey := r.Str("issue_key")
 	if err := r.Err(); err != nil {

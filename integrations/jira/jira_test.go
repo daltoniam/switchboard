@@ -400,6 +400,171 @@ func TestSearchIssues(t *testing.T) {
 	}
 }
 
+func TestUpdateIssue_CustomFields(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       map[string]any
+		wantErr    bool
+		wantErrMsg string
+		checkBody  func(t *testing.T, body map[string]any)
+	}{
+		{
+			name: "merges custom fields with standard fields",
+			args: map[string]any{
+				"issue_key":     "PROJ-1",
+				"summary":       "Updated title",
+				"custom_fields": `{"customfield_10001": "hello"}`,
+			},
+			checkBody: func(t *testing.T, body map[string]any) {
+				fields := body["fields"].(map[string]any)
+				assert.Equal(t, "Updated title", fields["summary"])
+				assert.Equal(t, "hello", fields["customfield_10001"])
+			},
+		},
+		{
+			name: "custom fields only",
+			args: map[string]any{
+				"issue_key":     "PROJ-1",
+				"custom_fields": `{"customfield_10001": "value"}`,
+			},
+			checkBody: func(t *testing.T, body map[string]any) {
+				fields := body["fields"].(map[string]any)
+				assert.Equal(t, "value", fields["customfield_10001"])
+				_, hasSummary := fields["summary"]
+				assert.False(t, hasSummary)
+			},
+		},
+		{
+			name: "complex custom field values",
+			args: map[string]any{
+				"issue_key":     "PROJ-1",
+				"custom_fields": `{"customfield_10002": {"id": "10100"}, "customfield_10003": [{"id": "10200"}]}`,
+			},
+			checkBody: func(t *testing.T, body map[string]any) {
+				fields := body["fields"].(map[string]any)
+				selectField := fields["customfield_10002"].(map[string]any)
+				assert.Equal(t, "10100", selectField["id"])
+				multiSelect := fields["customfield_10003"].([]any)
+				assert.Len(t, multiSelect, 1)
+			},
+		},
+		{
+			name: "standard field keys in custom_fields are ignored",
+			args: map[string]any{
+				"issue_key":     "PROJ-1",
+				"priority":      "High",
+				"custom_fields": `{"priority": "Low", "customfield_10001": "value"}`,
+			},
+			checkBody: func(t *testing.T, body map[string]any) {
+				fields := body["fields"].(map[string]any)
+				// explicit priority param wins — custom_fields must not overwrite it
+				prio := fields["priority"].(map[string]any)
+				assert.Equal(t, "High", prio["name"])
+				// non-standard field still set
+				assert.Equal(t, "value", fields["customfield_10001"])
+			},
+		},
+		{
+			name: "invalid JSON returns error",
+			args: map[string]any{
+				"issue_key":     "PROJ-1",
+				"custom_fields": `{invalid`,
+			},
+			wantErr:    true,
+			wantErrMsg: "invalid JSON for custom_fields",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "PUT", r.Method)
+				if tt.checkBody != nil {
+					var body map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					tt.checkBody(t, body)
+				}
+				w.WriteHeader(204)
+			}))
+			defer ts.Close()
+
+			j := &jira{email: "u@test.com", apiToken: "tok", client: ts.Client(), baseURL: ts.URL, agileURL: ts.URL}
+			result, err := updateIssue(context.Background(), j, tt.args)
+			require.NoError(t, err)
+			if tt.wantErr {
+				assert.True(t, result.IsError)
+				assert.Contains(t, result.Data, tt.wantErrMsg)
+			} else {
+				assert.False(t, result.IsError)
+			}
+		})
+	}
+}
+
+func TestCreateIssue_CustomFields(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       map[string]any
+		wantErr    bool
+		wantErrMsg string
+		checkBody  func(t *testing.T, body map[string]any)
+	}{
+		{
+			name: "merges custom fields into creation request",
+			args: map[string]any{
+				"project_key":   "PROJ",
+				"issue_type":    "Task",
+				"summary":       "New issue",
+				"custom_fields": `{"customfield_10001": "story points", "customfield_10002": {"id": "10100"}}`,
+			},
+			checkBody: func(t *testing.T, body map[string]any) {
+				fields := body["fields"].(map[string]any)
+				assert.Equal(t, "New issue", fields["summary"])
+				assert.Equal(t, "story points", fields["customfield_10001"])
+				selectField := fields["customfield_10002"].(map[string]any)
+				assert.Equal(t, "10100", selectField["id"])
+			},
+		},
+		{
+			name: "invalid JSON returns error",
+			args: map[string]any{
+				"project_key":   "PROJ",
+				"issue_type":    "Task",
+				"summary":       "New issue",
+				"custom_fields": `not json`,
+			},
+			wantErr:    true,
+			wantErrMsg: "invalid JSON for custom_fields",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "POST", r.Method)
+				if tt.checkBody != nil {
+					var body map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					tt.checkBody(t, body)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"id":"10001","key":"PROJ-1"}`))
+			}))
+			defer ts.Close()
+
+			j := &jira{email: "u@test.com", apiToken: "tok", client: ts.Client(), baseURL: ts.URL, agileURL: ts.URL}
+			result, err := createIssue(context.Background(), j, tt.args)
+			require.NoError(t, err)
+			if tt.wantErr {
+				assert.True(t, result.IsError)
+				assert.Contains(t, result.Data, tt.wantErrMsg)
+			} else {
+				assert.False(t, result.IsError)
+			}
+		})
+	}
+}
+
 func TestTextToADF(t *testing.T) {
 	adf := textToADF("Hello\nWorld")
 	assert.Equal(t, "doc", adf["type"])

@@ -15,13 +15,13 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"issue_key"},
 	},
 	{
-		Name: mcp.ToolName("jira_create_issue"), Description: "Create a new issue. Use jira_list_issue_types to find valid issue type names for the project",
-		Parameters: map[string]string{"project_key": "Project key (e.g., PROJ)", "issue_type": "Issue type name (e.g., Bug, Task, Story)", "summary": "Issue summary/title", "description": "Issue description (plain text, converted to ADF)", "priority": "Priority name (e.g., High, Medium, Low)", "assignee_id": "Account ID of assignee (use jira_search_users to find)", "labels": "Comma-separated labels", "parent_key": "Parent issue key for subtasks (e.g., PROJ-100)"},
+		Name: mcp.ToolName("jira_create_issue"), Description: "Create a new issue. Use jira_list_issue_types to find valid issue type names. Supports custom fields — use jira_list_fields to discover field IDs",
+		Parameters: map[string]string{"project_key": "Project key (e.g., PROJ)", "issue_type": "Issue type name (e.g., Bug, Task, Story)", "summary": "Issue summary/title", "description": "Issue description (plain text, converted to ADF)", "priority": "Priority name (e.g., High, Medium, Low)", "assignee_id": "Account ID of assignee (use jira_search_users to find)", "labels": "Comma-separated labels", "parent_key": "Parent issue key for subtasks (e.g., PROJ-100)", "custom_fields": `JSON object of custom field values keyed by field ID (e.g. {"customfield_10001": "value", "customfield_10002": {"id": "10100"}}). Use jira_list_fields to discover field IDs and types`},
 		Required:   []string{"project_key", "issue_type", "summary"},
 	},
 	{
-		Name: mcp.ToolName("jira_update_issue"), Description: "Update an existing issue's fields",
-		Parameters: map[string]string{"issue_key": "Issue key (e.g., PROJ-123)", "summary": "New summary", "description": "New description (plain text, converted to ADF)", "priority": "Priority name", "assignee_id": "Account ID of assignee (empty string to unassign)", "labels": "Comma-separated labels (replaces existing)"},
+		Name: mcp.ToolName("jira_update_issue"), Description: "Update an existing issue's fields including custom fields — use jira_list_fields to discover custom field IDs",
+		Parameters: map[string]string{"issue_key": "Issue key (e.g., PROJ-123)", "summary": "New summary", "description": "New description (plain text, converted to ADF)", "priority": "Priority name", "assignee_id": "Account ID of assignee (empty string to unassign)", "labels": "Comma-separated labels (replaces existing)", "custom_fields": `JSON object of custom field values keyed by field ID (e.g. {"customfield_10001": "value", "customfield_10002": {"id": "10100"}}). Use jira_list_fields to discover field IDs and types`},
 		Required:   []string{"issue_key"},
 	},
 	{
