@@ -378,6 +378,7 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("freecad_export_stl"):  exportSTL,
 	mcp.ToolName("freecad_export_brep"): exportBRep,
 	mcp.ToolName("freecad_import_file"): importFile,
+	mcp.ToolName("freecad_screenshot"):  getScreenshot,
 
 	// Sketcher
 	mcp.ToolName("freecad_create_sketch"):          createSketch,

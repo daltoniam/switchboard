@@ -313,6 +313,15 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"file_path", "import_path"},
 	},
 
+	{
+		Name: mcp.ToolName("freecad_screenshot"), Description: "Capture a screenshot of the FreeCAD 3D viewport as a base64-encoded PNG image. Requires FreeCAD GUI mode. Use to visualize the current model state.",
+		Parameters: map[string]string{
+			"view_angle": "Camera angle: Isometric, Front, Back, Top, Bottom, Left, Right, FitAll (default Isometric)",
+			"width":      "Image width in pixels (default 800)",
+			"height":     "Image height in pixels (default 600)",
+		},
+	},
+
 	// ── Python Scripting ────────────────────────────────────────────
 	{
 		Name: mcp.ToolName("freecad_run_script"), Description: "Execute a custom FreeCAD Python script with full access to FreeCAD, Part, Mesh modules. For advanced CAD operations not covered by other tools. Set _result_ to return data.",

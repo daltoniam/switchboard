@@ -276,3 +276,71 @@ if doc is None:
 
 	return f.execPython(ctx, fullScript)
 }
+
+func getScreenshot(ctx context.Context, f *freecad, args map[string]any) (*mcp.ToolResult, error) {
+	width := optFloat(args, "width", 800)
+	height := optFloat(args, "height", 600)
+	viewAngle, _ := mcp.ArgStr(args, "view_angle")
+	if viewAngle == "" {
+		viewAngle = "Isometric"
+	}
+
+	return f.execPython(ctx, fmt.Sprintf(`
+import base64, tempfile, os
+
+if not FreeCAD.GuiUp:
+    raise RuntimeError("Screenshot requires FreeCAD GUI mode")
+
+doc = FreeCAD.ActiveDocument
+if doc is None:
+    raise ValueError("No active document")
+
+view = None
+views_3d = FreeCADGui.ActiveDocument.mdiViewsOfType("Gui::View3DInventor")
+if views_3d:
+    view = views_3d[0]
+if view is None:
+    view = FreeCADGui.ActiveDocument.ActiveView
+
+view_class = type(view).__name__
+if view_class not in ("View3DInventor", "View3DInventorPy"):
+    raise ValueError("No 3D viewport available (active view is " + view_class + ")")
+
+angle = %q
+if angle == "FitAll":
+    view.fitAll()
+elif angle == "Isometric":
+    view.viewIsometric()
+elif angle == "Front":
+    view.viewFront()
+elif angle == "Back":
+    view.viewRear()
+elif angle == "Top":
+    view.viewTop()
+elif angle == "Bottom":
+    view.viewBottom()
+elif angle == "Left":
+    view.viewLeft()
+elif angle == "Right":
+    view.viewRight()
+
+with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+    tmp_path = tmp.name
+
+view.saveImage(tmp_path, int(%d), int(%d), "Current")
+
+with open(tmp_path, "rb") as img:
+    image_data = base64.b64encode(img.read()).decode("utf-8")
+
+file_size = os.path.getsize(tmp_path)
+os.unlink(tmp_path)
+
+_result_ = {
+    "format": "png",
+    "width": int(%d),
+    "height": int(%d),
+    "size_bytes": file_size,
+    "data": image_data
+}
+`, viewAngle, int(width), int(height), int(width), int(height)))
+}
