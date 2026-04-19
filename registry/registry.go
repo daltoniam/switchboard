@@ -31,6 +31,23 @@ func (r *registry) Register(i mcp.Integration) error {
 	return nil
 }
 
+func (r *registry) Unregister(name string) (mcp.Integration, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	i, ok := r.integrations[name]
+	if !ok {
+		return nil, false
+	}
+	delete(r.integrations, name)
+	for idx, n := range r.order {
+		if n == name {
+			r.order = append(r.order[:idx], r.order[idx+1:]...)
+			break
+		}
+	}
+	return i, true
+}
+
 func (r *registry) Get(name string) (mcp.Integration, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

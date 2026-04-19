@@ -96,3 +96,37 @@ func TestRegisterMultiple(t *testing.T) {
 	assert.Len(t, r.Names(), 6)
 	assert.ElementsMatch(t, integrations, r.Names())
 }
+
+func TestUnregister(t *testing.T) {
+	r := New()
+	require.NoError(t, r.Register(&mockIntegration{name: "github"}))
+	require.NoError(t, r.Register(&mockIntegration{name: "datadog"}))
+
+	removed, ok := r.Unregister("github")
+	assert.True(t, ok)
+	assert.Equal(t, "github", removed.Name())
+	assert.Len(t, r.All(), 1)
+	assert.Equal(t, []string{"datadog"}, r.Names())
+
+	_, ok = r.Get("github")
+	assert.False(t, ok)
+}
+
+func TestUnregister_NotFound(t *testing.T) {
+	r := New()
+	removed, ok := r.Unregister("nonexistent")
+	assert.False(t, ok)
+	assert.Nil(t, removed)
+}
+
+func TestUnregister_ThenReregister(t *testing.T) {
+	r := New()
+	require.NoError(t, r.Register(&mockIntegration{name: "github"}))
+
+	r.Unregister("github")
+	require.NoError(t, r.Register(&mockIntegration{name: "github"}))
+
+	i, ok := r.Get("github")
+	assert.True(t, ok)
+	assert.Equal(t, "github", i.Name())
+}

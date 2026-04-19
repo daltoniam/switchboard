@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -51,13 +52,21 @@ func (m *mockConfigService) EnabledIntegrations() []string {
 func (m *mockConfigService) DefaultCredentialKeys(_ string) []string { return nil }
 
 type mockIntegration struct {
-	name    string
-	tools   []mcp.ToolDefinition
-	healthy bool
+	name       string
+	tools      []mcp.ToolDefinition
+	healthy    bool
+	lastCreds  mcp.Credentials
+	configureErr error
 }
 
-func (mi *mockIntegration) Name() string                                         { return mi.name }
-func (mi *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error { return nil }
+func (mi *mockIntegration) Name() string { return mi.name }
+func (mi *mockIntegration) Configure(_ context.Context, creds mcp.Credentials) error {
+	if mi.configureErr != nil {
+		return mi.configureErr
+	}
+	mi.lastCreds = creds
+	return nil
+}
 func (mi *mockIntegration) Tools() []mcp.ToolDefinition                          { return mi.tools }
 func (mi *mockIntegration) Execute(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 	return &mcp.ToolResult{Data: "ok"}, nil
@@ -75,6 +84,13 @@ func newMockRegistry() *mockRegistry {
 func (r *mockRegistry) Register(i mcp.Integration) error {
 	r.integrations[i.Name()] = i
 	return nil
+}
+func (r *mockRegistry) Unregister(name string) (mcp.Integration, bool) {
+	i, ok := r.integrations[name]
+	if ok {
+		delete(r.integrations, name)
+	}
+	return i, ok
 }
 func (r *mockRegistry) Get(name string) (mcp.Integration, bool) {
 	i, ok := r.integrations[name]
@@ -112,7 +128,7 @@ func setupTestWeb() (*WebServer, *mockRegistry, *mockConfigService) {
 	}
 
 	services := &mcp.Services{Config: cfgService, Registry: reg}
-	ws := New(services, 3847)
+	ws := New(services, 3847, nil, nil)
 	return ws, reg, cfgService
 }
 
@@ -615,4 +631,88 @@ func TestWasmModulesPage_ShowsName(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "custom_name")
+}
+
+func TestUpdateCredentials(t *testing.T) {
+	t.Run("happy path — updates token and reconfigures", func(t *testing.T) {
+		ws, reg, cfgService := setupTestWeb()
+		handler := ws.Handler()
+
+		body := `{"token": "new-token-value"}`
+		req := httptest.NewRequest("PUT", "/api/integrations/testint/credentials", strings.NewReader(body))
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp map[string]string
+		require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
+		assert.Equal(t, "true", resp["ok"])
+
+		// Integration was reconfigured with merged creds.
+		mi := reg.integrations["testint"].(*mockIntegration)
+		assert.Equal(t, "new-token-value", mi.lastCreds["token"])
+
+		// Config was persisted.
+		ic, ok := cfgService.GetIntegration("testint")
+		require.True(t, ok)
+		assert.Equal(t, "new-token-value", ic.Credentials["token"])
+		assert.True(t, ic.Enabled)
+	})
+
+	t.Run("merges with existing credentials", func(t *testing.T) {
+		ws, reg, cfgService := setupTestWeb()
+		cfgService.cfg.Integrations["testint"].Credentials = mcp.Credentials{
+			"token":     "old-token",
+			"client_id": "my-client",
+		}
+		handler := ws.Handler()
+
+		body := `{"token": "refreshed-token"}`
+		req := httptest.NewRequest("PUT", "/api/integrations/testint/credentials", strings.NewReader(body))
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		mi := reg.integrations["testint"].(*mockIntegration)
+		assert.Equal(t, "refreshed-token", mi.lastCreds["token"])
+		assert.Equal(t, "my-client", mi.lastCreds["client_id"])
+	})
+
+	t.Run("unknown integration returns 404", func(t *testing.T) {
+		ws, _, _ := setupTestWeb()
+		handler := ws.Handler()
+
+		req := httptest.NewRequest("PUT", "/api/integrations/nonexistent/credentials", strings.NewReader(`{}`))
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("invalid JSON returns 400", func(t *testing.T) {
+		ws, _, _ := setupTestWeb()
+		handler := ws.Handler()
+
+		req := httptest.NewRequest("PUT", "/api/integrations/testint/credentials", strings.NewReader(`not json`))
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("configure failure returns 500", func(t *testing.T) {
+		ws, reg, _ := setupTestWeb()
+		mi := reg.integrations["testint"].(*mockIntegration)
+		mi.configureErr = fmt.Errorf("bad token")
+		handler := ws.Handler()
+
+		req := httptest.NewRequest("PUT", "/api/integrations/testint/credentials", strings.NewReader(`{"token":"bad"}`))
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+		assert.Contains(t, rr.Body.String(), "bad token")
+	})
 }

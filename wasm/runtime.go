@@ -90,6 +90,7 @@ type Module struct {
 	fnConfig     api.Function
 	fnExec       api.Function
 	fnHealthy    api.Function
+	fnMetadata   api.Function
 }
 
 func (m *Module) resolveExports() error {
@@ -112,6 +113,10 @@ func (m *Module) resolveExports() error {
 	m.fnHealthy = m.mod.ExportedFunction("healthy")
 	if m.fnHealthy == nil {
 		return fmt.Errorf("wasm: module does not export 'healthy'")
+	}
+	m.fnMetadata = m.mod.ExportedFunction("metadata")
+	if m.fnMetadata == nil {
+		return fmt.Errorf("wasm: module does not export 'metadata'")
 	}
 	return nil
 }

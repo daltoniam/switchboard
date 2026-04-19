@@ -30,7 +30,6 @@ import (
 	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
-	"github.com/daltoniam/switchboard/integrations/homeassistant"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
@@ -47,6 +46,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/suno"
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
 	"github.com/daltoniam/switchboard/integrations/ynab"
+	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
 	"github.com/daltoniam/switchboard/server"
@@ -221,7 +221,6 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		ynab.New(),
 		amazonIntegration,
 		gmailIntegration,
-		homeassistant.New(),
 		jira.New(),
 		confluence.New(),
 		notionInt.New(),
@@ -252,11 +251,35 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Load WASM modules from config.
+	// Create WASM runtime and loader (always — needed for live-reload from web UI).
 	cfg := cfgMgr.Get()
-	if len(cfg.WasmModules) > 0 {
-		wasmRT := loadWasmModules(cfg.WasmModules, reg, cfgMgr)
-		defer wasmRT.Close(ctx) //nolint:errcheck
+	wasmCtx := context.Background()
+	wasmRT, err := wasmmod.NewRuntime(wasmCtx)
+	if err != nil {
+		log.Fatalf("Failed to create WASM runtime: %v", err)
+	}
+	defer wasmRT.Close(ctx) //nolint:errcheck
+	wasmLoader := wasmmod.NewLoader(wasmRT, reg, cfgMgr)
+
+	// Load WASM modules from config + marketplace installed plugins.
+	allWasmModules := make([]mcp.WasmModuleConfig, len(cfg.WasmModules))
+	copy(allWasmModules, cfg.WasmModules)
+	if cfg.Marketplace != nil {
+		seen := make(map[string]bool)
+		for _, wm := range allWasmModules {
+			seen[wm.Path] = true
+		}
+		for _, ip := range cfg.Marketplace.InstalledPlugins {
+			if ip.Path != "" && !seen[ip.Path] {
+				allWasmModules = append(allWasmModules, mcp.WasmModuleConfig{Path: ip.Path})
+				seen[ip.Path] = true
+			}
+		}
+	}
+	for _, wc := range allWasmModules {
+		if err := wasmLoader.LoadPlugin(wasmCtx, wc.Path, wc.Name); err != nil {
+			log.Printf("WARN: %v", err)
+		}
 	}
 
 	gmail.SetConfigService(gmailIntegration, cfgMgr)
@@ -308,7 +331,70 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	mux.Handle("/mcp", srv.Handler())
 	mux.Handle("/mcp/{project}", projectRouter.Handler())
 
-	ws := web.New(services, port)
+	// Initialize plugin marketplace.
+	var mpCfg marketplace.Config
+	if cfg.Marketplace != nil {
+		mpCfg = marketplace.Config{
+			AutoUpdate:    cfg.Marketplace.AutoUpdate,
+			CheckInterval: cfg.Marketplace.CheckInterval,
+			PluginDir:     cfg.Marketplace.PluginDir,
+			LastCheck:     cfg.Marketplace.LastCheck,
+		}
+		for _, src := range cfg.Marketplace.ManifestSources {
+			mpCfg.ManifestSources = append(mpCfg.ManifestSources, marketplace.ManifestSource{
+				URL:     src.URL,
+				Name:    src.Name,
+				Enabled: src.Enabled,
+			})
+		}
+		for _, ip := range cfg.Marketplace.InstalledPlugins {
+			mpCfg.InstalledPlugins = append(mpCfg.InstalledPlugins, marketplace.InstalledPlugin{
+				Name:          ip.Name,
+				Version:       ip.Version,
+				ManifestURL:   ip.ManifestURL,
+				InstalledAt:   ip.InstalledAt,
+				Path:          ip.Path,
+				SHA256:        ip.SHA256,
+				AutoUpdate:    ip.AutoUpdate,
+				LatestVersion: ip.LatestVersion,
+			})
+		}
+	}
+	mp := marketplace.NewManager(mpCfg, "", func(c marketplace.Config) error {
+		mc := &mcp.MarketplaceConfig{
+			AutoUpdate:    c.AutoUpdate,
+			CheckInterval: c.CheckInterval,
+			PluginDir:     c.PluginDir,
+			LastCheck:     c.LastCheck,
+		}
+		for _, src := range c.ManifestSources {
+			mc.ManifestSources = append(mc.ManifestSources, mcp.MarketplaceManifestSource{
+				URL:     src.URL,
+				Name:    src.Name,
+				Enabled: src.Enabled,
+			})
+		}
+		for _, ip := range c.InstalledPlugins {
+			mc.InstalledPlugins = append(mc.InstalledPlugins, mcp.MarketplaceInstalledPlugin{
+				Name:          ip.Name,
+				Version:       ip.Version,
+				ManifestURL:   ip.ManifestURL,
+				InstalledAt:   ip.InstalledAt,
+				Path:          ip.Path,
+				SHA256:        ip.SHA256,
+				AutoUpdate:    ip.AutoUpdate,
+				LatestVersion: ip.LatestVersion,
+			})
+		}
+		cfgNow := cfgMgr.Get()
+		cfgNow.Marketplace = mc
+		return cfgMgr.Update(cfgNow)
+	})
+
+	cancelAutoUpdate := mp.StartAutoUpdateLoop(ctx)
+	defer cancelAutoUpdate()
+
+	ws := web.New(services, port, mp, wasmLoader)
 	mux.Handle("/", ws.Handler())
 
 	addr := fmt.Sprintf(":%d", port)
@@ -331,70 +417,4 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	if browserSvc != nil {
 		browserSvc.Close() //nolint:errcheck
 	}
-}
-
-func loadWasmModules(modules []mcp.WasmModuleConfig, reg mcp.Registry, cfgMgr mcp.ConfigService) *wasmmod.Runtime {
-	wasmCtx := context.Background()
-	wasmRT, err := wasmmod.NewRuntime(wasmCtx)
-	if err != nil {
-		log.Fatalf("Failed to create WASM runtime: %v", err)
-	}
-	for _, wc := range modules {
-		loadWasmModule(wasmCtx, wasmRT, wc, reg, cfgMgr)
-	}
-	return wasmRT
-}
-
-func loadWasmModule(ctx context.Context, rt *wasmmod.Runtime, wc mcp.WasmModuleConfig, reg mcp.Registry, cfgMgr mcp.ConfigService) {
-	wasmBytes, err := os.ReadFile(wc.Path)
-	if err != nil {
-		log.Printf("WARN: failed to read WASM module %q: %v", wc.Path, err)
-		return
-	}
-	mod, err := rt.LoadModule(ctx, wasmBytes)
-	if err != nil {
-		log.Printf("WARN: failed to load WASM module %q: %v", wc.Path, err)
-		return
-	}
-	if wc.Name != "" {
-		mod.SetName(wc.Name)
-	}
-
-	// Merge credentials: WASM inline creds are the baseline, existing config
-	// creds (e.g. set via the web UI integration page) override them.
-	mergedCreds := mcp.Credentials{}
-	for k, v := range wc.Credentials {
-		mergedCreds[k] = v
-	}
-	existing, hasExisting := cfgMgr.GetIntegration(mod.Name())
-	if hasExisting {
-		for k, v := range existing.Credentials {
-			mergedCreds[k] = v
-		}
-	}
-
-	if len(mergedCreds) > 0 {
-		if err := mod.Configure(ctx, mergedCreds); err != nil {
-			log.Printf("WARN: failed to configure WASM module %q: %v", wc.Path, err)
-			return
-		}
-	}
-
-	if err := reg.Register(mod); err != nil {
-		log.Printf("WARN: failed to register WASM module %q: %v", wc.Path, err)
-		return
-	}
-
-	// Always persist the integration config entry so the web UI shows
-	// the correct credentials and enabled state.
-	ic := &mcp.IntegrationConfig{
-		Enabled:     true,
-		Credentials: mergedCreds,
-	}
-	if hasExisting {
-		ic.ToolGlobs = existing.ToolGlobs
-	}
-	_ = cfgMgr.SetIntegration(mod.Name(), ic)
-
-	log.Printf("Loaded WASM integration %q from %s", mod.Name(), wc.Path)
 }

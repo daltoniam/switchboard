@@ -15,24 +15,30 @@ import (
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
+	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/remotemcp"
+	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 )
 
 // WebServer serves the configuration web UI using templ templates.
 type WebServer struct {
-	services *mcp.Services
-	port     int
-	health   *healthCache
+	services    *mcp.Services
+	port        int
+	health      *healthCache
+	marketplace *marketplace.Manager
+	wasmLoader  *wasmmod.Loader
 }
 
 // New returns a WebServer that provides a browser-based config UI.
-func New(services *mcp.Services, port int) *WebServer {
+func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.Loader) *WebServer {
 	ws := &WebServer{
-		services: services,
-		port:     port,
-		health:   newHealthCache(services),
+		services:    services,
+		port:        port,
+		health:      newHealthCache(services),
+		marketplace: mp,
+		wasmLoader:  wl,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -84,6 +90,8 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations/notion/setup", w.handleNotionSetup)
 	mux.HandleFunc("POST /api/notion/save-token", w.handleNotionSaveToken)
 
+	mux.HandleFunc("PUT /api/integrations/{name}/credentials", w.handleUpdateCredentials)
+
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
 	mux.HandleFunc("GET /api/metrics", w.handleMetricsAPI)
@@ -96,6 +104,17 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /settings", w.handleSettings)
 	mux.HandleFunc("POST /settings", w.handleSettingsSave)
+
+	mux.HandleFunc("GET /plugins", w.handlePluginMarketplace)
+	mux.HandleFunc("POST /plugins/install", w.handlePluginInstall)
+	mux.HandleFunc("POST /plugins/install-url", w.handlePluginInstallURL)
+	mux.HandleFunc("POST /plugins/upload", w.handlePluginUpload)
+	mux.HandleFunc("POST /plugins/uninstall", w.handlePluginUninstall)
+	mux.HandleFunc("POST /plugins/update", w.handlePluginUpdate)
+	mux.HandleFunc("POST /plugins/check-updates", w.handlePluginCheckUpdates)
+	mux.HandleFunc("POST /plugins/auto-update", w.handlePluginAutoUpdate)
+	mux.HandleFunc("POST /plugins/add-manifest", w.handlePluginAddManifest)
+	mux.HandleFunc("POST /plugins/remove-manifest", w.handlePluginRemoveManifest)
 
 	return mux
 }
@@ -309,6 +328,64 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 	}
 
 	http.Redirect(rw, r, "/integrations/"+name+"?success=Configuration+saved", http.StatusSeeOther)
+}
+
+// handleUpdateCredentials is a JSON API for hot-reloading integration credentials
+// without restarting Switchboard. The agent supervisor calls this when a token
+// is refreshed (e.g. GitHub App installation token rotation).
+//
+//	PUT /api/integrations/{name}/credentials
+//	Body: {"token": "ghp_...", "other_key": "..."}
+//	Response: 200 {"ok": true} or 4xx/5xx {"error": "..."}
+func (w *WebServer) handleUpdateCredentials(rw http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+
+	integration, ok := w.services.Registry.Get(name)
+	if !ok {
+		writeJSON(rw, http.StatusNotFound, map[string]string{"error": "unknown integration: " + name})
+		return
+	}
+
+	var creds mcp.Credentials
+	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+		writeJSON(rw, http.StatusBadRequest, map[string]string{"error": "invalid JSON: " + err.Error()})
+		return
+	}
+
+	// Merge with existing credentials so callers can send partial updates
+	// (e.g. only the rotated token, keeping client_id etc.).
+	ic, exists := w.services.Config.GetIntegration(name)
+	if exists {
+		merged := mcp.Credentials{}
+		for k, v := range ic.Credentials {
+			merged[k] = v
+		}
+		for k, v := range creds {
+			merged[k] = v
+		}
+		creds = merged
+	}
+
+	if err := integration.Configure(r.Context(), creds); err != nil {
+		writeJSON(rw, http.StatusInternalServerError, map[string]string{"error": "configure failed: " + err.Error()})
+		return
+	}
+
+	// Persist so the config file stays in sync.
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{}
+	}
+	ic.Enabled = true
+	ic.Credentials = creds
+	_ = w.services.Config.SetIntegration(name, ic)
+
+	writeJSON(rw, http.StatusOK, map[string]string{"ok": "true"})
+}
+
+func writeJSON(rw http.ResponseWriter, status int, v any) {
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(status)
+	json.NewEncoder(rw).Encode(v)
 }
 
 func (w *WebServer) handleHealthAPI(rw http.ResponseWriter, r *http.Request) {

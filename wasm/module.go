@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/marketplace"
 )
 
 // SetName overrides the name returned by the WASM module's name() export.
@@ -150,4 +151,72 @@ func (m *Module) Healthy(ctx context.Context) bool {
 		return false
 	}
 	return results[0] == 1
+}
+
+// Metadata returns plugin metadata from the WASM module's `metadata()` export.
+func (m *Module) Metadata() *marketplace.PluginMetadata {
+	ctx := context.Background()
+	results, err := m.fnMetadata.Call(ctx)
+	if err != nil {
+		return nil
+	}
+	if len(results) == 0 {
+		return nil
+	}
+
+	ptr, size := unpackPtrSize(results[0])
+	if size == 0 {
+		return nil
+	}
+	data, err := readFromGuest(m.mod, ptr, size)
+	freeInGuest(ctx, m.mod, ptr)
+	if err != nil {
+		return nil
+	}
+
+	var meta marketplace.PluginMetadata
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil
+	}
+	return &meta
+}
+
+// PlainTextKeys implements mcp.PlainTextCredentials.
+// Returns plain-text credential keys declared in the plugin metadata.
+func (m *Module) PlainTextKeys() []string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.PlainTextKeys
+}
+
+// Placeholders implements mcp.PlaceholderHints.
+// Returns placeholder hints declared in the plugin metadata.
+func (m *Module) Placeholders() map[string]string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.Placeholders
+}
+
+// OptionalKeys implements mcp.OptionalCredentials.
+// Returns optional credential keys declared in the plugin metadata.
+func (m *Module) OptionalKeys() []string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.OptionalKeys
+}
+
+// CredentialKeys returns the credential keys this plugin expects, as declared
+// in its metadata. Used by loadWasmModule to register default config entries.
+func (m *Module) CredentialKeys() []string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.CredentialKeys
 }

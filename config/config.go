@@ -224,10 +224,6 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
-			"homeassistant": {
-				Enabled:     false,
-				Credentials: mcp.Credentials{"token": "", "base_url": ""},
-			},
 			"notion": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token_v2": ""},
@@ -335,6 +331,7 @@ func (m *manager) Load() error {
 func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 	cfg := defaultConfig()
 	cfg.WasmModules = file.WasmModules
+	cfg.Marketplace = file.Marketplace
 	if file.Integrations == nil {
 		return cfg
 	}

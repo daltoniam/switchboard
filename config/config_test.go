@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 32)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "homeassistant", "notion", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "readarr", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "web", "botidentity", "freecad"} {
+assert.Len(t, m.cfg.Integrations, 31)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "readarr", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "web", "botidentity", "freecad"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 32)
+assert.Len(t, cfg.Integrations, 31)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 32)
+assert.Len(t, cfg.Integrations, 31)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 32)
+assert.Len(t, cfg.Integrations, 31)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -269,7 +269,6 @@ func TestDefaultConfig(t *testing.T) {
 		"pganalyze":     {"api_key", "base_url", "organization_slug"},
 		"rwx":           {"access_token", "org"},
 		"gmail":         {"access_token", "refresh_token", "client_id", "client_secret", "base_url", "token_source"},
-		"homeassistant": {"token", "base_url"},
 		"notion":        {"token_v2"},
 		"ynab":          {"api_key"},
 		"gcp":           {"project_id", "credentials_json"},
