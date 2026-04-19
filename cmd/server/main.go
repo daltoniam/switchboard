@@ -26,6 +26,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
 	flyInt "github.com/daltoniam/switchboard/integrations/fly"
+	"github.com/daltoniam/switchboard/integrations/freecad"
 	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
@@ -230,6 +231,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		cloudflare.New(),
 		digitalocean.New(),
 		flyInt.New(),
+		freecad.New(),
 		snowflakeInt.New(),
 		acpInt.New(),
 		webfetchInt.New(),

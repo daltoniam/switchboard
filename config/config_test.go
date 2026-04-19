@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 30)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "readarr", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "web", "botidentity"} {
+assert.Len(t, m.cfg.Integrations, 31)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "readarr", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "web", "botidentity", "freecad"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 30)
+assert.Len(t, cfg.Integrations, 31)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 30)
+assert.Len(t, cfg.Integrations, 31)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 30)
+assert.Len(t, cfg.Integrations, 31)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -280,6 +280,7 @@ func TestDefaultConfig(t *testing.T) {
 		"digitalocean":  {"api_token"},
 		"fly":           {"api_token", "base_url"},
 		"web":           {},
+		"freecad":       {"host", "xmlrpc_port", "data_dir"},
 	}
 
 	for name, keys := range expected {
@@ -486,7 +487,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "RWX_ACCESS_TOKEN", m["rwx"]["access_token"])
 	assert.Equal(t, "RWX_ORG", m["rwx"]["org"])
 	assert.Equal(t, "RWX_CLI_PATH", m["rwx"]["cli_path"])
-	assert.Len(t, m, 21)
+	assert.Len(t, m, 22)
 	assert.Equal(t, "JIRA_EMAIL", m["jira"]["email"])
 	assert.Equal(t, "JIRA_API_TOKEN", m["jira"]["api_token"])
 	assert.Equal(t, "JIRA_DOMAIN", m["jira"]["domain"])
