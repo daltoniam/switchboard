@@ -52,10 +52,10 @@ func (m *mockConfigService) EnabledIntegrations() []string {
 func (m *mockConfigService) DefaultCredentialKeys(_ string) []string { return nil }
 
 type mockIntegration struct {
-	name       string
-	tools      []mcp.ToolDefinition
-	healthy    bool
-	lastCreds  mcp.Credentials
+	name         string
+	tools        []mcp.ToolDefinition
+	healthy      bool
+	lastCreds    mcp.Credentials
 	configureErr error
 }
 
@@ -67,7 +67,7 @@ func (mi *mockIntegration) Configure(_ context.Context, creds mcp.Credentials) e
 	mi.lastCreds = creds
 	return nil
 }
-func (mi *mockIntegration) Tools() []mcp.ToolDefinition                          { return mi.tools }
+func (mi *mockIntegration) Tools() []mcp.ToolDefinition { return mi.tools }
 func (mi *mockIntegration) Execute(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
 	return &mcp.ToolResult{Data: "ok"}, nil
 }

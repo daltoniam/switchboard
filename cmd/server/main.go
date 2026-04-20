@@ -49,14 +49,9 @@ import (
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
 	"github.com/daltoniam/switchboard/server"
+	"github.com/daltoniam/switchboard/version"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web"
-)
-
-var (
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
 )
 
 func main() {
@@ -72,7 +67,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("switchboard %s (commit: %s, built: %s)\n", version, commit, date)
+		fmt.Printf("switchboard %s\n", version.Full())
 		os.Exit(0)
 	}
 
@@ -396,7 +391,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	mux.Handle("/", ws.Handler())
 
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Fprintf(os.Stderr, "Switchboard on http://localhost:%d\n", port)
+	fmt.Fprintf(os.Stderr, "Switchboard %s on http://localhost:%d\n", version.String(), port)
 	fmt.Fprintf(os.Stderr, "  Web UI:  http://localhost:%d/\n", port)
 	fmt.Fprintf(os.Stderr, "  MCP:     http://localhost:%d/mcp\n", port)
 	fmt.Fprintf(os.Stderr, "  Project: http://localhost:%d/mcp/{project}\n", port)

@@ -3,12 +3,18 @@
 BIN        := dist/switchboard
 INSTALL_DIR := $(HOME)/.local/bin
 INSTALL_BIN := $(INSTALL_DIR)/switchboard
+VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+COMMIT     := $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
+DATE       := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS    := -X github.com/daltoniam/switchboard/version.Version=$(VERSION) \
+              -X github.com/daltoniam/switchboard/version.Commit=$(COMMIT) \
+              -X github.com/daltoniam/switchboard/version.Date=$(DATE)
 
 ## Build
 
 build: ## Build the binary
 	@mkdir -p dist
-	go build -o $(BIN) ./cmd/server
+	go build -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/server
 
 generate: ## Generate templ templates
 	go generate .
