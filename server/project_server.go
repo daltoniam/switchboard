@@ -14,6 +14,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/project"
+	"github.com/daltoniam/switchboard/version"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -104,7 +105,7 @@ func (pr *ProjectRouter) buildServer(def *project.Definition) *projectMCPServer 
 	mcpSrv := mcpsdk.NewServer(
 		&mcpsdk.Implementation{
 			Name:    "switchboard",
-			Version: "0.2.0",
+			Version: version.String(),
 		},
 		&mcpsdk.ServerOptions{
 			Instructions: fmt.Sprintf(

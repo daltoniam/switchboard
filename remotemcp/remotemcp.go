@@ -10,6 +10,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/version"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -94,7 +95,7 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{
 		Name:    "switchboard",
-		Version: "0.2.0",
+		Version: version.String(),
 	}, nil)
 
 	transport := &mcpsdk.StreamableClientTransport{

@@ -1,12 +1,17 @@
 package layouts
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/daltoniam/switchboard/version"
+)
 
 type PageData struct {
 	Title         string
 	CurrentPath   string
 	FlashSuccess  string
 	FlashError    string
+	Version       string
 }
 
 type NavItem struct {
@@ -119,6 +124,14 @@ templ Base(data PageData) {
 					color: var(--accent);
 					border-left-color: var(--accent);
 					background: var(--accent-dim);
+				}
+				.sidebar-version {
+					margin-top: auto;
+					padding: 0.75rem 1rem;
+					border-top: 1px solid var(--border-subtle);
+					color: var(--text-muted);
+					font-size: 0.625rem;
+					font-family: var(--font-mono);
 				}
 
 				/* --- Main content --- */
@@ -662,6 +675,7 @@ templ Base(data PageData) {
 						<a href={ templ.SafeURL(item.Path) } class="nav-item">{ item.Icon } { item.Label }</a>
 					}
 				}
+				<div class="sidebar-version">{ version.String() }</div>
 			</nav>
 			<main class="main">
 				if data.FlashSuccess != "" {
