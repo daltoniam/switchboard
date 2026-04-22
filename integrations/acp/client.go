@@ -188,7 +188,7 @@ func (c *client) doStream(ctx context.Context, url string, body any) (<-chan Eve
 		return nil, c.readError(resp)
 	}
 
-	return parseStream(resp.Body), nil
+	return parseStream(ctx, resp.Body), nil
 }
 
 func (c *client) setHeaders(req *http.Request) {
@@ -207,7 +207,7 @@ func (c *client) readError(resp *http.Response) error {
 }
 
 // parseStream reads an NDJSON stream and emits typed events.
-func parseStream(r io.ReadCloser) <-chan Event {
+func parseStream(ctx context.Context, r io.ReadCloser) <-chan Event {
 	ch := make(chan Event, 16)
 	go func() {
 		defer close(ch)
@@ -216,6 +216,12 @@ func parseStream(r io.ReadCloser) <-chan Event {
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
 		for scanner.Scan() {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			line := scanner.Text()
 			if line == "" {
 				continue

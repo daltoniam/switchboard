@@ -196,6 +196,7 @@ func handleRunAgent(ctx context.Context, a *acpIntegration, args map[string]any)
 	r := mcp.NewArgs(args)
 	agentName := r.Str("agent_name")
 	input := r.Str("input")
+	sessionID := r.Str("session_id")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -205,8 +206,6 @@ func handleRunAgent(ctx context.Context, a *acpIntegration, args map[string]any)
 	if input == "" {
 		return mcp.ErrResult(fmt.Errorf("input is required"))
 	}
-
-	sessionID, _ := mcp.ArgStr(args, "session_id")
 
 	c, err := a.resolveClient(args)
 	if err != nil {
