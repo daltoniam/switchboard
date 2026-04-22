@@ -12,6 +12,15 @@ struct Config {
     api_key: String,
 }
 
+fn compact_spec_map() -> HashMap<String, Vec<String>> {
+    let mut specs = HashMap::new();
+    specs.insert(
+        "example_list_items".into(),
+        vec!["id".into(), "name".into()],
+    );
+    specs
+}
+
 fn with_config<F, R>(f: F) -> R
 where
     F: FnOnce(&Config) -> R,
@@ -111,6 +120,11 @@ pub extern "C" fn metadata() -> u64 {
             ("api_key".into(), "your-api-key".into()),
         ]),
     })
+}
+
+#[no_mangle]
+pub extern "C" fn compact_specs() -> u64 {
+    sdk::leaked_compact_specs(&compact_spec_map())
 }
 
 type HandlerFn = fn(HashMap<String, serde_json::Value>) -> sdk::ToolResult;

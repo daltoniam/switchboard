@@ -56,6 +56,24 @@ pub fn leaked_metadata(meta: &PluginMetadata) -> u64 {
     leaked_result(&data)
 }
 
+/// Helper to export field compaction specs as a WASM function.
+/// Accepts a map of tool_name → list of dot-notation field specs.
+/// Call this from your `#[no_mangle] pub extern "C" fn compact_specs() -> u64` export.
+///
+/// Example:
+/// ```ignore
+/// use std::collections::HashMap;
+/// let mut specs: HashMap<String, Vec<String>> = HashMap::new();
+/// specs.insert("my_list_items".into(), vec![
+///     "id".into(), "name".into(), "status".into(),
+/// ]);
+/// sdk::leaked_compact_specs(&specs);
+/// ```
+pub fn leaked_compact_specs(specs: &HashMap<String, Vec<String>>) -> u64 {
+    let data = serde_json::to_vec(specs).unwrap_or_default();
+    leaked_result(&data)
+}
+
 #[derive(Deserialize)]
 pub struct ExecuteRequest {
     pub tool_name: String,
