@@ -2,8 +2,11 @@ package wasm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 
+	mcp "github.com/daltoniam/switchboard"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -72,6 +75,7 @@ func (r *Runtime) LoadModule(ctx context.Context, wasmBytes []byte) (*Module, er
 		mod.Close(ctx) //nolint:errcheck
 		return nil, err
 	}
+	m.loadCompactSpecs(ctx)
 
 	return m, nil
 }
@@ -91,6 +95,9 @@ type Module struct {
 	fnExec       api.Function
 	fnHealthy    api.Function
 	fnMetadata   api.Function
+
+	fnCompactSpecs api.Function                        // optional: compact_specs() -> u64
+	compactSpecs   map[mcp.ToolName][]mcp.CompactField // parsed once after load
 }
 
 func (m *Module) resolveExports() error {
@@ -118,7 +125,64 @@ func (m *Module) resolveExports() error {
 	if m.fnMetadata == nil {
 		return fmt.Errorf("wasm: module does not export 'metadata'")
 	}
+
+	// compact_specs is optional — modules without it simply skip compaction.
+	m.fnCompactSpecs = m.mod.ExportedFunction("compact_specs")
 	return nil
+}
+
+// loadCompactSpecs calls the guest compact_specs() export (if present),
+// parses the returned JSON map into pre-compiled CompactField slices,
+// and caches them for the lifetime of the module.
+func (m *Module) loadCompactSpecs(ctx context.Context) {
+	if m.fnCompactSpecs == nil {
+		return
+	}
+	results, err := m.fnCompactSpecs.Call(ctx)
+	if err != nil {
+		slog.Warn("wasm: compact_specs call failed", "err", err)
+		return
+	}
+	if len(results) == 0 {
+		return
+	}
+
+	ptr, size := unpackPtrSize(results[0])
+	if size == 0 {
+		return
+	}
+	data, err := readFromGuest(m.mod, ptr, size)
+	freeInGuest(ctx, m.mod, ptr)
+	if err != nil {
+		slog.Warn("wasm: read compact_specs", "err", err)
+		return
+	}
+
+	var raw map[mcp.ToolName][]string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		slog.Warn("wasm: unmarshal compact_specs", "err", err)
+		return
+	}
+
+	specs := make(map[mcp.ToolName][]mcp.CompactField, len(raw))
+	for tool, dotSpecs := range raw {
+		fields, parseErr := mcp.ParseCompactSpecs(dotSpecs)
+		if parseErr != nil {
+			slog.Warn("wasm: invalid compact spec", "tool", tool, "err", parseErr)
+			continue
+		}
+		specs[tool] = fields
+	}
+	m.compactSpecs = specs
+}
+
+// CompactSpec implements mcp.FieldCompactionIntegration.
+func (m *Module) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
+	if m.compactSpecs == nil {
+		return nil, false
+	}
+	fields, ok := m.compactSpecs[toolName]
+	return fields, ok
 }
 
 // Close releases the WASM module instance.

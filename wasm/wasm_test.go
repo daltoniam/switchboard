@@ -303,3 +303,80 @@ func TestIntegrationInterface(t *testing.T) {
 	mod := loadTestModule(t)
 	var _ mcp.Integration = mod
 }
+
+func TestFieldCompactionInterface(t *testing.T) {
+	mod := loadTestModule(t)
+	var _ mcp.FieldCompactionIntegration = mod
+}
+
+func TestCompactSpec_HasSpecs(t *testing.T) {
+	mod := loadTestModule(t)
+	fields, ok := mod.CompactSpec("example_list_items")
+	if !ok {
+		t.Fatal("CompactSpec should return true for example_list_items")
+	}
+	if len(fields) == 0 {
+		t.Fatal("CompactSpec should return non-empty fields for example_list_items")
+	}
+}
+
+func TestCompactSpec_NoSpecs(t *testing.T) {
+	mod := loadTestModule(t)
+	_, ok := mod.CompactSpec("example_echo")
+	if ok {
+		t.Error("CompactSpec should return false for example_echo (no specs defined)")
+	}
+}
+
+func TestCompactSpec_AppliesCorrectly(t *testing.T) {
+	mod := loadTestModule(t)
+	fields, ok := mod.CompactSpec("example_list_items")
+	if !ok {
+		t.Fatal("CompactSpec should return true for example_list_items")
+	}
+
+	input := []any{
+		map[string]any{"id": "item-1", "name": "widget", "extra": "drop-me", "price": 9.99},
+		map[string]any{"id": "item-2", "name": "gadget", "extra": "drop-me-too", "price": 19.99},
+	}
+	result := mcp.CompactAny(input, fields)
+
+	arr, ok := result.([]any)
+	if !ok {
+		t.Fatalf("expected []any, got %T", result)
+	}
+	if len(arr) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(arr))
+	}
+	first, ok := arr[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map[string]any, got %T", arr[0])
+	}
+	if first["id"] != "item-1" {
+		t.Errorf("expected id=item-1, got %v", first["id"])
+	}
+	if first["name"] != "widget" {
+		t.Errorf("expected name=widget, got %v", first["name"])
+	}
+	if _, exists := first["extra"]; exists {
+		t.Error("extra field should have been compacted out")
+	}
+	if _, exists := first["price"]; exists {
+		t.Error("price field should have been compacted out")
+	}
+}
+
+func TestCompactSpec_AtLeastOneTool(t *testing.T) {
+	mod := loadTestModule(t)
+	tools := mod.Tools()
+
+	specsFound := 0
+	for _, tool := range tools {
+		if _, ok := mod.CompactSpec(tool.Name); ok {
+			specsFound++
+		}
+	}
+	if specsFound == 0 {
+		t.Error("expected at least one tool to have compact specs (not all tools need specs)")
+	}
+}

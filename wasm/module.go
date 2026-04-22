@@ -9,6 +9,8 @@ import (
 	"github.com/daltoniam/switchboard/marketplace"
 )
 
+var _ mcp.FieldCompactionIntegration = (*Module)(nil)
+
 // SetName overrides the name returned by the WASM module's name() export.
 func (m *Module) SetName(name string) {
 	m.nameOverride = name
