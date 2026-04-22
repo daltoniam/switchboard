@@ -123,6 +123,9 @@ var envMapping = map[string]map[string]string{
 		"slack_config_token":  "BOTIDENTITY_SLACK_CONFIG_TOKEN",
 		"slack_refresh_token": "BOTIDENTITY_SLACK_REFRESH_TOKEN",
 	},
+	"x": {
+		"bearer_token": "X_BEARER_TOKEN",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -282,6 +285,10 @@ func defaultConfig() *mcp.Config {
 			"botidentity": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"github_token": "", "github_app_pem": "", "github_app_id": "", "slack_config_token": "", "slack_refresh_token": "", "slack_bot_token": "", "aws_access_key_id": "", "aws_secret_access_key": "", "aws_session_token": "", "aws_region": ""},
+			},
+			"x": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"bearer_token": "", "client_id": "", "client_secret": ""},
 			},
 		},
 	}
