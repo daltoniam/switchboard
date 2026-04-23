@@ -10,8 +10,8 @@ import (
 
 func getIssues(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.ToolResult, error) {
 	query := `
-		query GetIssues($organizationSlug: ID, $serverId: ID, $databaseId: ID, $state: String) {
-			getIssues(organizationSlug: $organizationSlug, serverId: $serverId, databaseId: $databaseId, state: $state) {
+		query GetIssues($organizationSlug: ID, $serverId: ID, $databaseId: ID) {
+			getIssues(organizationSlug: $organizationSlug, serverId: $serverId, databaseId: $databaseId) {
 				id
 				checkGroupAndName
 				description
@@ -48,9 +48,6 @@ func getIssues(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.Too
 	if databaseID != "" {
 		variables["databaseId"] = databaseID
 	}
-	if !includeResolved {
-		variables["state"] = "open"
-	}
 
 	data, err := p.gql(ctx, query, variables)
 	if err != nil {
@@ -64,19 +61,25 @@ func getIssues(ctx context.Context, p *pganalyze, args map[string]any) (*mcp.Too
 		return mcp.ErrResult(err)
 	}
 
-	if severity != "" {
-		var issues []map[string]any
-		if err := json.Unmarshal(resp.GetIssues, &issues); err != nil {
-			return mcp.ErrResult(err)
-		}
-		filtered := make([]map[string]any, 0, len(issues))
-		for _, issue := range issues {
-			if s, ok := issue["severity"].(string); ok && strings.EqualFold(s, severity) {
-				filtered = append(filtered, issue)
-			}
-		}
-		return mcp.JSONResult(filtered)
+	var issues []map[string]any
+	if err := json.Unmarshal(resp.GetIssues, &issues); err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	return mcp.RawResult(resp.GetIssues)
+	filtered := make([]map[string]any, 0, len(issues))
+	for _, issue := range issues {
+		state, _ := issue["state"].(string)
+		if !includeResolved && strings.EqualFold(state, "resolved") {
+			continue
+		}
+		if severity != "" {
+			sev, _ := issue["severity"].(string)
+			if !strings.EqualFold(sev, severity) {
+				continue
+			}
+		}
+		filtered = append(filtered, issue)
+	}
+
+	return mcp.JSONResult(filtered)
 }
