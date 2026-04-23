@@ -61,20 +61,22 @@ jobs:
         id: version
         if: steps.skip.outputs.skip != 'true'
         run: |
-          TODAY=$(date -u +%Y.%m.%d)
+          # Build semver-compatible calver: vYYYY.MMDD.N
+          # e.g. v2026.422.0, v2026.422.1, ...
+          YEAR=$(date -u +%Y)
+          # Strip leading zeros for semver compliance
+          MONTH=$(date -u +%-m)
+          DAY=$(date -u +%-d)
+          MMDD=$((MONTH * 100 + DAY))
+          PREFIX="v${YEAR}.${MMDD}"
 
-          EXISTING=$(git tag -l "v${TODAY}*" --sort=-v:refname | head -1)
+          EXISTING=$(git tag -l "${PREFIX}.*" --sort=-v:refname | head -1)
           if [ -z "$EXISTING" ]; then
-            NEXT="v${TODAY}"
+            NEXT="${PREFIX}.0"
           else
-            # Extract the .N suffix if present, otherwise start at .1
-            SUFFIX="${EXISTING#v${TODAY}}"
-            if [ -z "$SUFFIX" ]; then
-              NEXT="v${TODAY}.1"
-            else
-              N="${SUFFIX#.}"
-              NEXT="v${TODAY}.$((N + 1))"
-            fi
+            # Extract the .N patch suffix
+            N="${EXISTING##*.}"
+            NEXT="${PREFIX}.$((N + 1))"
           fi
 
           echo "next=$NEXT" >> "$GITHUB_OUTPUT"
