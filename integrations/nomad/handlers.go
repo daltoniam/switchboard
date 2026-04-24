@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -473,8 +474,9 @@ func gc(ctx context.Context, n *nomad, _ map[string]any) (*mcp.ToolResult, error
 	return mcp.RawResult(data)
 }
 
-// parseDuration converts a human-readable duration (e.g., "1h", "30m") to nanoseconds
-// for the Nomad API. Returns 0 for empty or invalid input; -1 maps to -1ns (no deadline).
+// parseDuration converts a human-readable duration (e.g., "1h", "30m", "1h30m") to
+// nanoseconds for the Nomad API. Returns 0 for empty or invalid input; "-1" maps to
+// -1 (no deadline).
 func parseDuration(s string) int64 {
 	if s == "" {
 		return 0
@@ -482,28 +484,9 @@ func parseDuration(s string) int64 {
 	if s == "-1" {
 		return -1
 	}
-	// Simple parser: support s, m, h suffixes
-	s = strings.TrimSpace(s)
-	if len(s) < 2 {
+	d, err := time.ParseDuration(s)
+	if err != nil {
 		return 0
 	}
-	suffix := s[len(s)-1]
-	numStr := s[:len(s)-1]
-	var num int64
-	for _, c := range numStr {
-		if c < '0' || c > '9' {
-			return 0
-		}
-		num = num*10 + int64(c-'0')
-	}
-	switch suffix {
-	case 's':
-		return num * 1e9
-	case 'm':
-		return num * 60 * 1e9
-	case 'h':
-		return num * 3600 * 1e9
-	default:
-		return 0
-	}
+	return d.Nanoseconds()
 }

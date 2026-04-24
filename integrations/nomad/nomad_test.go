@@ -250,8 +250,9 @@ func TestParseDuration(t *testing.T) {
 		{"30s", 30_000_000_000},
 		{"5m", 300_000_000_000},
 		{"1h", 3_600_000_000_000},
+		{"1h30m", 5_400_000_000_000},
+		{"100ms", 100_000_000},
 		{"invalid", 0},
-		{"x", 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
