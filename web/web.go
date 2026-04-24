@@ -667,10 +667,10 @@ func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Req
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials[mcp.CredKeyTokenSource] = "chrome"
+	ic.Credentials[mcp.CredKeyTokenSource] = "browser"
 	_ = w.services.Config.SetIntegration("slack", ic)
 
-	http.Redirect(rw, r, fmt.Sprintf("/integrations/slack/setup?result=Extracted+%d+workspaces+from+Chrome", count), http.StatusSeeOther)
+	http.Redirect(rw, r, fmt.Sprintf("/integrations/slack/setup?result=Extracted+%d+workspaces+from+browser", count), http.StatusSeeOther)
 }
 
 func (w *WebServer) handleGitHubSetup(rw http.ResponseWriter, r *http.Request) {
