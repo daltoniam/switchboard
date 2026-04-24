@@ -4,13 +4,58 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/google/uuid"
 )
 
+// ── Raw HTTP helper ──────────────────────────────────────────────────
+
+// ddGet performs a raw GET against the Datadog API for endpoints not yet
+// exposed by the Go SDK. It reuses the SDK client for auth, retry, and
+// base-URL resolution.
+func ddGet(ctx context.Context, d *dd, path string, query url.Values) (*mcp.ToolResult, error) {
+	base, err := d.client.Cfg.ServerURLWithContext(ctx, "")
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("resolve base URL: %w", err))
+	}
+	headers := map[string]string{"Accept": "application/json"}
+	req, err := d.client.PrepareRequest(ctx, base+path, http.MethodGet, nil, headers, query, url.Values{}, nil)
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("prepare request: %w", err))
+	}
+	resp, err := d.client.CallAPI(req)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("read response: %w", err))
+	}
+	if resp.StatusCode >= 400 {
+		return mcp.ErrResult(fmt.Errorf("HTTP %d: %s", resp.StatusCode, body))
+	}
+	return mcp.RawResult(body)
+}
+
 // ── On-Call Schedules ────────────────────────────────────────────────
+
+func listOnCallSchedules(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	q := url.Values{}
+	if v := args["include"]; v != nil {
+		q.Set("include", fmt.Sprint(v))
+	}
+	return ddGet(ctx, d, "/api/v2/on-call/schedules", q)
+}
 
 func getOnCallSchedule(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
@@ -44,6 +89,18 @@ func getScheduleOnCallUser(ctx context.Context, d *dd, args map[string]any) (*mc
 
 // ── On-Call Escalation Policies ──────────────────────────────────────
 
+func listOnCallEscalationPolicies(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	q := url.Values{}
+	if v := args["include"]; v != nil {
+		q.Set("include", fmt.Sprint(v))
+	}
+	return ddGet(ctx, d, "/api/v2/on-call/escalation-policies", q)
+}
+
 func getOnCallEscalationPolicy(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	id := r.Str("policy_id")
@@ -52,7 +109,7 @@ func getOnCallEscalationPolicy(ctx context.Context, d *dd, args map[string]any) 
 	}
 	api := datadogV2.NewOnCallApi(d.client)
 	opts := datadogV2.NewGetOnCallEscalationPolicyOptionalParameters()
-	opts = opts.WithInclude("rules,rules.members,rules.members.user,rules.members.schedule")
+	opts = opts.WithInclude("steps,steps.targets")
 	resp, _, err := api.GetOnCallEscalationPolicy(ctx, id, *opts)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -70,7 +127,7 @@ func getOnCallTeamRoutingRules(ctx context.Context, d *dd, args map[string]any) 
 	}
 	api := datadogV2.NewOnCallApi(d.client)
 	opts := datadogV2.NewGetOnCallTeamRoutingRulesOptionalParameters()
-	opts = opts.WithInclude("escalation_policy,schedule")
+	opts = opts.WithInclude("rules,rules.policy")
 	resp, _, err := api.GetOnCallTeamRoutingRules(ctx, teamID, *opts)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -93,6 +150,37 @@ func getTeamOnCallUsers(ctx context.Context, d *dd, args map[string]any) (*mcp.T
 }
 
 // ── On-Call Paging ───────────────────────────────────────────────────
+
+func listOnCallPages(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	q := url.Values{}
+	if v := args["include"]; v != nil {
+		q.Set("include", fmt.Sprint(v))
+	}
+	if v := args["status"]; v != nil {
+		q.Set("filter[status]", fmt.Sprint(v))
+	}
+	if v := args["urgency"]; v != nil {
+		q.Set("filter[urgency]", fmt.Sprint(v))
+	}
+	return ddGet(ctx, d, "/api/v2/on-call/pages", q)
+}
+
+func getOnCallPage(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	pageID := r.Str("page_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	q := url.Values{}
+	if v := args["include"]; v != nil {
+		q.Set("include", fmt.Sprint(v))
+	}
+	return ddGet(ctx, d, "/api/v2/on-call/pages/"+url.PathEscape(pageID), q)
+}
 
 func createOnCallPage(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
@@ -321,4 +409,169 @@ func setOnCallTeamRoutingRules(ctx context.Context, d *dd, args map[string]any) 
 		return mcp.ErrResult(err)
 	}
 	return mcp.JSONResult(resp)
+}
+
+// ── Notification Channels ────────────────────────────────────────────
+
+func listUserNotificationChannels(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	api := datadogV2.NewOnCallApi(d.client)
+	resp, _, err := api.ListUserNotificationChannels(ctx, userID)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
+}
+
+func createUserNotificationChannel(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	bodyJSON := r.Str("body_json")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	var body datadogV2.CreateUserNotificationChannelRequest
+	if err := json.Unmarshal([]byte(bodyJSON), &body); err != nil {
+		return mcp.ErrResult(fmt.Errorf("invalid body_json: %w", err))
+	}
+	api := datadogV2.NewOnCallApi(d.client)
+	resp, _, err := api.CreateUserNotificationChannel(ctx, userID, body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
+}
+
+func getUserNotificationChannel(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	channelID := r.Str("channel_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	api := datadogV2.NewOnCallApi(d.client)
+	resp, _, err := api.GetUserNotificationChannel(ctx, userID, channelID)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
+}
+
+func deleteUserNotificationChannel(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	channelID := r.Str("channel_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	api := datadogV2.NewOnCallApi(d.client)
+	_, err := api.DeleteUserNotificationChannel(ctx, userID, channelID)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
+}
+
+// ── Notification Rules ───────────────────────────────────────────────
+
+func listUserNotificationRules(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	api := datadogV2.NewOnCallApi(d.client)
+	opts := datadogV2.NewListUserNotificationRulesOptionalParameters()
+	if v := args["include"]; v != nil {
+		include := fmt.Sprint(v)
+		opts = opts.WithInclude(include)
+	}
+	resp, _, err := api.ListUserNotificationRules(ctx, userID, *opts)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
+}
+
+func createUserNotificationRule(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	bodyJSON := r.Str("body_json")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	var body datadogV2.CreateOnCallNotificationRuleRequest
+	if err := json.Unmarshal([]byte(bodyJSON), &body); err != nil {
+		return mcp.ErrResult(fmt.Errorf("invalid body_json: %w", err))
+	}
+	api := datadogV2.NewOnCallApi(d.client)
+	resp, _, err := api.CreateUserNotificationRule(ctx, userID, body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
+}
+
+func getUserNotificationRule(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	ruleID := r.Str("rule_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	api := datadogV2.NewOnCallApi(d.client)
+	opts := datadogV2.NewGetUserNotificationRuleOptionalParameters()
+	if v := args["include"]; v != nil {
+		include := fmt.Sprint(v)
+		opts = opts.WithInclude(include)
+	}
+	resp, _, err := api.GetUserNotificationRule(ctx, userID, ruleID, *opts)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
+}
+
+func updateUserNotificationRule(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	ruleID := r.Str("rule_id")
+	bodyJSON := r.Str("body_json")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	var body datadogV2.UpdateOnCallNotificationRuleRequest
+	if err := json.Unmarshal([]byte(bodyJSON), &body); err != nil {
+		return mcp.ErrResult(fmt.Errorf("invalid body_json: %w", err))
+	}
+	api := datadogV2.NewOnCallApi(d.client)
+	opts := datadogV2.NewUpdateUserNotificationRuleOptionalParameters()
+	if v := args["include"]; v != nil {
+		include := fmt.Sprint(v)
+		opts = opts.WithInclude(include)
+	}
+	resp, _, err := api.UpdateUserNotificationRule(ctx, userID, ruleID, body, *opts)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
+}
+
+func deleteUserNotificationRule(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	userID := r.Str("user_id")
+	ruleID := r.Str("rule_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	api := datadogV2.NewOnCallApi(d.client)
+	_, err := api.DeleteUserNotificationRule(ctx, userID, ruleID)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(map[string]string{"status": "deleted"})
 }

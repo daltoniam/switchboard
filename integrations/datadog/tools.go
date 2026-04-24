@@ -452,6 +452,10 @@ var tools = []mcp.ToolDefinition{
 
 	// ── On-Call ──────────────────────────────────────────────────────
 	{
+		Name: mcp.ToolName("datadog_list_oncall_schedules"), Description: "List all Datadog On-Call schedules. Start here to find schedule IDs before getting details.",
+		Parameters: map[string]string{"include": "Comma-separated related resources to include (e.g. teams)"},
+	},
+	{
 		Name: mcp.ToolName("datadog_get_oncall_schedule"), Description: "Get a Datadog On-Call schedule with layers, members, and rotation details. View who is on-call and when.",
 		Parameters: map[string]string{"schedule_id": "On-Call schedule ID"},
 		Required:   []string{"schedule_id"},
@@ -462,8 +466,8 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"body_json"},
 	},
 	{
-		Name: mcp.ToolName("datadog_update_oncall_schedule"), Description: "Update an existing On-Call schedule (layers, members, rotations). Fetch current schedule with get_oncall_schedule first, then modify and submit.",
-		Parameters: map[string]string{"schedule_id": "Schedule ID", "body_json": "JSON body matching Datadog ScheduleUpdateRequest schema"},
+		Name: mcp.ToolName("datadog_update_oncall_schedule"), Description: "Update an existing On-Call schedule (layers, members, rotations). IMPORTANT: Always include the full relationships.teams block in body_json — omitting it silently removes the team association. Fetch current schedule with get_oncall_schedule first, then modify and submit.",
+		Parameters: map[string]string{"schedule_id": "Schedule ID", "body_json": "JSON body matching Datadog ScheduleUpdateRequest schema. MUST include relationships.teams to preserve team association."},
 		Required:   []string{"schedule_id", "body_json"},
 	},
 	{
@@ -475,6 +479,10 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("datadog_get_schedule_oncall_user"), Description: "Get the current on-call user for a schedule. Find who is on-call right now for a given rotation.",
 		Parameters: map[string]string{"schedule_id": "On-Call schedule ID"},
 		Required:   []string{"schedule_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_list_oncall_escalation_policies"), Description: "List all Datadog On-Call escalation policies. Start here to find policy IDs before getting details.",
+		Parameters: map[string]string{"include": "Comma-separated related resources to include (e.g. teams,steps,steps.targets)"},
 	},
 	{
 		Name: mcp.ToolName("datadog_get_oncall_escalation_policy"), Description: "Get a Datadog On-Call escalation policy with steps, targets, and notification chain. View escalation rules and timing.",
@@ -514,6 +522,15 @@ var tools = []mcp.ToolDefinition{
 
 	// ── On-Call Paging ───────────────────────────────────────────────
 	{
+		Name: mcp.ToolName("datadog_list_oncall_pages"), Description: "List On-Call pages. Filter by status and urgency to find active or past pages.",
+		Parameters: map[string]string{"include": "Comma-separated related resources to include", "status": "Filter by page status (e.g. triggered, acknowledged, resolved)", "urgency": "Filter by urgency (low or high)"},
+	},
+	{
+		Name: mcp.ToolName("datadog_get_oncall_page"), Description: "Get details of a specific On-Call page including status, responders, and timeline.",
+		Parameters: map[string]string{"page_id": "Page UUID", "include": "Comma-separated related resources to include"},
+		Required:   []string{"page_id"},
+	},
+	{
 		Name: mcp.ToolName("datadog_create_oncall_page"), Description: "Create a new On-Call page to alert responders. Page a team or user for production incidents and urgent issues.",
 		Parameters: map[string]string{"title": "Page title", "urgency": "Urgency: low or high (default high)", "target_id": "Target identifier (team handle, team ID, or user ID)", "target_type": "Target type: team_handle, team_id, or user_id (default team_handle)", "description": "Page description with details", "tags": "Comma-separated tags"},
 		Required:   []string{"title", "target_id"},
@@ -532,6 +549,55 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("datadog_resolve_oncall_page"), Description: "Resolve an On-Call page to mark the issue as handled",
 		Parameters: map[string]string{"page_id": "Page UUID"},
 		Required:   []string{"page_id"},
+	},
+
+	// ── Notification Channels ───────────────────────────────────────
+	{
+		Name: mcp.ToolName("datadog_list_user_notification_channels"), Description: "List On-Call notification channels for a user (email, Slack, SMS, push). View how a user receives on-call alerts.",
+		Parameters: map[string]string{"user_id": "User ID"},
+		Required:   []string{"user_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_create_user_notification_channel"), Description: "Create a notification channel for a user (email, Slack, SMS, push).",
+		Parameters: map[string]string{"user_id": "User ID", "body_json": "JSON body matching Datadog CreateUserNotificationChannelRequest schema"},
+		Required:   []string{"user_id", "body_json"},
+	},
+	{
+		Name: mcp.ToolName("datadog_get_user_notification_channel"), Description: "Get a specific notification channel for a user.",
+		Parameters: map[string]string{"user_id": "User ID", "channel_id": "Notification channel ID"},
+		Required:   []string{"user_id", "channel_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_delete_user_notification_channel"), Description: "Delete a notification channel for a user.",
+		Parameters: map[string]string{"user_id": "User ID", "channel_id": "Notification channel ID"},
+		Required:   []string{"user_id", "channel_id"},
+	},
+
+	// ── Notification Rules ─────────────────────────────────────────
+	{
+		Name: mcp.ToolName("datadog_list_user_notification_rules"), Description: "List On-Call notification rules for a user. Rules define when and how a user is notified for on-call pages.",
+		Parameters: map[string]string{"user_id": "User ID", "include": "Comma-separated related resources to include"},
+		Required:   []string{"user_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_create_user_notification_rule"), Description: "Create a notification rule for a user defining when and how they are notified for on-call pages.",
+		Parameters: map[string]string{"user_id": "User ID", "body_json": "JSON body matching Datadog CreateOnCallNotificationRuleRequest schema"},
+		Required:   []string{"user_id", "body_json"},
+	},
+	{
+		Name: mcp.ToolName("datadog_get_user_notification_rule"), Description: "Get a specific notification rule for a user.",
+		Parameters: map[string]string{"user_id": "User ID", "rule_id": "Notification rule ID", "include": "Comma-separated related resources to include"},
+		Required:   []string{"user_id", "rule_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_update_user_notification_rule"), Description: "Update a notification rule for a user.",
+		Parameters: map[string]string{"user_id": "User ID", "rule_id": "Notification rule ID", "body_json": "JSON body matching Datadog UpdateOnCallNotificationRuleRequest schema", "include": "Comma-separated related resources to include"},
+		Required:   []string{"user_id", "rule_id", "body_json"},
+	},
+	{
+		Name: mcp.ToolName("datadog_delete_user_notification_rule"), Description: "Delete a notification rule for a user.",
+		Parameters: map[string]string{"user_id": "User ID", "rule_id": "Notification rule ID"},
+		Required:   []string{"user_id", "rule_id"},
 	},
 
 	// ── IP Ranges ─────────────────────────────────────────────────────
