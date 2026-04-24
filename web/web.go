@@ -612,7 +612,7 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 		TokenStatus:    tokenStatus,
 		TokenAge:       info.AgeHours,
 		TokenSource:    tokenSource,
-		CanAutoExtract: slackInt.CanExtractFromChrome(),
+		CanAutoExtract: slackInt.CanExtractFromBrowser(),
 		ExtractSnippet: slackInt.ExtractionSnippet(),
 		Healthy:        healthy,
 		WorkspaceCount: info.WorkspaceCount,
@@ -641,7 +641,7 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 
 func (w *WebServer) handleSlackListWorkspaces(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	workspaces, err := slackInt.ListWorkspacesFromChrome()
+	workspaces, err := slackInt.ListWorkspacesFromBrowsers()
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]any{"error": err.Error()})
 		return
@@ -655,7 +655,7 @@ func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Req
 		return
 	}
 
-	count, err := slackInt.ExtractAllFromChromeForWeb()
+	count, err := slackInt.ExtractAllFromBrowsersForWeb()
 	if err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
 		return

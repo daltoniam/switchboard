@@ -249,7 +249,13 @@ func (s *slackIntegration) tryRefreshWorkspace(teamID string) bool {
 	if extracted == nil || extracted.token == "" {
 		return false
 	}
-	s.store.updateTokens(teamID, extracted.token, extracted.cookie)
+	cookie := extracted.cookie
+	if cookie == "" {
+		if ws := s.store.getWorkspace(teamID); ws != nil {
+			cookie = ws.Cookie
+		}
+	}
+	s.store.updateTokens(teamID, extracted.token, cookie)
 	ws := s.store.getWorkspace(teamID)
 	if ws != nil {
 		s.buildClientForWorkspace(ws)
