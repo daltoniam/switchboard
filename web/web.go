@@ -58,7 +58,7 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /integrations/slack/setup", w.handleSlackSetup)
 	mux.HandleFunc("GET /api/slack/list-workspaces", w.handleSlackListWorkspaces)
-	mux.HandleFunc("POST /api/slack/extract-chrome", w.handleSlackExtractChrome)
+	mux.HandleFunc("POST /api/slack/extract-browser", w.handleSlackExtractBrowser)
 	mux.HandleFunc("POST /api/slack/save-tokens", w.handleSlackSaveTokens)
 	mux.HandleFunc("POST /api/slack/set-default", w.handleSlackSetDefault)
 
@@ -600,14 +600,19 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 		tokenSource = info.Source
 	}
 
+	tokenStatus := info.Status
+	if healthy && tokenStatus != "healthy" {
+		tokenStatus = "healthy"
+	}
+
 	page := w.pageData(r, "Slack Setup", "/integrations")
 	data := pages.SlackSetupData{
 		HasToken:       info.HasToken,
 		HasCookie:      info.HasCookie,
-		TokenStatus:    info.Status,
+		TokenStatus:    tokenStatus,
 		TokenAge:       info.AgeHours,
 		TokenSource:    tokenSource,
-		CanAutoExtract: slackInt.CanExtractFromChrome(),
+		CanAutoExtract: slackInt.CanExtractFromBrowser(),
 		ExtractSnippet: slackInt.ExtractionSnippet(),
 		Healthy:        healthy,
 		WorkspaceCount: info.WorkspaceCount,
@@ -636,7 +641,7 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 
 func (w *WebServer) handleSlackListWorkspaces(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	workspaces, err := slackInt.ListWorkspacesFromChrome()
+	workspaces, err := slackInt.ListWorkspacesFromBrowsers()
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]any{"error": err.Error()})
 		return
@@ -644,13 +649,13 @@ func (w *WebServer) handleSlackListWorkspaces(rw http.ResponseWriter, r *http.Re
 	json.NewEncoder(rw).Encode(map[string]any{"workspaces": workspaces})
 }
 
-func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Request) {
+func (w *WebServer) handleSlackExtractBrowser(rw http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
 		return
 	}
 
-	count, err := slackInt.ExtractAllFromChromeForWeb()
+	count, err := slackInt.ExtractAllFromBrowsersForWeb()
 	if err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
 		return
@@ -662,10 +667,10 @@ func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Req
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials[mcp.CredKeyTokenSource] = "chrome"
+	ic.Credentials[mcp.CredKeyTokenSource] = "browser"
 	_ = w.services.Config.SetIntegration("slack", ic)
 
-	http.Redirect(rw, r, fmt.Sprintf("/integrations/slack/setup?result=Extracted+%d+workspaces+from+Chrome", count), http.StatusSeeOther)
+	http.Redirect(rw, r, fmt.Sprintf("/integrations/slack/setup?result=Extracted+%d+workspaces+from+browser", count), http.StatusSeeOther)
 }
 
 func (w *WebServer) handleGitHubSetup(rw http.ResponseWriter, r *http.Request) {
