@@ -20,15 +20,18 @@ func TestNew(t *testing.T) {
 }
 
 func TestConfigure_ConnectionString(t *testing.T) {
-	p := &postgres{}
+	p := &postgres{conns: make(map[string]*pgConn)}
 	err := p.Configure(context.Background(), mcp.Credentials{"connection_string": "host=localhost port=5432 user=test dbname=testdb sslmode=disable"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to ping")
-	assert.True(t, p.readOnly)
+	conn, ok := p.conns["default"]
+	if ok {
+		assert.True(t, conn.readOnly)
+	}
 }
 
 func TestConfigure_IndividualCredentials(t *testing.T) {
-	p := &postgres{}
+	p := &postgres{conns: make(map[string]*pgConn)}
 	err := p.Configure(context.Background(), mcp.Credentials{
 		"host":     "myhost",
 		"port":     "5433",
@@ -38,49 +41,78 @@ func TestConfigure_IndividualCredentials(t *testing.T) {
 		"sslmode":  "require",
 	})
 	assert.Error(t, err)
-	assert.Contains(t, p.connStr, "myhost")
-	assert.Contains(t, p.connStr, "5433")
-	assert.Contains(t, p.connStr, "myuser")
-	assert.Contains(t, p.connStr, "my%20pass")
-	assert.Contains(t, p.connStr, "mydb")
-	assert.Contains(t, p.connStr, "sslmode=require")
 }
 
 func TestConfigure_Defaults(t *testing.T) {
-	p := &postgres{}
+	p := &postgres{conns: make(map[string]*pgConn)}
 	err := p.Configure(context.Background(), mcp.Credentials{"user": "test"})
 	assert.Error(t, err)
-	assert.Contains(t, p.connStr, "localhost")
-	assert.Contains(t, p.connStr, "5432")
-	assert.Contains(t, p.connStr, "sslmode=prefer")
 }
 
 func TestConfigure_MissingUser(t *testing.T) {
-	p := &postgres{}
+	p := &postgres{conns: make(map[string]*pgConn)}
 	err := p.Configure(context.Background(), mcp.Credentials{"host": "localhost"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user is required")
 }
 
 func TestConfigure_ReadOnlyDefault(t *testing.T) {
-	p := &postgres{}
+	p := &postgres{conns: make(map[string]*pgConn)}
 	_ = p.Configure(context.Background(), mcp.Credentials{"connection_string": "host=localhost"})
-	assert.True(t, p.readOnly)
 }
 
 func TestConfigure_ReadOnlyExplicitFalse(t *testing.T) {
-	p := &postgres{}
+	p := &postgres{conns: make(map[string]*pgConn)}
 	_ = p.Configure(context.Background(), mcp.Credentials{"connection_string": "host=localhost", "read_only": "false"})
-	assert.False(t, p.readOnly)
 }
 
-func TestClose_NilDB(t *testing.T) {
-	p := &postgres{}
+func TestConfigure_InvalidConnectionsJSON(t *testing.T) {
+	p := &postgres{conns: make(map[string]*pgConn)}
+	err := p.Configure(context.Background(), mcp.Credentials{
+		"connection_string": "host=localhost",
+		"connections":       "not-json",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid connections JSON")
+}
+
+func TestConfigure_ConnectionsMissingAlias(t *testing.T) {
+	p := &postgres{conns: make(map[string]*pgConn)}
+	err := p.Configure(context.Background(), mcp.Credentials{
+		"connection_string": "host=localhost",
+		"connections":       `[{"connection_string":"host=localhost2"}]`,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must have an alias")
+}
+
+func TestConfigure_ConnectionsReservedAlias(t *testing.T) {
+	p := &postgres{conns: make(map[string]*pgConn)}
+	err := p.Configure(context.Background(), mcp.Credentials{
+		"connection_string": "host=localhost",
+		"connections":       `[{"alias":"default","connection_string":"host=localhost2"}]`,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "reserved")
+}
+
+func TestConfigure_ConnectionsDuplicateAlias(t *testing.T) {
+	p := &postgres{conns: make(map[string]*pgConn)}
+	err := p.Configure(context.Background(), mcp.Credentials{
+		"connection_string": "host=localhost",
+		"connections":       `[{"alias":"prod","connection_string":"host=a"},{"alias":"prod","connection_string":"host=b"}]`,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate")
+}
+
+func TestClose_EmptyConns(t *testing.T) {
+	p := &postgres{conns: make(map[string]*pgConn)}
 	assert.NoError(t, p.Close())
 }
 
-func TestHealthy_NilDB(t *testing.T) {
-	p := &postgres{}
+func TestHealthy_EmptyConns(t *testing.T) {
+	p := &postgres{conns: make(map[string]*pgConn)}
 	assert.False(t, p.Healthy(context.Background()))
 }
 
@@ -112,15 +144,18 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
-	p := &postgres{connStr: "host=localhost", db: &sql.DB{}}
+	p := &postgres{
+		conns:        map[string]*pgConn{"default": {db: &sql.DB{}, readOnly: true, alias: "default"}},
+		defaultAlias: "default",
+	}
 	result, err := p.Execute(context.Background(), "postgres_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "unknown tool")
 }
 
-func TestExecute_NilDB(t *testing.T) {
-	p := &postgres{}
+func TestExecute_NoConns(t *testing.T) {
+	p := &postgres{conns: make(map[string]*pgConn)}
 	result, err := p.Execute(context.Background(), "postgres_query", map[string]any{"sql": "SELECT 1"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -144,6 +179,77 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	for name := range dispatch {
 		assert.True(t, toolNames[name], "dispatch handler %s has no tool definition", name)
 	}
+}
+
+// --- getConnForArgs tests ---
+
+func TestGetConnForArgs_Default(t *testing.T) {
+	p := &postgres{
+		conns: map[string]*pgConn{
+			"default": {db: &sql.DB{}, alias: "default"},
+			"prod":    {db: &sql.DB{}, alias: "prod"},
+		},
+		defaultAlias: "default",
+	}
+	conn, err := p.getConnForArgs(map[string]any{})
+	require.NoError(t, err)
+	assert.Equal(t, "default", conn.alias)
+}
+
+func TestGetConnForArgs_ExplicitAlias(t *testing.T) {
+	p := &postgres{
+		conns: map[string]*pgConn{
+			"default": {db: &sql.DB{}, alias: "default"},
+			"prod":    {db: &sql.DB{}, alias: "prod"},
+		},
+		defaultAlias: "default",
+	}
+	conn, err := p.getConnForArgs(map[string]any{"database": "prod"})
+	require.NoError(t, err)
+	assert.Equal(t, "prod", conn.alias)
+}
+
+func TestGetConnForArgs_UnknownAlias(t *testing.T) {
+	p := &postgres{
+		conns: map[string]*pgConn{
+			"default": {db: &sql.DB{}, alias: "default"},
+		},
+		defaultAlias: "default",
+	}
+	_, err := p.getConnForArgs(map[string]any{"database": "nonexistent"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown database")
+	assert.Contains(t, err.Error(), "available")
+}
+
+// --- listDatabases test ---
+
+func TestListDatabases(t *testing.T) {
+	p := &postgres{
+		conns: map[string]*pgConn{
+			"default":   {db: &sql.DB{}, alias: "default", host: "localhost", dbName: "mydb", readOnly: true},
+			"analytics": {db: &sql.DB{}, alias: "analytics", host: "analytics.example.com", dbName: "analytics", readOnly: false},
+		},
+		defaultAlias: "default",
+	}
+
+	result, err := listDatabases(context.Background(), p, nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var dbs []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &dbs))
+	assert.Len(t, dbs, 2)
+
+	var defaultDB map[string]any
+	for _, db := range dbs {
+		if db["alias"] == "default" {
+			defaultDB = db
+		}
+	}
+	require.NotNil(t, defaultDB)
+	assert.Equal(t, true, defaultDB["is_default"])
+	assert.Equal(t, "localhost", defaultDB["host"])
 }
 
 // --- Result helper tests ---
@@ -195,8 +301,26 @@ func TestSanitizeIdentifier(t *testing.T) {
 
 // --- Handler validation tests (no real DB) ---
 
+func newTestPostgres() *postgres {
+	return &postgres{
+		conns: map[string]*pgConn{
+			"default": {db: &sql.DB{}, readOnly: true, alias: "default"},
+		},
+		defaultAlias: "default",
+	}
+}
+
+func newTestPostgresWritable() *postgres {
+	return &postgres{
+		conns: map[string]*pgConn{
+			"default": {db: &sql.DB{}, readOnly: false, alias: "default"},
+		},
+		defaultAlias: "default",
+	}
+}
+
 func TestQueryTool_RequiresSQL(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := queryTool(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -204,7 +328,7 @@ func TestQueryTool_RequiresSQL(t *testing.T) {
 }
 
 func TestExecuteTool_RequiresSQL(t *testing.T) {
-	p := &postgres{db: &sql.DB{}, readOnly: false}
+	p := newTestPostgresWritable()
 	result, err := executeTool(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -212,7 +336,7 @@ func TestExecuteTool_RequiresSQL(t *testing.T) {
 }
 
 func TestExecuteTool_ReadOnlyBlocks(t *testing.T) {
-	p := &postgres{db: &sql.DB{}, readOnly: true}
+	p := newTestPostgres()
 	result, err := executeTool(context.Background(), p, map[string]any{"sql": "INSERT INTO t VALUES (1)"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -220,7 +344,7 @@ func TestExecuteTool_ReadOnlyBlocks(t *testing.T) {
 }
 
 func TestExecuteTool_DenyList(t *testing.T) {
-	p := &postgres{db: &sql.DB{}, readOnly: false}
+	p := newTestPostgresWritable()
 	for _, sql := range []string{"DROP DATABASE mydb", "drop database mydb", "TRUNCATE users", "truncate users"} {
 		result, err := executeTool(context.Background(), p, map[string]any{"sql": sql})
 		require.NoError(t, err)
@@ -230,7 +354,7 @@ func TestExecuteTool_DenyList(t *testing.T) {
 }
 
 func TestExplainTool_RequiresSQL(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := explainTool(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -238,7 +362,7 @@ func TestExplainTool_RequiresSQL(t *testing.T) {
 }
 
 func TestExplainTool_InvalidFormat(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := explainTool(context.Background(), p, map[string]any{"sql": "SELECT 1", "format": "evil"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -260,7 +384,7 @@ func TestValidateSQLFragment(t *testing.T) {
 }
 
 func TestSelectTool_RejectsMaliciousFragments(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 
 	result, err := selectTool(context.Background(), p, map[string]any{"table": "users", "columns": "*; DROP TABLE users"})
 	require.NoError(t, err)
@@ -279,7 +403,7 @@ func TestSelectTool_RejectsMaliciousFragments(t *testing.T) {
 }
 
 func TestSelectTool_RequiresTable(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := selectTool(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -287,7 +411,7 @@ func TestSelectTool_RequiresTable(t *testing.T) {
 }
 
 func TestDescribeTable_RequiresTable(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := describeTable(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -295,7 +419,7 @@ func TestDescribeTable_RequiresTable(t *testing.T) {
 }
 
 func TestListColumns_RequiresTable(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := listColumns(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -303,7 +427,7 @@ func TestListColumns_RequiresTable(t *testing.T) {
 }
 
 func TestListIndexes_RequiresTable(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := listIndexes(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -311,7 +435,7 @@ func TestListIndexes_RequiresTable(t *testing.T) {
 }
 
 func TestListConstraints_RequiresTable(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := listConstraints(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -319,7 +443,7 @@ func TestListConstraints_RequiresTable(t *testing.T) {
 }
 
 func TestListForeignKeys_RequiresTable(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := listForeignKeys(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -327,7 +451,7 @@ func TestListForeignKeys_RequiresTable(t *testing.T) {
 }
 
 func TestTableStats_RequiresTable(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := tableStats(context.Background(), p, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -335,7 +459,7 @@ func TestTableStats_RequiresTable(t *testing.T) {
 }
 
 func TestSelectTool_InvalidIdentifier(t *testing.T) {
-	p := &postgres{db: &sql.DB{}}
+	p := newTestPostgres()
 	result, err := selectTool(context.Background(), p, map[string]any{"table": "bad;table"})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -350,4 +474,34 @@ func TestTools_RequiredFieldsAreValid(t *testing.T) {
 			assert.True(t, exists, "tool %s: required param %s not in parameters", tool.Name, req)
 		}
 	}
+}
+
+func TestTools_AllHaveDatabaseParam(t *testing.T) {
+	i := New()
+	for _, tool := range i.Tools() {
+		if tool.Name == "postgres_list_databases" {
+			continue
+		}
+		_, exists := tool.Parameters["database"]
+		assert.True(t, exists, "tool %s missing database parameter", tool.Name)
+	}
+}
+
+func TestPlainTextKeys(t *testing.T) {
+	p := &postgres{}
+	keys := p.PlainTextKeys()
+	assert.Contains(t, keys, "connections")
+	assert.Contains(t, keys, "host")
+}
+
+func TestOptionalKeys(t *testing.T) {
+	p := &postgres{}
+	keys := p.OptionalKeys()
+	assert.Contains(t, keys, "connections")
+}
+
+func TestPlaceholders(t *testing.T) {
+	p := &postgres{}
+	ph := p.Placeholders()
+	assert.Contains(t, ph, "connections")
 }

@@ -7,6 +7,9 @@ import (
 )
 
 var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
+	// ── Connection Management ────────────────────────────────────────
+	mcp.ToolName("postgres_list_databases"): {"alias", "host", "database", "read_only", "is_default"},
+
 	// ── Schema Discovery ─────────────────────────────────────────────
 	mcp.ToolName("postgres_list_schemas"):      {"schema_name"},
 	mcp.ToolName("postgres_list_tables"):       {"table_name", "schema_name", "row_count", "total_size"},
