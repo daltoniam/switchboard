@@ -33,7 +33,7 @@ var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
 	mcp.ToolName("nomad_list_services"): {"Namespace", "Services[].ServiceName", "Services[].Tags"},
 
 	// ── Cluster ──────────────────────────────────────────────────────
-	mcp.ToolName("nomad_get_agent_self"):    {"config.Datacenter", "config.Region", "config.Version", "config.Server.Enabled", "config.Client.Enabled", "member.Name", "member.Addr", "member.Status", "stats.nomad", "stats.raft"},
+	mcp.ToolName("nomad_get_agent_self"):     {"config.Datacenter", "config.Region", "config.Version", "config.Server.Enabled", "config.Client.Enabled", "member.Name", "member.Addr", "member.Status", "stats.nomad", "stats.raft"},
 	mcp.ToolName("nomad_get_cluster_status"): {"leader", "peers"},
 }
 

@@ -153,19 +153,19 @@ func queryEncode(params map[string]string) string {
 
 var dispatch = map[mcp.ToolName]handlerFunc{
 	// Jobs
-	mcp.ToolName("nomad_list_jobs"):       listJobs,
-	mcp.ToolName("nomad_get_job"):         getJob,
+	mcp.ToolName("nomad_list_jobs"):        listJobs,
+	mcp.ToolName("nomad_get_job"):          getJob,
 	mcp.ToolName("nomad_get_job_versions"): getJobVersions,
-	mcp.ToolName("nomad_register_job"):    registerJob,
-	mcp.ToolName("nomad_stop_job"):        stopJob,
-	mcp.ToolName("nomad_force_evaluate"):  forceEvaluate,
+	mcp.ToolName("nomad_register_job"):     registerJob,
+	mcp.ToolName("nomad_stop_job"):         stopJob,
+	mcp.ToolName("nomad_force_evaluate"):   forceEvaluate,
 
 	// Allocations
-	mcp.ToolName("nomad_list_allocations"):    listAllocations,
-	mcp.ToolName("nomad_get_allocation"):      getAllocation,
-	mcp.ToolName("nomad_get_job_allocations"): getJobAllocations,
-	mcp.ToolName("nomad_stop_allocation"):     stopAllocation,
-	mcp.ToolName("nomad_restart_allocation"):  restartAllocation,
+	mcp.ToolName("nomad_list_allocations"):     listAllocations,
+	mcp.ToolName("nomad_get_allocation"):       getAllocation,
+	mcp.ToolName("nomad_get_job_allocations"):  getJobAllocations,
+	mcp.ToolName("nomad_stop_allocation"):      stopAllocation,
+	mcp.ToolName("nomad_restart_allocation"):   restartAllocation,
 	mcp.ToolName("nomad_read_allocation_logs"): readAllocationLogs,
 
 	// Nodes
@@ -188,7 +188,7 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("nomad_list_services"): listServices,
 
 	// Cluster
-	mcp.ToolName("nomad_get_agent_self"):    getAgentSelf,
+	mcp.ToolName("nomad_get_agent_self"):     getAgentSelf,
 	mcp.ToolName("nomad_get_cluster_status"): getClusterStatus,
-	mcp.ToolName("nomad_gc"):                gc,
+	mcp.ToolName("nomad_gc"):                 gc,
 }
