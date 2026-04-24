@@ -32,7 +32,7 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 31)
+	assert.Len(t, m.cfg.Integrations, 32)
 	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "readarr", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "acp", "web", "botidentity", "x"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 31)
+	assert.Len(t, cfg.Integrations, 32)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 31)
+	assert.Len(t, cfg.Integrations, 32)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 31)
+	assert.Len(t, cfg.Integrations, 32)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -496,7 +496,9 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "BOTIDENTITY_SLACK_CONFIG_TOKEN", m["botidentity"]["slack_config_token"])
 	assert.Equal(t, "BOTIDENTITY_SLACK_REFRESH_TOKEN", m["botidentity"]["slack_refresh_token"])
 	assert.Equal(t, "X_BEARER_TOKEN", m["x"]["bearer_token"])
-	assert.Len(t, m, 22)
+	assert.Equal(t, "NOMAD_ADDR", m["nomad"]["address"])
+	assert.Equal(t, "NOMAD_TOKEN", m["nomad"]["token"])
+	assert.Len(t, m, 23)
 }
 
 func TestToolGlobs_PersistThroughSaveLoad(t *testing.T) {

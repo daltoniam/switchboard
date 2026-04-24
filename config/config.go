@@ -126,6 +126,10 @@ var envMapping = map[string]map[string]string{
 	"x": {
 		"bearer_token": "X_BEARER_TOKEN",
 	},
+	"nomad": {
+		"address": "NOMAD_ADDR",
+		"token":   "NOMAD_TOKEN",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -289,6 +293,10 @@ func defaultConfig() *mcp.Config {
 			"x": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"bearer_token": "", "client_id": "", "client_secret": ""},
+			},
+			"nomad": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"address": "", "token": ""},
 			},
 		},
 	}
