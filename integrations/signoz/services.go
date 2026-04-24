@@ -16,6 +16,9 @@ func listServices(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if _, _, err := parseTimeRange(start, end); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := s.post(ctx, "/api/v2/services", map[string]any{
 		"start": start,
 		"end":   end,
@@ -77,6 +80,9 @@ func topOperations(ctx context.Context, s *signoz, args map[string]any) (*mcp.To
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if _, _, err := parseTimeRange(start, end); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := s.post(ctx, "/api/v2/service/top_operations", map[string]any{
 		"start":   start,
 		"end":     end,
@@ -96,6 +102,9 @@ func topLevelOperations(ctx context.Context, s *signoz, args map[string]any) (*m
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if _, _, err := parseTimeRange(start, end); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := s.post(ctx, "/api/v1/service/top_level_operations", map[string]any{
 		"start": start,
 		"end":   end,
@@ -112,6 +121,9 @@ func entryPointOperations(ctx context.Context, s *signoz, args map[string]any) (
 	start := r.Str("start")
 	end := r.Str("end")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if _, _, err := parseTimeRange(start, end); err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := s.post(ctx, "/api/v2/service/entry_point_operations", map[string]any{
