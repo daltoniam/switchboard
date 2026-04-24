@@ -37,6 +37,11 @@ func getServiceOverview(ctx context.Context, s *signoz, args map[string]any) (*m
 	}
 	step := r.OptInt("step", 60)
 
+	startMs, endMs, err := parseTimeRange(start, end)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	data, err := s.post(ctx, "/api/v4/query_range", buildBuilderQuery(
 		"graph",
 		map[string]any{
@@ -56,7 +61,7 @@ func getServiceOverview(ctx context.Context, s *signoz, args map[string]any) (*m
 			"having":       []any{},
 			"groupBy":      []any{},
 		},
-		strMs(start), strMs(end), step,
+		startMs, endMs, step,
 	))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -167,9 +172,25 @@ func parseFilterItems(filter, service string) (map[string]any, error) {
 	return map[string]any{"op": "AND", "items": items}, nil
 }
 
-func strMs(s string) int64 {
-	v, _ := strconv.ParseInt(s, 10, 64)
-	return v
+func strMs(s string) (int64, error) {
+	v, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid epoch milliseconds %q: %w", s, err)
+	}
+	return v, nil
+}
+
+// parseTimeRange validates and parses start/end epoch millisecond strings.
+func parseTimeRange(start, end string) (int64, int64, error) {
+	s, err := strMs(start)
+	if err != nil {
+		return 0, 0, err
+	}
+	e, err := strMs(end)
+	if err != nil {
+		return 0, 0, err
+	}
+	return s, e, nil
 }
 
 func clamp(v, lo, hi int) int {

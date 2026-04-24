@@ -2,6 +2,7 @@ package signoz
 
 import (
 	"context"
+	"net/url"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -19,6 +20,10 @@ func searchLogs(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolR
 	offset := r.OptInt("offset", 0)
 
 	filters, err := parseFilterItems(filter, "")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	startMs, endMs, err := parseTimeRange(start, end)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -40,7 +45,7 @@ func searchLogs(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolR
 			"stepInterval":       60,
 			"having":             []any{},
 		},
-		strMs(start), strMs(end), 60,
+		startMs, endMs, 60,
 	))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -61,6 +66,10 @@ func searchTraces(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	offset := r.OptInt("offset", 0)
 
 	filters, err := parseFilterItems(filter, service)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	startMs, endMs, err := parseTimeRange(start, end)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -92,7 +101,7 @@ func searchTraces(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 			"stepInterval": 60,
 			"having":       []any{},
 		},
-		strMs(start), strMs(end), 60,
+		startMs, endMs, 60,
 	))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -106,7 +115,7 @@ func getTrace(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolRes
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.get(ctx, "/api/v1/traces/%s", traceID)
+	data, err := s.get(ctx, "/api/v1/traces/%s", url.PathEscape(traceID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -146,6 +155,10 @@ func queryMetrics(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
+	startMs, endMs, err := parseTimeRange(start, end)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 
 	data, err := s.post(ctx, "/api/v4/query_range", buildBuilderQuery(
 		"graph",
@@ -161,7 +174,7 @@ func queryMetrics(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 			"having":             []any{},
 			"groupBy":            groupBy,
 		},
-		strMs(start), strMs(end), step,
+		startMs, endMs, step,
 	))
 	if err != nil {
 		return mcp.ErrResult(err)

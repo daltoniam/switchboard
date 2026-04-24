@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -24,7 +25,7 @@ func getAlert(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolRes
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.get(ctx, "/api/v1/rules/%s", id)
+	data, err := s.get(ctx, "/api/v1/rules/%s", url.PathEscape(id))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -71,7 +72,7 @@ func updateAlert(ctx context.Context, s *signoz, args map[string]any) (*mcp.Tool
 	default:
 		body = v
 	}
-	data, err := s.put(ctx, fmt.Sprintf("/api/v1/rules/%s", id), body)
+	data, err := s.put(ctx, fmt.Sprintf("/api/v1/rules/%s", url.PathEscape(id)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -84,7 +85,7 @@ func deleteAlert(ctx context.Context, s *signoz, args map[string]any) (*mcp.Tool
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.del(ctx, "/api/v1/rules/%s", id)
+	data, err := s.del(ctx, "/api/v1/rules/%s", url.PathEscape(id))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -107,7 +108,7 @@ func getSavedView(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.get(ctx, "/api/v1/explorer/views/%s", viewID)
+	data, err := s.get(ctx, "/api/v1/explorer/views/%s", url.PathEscape(viewID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -154,7 +155,7 @@ func updateSavedView(ctx context.Context, s *signoz, args map[string]any) (*mcp.
 	default:
 		body = v
 	}
-	data, err := s.put(ctx, fmt.Sprintf("/api/v1/explorer/views/%s", viewID), body)
+	data, err := s.put(ctx, fmt.Sprintf("/api/v1/explorer/views/%s", url.PathEscape(viewID)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -167,7 +168,7 @@ func deleteSavedView(ctx context.Context, s *signoz, args map[string]any) (*mcp.
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.del(ctx, "/api/v1/explorer/views/%s", viewID)
+	data, err := s.del(ctx, "/api/v1/explorer/views/%s", url.PathEscape(viewID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

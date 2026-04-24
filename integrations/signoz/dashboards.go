@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -23,7 +24,7 @@ func getDashboard(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.get(ctx, "/api/v1/dashboards/%s", id)
+	data, err := s.get(ctx, "/api/v1/dashboards/%s", url.PathEscape(id))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -89,7 +90,7 @@ func updateDashboard(ctx context.Context, s *signoz, args map[string]any) (*mcp.
 		body = v
 	}
 
-	data, err := s.put(ctx, fmt.Sprintf("/api/v1/dashboards/%s", id), body)
+	data, err := s.put(ctx, fmt.Sprintf("/api/v1/dashboards/%s", url.PathEscape(id)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -102,7 +103,7 @@ func deleteDashboard(ctx context.Context, s *signoz, args map[string]any) (*mcp.
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := s.del(ctx, "/api/v1/dashboards/%s", id)
+	data, err := s.del(ctx, "/api/v1/dashboards/%s", url.PathEscape(id))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
