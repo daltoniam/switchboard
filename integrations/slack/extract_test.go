@@ -59,13 +59,27 @@ func TestBrowserSources_Coverage(t *testing.T) {
 }
 
 func TestFindBrowserProfiles_NonProfileSource(t *testing.T) {
-	dir := t.TempDir()
-	src := browserSource{name: "Test", dataDir: "nonexistent", hasProfiles: false}
-	// Point to a real temp dir for the non-profile case
-	srcWithRealDir := browserSource{name: "Test", dataDir: "", hasProfiles: false}
-	_ = srcWithRealDir
-	_ = src
-	_ = dir
+	t.Run("nonexistent directory returns error", func(t *testing.T) {
+		src := browserSource{name: "Test", dataDir: "nonexistent", hasProfiles: false}
+		profiles, err := findBrowserProfiles(src)
+		assert.Error(t, err)
+		assert.Nil(t, profiles)
+	})
+
+	t.Run("existing directory returns single-element slice", func(t *testing.T) {
+		home, err := os.UserHomeDir()
+		require.NoError(t, err)
+
+		dir := t.TempDir()
+		rel, err := filepath.Rel(filepath.Join(home, "Library", "Application Support"), dir)
+		require.NoError(t, err)
+
+		src := browserSource{name: "Test", dataDir: rel, hasProfiles: false}
+		profiles, err := findBrowserProfiles(src)
+		require.NoError(t, err)
+		assert.Len(t, profiles, 1)
+		assert.Equal(t, dir, profiles[0])
+	})
 }
 
 func TestListWorkspacesWithTokensFromBrowser(t *testing.T) {

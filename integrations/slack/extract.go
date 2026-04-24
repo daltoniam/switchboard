@@ -93,49 +93,52 @@ func ExtractAllFromBrowsersForWeb() (int, error) {
 		return 0, fmt.Errorf("browser extraction is only available on macOS")
 	}
 
-	extractMu.Lock()
-
 	type extractedWorkspace struct {
 		chromeWorkspace
 		cookie string
 		source string
 	}
 
-	var allWorkspaces []extractedWorkspace
-	seen := make(map[string]bool)
+	allWorkspaces := func() []extractedWorkspace {
+		extractMu.Lock()
+		defer extractMu.Unlock()
 
-	for _, src := range browserSources {
-		profiles, err := findBrowserProfiles(src)
-		if err != nil {
-			continue
-		}
+		var result []extractedWorkspace
+		seen := make(map[string]bool)
 
-		password, pwErr := browserKeychainPassword(src.keychainService)
-
-		var cookie string
-		if pwErr == nil {
-			for _, profile := range profiles {
-				if c, err := extractCookieFromBrowser(profile, password); err == nil {
-					cookie = c
-					break
-				}
-			}
-		}
-
-		workspaces := listWorkspacesWithTokensFromBrowser(profiles)
-		for _, ws := range workspaces {
-			if seen[ws.TeamID] {
+		for _, src := range browserSources {
+			profiles, err := findBrowserProfiles(src)
+			if err != nil {
 				continue
 			}
-			seen[ws.TeamID] = true
-			allWorkspaces = append(allWorkspaces, extractedWorkspace{
-				chromeWorkspace: ws,
-				cookie:          cookie,
-				source:          strings.ToLower(src.name),
-			})
+
+			password, pwErr := browserKeychainPassword(src.keychainService)
+
+			var cookie string
+			if pwErr == nil {
+				for _, profile := range profiles {
+					if c, err := extractCookieFromBrowser(profile, password); err == nil {
+						cookie = c
+						break
+					}
+				}
+			}
+
+			workspaces := listWorkspacesWithTokensFromBrowser(profiles)
+			for _, ws := range workspaces {
+				if seen[ws.TeamID] {
+					continue
+				}
+				seen[ws.TeamID] = true
+				result = append(result, extractedWorkspace{
+					chromeWorkspace: ws,
+					cookie:          cookie,
+					source:          strings.ToLower(src.name),
+				})
+			}
 		}
-	}
-	extractMu.Unlock()
+		return result
+	}()
 
 	if len(allWorkspaces) == 0 {
 		return 0, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in any browser or Slack app")

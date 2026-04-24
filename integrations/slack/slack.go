@@ -246,7 +246,7 @@ func (s *slackIntegration) tryRefreshWorkspace(teamID string) bool {
 		return true
 	}
 	extracted := extractFromBrowser(teamID)
-	if extracted == nil {
+	if extracted == nil || extracted.token == "" {
 		return false
 	}
 	s.store.updateTokens(teamID, extracted.token, extracted.cookie)
