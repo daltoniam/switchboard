@@ -2,11 +2,18 @@ package signoz
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
+
+var validAggOps = map[string]bool{
+	"avg": true, "sum": true, "min": true, "max": true,
+	"count": true, "rate": true, "p50": true, "p75": true,
+	"p90": true, "p95": true, "p99": true,
+}
 
 func searchLogs(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
@@ -134,6 +141,9 @@ func queryMetrics(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	aggregateOp, _ := mcp.ArgStr(args, "aggregate_op")
 	if aggregateOp == "" {
 		aggregateOp = "avg"
+	}
+	if !validAggOps[aggregateOp] {
+		return mcp.ErrResult(fmt.Errorf("invalid aggregate_op %q: must be one of avg, sum, min, max, count, rate, p50, p75, p90, p95, p99", aggregateOp))
 	}
 	filter, _ := mcp.ArgStr(args, "filter")
 	groupByStr, _ := mcp.ArgStr(args, "group_by")

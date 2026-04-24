@@ -280,6 +280,7 @@ func TestDefaultConfig(t *testing.T) {
 		"digitalocean":  {"api_token"},
 		"fly":           {"api_token", "base_url"},
 		"web":           {},
+		"signoz":        {"api_key", "base_url", "skip_verify"},
 	}
 
 	for name, keys := range expected {

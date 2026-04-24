@@ -422,3 +422,330 @@ func TestSearchLogs_MalformedFilter(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "invalid filter format")
 }
+
+func TestSearchLogs_InvalidTimestamp(t *testing.T) {
+	s := &signoz{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := s.Execute(context.Background(), "signoz_search_logs", map[string]any{
+		"start": "not-a-number", "end": "1700003600000",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "invalid epoch milliseconds")
+}
+
+func TestSearchTraces(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v4/query_range", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		cq := body["compositeQuery"].(map[string]any)
+		bq := cq["builderQueries"].(map[string]any)
+		a := bq["A"].(map[string]any)
+		assert.Equal(t, "traces", a["dataSource"])
+		w.Write([]byte(`{"status":"success","data":{"result":[{"queryName":"A"}]}}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_search_traces", map[string]any{
+		"start": "1700000000000", "end": "1700003600000",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "success")
+}
+
+func TestGetTrace(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/traces/abc123def", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Write([]byte(`[{"events":[]}]`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_get_trace", map[string]any{"trace_id": "abc123def"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestQueryMetrics(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v4/query_range", r.URL.Path)
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		cq := body["compositeQuery"].(map[string]any)
+		bq := cq["builderQueries"].(map[string]any)
+		a := bq["A"].(map[string]any)
+		assert.Equal(t, "metrics", a["dataSource"])
+		assert.Equal(t, "sum", a["aggregateOperator"])
+		w.Write([]byte(`{"status":"success","data":{"result":[{"queryName":"A","series":[]}]}}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_query_metrics", map[string]any{
+		"start": "1700000000000", "end": "1700003600000", "metric_name": "signoz_calls_total", "aggregate_op": "sum",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestQueryMetrics_InvalidAggOp(t *testing.T) {
+	s := &signoz{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := s.Execute(context.Background(), "signoz_query_metrics", map[string]any{
+		"start": "1700000000000", "end": "1700003600000", "metric_name": "m", "aggregate_op": "bogus",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "invalid aggregate_op")
+}
+
+func TestGetServiceOverview(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v4/query_range", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Write([]byte(`{"status":"success","data":{"result":[]}}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_get_service_overview", map[string]any{
+		"service": "frontend", "start": "1700000000000", "end": "1700003600000",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestTopOperations(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v2/service/top_operations", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "frontend", body["service"])
+		w.Write([]byte(`{"status":"success","data":[]}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_top_operations", map[string]any{
+		"service": "frontend", "start": "1700000000000", "end": "1700003600000",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestTopLevelOperations(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/service/top_level_operations", r.URL.Path)
+		w.Write([]byte(`{}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_top_level_operations", map[string]any{
+		"start": "1700000000000", "end": "1700003600000",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestEntryPointOperations(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v2/service/entry_point_operations", r.URL.Path)
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "frontend", body["service"])
+		w.Write([]byte(`{"status":"success","data":[]}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_entry_point_operations", map[string]any{
+		"service": "frontend", "start": "1700000000000", "end": "1700003600000",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestGetDashboard(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/dashboards/dash-1", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Write([]byte(`{"status":"success","data":{"id":"dash-1","title":"My Dashboard"}}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_get_dashboard", map[string]any{"id": "dash-1"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "My Dashboard")
+}
+
+func TestCreateDashboard(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/dashboards", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		data := body["data"].(map[string]any)
+		assert.Equal(t, "Test Dashboard", data["title"])
+		w.Write([]byte(`{"status":"success","data":{"id":"new-dash"}}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_create_dashboard", map[string]any{"title": "Test Dashboard"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "new-dash")
+}
+
+func TestUpdateDashboard(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/dashboards/dash-1", r.URL.Path)
+		assert.Equal(t, "PUT", r.Method)
+		w.Write([]byte(`{"status":"success"}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_update_dashboard", map[string]any{
+		"id": "dash-1", "dashboard": map[string]any{"title": "Updated"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestUpdateDashboard_StringJSON(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "PUT", r.Method)
+		w.Write([]byte(`{"status":"success"}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_update_dashboard", map[string]any{
+		"id": "dash-1", "dashboard": `{"title":"From String"}`,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestGetAlert(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/rules/42", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Write([]byte(`{"status":"success","data":{"id":"42","alert":"cpu high"}}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_get_alert", map[string]any{"id": "42"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "cpu high")
+}
+
+func TestCreateAlert(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/rules", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Write([]byte(`{"status":"success","data":{"id":"99"}}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_create_alert", map[string]any{
+		"rule": map[string]any{"alert": "test-alert"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestUpdateAlert(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/rules/42", r.URL.Path)
+		assert.Equal(t, "PUT", r.Method)
+		w.Write([]byte(`{"status":"success"}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_update_alert", map[string]any{
+		"id": "42", "rule": map[string]any{"alert": "updated"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestDeleteAlert(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(204)
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_delete_alert", map[string]any{"id": "42"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestGetSavedView(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/explorer/views/view-1", r.URL.Path)
+		w.Write([]byte(`{"status":"success","data":{"uuid":"view-1","name":"My View"}}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_get_saved_view", map[string]any{"view_id": "view-1"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "My View")
+}
+
+func TestCreateSavedView(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/explorer/views", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		w.Write([]byte(`{"status":"success","data":{"uuid":"new-view"}}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_create_saved_view", map[string]any{
+		"view": map[string]any{"name": "Test View"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestListChannels(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/channels", r.URL.Path)
+		w.Write([]byte(`{"status":"success","data":[]}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_list_channels", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestListSavedViews(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/explorer/views", r.URL.Path)
+		w.Write([]byte(`{"status":"success","data":[]}`))
+	}))
+	defer ts.Close()
+
+	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
+	result, err := s.Execute(context.Background(), "signoz_list_saved_views", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
