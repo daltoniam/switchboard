@@ -2,6 +2,7 @@ package signoz
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -37,7 +38,7 @@ func getServiceOverview(ctx context.Context, s *signoz, args map[string]any) (*m
 	step := r.OptInt("step", 60)
 
 	data, err := s.post(ctx, "/api/v4/query_range", buildBuilderQuery(
-		"metrics", "graph",
+		"graph",
 		map[string]any{
 			"dataSource":         "metrics",
 			"queryName":          "A",
@@ -120,7 +121,7 @@ func entryPointOperations(ctx context.Context, s *signoz, args map[string]any) (
 }
 
 // buildBuilderQuery constructs the v4 query_range composite query payload.
-func buildBuilderQuery(_, panelType string, query map[string]any, start, end int64, step int) map[string]any {
+func buildBuilderQuery(panelType string, query map[string]any, start, end int64, step int) map[string]any {
 	return map[string]any{
 		"start": start,
 		"end":   end,
@@ -136,7 +137,8 @@ func buildBuilderQuery(_, panelType string, query map[string]any, start, end int
 }
 
 // parseFilterItems builds a SigNoz filter object from optional filter string and service name.
-func parseFilterItems(filter, service string) map[string]any {
+// Filter format: "key op value", e.g. "severity_text = 'ERROR'".
+func parseFilterItems(filter, service string) (map[string]any, error) {
 	items := []any{}
 
 	if service != "" {
@@ -149,19 +151,20 @@ func parseFilterItems(filter, service string) map[string]any {
 
 	if filter != "" {
 		parts := strings.SplitN(filter, " ", 3)
-		if len(parts) == 3 {
-			key := parts[0]
-			op := parts[1]
-			value := strings.Trim(parts[2], "'\"")
-			items = append(items, map[string]any{
-				"key":   map[string]any{"key": key, "dataType": "string", "type": "tag", "isColumn": false},
-				"op":    op,
-				"value": value,
-			})
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("invalid filter format %q: expected \"key op value\" (e.g. \"severity_text = 'ERROR'\")", filter)
 		}
+		key := parts[0]
+		op := parts[1]
+		value := strings.Trim(parts[2], "'\"")
+		items = append(items, map[string]any{
+			"key":   map[string]any{"key": key, "dataType": "string", "type": "tag", "isColumn": false},
+			"op":    op,
+			"value": value,
+		})
 	}
 
-	return map[string]any{"op": "AND", "items": items}
+	return map[string]any{"op": "AND", "items": items}, nil
 }
 
 func strMs(s string) int64 {

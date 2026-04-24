@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -366,25 +367,58 @@ func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
 }
 
 func TestFieldCompactionSpecs_AllReadToolsCovered(t *testing.T) {
-	readTools := map[mcp.ToolName]bool{
-		mcp.ToolName("signoz_list_services"):        true,
-		mcp.ToolName("signoz_get_service_overview"): true,
-		mcp.ToolName("signoz_top_operations"):       true,
-		mcp.ToolName("signoz_top_level_operations"): true,
-		mcp.ToolName("signoz_search_logs"):          true,
-		mcp.ToolName("signoz_search_traces"):        true,
-		mcp.ToolName("signoz_get_trace"):            true,
-		mcp.ToolName("signoz_query_metrics"):        true,
-		mcp.ToolName("signoz_list_dashboards"):      true,
-		mcp.ToolName("signoz_get_dashboard"):        true,
-		mcp.ToolName("signoz_list_alerts"):          true,
-		mcp.ToolName("signoz_get_alert"):            true,
-		mcp.ToolName("signoz_list_saved_views"):     true,
-		mcp.ToolName("signoz_get_saved_view"):       true,
-		mcp.ToolName("signoz_list_channels"):        true,
+	i := New()
+	readPrefixes := []string{"signoz_list_", "signoz_get_", "signoz_search_", "signoz_query_", "signoz_top_", "signoz_entry_"}
+	for _, tool := range i.Tools() {
+		name := string(tool.Name)
+		isRead := false
+		for _, prefix := range readPrefixes {
+			if strings.HasPrefix(name, prefix) {
+				isRead = true
+				break
+			}
+		}
+		if !isRead {
+			continue
+		}
+		_, ok := rawFieldCompactionSpecs[tool.Name]
+		assert.True(t, ok, "read tool %s missing compaction spec", tool.Name)
 	}
-	for name := range readTools {
-		_, ok := rawFieldCompactionSpecs[name]
-		assert.True(t, ok, "read tool %s missing compaction spec", name)
-	}
+}
+
+func TestParseFilterItems_Valid(t *testing.T) {
+	f, err := parseFilterItems("severity_text = 'ERROR'", "")
+	require.NoError(t, err)
+	items := f["items"].([]any)
+	assert.Len(t, items, 1)
+}
+
+func TestParseFilterItems_WithService(t *testing.T) {
+	f, err := parseFilterItems("", "frontend")
+	require.NoError(t, err)
+	items := f["items"].([]any)
+	assert.Len(t, items, 1)
+}
+
+func TestParseFilterItems_Empty(t *testing.T) {
+	f, err := parseFilterItems("", "")
+	require.NoError(t, err)
+	items := f["items"].([]any)
+	assert.Empty(t, items)
+}
+
+func TestParseFilterItems_Malformed(t *testing.T) {
+	_, err := parseFilterItems("severity_text", "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid filter format")
+}
+
+func TestSearchLogs_MalformedFilter(t *testing.T) {
+	s := &signoz{apiKey: "key", baseURL: "http://localhost", client: &http.Client{}}
+	result, err := s.Execute(context.Background(), "signoz_search_logs", map[string]any{
+		"start": "1700000000000", "end": "1700003600000", "filter": "bad",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "invalid filter format")
 }

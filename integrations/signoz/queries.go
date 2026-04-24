@@ -18,14 +18,19 @@ func searchLogs(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolR
 	limit := clamp(r.OptInt("limit", 20), 1, 100)
 	offset := r.OptInt("offset", 0)
 
+	filters, err := parseFilterItems(filter, "")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	data, err := s.post(ctx, "/api/v4/query_range", buildBuilderQuery(
-		"logs", "list",
+		"list",
 		map[string]any{
 			"dataSource":         "logs",
 			"queryName":          "A",
 			"aggregateOperator":  "noop",
 			"aggregateAttribute": map[string]any{"key": "", "dataType": "", "type": "", "isColumn": false},
-			"filters":            parseFilterItems(filter, ""),
+			"filters":            filters,
 			"expression":         "A",
 			"disabled":           false,
 			"limit":              limit,
@@ -55,14 +60,19 @@ func searchTraces(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	limit := clamp(r.OptInt("limit", 20), 1, 100)
 	offset := r.OptInt("offset", 0)
 
+	filters, err := parseFilterItems(filter, service)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	data, err := s.post(ctx, "/api/v4/query_range", buildBuilderQuery(
-		"traces", "list",
+		"list",
 		map[string]any{
 			"dataSource":         "traces",
 			"queryName":          "A",
 			"aggregateOperator":  "noop",
 			"aggregateAttribute": map[string]any{"key": "", "dataType": "", "type": "", "isColumn": false},
-			"filters":            parseFilterItems(filter, service),
+			"filters":            filters,
 			"expression":         "A",
 			"disabled":           false,
 			"limit":              limit,
@@ -132,14 +142,19 @@ func queryMetrics(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 		}
 	}
 
+	filters, err := parseFilterItems(filter, "")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	data, err := s.post(ctx, "/api/v4/query_range", buildBuilderQuery(
-		"metrics", "graph",
+		"graph",
 		map[string]any{
 			"dataSource":         "metrics",
 			"queryName":          "A",
 			"aggregateOperator":  aggregateOp,
 			"aggregateAttribute": map[string]any{"key": metricName, "dataType": "float64", "type": "Sum", "isColumn": true},
-			"filters":            parseFilterItems(filter, ""),
+			"filters":            filters,
 			"expression":         "A",
 			"disabled":           false,
 			"stepInterval":       step,

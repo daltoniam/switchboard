@@ -8,10 +8,11 @@ import (
 
 var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
 	// Services
-	mcp.ToolName("signoz_list_services"):        {"serviceName", "p99", "avgDuration", "numCalls", "callRate", "numErrors", "errorRate"},
-	mcp.ToolName("signoz_get_service_overview"): {"queryName", "series[].labels", "series[].values"},
-	mcp.ToolName("signoz_top_operations"):       {"name", "p50", "p90", "p99", "numCalls", "errorRate"},
-	mcp.ToolName("signoz_top_level_operations"): {"name", "serviceName", "numCalls"},
+	mcp.ToolName("signoz_list_services"):          {"serviceName", "p99", "avgDuration", "numCalls", "callRate", "numErrors", "errorRate"},
+	mcp.ToolName("signoz_get_service_overview"):   {"queryName", "series[].labels", "series[].values"},
+	mcp.ToolName("signoz_top_operations"):         {"name", "p50", "p90", "p99", "numCalls", "errorRate"},
+	mcp.ToolName("signoz_top_level_operations"):   {"name", "serviceName", "numCalls"},
+	mcp.ToolName("signoz_entry_point_operations"): {"name", "serviceName", "numCalls"},
 
 	// Query
 	mcp.ToolName("signoz_search_logs"):   {"queryName", "list[].timestamp", "list[].severity_text", "list[].body", "list[].resources_string"},
@@ -33,6 +34,9 @@ var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
 
 	// Notification Channels
 	mcp.ToolName("signoz_list_channels"): {"id", "name", "type", "createdAt"},
+
+	// Extras
+	mcp.ToolName("signoz_get_version"): {"version", "ee", "setupCompleted"},
 }
 
 var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(rawFieldCompactionSpecs)
