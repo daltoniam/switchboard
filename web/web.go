@@ -1170,7 +1170,7 @@ func (w *WebServer) handlePostgresSetup(rw http.ResponseWriter, r *http.Request)
 	integration, ok := w.services.Registry.Get("postgres")
 	if ok {
 		for _, t := range integration.Tools() {
-			data.Tools = append(data.Tools, t.Name)
+			data.Tools = append(data.Tools, string(t.Name))
 		}
 	}
 
