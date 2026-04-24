@@ -94,7 +94,7 @@ func ExtractAllFromBrowsersForWeb() (int, error) {
 	}
 
 	type extractedWorkspace struct {
-		chromeWorkspace
+		browserWorkspace
 		cookie string
 		source string
 	}
@@ -131,9 +131,9 @@ func ExtractAllFromBrowsersForWeb() (int, error) {
 				}
 				seen[ws.TeamID] = true
 				result = append(result, extractedWorkspace{
-					chromeWorkspace: ws,
-					cookie:          cookie,
-					source:          strings.ToLower(src.name),
+					browserWorkspace: ws,
+					cookie:           cookie,
+					source:           strings.ToLower(src.name),
 				})
 			}
 		}

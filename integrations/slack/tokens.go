@@ -416,7 +416,7 @@ func findBrowserProfiles(src browserSource) ([]string, error) {
 	return profiles, nil
 }
 
-// slackLocalConfig represents the parsed structure of Chrome's localStorage
+// slackLocalConfig represents the parsed structure of the browser's localStorage
 // localConfig_v2 (or later versions) for Slack.
 type slackLocalConfig struct {
 	Teams map[string]struct {
@@ -426,7 +426,7 @@ type slackLocalConfig struct {
 	} `json:"teams"`
 }
 
-// readSlackLocalConfig reads and parses Chrome's localStorage LevelDB for Slack
+// readSlackLocalConfig reads and parses the browser's localStorage LevelDB for Slack
 // config data from the given profile path. Returns the parsed config.
 func readSlackLocalConfig(profilePath string) (*slackLocalConfig, error) {
 	ldbDir := filepath.Join(profilePath, "Local Storage", "leveldb")
@@ -532,8 +532,8 @@ func listWorkspacesFromAllBrowsers() ([]WorkspaceInfo, error) {
 	return workspaces, nil
 }
 
-// chromeWorkspace is an internal type that includes the token from Chrome extraction.
-type chromeWorkspace struct {
+// browserWorkspace is an internal type that includes the token from browser extraction.
+type browserWorkspace struct {
 	TeamID string
 	Name   string
 	Token  string
@@ -541,9 +541,9 @@ type chromeWorkspace struct {
 
 // listWorkspacesWithTokensFromBrowser scans profiles and returns every Slack
 // workspace with its xoxc-* token. Must be called with extractMu held.
-func listWorkspacesWithTokensFromBrowser(profiles []string) []chromeWorkspace {
+func listWorkspacesWithTokensFromBrowser(profiles []string) []browserWorkspace {
 	seen := make(map[string]bool)
-	var workspaces []chromeWorkspace
+	var workspaces []browserWorkspace
 	for _, profile := range profiles {
 		cfg, err := readSlackLocalConfig(profile)
 		if err != nil {
@@ -558,7 +558,7 @@ func listWorkspacesWithTokensFromBrowser(profiles []string) []chromeWorkspace {
 			if name == "" {
 				name = id
 			}
-			workspaces = append(workspaces, chromeWorkspace{
+			workspaces = append(workspaces, browserWorkspace{
 				TeamID: id,
 				Name:   name,
 				Token:  team.Token,
@@ -568,8 +568,8 @@ func listWorkspacesWithTokensFromBrowser(profiles []string) []chromeWorkspace {
 	return workspaces
 }
 
-// extractTokenFromLevelDB reads the xoxc-* token from Chrome's localStorage
-// LevelDB. Chrome holds a lock on the DB while running, so we copy the files
+// extractTokenFromLevelDB reads the xoxc-* token from the browser's localStorage
+// LevelDB. The browser holds a lock on the DB while running, so we copy the files
 // to a temp directory first. If teamID is non-empty, only that workspace's
 // token is returned.
 func extractTokenFromLevelDB(profilePath, teamID string) (string, error) {

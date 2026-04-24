@@ -58,7 +58,7 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /integrations/slack/setup", w.handleSlackSetup)
 	mux.HandleFunc("GET /api/slack/list-workspaces", w.handleSlackListWorkspaces)
-	mux.HandleFunc("POST /api/slack/extract-chrome", w.handleSlackExtractChrome)
+	mux.HandleFunc("POST /api/slack/extract-browser", w.handleSlackExtractBrowser)
 	mux.HandleFunc("POST /api/slack/save-tokens", w.handleSlackSaveTokens)
 	mux.HandleFunc("POST /api/slack/set-default", w.handleSlackSetDefault)
 
@@ -649,7 +649,7 @@ func (w *WebServer) handleSlackListWorkspaces(rw http.ResponseWriter, r *http.Re
 	json.NewEncoder(rw).Encode(map[string]any{"workspaces": workspaces})
 }
 
-func (w *WebServer) handleSlackExtractChrome(rw http.ResponseWriter, r *http.Request) {
+func (w *WebServer) handleSlackExtractBrowser(rw http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
 		return
