@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -34,7 +35,7 @@ func getJob(ctx context.Context, n *nomad, args map[string]any) (*mcp.ToolResult
 		return mcp.ErrResult(err)
 	}
 	q := queryEncode(map[string]string{"namespace": ns})
-	data, err := n.get(ctx, "/v1/job/%s%s", jobID, q)
+	data, err := n.get(ctx, "/v1/job/%s%s", url.PathEscape(jobID), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -49,7 +50,7 @@ func getJobVersions(ctx context.Context, n *nomad, args map[string]any) (*mcp.To
 		return mcp.ErrResult(err)
 	}
 	q := queryEncode(map[string]string{"namespace": ns})
-	data, err := n.get(ctx, "/v1/job/%s/versions%s", jobID, q)
+	data, err := n.get(ctx, "/v1/job/%s/versions%s", url.PathEscape(jobID), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -86,7 +87,7 @@ func stopJob(ctx context.Context, n *nomad, args map[string]any) (*mcp.ToolResul
 		return mcp.ErrResult(err)
 	}
 	q := queryEncode(map[string]string{"namespace": ns, "purge": purge})
-	data, err := n.del(ctx, "/v1/job/%s%s", jobID, q)
+	data, err := n.del(ctx, "/v1/job/%s%s", url.PathEscape(jobID), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -101,7 +102,7 @@ func forceEvaluate(ctx context.Context, n *nomad, args map[string]any) (*mcp.Too
 		return mcp.ErrResult(err)
 	}
 	q := queryEncode(map[string]string{"namespace": ns})
-	data, err := n.post(ctx, fmt.Sprintf("/v1/job/%s/evaluate%s", jobID, q), nil)
+	data, err := n.post(ctx, fmt.Sprintf("/v1/job/%s/evaluate%s", url.PathEscape(jobID), q), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -116,7 +117,7 @@ func getJobAllocations(ctx context.Context, n *nomad, args map[string]any) (*mcp
 		return mcp.ErrResult(err)
 	}
 	q := queryEncode(map[string]string{"namespace": ns})
-	data, err := n.get(ctx, "/v1/job/%s/allocations%s", jobID, q)
+	data, err := n.get(ctx, "/v1/job/%s/allocations%s", url.PathEscape(jobID), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -147,7 +148,7 @@ func getAllocation(ctx context.Context, n *nomad, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := n.get(ctx, "/v1/allocation/%s", allocID)
+	data, err := n.get(ctx, "/v1/allocation/%s", url.PathEscape(allocID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -160,7 +161,7 @@ func stopAllocation(ctx context.Context, n *nomad, args map[string]any) (*mcp.To
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := n.post(ctx, fmt.Sprintf("/v1/allocation/%s/stop", allocID), nil)
+	data, err := n.post(ctx, fmt.Sprintf("/v1/allocation/%s/stop", url.PathEscape(allocID)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -178,7 +179,7 @@ func restartAllocation(ctx context.Context, n *nomad, args map[string]any) (*mcp
 	if task != "" {
 		body["TaskName"] = task
 	}
-	data, err := n.put(ctx, fmt.Sprintf("/v1/client/allocation/%s/restart", allocID), body)
+	data, err := n.put(ctx, fmt.Sprintf("/v1/client/allocation/%s/restart", url.PathEscape(allocID)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -213,7 +214,7 @@ func readAllocationLogs(ctx context.Context, n *nomad, args map[string]any) (*mc
 		"offset": offset,
 	}
 	q := queryEncode(params)
-	data, err := n.get(ctx, "/v1/client/fs/logs/%s%s", allocID, q)
+	data, err := n.get(ctx, "/v1/client/fs/logs/%s%s", url.PathEscape(allocID), q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -247,7 +248,7 @@ func getNode(ctx context.Context, n *nomad, args map[string]any) (*mcp.ToolResul
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := n.get(ctx, "/v1/node/%s", nodeID)
+	data, err := n.get(ctx, "/v1/node/%s", url.PathEscape(nodeID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -260,7 +261,7 @@ func getNodeAllocations(ctx context.Context, n *nomad, args map[string]any) (*mc
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := n.get(ctx, "/v1/node/%s/allocations", nodeID)
+	data, err := n.get(ctx, "/v1/node/%s/allocations", url.PathEscape(nodeID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -279,20 +280,18 @@ func drainNode(ctx context.Context, n *nomad, args map[string]any) (*mcp.ToolRes
 	}
 
 	deadline := r.Str("deadline")
-	ignoreSystemJobs := r.Str("ignore_system_jobs")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	ignoreSystemJobs, _ := mcp.ArgBool(args, "ignore_system_jobs")
 
 	var body map[string]any
 	if enable {
 		drainSpec := map[string]any{}
 		if deadline != "" {
-			// Nomad expects a nanosecond duration — parse human-readable later if needed.
-			// For now, pass it through and let the API handle validation.
 			drainSpec["Deadline"] = parseDuration(deadline)
 		}
-		if strings.EqualFold(ignoreSystemJobs, "true") {
+		if ignoreSystemJobs {
 			drainSpec["IgnoreSystemJobs"] = true
 		}
 		body = map[string]any{
@@ -304,7 +303,7 @@ func drainNode(ctx context.Context, n *nomad, args map[string]any) (*mcp.ToolRes
 		}
 	}
 
-	data, err := n.post(ctx, fmt.Sprintf("/v1/node/%s/drain", nodeID), body)
+	data, err := n.post(ctx, fmt.Sprintf("/v1/node/%s/drain", url.PathEscape(nodeID)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -329,7 +328,7 @@ func nodeEligibility(ctx context.Context, n *nomad, args map[string]any) (*mcp.T
 	body := map[string]any{
 		"Eligibility": eligibility,
 	}
-	data, err := n.post(ctx, fmt.Sprintf("/v1/node/%s/eligibility", nodeID), body)
+	data, err := n.post(ctx, fmt.Sprintf("/v1/node/%s/eligibility", url.PathEscape(nodeID)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -359,7 +358,7 @@ func getDeployment(ctx context.Context, n *nomad, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := n.get(ctx, "/v1/deployment/%s", deploymentID)
+	data, err := n.get(ctx, "/v1/deployment/%s", url.PathEscape(deploymentID))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -383,7 +382,7 @@ func promoteDeployment(ctx context.Context, n *nomad, args map[string]any) (*mcp
 		body["Groups"] = strings.Split(groups, ",")
 		body["All"] = false
 	}
-	data, err := n.post(ctx, fmt.Sprintf("/v1/deployment/promote/%s", deploymentID), body)
+	data, err := n.post(ctx, fmt.Sprintf("/v1/deployment/promote/%s", url.PathEscape(deploymentID)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -399,7 +398,7 @@ func failDeployment(ctx context.Context, n *nomad, args map[string]any) (*mcp.To
 	body := map[string]any{
 		"DeploymentID": deploymentID,
 	}
-	data, err := n.post(ctx, fmt.Sprintf("/v1/deployment/fail/%s", deploymentID), body)
+	data, err := n.post(ctx, fmt.Sprintf("/v1/deployment/fail/%s", url.PathEscape(deploymentID)), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
