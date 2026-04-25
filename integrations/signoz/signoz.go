@@ -147,6 +147,18 @@ func (s *signoz) del(ctx context.Context, pathFmt string, args ...any) (json.Raw
 	return s.doRequest(ctx, "DELETE", fmt.Sprintf(pathFmt, args...), nil)
 }
 
+// unwrapData extracts the "data" field from SigNoz's {"status":"success","data":...} envelope.
+// Returns the raw JSON unchanged if it doesn't match the envelope pattern.
+func unwrapData(raw json.RawMessage) json.RawMessage {
+	var envelope struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err != nil || envelope.Data == nil {
+		return raw
+	}
+	return envelope.Data
+}
+
 // --- Dispatch map ---
 
 type handlerFunc func(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error)

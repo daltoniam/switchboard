@@ -265,7 +265,7 @@ func TestListDashboards(t *testing.T) {
 	result, err := s.Execute(context.Background(), "signoz_list_dashboards", nil)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Contains(t, result.Data, "success")
+	assert.Equal(t, "[]", result.Data)
 }
 
 func TestListAlerts(t *testing.T) {
@@ -315,7 +315,7 @@ func TestSearchLogs(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Contains(t, result.Data, "success")
+	assert.Contains(t, result.Data, "resultType")
 }
 
 func TestListServices(t *testing.T) {
@@ -337,7 +337,7 @@ func TestListServices(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Contains(t, result.Data, "success")
+	assert.Equal(t, "[]", result.Data)
 }
 
 func TestDeleteDashboard(t *testing.T) {
@@ -453,7 +453,7 @@ func TestSearchTraces(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Contains(t, result.Data, "success")
+	assert.Contains(t, result.Data, "result")
 }
 
 func TestGetTrace(t *testing.T) {

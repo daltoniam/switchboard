@@ -16,7 +16,7 @@ func listAlerts(ctx context.Context, s *signoz, _ map[string]any) (*mcp.ToolResu
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func getAlert(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -29,7 +29,7 @@ func getAlert(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolRes
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func createAlert(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -99,7 +99,7 @@ func listSavedViews(ctx context.Context, s *signoz, _ map[string]any) (*mcp.Tool
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func getSavedView(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -112,7 +112,7 @@ func getSavedView(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func createSavedView(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -182,7 +182,7 @@ func listChannels(ctx context.Context, s *signoz, _ map[string]any) (*mcp.ToolRe
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 // --- Extras ---

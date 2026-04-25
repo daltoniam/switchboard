@@ -15,7 +15,7 @@ func listDashboards(ctx context.Context, s *signoz, _ map[string]any) (*mcp.Tool
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func getDashboard(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -28,7 +28,7 @@ func getDashboard(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func createDashboard(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {

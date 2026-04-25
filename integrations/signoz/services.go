@@ -27,7 +27,7 @@ func listServices(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func getServiceOverview(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -69,7 +69,7 @@ func getServiceOverview(ctx context.Context, s *signoz, args map[string]any) (*m
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func topOperations(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -92,7 +92,7 @@ func topOperations(ctx context.Context, s *signoz, args map[string]any) (*mcp.To
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func topLevelOperations(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -112,7 +112,7 @@ func topLevelOperations(ctx context.Context, s *signoz, args map[string]any) (*m
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func entryPointOperations(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -134,7 +134,7 @@ func entryPointOperations(ctx context.Context, s *signoz, args map[string]any) (
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 // buildBuilderQuery constructs the v4 query_range composite query payload.

@@ -57,7 +57,7 @@ func searchLogs(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolR
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func searchTraces(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -113,7 +113,7 @@ func searchTraces(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func getTrace(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -126,7 +126,7 @@ func getTrace(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolRes
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
 
 func queryMetrics(ctx context.Context, s *signoz, args map[string]any) (*mcp.ToolResult, error) {
@@ -189,5 +189,5 @@ func queryMetrics(ctx context.Context, s *signoz, args map[string]any) (*mcp.Too
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return mcp.RawResult(unwrapData(data))
 }
