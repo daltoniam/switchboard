@@ -130,6 +130,10 @@ var envMapping = map[string]map[string]string{
 		"api_key":  "SIGNOZ_API_KEY",
 		"base_url": "SIGNOZ_BASE_URL",
 	},
+	"nomad": {
+		"address": "NOMAD_ADDR",
+		"token":   "NOMAD_TOKEN",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -297,6 +301,10 @@ func defaultConfig() *mcp.Config {
 			"signoz": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "skip_verify": ""},
+			},
+			"nomad": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"address": "", "token": ""},
 			},
 		},
 	}
