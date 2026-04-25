@@ -93,8 +93,8 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"title"},
 	},
 	{
-		Name: mcp.ToolName("signoz_update_dashboard"), Description: "Update an existing dashboard. Send the full dashboard JSON object (get it first with get_dashboard).",
-		Parameters: map[string]string{"id": "Dashboard ID", "dashboard": "Full dashboard JSON object to replace"},
+		Name: mcp.ToolName("signoz_update_dashboard"), Description: "Update an existing dashboard. Send dashboard content (title, widgets, layout, tags) or the full get_dashboard response — nesting is auto-corrected. The API wraps content automatically.",
+		Parameters: map[string]string{"id": "Dashboard ID", "dashboard": "Dashboard content object with title, widgets, layout, tags, variables"},
 		Required:   []string{"id", "dashboard"},
 	},
 	{

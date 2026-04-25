@@ -591,8 +591,8 @@ func TestCreateDashboard(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
-		data := body["data"].(map[string]any)
-		assert.Equal(t, "Test Dashboard", data["title"])
+		assert.Equal(t, "Test Dashboard", body["title"])
+		assert.Equal(t, "v5", body["version"])
 		w.Write([]byte(`{"status":"success","data":{"id":"new-dash"}}`))
 	}))
 	defer ts.Close()
@@ -608,13 +608,19 @@ func TestUpdateDashboard(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/dashboards/dash-1", r.URL.Path)
 		assert.Equal(t, "PUT", r.Method)
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "Updated", body["title"])
+		assert.Nil(t, body["id"], "id should be stripped — content only")
 		w.Write([]byte(`{"status":"success"}`))
 	}))
 	defer ts.Close()
 
 	s := &signoz{apiKey: "key", baseURL: ts.URL, client: ts.Client()}
 	result, err := s.Execute(context.Background(), "signoz_update_dashboard", map[string]any{
-		"id": "dash-1", "dashboard": map[string]any{"title": "Updated"},
+		"id": "dash-1", "dashboard": map[string]any{
+			"id": "dash-1", "createdAt": "2024-01-01", "data": map[string]any{"title": "Updated", "widgets": []any{}},
+		},
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
@@ -748,4 +754,40 @@ func TestListSavedViews(t *testing.T) {
 	result, err := s.Execute(context.Background(), "signoz_list_saved_views", nil)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
+}
+
+func TestExtractDashboardContent_FullGetResponse(t *testing.T) {
+	obj := map[string]any{
+		"id": "dash-1", "createdAt": "2024-01-01",
+		"data": map[string]any{"title": "My Dashboard", "widgets": []any{}, "layout": []any{}},
+	}
+	content := extractDashboardContent(obj)
+	assert.Equal(t, "My Dashboard", content["title"])
+	assert.Nil(t, content["id"])
+}
+
+func TestExtractDashboardContent_AlreadyContent(t *testing.T) {
+	obj := map[string]any{"title": "My Dashboard", "widgets": []any{}, "layout": []any{}}
+	content := extractDashboardContent(obj)
+	assert.Equal(t, "My Dashboard", content["title"])
+}
+
+func TestExtractDashboardContent_TripleNested(t *testing.T) {
+	obj := map[string]any{
+		"id": "dash-1",
+		"data": map[string]any{
+			"version": "v5",
+			"data":    map[string]any{"title": "Deep", "widgets": []any{}},
+		},
+	}
+	content := extractDashboardContent(obj)
+	assert.Equal(t, "Deep", content["title"])
+}
+
+func TestExtractDashboardContent_DataWrapperNoID(t *testing.T) {
+	obj := map[string]any{
+		"data": map[string]any{"title": "Wrapped", "widgets": []any{}},
+	}
+	content := extractDashboardContent(obj)
+	assert.Equal(t, "Wrapped", content["title"])
 }
