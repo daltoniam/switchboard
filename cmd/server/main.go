@@ -32,6 +32,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
+	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
@@ -229,6 +230,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		snowflakeInt.New(),
 		acpInt.New(),
 		webfetchInt.New(),
+		nomadInt.New(),
 		botidentity.New(),
 		xInt.New(),
 	} {
