@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -27,7 +28,7 @@ type nomad struct {
 
 func New() mcp.Integration {
 	return &nomad{
-		client: &http.Client{},
+		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
