@@ -40,6 +40,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/salesforce"
 	"github.com/daltoniam/switchboard/integrations/sentry"
+	signozInt "github.com/daltoniam/switchboard/integrations/signoz"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
 	"github.com/daltoniam/switchboard/integrations/suno"
@@ -228,6 +229,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		flyInt.New(),
 		snowflakeInt.New(),
 		acpInt.New(),
+		signozInt.New(),
 		webfetchInt.New(),
 		botidentity.New(),
 		xInt.New(),

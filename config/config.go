@@ -126,6 +126,10 @@ var envMapping = map[string]map[string]string{
 	"x": {
 		"bearer_token": "X_BEARER_TOKEN",
 	},
+	"signoz": {
+		"api_key":  "SIGNOZ_API_KEY",
+		"base_url": "SIGNOZ_BASE_URL",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -289,6 +293,10 @@ func defaultConfig() *mcp.Config {
 			"x": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"bearer_token": "", "client_id": "", "client_secret": ""},
+			},
+			"signoz": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "skip_verify": ""},
 			},
 		},
 	}
