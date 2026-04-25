@@ -63,11 +63,19 @@ var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
 	mcp.ToolName("datadog_get_incident_team"):   {"data.id", "data.attributes.name", "data.attributes.created", "data.attributes.modified"},
 
 	// ── On-Call ──────────────────────────────────────────────────────
-	mcp.ToolName("datadog_get_oncall_schedule"):           {"data.id", "data.attributes.name", "data.attributes.time_zone", "data.relationships"},
-	mcp.ToolName("datadog_get_schedule_oncall_user"):      {"data.id", "data.attributes", "data.relationships"},
-	mcp.ToolName("datadog_get_oncall_escalation_policy"):  {"data.id", "data.attributes.name", "data.relationships"},
-	mcp.ToolName("datadog_get_oncall_team_routing_rules"): {"data.id", "data.attributes", "data.relationships"},
-	mcp.ToolName("datadog_get_team_oncall_users"):         {"data.id", "data.relationships"},
+	mcp.ToolName("datadog_list_oncall_schedules"):           {"data[].id", "data[].attributes.name", "data[].attributes.time_zone"},
+	mcp.ToolName("datadog_get_oncall_schedule"):             {"data.id", "data.attributes.name", "data.attributes.time_zone", "data.relationships"},
+	mcp.ToolName("datadog_get_schedule_oncall_user"):        {"data.id", "data.attributes", "data.relationships"},
+	mcp.ToolName("datadog_list_oncall_escalation_policies"): {"data[].id", "data[].attributes.name"},
+	mcp.ToolName("datadog_get_oncall_escalation_policy"):    {"data.id", "data.attributes.name", "data.relationships"},
+	mcp.ToolName("datadog_get_oncall_team_routing_rules"):   {"data.id", "data.attributes", "data.relationships"},
+	mcp.ToolName("datadog_get_team_oncall_users"):           {"data.id", "data.relationships"},
+	mcp.ToolName("datadog_list_oncall_pages"):               {"data[].id", "data[].attributes.title", "data[].attributes.status", "data[].attributes.urgency"},
+	mcp.ToolName("datadog_get_oncall_page"):                 {"data.id", "data.attributes"},
+	mcp.ToolName("datadog_list_user_notification_channels"): {"data[].id", "data[].attributes"},
+	mcp.ToolName("datadog_get_user_notification_channel"):   {"data.id", "data.attributes"},
+	mcp.ToolName("datadog_list_user_notification_rules"):    {"data[].id", "data[].attributes"},
+	mcp.ToolName("datadog_get_user_notification_rule"):      {"data.id", "data.attributes"},
 
 	// ── Teams ────────────────────────────────────────────────────────
 	mcp.ToolName("datadog_list_teams"):                   {"data[].id", "data[].attributes.name", "data[].attributes.handle", "data[].attributes.description", "data[].attributes.user_count", "data[].attributes.link_count"},

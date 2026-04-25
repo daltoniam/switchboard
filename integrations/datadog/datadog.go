@@ -254,11 +254,13 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("datadog_list_services"): listServices,
 
 	// On-Call
+	mcp.ToolName("datadog_list_oncall_schedules"):           listOnCallSchedules,
 	mcp.ToolName("datadog_get_oncall_schedule"):             getOnCallSchedule,
 	mcp.ToolName("datadog_create_oncall_schedule"):          createOnCallSchedule,
 	mcp.ToolName("datadog_update_oncall_schedule"):          updateOnCallSchedule,
 	mcp.ToolName("datadog_delete_oncall_schedule"):          deleteOnCallSchedule,
 	mcp.ToolName("datadog_get_schedule_oncall_user"):        getScheduleOnCallUser,
+	mcp.ToolName("datadog_list_oncall_escalation_policies"): listOnCallEscalationPolicies,
 	mcp.ToolName("datadog_get_oncall_escalation_policy"):    getOnCallEscalationPolicy,
 	mcp.ToolName("datadog_create_oncall_escalation_policy"): createOnCallEscalationPolicy,
 	mcp.ToolName("datadog_update_oncall_escalation_policy"): updateOnCallEscalationPolicy,
@@ -268,10 +270,25 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("datadog_get_team_oncall_users"):           getTeamOnCallUsers,
 
 	// On-Call Paging
+	mcp.ToolName("datadog_list_oncall_pages"):       listOnCallPages,
+	mcp.ToolName("datadog_get_oncall_page"):         getOnCallPage,
 	mcp.ToolName("datadog_create_oncall_page"):      createOnCallPage,
 	mcp.ToolName("datadog_acknowledge_oncall_page"): acknowledgeOnCallPage,
 	mcp.ToolName("datadog_escalate_oncall_page"):    escalateOnCallPage,
 	mcp.ToolName("datadog_resolve_oncall_page"):     resolveOnCallPage,
+
+	// On-Call Notification Channels
+	mcp.ToolName("datadog_list_user_notification_channels"):  listUserNotificationChannels,
+	mcp.ToolName("datadog_create_user_notification_channel"): createUserNotificationChannel,
+	mcp.ToolName("datadog_get_user_notification_channel"):    getUserNotificationChannel,
+	mcp.ToolName("datadog_delete_user_notification_channel"): deleteUserNotificationChannel,
+
+	// On-Call Notification Rules
+	mcp.ToolName("datadog_list_user_notification_rules"):  listUserNotificationRules,
+	mcp.ToolName("datadog_create_user_notification_rule"): createUserNotificationRule,
+	mcp.ToolName("datadog_get_user_notification_rule"):    getUserNotificationRule,
+	mcp.ToolName("datadog_update_user_notification_rule"): updateUserNotificationRule,
+	mcp.ToolName("datadog_delete_user_notification_rule"): deleteUserNotificationRule,
 
 	// IP Ranges
 	mcp.ToolName("datadog_get_ip_ranges"): getIPRanges,

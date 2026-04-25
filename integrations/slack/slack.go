@@ -67,7 +67,7 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 		s.store.loadFromFile()
 
 		if len(s.store.allWorkspaces()) == 0 {
-			wss, _ := listWorkspacesFromChrome()
+			wss, _ := listWorkspacesFromAllBrowsers()
 			for _, ws := range wss {
 				s.store.setWorkspace(&workspace{
 					TeamID:   ws.TeamID,
@@ -245,17 +245,23 @@ func (s *slackIntegration) tryRefreshWorkspace(teamID string) bool {
 	if s.tryRefreshViaCookieForTeam(teamID) {
 		return true
 	}
-	extracted := extractFromChrome(teamID)
-	if extracted == nil {
+	extracted := extractFromBrowser(teamID)
+	if extracted == nil || extracted.token == "" {
 		return false
 	}
-	s.store.updateTokens(teamID, extracted.token, extracted.cookie)
+	cookie := extracted.cookie
+	if cookie == "" {
+		if ws := s.store.getWorkspace(teamID); ws != nil {
+			cookie = ws.Cookie
+		}
+	}
+	s.store.updateTokens(teamID, extracted.token, cookie)
 	ws := s.store.getWorkspace(teamID)
 	if ws != nil {
 		s.buildClientForWorkspace(ws)
 	}
 	_ = s.store.saveToFile()
-	log.Printf("slack: tokens refreshed from Chrome for %s", teamID)
+	log.Printf("slack: tokens refreshed from %s for %s", extracted.source, teamID)
 	return true
 }
 
