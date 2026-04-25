@@ -283,7 +283,10 @@ func drainNode(ctx context.Context, n *nomad, args map[string]any) (*mcp.ToolRes
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	ignoreSystemJobs, _ := mcp.ArgBool(args, "ignore_system_jobs")
+	ignoreSystemJobs, err := mcp.ArgBool(args, "ignore_system_jobs")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 
 	var body map[string]any
 	if enable {
@@ -376,7 +379,7 @@ func promoteDeployment(ctx context.Context, n *nomad, args map[string]any) (*mcp
 
 	body := map[string]any{
 		"DeploymentID": deploymentID,
-		"All":          all != "false",
+		"All":          all == "" || all == "true",
 	}
 	if groups != "" {
 		body["Groups"] = strings.Split(groups, ",")
