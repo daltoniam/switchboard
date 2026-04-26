@@ -73,7 +73,7 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 }
 
 // listIntegrations returns all registered integrations with their status.
-func listIntegrations(_ context.Context, s *switchboardInt, args map[string]any) (*mcp.ToolResult, error) {
+func listIntegrations(ctx context.Context, s *switchboardInt, args map[string]any) (*mcp.ToolResult, error) {
 	enabledOnly, _ := mcp.ArgBool(args, "enabled_only")
 
 	type integrationSummary struct {
@@ -93,12 +93,18 @@ func listIntegrations(_ context.Context, s *switchboardInt, args map[string]any)
 			continue
 		}
 
+		var healthy bool
+		if enabled {
+			healthy = a.Healthy(ctx)
+		}
+
 		credKeys := s.services.Config.DefaultCredentialKeys(a.Name())
 		sort.Strings(credKeys)
 
 		results = append(results, integrationSummary{
 			Name:           a.Name(),
 			Enabled:        enabled,
+			Healthy:        healthy,
 			ToolCount:      len(a.Tools()),
 			CredentialKeys: credKeys,
 		})
@@ -197,10 +203,16 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 	}
 
 	// Get existing config or create a new one.
-	ic, exists := s.services.Config.GetIntegration(name)
-	if !exists || ic == nil {
-		ic = &mcp.IntegrationConfig{
-			Credentials: mcp.Credentials{},
+	// Copy into a fresh struct to avoid racing with readers holding
+	// a reference to the config manager's shared pointer.
+	existing, exists := s.services.Config.GetIntegration(name)
+	ic := &mcp.IntegrationConfig{
+		Credentials: mcp.Credentials{},
+	}
+	if exists && existing != nil {
+		ic.Enabled = existing.Enabled
+		for k, v := range existing.Credentials {
+			ic.Credentials[k] = v
 		}
 	}
 

@@ -199,6 +199,22 @@ func TestListIntegrations(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(res.Data), &items))
 	assert.NotEmpty(t, items)
 	assert.Equal(t, "fake", items[0]["name"])
+	assert.Equal(t, true, items[0]["healthy"])
+}
+
+func TestListIntegrations_HealthyNotSetWhenDisabled(t *testing.T) {
+	fake := &fakeIntegration{name: "fake", healthy: false}
+	services := newTestServices(fake)
+	s := newTestIntegration(services)
+
+	res, err := listIntegrations(context.Background(), s, map[string]any{})
+	require.NoError(t, err)
+
+	var items []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(res.Data), &items))
+	assert.NotEmpty(t, items)
+	_, hasHealthy := items[0]["healthy"]
+	assert.False(t, hasHealthy, "healthy should be omitted when disabled")
 }
 
 func TestListIntegrations_EnabledOnly(t *testing.T) {
@@ -315,6 +331,27 @@ func TestConfigureIntegration_ConfigureFails(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, res.IsError)
 	assert.Contains(t, res.Data, "configure failed")
+}
+
+func TestConfigureIntegration_DoesNotMutateOriginalCredentials(t *testing.T) {
+	fake := &fakeIntegration{name: "fake", healthy: true}
+	services := newTestServices(fake)
+	s := newTestIntegration(services)
+
+	origIC, _ := services.Config.GetIntegration("fake")
+	origKey := origIC.Credentials["api_key"]
+
+	_, err := configureIntegration(context.Background(), s, map[string]any{
+		"name":        "fake",
+		"credentials": map[string]any{"api_key": "new-key", "extra": "val"},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, origKey, origIC.Credentials["api_key"],
+		"original credentials map should not be mutated")
+	_, hasExtra := origIC.Credentials["extra"]
+	assert.False(t, hasExtra,
+		"original credentials map should not have new keys")
 }
 
 func TestCheckHealth_SingleIntegration(t *testing.T) {
