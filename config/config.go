@@ -306,6 +306,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"address": "", "token": ""},
 			},
+			"switchboard": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{},
+			},
 		},
 	}
 }

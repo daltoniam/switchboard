@@ -2,4 +2,4 @@ dist/
 coverage.out
 *.local.md
 tmp/
-switchboard
+/switchboard
