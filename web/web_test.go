@@ -665,10 +665,15 @@ func TestDashboard_IntegrationCounts(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	body := rr.Body.String()
 
-	// Should have the summary cards
+	// Should have the summary cards with correct counts
 	assert.Contains(t, body, "Connected")
 	assert.Contains(t, body, "Disabled")
 	assert.Contains(t, body, "Errored")
+
+	// Verify stat card values: 1 connected (testint), 1 disabled, 1 errored
+	assert.Contains(t, body, `stat-card-green"><div class="stat-value">1</div>`)
+	assert.Contains(t, body, `stat-card-muted"><div class="stat-value">1</div>`)
+	assert.Contains(t, body, `stat-card-yellow"><div class="stat-value">1</div>`)
 
 	// Should show errored integration in "Needs Attention" section
 	assert.Contains(t, body, "Needs Attention")

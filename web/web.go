@@ -177,10 +177,9 @@ func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 
 	summaries := w.integrationSummaries(r.Context())
 
-	var connectedCount, disabledCount, erroredCount, totalTools int
+	var connectedCount, disabledCount, erroredCount int
 	var errored []pages.IntegrationSummary
 	for _, s := range summaries {
-		totalTools += s.ToolCount
 		if !s.Enabled {
 			disabledCount++
 		} else if s.Healthy {
@@ -196,8 +195,6 @@ func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 		ConnectedCount:      connectedCount,
 		DisabledCount:       disabledCount,
 		ErroredCount:        erroredCount,
-		TotalTools:          totalTools,
-		Integrations:        summaries,
 		ErroredIntegrations: errored,
 	}
 
