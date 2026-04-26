@@ -37,7 +37,6 @@ import (
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
-	"github.com/daltoniam/switchboard/integrations/readarr"
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/salesforce"
 	"github.com/daltoniam/switchboard/integrations/sentry"
@@ -224,7 +223,6 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		notionInt.New(),
 		gcpInt.New(),
 		suno.New(),
-		readarr.New(),
 		salesforce.New(),
 		cloudflare.New(),
 		digitalocean.New(),
