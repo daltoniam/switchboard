@@ -7,6 +7,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestSortByName(t *testing.T) {
+	items := []IntegrationSummary{
+		{Name: "charlie"},
+		{Name: "alpha"},
+		{Name: "bravo"},
+	}
+	sorted := sortByName(items)
+	assert.Equal(t, "alpha", sorted[0].Name)
+	assert.Equal(t, "bravo", sorted[1].Name)
+	assert.Equal(t, "charlie", sorted[2].Name)
+
+	assert.Equal(t, "charlie", items[0].Name)
+}
+
 func TestLastCheckLabel(t *testing.T) {
 	tests := []struct {
 		name string
