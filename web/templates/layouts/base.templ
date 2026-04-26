@@ -379,6 +379,51 @@ templ Base(data PageData) {
 				}
 				.last-check { color: var(--text-muted); font-size: 0.625rem; margin-left: 0.5rem; }
 
+				/* --- Integration grid (cards) --- */
+				.integration-grid {
+					display: grid;
+					grid-template-columns: repeat(3, 1fr);
+					gap: 0.625rem;
+					margin-bottom: 0.5rem;
+				}
+				.integration-card {
+					display: flex;
+					flex-direction: column;
+					justify-content: space-between;
+					text-decoration: none;
+					color: inherit;
+					padding: 0.75rem 1rem;
+					background: var(--surface);
+					border: 1px solid var(--border-subtle);
+					border-radius: var(--radius);
+					transition: border-color 0.1s;
+					min-height: 72px;
+				}
+				.integration-card:hover { border-color: var(--accent); }
+				.integration-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+				.integration-card-header {
+					display: flex;
+					align-items: center;
+					gap: 0.5rem;
+					margin-bottom: 0.5rem;
+				}
+				.integration-card .name {
+					font-weight: 600;
+					font-size: 0.875rem;
+					text-transform: capitalize;
+				}
+				.integration-card-footer {
+					display: flex;
+					align-items: center;
+					gap: 0.5rem;
+					font-size: 0.75rem;
+					color: var(--text-muted);
+				}
+				.integration-card-tools {
+					font-size: 0.6875rem;
+					color: var(--text-muted);
+				}
+
 				/* --- Tools list --- */
 				.tools-list {
 					display: flex;
@@ -644,6 +689,7 @@ templ Base(data PageData) {
 					.metrics-grid { grid-template-columns: repeat(2, 1fr); }
 					.metrics-row { grid-template-columns: 1fr; }
 					.stats-grid { grid-template-columns: repeat(2, 1fr); }
+					.integration-grid { grid-template-columns: repeat(2, 1fr); }
 				}
 				@media (max-width: 560px) {
 					body { flex-direction: column; }
@@ -664,6 +710,7 @@ templ Base(data PageData) {
 					}
 					.nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent); }
 					.main { padding: 1rem; }
+					.integration-grid { grid-template-columns: 1fr; }
 				}
 			</style>
 		</head>

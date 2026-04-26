@@ -690,6 +690,68 @@ func TestDashboard_NoErroredHidesSection(t *testing.T) {
 	assert.NotContains(t, body, "Needs Attention")
 }
 
+func TestIntegrationsList_CategorizedSections(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+
+	// Add disabled integration
+	reg.Register(&mockIntegration{
+		name: "alpha_disabled", healthy: false,
+		tools: []mcp.ToolDefinition{{Name: "alpha_disabled_do", Description: "Do"}},
+	})
+	cfgService.cfg.Integrations["alpha_disabled"] = &mcp.IntegrationConfig{
+		Enabled: false, Credentials: mcp.Credentials{},
+	}
+
+	// Add errored integration (enabled but not healthy)
+	reg.Register(&mockIntegration{
+		name: "beta_errored", healthy: false,
+		tools: []mcp.ToolDefinition{{Name: "beta_errored_do", Description: "Do"}},
+	})
+	cfgService.cfg.Integrations["beta_errored"] = &mcp.IntegrationConfig{
+		Enabled: true, Credentials: mcp.Credentials{"token": "bad"},
+	}
+
+	ws.health.refreshAll(context.Background())
+
+	handler := ws.Handler()
+	req := httptest.NewRequest("GET", "/integrations", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	body := rr.Body.String()
+
+	// Should have all 3 sections
+	assert.Contains(t, body, "Needs Attention")
+	assert.Contains(t, body, "Connected")
+	assert.Contains(t, body, "Disabled")
+
+	// Should show the integrations
+	assert.Contains(t, body, "beta_errored")
+	assert.Contains(t, body, "testint")
+	assert.Contains(t, body, "alpha_disabled")
+
+	// Should use card grid
+	assert.Contains(t, body, "integration-grid")
+	assert.Contains(t, body, "integration-card")
+}
+
+func TestIntegrationsList_NoErroredHidesSection(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("GET", "/integrations", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	body := rr.Body.String()
+
+	// testint is healthy, no errored integrations
+	assert.NotContains(t, body, "Needs Attention")
+	assert.Contains(t, body, "Connected")
+}
+
 func TestUpdateCredentials(t *testing.T) {
 	t.Run("happy path — updates token and reconfigures", func(t *testing.T) {
 		ws, reg, cfgService := setupTestWeb()

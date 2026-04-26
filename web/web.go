@@ -212,8 +212,25 @@ func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 
 func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Request) {
 	summaries := w.integrationSummaries(r.Context())
+
+	var errored, connected, disabled []pages.IntegrationSummary
+	for _, s := range summaries {
+		if !s.Enabled {
+			disabled = append(disabled, s)
+		} else if s.Healthy {
+			connected = append(connected, s)
+		} else {
+			errored = append(errored, s)
+		}
+	}
+
 	page := w.pageData(r, "Integrations", "/integrations")
-	pages.IntegrationsList(page, summaries).Render(r.Context(), rw)
+	data := pages.IntegrationsListData{
+		Errored:   errored,
+		Connected: connected,
+		Disabled:  disabled,
+	}
+	pages.IntegrationsList(page, data).Render(r.Context(), rw)
 }
 
 const notionExtractionSnippet = `(function(){var c=document.cookie.split(';').find(function(c){return c.trim().startsWith('token_v2=')});if(!c){alert('token_v2 cookie not found. Make sure you are on notion.so and signed in.');return;}var t=c.split('=').slice(1).join('=').trim();prompt('Copy this token_v2 value:',t);})()`
