@@ -45,6 +45,7 @@ import (
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
 	"github.com/daltoniam/switchboard/integrations/suno"
+	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/integrations/ynab"
@@ -247,6 +248,11 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		Metrics:  mcp.NewMetrics(),
 	}
 
+	switchboardIntegration := switchboardInt.New(services)
+	if err := reg.Register(switchboardIntegration); err != nil {
+		log.Fatalf("Failed to register switchboard integration: %v", err)
+	}
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
@@ -389,6 +395,8 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		cfgNow.Marketplace = mc
 		return cfgMgr.Update(cfgNow)
 	})
+
+	switchboardInt.SetMarketplace(switchboardIntegration, mp)
 
 	cancelAutoUpdate := mp.StartAutoUpdateLoop(ctx)
 	defer cancelAutoUpdate()
