@@ -84,10 +84,6 @@ var envMapping = map[string]map[string]string{
 		"username": "ELASTICSEARCH_USERNAME",
 		"password": "ELASTICSEARCH_PASSWORD",
 	},
-	"readarr": {
-		"api_key":  "READARR_API_KEY",
-		"base_url": "READARR_URL",
-	},
 	"salesforce": {
 		"access_token": "SALESFORCE_ACCESS_TOKEN",
 		"instance_url": "SALESFORCE_INSTANCE_URL",
@@ -257,10 +253,6 @@ func defaultConfig() *mcp.Config {
 			"amazon": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"email": "", "password": "", "otp_secret": "", "cookies": "", "domain": ""},
-			},
-			"readarr": {
-				Enabled:     false,
-				Credentials: mcp.Credentials{"api_key": "", "base_url": ""},
 			},
 			"salesforce": {
 				Enabled:     false,
