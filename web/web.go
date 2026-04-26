@@ -177,24 +177,28 @@ func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 
 	summaries := w.integrationSummaries(r.Context())
 
-	var enabledCount, healthyCount, totalTools int
+	var connectedCount, disabledCount, erroredCount, totalTools int
+	var errored []pages.IntegrationSummary
 	for _, s := range summaries {
-		if s.Enabled {
-			enabledCount++
-		}
-		if s.Healthy {
-			healthyCount++
-		}
 		totalTools += s.ToolCount
+		if !s.Enabled {
+			disabledCount++
+		} else if s.Healthy {
+			connectedCount++
+		} else {
+			erroredCount++
+			errored = append(errored, s)
+		}
 	}
 
 	page := w.pageData(r, "Dashboard", "/")
 	data := pages.DashboardData{
-		TotalIntegrations: len(summaries),
-		EnabledCount:      enabledCount,
-		HealthyCount:      healthyCount,
-		TotalTools:        totalTools,
-		Integrations:      summaries,
+		ConnectedCount:      connectedCount,
+		DisabledCount:       disabledCount,
+		ErroredCount:        erroredCount,
+		TotalTools:          totalTools,
+		Integrations:        summaries,
+		ErroredIntegrations: errored,
 	}
 
 	if w.services.Metrics != nil {

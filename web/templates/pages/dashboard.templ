@@ -11,13 +11,14 @@ import (
 )
 
 type DashboardData struct {
-	TotalIntegrations int
-	EnabledCount      int
-	HealthyCount      int
-	TotalTools        int
-	Integrations      []IntegrationSummary
-	Metrics           *mcp.MetricsSnapshot
-	TopTools          []mcp.ToolRank
+	ConnectedCount      int
+	DisabledCount       int
+	ErroredCount        int
+	TotalTools          int
+	Integrations        []IntegrationSummary
+	ErroredIntegrations []IntegrationSummary
+	Metrics             *mcp.MetricsSnapshot
+	TopTools            []mcp.ToolRank
 }
 
 type IntegrationSummary struct {
@@ -141,10 +142,9 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 			}
 		</div>
 		<div class="stats-grid">
-			@components.StatCard(data.TotalIntegrations, "Integrations")
-			@components.StatCard(data.EnabledCount, "Enabled")
-			@components.StatCard(data.HealthyCount, "Healthy")
-			@components.StatCard(data.TotalTools, "Total Tools")
+			@components.StatCardColor(data.ConnectedCount, "Connected", "green")
+			@components.StatCardColor(data.DisabledCount, "Disabled", "muted")
+			@components.StatCardColor(data.ErroredCount, "Errored", "yellow")
 		</div>
 		if data.Metrics != nil {
 			<section class="metrics-section">
@@ -249,26 +249,25 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 				}
 			</div>
 		}
-		<section class="metrics-section">
-			<h2 class="section-title">Integrations</h2>
-			for _, i := range data.Integrations {
-				<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-link">
-					<div>
-						<span class="name">{ i.Name }</span>
-						<span style="margin-left: 0.5rem;">
-							@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
-						</span>
-						if i.Healthy && lastCheckLabel(i.LastCheck) != "" {
-							<span class="last-check">{ lastCheckLabel(i.LastCheck) }</span>
-						}
-					</div>
-					<div class="meta">
-						<span>{ fmt.Sprintf("%d tools", i.ToolCount) }</span>
-						<span>→</span>
-					</div>
-				</a>
-			}
-		</section>
+		if len(data.ErroredIntegrations) > 0 {
+			<section class="metrics-section">
+				<h2 class="section-title">Needs Attention</h2>
+				for _, i := range data.ErroredIntegrations {
+					<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-link">
+						<div>
+							<span class="name">{ i.Name }</span>
+							<span style="margin-left: 0.5rem;">
+								@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
+							</span>
+						</div>
+						<div class="meta">
+							<span>{ fmt.Sprintf("%d tools", i.ToolCount) }</span>
+							<span>→</span>
+						</div>
+					</a>
+				}
+			</section>
+		}
 		<div class="footer">
 			<p>Add to your MCP client config:</p>
 			<code>&#123; "mcpServers": &#123; "switchboard": &#123; "url": "http://localhost:3847/mcp" &#125; &#125; &#125;</code>

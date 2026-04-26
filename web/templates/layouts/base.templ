@@ -343,6 +343,11 @@ templ Base(data PageData) {
 					letter-spacing: -0.02em;
 				}
 				.stat-label { font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.0625rem; }
+				.stat-card-green { border-color: oklch(65% 0.17 155 / 0.25); }
+				.stat-card-green .stat-value { color: var(--green); }
+				.stat-card-yellow { border-color: oklch(72% 0.15 80 / 0.25); }
+				.stat-card-yellow .stat-value { color: var(--yellow); }
+				.stat-card-muted .stat-value { color: var(--text-muted); }
 
 				/* --- Integration links --- */
 				.integration-link {

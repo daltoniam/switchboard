@@ -45,6 +45,13 @@ templ StatCard(value int, label string) {
 	</div>
 }
 
+templ StatCardColor(value int, label string, variant string) {
+	<div class={ "stat-card", "stat-card-" + variant }>
+		<div class="stat-value">{ fmt.Sprint(value) }</div>
+		<div class="stat-label">{ label }</div>
+	</div>
+}
+
 templ ToolTag(name string) {
 	<span class="tool-tag">{ name }</span>
 }

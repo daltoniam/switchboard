@@ -633,6 +633,63 @@ func TestWasmModulesPage_ShowsName(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "custom_name")
 }
 
+func TestDashboard_IntegrationCounts(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+
+	// Add a disabled integration
+	reg.Register(&mockIntegration{
+		name: "disabled_int", healthy: false,
+		tools: []mcp.ToolDefinition{{Name: "disabled_int_do", Description: "Do"}},
+	})
+	cfgService.cfg.Integrations["disabled_int"] = &mcp.IntegrationConfig{
+		Enabled: false, Credentials: mcp.Credentials{},
+	}
+
+	// Add an errored integration (enabled but not healthy)
+	reg.Register(&mockIntegration{
+		name: "errored_int", healthy: false,
+		tools: []mcp.ToolDefinition{{Name: "errored_int_do", Description: "Do"}},
+	})
+	cfgService.cfg.Integrations["errored_int"] = &mcp.IntegrationConfig{
+		Enabled: true, Credentials: mcp.Credentials{"token": "bad"},
+	}
+
+	// Refresh health cache
+	ws.health.refreshAll(context.Background())
+
+	handler := ws.Handler()
+	req := httptest.NewRequest("GET", "/", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	body := rr.Body.String()
+
+	// Should have the summary cards
+	assert.Contains(t, body, "Connected")
+	assert.Contains(t, body, "Disabled")
+	assert.Contains(t, body, "Errored")
+
+	// Should show errored integration in "Needs Attention" section
+	assert.Contains(t, body, "Needs Attention")
+	assert.Contains(t, body, "errored_int")
+}
+
+func TestDashboard_NoErroredHidesSection(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("GET", "/", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	body := rr.Body.String()
+
+	// "testint" is healthy, so no "Needs Attention" section
+	assert.NotContains(t, body, "Needs Attention")
+}
+
 func TestUpdateCredentials(t *testing.T) {
 	t.Run("happy path — updates token and reconfigures", func(t *testing.T) {
 		ws, reg, cfgService := setupTestWeb()
