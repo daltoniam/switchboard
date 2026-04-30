@@ -113,6 +113,11 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"project_id": "Project ID (uses default if configured, otherwise required)", "insight_id": "Insight ID"},
 		Required:   []string{"insight_id"},
 	},
+	{
+		Name: mcp.ToolName("posthog_query"), Description: "Run a HogQL (SQL-like) query synchronously and return inline results. Use this for ad-hoc analytics without persisting an insight. Returns columns, results rows, and execution metadata.",
+		Parameters: map[string]string{"project_id": "Project ID (uses default if configured, otherwise required)", "query": "HogQL query text, e.g. SELECT count() FROM events WHERE timestamp > now() - INTERVAL 7 DAY", "client_query_id": "Optional client-supplied identifier to correlate the request in PostHog logs", "refresh": "Optional cache mode: 'blocking' (default-ish, wait for fresh result), 'force_blocking', 'lazy_async', 'force_cache'"},
+		Required:   []string{"query"},
+	},
 
 	// ── Persons ─────────────────────────────────────────────────────
 	{
