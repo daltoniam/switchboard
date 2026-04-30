@@ -246,6 +246,10 @@ Pipe rendered document content between tools (callRendered returns readable text
 				"type":        "string",
 				"description": "ES5 JavaScript code to execute server-side. Use var (not let/const), function() (not =>), string + concatenation (not template literals). Use api.call(toolName, args, {fields: [...]}) to invoke tools with optional field projection. Return the final result. (mutually exclusive with tool_name)",
 			},
+			"dry_run": map[string]any{
+				"type":        "boolean",
+				"description": "If true, validate arguments and show what would happen without executing. Works with tool_name only (not scripts).",
+			},
 		}, nil),
 	}
 
@@ -656,6 +660,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		ToolName  mcp.ToolName   `json:"tool_name"`
 		Arguments map[string]any `json:"arguments"`
 		Script    string         `json:"script"`
+		DryRun    bool           `json:"dry_run"`
 	}
 	if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
 		return errorResult("invalid arguments: " + err.Error()), nil
@@ -675,6 +680,10 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	}
 	if args.Arguments == nil {
 		args.Arguments = map[string]any{}
+	}
+
+	if args.DryRun {
+		return s.handleDryRun(ctx, args.ToolName, args.Arguments)
 	}
 
 	sess := sessionFromCtx(ctx)

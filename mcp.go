@@ -267,6 +267,15 @@ func (tn *ToolName) UnmarshalJSON(b []byte) error {
 // Alias lets adapter authors use mcp.Markdown without importing the markdown subpackage.
 type Markdown = markdown.Markdown
 
+// DryRunIntegration is an optional interface that integrations can implement
+// to provide native dry-run previews for mutation tools. When dry_run is set
+// on an execute call, the server checks this interface first. If the integration
+// returns (result, true), that result is used directly. Otherwise the server
+// falls back to a simulated dry-run (arg validation + preview).
+type DryRunIntegration interface {
+	DryRun(ctx context.Context, toolName ToolName, args map[string]any) (*ToolResult, bool)
+}
+
 // MarkdownIntegration is an optional interface that integrations can implement
 // to render tool responses as Markdown instead of JSON. The server calls
 // RenderMarkdown in processResult before compaction — if it returns rendered
