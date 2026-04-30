@@ -27,8 +27,17 @@ var rawFieldCompactionSpecs = map[mcp.ToolName][]string{
 	mcp.ToolName("posthog_list_cohort_persons"): {"results[].id", "results[].distinct_ids", "results[].properties", "results[].created_at"},
 
 	// ── Insights ────────────────────────────────────────────────────
-	mcp.ToolName("posthog_list_insights"): {"results[].id", "results[].name", "results[].short_id", "results[].filters", "results[].created_at", "results[].created_by.email", "results[].last_modified_at"},
-	mcp.ToolName("posthog_get_insight"):   {"id", "name", "short_id", "description", "filters", "query", "result", "created_at", "created_by.email", "last_modified_at"},
+	// Note: result/hogql/is_cached/last_refresh/query_status expose the computed
+	// query output. PostHog computes results lazily, so freshly-created insights
+	// may have result: null until the first refresh (is_cached: true).
+	mcp.ToolName("posthog_list_insights"): {"results[].id", "results[].name", "results[].short_id", "results[].filters", "results[].query", "results[].result", "results[].hogql", "results[].is_cached", "results[].last_refresh", "results[].query_status", "results[].created_at", "results[].created_by.email", "results[].last_modified_at"},
+	mcp.ToolName("posthog_get_insight"):   {"id", "name", "short_id", "description", "filters", "query", "result", "hogql", "is_cached", "last_refresh", "query_status", "created_at", "created_by.email", "last_modified_at"},
+
+	// ── Query (HogQL) ───────────────────────────────────────────────
+	// /query/ responses include columns, results (2D row data), types, hogql,
+	// query (echo of the request), timings, and query_status. timings/types
+	// are rarely useful to the LLM and are dropped to save tokens.
+	mcp.ToolName("posthog_query"): {"columns", "results", "hogql", "query_status", "is_cached"},
 
 	// ── Persons ─────────────────────────────────────────────────────
 	mcp.ToolName("posthog_list_persons"): {"results[].id", "results[].distinct_ids", "results[].properties.email", "results[].properties.name", "results[].created_at"},

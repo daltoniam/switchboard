@@ -135,3 +135,38 @@ func deleteInsight(ctx context.Context, p *posthog, args map[string]any) (*mcp.T
 	}
 	return mcp.RawResult(data)
 }
+
+func runQuery(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
+	projID, err := p.proj(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	r := mcp.NewArgs(args)
+	hogql := r.Str("query")
+	clientQueryID := r.Str("client_query_id")
+	refresh := r.Str("refresh")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if hogql == "" {
+		return mcp.ErrResult(fmt.Errorf("query is required"))
+	}
+	body := map[string]any{
+		"query": map[string]any{
+			"kind":  "HogQLQuery",
+			"query": hogql,
+		},
+	}
+	if clientQueryID != "" {
+		body["client_query_id"] = clientQueryID
+	}
+	if refresh != "" {
+		body["refresh"] = refresh
+	}
+	path := fmt.Sprintf("/api/projects/%s/query/", projID)
+	data, err := p.post(ctx, path, body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
+}

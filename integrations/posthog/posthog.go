@@ -230,6 +230,7 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("posthog_create_insight"): createInsight,
 	mcp.ToolName("posthog_update_insight"): updateInsight,
 	mcp.ToolName("posthog_delete_insight"): deleteInsight,
+	mcp.ToolName("posthog_query"):          runQuery,
 
 	// Persons
 	mcp.ToolName("posthog_list_persons"):           listPersons,
