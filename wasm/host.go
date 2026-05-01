@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,16 +18,18 @@ import (
 )
 
 type httpRequest struct {
-	Method  string            `json:"method"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Body    string            `json:"body,omitempty"`
+	Method     string            `json:"method"`
+	URL        string            `json:"url"`
+	Headers    map[string]string `json:"headers,omitempty"`
+	Body       string            `json:"body,omitempty"`
+	BodyBase64 string            `json:"body_base64,omitempty"`
 }
 
 type httpResponse struct {
-	Status  int               `json:"status"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Body    string            `json:"body"`
+	Status     int               `json:"status"`
+	Headers    map[string]string `json:"headers,omitempty"`
+	Body       string            `json:"body"`
+	BodyBase64 string            `json:"body_base64,omitempty"`
 }
 
 const maxHostResponseSize = 10 * 1024 * 1024
@@ -34,6 +37,11 @@ const maxHostResponseSize = 10 * 1024 * 1024
 // h2cHeaderKey is the header plugins set to request HTTP/2 cleartext (h2c)
 // transport. Any non-empty value enables h2c for that request.
 const h2cHeaderKey = "X-H2C"
+
+// rawBodyHeaderKey is the header plugins set to request the response body
+// as raw base64-encoded bytes in the body_base64 field instead of a UTF-8
+// string in the body field. Required for binary payloads (protobuf, images, etc.).
+const rawBodyHeaderKey = "X-Raw-Body"
 
 var (
 	hostHTTPClient = &http.Client{Timeout: 30 * time.Second}
@@ -86,7 +94,13 @@ func hostHTTPRequest(ctx context.Context, mod api.Module, ptrSize uint64) uint64
 // is used instead of the default HTTP/1.1 client.
 func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 	var bodyReader io.Reader
-	if req.Body != "" {
+	if req.BodyBase64 != "" {
+		decoded, err := base64.StdEncoding.DecodeString(req.BodyBase64)
+		if err != nil {
+			return nil, fmt.Errorf("decode body_base64: %w", err)
+		}
+		bodyReader = bytes.NewReader(decoded)
+	} else if req.Body != "" {
 		bodyReader = bytes.NewBufferString(req.Body)
 	}
 
@@ -95,10 +109,11 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	// Check for h2c header before copying headers to the outgoing request.
+	// Check for control headers before copying to the outgoing request.
 	useH2C := req.Headers[h2cHeaderKey] != ""
+	rawBody := req.Headers[rawBodyHeaderKey] != ""
 	for k, v := range req.Headers {
-		if k == h2cHeaderKey {
+		if k == h2cHeaderKey || k == rawBodyHeaderKey {
 			continue
 		}
 		httpReq.Header.Set(k, v)
@@ -125,11 +140,16 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 		headers[k] = resp.Header.Get(k)
 	}
 
-	return &httpResponse{
+	result := &httpResponse{
 		Status:  resp.StatusCode,
 		Headers: headers,
-		Body:    string(body),
-	}, nil
+	}
+	if rawBody {
+		result.BodyBase64 = base64.StdEncoding.EncodeToString(body)
+	} else {
+		result.Body = string(body)
+	}
+	return result, nil
 }
 
 func writeErrorResponse(ctx context.Context, mod api.Module, msg string) uint64 {

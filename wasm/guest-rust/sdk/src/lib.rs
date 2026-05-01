@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use base64::Engine as _;
 
 // ── Types matching the host ABI ─────────────────────────────────────────────
 
@@ -88,6 +89,8 @@ pub struct HttpRequest {
     pub headers: HashMap<String, String>,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub body: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub body_base64: String,
 }
 
 #[derive(Deserialize)]
@@ -97,6 +100,8 @@ pub struct HttpResponse {
     pub headers: HashMap<String, String>,
     #[serde(default)]
     pub body: String,
+    #[serde(default)]
+    pub body_base64: String,
 }
 
 // ── Host imports ────────────────────────────────────────────────────────────
@@ -111,6 +116,35 @@ extern "C" {
 pub fn host_log(msg: &str) {
     unsafe {
         host_log_raw(msg.as_ptr() as u32, msg.len() as u32);
+    }
+}
+
+impl HttpRequest {
+    /// Create a request with a raw binary body. The bytes are base64-encoded
+    /// for transport over the JSON ABI.
+    pub fn with_body_bytes(method: &str, url: &str, headers: HashMap<String, String>, body: &[u8]) -> Self {
+        HttpRequest {
+            method: method.into(),
+            url: url.into(),
+            headers,
+            body: String::new(),
+            body_base64: base64::engine::general_purpose::STANDARD.encode(body),
+        }
+    }
+}
+
+impl HttpResponse {
+    /// Returns the response body as raw bytes. If the response was requested
+    /// with `X-Raw-Body`, decodes `body_base64`; otherwise returns the `body`
+    /// string as UTF-8 bytes.
+    pub fn body_bytes(&self) -> Result<Vec<u8>, String> {
+        if !self.body_base64.is_empty() {
+            base64::engine::general_purpose::STANDARD
+                .decode(&self.body_base64)
+                .map_err(|e| format!("decode body_base64: {e}"))
+        } else {
+            Ok(self.body.as_bytes().to_vec())
+        }
     }
 }
 
@@ -136,8 +170,26 @@ pub fn host_http_request_h2c(req: &HttpRequest) -> Result<HttpResponse, String> 
         url: req.url.clone(),
         headers: req.headers.clone(),
         body: req.body.clone(),
+        body_base64: req.body_base64.clone(),
     };
     patched.headers.insert("X-H2C".into(), "1".into());
+    do_host_http_request(&patched)
+}
+
+/// Execute an HTTP request and receive the response body as raw bytes.
+///
+/// Sets the `X-Raw-Body` header so the host returns the body as base64
+/// in `body_base64` instead of a UTF-8 string in `body`. Use
+/// [`HttpResponse::body_bytes`] to decode the result.
+pub fn host_http_request_raw(req: &HttpRequest) -> Result<HttpResponse, String> {
+    let mut patched = HttpRequest {
+        method: req.method.clone(),
+        url: req.url.clone(),
+        headers: req.headers.clone(),
+        body: req.body.clone(),
+        body_base64: req.body_base64.clone(),
+    };
+    patched.headers.insert("X-Raw-Body".into(), "1".into());
     do_host_http_request(&patched)
 }
 
