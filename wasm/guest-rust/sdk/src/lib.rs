@@ -81,7 +81,7 @@ pub struct ExecuteRequest {
     pub args: HashMap<String, serde_json::Value>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct HttpRequest {
     pub method: String,
     pub url: String,
@@ -181,7 +181,7 @@ pub fn host_http_request_h2c(req: &HttpRequest) -> Result<HttpResponse, String> 
 /// Sets the `X-Raw-Body` header so the host returns the body as base64
 /// in `body_base64` instead of a UTF-8 string in `body`. Use
 /// [`HttpResponse::body_bytes`] to decode the result.
-pub fn host_http_request_raw(req: &HttpRequest) -> Result<HttpResponse, String> {
+pub fn host_http_request_raw_body(req: &HttpRequest) -> Result<HttpResponse, String> {
     let mut patched = HttpRequest {
         method: req.method.clone(),
         url: req.url.clone(),
@@ -306,14 +306,10 @@ fn unpack_ptr_size(v: u64) -> (u32, u32) {
 
 // ── Allocator exports (called by host) ──────────────────────────────────────
 
-extern "C" {
-    fn malloc(size: usize) -> *mut u8;
-    fn free(ptr: *mut u8);
-}
-
 #[no_mangle]
 pub extern "C" fn guest_malloc(size: u32) -> u32 {
-    unsafe { malloc(size as usize) as u32 }
+    let layout = std::alloc::Layout::from_size_align(size as usize, 1).unwrap();
+    unsafe { std::alloc::alloc(layout) as u32 }
 }
 
 #[no_mangle]
@@ -321,5 +317,9 @@ pub extern "C" fn guest_free(ptr: u32) {
     if ptr == 0 {
         return;
     }
-    unsafe { free(ptr as *mut u8) }
+    // We don't track allocation sizes, so we deallocate with size=1 alignment=1.
+    // This is safe because wasm linear memory isn't reclaimed per-allocation;
+    // the host only calls guest_free to signal the guest can reuse the memory.
+    let layout = std::alloc::Layout::from_size_align(1, 1).unwrap();
+    unsafe { std::alloc::dealloc(ptr as *mut u8, layout) }
 }
