@@ -114,7 +114,34 @@ pub fn host_log(msg: &str) {
     }
 }
 
+/// Execute an HTTP request via the host. For standard HTTP/1.1 or
+/// auto-negotiated HTTP/2 over TLS, use this directly.
+///
+/// To force HTTP/2 cleartext (h2c) — required for plaintext gRPC endpoints —
+/// use [`host_http_request_h2c`] instead.
 pub fn host_http_request(req: &HttpRequest) -> Result<HttpResponse, String> {
+    do_host_http_request(req)
+}
+
+/// Execute an HTTP request using HTTP/2 cleartext (h2c) transport.
+///
+/// This is required for talking to gRPC servers or other HTTP/2 services
+/// that listen on plain `http://` without TLS.
+///
+/// Internally this sets the `X-H2C` header which tells the host to use
+/// an h2c-capable HTTP/2 transport instead of the default HTTP/1.1 client.
+pub fn host_http_request_h2c(req: &HttpRequest) -> Result<HttpResponse, String> {
+    let mut patched = HttpRequest {
+        method: req.method.clone(),
+        url: req.url.clone(),
+        headers: req.headers.clone(),
+        body: req.body.clone(),
+    };
+    patched.headers.insert("X-H2C".into(), "1".into());
+    do_host_http_request(&patched)
+}
+
+fn do_host_http_request(req: &HttpRequest) -> Result<HttpResponse, String> {
     let req_json = serde_json::to_vec(req).map_err(|e| e.to_string())?;
     let ptr_size = pack_ptr_size(req_json.as_ptr() as u32, req_json.len() as u32);
     let result = unsafe { host_http_request_raw(ptr_size) };
