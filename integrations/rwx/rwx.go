@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	minRWXVersion     = "3.0.0"
+	minRWXVersion     = "3.13.0"
 	defaultRWXAPIBase = "https://cloud.rwx.com"
 	maxResponseSize   = 10 * 1024 * 1024 // 10 MB
 )
@@ -175,6 +175,7 @@ type handlerFunc func(ctx context.Context, r *rwx, args map[string]any) (*mcp.To
 var dispatch = map[mcp.ToolName]handlerFunc{
 	// Runs
 	mcp.ToolName("rwx_launch_ci_run"):   launchCIRun,
+	mcp.ToolName("rwx_dispatch_run"):    dispatchRun,
 	mcp.ToolName("rwx_wait_for_ci_run"): waitForCIRun,
 	mcp.ToolName("rwx_get_recent_runs"): getRecentRuns,
 	mcp.ToolName("rwx_get_run_results"): getRunResults,
@@ -190,6 +191,17 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 
 	// Workflow
 	mcp.ToolName("rwx_validate_workflow"): validateWorkflow,
+
+	// Docs
+	mcp.ToolName("rwx_docs_search"): docsSearch,
+	mcp.ToolName("rwx_docs_pull"):   docsPull,
+
+	// Vaults
+	mcp.ToolName("rwx_vaults_var_show"):      vaultsVarShow,
+	mcp.ToolName("rwx_vaults_var_set"):       vaultsVarSet,
+	mcp.ToolName("rwx_vaults_var_delete"):    vaultsVarDelete,
+	mcp.ToolName("rwx_vaults_secret_set"):    vaultsSecretSet,
+	mcp.ToolName("rwx_vaults_secret_delete"): vaultsSecretDelete,
 
 	// CLI
 	mcp.ToolName("rwx_verify_cli"): verifyCLI,
