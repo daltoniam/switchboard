@@ -58,35 +58,44 @@ func (c *logCache) set(id, logs string) {
 
 // --- Log download ---
 
-func downloadLogs(ctx context.Context, r *rwx, id string) (string, error) {
-	if cached, ok := r.logCache.get(id); ok {
+func downloadLogs(ctx context.Context, r *rwx, id string, taskKey ...string) (string, error) {
+	cacheKey := id
+	if len(taskKey) > 0 && taskKey[0] != "" {
+		cacheKey = id + ":" + taskKey[0]
+	}
+	if cached, ok := r.logCache.get(cacheKey); ok {
 		return cached, nil
 	}
 
-	logs, err := r.downloadLogsFromRWX(id)
+	logs, err := r.downloadLogsFromRWX(id, taskKey...)
 	if err != nil {
 		return "", err
 	}
 
 	go func() {
-		status, isComplete, err := fetchRunStatus(ctx, r, id)
+		bgCtx := context.WithoutCancel(ctx)
+		status, isComplete, err := fetchRunStatus(bgCtx, r, id)
 		_ = status
 		if err == nil && isComplete {
-			r.logCache.set(id, logs)
+			r.logCache.set(cacheKey, logs)
 		}
 	}()
 
 	return logs, nil
 }
 
-func (r *rwx) downloadLogsFromRWX(id string) (string, error) {
+func (r *rwx) downloadLogsFromRWX(id string, taskKey ...string) (string, error) {
 	outputDir, err := os.MkdirTemp("", fmt.Sprintf("rwx-logs-%s-", id))
 	if err != nil {
 		return "", fmt.Errorf("create temp dir: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(outputDir) }()
 
-	_, err = r.runRWXCommand([]string{"logs", id, "--output-dir", outputDir, "--auto-extract", "--output", "json"}, 0)
+	cmdArgs := []string{"logs", id, "--output-dir", outputDir, "--auto-extract", "--output", "json"}
+	if len(taskKey) > 0 && taskKey[0] != "" {
+		cmdArgs = append(cmdArgs, "--task", taskKey[0])
+	}
+	_, err = r.runRWXCommand(cmdArgs, 0)
 	if err != nil {
 		return "", err
 	}
@@ -140,12 +149,26 @@ func findLogFiles(dir string) ([]string, error) {
 // --- Log tool handlers ---
 
 func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	taskIDRaw, err := mcp.ArgStr(args, "task_id")
-	if err != nil {
+	ra := mcp.NewArgs(args)
+	taskIDRaw := ra.Str("task_id")
+	runIDRaw := ra.Str("run_id")
+	taskKey := ra.Str("task_key")
+	if err := ra.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	id := extractRunID(taskIDRaw)
-	logs, err := downloadLogs(ctx, r, id)
+
+	var id string
+	var logTaskKey string
+	if taskKey != "" && runIDRaw != "" {
+		id = extractRunID(runIDRaw)
+		logTaskKey = taskKey
+	} else if taskIDRaw != "" {
+		id = extractRunID(taskIDRaw)
+	} else {
+		return mcp.ErrResult(fmt.Errorf("either task_id or run_id+task_key is required"))
+	}
+
+	logs, err := downloadLogs(ctx, r, id, logTaskKey)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -186,6 +209,7 @@ func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 	idRaw := ra.Str("id")
 	numLines := ra.Int("lines")
 	offset := ra.Int("offset")
+	taskKey := ra.Str("task_key")
 	if err := ra.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -194,7 +218,7 @@ func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 		numLines = maxLinesPerPage
 	}
 
-	logs, err := downloadLogs(ctx, r, id)
+	logs, err := downloadLogs(ctx, r, id, taskKey)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -232,6 +256,7 @@ func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 	idRaw := ra.Str("id")
 	numLines := ra.Int("lines")
 	offset := ra.Int("offset")
+	taskKey := ra.Str("task_key")
 	if err := ra.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -240,7 +265,7 @@ func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 		numLines = maxLinesPerPage
 	}
 
-	logs, err := downloadLogs(ctx, r, id)
+	logs, err := downloadLogs(ctx, r, id, taskKey)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -281,6 +306,7 @@ func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 	pattern := ra.Str("pattern")
 	contextLines := ra.Int("context")
 	page := ra.Int("page")
+	taskKey := ra.Str("task_key")
 	if err := ra.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -292,7 +318,7 @@ func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 		page = 1
 	}
 
-	logs, err := downloadLogs(ctx, r, id)
+	logs, err := downloadLogs(ctx, r, id, taskKey)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

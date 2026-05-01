@@ -23,10 +23,12 @@ var cliToMCPReplacements = []struct {
 	{regexp.MustCompile("`rwx logs[^`]*`"), "the log tools (rwx_get_task_logs, rwx_head_logs, rwx_tail_logs, rwx_grep_logs)"},
 	{regexp.MustCompile("`rwx results[^`]*`"), "the rwx_get_run_results tool"},
 	{regexp.MustCompile("`rwx artifacts[^`]*`"), "the rwx_get_artifacts tool"},
+	{regexp.MustCompile("`rwx dispatch[^`]*`"), "the rwx_dispatch_run tool"},
 	{regexp.MustCompile("`rwx run[^`]*`"), "the rwx_launch_ci_run tool"},
 	{regexp.MustCompile(`(?i)\brwx logs\b`), "the log tools (rwx_get_task_logs, rwx_head_logs, rwx_tail_logs, rwx_grep_logs)"},
 	{regexp.MustCompile(`(?i)\brwx results\b`), "the rwx_get_run_results tool"},
 	{regexp.MustCompile(`(?i)\brwx artifacts\b`), "the rwx_get_artifacts tool"},
+	{regexp.MustCompile(`(?i)\brwx dispatch\b`), "the rwx_dispatch_run tool"},
 	{regexp.MustCompile(`(?i)\brwx run\b`), "the rwx_launch_ci_run tool"},
 }
 
