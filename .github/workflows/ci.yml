@@ -75,3 +75,16 @@ jobs:
 
       - name: Run govulncheck
         run: go tool govulncheck ./...
+
+  rust-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Check Rust guest SDK compiles
+        working-directory: wasm/guest-rust
+        run: cargo check --target wasm32-unknown-unknown

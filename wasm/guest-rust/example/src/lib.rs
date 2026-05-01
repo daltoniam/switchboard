@@ -179,6 +179,7 @@ fn do_get(path: &str) -> Result<String, String> {
         url: format!("{}{}", base_url_str(), path),
         headers,
         body: String::new(),
+        ..Default::default()
     };
 
     let resp = sdk::host_http_request(&req)?;
