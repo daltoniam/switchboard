@@ -220,7 +220,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"pganalyze": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "organization_slug": ""},
+				Credentials: mcp.Credentials{"api_key": "", "base_url": ""},
 			},
 			"rwx": {
 				Enabled:     false,
