@@ -266,7 +266,7 @@ func TestDefaultConfig(t *testing.T) {
 		"posthog":       {"api_key", "project_id", "base_url"},
 		"postgres":      {"connection_string", "host", "user", "read_only"},
 		"clickhouse":    {"host", "port", "username", "password", "database", "secure", "skip_verify"},
-		"pganalyze":     {"api_key", "base_url", "organization_slug"},
+		"pganalyze":     {"api_key", "base_url"},
 		"rwx":           {"access_token", "org"},
 		"gmail":         {"access_token", "refresh_token", "client_id", "client_secret", "base_url", "token_source"},
 		"notion":        {"token_v2"},
@@ -313,7 +313,7 @@ func TestDefaultCredentialKeys(t *testing.T) {
 	require.NoError(t, m.Load())
 
 	keys := m.DefaultCredentialKeys("pganalyze")
-	assert.ElementsMatch(t, []string{"api_key", "base_url", "organization_slug"}, keys)
+	assert.ElementsMatch(t, []string{"api_key", "base_url"}, keys)
 }
 
 func TestDefaultCredentialKeys_Unknown(t *testing.T) {
