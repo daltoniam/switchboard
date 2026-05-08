@@ -12,6 +12,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/remotemcp"
 )
 
 const maxResponseSize = 512 << 10 // 512 KB — largest real response ~230KB, caps worst-case at ~125K tokens
@@ -28,10 +29,16 @@ type notion struct {
 	userID  string
 	baseURL string
 	client  *http.Client
+
+	mcpServerURL string
+	remote       mcp.Integration
+	useRemote    bool
 }
 
-func New() mcp.Integration {
-	return &notion{
+// New creates a Notion integration. If mcpServerURL is non-empty, the
+// integration supports dual-mode: remote MCP (via OAuth) or native token_v2.
+func New(mcpServerURL ...string) mcp.Integration {
+	n := &notion{
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 			Transport: &http.Transport{
@@ -43,14 +50,65 @@ func New() mcp.Integration {
 		},
 		baseURL: "https://www.notion.so",
 	}
+	if len(mcpServerURL) > 0 && mcpServerURL[0] != "" {
+		n.mcpServerURL = mcpServerURL[0]
+	}
+	return n
+}
+
+// IsRemoteMCP reports whether this integration is currently operating in
+// remote MCP mode (as opposed to native token_v2 mode).
+func IsRemoteMCP(i mcp.Integration) bool {
+	if n, ok := i.(*notion); ok {
+		return n.useRemote
+	}
+	return false
+}
+
+// MCPServerURL returns the configured remote MCP server URL, or empty.
+func MCPServerURL(i mcp.Integration) string {
+	if n, ok := i.(*notion); ok {
+		return n.mcpServerURL
+	}
+	return ""
+}
+
+// RemoteIntegration returns the underlying remote MCP integration, if any.
+func RemoteIntegration(i mcp.Integration) mcp.Integration {
+	if n, ok := i.(*notion); ok {
+		return n.remote
+	}
+	return nil
 }
 
 func (n *notion) Name() string { return "notion" }
 
 func (n *notion) Configure(ctx context.Context, creds mcp.Credentials) error {
+	if token := creds["mcp_access_token"]; token != "" && n.mcpServerURL != "" {
+		if n.remote == nil {
+			n.remote = remotemcp.New("notion", n.mcpServerURL)
+		}
+		remoteCreds := mcp.Credentials{"access_token": token}
+		if v := creds["refresh_token"]; v != "" {
+			remoteCreds["refresh_token"] = v
+		}
+		if v := creds["client_id"]; v != "" {
+			remoteCreds["client_id"] = v
+		}
+		if v := creds["client_secret"]; v != "" {
+			remoteCreds["client_secret"] = v
+		}
+		if err := n.remote.Configure(ctx, remoteCreds); err != nil {
+			return err
+		}
+		n.useRemote = true
+		return nil
+	}
+
+	n.useRemote = false
 	n.tokenV2 = creds["token_v2"]
 	if n.tokenV2 == "" {
-		return fmt.Errorf("notion: token_v2 is required")
+		return fmt.Errorf("notion: token_v2 or mcp_access_token is required")
 	}
 	if v := creds["base_url"]; v != "" {
 		n.baseURL = strings.TrimRight(v, "/")
@@ -105,6 +163,9 @@ func (n *notion) resolveSpaceAndUser(ctx context.Context) (string, string, error
 }
 
 func (n *notion) Healthy(ctx context.Context) bool {
+	if n.useRemote && n.remote != nil {
+		return n.remote.Healthy(ctx)
+	}
 	if n.client == nil || n.tokenV2 == "" {
 		return false
 	}
@@ -113,6 +174,9 @@ func (n *notion) Healthy(ctx context.Context) bool {
 }
 
 func (n *notion) Tools() []mcp.ToolDefinition {
+	if n.useRemote && n.remote != nil {
+		return n.remote.Tools()
+	}
 	return tools
 }
 
@@ -122,6 +186,9 @@ func (n *notion) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 }
 
 func (n *notion) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	if n.useRemote && n.remote != nil {
+		return n.remote.Execute(ctx, toolName, args)
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil

@@ -6,28 +6,35 @@ import (
 )
 
 type NotionSetupData struct {
-	HasToken       bool
-	Healthy        bool
-	ExtractSnippet string
-	FlashResult    string
-	FlashError     string
+	HasRemoteMCP     bool
+	RemoteMCPHealthy bool
+	HasToken         bool
+	Healthy          bool
+	TokenSource      string
+	ExtractSnippet   string
+	FlashResult      string
+	FlashError       string
 }
 
-func notionStatusBadge(hasToken bool, healthy bool) string {
-	if healthy {
+func notionOverallHealthy(data NotionSetupData) bool {
+	return data.RemoteMCPHealthy || data.Healthy
+}
+
+func notionStatusBadge(data NotionSetupData) string {
+	if notionOverallHealthy(data) {
 		return "green"
 	}
-	if hasToken {
+	if data.HasToken {
 		return "red"
 	}
 	return "muted"
 }
 
-func notionStatusLabel(hasToken bool, healthy bool) string {
-	if healthy {
+func notionStatusLabel(data NotionSetupData) string {
+	if notionOverallHealthy(data) {
 		return "Connected"
 	}
-	if hasToken {
+	if data.HasToken {
 		return "Invalid Token"
 	}
 	return "Not Connected"
@@ -38,7 +45,10 @@ templ NotionSetup(page layouts.PageData, data NotionSetupData) {
 		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
 			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
 			<h1 class="page-title" style="margin-bottom: 0;">Notion Setup</h1>
-			@components.Badge(notionStatusLabel(data.HasToken, data.Healthy), notionStatusBadge(data.HasToken, data.Healthy))
+			@components.Badge(notionStatusLabel(data), notionStatusBadge(data))
+			if data.RemoteMCPHealthy {
+				@components.Badge("remote", "muted")
+			}
 		</div>
 		if data.FlashResult != "" {
 			<div class="flash flash-success">{ data.FlashResult }</div>
@@ -46,19 +56,49 @@ templ NotionSetup(page layouts.PageData, data NotionSetupData) {
 		if data.FlashError != "" {
 			<div class="flash flash-error">{ data.FlashError }</div>
 		}
-		if data.HasToken && data.Healthy {
+		if data.HasRemoteMCP {
 			<div class="card">
 				<div class="card-header">
-					<div class="card-title">Current Connection</div>
-					@components.Badge("Connected", "green")
+					<div class="card-title">Option 1: Sign in with Notion (Recommended)</div>
+					if data.RemoteMCPHealthy {
+						@components.Badge("Connected", "green")
+					}
 				</div>
-				<p style="color: var(--text-muted); font-size: 0.85rem;">
-					Notion is connected. You can re-enter your token below to update it.
+				<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+					Connect using Notion's MCP OAuth — no manual token extraction needed. You'll be redirected to Notion to authorize, then sent back automatically. Access tokens refresh automatically (1-hour expiry with refresh token rotation).
 				</p>
+				if data.RemoteMCPHealthy {
+					<div style="display: flex; align-items: center; gap: 0.75rem;">
+						<button type="button" class="btn btn-outline" id="oauth-start-btn" onclick="startRemoteMCPOAuth()">Re-authorize</button>
+					</div>
+				} else {
+					<div id="oauth-container">
+						<button type="button" class="btn btn-green" id="oauth-start-btn" onclick="startRemoteMCPOAuth()">
+							Sign in with Notion →
+						</button>
+					</div>
+				}
+				<div id="oauth-error" style="display: none;">
+					<div class="flash flash-error" id="oauth-error-msg"></div>
+					<button type="button" class="btn btn-outline" onclick="resetOAuth()" style="margin-top: 0.5rem;">Try Again</button>
+				</div>
 			</div>
 		}
 		<div class="card">
-			<div class="card-title" style="margin-bottom: 0.75rem;">Option 1: Extract from Browser</div>
+			<div class="card-header">
+				<div class="card-title">
+					if data.HasRemoteMCP {
+						Option 2: Extract from Browser
+					} else {
+						Option 1: Extract from Browser
+					}
+				</div>
+				if data.HasToken && data.Healthy && data.TokenSource != "oauth" {
+					@components.Badge("Connected", "green")
+				} else if data.HasToken && !data.Healthy && data.TokenSource != "oauth" {
+					@components.Badge("Invalid Token", "red")
+				}
+			</div>
 			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
 				Extract your <code>token_v2</code> by running a script in your browser's developer console.
 			</p>
@@ -98,7 +138,13 @@ templ NotionSetup(page layouts.PageData, data NotionSetupData) {
 			</div>
 		</div>
 		<div class="card">
-			<div class="card-title" style="margin-bottom: 0.75rem;">Option 2: Manual Token Entry</div>
+			<div class="card-title" style="margin-bottom: 0.75rem;">
+				if data.HasRemoteMCP {
+					Option 3: Manual Token Entry
+				} else {
+					Option 2: Manual Token Entry
+				}
+			</div>
 			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
 				If you already have your <code>token_v2</code>, or prefer to extract it manually from
 				<strong>DevTools</strong> → <strong>Application</strong> → <strong>Cookies</strong> → <code>www.notion.so</code>,
@@ -119,5 +165,42 @@ templ NotionSetup(page layouts.PageData, data NotionSetupData) {
 				});
 			}
 		</script>
+		if data.HasRemoteMCP {
+			<script>
+				function startRemoteMCPOAuth() {
+					var btn = document.getElementById('oauth-start-btn');
+					btn.disabled = true;
+					btn.textContent = 'Starting...';
+
+					fetch('/api/remote/notion/oauth/start', { method: 'POST' })
+						.then(function(r) { return r.json(); })
+						.then(function(data) {
+							if (data.error) {
+								showOAuthError(data.error);
+								return;
+							}
+							window.location.href = data.authorize_url;
+						})
+						.catch(function(err) {
+							showOAuthError('Failed to start OAuth flow: ' + err.message);
+						});
+				}
+
+				function showOAuthError(msg) {
+					var container = document.getElementById('oauth-container');
+					if (container) { container.style.display = 'none'; }
+					document.getElementById('oauth-error').style.display = 'block';
+					document.getElementById('oauth-error-msg').textContent = msg;
+				}
+
+				function resetOAuth() {
+					document.getElementById('oauth-error').style.display = 'none';
+					document.getElementById('oauth-container').style.display = 'block';
+					var btn = document.getElementById('oauth-start-btn');
+					btn.disabled = false;
+					btn.textContent = 'Sign in with Notion \u2192';
+				}
+			</script>
+		}
 	}
 }

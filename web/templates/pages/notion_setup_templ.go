@@ -14,28 +14,35 @@ import (
 )
 
 type NotionSetupData struct {
-	HasToken       bool
-	Healthy        bool
-	ExtractSnippet string
-	FlashResult    string
-	FlashError     string
+	HasRemoteMCP     bool
+	RemoteMCPHealthy bool
+	HasToken         bool
+	Healthy          bool
+	TokenSource      string
+	ExtractSnippet   string
+	FlashResult      string
+	FlashError       string
 }
 
-func notionStatusBadge(hasToken bool, healthy bool) string {
-	if healthy {
+func notionOverallHealthy(data NotionSetupData) bool {
+	return data.RemoteMCPHealthy || data.Healthy
+}
+
+func notionStatusBadge(data NotionSetupData) string {
+	if notionOverallHealthy(data) {
 		return "green"
 	}
-	if hasToken {
+	if data.HasToken {
 		return "red"
 	}
 	return "muted"
 }
 
-func notionStatusLabel(hasToken bool, healthy bool) string {
-	if healthy {
+func notionStatusLabel(data NotionSetupData) string {
+	if notionOverallHealthy(data) {
 		return "Connected"
 	}
-	if hasToken {
+	if data.HasToken {
 		return "Invalid Token"
 	}
 	return "Not Connected"
@@ -78,9 +85,15 @@ func NotionSetup(page layouts.PageData, data NotionSetupData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.Badge(notionStatusLabel(data.HasToken, data.Healthy), notionStatusBadge(data.HasToken, data.Healthy)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Badge(notionStatusLabel(data), notionStatusBadge(data)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
+			}
+			if data.RemoteMCPHealthy {
+				templ_7745c5c3_Err = components.Badge("remote", "muted").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div>")
 			if templ_7745c5c3_Err != nil {
@@ -94,7 +107,7 @@ func NotionSetup(page layouts.PageData, data NotionSetupData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashResult)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 44, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 54, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -117,7 +130,7 @@ func NotionSetup(page layouts.PageData, data NotionSetupData) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashError)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 47, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 57, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -132,34 +145,96 @@ func NotionSetup(page layouts.PageData, data NotionSetupData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.HasToken && data.Healthy {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">Current Connection</div>")
+			if data.HasRemoteMCP {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">Option 1: Sign in with Notion (Recommended)</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = components.Badge("Connected", "green").Render(ctx, templ_7745c5c3_Buffer)
+				if data.RemoteMCPHealthy {
+					templ_7745c5c3_Err = components.Badge("Connected", "green").Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Connect using Notion's MCP OAuth — no manual token extraction needed. You'll be redirected to Notion to authorize, then sent back automatically. Access tokens refresh automatically (1-hour expiry with refresh token rotation).</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><p style=\"color: var(--text-muted); font-size: 0.85rem;\">Notion is connected. You can re-enter your token below to update it.</p></div>")
+				if data.RemoteMCPHealthy {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div style=\"display: flex; align-items: center; gap: 0.75rem;\"><button type=\"button\" class=\"btn btn-outline\" id=\"oauth-start-btn\" onclick=\"startRemoteMCPOAuth()\">Re-authorize</button></div>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div id=\"oauth-container\"><button type=\"button\" class=\"btn btn-green\" id=\"oauth-start-btn\" onclick=\"startRemoteMCPOAuth()\">Sign in with Notion →</button></div>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div id=\"oauth-error\" style=\"display: none;\"><div class=\"flash flash-error\" id=\"oauth-error-msg\"></div><button type=\"button\" class=\"btn btn-outline\" onclick=\"resetOAuth()\" style=\"margin-top: 0.5rem;\">Try Again</button></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, " <div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Option 1: Extract from Browser</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Extract your <code>token_v2</code> by running a script in your browser's developer console.</p><div class=\"slack-steps\"><div class=\"slack-step\"><div class=\"slack-step-num\">1</div><div><strong>Open Notion in your browser</strong><p class=\"slack-step-detail\">Navigate to <a href=\"https://www.notion.so\" target=\"_blank\" class=\"slack-link\">notion.so</a> and make sure you're signed in.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">2</div><div><strong>Open Developer Console</strong><p class=\"slack-step-detail\">Press <kbd>F12</kbd> (or <kbd>Cmd+Option+J</kbd> on Mac) to open DevTools, then click the <strong>Console</strong> tab.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">3</div><div><strong>Run the extraction script</strong><p class=\"slack-step-detail\">Copy and paste this script into the console, then press Enter:</p><div class=\"slack-code-block\"><pre><code id=\"extract-snippet\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, " <div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.HasRemoteMCP {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "Option 2: Extract from Browser")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "Option 1: Extract from Browser")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.HasToken && data.Healthy && data.TokenSource != "oauth" {
+				templ_7745c5c3_Err = components.Badge("Connected", "green").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else if data.HasToken && !data.Healthy && data.TokenSource != "oauth" {
+				templ_7745c5c3_Err = components.Badge("Invalid Token", "red").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Extract your <code>token_v2</code> by running a script in your browser's developer console.</p><div class=\"slack-steps\"><div class=\"slack-step\"><div class=\"slack-step-num\">1</div><div><strong>Open Notion in your browser</strong><p class=\"slack-step-detail\">Navigate to <a href=\"https://www.notion.so\" target=\"_blank\" class=\"slack-link\">notion.so</a> and make sure you're signed in.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">2</div><div><strong>Open Developer Console</strong><p class=\"slack-step-detail\">Press <kbd>F12</kbd> (or <kbd>Cmd+Option+J</kbd> on Mac) to open DevTools, then click the <strong>Console</strong> tab.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">3</div><div><strong>Run the extraction script</strong><p class=\"slack-step-detail\">Copy and paste this script into the console, then press Enter:</p><div class=\"slack-code-block\"><pre><code id=\"extract-snippet\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.ExtractSnippet)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 86, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/notion_setup.templ`, Line: 126, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</code></pre><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"copySnippet()\" id=\"copy-btn\">Copy</button></div></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">4</div><div><strong>Paste the token below</strong><p class=\"slack-step-detail\">A prompt will appear with the token value. Copy it and paste it in the field below.</p></div></div></div></div><div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Option 2: Manual Token Entry</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">If you already have your <code>token_v2</code>, or prefer to extract it manually from <strong>DevTools</strong> → <strong>Application</strong> → <strong>Cookies</strong> → <code>www.notion.so</code>, paste it here.</p><form method=\"POST\" action=\"/api/notion/save-token\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</code></pre><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"copySnippet()\" id=\"copy-btn\">Copy</button></div></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">4</div><div><strong>Paste the token below</strong><p class=\"slack-step-detail\">A prompt will appear with the token value. Copy it and paste it in the field below.</p></div></div></div></div><div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.HasRemoteMCP {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "Option 3: Manual Token Entry")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "Option 2: Manual Token Entry")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">If you already have your <code>token_v2</code>, or prefer to extract it manually from <strong>DevTools</strong> → <strong>Application</strong> → <strong>Cookies</strong> → <code>www.notion.so</code>, paste it here.</p><form method=\"POST\" action=\"/api/notion/save-token\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -167,9 +242,15 @@ func NotionSetup(page layouts.PageData, data NotionSetupData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<button type=\"submit\" class=\"btn\">Save Token</button></form></div><script>\n\t\t\tfunction copySnippet() {\n\t\t\t\tvar text = document.getElementById('extract-snippet').textContent;\n\t\t\t\tnavigator.clipboard.writeText(text).then(function() {\n\t\t\t\t\tvar btn = document.getElementById('copy-btn');\n\t\t\t\t\tbtn.textContent = 'Copied!';\n\t\t\t\t\tsetTimeout(function() { btn.textContent = 'Copy'; }, 2000);\n\t\t\t\t});\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<button type=\"submit\" class=\"btn\">Save Token</button></form></div><script>\n\t\t\tfunction copySnippet() {\n\t\t\t\tvar text = document.getElementById('extract-snippet').textContent;\n\t\t\t\tnavigator.clipboard.writeText(text).then(function() {\n\t\t\t\t\tvar btn = document.getElementById('copy-btn');\n\t\t\t\t\tbtn.textContent = 'Copied!';\n\t\t\t\t\tsetTimeout(function() { btn.textContent = 'Copy'; }, 2000);\n\t\t\t\t});\n\t\t\t}\n\t\t</script> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
+			}
+			if data.HasRemoteMCP {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<script>\n\t\t\t\tfunction startRemoteMCPOAuth() {\n\t\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\t\tbtn.disabled = true;\n\t\t\t\t\tbtn.textContent = 'Starting...';\n\n\t\t\t\t\tfetch('/api/remote/notion/oauth/start', { method: 'POST' })\n\t\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t\t.then(function(data) {\n\t\t\t\t\t\t\tif (data.error) {\n\t\t\t\t\t\t\t\tshowOAuthError(data.error);\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\twindow.location.href = data.authorize_url;\n\t\t\t\t\t\t})\n\t\t\t\t\t\t.catch(function(err) {\n\t\t\t\t\t\t\tshowOAuthError('Failed to start OAuth flow: ' + err.message);\n\t\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\tfunction showOAuthError(msg) {\n\t\t\t\t\tvar container = document.getElementById('oauth-container');\n\t\t\t\t\tif (container) { container.style.display = 'none'; }\n\t\t\t\t\tdocument.getElementById('oauth-error').style.display = 'block';\n\t\t\t\t\tdocument.getElementById('oauth-error-msg').textContent = msg;\n\t\t\t\t}\n\n\t\t\t\tfunction resetOAuth() {\n\t\t\t\t\tdocument.getElementById('oauth-error').style.display = 'none';\n\t\t\t\t\tdocument.getElementById('oauth-container').style.display = 'block';\n\t\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\t\tbtn.disabled = false;\n\t\t\t\t\tbtn.textContent = 'Sign in with Notion \\u2192';\n\t\t\t\t}\n\t\t\t</script>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
 			return nil
 		})

@@ -89,7 +89,7 @@ func TestConfigure_RejectsEmptyTokenV2(t *testing.T) {
 	i := New()
 	err := i.Configure(context.Background(), mcp.Credentials{"token_v2": ""})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "token_v2 is required")
+	assert.Contains(t, err.Error(), "token_v2 or mcp_access_token is required")
 }
 
 func TestConfigure_TrimsTrailingSlashFromCustomBaseURL(t *testing.T) {
@@ -120,6 +120,88 @@ func TestConfigure_ReturnsErrorWhenGetSpacesFails(t *testing.T) {
 	err := n.Configure(context.Background(), mcp.Credentials{"token_v2": "bad-token"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "resolve workspace")
+}
+
+// --- Dual-mode (remote MCP) ---
+
+func TestNew_WithMCPServerURL(t *testing.T) {
+	i := New("https://mcp.notion.com")
+	n := i.(*notion)
+	assert.Equal(t, "https://mcp.notion.com", n.mcpServerURL)
+}
+
+func TestNew_WithoutMCPServerURL(t *testing.T) {
+	i := New()
+	n := i.(*notion)
+	assert.Empty(t, n.mcpServerURL)
+}
+
+func TestMCPServerURL_ReturnsConfiguredURL(t *testing.T) {
+	i := New("https://mcp.notion.com")
+	assert.Equal(t, "https://mcp.notion.com", MCPServerURL(i))
+}
+
+func TestMCPServerURL_ReturnsEmptyForNoURL(t *testing.T) {
+	i := New()
+	assert.Empty(t, MCPServerURL(i))
+}
+
+func TestIsRemoteMCP_FalseByDefault(t *testing.T) {
+	i := New("https://mcp.notion.com")
+	assert.False(t, IsRemoteMCP(i))
+}
+
+func TestConfigure_SwitchesToRemoteMCPWithAccessToken(t *testing.T) {
+	i := New("https://mcp.notion.com")
+	n := i.(*notion)
+	err := n.Configure(context.Background(), mcp.Credentials{
+		"mcp_access_token": "test-token",
+	})
+	require.NoError(t, err)
+	assert.True(t, n.useRemote)
+	assert.NotNil(t, n.remote)
+}
+
+func TestConfigure_FallsBackToTokenV2WhenNoMCPServerURL(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		okJSON(w, `{"user-1": {"space": {"sp-1": {"value": {"id": "sp-1"}}}}}`)
+	}))
+	defer ts.Close()
+
+	n := &notion{client: ts.Client(), baseURL: ts.URL}
+	err := n.Configure(context.Background(), mcp.Credentials{
+		"mcp_access_token": "test-token",
+		"token_v2":         "tok",
+	})
+	require.NoError(t, err)
+	assert.False(t, n.useRemote)
+	assert.Equal(t, "tok", n.tokenV2)
+}
+
+func TestConfigure_PassesRefreshTokenToRemote(t *testing.T) {
+	i := New("https://mcp.notion.com")
+	n := i.(*notion)
+	err := n.Configure(context.Background(), mcp.Credentials{
+		"mcp_access_token": "test-token",
+		"refresh_token":    "refresh-123",
+		"client_id":        "client-abc",
+	})
+	require.NoError(t, err)
+	assert.True(t, n.useRemote)
+}
+
+func TestRemoteIntegration_ReturnsNilByDefault(t *testing.T) {
+	i := New()
+	assert.Nil(t, RemoteIntegration(i))
+}
+
+func TestRemoteIntegration_ReturnsRemoteAfterConfig(t *testing.T) {
+	i := New("https://mcp.notion.com")
+	n := i.(*notion)
+	_ = n.Configure(context.Background(), mcp.Credentials{
+		"mcp_access_token": "test-token",
+	})
+	assert.NotNil(t, RemoteIntegration(i))
 }
 
 // --- Tools metadata ---

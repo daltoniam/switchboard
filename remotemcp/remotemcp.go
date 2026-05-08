@@ -24,10 +24,16 @@ type remote struct {
 
 	mu           sync.RWMutex
 	token        string
+	refreshToken string
+	clientID     string
+	clientSecret string
+	tokenExpiry  time.Time
 	session      *mcpsdk.ClientSession
 	client       *mcpsdk.Client
 	cachedTools  []mcp.ToolDefinition
 	toolsFetched bool
+
+	onTokenRefresh func(accessToken, refreshToken string, expiresIn int)
 }
 
 // New creates a remote MCP integration that proxies to the given server URL.
@@ -58,7 +64,77 @@ func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 		r.toolsFetched = false
 		r.cachedTools = nil
 	}
+
+	if v := creds["refresh_token"]; v != "" {
+		r.refreshToken = v
+	}
+	if v := creds["client_id"]; v != "" {
+		r.clientID = v
+	}
+	if v := creds["client_secret"]; v != "" {
+		r.clientSecret = v
+	}
 	return nil
+}
+
+// SetTokenRefreshCallback sets a callback that is invoked when a token is refreshed.
+// The callback receives the new access token, refresh token, and expiry in seconds.
+func SetTokenRefreshCallback(i mcp.Integration, cb func(accessToken, refreshToken string, expiresIn int)) {
+	if r, ok := i.(*remote); ok {
+		r.mu.Lock()
+		r.onTokenRefresh = cb
+		r.mu.Unlock()
+	}
+}
+
+// tryRefreshToken attempts to refresh the access token using the stored refresh token.
+// Returns true if refresh succeeded and the caller should retry.
+func (r *remote) tryRefreshToken() bool {
+	r.mu.RLock()
+	refresh := r.refreshToken
+	clientID := r.clientID
+	clientSecret := r.clientSecret
+	serverURL := r.serverURL
+	r.mu.RUnlock()
+
+	if refresh == "" {
+		return false
+	}
+
+	result, err := RefreshToken(serverURL, clientID, clientSecret, refresh)
+	if err != nil {
+		return false
+	}
+
+	r.mu.Lock()
+	r.token = result.AccessToken
+	if result.RefreshToken != "" {
+		r.refreshToken = result.RefreshToken
+	}
+	if result.ExpiresIn > 0 {
+		r.tokenExpiry = time.Now().Add(time.Duration(result.ExpiresIn) * time.Second)
+	}
+	if r.session != nil {
+		_ = r.session.Close()
+		r.session = nil
+	}
+	cb := r.onTokenRefresh
+	r.mu.Unlock()
+
+	if cb != nil {
+		cb(result.AccessToken, result.RefreshToken, result.ExpiresIn)
+	}
+	return true
+}
+
+// tokenNeedsRefresh returns true if the token is expired or about to expire.
+func (r *remote) tokenNeedsRefresh() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.tokenExpiry.IsZero() {
+		return false
+	}
+	return time.Until(r.tokenExpiry) < 5*time.Minute
 }
 
 // bearerTransport injects an Authorization header into every request.
@@ -127,9 +203,19 @@ func (r *remote) disconnect() {
 }
 
 func (r *remote) Healthy(ctx context.Context) bool {
+	if r.tokenNeedsRefresh() {
+		r.tryRefreshToken()
+	}
 	session, err := r.connect(ctx)
 	if err != nil {
-		return false
+		if r.tryRefreshToken() {
+			session, err = r.connect(ctx)
+			if err != nil {
+				return false
+			}
+		} else {
+			return false
+		}
 	}
 	_, err = session.ListTools(ctx, &mcpsdk.ListToolsParams{})
 	if err != nil {
@@ -172,9 +258,20 @@ func (r *remote) Tools() []mcp.ToolDefinition {
 }
 
 func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	if r.tokenNeedsRefresh() {
+		r.tryRefreshToken()
+	}
+
 	session, err := r.connect(ctx)
 	if err != nil {
-		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+		if r.tryRefreshToken() {
+			session, err = r.connect(ctx)
+			if err != nil {
+				return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+			}
+		} else {
+			return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+		}
 	}
 
 	remoteName := strings.TrimPrefix(string(toolName), r.name+"_")
@@ -185,7 +282,22 @@ func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 	})
 	if err != nil {
 		r.disconnect()
-		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+		if r.tryRefreshToken() {
+			session, err = r.connect(ctx)
+			if err != nil {
+				return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+			}
+			result, err = session.CallTool(ctx, &mcpsdk.CallToolParams{
+				Name:      remoteName,
+				Arguments: args,
+			})
+			if err != nil {
+				r.disconnect()
+				return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+			}
+		} else {
+			return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+		}
 	}
 
 	return convertResult(result), nil
