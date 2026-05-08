@@ -18,6 +18,11 @@ var validExplainFormats = map[string]bool{
 }
 
 func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	sqlStr, err := mcp.ArgStr(args, "sql")
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -39,7 +44,7 @@ func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 
 	wrapped := fmt.Sprintf("SELECT * FROM (%s) AS _q LIMIT %d", strings.TrimRight(strings.TrimSpace(sqlStr), ";"), limit) // #nosec G201 -- intentional: this tool executes user-provided SQL in a read-only transaction
 
-	tx, err := p.db.BeginTx(ctx, &readOnlyTx)
+	tx, err := conn.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
 		return mcp.ErrResult(fmt.Errorf("begin transaction: %w", err))
 	}
@@ -59,7 +64,12 @@ func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 }
 
 func executeTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	if p.readOnly {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	if conn.readOnly {
 		return mcp.ErrResult(fmt.Errorf("execute is disabled: set read_only=false in postgres credentials to enable"))
 	}
 
@@ -78,7 +88,7 @@ func executeTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		}
 	}
 
-	data, err := p.exec(ctx, sqlStr)
+	data, err := p.exec(ctx, conn, sqlStr)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -86,6 +96,11 @@ func executeTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 }
 
 func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	ra := mcp.NewArgs(args)
 	sqlStr := ra.Str("sql")
 	format := ra.Str("format")
@@ -112,7 +127,7 @@ func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		explain = fmt.Sprintf("EXPLAIN (FORMAT %s) %s", format, sqlStr)
 	}
 
-	tx, err := p.db.BeginTx(ctx, &readOnlyTx)
+	tx, err := conn.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
 		return mcp.ErrResult(fmt.Errorf("begin transaction: %w", err))
 	}
@@ -132,6 +147,11 @@ func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 }
 
 func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	ra := mcp.NewArgs(args)
 	table := ra.Str("table")
 	schema := ra.Str("schema")
@@ -189,7 +209,7 @@ func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		q += fmt.Sprintf(" OFFSET %d", offset)
 	}
 
-	tx, err := p.db.BeginTx(ctx, &readOnlyTx)
+	tx, err := conn.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
 		return mcp.ErrResult(fmt.Errorf("begin transaction: %w", err))
 	}

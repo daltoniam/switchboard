@@ -7,8 +7,13 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-func databaseInfo(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.queryRow(ctx, `
+func databaseInfo(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	data, err := p.queryRow(ctx, conn, `
 		SELECT version() AS version,
 		       current_database() AS database,
 		       current_user AS user,
@@ -25,6 +30,11 @@ func databaseInfo(ctx context.Context, p *postgres, _ map[string]any) (*mcp.Tool
 }
 
 func databaseSize(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	limit, err := mcp.ArgInt(args, "limit")
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -33,7 +43,7 @@ func databaseSize(ctx context.Context, p *postgres, args map[string]any) (*mcp.T
 		limit = 20
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT current_database() AS database,
 		       pg_size_pretty(pg_database_size(current_database())) AS database_size,
 		       schemaname AS schema,
@@ -52,6 +62,11 @@ func databaseSize(ctx context.Context, p *postgres, args map[string]any) (*mcp.T
 }
 
 func tableStats(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	ra := mcp.NewArgs(args)
 	table := ra.Str("table")
 	schema := ra.Str("schema")
@@ -65,7 +80,7 @@ func tableStats(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		schema = "public"
 	}
 
-	data, err := p.queryRow(ctx, `
+	data, err := p.queryRow(ctx, conn, `
 		SELECT s.relname AS table_name,
 		       s.schemaname AS schema,
 		       s.n_live_tup AS live_rows,
@@ -91,8 +106,13 @@ func tableStats(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 	return mcp.RawResult(data)
 }
 
-func listRoles(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.query(ctx, `
+func listRoles(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	data, err := p.query(ctx, conn, `
 		SELECT rolname AS role_name,
 		       rolsuper AS is_superuser,
 		       rolcreatedb AS can_create_db,
@@ -110,6 +130,11 @@ func listRoles(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolRes
 }
 
 func listGrants(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	ra := mcp.NewArgs(args)
 	schema := ra.Str("schema")
 	table := ra.Str("table")
@@ -121,7 +146,7 @@ func listGrants(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 	}
 
 	if table != "" {
-		data, err := p.query(ctx, `
+		data, err := p.query(ctx, conn, `
 			SELECT grantee, privilege_type, is_grantable, table_schema, table_name
 			FROM information_schema.table_privileges
 			WHERE table_schema = $1 AND table_name = $2
@@ -132,7 +157,7 @@ func listGrants(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		return mcp.RawResult(data)
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT grantee, privilege_type, is_grantable, table_schema, table_name
 		FROM information_schema.table_privileges
 		WHERE table_schema = $1
@@ -143,8 +168,13 @@ func listGrants(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 	return mcp.RawResult(data)
 }
 
-func listExtensions(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.query(ctx, `
+func listExtensions(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	data, err := p.query(ctx, conn, `
 		SELECT extname AS name,
 		       extversion AS version,
 		       n.nspname AS schema,
@@ -159,13 +189,18 @@ func listExtensions(ctx context.Context, p *postgres, _ map[string]any) (*mcp.To
 }
 
 func listActiveConnections(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	state, err := mcp.ArgStr(args, "state")
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
 
 	if state != "" {
-		data, err := p.query(ctx, `
+		data, err := p.query(ctx, conn, `
 			SELECT pid, usename AS user, datname AS database, client_addr, client_port,
 			       state, backend_start, query_start, state_change,
 			       EXTRACT(EPOCH FROM now() - query_start)::int AS duration_seconds,
@@ -179,7 +214,7 @@ func listActiveConnections(ctx context.Context, p *postgres, args map[string]any
 		return mcp.RawResult(data)
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT pid, usename AS user, datname AS database, client_addr, client_port,
 		       state, backend_start, query_start, state_change,
 		       EXTRACT(EPOCH FROM now() - query_start)::int AS duration_seconds,
@@ -193,8 +228,13 @@ func listActiveConnections(ctx context.Context, p *postgres, args map[string]any
 	return mcp.RawResult(data)
 }
 
-func listLocks(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.query(ctx, `
+func listLocks(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	data, err := p.query(ctx, conn, `
 		SELECT blocked_locks.pid AS blocked_pid,
 		       blocked_activity.usename AS blocked_user,
 		       LEFT(blocked_activity.query, 200) AS blocked_query,
@@ -228,13 +268,18 @@ func listLocks(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolRes
 }
 
 func runningQueries(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	minDuration, err := mcp.ArgStr(args, "min_duration")
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
 
 	if minDuration != "" {
-		data, err := p.query(ctx, `
+		data, err := p.query(ctx, conn, `
 			SELECT pid, usename AS user, datname AS database,
 			       state, query_start,
 			       EXTRACT(EPOCH FROM now() - query_start)::int AS duration_seconds,
@@ -252,7 +297,7 @@ func runningQueries(ctx context.Context, p *postgres, args map[string]any) (*mcp
 		return mcp.RawResult(data)
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT pid, usename AS user, datname AS database,
 		       state, query_start,
 		       EXTRACT(EPOCH FROM now() - query_start)::int AS duration_seconds,
