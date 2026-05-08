@@ -16,6 +16,7 @@ import (
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
 	acpInt "github.com/daltoniam/switchboard/integrations/acp"
+	agentsInt "github.com/daltoniam/switchboard/integrations/agents"
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/botidentity"
@@ -231,6 +232,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		flyInt.New(),
 		snowflakeInt.New(),
 		acpInt.New(),
+		agentsInt.New(),
 		signozInt.New(),
 		webfetchInt.New(),
 		nomadInt.New(),
