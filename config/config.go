@@ -134,6 +134,11 @@ var envMapping = map[string]map[string]string{
 		"address": "NOMAD_ADDR",
 		"token":   "NOMAD_TOKEN",
 	},
+	"agents": {
+		"base_url": "AGENTS_BASE_URL",
+		"a2a_url":  "AGENTS_A2A_URL",
+		"token":    "AGENTS_TOKEN",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -305,6 +310,10 @@ func defaultConfig() *mcp.Config {
 			"nomad": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"address": "", "token": ""},
+			},
+			"agents": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "a2a_url": "", "token": ""},
 			},
 			"switchboard": {
 				Enabled:     false,
