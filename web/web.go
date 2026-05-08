@@ -13,6 +13,7 @@ import (
 	ghInt "github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
+	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
@@ -1091,21 +1092,40 @@ func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {
 	ic, exists := w.services.Config.GetIntegration("notion")
 	hasToken := exists && ic.Credentials["token_v2"] != ""
 
+	integration, integrationOK := w.services.Registry.Get("notion")
+
+	mcpServerURL := ""
+	if integrationOK {
+		mcpServerURL = notionInt.MCPServerURL(integration)
+	}
+	hasRemoteMCP := mcpServerURL != ""
+
 	var healthy bool
-	if hasToken {
-		integration, ok := w.services.Registry.Get("notion")
-		if ok {
-			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
-				healthy = integration.Healthy(r.Context())
+	var remoteMCPHealthy bool
+	if exists && integrationOK {
+		if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+			h := integration.Healthy(r.Context())
+			if notionInt.IsRemoteMCP(integration) {
+				remoteMCPHealthy = h
+			} else {
+				healthy = h
 			}
 		}
 	}
 
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
 	page := w.pageData(r, "Notion Setup", "/integrations")
 	data := pages.NotionSetupData{
-		HasToken:       hasToken,
-		Healthy:        healthy,
-		ExtractSnippet: notionExtractionSnippet,
+		HasRemoteMCP:     hasRemoteMCP,
+		RemoteMCPHealthy: remoteMCPHealthy,
+		HasToken:         hasToken,
+		Healthy:          healthy,
+		TokenSource:      tokenSource,
+		ExtractSnippet:   notionExtractionSnippet,
 	}
 
 	if flash := r.URL.Query().Get("result"); flash != "" {
@@ -1136,6 +1156,9 @@ func (w *WebServer) handleNotionSaveToken(rw http.ResponseWriter, r *http.Reques
 	}
 	ic.Enabled = true
 	ic.Credentials["token_v2"] = tokenV2
+	ic.Credentials["mcp_access_token"] = ""
+	ic.Credentials["refresh_token"] = ""
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
 	_ = w.services.Config.SetIntegration("notion", ic)
 
 	http.Redirect(rw, r, "/integrations/notion/setup?result=Token+saved+successfully", http.StatusSeeOther)
@@ -1154,6 +1177,9 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 	serverURL := remotemcp.ServerURL(integration)
 	if serverURL == "" {
 		serverURL = linearInt.MCPServerURL(integration)
+	}
+	if serverURL == "" {
+		serverURL = notionInt.MCPServerURL(integration)
 	}
 	if serverURL == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})
@@ -1191,8 +1217,8 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 		return
 	}
 
-	status, token, errStr := remotemcp.PollOAuth(name)
-	if status != "complete" || token == "" {
+	status, result, errStr := remotemcp.PollOAuthFull(name)
+	if status != "complete" || result == nil || result.AccessToken == "" {
 		msg := "Failed to get access token"
 		if errStr != "" {
 			msg = errStr
@@ -1206,7 +1232,10 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials["mcp_access_token"] = token
+	ic.Credentials["mcp_access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
 	ic.Credentials["api_key"] = ""
 	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
 	_ = w.services.Config.SetIntegration(name, ic)

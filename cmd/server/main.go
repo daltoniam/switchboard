@@ -222,7 +222,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		gmailIntegration,
 		jira.New(),
 		confluence.New(),
-		notionInt.New(),
+		notionInt.New("https://mcp.notion.com"),
 		ollama.New(),
 		gcpInt.New(),
 		suno.New(),

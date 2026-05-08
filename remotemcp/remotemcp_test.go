@@ -262,3 +262,133 @@ func TestOAuth_HandleCallback_NoFlow(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no OAuth flow in progress")
 }
+
+// --- Token Refresh ---
+
+func TestConfigure_StoresRefreshToken(t *testing.T) {
+	r := &remote{name: "test", serverURL: "https://example.com"}
+	err := r.Configure(context.Background(), mcp.Credentials{
+		"access_token":  "tok1",
+		"refresh_token": "refresh-abc",
+		"client_id":     "client-123",
+		"client_secret": "secret-xyz",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "tok1", r.token)
+	assert.Equal(t, "refresh-abc", r.refreshToken)
+	assert.Equal(t, "client-123", r.clientID)
+	assert.Equal(t, "secret-xyz", r.clientSecret)
+}
+
+func TestRefreshToken_Success(t *testing.T) {
+	var srvURL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			json.NewEncoder(w).Encode(map[string]any{
+				"issuer":         srvURL,
+				"token_endpoint": srvURL + "/oauth/token",
+			})
+		case "/oauth/token":
+			assert.Equal(t, "refresh_token", r.FormValue("grant_type"))
+			assert.Equal(t, "old-refresh", r.FormValue("refresh_token"))
+			assert.Equal(t, "client-id", r.FormValue("client_id"))
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token":  "new-access",
+				"refresh_token": "new-refresh",
+				"expires_in":    3600,
+			})
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+	srvURL = srv.URL
+
+	result, err := RefreshToken(srv.URL, "client-id", "", "old-refresh")
+	require.NoError(t, err)
+	assert.Equal(t, "new-access", result.AccessToken)
+	assert.Equal(t, "new-refresh", result.RefreshToken)
+	assert.Equal(t, 3600, result.ExpiresIn)
+}
+
+func TestRefreshToken_PreservesOldRefreshWhenNotReturned(t *testing.T) {
+	var srvURL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			json.NewEncoder(w).Encode(map[string]any{
+				"issuer":         srvURL,
+				"token_endpoint": srvURL + "/oauth/token",
+			})
+		case "/oauth/token":
+			json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "new-access",
+				"expires_in":   3600,
+			})
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+	srvURL = srv.URL
+
+	result, err := RefreshToken(srv.URL, "client-id", "", "old-refresh")
+	require.NoError(t, err)
+	assert.Equal(t, "new-access", result.AccessToken)
+	assert.Equal(t, "old-refresh", result.RefreshToken)
+}
+
+func TestRefreshToken_Failure(t *testing.T) {
+	var srvURL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			json.NewEncoder(w).Encode(map[string]any{
+				"issuer":         srvURL,
+				"token_endpoint": srvURL + "/oauth/token",
+			})
+		case "/oauth/token":
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": "invalid_grant",
+			})
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+	srvURL = srv.URL
+
+	_, err := RefreshToken(srv.URL, "client-id", "", "bad-refresh")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "refresh token failed")
+}
+
+func TestPollOAuthFull_NoFlow(t *testing.T) {
+	status, result, errStr := PollOAuthFull("nonexistent-full")
+	assert.Equal(t, "no_flow", status)
+	assert.Nil(t, result)
+	assert.NotEmpty(t, errStr)
+}
+
+func TestSetTokenRefreshCallback(t *testing.T) {
+	r := &remote{name: "test", serverURL: "https://example.com"}
+	var called bool
+	SetTokenRefreshCallback(r, func(_, _ string, _ int) {
+		called = true
+	})
+	assert.NotNil(t, r.onTokenRefresh)
+	r.onTokenRefresh("a", "b", 1)
+	assert.True(t, called)
+}
+
+func TestTokenNeedsRefresh_ZeroExpiry(t *testing.T) {
+	r := &remote{name: "test", serverURL: "https://example.com"}
+	assert.False(t, r.tokenNeedsRefresh())
+}
+
+func TestTryRefreshToken_NoRefreshToken(t *testing.T) {
+	r := &remote{name: "test", serverURL: "https://example.com", token: "tok"}
+	assert.False(t, r.tryRefreshToken())
+}

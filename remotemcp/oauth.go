@@ -28,8 +28,17 @@ type OAuthState struct {
 	state        string
 	codeVerifier string
 	token        string
+	refreshToken string
+	expiresAt    time.Time
 	err          string
 	done         bool
+}
+
+// TokenResult holds the tokens returned from an OAuth exchange or refresh.
+type TokenResult struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresIn    int
 }
 
 type oauthServerMeta struct {
@@ -234,9 +243,11 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 	}
 
 	var tokenResp struct {
-		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		Error       string `json:"error"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		TokenType    string `json:"token_type"`
+		Error        string `json:"error"`
 	}
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		os.err = fmt.Sprintf("parse token response: %v", err)
@@ -257,6 +268,10 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 	}
 
 	os.token = tokenResp.AccessToken
+	os.refreshToken = tokenResp.RefreshToken
+	if tokenResp.ExpiresIn > 0 {
+		os.expiresAt = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+	}
 	os.done = true
 	return nil
 }
@@ -281,6 +296,99 @@ func PollOAuth(name string) (status, token, errStr string) {
 		return "error", "", os.err
 	}
 	return "complete", os.token, ""
+}
+
+// PollOAuthFull checks the status and returns full token details including refresh token.
+func PollOAuthFull(name string) (status string, result *TokenResult, errStr string) {
+	activeRemoteOAuth.mu.Lock()
+	os := activeRemoteOAuth.states[name]
+	activeRemoteOAuth.mu.Unlock()
+
+	if os == nil {
+		return "no_flow", nil, "No OAuth flow in progress"
+	}
+
+	os.mu.Lock()
+	defer os.mu.Unlock()
+
+	if !os.done {
+		return "pending", nil, ""
+	}
+	if os.err != "" {
+		return "error", nil, os.err
+	}
+	return "complete", &TokenResult{
+		AccessToken:  os.token,
+		RefreshToken: os.refreshToken,
+		ExpiresIn:    int(time.Until(os.expiresAt).Seconds()),
+	}, ""
+}
+
+// RefreshToken uses a refresh token to obtain a new access token.
+func RefreshToken(serverURL, clientID, clientSecret, refreshToken string) (*TokenResult, error) {
+	meta, err := discoverOAuth(serverURL)
+	if err != nil {
+		return nil, err
+	}
+
+	data := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {refreshToken},
+		"client_id":     {clientID},
+	}
+	if clientSecret != "" {
+		data.Set("client_secret", clientSecret)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", meta.TokenEndpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("refresh token request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read refresh response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("refresh token failed (%d): %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResp struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		Error        string `json:"error"`
+	}
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		return nil, fmt.Errorf("parse refresh response: %w", err)
+	}
+	if tokenResp.Error != "" {
+		return nil, fmt.Errorf("refresh error: %s", tokenResp.Error)
+	}
+	if tokenResp.AccessToken == "" {
+		return nil, fmt.Errorf("no access_token in refresh response")
+	}
+
+	result := &TokenResult{
+		AccessToken:  tokenResp.AccessToken,
+		RefreshToken: tokenResp.RefreshToken,
+		ExpiresIn:    tokenResp.ExpiresIn,
+	}
+	if result.RefreshToken == "" {
+		result.RefreshToken = refreshToken
+	}
+	return result, nil
 }
 
 // ServerURL returns the configured server URL for a remote MCP integration.
