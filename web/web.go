@@ -1107,6 +1107,7 @@ func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {
 			h := integration.Healthy(r.Context())
 			if notionInt.IsRemoteMCP(integration) {
 				remoteMCPHealthy = h
+				w.registerTokenRefreshCallback("notion")
 			} else {
 				healthy = h
 			}
@@ -1164,6 +1165,21 @@ func (w *WebServer) handleNotionSaveToken(rw http.ResponseWriter, r *http.Reques
 	http.Redirect(rw, r, "/integrations/notion/setup?result=Token+saved+successfully", http.StatusSeeOther)
 }
 
+// remoteMCPServerURL resolves the MCP server URL from any integration that
+// supports remote MCP mode, avoiding a growing waterfall of package-specific checks.
+func remoteMCPServerURL(i mcp.Integration) string {
+	if url := remotemcp.ServerURL(i); url != "" {
+		return url
+	}
+	if url := linearInt.MCPServerURL(i); url != "" {
+		return url
+	}
+	if url := notionInt.MCPServerURL(i); url != "" {
+		return url
+	}
+	return ""
+}
+
 func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	name := r.PathValue("name")
@@ -1174,13 +1190,7 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 		return
 	}
 
-	serverURL := remotemcp.ServerURL(integration)
-	if serverURL == "" {
-		serverURL = linearInt.MCPServerURL(integration)
-	}
-	if serverURL == "" {
-		serverURL = notionInt.MCPServerURL(integration)
-	}
+	serverURL := remoteMCPServerURL(integration)
 	if serverURL == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})
 		return
@@ -1240,6 +1250,8 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
 	_ = w.services.Config.SetIntegration(name, ic)
 
+	w.registerTokenRefreshCallback(name)
+
 	http.Redirect(rw, r, setupPath+"?result=Connected+via+MCP+OAuth", http.StatusSeeOther)
 }
 
@@ -1248,6 +1260,33 @@ func (w *WebServer) handleRemoteMCPOAuthPoll(rw http.ResponseWriter, r *http.Req
 	name := r.PathValue("name")
 	status, token, errStr := remotemcp.PollOAuth(name)
 	json.NewEncoder(rw).Encode(map[string]string{"status": status, "token": token, "error": errStr})
+}
+
+// registerTokenRefreshCallback wires up a callback on the remote MCP integration
+// so that refreshed tokens are persisted to config (surviving process restarts).
+func (w *WebServer) registerTokenRefreshCallback(name string) {
+	integration, ok := w.services.Registry.Get(name)
+	if !ok {
+		return
+	}
+	var remoteInteg mcp.Integration
+	if ri := notionInt.RemoteIntegration(integration); ri != nil {
+		remoteInteg = ri
+	}
+	if remoteInteg == nil {
+		remoteInteg = integration
+	}
+	remotemcp.SetTokenRefreshCallback(remoteInteg, func(accessToken, refreshToken string, _ int) {
+		ic, _ := w.services.Config.GetIntegration(name)
+		if ic == nil {
+			return
+		}
+		ic.Credentials["mcp_access_token"] = accessToken
+		if refreshToken != "" {
+			ic.Credentials["refresh_token"] = refreshToken
+		}
+		_ = w.services.Config.SetIntegration(name, ic)
+	})
 }
 
 func (w *WebServer) handleGmailSetup(rw http.ResponseWriter, r *http.Request) {

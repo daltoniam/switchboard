@@ -187,7 +187,8 @@ templ NotionSetup(page layouts.PageData, data NotionSetupData) {
 				}
 
 				function showOAuthError(msg) {
-					document.getElementById('oauth-container').style.display = 'none';
+					var container = document.getElementById('oauth-container');
+					if (container) { container.style.display = 'none'; }
 					document.getElementById('oauth-error').style.display = 'block';
 					document.getElementById('oauth-error-msg').textContent = msg;
 				}
