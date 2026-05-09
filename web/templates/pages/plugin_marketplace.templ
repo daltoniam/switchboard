@@ -202,6 +202,24 @@ templ PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) {
 			</div>
 			<button type="submit" class="btn" style="margin-bottom: 1.5rem;">Upload Plugin</button>
 		</form>
+		<!-- Load from Local Path -->
+		<div class="section-title">Load from Local Path</div>
+		<form method="POST" action="/plugins/load-path">
+			<div class="card">
+				<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.625rem;">
+					Load a WASM plugin directly from a local file path. Useful for development and testing.
+				</div>
+				<div class="form-group">
+					<label class="form-label" for="local_path">File Path</label>
+					<input class="form-input" type="text" name="path" id="local_path" placeholder="/path/to/plugin.wasm" required/>
+				</div>
+				<div class="form-group">
+					<label class="form-label" for="local_name">Name (optional)</label>
+					<input class="form-input" type="text" name="name" id="local_name" placeholder="Override the plugin's built-in name"/>
+				</div>
+			</div>
+			<button type="submit" class="btn" style="margin-bottom: 1.5rem;">Load Plugin</button>
+		</form>
 		<!-- Manifest Sources -->
 		<div class="section-title">Manifest Sources</div>
 		if len(data.ManifestSources) > 0 {

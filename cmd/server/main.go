@@ -396,7 +396,13 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		cfgNow := cfgMgr.Get()
 		cfgNow.Marketplace = mc
 		return cfgMgr.Update(cfgNow)
-	})
+	}, marketplace.WithTokenFunc(marketplace.GitHubTokenFunc(func() string {
+		ic, ok := cfgMgr.GetIntegration("github")
+		if !ok || ic == nil {
+			return ""
+		}
+		return ic.Credentials["token"]
+	})))
 
 	switchboardInt.SetMarketplace(switchboardIntegration, mp)
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -317,62 +318,28 @@ func TestMetricsAPI(t *testing.T) {
 	assert.Contains(t, body, "integrations")
 }
 
-func TestWasmModulesPage_Empty(t *testing.T) {
-	ws, _, _ := setupTestWeb()
-	handler := ws.Handler()
-
-	req := httptest.NewRequest("GET", "/wasm", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "WASM Modules")
-	assert.Contains(t, rr.Body.String(), "No WASM modules configured")
-}
-
-func TestWasmModulesPage_WithModules(t *testing.T) {
+func TestPluginLoadPath_LoadError(t *testing.T) {
 	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/test.wasm"},
-		{Path: "/tmp/other.wasm", Credentials: mcp.Credentials{"key": "val"}},
-	}
+	ws.wasmLoader = wasmmod.NewLoader(nil, nil, cfgService)
 	handler := ws.Handler()
 
-	req := httptest.NewRequest("GET", "/wasm", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "/tmp/test.wasm")
-	assert.Contains(t, rr.Body.String(), "/tmp/other.wasm")
-	assert.Contains(t, rr.Body.String(), "1 credential(s) configured")
-}
-
-func TestWasmModuleAdd(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	handler := ws.Handler()
-
-	form := strings.NewReader("path=/tmp/new.wasm&cred_key_0=api_key&cred_val_0=secret")
-	req := httptest.NewRequest("POST", "/wasm", form)
+	form := strings.NewReader("path=/nonexistent/path/plugin.wasm")
+	req := httptest.NewRequest("POST", "/plugins/load-path", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/wasm")
-	assert.Contains(t, rr.Header().Get("Location"), "success")
-
-	require.Len(t, cfgService.cfg.WasmModules, 1)
-	assert.Equal(t, "/tmp/new.wasm", cfgService.cfg.WasmModules[0].Path)
-	assert.Equal(t, "secret", cfgService.cfg.WasmModules[0].Credentials["api_key"])
+	assert.Contains(t, rr.Header().Get("Location"), "error")
+	assert.Contains(t, rr.Header().Get("Location"), "Load+failed")
 }
 
-func TestWasmModuleAdd_EmptyPath(t *testing.T) {
+func TestPluginLoadPath_EmptyPath(t *testing.T) {
 	ws, _, _ := setupTestWeb()
 	handler := ws.Handler()
 
 	form := strings.NewReader("path=")
-	req := httptest.NewRequest("POST", "/wasm", form)
+	req := httptest.NewRequest("POST", "/plugins/load-path", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -381,257 +348,34 @@ func TestWasmModuleAdd_EmptyPath(t *testing.T) {
 	assert.Contains(t, rr.Header().Get("Location"), "error")
 }
 
-func TestWasmModuleAdd_NoCreds(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	handler := ws.Handler()
-
-	form := strings.NewReader("path=/tmp/plain.wasm")
-	req := httptest.NewRequest("POST", "/wasm", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	require.Len(t, cfgService.cfg.WasmModules, 1)
-	assert.Nil(t, cfgService.cfg.WasmModules[0].Credentials)
-}
-
-func TestWasmModuleDelete(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/a.wasm"},
-		{Path: "/tmp/b.wasm"},
-		{Path: "/tmp/c.wasm"},
-	}
-	handler := ws.Handler()
-
-	form := strings.NewReader("index=1")
-	req := httptest.NewRequest("POST", "/wasm/delete", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "success")
-
-	require.Len(t, cfgService.cfg.WasmModules, 2)
-	assert.Equal(t, "/tmp/a.wasm", cfgService.cfg.WasmModules[0].Path)
-	assert.Equal(t, "/tmp/c.wasm", cfgService.cfg.WasmModules[1].Path)
-}
-
-func TestWasmModuleDelete_InvalidIndex(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/a.wasm"},
-	}
-	handler := ws.Handler()
-
-	form := strings.NewReader("index=5")
-	req := httptest.NewRequest("POST", "/wasm/delete", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "error")
-	require.Len(t, cfgService.cfg.WasmModules, 1)
-}
-
-func TestWasmModuleDelete_BadIndex(t *testing.T) {
+func TestPluginLoadPath_NilLoader(t *testing.T) {
 	ws, _, _ := setupTestWeb()
 	handler := ws.Handler()
 
-	for _, idx := range []string{"abc", "1abc", ""} {
-		form := strings.NewReader("index=" + idx)
-		req := httptest.NewRequest("POST", "/wasm/delete", form)
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		rr := httptest.NewRecorder()
-		handler.ServeHTTP(rr, req)
-
-		assert.Equal(t, http.StatusSeeOther, rr.Code, "index=%q", idx)
-		assert.Contains(t, rr.Header().Get("Location"), "error", "index=%q", idx)
-	}
-}
-
-func TestWasmModuleEdit(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/test.wasm", Credentials: mcp.Credentials{"key": "val"}},
-	}
-	handler := ws.Handler()
-
-	req := httptest.NewRequest("GET", "/wasm/0", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Edit WASM Module")
-	assert.Contains(t, rr.Body.String(), "/tmp/test.wasm")
-	assert.Contains(t, rr.Body.String(), "key")
-	assert.Contains(t, rr.Body.String(), "val")
-}
-
-func TestWasmModuleEdit_InvalidIndex(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/test.wasm"},
-	}
-	handler := ws.Handler()
-
-	for _, idx := range []string{"5", "-1", "abc"} {
-		req := httptest.NewRequest("GET", "/wasm/"+idx, nil)
-		rr := httptest.NewRecorder()
-		handler.ServeHTTP(rr, req)
-
-		assert.Equal(t, http.StatusSeeOther, rr.Code, "index=%q", idx)
-		assert.Contains(t, rr.Header().Get("Location"), "error", "index=%q", idx)
-	}
-}
-
-func TestWasmModuleUpdate(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/old.wasm", Credentials: mcp.Credentials{"old_key": "old_val"}},
-		{Path: "/tmp/other.wasm"},
-	}
-	handler := ws.Handler()
-
-	form := strings.NewReader("path=/tmp/new.wasm&cred_key_0=new_key&cred_val_0=new_val")
-	req := httptest.NewRequest("POST", "/wasm/0", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "success")
-
-	require.Len(t, cfgService.cfg.WasmModules, 2)
-	assert.Equal(t, "/tmp/new.wasm", cfgService.cfg.WasmModules[0].Path)
-	assert.Equal(t, "new_val", cfgService.cfg.WasmModules[0].Credentials["new_key"])
-	assert.Equal(t, "/tmp/other.wasm", cfgService.cfg.WasmModules[1].Path)
-}
-
-func TestWasmModuleUpdate_EmptyPath(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/old.wasm"},
-	}
-	handler := ws.Handler()
-
-	form := strings.NewReader("path=")
-	req := httptest.NewRequest("POST", "/wasm/0", form)
+	form := strings.NewReader("path=/tmp/plugin.wasm")
+	req := httptest.NewRequest("POST", "/plugins/load-path", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
 	assert.Contains(t, rr.Header().Get("Location"), "error")
-	assert.Equal(t, "/tmp/old.wasm", cfgService.cfg.WasmModules[0].Path)
+	assert.Contains(t, rr.Header().Get("Location"), "not+configured")
 }
 
-func TestWasmModuleUpdate_InvalidIndex(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/test.wasm"},
-	}
+func TestPluginLoadPath_InvalidExtension(t *testing.T) {
+	ws, _, _ := setupTestWeb()
 	handler := ws.Handler()
 
-	for _, idx := range []string{"5", "-1", "abc"} {
-		form := strings.NewReader("path=/tmp/new.wasm")
-		req := httptest.NewRequest("POST", "/wasm/"+idx, form)
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		rr := httptest.NewRecorder()
-		handler.ServeHTTP(rr, req)
-
-		assert.Equal(t, http.StatusSeeOther, rr.Code, "index=%q", idx)
-		assert.Contains(t, rr.Header().Get("Location"), "error", "index=%q", idx)
-	}
-	assert.Equal(t, "/tmp/test.wasm", cfgService.cfg.WasmModules[0].Path)
-}
-
-func TestWasmModuleUpdate_NoCreds(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/old.wasm", Credentials: mcp.Credentials{"key": "val"}},
-	}
-	handler := ws.Handler()
-
-	form := strings.NewReader("path=/tmp/updated.wasm")
-	req := httptest.NewRequest("POST", "/wasm/0", form)
+	form := strings.NewReader("path=/etc/passwd")
+	req := httptest.NewRequest("POST", "/plugins/load-path", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "success")
-	assert.Equal(t, "/tmp/updated.wasm", cfgService.cfg.WasmModules[0].Path)
-	assert.Nil(t, cfgService.cfg.WasmModules[0].Credentials)
-}
-
-func TestWasmModuleAdd_WithName(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	handler := ws.Handler()
-
-	form := strings.NewReader("path=/tmp/new.wasm&name=custom")
-	req := httptest.NewRequest("POST", "/wasm", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "success")
-
-	require.Len(t, cfgService.cfg.WasmModules, 1)
-	assert.Equal(t, "/tmp/new.wasm", cfgService.cfg.WasmModules[0].Path)
-	assert.Equal(t, "custom", cfgService.cfg.WasmModules[0].Name)
-}
-
-func TestWasmModuleEdit_ShowsName(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/test.wasm", Name: "mymod"},
-	}
-	handler := ws.Handler()
-
-	req := httptest.NewRequest("GET", "/wasm/0", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "mymod")
-}
-
-func TestWasmModuleUpdate_WithName(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/old.wasm"},
-	}
-	handler := ws.Handler()
-
-	form := strings.NewReader("path=/tmp/old.wasm&name=renamed")
-	req := httptest.NewRequest("POST", "/wasm/0", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "success")
-	assert.Equal(t, "renamed", cfgService.cfg.WasmModules[0].Name)
-}
-
-func TestWasmModulesPage_ShowsName(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	cfgService.cfg.WasmModules = []mcp.WasmModuleConfig{
-		{Path: "/tmp/test.wasm", Name: "custom_name"},
-	}
-	handler := ws.Handler()
-
-	req := httptest.NewRequest("GET", "/wasm", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "custom_name")
+	assert.Contains(t, rr.Header().Get("Location"), "error")
+	assert.Contains(t, rr.Header().Get("Location"), ".wasm")
 }
 
 func TestDashboard_IntegrationCounts(t *testing.T) {

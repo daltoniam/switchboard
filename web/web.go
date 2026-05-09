@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -105,12 +104,6 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
 	mux.HandleFunc("GET /api/metrics", w.handleMetricsAPI)
 
-	mux.HandleFunc("GET /wasm", w.handleWasmModules)
-	mux.HandleFunc("POST /wasm", w.handleWasmModuleAdd)
-	mux.HandleFunc("POST /wasm/delete", w.handleWasmModuleDelete)
-	mux.HandleFunc("GET /wasm/{index}", w.handleWasmModuleEdit)
-	mux.HandleFunc("POST /wasm/{index}", w.handleWasmModuleUpdate)
-
 	mux.HandleFunc("GET /settings", w.handleSettings)
 	mux.HandleFunc("POST /settings", w.handleSettingsSave)
 
@@ -124,6 +117,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /plugins/auto-update", w.handlePluginAutoUpdate)
 	mux.HandleFunc("POST /plugins/add-manifest", w.handlePluginAddManifest)
 	mux.HandleFunc("POST /plugins/remove-manifest", w.handlePluginRemoveManifest)
+	mux.HandleFunc("POST /plugins/load-path", w.handlePluginLoadPath)
 
 	return mux
 }
@@ -435,175 +429,6 @@ func (w *WebServer) handleHealthRefresh(rw http.ResponseWriter, r *http.Request)
 	defer cancel()
 	w.health.refreshAll(ctx)
 	http.Redirect(rw, r, r.Referer(), http.StatusSeeOther)
-}
-
-func (w *WebServer) handleWasmModules(rw http.ResponseWriter, r *http.Request) {
-	cfg := w.services.Config.Get()
-	var entries []pages.WasmModuleEntry
-	for i, wm := range cfg.WasmModules {
-		entry := pages.WasmModuleEntry{
-			Index:       i,
-			Path:        wm.Path,
-			Name:        wm.Name,
-			Credentials: wm.Credentials,
-		}
-		entries = append(entries, entry)
-	}
-	page := w.pageData(r, "WASM Modules", "/wasm")
-	data := pages.WasmModulesData{Modules: entries}
-	pages.WasmModules(page, data).Render(r.Context(), rw)
-}
-
-func (w *WebServer) handleWasmModuleAdd(rw http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Redirect(rw, r, "/wasm?error=Invalid+form+data", http.StatusSeeOther)
-		return
-	}
-
-	path := strings.TrimSpace(r.FormValue("path"))
-	if path == "" {
-		http.Redirect(rw, r, "/wasm?error=Path+is+required", http.StatusSeeOther)
-		return
-	}
-
-	creds := mcp.Credentials{}
-	for i := 0; i < 50; i++ {
-		key := strings.TrimSpace(r.FormValue(fmt.Sprintf("cred_key_%d", i)))
-		val := strings.TrimSpace(r.FormValue(fmt.Sprintf("cred_val_%d", i)))
-		if key != "" {
-			creds[key] = val
-		}
-	}
-
-	cfg := w.services.Config.Get()
-	modules := make([]mcp.WasmModuleConfig, len(cfg.WasmModules))
-	copy(modules, cfg.WasmModules)
-
-	name := strings.TrimSpace(r.FormValue("name"))
-
-	newModule := mcp.WasmModuleConfig{Path: path, Name: name}
-	if len(creds) > 0 {
-		newModule.Credentials = creds
-	}
-	modules = append(modules, newModule)
-
-	if err := w.services.Config.SetWasmModules(modules); err != nil {
-		http.Redirect(rw, r, "/wasm?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
-		return
-	}
-
-	http.Redirect(rw, r, "/wasm?success=Module+added.+Restart+Switchboard+to+load+it.", http.StatusSeeOther)
-}
-
-func (w *WebServer) handleWasmModuleDelete(rw http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Redirect(rw, r, "/wasm?error=Invalid+form+data", http.StatusSeeOther)
-		return
-	}
-
-	indexStr := r.FormValue("index")
-	index, err := strconv.Atoi(indexStr)
-	if err != nil {
-		http.Redirect(rw, r, "/wasm?error=Invalid+module+index", http.StatusSeeOther)
-		return
-	}
-
-	cfg := w.services.Config.Get()
-	if index < 0 || index >= len(cfg.WasmModules) {
-		http.Redirect(rw, r, "/wasm?error=Invalid+module+index", http.StatusSeeOther)
-		return
-	}
-
-	modules := make([]mcp.WasmModuleConfig, 0, len(cfg.WasmModules)-1)
-	for i, m := range cfg.WasmModules {
-		if i != index {
-			modules = append(modules, m)
-		}
-	}
-
-	if err := w.services.Config.SetWasmModules(modules); err != nil {
-		http.Redirect(rw, r, "/wasm?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
-		return
-	}
-
-	http.Redirect(rw, r, "/wasm?success=Module+removed.+Restart+Switchboard+to+apply.", http.StatusSeeOther)
-}
-
-func (w *WebServer) handleWasmModuleEdit(rw http.ResponseWriter, r *http.Request) {
-	indexStr := r.PathValue("index")
-	index, err := strconv.Atoi(indexStr)
-	if err != nil {
-		http.Redirect(rw, r, "/wasm?error=Invalid+module+index", http.StatusSeeOther)
-		return
-	}
-
-	cfg := w.services.Config.Get()
-	if index < 0 || index >= len(cfg.WasmModules) {
-		http.Redirect(rw, r, "/wasm?error=Invalid+module+index", http.StatusSeeOther)
-		return
-	}
-
-	wm := cfg.WasmModules[index]
-	data := pages.WasmModuleEditData{
-		Index:       index,
-		Path:        wm.Path,
-		Name:        wm.Name,
-		Credentials: pages.SortedCredentials(wm.Credentials),
-	}
-	page := w.pageData(r, "Edit WASM Module", "/wasm")
-	pages.WasmModuleEdit(page, data).Render(r.Context(), rw)
-}
-
-func (w *WebServer) handleWasmModuleUpdate(rw http.ResponseWriter, r *http.Request) {
-	indexStr := r.PathValue("index")
-	index, err := strconv.Atoi(indexStr)
-	if err != nil {
-		http.Redirect(rw, r, "/wasm?error=Invalid+module+index", http.StatusSeeOther)
-		return
-	}
-
-	cfg := w.services.Config.Get()
-	if index < 0 || index >= len(cfg.WasmModules) {
-		http.Redirect(rw, r, "/wasm?error=Invalid+module+index", http.StatusSeeOther)
-		return
-	}
-
-	if err := r.ParseForm(); err != nil {
-		http.Redirect(rw, r, "/wasm?error=Invalid+form+data", http.StatusSeeOther)
-		return
-	}
-
-	path := strings.TrimSpace(r.FormValue("path"))
-	if path == "" {
-		http.Redirect(rw, r, fmt.Sprintf("/wasm/%d?error=Path+is+required", index), http.StatusSeeOther)
-		return
-	}
-
-	creds := mcp.Credentials{}
-	for i := 0; i < 50; i++ {
-		key := strings.TrimSpace(r.FormValue(fmt.Sprintf("cred_key_%d", i)))
-		val := strings.TrimSpace(r.FormValue(fmt.Sprintf("cred_val_%d", i)))
-		if key != "" {
-			creds[key] = val
-		}
-	}
-
-	modules := make([]mcp.WasmModuleConfig, len(cfg.WasmModules))
-	copy(modules, cfg.WasmModules)
-
-	name := strings.TrimSpace(r.FormValue("name"))
-
-	modules[index] = mcp.WasmModuleConfig{Path: path, Name: name}
-	if len(creds) > 0 {
-		modules[index].Credentials = creds
-	}
-
-	if err := w.services.Config.SetWasmModules(modules); err != nil {
-		http.Redirect(rw, r, "/wasm?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
-		return
-	}
-
-	http.Redirect(rw, r, "/wasm?success=Module+updated.+Restart+Switchboard+to+apply.", http.StatusSeeOther)
 }
 
 func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {

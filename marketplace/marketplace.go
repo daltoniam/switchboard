@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -100,6 +101,11 @@ type Config struct {
 	LastCheck        string            `json:"last_check,omitempty"`
 }
 
+// TokenFunc returns a bearer token for a given URL host, or empty string if
+// no authentication is available. This allows the marketplace to attach auth
+// headers when fetching from private sources (e.g., GitHub private repos).
+type TokenFunc func(host string) string
+
 // Manager handles plugin discovery, installation, and updates.
 type Manager struct {
 	mu        sync.RWMutex
@@ -107,11 +113,22 @@ type Manager struct {
 	pluginDir string
 	client    *http.Client
 	saveFn    func(Config) error
+	tokenFn   TokenFunc
 	manifests map[string]*Manifest // URL -> manifest cache
 }
 
+// Option configures a Manager.
+type Option func(*Manager)
+
+// WithTokenFunc sets a function that provides bearer tokens for authenticated
+// requests. The function receives the request host (e.g., "raw.githubusercontent.com")
+// and returns a token or empty string.
+func WithTokenFunc(fn TokenFunc) Option {
+	return func(m *Manager) { m.tokenFn = fn }
+}
+
 // NewManager creates a marketplace manager.
-func NewManager(cfg Config, pluginDir string, saveFn func(Config) error) *Manager {
+func NewManager(cfg Config, pluginDir string, saveFn func(Config) error, opts ...Option) *Manager {
 	if pluginDir == "" {
 		home, _ := os.UserHomeDir()
 		pluginDir = filepath.Join(home, ".config", "switchboard", "plugins")
@@ -119,13 +136,17 @@ func NewManager(cfg Config, pluginDir string, saveFn func(Config) error) *Manage
 	if cfg.PluginDir != "" {
 		pluginDir = cfg.PluginDir
 	}
-	return &Manager{
+	mgr := &Manager{
 		cfg:       cfg,
 		pluginDir: pluginDir,
 		client:    &http.Client{Timeout: 60 * time.Second},
 		saveFn:    saveFn,
 		manifests: make(map[string]*Manifest),
 	}
+	for _, opt := range opts {
+		opt(mgr)
+	}
+	return mgr
 }
 
 // PluginDir returns the directory where plugins are stored.
@@ -148,6 +169,7 @@ func (m *Manager) FetchManifest(ctx context.Context, url string) (*Manifest, err
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "Switchboard-Plugin-Manager/1.0")
+	m.applyAuth(req)
 
 	resp, err := m.client.Do(req)
 	if err != nil {
@@ -724,6 +746,7 @@ func (m *Manager) downloadWasm(ctx context.Context, url string) ([]byte, error) 
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("User-Agent", "Switchboard-Plugin-Manager/1.0")
+	m.applyAuth(req)
 
 	resp, err := m.client.Do(req)
 	if err != nil {
@@ -740,6 +763,41 @@ func (m *Manager) downloadWasm(ctx context.Context, url string) ([]byte, error) 
 		return nil, fmt.Errorf("read plugin: %w", err)
 	}
 	return data, nil
+}
+
+// applyAuth attaches a bearer token to the request if a TokenFunc is configured
+// and returns a non-empty token for the request's host.
+func (m *Manager) applyAuth(req *http.Request) {
+	if m.tokenFn == nil {
+		return
+	}
+	token := m.tokenFn(req.URL.Host)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+}
+
+// GitHubTokenFunc returns a TokenFunc that provides a GitHub token for
+// GitHub-hosted URLs (github.com, raw.githubusercontent.com, objects.githubusercontent.com).
+// The getToken function should return the current GitHub token.
+func GitHubTokenFunc(getToken func() string) TokenFunc {
+	githubHosts := map[string]bool{
+		"github.com":                    true,
+		"raw.githubusercontent.com":     true,
+		"objects.githubusercontent.com": true,
+		"api.github.com":                true,
+	}
+	return func(host string) string {
+		// Strip port if present.
+		h := host
+		if parsed, err := url.Parse("//" + host); err == nil && parsed.Hostname() != "" {
+			h = parsed.Hostname()
+		}
+		if githubHosts[h] {
+			return getToken()
+		}
+		return ""
+	}
 }
 
 func (m *Manager) save() error {

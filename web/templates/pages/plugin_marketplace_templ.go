@@ -438,7 +438,7 @@ func PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) templ.
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, " <!-- Install from URL --> <div class=\"section-title\" style=\"margin-top: 1.5rem;\">Install from URL</div><form method=\"POST\" action=\"/plugins/install-url\"><div class=\"card\"><div class=\"form-group\"><label class=\"form-label\" for=\"plugin_url\">WASM Plugin URL</label> <input class=\"form-input\" type=\"url\" name=\"url\" id=\"plugin_url\" placeholder=\"https://example.com/my-plugin.wasm\" required></div></div><button type=\"submit\" class=\"btn\" style=\"margin-bottom: 1.5rem;\">Install from URL</button></form><!-- Upload WASM --> <div class=\"section-title\">Upload Plugin</div><form method=\"POST\" action=\"/plugins/upload\" enctype=\"multipart/form-data\"><div class=\"card\"><div class=\"form-group\"><label class=\"form-label\" for=\"plugin_name\">Plugin Name (optional)</label> <input class=\"form-input\" type=\"text\" name=\"name\" id=\"plugin_name\" placeholder=\"my-plugin\"></div><div class=\"form-group\"><label class=\"form-label\" for=\"plugin_file\">WASM File</label> <input class=\"form-input\" type=\"file\" name=\"wasm\" id=\"plugin_file\" accept=\".wasm\" required style=\"padding: 0.375rem;\"></div></div><button type=\"submit\" class=\"btn\" style=\"margin-bottom: 1.5rem;\">Upload Plugin</button></form><!-- Manifest Sources --> <div class=\"section-title\">Manifest Sources</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, " <!-- Install from URL --> <div class=\"section-title\" style=\"margin-top: 1.5rem;\">Install from URL</div><form method=\"POST\" action=\"/plugins/install-url\"><div class=\"card\"><div class=\"form-group\"><label class=\"form-label\" for=\"plugin_url\">WASM Plugin URL</label> <input class=\"form-input\" type=\"url\" name=\"url\" id=\"plugin_url\" placeholder=\"https://example.com/my-plugin.wasm\" required></div></div><button type=\"submit\" class=\"btn\" style=\"margin-bottom: 1.5rem;\">Install from URL</button></form><!-- Upload WASM --> <div class=\"section-title\">Upload Plugin</div><form method=\"POST\" action=\"/plugins/upload\" enctype=\"multipart/form-data\"><div class=\"card\"><div class=\"form-group\"><label class=\"form-label\" for=\"plugin_name\">Plugin Name (optional)</label> <input class=\"form-input\" type=\"text\" name=\"name\" id=\"plugin_name\" placeholder=\"my-plugin\"></div><div class=\"form-group\"><label class=\"form-label\" for=\"plugin_file\">WASM File</label> <input class=\"form-input\" type=\"file\" name=\"wasm\" id=\"plugin_file\" accept=\".wasm\" required style=\"padding: 0.375rem;\"></div></div><button type=\"submit\" class=\"btn\" style=\"margin-bottom: 1.5rem;\">Upload Plugin</button></form><!-- Load from Local Path --> <div class=\"section-title\">Load from Local Path</div><form method=\"POST\" action=\"/plugins/load-path\"><div class=\"card\"><div style=\"font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.625rem;\">Load a WASM plugin directly from a local file path. Useful for development and testing.</div><div class=\"form-group\"><label class=\"form-label\" for=\"local_path\">File Path</label> <input class=\"form-input\" type=\"text\" name=\"path\" id=\"local_path\" placeholder=\"/path/to/plugin.wasm\" required></div><div class=\"form-group\"><label class=\"form-label\" for=\"local_name\">Name (optional)</label> <input class=\"form-input\" type=\"text\" name=\"name\" id=\"local_name\" placeholder=\"Override the plugin's built-in name\"></div></div><button type=\"submit\" class=\"btn\" style=\"margin-bottom: 1.5rem;\">Load Plugin</button></form><!-- Manifest Sources --> <div class=\"section-title\">Manifest Sources</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -451,7 +451,7 @@ func PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) templ.
 					var templ_7745c5c3_Var19 string
 					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(src.URL)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/plugin_marketplace.templ`, Line: 213, Col: 17}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/plugin_marketplace.templ`, Line: 231, Col: 17}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 					if templ_7745c5c3_Err != nil {
@@ -469,7 +469,7 @@ func PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) templ.
 						var templ_7745c5c3_Var20 string
 						templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(src.Name)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/plugin_marketplace.templ`, Line: 217, Col: 19}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/plugin_marketplace.templ`, Line: 235, Col: 19}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 						if templ_7745c5c3_Err != nil {
@@ -502,7 +502,7 @@ func PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) templ.
 					var templ_7745c5c3_Var21 string
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(src.URL)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/plugin_marketplace.templ`, Line: 228, Col: 55}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/plugin_marketplace.templ`, Line: 246, Col: 55}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
@@ -521,7 +521,7 @@ func PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) templ.
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("e.g. %q", "Community Plugins"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/plugin_marketplace.templ`, Line: 244, Col: 131}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/plugin_marketplace.templ`, Line: 262, Col: 131}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
