@@ -331,6 +331,23 @@ func (w *WebServer) liveUnloadPlugin(ctx context.Context, name string) {
 	}
 }
 
+func (w *WebServer) handlePluginLoadPath(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/plugins?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	path := strings.TrimSpace(r.FormValue("path"))
+	if path == "" {
+		http.Redirect(rw, r, "/plugins?error=Path+is+required", http.StatusSeeOther)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	w.liveLoadPlugin(r.Context(), path, name)
+	http.Redirect(rw, r, "/plugins?success=Plugin+loaded+from+local+path.", http.StatusSeeOther)
+}
+
 func urlEncode(s string) string {
 	return strings.ReplaceAll(s, " ", "+")
 }
