@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -344,6 +345,37 @@ func TestPluginLoadPath_EmptyPath(t *testing.T) {
 
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
 	assert.Contains(t, rr.Header().Get("Location"), "error")
+}
+
+func TestPluginLoadPath_InvalidExtension(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	form := strings.NewReader("path=/etc/passwd")
+	req := httptest.NewRequest("POST", "/plugins/load-path", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error")
+	assert.Contains(t, rr.Header().Get("Location"), ".wasm")
+}
+
+func TestPluginLoadPath_LoadError(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	ws.wasmLoader = wasmmod.NewLoader(nil, nil, cfgService)
+	handler := ws.Handler()
+
+	form := strings.NewReader("path=/nonexistent/path/plugin.wasm")
+	req := httptest.NewRequest("POST", "/plugins/load-path", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error")
+	assert.Contains(t, rr.Header().Get("Location"), "Load+failed")
 }
 
 func TestDashboard_IntegrationCounts(t *testing.T) {

@@ -344,6 +344,10 @@ func (w *WebServer) handlePluginLoadPath(rw http.ResponseWriter, r *http.Request
 		http.Redirect(rw, r, "/plugins?error=Path+is+required", http.StatusSeeOther)
 		return
 	}
+	if !strings.HasSuffix(path, ".wasm") {
+		http.Redirect(rw, r, "/plugins?error=Path+must+end+in+.wasm", http.StatusSeeOther)
+		return
+	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
 	if err := w.liveLoadPlugin(r.Context(), path, name); err != nil {
