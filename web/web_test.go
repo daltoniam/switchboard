@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/web/templates/pages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -839,4 +840,65 @@ func TestUpdateCredentials(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 		assert.Contains(t, rr.Body.String(), "bad token")
 	})
+}
+
+// TestPostgresConnection_JSONRoundTrip verifies that the PostgresConnection
+// struct used by the postgres setup page can round-trip through JSON without
+// losing any field. The web UI serializes additional connections to JSON on
+// save and unmarshals them on the next page load — without snake_case JSON
+// tags, fields like connection_string and read_only would silently come back
+// blank, and the user would lose the connection data on the next save.
+func TestPostgresConnection_JSONRoundTrip(t *testing.T) {
+	original := pages.PostgresConnection{
+		Alias:            "analytics",
+		ConnectionString: "postgres://user:pass@host:5432/db",
+		Host:             "analytics.example.com",
+		Port:             "5432",
+		User:             "readonly",
+		Password:         "secret",
+		Database:         "analytics",
+		SSLMode:          "require",
+		ReadOnly:         "true",
+	}
+
+	// Round-trip as a slice — this matches how postgres_setup.templ JS gathers
+	// connections and how handlePostgresSetup unmarshals them.
+	encoded, err := json.Marshal([]pages.PostgresConnection{original})
+	require.NoError(t, err)
+
+	// JS produces snake_case keys; the encoded form must match that contract.
+	assert.Contains(t, string(encoded), `"connection_string"`)
+	assert.Contains(t, string(encoded), `"read_only"`)
+
+	var decoded []pages.PostgresConnection
+	require.NoError(t, json.Unmarshal(encoded, &decoded))
+	require.Len(t, decoded, 1)
+	assert.Equal(t, original, decoded[0])
+}
+
+// TestPostgresConnection_DecodesSnakeCase guards the specific failure mode
+// the latest PR 109 review caught: without JSON tags, snake_case keys from
+// the browser-side JSON do not bind to CamelCase struct fields and the
+// fields come back blank.
+func TestPostgresConnection_DecodesSnakeCase(t *testing.T) {
+	raw := `[{
+		"alias": "warehouse",
+		"connection_string": "postgres://x",
+		"host": "warehouse.example.com",
+		"port": "5432",
+		"user": "u",
+		"password": "p",
+		"database": "wh",
+		"sslmode": "require",
+		"read_only": "false"
+	}]`
+
+	var conns []pages.PostgresConnection
+	require.NoError(t, json.Unmarshal([]byte(raw), &conns))
+	require.Len(t, conns, 1)
+	assert.Equal(t, "warehouse", conns[0].Alias)
+	assert.Equal(t, "postgres://x", conns[0].ConnectionString)
+	assert.Equal(t, "warehouse.example.com", conns[0].Host)
+	assert.Equal(t, "false", conns[0].ReadOnly)
+	assert.Equal(t, "require", conns[0].SSLMode)
 }

@@ -15,15 +15,15 @@ import (
 )
 
 type PostgresConnection struct {
-	Alias            string
-	ConnectionString string
-	Host             string
-	Port             string
-	User             string
-	Password         string
-	Database         string
-	SSLMode          string
-	ReadOnly         string
+	Alias            string `json:"alias"`
+	ConnectionString string `json:"connection_string"`
+	Host             string `json:"host"`
+	Port             string `json:"port"`
+	User             string `json:"user"`
+	Password         string `json:"password"`
+	Database         string `json:"database"`
+	SSLMode          string `json:"sslmode"`
+	ReadOnly         string `json:"read_only"`
 }
 
 type PostgresSetupData struct {
