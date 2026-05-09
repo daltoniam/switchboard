@@ -1156,13 +1156,17 @@ func (w *WebServer) handlePostgresSetup(rw http.ResponseWriter, r *http.Request)
 	ic, exists := w.services.Config.GetIntegration("postgres")
 	enabled := exists && ic.Enabled
 
+	// Avoid calling Configure() on every page load — with multi-postgres each
+	// invocation re-opens connections to all configured databases and pings them
+	// (5s timeout each), which can hang the setup page noticeably. The integration
+	// is already configured at startup; just probe the existing connection's health.
 	var healthy bool
 	if enabled {
 		integration, ok := w.services.Registry.Get("postgres")
 		if ok {
-			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
-				healthy = integration.Healthy(r.Context())
-			}
+			ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+			healthy = integration.Healthy(ctx)
+			cancel()
 		}
 	}
 
