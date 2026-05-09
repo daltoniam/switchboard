@@ -195,7 +195,8 @@ templ NotionSetup(page layouts.PageData, data NotionSetupData) {
 
 				function resetOAuth() {
 					document.getElementById('oauth-error').style.display = 'none';
-					document.getElementById('oauth-container').style.display = 'block';
+					var container = document.getElementById('oauth-container');
+					if (container) { container.style.display = 'block'; }
 					var btn = document.getElementById('oauth-start-btn');
 					btn.disabled = false;
 					btn.textContent = 'Sign in with Notion \u2192';

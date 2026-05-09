@@ -355,7 +355,7 @@ func RefreshToken(serverURL, clientID, clientSecret, refreshToken string) (*Toke
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 	if err != nil {
 		return nil, fmt.Errorf("read refresh response: %w", err)
 	}
