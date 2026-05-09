@@ -99,7 +99,7 @@ func (w *WebServer) handlePluginInstall(rw http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.liveLoadPlugin(r.Context(), ip.Path, "")
+	_ = w.liveLoadPlugin(r.Context(), ip.Path, "")
 	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s@%s.", ip.Name, ip.Version), http.StatusSeeOther)
 }
 
@@ -127,7 +127,7 @@ func (w *WebServer) handlePluginInstallURL(rw http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	w.liveLoadPlugin(r.Context(), ip.Path, "")
+	_ = w.liveLoadPlugin(r.Context(), ip.Path, "")
 	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s.", ip.Name), http.StatusSeeOther)
 }
 
@@ -162,7 +162,7 @@ func (w *WebServer) handlePluginUpload(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.liveLoadPlugin(r.Context(), ip.Path, "")
+	_ = w.liveLoadPlugin(r.Context(), ip.Path, "")
 	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uploaded+and+loaded+%s.", ip.Name), http.StatusSeeOther)
 }
 
@@ -212,7 +212,7 @@ func (w *WebServer) handlePluginUpdate(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.liveLoadPlugin(r.Context(), ip.Path, "")
+	_ = w.liveLoadPlugin(r.Context(), ip.Path, "")
 	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Updated+and+reloaded+%s+to+%s.", ip.Name, ip.Version), http.StatusSeeOther)
 }
 
@@ -313,13 +313,15 @@ func (w *WebServer) handlePluginRemoveManifest(rw http.ResponseWriter, r *http.R
 	http.Redirect(rw, r, "/plugins?success=Manifest+source+removed.", http.StatusSeeOther)
 }
 
-func (w *WebServer) liveLoadPlugin(ctx context.Context, path, nameOverride string) {
+func (w *WebServer) liveLoadPlugin(ctx context.Context, path, nameOverride string) error {
 	if w.wasmLoader == nil {
-		return
+		return nil
 	}
 	if err := w.wasmLoader.LoadPlugin(ctx, path, nameOverride); err != nil {
 		log.Printf("WARN: live-load plugin %q failed: %v", path, err)
+		return err
 	}
+	return nil
 }
 
 func (w *WebServer) liveUnloadPlugin(ctx context.Context, name string) {
@@ -344,7 +346,10 @@ func (w *WebServer) handlePluginLoadPath(rw http.ResponseWriter, r *http.Request
 	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
-	w.liveLoadPlugin(r.Context(), path, name)
+	if err := w.liveLoadPlugin(r.Context(), path, name); err != nil {
+		http.Redirect(rw, r, "/plugins?error=Load+failed:+"+urlEncode(err.Error()), http.StatusSeeOther)
+		return
+	}
 	http.Redirect(rw, r, "/plugins?success=Plugin+loaded+from+local+path.", http.StatusSeeOther)
 }
 
