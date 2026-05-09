@@ -348,6 +348,10 @@ func (w *WebServer) handlePluginLoadPath(rw http.ResponseWriter, r *http.Request
 		http.Redirect(rw, r, "/plugins?error=Path+must+end+in+.wasm", http.StatusSeeOther)
 		return
 	}
+	if w.wasmLoader == nil {
+		http.Redirect(rw, r, "/plugins?error=WASM+loader+not+configured", http.StatusSeeOther)
+		return
+	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
 	if err := w.liveLoadPlugin(r.Context(), path, name); err != nil {

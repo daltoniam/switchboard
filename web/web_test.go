@@ -318,19 +318,20 @@ func TestMetricsAPI(t *testing.T) {
 	assert.Contains(t, body, "integrations")
 }
 
-func TestPluginLoadPath(t *testing.T) {
-	ws, _, _ := setupTestWeb()
+func TestPluginLoadPath_LoadError(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	ws.wasmLoader = wasmmod.NewLoader(nil, nil, cfgService)
 	handler := ws.Handler()
 
-	form := strings.NewReader("path=/tmp/dev-plugin.wasm&name=dev-plugin")
+	form := strings.NewReader("path=/nonexistent/path/plugin.wasm")
 	req := httptest.NewRequest("POST", "/plugins/load-path", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/plugins")
-	assert.Contains(t, rr.Header().Get("Location"), "success")
+	assert.Contains(t, rr.Header().Get("Location"), "error")
+	assert.Contains(t, rr.Header().Get("Location"), "Load+failed")
 }
 
 func TestPluginLoadPath_EmptyPath(t *testing.T) {
@@ -347,6 +348,21 @@ func TestPluginLoadPath_EmptyPath(t *testing.T) {
 	assert.Contains(t, rr.Header().Get("Location"), "error")
 }
 
+func TestPluginLoadPath_NilLoader(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	form := strings.NewReader("path=/tmp/plugin.wasm")
+	req := httptest.NewRequest("POST", "/plugins/load-path", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error")
+	assert.Contains(t, rr.Header().Get("Location"), "not+configured")
+}
+
 func TestPluginLoadPath_InvalidExtension(t *testing.T) {
 	ws, _, _ := setupTestWeb()
 	handler := ws.Handler()
@@ -360,22 +376,6 @@ func TestPluginLoadPath_InvalidExtension(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
 	assert.Contains(t, rr.Header().Get("Location"), "error")
 	assert.Contains(t, rr.Header().Get("Location"), ".wasm")
-}
-
-func TestPluginLoadPath_LoadError(t *testing.T) {
-	ws, _, cfgService := setupTestWeb()
-	ws.wasmLoader = wasmmod.NewLoader(nil, nil, cfgService)
-	handler := ws.Handler()
-
-	form := strings.NewReader("path=/nonexistent/path/plugin.wasm")
-	req := httptest.NewRequest("POST", "/plugins/load-path", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "error")
-	assert.Contains(t, rr.Header().Get("Location"), "Load+failed")
 }
 
 func TestDashboard_IntegrationCounts(t *testing.T) {
