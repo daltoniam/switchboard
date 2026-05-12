@@ -107,11 +107,31 @@ func (r *rwx) Execute(ctx context.Context, toolName mcp.ToolName, args map[strin
 // Called from main after Configure. Non-fatal — tools still work via CLI/API.
 func (r *rwx) StartProxy() {
 	p := newProxyClient()
-	if err := p.start(r.cliPath); err != nil {
+	if err := p.start(r.cliPath, r.cmdEnv()); err != nil {
 		fmt.Printf("[rwx] proxy start failed (tools still available via CLI): %v\n", err)
 		return
 	}
 	r.proxy = p
+}
+
+// cmdEnv builds the environment for rwx CLI subprocesses, injecting
+// RWX_ACCESS_TOKEN from the configured credentials.
+//
+// The rwx CLI (v3.13+) authenticates via the RWX_ACCESS_TOKEN env var,
+// the --access-token flag, or a local credentials file written by
+// `rwx login`. Without one of these, every command fails with
+// "no access token configured" — even though the plugin holds the
+// token in r.accessToken from Configure().
+//
+// We inject the env var on every subprocess so the plugin Just Works
+// after the user pastes their token into the switchboard UI, with no
+// separate `rwx login` step required.
+func (r *rwx) cmdEnv() []string {
+	env := os.Environ()
+	if r.accessToken != "" {
+		env = append(env, "RWX_ACCESS_TOKEN="+r.accessToken)
+	}
+	return env
 }
 
 // StopProxy shuts down the MCP proxy subprocess.

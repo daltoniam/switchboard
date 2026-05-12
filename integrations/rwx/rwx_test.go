@@ -533,6 +533,49 @@ func TestRunRWXCommand_FailureWithStdoutReturnsStdout(t *testing.T) {
 	assert.Contains(t, out, "{\"partial\":true}")
 }
 
+// --- Access token env injection tests ---
+
+// The rwx CLI authenticates via the RWX_ACCESS_TOKEN env var (or --access-token
+// flag, or a credentials file from `rwx login`). The plugin holds the token in
+// r.accessToken from Configure() but must inject it into every CLI subprocess
+// or commands fail with "no access token configured" — see cmdEnv() in rwx.go.
+
+func TestCmdEnv_InjectsAccessToken(t *testing.T) {
+	r := &rwx{accessToken: "rwx_pat_test_token_123"}
+	env := r.cmdEnv()
+
+	var found bool
+	for _, e := range env {
+		if e == "RWX_ACCESS_TOKEN=rwx_pat_test_token_123" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "cmdEnv must include RWX_ACCESS_TOKEN=<token>")
+}
+
+func TestCmdEnv_SkipsWhenTokenEmpty(t *testing.T) {
+	r := &rwx{accessToken: ""}
+	env := r.cmdEnv()
+
+	for _, e := range env {
+		assert.NotEqual(t, "RWX_ACCESS_TOKEN=", e, "must not append an empty token entry")
+	}
+}
+
+func TestRunRWXCommand_PassesAccessTokenToSubprocess(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	// Fake CLI: echoes the access token from its env. If the plugin doesn't
+	// inject it, this prints an empty string and the test fails.
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho \"$RWX_ACCESS_TOKEN\"\n"), 0o755))
+
+	r := &rwx{cliPath: bin, accessToken: "rwx_pat_subprocess_token"}
+	out, err := r.runRWXCommand(nil, 0)
+	require.NoError(t, err)
+	assert.Equal(t, "rwx_pat_subprocess_token\n", out)
+}
+
 // --- Dispatch handler tests ---
 
 func fakeBin(t *testing.T, script string) string {

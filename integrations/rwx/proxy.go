@@ -63,8 +63,9 @@ func newProxyClient() *proxyClient {
 	}
 }
 
-func (p *proxyClient) start(rwxBin string) error {
-	cmd := exec.Command(rwxBin, "mcp", "serve")
+func (p *proxyClient) start(rwxBin string, env []string) error {
+	cmd := exec.Command(rwxBin, "mcp", "serve") // #nosec G204 -- resolved binary path
+	cmd.Env = env
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("stdin pipe: %w", err)
