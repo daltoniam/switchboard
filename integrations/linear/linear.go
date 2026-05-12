@@ -31,6 +31,7 @@ func setGraphqlURL(url string) { graphqlURL = url }
 var (
 	_ mcp.Integration                = (*linear)(nil)
 	_ mcp.FieldCompactionIntegration = (*linear)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*linear)(nil)
 )
 
 type linear struct {

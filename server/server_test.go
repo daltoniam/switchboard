@@ -1154,6 +1154,54 @@ func TestResultProcessor_MarkdownReturnsFalse_FallsThrough(t *testing.T) {
 	assert.Contains(t, got, `"id"`, "should fall through to JSON processing")
 }
 
+func TestResultProcessor_MaxBytesExceededReplacesWithEnvelope(t *testing.T) {
+	rp := resultProcessor{
+		maxBytes: func(_ mcp.ToolName) (int, bool) { return 50, true },
+	}
+	big := `{"items":["` + strings.Repeat("x", 200) + `"]}`
+	got := processResult(rp, "foo", big, nil)
+
+	// Envelope must be valid JSON the LLM can parse.
+	var env map[string]any
+	require.NoError(t, json.Unmarshal([]byte(got), &env), "envelope must be parseable JSON")
+	assert.Equal(t, "response_too_large", env["error"])
+	assert.Equal(t, "foo", env["tool"])
+	assert.EqualValues(t, 50, env["limit"])
+	assert.Contains(t, env, "size")
+	assert.Contains(t, env, "hint")
+}
+
+func TestResultProcessor_MaxBytesUnderLimitUnchanged(t *testing.T) {
+	rp := resultProcessor{
+		maxBytes: func(_ mcp.ToolName) (int, bool) { return 1000, true },
+	}
+	small := `{"ok":true}`
+	got := processResult(rp, "foo", small, nil)
+	assert.NotContains(t, got, "response_too_large", "under-limit response should not be replaced")
+	assert.Contains(t, got, `"ok"`)
+}
+
+func TestResultProcessor_MaxBytesUnsetNoCheck(t *testing.T) {
+	rp := resultProcessor{
+		maxBytes: func(_ mcp.ToolName) (int, bool) { return 0, false },
+	}
+	big := `{"x":"` + strings.Repeat("a", 1000) + `"}`
+	got := processResult(rp, "foo", big, nil)
+	assert.NotContains(t, got, "response_too_large", "no cap set: no check applied")
+	assert.Contains(t, got, "aaaa")
+}
+
+func TestResultProcessor_MaxBytesZeroLimitNoCheck(t *testing.T) {
+	// Defensive: limit=0 with ok=true should be treated as "no cap" (matches Result.MaxBytes
+	// semantics where absence is "no cap", not zero).
+	rp := resultProcessor{
+		maxBytes: func(_ mcp.ToolName) (int, bool) { return 0, true },
+	}
+	big := `{"x":"` + strings.Repeat("a", 1000) + `"}`
+	got := processResult(rp, "foo", big, nil)
+	assert.NotContains(t, got, "response_too_large", "limit=0 should not trigger cap check")
+}
+
 func TestHandleExecute_ByteCapEnforced(t *testing.T) {
 	// Generate a response over 50KB.
 	bigData := `{"data":"` + string(make([]byte, 60*1024)) + `"}`
