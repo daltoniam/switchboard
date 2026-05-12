@@ -4,16 +4,23 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestFieldCompactionSpecs_AllParse(t *testing.T) {
 	require.NotEmpty(t, fieldCompactionSpecs, "fieldCompactionSpecs should not be empty")
 }
 
+// TestFieldCompactionSpecs_NoDuplicateTools verifies that the YAML loader did
+// not silently drop any tool entries (e.g. due to bad spec syntax). The YAML
+// format itself prevents duplicate keys; this test ensures parse losslessness.
 func TestFieldCompactionSpecs_NoDuplicateTools(t *testing.T) {
-	assert.Equal(t, len(rawFieldCompactionSpecs), len(fieldCompactionSpecs))
+	var sf compactyaml.SpecFile
+	require.NoError(t, yaml.Unmarshal(compactYAML, &sf))
+	assert.Equal(t, len(sf.Tools), len(fieldCompactionSpecs))
 }
 
 func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
@@ -50,6 +57,28 @@ func TestFieldCompactionSpec_ReturnsFalseForUnknownTool(t *testing.T) {
 	l := &linear{}
 	_, ok := l.CompactSpec("linear_nonexistent")
 	assert.False(t, ok, "unknown tools should return false")
+}
+
+// TestMaxBytes_NoCapConfigured documents the current state: no linear tool
+// declares a max_bytes cap in compact.yaml. The structural wiring is in place
+// (compile-time assertion + method exists) but no tool exercises it yet.
+// Failing this test means someone added a cap — update intentionally.
+func TestMaxBytes_NoCapConfigured(t *testing.T) {
+	l := &linear{}
+	for tool := range fieldCompactionSpecs {
+		n, ok := l.MaxBytes(tool)
+		assert.False(t, ok, "tool %q should not have a max_bytes cap (or update this test)", tool)
+		assert.Zero(t, n)
+	}
+}
+
+// TestMaxBytes_UnknownToolReturnsFalse verifies the method's contract for
+// unknown tool names (the contract is identical to CompactSpec's).
+func TestMaxBytes_UnknownToolReturnsFalse(t *testing.T) {
+	l := &linear{}
+	n, ok := l.MaxBytes("linear_nonexistent")
+	assert.False(t, ok)
+	assert.Zero(t, n)
 }
 
 // TestFieldCompactionSpecs_ShapeParity verifies that compaction specs match
