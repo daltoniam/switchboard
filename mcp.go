@@ -308,6 +308,21 @@ type MaxResponseBytesIntegration interface {
 	MaxResponseBytes() int
 }
 
+// ToolMaxBytesIntegration is an optional interface that integrations can implement
+// to declare per-tool response size caps. When the post-compaction response for a
+// tool exceeds its declared cap, the server replaces the body with a structured
+// error envelope (response_too_large) so the LLM can detect and recover from
+// over-large responses without parsing a truncated JSON document.
+//
+// Distinguished from MaxResponseBytesIntegration: that interface returns one cap
+// for the entire integration; this one returns a different cap per tool, sourced
+// from compact.yaml's optional max_bytes field.
+type ToolMaxBytesIntegration interface {
+	// MaxBytes returns the per-tool response size cap. Returns (0, false) for
+	// tools without a declared cap (no check applied).
+	MaxBytes(toolName ToolName) (int, bool)
+}
+
 // PlainTextCredentials is an optional interface that integrations can implement
 // to declare which credential keys should be rendered as plain text inputs
 // instead of password fields in the web UI.

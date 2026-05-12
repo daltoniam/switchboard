@@ -832,6 +832,7 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 type resultProcessor struct {
 	markdown func(mcp.ToolName, []byte) (mcp.Markdown, bool)
 	compact  func(mcp.ToolName) ([]mcp.CompactField, bool)
+	maxBytes func(mcp.ToolName) (int, bool)
 }
 
 // buildResultProcessor inspects an integration's optional interfaces once
@@ -844,6 +845,9 @@ func buildResultProcessor(integration mcp.Integration) resultProcessor {
 	}
 	if fc, ok := integration.(mcp.FieldCompactionIntegration); ok {
 		rp.compact = fc.CompactSpec
+	}
+	if tm, ok := integration.(mcp.ToolMaxBytesIntegration); ok {
+		rp.maxBytes = tm.MaxBytes
 	}
 	return rp
 }
@@ -908,7 +912,34 @@ func processResult(rp resultProcessor, toolName mcp.ToolName, data string, metri
 		metrics.RecordCompaction(toolName, originalLen, len(result))
 	}
 
+	if rp.maxBytes != nil {
+		if limit, ok := rp.maxBytes(toolName); ok && limit > 0 && len(result) > limit {
+			return tooLargeEnvelope(toolName, len(result), limit)
+		}
+	}
+
 	return string(result)
+}
+
+// tooLargeEnvelope returns a structured JSON error replacing an oversized response.
+// LLM-observable; preserves parseability where a raw truncation would corrupt JSON.
+func tooLargeEnvelope(toolName mcp.ToolName, size, limit int) string {
+	slog.Warn("processResult: response exceeded per-tool max_bytes",
+		"tool", toolName, "size", size, "limit", limit)
+	envelope := map[string]any{
+		"error": "response_too_large",
+		"tool":  string(toolName),
+		"size":  size,
+		"limit": limit,
+		"hint":  "narrow your query (e.g., add a filter, reduce page size, or request fewer fields)",
+	}
+	out, err := json.Marshal(envelope)
+	if err != nil {
+		// Should be impossible given the static shape; preserve current data on the off-chance.
+		slog.Error("processResult: envelope marshal failed", "tool", toolName, "err", err)
+		return fmt.Sprintf(`{"error":"response_too_large","tool":%q,"size":%d,"limit":%d}`, toolName, size, limit)
+	}
+	return string(out)
 }
 
 // columnarizeResult applies columnar formatting only (no compaction).
