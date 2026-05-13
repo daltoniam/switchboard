@@ -59,30 +59,48 @@ tools:
       - results[].properties
 
   # ── Composite read tools ─────────────────────────────────────────
-  # get_page_content is rendered as Markdown by MarkdownIntegration.RenderMarkdown —
-  # this spec serves as fallback if markdown rendering is bypassed.
+  # get_page_content has two views:
+  #   - toc (default): page title + section headers, ~1KB, JSON only — for navigation
+  #   - full: entire block tree, JSON or markdown (markdown via custom renderer
+  #     in notion.go that delegates to renderPageContentMD)
   notion_get_page_content:
-    spec:
-      - page.id
-      - page.type
-      - page.parent_id
-      - page.parent_table
-      - page.properties
-      - page.content
-      - page.format
-      - page.alive
-      - page.created_time
-      - page.last_edited_time
-      - blocks[].id
-      - blocks[].type
-      - blocks[].parent_id
-      - blocks[].parent_table
-      - blocks[].properties
-      - blocks[].content
-      - blocks[].format
-      - blocks[].alive
-      - blocks[].created_time
-      - blocks[].last_edited_time
+    views:
+      toc:
+        spec:
+          - page.id
+          - page.properties
+          - blocks[].id
+          - blocks[].type
+          - blocks[].properties
+        hint: "Page title + section headers (~1KB). Use for navigation or to find a specific section before reading."
+        formats: [json]
+      full:
+        spec:
+          - page.id
+          - page.type
+          - page.parent_id
+          - page.parent_table
+          - page.properties
+          - page.content
+          - page.format
+          - page.alive
+          - page.created_time
+          - page.last_edited_time
+          - blocks[].id
+          - blocks[].type
+          - blocks[].parent_id
+          - blocks[].parent_table
+          - blocks[].properties
+          - blocks[].content
+          - blocks[].format
+          - blocks[].alive
+          - blocks[].created_time
+          - blocks[].last_edited_time
+        hint: "Entire block tree (can be 10-50KB). Use when you need the page content."
+        formats: [json, markdown]
+    default:
+      view: toc
+      format: json
 
   notion_get_block_children:
     spec:

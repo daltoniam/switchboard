@@ -27,7 +27,7 @@ func LoadWithOverlay(adapter string, embedded []byte, opts Options) (Result, err
 	}
 
 	path := filepath.Join(dir, adapter+".yaml")
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G703 -- dir is operator-controlled (SWITCHBOARD_COMPACT_DIR), adapter is a hardcoded integration name
 	if errors.Is(err, os.ErrNotExist) {
 		return base, nil
 	}
