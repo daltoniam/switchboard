@@ -332,7 +332,7 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 		}
 
 		if !result.IsError {
-			result.Data = processResult(buildResultProcessor(integration), tool, result.Data, pr.services.Metrics)
+			result.Data = processResult(buildResultProcessor(integration), tool, nil, result.Data, pr.services.Metrics)
 
 			limit := responseLimitFor(integration)
 			if len(result.Data) > limit {

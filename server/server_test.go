@@ -9,6 +9,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1105,7 +1106,7 @@ func TestResultProcessor_MarkdownOnly(t *testing.T) {
 			return mcp.Markdown("# rendered"), true
 		},
 	}
-	got := processResult(rp, "test_tool", `{"title":"Hello"}`, nil)
+	got := processResult(rp, "test_tool", nil, `{"title":"Hello"}`, nil)
 	assert.Equal(t, "# rendered", got)
 }
 
@@ -1116,7 +1117,7 @@ func TestResultProcessor_CompactionOnly(t *testing.T) {
 			return specs, true
 		},
 	}
-	got := processResult(rp, "test_tool", `[{"id":1,"name":"a","secret":"s"},{"id":2,"name":"b","secret":"s"}]`, nil)
+	got := processResult(rp, "test_tool", nil, `[{"id":1,"name":"a","secret":"s"},{"id":2,"name":"b","secret":"s"}]`, nil)
 	assert.Contains(t, got, `"id"`)
 	assert.Contains(t, got, `"name"`)
 	assert.NotContains(t, got, `"secret"`)
@@ -1132,14 +1133,14 @@ func TestResultProcessor_MarkdownTakesPriority(t *testing.T) {
 			return specs, true
 		},
 	}
-	got := processResult(rp, "test_tool", `{"id":1,"secret":"s"}`, nil)
+	got := processResult(rp, "test_tool", nil, `{"id":1,"secret":"s"}`, nil)
 	assert.Equal(t, "# markdown wins", got, "markdown should take priority over compaction")
 }
 
 func TestResultProcessor_NoOp(t *testing.T) {
 	rp := resultProcessor{}
 	input := `[{"id":1},{"id":2}]`
-	got := processResult(rp, "test_tool", input, nil)
+	got := processResult(rp, "test_tool", nil, input, nil)
 	// With no processors, data passes through columnarization only.
 	assert.Contains(t, got, `"id"`)
 }
@@ -1150,7 +1151,7 @@ func TestResultProcessor_MarkdownReturnsFalse_FallsThrough(t *testing.T) {
 			return "", false
 		},
 	}
-	got := processResult(rp, "test_tool", `{"id":1}`, nil)
+	got := processResult(rp, "test_tool", nil, `{"id":1}`, nil)
 	assert.Contains(t, got, `"id"`, "should fall through to JSON processing")
 }
 
@@ -1159,7 +1160,7 @@ func TestResultProcessor_MaxBytesExceededReplacesWithEnvelope(t *testing.T) {
 		maxBytes: func(_ mcp.ToolName) (int, bool) { return 50, true },
 	}
 	big := `{"items":["` + strings.Repeat("x", 200) + `"]}`
-	got := processResult(rp, "foo", big, nil)
+	got := processResult(rp, "foo", nil, big, nil)
 
 	// Envelope must be valid JSON the LLM can parse.
 	var env map[string]any
@@ -1176,7 +1177,7 @@ func TestResultProcessor_MaxBytesUnderLimitUnchanged(t *testing.T) {
 		maxBytes: func(_ mcp.ToolName) (int, bool) { return 1000, true },
 	}
 	small := `{"ok":true}`
-	got := processResult(rp, "foo", small, nil)
+	got := processResult(rp, "foo", nil, small, nil)
 	assert.NotContains(t, got, "response_too_large", "under-limit response should not be replaced")
 	assert.Contains(t, got, `"ok"`)
 }
@@ -1186,7 +1187,7 @@ func TestResultProcessor_MaxBytesUnsetNoCheck(t *testing.T) {
 		maxBytes: func(_ mcp.ToolName) (int, bool) { return 0, false },
 	}
 	big := `{"x":"` + strings.Repeat("a", 1000) + `"}`
-	got := processResult(rp, "foo", big, nil)
+	got := processResult(rp, "foo", nil, big, nil)
 	assert.NotContains(t, got, "response_too_large", "no cap set: no check applied")
 	assert.Contains(t, got, "aaaa")
 }
@@ -1198,8 +1199,153 @@ func TestResultProcessor_MaxBytesZeroLimitNoCheck(t *testing.T) {
 		maxBytes: func(_ mcp.ToolName) (int, bool) { return 0, true },
 	}
 	big := `{"x":"` + strings.Repeat("a", 1000) + `"}`
-	got := processResult(rp, "foo", big, nil)
+	got := processResult(rp, "foo", nil, big, nil)
 	assert.NotContains(t, got, "response_too_large", "limit=0 should not trigger cap check")
+}
+
+// ── Views dispatch ──────────────────────────────────────────────────
+
+// buildTestViewSet constructs a minimal ViewSet for testing. Two views
+// (toc, full); toc supports json only, full supports json + markdown.
+// Renderers are simple identity-style functions — tests assert dispatch
+// logic, not rendering quality.
+func buildTestViewSet(t *testing.T) compact.ViewSet {
+	t.Helper()
+	jsonR := func(v any) ([]byte, error) { return json.Marshal(v) }
+	mdR := func(v any) ([]byte, error) { return []byte("MARKDOWN"), nil }
+	return compact.ViewSet{
+		Default: compact.ViewSelection{View: "toc", Format: compact.FormatJSON},
+		Views: map[compact.ViewName]compact.ParsedView{
+			"toc":  {Hint: "Just titles.", Formats: []compact.Format{compact.FormatJSON}},
+			"full": {Hint: "Whole thing.", Formats: []compact.Format{compact.FormatJSON, compact.FormatMarkdown}},
+		},
+		Renderers: map[compact.ViewName]map[compact.Format]compact.Renderer{
+			"toc":  {compact.FormatJSON: jsonR},
+			"full": {compact.FormatJSON: jsonR, compact.FormatMarkdown: mdR},
+		},
+	}
+}
+
+func TestProcessViews_DefaultsApplyWhenArgsEmpty(t *testing.T) {
+	vs := buildTestViewSet(t)
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	got := processResult(rp, "tool", nil, `{"id":1}`, nil)
+	assert.Contains(t, got, `"id"`, "default (toc, json) marshals input back")
+}
+
+func TestProcessViews_ViewArgSelectsView(t *testing.T) {
+	vs := buildTestViewSet(t)
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	args := map[string]any{"view": "full", "format": "markdown"}
+	got := processResult(rp, "tool", args, `{"id":1}`, nil)
+	assert.Equal(t, "MARKDOWN", got, "full+markdown should hit the markdown renderer")
+}
+
+func TestProcessViews_UnknownView_ReturnsErrorEnvelope(t *testing.T) {
+	vs := buildTestViewSet(t)
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	args := map[string]any{"view": "wat"}
+	got := processResult(rp, "tool", args, `{"id":1}`, nil)
+
+	var env map[string]any
+	require.NoError(t, json.Unmarshal([]byte(got), &env))
+	assert.Equal(t, "view_dispatch_failed", env["error"])
+	assert.Contains(t, env["message"], "unknown view")
+	assert.Contains(t, env["message"], "wat")
+}
+
+func TestProcessViews_UndeclaredFormatForView_ReturnsErrorEnvelope(t *testing.T) {
+	vs := buildTestViewSet(t)
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	args := map[string]any{"view": "toc", "format": "markdown"}
+	got := processResult(rp, "tool", args, `{"id":1}`, nil)
+
+	var env map[string]any
+	require.NoError(t, json.Unmarshal([]byte(got), &env))
+	assert.Equal(t, "view_dispatch_failed", env["error"])
+	assert.Contains(t, env["message"], "does not declare format")
+}
+
+func TestProcessViews_ToolWithoutViews_FallsThrough(t *testing.T) {
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return compact.ViewSet{}, false },
+	}
+	// view arg present but the tool has no views — should be ignored, existing path.
+	got := processResult(rp, "tool", map[string]any{"view": "anything"}, `{"id":1}`, nil)
+	assert.Contains(t, got, `"id"`, "tools without views should use existing path; view arg ignored")
+}
+
+func TestProcessViews_MoreEnvelopeOnObjectRoot(t *testing.T) {
+	vs := buildTestViewSet(t)
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	got := processResult(rp, "tool", nil, `{"id":1}`, nil)
+
+	var env map[string]any
+	require.NoError(t, json.Unmarshal([]byte(got), &env))
+
+	more, ok := env["_more"].(map[string]any)
+	require.True(t, ok, "_more envelope missing")
+	views, ok := more["views"].(map[string]any)
+	require.True(t, ok, "_more.views missing")
+	assert.Contains(t, views, "full", "alternates should list `full` (not the current `toc`)")
+	assert.NotContains(t, views, "toc", "current view should not appear in alternates")
+}
+
+func TestProcessViews_MoreEnvelopeWrapsArrayRoot(t *testing.T) {
+	vs := buildTestViewSet(t)
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	got := processResult(rp, "tool", nil, `[{"id":1},{"id":2}]`, nil)
+
+	var env map[string]any
+	require.NoError(t, json.Unmarshal([]byte(got), &env))
+
+	data, ok := env["data"].([]any)
+	require.True(t, ok, "array root should be wrapped under `data` key")
+	assert.Len(t, data, 2)
+	_, hasMore := env["_more"]
+	assert.True(t, hasMore, "_more envelope missing on array-root response")
+}
+
+func TestProcessViews_MarkdownFormatSkipsMore(t *testing.T) {
+	vs := buildTestViewSet(t)
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	args := map[string]any{"view": "full", "format": "markdown"}
+	got := processResult(rp, "tool", args, `{"id":1}`, nil)
+	// Markdown renderer returns "MARKDOWN" — no JSON _more should be appended.
+	assert.Equal(t, "MARKDOWN", got)
+}
+
+func TestProcessViews_SingleViewSkipsMore(t *testing.T) {
+	// Only one view declared → no alternates → no _more envelope.
+	jsonR := func(v any) ([]byte, error) { return json.Marshal(v) }
+	vs := compact.ViewSet{
+		Default: compact.ViewSelection{View: "only", Format: compact.FormatJSON},
+		Views: map[compact.ViewName]compact.ParsedView{
+			"only": {Formats: []compact.Format{compact.FormatJSON}},
+		},
+		Renderers: map[compact.ViewName]map[compact.Format]compact.Renderer{
+			"only": {compact.FormatJSON: jsonR},
+		},
+	}
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	got := processResult(rp, "tool", nil, `{"id":1}`, nil)
+	assert.NotContains(t, got, "_more", "single-view tool should emit no _more envelope")
 }
 
 func TestHandleExecute_ByteCapEnforced(t *testing.T) {
