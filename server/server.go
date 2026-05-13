@@ -15,6 +15,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 	"github.com/daltoniam/switchboard/script"
 	"github.com/daltoniam/switchboard/version"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -751,7 +752,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 			IsError: true,
 		}, nil
 	}
-	result.Data = processResult(buildResultProcessor(integration), args.ToolName, result.Data, s.services.Metrics)
+	result.Data = processResult(buildResultProcessor(integration), args.ToolName, args.Arguments, result.Data, s.services.Metrics)
 	limit := responseLimitFor(integration)
 	if len(result.Data) > limit {
 		if s.services.Metrics != nil {
@@ -833,6 +834,7 @@ type resultProcessor struct {
 	markdown func(mcp.ToolName, []byte) (mcp.Markdown, bool)
 	compact  func(mcp.ToolName) ([]mcp.CompactField, bool)
 	maxBytes func(mcp.ToolName) (int, bool)
+	views    func(mcp.ToolName) (compact.ViewSet, bool)
 }
 
 // buildResultProcessor inspects an integration's optional interfaces once
@@ -849,6 +851,9 @@ func buildResultProcessor(integration mcp.Integration) resultProcessor {
 	if tm, ok := integration.(mcp.ToolMaxBytesIntegration); ok {
 		rp.maxBytes = tm.MaxBytes
 	}
+	if tv, ok := integration.(compact.ToolViewsIntegration); ok {
+		rp.views = tv.Views
+	}
 	return rp
 }
 
@@ -857,10 +862,21 @@ func buildResultProcessor(integration mcp.Integration) resultProcessor {
 // and it returns rendered content for this tool, compaction and columnarization
 // are skipped. Otherwise, parses JSON once, applies compact specs (if any),
 // columnarizes arrays, and serializes once.
-func processResult(rp resultProcessor, toolName mcp.ToolName, data string, metrics *mcp.Metrics) string {
+//
+// If the tool declares multi-view config (rp.views returns a ViewSet), the
+// pipeline dispatches via processViewsResult instead — args["view"] and
+// args["format"] select the projection and renderer.
+func processResult(rp resultProcessor, toolName mcp.ToolName, args map[string]any, data string, metrics *mcp.Metrics) string {
 	trimmed := strings.TrimLeft(data, " \t\n\r")
 	if len(trimmed) == 0 || (trimmed[0] != '[' && trimmed[0] != '{') {
 		return data
+	}
+
+	// Multi-view path takes priority when declared.
+	if rp.views != nil {
+		if viewSet, ok := rp.views(toolName); ok {
+			return processViewsResult(viewSet, toolName, args, data, metrics)
+		}
 	}
 
 	// Try markdown rendering first — replaces JSON compaction entirely.
@@ -919,6 +935,183 @@ func processResult(rp resultProcessor, toolName mcp.ToolName, data string, metri
 	}
 
 	return string(result)
+}
+
+// processViewsResult handles the multi-view dispatch path. The tool's
+// ViewSet was resolved at load time; here we parse the LLM's selection
+// from args, apply the chosen view's spec, render in the chosen format,
+// and enforce the per-view max_bytes cap.
+//
+// Unsupported (view, format) combos return a structured error envelope
+// rather than silently falling back — the YAML is the contract, what's
+// not declared is not available.
+func processViewsResult(viewSet compact.ViewSet, toolName mcp.ToolName, args map[string]any, data string, metrics *mcp.Metrics) string {
+	selection, err := parseViewSelection(args, viewSet)
+	if err != nil {
+		return viewErrorEnvelope(toolName, err)
+	}
+
+	renderer := viewSet.Renderers[selection.View][selection.Format]
+	if renderer == nil {
+		// Loader validated this combo at parse, so a miss here is a bug.
+		return viewErrorEnvelope(toolName, fmt.Errorf("internal: no renderer for (view=%s, format=%s)", selection.View, selection.Format))
+	}
+
+	originalLen := len(data)
+
+	var parsed any
+	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+		slog.Warn("processViewsResult: unmarshal failed", "tool", toolName, "err", err)
+		return data
+	}
+
+	view := viewSet.Views[selection.View]
+	if len(view.Spec) > 0 {
+		parsed = mcp.CompactAny(parsed, view.Spec)
+	}
+
+	out, err := renderer(parsed)
+	if err != nil {
+		slog.Warn("processViewsResult: render failed", "tool", toolName, "view", selection.View, "format", selection.Format, "err", err)
+		return viewErrorEnvelope(toolName, fmt.Errorf("render failed: %w", err))
+	}
+
+	out = appendMoreHint(out, viewSet, selection)
+
+	if view.MaxBytes > 0 && len(out) > view.MaxBytes {
+		return tooLargeEnvelope(toolName, len(out), view.MaxBytes)
+	}
+
+	if metrics != nil {
+		metrics.RecordCompaction(toolName, originalLen, len(out))
+	}
+
+	return string(out)
+}
+
+// parseViewSelection turns args into a typed ViewSelection. Missing keys
+// fall back to viewSet.Default. Invalid keys produce errors that the
+// caller wraps in a viewErrorEnvelope. This is the parse-don't-validate
+// boundary: downstream code reads the typed selection and never re-checks.
+func parseViewSelection(args map[string]any, viewSet compact.ViewSet) (compact.ViewSelection, error) {
+	selection := viewSet.Default
+
+	if raw, ok := args["view"]; ok {
+		s, ok := raw.(string)
+		if !ok {
+			return selection, fmt.Errorf("arg `view` must be string, got %T", raw)
+		}
+		view := compact.ViewName(s)
+		if _, exists := viewSet.Views[view]; !exists {
+			return selection, fmt.Errorf("unknown view %q (available: %s)", view, listViewNames(viewSet))
+		}
+		selection.View = view
+	}
+
+	if raw, ok := args["format"]; ok {
+		s, ok := raw.(string)
+		if !ok {
+			return selection, fmt.Errorf("arg `format` must be string, got %T", raw)
+		}
+		selection.Format = compact.Format(s)
+	}
+
+	if _, ok := viewSet.Renderers[selection.View][selection.Format]; !ok {
+		return selection, fmt.Errorf("view %q does not declare format %q (available formats: %s)",
+			selection.View, selection.Format, listFormats(viewSet, selection.View))
+	}
+
+	return selection, nil
+}
+
+func listViewNames(vs compact.ViewSet) string {
+	names := make([]string, 0, len(vs.Views))
+	for v := range vs.Views {
+		names = append(names, string(v))
+	}
+	return strings.Join(names, ", ")
+}
+
+func listFormats(vs compact.ViewSet, view compact.ViewName) string {
+	formats := make([]string, 0)
+	for f := range vs.Renderers[view] {
+		formats = append(formats, string(f))
+	}
+	return strings.Join(formats, ", ")
+}
+
+// appendMoreHint adds a `_more` envelope listing alternate views the LLM
+// could ask for. The hint teaches by response, not by tool description:
+// the LLM learns the affordance from the bytes it just received.
+//
+// JSON-only for v1. Markdown responses are returned unchanged — appending
+// a JSON `_more` envelope to markdown would pollute the format. A markdown
+// footer hint is a future addition; for now the markdown response is what
+// the LLM asked for, no metadata.
+//
+// Object root: `_more` is added at root as a sibling key.
+// Array root: wrapped into `{"data": [...], "_more": {...}}`. This shape
+// change for array-returning tools is the cost of discoverability.
+// No alternates available: returns out unchanged (no envelope).
+func appendMoreHint(out []byte, viewSet compact.ViewSet, selection compact.ViewSelection) []byte {
+	if selection.Format != compact.FormatJSON {
+		return out
+	}
+
+	alternates := make(map[string]string, len(viewSet.Views))
+	for vn, vc := range viewSet.Views {
+		if vn == selection.View {
+			continue
+		}
+		alternates[string(vn)] = vc.Hint
+	}
+	if len(alternates) == 0 {
+		return out
+	}
+
+	var parsed any
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		// Can't augment what we can't parse; preserve the original.
+		return out
+	}
+
+	more := map[string]any{"views": alternates}
+
+	var augmented any
+	switch v := parsed.(type) {
+	case map[string]any:
+		v["_more"] = more
+		augmented = v
+	case []any:
+		augmented = map[string]any{"data": v, "_more": more}
+	default:
+		// Scalar root — leave alone.
+		return out
+	}
+
+	result, err := json.Marshal(augmented)
+	if err != nil {
+		slog.Warn("appendMoreHint: marshal failed; returning unaugmented", "err", err)
+		return out
+	}
+	return result
+}
+
+// viewErrorEnvelope structures a view-dispatch failure as JSON the LLM
+// can read and recover from. Distinct from response_too_large; this
+// signals contract mismatch (bad view/format), not size overrun.
+func viewErrorEnvelope(toolName mcp.ToolName, err error) string {
+	envelope := map[string]any{
+		"error":   "view_dispatch_failed",
+		"tool":    string(toolName),
+		"message": err.Error(),
+	}
+	out, mErr := json.Marshal(envelope)
+	if mErr != nil {
+		slog.Error("viewErrorEnvelope: marshal failed", "tool", toolName, "err", mErr)
+		return fmt.Sprintf(`{"error":"view_dispatch_failed","tool":%q,"message":%q}`, toolName, err.Error())
+	}
+	return string(out)
 }
 
 // tooLargeEnvelope returns a structured JSON error replacing an oversized response.
@@ -1233,7 +1426,7 @@ func (te *toolExecutor) ExecuteRendered(ctx context.Context, toolName mcp.ToolNa
 		return result, nil
 	}
 	rp := buildResultProcessor(integration)
-	result.Data = processResult(rp, toolName, result.Data, te.server.services.Metrics)
+	result.Data = processResult(rp, toolName, args, result.Data, te.server.services.Metrics)
 	return result, nil
 }
 

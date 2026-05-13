@@ -49,3 +49,19 @@ type RenderKey struct {
 // into bytes in the target format. Returning an error fails the dispatch
 // and bubbles up as an error envelope to the LLM.
 type Renderer func(projected any) ([]byte, error)
+
+// ToolViewsIntegration is the opt-in interface adapters implement when a
+// tool exposes multiple views. The server pipeline calls Views() with the
+// tool name and dispatches the (view, format) selection against the
+// returned ViewSet. Adapters whose tools use only the flat (spec-only)
+// form don't implement this interface — the server stays on the existing
+// compaction path.
+//
+// This interface lives in the compact package (rather than mcp alongside
+// other port interfaces) because ViewSet is intrinsic to the loader, and
+// pulling ViewSet up to mcp would introduce mutual import dependencies.
+// Adapters already import compact for MustLoadWithOverlay; satisfying
+// this interface alongside is incremental.
+type ToolViewsIntegration interface {
+	Views(toolName mcp.ToolName) (ViewSet, bool)
+}
