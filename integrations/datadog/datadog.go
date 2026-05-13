@@ -11,13 +11,13 @@ import (
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV1"
 	mcp "github.com/daltoniam/switchboard"
-	"github.com/daltoniam/switchboard/compactyaml"
+	"github.com/daltoniam/switchboard/compact"
 )
 
 //go:embed compact.yaml
 var compactYAML []byte
 
-var compactResult = compactyaml.MustLoadWithOverlay("datadog", compactYAML, compactyaml.Options{Strict: false})
+var compactResult = compact.MustLoadWithOverlay("datadog", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
 

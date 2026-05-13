@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
-	"github.com/daltoniam/switchboard/compactyaml"
+	"github.com/daltoniam/switchboard/compact"
 	gh "github.com/google/go-github/v68/github"
 )
 
 //go:embed compact.yaml
 var compactYAML []byte
 
-var compactResult = compactyaml.MustLoadWithOverlay("github", compactYAML, compactyaml.Options{Strict: false})
+var compactResult = compact.MustLoadWithOverlay("github", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
 

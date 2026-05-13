@@ -13,13 +13,13 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
 	mcp "github.com/daltoniam/switchboard"
-	"github.com/daltoniam/switchboard/compactyaml"
+	"github.com/daltoniam/switchboard/compact"
 )
 
 //go:embed compact.yaml
 var compactYAML []byte
 
-var compactResult = compactyaml.MustLoadWithOverlay("clickhouse", compactYAML, compactyaml.Options{Strict: false})
+var compactResult = compact.MustLoadWithOverlay("clickhouse", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
 

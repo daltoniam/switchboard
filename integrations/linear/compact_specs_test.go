@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
-	"github.com/daltoniam/switchboard/compactyaml"
+	"github.com/daltoniam/switchboard/compact"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -18,7 +18,7 @@ func TestFieldCompactionSpecs_AllParse(t *testing.T) {
 // not silently drop any tool entries (e.g. due to bad spec syntax). The YAML
 // format itself prevents duplicate keys; this test ensures parse losslessness.
 func TestFieldCompactionSpecs_NoDuplicateTools(t *testing.T) {
-	var sf compactyaml.SpecFile
+	var sf compact.SpecFile
 	require.NoError(t, yaml.Unmarshal(compactYAML, &sf))
 	assert.Equal(t, len(sf.Tools), len(fieldCompactionSpecs))
 }

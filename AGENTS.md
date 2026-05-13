@@ -53,7 +53,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 - **Unexported structs, exported constructors**: `type github struct{...}` / `func New() mcp.Integration`
 - **Tool naming**: prefixed with integration name (`github_list_issues`, `datadog_search_logs`)
 - **Dispatch map test parity** (MUST): `TestDispatchMap_AllToolsCovered` + `TestDispatchMap_NoOrphanHandlers` in every adapter
-- **Compaction spec tests** (MUST): every adapter with `compact.yaml` has parity + shape tests. Cross-adapter strict-mode validation lives in `compactyaml/all_adapters_test.go`.
+- **Compaction spec tests** (MUST): every adapter with `compact.yaml` has parity + shape tests. Cross-adapter strict-mode validation lives in `compact/all_adapters_test.go`.
 - **Shared result helpers** (MUST): use `mcp.JSONResult(v)`, `mcp.RawResult(data)`, `mcp.ErrResult(err)` — never define per-adapter copies
 - **Shared arg helpers** (MUST): use `mcp.NewArgs(args)` reader or standalone `mcp.ArgStr`/`mcp.ArgInt`/etc. from `args.go` — never define local `argStr`/`argInt` in adapters. All return `(value, error)`. Use `r.OptInt("page", 1)` for pagination defaults. See `args.go` for the full API and [docs/go-anti-patterns.md](docs/go-anti-patterns.md) for extraction pitfalls that cause silent errors.
 - **Args parity test** (MUST): `TestNewArgs_ErrCheckParity` in `args_test.go` walks all adapters verifying every `NewArgs` call has a matching `.Err()` check — new adapters are covered automatically

@@ -11,13 +11,13 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
-	"github.com/daltoniam/switchboard/compactyaml"
+	"github.com/daltoniam/switchboard/compact"
 )
 
 //go:embed compact.yaml
 var compactYAML []byte
 
-var compactResult = compactyaml.MustLoadWithOverlay("rwx", compactYAML, compactyaml.Options{Strict: false})
+var compactResult = compact.MustLoadWithOverlay("rwx", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
 

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
-	"github.com/daltoniam/switchboard/compactyaml"
+	"github.com/daltoniam/switchboard/compact"
 )
 
 const maxResponseSize = 512 << 10 // 512 KB — largest real response ~230KB, caps worst-case at ~125K tokens
@@ -21,7 +21,7 @@ const maxResponseSize = 512 << 10 // 512 KB — largest real response ~230KB, ca
 //go:embed compact.yaml
 var compactYAML []byte
 
-var compactResult = compactyaml.MustLoadWithOverlay("notion", compactYAML, compactyaml.Options{Strict: false})
+var compactResult = compact.MustLoadWithOverlay("notion", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
 

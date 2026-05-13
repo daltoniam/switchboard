@@ -1,4 +1,4 @@
-package compactyaml_test
+package compact_test
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/daltoniam/switchboard/compactyaml"
+	"github.com/daltoniam/switchboard/compact"
 )
 
 // TestAllAdapterYAMLsLoadStrict is the CI gate that catches malformed
@@ -22,7 +22,7 @@ func TestAllAdapterYAMLsLoadStrict(t *testing.T) {
 		t.Fatalf("glob failed: %v", err)
 	}
 	if len(matches) == 0 {
-		t.Fatal("no compact.yaml files found under ../integrations/*/ (this test must run from the compactyaml package directory)")
+		t.Fatal("no compact.yaml files found under ../integrations/*/ (this test must run from the compact package directory)")
 	}
 	sort.Strings(matches)
 	for _, path := range matches {
@@ -31,7 +31,7 @@ func TestAllAdapterYAMLsLoadStrict(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read %s: %v", path, err)
 			}
-			res, err := compactyaml.Load(data, compactyaml.Options{Strict: true})
+			res, err := compact.Load(data, compact.Options{Strict: true})
 			if err != nil {
 				t.Fatalf("strict load failed: %v", err)
 			}

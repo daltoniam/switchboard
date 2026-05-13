@@ -3,7 +3,7 @@ package posthog
 import (
 	"testing"
 
-	"github.com/daltoniam/switchboard/compactyaml"
+	"github.com/daltoniam/switchboard/compact"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -14,7 +14,7 @@ func TestFieldCompactionSpecs_AllParse(t *testing.T) {
 }
 
 func TestFieldCompactionSpecs_NoDuplicateTools(t *testing.T) {
-	var sf compactyaml.SpecFile
+	var sf compact.SpecFile
 	require.NoError(t, yaml.Unmarshal(compactYAML, &sf))
 	assert.Equal(t, len(sf.Tools), len(fieldCompactionSpecs))
 }
