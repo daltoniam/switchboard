@@ -1,0 +1,35 @@
+# Switchboard compaction specs for the switchboard integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# switchboard.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    switchboard_browse_plugins:
+        spec:
+            - name
+            - description
+            - latest_version
+            - installed
+            - update_available
+    switchboard_check_health:
+        spec:
+            - name
+            - healthy
+            - enabled
+    switchboard_list_integrations:
+        spec:
+            - name
+            - enabled
+            - healthy
+            - tool_count

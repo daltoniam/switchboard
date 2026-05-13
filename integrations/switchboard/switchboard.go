@@ -2,15 +2,25 @@ package switchboard
 
 import (
 	"context"
+	_ "embed"
 	"sort"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 	"github.com/daltoniam/switchboard/marketplace"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("switchboard", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 var (
 	_ mcp.Integration                = (*switchboardInt)(nil)
 	_ mcp.FieldCompactionIntegration = (*switchboardInt)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*switchboardInt)(nil)
 )
 
 type switchboardInt struct {
@@ -57,6 +67,11 @@ func (s *switchboardInt) Healthy(_ context.Context) bool {
 func (s *switchboardInt) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (s *switchboardInt) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 type handlerFunc func(ctx context.Context, s *switchboardInt, args map[string]any) (*mcp.ToolResult, error)

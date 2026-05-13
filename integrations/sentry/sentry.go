@@ -3,6 +3,7 @@ package sentry
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,13 +12,22 @@ import (
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("sentry", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
 	_ mcp.Integration                = (*sentry)(nil)
 	_ mcp.FieldCompactionIntegration = (*sentry)(nil)
 	_ mcp.PlainTextCredentials       = (*sentry)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*sentry)(nil)
 )
 
 func (s *sentry) PlainTextKeys() []string {
@@ -105,6 +115,11 @@ func (s *sentry) Tools() []mcp.ToolDefinition {
 func (s *sentry) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (s *sentry) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (s *sentry) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

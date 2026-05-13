@@ -3,6 +3,7 @@ package suno
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,7 +12,15 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("suno", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 type suno struct {
 	apiKey  string
@@ -24,6 +33,7 @@ var (
 	_ mcp.PlainTextCredentials       = (*suno)(nil)
 	_ mcp.PlaceholderHints           = (*suno)(nil)
 	_ mcp.OptionalCredentials        = (*suno)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*suno)(nil)
 )
 
 func (s *suno) PlainTextKeys() []string { return []string{"base_url"} }
@@ -74,6 +84,11 @@ func (s *suno) Execute(ctx context.Context, toolName mcp.ToolName, args map[stri
 func (s *suno) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (s *suno) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 // --- HTTP helpers ---

@@ -1,0 +1,135 @@
+# Switchboard compaction specs for the postgres integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# postgres.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    postgres_database_info:
+        spec:
+            - version
+            - current_database
+            - current_user
+            - server_encoding
+    postgres_database_size:
+        spec:
+            - database_size
+            - tables
+    postgres_describe_table:
+        spec:
+            - column_name
+            - data_type
+            - is_nullable
+            - column_default
+            - constraints
+    postgres_list_active_connections:
+        spec:
+            - pid
+            - usename
+            - datname
+            - state
+            - query
+            - query_start
+            - client_addr
+    postgres_list_columns:
+        spec:
+            - column_name
+            - data_type
+            - ordinal_position
+            - is_nullable
+    postgres_list_constraints:
+        spec:
+            - constraint_name
+            - constraint_type
+            - column_name
+            - foreign_table
+    postgres_list_enums:
+        spec:
+            - enum_name
+            - enum_values
+    postgres_list_extensions:
+        spec:
+            - name
+            - default_version
+            - installed_version
+            - comment
+    postgres_list_foreign_keys:
+        spec:
+            - constraint_name
+            - column_name
+            - foreign_table_name
+            - foreign_column_name
+    postgres_list_functions:
+        spec:
+            - function_name
+            - result_type
+            - argument_types
+            - type
+    postgres_list_grants:
+        spec:
+            - grantee
+            - privilege_type
+            - table_name
+    postgres_list_indexes:
+        spec:
+            - indexname
+            - indexdef
+            - tablespace
+            - size
+    postgres_list_locks:
+        spec:
+            - pid
+            - locktype
+            - relation
+            - mode
+            - granted
+            - query
+    postgres_list_roles:
+        spec:
+            - rolname
+            - rolsuper
+            - rolcreatedb
+            - rolcanlogin
+    postgres_list_schemas:
+        spec:
+            - schema_name
+    postgres_list_tables:
+        spec:
+            - table_name
+            - schema_name
+            - row_count
+            - total_size
+    postgres_list_triggers:
+        spec:
+            - trigger_name
+            - event_manipulation
+            - event_object_table
+            - action_statement
+    postgres_list_views:
+        spec:
+            - viewname
+            - definition
+    postgres_running_queries:
+        spec:
+            - pid
+            - usename
+            - state
+            - query
+            - duration
+    postgres_table_stats:
+        spec:
+            - table_name
+            - row_count
+            - dead_tuples
+            - last_vacuum
+            - last_analyze

@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 
@@ -21,13 +22,22 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("aws", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
 	_ mcp.Integration                = (*integration)(nil)
 	_ mcp.FieldCompactionIntegration = (*integration)(nil)
 	_ mcp.PlainTextCredentials       = (*integration)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*integration)(nil)
 )
 
 func (a *integration) PlainTextKeys() []string {
@@ -107,6 +117,11 @@ func (a *integration) Tools() []mcp.ToolDefinition {
 func (a *integration) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (a *integration) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (a *integration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

@@ -3,6 +3,7 @@ package gmail
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +14,15 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("gmail", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 type gmail struct {
 	accessToken  string
@@ -30,6 +39,7 @@ var (
 	_ mcp.FieldCompactionIntegration = (*gmail)(nil)
 	_ mcp.MarkdownIntegration        = (*gmail)(nil)
 	_ mcp.PlainTextCredentials       = (*gmail)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*gmail)(nil)
 )
 
 func (g *gmail) PlainTextKeys() []string {
@@ -89,6 +99,11 @@ func (g *gmail) Execute(ctx context.Context, toolName mcp.ToolName, args map[str
 func (g *gmail) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (g *gmail) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 // --- HTTP helpers ---

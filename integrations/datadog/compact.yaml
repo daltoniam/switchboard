@@ -1,0 +1,452 @@
+# Switchboard compaction specs for the datadog integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# datadog.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    datadog_aggregate_logs:
+        spec:
+            - buckets
+            - meta
+    datadog_get_dashboard:
+        spec:
+            - id
+            - title
+            - description
+            - author_handle
+            - layout_type
+            - widgets
+            - template_variables
+            - url
+            - created_at
+            - modified_at
+    datadog_get_downtime:
+        spec:
+            - id
+            - scope
+            - message
+            - start
+            - end
+            - monitor_id
+            - active
+            - disabled
+            - recurrence
+    datadog_get_event:
+        spec:
+            - id
+            - title
+            - text
+            - date_happened
+            - source
+            - tags
+            - priority
+            - alert_type
+    datadog_get_host_tags:
+        spec:
+            - tags
+    datadog_get_host_totals:
+        spec:
+            - total_active
+            - total_up
+    datadog_get_incident:
+        spec:
+            - data.id
+            - data.attributes.title
+            - data.attributes.severity
+            - data.attributes.status
+            - data.attributes.fields
+            - data.attributes.created
+            - data.attributes.modified
+    datadog_get_incident_service:
+        spec:
+            - data.id
+            - data.attributes.name
+            - data.attributes.created
+            - data.attributes.modified
+    datadog_get_incident_team:
+        spec:
+            - data.id
+            - data.attributes.name
+            - data.attributes.created
+            - data.attributes.modified
+    datadog_get_ip_ranges:
+        spec:
+            - agents
+            - api
+            - logs
+            - webhooks
+            - synthetics
+    datadog_get_metric_metadata:
+        spec:
+            - type
+            - description
+            - short_name
+            - unit
+            - per_unit
+            - integration
+    datadog_get_monitor:
+        spec:
+            - id
+            - name
+            - type
+            - query
+            - overall_state
+            - message
+            - tags
+            - options
+            - created
+            - modified
+    datadog_get_notebook:
+        spec:
+            - data.id
+            - data.attributes.name
+            - data.attributes.cells
+            - data.attributes.author.handle
+            - data.attributes.status
+            - data.attributes.created
+            - data.attributes.modified
+    datadog_get_oncall_escalation_policy:
+        spec:
+            - data.id
+            - data.attributes.name
+            - data.relationships
+    datadog_get_oncall_page:
+        spec:
+            - data.id
+            - data.attributes
+    datadog_get_oncall_schedule:
+        spec:
+            - data.id
+            - data.attributes.name
+            - data.attributes.time_zone
+            - data.relationships
+    datadog_get_oncall_team_routing_rules:
+        spec:
+            - data.id
+            - data.attributes
+            - data.relationships
+    datadog_get_schedule_oncall_user:
+        spec:
+            - data.id
+            - data.attributes
+            - data.relationships
+    datadog_get_slo:
+        spec:
+            - data.id
+            - data.name
+            - data.type
+            - data.description
+            - data.thresholds
+            - data.tags
+            - data.overall_status
+    datadog_get_slo_history:
+        spec:
+            - data.overall.sli_value
+            - data.overall.span_precision
+            - data.thresholds
+    datadog_get_synthetics_api_test:
+        spec:
+            - public_id
+            - name
+            - type
+            - status
+            - tags
+            - config
+            - locations
+            - message
+    datadog_get_synthetics_test_result:
+        spec:
+            - result_id
+            - status
+            - check_time
+            - result
+    datadog_get_team:
+        spec:
+            - data.id
+            - data.attributes.name
+            - data.attributes.handle
+            - data.attributes.description
+            - data.attributes.user_count
+            - data.attributes.link_count
+            - data.attributes.created_at
+            - data.attributes.modified_at
+    datadog_get_team_link:
+        spec:
+            - data.id
+            - data.attributes.label
+            - data.attributes.url
+            - data.attributes.position
+    datadog_get_team_oncall_users:
+        spec:
+            - data.id
+            - data.relationships
+    datadog_get_team_permission_settings:
+        spec:
+            - data[].id
+            - data[].attributes.action
+            - data[].attributes.editable
+            - data[].attributes.title
+            - data[].attributes.value
+    datadog_get_user:
+        spec:
+            - data.id
+            - data.attributes.name
+            - data.attributes.handle
+            - data.attributes.email
+            - data.attributes.status
+            - data.attributes.disabled
+    datadog_get_user_notification_channel:
+        spec:
+            - data.id
+            - data.attributes
+    datadog_get_user_notification_rule:
+        spec:
+            - data.id
+            - data.attributes
+    datadog_get_user_team_memberships:
+        spec:
+            - data[].id
+            - data[].attributes.role
+            - data[].relationships.team.data.id
+    datadog_list_active_metrics:
+        spec:
+            - metrics
+            - from
+    datadog_list_dashboards:
+        spec:
+            - dashboards[].id
+            - dashboards[].title
+            - dashboards[].description
+            - dashboards[].author_handle
+            - dashboards[].layout_type
+            - dashboards[].url
+            - dashboards[].created_at
+            - dashboards[].modified_at
+    datadog_list_downtimes:
+        spec:
+            - id
+            - scope
+            - message
+            - start
+            - end
+            - monitor_id
+            - active
+            - disabled
+    datadog_list_events:
+        spec:
+            - events[].id
+            - events[].title
+            - events[].text
+            - events[].date_happened
+            - events[].source
+            - events[].tags
+            - events[].priority
+            - events[].alert_type
+    datadog_list_hosts:
+        spec:
+            - host_list[].name
+            - host_list[].up
+            - host_list[].meta.platform
+            - host_list[].apps
+            - host_list[].tags_by_source
+            - host_list[].last_reported_time
+            - total_matching
+            - total_returned
+    datadog_list_incident_attachments:
+        spec:
+            - data[].id
+            - data[].type
+            - data[].attributes.attachment_type
+            - data[].attributes.modified
+    datadog_list_incident_services:
+        spec:
+            - data[].id
+            - data[].attributes.name
+            - data[].attributes.created
+            - data[].attributes.modified
+    datadog_list_incident_teams:
+        spec:
+            - data[].id
+            - data[].attributes.name
+            - data[].attributes.created
+            - data[].attributes.modified
+    datadog_list_incident_todos:
+        spec:
+            - data[].id
+            - data[].attributes.content
+            - data[].attributes.completed
+            - data[].attributes.due_date
+            - data[].attributes.created
+            - data[].attributes.modified
+    datadog_list_incidents:
+        spec:
+            - data[].id
+            - data[].attributes.title
+            - data[].attributes.severity
+            - data[].attributes.status
+            - data[].attributes.created
+            - data[].attributes.modified
+    datadog_list_monitors:
+        spec:
+            - id
+            - name
+            - type
+            - query
+            - overall_state
+            - message
+            - tags
+            - created
+            - modified
+    datadog_list_notebooks:
+        spec:
+            - data[].id
+            - data[].attributes.name
+            - data[].attributes.author.handle
+            - data[].attributes.status
+            - data[].attributes.created
+            - data[].attributes.modified
+    datadog_list_oncall_escalation_policies:
+        spec:
+            - data[].id
+            - data[].attributes.name
+    datadog_list_oncall_pages:
+        spec:
+            - data[].id
+            - data[].attributes.title
+            - data[].attributes.status
+            - data[].attributes.urgency
+    datadog_list_oncall_schedules:
+        spec:
+            - data[].id
+            - data[].attributes.name
+            - data[].attributes.time_zone
+    datadog_list_services:
+        spec:
+            - data[].id
+            - data[].attributes.schema.dd-service
+            - data[].attributes.schema.team
+            - data[].attributes.schema.description
+    datadog_list_slos:
+        spec:
+            - data[].id
+            - data[].name
+            - data[].type
+            - data[].description
+            - data[].thresholds
+            - data[].tags
+            - data[].overall_status
+    datadog_list_synthetics_tests:
+        spec:
+            - tests[].public_id
+            - tests[].name
+            - tests[].type
+            - tests[].status
+            - tests[].tags
+            - tests[].locations
+    datadog_list_tags:
+        spec:
+            - tags
+    datadog_list_team_links:
+        spec:
+            - data[].id
+            - data[].attributes.label
+            - data[].attributes.url
+            - data[].attributes.position
+    datadog_list_team_members:
+        spec:
+            - data[].id
+            - data[].attributes.role
+            - data[].relationships.user.data.id
+    datadog_list_teams:
+        spec:
+            - data[].id
+            - data[].attributes.name
+            - data[].attributes.handle
+            - data[].attributes.description
+            - data[].attributes.user_count
+            - data[].attributes.link_count
+    datadog_list_user_notification_channels:
+        spec:
+            - data[].id
+            - data[].attributes
+    datadog_list_user_notification_rules:
+        spec:
+            - data[].id
+            - data[].attributes
+    datadog_list_users:
+        spec:
+            - data[].id
+            - data[].attributes.name
+            - data[].attributes.handle
+            - data[].attributes.email
+            - data[].attributes.status
+            - data[].attributes.disabled
+    datadog_query_metrics:
+        spec:
+            - series[].metric
+            - series[].pointlist
+            - series[].scope
+            - series[].unit
+    datadog_search_events:
+        spec:
+            - events[].id
+            - events[].title
+            - events[].text
+            - events[].date_happened
+            - events[].source
+            - events[].tags
+            - events[].priority
+    datadog_search_incidents:
+        spec:
+            - data[].id
+            - data[].attributes.title
+            - data[].attributes.severity
+            - data[].attributes.status
+            - data[].attributes.created
+            - data[].attributes.modified
+    datadog_search_logs:
+        spec:
+            - status
+            - service
+            - host
+            - message
+            - timestamp
+            - tags
+    datadog_search_metrics:
+        spec:
+            - metrics
+    datadog_search_monitors:
+        spec:
+            - monitors[].id
+            - monitors[].name
+            - monitors[].type
+            - monitors[].overall_state
+            - monitors[].query
+            - monitors[].tags
+            - metadata
+    datadog_search_slos:
+        spec:
+            - data.attributes[].id
+            - data.attributes[].name
+            - data.attributes[].status
+            - data.attributes[].overall_status
+    datadog_search_spans:
+        spec:
+            - data[].attributes.service
+            - data[].attributes.resource_name
+            - data[].attributes.status
+            - data[].attributes.duration
+            - data[].attributes.start
+            - data[].attributes.span_id
+            - data[].attributes.trace_id

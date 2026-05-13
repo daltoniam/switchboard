@@ -3,6 +3,7 @@ package ynab
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +13,15 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("ynab", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 type ynab struct {
 	apiKey  string
@@ -20,7 +29,10 @@ type ynab struct {
 	baseURL string
 }
 
-var _ mcp.FieldCompactionIntegration = (*ynab)(nil)
+var (
+	_ mcp.FieldCompactionIntegration = (*ynab)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*ynab)(nil)
+)
 
 const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 
@@ -64,6 +76,11 @@ func (y *ynab) Execute(ctx context.Context, toolName mcp.ToolName, args map[stri
 func (y *ynab) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (y *ynab) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 // --- HTTP helpers ---

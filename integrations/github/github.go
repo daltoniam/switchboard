@@ -2,17 +2,27 @@ package github
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 	gh "github.com/google/go-github/v68/github"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("github", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
 	_ mcp.Integration                = (*integration)(nil)
 	_ mcp.FieldCompactionIntegration = (*integration)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*integration)(nil)
 )
 
 type integration struct {
@@ -47,6 +57,11 @@ func (g *integration) Tools() []mcp.ToolDefinition {
 func (g *integration) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (g *integration) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (g *integration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

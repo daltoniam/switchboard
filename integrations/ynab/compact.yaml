@@ -1,0 +1,168 @@
+# Switchboard compaction specs for the ynab integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# ynab.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    ynab_list_account_transactions:
+        spec:
+            - data.transactions[].id
+            - data.transactions[].date
+            - data.transactions[].amount
+            - data.transactions[].memo
+            - data.transactions[].cleared
+            - data.transactions[].approved
+            - data.transactions[].payee_id
+            - data.transactions[].payee_name
+            - data.transactions[].category_id
+            - data.transactions[].category_name
+            - data.transactions[].flag_color
+            - data.transactions[].deleted
+    ynab_list_accounts:
+        spec:
+            - data.accounts[].id
+            - data.accounts[].name
+            - data.accounts[].type
+            - data.accounts[].on_budget
+            - data.accounts[].closed
+            - data.accounts[].balance
+            - data.accounts[].cleared_balance
+            - data.accounts[].uncleared_balance
+            - data.accounts[].deleted
+    ynab_list_budgets:
+        spec:
+            - data.budgets[].id
+            - data.budgets[].name
+            - data.budgets[].last_modified_on
+            - data.budgets[].first_month
+            - data.budgets[].last_month
+    ynab_list_categories:
+        spec:
+            - data.category_groups[].id
+            - data.category_groups[].name
+            - data.category_groups[].hidden
+            - data.category_groups[].deleted
+            - data.category_groups[].categories[].id
+            - data.category_groups[].categories[].name
+            - data.category_groups[].categories[].hidden
+            - data.category_groups[].categories[].budgeted
+            - data.category_groups[].categories[].activity
+            - data.category_groups[].categories[].balance
+            - data.category_groups[].categories[].goal_type
+            - data.category_groups[].categories[].deleted
+    ynab_list_category_transactions:
+        spec:
+            - data.transactions[].id
+            - data.transactions[].date
+            - data.transactions[].amount
+            - data.transactions[].memo
+            - data.transactions[].cleared
+            - data.transactions[].approved
+            - data.transactions[].account_id
+            - data.transactions[].account_name
+            - data.transactions[].payee_id
+            - data.transactions[].payee_name
+            - data.transactions[].flag_color
+            - data.transactions[].deleted
+    ynab_list_locations_for_payee:
+        spec:
+            - data.payee_locations[].id
+            - data.payee_locations[].payee_id
+            - data.payee_locations[].latitude
+            - data.payee_locations[].longitude
+            - data.payee_locations[].deleted
+    ynab_list_month_transactions:
+        spec:
+            - data.transactions[].id
+            - data.transactions[].date
+            - data.transactions[].amount
+            - data.transactions[].memo
+            - data.transactions[].cleared
+            - data.transactions[].approved
+            - data.transactions[].account_id
+            - data.transactions[].account_name
+            - data.transactions[].payee_id
+            - data.transactions[].payee_name
+            - data.transactions[].category_id
+            - data.transactions[].category_name
+            - data.transactions[].flag_color
+            - data.transactions[].deleted
+    ynab_list_months:
+        spec:
+            - data.months[].month
+            - data.months[].income
+            - data.months[].budgeted
+            - data.months[].activity
+            - data.months[].to_be_budgeted
+            - data.months[].age_of_money
+            - data.months[].deleted
+    ynab_list_payee_locations:
+        spec:
+            - data.payee_locations[].id
+            - data.payee_locations[].payee_id
+            - data.payee_locations[].latitude
+            - data.payee_locations[].longitude
+            - data.payee_locations[].deleted
+    ynab_list_payee_transactions:
+        spec:
+            - data.transactions[].id
+            - data.transactions[].date
+            - data.transactions[].amount
+            - data.transactions[].memo
+            - data.transactions[].cleared
+            - data.transactions[].approved
+            - data.transactions[].account_id
+            - data.transactions[].account_name
+            - data.transactions[].category_id
+            - data.transactions[].category_name
+            - data.transactions[].flag_color
+            - data.transactions[].deleted
+    ynab_list_payees:
+        spec:
+            - data.payees[].id
+            - data.payees[].name
+            - data.payees[].transfer_account_id
+            - data.payees[].deleted
+    ynab_list_scheduled_transactions:
+        spec:
+            - data.scheduled_transactions[].id
+            - data.scheduled_transactions[].date_first
+            - data.scheduled_transactions[].date_next
+            - data.scheduled_transactions[].frequency
+            - data.scheduled_transactions[].amount
+            - data.scheduled_transactions[].memo
+            - data.scheduled_transactions[].account_id
+            - data.scheduled_transactions[].account_name
+            - data.scheduled_transactions[].payee_id
+            - data.scheduled_transactions[].payee_name
+            - data.scheduled_transactions[].category_id
+            - data.scheduled_transactions[].category_name
+            - data.scheduled_transactions[].flag_color
+            - data.scheduled_transactions[].deleted
+    ynab_list_transactions:
+        spec:
+            - data.transactions[].id
+            - data.transactions[].date
+            - data.transactions[].amount
+            - data.transactions[].memo
+            - data.transactions[].cleared
+            - data.transactions[].approved
+            - data.transactions[].account_id
+            - data.transactions[].account_name
+            - data.transactions[].payee_id
+            - data.transactions[].payee_name
+            - data.transactions[].category_id
+            - data.transactions[].category_name
+            - data.transactions[].flag_color
+            - data.transactions[].deleted

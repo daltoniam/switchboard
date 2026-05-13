@@ -3,6 +3,7 @@ package fly
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +13,15 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("fly", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 type fly struct {
 	token   string
@@ -23,6 +32,7 @@ type fly struct {
 var (
 	_ mcp.FieldCompactionIntegration = (*fly)(nil)
 	_ mcp.PlainTextCredentials       = (*fly)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*fly)(nil)
 )
 
 func (f *fly) PlainTextKeys() []string {
@@ -80,6 +90,11 @@ func (f *fly) Execute(ctx context.Context, toolName mcp.ToolName, args map[strin
 func (f *fly) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (f *fly) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 // --- HTTP helpers ---

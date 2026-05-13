@@ -183,7 +183,9 @@ Follow `AGENTS.md > Adding a New Integration` steps 6-7 (register + config defau
 
 New adapters should implement `FieldCompactionIntegration` to keep list/search responses compact.
 
-**Contract vs implementation**: The interface contract is `CompactSpec(toolName string) ([]CompactField, bool)` defined in `mcp.go`. How you build the specs is an implementation detail — `integrations/github/compact_specs.go` uses a raw string map parsed at init, but adapters can construct `CompactField` slices however they want.
+**Contract**: implement `CompactSpec(toolName ToolName) ([]CompactField, bool)` on the adapter struct. The shared `compactyaml` package loads specs from an embedded `compact.yaml` next to your adapter Go file — there's no per-adapter loader to write.
+
+**Optional**: implement `MaxBytes(toolName ToolName) (int, bool)` if you want per-tool response size caps declared in the same YAML.
 
 ### Token Budget Principle
 
@@ -193,11 +195,27 @@ Optimize specs for **fewest total tokens across the entire task workflow**, not 
 
 ### Checklist
 
-- [ ] Create `integrations/<name>/compact_specs.go` with `rawFieldCompactionSpecs` map and `mustBuildFieldCompactionSpecs` init (copy pattern from `integrations/github/compact_specs.go`)
+- [ ] Create `integrations/<name>/compact.yaml`. Header comment + `version: 1` + `tools.<tool_name>.spec: [<dot-notation paths>]`. Copy `integrations/linear/compact.yaml` as the reference shape.
+- [ ] In the adapter Go file, wire the loader:
+  ```go
+  //go:embed compact.yaml
+  var compactYAML []byte
+
+  var compactResult = compactyaml.MustLoadWithOverlay("<name>", compactYAML, compactyaml.Options{Strict: false})
+  var fieldCompactionSpecs = compactResult.Specs
+  var maxBytesByTool = compactResult.MaxBytes
+  ```
 - [ ] Design field compaction specs using the spec design questions below
 - [ ] Add specs for all read tools (list, search, AND single-record get) — keep identifiers, names, states, dates, counts, URLs; drop nested full objects, permissions, avatars, node_ids, CRDT noise
-- [ ] Implement `CompactSpec(toolName string) ([]CompactField, bool)` method on the adapter struct
-- [ ] Add compile-time assertion: `var _ mcp.FieldCompactionIntegration = (*myapi)(nil)`
+- [ ] Implement `CompactSpec(toolName ToolName) ([]CompactField, bool)` on the adapter struct (returns `fieldCompactionSpecs[toolName]`)
+- [ ] Implement `MaxBytes(toolName ToolName) (int, bool)` on the adapter struct (returns `maxBytesByTool[toolName]`)
+- [ ] Add compile-time assertions:
+  ```go
+  var (
+      _ mcp.FieldCompactionIntegration = (*myapi)(nil)
+      _ mcp.ToolMaxBytesIntegration    = (*myapi)(nil)
+  )
+  ```
 - [ ] Add `TestFieldCompactionSpecs_NoOrphanSpecs` — every spec key must exist in `dispatch`
 - [ ] Unwrap SDK list responses to the inner slice (e.g., `resp.Items` not `resp`) so field compaction operates on the array directly
 - [ ] Mutation tools (create/update/delete) should NOT have field compaction specs — return full confirmation responses
@@ -212,7 +230,7 @@ For each tool's spec, verify against these questions before finalizing:
 4. **Field dependencies**: Do included fields make sense alone? `status` without `conclusion` in CI runs is incomplete. `additions` without `deletions` in PRs is half the story. Include paired fields together or not at all.
 5. **Follow-up keys**: Does the LLM have the identifiers it needs to make follow-up API calls? Verify that `id`, `number`, or `sha` — whatever the get tool requires — is included.
 
-Canonical example: `integrations/github/compact_specs.go`
+Canonical example: `integrations/linear/compact.yaml` (schema + header conventions) and `integrations/linear/linear.go` (loader wiring + interface assertions).
 
 ## Anti-Patterns
 

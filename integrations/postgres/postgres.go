@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -14,7 +15,15 @@ import (
 	_ "github.com/lib/pq"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("postgres", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
@@ -23,6 +32,7 @@ var (
 	_ mcp.PlainTextCredentials       = (*postgres)(nil)
 	_ mcp.PlaceholderHints           = (*postgres)(nil)
 	_ mcp.OptionalCredentials        = (*postgres)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*postgres)(nil)
 )
 
 // pgConn holds a single Postgres connection and its metadata.
@@ -265,6 +275,11 @@ func (p *postgres) Tools() []mcp.ToolDefinition {
 func (p *postgres) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (p *postgres) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (p *postgres) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

@@ -3,6 +3,7 @@ package nomad
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,12 +13,21 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("nomad", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
 	_ mcp.Integration                = (*nomad)(nil)
 	_ mcp.FieldCompactionIntegration = (*nomad)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*nomad)(nil)
 )
 
 type nomad struct {
@@ -59,6 +69,11 @@ func (n *nomad) Tools() []mcp.ToolDefinition {
 func (n *nomad) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (n *nomad) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n2, ok := maxBytesByTool[toolName]
+	return n2, ok
 }
 
 func (n *nomad) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

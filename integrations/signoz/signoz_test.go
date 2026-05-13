@@ -361,7 +361,7 @@ func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
 	for name := range dispatch {
 		toolNames[name] = true
 	}
-	for name := range rawFieldCompactionSpecs {
+	for name := range fieldCompactionSpecs {
 		assert.True(t, toolNames[name], "compaction spec %s has no dispatch handler", name)
 	}
 }
@@ -381,7 +381,7 @@ func TestFieldCompactionSpecs_AllReadToolsCovered(t *testing.T) {
 		if !isRead {
 			continue
 		}
-		_, ok := rawFieldCompactionSpecs[tool.Name]
+		_, ok := fieldCompactionSpecs[tool.Name]
 		assert.True(t, ok, "read tool %s missing compaction spec", tool.Name)
 	}
 }

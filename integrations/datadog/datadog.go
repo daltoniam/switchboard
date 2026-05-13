@@ -2,6 +2,7 @@ package datadog
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strconv"
 	"strings"
@@ -10,13 +11,22 @@ import (
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV1"
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("datadog", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
 	_ mcp.Integration                = (*dd)(nil)
 	_ mcp.FieldCompactionIntegration = (*dd)(nil)
 	_ mcp.PlainTextCredentials       = (*dd)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*dd)(nil)
 )
 
 func (d *dd) PlainTextKeys() []string {
@@ -93,6 +103,11 @@ func (d *dd) Tools() []mcp.ToolDefinition {
 func (d *dd) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (d *dd) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (d *dd) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

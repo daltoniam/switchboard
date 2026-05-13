@@ -1,0 +1,76 @@
+# Switchboard compaction specs for the gmail integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# gmail.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    gmail_list_delegates:
+        spec:
+            - delegates[].delegateEmail
+            - delegates[].verificationStatus
+    gmail_list_drafts:
+        spec:
+            - drafts[].id
+            - drafts[].message.id
+            - drafts[].message.threadId
+            - resultSizeEstimate
+            - nextPageToken
+    gmail_list_filters:
+        spec:
+            - filter[].id
+            - filter[].criteria.from
+            - filter[].criteria.to
+            - filter[].criteria.subject
+            - filter[].criteria.query
+            - filter[].action.addLabelIds
+            - filter[].action.removeLabelIds
+    gmail_list_forwarding_addresses:
+        spec:
+            - forwardingAddresses[].forwardingEmail
+            - forwardingAddresses[].verificationStatus
+    gmail_list_history:
+        spec:
+            - history[].id
+            - history[].messages[].id
+            - historyId
+            - nextPageToken
+    gmail_list_labels:
+        spec:
+            - labels[].id
+            - labels[].name
+            - labels[].type
+            - labels[].messagesTotal
+            - labels[].messagesUnread
+            - labels[].threadsTotal
+            - labels[].threadsUnread
+    gmail_list_messages:
+        spec:
+            - messages[].id
+            - messages[].threadId
+            - resultSizeEstimate
+            - nextPageToken
+    gmail_list_send_as:
+        spec:
+            - sendAs[].sendAsEmail
+            - sendAs[].displayName
+            - sendAs[].isPrimary
+            - sendAs[].isDefault
+            - sendAs[].verificationStatus
+    gmail_list_threads:
+        spec:
+            - threads[].id
+            - threads[].historyId
+            - threads[].snippet
+            - resultSizeEstimate
+            - nextPageToken

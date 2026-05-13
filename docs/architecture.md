@@ -19,7 +19,7 @@ daemon/
 integrations/
   github/
     github.go                GitHub integration adapter (core, dispatch, helpers, FieldCompactionIntegration)
-    compact_specs.go         Field compaction spec declarations (~45 list/search tools)
+    compact.yaml             Field compaction specs (~45 list/search tools)
     tools.go                 GitHub tool definitions (~100 tools)
     repos.go                 Repos, releases, deploy keys, webhooks, rate limit handlers
     issues.go                Issues, comments, labels, milestones handlers
@@ -79,7 +79,7 @@ integrations/
   notion/
     notion.go                Notion v3 integration adapter (core, dispatch, HTTP helpers)
     tools.go                 Notion tool definitions (~24 tools)
-    compact_specs.go         Field compaction spec declarations (13 read tools)
+    compact.yaml             Field compaction specs (13 read tools)
     data_sources.go          Database create, data sources read/update/query/templates handlers
     pages.go                 Pages CRUD, move, property + convenience (getPageContent, createPageWithContent) handlers
     blocks.go                Blocks CRUD, children list/append handlers
@@ -126,7 +126,7 @@ integrations/
                              parts, dictionaries, users, roles, query log handlers
   pganalyze/
     pganalyze.go             pganalyze integration adapter (core, dispatch, GraphQL helpers)
-    compact_specs.go         Field compaction spec declarations
+    compact.yaml             Field compaction specs
     tools.go                 pganalyze tool definitions (~3 tools)
     servers.go               Server listing handler
     issues.go                Issue listing handler
@@ -140,7 +140,7 @@ integrations/
     proxy.go                 Proxy client for rwx mcp serve (dynamic tool forwarding)
   gmail/
     gmail.go                 Gmail integration adapter (core, dispatch, HTTP helpers, OAuth2 refresh)
-    compact_specs.go         Field compaction spec declarations (~9 list tools)
+    compact.yaml             Field compaction specs (~9 list tools)
     tools.go                 Gmail tool definitions (~44 tools)
     messages.go              Message CRUD, send, trash, labels handlers
     threads.go               Thread list, get, trash, labels handlers
@@ -150,7 +150,7 @@ integrations/
     oauth.go                 Gmail OAuth2 (authorization code flow, token refresh)
   homeassistant/
     homeassistant.go         Home Assistant integration adapter (core, dispatch, HTTP helpers)
-    compact_specs.go         Field compaction spec declarations
+    compact.yaml             Field compaction specs
     tools.go                 Home Assistant tool definitions (~17 tools)
     states.go                Entity state listing and detail handlers
     services.go              Service domain and call handlers
@@ -159,7 +159,7 @@ integrations/
     extras.go                Config, areas, devices, entities, templates, logs handlers
   ynab/
     ynab.go                  YNAB integration adapter (core, dispatch, HTTP helpers, FieldCompactionIntegration)
-    compact_specs.go         Field compaction spec declarations (~10 list tools)
+    compact.yaml             Field compaction specs (~10 list tools)
     tools.go                 YNAB tool definitions (~25 tools)
     budgets.go               User, budgets, budget settings, accounts handlers
     categories.go            Categories, payees, months handlers
@@ -310,7 +310,7 @@ Constructed in `cmd/server/main.go` and passed to both `server.New()` and `web.N
 4. In `Tools()`, return `[]mcp.ToolDefinition` describing each operation.
 5. In `Execute()`, add the tool name to the `dispatch` map and implement the handler method.
 6. Add `TestDispatchMap_AllToolsCovered` and `TestDispatchMap_NoOrphanHandlers` tests (see any existing adapter for the pattern). These enforce bidirectional parity between `Tools()` and the `dispatch` map.
-7. If the integration has read tools, create `compact_specs.go` and `compact_specs_test.go` with parity + shape tests (see [docs/adapter-reference.md](adapter-reference.md) for the full pattern).
+7. If the integration has read tools, create `compact.yaml` (the spec file the binary embeds at init) and `compact_specs_test.go` with parity + shape tests (see [docs/field-compaction.md](field-compaction.md) for the schema and [docs/adapter-reference.md](adapter-reference.md) for the full pattern).
 8. Register in `cmd/server/main.go` by adding to the integration list.
 9. Add default credentials to `config.defaultConfig()` in `config/config.go`.
 10. Add env var mappings for the new integration's credentials to `envMapping` in `config/config.go`.

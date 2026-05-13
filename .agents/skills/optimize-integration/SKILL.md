@@ -114,7 +114,7 @@ var userFields = []string{"id", "name", "email"}
 var singleUserFields = []string{"id", "name", "email", "profile_photo"}
 ```
 
-How these get applied to specs depends on the adapter's `compact_specs.go` conventions. Check the existing adapter (or `integrations/github/compact_specs.go` as canonical reference).
+How these get applied to specs depends on the adapter's `compact.yaml` conventions. Check the adapter you're modifying (or `integrations/linear/compact.yaml` as the canonical reference). The shared header explains the whitelist semantics; each tool block has a `spec:` list and an optional `max_bytes:` cap.
 
 ### SDK vs raw HTTP response shapes
 

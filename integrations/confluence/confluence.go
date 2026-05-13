@@ -3,6 +3,7 @@ package confluence
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -12,7 +13,15 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("confluence", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
@@ -21,6 +30,7 @@ var (
 	_ mcp.MarkdownIntegration         = (*confluence)(nil)
 	_ mcp.PlainTextCredentials        = (*confluence)(nil)
 	_ mcp.MaxResponseBytesIntegration = (*confluence)(nil)
+	_ mcp.ToolMaxBytesIntegration     = (*confluence)(nil)
 )
 
 // confluenceMaxResponseBytes raises the response cap for Confluence above the
@@ -79,6 +89,11 @@ func (c *confluence) Tools() []mcp.ToolDefinition {
 func (c *confluence) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (c *confluence) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (c *confluence) MaxResponseBytes() int { return confluenceMaxResponseBytes }

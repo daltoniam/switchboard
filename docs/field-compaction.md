@@ -23,8 +23,21 @@ sequenceDiagram
     Switchboard-->>LLM: 5KB (complete detail)
 ```
 
-- **Opt in**: Implement `CompactSpec(toolName string) ([]CompactField, bool)` — returns parsed fields + found flag
-- **Declare specs** in `<adapter>/compact_specs.go` using dot-notation: `"title"`, `"user.login"`, `"labels[].name"`, `"page.id"` (2+ specs sharing a root → nested object)
+- **Whitelist, not blacklist**: a spec lists the fields you want to keep; everything else is stripped. The only blacklist-style escape hatch is `-field` for explicit exclusions within a kept parent.
+- **Opt in**: implement `CompactSpec(toolName ToolName) ([]CompactField, bool)` — returns parsed fields + found flag. To declare a per-tool response size cap, also implement `MaxBytes(toolName ToolName) (int, bool)`.
+- **Declare specs** in `<adapter>/compact.yaml`. The file is embedded into the binary via `//go:embed` and parsed once at adapter init by the shared `compactyaml` package. Schema:
+
+  ```yaml
+  version: 1
+  tools:
+    <tool_name>:
+      spec:
+        - <dot-notation path>
+        - <another path>
+      max_bytes: 100000   # optional per-tool response size cap
+  ```
+
+  Dot-notation: `"title"`, `"user.login"`, `"labels[].name"`, `"page.id"` (2+ specs sharing a root → nested object).
 - **Spec syntax** (all parsed by `ParseCompactSpecs` in `compact.go`):
   - `"field"` — keep a top-level field
   - `"parent.child"` — extract nested value (2+ children sharing a root → nested object in output)
@@ -42,12 +55,46 @@ sequenceDiagram
 - **Dispatch parity**: `TestFieldCompactionSpecs_NoOrphanSpecs` — every spec key must have a dispatch handler
 - **Shape parity**: spec paths must match the handler's actual output structure, not the assumed upstream API structure. A spec targeting `messages.matches[]` when the handler returns flat `{"matches": [...]}` extracts nothing → `{}`. Verify: trace each spec root key to the handler's `JSONResult()` / `RawResult()` call — every spec root must exist as a key in the handler output
 - **GraphQL envelope awareness**: GraphQL handlers return `{"queryName": {"nodes": [...]}}` via `RawResult(gqlResp.Data)`. Specs must include the envelope path: `"issues.nodes[].id"`, not `"id"`
-- **Compaction spec tests**: every adapter with `compact_specs.go` has a `compact_specs_test.go` with 7-8 tests: no orphan specs, no missing specs for read tools, no specs on mutation tools, spec parsability, nested object grouping, wildcard consistency, **shape parity** (compaction of a representative handler output produces non-empty result)
+- **Compaction spec tests**: every adapter with `compact.yaml` has a `compact_specs_test.go` with 7-8 tests: no orphan specs, no missing specs for read tools, no specs on mutation tools, spec parsability, nested object grouping, wildcard consistency, **shape parity** (compaction of a representative handler output produces non-empty result). The cross-adapter strict-mode test in `compactyaml/all_adapters_test.go` is the CI gate that catches malformed YAML before merge.
 - **Unwrap SDK lists**: return `resp.Items` not `resp` so compaction operates on the array directly
 - **Anti-pattern**: `return JSONResult(fullSDKWrapper)` for list tools
 - **Benchmarks**: `BenchmarkCompactionRatio` in `compact_test.go` — 8 sub-benchmarks with realistic payloads (GitHub, Datadog, Linear, Sentry, AWS, exclusion, single object, passthrough). Reports input_bytes, output_bytes, savings_%, throughput MB/s.
 - **Glob exclusion specs**: `"-*_url"` removes all fields matching the glob pattern. Only valid in exclusion mode (prefix `-`). Uses `path.Match` semantics. Validated at parse time — invalid patterns (e.g., `"-[invalid"`) rejected by `ParseCompactSpecs`. **Caveat**: glob catches future fields too — `"-*_url"` will silently exclude any new `*_url` field an upstream API adds. Use targeted exclusions when the field set is small and stable.
 - See `.agents/skills/optimize-integration/SKILL.md` for compaction refinement, handler boundary rules, and anti-patterns
+
+## Runtime Posture: Lenient at Runtime, Strict in Tests
+
+The YAML loader runs in two modes. At runtime, an invalid spec entry is skipped and logged; the affected tool returns its raw JSON unchanged, and every other tool keeps working. In tests, the same entry is a hard failure — `compactyaml/all_adapters_test.go` walks every adapter's YAML in strict mode so a bad spec lands on CI, not in production.
+
+The reason for the split: production should keep responding even when a single spec rots after an upstream API rename. The CI gate makes sure that rot is caught the moment a developer pushes the broken file.
+
+## Adapting to Upstream API Drift
+
+Embedded YAML files are the defaults the binary ships with. When an upstream API changes — a field gets renamed, a useful new field appears, a once-noisy field becomes important — you can patch the spec without rebuilding Switchboard:
+
+1. Set `SWITCHBOARD_COMPACT_DIR` to a directory you control.
+2. Drop `<adapter>.yaml` in that directory. The file can be the whole adapter copied out of the source tree, or a partial file containing only the tools you want to change.
+3. Restart Switchboard.
+
+Merge is per-tool: tools defined in the override replace the embedded value; tools you don't mention fall through to the embedded defaults. A tool that exists only in your override (no embedded counterpart) is loaded with a startup warning — usually a sign of a typo.
+
+## Per-Tool Response Size Cap (`max_bytes`)
+
+Optional. When a tool's `max_bytes` is set and the post-compaction response exceeds it, the server replaces the body with a structured error:
+
+```json
+{
+  "error": "response_too_large",
+  "tool": "<tool_name>",
+  "size": <actual bytes>,
+  "limit": <max_bytes>,
+  "hint": "narrow your query (e.g., add a filter, reduce page size, or request fewer fields)"
+}
+```
+
+The shape matters: it's valid JSON the LLM can parse and react to. A naïve truncation would corrupt the document and leave the LLM guessing what failed. This envelope tells it exactly what to do next.
+
+Distinguish this from the integration-wide cap (`MaxResponseBytesIntegration`, a single number for the whole adapter). The per-tool cap is finer-grained and returns a richer error; the integration-wide cap is the broader safety net. Both coexist — a tool that triggers its per-tool cap returns the envelope (small), and the integration-wide check then passes.
 
 ## Tool Description Design
 

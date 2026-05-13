@@ -7,20 +7,27 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 // ── Structural tests (GitHub compact_specs_test.go pattern) ─────────
 
 func TestFieldCompactionSpecs_AllParse(t *testing.T) {
-	// fieldCompactionSpecs is built via mustBuildFieldCompactionSpecs at package init.
-	// If any spec were invalid, the package would panic on load.
+	// fieldCompactionSpecs is loaded from compact.yaml at package init.
+	// If any spec were invalid, lenient-mode loading would skip it with a warning.
 	require.NotEmpty(t, fieldCompactionSpecs, "fieldCompactionSpecs should not be empty")
 }
 
+// TestFieldCompactionSpecs_NoDuplicateTools verifies the YAML loader did not
+// silently drop any tool entries. YAML keys are unique at the parser level;
+// this confirms parse losslessness.
 func TestFieldCompactionSpecs_NoDuplicateTools(t *testing.T) {
-	assert.Equal(t, len(rawFieldCompactionSpecs), len(fieldCompactionSpecs))
+	var sf compactyaml.SpecFile
+	require.NoError(t, yaml.Unmarshal(compactYAML, &sf))
+	assert.Equal(t, len(sf.Tools), len(fieldCompactionSpecs))
 }
 
 func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
