@@ -25,7 +25,7 @@ sequenceDiagram
 
 - **Whitelist, not blacklist**: a spec lists the fields you want to keep; everything else is stripped. The only blacklist-style escape hatch is `-field` for explicit exclusions within a kept parent.
 - **Opt in**: implement `CompactSpec(toolName ToolName) ([]CompactField, bool)` — returns parsed fields + found flag. To declare a per-tool response size cap, also implement `MaxBytes(toolName ToolName) (int, bool)`.
-- **Declare specs** in `<adapter>/compact.yaml`. The file is embedded into the binary via `//go:embed` and parsed once at adapter init by the shared `compactyaml` package. Schema:
+- **Declare specs** in `<adapter>/compact.yaml`. The file is embedded into the binary via `//go:embed` and parsed once at adapter init by the shared `compact` package. Schema:
 
   ```yaml
   version: 1
@@ -55,7 +55,7 @@ sequenceDiagram
 - **Dispatch parity**: `TestFieldCompactionSpecs_NoOrphanSpecs` — every spec key must have a dispatch handler
 - **Shape parity**: spec paths must match the handler's actual output structure, not the assumed upstream API structure. A spec targeting `messages.matches[]` when the handler returns flat `{"matches": [...]}` extracts nothing → `{}`. Verify: trace each spec root key to the handler's `JSONResult()` / `RawResult()` call — every spec root must exist as a key in the handler output
 - **GraphQL envelope awareness**: GraphQL handlers return `{"queryName": {"nodes": [...]}}` via `RawResult(gqlResp.Data)`. Specs must include the envelope path: `"issues.nodes[].id"`, not `"id"`
-- **Compaction spec tests**: every adapter with `compact.yaml` has a `compact_specs_test.go` with 7-8 tests: no orphan specs, no missing specs for read tools, no specs on mutation tools, spec parsability, nested object grouping, wildcard consistency, **shape parity** (compaction of a representative handler output produces non-empty result). The cross-adapter strict-mode test in `compactyaml/all_adapters_test.go` is the CI gate that catches malformed YAML before merge.
+- **Compaction spec tests**: every adapter with `compact.yaml` has a `compact_specs_test.go` with 7-8 tests: no orphan specs, no missing specs for read tools, no specs on mutation tools, spec parsability, nested object grouping, wildcard consistency, **shape parity** (compaction of a representative handler output produces non-empty result). The cross-adapter strict-mode test in `compact/all_adapters_test.go` is the CI gate that catches malformed YAML before merge.
 - **Unwrap SDK lists**: return `resp.Items` not `resp` so compaction operates on the array directly
 - **Anti-pattern**: `return JSONResult(fullSDKWrapper)` for list tools
 - **Benchmarks**: `BenchmarkCompactionRatio` in `compact_test.go` — 8 sub-benchmarks with realistic payloads (GitHub, Datadog, Linear, Sentry, AWS, exclusion, single object, passthrough). Reports input_bytes, output_bytes, savings_%, throughput MB/s.
@@ -64,7 +64,7 @@ sequenceDiagram
 
 ## Runtime Posture: Lenient at Runtime, Strict in Tests
 
-The YAML loader runs in two modes. At runtime, an invalid spec entry is skipped and logged; the affected tool returns its raw JSON unchanged, and every other tool keeps working. In tests, the same entry is a hard failure — `compactyaml/all_adapters_test.go` walks every adapter's YAML in strict mode so a bad spec lands on CI, not in production.
+The YAML loader runs in two modes. At runtime, an invalid spec entry is skipped and logged; the affected tool returns its raw JSON unchanged, and every other tool keeps working. In tests, the same entry is a hard failure — `compact/all_adapters_test.go` walks every adapter's YAML in strict mode so a bad spec lands on CI, not in production.
 
 The reason for the split: production should keep responding even when a single spec rots after an upstream API rename. The CI gate makes sure that rot is caught the moment a developer pushes the broken file.
 

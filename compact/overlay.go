@@ -1,4 +1,4 @@
-package compactyaml
+package compact
 
 import (
 	"errors"
@@ -32,12 +32,12 @@ func LoadWithOverlay(adapter string, embedded []byte, opts Options) (Result, err
 		return base, nil
 	}
 	if err != nil {
-		return absorbOverlayErr(base, opts, fmt.Errorf("compactyaml: read overlay %s: %w", path, err))
+		return absorbOverlayErr(base, opts, fmt.Errorf("compact: read overlay %s: %w", path, err))
 	}
 
 	overlay, err := Load(data, opts)
 	if err != nil {
-		return absorbOverlayErr(base, opts, fmt.Errorf("compactyaml: overlay %s: %w", path, err))
+		return absorbOverlayErr(base, opts, fmt.Errorf("compact: overlay %s: %w", path, err))
 	}
 
 	mergeOverlay(&base, overlay)
@@ -65,15 +65,24 @@ func absorbOverlayErr(base Result, opts Options, err error) (Result, error) {
 
 // mergeOverlay applies overlay's per-tool entries on top of base.
 // Tools present only in overlay (no embedded counterpart) are accepted with a warning.
+//
+// Granularity is whole-tool: if the overlay defines a tool, that tool's
+// entire config (spec, max_bytes, and any multi-view detail) is replaced.
+// Per-view merging (override one view, keep others embedded) is not
+// supported — authors copy the whole tool's YAML out of the source tree
+// when they want to override.
 func mergeOverlay(base *Result, overlay Result) {
 	for name, fields := range overlay.Specs {
 		if _, present := base.Specs[name]; !present {
 			base.Warnings = append(base.Warnings,
-				fmt.Errorf("compactyaml: overlay tool %q has no embedded counterpart (possible typo)", name))
+				fmt.Errorf("compact: overlay tool %q has no embedded counterpart (possible typo)", name))
 		}
 		base.Specs[name] = fields
+		// Clear any prior per-tool max_bytes and view config; overlay re-applies below if set.
 		delete(base.MaxBytes, name)
+		delete(base.Views, name)
 	}
 	maps.Copy(base.MaxBytes, overlay.MaxBytes)
+	maps.Copy(base.Views, overlay.Views)
 	base.Warnings = append(base.Warnings, overlay.Warnings...)
 }

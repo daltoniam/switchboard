@@ -183,7 +183,7 @@ Follow `AGENTS.md > Adding a New Integration` steps 6-7 (register + config defau
 
 New adapters should implement `FieldCompactionIntegration` to keep list/search responses compact.
 
-**Contract**: implement `CompactSpec(toolName ToolName) ([]CompactField, bool)` on the adapter struct. The shared `compactyaml` package loads specs from an embedded `compact.yaml` next to your adapter Go file — there's no per-adapter loader to write.
+**Contract**: implement `CompactSpec(toolName ToolName) ([]CompactField, bool)` on the adapter struct. The shared `compact` package loads specs from an embedded `compact.yaml` next to your adapter Go file — there's no per-adapter loader to write.
 
 **Optional**: implement `MaxBytes(toolName ToolName) (int, bool)` if you want per-tool response size caps declared in the same YAML.
 
@@ -201,7 +201,7 @@ Optimize specs for **fewest total tokens across the entire task workflow**, not 
   //go:embed compact.yaml
   var compactYAML []byte
 
-  var compactResult = compactyaml.MustLoadWithOverlay("<name>", compactYAML, compactyaml.Options{Strict: false})
+  var compactResult = compact.MustLoadWithOverlay("<name>", compactYAML, compact.Options{Strict: false})
   var fieldCompactionSpecs = compactResult.Specs
   var maxBytesByTool = compactResult.MaxBytes
   ```
