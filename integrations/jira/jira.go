@@ -3,6 +3,7 @@ package jira
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -13,7 +14,15 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("jira", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
@@ -21,6 +30,7 @@ var (
 	_ mcp.FieldCompactionIntegration = (*jira)(nil)
 	_ mcp.MarkdownIntegration        = (*jira)(nil)
 	_ mcp.PlainTextCredentials       = (*jira)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*jira)(nil)
 )
 
 type jira struct {
@@ -72,6 +82,11 @@ func (j *jira) Tools() []mcp.ToolDefinition {
 func (j *jira) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (j *jira) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (j *jira) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

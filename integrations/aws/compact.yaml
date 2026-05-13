@@ -1,0 +1,392 @@
+# Switchboard compaction specs for the aws integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# aws.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    aws_cloudformation_describe_stack:
+        spec:
+            - Stacks[].StackName
+            - Stacks[].StackId
+            - Stacks[].StackStatus
+            - Stacks[].Parameters
+            - Stacks[].Outputs
+            - Stacks[].CreationTime
+    aws_cloudformation_describe_stack_events:
+        spec:
+            - StackEvents[].EventId
+            - StackEvents[].ResourceType
+            - StackEvents[].LogicalResourceId
+            - StackEvents[].ResourceStatus
+            - StackEvents[].Timestamp
+            - StackEvents[].ResourceStatusReason
+    aws_cloudformation_get_template:
+        spec:
+            - TemplateBody
+    aws_cloudformation_list_stack_resources:
+        spec:
+            - StackResourceSummaries[].LogicalResourceId
+            - StackResourceSummaries[].PhysicalResourceId
+            - StackResourceSummaries[].ResourceType
+            - StackResourceSummaries[].ResourceStatus
+    aws_cloudformation_list_stacks:
+        spec:
+            - StackSummaries[].StackName
+            - StackSummaries[].StackId
+            - StackSummaries[].StackStatus
+            - StackSummaries[].CreationTime
+            - StackSummaries[].LastUpdatedTime
+    aws_cloudwatch_describe_alarms:
+        spec:
+            - MetricAlarms[].AlarmName
+            - MetricAlarms[].StateValue
+            - MetricAlarms[].MetricName
+            - MetricAlarms[].Namespace
+            - MetricAlarms[].Statistic
+            - MetricAlarms[].Threshold
+    aws_cloudwatch_get_metric_data:
+        spec:
+            - MetricDataResults[].Id
+            - MetricDataResults[].Label
+            - MetricDataResults[].Timestamps
+            - MetricDataResults[].Values
+            - MetricDataResults[].StatusCode
+    aws_cloudwatch_get_metric_statistics:
+        spec:
+            - Datapoints[].Timestamp
+            - Datapoints[].Average
+            - Datapoints[].Sum
+            - Datapoints[].Minimum
+            - Datapoints[].Maximum
+            - Datapoints[].SampleCount
+    aws_cloudwatch_list_metrics:
+        spec:
+            - Metrics[].MetricName
+            - Metrics[].Namespace
+            - Metrics[].Dimensions
+    aws_dynamodb_describe_table:
+        spec:
+            - Table.TableName
+            - Table.TableStatus
+            - Table.ItemCount
+            - Table.TableSizeBytes
+            - Table.KeySchema
+            - Table.AttributeDefinitions
+            - Table.ProvisionedThroughput
+            - Table.CreationDateTime
+    aws_dynamodb_get_item:
+        spec:
+            - Item
+    aws_dynamodb_list_tables:
+        spec:
+            - TableNames
+    aws_dynamodb_query:
+        spec:
+            - Items
+            - Count
+            - ScannedCount
+    aws_dynamodb_scan:
+        spec:
+            - Items
+            - Count
+            - ScannedCount
+    aws_ec2_describe_addresses:
+        spec:
+            - Addresses[].PublicIp
+            - Addresses[].AllocationId
+            - Addresses[].InstanceId
+            - Addresses[].AssociationId
+            - Addresses[].Domain
+    aws_ec2_describe_images:
+        spec:
+            - Images[].ImageId
+            - Images[].Name
+            - Images[].State
+            - Images[].Architecture
+            - Images[].CreationDate
+            - Images[].Description
+    aws_ec2_describe_instance:
+        spec:
+            - InstanceId
+            - InstanceType
+            - State.Name
+            - PublicIpAddress
+            - PrivateIpAddress
+            - LaunchTime
+            - Tags
+            - SecurityGroups
+            - SubnetId
+            - VpcId
+            - Architecture
+            - Platform
+    aws_ec2_describe_instances:
+        spec:
+            - Reservations[].Instances[].InstanceId
+            - Reservations[].Instances[].InstanceType
+            - Reservations[].Instances[].State.Name
+            - Reservations[].Instances[].PublicIpAddress
+            - Reservations[].Instances[].PrivateIpAddress
+            - Reservations[].Instances[].LaunchTime
+            - Reservations[].Instances[].Tags
+    aws_ec2_describe_key_pairs:
+        spec:
+            - KeyPairs[].KeyName
+            - KeyPairs[].KeyPairId
+            - KeyPairs[].KeyFingerprint
+            - KeyPairs[].CreateTime
+    aws_ec2_describe_security_groups:
+        spec:
+            - SecurityGroups[].GroupId
+            - SecurityGroups[].GroupName
+            - SecurityGroups[].Description
+            - SecurityGroups[].VpcId
+            - SecurityGroups[].IpPermissions
+            - SecurityGroups[].IpPermissionsEgress
+    aws_ec2_describe_subnets:
+        spec:
+            - Subnets[].SubnetId
+            - Subnets[].VpcId
+            - Subnets[].CidrBlock
+            - Subnets[].AvailabilityZone
+            - Subnets[].AvailableIpAddressCount
+            - Subnets[].Tags
+    aws_ec2_describe_volumes:
+        spec:
+            - Volumes[].VolumeId
+            - Volumes[].Size
+            - Volumes[].State
+            - Volumes[].VolumeType
+            - Volumes[].AvailabilityZone
+            - Volumes[].Attachments[].InstanceId
+            - Volumes[].Tags
+    aws_ec2_describe_vpcs:
+        spec:
+            - Vpcs[].VpcId
+            - Vpcs[].CidrBlock
+            - Vpcs[].State
+            - Vpcs[].IsDefault
+            - Vpcs[].Tags
+    aws_ecs_describe_clusters:
+        spec:
+            - clusters[].clusterName
+            - clusters[].clusterArn
+            - clusters[].status
+            - clusters[].runningTasksCount
+            - clusters[].activeServicesCount
+            - clusters[].registeredContainerInstancesCount
+    aws_ecs_describe_services:
+        spec:
+            - services[].serviceName
+            - services[].serviceArn
+            - services[].status
+            - services[].desiredCount
+            - services[].runningCount
+            - services[].taskDefinition
+            - services[].launchType
+    aws_ecs_describe_task_definition:
+        spec:
+            - taskDefinition.taskDefinitionArn
+            - taskDefinition.family
+            - taskDefinition.revision
+            - taskDefinition.status
+            - taskDefinition.cpu
+            - taskDefinition.memory
+            - taskDefinition.containerDefinitions[].name
+            - taskDefinition.containerDefinitions[].image
+            - taskDefinition.containerDefinitions[].cpu
+            - taskDefinition.containerDefinitions[].memory
+    aws_ecs_describe_tasks:
+        spec:
+            - tasks[].taskArn
+            - tasks[].taskDefinitionArn
+            - tasks[].lastStatus
+            - tasks[].desiredStatus
+            - tasks[].cpu
+            - tasks[].memory
+            - tasks[].startedAt
+            - tasks[].containers[].name
+            - tasks[].containers[].lastStatus
+    aws_ecs_list_clusters:
+        spec:
+            - clusterArns
+    aws_ecs_list_services:
+        spec:
+            - serviceArns
+    aws_ecs_list_task_definitions:
+        spec:
+            - taskDefinitionArns
+    aws_ecs_list_tasks:
+        spec:
+            - taskArns
+    aws_get_caller_identity:
+        spec:
+            - Account
+            - Arn
+            - UserId
+    aws_iam_get_policy:
+        spec:
+            - Policy.PolicyName
+            - Policy.PolicyId
+            - Policy.Arn
+            - Policy.CreateDate
+            - Policy.AttachmentCount
+            - Policy.Description
+    aws_iam_get_role:
+        spec:
+            - Role.RoleName
+            - Role.RoleId
+            - Role.Arn
+            - Role.CreateDate
+            - Role.Description
+            - Role.AssumeRolePolicyDocument
+            - Role.Tags
+    aws_iam_get_user:
+        spec:
+            - User.UserName
+            - User.UserId
+            - User.Arn
+            - User.CreateDate
+            - User.PasswordLastUsed
+            - User.Tags
+    aws_iam_list_attached_group_policies:
+        spec:
+            - AttachedPolicies[].PolicyName
+            - AttachedPolicies[].PolicyArn
+    aws_iam_list_attached_role_policies:
+        spec:
+            - AttachedPolicies[].PolicyName
+            - AttachedPolicies[].PolicyArn
+    aws_iam_list_attached_user_policies:
+        spec:
+            - AttachedPolicies[].PolicyName
+            - AttachedPolicies[].PolicyArn
+    aws_iam_list_groups:
+        spec:
+            - Groups[].GroupName
+            - Groups[].GroupId
+            - Groups[].Arn
+            - Groups[].CreateDate
+    aws_iam_list_policies:
+        spec:
+            - Policies[].PolicyName
+            - Policies[].PolicyId
+            - Policies[].Arn
+            - Policies[].CreateDate
+            - Policies[].AttachmentCount
+            - Policies[].IsAttachable
+    aws_iam_list_roles:
+        spec:
+            - Roles[].RoleName
+            - Roles[].RoleId
+            - Roles[].Arn
+            - Roles[].CreateDate
+            - Roles[].Description
+    aws_iam_list_users:
+        spec:
+            - Users[].UserName
+            - Users[].UserId
+            - Users[].Arn
+            - Users[].CreateDate
+            - Users[].PasswordLastUsed
+    aws_lambda_get_function:
+        spec:
+            - Configuration.FunctionName
+            - Configuration.FunctionArn
+            - Configuration.Runtime
+            - Configuration.Handler
+            - Configuration.CodeSize
+            - Configuration.LastModified
+            - Configuration.MemorySize
+            - Configuration.Timeout
+            - Configuration.Environment
+            - Code.Location
+    aws_lambda_get_function_configuration:
+        spec:
+            - FunctionName
+            - FunctionArn
+            - Runtime
+            - Handler
+            - CodeSize
+            - LastModified
+            - MemorySize
+            - Timeout
+            - Environment
+            - VpcConfig
+    aws_lambda_list_event_source_mappings:
+        spec:
+            - EventSourceMappings[].UUID
+            - EventSourceMappings[].EventSourceArn
+            - EventSourceMappings[].FunctionArn
+            - EventSourceMappings[].State
+            - EventSourceMappings[].BatchSize
+    aws_lambda_list_functions:
+        spec:
+            - Functions[].FunctionName
+            - Functions[].FunctionArn
+            - Functions[].Runtime
+            - Functions[].Handler
+            - Functions[].CodeSize
+            - Functions[].LastModified
+            - Functions[].MemorySize
+            - Functions[].Timeout
+    aws_s3_get_object:
+        spec:
+            - ContentType
+            - ContentLength
+            - LastModified
+            - ETag
+            - Body
+    aws_s3_head_object:
+        spec:
+            - ContentType
+            - ContentLength
+            - LastModified
+            - ETag
+            - Metadata
+    aws_s3_list_buckets:
+        spec:
+            - Buckets[].Name
+            - Buckets[].CreationDate
+    aws_s3_list_objects:
+        spec:
+            - Contents[].Key
+            - Contents[].Size
+            - Contents[].LastModified
+            - Contents[].StorageClass
+            - IsTruncated
+            - NextContinuationToken
+    aws_sns_get_topic_attributes:
+        spec:
+            - Attributes
+    aws_sns_list_subscriptions:
+        spec:
+            - Subscriptions[].SubscriptionArn
+            - Subscriptions[].TopicArn
+            - Subscriptions[].Protocol
+            - Subscriptions[].Endpoint
+    aws_sns_list_topics:
+        spec:
+            - Topics[].TopicArn
+    aws_sqs_get_queue_attributes:
+        spec:
+            - Attributes
+    aws_sqs_list_queues:
+        spec:
+            - QueueUrls
+    aws_sqs_receive_message:
+        spec:
+            - Messages[].MessageId
+            - Messages[].Body
+            - Messages[].ReceiptHandle
+            - Messages[].MD5OfBody

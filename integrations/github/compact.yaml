@@ -1,0 +1,612 @@
+# Switchboard compaction specs for the github integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# github.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    github_get_pull_comment:
+        spec:
+            - id
+            - body
+            - user.login
+            - path
+            - line
+            - side
+            - created_at
+            - updated_at
+            - html_url
+            - in_reply_to_id
+            - commit_id
+            - subject_type
+    github_list_artifacts:
+        spec:
+            - id
+            - name
+            - size_in_bytes
+            - created_at
+            - expired
+    github_list_autolinks:
+        spec:
+            - id
+            - key_prefix
+            - url_template
+            - is_alphanumeric
+    github_list_branches:
+        spec:
+            - name
+            - commit.sha
+            - protected
+    github_list_check_runs:
+        spec:
+            - id
+            - name
+            - status
+            - conclusion
+            - started_at
+            - completed_at
+            - html_url
+            - output.title
+    github_list_check_suites:
+        spec:
+            - id
+            - app.slug
+            - status
+            - conclusion
+            - head_branch
+            - created_at
+    github_list_code_scanning_alerts:
+        spec:
+            - number
+            - state
+            - rule.id
+            - rule.severity
+            - rule.description
+            - most_recent_instance.ref
+            - html_url
+            - created_at
+    github_list_code_scanning_analyses:
+        spec:
+            - id
+            - ref
+            - commit_sha
+            - analysis_key
+            - tool.name
+            - created_at
+            - results_count
+            - rules_count
+    github_list_collaborators:
+        spec:
+            - login
+            - html_url
+            - type
+            - permissions
+    github_list_commit_comments:
+        spec:
+            - id
+            - body
+            - user.login
+            - created_at
+            - path
+            - position
+            - html_url
+    github_list_contributors:
+        spec:
+            - login
+            - contributions
+            - html_url
+            - type
+    github_list_dependabot_alerts:
+        spec:
+            - number
+            - state
+            - dependency.package.name
+            - security_advisory.severity
+            - html_url
+            - created_at
+    github_list_deploy_keys:
+        spec:
+            - id
+            - title
+            - key
+            - read_only
+            - created_at
+    github_list_deployment_statuses:
+        spec:
+            - id
+            - state
+            - description
+            - environment
+            - creator.login
+            - created_at
+            - log_url
+    github_list_deployments:
+        spec:
+            - id
+            - ref
+            - environment
+            - task
+            - description
+            - creator.login
+            - created_at
+            - updated_at
+    github_list_env_variables:
+        spec:
+            - name
+            - value
+            - created_at
+            - updated_at
+    github_list_environments:
+        spec:
+            - id
+            - name
+            - created_at
+            - updated_at
+    github_list_forks:
+        spec:
+            - full_name
+            - owner.login
+            - html_url
+            - created_at
+            - default_branch
+    github_list_gists:
+        spec:
+            - id
+            - description
+            - html_url
+            - created_at
+            - updated_at
+            - public
+    github_list_hooks:
+        spec:
+            - id
+            - name
+            - active
+            - config.url
+            - events
+            - updated_at
+    github_list_issue_comments:
+        spec:
+            - id
+            - body
+            - user.login
+            - created_at
+            - html_url
+    github_list_issue_events:
+        spec:
+            - id
+            - event
+            - actor.login
+            - created_at
+            - label.name
+            - assignee.login
+            - milestone.title
+    github_list_issue_reactions:
+        spec:
+            - id
+            - content
+            - user.login
+            - created_at
+    github_list_issue_timeline:
+        spec:
+            - id
+            - event
+            - actor.login
+            - created_at
+            - source.issue.number
+    github_list_issues:
+        spec:
+            - number
+            - title
+            - state
+            - html_url
+            - created_at
+            - updated_at
+            - comments
+            - user.login
+            - labels[].name
+            - assignees[].login
+            - milestone.title
+    github_list_labels:
+        spec:
+            - name
+            - color
+            - description
+    github_list_milestones:
+        spec:
+            - number
+            - title
+            - state
+            - open_issues
+            - closed_issues
+            - due_on
+            - html_url
+    github_list_notifications:
+        spec:
+            - id
+            - reason
+            - subject.title
+            - subject.type
+            - subject.url
+            - repository.full_name
+            - updated_at
+            - unread
+    github_list_org_runners:
+        spec:
+            - id
+            - name
+            - os
+            - status
+            - busy
+            - labels[].name
+    github_list_org_teams:
+        spec:
+            - name
+            - slug
+            - permission
+            - description
+    github_list_org_variables:
+        spec:
+            - name
+            - value
+            - created_at
+            - updated_at
+    github_list_pending_org_invitations:
+        spec:
+            - id
+            - login
+            - email
+            - role
+            - created_at
+    github_list_pull_comments:
+        spec:
+            - id
+            - body
+            - user.login
+            - created_at
+            - path
+            - line
+            - html_url
+    github_list_pull_files:
+        spec:
+            - sha
+            - filename
+            - status
+            - additions
+            - deletions
+    github_list_pull_reviews:
+        spec:
+            - id
+            - state
+            - body
+            - user.login
+            - submitted_at
+            - html_url
+    github_list_pulls:
+        spec:
+            - number
+            - title
+            - state
+            - html_url
+            - created_at
+            - updated_at
+            - comments
+            - draft
+            - merged
+            - user.login
+            - head.ref
+            - base.ref
+            - head.repo.full_name
+            - labels[].name
+            - assignees[].login
+            - requested_reviewers[].login
+    github_list_pulls_with_commit:
+        spec:
+            - number
+            - title
+            - state
+            - html_url
+            - created_at
+            - user.login
+            - head.ref
+            - base.ref
+    github_list_release_assets:
+        spec:
+            - id
+            - name
+            - size
+            - download_count
+            - browser_download_url
+            - created_at
+    github_list_releases:
+        spec:
+            - id
+            - tag_name
+            - name
+            - draft
+            - prerelease
+            - created_at
+            - published_at
+            - html_url
+    github_list_repo_events:
+        spec:
+            - id
+            - type
+            - actor.login
+            - created_at
+            - payload.action
+            - payload.ref
+            - payload.pull_request.number
+            - payload.issue.number
+    github_list_repo_teams:
+        spec:
+            - name
+            - slug
+            - permission
+    github_list_repo_variables:
+        spec:
+            - name
+            - value
+            - created_at
+            - updated_at
+    github_list_rulesets:
+        spec:
+            - id
+            - name
+            - enforcement
+            - source_type
+            - source
+            - created_at
+    github_list_runners:
+        spec:
+            - id
+            - name
+            - os
+            - status
+            - busy
+            - labels[].name
+    github_list_secret_scanning_alerts:
+        spec:
+            - number
+            - state
+            - secret_type
+            - html_url
+            - created_at
+    github_list_starred:
+        spec:
+            - repo.full_name
+            - repo.description
+            - repo.language
+            - repo.stargazers_count
+            - repo.html_url
+            - starred_at
+    github_list_statuses:
+        spec:
+            - id
+            - state
+            - context
+            - description
+            - target_url
+            - created_at
+    github_list_tags:
+        spec:
+            - name
+            - commit.sha
+    github_list_team_repos:
+        spec:
+            - full_name
+            - description
+            - language
+            - html_url
+            - private
+    github_list_traffic_paths:
+        spec:
+            - path
+            - title
+            - count
+            - uniques
+    github_list_traffic_referrers:
+        spec:
+            - referrer
+            - count
+            - uniques
+    github_list_user_keys:
+        spec:
+            - id
+            - key
+    github_list_workflow_jobs:
+        spec:
+            - id
+            - name
+            - status
+            - conclusion
+            - started_at
+            - completed_at
+            - html_url
+            - steps[].name
+            - steps[].conclusion
+    github_list_workflow_runs:
+        spec:
+            - id
+            - name
+            - display_title
+            - status
+            - conclusion
+            - head_branch
+            - head_sha
+            - actor.login
+            - created_at
+            - html_url
+            - event
+            - run_number
+            - run_attempt
+    github_list_workflows:
+        spec:
+            - id
+            - name
+            - state
+            - path
+            - html_url
+    github_list_user_repos:
+        spec:
+            - full_name
+            - description
+            - language
+            - stargazers_count
+            - html_url
+            - private
+            - archived
+            - default_branch
+            - updated_at
+    github_list_org_repos:
+        spec:
+            - full_name
+            - description
+            - language
+            - stargazers_count
+            - html_url
+            - private
+            - archived
+            - default_branch
+            - updated_at
+    github_list_assignees:
+        spec:
+            - login
+            - html_url
+            - type
+    github_list_pull_commits:
+        spec:
+            - sha
+            - commit.message
+            - commit.author.name
+            - commit.author.date
+            - html_url
+    github_list_commits:
+        spec:
+            - sha
+            - commit.message
+            - commit.author.name
+            - commit.author.date
+            - html_url
+    github_list_user_followers:
+        spec:
+            - login
+            - html_url
+            - type
+    github_list_user_following:
+        spec:
+            - login
+            - html_url
+            - type
+    github_list_org_members:
+        spec:
+            - login
+            - html_url
+            - type
+    github_list_team_members:
+        spec:
+            - login
+            - html_url
+            - type
+    github_list_repo_secrets:
+        spec:
+            - name
+            - created_at
+            - updated_at
+    github_list_environment_secrets:
+        spec:
+            - name
+            - created_at
+            - updated_at
+    github_list_org_secrets:
+        spec:
+            - name
+            - created_at
+            - updated_at
+    github_list_stargazers:
+        spec:
+            - login
+            - html_url
+            - type
+    github_list_watchers:
+        spec:
+            - login
+            - html_url
+            - type
+    github_list_outside_collaborators:
+        spec:
+            - login
+            - html_url
+            - type
+    github_search_repos:
+        spec:
+            - total_count
+            - items[].full_name
+            - items[].description
+            - items[].language
+            - items[].stargazers_count
+            - items[].html_url
+            - items[].private
+            - items[].archived
+            - items[].default_branch
+            - items[].updated_at
+    github_search_issues:
+        spec:
+            - total_count
+            - items[].number
+            - items[].title
+            - items[].state
+            - items[].html_url
+            - items[].created_at
+            - items[].updated_at
+            - items[].comments
+            - items[].user.login
+            - items[].labels[].name
+            - items[].assignees[].login
+            - items[].milestone.title
+            - items[].repository.full_name
+    github_search_code:
+        spec:
+            - total_count
+            - items[].repository.full_name
+            - items[].path
+            - items[].name
+            - items[].html_url
+    github_search_users:
+        spec:
+            - total_count
+            - items[].login
+            - items[].html_url
+            - items[].type
+    github_search_commits:
+        spec:
+            - total_count
+            - items[].sha
+            - items[].commit.message
+            - items[].commit.author.name
+            - items[].commit.author.date
+            - items[].html_url
+            - items[].repository.full_name
+    github_search_topics:
+        spec:
+            - total_count
+            - items[].name
+            - items[].display_name
+            - items[].short_description
+            - items[].created_by
+    github_search_labels:
+        spec:
+            - total_count
+            - items[].name
+            - items[].color
+            - items[].description

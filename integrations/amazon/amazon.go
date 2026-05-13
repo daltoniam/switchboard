@@ -2,6 +2,7 @@ package amazon
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +15,15 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("amazon", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 type amazon struct {
 	email     string
@@ -38,6 +47,7 @@ type amazon struct {
 var (
 	_ mcp.FieldCompactionIntegration = (*amazon)(nil)
 	_ mcp.PlainTextCredentials       = (*amazon)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*amazon)(nil)
 )
 
 func (a *amazon) PlainTextKeys() []string {
@@ -159,6 +169,11 @@ func (a *amazon) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 func (a *amazon) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (a *amazon) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 // --- Page fetching ---

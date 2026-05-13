@@ -2,6 +2,7 @@ package rwx
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,7 +11,15 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("rwx", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 const (
 	minRWXVersion     = "3.13.0"
@@ -23,6 +32,7 @@ var (
 	_ mcp.Integration                = (*rwx)(nil)
 	_ mcp.FieldCompactionIntegration = (*rwx)(nil)
 	_ mcp.PlainTextCredentials       = (*rwx)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*rwx)(nil)
 )
 
 func (r *rwx) PlainTextKeys() []string {
@@ -90,6 +100,11 @@ func (r *rwx) Tools() []mcp.ToolDefinition {
 func (r *rwx) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (r *rwx) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (r *rwx) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

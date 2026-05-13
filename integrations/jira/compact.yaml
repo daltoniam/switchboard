@@ -1,0 +1,223 @@
+# Switchboard compaction specs for the jira integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# jira.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    jira_get_board:
+        spec:
+            - id
+            - name
+            - type
+            - location.projectKey
+    jira_get_board_config:
+        spec:
+            - id
+            - name
+            - columnConfig.columns[].name
+            - columnConfig.columns[].statuses[].id
+    jira_get_filter:
+        spec:
+            - id
+            - name
+            - jql
+            - owner.displayName
+            - description
+    jira_get_issue:
+        spec:
+            - key
+            - fields.summary
+            - fields.status.name
+            - fields.assignee.displayName
+            - fields.assignee.accountId
+            - fields.reporter.displayName
+            - fields.priority.name
+            - fields.issuetype.name
+            - fields.description
+            - fields.created
+            - fields.updated
+            - fields.labels
+            - fields.components[].name
+            - fields.fixVersions[].name
+    jira_get_myself:
+        spec:
+            - accountId
+            - displayName
+            - emailAddress
+            - active
+            - timeZone
+    jira_get_project:
+        spec:
+            - key
+            - name
+            - projectTypeKey
+            - description
+            - lead.displayName
+            - components
+            - versions
+    jira_get_server_info:
+        spec:
+            - baseUrl
+            - version
+            - deploymentType
+            - serverTitle
+    jira_get_sprint:
+        spec:
+            - id
+            - name
+            - state
+            - startDate
+            - endDate
+            - goal
+            - originBoardId
+    jira_get_sprint_issues:
+        spec:
+            - issues[].key
+            - issues[].fields.summary
+            - issues[].fields.status.name
+            - issues[].fields.assignee.displayName
+            - issues[].fields.priority.name
+    jira_get_transitions:
+        spec:
+            - transitions[].id
+            - transitions[].name
+            - transitions[].to.name
+    jira_get_user:
+        spec:
+            - accountId
+            - displayName
+            - emailAddress
+            - active
+            - timeZone
+    jira_list_board_backlog:
+        spec:
+            - issues[].key
+            - issues[].fields.summary
+            - issues[].fields.status.name
+            - issues[].fields.assignee.displayName
+            - issues[].fields.priority.name
+    jira_list_boards:
+        spec:
+            - values[].id
+            - values[].name
+            - values[].type
+            - values[].location.projectKey
+    jira_list_comments:
+        spec:
+            - comments[].id
+            - comments[].body
+            - comments[].author.displayName
+            - comments[].created
+            - comments[].updated
+    jira_list_fields:
+        spec:
+            - id
+            - name
+            - custom
+            - schema.type
+    jira_list_filters:
+        spec:
+            - values[].id
+            - values[].name
+            - values[].jql
+            - values[].owner.displayName
+    jira_list_issue_links:
+        spec:
+            - id
+            - type.name
+            - type.inward
+            - type.outward
+            - inwardIssue.key
+            - inwardIssue.fields.summary
+            - outwardIssue.key
+            - outwardIssue.fields.summary
+    jira_list_issue_types:
+        spec:
+            - id
+            - name
+            - subtask
+            - description
+    jira_list_labels:
+        spec:
+            - values
+    jira_list_priorities:
+        spec:
+            - id
+            - name
+            - description
+    jira_list_project_components:
+        spec:
+            - id
+            - name
+            - description
+            - lead.displayName
+            - assigneeType
+    jira_list_project_statuses:
+        spec:
+            - id
+            - name
+            - statuses[].id
+            - statuses[].name
+    jira_list_project_versions:
+        spec:
+            - id
+            - name
+            - description
+            - released
+            - releaseDate
+            - archived
+    jira_list_projects:
+        spec:
+            - values[].key
+            - values[].name
+            - values[].projectTypeKey
+            - values[].style
+    jira_list_sprints:
+        spec:
+            - values[].id
+            - values[].name
+            - values[].state
+            - values[].startDate
+            - values[].endDate
+            - values[].goal
+    jira_list_statuses:
+        spec:
+            - id
+            - name
+            - statusCategory.name
+    jira_list_worklogs:
+        spec:
+            - worklogs[].id
+            - worklogs[].author.displayName
+            - worklogs[].timeSpent
+            - worklogs[].started
+            - worklogs[].comment
+    jira_search_issues:
+        spec:
+            - issues[].key
+            - issues[].fields.summary
+            - issues[].fields.status.name
+            - issues[].fields.assignee.displayName
+            - issues[].fields.priority.name
+            - issues[].fields.issuetype.name
+            - issues[].fields.created
+            - issues[].fields.updated
+            - nextPageToken
+            - isLast
+    jira_search_users:
+        spec:
+            - accountId
+            - displayName
+            - emailAddress
+            - active

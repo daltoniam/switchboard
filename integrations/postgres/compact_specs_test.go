@@ -3,8 +3,10 @@ package postgres
 import (
 	"testing"
 
+	"github.com/daltoniam/switchboard/compactyaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestFieldCompactionSpecs_AllParse(t *testing.T) {
@@ -12,7 +14,9 @@ func TestFieldCompactionSpecs_AllParse(t *testing.T) {
 }
 
 func TestFieldCompactionSpecs_NoDuplicateTools(t *testing.T) {
-	assert.Equal(t, len(rawFieldCompactionSpecs), len(fieldCompactionSpecs))
+	var sf compactyaml.SpecFile
+	require.NoError(t, yaml.Unmarshal(compactYAML, &sf))
+	assert.Equal(t, len(sf.Tools), len(fieldCompactionSpecs))
 }
 
 func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {

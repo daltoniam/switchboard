@@ -3,6 +3,7 @@ package botidentity
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,13 +14,22 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("botidentity", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 var (
 	_ mcp.Integration                = (*botidentity)(nil)
 	_ mcp.FieldCompactionIntegration = (*botidentity)(nil)
 	_ mcp.PlainTextCredentials       = (*botidentity)(nil)
 	_ mcp.OptionalCredentials        = (*botidentity)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*botidentity)(nil)
 )
 
 type botidentity struct {
@@ -110,6 +120,11 @@ func (b *botidentity) Tools() []mcp.ToolDefinition {
 func (b *botidentity) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (b *botidentity) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (b *botidentity) PlainTextKeys() []string {

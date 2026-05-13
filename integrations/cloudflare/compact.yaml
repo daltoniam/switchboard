@@ -1,0 +1,149 @@
+# Switchboard compaction specs for the cloudflare integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# cloudflare.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    cloudflare_list_account_members:
+        spec:
+            - result[].id
+            - result[].user.email
+            - result[].user.first_name
+            - result[].user.last_name
+            - result[].status
+            - result[].roles[].name
+    cloudflare_list_accounts:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].type
+            - result[].settings.enforce_twofactor
+            - result[].created_on
+    cloudflare_list_d1_databases:
+        spec:
+            - result[].uuid
+            - result[].name
+            - result[].version
+            - result[].num_tables
+            - result[].file_size
+            - result[].created_at
+    cloudflare_list_dns_records:
+        spec:
+            - result[].id
+            - result[].type
+            - result[].name
+            - result[].content
+            - result[].ttl
+            - result[].proxied
+            - result[].priority
+            - result[].created_on
+            - result[].modified_on
+    cloudflare_list_kv_keys:
+        spec:
+            - result[].name
+            - result[].expiration
+            - result[].metadata
+    cloudflare_list_kv_namespaces:
+        spec:
+            - result[].id
+            - result[].title
+            - result[].supports_url_encoding
+    cloudflare_list_lb_monitors:
+        spec:
+            - result[].id
+            - result[].type
+            - result[].description
+            - result[].method
+            - result[].path
+            - result[].interval
+            - result[].timeout
+            - result[].expected_codes
+            - result[].modified_on
+    cloudflare_list_lb_pools:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].enabled
+            - result[].healthy
+            - result[].minimum_origins
+            - result[].origins[].name
+            - result[].origins[].address
+            - result[].origins[].enabled
+            - result[].origins[].healthy
+            - result[].modified_on
+    cloudflare_list_load_balancers:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].enabled
+            - result[].default_pools
+            - result[].fallback_pool
+            - result[].proxied
+            - result[].ttl
+            - result[].modified_on
+    cloudflare_list_pages_deployments:
+        spec:
+            - result[].id
+            - result[].short_id
+            - result[].environment
+            - result[].url
+            - result[].created_on
+            - result[].source.type
+            - result[].deployment_trigger.type
+            - result[].deployment_trigger.metadata.branch
+            - result[].deployment_trigger.metadata.commit_hash
+    cloudflare_list_pages_projects:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].subdomain
+            - result[].created_on
+            - result[].production_branch
+            - result[].source.type
+            - result[].source.config.production_branch
+    cloudflare_list_r2_buckets:
+        spec:
+            - buckets[].name
+            - buckets[].creation_date
+            - buckets[].location
+    cloudflare_list_waf_rulesets:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].kind
+            - result[].phase
+            - result[].version
+            - result[].last_updated
+    cloudflare_list_worker_routes:
+        spec:
+            - result[].id
+            - result[].pattern
+            - result[].script
+    cloudflare_list_workers:
+        spec:
+            - result[].id
+            - result[].etag
+            - result[].created_on
+            - result[].modified_on
+    cloudflare_list_zones:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].status
+            - result[].paused
+            - result[].type
+            - result[].name_servers
+            - result[].plan.name
+            - result[].activated_on
+            - result[].modified_on

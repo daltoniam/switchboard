@@ -3,6 +3,7 @@ package metabase
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,7 +11,15 @@ import (
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("metabase", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
@@ -18,6 +27,7 @@ var (
 	_ mcp.FieldCompactionIntegration = (*metabase)(nil)
 	_ mcp.PlainTextCredentials       = (*metabase)(nil)
 	_ mcp.PlaceholderHints           = (*metabase)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*metabase)(nil)
 )
 
 func (m *metabase) PlainTextKeys() []string { return []string{"url"} }
@@ -64,6 +74,11 @@ func (m *metabase) Tools() []mcp.ToolDefinition {
 func (m *metabase) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (m *metabase) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (m *metabase) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

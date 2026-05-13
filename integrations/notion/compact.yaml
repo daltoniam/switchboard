@@ -1,0 +1,155 @@
+# Switchboard compaction specs for the notion integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# notion.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+#
+# Notion adapter notes: this file was hand-converted from compact_specs.go,
+# which used prefixFields()/append() to build specs from shared []string
+# slices. Each tool below shows the fully expanded spec lines. If you add a
+# tool that should share a field set with another, duplicate the lines rather
+# than reach for YAML anchors — diff-friendliness over DRY for spec files.
+
+version: 1
+tools:
+  # ── List/search tools ────────────────────────────────────────────
+  notion_search:
+    spec:
+      - results[].id
+      - results[].type
+      - results[].parent_id
+      - results[].collection_id
+      - results[].properties
+      - results[].highlight
+      - results[].url
+      - results[].created_time
+      - results[].last_edited_time
+
+  notion_query_data_source:
+    spec:
+      - schema
+      - results[].id
+      - results[].properties
+      - results[].created_time
+      - results[].last_edited_time
+
+  notion_list_users:
+    spec:
+      - results[].id
+      - results[].name
+      - results[].email
+
+  notion_retrieve_comments:
+    spec:
+      - results[].discussion
+      - results[].comments
+
+  notion_list_data_source_templates:
+    spec:
+      - results[].id
+      - results[].properties
+
+  # ── Composite read tools ─────────────────────────────────────────
+  # get_page_content is rendered as Markdown by MarkdownIntegration.RenderMarkdown —
+  # this spec serves as fallback if markdown rendering is bypassed.
+  notion_get_page_content:
+    spec:
+      - page.id
+      - page.type
+      - page.parent_id
+      - page.parent_table
+      - page.properties
+      - page.content
+      - page.format
+      - page.alive
+      - page.created_time
+      - page.last_edited_time
+      - blocks[].id
+      - blocks[].type
+      - blocks[].parent_id
+      - blocks[].parent_table
+      - blocks[].properties
+      - blocks[].content
+      - blocks[].format
+      - blocks[].alive
+      - blocks[].created_time
+      - blocks[].last_edited_time
+
+  notion_get_block_children:
+    spec:
+      - results[].id
+      - results[].type
+      - results[].parent_id
+      - results[].parent_table
+      - results[].properties
+      - results[].content
+      - results[].format
+      - results[].alive
+      - results[].created_time
+      - results[].last_edited_time
+
+  # ── Single-record get tools ──────────────────────────────────────
+  notion_retrieve_page:
+    spec:
+      - id
+      - type
+      - parent_id
+      - parent_table
+      - properties
+      - content
+      - format
+      - alive
+      - created_time
+      - last_edited_time
+
+  notion_retrieve_block:
+    spec:
+      - id
+      - type
+      - parent_id
+      - parent_table
+      - properties
+      - content
+      - format
+      - alive
+      - created_time
+      - last_edited_time
+
+  notion_retrieve_database:
+    spec:
+      - id
+      - name
+      - schema
+      - parent_id
+      - alive
+
+  notion_retrieve_data_source:
+    spec:
+      - id
+      - name
+      - schema
+      - parent_id
+      - alive
+
+  notion_retrieve_user:
+    spec:
+      - id
+      - name
+      - email
+      - profile_photo
+
+  notion_get_self:
+    spec:
+      - id
+      - name
+      - email
+      - profile_photo

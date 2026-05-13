@@ -1,0 +1,75 @@
+# Switchboard compaction specs for the suno integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# suno.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    suno_get_aligned_lyrics:
+        spec:
+            - code
+            - msg
+            - data
+    suno_get_credits:
+        spec:
+            - code
+            - msg
+            - data
+    suno_get_generation:
+        spec:
+            - data.taskId
+            - data.status
+            - data.type
+            - data.response.sunoData[].id
+            - data.response.sunoData[].audioUrl
+            - data.response.sunoData[].streamAudioUrl
+            - data.response.sunoData[].imageUrl
+            - data.response.sunoData[].title
+            - data.response.sunoData[].tags
+            - data.response.sunoData[].modelName
+            - data.response.sunoData[].duration
+            - data.response.sunoData[].createTime
+            - data.errorCode
+            - data.errorMessage
+    suno_get_lyrics:
+        spec:
+            - data.taskId
+            - data.status
+            - data.type
+            - data.response
+            - data.errorCode
+            - data.errorMessage
+    suno_get_stem_separation:
+        spec:
+            - data.taskId
+            - data.status
+            - data.type
+            - data.response
+            - data.errorCode
+            - data.errorMessage
+    suno_get_video:
+        spec:
+            - data.taskId
+            - data.status
+            - data.type
+            - data.response
+            - data.errorCode
+            - data.errorMessage
+    suno_get_wav_conversion:
+        spec:
+            - data.taskId
+            - data.status
+            - data.type
+            - data.response
+            - data.errorCode
+            - data.errorMessage

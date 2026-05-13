@@ -3,6 +3,7 @@ package salesforce
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +13,15 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("salesforce", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 type salesforce struct {
 	accessToken string
@@ -29,6 +38,7 @@ var (
 	_ mcp.PlainTextCredentials       = (*salesforce)(nil)
 	_ mcp.PlaceholderHints           = (*salesforce)(nil)
 	_ mcp.OptionalCredentials        = (*salesforce)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*salesforce)(nil)
 )
 
 func (s *salesforce) PlainTextKeys() []string { return []string{"instance_url", "api_version"} }
@@ -79,6 +89,11 @@ func (s *salesforce) Tools() []mcp.ToolDefinition {
 func (s *salesforce) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (s *salesforce) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (s *salesforce) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

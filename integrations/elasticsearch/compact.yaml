@@ -1,0 +1,152 @@
+# Switchboard compaction specs for the elasticsearch integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# elasticsearch.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    elasticsearch_cat_allocation:
+        spec:
+            - shards
+            - disk.indices
+            - disk.used
+            - disk.avail
+            - disk.percent
+            - node
+    elasticsearch_cat_nodes:
+        spec:
+            - name
+            - ip
+            - heap.percent
+            - ram.percent
+            - cpu
+            - load_1m
+            - node.role
+            - master
+            - version
+    elasticsearch_cat_shards:
+        spec:
+            - index
+            - shard
+            - prirep
+            - state
+            - docs
+            - store
+            - node
+    elasticsearch_cluster_health:
+        spec:
+            - cluster_name
+            - status
+            - number_of_nodes
+            - number_of_data_nodes
+            - active_primary_shards
+            - active_shards
+            - relocating_shards
+            - initializing_shards
+            - unassigned_shards
+            - pending_tasks
+    elasticsearch_cluster_stats:
+        spec:
+            - cluster_name
+            - status
+            - nodes.count
+            - nodes.jvm.mem
+            - nodes.fs
+            - indices.count
+            - indices.docs
+            - indices.store
+    elasticsearch_count:
+        spec:
+            - count
+    elasticsearch_get_document:
+        spec:
+            - _index
+            - _id
+            - _version
+            - found
+            - _source
+    elasticsearch_get_index_template:
+        spec:
+            - index_templates[].name
+            - index_templates[].index_template.index_patterns
+            - index_templates[].index_template.priority
+            - index_templates[].index_template.template
+    elasticsearch_get_mapping:
+        spec:
+            - -defaults
+    elasticsearch_get_settings:
+        spec:
+            - -defaults
+    elasticsearch_index_stats:
+        spec:
+            - _all.total.indexing
+            - _all.total.search
+            - _all.total.store
+            - _all.total.docs
+    elasticsearch_list_aliases:
+        spec:
+            - alias
+            - index
+            - filter
+            - is_write_index
+    elasticsearch_list_index_templates:
+        spec:
+            - index_templates[].name
+            - index_templates[].index_template.index_patterns
+            - index_templates[].index_template.priority
+    elasticsearch_list_indices:
+        spec:
+            - index
+            - health
+            - status
+            - docs.count
+            - store.size
+            - pri
+            - rep
+    elasticsearch_list_snapshots:
+        spec:
+            - snapshots[].snapshot
+            - snapshots[].state
+            - snapshots[].indices
+            - snapshots[].start_time
+            - snapshots[].end_time
+            - snapshots[].duration_in_millis
+    elasticsearch_mget:
+        spec:
+            - docs[]._index
+            - docs[]._id
+            - docs[].found
+            - docs[]._source
+    elasticsearch_msearch:
+        spec:
+            - responses[].hits.total
+            - responses[].hits.hits[]._index
+            - responses[].hits.hits[]._id
+            - responses[].hits.hits[]._score
+            - responses[].hits.hits[]._source
+            - responses[].aggregations
+    elasticsearch_node_stats:
+        spec:
+            - nodes.*
+    elasticsearch_pending_tasks:
+        spec:
+            - tasks
+    elasticsearch_search:
+        spec:
+            - hits.total
+            - hits.hits[]._index
+            - hits.hits[]._id
+            - hits.hits[]._score
+            - hits.hits[]._source
+            - hits.hits[].highlight
+            - aggregations

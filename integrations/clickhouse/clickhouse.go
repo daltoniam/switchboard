@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"crypto/tls"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -12,13 +13,22 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("clickhouse", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
 	_ mcp.Integration                = (*clickhouseInt)(nil)
 	_ mcp.FieldCompactionIntegration = (*clickhouseInt)(nil)
 	_ mcp.PlainTextCredentials       = (*clickhouseInt)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*clickhouseInt)(nil)
 )
 
 func (c *clickhouseInt) PlainTextKeys() []string {
@@ -99,6 +109,11 @@ func (c *clickhouseInt) Tools() []mcp.ToolDefinition {
 func (c *clickhouseInt) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (c *clickhouseInt) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (c *clickhouseInt) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

@@ -1,0 +1,119 @@
+# Switchboard compaction specs for the metabase integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# metabase.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    metabase_get_card:
+        spec:
+            - id
+            - name
+            - description
+            - display
+            - dataset_query
+            - result_metadata
+            - collection_id
+            - created_at
+            - updated_at
+    metabase_get_collection:
+        spec:
+            - id
+            - name
+            - description
+            - items
+    metabase_get_dashboard:
+        spec:
+            - id
+            - name
+            - description
+            - dashcards
+            - collection_id
+            - parameters
+            - created_at
+            - updated_at
+    metabase_get_database:
+        spec:
+            - id
+            - name
+            - engine
+            - details
+            - tables
+            - created_at
+            - updated_at
+    metabase_get_table:
+        spec:
+            - id
+            - name
+            - schema
+            - rows
+            - entity_type
+            - db_id
+            - fields
+    metabase_get_table_fields:
+        spec:
+            - id
+            - name
+            - database_type
+            - base_type
+            - semantic_type
+            - position
+            - description
+    metabase_list_cards:
+        spec:
+            - id
+            - name
+            - description
+            - display
+            - collection_id
+            - creator_id
+            - created_at
+            - updated_at
+    metabase_list_collections:
+        spec:
+            - id
+            - name
+            - description
+            - location
+            - personal_owner_id
+    metabase_list_dashboards:
+        spec:
+            - id
+            - name
+            - description
+            - collection_id
+            - creator_id
+            - created_at
+    metabase_list_databases:
+        spec:
+            - id
+            - name
+            - engine
+            - created_at
+            - updated_at
+    metabase_list_tables:
+        spec:
+            - id
+            - name
+            - schema
+            - rows
+            - entity_type
+            - db_id
+    metabase_search:
+        spec:
+            - id
+            - name
+            - description
+            - model
+            - collection.name
+            - created_at

@@ -3,6 +3,7 @@ package elasticsearch
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,12 +13,21 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("elasticsearch", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 var (
 	_ mcp.Integration                = (*esInt)(nil)
 	_ mcp.FieldCompactionIntegration = (*esInt)(nil)
 	_ mcp.PlainTextCredentials       = (*esInt)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*esInt)(nil)
 )
 
 type esInt struct {
@@ -66,6 +76,11 @@ func (e *esInt) Tools() []mcp.ToolDefinition {
 func (e *esInt) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (e *esInt) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (e *esInt) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

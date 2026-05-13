@@ -2,6 +2,7 @@ package slack
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"log"
@@ -11,14 +12,23 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compactyaml"
 	"github.com/slack-go/slack"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compactyaml.MustLoadWithOverlay("slack", compactYAML, compactyaml.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
 	_ mcp.Integration                = (*slackIntegration)(nil)
 	_ mcp.FieldCompactionIntegration = (*slackIntegration)(nil)
 	_ mcp.PlainTextCredentials       = (*slackIntegration)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*slackIntegration)(nil)
 )
 
 func (s *slackIntegration) PlainTextKeys() []string {
@@ -291,6 +301,11 @@ func (s *slackIntegration) Tools() []mcp.ToolDefinition { return tools }
 func (s *slackIntegration) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (s *slackIntegration) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
 }
 
 func (s *slackIntegration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
