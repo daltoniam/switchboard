@@ -96,6 +96,102 @@ The shape matters: it's valid JSON the LLM can parse and react to. A naïve trun
 
 Distinguish this from the integration-wide cap (`MaxResponseBytesIntegration`, a single number for the whole adapter). The per-tool cap is finer-grained and returns a richer error; the integration-wide cap is the broader safety net. Both coexist — a tool that triggers its per-tool cap returns the envelope (small), and the integration-wide check then passes.
 
+## Multiple Views Per Tool
+
+Some tools return very different amounts depending on what the caller wants. A page in Notion can be a one-line title or a 50KB block tree. A single compaction spec forces a choice: small and the caller can't read content, large and every nav call burns context.
+
+Views fix that. One tool, several specs, one default.
+
+```yaml
+notion_get_page_content:
+  views:
+    toc:
+      spec:
+        - page.id
+        - page.properties
+        - blocks[].id
+        - blocks[].type
+        - blocks[].properties
+      hint: "Page title + section headers (~1KB). Use for navigation."
+      formats: [json]
+    full:
+      spec:
+        - page.*
+        - blocks[].*
+      hint: "Entire block tree (can be 10-50KB). Use when you need page content."
+      formats: [json, markdown]
+  default:
+    view: toc
+    format: json
+```
+
+The default view is the one the LLM gets when it doesn't ask for anything specific. Pick the smallest useful shape — under-fetching is one extra call, over-fetching is wasted context every call.
+
+The caller switches views with an argument: `{"page_id": "abc", "view": "full"}`. Same tool, different projection. Unknown view names return a structured error envelope listing the available views — never a silent fallback to a different shape than what was asked.
+
+### How the LLM Discovers Other Views
+
+The response itself tells the caller what else exists. After projection, if the chosen view isn't the only one, the server appends a `_more` envelope:
+
+```json
+{
+  "page": { "id": "abc", "properties": {...} },
+  "blocks": [...],
+  "_more": {
+    "views": {
+      "full": "Entire block tree (can be 10-50KB). Use when you need page content."
+    }
+  }
+}
+```
+
+That's the hint text from the YAML, surfaced at the exact moment the LLM might want it. The tool description stays clean — no `Views: toc | full` bloat, no instructions to memorize. The affordance is learned by doing.
+
+Array-rooted responses wrap to `{data: [...], _more: {...}}`. Single-view tools skip the envelope entirely.
+
+### Formats
+
+A view declares which formats it can render in. JSON is the framework default. Markdown is also a framework default — for object-shaped responses the server walks the projected value and produces definition lists, tables for arrays-of-objects, and bullet lists for slices.
+
+When the generic formatter isn't good enough for a particular tool — Notion's full block tree, for instance, needs a nested-heading layout the generic formatter can't produce — the adapter registers a custom renderer:
+
+```go
+var compactRenderers = map[compact.RenderKey]compact.Renderer{
+    {Tool: "notion_get_page_content", View: "full", Format: compact.FormatMarkdown}: renderFullPageContentMD,
+}
+
+var compactResult = compact.MustLoadWithOverlay("notion", compactYAML, compact.Options{
+    Strict:    false,
+    Renderers: compactRenderers,
+})
+```
+
+The loader resolves every declared `(view, format)` combo to a concrete renderer at startup. If a YAML declares `formats: [json, markdown]` but provides no markdown renderer and the framework default doesn't apply, strict mode fails at load. The integration's job is to provide a renderer for every combo it declares; the loader's job is to prove every declared combo has one.
+
+### Why a Strict Contract
+
+The YAML is what the LLM gets to use. If a view declares `formats: [json]` and the caller asks for markdown, the server returns an error envelope, not a JSON response with a markdown wrapper or vice versa. Silent fallback is the worst outcome — the LLM thinks it asked for one thing and got something close but different, and has no way to know.
+
+Unsupported combos look like this:
+
+```json
+{
+  "error": "view_dispatch_failed",
+  "tool": "notion_get_page_content",
+  "message": "view \"toc\" does not declare format \"markdown\" (available formats: json)"
+}
+```
+
+Unknown view names follow the same shape with a different message: `unknown view "summary" (available: toc, full)`. The shape matters — it's parseable, names what was asked, and the message lists what's available. The LLM can recover on the next call.
+
+### When to Use Views vs. Splitting Tools
+
+Views are right when one underlying operation can produce several useful projections of the same data. A page is a page — TOC and full body are different shapes of one fetch.
+
+Splitting into separate tools is right when the operations themselves differ — `notion_search` and `notion_query_data_source` are not views of one tool, they hit different endpoints.
+
+Rule of thumb: if the handler code would be identical, it's a view. If you'd write two handlers, write two tools.
+
 ## Tool Description Design
 
 Tool descriptions are the only context an LLM gets for tool selection. Design for correct routing:

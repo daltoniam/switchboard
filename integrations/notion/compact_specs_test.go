@@ -283,3 +283,96 @@ func TestFieldCompactionSpecs_RetrieveUserKeepsEssentials(t *testing.T) {
 	assert.NotContains(t, string(compacted), `"version"`)
 	assert.NotContains(t, string(compacted), "last_logged_in")
 }
+
+// ── Multi-view pilot: notion_get_page_content ──────────────────────
+
+const pageContentTool = mcp.ToolName("notion_get_page_content")
+
+// TestPageContent_ViewsRegistered verifies the YAML loader resolved the
+// multi-view config for notion_get_page_content. This is the load-time
+// PDV proof: if the YAML had been broken, the loader would have failed
+// at strict-mode startup tests.
+func TestPageContent_ViewsRegistered(t *testing.T) {
+	vs, ok := viewSets[pageContentTool]
+	require.True(t, ok, "viewSets should contain notion_get_page_content (multi-view tool)")
+
+	// Default: toc + json
+	assert.Equal(t, compact.ViewName("toc"), vs.Default.View)
+	assert.Equal(t, compact.FormatJSON, vs.Default.Format)
+
+	// Both views present
+	assert.Contains(t, vs.Views, compact.ViewName("toc"))
+	assert.Contains(t, vs.Views, compact.ViewName("full"))
+
+	// Hints are populated (LLM consumes these via _more envelope)
+	assert.NotEmpty(t, vs.Views["toc"].Hint)
+	assert.NotEmpty(t, vs.Views["full"].Hint)
+}
+
+// TestPageContent_RenderersResolved verifies every declared (view, format)
+// combo resolved to a callable renderer at load time. Lookup miss here
+// would prove the parse-don't-validate gate failed.
+func TestPageContent_RenderersResolved(t *testing.T) {
+	vs := viewSets[pageContentTool]
+
+	// toc: json only
+	require.NotNil(t, vs.Renderers[compact.ViewName("toc")][compact.FormatJSON], "toc+json renderer missing")
+	_, hasTocMD := vs.Renderers[compact.ViewName("toc")][compact.FormatMarkdown]
+	assert.False(t, hasTocMD, "toc should NOT have a markdown renderer (not declared)")
+
+	// full: json + markdown
+	require.NotNil(t, vs.Renderers[compact.ViewName("full")][compact.FormatJSON], "full+json renderer missing")
+	require.NotNil(t, vs.Renderers[compact.ViewName("full")][compact.FormatMarkdown], "full+markdown renderer missing")
+}
+
+// TestPageContent_FullMarkdownRendererBridge verifies the custom renderer
+// for (full, markdown) is the bridge to renderPageContentMD — invoking it
+// with a representative payload produces markdown.
+func TestPageContent_FullMarkdownRendererBridge(t *testing.T) {
+	renderer := viewSets[pageContentTool].Renderers[compact.ViewName("full")][compact.FormatMarkdown]
+	require.NotNil(t, renderer)
+
+	// Minimal page-content shape that renderPageContentMD knows how to render.
+	projected := map[string]any{
+		"page": map[string]any{
+			"id":   "p1",
+			"type": "page",
+			"properties": map[string]any{
+				"title": []any{[]any{"Hello"}},
+			},
+		},
+		"blocks": []any{},
+	}
+	got, err := renderer(projected)
+	require.NoError(t, err)
+	assert.NotEmpty(t, got, "renderer should produce markdown bytes")
+	// The bridge returns whatever renderPageContentMD returns; smoke-checking
+	// it isn't an error envelope.
+	assert.NotContains(t, string(got), `"error"`)
+}
+
+// TestPageContent_ViewsMethod_AdapterContract verifies the Views method
+// satisfies the ToolViewsIntegration contract for notion_get_page_content
+// and returns (zero, false) for non-view tools.
+func TestPageContent_ViewsMethod_AdapterContract(t *testing.T) {
+	n := &notion{}
+
+	vs, ok := n.Views(pageContentTool)
+	require.True(t, ok, "Views() should return ViewSet for notion_get_page_content")
+	assert.Equal(t, compact.ViewName("toc"), vs.Default.View)
+
+	_, hasNoViews := n.Views("notion_list_users") // flat-form tool
+	assert.False(t, hasNoViews, "flat-form tools should return false")
+}
+
+// TestPageContent_LegacyMarkdownPathStillReachableForOtherTools verifies
+// that pivoting notion_get_page_content to views did NOT remove
+// MarkdownIntegration coverage for the other notion tool that uses it
+// (notion_retrieve_comments). Regression guard.
+func TestPageContent_LegacyMarkdownPathStillReachableForOtherTools(t *testing.T) {
+	n := &notion{}
+	// retrieve_comments still goes through the legacy path; calling
+	// RenderMarkdown directly should still produce markdown.
+	_, ok := n.RenderMarkdown("notion_retrieve_comments", []byte(`{"results":[]}`))
+	assert.True(t, ok, "notion_retrieve_comments markdown rendering should be unaffected")
+}

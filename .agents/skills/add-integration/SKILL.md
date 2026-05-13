@@ -232,6 +232,66 @@ For each tool's spec, verify against these questions before finalizing:
 
 Canonical example: `integrations/linear/compact.yaml` (schema + header conventions) and `integrations/linear/linear.go` (loader wiring + interface assertions).
 
+### Multi-View Tools
+
+**When to declare views (gated)**: One tool, two or more useful projections of the *same fetch*. Notion's `get_page_content` is the canonical case — same handler output, TOC view (~1KB) for navigation and full view (10-50KB) for reading. If the handler code would be identical for each projection, it's a view. If you'd write two handlers, write two tools.
+
+**When NOT to use views**: Single-shape tools (most tools). A flat `spec:` is correct. Adding `views:` for a single shape inflates YAML without preventing any failure.
+
+**What failure this prevents**: Without views, every caller pays the cost of the largest useful projection on every call. With views, the LLM picks the shape it needs — default is the smallest useful, and the response embeds discovery of larger views via the `_more` envelope.
+
+**Schema** (only when 2+ projections of the same fetch are useful):
+
+```yaml
+<tool_name>:
+  views:
+    <view_name>:
+      spec: [<paths>]
+      hint: "<one-line description shown in _more envelope>"
+      formats: [json]                       # or [json, markdown]
+    <other_view>:
+      spec: [<paths>]
+      hint: "..."
+      formats: [json, markdown]
+  default:
+    view: <view_name>
+    format: json
+```
+
+**Rules (each prevents a specific failure)**:
+
+- `spec:` and `views:` are mutually exclusive per tool — declaring both is rejected at load. Prevents: two sources of truth for one tool.
+- `default.view` must be a key in `views:`. Prevents: silent fallback to an unknown projection.
+- `default.format` must be in `default.view`'s `formats:`. Prevents: default combo that produces an error envelope.
+- Conservative default: pick the smallest useful view + JSON. Prevents: every caller paying for the largest shape.
+- Hint text is shown to the LLM in the `_more` envelope. Write it as a usage signal ("Use for navigation", "Use when you need page content"), not a description.
+
+**Adapter wiring**: add the `ToolViewsIntegration` interface and pass `Renderers` if a view declares a format the framework defaults can't handle (e.g., domain-specific markdown):
+
+```go
+var compactRenderers = map[compact.RenderKey]compact.Renderer{
+    {Tool: "<tool_name>", View: "<view>", Format: compact.FormatMarkdown}: customRenderer,
+}
+
+var compactResult = compact.MustLoadWithOverlay("<name>", compactYAML, compact.Options{
+    Strict:    false,
+    Renderers: compactRenderers,
+})
+
+var viewSets = compactResult.Views
+
+var _ compact.ToolViewsIntegration = (*myapi)(nil)
+
+func (x *myapi) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+    vs, ok := viewSets[toolName]
+    return vs, ok
+}
+```
+
+**JSON is always free**. Markdown for object-shaped responses is also free — the framework's generic markdown formatter produces definition lists and tables. Provide a custom renderer only when the generic output isn't good enough for the data shape (nested block trees, threaded comments). Declaring `formats: [text]` without a custom renderer fails at load.
+
+**Test coverage required**: every declared `(view, format)` combo needs a unit test. The pattern: register views in YAML → assert `Views(toolName)` returns the expected combos → assert each renderer produces non-empty output for a representative input. See `integrations/notion/compact_specs_test.go` for the canonical shape (`TestPageContent_ViewsRegistered`, `TestPageContent_RenderersResolved`, `TestPageContent_FullMarkdownRendererBridge`).
+
 ## Anti-Patterns
 
 | Mistake | Correct approach |

@@ -21,15 +21,46 @@ const maxResponseSize = 512 << 10 // 512 KB — largest real response ~230KB, ca
 //go:embed compact.yaml
 var compactYAML []byte
 
-var compactResult = compact.MustLoadWithOverlay("notion", compactYAML, compact.Options{Strict: false})
+// renderFullPageContentMD bridges the legacy raw-bytes markdown renderer
+// (renderPageContentMD in markdown.go) into the new typed Renderer
+// shape. Used as the custom renderer for
+// (notion_get_page_content, full, markdown) via Options.Renderers.
+//
+// The page-content markdown renderer is content-specific and produces
+// far better output than the framework generic markdown formatter would
+// (block tree → nested headings + paragraphs). Keeping the legacy
+// function and bridging is cheaper than rewriting it.
+func renderFullPageContentMD(projected any) ([]byte, error) {
+	data, err := json.Marshal(projected)
+	if err != nil {
+		return nil, fmt.Errorf("notion: marshal projected page content: %w", err)
+	}
+	md, ok := renderPageContentMD(data)
+	if !ok {
+		return nil, fmt.Errorf("notion: renderPageContentMD declined to render (unexpected shape)")
+	}
+	return []byte(md), nil
+}
+
+var compactRenderers = map[compact.RenderKey]compact.Renderer{
+	{Tool: "notion_get_page_content", View: "full", Format: compact.FormatMarkdown}: renderFullPageContentMD,
+}
+
+var compactResult = compact.MustLoadWithOverlay("notion", compactYAML, compact.Options{
+	Strict:    false,
+	Renderers: compactRenderers,
+})
+
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 var (
 	_ mcp.Integration                = (*notion)(nil)
 	_ mcp.FieldCompactionIntegration = (*notion)(nil)
 	_ mcp.MarkdownIntegration        = (*notion)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*notion)(nil)
+	_ compact.ToolViewsIntegration   = (*notion)(nil)
 )
 
 type notion struct {
@@ -134,6 +165,14 @@ func (n *notion) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 func (n *notion) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n2, ok := maxBytesByTool[toolName]
 	return n2, ok
+}
+
+// Views returns the multi-view config for tools that declared one.
+// Tools without a `views:` block in compact.yaml return (zero, false)
+// and the server falls back to today's single-spec compaction path.
+func (n *notion) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 func (n *notion) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
