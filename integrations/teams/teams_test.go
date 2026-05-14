@@ -395,6 +395,12 @@ func TestTeamsRemoveTenant_OK(t *testing.T) {
 // newTestIntegration builds an integration wired to optional httptest server URLs.
 // It avoids Configure() (which spawns background goroutines and reads disk) and
 // instead initializes the fields needed by the tests directly.
+//
+// When the caller passes nil, the integration is still pointed at a local stub
+// graph server (returning 401 to every request) so that tests which go on to
+// call Configure() don't fire live HTTPS calls to graph.microsoft.com via
+// resolveTenantIdentities. The stub server and any background goroutines
+// spawned by Configure are cleaned up via t.Cleanup.
 func newTestIntegration(t *testing.T, graphServer *httptest.Server) *teamsIntegration {
 	t.Helper()
 	ti := &teamsIntegration{
@@ -408,6 +414,26 @@ func newTestIntegration(t *testing.T, graphServer *httptest.Server) *teamsIntegr
 	if graphServer != nil {
 		ti.graphBaseURL = graphServer.URL
 		ti.httpClient = graphServer.Client()
+	} else {
+		// Default stub: refuse every call so resolveTenantIdentities and any
+		// other Configure-spawned probe never escapes the test process.
+		stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		t.Cleanup(stub.Close)
+		ti.graphBaseURL = stub.URL
+		ti.httpClient = stub.Client()
 	}
+	// Configure spawns a long-lived backgroundRefresh goroutine and stores
+	// the stop channel on ti.stopBg. Ensure we always close it after the
+	// test so goroutines don't accumulate across the suite.
+	t.Cleanup(func() {
+		ti.mu.Lock()
+		defer ti.mu.Unlock()
+		if ti.stopBg != nil {
+			close(ti.stopBg)
+			ti.stopBg = nil
+		}
+	})
 	return ti
 }
