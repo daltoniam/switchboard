@@ -149,6 +149,14 @@ func (t *teamsIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 		}
 	}
 
+	// Manage the background-refresh stop channel under t.mu so that a
+	// concurrent Configure cannot race with the goroutine's select.
+	if t.stopBg != nil {
+		close(t.stopBg)
+	}
+	t.stopBg = make(chan struct{})
+	stopCh := t.stopBg
+
 	t.mu.Unlock()
 
 	// Resolve user identity for each loaded tenant. Failures are logged but
@@ -156,15 +164,10 @@ func (t *teamsIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 	t.resolveTenantIdentities(ctx)
 
 	// Background refresh: skips for config-injected tokens since they're
-	// managed externally.
-	if t.stopBg != nil {
-		close(t.stopBg)
-	}
-	t.stopBg = make(chan struct{})
-	// Detach from the request-scoped ctx: the background goroutine outlives
-	// Configure. WithoutCancel preserves values but drops cancellation.
+	// managed externally. Detach from the request-scoped ctx — the goroutine
+	// outlives Configure. WithoutCancel preserves values but drops cancellation.
 	bgCtx := context.WithoutCancel(ctx)
-	go t.backgroundRefresh(bgCtx)
+	go t.backgroundRefresh(bgCtx, stopCh)
 
 	return nil
 }
@@ -374,14 +377,14 @@ func (t *teamsIntegration) shouldProactivelyRefresh(tn *tenant) bool {
 	return time.Until(tn.ExpiresAt) <= refreshSkew
 }
 
-func (t *teamsIntegration) backgroundRefresh(ctx context.Context) {
+func (t *teamsIntegration) backgroundRefresh(ctx context.Context, stop <-chan struct{}) {
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			t.refreshAllExpiring(ctx)
-		case <-t.stopBg:
+		case <-stop:
 			return
 		}
 	}

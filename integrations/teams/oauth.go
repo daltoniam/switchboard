@@ -61,6 +61,7 @@ type accessTokenResponse struct {
 type oauthFlow struct {
 	mu           sync.Mutex
 	integration  *teamsIntegration
+	ctx          context.Context //nolint:containedctx // long-lived poll goroutine needs cancellation
 	clientID     string
 	clientSecret string
 	tenantHint   string // "common" or a specific tenant id; sent in the URL
@@ -96,7 +97,7 @@ func (t *teamsIntegration) startOAuth(ctx context.Context, tenantHint string) (*
 	scopes := t.scopes
 	t.mu.RUnlock()
 
-	endpoint := fmt.Sprintf("%s/%s/oauth2/v2.0/devicecode", loginBase, tenantHint)
+	endpoint := fmt.Sprintf("%s/%s/oauth2/v2.0/devicecode", loginBase, url.PathEscape(tenantHint))
 
 	form := url.Values{
 		"client_id": {clientID},
@@ -131,6 +132,7 @@ func (t *teamsIntegration) startOAuth(ctx context.Context, tenantHint string) (*
 
 	flow := &oauthFlow{
 		integration:  t,
+		ctx:          context.WithoutCancel(ctx),
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		tenantHint:   tenantHint,
@@ -156,10 +158,20 @@ func (f *oauthFlow) poll() {
 	}
 	deadline := f.startedAt.Add(time.Duration(f.deviceResp.ExpiresIn) * time.Second)
 
-	endpoint := fmt.Sprintf("%s/%s/oauth2/v2.0/token", f.loginBaseURL, f.tenantHint)
+	endpoint := fmt.Sprintf("%s/%s/oauth2/v2.0/token", f.loginBaseURL, url.PathEscape(f.tenantHint))
 
 	for {
-		time.Sleep(interval)
+		// Sleep with cancellation support so a context-cancel exits promptly
+		// rather than waiting up to `interval` seconds.
+		select {
+		case <-f.ctx.Done():
+			f.mu.Lock()
+			f.errMsg = "Authorization cancelled."
+			f.done = true
+			f.mu.Unlock()
+			return
+		case <-time.After(interval):
+		}
 
 		if time.Now().After(deadline) {
 			f.mu.Lock()
@@ -178,7 +190,7 @@ func (f *oauthFlow) poll() {
 			form.Set("client_secret", f.clientSecret)
 		}
 
-		req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+		req, err := http.NewRequestWithContext(f.ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 		if err != nil {
 			continue
 		}
@@ -350,7 +362,7 @@ func (t *teamsIntegration) refreshTenant(ctx context.Context, tn *tenant) error 
 		tenantHint = "common"
 	}
 
-	endpoint := fmt.Sprintf("%s/%s/oauth2/v2.0/token", loginBase, tenantHint)
+	endpoint := fmt.Sprintf("%s/%s/oauth2/v2.0/token", loginBase, url.PathEscape(tenantHint))
 	form := url.Values{
 		"client_id":     {clientID},
 		"grant_type":    {"refresh_token"},
