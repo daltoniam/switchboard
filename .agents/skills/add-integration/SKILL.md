@@ -264,6 +264,7 @@ Canonical example: `integrations/linear/compact.yaml` (schema + header conventio
 - `default.view` must be a key in `views:`. Prevents: silent fallback to an unknown projection.
 - `default.format` must be in `default.view`'s `formats:`. Prevents: default combo that produces an error envelope.
 - Conservative default: pick the smallest useful view + JSON. Prevents: every caller paying for the largest shape.
+- **Inverted default is legitimate** when the heavy view is what the LLM almost always wants next (e.g., `retrieve_data_source` precedes `query_data_source`, so schema-on-by-default is correct). Make the full view the default and expose the slim view as an escape hatch. Mixing inverted and conservative defaults in one file is informative — it shows readers when each applies. Prevents: forcing follow-up calls for the common case.
 - Hint text is shown to the LLM in the `_more` envelope. Write it as a usage signal ("Use for navigation", "Use when you need page content"), not a description.
 
 **Adapter wiring**: add the `ToolViewsIntegration` interface and pass `Renderers` if a view declares a format the framework defaults can't handle (e.g., domain-specific markdown):
@@ -290,7 +291,23 @@ func (x *myapi) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
 
 **JSON is always free**. Markdown for object-shaped responses is also free — the framework's generic markdown formatter produces definition lists and tables. Provide a custom renderer only when the generic output isn't good enough for the data shape (nested block trees, threaded comments). Declaring `formats: [text]` without a custom renderer fails at load.
 
-**Test coverage required**: every declared `(view, format)` combo needs a unit test. The pattern: register views in YAML → assert `Views(toolName)` returns the expected combos → assert each renderer produces non-empty output for a representative input. See `integrations/notion/compact_specs_test.go` for the canonical shape (`TestPageContent_ViewsRegistered`, `TestPageContent_RenderersResolved`, `TestPageContent_FullMarkdownRendererBridge`).
+**Legacy markdown bridge pattern**: when an existing `RenderMarkdown` function (`renderXMD([]byte) (Markdown, bool)`) already produces good output for a tool moving to views, wrap it as a typed renderer instead of rewriting:
+
+```go
+func renderFullXMD(projected any) ([]byte, error) {
+    data, err := json.Marshal(projected)
+    if err != nil { return nil, fmt.Errorf("...: %w", err) }
+    md, ok := renderXMD(data)
+    if !ok { return nil, fmt.Errorf("...: declined to render") }
+    return []byte(md), nil
+}
+```
+
+**Pipeline ownership is exclusive**: a tool with `views:` bypasses `MarkdownIntegration` at runtime (views pipeline runs first). Remove the tool from `markdownRenderers` when it moves to views — leaving both registered creates two paths producing potentially different output. Prevents: silent path divergence after a renderer update.
+
+**Verify spec shapes against real data**: unit tests with hand-built fixtures pass because the inputs are perfect. Live data exposes gaps — Notion v3 search, for instance, populates `properties.title` only when the block is resolved in `recordMap`; results without resolved blocks have only `highlight.title`. Build the binary, hit the tool with real arguments, and confirm the projected shape carries enough information before committing.
+
+**Test coverage required**: every declared `(view, format)` combo needs a unit test. The pattern: register views in YAML → assert `Views(toolName)` returns the expected combos → assert each renderer produces non-empty output for a representative input. See `integrations/notion/compact_specs_test.go` for the canonical shape (`TestPageContent_ViewsRegistered`, `TestPageContent_RenderersResolved`, `TestPageContent_FullMarkdownRendererBridge`, `TestSearch_TitlesMarkdownRenderer`).
 
 ## Anti-Patterns
 

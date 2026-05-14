@@ -84,6 +84,12 @@ func TestFieldCompactionSpec_ReturnsFalseForUnknownTool(t *testing.T) {
 
 // ── Reduction tests (moved from notion_test.go) ─────────────────────
 
+// TestGetPageContent_ReturnsMarkdown drives the full views pipeline:
+// handler → JSON → CompactAny(full spec) → custom markdown renderer.
+// Production processResult does these steps in order; the test asserts
+// the integrated result. RenderMarkdown is no longer in the picture for
+// view-aware tools, so the old direct-RenderMarkdown invocation was
+// stale — replaced with the actual production path.
 func TestGetPageContent_ReturnsMarkdown(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, _ *http.Request) {
 		okJSON(w, `{
@@ -114,17 +120,23 @@ func TestGetPageContent_ReturnsMarkdown(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 
-	// Handler returns JSON; RenderMarkdown converts to Markdown.
-	md, ok := n.RenderMarkdown("notion_get_page_content", []byte(result.Data))
-	require.True(t, ok, "RenderMarkdown should handle get_page_content")
+	// Production path: JSON → CompactAny(full view spec) → renderer.
+	var parsed any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	fullSpec := viewSets[pageContentTool].Views[compact.ViewName("full")].Spec
+	projected := mcp.CompactAny(parsed, fullSpec)
+	renderer := viewSets[pageContentTool].Renderers[compact.ViewName("full")][compact.FormatMarkdown]
+	require.NotNil(t, renderer)
+	md, err := renderer(projected)
+	require.NoError(t, err)
 
-	assert.Contains(t, md, "<!-- notion:page_id=page-1 -->")
-	assert.Contains(t, md, "# My Page")
-	assert.Contains(t, md, "Hello")
-
-	// Noise fields stripped by markdown rendering.
-	assert.NotContains(t, md, "crdt_data")
-	assert.NotContains(t, md, "space_id")
+	out := string(md)
+	assert.Contains(t, out, "<!-- notion:page_id=page-1 -->")
+	assert.Contains(t, out, "# My Page")
+	assert.Contains(t, out, "Hello")
+	// CompactAny strips noise fields before the renderer sees them.
+	assert.NotContains(t, out, "crdt_data")
+	assert.NotContains(t, out, "space_id")
 }
 
 func TestFieldCompactionSpecs_SearchReducesResponseSize(t *testing.T) {
@@ -365,14 +377,251 @@ func TestPageContent_ViewsMethod_AdapterContract(t *testing.T) {
 	assert.False(t, hasNoViews, "flat-form tools should return false")
 }
 
-// TestPageContent_LegacyMarkdownPathStillReachableForOtherTools verifies
-// that pivoting notion_get_page_content to views did NOT remove
-// MarkdownIntegration coverage for the other notion tool that uses it
-// (notion_retrieve_comments). Regression guard.
-func TestPageContent_LegacyMarkdownPathStillReachableForOtherTools(t *testing.T) {
+// ── Views expansion: search, query, comments, retrieve_data_source ──
+//
+// These tests follow the same shape as the pageContent block above:
+// (a) views registered with correct default + hints, (b) every declared
+// (view, format) combo resolved to a callable renderer at load time.
+// The PDV proof is at load time — the loader rejects unresolved combos
+// in strict mode, so failures here surface as load failures, not runtime
+// errors.
+
+const (
+	searchTool     = mcp.ToolName("notion_search")
+	queryTool      = mcp.ToolName("notion_query_data_source")
+	commentsTool   = mcp.ToolName("notion_retrieve_comments")
+	dataSourceTool = mcp.ToolName("notion_retrieve_data_source")
+)
+
+// notion_search: titles (default) / full. Markdown table on titles only.
+// LLMs typically scan many results to pick one, so the slim shape (links
+// + titles) is the conservative default.
+func TestSearch_ViewsRegistered(t *testing.T) {
+	vs, ok := viewSets[searchTool]
+	require.True(t, ok)
+
+	assert.Equal(t, compact.ViewName("titles"), vs.Default.View)
+	assert.Equal(t, compact.FormatJSON, vs.Default.Format)
+
+	assert.Contains(t, vs.Views, compact.ViewName("titles"))
+	assert.Contains(t, vs.Views, compact.ViewName("full"))
+	assert.NotEmpty(t, vs.Views["titles"].Hint)
+	assert.NotEmpty(t, vs.Views["full"].Hint)
+}
+
+func TestSearch_RenderersResolved(t *testing.T) {
+	vs := viewSets[searchTool]
+	require.NotNil(t, vs.Renderers[compact.ViewName("titles")][compact.FormatJSON])
+	require.NotNil(t, vs.Renderers[compact.ViewName("titles")][compact.FormatMarkdown],
+		"titles+markdown renderer must be registered for the link-table format")
+	require.NotNil(t, vs.Renderers[compact.ViewName("full")][compact.FormatJSON])
+
+	_, hasFullMD := vs.Renderers[compact.ViewName("full")][compact.FormatMarkdown]
+	assert.False(t, hasFullMD, "full view should NOT have markdown (not declared)")
+}
+
+// renderSearchTitlesMD must produce a markdown table with one row per
+// result. Failure shape: an empty body or unstructured prose would
+// degrade the discovery-by-browsing use case the titles view targets.
+func TestSearch_TitlesMarkdownRenderer(t *testing.T) {
+	renderer := viewSets[searchTool].Renderers[compact.ViewName("titles")][compact.FormatMarkdown]
+	require.NotNil(t, renderer)
+
+	projected := map[string]any{
+		"results": []any{
+			// Resolved block: properties.title is populated.
+			map[string]any{
+				"id":   "page-1",
+				"type": "page",
+				"properties": map[string]any{
+					"title": []any{[]any{"Meeting Notes"}},
+				},
+				"url": "https://www.notion.so/page-1",
+			},
+			// Resolved block + database: collection_id appears.
+			map[string]any{
+				"id":            "db-1",
+				"type":          "collection_view_page",
+				"collection_id": "coll-abc",
+				"properties": map[string]any{
+					"title": []any{[]any{"Sprint Board"}},
+				},
+				"url": "https://www.notion.so/db-1",
+			},
+			// Unresolved block: properties is empty; title falls back to
+			// highlight.title (the path the renderer must support).
+			map[string]any{
+				"id": "page-2",
+				"highlight": map[string]any{
+					"title": "Unresolved Page",
+					"text":  "matched snippet",
+				},
+				"url": "https://www.notion.so/page-2",
+			},
+		},
+	}
+	got, err := renderer(projected)
+	require.NoError(t, err)
+	out := string(got)
+	assert.Contains(t, out, "Meeting Notes", "properties.title must appear")
+	assert.Contains(t, out, "Sprint Board", "properties.title must appear")
+	assert.Contains(t, out, "Unresolved Page", "highlight.title must appear when properties.title is empty")
+	assert.Contains(t, out, "| ---", "must produce a markdown table separator row")
+	assert.Contains(t, out, "page-1", "id must appear so LLM can drill in")
+}
+
+// notion_query_data_source: summary (default) / full.
+// Summary view drops per-row non-title properties; LLM browses, then
+// drills into specific rows with view=full.
+func TestQuery_ViewsRegistered(t *testing.T) {
+	vs, ok := viewSets[queryTool]
+	require.True(t, ok)
+
+	assert.Equal(t, compact.ViewName("summary"), vs.Default.View)
+	assert.Equal(t, compact.FormatJSON, vs.Default.Format)
+
+	assert.Contains(t, vs.Views, compact.ViewName("summary"))
+	assert.Contains(t, vs.Views, compact.ViewName("full"))
+	assert.NotEmpty(t, vs.Views["summary"].Hint)
+	assert.NotEmpty(t, vs.Views["full"].Hint)
+}
+
+func TestQuery_RenderersResolved(t *testing.T) {
+	vs := viewSets[queryTool]
+	require.NotNil(t, vs.Renderers[compact.ViewName("summary")][compact.FormatJSON])
+	require.NotNil(t, vs.Renderers[compact.ViewName("summary")][compact.FormatMarkdown])
+	require.NotNil(t, vs.Renderers[compact.ViewName("full")][compact.FormatJSON])
+
+	_, hasFullMD := vs.Renderers[compact.ViewName("full")][compact.FormatMarkdown]
+	assert.False(t, hasFullMD)
+}
+
+// renderQuerySummaryMD must produce a row-per-record markdown table.
+// Schema row should surface what columns exist; that's the LLM's
+// disambiguation aid when picking which row to view in full.
+func TestQuery_SummaryMarkdownRenderer(t *testing.T) {
+	renderer := viewSets[queryTool].Renderers[compact.ViewName("summary")][compact.FormatMarkdown]
+	require.NotNil(t, renderer)
+
+	projected := map[string]any{
+		"schema": map[string]any{
+			"title": map[string]any{"name": "Name", "type": "title"},
+		},
+		"results": []any{
+			map[string]any{
+				"id": "row-1",
+				"properties": map[string]any{
+					"title": []any{[]any{"Task 1"}},
+				},
+				"last_edited_time": float64(1700000001000),
+			},
+		},
+	}
+	got, err := renderer(projected)
+	require.NoError(t, err)
+	out := string(got)
+	assert.Contains(t, out, "Task 1")
+	assert.Contains(t, out, "row-1")
+	assert.Contains(t, out, "| ---", "must produce a markdown table separator row")
+}
+
+// notion_retrieve_comments: topics (default) / full.
+// Topics drops author/timestamp/parent metadata, keeps the conversation
+// text. Full keeps the existing rich-markdown rendering of threads.
+// MarkdownIntegration for this tool moves to a registered custom
+// renderer so the views pipeline owns the rendering path.
+func TestComments_ViewsRegistered(t *testing.T) {
+	vs, ok := viewSets[commentsTool]
+	require.True(t, ok)
+
+	assert.Equal(t, compact.ViewName("topics"), vs.Default.View)
+	assert.Equal(t, compact.FormatJSON, vs.Default.Format)
+
+	assert.Contains(t, vs.Views, compact.ViewName("topics"))
+	assert.Contains(t, vs.Views, compact.ViewName("full"))
+	assert.NotEmpty(t, vs.Views["topics"].Hint)
+	assert.NotEmpty(t, vs.Views["full"].Hint)
+}
+
+func TestComments_RenderersResolved(t *testing.T) {
+	vs := viewSets[commentsTool]
+	require.NotNil(t, vs.Renderers[compact.ViewName("topics")][compact.FormatJSON])
+	require.NotNil(t, vs.Renderers[compact.ViewName("full")][compact.FormatJSON])
+	require.NotNil(t, vs.Renderers[compact.ViewName("full")][compact.FormatMarkdown],
+		"full+markdown bridges to the existing renderCommentsMD")
+
+	_, hasTopicsMD := vs.Renderers[compact.ViewName("topics")][compact.FormatMarkdown]
+	assert.False(t, hasTopicsMD, "topics view does NOT declare markdown")
+}
+
+// renderFullCommentsMD must bridge into renderCommentsMD so the typed
+// renderer registry preserves the existing rich-markdown behavior.
+// Failure shape: empty bytes would silently lose markdown coverage when
+// views took over.
+func TestComments_FullMarkdownRendererBridge(t *testing.T) {
+	renderer := viewSets[commentsTool].Renderers[compact.ViewName("full")][compact.FormatMarkdown]
+	require.NotNil(t, renderer)
+
+	projected := map[string]any{
+		"results": []any{
+			map[string]any{
+				"discussion": map[string]any{
+					"id":       "disc-1",
+					"resolved": false,
+				},
+				"comments": []any{
+					map[string]any{
+						"created_by_id": "user-1",
+						"created_time":  float64(1700000000000),
+						"text":          []any{[]any{"first message"}},
+					},
+				},
+			},
+		},
+	}
+	got, err := renderer(projected)
+	require.NoError(t, err)
+	assert.NotEmpty(t, got)
+	assert.Contains(t, string(got), "first message")
+}
+
+// Regression: once retrieve_comments moves to views, the legacy
+// markdownRenderers map entry for it must be removed so a single
+// pipeline owns the rendering. Two paths to the same output is the
+// drift hazard the views feature was meant to eliminate.
+func TestComments_LegacyMarkdownPathRemoved(t *testing.T) {
 	n := &notion{}
-	// retrieve_comments still goes through the legacy path; calling
-	// RenderMarkdown directly should still produce markdown.
-	_, ok := n.RenderMarkdown("notion_retrieve_comments", []byte(`{"results":[]}`))
-	assert.True(t, ok, "notion_retrieve_comments markdown rendering should be unaffected")
+	_, ok := n.RenderMarkdown(commentsTool, []byte(`{"results":[]}`))
+	assert.False(t, ok,
+		"retrieve_comments must not also register via MarkdownIntegration (views pipeline owns it)")
+}
+
+// notion_retrieve_data_source: summary / full (FULL is default).
+// Inverted default — schema-on-by-default is what the LLM almost always
+// wants next (query_data_source needs it). summary exists for the rare
+// "does this DB exist?" case. This case is the inspiration value:
+// it shows the slim view doesn't have to be the default.
+func TestDataSource_ViewsRegistered(t *testing.T) {
+	vs, ok := viewSets[dataSourceTool]
+	require.True(t, ok)
+
+	assert.Equal(t, compact.ViewName("full"), vs.Default.View, "default is FULL — schema-on-by-default")
+	assert.Equal(t, compact.FormatJSON, vs.Default.Format)
+
+	assert.Contains(t, vs.Views, compact.ViewName("summary"))
+	assert.Contains(t, vs.Views, compact.ViewName("full"))
+	assert.NotEmpty(t, vs.Views["summary"].Hint)
+	assert.NotEmpty(t, vs.Views["full"].Hint)
+}
+
+func TestDataSource_RenderersResolved(t *testing.T) {
+	vs := viewSets[dataSourceTool]
+	require.NotNil(t, vs.Renderers[compact.ViewName("summary")][compact.FormatJSON])
+	require.NotNil(t, vs.Renderers[compact.ViewName("full")][compact.FormatJSON])
+
+	_, hasSummaryMD := vs.Renderers[compact.ViewName("summary")][compact.FormatMarkdown]
+	assert.False(t, hasSummaryMD, "schema-shaped data reads fine as JSON")
+
+	_, hasFullMD := vs.Renderers[compact.ViewName("full")][compact.FormatMarkdown]
+	assert.False(t, hasFullMD)
 }

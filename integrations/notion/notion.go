@@ -42,8 +42,16 @@ func renderFullPageContentMD(projected any) ([]byte, error) {
 	return []byte(md), nil
 }
 
+// compactRenderers wires custom markdown renderers into the views
+// dispatch registry. Each entry pairs a (tool, view, format) key with
+// a typed Renderer; the loader rejects declared combos that have no
+// registered renderer at startup, so missing entries surface as load
+// failures, not runtime ones.
 var compactRenderers = map[compact.RenderKey]compact.Renderer{
-	{Tool: "notion_get_page_content", View: "full", Format: compact.FormatMarkdown}: renderFullPageContentMD,
+	{Tool: "notion_get_page_content", View: "full", Format: compact.FormatMarkdown}:     renderFullPageContentMD,
+	{Tool: "notion_search", View: "titles", Format: compact.FormatMarkdown}:             renderSearchTitlesMD,
+	{Tool: "notion_query_data_source", View: "summary", Format: compact.FormatMarkdown}: renderQuerySummaryMD,
+	{Tool: "notion_retrieve_comments", View: "full", Format: compact.FormatMarkdown}:    renderFullCommentsMD,
 }
 
 var compactResult = compact.MustLoadWithOverlay("notion", compactYAML, compact.Options{
