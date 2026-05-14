@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -569,6 +570,37 @@ func TestCanSelfRefresh(t *testing.T) {
 }
 
 // --- resolveWorkspaceIdentities self-healing ---
+
+// TestTryRefresh_OnlyAttemptsRefreshableTokens locks in that the background
+// refresh loop delegates its skip policy to canSelfRefresh, so non-rotating
+// token types (xoxb-, xoxp-, xapp-, config-sourced) are never sent through
+// the browser/cookie extraction path even if they end up sharing a store
+// with xoxc-* workspaces.
+func TestTryRefresh_OnlyAttemptsRefreshableTokens(t *testing.T) {
+	store := &tokenStore{workspaces: map[string]*workspace{
+		"T_XOXC":   {TeamID: "T_XOXC", Token: "xoxc-rotating", Source: "browser"},
+		"T_XOXB":   {TeamID: "T_XOXB", Token: "xoxb-bot", Source: "chrome"},
+		"T_XOXP":   {TeamID: "T_XOXP", Token: "xoxp-user", Source: "chrome"},
+		"T_XAPP":   {TeamID: "T_XAPP", Token: "xapp-app", Source: "chrome"},
+		"T_CONFIG": {TeamID: "T_CONFIG", Token: "xoxc-cfg", Source: "config"},
+	}}
+
+	var attempted []string
+	var mu sync.Mutex
+	s := &slackIntegration{store: store}
+	s.refreshWorkspace = func(id string) bool {
+		mu.Lock()
+		attempted = append(attempted, id)
+		mu.Unlock()
+		return true
+	}
+
+	s.tryRefresh()
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, []string{"T_XOXC"}, attempted, "only xoxc-* with non-config source should be refreshed")
+}
 
 // newAuthTestServer returns an httptest server that fails the first N
 // auth.test calls with invalid_auth, then succeeds with the given team_id.

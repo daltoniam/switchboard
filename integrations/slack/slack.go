@@ -325,11 +325,12 @@ func (s *slackIntegration) backgroundRefresh() {
 
 func (s *slackIntegration) tryRefresh() bool {
 	allOk := true
+	refresh := s.refreshFn()
 	for _, ws := range s.store.allWorkspaces() {
-		if strings.HasPrefix(ws.Token, "xoxp-") {
+		if !s.canSelfRefresh(ws) {
 			continue
 		}
-		if !s.tryRefreshWorkspace(ws.TeamID) {
+		if !refresh(ws.TeamID) {
 			allOk = false
 		}
 	}
