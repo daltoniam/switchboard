@@ -346,7 +346,10 @@ func base64URLDecode(s string) ([]byte, error) {
 // refreshTenant exchanges a refresh token for a fresh access token. Called by
 // graphRequestInner on 401 and proactively before expiry.
 func (t *teamsIntegration) refreshTenant(ctx context.Context, tn *tenant) error {
-	if tn == nil || tn.RefreshToken == "" {
+	if tn == nil {
+		return fmt.Errorf("refreshTenant called with nil tenant")
+	}
+	if tn.RefreshToken == "" {
 		return fmt.Errorf("no refresh_token available for tenant %s", tn.TenantID)
 	}
 

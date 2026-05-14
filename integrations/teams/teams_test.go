@@ -295,6 +295,30 @@ func TestRefreshTenant_NoRefreshToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "no refresh_token")
 }
 
+func TestRefreshTenant_NilTenant(t *testing.T) {
+	ti := newTestIntegration(t, nil)
+	// Should not panic — the nil guard must return an error rather than
+	// dereferencing the nil pointer in the error message.
+	err := ti.refreshTenant(context.Background(), nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nil tenant")
+}
+
+func TestConfigure_ParsesExpiresAt(t *testing.T) {
+	ti := newTestIntegration(t, nil)
+	exp := "2099-01-02T15:04:05Z"
+	err := ti.Configure(context.Background(), mcp.Credentials{
+		"tenant_id":    "tenant-z",
+		"access_token": "at-z",
+		"expires_at":   exp,
+	})
+	require.NoError(t, err)
+	tn := ti.store.get("tenant-z")
+	require.NotNil(t, tn)
+	want, _ := time.Parse(time.RFC3339, exp)
+	assert.True(t, tn.ExpiresAt.Equal(want), "ExpiresAt %v != %v", tn.ExpiresAt, want)
+}
+
 // --- Token store ---
 
 func TestTokenStore_UpsertSetsDefault(t *testing.T) {

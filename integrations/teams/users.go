@@ -5,9 +5,20 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
+
+// sanitizeSearchTerm strips characters that would break the OData $search
+// expression. Inner double-quotes terminate the quoted string and yield a
+// Graph 400; backslashes can introduce escape ambiguity. We never need them
+// for the displayName/UPN lookups in this package.
+func sanitizeSearchTerm(s string) string {
+	s = strings.ReplaceAll(s, `"`, "")
+	s = strings.ReplaceAll(s, `\`, "")
+	return strings.TrimSpace(s)
+}
 
 // listUsers -> GET /users
 func listUsers(ctx context.Context, t *teamsIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -35,7 +46,8 @@ func listUsers(ctx context.Context, t *teamsIntegration, args map[string]any) (*
 		q.Set("$select", selectFields)
 	}
 	if search != "" {
-		q.Set("$search", fmt.Sprintf("\"displayName:%s\" OR \"userPrincipalName:%s\"", search, search))
+		safe := sanitizeSearchTerm(search)
+		q.Set("$search", fmt.Sprintf(`"displayName:%s" OR "userPrincipalName:%s"`, safe, safe))
 	}
 	path := "/users?" + q.Encode()
 	if search != "" {
@@ -93,9 +105,10 @@ func searchUsers(ctx context.Context, t *teamsIntegration, args map[string]any) 
 	if top > 25 {
 		top = 25
 	}
+	safe := sanitizeSearchTerm(query)
 	q := url.Values{}
 	q.Set("$top", fmt.Sprintf("%d", top))
-	q.Set("$search", fmt.Sprintf("\"displayName:%s\" OR \"userPrincipalName:%s\"", query, query))
+	q.Set("$search", fmt.Sprintf(`"displayName:%s" OR "userPrincipalName:%s"`, safe, safe))
 	path := "/users?" + q.Encode()
 	return t.graphGetWithHeaders(ctx, tn.TenantID, path, http.Header{"ConsistencyLevel": []string{"eventual"}})
 }

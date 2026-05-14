@@ -138,12 +138,20 @@ func (t *teamsIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 		if tid == "" {
 			tid = "_config"
 		}
-		t.store.upsert(&tenant{
+		tn := &tenant{
 			TenantID:     tid,
 			AccessToken:  at,
 			RefreshToken: strings.TrimSpace(creds["refresh_token"]),
 			Source:       "config",
-		})
+		}
+		// Honour an optional expires_at so proactive refresh kicks in instead
+		// of waiting for a 401 from Graph.
+		if raw := strings.TrimSpace(creds["expires_at"]); raw != "" {
+			if exp, err := time.Parse(time.RFC3339, raw); err == nil {
+				tn.ExpiresAt = exp
+			}
+		}
+		t.store.upsert(tn)
 		if t.defaultTenant != "" {
 			t.store.setDefault(t.defaultTenant)
 		}
