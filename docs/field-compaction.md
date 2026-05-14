@@ -46,6 +46,9 @@ sequenceDiagram
   - `"-parent.child"` — exclude the entire parent object
   - `"field:alias"` — rename field in output
   - `"parent.*"` — wildcard, keeps entire sub-object under parent key (one level only)
+- **Array projection shape** depends on how many fields you project from the same array. One field — `comments[].text` — produces a flat value list `["a", "b"]` and drops the field name. Two or more fields — `comments[].id` + `comments[].text` — produce sub-objects `[{id, text}, ...]` keyed by name. Single-field projections trade self-description for compactness; reach for two when the LLM needs labels to understand the shape.
+- **Nested arrays don't compose into sub-objects.** Multiple specs targeting the same nested array (e.g., two `results[].comments[].X` specs) overwrite each other — `extractChildValue` writes to one sub-key per array name. To keep both a key and its value visible at the nested level, project the array whole (`results[].comments`) and accept the metadata cost, or live with the flat-value-list shape.
+- **Wildcards are one level only.** `schema.*` is allowed; `schema.*.options` is rejected at parse. Exclusions cannot use array syntax — `-schema.*.options` won't work for nested per-key trimming. Slim views over dynamic-key parents (Notion schemas, GraphQL `__typename` maps) hit this limit; project the whole parent or change handler shape.
 - **Omitempty**: null values and empty objects `{}` are stripped from compacted output. Empty arrays `[]` in spec-targeted array groups are preserved — a spec targeting `matches[]` means `[]` is a meaningful "0 results" signal, not noise
 - **Pre-computed field plans**: `buildFieldPlan` groups specs into scalars, array groups, object groups, wildcards, and excludes once per `CompactAny` call — shared across all array items
 - **Keep**: fields that prevent N+1 drill-downs (routing fields, identifiers, states, dates, counts)

@@ -1,6 +1,7 @@
 package notion
 
 import (
+	"encoding/json"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -227,30 +228,49 @@ func TestPageToMarkdown(t *testing.T) {
 	assert.Contains(t, got, "Hello world.")
 }
 
+// TestRenderMarkdown_EndToEnd verifies the typed Renderer bridge
+// functions registered with the views pipeline. The legacy
+// MarkdownIntegration path is now empty for tools that moved to views,
+// so these subtests exercise the bridges directly with parsed JSON.
 func TestRenderMarkdown_EndToEnd(t *testing.T) {
 	n := &notion{}
 
-	t.Run("page content", func(t *testing.T) {
-		data := `{"page":{"id":"p1","type":"page","properties":{"title":[["Test"]]},"last_edited_time":1700000000000},"blocks":[{"id":"b1","type":"text","properties":{"title":[["Hello"]]}}]}`
-		md, ok := n.RenderMarkdown("notion_get_page_content", []byte(data))
-		assert.True(t, ok)
-		assert.Contains(t, md, "<!-- notion:page_id=p1 -->")
-		assert.Contains(t, md, "# Test")
-		assert.Contains(t, md, "Hello")
+	t.Run("page content via view bridge", func(t *testing.T) {
+		data := []byte(`{"page":{"id":"p1","type":"page","properties":{"title":[["Test"]]},"last_edited_time":1700000000000},"blocks":[{"id":"b1","type":"text","properties":{"title":[["Hello"]]}}]}`)
+		var parsed any
+		require.NoError(t, json.Unmarshal(data, &parsed))
+		md, err := renderFullPageContentMD(parsed)
+		require.NoError(t, err)
+		assert.Contains(t, string(md), "<!-- notion:page_id=p1 -->")
+		assert.Contains(t, string(md), "# Test")
+		assert.Contains(t, string(md), "Hello")
 	})
 
-	t.Run("comments", func(t *testing.T) {
-		data := `{"results":[{"discussion":{"resolved":false},"comments":[{"created_by_id":"alice","created_time":1700000000000,"text":[["Nice work!"]]}]}]}`
-		md, ok := n.RenderMarkdown("notion_retrieve_comments", []byte(data))
-		assert.True(t, ok)
-		assert.Contains(t, md, "## Comments")
-		assert.Contains(t, md, "alice")
-		assert.Contains(t, md, "Nice work!")
+	t.Run("comments via view bridge", func(t *testing.T) {
+		data := []byte(`{"results":[{"discussion":{"resolved":false},"comments":[{"created_by_id":"alice","created_time":1700000000000,"text":[["Nice work!"]]}]}]}`)
+		var parsed any
+		require.NoError(t, json.Unmarshal(data, &parsed))
+		md, err := renderFullCommentsMD(parsed)
+		require.NoError(t, err)
+		assert.Contains(t, string(md), "## Comments")
+		assert.Contains(t, string(md), "alice")
+		assert.Contains(t, string(md), "Nice work!")
 	})
 
-	t.Run("unknown tool returns false", func(t *testing.T) {
-		_, ok := n.RenderMarkdown("notion_search", []byte(`{}`))
-		assert.False(t, ok)
+	t.Run("legacy MarkdownIntegration is empty for view-aware tools", func(t *testing.T) {
+		// Tools that opted into views (page_content, comments, search,
+		// query, retrieve_data_source) MUST return false from
+		// RenderMarkdown — the views pipeline owns rendering.
+		for _, tool := range []mcp.ToolName{
+			"notion_get_page_content",
+			"notion_retrieve_comments",
+			"notion_search",
+			"notion_query_data_source",
+			"notion_retrieve_data_source",
+		} {
+			_, ok := n.RenderMarkdown(tool, []byte(`{}`))
+			assert.False(t, ok, "%s must not register via MarkdownIntegration (views pipeline owns it)", tool)
+		}
 	})
 }
 

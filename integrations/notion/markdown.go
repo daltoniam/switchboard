@@ -47,12 +47,13 @@ type renderedComment struct {
 
 // ── Parse boundary (RenderMarkdown) ──────────────────────────────────
 
-// markdownRenderers maps tool names to their markdown rendering functions.
-// Adding a new renderable tool only requires a map entry, not a code change.
-var markdownRenderers = map[mcp.ToolName]func([]byte) (markdown.Markdown, bool){
-	"notion_get_page_content":  renderPageContentMD,
-	"notion_retrieve_comments": renderCommentsMD,
-}
+// markdownRenderers maps tool names to their markdown rendering functions
+// for the legacy MarkdownIntegration path. Tools that opted into the views
+// pipeline (get_page_content, retrieve_comments) bypass this map at runtime —
+// processResult dispatches via the views renderer registry first. The map
+// is left in place so RenderMarkdown stays callable for tools that have
+// not yet migrated to views.
+var markdownRenderers = map[mcp.ToolName]func([]byte) (markdown.Markdown, bool){}
 
 // RenderMarkdown converts a tool's JSON response to Markdown.
 // Implements mcp.MarkdownIntegration.
@@ -381,4 +382,156 @@ func commentsToMarkdown(threads []renderedThread) markdown.Markdown {
 
 func millisToTimeString(ms int64) string {
 	return time.UnixMilli(ms).UTC().Format("2006-01-02 15:04 UTC")
+}
+
+// ── View renderer bridges ────────────────────────────────────────────
+//
+// Renderers registered via compactRenderers in notion.go. Each one
+// accepts the post-CompactAny projection and produces markdown bytes.
+// Errors from these bridges surface as view_dispatch_failed envelopes
+// to the LLM, so the failure mode (an unexpected shape from CompactAny)
+// is visible rather than silently degraded.
+
+// renderSearchTitlesMD renders the search titles view as a markdown table.
+// The titles view projects id, type, parent_id, collection_id,
+// properties.title, url — the renderer surfaces title (linked to url),
+// type, and id so LLMs can drill in by id.
+func renderSearchTitlesMD(projected any) ([]byte, error) {
+	root, ok := projected.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("notion: search titles renderer: expected object root, got %T", projected)
+	}
+	rawResults, _ := root["results"].([]any)
+
+	b := markdown.NewBuilder()
+	b.Metadata("notion", "tool", "search", "view", "titles")
+	if len(rawResults) == 0 {
+		b.Raw("No results.\n")
+		return []byte(b.Build()), nil
+	}
+
+	rows := make([][]string, 0, len(rawResults)+1)
+	rows = append(rows, []string{"Title", "Type", "ID"})
+	for _, r := range rawResults {
+		entry, ok := r.(map[string]any)
+		if !ok {
+			continue
+		}
+		title := searchResultTitle(entry)
+		typ, _ := entry["type"].(string)
+		id, _ := entry["id"].(string)
+		url, _ := entry["url"].(string)
+		linkedTitle := title
+		if url != "" && title != "" {
+			linkedTitle = fmt.Sprintf("[%s](%s)", title, url)
+		}
+		rows = append(rows, []string{linkedTitle, typ, id})
+	}
+
+	var sb strings.Builder
+	markdown.WriteTable(&sb, rows)
+	b.Raw(sb.String())
+	return []byte(b.Build()), nil
+}
+
+// renderQuerySummaryMD renders the query_data_source summary view as a
+// markdown table. Surfaces id, title, last_edited so LLMs can find the
+// target row before calling again with view=full for full properties.
+func renderQuerySummaryMD(projected any) ([]byte, error) {
+	root, ok := projected.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("notion: query summary renderer: expected object root, got %T", projected)
+	}
+	rawResults, _ := root["results"].([]any)
+
+	b := markdown.NewBuilder()
+	b.Metadata("notion", "tool", "query_data_source", "view", "summary")
+	if len(rawResults) == 0 {
+		b.Raw("No rows.\n")
+		return []byte(b.Build()), nil
+	}
+
+	rows := make([][]string, 0, len(rawResults)+1)
+	rows = append(rows, []string{"ID", "Title", "Last Edited"})
+	for _, r := range rawResults {
+		entry, ok := r.(map[string]any)
+		if !ok {
+			continue
+		}
+		id, _ := entry["id"].(string)
+		title := titleFromProperties(entry["properties"])
+		lastEdited := ""
+		if ms := millisFromAny(entry["last_edited_time"]); ms > 0 {
+			lastEdited = millisToTimeString(ms)
+		}
+		rows = append(rows, []string{id, title, lastEdited})
+	}
+
+	var sb strings.Builder
+	markdown.WriteTable(&sb, rows)
+	b.Raw(sb.String())
+	return []byte(b.Build()), nil
+}
+
+// renderFullCommentsMD bridges the legacy raw-bytes renderCommentsMD into
+// the typed Renderer signature used by the views renderer registry. Same
+// shape as renderFullPageContentMD in notion.go.
+func renderFullCommentsMD(projected any) ([]byte, error) {
+	data, err := json.Marshal(projected)
+	if err != nil {
+		return nil, fmt.Errorf("notion: marshal projected comments: %w", err)
+	}
+	md, ok := renderCommentsMD(data)
+	if !ok {
+		return nil, fmt.Errorf("notion: renderCommentsMD declined to render (unexpected shape)")
+	}
+	return []byte(md), nil
+}
+
+// titleFromProperties pulls the title text out of a Notion v3 properties
+// object. Returns "" when title is missing — the table cell stays blank
+// rather than failing the whole render.
+func titleFromProperties(props any) string {
+	m, ok := props.(map[string]any)
+	if !ok {
+		return ""
+	}
+	rt, _ := m["title"].([]any)
+	return richTextToMarkdown(rt)
+}
+
+// searchResultTitle resolves a displayable title for one search result.
+// Notion v3 search populates either properties.title (block resolved in
+// recordMap) or highlight.title/highlight.text (block unresolved). The
+// renderer prefers the cleanest source; the empty case returns "" so
+// the table cell stays blank rather than failing the whole render.
+func searchResultTitle(entry map[string]any) string {
+	if t := titleFromProperties(entry["properties"]); t != "" {
+		return t
+	}
+	hl, ok := entry["highlight"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	if t, _ := hl["title"].(string); t != "" {
+		return t
+	}
+	t, _ := hl["text"].(string)
+	return t
+}
+
+// millisFromAny extracts an integer milliseconds value from a JSON
+// number (encoding/json decodes integers into float64 unless told
+// otherwise). Returns 0 on any mismatch — the renderer will then omit
+// the timestamp from the table.
+func millisFromAny(v any) int64 {
+	switch n := v.(type) {
+	case float64:
+		return int64(n)
+	case int64:
+		return n
+	case int:
+		return int64(n)
+	}
+	return 0
 }

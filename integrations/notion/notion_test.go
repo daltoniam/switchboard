@@ -11,9 +11,42 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// renderPageContentFullViewMD reproduces the production views pipeline
+// for notion_get_page_content's full+markdown combo: JSON → CompactAny
+// (full spec) → typed renderer. Tests that previously called the
+// legacy RenderMarkdown route on this tool use this helper instead,
+// since the tool moved to the views pipeline.
+func renderPageContentFullViewMD(t *testing.T, data []byte) string {
+	t.Helper()
+	return renderViewMD(t, pageContentTool, compact.ViewName("full"), data)
+}
+
+// renderCommentsFullViewMD is the comments-specific peer of
+// renderPageContentFullViewMD.
+func renderCommentsFullViewMD(t *testing.T, data []byte) string {
+	t.Helper()
+	return renderViewMD(t, commentsTool, compact.ViewName("full"), data)
+}
+
+// renderViewMD is the shared body: JSON → CompactAny(spec) → renderer.
+// Used by the two tool-specific helpers above.
+func renderViewMD(t *testing.T, tool mcp.ToolName, view compact.ViewName, data []byte) string {
+	t.Helper()
+	var parsed any
+	require.NoError(t, json.Unmarshal(data, &parsed))
+	spec := viewSets[tool].Views[view].Spec
+	projected := mcp.CompactAny(parsed, spec)
+	renderer := viewSets[tool].Renderers[view][compact.FormatMarkdown]
+	require.NotNil(t, renderer, "%s/%s markdown renderer must be registered", tool, view)
+	md, err := renderer(projected)
+	require.NoError(t, err)
+	return string(md)
+}
 
 // --- Constructor ---
 
@@ -682,10 +715,9 @@ func TestGetPageContent_ReturnsPageAndBlocksFromChunkLoad(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 
-	// Handler returns JSON; RenderMarkdown converts to Markdown.
+	// Handler returns JSON; the views pipeline projects + renders to Markdown.
 	assert.Contains(t, result.Data, "page-1")
-	md, ok := n.RenderMarkdown("notion_get_page_content", []byte(result.Data))
-	require.True(t, ok)
+	md := renderPageContentFullViewMD(t, []byte(result.Data))
 	assert.Contains(t, md, "<!-- notion:page_id=page-1 -->")
 	assert.Contains(t, md, "Hello")
 	assert.Contains(t, md, "# World")
@@ -710,11 +742,9 @@ func TestGetPageContent_BlocksOrderedByContentArray(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 
-	md, ok := n.RenderMarkdown("notion_get_page_content", []byte(result.Data))
-	require.True(t, ok)
+	mdStr := renderPageContentFullViewMD(t, []byte(result.Data))
 
 	// Verify order: Third, First, Second (matching content array [blk-3, blk-1, blk-2]).
-	mdStr := string(md)
 	thirdIdx := strings.Index(mdStr, "Third")
 	firstIdx := strings.Index(mdStr, "First")
 	secondIdx := strings.Index(mdStr, "Second")
@@ -739,9 +769,8 @@ func TestGetPageContent_MarkdownSmallerThanJSON(t *testing.T) {
 	require.NoError(t, err)
 
 	jsonSize := len(result.Data)
-	md, ok := n.RenderMarkdown("notion_get_page_content", []byte(result.Data))
-	require.True(t, ok)
-	mdSize := len(string(md))
+	md := renderPageContentFullViewMD(t, []byte(result.Data))
+	mdSize := len(md)
 
 	t.Logf("JSON: %d bytes, Markdown: %d bytes, savings: %d%%", jsonSize, mdSize, 100-100*mdSize/jsonSize)
 	assert.Less(t, mdSize, jsonSize, "Markdown should be smaller than JSON")
@@ -1104,10 +1133,9 @@ func TestRetrieveComments_ReturnsCommentsFromPageChunk(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 
-	// Handler returns JSON; RenderMarkdown converts to Markdown.
+	// Handler returns JSON; the views pipeline projects + renders.
 	assert.Contains(t, result.Data, "Great work!")
-	md, ok := n.RenderMarkdown("notion_retrieve_comments", []byte(result.Data))
-	require.True(t, ok)
+	md := renderCommentsFullViewMD(t, []byte(result.Data))
 	assert.Contains(t, md, "## Comments")
 	assert.Contains(t, md, "user-1")
 }
@@ -1133,8 +1161,7 @@ func TestRetrieveComments_NoCommentsReturnsEmptyArray(t *testing.T) {
 	result, err := retrieveComments(context.Background(), n, map[string]any{"block_id": "page-1"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError, "pages with no comments should not error")
-	md, ok := n.RenderMarkdown("notion_retrieve_comments", []byte(result.Data))
-	require.True(t, ok)
+	md := renderCommentsFullViewMD(t, []byte(result.Data))
 	assert.Contains(t, md, "No comments.", "should return 'No comments.' markdown")
 }
 

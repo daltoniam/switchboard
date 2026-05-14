@@ -22,25 +22,72 @@
 version: 1
 tools:
   # ── List/search tools ────────────────────────────────────────────
+  # search has two views:
+  #   - titles (default): id, type, parent path, title, url, ~1KB for 20 results
+  #     — what the LLM needs to pick the right result before drilling in.
+  #     Markdown format renders as a link table.
+  #   - full: above + highlight snippets + timestamps. JSON only.
   notion_search:
-    spec:
-      - results[].id
-      - results[].type
-      - results[].parent_id
-      - results[].collection_id
-      - results[].properties
-      - results[].highlight
-      - results[].url
-      - results[].created_time
-      - results[].last_edited_time
+    views:
+      titles:
+        spec:
+          - results[].id
+          - results[].type
+          - results[].parent_id
+          - results[].collection_id
+          - results[].properties.title
+          - results[].highlight
+          - results[].url
+        # highlight is kept because Notion v3 search returns it for every
+        # result, but only fills properties.title when the result's block
+        # is resolved in recordMap. Without highlight, unresolved results
+        # are id+url only — the LLM has no title to pick by.
+        hint: "Result id, type, parent, highlighted title/path, url. Use to pick a result before drilling in."
+        formats: [json, markdown]
+      full:
+        spec:
+          - results[].id
+          - results[].type
+          - results[].parent_id
+          - results[].collection_id
+          - results[].properties
+          - results[].highlight
+          - results[].url
+          - results[].created_time
+          - results[].last_edited_time
+        hint: "All result metadata: highlight snippets, timestamps, full properties. Use after picking a result."
+        formats: [json]
+    default:
+      view: titles
+      format: json
 
+  # query_data_source has two views:
+  #   - summary (default): schema + row id/title/last_edited. Browse rows;
+  #     deep-read with view=full once the target is identified. JSON or
+  #     markdown table.
+  #   - full: schema + every property + timestamps. JSON only.
   notion_query_data_source:
-    spec:
-      - schema
-      - results[].id
-      - results[].properties
-      - results[].created_time
-      - results[].last_edited_time
+    views:
+      summary:
+        spec:
+          - schema
+          - results[].id
+          - results[].properties.title
+          - results[].last_edited_time
+        hint: "Schema + id/title/last_edited per row. Use to find the row, then view=full for properties."
+        formats: [json, markdown]
+      full:
+        spec:
+          - schema
+          - results[].id
+          - results[].properties
+          - results[].created_time
+          - results[].last_edited_time
+        hint: "Schema + all properties per row. Use after picking the row(s) you need."
+        formats: [json]
+    default:
+      view: summary
+      format: json
 
   notion_list_users:
     spec:
@@ -48,10 +95,37 @@ tools:
       - results[].name
       - results[].email
 
+  # retrieve_comments has two views:
+  #   - topics (default): discussion.resolved + comments[].text. Drops
+  #     author/timestamp/IDs — pure conversation content. JSON.
+  #   - full: every discussion + every comment with all metadata. Custom
+  #     markdown renderer bridges to renderCommentsMD for the rich
+  #     thread/author/timestamp output.
   notion_retrieve_comments:
-    spec:
-      - results[].discussion
-      - results[].comments
+    views:
+      topics:
+        spec:
+          - results[].discussion.id
+          - results[].discussion.resolved
+          - results[].comments[].text
+        # Engine constraint: only one field can be projected from a
+        # nested array per spec (extractChildValue writes to a single
+        # sub-key, so two `comments[].X` specs would overwrite each
+        # other). Result shape: comments is a list of rich-text arrays
+        # — each inner array is Notion v3 rich text `[[plain, marks]]`.
+        # If sub-object shape becomes important, project `comments`
+        # whole (drops slimness) or add a renderer that flattens text.
+        hint: "Discussion id + resolved flag + comment text (as rich-text arrays). Use to scan what's been said."
+        formats: [json]
+      full:
+        spec:
+          - results[].discussion
+          - results[].comments
+        hint: "Entire thread tree with authors, timestamps, IDs. Use for forensic review."
+        formats: [json, markdown]
+    default:
+      view: topics
+      format: json
 
   notion_list_data_source_templates:
     spec:
@@ -150,13 +224,31 @@ tools:
       - parent_id
       - alive
 
+  # retrieve_data_source has two views — note the inverted default.
+  # Most LLM workflows call this to learn columns before calling
+  # query_data_source, so `full` (schema-on-by-default) stays the
+  # default. `summary` is for the rare "does this DB exist?" case.
+  # Pattern reference: the slim view does NOT have to be the default.
   notion_retrieve_data_source:
-    spec:
-      - id
-      - name
-      - schema
-      - parent_id
-      - alive
+    views:
+      summary:
+        spec:
+          - id
+          - name
+        hint: "Database id + name only. Use to verify a DB exists before calling query."
+        formats: [json]
+      full:
+        spec:
+          - id
+          - name
+          - schema
+          - parent_id
+          - alive
+        hint: "Database id + name + full schema. Use to learn columns before query_data_source."
+        formats: [json]
+    default:
+      view: full
+      format: json
 
   notion_retrieve_user:
     spec:
