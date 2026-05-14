@@ -1,11 +1,15 @@
 package slack
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -401,9 +405,239 @@ func TestConfigure_SwitchToConfigTokenStopsBackgroundRefresh(t *testing.T) {
 	assert.Nil(t, s.stopBg)
 }
 
+// --- Browser-snapshot config tokens (xoxc-* with token_source=browser) ---
+// These rotate constantly and must participate in the local refresh loop,
+// even when bootstrapped via config.
+
+func TestConfigure_BrowserConfigTokenMarksSourceBrowser(t *testing.T) {
+	// Point the file store somewhere empty so loadFromFile is a no-op.
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	s := &slackIntegration{}
+	s.Configure(t.Context(), mcp.Credentials{
+		"token":                "xoxc-rotating-session-token",
+		"team_id":              "T_BROWSER",
+		mcp.CredKeyTokenSource: "browser",
+	})
+
+	ws := s.store.getWorkspace("T_BROWSER")
+	require.NotNil(t, ws)
+	assert.Equal(t, "browser", ws.Source, "browser-source xoxc-* config token should not be marked source=config")
+	assert.NotNil(t, s.stopBg, "background refresh should run for browser-snapshot tokens")
+
+	// And canSelfRefresh should allow it.
+	assert.True(t, s.canSelfRefresh(ws))
+}
+
+func TestConfigure_XoxcConfigTokenWithoutSourceFlagIsStillBrowser(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	s := &slackIntegration{}
+	// xoxc- prefix alone is structurally a browser session token; treat it
+	// as such even if the token_source flag was lost.
+	s.Configure(t.Context(), mcp.Credentials{
+		"token":   "xoxc-rotating-session-token",
+		"team_id": "T_XOXC",
+	})
+
+	ws := s.store.getWorkspace("T_XOXC")
+	require.NotNil(t, ws)
+	assert.Equal(t, "browser", ws.Source)
+	assert.NotNil(t, s.stopBg)
+}
+
+func TestConfigure_FileTokenWinsOverConfigForSameTeamID(t *testing.T) {
+	// Persisted file carries the fresher xoxc-* token; config token is the
+	// stale bootstrap copy. After Configure(), the file's token must win.
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	fp := filepath.Join(tmp, ".slack-mcp-tokens.json")
+	fileJSON := `{
+	  "version": 2,
+	  "default_team_id": "T_DUP",
+	  "workspaces": [
+	    {
+	      "team_id": "T_DUP",
+	      "team_name": "Fresh Workspace",
+	      "token": "xoxc-FRESH-from-file",
+	      "cookie": "xoxd-fresh",
+	      "source": "chrome",
+	      "updated_at": "` + time.Now().UTC().Format(time.RFC3339) + `"
+	    }
+	  ]
+	}`
+	require.NoError(t, os.WriteFile(fp, []byte(fileJSON), 0600))
+
+	s := &slackIntegration{}
+	s.Configure(t.Context(), mcp.Credentials{
+		"token":                "xoxc-STALE-from-config",
+		"team_id":              "T_DUP",
+		mcp.CredKeyTokenSource: "browser",
+	})
+
+	ws := s.store.getWorkspace("T_DUP")
+	require.NotNil(t, ws)
+	assert.Equal(t, "xoxc-FRESH-from-file", ws.Token, "fresher file token should overwrite stale config token")
+}
+
+func TestConfigure_OAuthConfigTokenStillSkipsFile(t *testing.T) {
+	// xoxb-/xoxp- tokens are externally managed and must NOT be replaced
+	// by file-loaded entries — keep the "config is authoritative" path.
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	fp := filepath.Join(tmp, ".slack-mcp-tokens.json")
+	fileJSON := `{"version":2,"workspaces":[{"team_id":"T_OAUTH","token":"xoxc-from-file","source":"chrome","updated_at":"` + time.Now().UTC().Format(time.RFC3339) + `"}]}`
+	require.NoError(t, os.WriteFile(fp, []byte(fileJSON), 0600))
+
+	s := &slackIntegration{}
+	s.Configure(t.Context(), mcp.Credentials{
+		"token":   "xoxb-bot-from-config",
+		"team_id": "T_OAUTH",
+	})
+
+	ws := s.store.getWorkspace("T_OAUTH")
+	require.NotNil(t, ws)
+	assert.Equal(t, "xoxb-bot-from-config", ws.Token)
+	assert.Equal(t, "config", ws.Source)
+	assert.Nil(t, s.stopBg, "no background refresh for OAuth/bot config tokens")
+}
+
 func TestErrResult_NonRetryableProducesToolResult(t *testing.T) {
 	result, err := mcp.ErrResult(fmt.Errorf("no workspace"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "no workspace", result.Data)
+}
+
+// --- canSelfRefresh policy ---
+
+func TestCanSelfRefresh(t *testing.T) {
+	s := &slackIntegration{}
+	cases := []struct {
+		name string
+		ws   *workspace
+		want bool
+	}{
+		{"nil workspace", nil, false},
+		{"config source", &workspace{Token: "xoxb-1", Source: "config"}, false},
+		{"OAuth user token", &workspace{Token: "xoxp-1", Source: "chrome"}, false},
+		{"browser session token", &workspace{Token: "xoxc-1", Source: "chrome"}, true},
+		{"slack desktop source", &workspace{Token: "xoxc-1", Source: "slack"}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, s.canSelfRefresh(tc.ws))
+		})
+	}
+}
+
+// --- resolveWorkspaceIdentities self-healing ---
+
+// newAuthTestServer returns an httptest server that fails the first N
+// auth.test calls with invalid_auth, then succeeds with the given team_id.
+func newAuthTestServer(t *testing.T, teamID string, failFirstN int32) *httptest.Server {
+	t.Helper()
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if calls.Add(1) <= failFirstN {
+			_, _ = w.Write([]byte(`{"ok":false,"error":"invalid_auth"}`))
+			return
+		}
+		_, _ = fmt.Fprintf(w, `{"ok":true,"team":"Test","team_id":%q,"user":"u","user_id":"U1","url":"https://test.slack.com/"}`, teamID)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func newClientForAPI(apiURL string) *slack.Client {
+	// slack-go's OptionAPIURL expects a trailing slash.
+	u := apiURL
+	if u[len(u)-1] != '/' {
+		u += "/"
+	}
+	if _, err := url.Parse(u); err != nil {
+		panic(err)
+	}
+	return slack.New("xoxc-stale", slack.OptionAPIURL(u))
+}
+
+func TestResolveWorkspaceIdentities_RecoversAfterRefresh(t *testing.T) {
+	teamID := "T6MJSTJ8K"
+	srv := newAuthTestServer(t, teamID, 1) // first call fails, second succeeds
+
+	s := &slackIntegration{
+		clients: map[string]*slack.Client{teamID: newClientForAPI(srv.URL)},
+		store:   &tokenStore{workspaces: map[string]*workspace{teamID: {TeamID: teamID, Token: "xoxc-stale", Source: "chrome"}}},
+	}
+
+	var refreshCalls atomic.Int32
+	s.refreshWorkspace = func(id string) bool {
+		assert.Equal(t, teamID, id)
+		refreshCalls.Add(1)
+		// Simulate a successful refresh by replacing the client with a fresh
+		// one that points at the same test server (which will now succeed).
+		s.mu.Lock()
+		s.clients[id] = newClientForAPI(srv.URL)
+		s.mu.Unlock()
+		return true
+	}
+
+	s.resolveWorkspaceIdentities(context.Background())
+
+	assert.Equal(t, int32(1), refreshCalls.Load(), "refresh should be attempted exactly once")
+	ws := s.store.getWorkspace(teamID)
+	require.NotNil(t, ws)
+	assert.Equal(t, "Test", ws.TeamName, "team name should be filled in from successful auth.test")
+}
+
+func TestResolveWorkspaceIdentities_GivesUpWhenRefreshFails(t *testing.T) {
+	teamID := "T1"
+	srv := newAuthTestServer(t, teamID, 99) // always fails
+
+	s := &slackIntegration{
+		clients: map[string]*slack.Client{teamID: newClientForAPI(srv.URL)},
+		store:   &tokenStore{workspaces: map[string]*workspace{teamID: {TeamID: teamID, Token: "xoxc-stale", Source: "chrome"}}},
+	}
+	s.refreshWorkspace = func(string) bool { return false }
+
+	// Should not panic; workspace should remain present with no team name.
+	s.resolveWorkspaceIdentities(context.Background())
+	ws := s.store.getWorkspace(teamID)
+	require.NotNil(t, ws)
+	assert.Empty(t, ws.TeamName)
+}
+
+func TestResolveWorkspaceIdentities_SkipsRefreshForConfigToken(t *testing.T) {
+	teamID := "T_CFG"
+	srv := newAuthTestServer(t, teamID, 99) // always fails
+
+	s := &slackIntegration{
+		clients: map[string]*slack.Client{teamID: newClientForAPI(srv.URL)},
+		store:   &tokenStore{workspaces: map[string]*workspace{teamID: {TeamID: teamID, Token: "xoxb-cfg", Source: "config"}}},
+	}
+	var called atomic.Bool
+	s.refreshWorkspace = func(string) bool { called.Store(true); return true }
+
+	s.resolveWorkspaceIdentities(context.Background())
+	assert.False(t, called.Load(), "config-sourced tokens must not trigger local refresh")
+}
+
+func TestResolveWorkspaceIdentities_SkipsRefreshForOAuthToken(t *testing.T) {
+	teamID := "T_OAUTH"
+	srv := newAuthTestServer(t, teamID, 99)
+
+	s := &slackIntegration{
+		clients: map[string]*slack.Client{teamID: newClientForAPI(srv.URL)},
+		store:   &tokenStore{workspaces: map[string]*workspace{teamID: {TeamID: teamID, Token: "xoxp-user", Source: "chrome"}}},
+	}
+	var called atomic.Bool
+	s.refreshWorkspace = func(string) bool { called.Store(true); return true }
+
+	s.resolveWorkspaceIdentities(context.Background())
+	assert.False(t, called.Load(), "OAuth user tokens must not trigger local refresh")
 }

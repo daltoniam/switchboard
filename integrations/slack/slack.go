@@ -30,6 +30,9 @@ type slackIntegration struct {
 	clients map[string]*slack.Client // keyed by team_id
 	store   *tokenStore
 	stopBg  chan struct{}
+
+	// refreshWorkspace is overridable in tests; defaults to (*slackIntegration).tryRefreshWorkspace.
+	refreshWorkspace func(teamID string) bool
 }
 
 func New() mcp.Integration {
@@ -45,25 +48,40 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 	s.mu.Unlock()
 
 	configToken := creds["token"]
+	// xoxc-* tokens are browser session tokens that rotate constantly. Even
+	// when bootstrapped from config, they must participate in the local
+	// refresh/file-persistence loop or they go stale within hours.
+	//   - token_source: "browser"            → explicitly a browser snapshot
+	//   - token has xoxc- prefix             → structurally a session token
+	// Genuine externally-managed tokens (xoxb-, xoxp-, OAuth) keep the old
+	// "config is authoritative" behavior so we never clobber them.
+	isBrowserConfig := configToken != "" &&
+		(creds[mcp.CredKeyTokenSource] == "browser" || strings.HasPrefix(configToken, "xoxc-"))
+
 	if configToken != "" {
 		teamID := creds["team_id"]
 		if teamID == "" {
 			teamID = "_config"
 		}
+		source := "config"
+		if isBrowserConfig {
+			source = "browser"
+		}
 		s.store.setWorkspace(&workspace{
 			TeamID: teamID,
 			Token:  configToken,
 			Cookie: creds["cookie"],
-			Source: "config",
+			Source: source,
 		})
 		if creds["team_id"] != "" {
 			s.store.setDefault(creds["team_id"])
 		}
 	}
 
-	// When a token was provided via config (e.g. OAuth in hosted environments),
-	// skip local file and Chrome extraction — the config token is authoritative.
-	if configToken == "" {
+	// When the config token is a rotating browser snapshot, also load the
+	// persisted file. The file may carry a fresher copy (background refresh
+	// writes there) and we want that to win.
+	if configToken == "" || isBrowserConfig {
 		s.store.loadFromFile()
 
 		if len(s.store.allWorkspaces()) == 0 {
@@ -89,9 +107,10 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 		s.store.setDefault(tid)
 	}
 
-	// Only persist and run background refresh for locally-sourced tokens.
-	// Config-provided tokens are managed externally and don't need local refresh.
-	if configToken == "" {
+	// Persist + run background refresh for any non-OAuth-style token (file-
+	// loaded or browser-sourced from config). Only genuine externally-managed
+	// tokens skip this.
+	if configToken == "" || isBrowserConfig {
 		_ = s.store.saveToFile()
 
 		if s.stopBg != nil {
@@ -131,8 +150,11 @@ func (s *slackIntegration) resolveWorkspaceIdentities(ctx context.Context) {
 		}
 		resp, err := client.AuthTestContext(ctx)
 		if err != nil {
-			log.Printf("slack: auth test failed for workspace %s: %v", ws.TeamID, err)
-			continue
+			recovered, retryResp := s.tryRecoverAuth(ctx, ws, err)
+			if !recovered {
+				continue
+			}
+			resp = retryResp
 		}
 		if ws.TeamID == resp.TeamID {
 			if ws.TeamName == "" {
@@ -166,6 +188,50 @@ func (s *slackIntegration) resolveWorkspaceIdentities(ctx context.Context) {
 	}
 }
 
+// tryRecoverAuth attempts a one-shot self-refresh for a workspace whose
+// startup auth.test just failed. xoxc-* browser session tokens rotate
+// frequently and the fresh token usually sits in the browser's local storage;
+// config-provided and OAuth (xoxp-*) tokens are managed externally and must
+// never be clobbered by a local refresh. Returns (true, newResp) when the
+// post-refresh auth.test succeeds, (false, nil) otherwise (caller logs the
+// original error and gives up).
+func (s *slackIntegration) tryRecoverAuth(ctx context.Context, ws *workspace, origErr error) (bool, *slack.AuthTestResponse) {
+	if !s.canSelfRefresh(ws) {
+		log.Printf("slack: auth test failed for workspace %s: %v (skipping self-refresh: source=%s token=%s)", ws.TeamID, origErr, ws.Source, tokenPrefix(ws.Token))
+		return false, nil
+	}
+	log.Printf("slack: auth test failed for workspace %s: %v — attempting startup refresh", ws.TeamID, origErr)
+	if !s.refreshFn()(ws.TeamID) {
+		log.Printf("slack: startup refresh failed for workspace %s — manual re-extract may be required (open Slack in Chrome and re-extract via web UI)", ws.TeamID)
+		return false, nil
+	}
+	c := s.getClientForTeam(ws.TeamID)
+	if c == nil {
+		log.Printf("slack: startup refresh produced no client for workspace %s", ws.TeamID)
+		return false, nil
+	}
+	resp, err := c.AuthTestContext(ctx)
+	if err != nil {
+		log.Printf("slack: post-refresh auth test still failing for workspace %s: %v", ws.TeamID, err)
+		return false, nil
+	}
+	log.Printf("slack: auth recovered for workspace %s after startup refresh", ws.TeamID)
+	return true, resp
+}
+
+// tokenPrefix returns the leading non-secret portion of a Slack token for
+// log diagnostics. xoxc-/xoxp-/xoxb-/xoxd- prefixes are intentionally kept;
+// the secret body is replaced with ellipsis.
+func tokenPrefix(tok string) string {
+	if tok == "" {
+		return "<empty>"
+	}
+	if len(tok) <= 6 {
+		return tok
+	}
+	return tok[:6] + "…"
+}
+
 func (s *slackIntegration) getClientForTeam(teamID string) *slack.Client {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -173,6 +239,29 @@ func (s *slackIntegration) getClientForTeam(teamID string) *slack.Client {
 		teamID = s.store.defaultID()
 	}
 	return s.clients[teamID]
+}
+
+// canSelfRefresh reports whether the workspace's token may be safely replaced
+// by a locally-sourced (cookie/browser) refresh. Config-provided tokens are
+// managed externally; OAuth (xoxp-*) tokens do not rotate and a refresh path
+// for them does not exist.
+func (s *slackIntegration) canSelfRefresh(ws *workspace) bool {
+	if ws == nil || ws.Source == "config" {
+		return false
+	}
+	if strings.HasPrefix(ws.Token, "xoxp-") {
+		return false
+	}
+	return true
+}
+
+// refreshFn returns the workspace-refresh callback, defaulting to the real
+// browser/cookie path. Tests override s.refreshWorkspace for determinism.
+func (s *slackIntegration) refreshFn() func(teamID string) bool {
+	if s.refreshWorkspace != nil {
+		return s.refreshWorkspace
+	}
+	return s.tryRefreshWorkspace
 }
 
 func (s *slackIntegration) getClientForArgs(args map[string]any) (*slack.Client, error) {
