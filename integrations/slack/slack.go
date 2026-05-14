@@ -255,10 +255,10 @@ func (s *slackIntegration) canSelfRefresh(ws *workspace) bool {
 	if ws == nil || ws.Source == "config" {
 		return false
 	}
-	if strings.HasPrefix(ws.Token, "xoxp-") {
-		return false
-	}
-	return true
+	// Only xoxc-* browser session tokens rotate and have a local refresh
+	// path. xoxb-/xoxp-/xapp-/etc. are externally managed and must never
+	// be replaced by a browser extract, even when stored locally.
+	return strings.HasPrefix(ws.Token, "xoxc-")
 }
 
 // refreshFn returns the workspace-refresh callback, defaulting to the real

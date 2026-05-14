@@ -424,7 +424,8 @@ func TestConfigure_BrowserConfigTokenMarksSourceBrowser(t *testing.T) {
 	ws := s.store.getWorkspace("T_BROWSER")
 	require.NotNil(t, ws)
 	assert.Equal(t, "browser", ws.Source, "browser-source xoxc-* config token should not be marked source=config")
-	assert.NotNil(t, s.stopBg, "background refresh should run for browser-snapshot tokens")
+	require.NotNil(t, s.stopBg, "background refresh should run for browser-snapshot tokens")
+	t.Cleanup(func() { close(s.stopBg) })
 
 	// And canSelfRefresh should allow it.
 	assert.True(t, s.canSelfRefresh(ws))
@@ -445,7 +446,8 @@ func TestConfigure_XoxcConfigTokenWithoutSourceFlagIsStillBrowser(t *testing.T) 
 	ws := s.store.getWorkspace("T_XOXC")
 	require.NotNil(t, ws)
 	assert.Equal(t, "browser", ws.Source)
-	assert.NotNil(t, s.stopBg)
+	require.NotNil(t, s.stopBg)
+	t.Cleanup(func() { close(s.stopBg) })
 }
 
 func TestConfigure_FileTokenWinsOverConfigForSameTeamID(t *testing.T) {
@@ -481,6 +483,9 @@ func TestConfigure_FileTokenWinsOverConfigForSameTeamID(t *testing.T) {
 	ws := s.store.getWorkspace("T_DUP")
 	require.NotNil(t, ws)
 	assert.Equal(t, "xoxc-FRESH-from-file", ws.Token, "fresher file token should overwrite stale config token")
+	if s.stopBg != nil {
+		t.Cleanup(func() { close(s.stopBg) })
+	}
 }
 
 func TestConfigure_OAuthConfigTokenStillSkipsFile(t *testing.T) {
@@ -550,6 +555,9 @@ func TestCanSelfRefresh(t *testing.T) {
 		{"nil workspace", nil, false},
 		{"config source", &workspace{Token: "xoxb-1", Source: "config"}, false},
 		{"OAuth user token", &workspace{Token: "xoxp-1", Source: "chrome"}, false},
+		{"bot token with non-config source", &workspace{Token: "xoxb-1", Source: "chrome"}, false},
+		{"app-level token", &workspace{Token: "xapp-1", Source: "chrome"}, false},
+		{"empty token", &workspace{Token: "", Source: "chrome"}, false},
 		{"browser session token", &workspace{Token: "xoxc-1", Source: "chrome"}, true},
 		{"slack desktop source", &workspace{Token: "xoxc-1", Source: "slack"}, true},
 	}
