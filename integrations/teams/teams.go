@@ -159,7 +159,10 @@ func (t *teamsIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 		close(t.stopBg)
 	}
 	t.stopBg = make(chan struct{})
-	go t.backgroundRefresh()
+	// Detach from the request-scoped ctx: the background goroutine outlives
+	// Configure. WithoutCancel preserves values but drops cancellation.
+	bgCtx := context.WithoutCancel(ctx)
+	go t.backgroundRefresh(bgCtx)
 
 	return nil
 }
@@ -369,13 +372,13 @@ func (t *teamsIntegration) shouldProactivelyRefresh(tn *tenant) bool {
 	return time.Until(tn.ExpiresAt) <= refreshSkew
 }
 
-func (t *teamsIntegration) backgroundRefresh() {
+func (t *teamsIntegration) backgroundRefresh(ctx context.Context) {
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			t.refreshAllExpiring(context.Background())
+			t.refreshAllExpiring(ctx)
 		case <-t.stopBg:
 			return
 		}
