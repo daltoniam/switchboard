@@ -173,6 +173,14 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Readarr | `api_key` | `READARR_API_KEY` |
 | Readarr | `base_url` | `READARR_URL` |
 | DigitalOcean | `api_token` | `DIGITALOCEAN_TOKEN` |
+| Teams | `tenant_id` | `TEAMS_TENANT_ID` |
+| Teams | `client_id` | `TEAMS_CLIENT_ID` |
+| Teams | `client_secret` | `TEAMS_CLIENT_SECRET` |
+| Teams | `graph_base_url` | `TEAMS_GRAPH_BASE_URL` |
+| Teams | `login_base_url` | `TEAMS_LOGIN_BASE_URL` |
+| Teams | `scopes` | `TEAMS_SCOPES` |
+| Teams | `access_token` | `TEAMS_ACCESS_TOKEN` |
+| Teams | `refresh_token` | `TEAMS_REFRESH_TOKEN` |
 
 ### OAuth Setup
 
@@ -189,6 +197,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
 | PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |
 | Postgres | Connection String | Set `DATABASE_URL` env var or enter in web UI |
+| Teams | OAuth Device Flow | Web UI → Teams → Setup, or use `teams_login` tool (Microsoft device-code flow) |
 
 ## Adding to Cursor / Claude Desktop
 
