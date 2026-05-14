@@ -205,6 +205,10 @@ func (s *slackIntegration) tryRecoverAuth(ctx context.Context, ws *workspace, or
 		log.Printf("slack: startup refresh failed for workspace %s — manual re-extract may be required (open Slack in Chrome and re-extract via web UI)", ws.TeamID)
 		return false, nil
 	}
+	// Defensive: tryRefreshWorkspace's success path always calls
+	// buildClientForWorkspace (see tryRefreshWorkspace + tryRefreshViaCookieForTeam),
+	// so this branch is unreachable under the current implementation. Kept to
+	// avoid a startup-goroutine panic if that invariant ever regresses.
 	c := s.getClientForTeam(ws.TeamID)
 	if c == nil {
 		log.Printf("slack: startup refresh produced no client for workspace %s", ws.TeamID)
@@ -220,16 +224,18 @@ func (s *slackIntegration) tryRecoverAuth(ctx context.Context, ws *workspace, or
 }
 
 // tokenPrefix returns the leading non-secret portion of a Slack token for
-// log diagnostics. xoxc-/xoxp-/xoxb-/xoxd- prefixes are intentionally kept;
-// the secret body is replaced with ellipsis.
+// log diagnostics. Slack token type prefixes ("xoxc-", "xoxp-", "xoxb-",
+// "xoxd-") are 5 bytes; anything past that is the secret body and is
+// replaced with an ellipsis.
 func tokenPrefix(tok string) string {
+	const prefixLen = 5 // len("xoxc-")
 	if tok == "" {
 		return "<empty>"
 	}
-	if len(tok) <= 6 {
+	if len(tok) <= prefixLen {
 		return tok
 	}
-	return tok[:6] + "…"
+	return tok[:prefixLen] + "…"
 }
 
 func (s *slackIntegration) getClientForTeam(teamID string) *slack.Client {

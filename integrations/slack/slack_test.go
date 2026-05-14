@@ -515,6 +515,31 @@ func TestErrResult_NonRetryableProducesToolResult(t *testing.T) {
 
 // --- canSelfRefresh policy ---
 
+func TestTokenPrefix(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"empty", "", "<empty>"},
+		{"short xoxc-", "xoxc-", "xoxc-"},
+		{"xoxc with body", "xoxc-225638936291-secret-stuff", "xoxc-…"},
+		{"xoxp with body", "xoxp-abc-def", "xoxp-…"},
+		{"xoxd cookie", "xoxd-encryptedblob", "xoxd-…"},
+		{"only prefix length", "xoxb-", "xoxb-"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tokenPrefix(tc.in)
+			assert.Equal(t, tc.want, got)
+			// Stronger guarantee: the secret body never leaks.
+			if len(tc.in) > 5 {
+				assert.NotContains(t, got, tc.in[5:], "tokenPrefix leaked secret body")
+			}
+		})
+	}
+}
+
 func TestCanSelfRefresh(t *testing.T) {
 	s := &slackIntegration{}
 	cases := []struct {
