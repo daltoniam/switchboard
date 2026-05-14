@@ -1191,7 +1191,7 @@ func (s *Server) executeTool(ctx context.Context, toolName mcp.ToolName, args ma
 		}, nil
 	}
 
-	if err := validateArgs(toolDef, args); err != nil {
+	if err := validateArgs(toolDef, args, reservedArgsFor(integration, toolName)); err != nil {
 		return nil, &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 	}
 
@@ -1298,10 +1298,33 @@ func (s *Server) findTool(toolName mcp.ToolName) (mcp.Integration, mcp.ToolDefin
 		"tool %q not found. Use the search tool to discover available tools", toolName)
 }
 
+// reservedArgsFor returns the argument names that bypass the tool's
+// declared schema for this (integration, tool) pair. View-aware tools
+// reserve "view" and "format" so they reach parseViewSelection instead
+// of failing the validator as unknown parameters. Returns nil unless the
+// integration both implements compact.ToolViewsIntegration and reports a
+// ViewSet for the named tool — non-view tools that receive a stray view
+// arg still get a clear "unknown parameter" error.
+func reservedArgsFor(integration mcp.Integration, toolName mcp.ToolName) []string {
+	vi, ok := integration.(compact.ToolViewsIntegration)
+	if !ok {
+		return nil
+	}
+	if _, hasViews := vi.Views(toolName); !hasViews {
+		return nil
+	}
+	return compact.ReservedArgs()
+}
+
 // validateArgs checks that all required parameters are present and all provided
 // parameters are declared in the tool's schema. Returns a descriptive error
 // naming the offending parameter and suggesting corrections for typos.
-func validateArgs(tool mcp.ToolDefinition, args map[string]any) error {
+//
+// allowedExtras names additional argument keys that are valid for this tool
+// even though they aren't declared in tool.Parameters. View-aware tools pass
+// compact.ReservedArgs() via reservedArgsFor so view/format reach
+// parseViewSelection instead of failing as unknown parameters.
+func validateArgs(tool mcp.ToolDefinition, args map[string]any, allowedExtras []string) error {
 	for _, req := range tool.Required {
 		if _, ok := args[req]; !ok {
 			return fmt.Errorf("missing required parameter %q for tool %q. Required: %v", req, tool.Name, tool.Required)
@@ -1310,8 +1333,15 @@ func validateArgs(tool mcp.ToolDefinition, args map[string]any) error {
 	if len(tool.Parameters) == 0 {
 		return nil // no schema declared — skip unknown-param check
 	}
+	extras := make(map[string]struct{}, len(allowedExtras))
+	for _, k := range allowedExtras {
+		extras[k] = struct{}{}
+	}
 	for key := range args {
 		if _, ok := tool.Parameters[key]; ok {
+			continue
+		}
+		if _, ok := extras[key]; ok {
 			continue
 		}
 		return unknownParamError(key, tool)

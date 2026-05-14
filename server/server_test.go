@@ -1348,6 +1348,116 @@ func TestProcessViews_SingleViewSkipsMore(t *testing.T) {
 	assert.NotContains(t, got, "_more", "single-view tool should emit no _more envelope")
 }
 
+// mockViewsIntegration wraps mockIntegration and adds the ToolViewsIntegration
+// affordance so the validator-tolerance path can be exercised through the real
+// type-assertion the production code uses.
+type mockViewsIntegration struct {
+	*mockIntegration
+	viewsByTool map[mcp.ToolName]compact.ViewSet
+}
+
+func (m *mockViewsIntegration) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := m.viewsByTool[toolName]
+	return vs, ok
+}
+
+// reservedArgsFor is the gate between the validator and the views dispatch.
+// It MUST return compact.ReservedArgs() only when the integration both
+// implements ToolViewsIntegration and reports views for the named tool.
+// Otherwise the validator would let view/format slip past for tools that
+// can't actually dispatch them — silent misroute, the failure the view
+// contract was designed to eliminate.
+func TestReservedArgsFor_NonViewIntegrationReturnsNil(t *testing.T) {
+	mi := &mockIntegration{name: "plain"}
+	got := reservedArgsFor(mi, "plain_tool")
+	assert.Nil(t, got, "plain mockIntegration does not implement ToolViewsIntegration")
+}
+
+func TestReservedArgsFor_ViewIntegrationWithoutMatchingToolReturnsNil(t *testing.T) {
+	mvi := &mockViewsIntegration{
+		mockIntegration: &mockIntegration{name: "vw"},
+		viewsByTool: map[mcp.ToolName]compact.ViewSet{
+			"vw_has_views": buildTestViewSet(t),
+		},
+	}
+	got := reservedArgsFor(mvi, "vw_no_views")
+	assert.Nil(t, got, "tool not in viewsByTool returns nil even on view-aware integration")
+}
+
+func TestReservedArgsFor_ViewIntegrationWithMatchingToolReturnsReservedArgs(t *testing.T) {
+	mvi := &mockViewsIntegration{
+		mockIntegration: &mockIntegration{name: "vw"},
+		viewsByTool: map[mcp.ToolName]compact.ViewSet{
+			"vw_tool": buildTestViewSet(t),
+		},
+	}
+	got := reservedArgsFor(mvi, "vw_tool")
+	assert.Equal(t, compact.ReservedArgs(), got)
+}
+
+// End-to-end check that the validator no longer rejects view/format on
+// view-aware tools, and that non-view tools still reject them. Without
+// this guard the views feature appears registered but is unreachable
+// through MCP — the failure mode discovered when smoke-testing notion
+// against the running binary.
+func TestHandleExecute_ViewArgsPassValidatorOnViewAwareTool(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "vw",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{
+				Name:        mcp.ToolName("vw_get"),
+				Description: "Returns shapes",
+				Parameters:  map[string]string{"id": "Record ID"},
+				Required:    []string{"id"},
+			},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `{"id":"x"}`}, nil
+		},
+	}
+	mvi := &mockViewsIntegration{
+		mockIntegration: mi,
+		viewsByTool: map[mcp.ToolName]compact.ViewSet{
+			"vw_get": buildTestViewSet(t),
+		},
+	}
+
+	s := setupTestServerWithIntegration(mvi)
+	result, err := s.handleExecute(context.Background(), executeRequest("vw_get", map[string]any{
+		"id":   "x",
+		"view": "full",
+	}))
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "view arg on view-aware tool must pass validation")
+}
+
+func TestHandleExecute_ViewArgRejectedOnNonViewTool(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "plain",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{
+				Name:        mcp.ToolName("plain_get"),
+				Description: "Returns shapes",
+				Parameters:  map[string]string{"id": "Record ID"},
+				Required:    []string{"id"},
+			},
+		},
+	}
+
+	s := setupTestServerWithIntegration(mi)
+	result, err := s.handleExecute(context.Background(), executeRequest("plain_get", map[string]any{
+		"id":   "x",
+		"view": "full",
+	}))
+	require.NoError(t, err)
+	assert.True(t, result.IsError, "view arg on non-view tool must still fail validation")
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Contains(t, tc.Text, `unknown parameter "view"`)
+}
+
 func TestHandleExecute_ByteCapEnforced(t *testing.T) {
 	// Generate a response over 50KB.
 	bigData := `{"data":"` + string(make([]byte, 60*1024)) + `"}`
@@ -2334,6 +2444,7 @@ func TestValidateArgs(t *testing.T) {
 		name    string
 		tool    mcp.ToolDefinition
 		args    map[string]any
+		extras  []string
 		wantErr string
 	}{
 		{
@@ -2396,11 +2507,31 @@ func TestValidateArgs(t *testing.T) {
 			args:    nil,
 			wantErr: `missing required parameter "owner"`,
 		},
+		{
+			name:   "allowedExtras tolerated alongside declared params",
+			tool:   tool,
+			args:   map[string]any{"owner": "foo", "repo": "bar", "number": 42, "view": "full", "format": "markdown"},
+			extras: []string{"view", "format"},
+		},
+		{
+			name:    "extras not in allowedExtras still rejected",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo", "repo": "bar", "number": 42, "view": "full", "bogus": "x"},
+			extras:  []string{"view", "format"},
+			wantErr: `unknown parameter "bogus"`,
+		},
+		{
+			name:    "empty allowedExtras same as nil",
+			tool:    tool,
+			args:    map[string]any{"owner": "foo", "repo": "bar", "number": 42, "view": "full"},
+			extras:  []string{},
+			wantErr: `unknown parameter "view"`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateArgs(tt.tool, tt.args)
+			err := validateArgs(tt.tool, tt.args, tt.extras)
 			if tt.wantErr == "" {
 				assert.NoError(t, err)
 			} else {

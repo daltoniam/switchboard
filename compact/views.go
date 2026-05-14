@@ -65,3 +65,23 @@ type Renderer func(projected any) ([]byte, error)
 type ToolViewsIntegration interface {
 	Views(toolName mcp.ToolName) (ViewSet, bool)
 }
+
+// Argument names ViewSet dispatch reads from the args map. These are the
+// single source of truth: parseViewSelection reads args[ArgView] and
+// args[ArgFormat], and the MCP arg validator skips these keys when the
+// tool implements ToolViewsIntegration. Drift between the two callers
+// would either reject valid input or silently miss a reserved arg.
+const (
+	ArgView   = "view"
+	ArgFormat = "format"
+)
+
+// ReservedArgs returns the argument names consumed by ViewSet dispatch.
+// The MCP arg validator queries this when a tool implements
+// ToolViewsIntegration so view/format pass through to parseViewSelection
+// instead of failing as unknown parameters. A future field (e.g. an arg
+// that selects a composition slot) would be added to this list, and the
+// validator inherits the new tolerance without further changes.
+func ReservedArgs() []string {
+	return []string{ArgView, ArgFormat}
+}
