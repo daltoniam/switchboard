@@ -92,7 +92,7 @@ func (t *teamsIntegration) startOAuth(ctx context.Context, tenantHint string) (*
 	t.mu.RLock()
 	loginBase := t.loginBaseURL
 	clientID := t.clientID
-	clientSecret := "" // We'll allow override via creds later; not stored on the struct yet.
+	clientSecret := t.clientSecret
 	scopes := t.scopes
 	t.mu.RUnlock()
 
@@ -116,7 +116,7 @@ func (t *teamsIntegration) startOAuth(ctx context.Context, tenantHint string) (*
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (f *oauthFlow) poll() {
 		if err != nil {
 			continue
 		}
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 		_ = resp.Body.Close()
 
 		var atr accessTokenResponse
@@ -341,6 +341,7 @@ func (t *teamsIntegration) refreshTenant(ctx context.Context, tn *tenant) error 
 	t.mu.RLock()
 	loginBase := t.loginBaseURL
 	clientID := t.clientID
+	clientSecret := t.clientSecret
 	scopes := t.scopes
 	t.mu.RUnlock()
 
@@ -356,6 +357,9 @@ func (t *teamsIntegration) refreshTenant(ctx context.Context, tn *tenant) error 
 		"refresh_token": {tn.RefreshToken},
 		"scope":         {scopes},
 	}
+	if clientSecret != "" {
+		form.Set("client_secret", clientSecret)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -370,7 +374,7 @@ func (t *teamsIntegration) refreshTenant(ctx context.Context, tn *tenant) error 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		return err
 	}

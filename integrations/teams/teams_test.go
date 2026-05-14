@@ -104,6 +104,7 @@ func TestOptionalKeys(t *testing.T) {
 	keys := i.OptionalKeys()
 	assert.Contains(t, keys, "access_token")
 	assert.Contains(t, keys, "refresh_token")
+	assert.Contains(t, keys, "client_secret")
 }
 
 func TestPlaceholders(t *testing.T) {
@@ -120,8 +121,20 @@ func TestConfigure_DefaultsApplied(t *testing.T) {
 	err := ti.Configure(context.Background(), mcp.Credentials{})
 	require.NoError(t, err)
 	assert.Equal(t, defaultClientID, ti.clientID)
+	assert.Equal(t, "", ti.clientSecret)
 	assert.Equal(t, defaultLoginBaseURL, ti.loginBaseURL)
 	assert.Equal(t, defaultScopes, ti.scopes)
+}
+
+func TestConfigure_ReadsClientSecret(t *testing.T) {
+	ti := newTestIntegration(t, nil)
+	err := ti.Configure(context.Background(), mcp.Credentials{
+		"client_id":     "custom-client",
+		"client_secret": "shhh",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "custom-client", ti.clientID)
+	assert.Equal(t, "shhh", ti.clientSecret)
 }
 
 func TestConfigure_AcceptsExplicitTokenAsTenant(t *testing.T) {

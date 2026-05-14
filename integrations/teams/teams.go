@@ -68,6 +68,7 @@ type teamsIntegration struct {
 	store         *tokenStore
 	httpClient    *http.Client
 	clientID      string
+	clientSecret  string
 	loginBaseURL  string
 	graphBaseURL  string
 	scopes        string
@@ -89,7 +90,7 @@ func (t *teamsIntegration) PlainTextKeys() []string {
 }
 
 func (t *teamsIntegration) OptionalKeys() []string {
-	return []string{"tenant_id", "client_id", "graph_base_url", "login_base_url", "scopes", "access_token", "refresh_token", "expires_at"}
+	return []string{"tenant_id", "client_id", "client_secret", "graph_base_url", "login_base_url", "scopes", "access_token", "refresh_token", "expires_at"}
 }
 
 func (t *teamsIntegration) Placeholders() map[string]string {
@@ -111,6 +112,7 @@ func (t *teamsIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 	if t.clientID == "" {
 		t.clientID = defaultClientID
 	}
+	t.clientSecret = strings.TrimSpace(creds["client_secret"])
 	t.loginBaseURL = strings.TrimRight(strings.TrimSpace(creds["login_base_url"]), "/")
 	if t.loginBaseURL == "" {
 		t.loginBaseURL = defaultLoginBaseURL
