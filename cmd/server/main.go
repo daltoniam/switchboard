@@ -47,6 +47,7 @@ import (
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
 	"github.com/daltoniam/switchboard/integrations/suno"
 	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
+	teamsInt "github.com/daltoniam/switchboard/integrations/teams"
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/integrations/ynab"
@@ -209,6 +210,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		linear.New("https://mcp.linear.app"),
 		sentry.New(),
 		slackInt.New(),
+		teamsInt.New(),
 		metabase.New(),
 		awsInt.New(),
 		posthog.New(),

@@ -39,6 +39,16 @@ var envMapping = map[string]map[string]string{
 		"cookie":  "SLACK_COOKIE",
 		"team_id": "SLACK_TEAM_ID",
 	},
+	"teams": {
+		"tenant_id":      "TEAMS_TENANT_ID",
+		"client_id":      "TEAMS_CLIENT_ID",
+		"client_secret":  "TEAMS_CLIENT_SECRET",
+		"graph_base_url": "TEAMS_GRAPH_BASE_URL",
+		"login_base_url": "TEAMS_LOGIN_BASE_URL",
+		"scopes":         "TEAMS_SCOPES",
+		"access_token":   "TEAMS_ACCESS_TOKEN",
+		"refresh_token":  "TEAMS_REFRESH_TOKEN",
+	},
 	"metabase": {
 		"api_key": "METABASE_API_KEY",
 		"url":     "METABASE_URL",
@@ -198,6 +208,10 @@ func defaultConfig() *mcp.Config {
 			"slack": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "cookie": "", "team_id": "", mcp.CredKeyTokenSource: ""},
+			},
+			"teams": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"tenant_id": "", "client_id": "", "client_secret": "", "graph_base_url": "", "login_base_url": "", "scopes": "", "access_token": "", "refresh_token": "", "expires_at": "", mcp.CredKeyTokenSource: ""},
 			},
 			"metabase": {
 				Enabled:     false,
