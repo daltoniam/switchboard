@@ -166,18 +166,23 @@ func renderList(sb *strings.Builder, n *html.Node, depth int, ordered bool) {
 			sb.WriteString(indent + "- ")
 		}
 
-		endsWithNestedList := false
+		// First pass: collect inline (non-list) children.
+		// Confluence storage format wraps <li> content in <p> tags, which emit
+		// "\n\n". Buffering and trimming here normalises that to a single "\n".
+		var inlineBuf strings.Builder
 		for gc := c.FirstChild; gc != nil; gc = gc.NextSibling {
 			if gc.Type == html.ElementNode && (gc.DataAtom == atom.Ul || gc.DataAtom == atom.Ol) {
-				sb.WriteString("\n")
-				renderNode(sb, gc, depth+1, false)
-				endsWithNestedList = gc.NextSibling == nil
-			} else {
-				renderNode(sb, gc, depth, false)
+				continue
 			}
+			renderNode(&inlineBuf, gc, depth, false)
 		}
-		if !endsWithNestedList {
-			sb.WriteString("\n")
+		sb.WriteString(strings.TrimRight(inlineBuf.String(), " \t\n") + "\n")
+
+		// Second pass: render nested lists beneath the item line.
+		for gc := c.FirstChild; gc != nil; gc = gc.NextSibling {
+			if gc.Type == html.ElementNode && (gc.DataAtom == atom.Ul || gc.DataAtom == atom.Ol) {
+				renderNode(sb, gc, depth+1, false)
+			}
 		}
 	}
 }

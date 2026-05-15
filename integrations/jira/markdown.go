@@ -202,7 +202,9 @@ func renderADFNodes(sb *strings.Builder, nodes []any, listPrefix string) {
 				sb.WriteString(listPrefix + "- ")
 				renderADFListItem(sb, li, listPrefix)
 			}
-			sb.WriteString("\n")
+			if listPrefix == "" {
+				sb.WriteString("\n")
+			}
 
 		case "orderedList":
 			for idx, item := range content {
@@ -213,7 +215,9 @@ func renderADFNodes(sb *strings.Builder, nodes []any, listPrefix string) {
 				fmt.Fprintf(sb, "%s%d. ", listPrefix, idx+1)
 				renderADFListItem(sb, li, listPrefix)
 			}
-			sb.WriteString("\n")
+			if listPrefix == "" {
+				sb.WriteString("\n")
+			}
 
 		case "codeBlock":
 			lang, _ := adfAttrStr(n, "language")

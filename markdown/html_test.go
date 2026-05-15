@@ -42,6 +42,24 @@ func TestFromHTML(t *testing.T) {
 			want:  "- Top\n  - Nested\n\n",
 		},
 		{
+			// Confluence storage format wraps <li> content in <p> tags.
+			name:  "list with p-wrapped items (Confluence style)",
+			input: "<ul><li><p>First</p></li><li><p>Second</p></li></ul>",
+			want:  "- First\n- Second\n\n",
+		},
+		{
+			// Ordered list with Confluence-style <p> wrapping.
+			name:  "ordered list with p-wrapped items (Confluence style)",
+			input: "<ol><li><p>Alpha</p></li><li><p>Beta</p></li></ol>",
+			want:  "1. Alpha\n2. Beta\n\n",
+		},
+		{
+			// Nested list where outer item uses <p> wrapping.
+			name:  "nested list with p-wrapped parent (Confluence style)",
+			input: "<ul><li><p>Top</p><ul><li>Nested</li></ul></li></ul>",
+			want:  "- Top\n  - Nested\n\n",
+		},
+		{
 			name:  "pre code block",
 			input: `<pre><code>fmt.Println("hello")</code></pre>`,
 			want:  "```\nfmt.Println(\"hello\")\n```\n\n",
