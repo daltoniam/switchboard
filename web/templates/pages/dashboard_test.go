@@ -78,8 +78,9 @@ func TestHasSavings(t *testing.T) {
 	assert.False(t, hasSavings(nil))
 	assert.False(t, hasSavings(&mcp.MetricsSnapshot{}))
 	assert.True(t, hasSavings(&mcp.MetricsSnapshot{TotalBytesSaved: 1}))
-	assert.True(t, hasSavings(&mcp.MetricsSnapshot{CatalogAvoidedCount: 1}))
-	assert.True(t, hasSavings(&mcp.MetricsSnapshot{CompactionSamples: 1}))
+	assert.False(t, hasSavings(&mcp.MetricsSnapshot{CatalogAvoidedCount: 1}), "sample count alone shouldn't surface hero")
+	assert.False(t, hasSavings(&mcp.MetricsSnapshot{CompactionSamples: 1}), "sample count alone shouldn't surface hero")
+	assert.False(t, hasSavings(&mcp.MetricsSnapshot{ScriptSavingsSamples: 1}), "pure-computation script shouldn't surface hero")
 }
 
 func TestSampleNoun(t *testing.T) {

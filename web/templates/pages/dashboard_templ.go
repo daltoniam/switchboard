@@ -145,7 +145,7 @@ func hasSavings(snap *mcp.MetricsSnapshot) bool {
 	if snap == nil {
 		return false
 	}
-	return snap.TotalBytesSaved > 0 || snap.CatalogAvoidedCount > 0 || snap.CompactionSamples > 0 || snap.MarkdownSamples > 0 || snap.ScriptSavingsSamples > 0
+	return snap.TotalBytesSaved > 0
 }
 
 func sortedIntegrationNames(m map[string]mcp.IntegrationSnapshot) []string {

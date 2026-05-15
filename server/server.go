@@ -793,18 +793,22 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 	// Record script byte flow regardless of error state: even an errored
 	// script may have already issued api.call() invocations whose bytes
 	// stayed server-side. The "final" portion is the actual ToolResult.Data
-	// the LLM ends up seeing (post-columnarization, computed below for the
-	// happy path; pre-columnarization is close enough for error/empty cases).
-	if s.services.Metrics != nil {
-		s.services.Metrics.RecordScriptSavings(result.IntermediateBytes, result.FinalBytes)
-	}
+	// the LLM ends up seeing — for scripts returning tabular data,
+	// columnarization can cut output 30-50%, so credit the post-columnar
+	// size on the happy path.
 	if result.IsError {
+		if s.services.Metrics != nil {
+			s.services.Metrics.RecordScriptSavings(result.IntermediateBytes, result.FinalBytes)
+		}
 		return &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
 			IsError: true,
 		}, nil
 	}
 	result.Data = columnarizeResult(result.Data)
+	if s.services.Metrics != nil {
+		s.services.Metrics.RecordScriptSavings(result.IntermediateBytes, int64(len(result.Data)))
+	}
 	if len(result.Data) > defaultMaxResponseBytes {
 		if s.services.Metrics != nil {
 			s.services.Metrics.RecordTruncation()
