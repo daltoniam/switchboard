@@ -125,6 +125,26 @@ func TestADFToMarkdown(t *testing.T) {
 			want: "1. First\n2. Second\n\n",
 		},
 		{
+			name: "nested bullet list",
+			adf: map[string]any{"type": "doc", "content": []any{
+				map[string]any{"type": "bulletList", "content": []any{
+					map[string]any{"type": "listItem", "content": []any{
+						map[string]any{"type": "paragraph", "content": []any{
+							map[string]any{"type": "text", "text": "Parent"},
+						}},
+						map[string]any{"type": "bulletList", "content": []any{
+							map[string]any{"type": "listItem", "content": []any{
+								map[string]any{"type": "paragraph", "content": []any{
+									map[string]any{"type": "text", "text": "Child"},
+								}},
+							}},
+						}},
+					}},
+				}},
+			}},
+			want: "- Parent\n  - Child\n\n",
+		},
+		{
 			name: "code block with language",
 			adf: map[string]any{"type": "doc", "content": []any{
 				map[string]any{"type": "codeBlock", "attrs": map[string]any{"language": "go"}, "content": []any{
