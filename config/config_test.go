@@ -33,7 +33,7 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Len(t, m.cfg.Integrations, 36)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ollama", "ynab", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "switchboard"} {
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -503,6 +503,9 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "SIGNOZ_API_KEY", m["signoz"]["api_key"])
 	assert.Equal(t, "NOMAD_ADDR", m["nomad"]["address"])
 	assert.Equal(t, "NOMAD_TOKEN", m["nomad"]["token"])
+	assert.Equal(t, "STRIPE_API_KEY", m["stripe"]["api_key"])
+	assert.Equal(t, "STRIPE_ACCOUNT", m["stripe"]["account"])
+	assert.Equal(t, "STRIPE_BASE_URL", m["stripe"]["base_url"])
 	assert.Len(t, m, 26)
 }
 

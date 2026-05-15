@@ -140,8 +140,9 @@ var envMapping = map[string]map[string]string{
 		"token":    "AGENTS_TOKEN",
 	},
 	"stripe": {
-		"api_key": "STRIPE_API_KEY",
-		"account": "STRIPE_ACCOUNT",
+		"api_key":  "STRIPE_API_KEY",
+		"account":  "STRIPE_ACCOUNT",
+		"base_url": "STRIPE_BASE_URL",
 	},
 }
 
