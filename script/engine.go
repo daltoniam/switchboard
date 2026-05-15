@@ -169,6 +169,11 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 
 	callCount := 0
 	var logs []string
+	// intermediateBytes accumulates the raw byte size of every api.call()
+	// result inside the script — bytes that flow through the engine but
+	// never reach the LLM unless the script explicitly returns them. This
+	// underwrites the "context window saved by Switchboard scripts" metric.
+	var intermediateBytes int64
 
 	apiObj := vm.NewObject()
 
@@ -199,6 +204,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 		if result.IsError {
 			panic(vm.NewGoError(fmt.Errorf("api.call(%q) returned error: %s", toolName, result.Data)))
 		}
+		intermediateBytes += int64(len(result.Data))
 
 		data, err := projectFields(result.Data, opts)
 		if err != nil {
@@ -234,6 +240,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 		if result.IsError {
 			return vm.ToValue(map[string]any{"ok": false, "error": result.Data})
 		}
+		intermediateBytes += int64(len(result.Data))
 
 		data := result.Data
 		if projected, err := projectFields(data, opts); err != nil {
@@ -275,6 +282,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 		if result.IsError {
 			panic(vm.NewGoError(fmt.Errorf("api.callRendered(%q) returned error: %s", toolName, result.Data)))
 		}
+		intermediateBytes += int64(len(result.Data))
 
 		// Return as string — rendered output is LLM-readable text, not JSON to parse.
 		return vm.ToValue(result.Data)
@@ -303,6 +311,7 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 		if result.IsError {
 			return vm.ToValue(map[string]any{"ok": false, "error": result.Data})
 		}
+		intermediateBytes += int64(len(result.Data))
 
 		// Return as string — no JSON parsing, rendered output is text.
 		return vm.ToValue(map[string]any{"ok": true, "data": result.Data})
@@ -344,21 +353,44 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 			logData, _ := json.Marshal(logs)
 			errMsg += "\nconsole output: " + string(logData)
 		}
-		return &mcp.ToolResult{Data: errMsg, IsError: true}, nil
+		// Errored scripts still claim credit for intermediate bytes hidden so
+		// far — those bytes really did flow through the engine.
+		return &mcp.ToolResult{
+			Data:              errMsg,
+			IsError:           true,
+			IntermediateBytes: intermediateBytes,
+		}, nil
 	}
 
 	if val == nil || goja.IsUndefined(val) || goja.IsNull(val) {
 		if len(logs) > 0 {
 			logData, _ := json.Marshal(logs)
-			return &mcp.ToolResult{Data: string(logData)}, nil
+			return &mcp.ToolResult{
+				Data:              string(logData),
+				IntermediateBytes: intermediateBytes,
+				FinalBytes:        int64(len(logData)),
+			}, nil
 		}
-		return &mcp.ToolResult{Data: "null"}, nil
+		return &mcp.ToolResult{
+			Data:              "null",
+			IntermediateBytes: intermediateBytes,
+			FinalBytes:        int64(len("null")),
+		}, nil
 	}
 
 	exported := val.Export()
 	data, err := json.Marshal(exported)
 	if err != nil {
-		return &mcp.ToolResult{Data: fmt.Sprintf("%v", exported)}, nil
+		fallback := fmt.Sprintf("%v", exported)
+		return &mcp.ToolResult{
+			Data:              fallback,
+			IntermediateBytes: intermediateBytes,
+			FinalBytes:        int64(len(fallback)),
+		}, nil
 	}
-	return &mcp.ToolResult{Data: string(data)}, nil
+	return &mcp.ToolResult{
+		Data:              string(data),
+		IntermediateBytes: intermediateBytes,
+		FinalBytes:        int64(len(data)),
+	}, nil
 }

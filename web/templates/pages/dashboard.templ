@@ -109,6 +109,37 @@ func formatBytes(b int64) string {
 	return fmt.Sprintf("%.1fMB", float64(b)/(1024*1024))
 }
 
+func formatTokens(t int64) string {
+	if t < 1000 {
+		return fmt.Sprintf("%d", t)
+	}
+	if t < 1_000_000 {
+		return fmt.Sprintf("%.1fK", float64(t)/1000)
+	}
+	if t < 1_000_000_000 {
+		return fmt.Sprintf("%.2fM", float64(t)/1_000_000)
+	}
+	return fmt.Sprintf("%.2fB", float64(t)/1_000_000_000)
+}
+
+func savingsPct(part, whole int64) string {
+	if whole <= 0 || part <= 0 {
+		return "0%"
+	}
+	pct := float64(part) / float64(whole) * 100
+	if pct < 1 {
+		return fmt.Sprintf("%.1f%%", pct)
+	}
+	return fmt.Sprintf("%.0f%%", pct)
+}
+
+func hasSavings(snap *mcp.MetricsSnapshot) bool {
+	if snap == nil {
+		return false
+	}
+	return snap.TotalBytesSaved > 0 || snap.CatalogAvoidedCount > 0 || snap.CompactionSamples > 0 || snap.MarkdownSamples > 0 || snap.ScriptSavingsSamples > 0
+}
+
 func sortedIntegrationNames(m map[string]mcp.IntegrationSnapshot) []string {
 	names := make([]string, 0, len(m))
 	for name := range m {
@@ -144,6 +175,9 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 			@components.StatCardColor(data.DisabledCount, "Disabled", "muted")
 			@components.StatCardColor(data.ErroredCount, "Errored", "yellow")
 		</div>
+		if hasSavings(data.Metrics) {
+			@savingsHero(data.Metrics)
+		}
 		if data.Metrics != nil {
 			<section class="metrics-section">
 				<h2 class="section-title">Activity</h2>
@@ -216,20 +250,10 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 						</div>
 					</section>
 				}
-				if data.Metrics.CompactionSamples > 0 || data.Metrics.TotalRetries > 0 || data.Metrics.Truncations > 0 {
+				if data.Metrics.TotalRetries > 0 || data.Metrics.Truncations > 0 {
 					<section class="metrics-section metrics-half">
-						<h2 class="section-title">Efficiency</h2>
+						<h2 class="section-title">Reliability</h2>
 						<div class="efficiency-grid">
-							if data.Metrics.CompactionSamples > 0 {
-								<div class="efficiency-item">
-									<span class="efficiency-value">{ fmt.Sprint(data.Metrics.CompactionSavingsPct) }%</span>
-									<span class="efficiency-label">Compaction savings</span>
-								</div>
-								<div class="efficiency-item">
-									<span class="efficiency-value">{ formatBytes(data.Metrics.CompactionBytesSaved) }</span>
-									<span class="efficiency-label">Bytes saved</span>
-								</div>
-							}
 							if data.Metrics.TotalRetries > 0 {
 								<div class="efficiency-item">
 									<span class="efficiency-value">{ fmt.Sprint(data.Metrics.TotalRetries) }</span>
@@ -270,5 +294,72 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 			<p>Add to your MCP client config:</p>
 			<code>&#123; "mcpServers": &#123; "switchboard": &#123; "url": "http://localhost:3847/mcp" &#125; &#125; &#125;</code>
 		</div>
+	}
+}
+
+templ savingsHero(m *mcp.MetricsSnapshot) {
+	<section class="savings-hero">
+		<div class="savings-hero-head">
+			<div class="savings-hero-label">Context window saved by Switchboard</div>
+			<div class="savings-hero-value">
+				{ formatTokens(m.TotalTokensSaved) }
+				<span class="savings-hero-unit">tokens</span>
+			</div>
+			<div class="savings-hero-sub">
+				{ formatBytes(m.TotalBytesSaved) } of LLM context never sent
+				if m.EstDollarsSaved != "" {
+					<span class="savings-hero-dollars">· ~{ m.EstDollarsSaved } saved at ${ fmt.Sprintf("%.2f", m.DollarsPerMTok) }/MTok</span>
+				}
+			</div>
+		</div>
+		<div class="savings-buckets">
+			@savingsBucket("Tool catalog", m.CatalogTokensSaved, m.CatalogBytesAvoided, m.CatalogAvoidedCount, m.TotalBytesSaved, "vendor MCPs ship full tool lists every turn — we ship search results")
+			@savingsBucket("Response compaction", m.CompactionTokensSaved, m.CompactionBytesSaved, int64(m.CompactionSamples), m.TotalBytesSaved, "field projection and columnar reshape on tool responses")
+			@savingsBucket("Markdown rendering", m.MarkdownTokensSaved, m.MarkdownBytesSaved, int64(m.MarkdownSamples), m.TotalBytesSaved, "HTML/JSON document payloads rendered to markdown")
+			@savingsBucket("Script intermediates", m.ScriptTokensSaved, m.ScriptIntermediateHidden, m.ScriptSavingsSamples, m.TotalBytesSaved, "api.call() results that stay server-side")
+		</div>
+		<div class="savings-hero-foot">
+			Tokens estimated at ~4 characters per token. Configure dollar rate in Settings.
+		</div>
+	</section>
+}
+
+templ savingsBucket(label string, tokens int64, bytes int64, samples int64, total int64, blurb string) {
+	<div class="savings-bucket">
+		<div class="savings-bucket-head">
+			<span class="savings-bucket-label">{ label }</span>
+			<span class="savings-bucket-pct">{ savingsPct(bytes, total) }</span>
+		</div>
+		<div class="savings-bucket-value">
+			{ formatTokens(tokens) }
+			<span class="savings-bucket-unit">tokens</span>
+		</div>
+		<div class="savings-bucket-meta">
+			{ formatBytes(bytes) }
+			if samples > 0 {
+				· { fmt.Sprint(samples) } { sampleNoun(label, samples) }
+			}
+		</div>
+		<div class="savings-bucket-blurb">{ blurb }</div>
+	</div>
+}
+
+func sampleNoun(label string, n int64) string {
+	switch label {
+	case "Tool catalog":
+		if n == 1 {
+			return "search"
+		}
+		return "searches"
+	case "Script intermediates":
+		if n == 1 {
+			return "script"
+		}
+		return "scripts"
+	default:
+		if n == 1 {
+			return "call"
+		}
+		return "calls"
 	}
 }

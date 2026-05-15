@@ -69,6 +69,7 @@ type Server struct {
 	idf              map[string]float64
 	synMap           map[string][]string
 	allTools         []toolWithIntegration // pre-indexed tools with token sets
+	catalogBytes     int64                 // byte size of full tool catalog (for savings accounting)
 	discoverAll      bool
 }
 
@@ -417,6 +418,44 @@ func (s *Server) buildSearchIndex() {
 	}
 	s.idf = computeIDF(tools) // also populates tools[i].tokens
 	s.allTools = tools
+	s.catalogBytes = computeCatalogBytes(tools)
+}
+
+// computeCatalogBytes returns the byte size of a faithful tools/list payload
+// for the given tool set. This is the baseline an LLM client would have to
+// receive on every turn if it connected directly to each vendor's MCP server
+// instead of going through Switchboard's two-tool surface (search + execute).
+// Each entry is rendered as {name, description, inputSchema{type, properties, required}}
+// — the same shape vendor MCPs emit. Errors fall back to zero (i.e., no credit
+// claimed) rather than failing the whole index build.
+func computeCatalogBytes(tools []toolWithIntegration) int64 {
+	type schema struct {
+		Type       string            `json:"type"`
+		Properties map[string]string `json:"properties,omitempty"`
+		Required   []string          `json:"required,omitempty"`
+	}
+	type listing struct {
+		Name        mcp.ToolName `json:"name"`
+		Description string       `json:"description"`
+		InputSchema schema       `json:"inputSchema"`
+	}
+	entries := make([]listing, 0, len(tools))
+	for _, t := range tools {
+		entries = append(entries, listing{
+			Name:        t.Tool.Name,
+			Description: t.Tool.Description,
+			InputSchema: schema{
+				Type:       "object",
+				Properties: t.Tool.Parameters,
+				Required:   t.Tool.Required,
+			},
+		})
+	}
+	data, err := json.Marshal(entries)
+	if err != nil {
+		return 0
+	}
+	return int64(len(data))
 }
 
 func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
@@ -548,9 +587,19 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		return errorResult("marshal search response: " + err.Error()), nil
 	}
 
+	// Credit this search call with catalog-avoidance savings: every turn a
+	// vanilla MCP client would have re-shipped the full catalog; here we only
+	// shipped the matching slice. We use the columnarized response size since
+	// that is what the LLM actually receives.
+	columnarized := columnarizeResult(string(data))
+	if s.services.Metrics != nil && s.catalogBytes > 0 {
+		avoided := s.catalogBytes - int64(len(columnarized))
+		s.services.Metrics.RecordCatalogAvoidance(avoided)
+	}
+
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
-			&mcpsdk.TextContent{Text: columnarizeResult(string(data))},
+			&mcpsdk.TextContent{Text: columnarized},
 		},
 	}, nil
 }
@@ -741,6 +790,14 @@ func (s *Server) handleScriptExecute(ctx context.Context, source string) (*mcpsd
 	if err != nil {
 		return errorResult(err.Error()), nil
 	}
+	// Record script byte flow regardless of error state: even an errored
+	// script may have already issued api.call() invocations whose bytes
+	// stayed server-side. The "final" portion is the actual ToolResult.Data
+	// the LLM ends up seeing (post-columnarization, computed below for the
+	// happy path; pre-columnarization is close enough for error/empty cases).
+	if s.services.Metrics != nil {
+		s.services.Metrics.RecordScriptSavings(result.IntermediateBytes, result.FinalBytes)
+	}
 	if result.IsError {
 		return &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
@@ -816,11 +873,9 @@ func processResult(rp resultProcessor, toolName mcp.ToolName, data string, metri
 		return data
 	}
 
-	compacted := false
 	if rp.compact != nil {
 		if fields, ok := rp.compact(toolName); ok {
 			parsed = mcp.CompactAny(parsed, fields)
-			compacted = true
 		}
 	}
 
@@ -845,7 +900,7 @@ func processResult(rp resultProcessor, toolName mcp.ToolName, data string, metri
 		)
 	}
 
-	if compacted && metrics != nil {
+	if metrics != nil && len(result) < originalLen {
 		metrics.RecordCompaction(toolName, originalLen, len(result))
 	}
 

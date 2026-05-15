@@ -153,6 +153,15 @@ type Config struct {
 	WasmModules  []WasmModuleConfig            `json:"wasm_modules,omitempty"`
 	Marketplace  *MarketplaceConfig            `json:"marketplace,omitempty"`
 	SessionStore string                        `json:"session_store,omitempty"` // "memory" or "file" (default: "memory")
+
+	// ShowDollarEstimate toggles the dashboard's "tokens saved" hero card
+	// from displaying a dollar-equivalent figure. Hidden by default to keep
+	// the headline number honest (token estimates are heuristic, dollar
+	// estimates compound that with pricing assumptions).
+	ShowDollarEstimate bool `json:"show_dollar_estimate,omitempty"`
+	// DollarsPerMTokInput is the price per million input tokens used to
+	// compute the dollar estimate. Zero falls back to DefaultInputDollarsPerMTok.
+	DollarsPerMTokInput float64 `json:"dollars_per_mtok_input,omitempty"`
 }
 
 // ToolDefinition describes an API operation an integration exposes.
@@ -168,6 +177,14 @@ type ToolDefinition struct {
 type ToolResult struct {
 	Data    string `json:"data,omitempty"`
 	IsError bool   `json:"is_error,omitempty"`
+
+	// IntermediateBytes is populated only by the script engine and is the
+	// sum of every api.call() raw response size accumulated while running
+	// the script. Zero for normal (non-script) tool invocations. Not
+	// serialized — internal-only telemetry consumed by handleScriptExecute.
+	IntermediateBytes int64 `json:"-"`
+	// FinalBytes is the script's returned-value size, also script-only.
+	FinalBytes int64 `json:"-"`
 }
 
 // JSONResult marshals v to JSON and returns it as a ToolResult.

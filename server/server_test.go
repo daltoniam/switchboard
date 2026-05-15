@@ -2282,6 +2282,28 @@ func TestSearch_ScriptHint_SingleResult(t *testing.T) {
 	assert.Empty(t, resp.ScriptHint)
 }
 
+func TestSearch_RecordsCatalogAvoidance(t *testing.T) {
+	alpha := &mockIntegration{name: "alpha", healthy: true, tools: makeManyTools("alpha", 10)}
+	beta := &mockIntegration{name: "beta", healthy: true, tools: makeManyTools("beta", 8)}
+	s := setupTestServer(alpha, beta)
+	s.services.Metrics = mcp.NewMetrics()
+	// Re-build the index so catalogBytes is computed under the new metrics.
+	s.buildSearchIndex()
+	require.Positive(t, s.catalogBytes, "test setup: catalog must have nonzero baseline")
+
+	_, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"query": "alpha_tool_0",
+		"limit": 3,
+	}))
+	require.NoError(t, err)
+
+	snap := s.services.Metrics.Snapshot()
+	assert.Equal(t, int64(1), snap.CatalogAvoidedCount)
+	assert.Positive(t, snap.CatalogBytesAvoided, "narrow search must yield positive avoidance")
+	assert.Less(t, snap.CatalogBytesAvoided, s.catalogBytes,
+		"avoidance must be less than the full catalog (since we shipped some bytes back)")
+}
+
 func TestSearch_ResponseColumnarized(t *testing.T) {
 	tests := []struct {
 		name         string

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -247,7 +248,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	services := &mcp.Services{
 		Config:   cfgMgr,
 		Registry: reg,
-		Metrics:  mcp.NewMetrics(),
+		Metrics:  mcp.NewMetrics().WithPersistence(metricsPath()),
 	}
 
 	switchboardIntegration := switchboardInt.New(services)
@@ -257,6 +258,15 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
+	// Periodic metrics flush. Flush is a no-op when not dirty, so this
+	// produces zero disk traffic during idle periods.
+	startMetricsFlusher(ctx, services.Metrics, 5*time.Minute)
+	defer func() {
+		if err := services.Metrics.Flush(); err != nil {
+			log.Printf("metrics: final flush failed: %v", err)
+		}
+	}()
 
 	// Create WASM runtime and loader (always — needed for live-reload from web UI).
 	cfg := cfgMgr.Get()
@@ -432,4 +442,40 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	if browserSvc != nil {
 		browserSvc.Close() //nolint:errcheck
 	}
+}
+
+// metricsPath returns the on-disk path for persisted lifetime metrics.
+// Falls back to an empty string (persistence disabled) if the home dir cannot
+// be resolved, which only happens in unusual environments where we'd rather
+// run without persistence than crash on startup.
+func metricsPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "switchboard", "metrics.json")
+}
+
+// startMetricsFlusher launches a goroutine that flushes lifetime metric
+// counters to disk every interval. Flush is a no-op when the dirty flag is
+// clear, so this does not produce a steady stream of writes when the server
+// is idle. The goroutine exits when ctx is cancelled.
+func startMetricsFlusher(ctx context.Context, metrics *mcp.Metrics, interval time.Duration) {
+	if metrics == nil || interval <= 0 {
+		return
+	}
+	go func() {
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if err := metrics.Flush(); err != nil {
+					log.Printf("metrics: periodic flush failed: %v", err)
+				}
+			}
+		}
+	}()
 }

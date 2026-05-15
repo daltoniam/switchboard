@@ -1,11 +1,25 @@
 package pages
 
 import (
+	"fmt"
+
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 )
 
 type SettingsData struct {
-	SessionStore string
+	SessionStore        string
+	ShowDollarEstimate  bool
+	DollarsPerMTokInput float64
+}
+
+// formatDollarRate renders a $/MTok value for the settings form. Always shows
+// two decimal places so users can see "3.00" rather than "3" and know the
+// field is numeric.
+func formatDollarRate(v float64) string {
+	if v <= 0 {
+		return "3.00"
+	}
+	return fmt.Sprintf("%.2f", v)
 }
 
 templ Settings(page layouts.PageData, data SettingsData) {
@@ -29,6 +43,32 @@ templ Settings(page layouts.PageData, data SettingsData) {
 							<option value="file">File (persisted to ~/.config/switchboard/sessions/)</option>
 						}
 					</select>
+				</div>
+			</div>
+			<div class="card" style="margin-bottom: 1rem;">
+				<div class="section-title" style="margin-bottom: 0.75rem;">Dashboard — Dollar Estimate</div>
+				<p style="font-size: 0.8125rem; color: var(--text-muted); margin: 0 0 1rem 0;">
+					When enabled, the dashboard's "Context window saved" card shows an
+					approximate dollar value alongside the token count, based on the input
+					token rate below. Token and dollar figures are estimates only.
+				</p>
+				<div class="form-group">
+					<label class="form-label">
+						if data.ShowDollarEstimate {
+							<input type="checkbox" name="show_dollar_estimate" value="true" checked/>
+						} else {
+							<input type="checkbox" name="show_dollar_estimate" value="true"/>
+						}
+						{ " " }
+						Show dollar estimate on dashboard
+					</label>
+				</div>
+				<div class="form-group">
+					<label class="form-label">Input token price ($ per million tokens)</label>
+					<input type="number" step="0.01" min="0" name="dollars_per_mtok_input" class="form-input" value={ formatDollarRate(data.DollarsPerMTokInput) }/>
+					<p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.5rem 0 0 0;">
+						Default: $3.00 (Claude Sonnet input tier as of late 2025). Set to your model's input rate for an accurate estimate.
+					</p>
 				</div>
 			</div>
 			<button type="submit" class="btn">Save Settings</button>

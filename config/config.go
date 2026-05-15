@@ -359,6 +359,9 @@ func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 	cfg := defaultConfig()
 	cfg.WasmModules = file.WasmModules
 	cfg.Marketplace = file.Marketplace
+	cfg.SessionStore = file.SessionStore
+	cfg.ShowDollarEstimate = file.ShowDollarEstimate
+	cfg.DollarsPerMTokInput = file.DollarsPerMTokInput
 	if file.Integrations == nil {
 		return cfg
 	}

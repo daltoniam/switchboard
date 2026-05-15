@@ -667,3 +667,61 @@ func TestEngine_CallRendered_CountsAgainstCallLimit(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "exceeded maximum")
 }
+
+func TestEngine_TracksIntermediateAndFinalBytes(t *testing.T) {
+	bigResp := `{"data":"` + strings.Repeat("x", 5000) + `"}`
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"big_tool": {Data: bigResp},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var r1 = api.call("big_tool", {});
+		var r2 = api.call("big_tool", {});
+		({summary: "done"});
+	`)
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	// Two calls of ~5KB each flowed through the engine.
+	expected := int64(2 * len(bigResp))
+	assert.Equal(t, expected, result.IntermediateBytes)
+	// Final returned object is small.
+	assert.Less(t, result.FinalBytes, int64(50))
+	assert.Greater(t, result.IntermediateBytes, result.FinalBytes,
+		"the headline savings story requires intermediate > final")
+}
+
+func TestEngine_TryCall_AlsoTracksBytes(t *testing.T) {
+	resp := `{"items":[1,2,3]}`
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"t": {Data: resp},
+		},
+	}
+	engine := New(exec)
+	result, err := engine.Run(context.Background(), `
+		var r = api.tryCall("t", {});
+		(r.ok ? "ok" : "err");
+	`)
+	require.NoError(t, err)
+	assert.Equal(t, int64(len(resp)), result.IntermediateBytes)
+}
+
+func TestEngine_ErroredScript_StillRecordsPriorIntermediates(t *testing.T) {
+	resp := `{"k":"v"}`
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{"t": {Data: resp}},
+	}
+	engine := New(exec)
+	result, err := engine.Run(context.Background(), `
+		api.call("t", {});
+		throw new Error("boom");
+	`)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Equal(t, int64(len(resp)), result.IntermediateBytes,
+		"bytes from the first call must still count even when the script later throws")
+}

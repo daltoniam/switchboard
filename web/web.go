@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -195,7 +196,12 @@ func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	if w.services.Metrics != nil {
-		snap := w.services.Metrics.Snapshot()
+		cfg := w.services.Config.Get()
+		rate := cfg.DollarsPerMTokInput
+		if rate <= 0 {
+			rate = mcp.DefaultInputDollarsPerMTok
+		}
+		snap := w.services.Metrics.SnapshotWithPricing(rate, cfg.ShowDollarEstimate)
 		data.Metrics = &snap
 		data.TopTools = w.services.Metrics.TopTools(5)
 	}
@@ -1275,7 +1281,12 @@ func (w *WebServer) handleMetricsAPI(rw http.ResponseWriter, r *http.Request) {
 		_, _ = rw.Write([]byte(`{"error":"metrics not initialized"}`))
 		return
 	}
-	snap := w.services.Metrics.Snapshot()
+	cfg := w.services.Config.Get()
+	rate := cfg.DollarsPerMTokInput
+	if rate <= 0 {
+		rate = mcp.DefaultInputDollarsPerMTok
+	}
+	snap := w.services.Metrics.SnapshotWithPricing(rate, cfg.ShowDollarEstimate)
 	json.NewEncoder(rw).Encode(snap)
 }
 
@@ -1283,7 +1294,9 @@ func (w *WebServer) handleSettings(rw http.ResponseWriter, r *http.Request) {
 	cfg := w.services.Config.Get()
 	page := w.pageData(r, "Settings", "/settings")
 	data := pages.SettingsData{
-		SessionStore: cfg.SessionStore,
+		SessionStore:        cfg.SessionStore,
+		ShowDollarEstimate:  cfg.ShowDollarEstimate,
+		DollarsPerMTokInput: cfg.DollarsPerMTokInput,
 	}
 	if data.SessionStore == "" {
 		data.SessionStore = "memory"
@@ -1300,13 +1313,22 @@ func (w *WebServer) handleSettingsSave(rw http.ResponseWriter, r *http.Request) 
 	if sessionStore != "memory" && sessionStore != "file" {
 		sessionStore = "memory"
 	}
+	showDollar := r.FormValue("show_dollar_estimate") == "true"
+	var dollarsPerMTok float64
+	if raw := strings.TrimSpace(r.FormValue("dollars_per_mtok_input")); raw != "" {
+		if v, err := strconv.ParseFloat(raw, 64); err == nil && v >= 0 {
+			dollarsPerMTok = v
+		}
+	}
 	cfg := w.services.Config.Get()
 	cfg.SessionStore = sessionStore
+	cfg.ShowDollarEstimate = showDollar
+	cfg.DollarsPerMTokInput = dollarsPerMTok
 	if err := w.services.Config.Update(cfg); err != nil {
 		http.Redirect(rw, r, "/settings?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(rw, r, "/settings?success=Settings+saved.+Restart+Switchboard+to+apply+changes.", http.StatusSeeOther)
+	http.Redirect(rw, r, "/settings?success=Settings+saved.", http.StatusSeeOther)
 }
 
 func (w *WebServer) handleXSetup(rw http.ResponseWriter, r *http.Request) {
