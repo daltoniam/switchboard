@@ -45,6 +45,7 @@ import (
 	signozInt "github.com/daltoniam/switchboard/integrations/signoz"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
+	"github.com/daltoniam/switchboard/integrations/stripe"
 	"github.com/daltoniam/switchboard/integrations/suno"
 	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
@@ -218,6 +219,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		pganalyze.New(),
 		rwx.New(),
 		ynab.New(),
+		stripe.New(),
 		amazonIntegration,
 		gmailIntegration,
 		jira.New(),

@@ -173,6 +173,8 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Readarr | `api_key` | `READARR_API_KEY` |
 | Readarr | `base_url` | `READARR_URL` |
 | DigitalOcean | `api_token` | `DIGITALOCEAN_TOKEN` |
+| Stripe | `api_key` | `STRIPE_API_KEY` |
+| Stripe | `account` | `STRIPE_ACCOUNT` (optional — `Stripe-Account` header for Connect) |
 
 ### OAuth Setup
 
