@@ -400,12 +400,12 @@ func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 func (r *rwx) runRWXCommand(args []string, timeoutMs int) (string, error) {
 	bin := r.cliPath
 	cmd := exec.Command(bin, args...) // #nosec G204 -- resolved binary path, args are controlled
-	cmd.Env = os.Environ()
+	cmd.Env = r.cmdEnv()
 	if timeoutMs > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
 		defer cancel()
 		cmd = exec.CommandContext(ctx, bin, args...) // #nosec G204 -- resolved binary path, args are controlled
-		cmd.Env = os.Environ()
+		cmd.Env = r.cmdEnv()
 	}
 
 	var stdout, stderr bytes.Buffer
