@@ -38,3 +38,27 @@ var issues = api.call("github_list_issues", {owner:"org",repo:"app"}, {fields:["
 - `fields` array parsed as compact specs via `ParseCompactSpecs` → applied via `CompactAny` before JS parsing
 - Compaction happens after the integration's own compaction (additive filtering, never expands)
 - Implementation: `parseCallArgs` returns 3 values, `projectFields` in `script/engine.go`
+
+## Measuring Context-Window Savings
+
+The dashboard surfaces a single headline — **tokens of LLM context not sent thanks to Switchboard** — composed of four independently-tracked buckets in `metrics.go`. All bucket totals are recorded as lifetime atomic counters, persisted to disk on a dirty flag, and converted to tokens via the `CharsPerToken = 4` heuristic (configurable in code).
+
+| Bucket | What it credits | Recorded by |
+|--------|----------------|-------------|
+| **Tool catalog avoidance** | `len(fullVendorCatalogJSON) - len(searchResponse)` per `search` call. Switchboard publishes only `search` + `execute`, so every search effectively saves the catalog payload that vendor MCPs would otherwise ship every turn. | `Metrics.RecordCatalogAvoidance` in `server/handleSearch` |
+| **Response compaction** | Bytes removed by field-projection compaction (`Metrics.RecordCompaction`). Already in place — now counted toward the hero number. | All integration adapters via `processResult` |
+| **Markdown rendering** | Bytes saved when a JSON or HTML document payload is rendered to markdown (`Metrics.RecordMarkdownRender`). | Integrations implementing `MarkdownIntegration` |
+| **Script intermediates** | `IntermediateBytes - FinalBytes` per script run — `api.call()` results that flowed through the script engine but never reached the LLM. Captures the chain-of-tools savings unique to Switchboard. | `script.Engine.Run` populating `ToolResult.IntermediateBytes/FinalBytes`, recorded in `handleScriptExecute` |
+
+Aggregation rules (in `Metrics.snapshotWithPricing`):
+
+- `TotalBytesSaved = sum(all four buckets)` — lifetime atomic counters, never decrement
+- `TotalTokensSaved = BytesToTokens(TotalBytesSaved)` — `chars / 4` rounded down
+- `EstDollarsSaved` is populated **only when `Config.ShowDollarEstimate=true`** (Settings toggle). Default rate is `DefaultInputDollarsPerMTok = $3.00/MTok` (Claude Sonnet input price); user-configurable via `Config.DollarsPerMTokInput`.
+
+Persistence:
+
+- `Metrics.WithPersistence(path)` enables disk writes; otherwise metrics are in-memory only
+- Atomic write (`tempfile + rename`) controlled by a `dirty atomic.Bool` — flush only runs when something changed
+- `cmd/server/main.go` wires a 5-minute background flusher plus a final `defer metrics.Flush()` on shutdown
+- Schema version is `persistedMetrics.Version` — bump and add a migration path when the on-disk fields change

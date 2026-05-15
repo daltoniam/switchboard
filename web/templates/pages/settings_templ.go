@@ -9,11 +9,25 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"fmt"
+
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 )
 
 type SettingsData struct {
-	SessionStore string
+	SessionStore        string
+	ShowDollarEstimate  bool
+	DollarsPerMTokInput float64
+}
+
+// formatDollarRate renders a $/MTok value for the settings form. Always shows
+// two decimal places so users can see "3.00" rather than "3" and know the
+// field is numeric.
+func formatDollarRate(v float64) string {
+	if v <= 0 {
+		return "3.00"
+	}
+	return fmt.Sprintf("%.2f", v)
 }
 
 func Settings(page layouts.PageData, data SettingsData) templ.Component {
@@ -64,7 +78,44 @@ func Settings(page layouts.PageData, data SettingsData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</select></div></div><button type=\"submit\" class=\"btn\">Save Settings</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</select></div></div><div class=\"card\" style=\"margin-bottom: 1rem;\"><div class=\"section-title\" style=\"margin-bottom: 0.75rem;\">Dashboard — Dollar Estimate</div><p style=\"font-size: 0.8125rem; color: var(--text-muted); margin: 0 0 1rem 0;\">When enabled, the dashboard's \"Context window saved\" card shows an approximate dollar value alongside the token count, based on the input token rate below. Token and dollar figures are estimates only.</p><div class=\"form-group\"><label class=\"form-label\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.ShowDollarEstimate {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<input type=\"checkbox\" name=\"show_dollar_estimate\" value=\"true\" checked> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<input type=\"checkbox\" name=\"show_dollar_estimate\" value=\"true\"> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			var templ_7745c5c3_Var3 string
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/settings.templ`, Line: 62, Col: 11}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " Show dollar estimate on dashboard</label></div><div class=\"form-group\"><label class=\"form-label\">Input token price ($ per million tokens)</label> <input type=\"number\" step=\"0.01\" min=\"0\" name=\"dollars_per_mtok_input\" class=\"form-input\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(formatDollarRate(data.DollarsPerMTokInput))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/settings.templ`, Line: 68, Col: 145}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"><p style=\"font-size: 0.75rem; color: var(--text-muted); margin: 0.5rem 0 0 0;\">Default: $3.00 (Claude Sonnet input tier as of late 2025). Set to your model's input rate for an accurate estimate.</p></div></div><button type=\"submit\" class=\"btn\">Save Settings</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
