@@ -71,15 +71,17 @@ func (s *stripe) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 
 // --- HTTP helpers ---
 
-// doRequest performs a Stripe API call. For GET/DELETE, params are query string.
-// For POST, params are application/x-www-form-urlencoded body.
+// doRequest performs a Stripe API call. For GET, params are query string.
+// For POST and DELETE, params are application/x-www-form-urlencoded body
+// when non-empty (Stripe documents DELETE params like invoice_now/prorate
+// as body parameters).
 func (s *stripe) doRequest(ctx context.Context, method, path string, params map[string]any) (json.RawMessage, error) {
 	form := encodeForm(params)
 
 	fullURL := s.baseURL + path
 	var bodyReader io.Reader
 	switch method {
-	case http.MethodGet, http.MethodDelete:
+	case http.MethodGet:
 		if form != "" {
 			if strings.Contains(fullURL, "?") {
 				fullURL += "&" + form
@@ -87,8 +89,10 @@ func (s *stripe) doRequest(ctx context.Context, method, path string, params map[
 				fullURL += "?" + form
 			}
 		}
-	default:
-		bodyReader = strings.NewReader(form)
+	default: // POST, DELETE with body
+		if form != "" {
+			bodyReader = strings.NewReader(form)
+		}
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, fullURL, bodyReader)

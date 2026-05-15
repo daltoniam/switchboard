@@ -2,8 +2,10 @@ package stripe
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -452,12 +454,20 @@ func TestCancelSubscription_UsesDELETE(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodDelete, r.Method)
 		assert.Equal(t, "/subscriptions/sub_42", r.URL.Path)
+		assert.Empty(t, r.URL.Query().Get("invoice_now"), "invoice_now should be in body, not query string")
+		assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
+		body, _ := io.ReadAll(r.Body)
+		parsed, _ := url.ParseQuery(string(body))
+		assert.Equal(t, "true", parsed.Get("invoice_now"), "invoice_now should be form-encoded in request body")
 		_, _ = w.Write([]byte(`{"id":"sub_42","status":"canceled"}`))
 	}))
 	defer ts.Close()
 
 	s := &stripe{apiKey: "sk_test", client: ts.Client(), baseURL: ts.URL}
-	result, err := s.Execute(context.Background(), "stripe_cancel_subscription", map[string]any{"id": "sub_42"})
+	result, err := s.Execute(context.Background(), "stripe_cancel_subscription", map[string]any{
+		"id":          "sub_42",
+		"invoice_now": true,
+	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, "canceled")
