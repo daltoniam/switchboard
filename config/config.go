@@ -139,6 +139,11 @@ var envMapping = map[string]map[string]string{
 		"a2a_url":  "AGENTS_A2A_URL",
 		"token":    "AGENTS_TOKEN",
 	},
+	"stripe": {
+		"api_key":  "STRIPE_API_KEY",
+		"account":  "STRIPE_ACCOUNT",
+		"base_url": "STRIPE_BASE_URL",
+	},
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -246,6 +251,10 @@ func defaultConfig() *mcp.Config {
 			"ynab": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": ""},
+			},
+			"stripe": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "account": "", "base_url": ""},
 			},
 			"jira": {
 				Enabled:     false,
