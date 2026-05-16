@@ -11,6 +11,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -1006,7 +1007,10 @@ func processViewsResult(viewSet compact.ViewSet, toolName mcp.ToolName, view com
 		return tooLargeEnvelope(toolName, len(out), parsedView.MaxBytes)
 	}
 
-	if metrics != nil {
+	// Match the flat path's contract: only record when output actually shrank.
+	// appendMoreHint can grow the response past input; recording every call
+	// would feed negative savings into compaction-rate monitoring.
+	if metrics != nil && len(out) < originalLen {
 		metrics.RecordCompaction(toolName, originalLen, len(out))
 	}
 
@@ -1040,11 +1044,15 @@ func resolveSelection(view compact.ViewArgs, viewSet compact.ViewSet) (compact.V
 	return selection, nil
 }
 
+// Map iteration order in Go is non-deterministic. Sort the output so error
+// messages are stable across runs — anything else flakes tests that match
+// against the message string.
 func listViewNames(vs compact.ViewSet) string {
 	names := make([]string, 0, len(vs.Views))
 	for v := range vs.Views {
 		names = append(names, string(v))
 	}
+	sort.Strings(names)
 	return strings.Join(names, ", ")
 }
 
@@ -1053,6 +1061,7 @@ func listFormats(vs compact.ViewSet, view compact.ViewName) string {
 	for f := range vs.Renderers[view] {
 		formats = append(formats, string(f))
 	}
+	sort.Strings(formats)
 	return strings.Join(formats, ", ")
 }
 
