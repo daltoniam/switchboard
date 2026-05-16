@@ -1,6 +1,8 @@
 package compact
 
 import (
+	"fmt"
+
 	mcp "github.com/daltoniam/switchboard"
 )
 
@@ -28,12 +30,69 @@ type ParsedView struct {
 	MaxBytes int
 }
 
-// ViewSelection is the parsed result of "what did the LLM ask for?" — the
-// typed handoff between the args boundary and the pipeline. The pipeline
-// trusts this value; it does not re-validate.
+// ViewSelection is the resolved selection: ViewSet defaults filled in,
+// validated against the registered renderers. The pipeline trusts this
+// value; it does not re-validate.
 type ViewSelection struct {
 	View   ViewName
 	Format Format
+}
+
+// ViewArgs is the LLM-requested view/format, parsed from raw args at the
+// MCP boundary. Empty fields mean "not specified" — they're filled in
+// from ViewSet.Default downstream by ResolveSelection.
+//
+// This is the typed input to the response-processing pipeline. Lifting
+// the args boundary to this struct turns "caller forgot to thread args
+// through" from a runtime nil-map check into a compile-time non-issue:
+// processResult takes ViewArgs (struct, no nil possible), so the leak
+// the old map[string]any signature allowed is structurally unreachable.
+//
+// The err field captures type errors discovered while parsing (e.g. the
+// LLM passed view=123 instead of a string). Carrying the error inside
+// the value keeps callsites to a single line — downstream code consults
+// Err() before dispatching.
+type ViewArgs struct {
+	View   ViewName
+	Format Format
+	err    error
+}
+
+// Err returns the parse error, if any. nil means the args were
+// well-typed; non-nil means downstream dispatch should surface this
+// as a view_dispatch_failed envelope instead of attempting to render.
+func (v ViewArgs) Err() error { return v.err }
+
+// ParseViewArgs extracts the view/format selection from the raw args
+// map. Missing keys produce empty fields (legitimate — "LLM didn't
+// specify"). Wrong-typed values produce an embedded error reachable
+// via Err(); the partial struct is still returned so callers can
+// continue threading it through the pipeline.
+//
+// Nil args is fine — it produces an empty ViewArgs with no error.
+// This is by design: ViewArgs{} and ParseViewArgs(nil) are equivalent
+// and both mean "use ViewSet defaults". The old nil-vs-empty-map
+// ambiguity is gone because nil is no longer a valid input *type* —
+// processResult and friends now take ViewArgs, not map[string]any.
+func ParseViewArgs(args map[string]any) ViewArgs {
+	var v ViewArgs
+	if raw, ok := args[ArgView]; ok {
+		s, ok := raw.(string)
+		if !ok {
+			v.err = fmt.Errorf("arg %q must be string, got %T", ArgView, raw)
+			return v
+		}
+		v.View = ViewName(s)
+	}
+	if raw, ok := args[ArgFormat]; ok {
+		s, ok := raw.(string)
+		if !ok {
+			v.err = fmt.Errorf("arg %q must be string, got %T", ArgFormat, raw)
+			return v
+		}
+		v.Format = Format(s)
+	}
+	return v
 }
 
 // RenderKey identifies one (tool, view, format) triple in adapter-provided

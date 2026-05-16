@@ -13,6 +13,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/version"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -331,9 +332,8 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 			pr.services.Metrics.RecordExecution(mcp.IntegrationName(integration.Name()), tool, callDuration, result.IsError, 0)
 		}
 
+		applyResultProcessing(integration, tool, compact.ParseViewArgs(args.Arguments), result, pr.services.Metrics)
 		if !result.IsError {
-			result.Data = processResult(buildResultProcessor(integration), tool, nil, result.Data, pr.services.Metrics)
-
 			limit := responseLimitFor(integration)
 			if len(result.Data) > limit {
 				if pr.services.Metrics != nil {

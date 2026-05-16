@@ -752,7 +752,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 			IsError: true,
 		}, nil
 	}
-	result.Data = processResult(buildResultProcessor(integration), args.ToolName, args.Arguments, result.Data, s.services.Metrics)
+	applyResultProcessing(integration, args.ToolName, compact.ParseViewArgs(args.Arguments), result, s.services.Metrics)
 	limit := responseLimitFor(integration)
 	if len(result.Data) > limit {
 		if s.services.Metrics != nil {
@@ -857,6 +857,22 @@ func buildResultProcessor(integration mcp.Integration) resultProcessor {
 	return rp
 }
 
+// applyResultProcessing runs the integration's response pipeline on a successful
+// tool result, mutating result.Data in place. No-op on IsError or nil integration.
+//
+// view carries the LLM's view/format selection, parsed at the request boundary
+// via compact.ParseViewArgs. Passing a typed compact.ViewArgs (not a raw args
+// map) is the structural defense against the "caller forgot to thread args"
+// leak: the parameter has no nil — every callsite must parse explicitly, and
+// "no selection" is the well-defined zero value (which means "use defaults").
+func applyResultProcessing(integration mcp.Integration, toolName mcp.ToolName, view compact.ViewArgs, result *mcp.ToolResult, metrics *mcp.Metrics) {
+	if integration == nil || result == nil || result.IsError {
+		return
+	}
+	rp := buildResultProcessor(integration)
+	result.Data = processResult(rp, toolName, view, result.Data, metrics)
+}
+
 // processResult applies markdown rendering, compaction, and columnarization.
 // Markdown rendering takes priority — if the processor has a markdown function
 // and it returns rendered content for this tool, compaction and columnarization
@@ -864,9 +880,9 @@ func buildResultProcessor(integration mcp.Integration) resultProcessor {
 // columnarizes arrays, and serializes once.
 //
 // If the tool declares multi-view config (rp.views returns a ViewSet), the
-// pipeline dispatches via processViewsResult instead — args["view"] and
-// args["format"] select the projection and renderer.
-func processResult(rp resultProcessor, toolName mcp.ToolName, args map[string]any, data string, metrics *mcp.Metrics) string {
+// pipeline dispatches via processViewsResult instead — view.View and
+// view.Format select the projection and renderer.
+func processResult(rp resultProcessor, toolName mcp.ToolName, view compact.ViewArgs, data string, metrics *mcp.Metrics) string {
 	trimmed := strings.TrimLeft(data, " \t\n\r")
 	if len(trimmed) == 0 || (trimmed[0] != '[' && trimmed[0] != '{') {
 		return data
@@ -875,7 +891,7 @@ func processResult(rp resultProcessor, toolName mcp.ToolName, args map[string]an
 	// Multi-view path takes priority when declared.
 	if rp.views != nil {
 		if viewSet, ok := rp.views(toolName); ok {
-			return processViewsResult(viewSet, toolName, args, data, metrics)
+			return processViewsResult(viewSet, toolName, view, data, metrics)
 		}
 	}
 
@@ -945,8 +961,16 @@ func processResult(rp resultProcessor, toolName mcp.ToolName, args map[string]an
 // Unsupported (view, format) combos return a structured error envelope
 // rather than silently falling back — the YAML is the contract, what's
 // not declared is not available.
-func processViewsResult(viewSet compact.ViewSet, toolName mcp.ToolName, args map[string]any, data string, metrics *mcp.Metrics) string {
-	selection, err := parseViewSelection(args, viewSet)
+func processViewsResult(viewSet compact.ViewSet, toolName mcp.ToolName, view compact.ViewArgs, data string, metrics *mcp.Metrics) string {
+	// Parse errors from the boundary surface here as a view envelope. The
+	// parse boundary (compact.ParseViewArgs) catches type errors like
+	// view=123; ViewSet-relative validation (unknown view, undeclared format)
+	// happens in resolveSelection below.
+	if err := view.Err(); err != nil {
+		return viewErrorEnvelope(toolName, err)
+	}
+
+	selection, err := resolveSelection(view, viewSet)
 	if err != nil {
 		return viewErrorEnvelope(toolName, err)
 	}
@@ -965,9 +989,9 @@ func processViewsResult(viewSet compact.ViewSet, toolName mcp.ToolName, args map
 		return data
 	}
 
-	view := viewSet.Views[selection.View]
-	if len(view.Spec) > 0 {
-		parsed = mcp.CompactAny(parsed, view.Spec)
+	parsedView := viewSet.Views[selection.View]
+	if len(parsedView.Spec) > 0 {
+		parsed = mcp.CompactAny(parsed, parsedView.Spec)
 	}
 
 	out, err := renderer(parsed)
@@ -978,8 +1002,8 @@ func processViewsResult(viewSet compact.ViewSet, toolName mcp.ToolName, args map
 
 	out = appendMoreHint(out, viewSet, selection)
 
-	if view.MaxBytes > 0 && len(out) > view.MaxBytes {
-		return tooLargeEnvelope(toolName, len(out), view.MaxBytes)
+	if parsedView.MaxBytes > 0 && len(out) > parsedView.MaxBytes {
+		return tooLargeEnvelope(toolName, len(out), parsedView.MaxBytes)
 	}
 
 	if metrics != nil {
@@ -989,38 +1013,30 @@ func processViewsResult(viewSet compact.ViewSet, toolName mcp.ToolName, args map
 	return string(out)
 }
 
-// parseViewSelection turns args into a typed ViewSelection. Missing keys
-// fall back to viewSet.Default. Invalid keys produce errors that the
-// caller wraps in a viewErrorEnvelope. This is the parse-don't-validate
-// boundary: downstream code reads the typed selection and never re-checks.
-func parseViewSelection(args map[string]any, viewSet compact.ViewSet) (compact.ViewSelection, error) {
+// resolveSelection takes the typed-but-unvalidated ViewArgs from the request
+// boundary and fills in defaults from the ViewSet, then validates the result
+// against the registered renderers. Empty View/Format fields fall back to
+// viewSet.Default. Unknown view names or undeclared formats produce an error
+// that the caller wraps in a viewErrorEnvelope.
+//
+// This is the second half of the old parseViewSelection — type-parsing now
+// happens at the request boundary in compact.ParseViewArgs, leaving this
+// function to do only ViewSet-relative resolution.
+func resolveSelection(view compact.ViewArgs, viewSet compact.ViewSet) (compact.ViewSelection, error) {
 	selection := viewSet.Default
-
-	if raw, ok := args["view"]; ok {
-		s, ok := raw.(string)
-		if !ok {
-			return selection, fmt.Errorf("arg `view` must be string, got %T", raw)
+	if view.View != "" {
+		if _, exists := viewSet.Views[view.View]; !exists {
+			return selection, fmt.Errorf("unknown view %q (available: %s)", view.View, listViewNames(viewSet))
 		}
-		view := compact.ViewName(s)
-		if _, exists := viewSet.Views[view]; !exists {
-			return selection, fmt.Errorf("unknown view %q (available: %s)", view, listViewNames(viewSet))
-		}
-		selection.View = view
+		selection.View = view.View
 	}
-
-	if raw, ok := args["format"]; ok {
-		s, ok := raw.(string)
-		if !ok {
-			return selection, fmt.Errorf("arg `format` must be string, got %T", raw)
-		}
-		selection.Format = compact.Format(s)
+	if view.Format != "" {
+		selection.Format = view.Format
 	}
-
 	if _, ok := viewSet.Renderers[selection.View][selection.Format]; !ok {
 		return selection, fmt.Errorf("view %q does not declare format %q (available formats: %s)",
 			selection.View, selection.Format, listFormats(viewSet, selection.View))
 	}
-
 	return selection, nil
 }
 
@@ -1452,11 +1468,7 @@ func (te *toolExecutor) ExecuteRendered(ctx context.Context, toolName mcp.ToolNa
 	if err != nil {
 		return nil, err
 	}
-	if result.IsError || integration == nil {
-		return result, nil
-	}
-	rp := buildResultProcessor(integration)
-	result.Data = processResult(rp, toolName, args, result.Data, te.server.services.Metrics)
+	applyResultProcessing(integration, toolName, compact.ParseViewArgs(args), result, te.server.services.Metrics)
 	return result, nil
 }
 
