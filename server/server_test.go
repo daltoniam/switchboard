@@ -1342,6 +1342,58 @@ func TestResolveSelection_UndeclaredFormat_ReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "does not declare format")
 }
 
+// The flat compaction path records metrics only when output is smaller
+// than input (genuine compression). The views path must follow the same
+// contract: appendMoreHint can make output larger than input, and a
+// blind RecordCompaction here would feed negative savings into
+// monitoring. Pin the guard so a future refactor can't drop it.
+func TestProcessViews_NoCompactionRecordedWhenOutputGrows(t *testing.T) {
+	vs := buildTestViewSet(t)
+	rp := resultProcessor{
+		views: func(_ mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	metrics := mcp.NewMetrics()
+
+	// Tiny input + default view + _more envelope = output > input.
+	input := `{"id":1}`
+	got := processResult(rp, "tool", compact.ViewArgs{}, input, metrics)
+	require.Greater(t, len(got), len(input), "test fixture: output must exceed input for this assertion to be meaningful")
+
+	snap := metrics.Snapshot()
+	assert.Equal(t, 0, snap.CompactionSamples,
+		"RecordCompaction must not fire when output grew past input (negative savings)")
+}
+
+// Map iteration order in Go is non-deterministic. Error messages built
+// by iterating viewSet.Views or viewSet.Renderers will flake any test
+// that asserts substring content. listViewNames and listFormats must
+// sort their output for stable, predictable errors across runs.
+func TestListViewNames_SortedOutput(t *testing.T) {
+	vs := compact.ViewSet{
+		Views: map[compact.ViewName]compact.ParsedView{
+			"zoo":    {},
+			"alpha":  {},
+			"middle": {},
+		},
+	}
+	assert.Equal(t, "alpha, middle, zoo", listViewNames(vs),
+		"view names must be sorted for deterministic error messages")
+}
+
+func TestListFormats_SortedOutput(t *testing.T) {
+	vs := compact.ViewSet{
+		Renderers: map[compact.ViewName]map[compact.Format]compact.Renderer{
+			"v": {
+				"yaml":     nil,
+				"json":     nil,
+				"markdown": nil,
+			},
+		},
+	}
+	assert.Equal(t, "json, markdown, yaml", listFormats(vs, "v"),
+		"formats must be sorted for deterministic error messages")
+}
+
 func TestProcessViews_MoreEnvelopeOnObjectRoot(t *testing.T) {
 	vs := buildTestViewSet(t)
 	rp := resultProcessor{
