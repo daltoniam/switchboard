@@ -39,7 +39,7 @@ require (
 	github.com/google/go-github/v68 v68.0.0
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.11.2
-	github.com/modelcontextprotocol/go-sdk v1.4.1
+	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/playwright-community/playwright-go v0.5001.0
 	github.com/slack-go/slack v0.18.0
 	github.com/stretchr/testify v1.11.1
@@ -47,7 +47,7 @@ require (
 	github.com/tetratelabs/wazero v1.11.0
 	golang.org/x/crypto v0.50.0
 	golang.org/x/net v0.53.0
-	golang.org/x/oauth2 v0.34.0
+	golang.org/x/oauth2 v0.35.0
 	google.golang.org/api v0.239.0
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
