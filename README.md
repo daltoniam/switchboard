@@ -235,3 +235,16 @@ Then run with live-reload:
 ```bash
 air
 ```
+
+## License
+
+Switchboard is source-available under the [Elastic License 2.0](LICENSE).
+
+In plain English: you can freely use, modify, redistribute, and self-host
+Switchboard — including for commercial and internal-business use. The only
+restriction is that you cannot offer Switchboard to third parties as a hosted
+or managed service that exposes a substantial portion of its functionality.
+That is the business reserved for the official hosted Switchboard service.
+
+If you have questions about licensing or want to discuss other arrangements,
+open an issue or get in touch.
