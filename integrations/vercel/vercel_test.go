@@ -552,7 +552,7 @@ func TestListRuntimeLogs(t *testing.T) {
 		assert.Equal(t, "100", r.URL.Query().Get("limit"))
 		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
 		assert.Equal(t, "1700000000", r.URL.Query().Get("since"))
-		_, _ = w.Write([]byte(`[{"id":"log_1","message":"ready"}]`))
+		_, _ = w.Write([]byte(`{"logs":[{"rowId":"log_1","message":"ready","level":"info"}],"pagination":{"count":1}}`))
 	})
 	result, err := v.Execute(context.Background(), "vercel_list_runtime_logs", map[string]any{
 		"project_id":    "prj_1",
