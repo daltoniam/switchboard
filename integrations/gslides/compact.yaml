@@ -16,72 +16,80 @@
 version: 1
 tools:
     gslides_get_presentation:
-        # Keep slide structure + text content. Drop the heavy presentation-
-        # wide masters/layouts (which can be huge for themed decks) and
-        # cell-level styling on page elements. Text content survives via
-        # shape.text.textElements[].textRun.content.
-        spec:
-            - presentationId
-            - title
-            - revisionId
-            - locale
-            - pageSize
-            - slides[].objectId
-            - slides[].pageType
-            - slides[].slideProperties.layoutObjectId
-            - slides[].slideProperties.masterObjectId
-            - slides[].slideProperties.notesPage.notesProperties
-            - slides[].pageElements[].objectId
-            - slides[].pageElements[].size
-            - slides[].pageElements[].transform
-            - slides[].pageElements[].title
-            - slides[].pageElements[].description
-            - slides[].pageElements[].shape.shapeType
-            - slides[].pageElements[].shape.placeholder
-            - slides[].pageElements[].shape.text.textElements[].textRun.content
-            - slides[].pageElements[].shape.text.textElements[].textRun.style.link
-            - slides[].pageElements[].shape.text.textElements[].paragraphMarker.style
-            - slides[].pageElements[].shape.text.textElements[].paragraphMarker.bullet
-            - slides[].pageElements[].image.contentUrl
-            - slides[].pageElements[].image.sourceUrl
-            - slides[].pageElements[].table.rows
-            - slides[].pageElements[].table.columns
-            - slides[].pageElements[].table.tableRows[].tableCells[].text.textElements[].textRun.content
-            - slides[].pageElements[].video.url
-            - slides[].pageElements[].video.source
-            - slides[].pageElements[].sheetsChart.spreadsheetId
-            - slides[].pageElements[].sheetsChart.chartId
-            - slides[].pageElements[].sheetsChart.contentUrl
-            - slides[].pageElements[].elementGroup.children[].objectId
-            - slides[].pageElements[].wordArt.renderedText
-            - slides[].pageElements[].line.lineType
-        max_bytes: 300000
-
+        views:
+            presentation:
+                spec:
+                    - presentationId
+                    - title
+                    - revisionId
+                    - locale
+                    - pageSize
+                    - slides[].objectId
+                    - slides[].pageType
+                    - slides[].slideProperties.layoutObjectId
+                    - slides[].slideProperties.masterObjectId
+                    - slides[].slideProperties.notesPage.notesProperties
+                    - slides[].pageElements[].objectId
+                    - slides[].pageElements[].size
+                    - slides[].pageElements[].transform
+                    - slides[].pageElements[].title
+                    - slides[].pageElements[].description
+                    - slides[].pageElements[].shape.shapeType
+                    - slides[].pageElements[].shape.placeholder
+                    - slides[].pageElements[].shape.text.textElements[].textRun.content
+                    - slides[].pageElements[].shape.text.textElements[].textRun.style.link
+                    - slides[].pageElements[].shape.text.textElements[].paragraphMarker.style
+                    - slides[].pageElements[].shape.text.textElements[].paragraphMarker.bullet
+                    - slides[].pageElements[].image.contentUrl
+                    - slides[].pageElements[].image.sourceUrl
+                    - slides[].pageElements[].table.rows
+                    - slides[].pageElements[].table.columns
+                    - slides[].pageElements[].table.tableRows[].tableCells[].text.textElements[].textRun.content
+                    - slides[].pageElements[].video.url
+                    - slides[].pageElements[].video.source
+                    - slides[].pageElements[].sheetsChart.spreadsheetId
+                    - slides[].pageElements[].sheetsChart.chartId
+                    - slides[].pageElements[].sheetsChart.contentUrl
+                    - slides[].pageElements[].elementGroup.children[].objectId
+                    - slides[].pageElements[].wordArt.renderedText
+                    - slides[].pageElements[].line.lineType
+                hint: "Presentation metadata, slide list, and page sizes."
+                formats: [json, markdown]
+                max_bytes: 300000
+        default:
+            view: presentation
+            format: json
     gslides_get_page:
-        # Same shape as a single slide entry above.
-        spec:
-            - objectId
-            - pageType
-            - revisionId
-            - slideProperties.layoutObjectId
-            - slideProperties.masterObjectId
-            - pageElements[].objectId
-            - pageElements[].size
-            - pageElements[].transform
-            - pageElements[].title
-            - pageElements[].description
-            - pageElements[].shape.shapeType
-            - pageElements[].shape.placeholder
-            - pageElements[].shape.text.textElements[].textRun.content
-            - pageElements[].shape.text.textElements[].textRun.style.link
-            - pageElements[].shape.text.textElements[].paragraphMarker.style
-            - pageElements[].shape.text.textElements[].paragraphMarker.bullet
-            - pageElements[].image.contentUrl
-            - pageElements[].image.sourceUrl
-            - pageElements[].table.rows
-            - pageElements[].table.columns
-            - pageElements[].table.tableRows[].tableCells[].text.textElements[].textRun.content
-            - pageElements[].video.url
-            - pageElements[].sheetsChart.spreadsheetId
-            - pageElements[].sheetsChart.chartId
-            - pageElements[].wordArt.renderedText
+        views:
+            page:
+                spec:
+                    - objectId
+                    - pageType
+                    - revisionId
+                    - slideProperties.layoutObjectId
+                    - slideProperties.masterObjectId
+                    - pageElements[].objectId
+                    - pageElements[].size
+                    - pageElements[].transform
+                    - pageElements[].title
+                    - pageElements[].description
+                    - pageElements[].shape.shapeType
+                    - pageElements[].shape.placeholder
+                    - pageElements[].shape.text.textElements[].textRun.content
+                    - pageElements[].shape.text.textElements[].textRun.style.link
+                    - pageElements[].shape.text.textElements[].paragraphMarker.style
+                    - pageElements[].shape.text.textElements[].paragraphMarker.bullet
+                    - pageElements[].image.contentUrl
+                    - pageElements[].image.sourceUrl
+                    - pageElements[].table.rows
+                    - pageElements[].table.columns
+                    - pageElements[].table.tableRows[].tableCells[].text.textElements[].textRun.content
+                    - pageElements[].video.url
+                    - pageElements[].sheetsChart.spreadsheetId
+                    - pageElements[].sheetsChart.chartId
+                    - pageElements[].wordArt.renderedText
+                hint: "Single slide page with elements and layout."
+                formats: [json, markdown]
+        default:
+            view: page
+            format: json

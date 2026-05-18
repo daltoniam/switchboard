@@ -39,6 +39,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gsheets", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gsheets struct {
 	accessToken  string
@@ -53,9 +54,9 @@ type gsheets struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gsheets)(nil)
-	_ mcp.MarkdownIntegration        = (*gsheets)(nil)
 	_ mcp.PlainTextCredentials       = (*gsheets)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gsheets)(nil)
+	_ compact.ToolViewsIntegration   = (*gsheets)(nil)
 )
 
 func (g *gsheets) PlainTextKeys() []string {
@@ -138,6 +139,11 @@ func (g *gsheets) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) 
 func (g *gsheets) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gsheets) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---

@@ -16,52 +16,66 @@
 version: 1
 tools:
     gtasks_list_tasklists:
-        spec:
-            - items[].id
-            - items[].title
-            - items[].updated
-            - nextPageToken
-
+        views:
+            tasklists:
+                spec:
+                    - items[].id
+                    - items[].title
+                    - items[].updated
+                    - nextPageToken
+                hint: "Task lists with id, title, and times."
+                formats: [json, markdown]
+        default:
+            view: tasklists
+            format: json
     gtasks_list_tasks:
-        # Keep every business-meaningful field on each task: identity,
-        # hierarchy (parent/position), content (title/notes/due),
-        # status (status/completed/deleted/hidden), and links/assignment
-        # metadata. Drop the per-task bookkeeping (etag, kind, selfLink).
-        spec:
-            - items[].id
-            - items[].title
-            - items[].notes
-            - items[].status
-            - items[].due
-            - items[].completed
-            - items[].deleted
-            - items[].hidden
-            - items[].parent
-            - items[].position
-            - items[].updated
-            - items[].webViewLink
-            - items[].links
-            - items[].assignmentInfo
-            - nextPageToken
-        max_bytes: 200000
-
+        views:
+            tasks:
+                spec:
+                    - items[].id
+                    - items[].title
+                    - items[].notes
+                    - items[].status
+                    - items[].due
+                    - items[].completed
+                    - items[].deleted
+                    - items[].hidden
+                    - items[].parent
+                    - items[].position
+                    - items[].updated
+                    - items[].webViewLink
+                    - items[].links
+                    - items[].assignmentInfo
+                    - nextPageToken
+                hint: "Tasks with title, notes, due, status, and parent."
+                formats: [json, markdown]
+                max_bytes: 200000
+        default:
+            view: tasks
+            format: json
     gtasks_get_task:
-        spec:
-            - id
-            - title
-            - notes
-            - status
-            - due
-            - completed
-            - deleted
-            - hidden
-            - parent
-            - position
-            - updated
-            - webViewLink
-            - links
-            - assignmentInfo
-
+        views:
+            task:
+                spec:
+                    - id
+                    - title
+                    - notes
+                    - status
+                    - due
+                    - completed
+                    - deleted
+                    - hidden
+                    - parent
+                    - position
+                    - updated
+                    - webViewLink
+                    - links
+                    - assignmentInfo
+                hint: "Single task: title, notes, due, status, links."
+                formats: [json, markdown]
+        default:
+            view: task
+            format: json
     gtasks_create_task:
         spec:
             - id
@@ -73,7 +87,6 @@ tools:
             - position
             - updated
             - webViewLink
-
     gtasks_update_task:
         spec:
             - id
@@ -88,7 +101,6 @@ tools:
             - position
             - updated
             - webViewLink
-
     gtasks_move_task:
         spec:
             - id
@@ -97,7 +109,6 @@ tools:
             - parent
             - position
             - updated
-
     gtasks_create_tasklist:
         spec:
             - id

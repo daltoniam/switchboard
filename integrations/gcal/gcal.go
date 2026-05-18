@@ -29,6 +29,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gcal", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gcal struct {
 	accessToken  string
@@ -43,9 +44,9 @@ type gcal struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gcal)(nil)
-	_ mcp.MarkdownIntegration        = (*gcal)(nil)
 	_ mcp.PlainTextCredentials       = (*gcal)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gcal)(nil)
+	_ compact.ToolViewsIntegration   = (*gcal)(nil)
 )
 
 func (g *gcal) PlainTextKeys() []string {
@@ -113,6 +114,11 @@ func (g *gcal) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 func (g *gcal) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gcal) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---

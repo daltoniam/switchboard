@@ -93,3 +93,30 @@ tools:
             - maxImportSizes
             - maxUploadSize
             - canCreateDrives
+    gdrive_get_file:
+        views:
+            file:
+                spec:
+                    - id
+                    - name
+                    - mimeType
+                    - parents
+                    - size
+                    - modifiedTime
+                    - createdTime
+                    - webViewLink
+                    - iconLink
+                    - owners[].emailAddress
+                    - owners[].displayName
+                    - trashed
+                    - starred
+                    - shared
+                    - driveId
+                    - description
+                    - md5Checksum
+                    - version
+                hint: "File metadata: name, mimeType, parents, owners, size, modified time, links."
+                formats: [json, markdown]
+        default:
+            view: file
+            format: json

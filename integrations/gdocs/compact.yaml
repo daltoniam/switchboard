@@ -16,26 +16,30 @@
 version: 1
 tools:
     gdocs_get_document:
-        # Keep the structural skeleton needed to compute indices and walk
-        # content. Drop *Style and *Suggestion* sub-objects, which are
-        # huge and almost never used for analysis.
-        spec:
-            - documentId
-            - title
-            - revisionId
-            - body.content[].startIndex
-            - body.content[].endIndex
-            - body.content[].paragraph.elements[].startIndex
-            - body.content[].paragraph.elements[].endIndex
-            - body.content[].paragraph.elements[].textRun.content
-            - body.content[].paragraph.paragraphStyle.namedStyleType
-            - body.content[].paragraph.bullet.listId
-            - body.content[].paragraph.bullet.nestingLevel
-            - body.content[].sectionBreak
-            - body.content[].table.rows
-            - body.content[].table.columns
-            - body.content[].table.tableRows[].tableCells[].content[].paragraph.elements[].textRun.content
-            - body.content[].tableOfContents.content
-            - lists
-            - namedRanges
-        max_bytes: 200000
+        views:
+            document:
+                spec:
+                    - documentId
+                    - title
+                    - revisionId
+                    - body.content[].startIndex
+                    - body.content[].endIndex
+                    - body.content[].paragraph.elements[].startIndex
+                    - body.content[].paragraph.elements[].endIndex
+                    - body.content[].paragraph.elements[].textRun.content
+                    - body.content[].paragraph.paragraphStyle.namedStyleType
+                    - body.content[].paragraph.bullet.listId
+                    - body.content[].paragraph.bullet.nestingLevel
+                    - body.content[].sectionBreak
+                    - body.content[].table.rows
+                    - body.content[].table.columns
+                    - body.content[].table.tableRows[].tableCells[].content[].paragraph.elements[].textRun.content
+                    - body.content[].tableOfContents.content
+                    - lists
+                    - namedRanges
+                hint: "Document title, body content tree, lists, tables, headers/footers."
+                formats: [json, markdown]
+                max_bytes: 200000
+        default:
+            view: document
+            format: json

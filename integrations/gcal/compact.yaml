@@ -84,3 +84,31 @@ tools:
             - items[].value
             - nextPageToken
             - nextSyncToken
+    gcal_get_event:
+        views:
+            event:
+                spec:
+                    - id
+                    - summary
+                    - description
+                    - location
+                    - status
+                    - htmlLink
+                    - start
+                    - end
+                    - recurringEventId
+                    - organizer.email
+                    - organizer.displayName
+                    - attendees[].email
+                    - attendees[].displayName
+                    - attendees[].responseStatus
+                    - attendees[].optional
+                    - hangoutLink
+                    - conferenceData.conferenceId
+                    - conferenceData.entryPoints[].uri
+                    - conferenceData.entryPoints[].entryPointType
+                hint: "Event details with time, attendees, organizer, and meet link."
+                formats: [json, markdown]
+        default:
+            view: event
+            format: json

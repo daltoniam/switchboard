@@ -43,6 +43,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gchat", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gchat struct {
 	accessToken  string
@@ -57,9 +58,9 @@ type gchat struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gchat)(nil)
-	_ mcp.MarkdownIntegration        = (*gchat)(nil)
 	_ mcp.PlainTextCredentials       = (*gchat)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gchat)(nil)
+	_ compact.ToolViewsIntegration   = (*gchat)(nil)
 )
 
 func (g *gchat) PlainTextKeys() []string {
@@ -141,6 +142,11 @@ func (g *gchat) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 func (g *gchat) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gchat) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---

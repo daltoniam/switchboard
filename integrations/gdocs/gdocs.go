@@ -33,6 +33,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gdocs", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gdocs struct {
 	accessToken  string
@@ -47,9 +48,9 @@ type gdocs struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gdocs)(nil)
-	_ mcp.MarkdownIntegration        = (*gdocs)(nil)
 	_ mcp.PlainTextCredentials       = (*gdocs)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gdocs)(nil)
+	_ compact.ToolViewsIntegration   = (*gdocs)(nil)
 )
 
 func (g *gdocs) PlainTextKeys() []string {
@@ -132,6 +133,11 @@ func (g *gdocs) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 func (g *gdocs) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gdocs) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---

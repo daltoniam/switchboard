@@ -37,6 +37,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gslides", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gslides struct {
 	accessToken  string
@@ -51,9 +52,9 @@ type gslides struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gslides)(nil)
-	_ mcp.MarkdownIntegration        = (*gslides)(nil)
 	_ mcp.PlainTextCredentials       = (*gslides)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gslides)(nil)
+	_ compact.ToolViewsIntegration   = (*gslides)(nil)
 )
 
 func (g *gslides) PlainTextKeys() []string {
@@ -136,6 +137,11 @@ func (g *gslides) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) 
 func (g *gslides) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gslides) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---

@@ -19,102 +19,155 @@ version: 1
 tools:
     # ── Spaces ──────────────────────────────────────────────────────
     gmeet_create_space:
-        spec:
-            - name
-            - meetingUri
-            - meetingCode
-            - config.accessType
-            - config.entryPointAccess
-            - config.moderation
-            - activeConference.conferenceRecord
-
+        views:
+            space:
+                spec:
+                    - name
+                    - meetingUri
+                    - meetingCode
+                    - config.accessType
+                    - config.entryPointAccess
+                    - config.moderation
+                    - activeConference.conferenceRecord
+                hint: "Created space: name, meeting URI/code, config."
+                formats: [json, markdown]
+        default:
+            view: space
+            format: json
     gmeet_get_space:
-        spec:
-            - name
-            - meetingUri
-            - meetingCode
-            - config.accessType
-            - config.entryPointAccess
-            - config.moderation
-            - config.moderationRestrictions.chatRestriction
-            - config.moderationRestrictions.reactionRestriction
-            - config.moderationRestrictions.presentRestriction
-            - config.moderationRestrictions.defaultJoinAsViewerType
-            - activeConference.conferenceRecord
-
+        views:
+            space:
+                spec:
+                    - name
+                    - meetingUri
+                    - meetingCode
+                    - config.accessType
+                    - config.entryPointAccess
+                    - config.moderation
+                    - config.moderationRestrictions.chatRestriction
+                    - config.moderationRestrictions.reactionRestriction
+                    - config.moderationRestrictions.presentRestriction
+                    - config.moderationRestrictions.defaultJoinAsViewerType
+                    - activeConference.conferenceRecord
+                hint: "Space details: name, meeting URI/code, config, active conference."
+                formats: [json, markdown]
+        default:
+            view: space
+            format: json
     gmeet_update_space:
-        spec:
-            - name
-            - meetingUri
-            - meetingCode
-            - config.accessType
-            - config.entryPointAccess
-            - config.moderation
-            - activeConference.conferenceRecord
-
+        views:
+            space:
+                spec:
+                    - name
+                    - meetingUri
+                    - meetingCode
+                    - config.accessType
+                    - config.entryPointAccess
+                    - config.moderation
+                    - activeConference.conferenceRecord
+                hint: "Updated space with new config."
+                formats: [json, markdown]
+        default:
+            view: space
+            format: json
     gmeet_end_active_conference:
         spec:
             - status
-
-    # ── Conference records ──────────────────────────────────────────
     gmeet_list_conference_records:
-        spec:
-            - conferenceRecords[].name
-            - conferenceRecords[].startTime
-            - conferenceRecords[].endTime
-            - conferenceRecords[].expireTime
-            - conferenceRecords[].space
-            - nextPageToken
-        max_bytes: 200000
-
+        views:
+            records:
+                spec:
+                    - conferenceRecords[].name
+                    - conferenceRecords[].startTime
+                    - conferenceRecords[].endTime
+                    - conferenceRecords[].expireTime
+                    - conferenceRecords[].space
+                    - nextPageToken
+                hint: "Conference records with space ref and times."
+                formats: [json, markdown]
+                max_bytes: 200000
+        default:
+            view: records
+            format: json
     gmeet_get_conference_record:
-        spec:
-            - name
-            - startTime
-            - endTime
-            - expireTime
-            - space
-
+        views:
+            record:
+                spec:
+                    - name
+                    - startTime
+                    - endTime
+                    - expireTime
+                    - space
+                hint: "Conference record: space ref, start/end times."
+                formats: [json, markdown]
+        default:
+            view: record
+            format: json
     gmeet_list_participants:
-        spec:
-            - participants[].name
-            - participants[].earliestStartTime
-            - participants[].latestEndTime
-            - participants[].signedinUser.user
-            - participants[].signedinUser.displayName
-            - participants[].anonymousUser.displayName
-            - participants[].phoneUser.displayName
-            - nextPageToken
-            - totalSize
-        max_bytes: 200000
-
+        views:
+            participants:
+                spec:
+                    - participants[].name
+                    - participants[].earliestStartTime
+                    - participants[].latestEndTime
+                    - participants[].signedinUser.user
+                    - participants[].signedinUser.displayName
+                    - participants[].anonymousUser.displayName
+                    - participants[].phoneUser.displayName
+                    - nextPageToken
+                    - totalSize
+                hint: "Participants with identity, type, and earliest/latest times."
+                formats: [json, markdown]
+                max_bytes: 200000
+        default:
+            view: participants
+            format: json
     gmeet_list_recordings:
-        spec:
-            - recordings[].name
-            - recordings[].state
-            - recordings[].startTime
-            - recordings[].endTime
-            - recordings[].driveDestination.file
-            - recordings[].driveDestination.exportUri
-            - nextPageToken
-
+        views:
+            recordings:
+                spec:
+                    - recordings[].name
+                    - recordings[].state
+                    - recordings[].startTime
+                    - recordings[].endTime
+                    - recordings[].driveDestination.file
+                    - recordings[].driveDestination.exportUri
+                    - nextPageToken
+                hint: "Recordings with state, drive id, and times."
+                formats: [json, markdown]
+        default:
+            view: recordings
+            format: json
     gmeet_list_transcripts:
-        spec:
-            - transcripts[].name
-            - transcripts[].state
-            - transcripts[].startTime
-            - transcripts[].endTime
-            - transcripts[].docsDestination.document
-            - transcripts[].docsDestination.exportUri
-            - nextPageToken
-
+        views:
+            transcripts:
+                spec:
+                    - transcripts[].name
+                    - transcripts[].state
+                    - transcripts[].startTime
+                    - transcripts[].endTime
+                    - transcripts[].docsDestination.document
+                    - transcripts[].docsDestination.exportUri
+                    - nextPageToken
+                hint: "Transcripts with state, drive doc, and times."
+                formats: [json, markdown]
+        default:
+            view: transcripts
+            format: json
     gmeet_list_transcript_entries:
-        spec:
-            - transcriptEntries[].name
-            - transcriptEntries[].participant
-            - transcriptEntries[].text
-            - transcriptEntries[].languageCode
-            - transcriptEntries[].startTime
-            - transcriptEntries[].endTime
-            - nextPageToken
-        max_bytes: 200000
+        views:
+            entries:
+                spec:
+                    - transcriptEntries[].name
+                    - transcriptEntries[].participant
+                    - transcriptEntries[].text
+                    - transcriptEntries[].languageCode
+                    - transcriptEntries[].startTime
+                    - transcriptEntries[].endTime
+                    - nextPageToken
+                hint: "Transcript entries with participant, text, language, and times."
+                formats: [json, markdown]
+                max_bytes: 200000
+        default:
+            view: entries
+            format: json

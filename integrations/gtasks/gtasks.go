@@ -36,6 +36,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gtasks", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gtasks struct {
 	accessToken  string
@@ -50,9 +51,9 @@ type gtasks struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gtasks)(nil)
-	_ mcp.MarkdownIntegration        = (*gtasks)(nil)
 	_ mcp.PlainTextCredentials       = (*gtasks)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gtasks)(nil)
+	_ compact.ToolViewsIntegration   = (*gtasks)(nil)
 )
 
 func (g *gtasks) PlainTextKeys() []string {
@@ -133,6 +134,11 @@ func (g *gtasks) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 func (g *gtasks) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gtasks) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---

@@ -17,70 +17,89 @@
 version: 1
 tools:
     gchat_list_spaces:
-        spec:
-            - spaces[].name
-            - spaces[].displayName
-            - spaces[].type
-            - spaces[].spaceType
-            - spaces[].singleUserBotDm
-            - spaces[].externalUserAllowed
-            - spaces[].spaceThreadingState
-            - spaces[].spaceHistoryState
-            - nextPageToken
-
+        views:
+            spaces:
+                spec:
+                    - spaces[].name
+                    - spaces[].displayName
+                    - spaces[].type
+                    - spaces[].spaceType
+                    - spaces[].singleUserBotDm
+                    - spaces[].externalUserAllowed
+                    - spaces[].spaceThreadingState
+                    - spaces[].spaceHistoryState
+                    - nextPageToken
+                hint: "Space id, type, display name, and access level."
+                formats: [json, markdown]
+        default:
+            view: spaces
+            format: json
     gchat_get_space:
-        spec:
-            - name
-            - displayName
-            - type
-            - spaceType
-            - singleUserBotDm
-            - externalUserAllowed
-            - spaceDetails
-            - spaceThreadingState
-            - spaceHistoryState
-
+        views:
+            space:
+                spec:
+                    - name
+                    - displayName
+                    - type
+                    - spaceType
+                    - singleUserBotDm
+                    - externalUserAllowed
+                    - spaceDetails
+                    - spaceThreadingState
+                    - spaceHistoryState
+                hint: "Single space details: type, display name, threading, access."
+                formats: [json, markdown]
+        default:
+            view: space
+            format: json
     gchat_list_messages:
-        # Keep every business-meaningful field on each message: identity,
-        # sender (so the LLM knows who said what), timestamps, content
-        # (text and cards), thread linkage, and attachments. Drop the
-        # bookkeeping (clientAssignedMessageId, fallbackText, formatted
-        # variants, annotations, argumentText).
-        spec:
-            - messages[].name
-            - messages[].sender.name
-            - messages[].sender.type
-            - messages[].sender.displayName
-            - messages[].sender.domainId
-            - messages[].createTime
-            - messages[].lastUpdateTime
-            - messages[].deleteTime
-            - messages[].text
-            - messages[].cardsV2
-            - messages[].thread.name
-            - messages[].space.name
-            - messages[].attachment
-            - messages[].deletionMetadata
-            - nextPageToken
-        max_bytes: 200000
-
+        views:
+            messages:
+                spec:
+                    - messages[].name
+                    - messages[].sender.name
+                    - messages[].sender.type
+                    - messages[].sender.displayName
+                    - messages[].sender.domainId
+                    - messages[].createTime
+                    - messages[].lastUpdateTime
+                    - messages[].deleteTime
+                    - messages[].text
+                    - messages[].cardsV2
+                    - messages[].thread.name
+                    - messages[].space.name
+                    - messages[].attachment
+                    - messages[].deletionMetadata
+                    - nextPageToken
+                hint: "Message id, sender, text, thread, and create time."
+                formats: [json, markdown]
+                max_bytes: 200000
+        default:
+            view: messages
+            format: json
     gchat_get_message:
-        spec:
-            - name
-            - sender.name
-            - sender.type
-            - sender.displayName
-            - sender.domainId
-            - createTime
-            - lastUpdateTime
-            - deleteTime
-            - text
-            - cardsV2
-            - thread.name
-            - space.name
-            - attachment
-            - deletionMetadata
-
+        views:
+            message:
+                spec:
+                    - name
+                    - sender.name
+                    - sender.type
+                    - sender.displayName
+                    - sender.domainId
+                    - createTime
+                    - lastUpdateTime
+                    - deleteTime
+                    - text
+                    - cardsV2
+                    - thread.name
+                    - space.name
+                    - attachment
+                    - deletionMetadata
+                hint: "Single message: sender, text, thread, attachments."
+                formats: [json, markdown]
+        default:
+            view: message
+            format: json
     gchat_create_message:
         spec:
             - name
@@ -88,7 +107,6 @@ tools:
             - createTime
             - text
             - thread.name
-
     gchat_update_message:
         spec:
             - name
@@ -97,15 +115,21 @@ tools:
             - lastUpdateTime
             - text
             - thread.name
-
     gchat_list_members:
-        spec:
-            - memberships[].name
-            - memberships[].state
-            - memberships[].role
-            - memberships[].createTime
-            - memberships[].member.name
-            - memberships[].member.displayName
-            - memberships[].member.type
-            - memberships[].member.domainId
-            - nextPageToken
+        views:
+            members:
+                spec:
+                    - memberships[].name
+                    - memberships[].state
+                    - memberships[].role
+                    - memberships[].createTime
+                    - memberships[].member.name
+                    - memberships[].member.displayName
+                    - memberships[].member.type
+                    - memberships[].member.domainId
+                    - nextPageToken
+                hint: "Members with name, type, and role."
+                formats: [json, markdown]
+        default:
+            view: members
+            format: json

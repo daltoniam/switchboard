@@ -29,6 +29,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gdrive", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gdrive struct {
 	accessToken  string
@@ -44,9 +45,9 @@ type gdrive struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gdrive)(nil)
-	_ mcp.MarkdownIntegration        = (*gdrive)(nil)
 	_ mcp.PlainTextCredentials       = (*gdrive)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gdrive)(nil)
+	_ compact.ToolViewsIntegration   = (*gdrive)(nil)
 )
 
 func (g *gdrive) PlainTextKeys() []string {
@@ -118,6 +119,11 @@ func (g *gdrive) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 func (g *gdrive) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gdrive) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---

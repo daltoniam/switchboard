@@ -44,6 +44,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gpeople", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gpeople struct {
 	accessToken  string
@@ -58,9 +59,9 @@ type gpeople struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gpeople)(nil)
-	_ mcp.MarkdownIntegration        = (*gpeople)(nil)
 	_ mcp.PlainTextCredentials       = (*gpeople)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gpeople)(nil)
+	_ compact.ToolViewsIntegration   = (*gpeople)(nil)
 )
 
 func (g *gpeople) PlainTextKeys() []string {
@@ -146,6 +147,11 @@ func (g *gpeople) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) 
 func (g *gpeople) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gpeople) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---

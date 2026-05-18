@@ -36,6 +36,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gforms", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gforms struct {
 	accessToken  string
@@ -50,9 +51,9 @@ type gforms struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gforms)(nil)
-	_ mcp.MarkdownIntegration        = (*gforms)(nil)
 	_ mcp.PlainTextCredentials       = (*gforms)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gforms)(nil)
+	_ compact.ToolViewsIntegration   = (*gforms)(nil)
 )
 
 func (g *gforms) PlainTextKeys() []string {
@@ -135,6 +136,11 @@ func (g *gforms) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 func (g *gforms) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gforms) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---

@@ -44,6 +44,7 @@ var compactYAML []byte
 var compactResult = compact.MustLoadWithOverlay("gmeet", compactYAML, compact.Options{Strict: false})
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
+var viewSets = compactResult.Views
 
 type gmeet struct {
 	accessToken  string
@@ -58,9 +59,9 @@ type gmeet struct {
 
 var (
 	_ mcp.FieldCompactionIntegration = (*gmeet)(nil)
-	_ mcp.MarkdownIntegration        = (*gmeet)(nil)
 	_ mcp.PlainTextCredentials       = (*gmeet)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gmeet)(nil)
+	_ compact.ToolViewsIntegration   = (*gmeet)(nil)
 )
 
 func (g *gmeet) PlainTextKeys() []string {
@@ -141,6 +142,11 @@ func (g *gmeet) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 func (g *gmeet) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+func (g *gmeet) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	vs, ok := viewSets[toolName]
+	return vs, ok
 }
 
 // --- HTTP helpers ---
