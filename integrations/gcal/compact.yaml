@@ -1,0 +1,86 @@
+# Switchboard compaction specs for the gcal (Google Calendar) integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# gcal.yaml there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    gcal_list_events:
+        spec:
+            - items[].id
+            - items[].summary
+            - items[].description
+            - items[].location
+            - items[].status
+            - items[].htmlLink
+            - items[].start
+            - items[].end
+            - items[].recurringEventId
+            - items[].organizer.email
+            - items[].organizer.displayName
+            - items[].attendees[].email
+            - items[].attendees[].displayName
+            - items[].attendees[].responseStatus
+            - items[].attendees[].optional
+            - items[].hangoutLink
+            - items[].conferenceData.conferenceId
+            - items[].conferenceData.entryPoints[].uri
+            - items[].conferenceData.entryPoints[].entryPointType
+            - nextPageToken
+            - nextSyncToken
+            - timeZone
+    gcal_list_instances:
+        spec:
+            - items[].id
+            - items[].summary
+            - items[].status
+            - items[].start
+            - items[].end
+            - items[].recurringEventId
+            - items[].originalStartTime
+            - nextPageToken
+            - nextSyncToken
+            - timeZone
+    gcal_list_calendars:
+        spec:
+            - items[].id
+            - items[].summary
+            - items[].description
+            - items[].timeZone
+            - items[].accessRole
+            - items[].primary
+            - items[].selected
+            - items[].hidden
+            - items[].colorId
+            - items[].backgroundColor
+            - nextPageToken
+            - nextSyncToken
+    gcal_list_acl:
+        spec:
+            - items[].id
+            - items[].role
+            - items[].scope.type
+            - items[].scope.value
+            - nextPageToken
+            - nextSyncToken
+    gcal_query_freebusy:
+        spec:
+            - calendars
+            - groups
+            - timeMin
+            - timeMax
+            - kind
+    gcal_list_settings:
+        spec:
+            - items[].id
+            - items[].value
+            - nextPageToken
+            - nextSyncToken

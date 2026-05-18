@@ -1,0 +1,105 @@
+# Switchboard compaction specs for the gtasks (Google Tasks) integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Note: gtasks_create_tasklist, gtasks_create_task, gtasks_update_task,
+# gtasks_get_task, and gtasks_move_task echo a single Task/TaskList object.
+# Compacted shapes below drop the bookkeeping fields (selfLink, etag, kind)
+# while keeping every business-meaningful field.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place gtasks.yaml
+# there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions, wildcards):
+# docs/field-compaction.md.
+
+version: 1
+tools:
+    gtasks_list_tasklists:
+        spec:
+            - items[].id
+            - items[].title
+            - items[].updated
+            - nextPageToken
+
+    gtasks_list_tasks:
+        # Keep every business-meaningful field on each task: identity,
+        # hierarchy (parent/position), content (title/notes/due),
+        # status (status/completed/deleted/hidden), and links/assignment
+        # metadata. Drop the per-task bookkeeping (etag, kind, selfLink).
+        spec:
+            - items[].id
+            - items[].title
+            - items[].notes
+            - items[].status
+            - items[].due
+            - items[].completed
+            - items[].deleted
+            - items[].hidden
+            - items[].parent
+            - items[].position
+            - items[].updated
+            - items[].webViewLink
+            - items[].links
+            - items[].assignmentInfo
+            - nextPageToken
+        max_bytes: 200000
+
+    gtasks_get_task:
+        spec:
+            - id
+            - title
+            - notes
+            - status
+            - due
+            - completed
+            - deleted
+            - hidden
+            - parent
+            - position
+            - updated
+            - webViewLink
+            - links
+            - assignmentInfo
+
+    gtasks_create_task:
+        spec:
+            - id
+            - title
+            - notes
+            - status
+            - due
+            - parent
+            - position
+            - updated
+            - webViewLink
+
+    gtasks_update_task:
+        spec:
+            - id
+            - title
+            - notes
+            - status
+            - due
+            - completed
+            - deleted
+            - hidden
+            - parent
+            - position
+            - updated
+            - webViewLink
+
+    gtasks_move_task:
+        spec:
+            - id
+            - title
+            - status
+            - parent
+            - position
+            - updated
+
+    gtasks_create_tasklist:
+        spec:
+            - id
+            - title
+            - updated

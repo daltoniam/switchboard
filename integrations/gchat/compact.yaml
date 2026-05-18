@@ -1,0 +1,111 @@
+# Switchboard compaction specs for the gchat (Google Chat) integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Note: gchat_create_message, gchat_update_message, and gchat_delete_message
+# echo a single Message envelope (or {"status":"success"}); the compacted
+# shapes below drop the bookkeeping fields (etag, fallbackText, formatted
+# text variants, raw annotation arrays) while keeping every business-
+# meaningful field (sender, timestamps, text, thread).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place gchat.yaml
+# there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions, wildcards):
+# docs/field-compaction.md.
+
+version: 1
+tools:
+    gchat_list_spaces:
+        spec:
+            - spaces[].name
+            - spaces[].displayName
+            - spaces[].type
+            - spaces[].spaceType
+            - spaces[].singleUserBotDm
+            - spaces[].externalUserAllowed
+            - spaces[].spaceThreadingState
+            - spaces[].spaceHistoryState
+            - nextPageToken
+
+    gchat_get_space:
+        spec:
+            - name
+            - displayName
+            - type
+            - spaceType
+            - singleUserBotDm
+            - externalUserAllowed
+            - spaceDetails
+            - spaceThreadingState
+            - spaceHistoryState
+
+    gchat_list_messages:
+        # Keep every business-meaningful field on each message: identity,
+        # sender (so the LLM knows who said what), timestamps, content
+        # (text and cards), thread linkage, and attachments. Drop the
+        # bookkeeping (clientAssignedMessageId, fallbackText, formatted
+        # variants, annotations, argumentText).
+        spec:
+            - messages[].name
+            - messages[].sender.name
+            - messages[].sender.type
+            - messages[].sender.displayName
+            - messages[].sender.domainId
+            - messages[].createTime
+            - messages[].lastUpdateTime
+            - messages[].deleteTime
+            - messages[].text
+            - messages[].cardsV2
+            - messages[].thread.name
+            - messages[].space.name
+            - messages[].attachment
+            - messages[].deletionMetadata
+            - nextPageToken
+        max_bytes: 200000
+
+    gchat_get_message:
+        spec:
+            - name
+            - sender.name
+            - sender.type
+            - sender.displayName
+            - sender.domainId
+            - createTime
+            - lastUpdateTime
+            - deleteTime
+            - text
+            - cardsV2
+            - thread.name
+            - space.name
+            - attachment
+            - deletionMetadata
+
+    gchat_create_message:
+        spec:
+            - name
+            - sender.name
+            - createTime
+            - text
+            - thread.name
+
+    gchat_update_message:
+        spec:
+            - name
+            - sender.name
+            - createTime
+            - lastUpdateTime
+            - text
+            - thread.name
+
+    gchat_list_members:
+        spec:
+            - memberships[].name
+            - memberships[].state
+            - memberships[].role
+            - memberships[].createTime
+            - memberships[].member.name
+            - memberships[].member.displayName
+            - memberships[].member.type
+            - memberships[].member.domainId
+            - nextPageToken

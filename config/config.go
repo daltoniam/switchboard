@@ -245,6 +245,46 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
+			"gcal": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gdrive": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", "upload_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gdocs": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gsheets": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gslides": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gforms": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gtasks": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gchat": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gpeople": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gmeet": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
 			"notion": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token_v2": ""},

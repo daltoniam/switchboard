@@ -1,0 +1,120 @@
+# Switchboard compaction specs for the gmeet (Google Meet REST API v2)
+# integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Meet API responses are relatively lean compared to other Google APIs, but
+# participant / transcript entry lists can grow large for hour-long calls
+# with dozens of attendees. The compaction specs below keep the high-signal
+# fields (identity, timing, destinations) and drop deprecated camelCase
+# duplicates plus per-resource etag bookkeeping when unused.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place gmeet.yaml
+# there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions, wildcards):
+# docs/field-compaction.md.
+
+version: 1
+tools:
+    # ── Spaces ──────────────────────────────────────────────────────
+    gmeet_create_space:
+        spec:
+            - name
+            - meetingUri
+            - meetingCode
+            - config.accessType
+            - config.entryPointAccess
+            - config.moderation
+            - activeConference.conferenceRecord
+
+    gmeet_get_space:
+        spec:
+            - name
+            - meetingUri
+            - meetingCode
+            - config.accessType
+            - config.entryPointAccess
+            - config.moderation
+            - config.moderationRestrictions.chatRestriction
+            - config.moderationRestrictions.reactionRestriction
+            - config.moderationRestrictions.presentRestriction
+            - config.moderationRestrictions.defaultJoinAsViewerType
+            - activeConference.conferenceRecord
+
+    gmeet_update_space:
+        spec:
+            - name
+            - meetingUri
+            - meetingCode
+            - config.accessType
+            - config.entryPointAccess
+            - config.moderation
+            - activeConference.conferenceRecord
+
+    gmeet_end_active_conference:
+        spec:
+            - status
+
+    # ── Conference records ──────────────────────────────────────────
+    gmeet_list_conference_records:
+        spec:
+            - conferenceRecords[].name
+            - conferenceRecords[].startTime
+            - conferenceRecords[].endTime
+            - conferenceRecords[].expireTime
+            - conferenceRecords[].space
+            - nextPageToken
+        max_bytes: 200000
+
+    gmeet_get_conference_record:
+        spec:
+            - name
+            - startTime
+            - endTime
+            - expireTime
+            - space
+
+    gmeet_list_participants:
+        spec:
+            - participants[].name
+            - participants[].earliestStartTime
+            - participants[].latestEndTime
+            - participants[].signedinUser.user
+            - participants[].signedinUser.displayName
+            - participants[].anonymousUser.displayName
+            - participants[].phoneUser.displayName
+            - nextPageToken
+            - totalSize
+        max_bytes: 200000
+
+    gmeet_list_recordings:
+        spec:
+            - recordings[].name
+            - recordings[].state
+            - recordings[].startTime
+            - recordings[].endTime
+            - recordings[].driveDestination.file
+            - recordings[].driveDestination.exportUri
+            - nextPageToken
+
+    gmeet_list_transcripts:
+        spec:
+            - transcripts[].name
+            - transcripts[].state
+            - transcripts[].startTime
+            - transcripts[].endTime
+            - transcripts[].docsDestination.document
+            - transcripts[].docsDestination.exportUri
+            - nextPageToken
+
+    gmeet_list_transcript_entries:
+        spec:
+            - transcriptEntries[].name
+            - transcriptEntries[].participant
+            - transcriptEntries[].text
+            - transcriptEntries[].languageCode
+            - transcriptEntries[].startTime
+            - transcriptEntries[].endTime
+            - nextPageToken
+        max_bytes: 200000

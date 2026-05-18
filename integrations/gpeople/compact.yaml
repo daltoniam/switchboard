@@ -1,0 +1,180 @@
+# Switchboard compaction specs for the gpeople (Google People API) integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# People API responses can include 30+ field arrays per person (addresses,
+# events, externalIds, imClients, calendarUrls, etc.) — many of which are
+# rarely populated. The compaction specs below keep the high-signal fields
+# (names, contact methods, organization, locations) and drop the long tail
+# of per-field metadata.source bookkeeping that bloats responses.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place gpeople.yaml
+# there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions, wildcards):
+# docs/field-compaction.md.
+
+version: 1
+tools:
+    # ── Contacts ────────────────────────────────────────────────────
+    gpeople_list_contacts:
+        spec:
+            - connections[].resourceName
+            - connections[].etag
+            - connections[].names[].displayName
+            - connections[].names[].givenName
+            - connections[].names[].familyName
+            - connections[].emailAddresses[].value
+            - connections[].emailAddresses[].type
+            - connections[].phoneNumbers[].value
+            - connections[].phoneNumbers[].type
+            - connections[].organizations[].name
+            - connections[].organizations[].title
+            - connections[].organizations[].department
+            - connections[].addresses[].formattedValue
+            - connections[].addresses[].type
+            - connections[].biographies[].value
+            - connections[].urls[].value
+            - connections[].urls[].type
+            - connections[].photos[].url
+            - nextPageToken
+            - totalPeople
+            - totalItems
+        max_bytes: 200000
+
+    gpeople_search_contacts:
+        spec:
+            - results[].person.resourceName
+            - results[].person.etag
+            - results[].person.names[].displayName
+            - results[].person.names[].givenName
+            - results[].person.names[].familyName
+            - results[].person.emailAddresses[].value
+            - results[].person.emailAddresses[].type
+            - results[].person.phoneNumbers[].value
+            - results[].person.phoneNumbers[].type
+            - results[].person.organizations[].name
+            - results[].person.organizations[].title
+            - results[].person.addresses[].formattedValue
+        max_bytes: 100000
+
+    gpeople_get_person:
+        spec:
+            - resourceName
+            - etag
+            - names[].displayName
+            - names[].givenName
+            - names[].familyName
+            - names[].middleName
+            - emailAddresses[].value
+            - emailAddresses[].type
+            - emailAddresses[].displayName
+            - phoneNumbers[].value
+            - phoneNumbers[].type
+            - phoneNumbers[].canonicalForm
+            - organizations[].name
+            - organizations[].title
+            - organizations[].department
+            - organizations[].startDate
+            - organizations[].endDate
+            - addresses[].formattedValue
+            - addresses[].streetAddress
+            - addresses[].city
+            - addresses[].region
+            - addresses[].postalCode
+            - addresses[].country
+            - addresses[].type
+            - biographies[].value
+            - biographies[].contentType
+            - birthdays[].date
+            - birthdays[].text
+            - urls[].value
+            - urls[].type
+            - photos[].url
+            - locations[].value
+            - locations[].type
+            - nicknames[].value
+            - relations[].person
+            - relations[].type
+            - userDefined[].key
+            - userDefined[].value
+            - metadata.sources[].id
+            - metadata.sources[].etag
+
+    gpeople_create_contact:
+        spec:
+            - resourceName
+            - etag
+            - names[].displayName
+            - names[].givenName
+            - names[].familyName
+            - emailAddresses[].value
+            - emailAddresses[].type
+            - phoneNumbers[].value
+            - phoneNumbers[].type
+            - organizations[].name
+            - organizations[].title
+            - addresses[].formattedValue
+
+    gpeople_update_contact:
+        spec:
+            - resourceName
+            - etag
+            - names[].displayName
+            - names[].givenName
+            - names[].familyName
+            - emailAddresses[].value
+            - emailAddresses[].type
+            - phoneNumbers[].value
+            - phoneNumbers[].type
+            - organizations[].name
+            - organizations[].title
+            - addresses[].formattedValue
+
+    # ── Directory ───────────────────────────────────────────────────
+    gpeople_list_directory_people:
+        spec:
+            - people[].resourceName
+            - people[].etag
+            - people[].names[].displayName
+            - people[].names[].givenName
+            - people[].names[].familyName
+            - people[].emailAddresses[].value
+            - people[].emailAddresses[].type
+            - people[].phoneNumbers[].value
+            - people[].phoneNumbers[].type
+            - people[].organizations[].name
+            - people[].organizations[].title
+            - people[].organizations[].department
+            - people[].locations[].value
+            - people[].locations[].type
+            - people[].photos[].url
+            - nextPageToken
+        max_bytes: 200000
+
+    gpeople_search_directory_people:
+        spec:
+            - people[].resourceName
+            - people[].etag
+            - people[].names[].displayName
+            - people[].names[].givenName
+            - people[].names[].familyName
+            - people[].emailAddresses[].value
+            - people[].emailAddresses[].type
+            - people[].phoneNumbers[].value
+            - people[].organizations[].name
+            - people[].organizations[].title
+            - people[].locations[].value
+            - nextPageToken
+        max_bytes: 100000
+
+    # ── Other contacts ──────────────────────────────────────────────
+    gpeople_list_other_contacts:
+        spec:
+            - otherContacts[].resourceName
+            - otherContacts[].etag
+            - otherContacts[].names[].displayName
+            - otherContacts[].emailAddresses[].value
+            - otherContacts[].phoneNumbers[].value
+            - nextPageToken
+        max_bytes: 200000
