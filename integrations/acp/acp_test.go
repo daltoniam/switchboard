@@ -102,8 +102,14 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 func TestTools_AllHaveServerURLParam(t *testing.T) {
 	i := New()
 	for _, tool := range i.Tools() {
-		_, ok := tool.Parameters["server_url"]
-		assert.True(t, ok, "tool %s missing server_url parameter", tool.Name)
+		found := false
+		for _, p := range tool.Parameters {
+			if p.Name == "server_url" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "tool %s missing server_url parameter", tool.Name)
 	}
 }
 

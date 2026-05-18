@@ -10,10 +10,6 @@ var tools = []mcp.ToolDefinition{
 			"GitHub raw content, package docs, or any web page whose content you need to " +
 			"reason about. Returns extracted readable text, not raw HTML. " +
 			"Start here for web browsing, URL reading, and online documentation lookup.",
-		Parameters: map[string]string{
-			"url":     "The full URL to fetch (https only).",
-			"timeout": "Request timeout in seconds (default 10, max 30).",
-		},
-		Required: []string{"url"},
+		Parameters: []mcp.Parameter{{Name: mcp.ParamName("url"), Description: "The full URL to fetch (https only).", Required: true}, {Name: mcp.ParamName("timeout"), Description: "Request timeout in seconds (default 10, max 30)."}},
 	},
 }

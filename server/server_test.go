@@ -217,7 +217,7 @@ func TestServerWithIntegration(t *testing.T) {
 			{
 				Name:        mcp.ToolName("testint_list_items"),
 				Description: "List test items",
-				Parameters:  map[string]string{"query": "Search query"},
+				Parameters:  []mcp.Parameter{{Name: mcp.ParamName("query"), Description: "Search query"}},
 			},
 		},
 		execFn: func(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
@@ -410,6 +410,9 @@ func searchToolNames(t *testing.T, resp searchResponse) []string {
 }
 
 // extractColumnarParams parses the parameters column from columnar search tools JSON.
+// Parameters are now []mcp.Parameter (array of {name,description,required}) — this
+// helper converts them to map[string]string (name→description) for backward-compatible
+// test assertions.
 func extractColumnarParams(t *testing.T, toolsRaw json.RawMessage) []map[string]string {
 	t.Helper()
 	var obj struct {
@@ -429,9 +432,23 @@ func extractColumnarParams(t *testing.T, toolsRaw json.RawMessage) []map[string]
 
 	var result []map[string]string
 	for _, row := range obj.Rows {
+		// Parameters may be a JSON array ([{name,description}...]) or object.
 		var params map[string]string
-		require.NoError(t, json.Unmarshal(row[paramIdx], &params))
-		result = append(result, params)
+		if err := json.Unmarshal(row[paramIdx], &params); err == nil {
+			result = append(result, params)
+			continue
+		}
+		// Try parsing as []mcp.Parameter array.
+		var paramArr []struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+		}
+		require.NoError(t, json.Unmarshal(row[paramIdx], &paramArr))
+		m := make(map[string]string, len(paramArr))
+		for _, p := range paramArr {
+			m[p.Name] = p.Description
+		}
+		result = append(result, m)
 	}
 	return result
 }
@@ -508,7 +525,7 @@ func makeManyTools(prefix string, n int) []mcp.ToolDefinition {
 		tools[i] = mcp.ToolDefinition{
 			Name:        mcp.ToolName(fmt.Sprintf("%s_tool_%d", prefix, i)),
 			Description: fmt.Sprintf("Tool %d for %s", i, prefix),
-			Parameters:  map[string]string{"id": "the id"},
+			Parameters:  []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "the id"}},
 		}
 	}
 	return tools
@@ -1560,8 +1577,7 @@ func TestHandleExecute_ViewArgsPassValidatorOnViewAwareTool(t *testing.T) {
 			{
 				Name:        mcp.ToolName("vw_get"),
 				Description: "Returns shapes",
-				Parameters:  map[string]string{"id": "Record ID"},
-				Required:    []string{"id"},
+				Parameters:  []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "Record ID", Required: true}},
 			},
 		},
 		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
@@ -1592,8 +1608,7 @@ func TestHandleExecute_ViewArgRejectedOnNonViewTool(t *testing.T) {
 			{
 				Name:        mcp.ToolName("plain_get"),
 				Description: "Returns shapes",
-				Parameters:  map[string]string{"id": "Record ID"},
-				Required:    []string{"id"},
+				Parameters:  []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "Record ID", Required: true}},
 			},
 		},
 	}
@@ -2670,13 +2685,12 @@ func TestFindTool_ReturnsToolDefinition(t *testing.T) {
 			{
 				Name:        mcp.ToolName("testint_get_item"),
 				Description: "Get an item",
-				Parameters:  map[string]string{"id": "Item ID"},
-				Required:    []string{"id"},
+				Parameters:  []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "Item ID", Required: true}},
 			},
 			{
 				Name:        mcp.ToolName("testint_list_items"),
 				Description: "List items",
-				Parameters:  map[string]string{"query": "Search query"},
+				Parameters:  []mcp.Parameter{{Name: mcp.ParamName("query"), Description: "Search query"}},
 			},
 		},
 	}
@@ -2687,7 +2701,9 @@ func TestFindTool_ReturnsToolDefinition(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "testint", integration.Name())
 		assert.Equal(t, mcp.ToolName("testint_get_item"), toolDef.Name)
-		assert.Equal(t, []string{"id"}, toolDef.Required)
+		require.Len(t, toolDef.Parameters, 1)
+		assert.Equal(t, mcp.ParamName("id"), toolDef.Parameters[0].Name)
+		assert.True(t, toolDef.Parameters[0].Required)
 	})
 
 	t.Run("returns error for unknown tool", func(t *testing.T) {
@@ -2700,8 +2716,7 @@ func TestFindTool_ReturnsToolDefinition(t *testing.T) {
 func TestValidateArgs(t *testing.T) {
 	tool := mcp.ToolDefinition{
 		Name:       mcp.ToolName("github_get_issue"),
-		Parameters: map[string]string{"owner": "Repo owner", "repo": "Repo name", "number": "Issue number"},
-		Required:   []string{"owner", "repo", "number"},
+		Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repo owner", Required: true}, {Name: mcp.ParamName("repo"), Description: "Repo name", Required: true}, {Name: mcp.ParamName("number"), Description: "Issue number", Required: true}},
 	}
 
 	tests := []struct {
@@ -2744,8 +2759,7 @@ func TestValidateArgs(t *testing.T) {
 			name: "optional param present",
 			tool: mcp.ToolDefinition{
 				Name:       mcp.ToolName("testint_list"),
-				Parameters: map[string]string{"query": "Search", "page": "Page number"},
-				Required:   []string{"query"},
+				Parameters: []mcp.Parameter{{Name: mcp.ParamName("query"), Description: "Search", Required: true}, {Name: mcp.ParamName("page"), Description: "Page number"}},
 			},
 			args: map[string]any{"query": "test", "page": 2},
 		},
@@ -2753,7 +2767,7 @@ func TestValidateArgs(t *testing.T) {
 			name: "empty args with no required",
 			tool: mcp.ToolDefinition{
 				Name:       mcp.ToolName("testint_list"),
-				Parameters: map[string]string{"query": "Search"},
+				Parameters: []mcp.Parameter{{Name: mcp.ParamName("query"), Description: "Search"}},
 			},
 			args: map[string]any{},
 		},
@@ -2761,7 +2775,7 @@ func TestValidateArgs(t *testing.T) {
 			name: "nil args with no required",
 			tool: mcp.ToolDefinition{
 				Name:       mcp.ToolName("testint_list"),
-				Parameters: map[string]string{"query": "Search"},
+				Parameters: []mcp.Parameter{{Name: mcp.ParamName("query"), Description: "Search"}},
 			},
 			args: nil,
 		},
@@ -2814,8 +2828,7 @@ func TestExecuteTool_ValidationRejectsMissingRequired(t *testing.T) {
 			{
 				Name:        mcp.ToolName("testint_get_item"),
 				Description: "Get an item",
-				Parameters:  map[string]string{"id": "Item ID", "format": "Output format"},
-				Required:    []string{"id"},
+				Parameters:  []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "Item ID", Required: true}, {Name: mcp.ParamName("format"), Description: "Output format"}},
 			},
 		},
 		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
@@ -2840,8 +2853,7 @@ func TestExecuteTool_ValidationRejectsUnknownParam(t *testing.T) {
 			{
 				Name:        mcp.ToolName("testint_get_item"),
 				Description: "Get an item",
-				Parameters:  map[string]string{"id": "Item ID"},
-				Required:    []string{"id"},
+				Parameters:  []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "Item ID", Required: true}},
 			},
 		},
 		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
@@ -2966,14 +2978,14 @@ func TestSearch_SharedParametersExtracted(t *testing.T) {
 		{
 			name: "extracts params with identical description across 3+ tools",
 			tools: []mcp.ToolDefinition{
-				{Name: mcp.ToolName("t_list_issues"), Description: "List issues", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "open or closed"}},
-				{Name: mcp.ToolName("t_get_issue"), Description: "Get issue", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "issue_number": "Issue number"}},
-				{Name: mcp.ToolName("t_list_pulls"), Description: "List pulls", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base branch"}},
-				{Name: mcp.ToolName("t_get_pull"), Description: "Get pull", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull number"}},
-				{Name: mcp.ToolName("t_list_commits"), Description: "List commits", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Branch or SHA"}},
-				{Name: mcp.ToolName("t_list_branches"), Description: "List branches", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
-				{Name: mcp.ToolName("t_list_releases"), Description: "List releases", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
-				{Name: mcp.ToolName("t_list_tags"), Description: "List tags", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+				{Name: mcp.ToolName("t_list_issues"), Description: "List issues", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("state"), Description: "open or closed"}}},
+				{Name: mcp.ToolName("t_get_issue"), Description: "Get issue", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("issue_number"), Description: "Issue number"}}},
+				{Name: mcp.ToolName("t_list_pulls"), Description: "List pulls", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("base"), Description: "Base branch"}}},
+				{Name: mcp.ToolName("t_get_pull"), Description: "Get pull", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("pull_number"), Description: "Pull number"}}},
+				{Name: mcp.ToolName("t_list_commits"), Description: "List commits", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("sha"), Description: "Branch or SHA"}}},
+				{Name: mcp.ToolName("t_list_branches"), Description: "List branches", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}}},
+				{Name: mcp.ToolName("t_list_releases"), Description: "List releases", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}}},
+				{Name: mcp.ToolName("t_list_tags"), Description: "List tags", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}}},
 			},
 			wantSharedParams: map[string]string{
 				"owner": "Repository owner",
@@ -2984,14 +2996,14 @@ func TestSearch_SharedParametersExtracted(t *testing.T) {
 		{
 			name: "keeps params with same name but different description per-tool",
 			tools: []mcp.ToolDefinition{
-				{Name: mcp.ToolName("t_one"), Description: "One", Parameters: map[string]string{"id": "The issue ID"}},
-				{Name: mcp.ToolName("t_two"), Description: "Two", Parameters: map[string]string{"id": "The pull request ID"}},
-				{Name: mcp.ToolName("t_three"), Description: "Three", Parameters: map[string]string{"id": "The commit SHA"}},
-				{Name: mcp.ToolName("t_four"), Description: "Four", Parameters: map[string]string{"id": "The release ID"}},
-				{Name: mcp.ToolName("t_five"), Description: "Five", Parameters: map[string]string{"id": "The tag name"}},
-				{Name: mcp.ToolName("t_six"), Description: "Six", Parameters: map[string]string{"id": "The branch name"}},
-				{Name: mcp.ToolName("t_seven"), Description: "Seven", Parameters: map[string]string{"id": "The deploy ID"}},
-				{Name: mcp.ToolName("t_eight"), Description: "Eight", Parameters: map[string]string{"id": "The run ID"}},
+				{Name: mcp.ToolName("t_one"), Description: "One", Parameters: []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "The issue ID"}}},
+				{Name: mcp.ToolName("t_two"), Description: "Two", Parameters: []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "The pull request ID"}}},
+				{Name: mcp.ToolName("t_three"), Description: "Three", Parameters: []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "The commit SHA"}}},
+				{Name: mcp.ToolName("t_four"), Description: "Four", Parameters: []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "The release ID"}}},
+				{Name: mcp.ToolName("t_five"), Description: "Five", Parameters: []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "The tag name"}}},
+				{Name: mcp.ToolName("t_six"), Description: "Six", Parameters: []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "The branch name"}}},
+				{Name: mcp.ToolName("t_seven"), Description: "Seven", Parameters: []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "The deploy ID"}}},
+				{Name: mcp.ToolName("t_eight"), Description: "Eight", Parameters: []mcp.Parameter{{Name: mcp.ParamName("id"), Description: "The run ID"}}},
 			},
 			wantSharedParams: nil, // all different descriptions
 			wantKeptPerTool:  []string{"id"},
@@ -2999,14 +3011,14 @@ func TestSearch_SharedParametersExtracted(t *testing.T) {
 		{
 			name: "preserves tool-specific value hints even when name matches",
 			tools: []mcp.ToolDefinition{
-				{Name: mcp.ToolName("t_a"), Description: "A", Parameters: map[string]string{"event": "APPROVE, REQUEST_CHANGES, COMMENT", "owner": "Repo owner"}},
-				{Name: mcp.ToolName("t_b"), Description: "B", Parameters: map[string]string{"event": "push, pull_request", "owner": "Repo owner"}},
-				{Name: mcp.ToolName("t_c"), Description: "C", Parameters: map[string]string{"event": "issues, created", "owner": "Repo owner"}},
-				{Name: mcp.ToolName("t_d"), Description: "D", Parameters: map[string]string{"owner": "Repo owner"}},
-				{Name: mcp.ToolName("t_e"), Description: "E", Parameters: map[string]string{"event": "deployment", "owner": "Repo owner"}},
-				{Name: mcp.ToolName("t_f"), Description: "F", Parameters: map[string]string{"event": "release", "owner": "Repo owner"}},
-				{Name: mcp.ToolName("t_g"), Description: "G", Parameters: map[string]string{"owner": "Repo owner"}},
-				{Name: mcp.ToolName("t_h"), Description: "H", Parameters: map[string]string{"owner": "Repo owner"}},
+				{Name: mcp.ToolName("t_a"), Description: "A", Parameters: []mcp.Parameter{{Name: mcp.ParamName("event"), Description: "APPROVE, REQUEST_CHANGES, COMMENT"}, {Name: mcp.ParamName("owner"), Description: "Repo owner"}}},
+				{Name: mcp.ToolName("t_b"), Description: "B", Parameters: []mcp.Parameter{{Name: mcp.ParamName("event"), Description: "push, pull_request"}, {Name: mcp.ParamName("owner"), Description: "Repo owner"}}},
+				{Name: mcp.ToolName("t_c"), Description: "C", Parameters: []mcp.Parameter{{Name: mcp.ParamName("event"), Description: "issues, created"}, {Name: mcp.ParamName("owner"), Description: "Repo owner"}}},
+				{Name: mcp.ToolName("t_d"), Description: "D", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repo owner"}}},
+				{Name: mcp.ToolName("t_e"), Description: "E", Parameters: []mcp.Parameter{{Name: mcp.ParamName("event"), Description: "deployment"}, {Name: mcp.ParamName("owner"), Description: "Repo owner"}}},
+				{Name: mcp.ToolName("t_f"), Description: "F", Parameters: []mcp.Parameter{{Name: mcp.ParamName("event"), Description: "release"}, {Name: mcp.ParamName("owner"), Description: "Repo owner"}}},
+				{Name: mcp.ToolName("t_g"), Description: "G", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repo owner"}}},
+				{Name: mcp.ToolName("t_h"), Description: "H", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repo owner"}}},
 			},
 			wantSharedParams: map[string]string{"owner": "Repo owner"},
 			wantKeptPerTool:  []string{"event"}, // different descriptions → stays per-tool
@@ -3073,28 +3085,37 @@ func TestSearch_SharedParametersDoNotMutateOriginalTools(t *testing.T) {
 		name:    "testint",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: mcp.ToolName("t_list_issues"), Description: "List issues", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "state": "open or closed"}},
-			{Name: mcp.ToolName("t_get_issue"), Description: "Get issue", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "issue_number": "Issue number"}},
-			{Name: mcp.ToolName("t_list_pulls"), Description: "List pulls", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "base": "Base branch"}},
-			{Name: mcp.ToolName("t_get_pull"), Description: "Get pull", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull number"}},
-			{Name: mcp.ToolName("t_list_commits"), Description: "List commits", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "sha": "Branch or SHA"}},
-			{Name: mcp.ToolName("t_list_branches"), Description: "List branches", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
-			{Name: mcp.ToolName("t_list_releases"), Description: "List releases", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
-			{Name: mcp.ToolName("t_list_tags"), Description: "List tags", Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"}},
+			{Name: mcp.ToolName("t_list_issues"), Description: "List issues", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("state"), Description: "open or closed"}}},
+			{Name: mcp.ToolName("t_get_issue"), Description: "Get issue", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("issue_number"), Description: "Issue number"}}},
+			{Name: mcp.ToolName("t_list_pulls"), Description: "List pulls", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("base"), Description: "Base branch"}}},
+			{Name: mcp.ToolName("t_get_pull"), Description: "Get pull", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("pull_number"), Description: "Pull number"}}},
+			{Name: mcp.ToolName("t_list_commits"), Description: "List commits", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}, {Name: mcp.ParamName("sha"), Description: "Branch or SHA"}}},
+			{Name: mcp.ToolName("t_list_branches"), Description: "List branches", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}}},
+			{Name: mcp.ToolName("t_list_releases"), Description: "List releases", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}}},
+			{Name: mcp.ToolName("t_list_tags"), Description: "List tags", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}, {Name: mcp.ParamName("repo"), Description: "Repository name"}}},
 		},
 	}
-	s := setupTestServer(mi)
 
 	// First search triggers shared parameter extraction — must not corrupt originals.
+	s := setupTestServer(mi)
+
 	_, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
 	require.NoError(t, err)
 
-	// Verify the original ToolDefinition maps are untouched.
+	// Verify the original ToolDefinition slices are untouched after search.
 	for _, tool := range mi.tools {
-		assert.Contains(t, tool.Parameters, "owner",
-			"tool %q should still have 'owner' after search (was deleted from original)", tool.Name)
-		assert.Contains(t, tool.Parameters, "repo",
-			"tool %q should still have 'repo' after search (was deleted from original)", tool.Name)
+		hasOwner := false
+		hasRepo := false
+		for _, p := range tool.Parameters {
+			if string(p.Name) == "owner" {
+				hasOwner = true
+			}
+			if string(p.Name) == "repo" {
+				hasRepo = true
+			}
+		}
+		assert.True(t, hasOwner, "tool %q should still have 'owner' after search (was deleted from original)", tool.Name)
+		assert.True(t, hasRepo, "tool %q should still have 'repo' after search (was deleted from original)", tool.Name)
 	}
 
 	// Second search should produce identical shared_parameters as the first.

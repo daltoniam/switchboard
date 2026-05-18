@@ -157,9 +157,16 @@ func (p *proxyClient) toolDefinitions() []mcp.ToolDefinition {
 
 	defs := make([]mcp.ToolDefinition, 0, len(p.tools))
 	for _, t := range p.tools {
-		params := make(map[string]string)
-		var requiredFields []string
+		required := make(map[string]bool)
+		if reqList, ok := t.InputSchema["required"].([]any); ok {
+			for _, r := range reqList {
+				if s, ok := r.(string); ok {
+					required[s] = true
+				}
+			}
+		}
 
+		var params []mcp.Parameter
 		if props, ok := t.InputSchema["properties"].(map[string]any); ok {
 			for key, val := range props {
 				desc := ""
@@ -168,25 +175,18 @@ func (p *proxyClient) toolDefinitions() []mcp.ToolDefinition {
 						desc = d
 					}
 				}
-				params[key] = desc
+				params = append(params, mcp.Parameter{
+					Name:        mcp.ParamName(key),
+					Description: desc,
+					Required:    required[key],
+				})
 			}
 		}
-		if reqList, ok := t.InputSchema["required"].([]any); ok {
-			for _, r := range reqList {
-				if s, ok := r.(string); ok {
-					requiredFields = append(requiredFields, s)
-				}
-			}
-		}
-
-		name := mcp.ToolName("pganalyze_" + t.Name)
-		desc := t.Description
 
 		defs = append(defs, mcp.ToolDefinition{
-			Name:        name,
-			Description: desc,
+			Name:        mcp.ToolName("pganalyze_" + t.Name),
+			Description: t.Description,
 			Parameters:  params,
-			Required:    requiredFields,
 		})
 	}
 	return defs

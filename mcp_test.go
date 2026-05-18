@@ -120,24 +120,27 @@ func TestToolDefinition(t *testing.T) {
 	td := ToolDefinition{
 		Name:        ToolName("github_list_issues"),
 		Description: "List issues",
-		Parameters:  map[string]string{"owner": "Repo owner", "repo": "Repo name"},
-		Required:    []string{"owner", "repo"},
+		Parameters: []Parameter{
+			{Name: ParamName("owner"), Description: "Repo owner", Required: true},
+			{Name: ParamName("repo"), Description: "Repo name", Required: true},
+		},
 	}
 
 	assert.Equal(t, ToolName("github_list_issues"), td.Name)
 	assert.Equal(t, "List issues", td.Description)
 	assert.Len(t, td.Parameters, 2)
-	assert.Equal(t, []string{"owner", "repo"}, td.Required)
+	assert.True(t, td.Parameters[0].Required)
+	assert.True(t, td.Parameters[1].Required)
 }
 
 func TestToolDefinitionOptionalRequired(t *testing.T) {
 	td := ToolDefinition{
 		Name:        ToolName("github_search_repos"),
 		Description: "Search repos",
-		Parameters:  map[string]string{"query": "Search query"},
+		Parameters:  []Parameter{{Name: ParamName("query"), Description: "Search query"}},
 	}
 
-	assert.Nil(t, td.Required)
+	assert.False(t, td.Parameters[0].Required)
 }
 
 func TestToolResult(t *testing.T) {

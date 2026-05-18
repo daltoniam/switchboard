@@ -323,8 +323,15 @@ func TestProxyToolDefinitions_TransformsCLIReferences(t *testing.T) {
 	require.Len(t, defs, 1)
 	assert.Equal(t, mcp.ToolName("rwx_proxy_some_tool"), defs[0].Name)
 	assert.Contains(t, defs[0].Description, "rwx_get_task_logs")
-	assert.Contains(t, defs[0].Parameters["id"], "rwx_get_run_results")
-	assert.Equal(t, []string{"id"}, defs[0].Required)
+	found := false
+	for _, p := range defs[0].Parameters {
+		if string(p.Name) == "id" {
+			assert.Contains(t, p.Description, "rwx_get_run_results")
+			assert.True(t, p.Required)
+			found = true
+		}
+	}
+	assert.True(t, found, "id param not found")
 }
 
 // --- JSON marshal test ---

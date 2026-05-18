@@ -49,12 +49,45 @@ func responseLimitFor(integration mcp.Integration, toolName mcp.ToolName) int {
 
 // searchToolInfo represents a tool in search results.
 type searchToolInfo struct {
-	Integration string            `json:"integration"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Parameters  map[string]string `json:"parameters"`
-	Required    []string          `json:"required,omitempty"`
-	Configured  *bool             `json:"configured,omitempty"` // nil = omitted (configured); false = not yet configured
+	Integration string          `json:"integration"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  []mcp.Parameter `json:"parameters"`
+	Configured  *bool           `json:"configured,omitempty"` // nil = omitted (configured); false = not yet configured
+}
+
+// MarshalJSON preserves the search-response wire format. Parameters serialize
+// as a JSON object {name: description}, and required is a separate sorted
+// array — the shape LLM consumers of the search meta-tool depend on. Internal
+// processing uses []mcp.Parameter for type-system consistency with
+// ToolDefinition; this method bridges the two.
+func (s searchToolInfo) MarshalJSON() ([]byte, error) {
+	params := make(map[string]string, len(s.Parameters))
+	var required []string
+	for _, p := range s.Parameters {
+		params[string(p.Name)] = p.Description
+		if p.Required {
+			required = append(required, string(p.Name))
+		}
+	}
+	sort.Strings(required)
+
+	type wire struct {
+		Integration string            `json:"integration"`
+		Name        string            `json:"name"`
+		Description string            `json:"description"`
+		Parameters  map[string]string `json:"parameters"`
+		Required    []string          `json:"required,omitempty"`
+		Configured  *bool             `json:"configured,omitempty"`
+	}
+	return json.Marshal(wire{
+		Integration: s.Integration,
+		Name:        s.Name,
+		Description: s.Description,
+		Parameters:  params,
+		Required:    required,
+		Configured:  s.Configured,
+	})
 }
 
 // searchableIntegration pairs an integration with its name for iteration.
@@ -370,10 +403,14 @@ func (s *Server) buildSearchIndex() {
 // — the same shape vendor MCPs emit. Errors fall back to zero (i.e., no credit
 // claimed) rather than failing the whole index build.
 func computeCatalogBytes(tools []toolWithIntegration) int64 {
+	type wireProp struct {
+		Type        string `json:"type"`
+		Description string `json:"description"`
+	}
 	type schema struct {
-		Type       string            `json:"type"`
-		Properties map[string]string `json:"properties,omitempty"`
-		Required   []string          `json:"required,omitempty"`
+		Type       string              `json:"type"`
+		Properties map[string]wireProp `json:"properties,omitempty"`
+		Required   []string            `json:"required,omitempty"`
 	}
 	type listing struct {
 		Name        mcp.ToolName `json:"name"`
@@ -382,13 +419,22 @@ func computeCatalogBytes(tools []toolWithIntegration) int64 {
 	}
 	entries := make([]listing, 0, len(tools))
 	for _, t := range tools {
+		props := make(map[string]wireProp, len(t.Tool.Parameters))
+		var required []string
+		for _, p := range t.Tool.Parameters {
+			props[string(p.Name)] = wireProp{Type: "string", Description: p.Description}
+			if p.Required {
+				required = append(required, string(p.Name))
+			}
+		}
+		sort.Strings(required)
 		entries = append(entries, listing{
 			Name:        t.Tool.Name,
 			Description: t.Tool.Description,
 			InputSchema: schema{
 				Type:       "object",
-				Properties: t.Tool.Parameters,
-				Required:   t.Tool.Required,
+				Properties: props,
+				Required:   required,
 			},
 		})
 	}
@@ -602,14 +648,18 @@ func (s *Server) unrankedSearch(integration string, searchable []searchableInteg
 // across 3+ tools in the page, moves them to a shared map, and removes them
 // from per-tool parameters. This deduplicates common params like "owner" and
 // "repo" that appear verbatim across dozens of tools in an integration.
+//
+// Each searchToolInfo.Parameters is a clone (via slices.Clone in toToolInfo /
+// toolDefToInfo), so filtering in place here does not corrupt the original
+// ToolDefinition stored in the search index.
 func extractSharedParameters(tools []searchToolInfo) map[string]string {
 	const minCount = 3
 
 	type paramKey struct{ name, desc string }
 	counts := map[paramKey]int{}
 	for _, t := range tools {
-		for name, desc := range t.Parameters {
-			counts[paramKey{name, desc}]++
+		for _, p := range t.Parameters {
+			counts[paramKey{string(p.Name), p.Description}]++
 		}
 	}
 
@@ -637,11 +687,13 @@ func extractSharedParameters(tools []searchToolInfo) map[string]string {
 	}
 
 	for i := range tools {
-		for name, desc := range tools[i].Parameters {
-			if candidates[name] == desc {
-				delete(tools[i].Parameters, name)
+		filtered := tools[i].Parameters[:0]
+		for _, p := range tools[i].Parameters {
+			if candidates[string(p.Name)] != p.Description {
+				filtered = append(filtered, p)
 			}
 		}
+		tools[i].Parameters = filtered
 	}
 
 	return candidates
@@ -1292,9 +1344,16 @@ func reservedArgsFor(integration mcp.Integration, toolName mcp.ToolName) []strin
 // compact.ReservedArgs() via reservedArgsFor so view/format reach
 // parseViewSelection instead of failing as unknown parameters.
 func validateArgs(tool mcp.ToolDefinition, args map[string]any, allowedExtras []string) error {
-	for _, req := range tool.Required {
-		if _, ok := args[req]; !ok {
-			return fmt.Errorf("missing required parameter %q for tool %q. Required: %v", req, tool.Name, tool.Required)
+	paramByName := make(map[string]mcp.Parameter, len(tool.Parameters))
+	for _, p := range tool.Parameters {
+		paramByName[string(p.Name)] = p
+	}
+	for _, p := range tool.Parameters {
+		if !p.Required {
+			continue
+		}
+		if _, ok := args[string(p.Name)]; !ok {
+			return fmt.Errorf("missing required parameter %q for tool %q", string(p.Name), tool.Name)
 		}
 	}
 	if len(tool.Parameters) == 0 {
@@ -1305,7 +1364,7 @@ func validateArgs(tool mcp.ToolDefinition, args map[string]any, allowedExtras []
 		extras[k] = struct{}{}
 	}
 	for key := range args {
-		if _, ok := tool.Parameters[key]; ok {
+		if _, ok := paramByName[key]; ok {
 			continue
 		}
 		if _, ok := extras[key]; ok {
@@ -1329,10 +1388,11 @@ func unknownParamError(key string, tool mcp.ToolDefinition) error {
 
 // closestParam returns the parameter name closest to key by edit distance,
 // or empty string if no parameter is within a reasonable threshold.
-func closestParam(key string, params map[string]string) string {
+func closestParam(key string, params []mcp.Parameter) string {
 	best := ""
 	bestDist := len(key)/2 + 1 // threshold: half the key length
-	for name := range params {
+	for _, p := range params {
+		name := string(p.Name)
 		d := editDistance(key, name)
 		if d < bestDist {
 			bestDist = d
@@ -1371,10 +1431,10 @@ func editDistance(a, b string) int {
 }
 
 // paramNames returns sorted parameter names for error messages.
-func paramNames(params map[string]string) []string {
+func paramNames(params []mcp.Parameter) []string {
 	names := make([]string, 0, len(params))
-	for name := range params {
-		names = append(names, name)
+	for _, p := range params {
+		names = append(names, string(p.Name))
 	}
 	slices.Sort(names)
 	return names

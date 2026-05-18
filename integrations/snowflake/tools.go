@@ -7,184 +7,121 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("snowflake_execute_query"),
 		Description: "Execute a SQL query against a Snowflake data warehouse and return results as JSON rows. Supports SELECT, SHOW, DESCRIBE, DDL, and DML statements",
-		Parameters: map[string]string{
-			"query":     "SQL statement to execute",
-			"database":  "Database context (overrides configured default)",
-			"schema":    "Schema context (overrides configured default)",
-			"warehouse": "Warehouse to use (overrides configured default)",
-			"role":      "Role to use (overrides configured default)",
-			"timeout":   "Query timeout in seconds (default: 60)",
-		},
-		Required: []string{"query"},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("query"), Description: "SQL statement to execute", Required: true}, {Name: mcp.ParamName("database"), Description: "Database context (overrides configured default)"}, {Name: mcp.ParamName("schema"), Description: "Schema context (overrides configured default)"}, {Name: mcp.ParamName("warehouse"), Description: "Warehouse to use (overrides configured default)"}, {Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}, {Name: mcp.ParamName("timeout"), Description: "Query timeout in seconds (default: 60)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_get_query_status"),
 		Description: "Check the status of an async Snowflake query and retrieve results when complete. Use the statement handle returned from snowflake_execute_query",
-		Parameters: map[string]string{
-			"statement_handle": "UUID statement handle from a previous query submission",
-			"partition":        "Partition number to fetch for large result sets (0-based)",
-		},
-		Required: []string{"statement_handle"},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("statement_handle"), Description: "UUID statement handle from a previous query submission", Required: true}, {Name: mcp.ParamName("partition"), Description: "Partition number to fetch for large result sets (0-based)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_cancel_query"),
 		Description: "Cancel a running Snowflake query by its statement handle",
-		Parameters: map[string]string{
-			"statement_handle": "UUID statement handle of the query to cancel",
-		},
-		Required: []string{"statement_handle"},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("statement_handle"), Description: "UUID statement handle of the query to cancel", Required: true}},
 	},
 
 	// --- Schema Discovery ---
 	{
 		Name:        mcp.ToolName("snowflake_list_databases"),
 		Description: "List all databases accessible in the Snowflake account. Start here for schema discovery.",
-		Parameters: map[string]string{
-			"role": "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_list_schemas"),
 		Description: "List all schemas in a Snowflake database",
-		Parameters: map[string]string{
-			"database": "Database name (defaults to configured database)",
-			"role":     "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("database"), Description: "Database name (defaults to configured database)"}, {Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_list_tables"),
 		Description: "List tables in a Snowflake database/schema with row counts and sizes",
-		Parameters: map[string]string{
-			"database": "Database name (defaults to configured database)",
-			"schema":   "Schema name (defaults to configured schema)",
-			"role":     "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("database"), Description: "Database name (defaults to configured database)"}, {Name: mcp.ParamName("schema"), Description: "Schema name (defaults to configured schema)"}, {Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_list_views"),
 		Description: "List views in a Snowflake database/schema",
-		Parameters: map[string]string{
-			"database": "Database name (defaults to configured database)",
-			"schema":   "Schema name (defaults to configured schema)",
-			"role":     "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("database"), Description: "Database name (defaults to configured database)"}, {Name: mcp.ParamName("schema"), Description: "Schema name (defaults to configured schema)"}, {Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_describe_table"),
 		Description: "Describe a table's columns with names, types, and constraints in Snowflake",
-		Parameters: map[string]string{
-			"table":    "Table name",
-			"database": "Database name (defaults to configured database)",
-			"schema":   "Schema name (defaults to configured schema)",
-			"role":     "Role to use (overrides configured default)",
-		},
-		Required: []string{"table"},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("table"), Description: "Table name", Required: true}, {Name: mcp.ParamName("database"), Description: "Database name (defaults to configured database)"}, {Name: mcp.ParamName("schema"), Description: "Schema name (defaults to configured schema)"}, {Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_show_create_table"),
 		Description: "Show the DDL CREATE statement for a Snowflake table",
-		Parameters: map[string]string{
-			"table":    "Table name",
-			"database": "Database name (defaults to configured database)",
-			"schema":   "Schema name (defaults to configured schema)",
-			"role":     "Role to use (overrides configured default)",
-		},
-		Required: []string{"table"},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("table"), Description: "Table name", Required: true}, {Name: mcp.ParamName("database"), Description: "Database name (defaults to configured database)"}, {Name: mcp.ParamName("schema"), Description: "Schema name (defaults to configured schema)"}, {Name: mcp.ParamName(
+
+		// --- Warehouse & Compute ---
+		"role"), Description: "Role to use (overrides configured default)"}},
 	},
 
-	// --- Warehouse & Compute ---
 	{
 		Name:        mcp.ToolName("snowflake_list_warehouses"),
 		Description: "List all warehouses in the Snowflake account with state, size, and cluster info",
-		Parameters: map[string]string{
-			"role": "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 
 	// --- System Info ---
 	{
 		Name:        mcp.ToolName("snowflake_list_running_queries"),
 		Description: "List currently running and recently completed queries in Snowflake",
-		Parameters: map[string]string{
-			"limit": "Maximum number of queries to return (default: 50)",
-			"role":  "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("limit"), Description: "Maximum number of queries to return (default: 50)"}, {Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_current_session"),
 		Description: "Get current Snowflake session info including user, role, warehouse, and database",
-		Parameters:  map[string]string{},
+		Parameters:  []mcp.Parameter{},
 	},
 
 	// --- Users & Roles ---
 	{
 		Name:        mcp.ToolName("snowflake_list_users"),
 		Description: "List all users in the Snowflake account",
-		Parameters: map[string]string{
-			"role": "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_list_roles"),
 		Description: "List all roles in the Snowflake account",
-		Parameters: map[string]string{
-			"role": "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 
 	// --- Stages & Storage ---
 	{
 		Name:        mcp.ToolName("snowflake_list_stages"),
 		Description: "List stages in a Snowflake database/schema for data loading",
-		Parameters: map[string]string{
-			"database": "Database name (defaults to configured database)",
-			"schema":   "Schema name (defaults to configured schema)",
-			"role":     "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("database"), Description: "Database name (defaults to configured database)"}, {Name: mcp.ParamName("schema"), Description: "Schema name (defaults to configured schema)"}, {Name: mcp.ParamName("role"),
+
+		// --- Tasks & Pipes ---
+		Description: "Role to use (overrides configured default)"}},
 	},
 
-	// --- Tasks & Pipes ---
 	{
 		Name:        mcp.ToolName("snowflake_list_tasks"),
 		Description: "List tasks (scheduled SQL jobs) in a Snowflake database/schema",
-		Parameters: map[string]string{
-			"database": "Database name (defaults to configured database)",
-			"schema":   "Schema name (defaults to configured schema)",
-			"role":     "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("database"), Description: "Database name (defaults to configured database)"}, {Name: mcp.ParamName("schema"), Description: "Schema name (defaults to configured schema)"}, {Name: mcp.ParamName("role"), Description: "Role to use (overrides configured default)"}},
 	},
 	{
 		Name:        mcp.ToolName("snowflake_list_pipes"),
 		Description: "List Snowpipe definitions for continuous data ingestion",
-		Parameters: map[string]string{
-			"database": "Database name (defaults to configured database)",
-			"schema":   "Schema name (defaults to configured schema)",
-			"role":     "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("database"), Description: "Database name (defaults to configured database)"}, {Name: mcp.ParamName("schema"), Description: "Schema name (defaults to configured schema)"}, {Name: mcp.ParamName("role"),
+
+		// --- Streams ---
+		Description: "Role to use (overrides configured default)"}},
 	},
 
-	// --- Streams ---
 	{
 		Name:        mcp.ToolName("snowflake_list_streams"),
 		Description: "List streams (change data capture) in a Snowflake database/schema",
-		Parameters: map[string]string{
-			"database": "Database name (defaults to configured database)",
-			"schema":   "Schema name (defaults to configured schema)",
-			"role":     "Role to use (overrides configured default)",
-		},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("database"), Description: "Database name (defaults to configured database)"}, {Name: mcp.ParamName("schema"), Description: "Schema name (defaults to configured schema)"}, {Name: mcp.ParamName("role"),
+
+		// --- Cortex Analyst ---
+		Description: "Role to use (overrides configured default)"}},
 	},
 
-	// --- Cortex Analyst ---
 	{
 		Name:        mcp.ToolName("snowflake_cortex_analyst"),
 		Description: "Ask a natural-language question against a Snowflake Cortex Analyst semantic layer. Returns generated SQL, an explanation, and follow-up suggestions. Use snowflake_execute_query to run the returned SQL",
-		Parameters: map[string]string{
-			"question":            "Natural-language question to ask (e.g. 'What were our top 10 products by revenue last quarter?')",
-			"semantic_view":       "Fully qualified semantic view name (overrides configured default)",
-			"semantic_model_file": "Stage path to a semantic model YAML (e.g. @MY_DB.MY_SCHEMA.MY_STAGE/model.yaml)",
-			"semantic_model":      "Inline semantic model YAML (alternative to semantic_model_file and semantic_view)",
-		},
-		Required: []string{"question"},
+		Parameters:  []mcp.Parameter{{Name: mcp.ParamName("question"), Description: "Natural-language question to ask (e.g. 'What were our top 10 products by revenue last quarter?')", Required: true}, {Name: mcp.ParamName("semantic_view"), Description: "Fully qualified semantic view name (overrides configured default)"}, {Name: mcp.ParamName("semantic_model_file"), Description: "Stage path to a semantic model YAML (e.g. @MY_DB.MY_SCHEMA.MY_STAGE/model.yaml)"}, {Name: mcp.ParamName("semantic_model"), Description: "Inline semantic model YAML (alternative to semantic_model_file and semantic_view)"}},
 	},
 }
 
