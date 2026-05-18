@@ -176,51 +176,40 @@ func renderSpaceMD(data []byte) (markdown.Markdown, bool) {
 	}
 	b.Attribution(attrs...)
 
-	hasConfig := s.Config.AccessType != "" || s.Config.EntryPointAccess != "" || s.Config.Moderation != ""
-	if hasConfig {
+	if cfg := renderSpaceConfig(s.Config); cfg != "" {
 		b.BlankLine()
 		b.Heading(2, "Configuration")
-		var sb strings.Builder
-		if s.Config.AccessType != "" {
-			sb.WriteString("- access_type: ")
-			sb.WriteString(s.Config.AccessType)
-			sb.WriteString("\n")
-		}
-		if s.Config.EntryPointAccess != "" {
-			sb.WriteString("- entry_point_access: ")
-			sb.WriteString(s.Config.EntryPointAccess)
-			sb.WriteString("\n")
-		}
-		if s.Config.Moderation != "" {
-			sb.WriteString("- moderation: ")
-			sb.WriteString(s.Config.Moderation)
-			sb.WriteString("\n")
-		}
-		mr := s.Config.ModerationRestrictions
-		if mr.ChatRestriction != "" {
-			sb.WriteString("- chat_restriction: ")
-			sb.WriteString(mr.ChatRestriction)
-			sb.WriteString("\n")
-		}
-		if mr.ReactionRestriction != "" {
-			sb.WriteString("- reaction_restriction: ")
-			sb.WriteString(mr.ReactionRestriction)
-			sb.WriteString("\n")
-		}
-		if mr.PresentRestriction != "" {
-			sb.WriteString("- present_restriction: ")
-			sb.WriteString(mr.PresentRestriction)
-			sb.WriteString("\n")
-		}
-		if mr.DefaultJoinAsViewerType != "" {
-			sb.WriteString("- default_join_as_viewer_type: ")
-			sb.WriteString(mr.DefaultJoinAsViewerType)
-			sb.WriteString("\n")
-		}
-		b.Raw(sb.String())
+		b.Raw(cfg)
 	}
 
 	return b.Build(), true
+}
+
+// renderSpaceConfig renders the space configuration as a bullet list, or
+// returns "" when no fields are set. Split out of renderSpaceMD to keep
+// cyclomatic complexity down.
+func renderSpaceConfig(c rawSpaceConfig) string {
+	var sb strings.Builder
+	writeKV(&sb, "access_type", c.AccessType)
+	writeKV(&sb, "entry_point_access", c.EntryPointAccess)
+	writeKV(&sb, "moderation", c.Moderation)
+	mr := c.ModerationRestrictions
+	writeKV(&sb, "chat_restriction", mr.ChatRestriction)
+	writeKV(&sb, "reaction_restriction", mr.ReactionRestriction)
+	writeKV(&sb, "present_restriction", mr.PresentRestriction)
+	writeKV(&sb, "default_join_as_viewer_type", mr.DefaultJoinAsViewerType)
+	return sb.String()
+}
+
+func writeKV(sb *strings.Builder, key, value string) {
+	if value == "" {
+		return
+	}
+	sb.WriteString("- ")
+	sb.WriteString(key)
+	sb.WriteString(": ")
+	sb.WriteString(value)
+	sb.WriteString("\n")
 }
 
 // ── Conference record (single) ──────────────────────────────────────
