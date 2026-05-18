@@ -3,12 +3,15 @@ package gdocs
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/googleoauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -525,6 +528,42 @@ func TestHealthy_FalseOn401(t *testing.T) {
 
 	g := &gdocs{accessToken: "bad", client: ts.Client(), baseURL: ts.URL}
 	assert.False(t, g.Healthy(context.Background()))
+}
+
+// TestHealthy_TrueAfterRefresh verifies that an expired access token does
+// not flip the health badge red so long as the refresh credentials are
+// configured: the 401 from the API triggers a transparent refresh through
+// g.get() and the retried sentinel probe still allows a 404.
+func TestHealthy_TrueAfterRefresh(t *testing.T) {
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		vals, _ := url.ParseQuery(string(body))
+		assert.Equal(t, "refresh_token", vals.Get("grant_type"))
+		_, _ = w.Write([]byte(`{"access_token":"new-token","expires_in":3600}`))
+	}))
+	defer tokenSrv.Close()
+	googleoauth.SetTokenURLForTest(t, tokenSrv.URL)
+
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "Bearer expired" {
+			w.WriteHeader(401)
+			return
+		}
+		// Sentinel-probe path: 404 means auth worked, probe doc absent.
+		w.WriteHeader(404)
+	}))
+	defer api.Close()
+
+	g := &gdocs{
+		accessToken:  "expired",
+		refreshToken: "rtok",
+		clientID:     "cid",
+		clientSecret: "csec",
+		client:       api.Client(),
+		baseURL:      api.URL,
+	}
+	assert.True(t, g.Healthy(context.Background()))
+	assert.Equal(t, "new-token", g.accessToken)
 }
 
 // ── Path escaping ───────────────────────────────────────────────────

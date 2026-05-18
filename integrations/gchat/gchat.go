@@ -108,18 +108,8 @@ func (g *gchat) Configure(_ context.Context, creds mcp.Credentials) error {
 // token (as long as the chat.spaces.readonly or chat.spaces scope was
 // granted). Anything other than 401/403 counts as healthy.
 func (g *gchat) Healthy(ctx context.Context) bool {
-	req, err := http.NewRequestWithContext(ctx, "GET", g.baseURL+"/spaces?pageSize=1", nil)
-	if err != nil {
-		return false
-	}
-	req.Header.Set("Authorization", "Bearer "+g.accessToken)
-	resp, err := g.client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-	return resp.StatusCode != 401 && resp.StatusCode != 403
+	_, err := g.get(ctx, "/spaces?pageSize=1")
+	return err == nil
 }
 
 func (g *gchat) Tools() []mcp.ToolDefinition {

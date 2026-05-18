@@ -332,3 +332,17 @@ func Reset() {
 	defer flowsMu.Unlock()
 	flows = make(map[string]*flow)
 }
+
+// SetTokenURLForTest redirects the package-level token endpoint at url for
+// the duration of the test, restoring the previous value on cleanup. Lets
+// adapter tests stand up a fake token endpoint when exercising the refresh
+// path through googleoauth.RefreshAccessToken.
+func SetTokenURLForTest(t interface {
+	Helper()
+	Cleanup(func())
+}, url string) {
+	t.Helper()
+	prev := tokenURL
+	tokenURL = url
+	t.Cleanup(func() { tokenURL = prev })
+}

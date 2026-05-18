@@ -105,18 +105,8 @@ func (g *gsheets) Configure(_ context.Context, creds mcp.Credentials) error {
 // as healthy — even a 404 means the token is valid and the request reached
 // the API.
 func (g *gsheets) Healthy(ctx context.Context) bool {
-	req, err := http.NewRequestWithContext(ctx, "GET", g.baseURL+"/spreadsheets/HEALTHCHECK_PROBE", nil)
-	if err != nil {
-		return false
-	}
-	req.Header.Set("Authorization", "Bearer "+g.accessToken)
-	resp, err := g.client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-	return resp.StatusCode != 401 && resp.StatusCode != 403
+	_, err := g.get(ctx, "/spreadsheets/HEALTHCHECK_PROBE")
+	return err == nil || strings.Contains(err.Error(), "(404)")
 }
 
 func (g *gsheets) Tools() []mcp.ToolDefinition {
