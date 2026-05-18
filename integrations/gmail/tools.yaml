@@ -1,0 +1,614 @@
+version: 1
+tools:
+  gmail_get_profile:
+    description: "Get the current user's Gmail profile (email, messages total, threads total, history ID). Start here to verify access."
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me' for authenticated user)"
+
+  gmail_list_messages:
+    description: "List email messages in the user's inbox. Search and find mail using Gmail query syntax."
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      q:
+        description: "Gmail search query (same as Gmail search box)"
+      label_ids:
+        description: "Comma-separated label IDs to filter by"
+      max_results:
+        description: "Max results per page (default 10, max 500)"
+      page_token:
+        description: "Token for next page"
+      include_spam_trash:
+        description: "Include SPAM and TRASH (true/false)"
+
+  gmail_get_message:
+    description: "Get a specific email message by ID. Read the full mail content, headers, and attachments."
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      message_id:
+        description: "Message ID"
+        required: true
+      format:
+        description: "Format: full, metadata, minimal, raw (default full)"
+      metadata_headers:
+        description: "Comma-separated headers to include when format=metadata"
+
+  gmail_send_message:
+    description: "Send an email message. Provide raw RFC 2822 formatted message or use to/subject/body for simple messages"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      from:
+        description: "Sender email address (defaults to authenticated user)"
+      to:
+        description: "Recipient email address(es), comma-separated"
+      subject:
+        description: "Email subject"
+      body:
+        description: "Email body (plain text)"
+      raw:
+        description: "Base64url-encoded RFC 2822 message (overrides from/to/subject/body)"
+      thread_id:
+        description: "Thread ID to reply to"
+
+  gmail_delete_message:
+    description: "Permanently delete a message (not trash). Cannot be undone"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      message_id:
+        description: "Message ID"
+        required: true
+
+  gmail_trash_message:
+    description: "Move a message to the trash"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      message_id:
+        description: "Message ID"
+        required: true
+
+  gmail_untrash_message:
+    description: "Remove a message from the trash"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      message_id:
+        description: "Message ID"
+        required: true
+
+  gmail_modify_message:
+    description: "Modify labels on a message (add and/or remove labels)"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      message_id:
+        description: "Message ID"
+        required: true
+      add_label_ids:
+        description: "Comma-separated label IDs to add"
+      remove_label_ids:
+        description: "Comma-separated label IDs to remove"
+
+  gmail_batch_modify:
+    description: "Modify labels on multiple messages at once"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      message_ids:
+        description: "Comma-separated message IDs"
+        required: true
+      add_label_ids:
+        description: "Comma-separated label IDs to add"
+      remove_label_ids:
+        description: "Comma-separated label IDs to remove"
+
+  gmail_batch_delete:
+    description: "Permanently delete multiple messages. Cannot be undone"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      message_ids:
+        description: "Comma-separated message IDs"
+        required: true
+
+  gmail_get_attachment:
+    description: "Get a message attachment by ID"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      message_id:
+        description: "Message ID"
+        required: true
+      attachment_id:
+        description: "Attachment ID"
+        required: true
+
+  gmail_list_threads:
+    description: "List threads in the user's mailbox"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      q:
+        description: "Gmail search query"
+      label_ids:
+        description: "Comma-separated label IDs to filter by"
+      max_results:
+        description: "Max results per page (default 10, max 500)"
+      page_token:
+        description: "Token for next page"
+      include_spam_trash:
+        description: "Include SPAM and TRASH (true/false)"
+
+  gmail_get_thread:
+    description: "Get a specific thread with all its messages"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      thread_id:
+        description: "Thread ID"
+        required: true
+      format:
+        description: "Format: full, metadata, minimal (default full)"
+      metadata_headers:
+        description: "Comma-separated headers to include when format=metadata"
+
+  gmail_delete_thread:
+    description: "Permanently delete a thread (not trash). Cannot be undone"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      thread_id:
+        description: "Thread ID"
+        required: true
+
+  gmail_trash_thread:
+    description: "Move a thread to the trash"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      thread_id:
+        description: "Thread ID"
+        required: true
+
+  gmail_untrash_thread:
+    description: "Remove a thread from the trash"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      thread_id:
+        description: "Thread ID"
+        required: true
+
+  gmail_modify_thread:
+    description: "Modify labels on a thread (add and/or remove labels)"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      thread_id:
+        description: "Thread ID"
+        required: true
+      add_label_ids:
+        description: "Comma-separated label IDs to add"
+      remove_label_ids:
+        description: "Comma-separated label IDs to remove"
+
+  gmail_list_labels:
+    description: "List all labels in the user's mailbox"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_get_label:
+    description: "Get a specific label by ID"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      label_id:
+        description: "Label ID"
+        required: true
+
+  gmail_create_label:
+    description: "Create a new label"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      name:
+        description: "Label name"
+        required: true
+      message_list_visibility:
+        description: "Visibility in message list: show, hide"
+      label_list_visibility:
+        description: "Visibility in label list: labelShow, labelShowIfUnread, labelHide"
+      background_color:
+        description: "Background color hex code"
+      text_color:
+        description: "Text color hex code"
+
+  gmail_update_label:
+    description: "Update a label"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      label_id:
+        description: "Label ID"
+        required: true
+      name:
+        description: "New label name"
+      message_list_visibility:
+        description: "Visibility in message list: show, hide"
+      label_list_visibility:
+        description: "Visibility in label list: labelShow, labelShowIfUnread, labelHide"
+      background_color:
+        description: "Background color hex code"
+      text_color:
+        description: "Text color hex code"
+
+  gmail_delete_label:
+    description: "Permanently delete a label"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      label_id:
+        description: "Label ID"
+        required: true
+
+  gmail_list_drafts:
+    description: "List email drafts in the user's mailbox. View unsent composed messages."
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      q:
+        description: "Gmail search query"
+      max_results:
+        description: "Max results per page"
+      page_token:
+        description: "Token for next page"
+      include_spam_trash:
+        description: "Include SPAM and TRASH (true/false)"
+
+  gmail_get_draft:
+    description: "Get a specific draft by ID"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      draft_id:
+        description: "Draft ID"
+        required: true
+      format:
+        description: "Format: full, metadata, minimal, raw (default full)"
+
+  gmail_create_draft:
+    description: "Create a new email draft. Compose and write a message to send later or save as a reply draft."
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      to:
+        description: "Recipient email address(es), comma-separated"
+      subject:
+        description: "Email subject"
+      body:
+        description: "Email body (plain text)"
+      raw:
+        description: "Base64url-encoded RFC 2822 message (overrides to/subject/body)"
+      thread_id:
+        description: "Thread ID for reply drafts"
+
+  gmail_update_draft:
+    description: "Update an existing email draft. Edit the composed mail message before sending."
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      draft_id:
+        description: "Draft ID"
+        required: true
+      to:
+        description: "Recipient email address(es), comma-separated"
+      subject:
+        description: "Email subject"
+      body:
+        description: "Email body (plain text)"
+      raw:
+        description: "Base64url-encoded RFC 2822 message (overrides to/subject/body)"
+      thread_id:
+        description: "Thread ID for reply drafts"
+
+  gmail_delete_draft:
+    description: "Permanently delete a draft"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      draft_id:
+        description: "Draft ID"
+        required: true
+
+  gmail_send_draft:
+    description: "Send an existing email draft. Deliver a previously composed mail message."
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      draft_id:
+        description: "Draft ID"
+        required: true
+
+  gmail_list_history:
+    description: "List the history of changes to the mailbox since a given history ID"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      start_history_id:
+        description: "History ID to start listing from (required)"
+        required: true
+      label_id:
+        description: "Filter by label ID"
+      max_results:
+        description: "Max results per page"
+      page_token:
+        description: "Token for next page"
+      history_types:
+        description: "Comma-separated types: messageAdded, messageDeleted, labelAdded, labelRemoved"
+
+  gmail_get_vacation:
+    description: "Get vacation responder settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_update_vacation:
+    description: "Update vacation responder settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      enable_auto_reply:
+        description: "Enable auto-reply (true/false)"
+      response_subject:
+        description: "Auto-reply subject"
+      response_body_plain_text:
+        description: "Auto-reply body (plain text)"
+      response_body_html:
+        description: "Auto-reply body (HTML)"
+      restrict_to_contacts:
+        description: "Only reply to contacts (true/false)"
+      restrict_to_domain:
+        description: "Only reply to same domain (true/false)"
+      start_time:
+        description: "Start time in milliseconds since epoch"
+      end_time:
+        description: "End time in milliseconds since epoch"
+
+  gmail_get_auto_forwarding:
+    description: "Get auto-forwarding settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_update_auto_forwarding:
+    description: "Update auto-forwarding settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      enabled:
+        description: "Enable auto-forwarding (true/false)"
+      email_address:
+        description: "Email address to forward to"
+      disposition:
+        description: "What to do with forwarded messages: leaveInInbox, archive, trash, markRead"
+
+  gmail_get_imap:
+    description: "Get IMAP settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_update_imap:
+    description: "Update IMAP settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      enabled:
+        description: "Enable IMAP (true/false)"
+      auto_expunge:
+        description: "Auto-expunge (true/false)"
+      expunge_behavior:
+        description: "Expunge behavior: archive, deleteForever, trash"
+      max_folder_size:
+        description: "Max folder size (0 for no limit)"
+
+  gmail_get_pop:
+    description: "Get POP settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_update_pop:
+    description: "Update POP settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      access_window:
+        description: "Access window: disabled, allMail, fromNowOn"
+      disposition:
+        description: "What to do after POP fetch: leaveInInbox, archive, trash, markRead"
+
+  gmail_get_language:
+    description: "Get language settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_update_language:
+    description: "Update language settings"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      display_language:
+        description: "Display language code (e.g. en, fr, de)"
+        required: true
+
+  gmail_list_filters:
+    description: "List all message filters"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_get_filter:
+    description: "Get a specific message filter"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      filter_id:
+        description: "Filter ID"
+        required: true
+
+  gmail_create_filter:
+    description: "Create a new message filter"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      criteria:
+        description: "JSON string of filter criteria (from, to, subject, query, negatedQuery, hasAttachment, excludeChats, size, sizeComparison)"
+        required: true
+      action:
+        description: "JSON string of filter action (addLabelIds, removeLabelIds, forward, sizeComparison)"
+        required: true
+
+  gmail_delete_filter:
+    description: "Delete a message filter"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      filter_id:
+        description: "Filter ID"
+        required: true
+
+  gmail_list_forwarding_addresses:
+    description: "List all forwarding addresses"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_get_forwarding_address:
+    description: "Get a specific forwarding address"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      forwarding_email:
+        description: "Forwarding email address"
+        required: true
+
+  gmail_create_forwarding_address:
+    description: "Create a forwarding address (requires verification)"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      forwarding_email:
+        description: "Email address to add as forwarding address"
+        required: true
+
+  gmail_delete_forwarding_address:
+    description: "Delete a forwarding address"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      forwarding_email:
+        description: "Forwarding email address to remove"
+        required: true
+
+  gmail_list_send_as:
+    description: "List send-as aliases"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_get_send_as:
+    description: "Get a specific send-as alias"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      send_as_email:
+        description: "Send-as email address"
+        required: true
+
+  gmail_create_send_as:
+    description: "Create a custom 'from' send-as alias"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      send_as_email:
+        description: "Email address for the alias"
+        required: true
+      display_name:
+        description: "Display name for the alias"
+      reply_to_address:
+        description: "Reply-to address"
+      is_default:
+        description: "Set as default send-as (true/false)"
+
+  gmail_update_send_as:
+    description: "Update a send-as alias"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      send_as_email:
+        description: "Send-as email address"
+        required: true
+      display_name:
+        description: "Display name"
+      reply_to_address:
+        description: "Reply-to address"
+      is_default:
+        description: "Set as default (true/false)"
+
+  gmail_delete_send_as:
+    description: "Delete a send-as alias"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      send_as_email:
+        description: "Send-as email address to delete"
+        required: true
+
+  gmail_verify_send_as:
+    description: "Send a verification email to a send-as alias address"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      send_as_email:
+        description: "Send-as email address to verify"
+        required: true
+
+  gmail_list_delegates:
+    description: "List delegates for the account"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+
+  gmail_get_delegate:
+    description: "Get a specific delegate"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      delegate_email:
+        description: "Delegate email address"
+        required: true
+
+  gmail_create_delegate:
+    description: "Add a delegate with verification status set to accepted"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      delegate_email:
+        description: "Email address of the delegate"
+        required: true
+
+  gmail_delete_delegate:
+    description: "Remove a delegate"
+    parameters:
+      user_id:
+        description: "User ID (defaults to 'me')"
+      delegate_email:
+        description: "Delegate email address to remove"
+        required: true

@@ -1,0 +1,201 @@
+version: 1
+tools:
+  notion_create_database:
+    description: "Create a new database under a parent page"
+    parameters:
+      parent:
+        description: 'Parent object with page_id (e.g. {"page_id": "..."})'
+        required: true
+      title:
+        description: "Title of the database (rich text array)"
+      properties:
+        description: "Property schema object defining columns and their types"
+      is_inline:
+        description: "Set to true to create an inline database (default false)"
+  notion_retrieve_data_source:
+    description: "Retrieve a data source's property schema. Use before query_data_source to understand available columns, types, and filter options."
+    parameters:
+      data_source_id:
+        description: "Block ID of the data source (the id field from search results — NOT collection_id)"
+        required: true
+  notion_update_data_source:
+    description: "Update a data source's title or property schema"
+    parameters:
+      data_source_id:
+        description: "Block ID of the data source (the id field from search results — NOT collection_id)"
+        required: true
+      title:
+        description: "New title (rich text array)"
+      properties:
+        description: "Updated property schema object"
+  notion_query_data_source:
+    description: "Query a data source (database) with optional filters and sorts, returning paginated rows. Use retrieve_data_source first to see the schema."
+    parameters:
+      data_source_id:
+        description: "Block ID of the data source (the id field from search results — NOT collection_id). The handler resolves the collection internally."
+        required: true
+      filter:
+        description: "Filter object to narrow results. Use retrieve_data_source to see available property names and types for building filters."
+      sorts:
+        description: "Array of sort objects (property + direction)"
+      start_cursor:
+        description: "Cursor for pagination"
+      page_size:
+        description: "Number of results per page (max 100)"
+  notion_list_data_source_templates:
+    description: "List available templates for a data source"
+    parameters:
+      data_source_id:
+        description: "Block ID of the data source (the id field from search results — NOT collection_id)"
+        required: true
+  notion_retrieve_database:
+    description: "Retrieve a database by block ID. Equivalent to retrieve_data_source — both accept the block ID."
+    parameters:
+      database_id:
+        description: "ID of the database"
+        required: true
+  notion_create_page:
+    description: "Create a new page or database row with properties only (no content blocks). page_id parent creates a subpage; database_id parent creates a row. For pages with content, prefer create_page_with_content."
+    parameters:
+      parent:
+        description: 'Parent: {"page_id": "..."} for subpage, or {"database_id": "<collection_id>"} for database row. Use collection_id from search results, NOT the search result id field'
+        required: true
+      properties:
+        description: "Page property values object"
+      title:
+        description: "Page title (convenience — sets the title property)"
+  notion_retrieve_page:
+    description: "Retrieve a page's metadata and properties only. For full page content, prefer get_page_content."
+    parameters:
+      page_id:
+        description: "ID of the page"
+        required: true
+  notion_update_page:
+    description: "Update a page's property values (status, assignee, dates, etc). Does not modify page content blocks — use append_block_children or update_block for that."
+    parameters:
+      page_id:
+        description: "ID of the page to update"
+        required: true
+      properties:
+        description: "Updated property values object"
+      archived:
+        description: "Set to true to archive the page"
+  notion_move_page:
+    description: "Move a page to a new parent page or database"
+    parameters:
+      page_id:
+        description: "ID of the page to move"
+        required: true
+      parent:
+        description: "New parent object with page_id or database_id"
+        required: true
+  notion_retrieve_page_property:
+    description: "Retrieve a single property value. Rarely needed — retrieve_page returns all properties at once."
+    parameters:
+      page_id:
+        description: "ID of the page"
+        required: true
+      property_id:
+        description: "ID or name of the property to retrieve"
+        required: true
+  notion_retrieve_block:
+    description: "Retrieve a single block by ID. For full page content, prefer get_page_content."
+    parameters:
+      block_id:
+        description: "ID of the block"
+        required: true
+  notion_update_block:
+    description: "Update a block's content"
+    parameters:
+      block_id:
+        description: "ID of the block to update"
+        required: true
+      type_content:
+        description: "Block type-specific content object"
+      archived:
+        description: "Set to true to archive the block"
+  notion_delete_block:
+    description: "Delete a block by ID (marks as not alive)"
+    parameters:
+      block_id:
+        description: "ID of the block to delete"
+        required: true
+  notion_get_block_children:
+    description: "List immediate child blocks of a block. For full page tree, prefer get_page_content."
+    parameters:
+      block_id:
+        description: "ID of the parent block"
+        required: true
+  notion_append_block_children:
+    description: 'Append new child blocks to a page or block. Use for adding content to existing pages.'
+    parameters:
+      block_id:
+        description: "ID of the parent block"
+        required: true
+      children:
+        description: 'Array of v3 block objects: {"type": "text", "properties": {"title": [["content"]]}}. Types: text, header, sub_header, sub_sub_header, bulleted_list (unordered), numbered_list (ordered, auto-numbered — do not add manual number/letter prefixes), to_do, quote, callout, code (set language via format: {"code_language": "Python"}), divider, toggle'
+        required: true
+  notion_search:
+    description: "Search across all pages and data sources in the workspace. Start here for most workflows. For database results: use id (block ID) for retrieve_data_source and query_data_source; use collection_id for creating rows via create_page with database_id parent."
+    parameters:
+      query:
+        description: "Search query text. Searches page titles and content."
+      type:
+        description: 'Filter by type: "page" or "data_source"'
+      limit:
+        description: "Maximum number of results (default 20)"
+      sort:
+        description: "Sort object with field and direction"
+      filters:
+        description: "Additional filter object for v3 search"
+      space_id:
+        description: "Space ID (auto-filled if not provided)"
+  notion_list_users:
+    description: "List all users in the workspace"
+    parameters: {}
+  notion_retrieve_user:
+    description: "Retrieve a user by ID"
+    parameters:
+      user_id:
+        description: "ID of the user"
+        required: true
+  notion_get_self:
+    description: "Retrieve the current authenticated user's ID and settings"
+    parameters: {}
+  notion_create_comment:
+    description: "Create a comment on a page or in an existing discussion thread. Provide page_id for a new discussion, or discussion_id to reply to an existing thread."
+    parameters:
+      page_id:
+        description: "ID of the page (required for new discussion threads, omit when replying via discussion_id)"
+      text:
+        description: "Plain text content of the comment"
+        required: true
+      discussion_id:
+        description: "ID of an existing discussion thread (from retrieve_comments). Omit for new discussions — use page_id instead."
+  notion_retrieve_comments:
+    description: "Retrieve all comment threads on a page. Returns discussions with their comments."
+    parameters:
+      block_id:
+        description: "ID of the block or page"
+        required: true
+  notion_get_page_content:
+    description: "Retrieve a page and all its block content in one call. Preferred over retrieve_page — returns the full page tree, not just metadata."
+    parameters:
+      page_id:
+        description: "ID of the page (from search results or a known page URL)"
+        required: true
+      limit:
+        description: "Maximum number of blocks to load (default 100)"
+  notion_create_page_with_content:
+    description: "Create a page or database row with properties and block content in a single atomic transaction. Preferred over create_page + append_block_children — fewer calls, atomic. page_id parent creates a subpage; database_id parent creates a row."
+    parameters:
+      parent:
+        description: 'Parent: {"page_id": "..."} for subpage, or {"database_id": "<collection_id>"} for database row. Use collection_id from search results, NOT the search result id field'
+        required: true
+      properties:
+        description: "Page property values object"
+      title:
+        description: "Page title (convenience)"
+      children:
+        description: 'Array of v3 block objects: {"type": "text", "properties": {"title": [["content"]]}}. Types: text, header, sub_header, sub_sub_header, bulleted_list (unordered), numbered_list (ordered, auto-numbered — do not add manual number/letter prefixes), to_do, quote, callout, code (set language via format: {"code_language": "Python"}), divider, toggle'
+        required: true

@@ -1,0 +1,246 @@
+version: 1
+tools:
+  fly_list_apps:
+    description: "List all Fly.io apps in an organization. Start here for most workflows — returns app names needed by other tools"
+    parameters:
+      org_slug:
+        description: "Organization slug (e.g. 'personal')"
+        required: true
+  fly_get_app:
+    description: "Get details of a Fly.io app including status and organization info"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+  fly_create_app:
+    description: "Create a new Fly.io app in an organization"
+    parameters:
+      app_name:
+        description: "Name for the new app"
+        required: true
+      org_slug:
+        description: "Organization slug (e.g. 'personal')"
+        required: true
+      network:
+        description: "Optional IPv6 private network name to segment the app onto"
+  fly_delete_app:
+    description: "Delete a Fly.io app. Use force=true to stop all Machines first"
+    parameters:
+      app_name:
+        description: "App name to delete"
+        required: true
+      force:
+        description: "Force stop all Machines and delete immediately (true/false)"
+  fly_list_machines:
+    description: "List all Machines in a Fly.io app. Returns IDs, state, region, and image info. Use summary=true for lighter response"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      include_deleted:
+        description: "Include deleted machines (true/false)"
+      region:
+        description: "Filter by region code (e.g. 'ord', 'iad')"
+      state:
+        description: "Comma-separated states to filter: created, started, stopped, suspended"
+      summary:
+        description: "Only return summary info, omit config/checks/events (true/false)"
+  fly_get_machine:
+    description: "Get full details of a specific Machine including config, events, and checks"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      machine_id:
+        description: "Machine ID"
+        required: true
+  fly_create_machine:
+    description: "Create a new Machine in a Fly.io app. Specify image, resources (guest), region, and optional services/mounts"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      name:
+        description: "Optional machine name"
+      region:
+        description: "Region code (e.g. 'ord', 'iad', 'lhr')"
+      config:
+        description: "Machine config object with: image (required), guest {cpus, memory_mb, cpu_kind}, env {}, services [], mounts [], auto_destroy, restart {policy}, metadata {}"
+        required: true
+  fly_update_machine:
+    description: "Update a Machine's configuration (image, resources, env, services, etc.)"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      machine_id:
+        description: "Machine ID"
+        required: true
+      config:
+        description: "Updated machine config object"
+        required: true
+  fly_delete_machine:
+    description: "Delete a Machine. Use force=true to kill a running machine"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      machine_id:
+        description: "Machine ID"
+        required: true
+      force:
+        description: "Force kill if running (true/false)"
+  fly_start_machine:
+    description: "Start a stopped Machine"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      machine_id:
+        description: "Machine ID"
+        required: true
+  fly_stop_machine:
+    description: "Stop a running Machine"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      machine_id:
+        description: "Machine ID"
+        required: true
+  fly_restart_machine:
+    description: "Restart a Machine"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      machine_id:
+        description: "Machine ID"
+        required: true
+  fly_signal_machine:
+    description: "Send a Unix signal to a Machine process (e.g. SIGTERM, SIGKILL, SIGHUP)"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      machine_id:
+        description: "Machine ID"
+        required: true
+      signal:
+        description: "Signal name (SIGTERM, SIGKILL, SIGHUP, SIGUSR1, SIGUSR2, etc.)"
+        required: true
+  fly_wait_machine:
+    description: "Wait for a Machine to reach a specific state. Blocks until state is reached or timeout"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      machine_id:
+        description: "Machine ID"
+        required: true
+      state:
+        description: "Target state: started, stopped, suspended, destroyed (default: started)"
+      timeout:
+        description: "Timeout in seconds (default: 60)"
+  fly_exec_machine:
+    description: 'Execute a command inside a running Machine and return stdout/stderr'
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      machine_id:
+        description: "Machine ID"
+        required: true
+      command:
+        description: 'Command to execute as an array of strings (e.g. ["ls", "-la"])'
+        required: true
+  fly_list_volumes:
+    description: "List all persistent volumes attached to a Fly.io app"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+  fly_get_volume:
+    description: "Get details of a specific volume including size, region, and attached machine"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      volume_id:
+        description: "Volume ID"
+        required: true
+  fly_create_volume:
+    description: "Create a persistent volume in a Fly.io app. Volumes are region-specific"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      name:
+        description: "Volume name"
+        required: true
+      region:
+        description: "Region code (e.g. 'ord')"
+        required: true
+      size_gb:
+        description: "Size in GB (default: 1)"
+      encrypted:
+        description: "Encrypt the volume (true/false, default: true)"
+      snapshot_retention:
+        description: "Number of snapshots to retain"
+      auto_backup_enabled:
+        description: "Enable automatic backups (true/false)"
+  fly_update_volume:
+    description: "Update a volume's size or snapshot settings"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      volume_id:
+        description: "Volume ID"
+        required: true
+      snapshot_retention:
+        description: "Number of snapshots to retain"
+      auto_backup_enabled:
+        description: "Enable automatic backups (true/false)"
+  fly_delete_volume:
+    description: "Delete a persistent volume. Volume must not be attached to a running machine"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      volume_id:
+        description: "Volume ID"
+        required: true
+  fly_list_volume_snapshots:
+    description: "List snapshots for a specific volume"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      volume_id:
+        description: "Volume ID"
+        required: true
+  fly_list_secrets:
+    description: "List all secrets for a Fly.io app. Returns names and digests only — values are never exposed"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+  fly_set_secrets:
+    description: "Set one or more secrets on a Fly.io app. Machines will be restarted to pick up changes"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      secrets:
+        description: 'Key-value map of secrets to set (e.g. {"DATABASE_URL": "postgres://..."})'
+        required: true
+  fly_unset_secrets:
+    description: "Remove one or more secrets from a Fly.io app. Machines will be restarted"
+    parameters:
+      app_name:
+        description: "App name"
+        required: true
+      keys:
+        description: "Array of secret names to remove"
+        required: true

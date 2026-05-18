@@ -1,0 +1,413 @@
+version: 1
+tools:
+  jira_search_issues:
+    description: "Search issues using JQL (Jira Query Language). Start here for most issue workflows. Returns paginated results; pass nextPageToken from response to fetch next page"
+    parameters:
+      jql:
+        description: "JQL query (e.g., 'project = PROJ AND status = Open')"
+        required: true
+      fields:
+        description: "Comma-separated fields to return (default: summary,status,assignee,priority,issuetype)"
+      next_page_token:
+        description: "Cursor for next page (from previous response's nextPageToken field)"
+      max_results:
+        description: "Max results per page (default 200, server may cap)"
+
+  jira_get_issue:
+    description: "Get full details of a specific issue by key or ID"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123) or ID"
+        required: true
+      fields:
+        description: "Comma-separated fields to return (default: all)"
+      expand:
+        description: "Comma-separated expansions (e.g., changelog,renderedFields)"
+
+  jira_create_issue:
+    description: "Create a new issue. Use jira_list_issue_types to find valid issue type names. Supports custom fields — use jira_list_fields to discover field IDs"
+    parameters:
+      project_key:
+        description: "Project key (e.g., PROJ)"
+        required: true
+      issue_type:
+        description: "Issue type name (e.g., Bug, Task, Story)"
+        required: true
+      summary:
+        description: "Issue summary/title"
+        required: true
+      description:
+        description: "Issue description (plain text, converted to ADF)"
+      priority:
+        description: "Priority name (e.g., High, Medium, Low)"
+      assignee_id:
+        description: "Account ID of assignee (use jira_search_users to find)"
+      labels:
+        description: "Comma-separated labels"
+      parent_key:
+        description: "Parent issue key for subtasks (e.g., PROJ-100)"
+      custom_fields:
+        description: 'JSON object of custom field values keyed by field ID (e.g. {"customfield_10001": "value", "customfield_10002": {"id": "10100"}}). Use jira_list_fields to discover field IDs and types'
+
+  jira_update_issue:
+    description: "Update an existing issue's fields including custom fields — use jira_list_fields to discover custom field IDs"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      summary:
+        description: "New summary"
+      description:
+        description: "New description (plain text, converted to ADF)"
+      priority:
+        description: "Priority name"
+      assignee_id:
+        description: "Account ID of assignee (empty string to unassign)"
+      labels:
+        description: "Comma-separated labels (replaces existing)"
+      custom_fields:
+        description: 'JSON object of custom field values keyed by field ID (e.g. {"customfield_10001": "value", "customfield_10002": {"id": "10100"}}). Use jira_list_fields to discover field IDs and types'
+
+  jira_delete_issue:
+    description: "Delete an issue"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      delete_subtasks:
+        description: "Also delete subtasks (true/false, default false)"
+
+  jira_transition_issue:
+    description: "Transition an issue to a new status. Use jira_get_transitions first to find valid transition IDs"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      transition_id:
+        description: "Transition ID (use jira_get_transitions to find valid IDs)"
+        required: true
+
+  jira_get_transitions:
+    description: "List available transitions for an issue. Use before jira_transition_issue to find valid transition IDs"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+
+  jira_assign_issue:
+    description: "Assign an issue to a user"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      account_id:
+        description: "Account ID of assignee (use jira_search_users to find, or empty/-1 to unassign)"
+        required: true
+
+  jira_list_comments:
+    description: "List comments on an issue"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      start_at:
+        description: "Pagination offset"
+      max_results:
+        description: "Max results per page"
+
+  jira_add_comment:
+    description: "Add a comment to an issue"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      body:
+        description: "Comment body (plain text, converted to ADF)"
+        required: true
+
+  jira_update_comment:
+    description: "Update an existing comment"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      comment_id:
+        description: "Comment ID"
+        required: true
+      body:
+        description: "New comment body (plain text, converted to ADF)"
+        required: true
+
+  jira_delete_comment:
+    description: "Delete a comment from an issue"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      comment_id:
+        description: "Comment ID"
+        required: true
+
+  jira_list_issue_links:
+    description: "List links on an issue (blocks, is blocked by, duplicates, etc.)"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+
+  jira_create_issue_link:
+    description: "Create a link between two issues"
+    parameters:
+      type_name:
+        description: "Link type name (e.g., Blocks, Duplicate, Cloners)"
+        required: true
+      inward_issue:
+        description: "Issue key for the inward side"
+        required: true
+      outward_issue:
+        description: "Issue key for the outward side"
+        required: true
+
+  jira_delete_issue_link:
+    description: "Delete an issue link by link ID"
+    parameters:
+      link_id:
+        description: "Issue link ID"
+        required: true
+
+  jira_list_projects:
+    description: "List all accessible projects"
+    parameters:
+      start_at:
+        description: "Pagination offset"
+      max_results:
+        description: "Max results per page (default 50)"
+      query:
+        description: "Filter projects by name"
+
+  jira_get_project:
+    description: "Get details of a specific project"
+    parameters:
+      project_key:
+        description: "Project key or ID"
+        required: true
+
+  jira_list_project_components:
+    description: "List components in a project"
+    parameters:
+      project_key:
+        description: "Project key or ID"
+        required: true
+
+  jira_list_project_versions:
+    description: "List versions (releases) in a project"
+    parameters:
+      project_key:
+        description: "Project key or ID"
+        required: true
+
+  jira_list_project_statuses:
+    description: "List valid statuses for a project's issue types"
+    parameters:
+      project_key:
+        description: "Project key or ID"
+        required: true
+
+  jira_list_boards:
+    description: "List all agile boards"
+    parameters:
+      start_at:
+        description: "Pagination offset"
+      max_results:
+        description: "Max results per page (default 50)"
+      project_key:
+        description: "Filter by project key"
+      type:
+        description: "Board type: scrum, kanban, simple"
+
+  jira_get_board:
+    description: "Get details of an agile board"
+    parameters:
+      board_id:
+        description: "Board ID"
+        required: true
+
+  jira_list_sprints:
+    description: "List sprints for a board"
+    parameters:
+      board_id:
+        description: "Board ID"
+        required: true
+      start_at:
+        description: "Pagination offset"
+      max_results:
+        description: "Max results per page"
+      state:
+        description: "Filter by state: active, future, closed"
+
+  jira_get_sprint:
+    description: "Get details of a sprint"
+    parameters:
+      sprint_id:
+        description: "Sprint ID"
+        required: true
+
+  jira_create_sprint:
+    description: "Create a new sprint"
+    parameters:
+      board_id:
+        description: "Board ID (origin board)"
+        required: true
+      name:
+        description: "Sprint name"
+        required: true
+      start_date:
+        description: "Start date (ISO 8601)"
+      end_date:
+        description: "End date (ISO 8601)"
+      goal:
+        description: "Sprint goal"
+
+  jira_update_sprint:
+    description: "Update a sprint's details"
+    parameters:
+      sprint_id:
+        description: "Sprint ID"
+        required: true
+      name:
+        description: "Sprint name"
+      state:
+        description: "Sprint state: active, future, closed"
+      start_date:
+        description: "Start date (ISO 8601)"
+      end_date:
+        description: "End date (ISO 8601)"
+      goal:
+        description: "Sprint goal"
+
+  jira_get_sprint_issues:
+    description: "List issues in a sprint"
+    parameters:
+      sprint_id:
+        description: "Sprint ID"
+        required: true
+      start_at:
+        description: "Pagination offset"
+      max_results:
+        description: "Max results per page"
+      jql:
+        description: "Additional JQL filter"
+
+  jira_move_issues_to_sprint:
+    description: "Move issues to a sprint"
+    parameters:
+      sprint_id:
+        description: "Sprint ID"
+        required: true
+      issues:
+        description: "Comma-separated issue keys (e.g., PROJ-1,PROJ-2)"
+        required: true
+
+  jira_list_board_backlog:
+    description: "List issues in the backlog of a board"
+    parameters:
+      board_id:
+        description: "Board ID"
+        required: true
+      start_at:
+        description: "Pagination offset"
+      max_results:
+        description: "Max results per page"
+      jql:
+        description: "Additional JQL filter"
+
+  jira_get_board_config:
+    description: "Get configuration of an agile board (columns, estimation, ranking)"
+    parameters:
+      board_id:
+        description: "Board ID"
+        required: true
+
+  jira_get_myself:
+    description: "Get the current authenticated user's details"
+    parameters: {}
+
+  jira_search_users:
+    description: "Search for users by name or email. Use to find account IDs for assignment"
+    parameters:
+      query:
+        description: "Search query (name or email)"
+        required: true
+
+  jira_get_user:
+    description: "Get details of a specific user by account ID"
+    parameters:
+      account_id:
+        description: "User account ID"
+        required: true
+
+  jira_list_issue_types:
+    description: "List all issue types available in the Jira instance"
+    parameters: {}
+
+  jira_list_priorities:
+    description: "List all issue priorities"
+    parameters: {}
+
+  jira_list_statuses:
+    description: "List all issue statuses"
+    parameters: {}
+
+  jira_list_labels:
+    description: "List all labels used across the instance"
+    parameters: {}
+
+  jira_list_fields:
+    description: "List all fields (system and custom) available in the instance"
+    parameters: {}
+
+  jira_list_filters:
+    description: "Search saved filters"
+    parameters:
+      filter_name:
+        description: "Filter by name (substring match)"
+      start_at:
+        description: "Pagination offset"
+      max_results:
+        description: "Max results per page"
+
+  jira_get_filter:
+    description: "Get details of a saved filter including its JQL"
+    parameters:
+      filter_id:
+        description: "Filter ID"
+        required: true
+
+  jira_list_worklogs:
+    description: "List work logs for an issue"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      start_at:
+        description: "Pagination offset"
+      max_results:
+        description: "Max results per page"
+
+  jira_add_worklog:
+    description: "Add a work log entry to an issue"
+    parameters:
+      issue_key:
+        description: "Issue key (e.g., PROJ-123)"
+        required: true
+      time_spent:
+        description: "Time spent (e.g., 2h, 30m, 1d)"
+        required: true
+      comment:
+        description: "Work log comment (plain text)"
+      started:
+        description: "When work started (ISO 8601, defaults to now)"
+
+  jira_get_server_info:
+    description: "Get Jira instance server info (version, deployment type, URLs)"
+    parameters: {}

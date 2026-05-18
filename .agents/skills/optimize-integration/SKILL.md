@@ -72,6 +72,17 @@ Focus on parameters where the wrong value is a common mistake:
 - Parameters that are mutually exclusive with another parameter
 - Parameters where a prerequisite tool provides the needed information
 
+### Editing tool descriptions (YAML-first)
+
+Tool descriptions live in `integrations/<name>/tools.yaml`, not in Go source. To refine a description:
+
+1. Edit `tools.yaml` directly — no Go code changes needed for prose-only updates.
+2. Run `go test ./integrations/<name>/...` to confirm the YAML parses without error.
+3. Run the benchmark (see `/mcp-benchmark` or `/search-benchmark`) to measure the improvement.
+4. Commit the YAML change alone — prose updates don't need a Go code review.
+
+The embed rebuild happens automatically at compile time via `//go:embed`. No separate codegen step.
+
 ### Verification
 
 - `make ci` passes (descriptions are data, not logic)
@@ -205,5 +216,4 @@ Use `"-*_url"` to exclude all fields matching a glob pattern. Valid in exclusion
 | Adding every field "just in case" | Every field costs tokens x N items — unjustified fields compound across pagination | Justify each field by the query it enables |
 | Enriching Tier 4 tools that are already clear | Description churn with no routing improvement | Don't touch what doesn't need touching |
 | Broad glob exclusions like `-*_url` | Silently excludes future upstream API fields that match the glob | Use targeted exclusions when field set is small and stable |
-| Aliasing `ToolDefinition.Parameters` map in search | Progressive silent corruption — `extractSharedParameters` deletes from shared map | Always deep-copy the Parameters map when building `searchToolInfo` |
 | Mutation handler hardcodes one parent type when API has polymorphic parents | 400/silent failure for other parent types (e.g., `listAfter` on a collection ID in Notion) | Branch on parent type at the op-building layer; verify API uses the same write mechanism for all parent types |

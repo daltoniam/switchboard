@@ -1,0 +1,126 @@
+version: 1
+tools:
+  salesforce_describe_global:
+    description: "List all SObjects available in the org with metadata (name, label, keyPrefix, queryable, createable, etc.). Start here for schema discovery."
+    parameters: {}
+  salesforce_describe_sobject:
+    description: "Get detailed metadata for an SObject type including all fields, record types, child relationships, and URLs"
+    parameters:
+      sobject:
+        description: "SObject type name (e.g. Account, Contact, Lead, Opportunity, Case, custom__c)"
+        required: true
+  salesforce_get_record:
+    description: "Get a single Salesforce record by ID. Optionally specify fields to return."
+    parameters:
+      sobject:
+        description: "SObject type (e.g. Account, Contact, Lead, Opportunity)"
+        required: true
+      id:
+        description: "Record ID (15 or 18 character Salesforce ID)"
+        required: true
+      fields:
+        description: "Comma-separated field names to return (e.g. Id,Name,Email). Returns all fields if omitted."
+  salesforce_create_record:
+    description: "Create a new Salesforce record. Provide field values as a JSON object."
+    parameters:
+      sobject:
+        description: "SObject type (e.g. Account, Contact, Lead, Opportunity)"
+        required: true
+      data:
+        description: 'JSON string of field name/value pairs (e.g. {"Name":"Acme","Industry":"Technology"})'
+        required: true
+  salesforce_update_record:
+    description: "Update an existing Salesforce record. Provide only the fields to change."
+    parameters:
+      sobject:
+        description: "SObject type (e.g. Account, Contact, Lead, Opportunity)"
+        required: true
+      id:
+        description: "Record ID (15 or 18 character Salesforce ID)"
+        required: true
+      data:
+        description: "JSON string of field name/value pairs to update"
+        required: true
+  salesforce_delete_record:
+    description: "Delete a Salesforce record by ID"
+    parameters:
+      sobject:
+        description: "SObject type (e.g. Account, Contact, Lead, Opportunity)"
+        required: true
+      id:
+        description: "Record ID (15 or 18 character Salesforce ID)"
+        required: true
+  salesforce_get_record_by_external_id:
+    description: "Get a Salesforce record using an external ID field value"
+    parameters:
+      sobject:
+        description: "SObject type (e.g. Account, Contact)"
+        required: true
+      field:
+        description: "External ID field name"
+        required: true
+      value:
+        description: "External ID value"
+        required: true
+  salesforce_upsert_by_external_id:
+    description: "Create or update a record using an external ID. Creates if not found, updates if exists."
+    parameters:
+      sobject:
+        description: "SObject type (e.g. Account, Contact)"
+        required: true
+      field:
+        description: "External ID field name"
+        required: true
+      value:
+        description: "External ID value"
+        required: true
+      data:
+        description: "JSON string of field name/value pairs"
+        required: true
+  salesforce_query:
+    description: "Execute a SOQL query to retrieve Salesforce records. Supports SELECT, WHERE, ORDER BY, LIMIT, GROUP BY, and relationship queries."
+    parameters:
+      q:
+        description: "SOQL query string (e.g. SELECT Id, Name FROM Account WHERE Industry = 'Technology' LIMIT 10)"
+        required: true
+  salesforce_query_more:
+    description: "Retrieve the next batch of SOQL query results using a nextRecordsUrl from a previous query response"
+    parameters:
+      next_url:
+        description: "The nextRecordsUrl value from a previous query response (e.g. /services/data/v62.0/query/01gxx0000...)"
+        required: true
+  salesforce_search:
+    description: "Execute a SOSL full-text search across multiple Salesforce objects. Use FIND clause with search terms."
+    parameters:
+      q:
+        description: "SOSL search string (e.g. FIND {Acme} IN ALL FIELDS RETURNING Account(Id, Name), Contact(Id, Name, Email))"
+        required: true
+  salesforce_list_api_versions:
+    description: "List all available Salesforce REST API versions"
+    parameters: {}
+  salesforce_get_limits:
+    description: "Get org API usage limits and current consumption (DailyApiRequests, DailyBulkApiRequests, etc.)"
+    parameters: {}
+  salesforce_list_recently_viewed:
+    description: "List recently viewed records across all object types or for a specific object type"
+    parameters:
+      limit:
+        description: "Max number of records to return (default 200)"
+  salesforce_composite_batch:
+    description: "Execute up to 25 independent subrequests in a single API call. Each subrequest is a REST API request."
+    parameters:
+      requests:
+        description: 'JSON array of batch requests, each with method, url, and optional richInput (e.g. [{"method":"GET","url":"/services/data/v62.0/sobjects/Account/001xx"}])'
+        required: true
+  salesforce_sobject_collections:
+    description: "Create, update, or delete up to 200 records of the same or different types in a single request"
+    parameters:
+      method:
+        description: "HTTP method: POST (create), PATCH (update), or DELETE (delete)"
+        required: true
+      records:
+        description: 'JSON array of records with attributes.type for create/update (e.g. [{"attributes":{"type":"Account"},"Name":"Acme"}])'
+      ids:
+        description: "Comma-separated record IDs (required for DELETE only)"
+      all_or_none:
+        description: "If true, roll back all if any fail (default false)"

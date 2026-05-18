@@ -1,0 +1,685 @@
+version: 1
+tools:
+  posthog_list_projects:
+    description: "List all projects in the PostHog organization. Start here to discover projects."
+    parameters:
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_project:
+    description: "Get details of a specific project"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+
+  posthog_create_project:
+    description: "Create a new project"
+    parameters:
+      name:
+        description: "Project name"
+        required: true
+
+  posthog_update_project:
+    description: "Update a project's settings"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      name:
+        description: "New name"
+
+  posthog_delete_project:
+    description: "Delete a project"
+    parameters:
+      project_id:
+        description: "Project ID"
+        required: true
+
+  posthog_list_feature_flags:
+    description: "List feature flags for rollout targeting and release management. Filter by active state, type, or experiment."
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      search:
+        description: "Search by key or name"
+      active:
+        description: "Filter by active state (true/false)"
+      type:
+        description: "Filter by type: boolean, multivariant, experiment"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_feature_flag:
+    description: "Get details of a specific feature flag"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      flag_id:
+        description: "Feature flag ID"
+        required: true
+
+  posthog_create_feature_flag:
+    description: "Create a new feature flag"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      key:
+        description: "Feature flag key (unique identifier)"
+        required: true
+      name:
+        description: "Human-readable name"
+      filters:
+        description: "JSON string of filter/rollout config"
+      active:
+        description: "Whether flag is active (true/false)"
+      ensure_experience_continuity:
+        description: "Persist flag value for users across sessions (true/false)"
+
+  posthog_update_feature_flag:
+    description: "Update a feature flag"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      flag_id:
+        description: "Feature flag ID"
+        required: true
+      key:
+        description: "Feature flag key"
+      name:
+        description: "Human-readable name"
+      filters:
+        description: "JSON string of filter/rollout config"
+      active:
+        description: "Whether flag is active (true/false)"
+
+  posthog_delete_feature_flag:
+    description: "Delete a feature flag (soft delete)"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      flag_id:
+        description: "Feature flag ID"
+        required: true
+
+  posthog_feature_flag_activity:
+    description: "Get activity log for a feature flag"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      flag_id:
+        description: "Feature flag ID"
+        required: true
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_list_cohorts:
+    description: "List all user cohorts for audience segmentation and analytics targeting"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_cohort:
+    description: "Get details of a specific cohort"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      cohort_id:
+        description: "Cohort ID"
+        required: true
+
+  posthog_create_cohort:
+    description: "Create a new cohort"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      name:
+        description: "Cohort name"
+        required: true
+      description:
+        description: "Cohort description"
+      filters:
+        description: "JSON string of cohort filters"
+      is_static:
+        description: "Whether cohort is static (true/false)"
+
+  posthog_update_cohort:
+    description: "Update a cohort"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      cohort_id:
+        description: "Cohort ID"
+        required: true
+      name:
+        description: "Cohort name"
+      description:
+        description: "Cohort description"
+      filters:
+        description: "JSON string of cohort filters"
+
+  posthog_delete_cohort:
+    description: "Delete a cohort (soft delete)"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      cohort_id:
+        description: "Cohort ID"
+        required: true
+
+  posthog_list_cohort_persons:
+    description: "List persons in a cohort"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      cohort_id:
+        description: "Cohort ID"
+        required: true
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_list_insights:
+    description: "List saved product analytics insights (trends, funnels, retention, etc.). View reports, charts, and metrics."
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      search:
+        description: "Search by name"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+      created_by:
+        description: "Filter by creator user ID"
+
+  posthog_get_insight:
+    description: "Get details of a specific product analytics insight, including chart data for trends, funnels, and retention"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      insight_id:
+        description: "Insight ID"
+        required: true
+
+  posthog_create_insight:
+    description: "Create a new insight"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      name:
+        description: "Insight name"
+      description:
+        description: "Insight description"
+      filters:
+        description: "JSON string of insight filters (events, actions, properties, date ranges)"
+      query:
+        description: "JSON string of HogQL query definition"
+
+  posthog_update_insight:
+    description: "Update an insight"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      insight_id:
+        description: "Insight ID"
+        required: true
+      name:
+        description: "Insight name"
+      description:
+        description: "Insight description"
+      filters:
+        description: "JSON string of insight filters"
+      query:
+        description: "JSON string of HogQL query definition"
+
+  posthog_delete_insight:
+    description: "Delete an insight (soft delete)"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      insight_id:
+        description: "Insight ID"
+        required: true
+
+  posthog_query:
+    description: "Run a HogQL (SQL-like) query synchronously and return inline results. Use this for ad-hoc analytics without persisting an insight. Returns columns, results rows, and execution metadata."
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      query:
+        description: "HogQL query text, e.g. SELECT count() FROM events WHERE timestamp > now() - INTERVAL 7 DAY"
+        required: true
+      client_query_id:
+        description: "Optional client-supplied identifier to correlate the request in PostHog logs"
+      refresh:
+        description: "Optional cache mode: 'blocking' (default-ish, wait for fresh result), 'force_blocking', 'lazy_async', 'force_cache'"
+
+  posthog_list_persons:
+    description: "List persons (users and customers) tracked by PostHog analytics. Search by email, distinct ID, or visitor profile."
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      search:
+        description: "Search by email or distinct ID"
+      distinct_id:
+        description: "Filter by exact distinct ID"
+      email:
+        description: "Filter by email"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_person:
+    description: "Get details of a specific person"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      person_id:
+        description: "Person UUID"
+        required: true
+
+  posthog_delete_person:
+    description: "Delete a person and their data"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      person_id:
+        description: "Person UUID"
+        required: true
+
+  posthog_update_person_property:
+    description: "Update a property on a person"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      person_id:
+        description: "Person UUID"
+        required: true
+      key:
+        description: "Property key"
+        required: true
+      value:
+        description: "Property value"
+        required: true
+
+  posthog_delete_person_property:
+    description: "Delete a property from a person"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      person_id:
+        description: "Person UUID"
+        required: true
+      key:
+        description: "Property key to remove"
+        required: true
+
+  posthog_list_groups:
+    description: "List groups"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      group_type_index:
+        description: "Group type index (0-based)"
+      search:
+        description: "Search by group key or properties"
+      cursor:
+        description: "Pagination cursor"
+
+  posthog_find_group:
+    description: "Find a specific group by key"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      group_type_index:
+        description: "Group type index (0-based)"
+        required: true
+      group_key:
+        description: "Group key to find"
+        required: true
+
+  posthog_list_annotations:
+    description: "List annotations (markers on charts)"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      search:
+        description: "Search by content"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_annotation:
+    description: "Get details of a specific annotation"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      annotation_id:
+        description: "Annotation ID"
+        required: true
+
+  posthog_create_annotation:
+    description: "Create a new annotation"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      content:
+        description: "Annotation text"
+        required: true
+      date_marker:
+        description: "ISO 8601 date for the annotation marker"
+        required: true
+      scope:
+        description: "Scope: dashboard_item, project, organization"
+
+  posthog_update_annotation:
+    description: "Update an annotation"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      annotation_id:
+        description: "Annotation ID"
+        required: true
+      content:
+        description: "Annotation text"
+      date_marker:
+        description: "ISO 8601 date"
+      scope:
+        description: "Scope: dashboard_item, project, organization"
+
+  posthog_delete_annotation:
+    description: "Delete an annotation"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      annotation_id:
+        description: "Annotation ID"
+        required: true
+
+  posthog_list_dashboards:
+    description: "List PostHog product analytics dashboards for metrics overview and monitoring"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_dashboard:
+    description: "Get details of a specific dashboard"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      dashboard_id:
+        description: "Dashboard ID"
+        required: true
+
+  posthog_create_dashboard:
+    description: "Create a new dashboard"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      name:
+        description: "Dashboard name"
+        required: true
+      description:
+        description: "Dashboard description"
+      pinned:
+        description: "Pin dashboard (true/false)"
+      tags:
+        description: "Comma-separated tags"
+
+  posthog_update_dashboard:
+    description: "Update a dashboard"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      dashboard_id:
+        description: "Dashboard ID"
+        required: true
+      name:
+        description: "Dashboard name"
+      description:
+        description: "Dashboard description"
+      pinned:
+        description: "Pin dashboard (true/false)"
+      tags:
+        description: "Comma-separated tags"
+
+  posthog_delete_dashboard:
+    description: "Delete a dashboard (soft delete)"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      dashboard_id:
+        description: "Dashboard ID"
+        required: true
+
+  posthog_list_actions:
+    description: "List actions (custom event groupings) for analytics tracking and conversion metrics"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_action:
+    description: "Get details of a specific action"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      action_id:
+        description: "Action ID"
+        required: true
+
+  posthog_create_action:
+    description: "Create a new action"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      name:
+        description: "Action name"
+        required: true
+      description:
+        description: "Action description"
+      steps:
+        description: "JSON array of action step definitions"
+      tags:
+        description: "Comma-separated tags"
+
+  posthog_update_action:
+    description: "Update an action"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      action_id:
+        description: "Action ID"
+        required: true
+      name:
+        description: "Action name"
+      description:
+        description: "Action description"
+      steps:
+        description: "JSON array of action step definitions"
+      tags:
+        description: "Comma-separated tags"
+
+  posthog_delete_action:
+    description: "Delete an action (soft delete)"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      action_id:
+        description: "Action ID"
+        required: true
+
+  posthog_list_events:
+    description: "List captured product analytics events. View user behavior tracking and activity data."
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      event:
+        description: "Filter by event name"
+      person_id:
+        description: "Filter by person UUID"
+      distinct_id:
+        description: "Filter by distinct ID"
+      properties:
+        description: "JSON string of property filters"
+      before:
+        description: "ISO 8601 timestamp upper bound"
+      after:
+        description: "ISO 8601 timestamp lower bound"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_event:
+    description: "Get details of a specific event"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      event_id:
+        description: "Event UUID"
+        required: true
+
+  posthog_list_experiments:
+    description: "List A/B test experiments for conversion optimization. View variant results and analytics."
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_experiment:
+    description: "Get details of a specific experiment"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      experiment_id:
+        description: "Experiment ID"
+        required: true
+
+  posthog_create_experiment:
+    description: "Create a new experiment"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      name:
+        description: "Experiment name"
+        required: true
+      description:
+        description: "Experiment description"
+      feature_flag_key:
+        description: "Feature flag key to use for experiment"
+        required: true
+      start_date:
+        description: "ISO 8601 start date"
+      end_date:
+        description: "ISO 8601 end date"
+      filters:
+        description: "JSON string of experiment filters"
+
+  posthog_update_experiment:
+    description: "Update an experiment"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      experiment_id:
+        description: "Experiment ID"
+        required: true
+      name:
+        description: "Experiment name"
+      description:
+        description: "Experiment description"
+      start_date:
+        description: "ISO 8601 start date"
+      end_date:
+        description: "ISO 8601 end date"
+
+  posthog_delete_experiment:
+    description: "Delete an experiment (soft delete)"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      experiment_id:
+        description: "Experiment ID"
+        required: true
+
+  posthog_list_surveys:
+    description: "List surveys"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      limit:
+        description: "Max results"
+      offset:
+        description: "Pagination offset"
+
+  posthog_get_survey:
+    description: "Get details of a specific survey"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      survey_id:
+        description: "Survey ID"
+        required: true
+
+  posthog_create_survey:
+    description: "Create a new survey"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      name:
+        description: "Survey name"
+        required: true
+      description:
+        description: "Survey description"
+      type:
+        description: "Survey type"
+      questions:
+        description: "JSON array of question definitions"
+      targeting_flag_filters:
+        description: "JSON string of targeting filters"
+
+  posthog_update_survey:
+    description: "Update a survey"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      survey_id:
+        description: "Survey ID"
+        required: true
+      name:
+        description: "Survey name"
+      description:
+        description: "Survey description"
+      questions:
+        description: "JSON array of question definitions"
+
+  posthog_delete_survey:
+    description: "Delete a survey (soft delete)"
+    parameters:
+      project_id:
+        description: "Project ID (uses default if configured, otherwise required)"
+      survey_id:
+        description: "Survey ID"
+        required: true

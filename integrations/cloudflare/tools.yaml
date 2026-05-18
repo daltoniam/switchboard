@@ -1,0 +1,486 @@
+version: 1
+tools:
+  cloudflare_list_zones:
+    description: "List Cloudflare zones (domains). Start here for DNS management, CDN configuration, and website performance. Zones represent domains registered with Cloudflare."
+    parameters:
+      name:
+        description: "Zone name filter (exact domain match, e.g. example.com)"
+      status:
+        description: "Zone status filter (active, pending, initializing, moved, deleted, deactivated, read_only)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20, max 50)"
+
+  cloudflare_get_zone:
+    description: "Get details for a specific Cloudflare zone including status, nameservers, and settings. Use after list_zones."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_create_zone:
+    description: "Add a new domain (zone) to Cloudflare. Requires account_id."
+    parameters:
+      name:
+        description: "Domain name (e.g. example.com)"
+        required: true
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      type:
+        description: "Zone type: full (default) or partial"
+      jump_start:
+        description: "Auto-fetch DNS records (true/false, default false)"
+
+  cloudflare_edit_zone:
+    description: "Update zone settings like paused status or vanity nameservers. Use after get_zone."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      paused:
+        description: "Pause Cloudflare for this zone (true/false)"
+      plan:
+        description: "Plan identifier to change zone plan"
+
+  cloudflare_delete_zone:
+    description: "Remove a zone (domain) from Cloudflare. Irreversible."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_purge_cache:
+    description: "Purge cached content for a Cloudflare zone. Purge everything or specific URLs/tags/hosts. Use for cache invalidation after deployments."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      purge_everything:
+        description: "Purge all cached content (true/false)"
+      files:
+        description: "JSON array of URLs to purge (alternative to purge_everything)"
+      tags:
+        description: "Comma-separated cache tags to purge"
+      hosts:
+        description: "Comma-separated hostnames to purge"
+
+  cloudflare_list_dns_records:
+    description: "List DNS records for a Cloudflare zone. View A, AAAA, CNAME, MX, TXT, NS, and other record types. Start here for DNS management and troubleshooting."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      type:
+        description: "DNS record type filter (A, AAAA, CNAME, MX, TXT, NS, SRV, etc.)"
+      name:
+        description: "DNS record name filter (e.g. subdomain.example.com)"
+      content:
+        description: "DNS record content filter (e.g. IP address)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20, max 100)"
+
+  cloudflare_get_dns_record:
+    description: "Get details for a specific DNS record. Use after list_dns_records."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      record_id:
+        description: "DNS record identifier"
+        required: true
+
+  cloudflare_create_dns_record:
+    description: "Create a new DNS record in a Cloudflare zone. Add A, AAAA, CNAME, MX, TXT records and more."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      type:
+        description: "DNS record type (A, AAAA, CNAME, MX, TXT, NS, SRV, etc.)"
+        required: true
+      name:
+        description: "DNS record name (e.g. subdomain or @ for root)"
+        required: true
+      content:
+        description: "DNS record content (e.g. IP address, target domain)"
+        required: true
+      ttl:
+        description: "TTL in seconds (1 = automatic, default 1)"
+      proxied:
+        description: "Whether traffic is proxied through Cloudflare (true/false)"
+      priority:
+        description: "MX/SRV record priority"
+
+  cloudflare_update_dns_record:
+    description: "Update an existing DNS record. Use after list_dns_records to get record_id."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      record_id:
+        description: "DNS record identifier"
+        required: true
+      type:
+        description: "DNS record type"
+        required: true
+      name:
+        description: "DNS record name"
+        required: true
+      content:
+        description: "DNS record content"
+        required: true
+      ttl:
+        description: "TTL in seconds (1 = automatic)"
+      proxied:
+        description: "Whether traffic is proxied through Cloudflare (true/false)"
+      priority:
+        description: "MX/SRV record priority"
+
+  cloudflare_delete_dns_record:
+    description: "Delete a DNS record from a Cloudflare zone."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      record_id:
+        description: "DNS record identifier"
+        required: true
+
+  cloudflare_list_workers:
+    description: "List Cloudflare Workers scripts. View serverless functions, edge computing workers, and deployed scripts. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_worker:
+    description: "Get metadata for a specific Cloudflare Worker script including bindings, routes, and compatibility settings. Use after list_workers."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      script_name:
+        description: "Worker script name"
+        required: true
+
+  cloudflare_delete_worker:
+    description: "Delete a Cloudflare Worker script."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      script_name:
+        description: "Worker script name"
+        required: true
+
+  cloudflare_list_worker_routes:
+    description: "List Worker routes for a zone. Shows URL patterns mapped to Worker scripts."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_list_pages_projects:
+    description: "List Cloudflare Pages projects. View static sites, Jamstack deployments, and frontend projects hosted on Pages. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_pages_project:
+    description: "Get details for a Cloudflare Pages project including build config, domains, and deployment settings. Use after list_pages_projects."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+
+  cloudflare_list_pages_deployments:
+    description: "List deployments for a Cloudflare Pages project. View deploy history, build status, and rollback targets."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+
+  cloudflare_get_pages_deployment:
+    description: "Get details for a specific Pages deployment including build logs and environment. Use after list_pages_deployments."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+      deployment_id:
+        description: "Deployment identifier"
+        required: true
+
+  cloudflare_delete_pages_deployment:
+    description: "Delete a specific Pages deployment."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+      deployment_id:
+        description: "Deployment identifier"
+        required: true
+
+  cloudflare_rollback_pages_deployment:
+    description: "Rollback a Pages project to a previous deployment. Use after list_pages_deployments to find deployment_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+      deployment_id:
+        description: "Deployment identifier to rollback to"
+        required: true
+
+  cloudflare_list_r2_buckets:
+    description: "List R2 object storage buckets. Cloudflare R2 is S3-compatible storage with zero egress fees. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_create_r2_bucket:
+    description: "Create a new R2 object storage bucket."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Bucket name"
+        required: true
+
+  cloudflare_delete_r2_bucket:
+    description: "Delete an R2 object storage bucket. Bucket must be empty."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Bucket name"
+        required: true
+
+  cloudflare_list_kv_namespaces:
+    description: "List Workers KV namespaces. KV is Cloudflare's global key-value store for edge data. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_create_kv_namespace:
+    description: "Create a new Workers KV namespace."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      title:
+        description: "Namespace title"
+        required: true
+
+  cloudflare_delete_kv_namespace:
+    description: "Delete a Workers KV namespace and all its keys."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+
+  cloudflare_list_kv_keys:
+    description: "List keys in a Workers KV namespace. Returns key names with optional metadata."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+      prefix:
+        description: "Key prefix filter"
+      limit:
+        description: "Maximum keys to return (default 1000)"
+      cursor:
+        description: "Pagination cursor from previous response"
+
+  cloudflare_get_kv_value:
+    description: "Read a value from Workers KV by key. Returns the stored value as text."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+      key_name:
+        description: "Key name to read"
+        required: true
+
+  cloudflare_put_kv_value:
+    description: "Write a key-value pair to Workers KV."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+      key_name:
+        description: "Key name"
+        required: true
+      value:
+        description: "Value to store"
+        required: true
+      metadata:
+        description: "JSON metadata object to attach to the key"
+
+  cloudflare_delete_kv_value:
+    description: "Delete a key-value pair from Workers KV."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+      key_name:
+        description: "Key name to delete"
+        required: true
+
+  cloudflare_list_d1_databases:
+    description: "List D1 SQL databases. D1 is Cloudflare's serverless SQLite database for Workers. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_d1_database:
+    description: "Get details for a specific D1 database including size and table count. Use after list_d1_databases."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      database_id:
+        description: "D1 database identifier"
+        required: true
+
+  cloudflare_create_d1_database:
+    description: "Create a new D1 SQL database."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Database name"
+        required: true
+
+  cloudflare_delete_d1_database:
+    description: "Delete a D1 SQL database and all its data. Irreversible."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      database_id:
+        description: "D1 database identifier"
+        required: true
+
+  cloudflare_query_d1_database:
+    description: "Execute a SQL query against a D1 database. Supports SELECT, INSERT, UPDATE, DELETE and DDL. Use parameterized queries with params array for safety."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      database_id:
+        description: "D1 database identifier"
+        required: true
+      sql:
+        description: "SQL query to execute"
+        required: true
+      params:
+        description: "JSON array of query parameters for prepared statements"
+
+  cloudflare_list_waf_rulesets:
+    description: "List WAF (Web Application Firewall) rulesets for a zone. View security rules protecting against attacks, bots, and threats."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_get_waf_ruleset:
+    description: "Get details for a specific WAF ruleset including individual rules and their actions. Use after list_waf_rulesets."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      ruleset_id:
+        description: "Ruleset identifier"
+        required: true
+
+  cloudflare_list_load_balancers:
+    description: "List load balancers for a zone. View traffic distribution, health checks, and failover configuration."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_get_load_balancer:
+    description: "Get details for a specific load balancer including pools, rules, and session affinity. Use after list_load_balancers."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      lb_id:
+        description: "Load balancer identifier"
+        required: true
+
+  cloudflare_list_lb_pools:
+    description: "List load balancer pools (origin server groups). View pool health, origins, and traffic steering. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_lb_pool:
+    description: "Get details for a specific load balancer pool including origins and health check results. Use after list_lb_pools."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      pool_id:
+        description: "Pool identifier"
+        required: true
+
+  cloudflare_list_lb_monitors:
+    description: "List load balancer health monitors. View health check configurations for origin pools. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_zone_analytics:
+    description: "Get zone analytics dashboard data including requests, bandwidth, threats, and page views. Provides traffic overview and performance metrics for a Cloudflare zone."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      since:
+        description: "Start time (ISO 8601 or relative like -1440 for minutes ago, default -1440)"
+      until:
+        description: "End time (ISO 8601 or relative, default 0 for now)"
+
+  cloudflare_list_accounts:
+    description: "List Cloudflare accounts the API token has access to."
+    parameters:
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_get_account:
+    description: "Get details for a specific Cloudflare account. Use after list_accounts."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_list_account_members:
+    description: "List members of a Cloudflare account with their roles and permissions."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"

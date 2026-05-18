@@ -1,0 +1,162 @@
+version: 1
+tools:
+  pganalyze_list_servers:
+    description: "List monitored PostgreSQL servers in pganalyze. Start here to discover server IDs and database IDs needed by other tools."
+    parameters: {}
+  pganalyze_get_server_details:
+    description: "Get details for a specific monitored PostgreSQL server including configuration and snapshot info."
+    parameters:
+      server_id:
+        description: "The server ID (from pganalyze_list_servers)"
+        required: true
+  pganalyze_get_postgres_settings:
+    description: "Get PostgreSQL configuration settings (e.g. shared_buffers, work_mem) for a server."
+    parameters:
+      server_id:
+        description: "The server ID (from pganalyze_list_servers)"
+        required: true
+  pganalyze_get_databases:
+    description: "List databases with size stats and issue counts for a server."
+    parameters:
+      server_id:
+        description: "The server ID (from pganalyze_list_servers)"
+        required: true
+  pganalyze_get_query_stats:
+    description: "Get top queries by runtime percentage. Shows expensive and slow query bottlenecks sorted by impact."
+    parameters:
+      database_id:
+        description: "Database ID (from pganalyze_list_servers or pganalyze_get_databases)"
+        required: true
+      limit:
+        description: "Number of queries to return (default: 10)"
+  pganalyze_get_query_details:
+    description: "Get the full normalized query text for a specific query."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+      query_id:
+        description: "Query ID (from pganalyze_get_query_stats)"
+        required: true
+  pganalyze_get_query_samples:
+    description: "Get sample executions for a query with runtime and parameters."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+      query_id:
+        description: "Query ID (from pganalyze_get_query_stats)"
+        required: true
+  pganalyze_get_tables:
+    description: "List tables with filtering and pagination for a database."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+      schema_name:
+        description: "Filter by schema name (optional)"
+      limit:
+        description: "Number of tables to return (optional)"
+  pganalyze_get_table:
+    description: "Get detailed information about a single table: schema details, columns with per-column stats, indexes, and constraints."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+      schema_name:
+        description: "Schema name"
+        required: true
+      table_name:
+        description: "Table name"
+        required: true
+  pganalyze_get_table_stats:
+    description: "Get time-series table statistics (row counts, dead tuples, sequential scans, etc.)."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+      schema_name:
+        description: "Schema name"
+        required: true
+      table_name:
+        description: "Table name"
+        required: true
+  pganalyze_get_index_selection:
+    description: "Get Index Advisor results for an existing run. Shows recommended indexes."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+  pganalyze_run_index_selection:
+    description: "Run the Index Advisor for a table to get index recommendations."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+      schema_name:
+        description: "Schema name"
+        required: true
+      table_name:
+        description: "Table name"
+        required: true
+  pganalyze_get_query_explains:
+    description: "List EXPLAIN plans for a query (last 7 days). Use to find query plan changes and regressions."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+      query_id:
+        description: "Query ID (from pganalyze_get_query_stats)"
+        required: true
+  pganalyze_get_query_explain:
+    description: "Get a specific EXPLAIN plan with full output including node details and costs."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+      explain_id:
+        description: "EXPLAIN plan ID (from pganalyze_get_query_explains)"
+        required: true
+  pganalyze_get_query_explain_from_trace:
+    description: "Resolve an OpenTelemetry trace span to an EXPLAIN plan. Requires OpenTelemetry integration."
+    parameters:
+      trace_id:
+        description: "OpenTelemetry trace ID"
+        required: true
+      span_id:
+        description: "OpenTelemetry span ID"
+        required: true
+  pganalyze_get_backend_counts:
+    description: "Get time-series connection counts by state (active, idle, waiting)."
+    parameters:
+      server_id:
+        description: "The server ID"
+        required: true
+  pganalyze_get_backends:
+    description: "Get a point-in-time snapshot of active connections and their states."
+    parameters:
+      server_id:
+        description: "The server ID"
+        required: true
+  pganalyze_get_backend_details:
+    description: "Get details for a specific backend connection."
+    parameters:
+      server_id:
+        description: "The server ID"
+        required: true
+      backend_id:
+        description: "The backend/connection ID"
+        required: true
+  pganalyze_get_issues:
+    description: "Get active check-up issues and performance alerts. Shows slow query warnings, index problems, and health issues."
+    parameters:
+      server_id:
+        description: "Server ID to filter issues (optional)"
+      database_id:
+        description: "Database ID to filter issues (optional)"
+  pganalyze_get_checkup_status:
+    description: "Get check-up status overview for a database showing passed, warning, and critical checks."
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true

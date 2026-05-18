@@ -1,0 +1,916 @@
+version: 1
+tools:
+  stripe_get_balance:
+    description: "Get the current Stripe account balance (available, pending, connect_reserved). Start here to inspect funds on the Stripe account."
+  stripe_list_balance_transactions:
+    description: "List balance transactions (charges, refunds, payouts, fees, transfers) that affected the Stripe account balance. Use for accounting reconciliation, financial audits, fee analysis, and tracking money movement on the Stripe platform."
+    parameters:
+      type:
+        description: "Filter by type (charge, refund, payout, transfer, adjustment, fee, etc.)"
+      currency:
+        description: "Three-letter ISO currency code lowercase (e.g. usd)"
+      payout:
+        description: "Filter to transactions paid out in this payout ID"
+      source:
+        description: "Filter by source ID (charge, refund, etc.)"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_balance_transaction:
+    description: "Retrieve (get) a single balance transaction by ID."
+    parameters:
+      id:
+        description: "Balance transaction ID (e.g. txn_...)"
+        required: true
+  stripe_list_customers:
+    description: "List Stripe customers. Use for browsing payers, finding accounts by email, exporting customer rosters, or paginating the customer directory."
+    parameters:
+      email:
+        description: "Filter by exact email match"
+      created:
+        description: "Filter by created timestamp (Unix epoch seconds) — pass a number or use nested keys gt/gte/lt/lte for ranges"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_customer:
+    description: "Retrieve (get) a single customer by ID including their default payment method, billing address, and metadata."
+    parameters:
+      id:
+        description: "Customer ID (e.g. cus_...)"
+        required: true
+  stripe_search_customers:
+    description: 'Search Stripe customers using Stripe search query language (e.g. email:"alice@example.com" or metadata[''plan'']:"pro"). Returns matching customer records.'
+    parameters:
+      query:
+        description: "Stripe search query syntax"
+        required: true
+      limit:
+        description: "Number of results (1-100)"
+      page:
+        description: "Cursor for pagination (from prior response.next_page)"
+  stripe_create_customer:
+    description: "Create a new Stripe customer record for a payer."
+    parameters:
+      email:
+        description: "Customer email address"
+      name:
+        description: "Full customer name"
+      phone:
+        description: "Phone number"
+      description:
+        description: "Arbitrary description for internal use"
+      metadata:
+        description: "Object of key-value strings to attach (max 50 keys)"
+      address:
+        description: "Object with line1, line2, city, state, postal_code, country"
+      shipping:
+        description: "Object with name, phone, address"
+  stripe_update_customer:
+    description: "Update (edit) a customer's profile, contact info, default payment method, or metadata."
+    parameters:
+      id:
+        description: "Customer ID"
+        required: true
+      email:
+        description: "New email"
+      name:
+        description: "New name"
+      phone:
+        description: "New phone"
+      description:
+        description: "New description"
+      metadata:
+        description: "Object to merge into existing metadata (set key to empty string to clear it)"
+      default_source:
+        description: "Default payment source ID"
+      invoice_settings:
+        description: "Object with default_payment_method, custom_fields, footer"
+      address:
+        description: "Billing address object"
+      shipping:
+        description: "Shipping address object"
+  stripe_delete_customer:
+    description: "Delete (remove) a customer permanently. Cancels active subscriptions and disassociates payment methods."
+    parameters:
+      id:
+        description: "Customer ID"
+        required: true
+  stripe_list_charges:
+    description: "List charges (card and bank transactions) processed on the Stripe account. Use for transaction history, sales reports, revenue analytics, and finding individual successful or failed payments."
+    parameters:
+      customer:
+        description: "Filter by customer ID"
+      payment_intent:
+        description: "Filter by payment intent ID"
+      transfer_group:
+        description: "Filter by transfer group"
+      created:
+        description: "Filter by creation timestamp"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_charge:
+    description: "Retrieve (get) a single charge by ID with full details (amount, currency, status, customer, payment_method, refunds, dispute, outcome)."
+    parameters:
+      id:
+        description: "Charge ID (e.g. ch_...)"
+        required: true
+  stripe_search_charges:
+    description: 'Search charges using Stripe search query language (e.g. amount>1000 AND status:"succeeded").'
+    parameters:
+      query:
+        description: "Stripe search query"
+        required: true
+      limit:
+        description: "Number of results (1-100)"
+      page:
+        description: "Cursor for pagination"
+  stripe_capture_charge:
+    description: "Capture a previously authorized but uncaptured charge (manual capture flow)."
+    parameters:
+      id:
+        description: "Charge ID"
+        required: true
+      amount:
+        description: "Optional amount to capture in smallest currency unit (cents). Defaults to full authorized amount."
+  stripe_list_payment_intents:
+    description: "List PaymentIntents — the modern payment flow object representing intent to collect from a customer. Use for monitoring in-progress, succeeded, requires_action, or failed payments."
+    parameters:
+      customer:
+        description: "Filter by customer ID"
+      created:
+        description: "Filter by creation timestamp"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_payment_intent:
+    description: "Retrieve (get) a single PaymentIntent by ID with status, next_action, latest_charge, and client_secret."
+    parameters:
+      id:
+        description: "PaymentIntent ID (e.g. pi_...)"
+        required: true
+  stripe_create_payment_intent:
+    description: "Create a new PaymentIntent to charge a customer. Amounts are in the smallest currency unit (e.g. cents for USD)."
+    parameters:
+      amount:
+        description: "Amount in smallest currency unit (e.g. 1099 = $10.99)"
+        required: true
+      currency:
+        description: "Three-letter ISO currency lowercase (e.g. usd)"
+        required: true
+      customer:
+        description: "Customer ID to associate with this payment"
+      payment_method:
+        description: "Payment method ID to charge"
+      payment_method_types:
+        description: 'Array of payment method types (e.g. ["card"])'
+      description:
+        description: "Arbitrary description shown to the customer"
+      receipt_email:
+        description: "Email address to send receipt to"
+      statement_descriptor:
+        description: "Up to 22 chars shown on the customer's statement"
+      capture_method:
+        description: "automatic or manual"
+      confirm:
+        description: "If true, confirm the PaymentIntent in the same request (boolean)"
+      off_session:
+        description: "Boolean indicating customer is not present"
+      metadata:
+        description: "Object of key-value strings"
+  stripe_update_payment_intent:
+    description: "Update (edit) a PaymentIntent before it is confirmed."
+    parameters:
+      id:
+        description: "PaymentIntent ID"
+        required: true
+      amount:
+        description: "New amount in smallest currency unit"
+      currency:
+        description: "Currency code"
+      customer:
+        description: "Customer ID"
+      description:
+        description: "New description"
+      metadata:
+        description: "Metadata object"
+      payment_method:
+        description: "Payment method ID"
+      receipt_email:
+        description: "Receipt email address"
+  stripe_confirm_payment_intent:
+    description: "Confirm a PaymentIntent to attempt to collect payment."
+    parameters:
+      id:
+        description: "PaymentIntent ID"
+        required: true
+      payment_method:
+        description: "Payment method ID to attach for confirmation"
+      return_url:
+        description: "URL to redirect after 3DS/redirect-based authentication"
+      off_session:
+        description: "Boolean — confirming on behalf of an absent customer"
+  stripe_cancel_payment_intent:
+    description: "Cancel a PaymentIntent that is in a cancelable state (requires_payment_method, requires_capture, requires_confirmation, requires_action, processing)."
+    parameters:
+      id:
+        description: "PaymentIntent ID"
+        required: true
+      cancellation_reason:
+        description: "duplicate, fraudulent, requested_by_customer, abandoned"
+  stripe_search_payment_intents:
+    description: 'Search PaymentIntents with Stripe search query (e.g. status:"requires_action" AND amount>5000).'
+    parameters:
+      query:
+        description: "Stripe search query"
+        required: true
+      limit:
+        description: "Number of results"
+      page:
+        description: "Cursor for pagination"
+  stripe_list_refunds:
+    description: "List refunds processed on the Stripe account. Use for reviewing returned money, refund audits, and tracking refund status."
+    parameters:
+      charge:
+        description: "Filter by charge ID"
+      payment_intent:
+        description: "Filter by payment intent ID"
+      created:
+        description: "Filter by creation timestamp"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_refund:
+    description: "Retrieve (get) a single refund by ID."
+    parameters:
+      id:
+        description: "Refund ID (e.g. re_...)"
+        required: true
+  stripe_create_refund:
+    description: "Create a refund (full or partial) for a charge or PaymentIntent. Returns money to the customer."
+    parameters:
+      charge:
+        description: "Charge ID to refund (one of charge or payment_intent required)"
+      payment_intent:
+        description: "PaymentIntent ID to refund"
+      amount:
+        description: "Amount to refund in smallest currency unit (defaults to full)"
+      reason:
+        description: "duplicate, fraudulent, or requested_by_customer"
+      refund_application_fee:
+        description: "Boolean — whether to refund the application fee"
+      reverse_transfer:
+        description: "Boolean — reverse the transfer to a connected account"
+      metadata:
+        description: "Metadata object"
+  stripe_update_refund:
+    description: "Update (edit) a refund's metadata."
+    parameters:
+      id:
+        description: "Refund ID"
+        required: true
+      metadata:
+        description: "Metadata object to merge"
+  stripe_list_disputes:
+    description: "List chargeback disputes filed against charges on the Stripe account. Use for fraud monitoring, chargeback response workflows, and dispute analytics."
+    parameters:
+      charge:
+        description: "Filter by charge ID"
+      payment_intent:
+        description: "Filter by payment intent ID"
+      created:
+        description: "Filter by creation timestamp"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_dispute:
+    description: "Retrieve (get) a single dispute by ID including evidence and status."
+    parameters:
+      id:
+        description: "Dispute ID (e.g. dp_...)"
+        required: true
+  stripe_update_dispute:
+    description: "Update (edit) a dispute to submit evidence for chargeback response."
+    parameters:
+      id:
+        description: "Dispute ID"
+        required: true
+      evidence:
+        description: "Evidence object (e.g. customer_communication, receipt, service_documentation, shipping_documentation, etc.)"
+      submit:
+        description: "Boolean — submit evidence immediately"
+      metadata:
+        description: "Metadata object"
+  stripe_list_payouts:
+    description: "List payouts (transfers from the Stripe balance to a bank account). Use for cash-out tracking, settlement reconciliation, and finance reports."
+    parameters:
+      status:
+        description: "Filter by status (paid, pending, in_transit, canceled, failed)"
+      destination:
+        description: "Filter by bank account or card destination ID"
+      arrival_date:
+        description: "Filter by arrival_date timestamp"
+      created:
+        description: "Filter by creation timestamp"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_payout:
+    description: "Retrieve (get) a single payout by ID."
+    parameters:
+      id:
+        description: "Payout ID (e.g. po_...)"
+        required: true
+  stripe_create_payout:
+    description: "Create a manual payout from the Stripe balance to the default bank account."
+    parameters:
+      amount:
+        description: "Amount in smallest currency unit"
+        required: true
+      currency:
+        description: "Three-letter ISO currency lowercase"
+        required: true
+      description:
+        description: "Description"
+      method:
+        description: "standard or instant"
+      destination:
+        description: "Bank account or debit card ID (optional override)"
+      metadata:
+        description: "Metadata object"
+  stripe_list_subscriptions:
+    description: "List recurring billing subscriptions. Use for MRR/ARR reports, churn analysis, active customer counts, and finding subscriptions in trial, past_due, or canceled state."
+    parameters:
+      customer:
+        description: "Filter by customer ID"
+      price:
+        description: "Filter by price ID"
+      status:
+        description: "Filter by status (active, past_due, unpaid, canceled, incomplete, incomplete_expired, trialing, all)"
+      collection_method:
+        description: "charge_automatically or send_invoice"
+      created:
+        description: "Filter by creation timestamp"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_subscription:
+    description: "Retrieve (get) a single subscription by ID including items, current period, and billing cycle."
+    parameters:
+      id:
+        description: "Subscription ID (e.g. sub_...)"
+        required: true
+  stripe_search_subscriptions:
+    description: 'Search subscriptions using Stripe search query (e.g. status:"trialing" AND created>1700000000).'
+    parameters:
+      query:
+        description: "Stripe search query"
+        required: true
+      limit:
+        description: "Number of results"
+      page:
+        description: "Cursor for pagination"
+  stripe_create_subscription:
+    description: "Create a new subscription that recurringly bills a customer for one or more prices."
+    parameters:
+      customer:
+        description: "Customer ID to subscribe (required)"
+        required: true
+      items:
+        description: "Array of subscription items, each with a 'price' ID and optional 'quantity'"
+        required: true
+      default_payment_method:
+        description: "Payment method ID to use for invoices"
+      trial_period_days:
+        description: "Number of days for free trial"
+      trial_end:
+        description: "Unix timestamp when trial ends (or 'now')"
+      collection_method:
+        description: "charge_automatically or send_invoice"
+      days_until_due:
+        description: "Days until invoice is due (only for send_invoice)"
+      coupon:
+        description: "Coupon ID to apply"
+      metadata:
+        description: "Metadata object"
+  stripe_update_subscription:
+    description: "Update (edit) a subscription's items, prices, quantities, billing settings, or metadata."
+    parameters:
+      id:
+        description: "Subscription ID"
+        required: true
+      items:
+        description: "Updated items array — each item may include 'id' (existing item), 'price', 'quantity', or 'deleted':true"
+      cancel_at_period_end:
+        description: "Boolean — cancel at end of current period"
+      default_payment_method:
+        description: "Payment method ID"
+      proration_behavior:
+        description: "create_prorations, none, or always_invoice"
+      trial_end:
+        description: "Unix timestamp or 'now'"
+      metadata:
+        description: "Metadata object"
+      pause_collection:
+        description: "Object with behavior (keep_as_draft, mark_uncollectible, void) and resumes_at"
+  stripe_cancel_subscription:
+    description: "Cancel a subscription immediately (or at period end via stripe_update_subscription with cancel_at_period_end)."
+    parameters:
+      id:
+        description: "Subscription ID"
+        required: true
+      invoice_now:
+        description: "Boolean — generate a final invoice for unbilled usage"
+      prorate:
+        description: "Boolean — credit prorated unused time"
+      cancellation_details:
+        description: "Object with comment and feedback"
+  stripe_list_subscription_items:
+    description: "List items (line items) belonging to a subscription."
+    parameters:
+      subscription:
+        description: "Subscription ID"
+        required: true
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_subscription_item:
+    description: "Retrieve (get) a single subscription item by ID."
+    parameters:
+      id:
+        description: "Subscription item ID (e.g. si_...)"
+        required: true
+  stripe_list_products:
+    description: "List products (goods or services sold on Stripe). Use for product catalog browsing and finding SKUs."
+    parameters:
+      active:
+        description: "Filter by active (true/false)"
+      ids:
+        description: "Comma-separated product IDs"
+      shippable:
+        description: "Filter shippable goods (true/false)"
+      url:
+        description: "Filter by URL"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_product:
+    description: "Retrieve (get) a single product by ID."
+    parameters:
+      id:
+        description: "Product ID (e.g. prod_...)"
+        required: true
+  stripe_create_product:
+    description: "Create a new product to sell."
+    parameters:
+      name:
+        description: "Product name (required)"
+        required: true
+      description:
+        description: "Product description"
+      active:
+        description: "Boolean — whether the product can be used"
+      default_price_data:
+        description: "Object describing the default price (currency, unit_amount, recurring)"
+      images:
+        description: "Array of image URLs"
+      metadata:
+        description: "Metadata object"
+      shippable:
+        description: "Boolean — whether the product is shippable"
+      tax_code:
+        description: "Tax code ID"
+      url:
+        description: "Product URL"
+  stripe_update_product:
+    description: "Update (edit) a product's name, description, images, or metadata."
+    parameters:
+      id:
+        description: "Product ID"
+        required: true
+      name:
+        description: "New name"
+      description:
+        description: "New description"
+      active:
+        description: "Boolean"
+      default_price:
+        description: "Default price ID"
+      images:
+        description: "Array of image URLs"
+      metadata:
+        description: "Metadata object"
+      url:
+        description: "Product URL"
+  stripe_delete_product:
+    description: "Delete (remove) a product. Only succeeds if no prices reference it."
+    parameters:
+      id:
+        description: "Product ID"
+        required: true
+  stripe_list_prices:
+    description: "List prices attached to products. Each price defines how much and how often to charge."
+    parameters:
+      product:
+        description: "Filter by product ID"
+      active:
+        description: "Filter by active"
+      currency:
+        description: "Filter by currency"
+      type:
+        description: "one_time or recurring"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_price:
+    description: "Retrieve (get) a single price by ID."
+    parameters:
+      id:
+        description: "Price ID (e.g. price_...)"
+        required: true
+  stripe_create_price:
+    description: "Create a new price for a product (one-time or recurring)."
+    parameters:
+      product:
+        description: "Product ID (required if product_data not given)"
+      product_data:
+        description: "Inline product object with name to create alongside the price"
+      currency:
+        description: "Three-letter ISO currency lowercase (required)"
+        required: true
+      unit_amount:
+        description: "Price in smallest currency unit (required for fixed pricing)"
+      recurring:
+        description: "Object with interval (day/week/month/year) and interval_count"
+      nickname:
+        description: "Internal display name"
+      active:
+        description: "Boolean"
+      billing_scheme:
+        description: "per_unit or tiered"
+      tiers:
+        description: "Array of tier objects (for tiered pricing)"
+      tiers_mode:
+        description: "graduated or volume"
+      metadata:
+        description: "Metadata object"
+  stripe_update_price:
+    description: "Update (edit) a price's nickname, active flag, or metadata. Note: most fields are immutable on existing prices."
+    parameters:
+      id:
+        description: "Price ID"
+        required: true
+      active:
+        description: "Boolean"
+      nickname:
+        description: "Nickname"
+      metadata:
+        description: "Metadata object"
+  stripe_list_invoices:
+    description: "List invoices on the Stripe account. Use for billing audits, finding past_due/open/paid invoices, and revenue reporting."
+    parameters:
+      customer:
+        description: "Filter by customer ID"
+      subscription:
+        description: "Filter by subscription ID"
+      status:
+        description: "draft, open, paid, uncollectible, void"
+      collection_method:
+        description: "charge_automatically or send_invoice"
+      created:
+        description: "Filter by creation timestamp"
+      due_date:
+        description: "Filter by due_date timestamp"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_invoice:
+    description: "Retrieve (get) a single invoice by ID with line items, totals, and status."
+    parameters:
+      id:
+        description: "Invoice ID (e.g. in_...)"
+        required: true
+  stripe_retrieve_upcoming_invoice:
+    description: "Retrieve (get) the upcoming (preview) invoice for a customer or subscription before it is finalized. Useful for previewing the next bill."
+    parameters:
+      customer:
+        description: "Customer ID"
+      subscription:
+        description: "Subscription ID"
+      coupon:
+        description: "Coupon ID for preview"
+  stripe_search_invoices:
+    description: 'Search invoices with Stripe search query (e.g. status:"open" AND total>10000).'
+    parameters:
+      query:
+        description: "Stripe search query"
+        required: true
+      limit:
+        description: "Number of results"
+      page:
+        description: "Cursor for pagination"
+  stripe_create_invoice:
+    description: "Create a draft invoice for a customer. Add invoice items separately or use auto_advance to finalize automatically."
+    parameters:
+      customer:
+        description: "Customer ID (required)"
+        required: true
+      auto_advance:
+        description: "Boolean — finalize and attempt collection automatically"
+      collection_method:
+        description: "charge_automatically or send_invoice"
+      days_until_due:
+        description: "Days until due (for send_invoice)"
+      description:
+        description: "Description"
+      subscription:
+        description: "Subscription ID to associate"
+      metadata:
+        description: "Metadata object"
+  stripe_finalize_invoice:
+    description: "Finalize a draft invoice — locks line items and generates the final amount."
+    parameters:
+      id:
+        description: "Invoice ID"
+        required: true
+      auto_advance:
+        description: "Boolean — proceed with payment collection"
+  stripe_pay_invoice:
+    description: "Pay an open invoice using a payment method or by charging the customer's default source."
+    parameters:
+      id:
+        description: "Invoice ID"
+        required: true
+      payment_method:
+        description: "Payment method ID to charge"
+      paid_out_of_band:
+        description: "Boolean — mark as paid externally without collecting funds"
+      off_session:
+        description: "Boolean"
+  stripe_send_invoice:
+    description: "Email an open invoice to the customer."
+    parameters:
+      id:
+        description: "Invoice ID"
+        required: true
+  stripe_void_invoice:
+    description: "Void an open invoice. Cannot be undone."
+    parameters:
+      id:
+        description: "Invoice ID"
+        required: true
+  stripe_delete_invoice:
+    description: "Delete (remove) a draft invoice permanently. Only allowed for draft invoices."
+    parameters:
+      id:
+        description: "Invoice ID"
+        required: true
+  stripe_list_invoice_items:
+    description: "List pending or attached invoice items (line items added to a customer's next invoice)."
+    parameters:
+      customer:
+        description: "Filter by customer ID"
+      invoice:
+        description: "Filter by invoice ID"
+      pending:
+        description: "Only return pending items (true/false)"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_create_invoice_item:
+    description: "Create an invoice item that will be added to a customer's next invoice or attached to a specific invoice."
+    parameters:
+      customer:
+        description: "Customer ID (required)"
+        required: true
+      amount:
+        description: "Amount in smallest currency unit"
+      currency:
+        description: "Currency code"
+      description:
+        description: "Line item description"
+      price:
+        description: "Price ID (alternative to amount+currency)"
+      quantity:
+        description: "Quantity (defaults to 1)"
+      invoice:
+        description: "Optional invoice ID to attach to"
+      subscription:
+        description: "Subscription ID to attach to"
+      metadata:
+        description: "Metadata object"
+  stripe_list_payment_methods:
+    description: "List payment methods attached to a customer (cards, bank accounts, wallets)."
+    parameters:
+      customer:
+        description: "Customer ID (required)"
+        required: true
+      type:
+        description: "card, us_bank_account, sepa_debit, etc."
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_payment_method:
+    description: "Retrieve (get) a single payment method by ID."
+    parameters:
+      id:
+        description: "Payment method ID (e.g. pm_...)"
+        required: true
+  stripe_attach_payment_method:
+    description: "Attach a payment method to a customer for later reuse."
+    parameters:
+      id:
+        description: "Payment method ID"
+        required: true
+      customer:
+        description: "Customer ID to attach to"
+        required: true
+  stripe_detach_payment_method:
+    description: "Detach (remove) a payment method from its customer."
+    parameters:
+      id:
+        description: "Payment method ID"
+        required: true
+  stripe_list_setup_intents:
+    description: "List SetupIntents (objects representing intent to save a payment method for future use)."
+    parameters:
+      customer:
+        description: "Filter by customer ID"
+      payment_method:
+        description: "Filter by payment method ID"
+      created:
+        description: "Filter by creation timestamp"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_setup_intent:
+    description: "Retrieve (get) a single SetupIntent by ID."
+    parameters:
+      id:
+        description: "SetupIntent ID (e.g. seti_...)"
+        required: true
+  stripe_create_setup_intent:
+    description: "Create a SetupIntent to collect a customer's payment method for future use."
+    parameters:
+      customer:
+        description: "Customer ID"
+      payment_method:
+        description: "Payment method ID"
+      payment_method_types:
+        description: "Array of allowed payment method types"
+      usage:
+        description: "on_session or off_session"
+      confirm:
+        description: "Boolean — confirm immediately"
+      description:
+        description: "Description"
+      metadata:
+        description: "Metadata object"
+  stripe_list_coupons:
+    description: "List discount coupons defined on the Stripe account."
+    parameters:
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_coupon:
+    description: "Retrieve (get) a single coupon by ID."
+    parameters:
+      id:
+        description: "Coupon ID"
+        required: true
+  stripe_create_coupon:
+    description: "Create a discount coupon that can be applied to customers, invoices, or subscriptions."
+    parameters:
+      id:
+        description: "Optional coupon ID (auto-generated if omitted)"
+      name:
+        description: "Display name shown on receipts/invoices"
+      percent_off:
+        description: "Percentage discount (0-100). Use this or amount_off."
+      amount_off:
+        description: "Fixed amount discount in smallest currency unit"
+      currency:
+        description: "Required when amount_off is set"
+      duration:
+        description: "once, repeating, or forever"
+        required: true
+      duration_in_months:
+        description: "Number of months (for duration=repeating)"
+      max_redemptions:
+        description: "Maximum total redemptions"
+      redeem_by:
+        description: "Unix timestamp coupon expires for new redemptions"
+      metadata:
+        description: "Metadata object"
+  stripe_delete_coupon:
+    description: "Delete (remove) a coupon."
+    parameters:
+      id:
+        description: "Coupon ID"
+        required: true
+  stripe_list_promotion_codes:
+    description: "List customer-facing promotion codes (the code strings tied to a coupon)."
+    parameters:
+      coupon:
+        description: "Filter by coupon ID"
+      customer:
+        description: "Filter by customer ID"
+      active:
+        description: "Filter by active"
+      code:
+        description: "Filter by code string"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_create_promotion_code:
+    description: "Create a customer-facing promotion code tied to a coupon."
+    parameters:
+      coupon:
+        description: "Coupon ID (required)"
+        required: true
+      code:
+        description: "Customer-facing code (auto-generated if omitted)"
+      customer:
+        description: "Restrict to a specific customer ID"
+      max_redemptions:
+        description: "Maximum total redemptions"
+      expires_at:
+        description: "Unix timestamp"
+      active:
+        description: "Boolean"
+      metadata:
+        description: "Metadata object"
+  stripe_list_events:
+    description: "List Stripe events (webhook event log). Use for auditing webhook history, replaying missed events, or finding when a specific object changed."
+    parameters:
+      type:
+        description: "Filter by event type (e.g. charge.succeeded, invoice.paid)"
+      types:
+        description: "Array of event types"
+      created:
+        description: "Filter by creation timestamp"
+      delivery_success:
+        description: "Boolean — filter by webhook delivery outcome"
+      limit:
+        description: "Number of objects to return (1-100, default 10)"
+      starting_after:
+        description: "Cursor for pagination — an object ID for the next page"
+      ending_before:
+        description: "Cursor for pagination — an object ID for the previous page"
+  stripe_retrieve_event:
+    description: "Retrieve (get) a single event by ID."
+    parameters:
+      id:
+        description: "Event ID (e.g. evt_...)"
+        required: true

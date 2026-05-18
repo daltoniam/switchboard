@@ -1,0 +1,104 @@
+version: 1
+tools:
+  clickhouse_execute_query:
+    description: "Execute a SQL query (SELECT, SHOW, DESCRIBE, or DDL) against a ClickHouse analytics database and return results as JSON rows"
+    parameters:
+      query:
+        description: "SQL query string to execute"
+        required: true
+      database:
+        description: "Optional database context to run the query in (overrides configured default)"
+  clickhouse_explain_query:
+    description: "Run EXPLAIN on a query to show the execution plan"
+    parameters:
+      query:
+        description: "SQL query to explain"
+        required: true
+      type:
+        description: "EXPLAIN type: PLAN (default), PIPELINE, SYNTAX, AST, ESTIMATE"
+  clickhouse_list_databases:
+    description: "List all databases in the ClickHouse server. Start here for schema discovery."
+    parameters: {}
+  clickhouse_list_tables:
+    description: "List all tables in a database with engine, row count, and size"
+    parameters:
+      database:
+        description: "Database name (defaults to current database)"
+  clickhouse_describe_table:
+    description: "Describe a table's columns with names, types, default expressions, and comments"
+    parameters:
+      database:
+        description: "Database name (defaults to current database)"
+      table:
+        description: "Table name"
+        required: true
+  clickhouse_list_columns:
+    description: "List detailed column metadata for a table from system.columns"
+    parameters:
+      database:
+        description: "Database name (defaults to current database)"
+      table:
+        description: "Table name"
+        required: true
+  clickhouse_show_create_table:
+    description: "Show the CREATE TABLE statement for a table"
+    parameters:
+      database:
+        description: "Database name (defaults to current database)"
+      table:
+        description: "Table name"
+        required: true
+  clickhouse_server_info:
+    description: "Get ClickHouse server version, uptime, and OS info"
+    parameters: {}
+  clickhouse_list_processes:
+    description: "List currently running queries/processes"
+    parameters: {}
+  clickhouse_kill_query:
+    description: "Kill a running query by its query ID"
+    parameters:
+      query_id:
+        description: "The query_id of the query to kill"
+        required: true
+  clickhouse_list_settings:
+    description: "List ClickHouse server settings. Optionally filter by name pattern"
+    parameters:
+      pattern:
+        description: "Optional LIKE pattern to filter setting names (e.g. '%memory%')"
+  clickhouse_list_merges:
+    description: "List currently running background merges for MergeTree tables"
+    parameters: {}
+  clickhouse_list_replicas:
+    description: "List replica status for replicated tables"
+    parameters: {}
+  clickhouse_disk_usage:
+    description: "Show disk usage per database (total bytes, row counts, part counts)"
+    parameters: {}
+  clickhouse_list_parts:
+    description: "List table parts with sizes for a given table (useful for debugging MergeTree)"
+    parameters:
+      database:
+        description: "Database name (defaults to current database)"
+      table:
+        description: "Table name"
+        required: true
+      active:
+        description: "Only show active parts (default: true)"
+  clickhouse_list_dictionaries:
+    description: "List external dictionaries loaded in the server"
+    parameters: {}
+  clickhouse_list_users:
+    description: "List all users configured in ClickHouse"
+    parameters: {}
+  clickhouse_list_roles:
+    description: "List all roles configured in ClickHouse"
+    parameters: {}
+  clickhouse_query_log:
+    description: "Search recent entries from system.query_log"
+    parameters:
+      query_pattern:
+        description: "Optional LIKE pattern to filter by query text"
+      query_type:
+        description: "Filter by type: QueryStart, QueryFinish, ExceptionBeforeStart, ExceptionWhileProcessing"
+      limit:
+        description: "Max rows to return (default: 50)"

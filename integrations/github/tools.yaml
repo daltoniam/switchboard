@@ -1,0 +1,2707 @@
+version: 1
+tools:
+  github_search_repos:
+    description: "Search GitHub repositories. Start here to find repos by name, topic, or language."
+    parameters:
+      query:
+        description: "Search query"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_repo:
+    description: "Get a repository by owner/name. Use after search_repos or when you already know the owner/repo."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_list_user_repos:
+    description: "List repositories for a user. Use when you know the username; prefer search_repos for keyword discovery."
+    parameters:
+      username:
+        description: "GitHub username"
+        required: true
+      type:
+        description: "Type: all, owner, member (default: owner)"
+      sort:
+        description: "Sort: created, updated, pushed, full_name"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_org_repos:
+    description: "List repositories for an organization. Use when you know the org; prefer search_repos for keyword discovery."
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      type:
+        description: "Type: all, public, private, forks, sources, member"
+      sort:
+        description: "Sort: created, updated, pushed, full_name"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_repo:
+    description: "Create a repository for the authenticated user or an org"
+    parameters:
+      name:
+        description: "Repository name"
+        required: true
+      org:
+        description: "Organization (omit for user repo)"
+      description:
+        description: "Description"
+      private:
+        description: "Private repo (true/false)"
+      auto_init:
+        description: "Initialize with README (true/false)"
+  github_delete_repo:
+    description: "Delete a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_list_branches:
+    description: "List branches of a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_branch:
+    description: "Get a specific branch"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      branch:
+        description: "Branch name"
+        required: true
+  github_list_tags:
+    description: "List tags of a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_contributors:
+    description: "List contributors to a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_languages:
+    description: "List languages used in a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_list_topics:
+    description: "List repository topics"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_get_readme:
+    description: "Get the README for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Git ref (branch/tag/sha)"
+  github_get_file_contents:
+    description: "Get file or directory contents from a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      path:
+        description: "File path"
+        required: true
+      ref:
+        description: "Git ref (branch/tag/sha)"
+  github_create_update_file:
+    description: "Create or update a file in a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      path:
+        description: "File path"
+        required: true
+      message:
+        description: "Commit message"
+        required: true
+      content:
+        description: "Raw file content (plain text, not base64 — encoding is handled automatically)"
+        required: true
+      sha:
+        description: "SHA of file being replaced (required for update)"
+      branch:
+        description: "Target branch"
+  github_delete_file:
+    description: "Delete a file from a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      path:
+        description: "File path"
+        required: true
+      message:
+        description: "Commit message"
+        required: true
+      sha:
+        description: "SHA of file to delete"
+        required: true
+      branch:
+        description: "Target branch"
+  github_list_forks:
+    description: "List forks of a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      sort:
+        description: "Sort: newest, oldest, stargazers, watchers"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_fork:
+    description: "Fork a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      organization:
+        description: "Organization to fork into"
+  github_list_collaborators:
+    description: "List collaborators on a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_commit_activity:
+    description: "Get the last year of commit activity (weekly)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_list_repo_teams:
+    description: "List teams with access to a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_compare_commits:
+    description: "Compare two commits, branches, or tags. Use to see what changed between refs (commit list and diff). Start here for 'what changed in prod' queries."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      base:
+        description: "Base ref (branch, tag, or SHA)"
+        required: true
+      head:
+        description: "Head ref (branch, tag, or SHA)"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_merge_upstream:
+    description: "Sync a fork branch with the upstream repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      branch:
+        description: "Branch to sync"
+        required: true
+  github_list_autolinks:
+    description: "List autolink references for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+  github_edit_repo:
+    description: "Update a repository's settings (description, visibility, default branch, etc.)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      description:
+        description: "New description"
+      homepage:
+        description: "Homepage URL"
+      default_branch:
+        description: "Default branch name"
+      private:
+        description: "Private (true/false)"
+      archived:
+        description: "Archived (true/false)"
+      has_issues:
+        description: "Enable issues (true/false)"
+      has_projects:
+        description: "Enable projects (true/false)"
+      has_wiki:
+        description: "Enable wiki (true/false)"
+  github_replace_topics:
+    description: "Replace all topics on a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      topics:
+        description: "Comma-separated topic names"
+        required: true
+  github_rename_branch:
+    description: "Rename a branch"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      branch:
+        description: "Current branch name"
+        required: true
+      new_name:
+        description: "New branch name"
+        required: true
+  github_add_collaborator:
+    description: "Add a collaborator to a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      username:
+        description: "User to add"
+        required: true
+      permission:
+        description: "Permission: pull, triage, push, maintain, admin"
+  github_remove_collaborator:
+    description: "Remove a collaborator from a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      username:
+        description: "User to remove"
+        required: true
+  github_get_combined_status:
+    description: "Get the combined commit status for a ref (aggregates all status checks)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Git ref (SHA, branch, or tag)"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_statuses:
+    description: "List commit statuses for a ref"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Git ref (SHA, branch, or tag)"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_status:
+    description: "Create a commit status"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      sha:
+        description: "Commit SHA"
+        required: true
+      state:
+        description: "State: error, failure, pending, success"
+        required: true
+      target_url:
+        description: "URL to associate with status"
+      description:
+        description: "Short description"
+      context:
+        description: "Status context identifier"
+  github_list_deployments:
+    description: "List deployments for a repository. Start here for deploy status, recent deploys, and rollout history."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      environment:
+        description: "Filter by environment"
+      ref:
+        description: "Filter by ref"
+      task:
+        description: "Filter by task"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_deployment:
+    description: "Get a single deployment"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      deployment_id:
+        description: "Deployment ID"
+        required: true
+  github_create_deployment:
+    description: "Create a deployment"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Ref to deploy (branch, tag, or SHA)"
+        required: true
+      task:
+        description: "Task (default: deploy)"
+      environment:
+        description: "Environment name"
+      description:
+        description: "Description"
+      auto_merge:
+        description: "Auto-merge default branch into ref (true/false)"
+  github_list_deployment_statuses:
+    description: "List statuses for a deployment. Use after list_deployments to check deploy progress or failure."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      deployment_id:
+        description: "Deployment ID"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_deployment_status:
+    description: "Create a deployment status"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      deployment_id:
+        description: "Deployment ID"
+        required: true
+      state:
+        description: "State: error, failure, inactive, in_progress, queued, pending, success"
+        required: true
+      description:
+        description: "Description"
+      log_url:
+        description: "Log URL"
+      environment:
+        description: "Override environment name"
+  github_list_environments:
+    description: "List environments for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_environment:
+    description: "Get a single environment"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      environment:
+        description: "Environment name"
+        required: true
+  github_get_branch_protection:
+    description: "Get branch protection rules"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      branch:
+        description: "Branch name"
+        required: true
+  github_remove_branch_protection:
+    description: "Remove branch protection rules"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      branch:
+        description: "Branch name"
+        required: true
+  github_list_rulesets:
+    description: "List repository rulesets"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_get_ruleset:
+    description: "Get a repository ruleset by ID"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ruleset_id:
+        description: "Ruleset ID"
+        required: true
+  github_get_rules_for_branch:
+    description: "Get active rules that apply to a branch"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      branch:
+        description: "Branch name"
+        required: true
+  github_list_traffic_views:
+    description: "Get repository traffic page views (last 14 days, push access required)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      per:
+        description: "Aggregation period: day, week"
+  github_list_traffic_clones:
+    description: "Get repository traffic clones (last 14 days, push access required)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      per:
+        description: "Aggregation period: day, week"
+  github_list_traffic_referrers:
+    description: "Get top referral sources for a repository (push access required)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_list_traffic_paths:
+    description: "Get popular content paths for a repository (push access required)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_get_community_health:
+    description: "Get community health metrics for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_dispatch_event:
+    description: "Trigger a repository dispatch event"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      event_type:
+        description: "Custom event type string"
+        required: true
+  github_merge_branch:
+    description: "Merge a branch into another (not a PR merge — use github_merge_pull for PRs)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      base:
+        description: "Branch to merge into"
+        required: true
+      head:
+        description: "Branch to merge from"
+        required: true
+      commit_message:
+        description: "Merge commit message"
+  github_edit_release:
+    description: "Update a release"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      release_id:
+        description: "Release ID"
+        required: true
+      tag_name:
+        description: "New tag name"
+      name:
+        description: "New release name"
+      body:
+        description: "New release notes"
+      draft:
+        description: "Draft (true/false)"
+      prerelease:
+        description: "Pre-release (true/false)"
+  github_generate_release_notes:
+    description: "Auto-generate release notes content between two tags"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      tag_name:
+        description: "Tag for the release"
+        required: true
+      previous_tag_name:
+        description: "Previous tag to compare against"
+      target_commitish:
+        description: "Branch or SHA to tag"
+  github_list_commit_comments:
+    description: "List comments on a specific commit"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      sha:
+        description: "Commit SHA"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_commit_comment:
+    description: "Create a comment on a commit"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      sha:
+        description: "Commit SHA"
+        required: true
+      body:
+        description: "Comment body"
+        required: true
+      path:
+        description: "Relative file path"
+      position:
+        description: "Line position in the diff"
+  github_list_issues:
+    description: "List issues for a repository. Start here for issue workflows when you know the repo. For cross-repo search, use search_issues."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      state:
+        description: "State: open, closed, all"
+      labels:
+        description: "Comma-separated label names"
+      sort:
+        description: "Sort: created, updated, comments"
+      direction:
+        description: "Direction: asc, desc"
+      assignee:
+        description: "Filter by assignee username"
+      milestone:
+        description: "Milestone number"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_issue:
+    description: "Get a single issue with full details. Use after list_issues or search_issues to drill into a specific issue."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+  github_create_issue:
+    description: "Create an issue. Requires owner, repo, and title at minimum."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      title:
+        description: "Issue title"
+        required: true
+      body:
+        description: "Issue body (markdown)"
+      assignees:
+        description: "Comma-separated assignee usernames"
+      labels:
+        description: "Comma-separated label names"
+      milestone:
+        description: "Milestone number"
+  github_update_issue:
+    description: "Update an issue"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      title:
+        description: "New title"
+      body:
+        description: "New body"
+      state:
+        description: "State: open, closed"
+      assignees:
+        description: "Comma-separated assignee usernames"
+      labels:
+        description: "Comma-separated label names"
+      milestone:
+        description: "Milestone number"
+  github_list_issue_comments:
+    description: "List comments on an issue"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_issue_comment:
+    description: "Create a comment on an issue"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      body:
+        description: "Comment body (markdown)"
+        required: true
+  github_list_issue_labels:
+    description: "List labels on an issue"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+  github_add_issue_labels:
+    description: "Add labels to an issue"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      labels:
+        description: "Comma-separated label names to add"
+        required: true
+  github_remove_issue_label:
+    description: "Remove a label from an issue"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      label:
+        description: "Label name to remove"
+        required: true
+  github_lock_issue:
+    description: "Lock an issue conversation"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      lock_reason:
+        description: "Reason: off-topic, too heated, resolved, spam"
+  github_unlock_issue:
+    description: "Unlock an issue conversation"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+  github_list_milestones:
+    description: "List milestones for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      state:
+        description: "State: open, closed, all"
+      sort:
+        description: "Sort: due_on, completeness"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_milestone:
+    description: "Create a milestone"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      title:
+        description: "Milestone title"
+        required: true
+      description:
+        description: "Description"
+      due_on:
+        description: "Due date (ISO 8601 YYYY-MM-DDT00:00:00Z)"
+      state:
+        description: "State: open, closed"
+  github_list_issue_events:
+    description: "List events on an issue"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_issue_timeline:
+    description: "List timeline events for an issue"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_assignees:
+    description: "List available assignees for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_update_issue_comment:
+    description: "Edit an issue or PR comment"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      comment_id:
+        description: "Comment ID"
+        required: true
+      body:
+        description: "New comment body (markdown)"
+        required: true
+  github_delete_issue_comment:
+    description: "Delete an issue or PR comment"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      comment_id:
+        description: "Comment ID"
+        required: true
+  github_update_milestone:
+    description: "Update a milestone"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Milestone number"
+        required: true
+      title:
+        description: "New title"
+      description:
+        description: "New description"
+      state:
+        description: "State: open, closed"
+      due_on:
+        description: "Due date (ISO 8601)"
+  github_delete_milestone:
+    description: "Delete a milestone"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Milestone number"
+        required: true
+  github_list_labels:
+    description: "List all labels in a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_label:
+    description: "Create a label in a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      name:
+        description: "Label name"
+        required: true
+      color:
+        description: "Color hex code (without #)"
+        required: true
+      description:
+        description: "Label description"
+  github_edit_label:
+    description: "Update a label"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      name:
+        description: "Current label name"
+        required: true
+      new_name:
+        description: "New label name"
+      color:
+        description: "New color hex code (without #)"
+      description:
+        description: "New description"
+  github_delete_label:
+    description: "Delete a label from a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      name:
+        description: "Label name"
+        required: true
+  github_create_issue_reaction:
+    description: "Add a reaction to an issue (+1, -1, laugh, confused, heart, hooray, rocket, eyes)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      content:
+        description: "Reaction: +1, -1, laugh, confused, heart, hooray, rocket, eyes"
+        required: true
+  github_create_issue_comment_reaction:
+    description: "Add a reaction to an issue comment"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      comment_id:
+        description: "Comment ID"
+        required: true
+      content:
+        description: "Reaction: +1, -1, laugh, confused, heart, hooray, rocket, eyes"
+        required: true
+  github_list_issue_reactions:
+    description: "List reactions on an issue"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      number:
+        description: "Issue number"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_pulls:
+    description: "List pull requests for a repository. Start here for PR workflows when you know the repo. For cross-repo search, use search_issues with type:pr."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      state:
+        description: "State: open, closed, all"
+      head:
+        description: "Filter by head user:branch"
+      base:
+        description: "Filter by base branch"
+      sort:
+        description: "Sort: created, updated, popularity, long-running"
+      direction:
+        description: "Direction: asc, desc"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_pull:
+    description: "Get a single pull request with full details. Use after list_pulls to drill into a specific PR. For the diff, follow up with get_pull_diff."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+  github_get_pull_diff:
+    description: "Get the raw unified diff of a pull request. Use after get_pull for the full code diff."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+  github_create_pull:
+    description: "Create a pull request. Requires head branch and base branch."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      title:
+        description: "PR title"
+        required: true
+      head:
+        description: "Head branch (or user:branch for cross-repo)"
+        required: true
+      base:
+        description: "Base branch"
+        required: true
+      body:
+        description: "PR body (markdown)"
+      draft:
+        description: "Create as draft (true/false)"
+  github_update_pull:
+    description: "Update a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      title:
+        description: "New title"
+      body:
+        description: "New body"
+      state:
+        description: "State: open, closed"
+      base:
+        description: "New base branch"
+  github_list_pull_commits:
+    description: "List commits on a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_pull_files:
+    description: "List files changed in a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_pull_reviews:
+    description: "List reviews on a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_pull_review:
+    description: "Create a review on a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      body:
+        description: "Review body"
+      event:
+        description: "Review action: APPROVE, REQUEST_CHANGES, COMMENT"
+        required: true
+  github_list_pull_comments:
+    description: "List review comments on a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_pull_comment:
+    description: "Create a review comment on a pull request diff"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      body:
+        description: "Comment body"
+        required: true
+      commit_id:
+        description: "SHA of the commit to comment on"
+        required: true
+      path:
+        description: "Relative file path"
+        required: true
+      line:
+        description: "Line number in the diff"
+  github_get_pull_comment:
+    description: "Get a single review comment on a pull request by its comment ID"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      comment_id:
+        description: "Comment ID"
+        required: true
+  github_reply_to_pull_comment:
+    description: "Reply to an existing review comment thread on a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      body:
+        description: "Reply body"
+        required: true
+      comment_id:
+        description: "ID of the comment to reply to"
+        required: true
+  github_update_pull_comment:
+    description: "Update the body of a review comment on a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      comment_id:
+        description: "Comment ID"
+        required: true
+      body:
+        description: "New comment body (markdown)"
+        required: true
+  github_delete_pull_comment:
+    description: "Delete a review comment on a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      comment_id:
+        description: "Comment ID"
+        required: true
+  github_merge_pull:
+    description: "Merge a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      commit_message:
+        description: "Merge commit message"
+      merge_method:
+        description: "Method: merge, squash, rebase"
+  github_list_requested_reviewers:
+    description: "List requested reviewers on a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+  github_request_reviewers:
+    description: "Request reviewers on a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      reviewers:
+        description: "Comma-separated usernames"
+      team_reviewers:
+        description: "Comma-separated team slugs"
+  github_dismiss_pull_review:
+    description: "Dismiss a pull request review"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      review_id:
+        description: "Review ID"
+        required: true
+      message:
+        description: "Dismissal message"
+        required: true
+  github_update_pull_branch:
+    description: "Update a PR branch with the latest changes from the base branch"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      expected_head_sha:
+        description: "Expected SHA of the PR head (for optimistic locking)"
+  github_remove_reviewers:
+    description: "Remove requested reviewers from a pull request"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      pull_number:
+        description: "Pull request number"
+        required: true
+      reviewers:
+        description: "Comma-separated usernames"
+      team_reviewers:
+        description: "Comma-separated team slugs"
+  github_list_pulls_with_commit:
+    description: "List pull requests that contain a specific commit"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      sha:
+        description: "Commit SHA"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_commit:
+    description: "Get a commit by SHA including files changed. For comparing two refs, use compare_commits instead."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      sha:
+        description: "Commit SHA"
+        required: true
+  github_list_commits:
+    description: "List commits on a branch"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      sha:
+        description: "Branch name or SHA to start listing from"
+      path:
+        description: "Only commits containing this file path"
+      author:
+        description: "GitHub login or email to filter by"
+      since:
+        description: "Only commits after this date (ISO 8601)"
+      until:
+        description: "Only commits before this date (ISO 8601)"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_ref:
+    description: "Get a git reference (branch or tag)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Reference (e.g., heads/main, tags/v1.0)"
+        required: true
+  github_create_ref:
+    description: "Create a git reference (branch or tag)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Full reference path (e.g., refs/heads/new-branch)"
+        required: true
+      sha:
+        description: "SHA to point the ref at"
+        required: true
+  github_delete_ref:
+    description: "Delete a git reference"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Reference to delete (e.g., heads/old-branch)"
+        required: true
+  github_get_tree:
+    description: "Get a git tree (directory listing)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      sha:
+        description: "Tree SHA or branch name"
+        required: true
+      recursive:
+        description: "Recurse into subtrees (true/false)"
+  github_create_tag:
+    description: "Create an annotated tag object"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      tag:
+        description: "Tag name"
+        required: true
+      message:
+        description: "Tag message"
+        required: true
+      sha:
+        description: "SHA of object to tag"
+        required: true
+      type:
+        description: "Object type: commit, tree, blob"
+  github_get_authenticated_user:
+    description: "Get the currently authenticated user"
+    parameters: {}
+  github_get_user:
+    description: "Get a user by username"
+    parameters:
+      username:
+        description: "GitHub username"
+        required: true
+  github_list_user_followers:
+    description: "List followers of a user"
+    parameters:
+      username:
+        description: "GitHub username"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_user_following:
+    description: "List users that a user follows"
+    parameters:
+      username:
+        description: "GitHub username"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_user_keys:
+    description: "List public SSH keys for a user"
+    parameters:
+      username:
+        description: "GitHub username"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_org:
+    description: "Get an organization"
+    parameters:
+      org:
+        description: "Organization login name"
+        required: true
+  github_list_user_orgs:
+    description: "List organizations for a user"
+    parameters:
+      username:
+        description: "GitHub username (empty for authenticated user)"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_org_members:
+    description: "List organization members"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      role:
+        description: "Filter: all, admin, member"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_org_teams:
+    description: "List teams in an organization"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_team_by_slug:
+    description: "Get a team by slug"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      slug:
+        description: "Team slug"
+        required: true
+  github_list_team_members:
+    description: "List members of a team"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      slug:
+        description: "Team slug"
+        required: true
+      role:
+        description: "Filter: all, member, maintainer"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_team_repos:
+    description: "List repositories for a team"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      slug:
+        description: "Team slug"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_team:
+    description: "Create a team in an organization"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      name:
+        description: "Team name"
+        required: true
+      description:
+        description: "Team description"
+      privacy:
+        description: "Privacy: secret, closed"
+      permission:
+        description: "Default permission: pull, push"
+  github_edit_team:
+    description: "Update a team"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      slug:
+        description: "Team slug"
+        required: true
+      name:
+        description: "New team name"
+        required: true
+      description:
+        description: "New description"
+      privacy:
+        description: "Privacy: secret, closed"
+      permission:
+        description: "Default permission: pull, push"
+  github_delete_team:
+    description: "Delete a team"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      slug:
+        description: "Team slug"
+        required: true
+  github_add_team_member:
+    description: "Add or update a user's membership in a team"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      slug:
+        description: "Team slug"
+        required: true
+      username:
+        description: "GitHub username"
+        required: true
+      role:
+        description: "Role: member, maintainer"
+  github_remove_team_member:
+    description: "Remove a user from a team"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      slug:
+        description: "Team slug"
+        required: true
+      username:
+        description: "GitHub username"
+        required: true
+  github_add_team_repo:
+    description: "Add a repository to a team"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      slug:
+        description: "Team slug"
+        required: true
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      permission:
+        description: "Permission: pull, triage, push, maintain, admin"
+  github_remove_team_repo:
+    description: "Remove a repository from a team"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      slug:
+        description: "Team slug"
+        required: true
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_list_pending_org_invitations:
+    description: "List pending organization invitations"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_outside_collaborators:
+    description: "List outside collaborators for an organization"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      filter:
+        description: "Filter: 2fa_disabled, all"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_workflows:
+    description: "List workflows in a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_workflow_runs:
+    description: "List workflow runs for a repository. Use to check CI status or recent builds."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      workflow_id:
+        description: "Workflow ID or filename (e.g., ci.yml)"
+      branch:
+        description: "Filter by branch"
+      event:
+        description: "Filter by event (push, pull_request, etc.)"
+      status:
+        description: "Filter: completed, action_required, cancelled, failure, neutral, skipped, stale, success, timed_out, in_progress, queued, requested, waiting, pending"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_workflow_run:
+    description: "Get a specific workflow run. Use after list_workflow_runs for full run details."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      run_id:
+        description: "Workflow run ID"
+        required: true
+  github_list_workflow_jobs:
+    description: "List jobs for a workflow run"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      run_id:
+        description: "Workflow run ID"
+        required: true
+      filter:
+        description: "Filter: latest, all"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_download_workflow_logs:
+    description: "Get a URL to download workflow run logs"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      run_id:
+        description: "Workflow run ID"
+        required: true
+  github_rerun_workflow:
+    description: "Re-run a workflow run"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      run_id:
+        description: "Workflow run ID"
+        required: true
+  github_cancel_workflow_run:
+    description: "Cancel a workflow run"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      run_id:
+        description: "Workflow run ID"
+        required: true
+  github_list_repo_secrets:
+    description: "List repository Actions secrets (names only, not values)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_artifacts:
+    description: "List artifacts for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_environment_secrets:
+    description: "List secrets for an environment (names only)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      environment:
+        description: "Environment name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_org_secrets:
+    description: "List organization Actions secrets (names only)"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_trigger_workflow:
+    description: "Trigger a workflow dispatch event"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      workflow_id:
+        description: "Workflow filename (e.g., ci.yml)"
+        required: true
+      ref:
+        description: "Git ref to run workflow on (branch or tag)"
+        required: true
+  github_rerun_failed_jobs:
+    description: "Re-run only the failed jobs of a workflow run"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      run_id:
+        description: "Workflow run ID"
+        required: true
+  github_get_workflow_job:
+    description: "Get a single workflow job by ID"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      job_id:
+        description: "Job ID"
+        required: true
+  github_get_workflow_job_logs:
+    description: "Get a URL to download a single job's logs"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      job_id:
+        description: "Job ID"
+        required: true
+  github_delete_workflow_run:
+    description: "Delete a workflow run"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      run_id:
+        description: "Workflow run ID"
+        required: true
+  github_list_repo_variables:
+    description: "List repository Actions variables (names and values)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_repo_variable:
+    description: "Create a repository Actions variable"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      name:
+        description: "Variable name"
+        required: true
+      value:
+        description: "Variable value"
+        required: true
+  github_update_repo_variable:
+    description: "Update a repository Actions variable"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      name:
+        description: "Variable name"
+        required: true
+      value:
+        description: "New variable value"
+        required: true
+  github_delete_repo_variable:
+    description: "Delete a repository Actions variable"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      name:
+        description: "Variable name"
+        required: true
+  github_list_org_variables:
+    description: "List organization Actions variables (names and values)"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_env_variables:
+    description: "List environment Actions variables (names and values)"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      environment:
+        description: "Environment name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_runners:
+    description: "List self-hosted runners for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_org_runners:
+    description: "List self-hosted runners for an organization"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_check_runs:
+    description: "List check runs for a git reference"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Git ref (SHA, branch, or tag)"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_check_run:
+    description: "Get a check run by ID"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      check_run_id:
+        description: "Check run ID"
+        required: true
+  github_list_check_suites:
+    description: "List check suites for a git reference"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Git ref (SHA, branch, or tag)"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_releases:
+    description: "List releases for a repository. Start here for release history, versioning, and what shipped."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_release:
+    description: "Get a release by ID"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      release_id:
+        description: "Release ID"
+        required: true
+  github_get_latest_release:
+    description: "Get the latest release for a repository. Use to find what version is current or what shipped most recently."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_create_release:
+    description: "Create a release"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      tag_name:
+        description: "Tag name for the release"
+        required: true
+      name:
+        description: "Release name"
+      body:
+        description: "Release notes (markdown)"
+      draft:
+        description: "Create as draft (true/false)"
+      prerelease:
+        description: "Mark as pre-release (true/false)"
+      target_commitish:
+        description: "Branch or SHA to tag (defaults to default branch)"
+  github_delete_release:
+    description: "Delete a release"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      release_id:
+        description: "Release ID"
+        required: true
+  github_list_release_assets:
+    description: "List assets for a release"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      release_id:
+        description: "Release ID"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_gists:
+    description: "List gists for the authenticated user or a specific user"
+    parameters:
+      username:
+        description: "GitHub username (empty for authenticated user)"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_gist:
+    description: "Get a gist by ID"
+    parameters:
+      id:
+        description: "Gist ID"
+        required: true
+  github_create_gist:
+    description: "Create a gist"
+    parameters:
+      description:
+        description: "Gist description"
+      public:
+        description: "Public gist (true/false)"
+      filename:
+        description: "Filename for the gist content"
+        required: true
+      content:
+        description: "File content"
+        required: true
+  github_search_topics:
+    description: "Search GitHub topics"
+    parameters:
+      query:
+        description: "Search query"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_search_labels:
+    description: "Search labels in a repository"
+    parameters:
+      repository_id:
+        description: "Repository numeric ID"
+        required: true
+      query:
+        description: "Search query"
+        required: true
+      sort:
+        description: "Sort: created, updated"
+      order:
+        description: "Order: asc, desc"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_search_code:
+    description: "Search code across GitHub repositories. Start here to find files, functions, or strings across repos."
+    parameters:
+      query:
+        description: "Search query (supports qualifiers like language:go, repo:owner/name)"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_search_issues:
+    description: "Search issues and pull requests across GitHub. Start here for cross-repo issue/PR discovery. Add is:pr or is:issue to filter. Use for cross-repo bug, ticket, or PR discovery."
+    parameters:
+      query:
+        description: "Search query (supports qualifiers like is:issue, is:pr, repo:owner/name, state:open)"
+        required: true
+      sort:
+        description: "Sort: comments, reactions, created, updated"
+      order:
+        description: "Order: asc, desc"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_search_users:
+    description: "Search GitHub users"
+    parameters:
+      query:
+        description: "Search query (supports qualifiers like location:, language:, followers:>N)"
+        required: true
+      sort:
+        description: "Sort: followers, repositories, joined"
+      order:
+        description: "Order: asc, desc"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_search_commits:
+    description: "Search commits across GitHub"
+    parameters:
+      query:
+        description: "Search query (supports qualifiers like author:, repo:, committer:)"
+        required: true
+      sort:
+        description: "Sort: author-date, committer-date"
+      order:
+        description: "Order: asc, desc"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_stargazers:
+    description: "List stargazers for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_watchers:
+    description: "List watchers (subscribers) of a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_notifications:
+    description: "List notifications for the authenticated user"
+    parameters:
+      all:
+        description: "Show all notifications including read (true/false)"
+      participating:
+        description: "Only show participating notifications (true/false)"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_repo_events:
+    description: "List events for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_mark_notifications_read:
+    description: "Mark all notifications as read"
+    parameters: {}
+  github_star_repo:
+    description: "Star a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_unstar_repo:
+    description: "Unstar a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_list_starred:
+    description: "List repositories starred by a user"
+    parameters:
+      username:
+        description: "GitHub username (empty for authenticated user)"
+      sort:
+        description: "Sort: created, updated"
+      direction:
+        description: "Direction: asc, desc"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_code_scanning_alerts:
+    description: "List code scanning (SAST) alerts for a repository. Start here for security vulnerabilities found by CodeQL or other analyzers."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      state:
+        description: "State: open, closed, dismissed, fixed"
+      ref:
+        description: "Git ref to filter by"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_code_scanning_alert:
+    description: "Get a code scanning alert"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      alert_number:
+        description: "Alert number"
+        required: true
+  github_list_secret_scanning_alerts:
+    description: "List secret scanning alerts for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      state:
+        description: "State: open, resolved"
+      secret_type:
+        description: "Filter by secret type"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_secret_scanning_alert:
+    description: "Get a single secret scanning alert"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      alert_number:
+        description: "Alert number"
+        required: true
+  github_list_dependabot_alerts:
+    description: "List Dependabot dependency vulnerability alerts for a repository. Start here for CVE impact on dependencies."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      state:
+        description: "State: auto_dismissed, dismissed, fixed, open"
+      severity:
+        description: "Severity: low, medium, high, critical"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_dependabot_alert:
+    description: "Get a single Dependabot alert"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      alert_number:
+        description: "Alert number"
+        required: true
+  github_list_code_scanning_analyses:
+    description: "List code scanning SARIF analyses for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      ref:
+        description: "Git ref to filter by"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_sbom:
+    description: "Get the software bill of materials (SBOM) for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+  github_get_copilot_org_usage:
+    description: "Get Copilot usage metrics for an organization"
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_list_hooks:
+    description: "List webhooks for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_create_hook:
+    description: "Create a webhook for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      url:
+        description: "Webhook payload URL"
+        required: true
+      content_type:
+        description: "Content type: json, form"
+      events:
+        description: "Comma-separated events (push, pull_request, issues, etc.)"
+      active:
+        description: "Active (true/false, default true)"
+  github_delete_hook:
+    description: "Delete a webhook"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      hook_id:
+        description: "Webhook ID"
+        required: true
+  github_list_deploy_keys:
+    description: "List deploy keys for a repository"
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+  github_get_rate_limit:
+    description: "Get API rate limit status for the authenticated user"
+    parameters: {}

@@ -1,0 +1,598 @@
+version: 1
+tools:
+  linear_list_issues:
+    description: "List Linear issues (tickets/bugs/tasks) with optional filters. Start here for filtered queries (by assignee, state, label, project). Use list_workflow_states to discover valid state names."
+    parameters:
+      team:
+        description: "Filter by team name or key"
+      assignee:
+        description: "Filter by assignee name or 'me'"
+      state:
+        description: "Filter by state name (e.g., 'In Progress', 'Done')"
+      label:
+        description: "Filter by label name"
+      priority:
+        description: "Filter by priority (1=urgent, 2=high, 3=normal, 4=low)"
+      project:
+        description: "Filter by project name"
+      cycle:
+        description: "Filter by cycle name or number"
+      first:
+        description: "Max results (default 50)"
+      after:
+        description: "Pagination cursor"
+  linear_search_issues:
+    description: "Full-text search Linear issues (tickets/bugs) by keyword. Start here to find issues by text. For filtering by assignee, state, or label, prefer list_issues instead."
+    parameters:
+      query:
+        description: "Search query text"
+        required: true
+      first:
+        description: "Max results (default 50)"
+      after:
+        description: "Pagination cursor"
+  linear_get_issue:
+    description: "Get a specific issue with full detail. Accepts issue ID (UUID) or identifier (e.g., ENG-123)."
+    parameters:
+      id:
+        description: "Issue identifier (e.g., ENG-123) or UUID"
+        required: true
+  linear_create_issue:
+    description: "Create a new issue (ticket/bug/task). Requires team_id — use list_teams to find it. Use list_workflow_states to discover valid state names."
+    parameters:
+      title:
+        description: "Issue title"
+        required: true
+      team:
+        description: "Team name or key"
+        required: true
+      description:
+        description: "Description (markdown)"
+      assignee:
+        description: "Assignee name or email"
+      priority:
+        description: "Priority (0=none, 1=urgent, 2=high, 3=normal, 4=low)"
+      state:
+        description: "Workflow state name"
+      labels:
+        description: "Comma-separated label names"
+      project:
+        description: "Project name"
+      milestone:
+        description: "Project milestone name or UUID"
+      cycle:
+        description: "Cycle name or number"
+      estimate:
+        description: "Story point estimate"
+      due_date:
+        description: "Due date (YYYY-MM-DD)"
+      parent_id:
+        description: "Parent issue ID for sub-issues"
+  linear_update_issue:
+    description: "Update an existing issue. Accepts issue ID (UUID) or identifier (e.g., ENG-123). Use list_workflow_states to discover valid state names. Use list_teams to find team names for transfers."
+    parameters:
+      id:
+        description: "Issue identifier (e.g., ENG-123) or UUID"
+        required: true
+      title:
+        description: "New title"
+      description:
+        description: "New description"
+      assignee:
+        description: "Assignee name or email"
+      priority:
+        description: "Priority (0-4)"
+      state:
+        description: "Workflow state name"
+      team:
+        description: "Team name or key (moves issue to this team)"
+      labels:
+        description: "Comma-separated label names"
+      project:
+        description: "Project name"
+      milestone:
+        description: "Project milestone name or UUID"
+      estimate:
+        description: "Story point estimate"
+      due_date:
+        description: "Due date (YYYY-MM-DD)"
+  linear_archive_issue:
+    description: "Archive an issue"
+    parameters:
+      id:
+        description: "Issue identifier or UUID"
+        required: true
+  linear_unarchive_issue:
+    description: "Unarchive an issue"
+    parameters:
+      id:
+        description: "Issue identifier or UUID"
+        required: true
+  linear_list_issue_comments:
+    description: "List comments on an issue"
+    parameters:
+      id:
+        description: "Issue identifier or UUID"
+        required: true
+      first:
+        description: "Max results (default 50)"
+  linear_create_comment:
+    description: "Create a comment on an issue"
+    parameters:
+      issue_id:
+        description: "Issue identifier or UUID"
+        required: true
+      body:
+        description: "Comment body (markdown)"
+        required: true
+  linear_update_comment:
+    description: "Update a comment"
+    parameters:
+      id:
+        description: "Comment UUID"
+        required: true
+      body:
+        description: "New comment body (markdown)"
+        required: true
+  linear_delete_comment:
+    description: "Delete a comment"
+    parameters:
+      id:
+        description: "Comment UUID"
+        required: true
+  linear_list_issue_relations:
+    description: "List relations for an issue (blocks, blocked by, related, duplicate)"
+    parameters:
+      id:
+        description: "Issue identifier or UUID"
+        required: true
+  linear_create_issue_relation:
+    description: "Create a relation between two issues"
+    parameters:
+      issue_id:
+        description: "Source issue identifier or UUID"
+        required: true
+      related_issue_id:
+        description: "Related issue identifier or UUID"
+        required: true
+      type:
+        description: "Relation type: blocks, blocked_by, related, duplicate"
+        required: true
+  linear_delete_issue_relation:
+    description: "Delete an issue relation"
+    parameters:
+      id:
+        description: "Relation UUID"
+        required: true
+  linear_list_issue_labels:
+    description: "List labels on a specific issue"
+    parameters:
+      id:
+        description: "Issue identifier or UUID"
+        required: true
+  linear_list_attachments:
+    description: "List attachments on an issue"
+    parameters:
+      issue_id:
+        description: "Issue identifier or UUID"
+        required: true
+      first:
+        description: "Max results (default 25)"
+  linear_create_attachment:
+    description: "Create an attachment (link) on an issue"
+    parameters:
+      issue_id:
+        description: "Issue identifier or UUID"
+        required: true
+      title:
+        description: "Attachment title"
+      url:
+        description: "Attachment URL"
+        required: true
+      subtitle:
+        description: "Subtitle"
+  linear_list_projects:
+    description: "List projects with optional filters. Start here for project status queries."
+    parameters:
+      team:
+        description: "Filter by team name or key"
+      state:
+        description: "Filter by state: planned, started, paused, completed, canceled"
+      first:
+        description: "Max results (default 50)"
+      after:
+        description: "Pagination cursor"
+  linear_search_projects:
+    description: "Find Linear projects by name or keyword. Returns project IDs needed by get_project and list_project_updates. Start here when you know the project name."
+    parameters:
+      query:
+        description: "Project name or keyword"
+        required: true
+      first:
+        description: "Max results (default 10)"
+  linear_get_project:
+    description: "Get a specific project with full detail including progress, members, recent status updates, and milestones. Accepts project UUID or slug. Use search_projects to find the ID first."
+    parameters:
+      id:
+        description: "Project UUID or slug"
+        required: true
+  linear_create_project:
+    description: "Create a project"
+    parameters:
+      name:
+        description: "Project name"
+        required: true
+      team:
+        description: "Team name or key"
+        required: true
+      description:
+        description: "Description (markdown)"
+      state:
+        description: "State: planned, started, paused, completed, canceled"
+      lead:
+        description: "Project lead name or email"
+      target_date:
+        description: "Target date (YYYY-MM-DD)"
+      start_date:
+        description: "Start date (YYYY-MM-DD)"
+  linear_update_project:
+    description: "Update a project"
+    parameters:
+      id:
+        description: "Project UUID"
+        required: true
+      name:
+        description: "New name"
+      description:
+        description: "New description"
+      state:
+        description: "State: planned, started, paused, completed, canceled"
+      lead:
+        description: "Project lead name or email"
+      target_date:
+        description: "Target date"
+      start_date:
+        description: "Start date"
+  linear_archive_project:
+    description: "Archive a project"
+    parameters:
+      id:
+        description: "Project UUID"
+        required: true
+  linear_list_project_updates:
+    description: "List status updates (health reports) for a project. Requires project UUID — use search_projects to find it. For a quick summary, get_project already includes the 5 most recent updates."
+    parameters:
+      project_id:
+        description: "Project UUID"
+        required: true
+      first:
+        description: "Max results (default 10)"
+  linear_create_project_update:
+    description: "Create a project status update"
+    parameters:
+      project_id:
+        description: "Project UUID"
+        required: true
+      body:
+        description: "Update body (markdown)"
+        required: true
+      health:
+        description: "Health: onTrack, atRisk, offTrack"
+  linear_list_project_milestones:
+    description: "List milestones for a project"
+    parameters:
+      project_id:
+        description: "Project UUID"
+        required: true
+      first:
+        description: "Max results (default 50)"
+  linear_create_project_milestone:
+    description: "Create a project milestone"
+    parameters:
+      project_id:
+        description: "Project UUID"
+        required: true
+      name:
+        description: "Milestone name"
+        required: true
+      description:
+        description: "Description"
+      target_date:
+        description: "Target date (YYYY-MM-DD)"
+      sort_order:
+        description: "Sort order (number)"
+  linear_list_cycles:
+    description: "List cycles (sprints) with optional filters. Use to find the current sprint, then get_cycle for its issues."
+    parameters:
+      team:
+        description: "Filter by team name or key"
+      first:
+        description: "Max results (default 50)"
+      after:
+        description: "Pagination cursor"
+  linear_get_cycle:
+    description: "Get a specific cycle with its issues. Use after list_cycles to drill into a sprint."
+    parameters:
+      id:
+        description: "Cycle UUID"
+        required: true
+  linear_create_cycle:
+    description: "Create a cycle"
+    parameters:
+      team:
+        description: "Team name or key"
+        required: true
+      name:
+        description: "Cycle name"
+      description:
+        description: "Description"
+      starts_at:
+        description: "Start date (ISO 8601)"
+        required: true
+      ends_at:
+        description: "End date (ISO 8601)"
+        required: true
+  linear_update_cycle:
+    description: "Update a cycle"
+    parameters:
+      id:
+        description: "Cycle UUID"
+        required: true
+      name:
+        description: "New name"
+      description:
+        description: "New description"
+      starts_at:
+        description: "Start date"
+      ends_at:
+        description: "End date"
+  linear_list_teams:
+    description: "List all teams in the workspace. Use to discover team IDs needed by create_issue and list_workflow_states."
+    parameters:
+      first:
+        description: "Max results (default 50)"
+  linear_get_team:
+    description: "Get a specific team with members and settings. Accepts team UUID, name, or key."
+    parameters:
+      id:
+        description: "Team UUID, name, or key"
+        required: true
+  linear_viewer:
+    description: "Get the currently authenticated user. Use to find your user ID for filtering assigned issues via list_issues."
+    parameters: {}
+  linear_list_users:
+    description: "List users in the workspace. Use to find user IDs for assignee filtering."
+    parameters:
+      first:
+        description: "Max results (default 50)"
+  linear_get_user:
+    description: "Get a specific user with assigned issues count. Accepts user UUID, display name, or email."
+    parameters:
+      id:
+        description: "User UUID, display name, or email"
+        required: true
+  linear_list_labels:
+    description: "List issue labels in the workspace. Use to discover valid label names for list_issues filtering or create_issue."
+    parameters:
+      team:
+        description: "Filter by team name or key"
+      first:
+        description: "Max results (default 100)"
+  linear_create_label:
+    description: "Create an issue label"
+    parameters:
+      name:
+        description: "Label name"
+        required: true
+      color:
+        description: "Hex color (e.g., #ff0000)"
+      team:
+        description: "Team name or key (omit for workspace label)"
+      description:
+        description: "Description"
+  linear_update_label:
+    description: "Update an issue label"
+    parameters:
+      id:
+        description: "Label UUID"
+        required: true
+      name:
+        description: "New name"
+      color:
+        description: "New hex color"
+      description:
+        description: "New description"
+  linear_delete_label:
+    description: "Delete an issue label"
+    parameters:
+      id:
+        description: "Label UUID"
+        required: true
+  linear_list_workflow_states:
+    description: "List workflow states for a team. Use before list_issues, create_issue, or update_issue to discover valid state names."
+    parameters:
+      team:
+        description: "Team name or key"
+      first:
+        description: "Max results (default 50)"
+  linear_create_workflow_state:
+    description: "Create a workflow state"
+    parameters:
+      team:
+        description: "Team name or key"
+        required: true
+      name:
+        description: "State name"
+        required: true
+      type:
+        description: "Type: triage, backlog, unstarted, started, completed, canceled"
+        required: true
+      color:
+        description: "Hex color"
+        required: true
+      description:
+        description: "Description"
+      position:
+        description: "Sort position (number)"
+  linear_list_documents:
+    description: "List documents in the workspace. Filter by project to find project-specific docs."
+    parameters:
+      project:
+        description: "Filter by project name"
+      first:
+        description: "Max results (default 50)"
+  linear_search_documents:
+    description: "Full-text search documents by keyword. For browsing by project, use list_documents with project filter."
+    parameters:
+      query:
+        description: "Search query"
+        required: true
+      first:
+        description: "Max results (default 25)"
+  linear_get_document:
+    description: "Get a specific document by ID"
+    parameters:
+      id:
+        description: "Document UUID"
+        required: true
+  linear_create_document:
+    description: "Create a document"
+    parameters:
+      title:
+        description: "Document title"
+        required: true
+      content:
+        description: "Content (markdown)"
+      project:
+        description: "Associated project name or UUID"
+      icon:
+        description: "Icon emoji"
+  linear_update_document:
+    description: "Update a document"
+    parameters:
+      id:
+        description: "Document UUID"
+        required: true
+      title:
+        description: "New title"
+      content:
+        description: "New content (markdown)"
+      icon:
+        description: "New icon emoji"
+  linear_list_initiatives:
+    description: "List initiatives"
+    parameters:
+      first:
+        description: "Max results (default 50)"
+  linear_get_initiative:
+    description: "Get a specific initiative by ID"
+    parameters:
+      id:
+        description: "Initiative UUID"
+        required: true
+  linear_create_initiative:
+    description: "Create an initiative"
+    parameters:
+      name:
+        description: "Initiative name"
+        required: true
+      description:
+        description: "Description (markdown)"
+      target_date:
+        description: "Target date (YYYY-MM-DD)"
+      status:
+        description: "Status: Planned, Active, Completed"
+  linear_update_initiative:
+    description: "Update an initiative"
+    parameters:
+      id:
+        description: "Initiative UUID"
+        required: true
+      name:
+        description: "New name"
+      description:
+        description: "New description"
+      target_date:
+        description: "Target date"
+      status:
+        description: "Status: Planned, Active, Completed"
+  linear_list_favorites:
+    description: "List favorites for the authenticated user"
+    parameters: {}
+  linear_create_favorite:
+    description: "Add an item to favorites"
+    parameters:
+      issue_id:
+        description: "Issue UUID"
+      project_id:
+        description: "Project UUID"
+      cycle_id:
+        description: "Cycle UUID"
+      custom_view_id:
+        description: "Custom view UUID"
+  linear_delete_favorite:
+    description: "Remove a favorite"
+    parameters:
+      id:
+        description: "Favorite UUID"
+        required: true
+  linear_list_webhooks:
+    description: "List webhooks in the workspace"
+    parameters: {}
+  linear_create_webhook:
+    description: "Create a webhook"
+    parameters:
+      url:
+        description: "Webhook URL"
+        required: true
+      team:
+        description: "Team name or key (omit for all teams)"
+      label:
+        description: "Label to filter events"
+      resource_types:
+        description: "Comma-separated resource types: Issue, Comment, Project, Cycle, IssueLabel, etc."
+      all_public_teams:
+        description: "Subscribe to all public teams (true/false)"
+  linear_delete_webhook:
+    description: "Delete a webhook"
+    parameters:
+      id:
+        description: "Webhook UUID"
+        required: true
+  linear_list_notifications:
+    description: "List notifications for the authenticated user"
+    parameters:
+      first:
+        description: "Max results (default 50)"
+  linear_list_templates:
+    description: "List issue templates"
+    parameters: {}
+  linear_get_organization:
+    description: "Get the current organization details"
+    parameters: {}
+  linear_list_custom_views:
+    description: "List custom views (saved filters)"
+    parameters:
+      first:
+        description: "Max results (default 50)"
+  linear_create_custom_view:
+    description: "Create a custom view (saved filter)"
+    parameters:
+      name:
+        description: "View name"
+        required: true
+      description:
+        description: "Description"
+      team:
+        description: "Team name or key"
+      filter_state:
+        description: "Filter by state names (comma-separated)"
+      filter_assignee:
+        description: "Filter by assignee (name or 'me')"
+      filter_label:
+        description: "Filter by label name"
+      filter_priority:
+        description: "Filter by priority (1-4)"
+  linear_rate_limit:
+    description: "Get current API rate limit status"
+    parameters: {}

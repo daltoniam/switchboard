@@ -1,0 +1,200 @@
+version: 1
+tools:
+  nomad_list_jobs:
+    description: "List all jobs in the Nomad cluster. Start here for workload orchestration, container scheduling, and discovering running services."
+    parameters:
+      namespace:
+        description: "Namespace (default: default)"
+      prefix:
+        description: "Filter by job ID prefix"
+      filter:
+        description: 'Filter expression (e.g., Status == "running")'
+  nomad_get_job:
+    description: "Get full specification and status of a specific Nomad job, including task groups, constraints, and resource requirements. Use after list_jobs."
+    parameters:
+      job_id:
+        description: "Job ID"
+        required: true
+      namespace:
+        description: "Namespace (default: default)"
+  nomad_get_job_versions:
+    description: "Get version history for a Nomad job. Shows previous configurations and when changes were made."
+    parameters:
+      job_id:
+        description: "Job ID"
+        required: true
+      namespace:
+        description: "Namespace (default: default)"
+  nomad_register_job:
+    description: "Register (create or update) a Nomad job. Accepts a full job specification as JSON."
+    parameters:
+      job:
+        description: "Full job specification as JSON object"
+        required: true
+      namespace:
+        description: "Namespace (default: default)"
+  nomad_stop_job:
+    description: "Stop (deregister) a running Nomad job. All allocations will be stopped."
+    parameters:
+      job_id:
+        description: "Job ID"
+        required: true
+      purge:
+        description: "Completely purge the job from the system (true/false, default: false)"
+      namespace:
+        description: "Namespace (default: default)"
+  nomad_force_evaluate:
+    description: "Force a new evaluation for a Nomad job, triggering rescheduling. Useful when allocations are unhealthy or stuck."
+    parameters:
+      job_id:
+        description: "Job ID"
+        required: true
+      namespace:
+        description: "Namespace (default: default)"
+  nomad_list_allocations:
+    description: "List all allocations across the Nomad cluster. Shows where tasks are placed and their health status."
+    parameters:
+      namespace:
+        description: "Namespace (default: default)"
+      prefix:
+        description: "Filter by allocation ID prefix"
+      filter:
+        description: "Filter expression"
+  nomad_get_allocation:
+    description: "Get details of a specific Nomad allocation, including task states, events, restart history, and resource usage."
+    parameters:
+      alloc_id:
+        description: "Allocation ID"
+        required: true
+  nomad_get_job_allocations:
+    description: "List all allocations for a specific Nomad job. Shows placement, health, and status of each task instance."
+    parameters:
+      job_id:
+        description: "Job ID"
+        required: true
+      namespace:
+        description: "Namespace (default: default)"
+  nomad_stop_allocation:
+    description: "Stop a specific Nomad allocation. The scheduler may place a replacement depending on job configuration."
+    parameters:
+      alloc_id:
+        description: "Allocation ID"
+        required: true
+  nomad_restart_allocation:
+    description: "Restart a task within a Nomad allocation. Optionally specify which task to restart."
+    parameters:
+      alloc_id:
+        description: "Allocation ID"
+        required: true
+      task:
+        description: "Task name (optional, restarts all tasks if omitted)"
+  nomad_read_allocation_logs:
+    description: "Read stdout or stderr logs from a task in a Nomad allocation. Use for debugging container and workload issues."
+    parameters:
+      alloc_id:
+        description: "Allocation ID"
+        required: true
+      task:
+        description: "Task name"
+        required: true
+      log_type:
+        description: "Log type: stdout or stderr (default: stdout)"
+      plain:
+        description: "Return plain text instead of JSON (true/false, default: true)"
+      origin:
+        description: "Log origin: start or end (default: end)"
+      offset:
+        description: "Byte offset to start reading from"
+  nomad_list_nodes:
+    description: 'List all client nodes in the Nomad cluster. Shows node status, datacenter, drivers, and scheduling eligibility.'
+    parameters:
+      prefix:
+        description: "Filter by node ID prefix"
+      filter:
+        description: 'Filter expression (e.g., Status == "ready")'
+  nomad_get_node:
+    description: "Get full details of a specific Nomad node, including attributes, resources, drivers, host volumes, and metadata."
+    parameters:
+      node_id:
+        description: "Node ID"
+        required: true
+  nomad_get_node_allocations:
+    description: "List all allocations placed on a specific Nomad node. Shows what workloads are running on the node."
+    parameters:
+      node_id:
+        description: "Node ID"
+        required: true
+  nomad_drain_node:
+    description: "Enable or disable drain mode on a Nomad node. Draining migrates all allocations off the node for maintenance."
+    parameters:
+      node_id:
+        description: "Node ID"
+        required: true
+      enable:
+        description: "Enable drain (true) or disable (false)"
+        required: true
+      deadline:
+        description: "Drain deadline duration (e.g., '1h', '30m'). Use -1 for no deadline"
+      ignore_system_jobs:
+        description: "Skip draining system jobs (true/false, default: false)"
+  nomad_node_eligibility:
+    description: "Toggle scheduling eligibility for a Nomad node. Ineligible nodes won't receive new allocations but keep existing ones."
+    parameters:
+      node_id:
+        description: "Node ID"
+        required: true
+      eligible:
+        description: "Set eligible (true) or ineligible (false)"
+        required: true
+  nomad_list_deployments:
+    description: "List deployments across the Nomad cluster. Shows rolling update status, canary progress, and deployment health."
+    parameters:
+      namespace:
+        description: "Namespace (default: default)"
+      prefix:
+        description: "Filter by deployment ID prefix"
+  nomad_get_deployment:
+    description: "Get details of a specific Nomad deployment, including task group status, health, and canary information."
+    parameters:
+      deployment_id:
+        description: "Deployment ID"
+        required: true
+  nomad_promote_deployment:
+    description: "Promote canary allocations in a Nomad deployment. Moves canaries to production after validation."
+    parameters:
+      deployment_id:
+        description: "Deployment ID"
+        required: true
+      all:
+        description: "Promote all task groups (true/false, default: true)"
+      groups:
+        description: "Comma-separated list of task groups to promote (alternative to all)"
+  nomad_fail_deployment:
+    description: "Mark a Nomad deployment as failed, triggering automatic rollback to the previous job version."
+    parameters:
+      deployment_id:
+        description: "Deployment ID"
+        required: true
+  nomad_list_evaluations:
+    description: "List evaluations in the Nomad scheduler queue. Shows scheduling decisions, blocked evaluations, and failures."
+    parameters:
+      namespace:
+        description: "Namespace (default: default)"
+      prefix:
+        description: "Filter by evaluation ID prefix"
+      filter:
+        description: 'Filter expression (e.g., Status == "blocked")'
+  nomad_list_services:
+    description: "List all registered services in the Nomad service discovery catalog."
+    parameters:
+      namespace:
+        description: "Namespace (default: default)"
+  nomad_get_agent_self:
+    description: "Get the current Nomad agent's configuration, stats, and node information. Useful for diagnosing agent state."
+    parameters: {}
+  nomad_get_cluster_status:
+    description: "Get Nomad cluster status including Raft leader address and peer list. Use for cluster health checks."
+    parameters: {}
+  nomad_gc:
+    description: "Trigger garbage collection on the Nomad cluster to clean up dead allocations, evaluations, and deployments."
+    parameters: {}

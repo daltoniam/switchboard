@@ -1,0 +1,194 @@
+version: 1
+tools:
+  metabase_list_databases:
+    description: "List all databases configured in Metabase"
+    parameters: {}
+  metabase_get_database:
+    description: "Get details of a specific database including its tables"
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+  metabase_list_tables:
+    description: "List all tables in a specific database with metadata"
+    parameters:
+      database_id:
+        description: "Database ID"
+        required: true
+  metabase_get_table:
+    description: "Get detailed metadata for a specific table"
+    parameters:
+      table_id:
+        description: "Table ID"
+        required: true
+  metabase_get_table_fields:
+    description: "Get all fields/columns for a specific table with types and metadata"
+    parameters:
+      table_id:
+        description: "Table ID"
+        required: true
+  metabase_execute_query:
+    description: "Execute a native SQL analytics query against a Metabase-connected database and return results as JSON. Use for ad-hoc analytics, BI reporting, and data exploration."
+    parameters:
+      database_id:
+        description: "Database ID to query"
+        required: true
+      query:
+        description: "SQL query string"
+        required: true
+  metabase_execute_card:
+    description: "Execute a saved question/card and return its results"
+    parameters:
+      card_id:
+        description: "Card/question ID"
+        required: true
+      parameters:
+        description: "Optional JSON array of parameter objects [{type, target, value}]"
+  metabase_list_cards:
+    description: "List all saved questions/cards. Optionally filter by type."
+    parameters:
+      filter:
+        description: "Filter: all (default), mine, bookmarked, archived"
+  metabase_get_card:
+    description: "Get details of a specific saved question/card"
+    parameters:
+      card_id:
+        description: "Card ID"
+        required: true
+  metabase_create_card:
+    description: "Create a new saved question/card with a native SQL query"
+    parameters:
+      name:
+        description: "Name of the question"
+        required: true
+      database_id:
+        description: "Database ID"
+        required: true
+      query:
+        description: "SQL query string"
+        required: true
+      description:
+        description: "Optional description"
+      collection_id:
+        description: "Optional collection ID to save into"
+      display:
+        description: "Visualization type: table, bar, line, pie, scalar, etc. (default: table)"
+  metabase_update_card:
+    description: "Update a saved question/card (name, description, query, visualization)"
+    parameters:
+      card_id:
+        description: "Card ID"
+        required: true
+      name:
+        description: "New name"
+      description:
+        description: "New description"
+      query:
+        description: "New SQL query"
+      database_id:
+        description: "Database ID (required if changing query)"
+      display:
+        description: "Visualization type: table, bar, line, pie, scalar, etc."
+      archived:
+        description: "Set to true to archive the card"
+  metabase_delete_card:
+    description: "Delete (archive) a saved question/card"
+    parameters:
+      card_id:
+        description: "Card ID"
+        required: true
+  metabase_list_dashboards:
+    description: "List all Metabase analytics dashboards for reporting and data visualization"
+    parameters: {}
+  metabase_get_dashboard:
+    description: "Get details of a dashboard including its cards and layout"
+    parameters:
+      dashboard_id:
+        description: "Dashboard ID"
+        required: true
+  metabase_create_dashboard:
+    description: "Create a new dashboard"
+    parameters:
+      name:
+        description: "Dashboard name"
+        required: true
+      description:
+        description: "Optional description"
+      collection_id:
+        description: "Optional collection ID"
+  metabase_update_dashboard:
+    description: "Update a dashboard's name, description, or other properties"
+    parameters:
+      dashboard_id:
+        description: "Dashboard ID"
+        required: true
+      name:
+        description: "New name"
+      description:
+        description: "New description"
+      archived:
+        description: "Set to true to archive the dashboard"
+  metabase_delete_dashboard:
+    description: "Delete (archive) a dashboard"
+    parameters:
+      dashboard_id:
+        description: "Dashboard ID"
+        required: true
+  metabase_add_card_to_dashboard:
+    description: "Add a saved question/card to a dashboard"
+    parameters:
+      dashboard_id:
+        description: "Dashboard ID"
+        required: true
+      card_id:
+        description: "Card ID to add"
+        required: true
+      size_x:
+        description: "Width in grid units (default: 6)"
+      size_y:
+        description: "Height in grid units (default: 4)"
+      row:
+        description: "Row position (default: 0)"
+      col:
+        description: "Column position (default: 0)"
+  metabase_list_collections:
+    description: "List all collections (folders for organizing questions and dashboards)"
+    parameters: {}
+  metabase_get_collection:
+    description: "Get details and items in a specific collection"
+    parameters:
+      collection_id:
+        description: "Collection ID (use 'root' for the root collection)"
+        required: true
+  metabase_create_collection:
+    description: "Create a new collection for organizing questions and dashboards"
+    parameters:
+      name:
+        description: "Collection name"
+        required: true
+      description:
+        description: "Optional description"
+      parent_id:
+        description: "Optional parent collection ID for nesting"
+  metabase_update_collection:
+    description: "Update a collection's name, description, or parent"
+    parameters:
+      collection_id:
+        description: "Collection ID"
+        required: true
+      name:
+        description: "New name"
+      description:
+        description: "New description"
+      parent_id:
+        description: "New parent collection ID"
+      archived:
+        description: "Set to true to archive"
+  metabase_search:
+    description: "Search across all Metabase content (questions, dashboards, collections, tables, databases). Start here for BI and reporting workflows."
+    parameters:
+      query:
+        description: "Search query string"
+        required: true
+      models:
+        description: "Comma-separated types to search: card, dashboard, collection, table, database"

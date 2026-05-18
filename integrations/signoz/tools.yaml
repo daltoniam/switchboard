@@ -1,0 +1,216 @@
+version: 1
+tools:
+  signoz_list_services:
+    description: "List all application services and their metrics (latency, error rate, throughput). Start here for APM, service health monitoring, and performance debugging."
+    parameters:
+      start:
+        description: "Start time in epoch milliseconds"
+        required: true
+      end:
+        description: "End time in epoch milliseconds"
+        required: true
+  signoz_get_service_overview:
+    description: "Get detailed overview metrics for a specific service over a time range. Use after list_services for latency percentiles, error rates, and request counts."
+    parameters:
+      service:
+        description: "Service name"
+        required: true
+      start:
+        description: "Start time in epoch milliseconds"
+        required: true
+      end:
+        description: "End time in epoch milliseconds"
+        required: true
+      step:
+        description: "Step interval in seconds (default: 60)"
+  signoz_top_operations:
+    description: "Get top operations for a service ranked by latency, error rate, or call count. Use after list_services to drill into hotspot endpoints and slow operations."
+    parameters:
+      service:
+        description: "Service name"
+        required: true
+      start:
+        description: "Start time in epoch milliseconds"
+        required: true
+      end:
+        description: "End time in epoch milliseconds"
+        required: true
+  signoz_top_level_operations:
+    description: "Get top-level (entry point) operations across all services. Useful for finding the most called API endpoints and root spans."
+    parameters:
+      start:
+        description: "Start time in epoch milliseconds"
+        required: true
+      end:
+        description: "End time in epoch milliseconds"
+        required: true
+  signoz_entry_point_operations:
+    description: "Get entry point operations for a service (v2). Returns the first spans in a trace for each service."
+    parameters:
+      service:
+        description: "Service name"
+        required: true
+      start:
+        description: "Start time in epoch milliseconds"
+        required: true
+      end:
+        description: "End time in epoch milliseconds"
+        required: true
+  signoz_search_logs:
+    description: "Search and filter log entries. Supports attribute filters (severity, service, body text), ordering, and pagination. Start here for log exploration, debugging, and error investigation."
+    parameters:
+      start:
+        description: "Start time in epoch milliseconds"
+        required: true
+      end:
+        description: "End time in epoch milliseconds"
+        required: true
+      filter:
+        description: "Single filter expression: key op value, e.g. \"severity_text = 'ERROR'\". Only one expression per call."
+      limit:
+        description: "Max logs to return (default: 20, max: 100)"
+      offset:
+        description: "Offset for pagination (default: 0)"
+  signoz_search_traces:
+    description: "Search distributed traces with filters. Find slow requests, errors, and specific operations across services. Start here for trace exploration and latency debugging."
+    parameters:
+      start:
+        description: "Start time in epoch milliseconds"
+        required: true
+      end:
+        description: "End time in epoch milliseconds"
+        required: true
+      service:
+        description: "Filter by service name"
+      filter:
+        description: "Single filter expression: key op value, e.g. \"hasError = true\". Only one expression per call; use service param for service filtering."
+      limit:
+        description: "Max traces to return (default: 20, max: 100)"
+      offset:
+        description: "Offset for pagination (default: 0)"
+  signoz_get_trace:
+    description: "Get all spans for a specific trace by its trace ID. Shows the full request path across services with timing breakdown. Use after search_traces."
+    parameters:
+      trace_id:
+        description: "Trace ID"
+        required: true
+  signoz_query_metrics:
+    description: "Query time-series metrics data. Supports aggregation (avg, sum, min, max, count, rate, p50-p99), filtering, and group-by. Start here for metrics exploration, infrastructure monitoring, and custom dashboards."
+    parameters:
+      start:
+        description: "Start time in epoch milliseconds"
+        required: true
+      end:
+        description: "End time in epoch milliseconds"
+        required: true
+      metric_name:
+        description: "Metric name, e.g. 'signoz_calls_total' or 'system.cpu.load_average.1m'"
+        required: true
+      aggregate_op:
+        description: "Aggregation: avg, sum, min, max, count, rate, p50, p75, p90, p95, p99 (default: avg)"
+      filter:
+        description: "Single filter expression: key op value, e.g. \"service_name = 'frontend'\". Only one expression per call."
+      group_by:
+        description: "Comma-separated attribute keys to group by, e.g. 'service_name,host'"
+      step:
+        description: "Step interval in seconds (default: 60)"
+  signoz_list_dashboards:
+    description: "List all dashboards. Start here for dashboard discovery and visualization management."
+    parameters: {}
+  signoz_get_dashboard:
+    description: "Get a specific dashboard by ID including all panels and widget configurations. Use after list_dashboards."
+    parameters:
+      id:
+        description: "Dashboard ID"
+        required: true
+  signoz_create_dashboard:
+    description: "Create a new dashboard with title, description, and optional tags."
+    parameters:
+      title:
+        description: "Dashboard title"
+        required: true
+      description:
+        description: "Dashboard description"
+      tags:
+        description: "Comma-separated tags for categorization"
+  signoz_update_dashboard:
+    description: "Update an existing dashboard. Send dashboard content (title, widgets, layout, tags) or the full get_dashboard response — nesting is auto-corrected. The API wraps content automatically."
+    parameters:
+      id:
+        description: "Dashboard ID"
+        required: true
+      dashboard:
+        description: "Dashboard content object with title, widgets, layout, tags, variables"
+        required: true
+  signoz_delete_dashboard:
+    description: "Delete a dashboard by ID."
+    parameters:
+      id:
+        description: "Dashboard ID"
+        required: true
+  signoz_list_alerts:
+    description: "List all alert rules including their current state (firing, inactive, pending). Start here for alert management and on-call monitoring."
+    parameters: {}
+  signoz_get_alert:
+    description: "Get a specific alert rule by ID with full configuration and current state. Use after list_alerts."
+    parameters:
+      id:
+        description: "Alert rule ID"
+        required: true
+  signoz_create_alert:
+    description: "Create a new alert rule. Requires a full alert rule definition JSON body."
+    parameters:
+      rule:
+        description: "Full alert rule definition JSON object"
+        required: true
+  signoz_update_alert:
+    description: "Update an existing alert rule. Send the full rule object (get it first with get_alert)."
+    parameters:
+      id:
+        description: "Alert rule ID"
+        required: true
+      rule:
+        description: "Full alert rule definition JSON object"
+        required: true
+  signoz_delete_alert:
+    description: "Delete an alert rule by ID."
+    parameters:
+      id:
+        description: "Alert rule ID"
+        required: true
+  signoz_list_saved_views:
+    description: "List all saved explorer views for logs and traces. Use to find pre-configured query views."
+    parameters: {}
+  signoz_get_saved_view:
+    description: "Get a specific saved view by ID with full query configuration. Use after list_saved_views."
+    parameters:
+      view_id:
+        description: "Saved view ID"
+        required: true
+  signoz_create_saved_view:
+    description: "Create a new saved explorer view with query configuration."
+    parameters:
+      view:
+        description: "Saved view definition JSON object"
+        required: true
+  signoz_update_saved_view:
+    description: "Update an existing saved view."
+    parameters:
+      view_id:
+        description: "Saved view ID"
+        required: true
+      view:
+        description: "Updated saved view definition JSON object"
+        required: true
+  signoz_delete_saved_view:
+    description: "Delete a saved view by ID."
+    parameters:
+      view_id:
+        description: "Saved view ID"
+        required: true
+  signoz_list_channels:
+    description: "List all configured notification channels (Slack, email, PagerDuty, webhooks) for alerts."
+    parameters: {}
+  signoz_get_version:
+    description: "Get SigNoz server version, edition (community/enterprise), and setup status."
+    parameters: {}

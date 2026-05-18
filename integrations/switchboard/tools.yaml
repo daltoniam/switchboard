@@ -1,0 +1,47 @@
+version: 1
+tools:
+  switchboard_list_integrations:
+    description: "List all registered integrations with their enabled/healthy status, tool counts, and credential keys. Start here for Switchboard self-management, configuration, and integration setup. Shows which integrations are configured, which need credentials, and which are healthy."
+    parameters:
+      enabled_only:
+        description: "If true, only show enabled integrations (default: false)."
+  switchboard_get_integration:
+    description: "Get detailed information about a specific integration including credential keys (not values), tool list, enabled/healthy status, and configuration hints. Use after list_integrations to inspect a single integration before configuring it."
+    parameters:
+      name:
+        description: 'Integration name (e.g. "github", "datadog", "slack").'
+        required: true
+  switchboard_configure_integration:
+    description: "Configure an integration by setting credentials and enabling or disabling it. Credentials are merged with existing values — send only the keys you want to update. Set enabled=false to disable an integration without removing its credentials."
+    parameters:
+      name:
+        description: 'Integration name (e.g. "github", "datadog").'
+        required: true
+      credentials:
+        description: "JSON object of credential key-value pairs to set (merged with existing)."
+      enabled:
+        description: "Whether to enable the integration after configuring (default: true)."
+  switchboard_check_health:
+    description: "Check connectivity health of one or all enabled integrations. Returns healthy/unhealthy status for each integration by calling its health endpoint. Use to verify credentials work and upstream APIs are reachable."
+    parameters:
+      name:
+        description: "Optional: specific integration to check. Omit to check all enabled integrations."
+  switchboard_browse_plugins:
+    description: "Browse available plugins from configured marketplace manifest sources. Shows plugin name, description, latest version, and whether it is already installed. Use before install_plugin to discover available extensions."
+    parameters: {}
+  switchboard_install_plugin:
+    description: "Install a plugin from the marketplace by name or from a direct URL. Downloads the WASM module, verifies its checksum, and registers it. Requires a server restart to load the plugin. Use after browse_plugins."
+    parameters:
+      name:
+        description: "Plugin name from the marketplace (mutually exclusive with url)."
+      url:
+        description: "Direct URL to a .wasm file to install (mutually exclusive with name)."
+  switchboard_uninstall_plugin:
+    description: "Uninstall a marketplace plugin by name. Removes the WASM file and deregisters it from config. Requires a server restart to take effect."
+    parameters:
+      name:
+        description: "Name of the installed plugin to remove."
+        required: true
+  switchboard_server_info:
+    description: "Get Switchboard server information including version, enabled integration count, total tool count, marketplace status, and runtime metrics summary. Use for diagnostics, status checks, and understanding the current server state."
+    parameters: {}

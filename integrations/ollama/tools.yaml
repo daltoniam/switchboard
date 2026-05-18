@@ -1,0 +1,112 @@
+version: 1
+tools:
+  ollama_list_models:
+    description: "List all locally installed Ollama AI models with sizes, families, parameter counts, and quantization levels. Start here to discover available models before running chat, generate, or embed."
+    parameters: {}
+  ollama_show_model:
+    description: "Show details of a specific Ollama model including parameters, prompt template, capabilities (vision, tools, thinking), and license. Returns rendered markdown. Use after list_models to inspect a model before using it."
+    parameters:
+      model:
+        description: "Model name (e.g. 'gemma3', 'llama3.2:7b'). Use list_models to discover available names."
+        required: true
+  ollama_pull_model:
+    description: "Download and install an AI model from the Ollama model registry. May take minutes for large models — do not retry on timeout. Use model names like 'gemma3', 'llama3.2', 'qwen3'. Use list_models after to confirm the download completed."
+    parameters:
+      model:
+        description: "Model name to download from registry (e.g. 'gemma3', 'llama3.2:7b', 'qwen3:14b')"
+        required: true
+  ollama_delete_model:
+    description: "Permanently delete a locally installed Ollama model. This is irreversible — the model must be re-downloaded with pull_model to restore it. Use list_models first to verify the exact model name."
+    parameters:
+      model:
+        description: "Exact model name to delete. Must match a name from list_models."
+        required: true
+  ollama_copy_model:
+    description: "Create a copy of an existing local Ollama model with a new name. Use before create_model to preserve the original when customizing."
+    parameters:
+      source:
+        description: "Existing model name to copy from (must be installed locally)"
+        required: true
+      destination:
+        description: "New model name to create"
+        required: true
+  ollama_create_model:
+    description: "Create a custom Ollama model from an existing base model. Embed a system prompt, override the prompt template, or change quantization. May take minutes for re-quantization — do not retry on timeout. Use show_model after to verify the result."
+    parameters:
+      model:
+        description: "Name for the new custom model"
+        required: true
+      from:
+        description: "Base model to derive from (e.g. 'gemma3'). Must be installed locally."
+      system:
+        description: "System prompt to embed permanently in the model"
+      template:
+        description: "Go template string for prompt formatting"
+      quantize:
+        description: "Quantization level to apply (e.g. 'q4_K_M', 'q8_0'). Re-quantizes the model weights."
+  ollama_list_running:
+    description: "List currently loaded and running Ollama models with VRAM usage, context window size, and automatic unload time. Use to check GPU memory pressure before loading additional models."
+    parameters: {}
+  ollama_get_version:
+    description: "Get the Ollama server version. Use to verify the server is reachable and check compatibility."
+    parameters: {}
+  ollama_chat:
+    description: "Send a multi-turn chat conversation to a local Ollama model and get a complete response. Preferred over generate for conversations — maintains message history with roles. Supports tool calling, structured JSON output, vision (images in messages), and thinking/reasoning mode. Returns the full response in one call (non-streaming)."
+    parameters:
+      model:
+        description: "Model name (e.g. 'gemma3', 'llama3.2'). Must be installed — use list_models to check."
+        required: true
+      messages:
+        description: "Array of message objects. Each has 'role' ('system', 'user', 'assistant') and 'content' (string). For vision: add 'images' array with base64-encoded strings."
+        required: true
+      tools:
+        description: "Array of tool/function definitions the model may call (OpenAI function-calling format)"
+      format:
+        description: "Constrain output format: 'json' for freeform JSON, or a JSON schema object for structured output"
+      options:
+        description: "Model parameters object: temperature (0-2), top_k, top_p, seed, num_ctx (context window), num_predict (max tokens), etc."
+      think:
+        description: "Enable chain-of-thought reasoning: true, false, 'high', 'medium', or 'low'. Response includes a 'thinking' field when enabled."
+      keep_alive:
+        description: "Duration to keep model in memory after request: '5m', '1h', or 0 to unload immediately. Default: 5 minutes."
+  ollama_generate:
+    description: "Generate text completion from a single prompt using a local Ollama model. Use for one-shot generation without conversation history — prefer chat for multi-turn dialogue. Supports vision (base64 images), fill-in-the-middle (prompt + suffix), structured JSON output, and thinking mode. Returns the full response in one call (non-streaming)."
+    parameters:
+      model:
+        description: "Model name (e.g. 'gemma3', 'llama3.2'). Must be installed — use list_models to check."
+        required: true
+      prompt:
+        description: "Text prompt for generation"
+      suffix:
+        description: "Text after the insertion point for fill-in-the-middle completion. Model generates text between prompt and suffix."
+      images:
+        description: "Array of base64-encoded images for multimodal/vision models (e.g. llava, gemma4)"
+      format:
+        description: "Constrain output format: 'json' for freeform JSON, or a JSON schema object for structured output"
+      system:
+        description: "System prompt to prepend. Overrides any system prompt embedded in the model."
+      options:
+        description: "Model parameters object: temperature (0-2), top_k, top_p, seed, num_ctx (context window), num_predict (max tokens), etc."
+      think:
+        description: "Enable chain-of-thought reasoning: true, false, 'high', 'medium', or 'low'. Response includes a 'thinking' field when enabled."
+      raw:
+        description: "If true, prompt is sent directly without applying the model's chat template. Use for pre-formatted prompts only."
+      keep_alive:
+        description: "Duration to keep model in memory after request: '5m', '1h', or 0 to unload immediately. Default: 5 minutes."
+  ollama_embed:
+    description: "Generate vector embeddings for text using a local Ollama embedding model. For semantic search, similarity matching, and RAG pipelines. Supports single string or batch (array of strings) input. Not all models support embeddings — use an embedding model like 'all-minilm' or 'nomic-embed-text'. Returns 400 error if the model lacks embedding support."
+    parameters:
+      model:
+        description: "Embedding model name (e.g. 'all-minilm', 'nomic-embed-text'). Must support embeddings — general chat models will return an error."
+        required: true
+      input:
+        description: "Text to embed: a single string, or an array of strings for batch embedding"
+        required: true
+      truncate:
+        description: "Truncate input exceeding context window (default true). Set false to return an error instead of silently truncating."
+      dimensions:
+        description: "Custom output vector dimensions. Only supported by some models."
+      keep_alive:
+        description: "Duration to keep model in memory: '5m', '1h', or 0 to unload immediately"
+      options:
+        description: "Model parameters: seed, num_ctx, etc."
