@@ -1,0 +1,5 @@
+<%- /* history.md.tmpl — v1, no variants */ -%>
+Retrieve a compact log of tool calls made in this session.
+
+The call log survives context compression — query it instead of re-running tools to recover what was already fetched.
+Returns: [{seq, tool, args, summary, is_error, timestamp}] ordered by time.

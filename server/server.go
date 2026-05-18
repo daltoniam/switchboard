@@ -19,6 +19,7 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
 	"github.com/daltoniam/switchboard/script"
+	"github.com/daltoniam/switchboard/server/prompts"
 	"github.com/daltoniam/switchboard/version"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -153,16 +154,8 @@ func (s *Server) registerTools() {
 	s.buildSearchIndex()
 
 	searchTool := &mcpsdk.Tool{
-		Name: "search",
-		Description: `Search available tools across all integrations (GitHub, Datadog, Linear, Sentry, Slack, etc.).
-
-IMPORTANT: Always search before calling execute. Do NOT guess tool names.
-
-Query format — use 1-2 keywords, not full sentences. Fewer words = better results:
-- {"query": "create ticket"} — synonym matching finds linear_create_issue
-- {"query": "slack send"} — integration name + verb is ideal
-- {"integration": "sentry", "query": "errors"} — or use the integration filter
-Avoid 4+ word queries — they return fewer results. Search twice with short queries instead of once with a long query.`,
+		Name:        "search",
+		Description: prompts.Meta.Search(),
 		InputSchema: objectSchema(map[string]any{
 			"query": map[string]any{
 				"type":        "string",
@@ -184,68 +177,8 @@ Avoid 4+ word queries — they return fewer results. Search twice with short que
 	}
 
 	executeTool := &mcpsdk.Tool{
-		Name: "execute",
-		Description: `Execute a tool or run a JavaScript script that chains multiple tool calls.
-
-PREFER scripts when a task requires 2+ tool calls or crosses integrations — intermediate
-results stay server-side and never enter the conversation, saving tokens dramatically.
-
-Mode 1 — Script (provide script):
-  Write ES5 JavaScript (var, function(){}, string + concatenation). No let/const, arrow functions, template literals, or destructuring.
-  Call api.call(toolName, args) to invoke tools. Chain multiple calls, filter results, and return only what you need.
-
-  {"script": "var issues = api.call('linear_search_issues', {query: 'BUG-1234'}); var email = issues[0].assignee.email; var user = api.call('postgres_execute_query', {query: 'SELECT * FROM users WHERE email = $1', params: [email]}); ({issue: issues[0], dbUser: user[0]});"}
-
-Mode 2 — Single tool (provide tool_name + arguments):
-  Use for one-off calls where scripting adds no benefit.
-
-  {"tool_name": "github_list_issues", "arguments": {"owner": "golang", "repo": "go"}}
-
-Script API:
-  api.call(toolName, args[, opts]) — returns parsed JSON object. Use for data you need to read fields from (issues, PRs, metrics).
-    Optional opts: {fields: ["id", "title", "user.login"]} for server-side field projection. Dot-notation and brackets supported.
-    Throws on error (kills script). For partial-failure resilience, use tryCall.
-  api.tryCall(toolName, args[, opts]) — non-throwing call. Returns {ok: true, data: ...} or {ok: false, error: "..."}.
-    Also supports field projection. Prefer for cross-integration scripts where partial results are useful.
-  api.callRendered(toolName, args) — returns LLM-readable STRING (markdown or compacted JSON) instead of a JSON object.
-    The return value is a STRING, not an object — use string concatenation (+), not .field access.
-    Use for document content you need as readable text (pages, emails, issues). Do NOT use when you need field access.
-    No field projection. Throws on error.
-  api.tryCallRendered(toolName, args) — non-throwing callRendered. Returns {ok: true, data: "rendered string"} or {ok: false, error: "..."}.
-    The data value is a STRING. Do not JSON.parse() it — it is already the final readable text.
-  console.log(...) — debug logging (included in output on error)
-
-When to use call vs callRendered:
-  Need .field access (data.id, result.items[0])? → api.call()
-  Need readable text to pass to another tool or return to user? → api.callRendered()
-
-Scripts can call integration tools — chain GitHub, Linear, Sentry, Datadog, Slack, etc. in one script.
-Scripts CANNOT call the search or execute meta-tools. Use search before writing a script to discover tool names.
-
-List and search responses are automatically compacted to essential fields.
-Use single-item get tools (e.g., github_get_issue) for full detail.
-Responses over 50KB return an error — use filters, lower limit/per_page, or fetch individual items.
-Script output is also capped at 50KB — return only the fields you need, not entire API responses.
-
-Script examples:
-
-Fetch a GitHub PR with field projection (only title, state, and branch refs returned):
-  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, {fields: ['title', 'state', 'body', 'base.ref', 'head.ref']}); var diff = api.call('github_get_pull_diff', {owner: 'o', repo: 'r', pull_number: 42}); ({pr: pr, diff: diff});"}
-
-Create a Linear issue then open a GitHub PR referencing it:
-  {"script": "var issue = api.call('linear_create_issue', {team_id: 'TEAM-ID', title: 'Fix auth bug', description: 'Details...'}); var pr = api.call('github_create_pull', {owner: 'o', repo: 'r', title: issue.identifier + ': ' + issue.title, head: 'fix-auth', base: 'main', body: 'Resolves ' + issue.url}); ({issue: issue.identifier, pr_url: pr.html_url});"}
-
-Look up a Sentry error, find the responsible deploy, and notify Slack:
-  {"script": "var issue = api.call('sentry_get_issue', {issue_id: '12345'}); var deploys = api.call('sentry_list_deploys', {organization_slug: 'org', version: issue.firstRelease.version}); api.call('slack_post_message', {channel: '#alerts', text: 'Sentry issue ' + issue.title + ' introduced in deploy ' + deploys[0].environment}); ({sentry: issue.shortId, deploy: deploys[0].environment});"}
-
-Cross-integration correlation with tryCall and field projection:
-  {"script": "var pr = api.call('github_get_pull', {owner: 'o', repo: 'r', pull_number: 42}, {fields: ['title', 'state']}); var linear = api.tryCall('linear_search_issues', {query: pr.title}, {fields: ['issues.nodes[].identifier', 'issues.nodes[].title']}); ({pr: pr, linear: linear.ok ? linear.data : {error: linear.error}});"}
-
-List issues with server-side projection (only id, title, labels — no manual .map() needed):
-  {"script": "api.call('github_list_issues', {owner: 'o', repo: 'r', state: 'open'}, {fields: ['number', 'title', 'labels[].name']});"}
-
-Pipe rendered document content between tools (callRendered returns readable text, not raw JSON):
-  {"script": "var page = api.callRendered('notion_get_page_content', {page_id: 'abc'}); var summary = api.call('ollama_chat', {model: 'gemma3', messages: [{role: 'user', content: 'Summarize:\\n' + page}]}); ({summary: summary.message.content});"}`,
+		Name:        "execute",
+		Description: prompts.Meta.Execute(),
 		InputSchema: objectSchema(map[string]any{
 			"tool_name": map[string]any{
 				"type":        "string",
@@ -263,23 +196,12 @@ Pipe rendered document content between tools (callRendered returns readable text
 	}
 
 	sessionTool := &mcpsdk.Tool{
-		Name: "session",
-		Description: `Manage session-scoped context to avoid repeating parameters.
-
-Set context once (e.g., owner/repo) and all subsequent execute calls auto-inject those values as defaults.
-Explicit arguments always override session context.
-
-Actions:
-- "set": Upsert key-value pairs into session context
-- "get": Return current session context
-- "clear": Reset session context to empty
-
-Example: {"action": "set", "context": {"owner": "daltoniam", "repo": "switchboard"}}
-Then: execute({tool_name: "github_list_issues", arguments: {state: "open"}}) — owner/repo injected automatically.`,
+		Name:        "session",
+		Description: prompts.Meta.Session(),
 		InputSchema: objectSchema(map[string]any{
 			"action": map[string]any{
 				"type":        "string",
-				"description": `The action to perform: "set", "get", or "clear".`,
+				"description": `"set" upserts key-value pairs into session context; "get" returns the current context; "clear" resets context to empty.`,
 				"enum":        []string{"set", "get", "clear"},
 			},
 			"context": map[string]any{
@@ -290,11 +212,8 @@ Then: execute({tool_name: "github_list_issues", arguments: {state: "open"}}) —
 	}
 
 	historyTool := &mcpsdk.Tool{
-		Name: "history",
-		Description: `Retrieve a compact log of tool calls made in this session.
-
-Useful after context compression to recover what was already fetched without re-executing.
-Returns: [{seq, tool, args, summary, is_error, timestamp}] ordered by time.`,
+		Name:        "history",
+		Description: prompts.Meta.History(),
 		InputSchema: objectSchema(map[string]any{
 			"last_n": map[string]any{
 				"type":        "integer",
@@ -308,21 +227,12 @@ Returns: [{seq, tool, args, summary, is_error, timestamp}] ordered by time.`,
 	}
 
 	pinTool := &mcpsdk.Tool{
-		Name: "pin",
-		Description: `Manage pinned results from previous execute calls.
-
-Every successful execute auto-pins its result with a handle ($1, $2, ...).
-Use handles in execute arguments to reference previous results without re-fetching:
-  execute({tool_name: "github_get_issue", arguments: {owner: "$1.owner.login", issue_number: "$2.number"}})
-
-Actions:
-- "list": Show all pinned handles with tool name and size
-- "get": Retrieve a pinned result by handle, optionally extracting a sub-field via path
-- "unpin": Free memory by removing a pinned result`,
+		Name:        "pin",
+		Description: prompts.Meta.Pin(),
 		InputSchema: objectSchema(map[string]any{
 			"action": map[string]any{
 				"type":        "string",
-				"description": `The action to perform: "list", "get", or "unpin".`,
+				"description": `"list" shows all pinned handles with tool name and size; "get" retrieves a pinned result by handle, optionally extracting a sub-field via path; "unpin" frees memory by removing a pinned result.`,
 				"enum":        []string{"list", "get", "unpin"},
 			},
 			"handle": map[string]any{
@@ -583,10 +493,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		Tools            []toolInfo        `json:"tools"`
 	}
 
-	summary := fmt.Sprintf("Found %d tools", total)
-	if query != "" {
-		summary += fmt.Sprintf(" matching %q", args.Query)
-	}
+	summary := prompts.SearchSummary(prompts.Context{}, total, args.Query)
 
 	var scriptHint string
 	if total > 1 {
@@ -595,9 +502,9 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 			seen[t.Integration] = true
 		}
 		if len(seen) >= 2 {
-			scriptHint = "These tools span multiple integrations. Use execute with a script to chain them in a single call — intermediate results stay server-side and never enter the conversation."
+			scriptHint = prompts.SearchHintMulti(prompts.Context{})
 		} else if total > 1 {
-			scriptHint = "Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage."
+			scriptHint = prompts.SearchHintSingle(prompts.Context{})
 		}
 	}
 
@@ -1187,7 +1094,7 @@ func tooLargeEnvelope(toolName mcp.ToolName, size, limit int) string {
 		"tool":  string(toolName),
 		"size":  size,
 		"limit": limit,
-		"hint":  "narrow your query (e.g., add a filter, reduce page size, or request fewer fields)",
+		"hint":  prompts.ResponseTooLargeHint(prompts.Context{}),
 	}
 	out, err := json.Marshal(envelope)
 	if err != nil {
@@ -1264,10 +1171,7 @@ func (s *Server) executeTool(ctx context.Context, toolName mcp.ToolName, args ma
 			s.services.Metrics.RecordCircuitBreak(mcp.IntegrationName(integration.Name()))
 		}
 		return nil, &mcp.ToolResult{
-			Data: fmt.Sprintf(
-				"integration %q temporarily unavailable (circuit breaker open, try again in ~%ds). Other integrations still work.",
-				integration.Name(), int(s.breakerCooldown.Seconds()),
-			),
+			Data:    prompts.CircuitBreaker(prompts.Context{}, integration.Name(), int(s.breakerCooldown.Seconds())),
 			IsError: true,
 		}, nil
 	}

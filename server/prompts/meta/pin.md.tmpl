@@ -1,0 +1,8 @@
+<%- /* pin.md.tmpl — v1, no variants */ -%>
+Manage pinned results from previous execute calls.
+
+Every successful execute auto-pins its result with a handle ($1, $2, ...).
+Use handles in execute arguments to reference previous results without re-fetching:
+  execute({tool_name: "github_get_issue", arguments: {owner: "$1.owner.login", issue_number: "$2.number"}})
+
+The field path after the handle follows the shape the source tool returned — in the example above, $1 was a GitHub issue, so $1.owner.login is the issue author. For a Linear issue, $1.assignee.email; for a database row, $1.id.

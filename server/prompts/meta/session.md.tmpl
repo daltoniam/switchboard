@@ -1,0 +1,8 @@
+<%- /* session.md.tmpl — v1, no variants */ -%>
+Manage session-scoped context to avoid repeating parameters.
+
+Set context once (e.g., owner/repo) and all subsequent execute calls auto-inject those values as defaults.
+Explicit arguments always override session context.
+
+Example: {"action": "set", "context": {"owner": "daltoniam", "repo": "switchboard"}}
+Then: execute({tool_name: "github_list_issues", arguments: {state: "open"}}) — owner/repo injected automatically.
