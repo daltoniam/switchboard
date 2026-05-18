@@ -99,7 +99,10 @@ func (w *WebServer) handlePluginInstall(rw http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	_ = w.liveLoadPlugin(r.Context(), ip.Path, "")
+	if err := w.liveLoadPlugin(r.Context(), ip.Path, ""); err != nil {
+		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Installed+%s+but+load+failed:+%s", ip.Name, urlEncode(err.Error())), http.StatusSeeOther)
+		return
+	}
 	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s@%s.", ip.Name, ip.Version), http.StatusSeeOther)
 }
 
@@ -127,7 +130,10 @@ func (w *WebServer) handlePluginInstallURL(rw http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	_ = w.liveLoadPlugin(r.Context(), ip.Path, "")
+	if err := w.liveLoadPlugin(r.Context(), ip.Path, ""); err != nil {
+		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Installed+%s+but+load+failed:+%s", ip.Name, urlEncode(err.Error())), http.StatusSeeOther)
+		return
+	}
 	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s.", ip.Name), http.StatusSeeOther)
 }
 
@@ -162,7 +168,10 @@ func (w *WebServer) handlePluginUpload(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_ = w.liveLoadPlugin(r.Context(), ip.Path, "")
+	if err := w.liveLoadPlugin(r.Context(), ip.Path, ""); err != nil {
+		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Uploaded+%s+but+load+failed:+%s", ip.Name, urlEncode(err.Error())), http.StatusSeeOther)
+		return
+	}
 	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uploaded+and+loaded+%s.", ip.Name), http.StatusSeeOther)
 }
 
@@ -212,7 +221,10 @@ func (w *WebServer) handlePluginUpdate(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_ = w.liveLoadPlugin(r.Context(), ip.Path, "")
+	if err := w.liveLoadPlugin(r.Context(), ip.Path, ""); err != nil {
+		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Updated+%s+but+load+failed:+%s", ip.Name, urlEncode(err.Error())), http.StatusSeeOther)
+		return
+	}
 	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Updated+and+reloaded+%s+to+%s.", ip.Name, ip.Version), http.StatusSeeOther)
 }
 
