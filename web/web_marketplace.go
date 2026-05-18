@@ -6,12 +6,20 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 )
+
+// pluginLoader is the subset of *wasm.Loader the marketplace handlers depend
+// on, extracted so tests can inject a stub that returns errors from LoadPlugin.
+type pluginLoader interface {
+	LoadPlugin(ctx context.Context, path, nameOverride string) error
+	UnloadPlugin(ctx context.Context, name string) error
+}
 
 func (w *WebServer) handlePluginMarketplace(rw http.ResponseWriter, r *http.Request) {
 	page := w.pageData(r, "Plugin Marketplace", "/plugins")
@@ -100,10 +108,10 @@ func (w *WebServer) handlePluginInstall(rw http.ResponseWriter, r *http.Request)
 	}
 
 	if err := w.liveLoadPlugin(r.Context(), ip.Path, ""); err != nil {
-		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Installed+%s+but+load+failed:+%s", ip.Name, urlEncode(err.Error())), http.StatusSeeOther)
+		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Installed+%s+but+load+failed:+%s", urlEncode(ip.Name), urlEncode(err.Error())), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s@%s.", ip.Name, ip.Version), http.StatusSeeOther)
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s@%s.", urlEncode(ip.Name), urlEncode(ip.Version)), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginInstallURL(rw http.ResponseWriter, r *http.Request) {
@@ -131,10 +139,10 @@ func (w *WebServer) handlePluginInstallURL(rw http.ResponseWriter, r *http.Reque
 	}
 
 	if err := w.liveLoadPlugin(r.Context(), ip.Path, ""); err != nil {
-		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Installed+%s+but+load+failed:+%s", ip.Name, urlEncode(err.Error())), http.StatusSeeOther)
+		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Installed+%s+but+load+failed:+%s", urlEncode(ip.Name), urlEncode(err.Error())), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s.", ip.Name), http.StatusSeeOther)
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Installed+and+loaded+%s.", urlEncode(ip.Name)), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginUpload(rw http.ResponseWriter, r *http.Request) {
@@ -169,10 +177,10 @@ func (w *WebServer) handlePluginUpload(rw http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := w.liveLoadPlugin(r.Context(), ip.Path, ""); err != nil {
-		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Uploaded+%s+but+load+failed:+%s", ip.Name, urlEncode(err.Error())), http.StatusSeeOther)
+		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Uploaded+%s+but+load+failed:+%s", urlEncode(ip.Name), urlEncode(err.Error())), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uploaded+and+loaded+%s.", ip.Name), http.StatusSeeOther)
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uploaded+and+loaded+%s.", urlEncode(ip.Name)), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginUninstall(rw http.ResponseWriter, r *http.Request) {
@@ -222,10 +230,10 @@ func (w *WebServer) handlePluginUpdate(rw http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := w.liveLoadPlugin(r.Context(), ip.Path, ""); err != nil {
-		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Updated+%s+but+load+failed:+%s", ip.Name, urlEncode(err.Error())), http.StatusSeeOther)
+		http.Redirect(rw, r, fmt.Sprintf("/plugins?error=Updated+%s+but+load+failed:+%s", urlEncode(ip.Name), urlEncode(err.Error())), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Updated+and+reloaded+%s+to+%s.", ip.Name, ip.Version), http.StatusSeeOther)
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Updated+and+reloaded+%s+to+%s.", urlEncode(ip.Name), urlEncode(ip.Version)), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginCheckUpdates(rw http.ResponseWriter, r *http.Request) {
@@ -374,5 +382,5 @@ func (w *WebServer) handlePluginLoadPath(rw http.ResponseWriter, r *http.Request
 }
 
 func urlEncode(s string) string {
-	return strings.ReplaceAll(s, " ", "+")
+	return url.QueryEscape(s)
 }

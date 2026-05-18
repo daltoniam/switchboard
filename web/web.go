@@ -29,7 +29,7 @@ type WebServer struct {
 	port        int
 	health      *healthCache
 	marketplace *marketplace.Manager
-	wasmLoader  *wasmmod.Loader
+	wasmLoader  pluginLoader
 }
 
 // New returns a WebServer that provides a browser-based config UI.
@@ -39,7 +39,9 @@ func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.
 		port:        port,
 		health:      newHealthCache(services),
 		marketplace: mp,
-		wasmLoader:  wl,
+	}
+	if wl != nil {
+		ws.wasmLoader = wl
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
