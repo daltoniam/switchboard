@@ -103,6 +103,11 @@ var envMapping = map[string]map[string]string{
 	"fly": {
 		"api_token": "FLY_API_TOKEN",
 	},
+	"vercel": {
+		"api_token": "VERCEL_API_TOKEN",
+		"team_id":   "VERCEL_TEAM_ID",
+		"team_slug": "VERCEL_TEAM_SLUG",
+	},
 	"snowflake": {
 		"account":       "SNOWFLAKE_ACCOUNT",
 		"token":         "SNOWFLAKE_TOKEN",
@@ -291,6 +296,10 @@ func defaultConfig() *mcp.Config {
 			"fly": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "base_url": ""},
+			},
+			"vercel": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "team_id": "", "team_slug": "", "base_url": ""},
 			},
 			"snowflake": {
 				Enabled:     false,

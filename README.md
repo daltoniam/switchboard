@@ -173,6 +173,9 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Readarr | `api_key` | `READARR_API_KEY` |
 | Readarr | `base_url` | `READARR_URL` |
 | DigitalOcean | `api_token` | `DIGITALOCEAN_TOKEN` |
+| Vercel | `api_token` | `VERCEL_API_TOKEN` |
+| Vercel | `team_id` | `VERCEL_TEAM_ID` (optional — default team scope) |
+| Vercel | `team_slug` | `VERCEL_TEAM_SLUG` (optional — default team scope) |
 | Stripe | `api_key` | `STRIPE_API_KEY` |
 | Stripe | `account` | `STRIPE_ACCOUNT` (optional — `Stripe-Account` header for Connect) |
 | Stripe | `base_url` | `STRIPE_BASE_URL` (optional — override API endpoint, e.g. stripe-mock) |
@@ -191,6 +194,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
 | PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |
+| Vercel | Personal Access Token | Set `VERCEL_API_TOKEN` env var or enter in web UI |
 | Postgres | Connection String | Set `DATABASE_URL` env var or enter in web UI |
 
 ## Adding to Cursor / Claude Desktop
