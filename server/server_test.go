@@ -3135,6 +3135,159 @@ func TestSearch_SharedParametersDoNotMutateOriginalTools(t *testing.T) {
 	}, shared, "second search should produce the same shared_parameters")
 }
 
+// TestSearch_DisagreeingRequiredStaysPerTool verifies that when the same
+// parameter name+description appears with disagreeing `required` flags across
+// the page (both variants meet the dedup threshold), the parameter is
+// considered conflicted and is NOT extracted to shared_parameters. It stays
+// per-tool with each tool's correct required flag intact.
+//
+// Required is part of the parameter's semantic identity: `owner: required:true`
+// in one tool and `owner: required:false` in another are distinct parameters
+// that happen to share a name. Pre-Phase-0 the wire kept `required[]` separate
+// from the parameter map and survived extraction by construction; post-reshape
+// it is derived from the per-tool Parameter slice, so a shared param's
+// required-ness must be preserved by keeping the parameter per-tool when it
+// would otherwise be lost.
+func TestSearch_DisagreeingRequiredStaysPerTool(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			// 3 tools with owner Required:true and 3 with Required:false — both
+			// variants individually meet the count>=3 threshold, so both qualify.
+			// The conflict resolver must catch this and leave owner per-tool.
+			{Name: mcp.ToolName("t_one"), Description: "One", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner", Required: true}}},
+			{Name: mcp.ToolName("t_two"), Description: "Two", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner", Required: true}}},
+			{Name: mcp.ToolName("t_three"), Description: "Three", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner", Required: true}}},
+			{Name: mcp.ToolName("t_four"), Description: "Four", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}}},
+			{Name: mcp.ToolName("t_five"), Description: "Five", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}}},
+			{Name: mcp.ToolName("t_six"), Description: "Six", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner"}}},
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc, ok := result.Content[0].(*mcpsdk.TextContent)
+	require.True(t, ok)
+
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &raw))
+
+	// owner has disagreeing required flags across tools → must not be extracted.
+	if sharedRaw, hasShared := raw["shared_parameters"]; hasShared {
+		var shared map[string]string
+		require.NoError(t, json.Unmarshal(sharedRaw, &shared))
+		assert.NotContains(t, shared, "owner",
+			"owner has disagreeing required flags — must stay per-tool, not collapse to shared")
+	}
+
+	// Every tool should keep `owner` per-tool, and the required[] array should
+	// reflect each tool's own flag.
+	var toolsWire []struct {
+		Name       string            `json:"name"`
+		Parameters map[string]string `json:"parameters"`
+		Required   []string          `json:"required"`
+	}
+	require.NoError(t, json.Unmarshal(raw["tools"], &toolsWire))
+
+	requiredByTool := map[string][]string{}
+	paramsByTool := map[string]map[string]string{}
+	for _, tw := range toolsWire {
+		requiredByTool[tw.Name] = tw.Required
+		paramsByTool[tw.Name] = tw.Parameters
+	}
+	for _, name := range []string{"t_one", "t_two", "t_three", "t_four", "t_five", "t_six"} {
+		assert.Contains(t, paramsByTool[name], "owner",
+			"%s should keep owner per-tool when required-ness disagrees", name)
+	}
+	for _, name := range []string{"t_one", "t_two", "t_three"} {
+		assert.Contains(t, requiredByTool[name], "owner",
+			"%s had owner Required:true — required[] must include owner", name)
+	}
+	for _, name := range []string{"t_four", "t_five", "t_six"} {
+		assert.NotContains(t, requiredByTool[name], "owner",
+			"%s had owner Required:false — required[] must not include owner", name)
+	}
+}
+
+// TestSearch_SharedRequiredPreservedAtWire is the parse-don't-validate
+// regression gate for the search response's `required[]` array.
+//
+// When `owner` is Required:true across many tools and shares description, it
+// gets extracted to shared_parameters — its entry leaves each tool's
+// Parameters slice. Pre-Phase-0 the wire's required[] was a separate field
+// that survived extraction by construction. Post-reshape the field exists as
+// a snapshot taken at searchToolInfo construction (see toToolInfo /
+// toolDefToInfo). MarshalJSON emits it directly; it is NOT re-derived from
+// the post-extraction Parameters slice. This test pins that contract.
+//
+// The failure mode this prevents: shared+required params silently lose the
+// required signal in the wire response, so the LLM treats them as optional.
+func TestSearch_SharedRequiredPreservedAtWire(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: mcp.ToolName("t_one"), Description: "One", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner", Required: true}, {Name: mcp.ParamName("issue_number"), Description: "Issue ID", Required: true}}},
+			{Name: mcp.ToolName("t_two"), Description: "Two", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner", Required: true}, {Name: mcp.ParamName("pr_number"), Description: "Pull number", Required: true}}},
+			{Name: mcp.ToolName("t_three"), Description: "Three", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner", Required: true}, {Name: mcp.ParamName("sha"), Description: "Commit SHA", Required: true}}},
+			{Name: mcp.ToolName("t_four"), Description: "Four", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repository owner", Required: true}}},
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	tc, ok := result.Content[0].(*mcpsdk.TextContent)
+	require.True(t, ok)
+
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &raw))
+
+	// owner is uniformly required across all 4 tools → extracted to shared.
+	var shared map[string]string
+	require.NoError(t, json.Unmarshal(raw["shared_parameters"], &shared))
+	assert.Equal(t, map[string]string{"owner": "Repository owner"}, shared,
+		"owner should be extracted to shared since name+desc+required match")
+
+	// And owner is removed from each tool's parameters.
+	var toolsWire []struct {
+		Name       string            `json:"name"`
+		Parameters map[string]string `json:"parameters"`
+		Required   []string          `json:"required"`
+	}
+	require.NoError(t, json.Unmarshal(raw["tools"], &toolsWire))
+
+	requiredByTool := map[string][]string{}
+	paramsByTool := map[string]map[string]string{}
+	for _, tw := range toolsWire {
+		requiredByTool[tw.Name] = tw.Required
+		paramsByTool[tw.Name] = tw.Parameters
+	}
+	for _, name := range []string{"t_one", "t_two", "t_three", "t_four"} {
+		assert.NotContains(t, paramsByTool[name], "owner",
+			"%s should have owner removed from params (it's in shared)", name)
+	}
+
+	// THIS IS THE pdv ASSERTION: required[] must still name `owner` for every
+	// tool. The snapshot at construction carried the proof; extraction did not
+	// touch it. Without the snapshot, required[] would be derived from the
+	// post-extraction Parameters and the signal would be lost.
+	for _, name := range []string{"t_one", "t_two", "t_three", "t_four"} {
+		assert.Contains(t, requiredByTool[name], "owner",
+			"%s.required[] must still name owner — snapshot proves required-ness independent of shared extraction", name)
+	}
+	// And tool-specific required params survive extraction too.
+	assert.Contains(t, requiredByTool["t_one"], "issue_number")
+	assert.Contains(t, requiredByTool["t_two"], "pr_number")
+	assert.Contains(t, requiredByTool["t_three"], "sha")
+}
+
 // --- ABAC tool glob filtering tests ---
 
 func setupTestServerWithGlobs(integrations map[string]*mockIntegration, globs map[string][]string) *Server {

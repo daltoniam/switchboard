@@ -295,6 +295,44 @@ tools:
 			wantErr:     true,
 			errContains: "multi-document",
 		},
+		{
+			name: "empty description rejected",
+			input: `
+version: 1
+tools:
+  my_tool:
+    description: ""
+`,
+			wantErr:     true,
+			errContains: "description must be non-empty",
+		},
+		{
+			name: "missing description rejected",
+			input: `
+version: 1
+tools:
+  my_tool:
+    parameters:
+      query:
+        description: "A query."
+`,
+			wantErr:     true,
+			errContains: "description must be non-empty",
+		},
+		{
+			name: "empty parameter description rejected",
+			input: `
+version: 1
+tools:
+  my_tool:
+    description: "Has a tool description."
+    parameters:
+      query:
+        description: ""
+`,
+			wantErr:     true,
+			errContains: "description must be non-empty",
+		},
 	}
 
 	for _, tt := range tests {

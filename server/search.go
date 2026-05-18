@@ -77,24 +77,41 @@ type SearchIndex struct {
 
 // toToolInfo converts a scored result to a search response entry.
 // Clones parameters to avoid mutating the original tool definition when
-// extractSharedParameters filters in place.
+// extractSharedParameters filters in place. Required is snapshotted from
+// the source parameters so the wire's required[] survives that filtering.
 func toToolInfo(r scoredResult) searchToolInfo {
 	return searchToolInfo{
 		Integration: r.Integration,
 		Name:        string(r.Tool.Name),
 		Description: r.Tool.Description,
 		Parameters:  slices.Clone(r.Tool.Parameters),
+		Required:    requiredNames(r.Tool.Parameters),
 	}
 }
 
 // toolDefToInfo converts a raw tool definition to a search response entry.
+// Required is snapshotted from the source parameters; see toToolInfo.
 func toolDefToInfo(integration string, tool mcp.ToolDefinition) searchToolInfo {
 	return searchToolInfo{
 		Integration: integration,
 		Name:        string(tool.Name),
 		Description: tool.Description,
 		Parameters:  slices.Clone(tool.Parameters),
+		Required:    requiredNames(tool.Parameters),
 	}
+}
+
+// requiredNames returns the names of parameters with Required:true. Captured
+// once at searchToolInfo construction so the wire's required[] is independent
+// of subsequent filtering by extractSharedParameters.
+func requiredNames(params []mcp.Parameter) []string {
+	var out []string
+	for _, p := range params {
+		if p.Required {
+			out = append(out, string(p.Name))
+		}
+	}
+	return out
 }
 
 // synonymGroups defines equivalence sets of words that should match

@@ -130,6 +130,9 @@ func walkToolEntryNode(node *yaml.Node) (desc string, params []Parameter, err er
 			return "", nil, fmt.Errorf("unknown key %q", key)
 		}
 	}
+	if desc == "" {
+		return "", nil, errors.New("description must be non-empty")
+	}
 	if paramsNode != nil {
 		params, err = walkParameterNode(paramsNode)
 		if err != nil {
@@ -182,6 +185,9 @@ func walkParameterNode(node *yaml.Node) ([]Parameter, error) {
 			default:
 				return nil, fmt.Errorf("parameter %q: unknown key %q", keyNode.Value, k)
 			}
+		}
+		if pe.description == "" {
+			return nil, fmt.Errorf("parameter %q: description must be non-empty", keyNode.Value)
 		}
 		out = append(out, Parameter{
 			Name:        ParamName(keyNode.Value),

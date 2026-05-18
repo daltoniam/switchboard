@@ -48,28 +48,44 @@ func responseLimitFor(integration mcp.Integration, toolName mcp.ToolName) int {
 }
 
 // searchToolInfo represents a tool in search results.
+//
+// Required is parsed once at construction (toToolInfo / toolDefToInfo) from
+// the source ToolDefinition's Parameters. The field is the parse-don't-validate
+// proof of which parameters this tool requires — downstream code never
+// re-derives required-ness from the Parameters slice. extractSharedParameters
+// mutates Parameters (filtering shared params out for the wire response) but
+// MUST NOT touch Required: the wire's required[] is the snapshot, not a
+// derivation from the mutated slice.
+//
+// Permanent wire-shape contract: this type's JSON shape is documented in the
+// meta-tool description. There is no inverse deserializer — the LLM consumes
+// it but does not round-trip back into a searchToolInfo. Do not reconstruct
+// from the wire shape.
 type searchToolInfo struct {
 	Integration string          `json:"integration"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Parameters  []mcp.Parameter `json:"parameters"`
+	Required    []string        `json:"required,omitempty"`   // snapshotted at construction; never re-derived
 	Configured  *bool           `json:"configured,omitempty"` // nil = omitted (configured); false = not yet configured
 }
 
 // MarshalJSON preserves the search-response wire format. Parameters serialize
-// as a JSON object {name: description}, and required is a separate sorted
-// array — the shape LLM consumers of the search meta-tool depend on. Internal
+// as a JSON object {name: description}, required as a separate sorted array —
+// the shape LLM consumers of the search meta-tool depend on. Internal
 // processing uses []mcp.Parameter for type-system consistency with
 // ToolDefinition; this method bridges the two.
+//
+// Required is emitted from the snapshot field, not re-derived from Parameters.
+// This preserves required-ness for parameters that extractSharedParameters has
+// moved to shared_parameters (where the map[string]string wire shape would
+// otherwise drop the required flag).
 func (s searchToolInfo) MarshalJSON() ([]byte, error) {
 	params := make(map[string]string, len(s.Parameters))
-	var required []string
 	for _, p := range s.Parameters {
 		params[string(p.Name)] = p.Description
-		if p.Required {
-			required = append(required, string(p.Name))
-		}
 	}
+	required := slices.Clone(s.Required)
 	sort.Strings(required)
 
 	type wire struct {
@@ -645,9 +661,21 @@ func (s *Server) unrankedSearch(integration string, searchable []searchableInteg
 }
 
 // extractSharedParameters finds parameters with identical name+description
-// across 3+ tools in the page, moves them to a shared map, and removes them
-// from per-tool parameters. This deduplicates common params like "owner" and
-// "repo" that appear verbatim across dozens of tools in an integration.
+// AND identical Required flag across 3+ tools in the page, moves them to a
+// shared map, and removes them from per-tool parameters. This deduplicates
+// common params like "owner" and "repo" that appear verbatim across dozens
+// of tools in an integration.
+//
+// Required is part of the dedup key because it is part of the parameter's
+// semantic identity. A param with `required:true` in some tools and
+// `required:false` in others is two distinct parameters that happen to share
+// a name, and collapsing them would emit a misleading shared entry. When the
+// two variants both meet the count threshold, the name is conflicted and not
+// extracted; it stays per-tool.
+//
+// Required-ness of extracted shared params survives the wire boundary via
+// searchToolInfo.Required, which is snapshotted at construction. This
+// function only mutates Parameters; it does not touch Required.
 //
 // Each searchToolInfo.Parameters is a clone (via slices.Clone in toToolInfo /
 // toolDefToInfo), so filtering in place here does not corrupt the original
@@ -655,17 +683,25 @@ func (s *Server) unrankedSearch(integration string, searchable []searchableInteg
 func extractSharedParameters(tools []searchToolInfo) map[string]string {
 	const minCount = 3
 
-	type paramKey struct{ name, desc string }
+	type paramKey struct {
+		name     string
+		desc     string
+		required bool
+	}
 	counts := map[paramKey]int{}
 	for _, t := range tools {
 		for _, p := range t.Parameters {
-			counts[paramKey{string(p.Name), p.Description}]++
+			counts[paramKey{string(p.Name), p.Description, p.Required}]++
 		}
 	}
 
-	// For each param name, collect all descriptions that meet the threshold.
-	// A name with multiple qualifying descriptions is ambiguous — skip it.
-	candidates := map[string]string{} // name → description
+	// For each param name, collect all (desc, required) pairs that meet the
+	// threshold. A name with multiple qualifying pairs is ambiguous — skip it.
+	type candidate struct {
+		desc     string
+		required bool
+	}
+	candidates := map[string]candidate{}
 	conflicted := map[string]bool{}
 	for pk, count := range counts {
 		if count < minCount {
@@ -674,12 +710,12 @@ func extractSharedParameters(tools []searchToolInfo) map[string]string {
 		if conflicted[pk.name] {
 			continue
 		}
-		if prev, exists := candidates[pk.name]; exists && prev != pk.desc {
+		if prev, exists := candidates[pk.name]; exists && (prev.desc != pk.desc || prev.required != pk.required) {
 			delete(candidates, pk.name)
 			conflicted[pk.name] = true
 			continue
 		}
-		candidates[pk.name] = pk.desc
+		candidates[pk.name] = candidate{desc: pk.desc, required: pk.required}
 	}
 
 	if len(candidates) == 0 {
@@ -689,14 +725,20 @@ func extractSharedParameters(tools []searchToolInfo) map[string]string {
 	for i := range tools {
 		filtered := tools[i].Parameters[:0]
 		for _, p := range tools[i].Parameters {
-			if candidates[string(p.Name)] != p.Description {
-				filtered = append(filtered, p)
+			c, ok := candidates[string(p.Name)]
+			if ok && c.desc == p.Description && c.required == p.Required {
+				continue
 			}
+			filtered = append(filtered, p)
 		}
 		tools[i].Parameters = filtered
 	}
 
-	return candidates
+	shared := make(map[string]string, len(candidates))
+	for name, c := range candidates {
+		shared[name] = c.desc
+	}
+	return shared
 }
 
 func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
