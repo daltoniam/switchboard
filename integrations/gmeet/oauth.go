@@ -5,7 +5,11 @@
 // names exposed to web/web.go.
 package gmeet
 
-import "github.com/daltoniam/switchboard/googleoauth"
+import (
+	"context"
+
+	"github.com/daltoniam/switchboard/googleoauth"
+)
 
 const (
 	// integrationName matches the registry / config key for the gmeet
@@ -58,6 +62,6 @@ func PollGmeetOAuth() OAuthPollResult {
 
 // RefreshAccessToken exchanges a refresh token for a new access token. Used
 // by gmeet.go's request retry path on 401.
-func RefreshAccessToken(clientID, clientSecret, refreshToken string) (string, error) {
-	return googleoauth.RefreshAccessToken(clientID, clientSecret, refreshToken)
+func RefreshAccessToken(ctx context.Context, clientID, clientSecret, refreshToken string) (string, error) {
+	return googleoauth.RefreshAccessToken(ctx, clientID, clientSecret, refreshToken)
 }

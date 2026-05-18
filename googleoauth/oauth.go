@@ -12,6 +12,7 @@
 package googleoauth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -186,7 +187,9 @@ func HandleCallback(integrationName, code, state string) error {
 		"grant_type":    {"authorization_code"},
 	}
 
-	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(data.Encode()))
+	tctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(tctx, "POST", tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		f.err = fmt.Sprintf("Failed to create token request: %v", err)
 		f.done = true
@@ -271,8 +274,10 @@ func Poll(integrationName string) PollResult {
 }
 
 // RefreshAccessToken exchanges a long-lived refresh token for a new access
-// token via Google's token endpoint.
-func RefreshAccessToken(clientID, clientSecret, refreshToken string) (string, error) {
+// token via Google's token endpoint. ctx must be non-nil; callers on a hot
+// path should provide a bounded context so a hung token endpoint cannot
+// stall the request indefinitely.
+func RefreshAccessToken(ctx context.Context, clientID, clientSecret, refreshToken string) (string, error) {
 	data := url.Values{
 		"client_id":     {clientID},
 		"client_secret": {clientSecret},
@@ -280,7 +285,7 @@ func RefreshAccessToken(clientID, clientSecret, refreshToken string) (string, er
 		"grant_type":    {"refresh_token"},
 	}
 
-	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return "", fmt.Errorf("create refresh request: %w", err)
 	}

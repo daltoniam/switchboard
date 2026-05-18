@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -281,6 +282,48 @@ func TestCreateEvent_AllDay(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
+}
+
+// TestCreateEvent_MeetRequestIDUnique covers a Google Calendar gotcha:
+// `conferenceData.createRequest.requestId` is an idempotency key — two
+// events sharing the same id silently reuse the first event's Meet link
+// instead of provisioning a new room. Each create_meet=true call must
+// produce a fresh id.
+func TestCreateEvent_MeetRequestIDUnique(t *testing.T) {
+	var seenIDs []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		cd, _ := body["conferenceData"].(map[string]any)
+		require.NotNil(t, cd, "conferenceData must be set when create_meet=true")
+		req, _ := cd["createRequest"].(map[string]any)
+		require.NotNil(t, req)
+		id, _ := req["requestId"].(string)
+		seenIDs = append(seenIDs, id)
+		_, _ = w.Write([]byte(`{"id":"ev"}`))
+	}))
+	defer ts.Close()
+
+	g := &gcal{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
+	for range 3 {
+		_, err := g.Execute(context.Background(), "gcal_create_event", map[string]any{
+			"summary":     "Standup", // same summary across calls — must NOT collide
+			"start":       "2024-03-15T14:00:00Z",
+			"end":         "2024-03-15T14:30:00Z",
+			"create_meet": "true",
+		})
+		require.NoError(t, err)
+	}
+	require.Len(t, seenIDs, 3)
+	for _, id := range seenIDs {
+		assert.True(t, strings.HasPrefix(id, "switchboard-"), "requestId should be prefixed: %q", id)
+		assert.Greater(t, len(id), len("switchboard-"), "requestId should have a unique suffix: %q", id)
+	}
+	uniq := map[string]struct{}{}
+	for _, id := range seenIDs {
+		uniq[id] = struct{}{}
+	}
+	assert.Equal(t, 3, len(uniq), "every requestId must be unique across calls: %v", seenIDs)
 }
 
 func TestCreateEvent_RawBodyOverride(t *testing.T) {

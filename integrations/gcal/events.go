@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/google/uuid"
 )
 
 // ── Events ──────────────────────────────────────────────────────────
@@ -110,7 +111,7 @@ func buildEventBody(r *mcp.Args) (map[string]any, error) {
 	if v := r.Str("create_meet"); v == "true" {
 		body["conferenceData"] = map[string]any{
 			"createRequest": map[string]any{
-				"requestId":             "switchboard-" + r.Str("summary"),
+				"requestId":             "switchboard-" + uuid.New().String(),
 				"conferenceSolutionKey": map[string]any{"type": "hangoutsMeet"},
 			},
 		}

@@ -1,6 +1,7 @@
 package googleoauth
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -305,7 +306,7 @@ func TestRefreshAccessToken_Success(t *testing.T) {
 	defer ts.Close()
 	withTokenURL(t, ts.URL)
 
-	tok, err := RefreshAccessToken("cid", "csec", "rtok")
+	tok, err := RefreshAccessToken(context.Background(), "cid", "csec", "rtok")
 	require.NoError(t, err)
 	assert.Equal(t, "ya29.new", tok)
 }
@@ -318,7 +319,7 @@ func TestRefreshAccessToken_GoogleErrorStatus(t *testing.T) {
 	defer ts.Close()
 	withTokenURL(t, ts.URL)
 
-	_, err := RefreshAccessToken("cid", "csec", "rtok")
+	_, err := RefreshAccessToken(context.Background(), "cid", "csec", "rtok")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "400")
 }
@@ -331,7 +332,7 @@ func TestRefreshAccessToken_StructuredOAuthError(t *testing.T) {
 	defer ts.Close()
 	withTokenURL(t, ts.URL)
 
-	_, err := RefreshAccessToken("cid", "csec", "rtok")
+	_, err := RefreshAccessToken(context.Background(), "cid", "csec", "rtok")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid_grant")
 }

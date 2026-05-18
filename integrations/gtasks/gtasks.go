@@ -188,7 +188,7 @@ func (g *gtasks) doRequestInner(ctx context.Context, method, fullURL string, bod
 		currentToken := g.accessToken
 		g.mu.Unlock()
 
-		newToken, rerr := RefreshAccessToken(g.clientID, g.clientSecret, g.refreshToken)
+		newToken, rerr := RefreshAccessToken(ctx, g.clientID, g.clientSecret, g.refreshToken)
 		if rerr == nil {
 			g.mu.Lock()
 			if g.accessToken == currentToken {

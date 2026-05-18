@@ -204,6 +204,37 @@ func TestDoRaw_ReturnsBytesAndContentType(t *testing.T) {
 	assert.Equal(t, "text/plain; charset=utf-8", ct)
 }
 
+func TestDoRaw_429ReturnsRetryableError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "30")
+		w.WriteHeader(429)
+		_, _ = w.Write([]byte(`{"error":"rate limited"}`))
+	}))
+	defer ts.Close()
+
+	g := &gdrive{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	_, _, err := g.doRaw(context.Background(), "GET", "/files/abc?alt=media")
+	require.Error(t, err)
+	var re *mcp.RetryableError
+	require.ErrorAs(t, err, &re)
+	assert.Equal(t, 429, re.StatusCode)
+}
+
+func TestDoRaw_503ReturnsRetryableError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(503)
+		_, _ = w.Write([]byte(`{"error":"unavailable"}`))
+	}))
+	defer ts.Close()
+
+	g := &gdrive{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	_, _, err := g.doRaw(context.Background(), "GET", "/files/abc?alt=media")
+	require.Error(t, err)
+	var re *mcp.RetryableError
+	require.ErrorAs(t, err, &re)
+	assert.Equal(t, 503, re.StatusCode)
+}
+
 // --- handler integration tests ---
 
 func TestListFiles(t *testing.T) {

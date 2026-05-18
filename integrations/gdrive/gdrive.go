@@ -193,7 +193,7 @@ func (g *gdrive) doRequestInner(ctx context.Context, method, fullURL string, bod
 		currentToken := g.accessToken
 		g.mu.Unlock()
 
-		newToken, rerr := RefreshAccessToken(g.clientID, g.clientSecret, g.refreshToken)
+		newToken, rerr := RefreshAccessToken(ctx, g.clientID, g.clientSecret, g.refreshToken)
 		if rerr == nil {
 			g.mu.Lock()
 			if g.accessToken == currentToken {
@@ -240,7 +240,7 @@ func (g *gdrive) doRawInner(ctx context.Context, method, fullURL string, canRetr
 		currentToken := g.accessToken
 		g.mu.Unlock()
 
-		newToken, rerr := RefreshAccessToken(g.clientID, g.clientSecret, g.refreshToken)
+		newToken, rerr := RefreshAccessToken(ctx, g.clientID, g.clientSecret, g.refreshToken)
 		if rerr == nil {
 			g.mu.Lock()
 			if g.accessToken == currentToken {
@@ -250,6 +250,11 @@ func (g *gdrive) doRawInner(ctx context.Context, method, fullURL string, canRetr
 			g.mu.Unlock()
 			return g.doRawInner(ctx, method, fullURL, false)
 		}
+	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("gdrive API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, "", re
 	}
 	if resp.StatusCode >= 400 {
 		return nil, "", fmt.Errorf("gdrive API error (%d): %s", resp.StatusCode, string(data))
