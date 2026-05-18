@@ -434,6 +434,227 @@ func TestAssignDeploymentAlias(t *testing.T) {
 	assert.Contains(t, result.Data, "app.example.com")
 }
 
+func TestListTeams(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/v2/teams", r.URL.Path)
+		assert.Equal(t, "20", r.URL.Query().Get("limit"))
+		assert.Equal(t, "cursor_1", r.URL.Query().Get("next"))
+		_, _ = w.Write([]byte(`{"teams":[{"id":"team_123","slug":"acme"}],"pagination":{"count":1}}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_list_teams", map[string]any{"next": "cursor_1"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "team_123")
+}
+
+func TestGetTeam(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/v2/teams/team_123", r.URL.Path)
+		_, _ = w.Write([]byte(`{"id":"team_123","slug":"acme"}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_get_team", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "acme")
+}
+
+func TestListUserEvents(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/v3/events", r.URL.Path)
+		assert.Equal(t, "20", r.URL.Query().Get("limit"))
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		assert.Equal(t, "deployment.created", r.URL.Query().Get("types"))
+		assert.Equal(t, "prj_1", r.URL.Query().Get("projectIds"))
+		assert.Equal(t, "usr_1", r.URL.Query().Get("principalId"))
+		assert.Equal(t, "true", r.URL.Query().Get("withPayload"))
+		_, _ = w.Write([]byte(`{"events":[{"id":"evt_1","type":"deployment.created"}]}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_list_user_events", map[string]any{
+		"types":        "deployment.created",
+		"project_ids":  "prj_1",
+		"principal_id": "usr_1",
+		"with_payload": true,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "evt_1")
+}
+
+func TestCreateProject(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/v9/projects", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "new-project", body["name"])
+		_, _ = w.Write([]byte(`{"id":"prj_new","name":"new-project"}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_create_project", map[string]any{"body": map[string]any{"name": "new-project"}})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "prj_new")
+}
+
+func TestUpdateProject(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method)
+		assert.Equal(t, "/v9/projects/my-project", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "updated-project", body["name"])
+		_, _ = w.Write([]byte(`{"id":"prj_1","name":"updated-project"}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_update_project", map[string]any{
+		"id_or_name": "my-project",
+		"body":       map[string]any{"name": "updated-project"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "updated-project")
+}
+
+func TestDeleteProject(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodDelete, r.Method)
+		assert.Equal(t, "/v9/projects/my-project", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		_, _ = w.Write([]byte(`{"id":"prj_1","deleted":true}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_delete_project", map[string]any{"id_or_name": "my-project"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "prj_1")
+}
+
+func TestDeleteDeployment(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodDelete, r.Method)
+		assert.Equal(t, "/v13/deployments/dpl_1", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		assert.Equal(t, "app.vercel.app", r.URL.Query().Get("url"))
+		_, _ = w.Write([]byte(`{"uid":"dpl_1","deleted":true}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_delete_deployment", map[string]any{"deployment_id": "dpl_1", "url": "app.vercel.app"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "dpl_1")
+}
+
+func TestListRuntimeLogs(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/v1/projects/prj_1/deployments/dpl_1/runtime-logs", r.URL.Path)
+		assert.Equal(t, "100", r.URL.Query().Get("limit"))
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		assert.Equal(t, "1700000000", r.URL.Query().Get("since"))
+		_, _ = w.Write([]byte(`[{"id":"log_1","message":"ready"}]`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_list_runtime_logs", map[string]any{
+		"project_id":    "prj_1",
+		"deployment_id": "dpl_1",
+		"since":         "1700000000",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "log_1")
+}
+
+func TestUpdateProjectEnvVar(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method)
+		assert.Equal(t, "/v9/projects/prj_1/env/env_1", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "new", body["value"])
+		_, _ = w.Write([]byte(`{"id":"env_1","value":"new"}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_update_project_env_var", map[string]any{
+		"project_id_or_name": "prj_1",
+		"env_id":             "env_1",
+		"body":               map[string]any{"value": "new"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "env_1")
+}
+
+func TestDeleteProjectEnvVar(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodDelete, r.Method)
+		assert.Equal(t, "/v9/projects/prj_1/env/env_1", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		_, _ = w.Write([]byte(`{"id":"env_1","deleted":true}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_delete_project_env_var", map[string]any{"project_id_or_name": "prj_1", "env_id": "env_1"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "env_1")
+}
+
+func TestRemoveProjectDomain(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodDelete, r.Method)
+		assert.Equal(t, "/v9/projects/prj_1/domains/example.com", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		_, _ = w.Write([]byte(`{"name":"example.com","verified":false}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_remove_project_domain", map[string]any{"project_id_or_name": "prj_1", "domain": "example.com"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "example.com")
+}
+
+func TestGetDomainConfig(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/v6/domains/example.com/config", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		assert.Equal(t, "prj_1", r.URL.Query().Get("projectIdOrName"))
+		assert.Equal(t, "true", r.URL.Query().Get("strict"))
+		_, _ = w.Write([]byte(`{"configuredBy":"CNAME","acceptedChallenges":["dns-01"]}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_get_domain_config", map[string]any{
+		"domain":             "example.com",
+		"project_id_or_name": "prj_1",
+		"strict":             true,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "CNAME")
+}
+
+func TestListDeploymentAliases(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/v2/deployments/dpl_1/aliases", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		_, _ = w.Write([]byte(`{"aliases":[{"uid":"alias_1","alias":"app.example.com"}]}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_list_deployment_aliases", map[string]any{"deployment_id": "dpl_1"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "alias_1")
+}
+
+func TestDeleteDeploymentAlias(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodDelete, r.Method)
+		assert.Equal(t, "/v2/aliases/alias_1", r.URL.Path)
+		assert.Equal(t, "team_123", r.URL.Query().Get("teamId"))
+		_, _ = w.Write([]byte(`{"uid":"alias_1","deleted":true}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_delete_deployment_alias", map[string]any{"alias_id": "alias_1"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "alias_1")
+}
+
 func TestRequiredArgError(t *testing.T) {
 	v := &vercel{token: "test-token", client: &http.Client{}, baseURL: "http://localhost"}
 	result, err := v.Execute(context.Background(), "vercel_get_project", map[string]any{})
