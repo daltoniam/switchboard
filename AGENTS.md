@@ -27,6 +27,10 @@
 5. **MCP smoke test** — `TestSmoke_SearchResponseShape` in `server/server_test.go` validates the full response contract
 6. **Go files must be `gofmt`'d** — run `make fmt` or `gofmt -w <file>` after editing `.go` files
 
+## Testing Against the Live Server
+
+Before benchmarking or running tool-call tests against a running switchboard, verify the binary you're hitting matches the build you intend to test. Check `serverInfo.version` in the MCP `initialize` response (or `./dist/switchboard -version`) and compare against `git rev-parse --short HEAD`. Silent results from an old running binary look identical to results from the fresh build, so an unverified test pass means nothing (May 2026: a 30-minute benchmark ran against a stale `e94882e` binary from another branch before the mismatch was caught).
+
 ## Git Workflow
 
 - Branch from `main` for all changes

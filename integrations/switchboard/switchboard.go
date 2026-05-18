@@ -4,11 +4,32 @@ import (
 	"context"
 	_ "embed"
 	"sort"
+	"sync"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
 	"github.com/daltoniam/switchboard/marketplace"
 )
+
+// probeBudget caps each Healthy() probe so a single unreachable or
+// misconfigured integration cannot stall meta-introspection past this
+// bound. Sum-of-slowest latency was the pre-fix failure mode: one stuck
+// probe (e.g. ollama on an unreachable host) hung switchboard_list_integrations
+// indefinitely because probes ran serially with no per-probe deadline.
+//
+// Override in tests via withProbeBudget — never mutate from production code.
+var probeBudget = 2 * time.Second
+
+// healthyWithBudget probes a.Healthy with a per-call deadline. Returns
+// false if the probe doesn't complete within budget (treated as not
+// healthy at the wire boundary). Pure boundary helper — timeout
+// responsibility lives here so callers stay flat.
+func healthyWithBudget(ctx context.Context, a mcp.Integration, budget time.Duration) bool {
+	probeCtx, cancel := context.WithTimeout(ctx, budget)
+	defer cancel()
+	return a.Healthy(probeCtx)
+}
 
 //go:embed compact.yaml
 var compactYAML []byte
@@ -88,6 +109,9 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 }
 
 // listIntegrations returns all registered integrations with their status.
+//
+// Health probes for the kept integrations run in parallel with a per-probe
+// budget so one unreachable integration cannot stall the meta tool.
 func listIntegrations(ctx context.Context, s *switchboardInt, args map[string]any) (*mcp.ToolResult, error) {
 	enabledOnly, _ := mcp.ArgBool(args, "enabled_only")
 
@@ -99,28 +123,47 @@ func listIntegrations(ctx context.Context, s *switchboardInt, args map[string]an
 		CredentialKeys []string `json:"credential_keys"`
 	}
 
-	var results []integrationSummary
-	for _, a := range s.services.Registry.All() {
+	type target struct {
+		a       mcp.Integration
+		enabled bool
+	}
+
+	// Pass 1: gather targets (pure — no I/O).
+	all := s.services.Registry.All()
+	targets := make([]target, 0, len(all))
+	for _, a := range all {
 		ic, exists := s.services.Config.GetIntegration(a.Name())
 		enabled := exists && ic.Enabled
-
 		if enabledOnly && !enabled {
 			continue
 		}
+		targets = append(targets, target{a: a, enabled: enabled})
+	}
 
-		var healthy bool
-		if enabled {
-			healthy = a.Healthy(ctx)
+	// Pass 2: parallel probe. Each goroutine writes to its own pre-allocated
+	// slice cell — no shared mutation, no mutex required.
+	healthy := make([]bool, len(targets))
+	var wg sync.WaitGroup
+	for i, t := range targets {
+		if !t.enabled {
+			continue
 		}
+		wg.Go(func() {
+			healthy[i] = healthyWithBudget(ctx, t.a, probeBudget)
+		})
+	}
+	wg.Wait()
 
-		credKeys := s.services.Config.DefaultCredentialKeys(a.Name())
+	// Pass 3: assemble (pure).
+	results := make([]integrationSummary, 0, len(targets))
+	for i, t := range targets {
+		credKeys := s.services.Config.DefaultCredentialKeys(t.a.Name())
 		sort.Strings(credKeys)
-
 		results = append(results, integrationSummary{
-			Name:           a.Name(),
-			Enabled:        enabled,
-			Healthy:        healthy,
-			ToolCount:      len(a.Tools()),
+			Name:           t.a.Name(),
+			Enabled:        t.enabled,
+			Healthy:        healthy[i],
+			ToolCount:      len(t.a.Tools()),
 			CredentialKeys: credKeys,
 		})
 	}
@@ -152,7 +195,7 @@ func getIntegration(ctx context.Context, s *switchboardInt, args map[string]any)
 
 	var healthy bool
 	if enabled {
-		healthy = a.Healthy(ctx)
+		healthy = healthyWithBudget(ctx, a, probeBudget)
 	}
 
 	type toolInfo struct {
@@ -281,6 +324,9 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 }
 
 // checkHealth checks connectivity for one or all enabled integrations.
+//
+// The no-name path runs Healthy() probes in parallel under a per-probe budget
+// so one unreachable integration cannot stall the meta tool.
 func checkHealth(ctx context.Context, s *switchboardInt, args map[string]any) (*mcp.ToolResult, error) {
 	name, _ := mcp.ArgStr(args, "name")
 
@@ -304,7 +350,7 @@ func checkHealth(ctx context.Context, s *switchboardInt, args map[string]any) (*
 
 		var healthy bool
 		if enabled {
-			healthy = a.Healthy(ctx)
+			healthy = healthyWithBudget(ctx, a, probeBudget)
 		}
 
 		return mcp.JSONResult(healthResult{
@@ -314,21 +360,40 @@ func checkHealth(ctx context.Context, s *switchboardInt, args map[string]any) (*
 		})
 	}
 
-	var results []healthResult
-	for _, a := range s.services.Registry.All() {
+	type target struct {
+		a       mcp.Integration
+		enabled bool
+	}
+
+	// Pass 1: gather targets (pure).
+	all := s.services.Registry.All()
+	targets := make([]target, len(all))
+	for i, a := range all {
 		ic, exists := s.services.Config.GetIntegration(a.Name())
-		enabled := exists && ic.Enabled
+		targets[i] = target{a: a, enabled: exists && ic.Enabled}
+	}
 
-		var healthy bool
-		if enabled {
-			healthy = a.Healthy(ctx)
+	// Pass 2: parallel probe. Each goroutine owns one cell — no shared mutation.
+	healthy := make([]bool, len(targets))
+	var wg sync.WaitGroup
+	for i, t := range targets {
+		if !t.enabled {
+			continue
 		}
-
-		results = append(results, healthResult{
-			Name:    a.Name(),
-			Healthy: healthy,
-			Enabled: enabled,
+		wg.Go(func() {
+			healthy[i] = healthyWithBudget(ctx, t.a, probeBudget)
 		})
+	}
+	wg.Wait()
+
+	// Pass 3: assemble (pure).
+	results := make([]healthResult, len(targets))
+	for i, t := range targets {
+		results[i] = healthResult{
+			Name:    t.a.Name(),
+			Healthy: healthy[i],
+			Enabled: t.enabled,
+		}
 	}
 
 	sort.Slice(results, func(i, j int) bool {
