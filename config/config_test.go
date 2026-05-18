@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 36)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard"} {
+	assert.Len(t, m.cfg.Integrations, 37)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 36)
+	assert.Len(t, cfg.Integrations, 37)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 36)
+	assert.Len(t, cfg.Integrations, 37)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 36)
+	assert.Len(t, cfg.Integrations, 37)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -279,6 +279,7 @@ func TestDefaultConfig(t *testing.T) {
 		"cloudflare":    {"api_token", "account_id"},
 		"digitalocean":  {"api_token"},
 		"fly":           {"api_token", "base_url"},
+		"vercel":        {"api_token", "team_id", "team_slug", "base_url"},
 		"web":           {},
 		"signoz":        {"api_key", "base_url", "skip_verify"},
 		"nomad":         {"address", "token"},
@@ -421,6 +422,9 @@ func TestEnvOverrides_AllIntegrations(t *testing.T) {
 		"PGPASSWORD":            "secret",
 		"PGDATABASE":            "mydb",
 		"PGSSLMODE":             "require",
+		"VERCEL_API_TOKEN":      "vc_token",
+		"VERCEL_TEAM_ID":        "team_123",
+		"VERCEL_TEAM_SLUG":      "acme",
 	}
 
 	m.envLookup = func(key string) string {
@@ -455,6 +459,9 @@ func TestEnvOverrides_AllIntegrations(t *testing.T) {
 	assert.Equal(t, "secret", m.cfg.Integrations["postgres"].Credentials["password"])
 	assert.Equal(t, "mydb", m.cfg.Integrations["postgres"].Credentials["database"])
 	assert.Equal(t, "require", m.cfg.Integrations["postgres"].Credentials["sslmode"])
+	assert.Equal(t, "vc_token", m.cfg.Integrations["vercel"].Credentials["api_token"])
+	assert.Equal(t, "team_123", m.cfg.Integrations["vercel"].Credentials["team_id"])
+	assert.Equal(t, "acme", m.cfg.Integrations["vercel"].Credentials["team_slug"])
 }
 
 func TestEnvOverrides_DoesNotPersistToFile(t *testing.T) {
@@ -506,7 +513,10 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "STRIPE_API_KEY", m["stripe"]["api_key"])
 	assert.Equal(t, "STRIPE_ACCOUNT", m["stripe"]["account"])
 	assert.Equal(t, "STRIPE_BASE_URL", m["stripe"]["base_url"])
-	assert.Len(t, m, 26)
+	assert.Equal(t, "VERCEL_API_TOKEN", m["vercel"]["api_token"])
+	assert.Equal(t, "VERCEL_TEAM_ID", m["vercel"]["team_id"])
+	assert.Equal(t, "VERCEL_TEAM_SLUG", m["vercel"]["team_slug"])
+	assert.Len(t, m, 27)
 }
 
 func TestToolGlobs_PersistThroughSaveLoad(t *testing.T) {

@@ -49,6 +49,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/stripe"
 	"github.com/daltoniam/switchboard/integrations/suno"
 	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
+	"github.com/daltoniam/switchboard/integrations/vercel"
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/integrations/ynab"
@@ -233,6 +234,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		cloudflare.New(),
 		digitalocean.New(),
 		flyInt.New(),
+		vercel.New(),
 		snowflakeInt.New(),
 		acpInt.New(),
 		agentsInt.New(),

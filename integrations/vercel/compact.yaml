@@ -1,0 +1,215 @@
+# Switchboard compaction specs for the vercel integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# vercel.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    vercel_list_teams:
+        spec:
+            - teams[].id
+            - teams[].slug
+            - teams[].name
+            - teams[].avatar
+            - teams[].membership.role
+            - teams[].createdAt
+            - pagination.count
+            - pagination.next
+    vercel_get_team:
+        spec:
+            - id
+            - slug
+            - name
+            - avatar
+            - membership.role
+            - billing.plan
+            - createdAt
+            - updatedAt
+    vercel_list_team_members:
+        spec:
+            - members[].uid
+            - members[].username
+            - members[].email
+            - members[].name
+            - members[].teamRole
+            - members[].createdAt
+            - pagination.count
+            - pagination.next
+    vercel_list_user_events:
+        spec:
+            - events[].id
+            - events[].type
+            - events[].createdAt
+            - events[].principalId
+            - events[].projectId
+            - events[].teamId
+            - events[].payload.name
+            - events[].payload.url
+            - pagination.count
+            - pagination.next
+    vercel_list_projects:
+        spec:
+            - projects[].id
+            - projects[].name
+            - projects[].accountId
+            - projects[].framework
+            - projects[].link.type
+            - projects[].link.repo
+            - projects[].link.repoId
+            - projects[].link.org
+            - projects[].latestDeployments[].uid
+            - projects[].latestDeployments[].url
+            - projects[].latestDeployments[].state
+            - projects[].latestDeployments[].target
+            - projects[].latestDeployments[].createdAt
+            - projects[].targets.production.id
+            - projects[].targets.production.url
+            - projects[].createdAt
+            - projects[].updatedAt
+            - pagination.count
+            - pagination.next
+    vercel_get_project:
+        spec:
+            - id
+            - name
+            - accountId
+            - framework
+            - rootDirectory
+            - nodeVersion
+            - installCommand
+            - buildCommand
+            - outputDirectory
+            - devCommand
+            - link.type
+            - link.repo
+            - link.repoId
+            - link.org
+            - targets.production.id
+            - targets.production.url
+            - latestDeployments[].uid
+            - latestDeployments[].url
+            - latestDeployments[].state
+            - latestDeployments[].target
+            - latestDeployments[].createdAt
+            - alias
+            - createdAt
+            - updatedAt
+    vercel_list_deployments:
+        spec:
+            - deployments[].uid
+            - deployments[].name
+            - deployments[].url
+            - deployments[].state
+            - deployments[].target
+            - deployments[].type
+            - deployments[].creator.uid
+            - deployments[].creator.username
+            - deployments[].meta.githubCommitSha
+            - deployments[].meta.githubCommitRef
+            - deployments[].meta.githubCommitMessage
+            - deployments[].meta.githubRepo
+            - deployments[].meta.githubOrg
+            - deployments[].projectId
+            - deployments[].created
+            - deployments[].createdAt
+            - deployments[].buildingAt
+            - deployments[].ready
+            - deployments[].readyState
+            - pagination.count
+            - pagination.next
+            - pagination.prev
+    vercel_get_deployment:
+        spec:
+            - uid
+            - id
+            - name
+            - url
+            - state
+            - target
+            - type
+            - creator.uid
+            - creator.username
+            - meta.githubCommitSha
+            - meta.githubCommitRef
+            - meta.githubCommitMessage
+            - meta.githubRepo
+            - meta.githubOrg
+            - projectId
+            - inspectorUrl
+            - created
+            - createdAt
+            - buildingAt
+            - ready
+            - readyState
+            - alias
+            - lambdas[].id
+            - lambdas[].name
+    vercel_list_deployment_events:
+        max_bytes: 131072
+        spec:
+            - '[].type'
+            - '[].created'
+            - '[].createdAt'
+            - '[].date'
+            - '[].payload.text'
+            - '[].payload.id'
+            - '[].payload.deploymentId'
+            - '[].payload.source'
+            - '[].payload.level'
+            - '[].payload.statusCode'
+    vercel_list_runtime_logs:
+        max_bytes: 131072
+        spec:
+            - logs[].level
+            - logs[].message
+            - logs[].rowId
+            - logs[].source
+            - logs[].timestamp
+            - logs[].timestampInMs
+            - logs[].requestId
+            - logs[].path
+            - logs[].statusCode
+            - pagination.count
+            - pagination.next
+    vercel_list_project_env_vars:
+        spec:
+            - envs[].id
+            - envs[].key
+            - envs[].type
+            - envs[].target
+            - envs[].gitBranch
+            - envs[].configurationId
+            - envs[].createdAt
+            - envs[].updatedAt
+            - envs[].createdBy
+            - envs[].updatedBy
+            - envs[].comment
+            - pagination.count
+            - pagination.next
+    vercel_get_domain_config:
+        spec:
+            - configuredBy
+            - acceptedChallenges
+            - misconfigured
+            - recommendedIPv4
+            - recommendedCNAME
+            - nameservers
+            - serviceType
+    vercel_list_deployment_aliases:
+        spec:
+            - aliases[].uid
+            - aliases[].alias
+            - aliases[].url
+            - aliases[].created
+            - aliases[].createdAt
+            - aliases[].deployment.uid
+            - aliases[].projectId
