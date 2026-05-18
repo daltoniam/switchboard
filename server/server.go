@@ -710,12 +710,13 @@ func extractSharedParameters(tools []searchToolInfo) map[string]string {
 		if conflicted[pk.name] {
 			continue
 		}
-		if prev, exists := candidates[pk.name]; exists && (prev.desc != pk.desc || prev.required != pk.required) {
+		c := candidate{desc: pk.desc, required: pk.required}
+		if prev, exists := candidates[pk.name]; exists && prev != c {
 			delete(candidates, pk.name)
 			conflicted[pk.name] = true
 			continue
 		}
-		candidates[pk.name] = candidate{desc: pk.desc, required: pk.required}
+		candidates[pk.name] = c
 	}
 
 	if len(candidates) == 0 {
@@ -725,8 +726,7 @@ func extractSharedParameters(tools []searchToolInfo) map[string]string {
 	for i := range tools {
 		filtered := tools[i].Parameters[:0]
 		for _, p := range tools[i].Parameters {
-			c, ok := candidates[string(p.Name)]
-			if ok && c.desc == p.Description && c.required == p.Required {
+			if c, ok := candidates[string(p.Name)]; ok && c == (candidate{desc: p.Description, required: p.Required}) {
 				continue
 			}
 			filtered = append(filtered, p)

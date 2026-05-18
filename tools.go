@@ -133,24 +133,22 @@ func walkToolEntryNode(node *yaml.Node) (desc string, params []Parameter, err er
 	if desc == "" {
 		return "", nil, errors.New("description must be non-empty")
 	}
-	if paramsNode != nil {
-		params, err = walkParameterNode(paramsNode)
-		if err != nil {
-			return "", nil, err
-		}
+	if paramsNode == nil {
+		return desc, nil, nil
+	}
+	params, err = walkParameterNode(paramsNode)
+	if err != nil {
+		return "", nil, err
 	}
 	return desc, params, nil
 }
 
 // walkParameterNode iterates a yaml.MappingNode and preserves declaration
 // order. yaml.v3 populates MappingNode.Content as key, value, key, value, ...
-// A null node (parameters: ~) is accepted and returns nil, nil.
+// A missing key (Kind == 0) or null scalar (`parameters: ~`) is accepted and
+// returns nil, nil.
 func walkParameterNode(node *yaml.Node) ([]Parameter, error) {
-	if node.Kind == 0 {
-		return nil, nil
-	}
-	// parameters: ~ or parameters: null
-	if node.Kind == yaml.ScalarNode && node.Tag == "!!null" {
+	if node.Kind == 0 || (node.Kind == yaml.ScalarNode && node.Tag == "!!null") {
 		return nil, nil
 	}
 	if node.Kind != yaml.MappingNode {
