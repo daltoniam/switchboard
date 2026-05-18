@@ -162,12 +162,17 @@ func (m *Manager) Config() Config {
 }
 
 // FetchManifest downloads and parses a manifest from a URL.
-func (m *Manager) FetchManifest(ctx context.Context, url string) (*Manifest, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (m *Manager) FetchManifest(ctx context.Context, rawURL string) (*Manifest, error) {
+	effectiveURL, useRawAccept := normalizeGitHubURL(rawURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, effectiveURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("Accept", "application/json")
+	if useRawAccept {
+		req.Header.Set("Accept", "application/vnd.github.raw")
+	} else {
+		req.Header.Set("Accept", "application/json")
+	}
 	req.Header.Set("User-Agent", "Switchboard-Plugin-Manager/1.0")
 	m.applyAuth(req)
 
@@ -196,7 +201,7 @@ func (m *Manager) FetchManifest(ctx context.Context, url string) (*Manifest, err
 	}
 
 	m.mu.Lock()
-	m.manifests[url] = &manifest
+	m.manifests[rawURL] = &manifest
 	m.mu.Unlock()
 
 	return &manifest, nil
@@ -740,12 +745,16 @@ func (m *Manager) downloadAndInstall(ctx context.Context, name string, ver *Plug
 	return &ip, nil
 }
 
-func (m *Manager) downloadWasm(ctx context.Context, url string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (m *Manager) downloadWasm(ctx context.Context, rawURL string) ([]byte, error) {
+	effectiveURL, useRawAccept := normalizeGitHubURL(rawURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, effectiveURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("User-Agent", "Switchboard-Plugin-Manager/1.0")
+	if useRawAccept {
+		req.Header.Set("Accept", "application/vnd.github.raw")
+	}
 	m.applyAuth(req)
 
 	resp, err := m.client.Do(req)
