@@ -174,6 +174,19 @@ func TestDoRequest_204NoContent(t *testing.T) {
 	assert.Contains(t, string(data), "success")
 }
 
+func TestDoRequest_202PreservesBody(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"job_id":"job_123"}`))
+	}))
+	defer ts.Close()
+
+	v := &vercel{token: "tok", client: ts.Client(), baseURL: ts.URL}
+	data, err := v.doRequest(context.Background(), http.MethodPost, "/test", nil)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "job_123")
+}
+
 func TestDoRequest_RetryableOn429(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Retry-After", "30")
@@ -241,6 +254,22 @@ func newTestVercel(t *testing.T, handler http.HandlerFunc) (*vercel, *httptest.S
 	t.Cleanup(ts.Close)
 	v := &vercel{token: "test-token", client: ts.Client(), baseURL: ts.URL, teamID: "team_123"}
 	return v, ts
+}
+
+func TestListTeamMembersDoesNotDuplicateTeamScope(t *testing.T) {
+	v, _ := newTestVercel(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/v3/teams/team_123/members", r.URL.Path)
+		assert.Equal(t, "20", r.URL.Query().Get("limit"))
+		assert.Equal(t, "ada", r.URL.Query().Get("search"))
+		assert.Empty(t, r.URL.Query().Get("teamId"))
+		assert.Empty(t, r.URL.Query().Get("slug"))
+		_, _ = w.Write([]byte(`{"members":[{"uid":"usr_1","username":"ada"}],"pagination":{"count":1}}`))
+	})
+	result, err := v.Execute(context.Background(), "vercel_list_team_members", map[string]any{"search": "ada"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "usr_1")
 }
 
 func TestListProjects(t *testing.T) {

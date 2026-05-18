@@ -147,7 +147,7 @@ func (v *vercel) doRequest(ctx context.Context, method, path string, body any) (
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("vercel API error (%d): %s", resp.StatusCode, vercelErrorMessage(data))
 	}
-	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusAccepted || len(data) == 0 {
+	if resp.StatusCode == http.StatusNoContent || len(data) == 0 {
 		return json.RawMessage(`{"status":"success"}`), nil
 	}
 	return json.RawMessage(data), nil

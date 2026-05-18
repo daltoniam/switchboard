@@ -64,17 +64,16 @@ func listTeamMembers(ctx context.Context, v *vercel, args map[string]any) (*mcp.
 	params["teamId"] = teamID
 	params["slug"] = teamSlug
 	params = v.scopedQuery(params)
-	if params["teamId"] == "" && params["slug"] == "" {
+	teamPath := params["teamId"]
+	if teamPath == "" {
+		teamPath = params["slug"]
+	}
+	if teamPath == "" {
 		return mcp.ErrResult(fmt.Errorf("team_id or team_slug is required"))
 	}
-	if params["teamId"] != "" {
-		data, err := v.get(ctx, "/v3/teams/%s/members%s", url.PathEscape(params["teamId"]), queryEncode(params))
-		if err != nil {
-			return mcp.ErrResult(err)
-		}
-		return mcp.RawResult(data)
-	}
-	data, err := v.get(ctx, "/v3/teams/%s/members%s", url.PathEscape(params["slug"]), queryEncode(params))
+	delete(params, "teamId")
+	delete(params, "slug")
+	data, err := v.get(ctx, "/v3/teams/%s/members%s", url.PathEscape(teamPath), queryEncode(params))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
