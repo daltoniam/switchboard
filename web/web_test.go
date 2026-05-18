@@ -1,15 +1,19 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/marketplace"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 	"github.com/stretchr/testify/assert"
@@ -376,6 +380,85 @@ func TestPluginLoadPath_InvalidExtension(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
 	assert.Contains(t, rr.Header().Get("Location"), "error")
 	assert.Contains(t, rr.Header().Get("Location"), ".wasm")
+}
+
+// errLoader is a pluginLoader stub that returns the configured error from
+// LoadPlugin. Used to exercise the live-load failure branch in marketplace
+// install/upload/update handlers without spinning up a real wazero runtime.
+type errLoader struct {
+	loadErr error
+}
+
+func (e *errLoader) LoadPlugin(_ context.Context, _, _ string) error { return e.loadErr }
+func (e *errLoader) UnloadPlugin(_ context.Context, _ string) error  { return nil }
+
+// uploadPlugin builds a multipart upload request for POST /plugins/upload.
+func uploadPlugin(t *testing.T, name string, body []byte) *http.Request {
+	t.Helper()
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	require.NoError(t, writer.WriteField("name", name))
+	part, err := writer.CreateFormFile("wasm", "plugin.wasm")
+	require.NoError(t, err)
+	_, err = part.Write(body)
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest("POST", "/plugins/upload", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return req
+}
+
+// TestPluginUpload_LiveLoadError verifies the upload handler surfaces a
+// live-load failure as a flash error instead of a misleading success.
+func TestPluginUpload_LiveLoadError(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	ws.marketplace = marketplace.NewManager(marketplace.Config{}, t.TempDir(), func(_ marketplace.Config) error { return nil })
+	ws.wasmLoader = &errLoader{loadErr: errors.New("wasm: module does not export 'metadata'")}
+
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, uploadPlugin(t, "here", []byte("fake wasm")))
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	loc := rr.Header().Get("Location")
+	assert.Contains(t, loc, "/plugins?error=")
+	assert.Contains(t, loc, "Uploaded+here+but+load+failed")
+	assert.Contains(t, loc, "module+does+not+export+%27metadata%27")
+	assert.NotContains(t, loc, "success=")
+}
+
+// TestPluginUpload_LiveLoadSuccess verifies the happy path still redirects to
+// the success flash when the loader returns nil.
+func TestPluginUpload_LiveLoadSuccess(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	ws.marketplace = marketplace.NewManager(marketplace.Config{}, t.TempDir(), func(_ marketplace.Config) error { return nil })
+	ws.wasmLoader = &errLoader{loadErr: nil}
+
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, uploadPlugin(t, "here", []byte("fake wasm")))
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	loc := rr.Header().Get("Location")
+	assert.Contains(t, loc, "/plugins?success=Uploaded+and+loaded+here.")
+}
+
+// TestPluginUpload_NameEscaping verifies that a plugin name containing query
+// metacharacters (&, =) is URL-encoded so it can't smuggle in extra params
+// or override the flash state. Regression test for the case where an
+// attacker-controlled name like "foo&success=Installed" would split into two
+// query parameters in the redirect URL.
+func TestPluginUpload_NameEscaping(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	ws.marketplace = marketplace.NewManager(marketplace.Config{}, t.TempDir(), func(_ marketplace.Config) error { return nil })
+	ws.wasmLoader = &errLoader{loadErr: errors.New("boom")}
+
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, uploadPlugin(t, "evil&success=pwned", []byte("fake wasm")))
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	loc := rr.Header().Get("Location")
+	assert.Contains(t, loc, "evil%26success%3Dpwned")
+	assert.NotContains(t, loc, "&success=pwned")
 }
 
 func TestDashboard_IntegrationCounts(t *testing.T) {
