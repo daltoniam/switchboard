@@ -38,10 +38,14 @@ func normalizeGitHubURL(rawURL string) (newURL string, useRawAccept bool) {
 	owner, repo, ref := parts[0], parts[1], parts[3]
 	path := strings.Join(parts[4:], "/")
 
-	api := &url.URL{
-		Scheme: "https",
-		Host:   "api.github.com",
-		Path:   "/repos/" + owner + "/" + repo + "/contents/" + path,
+	apiURL, err := url.JoinPath("https://api.github.com",
+		"repos", owner, repo, "contents", path)
+	if err != nil {
+		return rawURL, false
+	}
+	api, err := url.Parse(apiURL)
+	if err != nil {
+		return rawURL, false
 	}
 	q := api.Query()
 	q.Set("ref", ref)
