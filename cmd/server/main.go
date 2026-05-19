@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
@@ -201,16 +202,18 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	browserDone := make(chan struct{})
-	var browserSvc mcp.BrowserService
-	go func() {
-		defer close(browserDone)
+	browserSvc := newLazyBrowserService(func(ctx context.Context) (mcp.BrowserService, error) {
 		svc, err := browser.New(true /* headless */)
 		if err != nil {
-			log.Printf("browser service unavailable (%v) — browser-based integrations disabled", err)
-			return
+			return nil, fmt.Errorf("browser service unavailable: %w", err)
 		}
-		browserSvc = svc
+		log.Println("browser service ready — Amazon browser features enabled")
+		return svc, nil
+	})
+	defer func() {
+		if err := browserSvc.Close(); err != nil {
+			log.Printf("browser service close failed: %v", err)
+		}
 	}()
 
 	gmailIntegration := gmail.New()
@@ -344,13 +347,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	gchat.SetConfigService(gchatIntegration, cfgMgr)
 	gpeople.SetConfigService(gpeopleIntegration, cfgMgr)
 	gmeet.SetConfigService(gmeetIntegration, cfgMgr)
-	go func() {
-		<-browserDone
-		if browserSvc != nil {
-			amazon.SetBrowserService(amazonIntegration, browserSvc)
-			log.Println("browser service ready — Amazon browser features enabled")
-		}
-	}()
+	amazon.SetBrowserService(amazonIntegration, browserSvc)
 
 	var serverOpts []server.Option
 	if discoverAll {
@@ -482,10 +479,49 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		log.Fatalf("HTTP server error: %v", err)
 	}
 
-	<-browserDone
-	if browserSvc != nil {
-		browserSvc.Close() //nolint:errcheck
+}
+
+type lazyBrowserService struct {
+	mu      sync.Mutex
+	new     func(ctx context.Context) (mcp.BrowserService, error)
+	service mcp.BrowserService
+	closed  bool
+}
+
+func newLazyBrowserService(newFn func(ctx context.Context) (mcp.BrowserService, error)) *lazyBrowserService {
+	return &lazyBrowserService{new: newFn}
+}
+
+func (s *lazyBrowserService) NewSession(ctx context.Context) (mcp.BrowserSession, error) {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("browser service closed")
 	}
+	if s.service == nil {
+		svc, err := s.new(ctx)
+		if err != nil {
+			s.mu.Unlock()
+			return nil, err
+		}
+		s.service = svc
+	}
+	svc := s.service
+	s.mu.Unlock()
+	return svc.NewSession(ctx)
+}
+
+func (s *lazyBrowserService) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+	if s.service == nil {
+		return nil
+	}
+	return s.service.Close()
 }
 
 // metricsPath returns the on-disk path for persisted lifetime metrics.
