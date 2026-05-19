@@ -107,6 +107,7 @@ var envMapping = map[string]map[string]string{
 		"api_token": "VERCEL_API_TOKEN",
 		"team_id":   "VERCEL_TEAM_ID",
 		"team_slug": "VERCEL_TEAM_SLUG",
+		"base_url":  "VERCEL_BASE_URL",
 	},
 	"snowflake": {
 		"account":       "SNOWFLAKE_ACCOUNT",

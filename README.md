@@ -176,6 +176,7 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Vercel | `api_token` | `VERCEL_API_TOKEN` |
 | Vercel | `team_id` | `VERCEL_TEAM_ID` (optional — default team scope) |
 | Vercel | `team_slug` | `VERCEL_TEAM_SLUG` (optional — default team scope) |
+| Vercel | `base_url` | `VERCEL_BASE_URL` (optional — override API endpoint, e.g. tests/proxies) |
 | Stripe | `api_key` | `STRIPE_API_KEY` |
 | Stripe | `account` | `STRIPE_ACCOUNT` (optional — `Stripe-Account` header for Connect) |
 | Stripe | `base_url` | `STRIPE_BASE_URL` (optional — override API endpoint, e.g. stripe-mock) |
