@@ -425,6 +425,7 @@ func TestEnvOverrides_AllIntegrations(t *testing.T) {
 		"VERCEL_API_TOKEN":      "vc_token",
 		"VERCEL_TEAM_ID":        "team_123",
 		"VERCEL_TEAM_SLUG":      "acme",
+		"VERCEL_BASE_URL":       "https://api.vercel.test",
 	}
 
 	m.envLookup = func(key string) string {
@@ -462,6 +463,7 @@ func TestEnvOverrides_AllIntegrations(t *testing.T) {
 	assert.Equal(t, "vc_token", m.cfg.Integrations["vercel"].Credentials["api_token"])
 	assert.Equal(t, "team_123", m.cfg.Integrations["vercel"].Credentials["team_id"])
 	assert.Equal(t, "acme", m.cfg.Integrations["vercel"].Credentials["team_slug"])
+	assert.Equal(t, "https://api.vercel.test", m.cfg.Integrations["vercel"].Credentials["base_url"])
 }
 
 func TestEnvOverrides_DoesNotPersistToFile(t *testing.T) {
@@ -516,6 +518,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_API_TOKEN", m["vercel"]["api_token"])
 	assert.Equal(t, "VERCEL_TEAM_ID", m["vercel"]["team_id"])
 	assert.Equal(t, "VERCEL_TEAM_SLUG", m["vercel"]["team_slug"])
+	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	assert.Len(t, m, 27)
 }
 
