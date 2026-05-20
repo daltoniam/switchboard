@@ -1,0 +1,122 @@
+# Switchboard compaction specs for the gdrive (Google Drive) integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# gdrive.yaml there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    gdrive_list_files:
+        spec:
+            - files[].id
+            - files[].name
+            - files[].mimeType
+            - files[].parents
+            - files[].size
+            - files[].modifiedTime
+            - files[].createdTime
+            - files[].webViewLink
+            - files[].iconLink
+            - files[].owners[].emailAddress
+            - files[].owners[].displayName
+            - files[].trashed
+            - files[].starred
+            - files[].shared
+            - files[].driveId
+            - nextPageToken
+            - incompleteSearch
+    gdrive_list_permissions:
+        spec:
+            - permissions[].id
+            - permissions[].type
+            - permissions[].role
+            - permissions[].emailAddress
+            - permissions[].domain
+            - permissions[].displayName
+            - permissions[].deleted
+            - permissions[].pendingOwner
+            - permissions[].allowFileDiscovery
+            - permissions[].expirationTime
+            - nextPageToken
+    gdrive_list_revisions:
+        spec:
+            - revisions[].id
+            - revisions[].mimeType
+            - revisions[].modifiedTime
+            - revisions[].keepForever
+            - revisions[].published
+            - revisions[].size
+            - revisions[].lastModifyingUser.emailAddress
+            - revisions[].lastModifyingUser.displayName
+            - nextPageToken
+    gdrive_list_comments:
+        spec:
+            - comments[].id
+            - comments[].content
+            - comments[].createdTime
+            - comments[].modifiedTime
+            - comments[].resolved
+            - comments[].deleted
+            - comments[].author.emailAddress
+            - comments[].author.displayName
+            - comments[].quotedFileContent.value
+            - comments[].replies[].id
+            - comments[].replies[].content
+            - comments[].replies[].author.emailAddress
+            - comments[].replies[].author.displayName
+            - comments[].replies[].createdTime
+            - nextPageToken
+    gdrive_list_drives:
+        spec:
+            - drives[].id
+            - drives[].name
+            - drives[].createdTime
+            - drives[].hidden
+            - drives[].themeId
+            - nextPageToken
+    gdrive_get_about:
+        spec:
+            - user.emailAddress
+            - user.displayName
+            - user.photoLink
+            - storageQuota.limit
+            - storageQuota.usage
+            - storageQuota.usageInDrive
+            - storageQuota.usageInDriveTrash
+            - maxImportSizes
+            - maxUploadSize
+            - canCreateDrives
+    gdrive_get_file:
+        views:
+            file:
+                spec:
+                    - id
+                    - name
+                    - mimeType
+                    - parents
+                    - size
+                    - modifiedTime
+                    - createdTime
+                    - webViewLink
+                    - iconLink
+                    - owners[].emailAddress
+                    - owners[].displayName
+                    - trashed
+                    - starred
+                    - shared
+                    - driveId
+                    - description
+                    - md5Checksum
+                    - version
+                hint: "File metadata: name, mimeType, parents, owners, size, modified time, links."
+                formats: [json, markdown]
+        default:
+            view: file
+            format: json

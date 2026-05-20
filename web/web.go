@@ -10,8 +10,18 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/integrations/gcal"
+	"github.com/daltoniam/switchboard/integrations/gchat"
+	"github.com/daltoniam/switchboard/integrations/gdocs"
+	"github.com/daltoniam/switchboard/integrations/gdrive"
+	"github.com/daltoniam/switchboard/integrations/gforms"
 	ghInt "github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
+	"github.com/daltoniam/switchboard/integrations/gmeet"
+	"github.com/daltoniam/switchboard/integrations/gpeople"
+	"github.com/daltoniam/switchboard/integrations/gsheets"
+	"github.com/daltoniam/switchboard/integrations/gslides"
+	"github.com/daltoniam/switchboard/integrations/gtasks"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
@@ -89,6 +99,67 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/gmail/oauth/poll", w.handleGmailOAuthPoll)
 	mux.HandleFunc("POST /api/gmail/save-token", w.handleGmailSaveToken)
 	mux.HandleFunc("POST /api/gmail/save-oauth-credentials", w.handleGmailSaveOAuthCredentials)
+
+	mux.HandleFunc("GET /integrations/gcal/setup", w.handleGcalSetup)
+	mux.HandleFunc("POST /api/gcal/oauth/start", w.handleGcalOAuthStart)
+	mux.HandleFunc("GET /api/gcal/oauth/callback", w.handleGcalOAuthCallback)
+	mux.HandleFunc("GET /api/gcal/oauth/poll", w.handleGcalOAuthPoll)
+	mux.HandleFunc("POST /api/gcal/save-token", w.handleGcalSaveToken)
+	mux.HandleFunc("POST /api/gcal/save-oauth-credentials", w.handleGcalSaveOAuthCredentials)
+	mux.HandleFunc("GET /integrations/gdrive/setup", w.handleGdriveSetup)
+	mux.HandleFunc("POST /api/gdrive/oauth/start", w.handleGdriveOAuthStart)
+	mux.HandleFunc("GET /api/gdrive/oauth/callback", w.handleGdriveOAuthCallback)
+	mux.HandleFunc("GET /api/gdrive/oauth/poll", w.handleGdriveOAuthPoll)
+	mux.HandleFunc("POST /api/gdrive/save-token", w.handleGdriveSaveToken)
+	mux.HandleFunc("POST /api/gdrive/save-oauth-credentials", w.handleGdriveSaveOAuthCredentials)
+	mux.HandleFunc("GET /integrations/gdocs/setup", w.handleGdocsSetup)
+	mux.HandleFunc("POST /api/gdocs/oauth/start", w.handleGdocsOAuthStart)
+	mux.HandleFunc("GET /api/gdocs/oauth/callback", w.handleGdocsOAuthCallback)
+	mux.HandleFunc("GET /api/gdocs/oauth/poll", w.handleGdocsOAuthPoll)
+	mux.HandleFunc("POST /api/gdocs/save-token", w.handleGdocsSaveToken)
+	mux.HandleFunc("POST /api/gdocs/save-oauth-credentials", w.handleGdocsSaveOAuthCredentials)
+	mux.HandleFunc("GET /integrations/gsheets/setup", w.handleGsheetsSetup)
+	mux.HandleFunc("POST /api/gsheets/oauth/start", w.handleGsheetsOAuthStart)
+	mux.HandleFunc("GET /api/gsheets/oauth/callback", w.handleGsheetsOAuthCallback)
+	mux.HandleFunc("GET /api/gsheets/oauth/poll", w.handleGsheetsOAuthPoll)
+	mux.HandleFunc("POST /api/gsheets/save-token", w.handleGsheetsSaveToken)
+	mux.HandleFunc("POST /api/gsheets/save-oauth-credentials", w.handleGsheetsSaveOAuthCredentials)
+	mux.HandleFunc("GET /integrations/gslides/setup", w.handleGslidesSetup)
+	mux.HandleFunc("POST /api/gslides/oauth/start", w.handleGslidesOAuthStart)
+	mux.HandleFunc("GET /api/gslides/oauth/callback", w.handleGslidesOAuthCallback)
+	mux.HandleFunc("GET /api/gslides/oauth/poll", w.handleGslidesOAuthPoll)
+	mux.HandleFunc("POST /api/gslides/save-token", w.handleGslidesSaveToken)
+	mux.HandleFunc("POST /api/gslides/save-oauth-credentials", w.handleGslidesSaveOAuthCredentials)
+	mux.HandleFunc("GET /integrations/gforms/setup", w.handleGformsSetup)
+	mux.HandleFunc("POST /api/gforms/oauth/start", w.handleGformsOAuthStart)
+	mux.HandleFunc("GET /api/gforms/oauth/callback", w.handleGformsOAuthCallback)
+	mux.HandleFunc("GET /api/gforms/oauth/poll", w.handleGformsOAuthPoll)
+	mux.HandleFunc("POST /api/gforms/save-token", w.handleGformsSaveToken)
+	mux.HandleFunc("POST /api/gforms/save-oauth-credentials", w.handleGformsSaveOAuthCredentials)
+	mux.HandleFunc("GET /integrations/gtasks/setup", w.handleGtasksSetup)
+	mux.HandleFunc("POST /api/gtasks/oauth/start", w.handleGtasksOAuthStart)
+	mux.HandleFunc("GET /api/gtasks/oauth/callback", w.handleGtasksOAuthCallback)
+	mux.HandleFunc("GET /api/gtasks/oauth/poll", w.handleGtasksOAuthPoll)
+	mux.HandleFunc("POST /api/gtasks/save-token", w.handleGtasksSaveToken)
+	mux.HandleFunc("POST /api/gtasks/save-oauth-credentials", w.handleGtasksSaveOAuthCredentials)
+	mux.HandleFunc("GET /integrations/gchat/setup", w.handleGchatSetup)
+	mux.HandleFunc("POST /api/gchat/oauth/start", w.handleGchatOAuthStart)
+	mux.HandleFunc("GET /api/gchat/oauth/callback", w.handleGchatOAuthCallback)
+	mux.HandleFunc("GET /api/gchat/oauth/poll", w.handleGchatOAuthPoll)
+	mux.HandleFunc("POST /api/gchat/save-token", w.handleGchatSaveToken)
+	mux.HandleFunc("POST /api/gchat/save-oauth-credentials", w.handleGchatSaveOAuthCredentials)
+	mux.HandleFunc("GET /integrations/gpeople/setup", w.handleGpeopleSetup)
+	mux.HandleFunc("POST /api/gpeople/oauth/start", w.handleGpeopleOAuthStart)
+	mux.HandleFunc("GET /api/gpeople/oauth/callback", w.handleGpeopleOAuthCallback)
+	mux.HandleFunc("GET /api/gpeople/oauth/poll", w.handleGpeopleOAuthPoll)
+	mux.HandleFunc("POST /api/gpeople/save-token", w.handleGpeopleSaveToken)
+	mux.HandleFunc("POST /api/gpeople/save-oauth-credentials", w.handleGpeopleSaveOAuthCredentials)
+	mux.HandleFunc("GET /integrations/gmeet/setup", w.handleGmeetSetup)
+	mux.HandleFunc("POST /api/gmeet/oauth/start", w.handleGmeetOAuthStart)
+	mux.HandleFunc("GET /api/gmeet/oauth/callback", w.handleGmeetOAuthCallback)
+	mux.HandleFunc("GET /api/gmeet/oauth/poll", w.handleGmeetOAuthPoll)
+	mux.HandleFunc("POST /api/gmeet/save-token", w.handleGmeetSaveToken)
+	mux.HandleFunc("POST /api/gmeet/save-oauth-credentials", w.handleGmeetSaveOAuthCredentials)
 
 	mux.HandleFunc("GET /integrations/notion/setup", w.handleNotionSetup)
 	mux.HandleFunc("POST /api/notion/save-token", w.handleNotionSaveToken)
@@ -242,6 +313,16 @@ var setupIntegrations = map[string]bool{
 	"linear":   true,
 	"sentry":   true,
 	"gmail":    true,
+	"gcal":     true,
+	"gdrive":   true,
+	"gdocs":    true,
+	"gsheets":  true,
+	"gslides":  true,
+	"gforms":   true,
+	"gtasks":   true,
+	"gchat":    true,
+	"gpeople":  true,
+	"gmeet":    true,
 	"notion":   true,
 	"x":        true,
 	"postgres": true,
@@ -1274,6 +1355,1586 @@ func (w *WebServer) handleGmailSaveOAuthCredentials(rw http.ResponseWriter, r *h
 	_ = w.services.Config.SetIntegration("gmail", ic)
 
 	http.Redirect(rw, r, "/integrations/gmail/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGcalSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gcal")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gcal")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gcal/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google Calendar Setup", "/integrations")
+	data := pages.GcalSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GcalSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGcalOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gcal")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google Calendar OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gcal/oauth/callback", w.port)
+	result, err := gcal.StartGcalOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGcalOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gcal/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gcal.HandleGcalCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gcal/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gcal.PollGcalOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gcal/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gcal")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gcal", ic)
+
+	http.Redirect(rw, r, "/integrations/gcal/setup?result=Connected+to+Google+Calendar+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGcalOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gcal.PollGcalOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGcalSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gcal/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gcal/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gcal")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gcal", ic)
+
+	http.Redirect(rw, r, "/integrations/gcal/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGcalSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gcal/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gcal/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gcal")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gcal", ic)
+
+	http.Redirect(rw, r, "/integrations/gcal/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGdriveSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gdrive")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gdrive")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gdrive/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google Drive Setup", "/integrations")
+	data := pages.GdriveSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GdriveSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGdriveOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gdrive")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google Drive OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gdrive/oauth/callback", w.port)
+	result, err := gdrive.StartGdriveOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGdriveOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gdrive/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gdrive.HandleGdriveCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gdrive/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gdrive.PollGdriveOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gdrive/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gdrive")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gdrive", ic)
+
+	http.Redirect(rw, r, "/integrations/gdrive/setup?result=Connected+to+Google+Drive+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGdriveOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gdrive.PollGdriveOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGdriveSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gdrive/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gdrive/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gdrive")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gdrive", ic)
+
+	http.Redirect(rw, r, "/integrations/gdrive/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGdriveSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gdrive/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gdrive/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gdrive")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gdrive", ic)
+
+	http.Redirect(rw, r, "/integrations/gdrive/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGdocsSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gdocs")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gdocs")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gdocs/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google Docs Setup", "/integrations")
+	data := pages.GdocsSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GdocsSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGdocsOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gdocs")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google Docs OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gdocs/oauth/callback", w.port)
+	result, err := gdocs.StartGdocsOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGdocsOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gdocs/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gdocs.HandleGdocsCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gdocs/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gdocs.PollGdocsOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gdocs/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gdocs")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gdocs", ic)
+
+	http.Redirect(rw, r, "/integrations/gdocs/setup?result=Connected+to+Google+Docs+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGdocsOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gdocs.PollGdocsOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGdocsSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gdocs/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gdocs/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gdocs")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gdocs", ic)
+
+	http.Redirect(rw, r, "/integrations/gdocs/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGdocsSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gdocs/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gdocs/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gdocs")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gdocs", ic)
+
+	http.Redirect(rw, r, "/integrations/gdocs/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGsheetsSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gsheets")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gsheets")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gsheets/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google Sheets Setup", "/integrations")
+	data := pages.GsheetsSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GsheetsSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGsheetsOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gsheets")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google Sheets OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gsheets/oauth/callback", w.port)
+	result, err := gsheets.StartGsheetsOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGsheetsOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gsheets/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gsheets.HandleGsheetsCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gsheets/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gsheets.PollGsheetsOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gsheets/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gsheets")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gsheets", ic)
+
+	http.Redirect(rw, r, "/integrations/gsheets/setup?result=Connected+to+Google+Sheets+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGsheetsOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gsheets.PollGsheetsOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGsheetsSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gsheets/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gsheets/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gsheets")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gsheets", ic)
+
+	http.Redirect(rw, r, "/integrations/gsheets/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGsheetsSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gsheets/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gsheets/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gsheets")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gsheets", ic)
+
+	http.Redirect(rw, r, "/integrations/gsheets/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGslidesSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gslides")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gslides")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gslides/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google Slides Setup", "/integrations")
+	data := pages.GslidesSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GslidesSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGslidesOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gslides")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google Slides OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gslides/oauth/callback", w.port)
+	result, err := gslides.StartGslidesOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGslidesOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gslides/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gslides.HandleGslidesCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gslides/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gslides.PollGslidesOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gslides/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gslides")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gslides", ic)
+
+	http.Redirect(rw, r, "/integrations/gslides/setup?result=Connected+to+Google+Slides+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGslidesOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gslides.PollGslidesOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGslidesSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gslides/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gslides/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gslides")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gslides", ic)
+
+	http.Redirect(rw, r, "/integrations/gslides/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGslidesSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gslides/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gslides/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gslides")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gslides", ic)
+
+	http.Redirect(rw, r, "/integrations/gslides/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGformsSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gforms")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gforms")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gforms/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google Forms Setup", "/integrations")
+	data := pages.GformsSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GformsSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGformsOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gforms")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google Forms OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gforms/oauth/callback", w.port)
+	result, err := gforms.StartGformsOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGformsOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gforms/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gforms.HandleGformsCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gforms/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gforms.PollGformsOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gforms/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gforms")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gforms", ic)
+
+	http.Redirect(rw, r, "/integrations/gforms/setup?result=Connected+to+Google+Forms+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGformsOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gforms.PollGformsOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGformsSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gforms/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gforms/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gforms")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gforms", ic)
+
+	http.Redirect(rw, r, "/integrations/gforms/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGformsSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gforms/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gforms/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gforms")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gforms", ic)
+
+	http.Redirect(rw, r, "/integrations/gforms/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGtasksSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gtasks")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gtasks")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gtasks/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google Tasks Setup", "/integrations")
+	data := pages.GtasksSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GtasksSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGtasksOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gtasks")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google Tasks OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gtasks/oauth/callback", w.port)
+	result, err := gtasks.StartGtasksOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGtasksOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gtasks/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gtasks.HandleGtasksCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gtasks/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gtasks.PollGtasksOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gtasks/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gtasks")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gtasks", ic)
+
+	http.Redirect(rw, r, "/integrations/gtasks/setup?result=Connected+to+Google+Tasks+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGtasksOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gtasks.PollGtasksOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGtasksSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gtasks/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gtasks/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gtasks")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gtasks", ic)
+
+	http.Redirect(rw, r, "/integrations/gtasks/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGtasksSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gtasks/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gtasks/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gtasks")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gtasks", ic)
+
+	http.Redirect(rw, r, "/integrations/gtasks/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGchatSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gchat")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gchat")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gchat/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google Chat Setup", "/integrations")
+	data := pages.GchatSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GchatSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGchatOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gchat")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google Chat OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gchat/oauth/callback", w.port)
+	result, err := gchat.StartGchatOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGchatOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gchat/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gchat.HandleGchatCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gchat/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gchat.PollGchatOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gchat/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gchat")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gchat", ic)
+
+	http.Redirect(rw, r, "/integrations/gchat/setup?result=Connected+to+Google+Chat+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGchatOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gchat.PollGchatOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGchatSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gchat/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gchat/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gchat")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gchat", ic)
+
+	http.Redirect(rw, r, "/integrations/gchat/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGchatSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gchat/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gchat/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gchat")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gchat", ic)
+
+	http.Redirect(rw, r, "/integrations/gchat/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGpeopleSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gpeople")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gpeople")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gpeople/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google People Setup", "/integrations")
+	data := pages.GpeopleSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GpeopleSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGpeopleOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gpeople")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google People OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gpeople/oauth/callback", w.port)
+	result, err := gpeople.StartGpeopleOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGpeopleOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gpeople/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gpeople.HandleGpeopleCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gpeople/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gpeople.PollGpeopleOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gpeople/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gpeople")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gpeople", ic)
+
+	http.Redirect(rw, r, "/integrations/gpeople/setup?result=Connected+to+Google+People+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGpeopleOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gpeople.PollGpeopleOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGpeopleSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gpeople/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gpeople/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gpeople")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gpeople", ic)
+
+	http.Redirect(rw, r, "/integrations/gpeople/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGpeopleSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gpeople/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gpeople/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gpeople")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gpeople", ic)
+
+	http.Redirect(rw, r, "/integrations/gpeople/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGmeetSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gmeet")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("gmeet")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gmeet/oauth/callback", w.port)
+
+	page := w.pageData(r, "Google Meet Setup", "/integrations")
+	data := pages.GmeetSetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		RedirectURI: redirectURI,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.GmeetSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGmeetOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("gmeet")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google Meet OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/gmeet/oauth/callback", w.port)
+	result, err := gmeet.StartGmeetOAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGmeetOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/gmeet/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := gmeet.HandleGmeetCallback(code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/gmeet/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := gmeet.PollGmeetOAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/gmeet/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gmeet")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	_ = w.services.Config.SetIntegration("gmeet", ic)
+
+	http.Redirect(rw, r, "/integrations/gmeet/setup?result=Connected+to+Google+Meet+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGmeetOAuthPoll(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	result := gmeet.PollGmeetOAuth()
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGmeetSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gmeet/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/gmeet/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gmeet")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	_ = w.services.Config.SetIntegration("gmeet", ic)
+
+	http.Redirect(rw, r, "/integrations/gmeet/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGmeetSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gmeet/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/gmeet/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("gmeet")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	_ = w.services.Config.SetIntegration("gmeet", ic)
+
+	http.Redirect(rw, r, "/integrations/gmeet/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
 }
 
 func (w *WebServer) handleMetricsAPI(rw http.ResponseWriter, r *http.Request) {

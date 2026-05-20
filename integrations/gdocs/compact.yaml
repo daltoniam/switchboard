@@ -1,0 +1,45 @@
+# Switchboard compaction specs for the gdocs (Google Docs) integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Note: most gdocs tools either mutate the document (no spec — return full
+# confirmation) or pass through the markdown renderer (`gdocs_get_document`).
+# We still declare a JSON spec for get_document so script callers — which
+# bypass markdown rendering — get a usable shape instead of every nested
+# style object the Docs API ships.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# gdocs.yaml there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    gdocs_get_document:
+        views:
+            document:
+                spec:
+                    - documentId
+                    - title
+                    - revisionId
+                    - body.content[].startIndex
+                    - body.content[].endIndex
+                    - body.content[].paragraph.elements[].startIndex
+                    - body.content[].paragraph.elements[].endIndex
+                    - body.content[].paragraph.elements[].textRun.content
+                    - body.content[].paragraph.paragraphStyle.namedStyleType
+                    - body.content[].paragraph.bullet.listId
+                    - body.content[].paragraph.bullet.nestingLevel
+                    - body.content[].sectionBreak
+                    - body.content[].table.rows
+                    - body.content[].table.columns
+                    - body.content[].table.tableRows[].tableCells[].content[].paragraph.elements[].textRun.content
+                    - body.content[].tableOfContents.content
+                    - lists
+                    - namedRanges
+                hint: "Document title, body content tree, lists, tables, headers/footers."
+                formats: [json, markdown]
+                max_bytes: 200000
+        default:
+            view: document
+            format: json

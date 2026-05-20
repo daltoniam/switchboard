@@ -1,0 +1,112 @@
+# Switchboard compaction specs for the gforms (Google Forms) integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Note: gforms_create_form and gforms_batch_update either echo a small
+# confirmation envelope or return the full form after a structural change.
+# We declare specs only for the read tools: `gforms_get_form` (full form
+# structure), `gforms_list_responses` (paginated submissions), and
+# `gforms_get_response` (single submission).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place gforms.yaml
+# there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions, wildcards):
+# docs/field-compaction.md.
+
+version: 1
+tools:
+    gforms_get_form:
+        views:
+            form:
+                spec:
+                    - formId
+                    - revisionId
+                    - responderUri
+                    - linkedSheetId
+                    - info.title
+                    - info.documentTitle
+                    - info.description
+                    - settings.quizSettings.isQuiz
+                    - items[].itemId
+                    - items[].title
+                    - items[].description
+                    - items[].questionItem.question.questionId
+                    - items[].questionItem.question.required
+                    - items[].questionItem.question.textQuestion.paragraph
+                    - items[].questionItem.question.choiceQuestion.type
+                    - items[].questionItem.question.choiceQuestion.shuffle
+                    - items[].questionItem.question.choiceQuestion.options[].value
+                    - items[].questionItem.question.choiceQuestion.options[].isOther
+                    - items[].questionItem.question.choiceQuestion.options[].goToAction
+                    - items[].questionItem.question.choiceQuestion.options[].goToSectionId
+                    - items[].questionItem.question.scaleQuestion.low
+                    - items[].questionItem.question.scaleQuestion.high
+                    - items[].questionItem.question.scaleQuestion.lowLabel
+                    - items[].questionItem.question.scaleQuestion.highLabel
+                    - items[].questionItem.question.dateQuestion.includeTime
+                    - items[].questionItem.question.dateQuestion.includeYear
+                    - items[].questionItem.question.timeQuestion.duration
+                    - items[].questionItem.question.fileUploadQuestion.folderId
+                    - items[].questionItem.question.fileUploadQuestion.types
+                    - items[].questionItem.question.fileUploadQuestion.maxFiles
+                    - items[].questionItem.question.fileUploadQuestion.maxFileSize
+                    - items[].questionItem.question.rowQuestion.title
+                    - items[].questionItem.question.rating.ratingScaleLevel
+                    - items[].questionItem.question.rating.iconType
+                    - items[].questionItem.question.grading.pointValue
+                    - items[].questionItem.question.grading.correctAnswers.answers[].value
+                    - items[].questionItem.image.contentUri
+                    - items[].questionItem.image.altText
+                    - items[].questionGroupItem.questions[].questionId
+                    - items[].questionGroupItem.questions[].required
+                    - items[].questionGroupItem.questions[].rowQuestion.title
+                    - items[].questionGroupItem.grid.columns.type
+                    - items[].questionGroupItem.grid.columns.options[].value
+                    - items[].questionGroupItem.grid.shuffleQuestions
+                    - items[].pageBreakItem.title
+                    - items[].textItem
+                    - items[].imageItem.image.contentUri
+                    - items[].imageItem.image.altText
+                    - items[].videoItem.video.youtubeUri
+                    - items[].videoItem.caption
+                hint: "Form info, settings, and item list."
+                formats: [json, markdown]
+                max_bytes: 250000
+        default:
+            view: form
+            format: json
+    gforms_list_responses:
+        views:
+            responses:
+                spec:
+                    - responses[].responseId
+                    - responses[].createTime
+                    - responses[].lastSubmittedTime
+                    - responses[].respondentEmail
+                    - responses[].formId
+                    - responses[].totalScore
+                    - responses[].answers
+                    - nextPageToken
+                hint: "Response ids, submit/create time, and answers per question."
+                formats: [json, markdown]
+                max_bytes: 300000
+        default:
+            view: responses
+            format: json
+    gforms_get_response:
+        views:
+            response:
+                spec:
+                    - responseId
+                    - createTime
+                    - lastSubmittedTime
+                    - respondentEmail
+                    - formId
+                    - totalScore
+                    - answers.*
+                hint: "Single response with answers and timestamps."
+                formats: [json, markdown]
+        default:
+            view: response
+            format: json

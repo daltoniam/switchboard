@@ -28,9 +28,19 @@ import (
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
 	flyInt "github.com/daltoniam/switchboard/integrations/fly"
+	"github.com/daltoniam/switchboard/integrations/gcal"
+	"github.com/daltoniam/switchboard/integrations/gchat"
 	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
+	"github.com/daltoniam/switchboard/integrations/gdocs"
+	"github.com/daltoniam/switchboard/integrations/gdrive"
+	"github.com/daltoniam/switchboard/integrations/gforms"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
+	"github.com/daltoniam/switchboard/integrations/gmeet"
+	"github.com/daltoniam/switchboard/integrations/gpeople"
+	"github.com/daltoniam/switchboard/integrations/gsheets"
+	"github.com/daltoniam/switchboard/integrations/gslides"
+	"github.com/daltoniam/switchboard/integrations/gtasks"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
@@ -204,6 +214,16 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	}()
 
 	gmailIntegration := gmail.New()
+	gcalIntegration := gcal.New()
+	gdriveIntegration := gdrive.New()
+	gdocsIntegration := gdocs.New()
+	gsheetsIntegration := gsheets.New()
+	gslidesIntegration := gslides.New()
+	gformsIntegration := gforms.New()
+	gtasksIntegration := gtasks.New()
+	gchatIntegration := gchat.New()
+	gpeopleIntegration := gpeople.New()
+	gmeetIntegration := gmeet.New()
 	amazonIntegration := amazon.New()
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
@@ -224,6 +244,16 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		stripe.New(),
 		amazonIntegration,
 		gmailIntegration,
+		gcalIntegration,
+		gdriveIntegration,
+		gdocsIntegration,
+		gsheetsIntegration,
+		gslidesIntegration,
+		gformsIntegration,
+		gtasksIntegration,
+		gchatIntegration,
+		gpeopleIntegration,
+		gmeetIntegration,
 		jira.New(),
 		confluence.New(),
 		notionInt.New(),
@@ -304,6 +334,16 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	}
 
 	gmail.SetConfigService(gmailIntegration, cfgMgr)
+	gcal.SetConfigService(gcalIntegration, cfgMgr)
+	gdrive.SetConfigService(gdriveIntegration, cfgMgr)
+	gdocs.SetConfigService(gdocsIntegration, cfgMgr)
+	gsheets.SetConfigService(gsheetsIntegration, cfgMgr)
+	gslides.SetConfigService(gslidesIntegration, cfgMgr)
+	gforms.SetConfigService(gformsIntegration, cfgMgr)
+	gtasks.SetConfigService(gtasksIntegration, cfgMgr)
+	gchat.SetConfigService(gchatIntegration, cfgMgr)
+	gpeople.SetConfigService(gpeopleIntegration, cfgMgr)
+	gmeet.SetConfigService(gmeetIntegration, cfgMgr)
 	go func() {
 		<-browserDone
 		if browserSvc != nil {

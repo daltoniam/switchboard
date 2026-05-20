@@ -1,0 +1,79 @@
+# Switchboard compaction specs for the gsheets (Google Sheets) integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Note: most gsheets tools either mutate the spreadsheet (no spec — return
+# full confirmation) or return small value envelopes. We declare specs for
+# the high-volume read paths: `gsheets_get_spreadsheet` (which can return a
+# huge spreadsheet resource with cell-level styling) and the value-read
+# tools (which pass through the markdown renderer).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# gsheets.yaml there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    gsheets_get_spreadsheet:
+        views:
+            spreadsheet:
+                spec:
+                    - spreadsheetId
+                    - spreadsheetUrl
+                    - properties.title
+                    - properties.locale
+                    - properties.timeZone
+                    - properties.autoRecalc
+                    - sheets[].properties.sheetId
+                    - sheets[].properties.title
+                    - sheets[].properties.index
+                    - sheets[].properties.sheetType
+                    - sheets[].properties.gridProperties
+                    - sheets[].properties.hidden
+                    - sheets[].properties.tabColor
+                    - sheets[].properties.tabColorStyle
+                    - sheets[].data[].startRow
+                    - sheets[].data[].startColumn
+                    - sheets[].data[].rowData[].values[].formattedValue
+                    - sheets[].data[].rowData[].values[].userEnteredValue
+                    - sheets[].data[].rowData[].values[].effectiveValue
+                    - sheets[].data[].rowData[].values[].note
+                    - sheets[].data[].rowData[].values[].hyperlink
+                    - sheets[].merges
+                    - sheets[].protectedRanges[].protectedRangeId
+                    - sheets[].protectedRanges[].range
+                    - sheets[].protectedRanges[].description
+                    - namedRanges
+                    - developerMetadata
+                hint: "Spreadsheet metadata and sheet list."
+                formats: [json, markdown]
+                max_bytes: 300000
+        default:
+            view: spreadsheet
+            format: json
+    gsheets_get_values:
+        views:
+            values:
+                spec:
+                    - range
+                    - majorDimension
+                    - values
+                hint: "Range values as a 2D array."
+                formats: [json, markdown]
+        default:
+            view: values
+            format: json
+    gsheets_batch_get_values:
+        views:
+            values:
+                spec:
+                    - spreadsheetId
+                    - valueRanges[].range
+                    - valueRanges[].majorDimension
+                    - valueRanges[].values
+                hint: "Multiple ranges; each with values 2D array."
+                formats: [json, markdown]
+        default:
+            view: values
+            format: json
