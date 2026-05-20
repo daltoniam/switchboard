@@ -3,12 +3,15 @@ package gmeet
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/googleoauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -546,6 +549,45 @@ func TestHealthy_FalseOn401(t *testing.T) {
 
 	g := &gmeet{accessToken: "bad", client: ts.Client(), baseURL: ts.URL}
 	assert.False(t, g.Healthy(context.Background()))
+}
+
+// TestHealthy_TrueAfterRefresh verifies that an expired access token does
+// not flip the health badge red so long as refresh credentials are
+// configured: the 401 from the API should trigger a transparent refresh
+// through g.get() and the retried call should succeed.
+func TestHealthy_TrueAfterRefresh(t *testing.T) {
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		vals, _ := url.ParseQuery(string(body))
+		assert.Equal(t, "refresh_token", vals.Get("grant_type"))
+		assert.Equal(t, "rtok", vals.Get("refresh_token"))
+		_, _ = w.Write([]byte(`{"access_token":"new-token","expires_in":3600}`))
+	}))
+	defer tokenSrv.Close()
+	googleoauth.SetTokenURLForTest(t, tokenSrv.URL)
+
+	calls := 0
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.Header.Get("Authorization") == "Bearer expired" {
+			w.WriteHeader(401)
+			return
+		}
+		_, _ = w.Write([]byte(`{"conferenceRecords":[]}`))
+	}))
+	defer api.Close()
+
+	g := &gmeet{
+		accessToken:  "expired",
+		refreshToken: "rtok",
+		clientID:     "cid",
+		clientSecret: "csec",
+		client:       api.Client(),
+		baseURL:      api.URL,
+	}
+	assert.True(t, g.Healthy(context.Background()))
+	assert.Equal(t, "new-token", g.accessToken)
+	assert.Equal(t, 2, calls, "expected initial 401 + retried 200")
 }
 
 // ── Path escaping ───────────────────────────────────────────────────
