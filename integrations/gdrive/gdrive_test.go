@@ -83,6 +83,18 @@ func TestExecute_UnknownTool(t *testing.T) {
 	assert.Contains(t, result.Data, "unknown tool")
 }
 
+func TestTools_EntryPointHasStartHere(t *testing.T) {
+	i := New()
+	for _, tool := range i.Tools() {
+		if tool.Name == mcp.ToolName("gdrive_list_files") {
+			assert.Contains(t, tool.Description, "Start here",
+				"entry-point tool gdrive_list_files must include 'Start here' for wayfinding")
+			return
+		}
+	}
+	t.Fatal("gdrive_list_files tool not found")
+}
+
 func TestDispatchMap_AllToolsCovered(t *testing.T) {
 	i := New()
 	for _, tool := range i.Tools() {
