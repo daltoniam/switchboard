@@ -381,9 +381,12 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	var tools []string
+	var tools []pages.ToolInfo
 	for _, t := range integration.Tools() {
-		tools = append(tools, string(t.Name))
+		tools = append(tools, pages.ToolInfo{
+			Name:        string(t.Name),
+			Description: t.Description,
+		})
 	}
 
 	page := w.pageData(r, integration.Name(), "/integrations")
@@ -1111,7 +1114,10 @@ func (w *WebServer) handlePostgresSetup(rw http.ResponseWriter, r *http.Request)
 	integration, ok := w.services.Registry.Get("postgres")
 	if ok {
 		for _, t := range integration.Tools() {
-			data.Tools = append(data.Tools, string(t.Name))
+			data.Tools = append(data.Tools, pages.ToolInfo{
+				Name:        string(t.Name),
+				Description: t.Description,
+			})
 		}
 	}
 
@@ -3020,10 +3026,13 @@ func (w *WebServer) handleXSetup(rw http.ResponseWriter, r *http.Request) {
 
 	redirectURI := fmt.Sprintf("http://localhost:%d/api/x/oauth/callback", w.port)
 
-	var tools []string
+	var tools []pages.ToolInfo
 	if integration, ok := w.services.Registry.Get("x"); ok {
 		for _, t := range integration.Tools() {
-			tools = append(tools, string(t.Name))
+			tools = append(tools, pages.ToolInfo{
+				Name:        string(t.Name),
+				Description: t.Description,
+			})
 		}
 	}
 

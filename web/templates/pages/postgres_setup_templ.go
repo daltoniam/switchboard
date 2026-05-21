@@ -29,7 +29,7 @@ type PostgresConnection struct {
 type PostgresSetupData struct {
 	Enabled     bool
 	Healthy     bool
-	Tools       []string
+	Tools       []ToolInfo
 	Default     PostgresConnection
 	Connections []PostgresConnection
 }
@@ -150,22 +150,35 @@ func PostgresSetup(page layouts.PageData, data PostgresSetupData) templ.Componen
 				return templ_7745c5c3_Err
 			}
 			if len(data.Tools) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools</div><div class=\"tools-list\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools (")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var3 string
+				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(data.Tools)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 75, Col: 106}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, ")</div><div class=\"tools-hint\">Operations this integration exposes through the MCP server.</div><div class=\"tools-rows\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, t := range data.Tools {
-					templ_7745c5c3_Err = components.ToolTag(t).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.ToolRow(t.Name, t.Description).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<button type=\"submit\" class=\"btn\">Save Configuration</button></form><template id=\"connection-template\"><div class=\"pg-conn-card\" style=\"background: var(--bg); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.5rem;\"><div style=\"display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;\"><div class=\"form-group\" style=\"margin-bottom: 0; flex: 1; margin-right: 0.5rem;\"><label class=\"form-label\">alias</label> <input class=\"form-input\" type=\"text\" data-field=\"alias\" placeholder=\"e.g. analytics, staging, prod\" required></div><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"removeConnection(this)\" style=\"margin-top: 1.1rem; color: var(--red);\">Remove</button></div><div class=\"form-group\"><label class=\"form-label\">connection_string (optional)</label> <input class=\"form-input\" type=\"password\" data-field=\"connection_string\" placeholder=\"postgres://user:pass@host:5432/dbname\"></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">host</label> <input class=\"form-input\" type=\"text\" data-field=\"host\" placeholder=\"localhost\"></div><div class=\"form-group\"><label class=\"form-label\">port</label> <input class=\"form-input\" type=\"text\" data-field=\"port\" placeholder=\"5432\"></div></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">user</label> <input class=\"form-input\" type=\"text\" data-field=\"user\" placeholder=\"postgres\"></div><div class=\"form-group\"><label class=\"form-label\">password</label> <input class=\"form-input\" type=\"password\" data-field=\"password\" placeholder=\"Enter password\"></div></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">database</label> <input class=\"form-input\" type=\"text\" data-field=\"database\" placeholder=\"mydb\"></div><div class=\"form-group\"><label class=\"form-label\">sslmode</label> <input class=\"form-input\" type=\"text\" data-field=\"sslmode\" placeholder=\"prefer\"></div></div><div class=\"form-group\"><label class=\"form-label\">read_only</label> <input class=\"form-input\" type=\"text\" data-field=\"read_only\" placeholder=\"true\"></div></div></template><input type=\"hidden\" name=\"cred_connections\" id=\"connections-json\" value=\"\"><script>\n\t\t\tfunction addConnection() {\n\t\t\t\tvar template = document.getElementById('connection-template');\n\t\t\t\tvar clone = template.content.cloneNode(true);\n\t\t\t\tdocument.getElementById('connections-list').appendChild(clone);\n\t\t\t}\n\t\t\tfunction removeConnection(btn) {\n\t\t\t\tvar card = btn.closest('.pg-conn-card');\n\t\t\t\tif (card) card.remove();\n\t\t\t}\n\t\t\tfunction gatherConnections() {\n\t\t\t\tvar cards = document.querySelectorAll('#connections-list .pg-conn-card');\n\t\t\t\tvar conns = [];\n\t\t\t\tfor (var i = 0; i < cards.length; i++) {\n\t\t\t\t\tvar card = cards[i];\n\t\t\t\t\tvar conn = {};\n\t\t\t\t\tvar inputs = card.querySelectorAll('[data-field]');\n\t\t\t\t\tfor (var j = 0; j < inputs.length; j++) {\n\t\t\t\t\t\tvar field = inputs[j].getAttribute('data-field');\n\t\t\t\t\t\tvar val = inputs[j].value;\n\t\t\t\t\t\tif (val) conn[field] = val;\n\t\t\t\t\t}\n\t\t\t\t\tif (conn.alias) conns.push(conn);\n\t\t\t\t}\n\t\t\t\tdocument.getElementById('connections-json').value = conns.length > 0 ? JSON.stringify(conns) : '';\n\t\t\t}\n\t\t\tvar form = document.querySelector('form[method=\"POST\"]');\n\t\t\tif (form) {\n\t\t\t\tform.addEventListener('submit', function() {\n\t\t\t\t\tgatherConnections();\n\t\t\t\t});\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<button type=\"submit\" class=\"btn\">Save Configuration</button></form><template id=\"connection-template\"><div class=\"pg-conn-card\" style=\"background: var(--bg); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.5rem;\"><div style=\"display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;\"><div class=\"form-group\" style=\"margin-bottom: 0; flex: 1; margin-right: 0.5rem;\"><label class=\"form-label\">alias</label> <input class=\"form-input\" type=\"text\" data-field=\"alias\" placeholder=\"e.g. analytics, staging, prod\" required></div><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"removeConnection(this)\" style=\"margin-top: 1.1rem; color: var(--red);\">Remove</button></div><div class=\"form-group\"><label class=\"form-label\">connection_string (optional)</label> <input class=\"form-input\" type=\"password\" data-field=\"connection_string\" placeholder=\"postgres://user:pass@host:5432/dbname\"></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">host</label> <input class=\"form-input\" type=\"text\" data-field=\"host\" placeholder=\"localhost\"></div><div class=\"form-group\"><label class=\"form-label\">port</label> <input class=\"form-input\" type=\"text\" data-field=\"port\" placeholder=\"5432\"></div></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">user</label> <input class=\"form-input\" type=\"text\" data-field=\"user\" placeholder=\"postgres\"></div><div class=\"form-group\"><label class=\"form-label\">password</label> <input class=\"form-input\" type=\"password\" data-field=\"password\" placeholder=\"Enter password\"></div></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">database</label> <input class=\"form-input\" type=\"text\" data-field=\"database\" placeholder=\"mydb\"></div><div class=\"form-group\"><label class=\"form-label\">sslmode</label> <input class=\"form-input\" type=\"text\" data-field=\"sslmode\" placeholder=\"prefer\"></div></div><div class=\"form-group\"><label class=\"form-label\">read_only</label> <input class=\"form-input\" type=\"text\" data-field=\"read_only\" placeholder=\"true\"></div></div></template><input type=\"hidden\" name=\"cred_connections\" id=\"connections-json\" value=\"\"><script>\n\t\t\tfunction addConnection() {\n\t\t\t\tvar template = document.getElementById('connection-template');\n\t\t\t\tvar clone = template.content.cloneNode(true);\n\t\t\t\tdocument.getElementById('connections-list').appendChild(clone);\n\t\t\t}\n\t\t\tfunction removeConnection(btn) {\n\t\t\t\tvar card = btn.closest('.pg-conn-card');\n\t\t\t\tif (card) card.remove();\n\t\t\t}\n\t\t\tfunction gatherConnections() {\n\t\t\t\tvar cards = document.querySelectorAll('#connections-list .pg-conn-card');\n\t\t\t\tvar conns = [];\n\t\t\t\tfor (var i = 0; i < cards.length; i++) {\n\t\t\t\t\tvar card = cards[i];\n\t\t\t\t\tvar conn = {};\n\t\t\t\t\tvar inputs = card.querySelectorAll('[data-field]');\n\t\t\t\t\tfor (var j = 0; j < inputs.length; j++) {\n\t\t\t\t\t\tvar field = inputs[j].getAttribute('data-field');\n\t\t\t\t\t\tvar val = inputs[j].value;\n\t\t\t\t\t\tif (val) conn[field] = val;\n\t\t\t\t\t}\n\t\t\t\t\tif (conn.alias) conns.push(conn);\n\t\t\t\t}\n\t\t\t\tdocument.getElementById('connections-json').value = conns.length > 0 ? JSON.stringify(conns) : '';\n\t\t\t}\n\t\t\tvar form = document.querySelector('form[method=\"POST\"]');\n\t\t\tif (form) {\n\t\t\t\tform.addEventListener('submit', function() {\n\t\t\t\t\tgatherConnections();\n\t\t\t\t});\n\t\t\t}\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -195,129 +208,129 @@ func connectionCard(index int, conn PostgresConnection) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var3 == nil {
-			templ_7745c5c3_Var3 = templ.NopComponent
+		templ_7745c5c3_Var4 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var4 == nil {
+			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"pg-conn-card\" style=\"background: var(--bg); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.5rem;\"><div style=\"display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;\"><div class=\"form-group\" style=\"margin-bottom: 0; flex: 1; margin-right: 0.5rem;\"><label class=\"form-label\">alias</label> <input class=\"form-input\" type=\"text\" data-field=\"alias\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var4 string
-		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Alias)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 176, Col: 79}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" placeholder=\"e.g. analytics, staging, prod\" required></div><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"removeConnection(this)\" style=\"margin-top: 1.1rem; color: var(--red);\">Remove</button></div><div class=\"form-group\"><label class=\"form-label\">connection_string (optional)</label> <input class=\"form-input\" type=\"password\" data-field=\"connection_string\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div class=\"pg-conn-card\" style=\"background: var(--bg); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.5rem;\"><div style=\"display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;\"><div class=\"form-group\" style=\"margin-bottom: 0; flex: 1; margin-right: 0.5rem;\"><label class=\"form-label\">alias</label> <input class=\"form-input\" type=\"text\" data-field=\"alias\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(conn.ConnectionString)
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Alias)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 182, Col: 105}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 177, Col: 79}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" placeholder=\"postgres://user:pass@host:5432/dbname\"></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">host</label> <input class=\"form-input\" type=\"text\" data-field=\"host\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" placeholder=\"e.g. analytics, staging, prod\" required></div><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"removeConnection(this)\" style=\"margin-top: 1.1rem; color: var(--red);\">Remove</button></div><div class=\"form-group\"><label class=\"form-label\">connection_string (optional)</label> <input class=\"form-input\" type=\"password\" data-field=\"connection_string\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Host)
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(conn.ConnectionString)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 187, Col: 77}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 183, Col: 105}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" placeholder=\"localhost\"></div><div class=\"form-group\"><label class=\"form-label\">port</label> <input class=\"form-input\" type=\"text\" data-field=\"port\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" placeholder=\"postgres://user:pass@host:5432/dbname\"></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">host</label> <input class=\"form-input\" type=\"text\" data-field=\"host\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Port)
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Host)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 191, Col: 77}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 188, Col: 77}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" placeholder=\"5432\"></div></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">user</label> <input class=\"form-input\" type=\"text\" data-field=\"user\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" placeholder=\"localhost\"></div><div class=\"form-group\"><label class=\"form-label\">port</label> <input class=\"form-input\" type=\"text\" data-field=\"port\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 string
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(conn.User)
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Port)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 197, Col: 77}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 192, Col: 77}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" placeholder=\"postgres\"></div><div class=\"form-group\"><label class=\"form-label\">password</label> <input class=\"form-input\" type=\"password\" data-field=\"password\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" placeholder=\"5432\"></div></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">user</label> <input class=\"form-input\" type=\"text\" data-field=\"user\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Password)
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(conn.User)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 201, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 198, Col: 77}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" placeholder=\"Enter password\"></div></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">database</label> <input class=\"form-input\" type=\"text\" data-field=\"database\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" placeholder=\"postgres\"></div><div class=\"form-group\"><label class=\"form-label\">password</label> <input class=\"form-input\" type=\"password\" data-field=\"password\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var10 string
-		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Database)
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Password)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 207, Col: 85}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 202, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" placeholder=\"mydb\"></div><div class=\"form-group\"><label class=\"form-label\">sslmode</label> <input class=\"form-input\" type=\"text\" data-field=\"sslmode\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" placeholder=\"Enter password\"></div></div><div style=\"display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;\"><div class=\"form-group\"><label class=\"form-label\">database</label> <input class=\"form-input\" type=\"text\" data-field=\"database\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(conn.SSLMode)
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(conn.Database)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 211, Col: 83}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 208, Col: 85}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" placeholder=\"prefer\"></div></div><div class=\"form-group\"><label class=\"form-label\">read_only</label> <input class=\"form-input\" type=\"text\" data-field=\"read_only\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" placeholder=\"mydb\"></div><div class=\"form-group\"><label class=\"form-label\">sslmode</label> <input class=\"form-input\" type=\"text\" data-field=\"sslmode\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(conn.ReadOnly)
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(conn.SSLMode)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 216, Col: 85}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 212, Col: 83}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" placeholder=\"true\"></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" placeholder=\"prefer\"></div></div><div class=\"form-group\"><label class=\"form-label\">read_only</label> <input class=\"form-input\" type=\"text\" data-field=\"read_only\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var13 string
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(conn.ReadOnly)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/postgres_setup.templ`, Line: 217, Col: 85}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" placeholder=\"true\"></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

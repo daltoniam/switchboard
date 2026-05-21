@@ -9,6 +9,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/daltoniam/switchboard/web/templates/components"
@@ -20,6 +21,13 @@ type CredentialField struct {
 	Value string
 }
 
+// ToolInfo describes a single tool exposed by an integration so users
+// can see what each operation does on the integration's detail page.
+type ToolInfo struct {
+	Name        string
+	Description string
+}
+
 type IntegrationDetailData struct {
 	Name          string
 	Enabled       bool
@@ -28,7 +36,7 @@ type IntegrationDetailData struct {
 	PlainTextKeys map[string]bool
 	Placeholders  map[string]string
 	OptionalKeys  map[string]bool
-	Tools         []string
+	Tools         []ToolInfo
 }
 
 func SortedCredentials(creds map[string]string) []CredentialField {
@@ -105,7 +113,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 64, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 72, Col: 91}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -126,7 +134,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 			var templ_7745c5c3_Var4 templ.SafeURL
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/integrations/" + data.Name))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 67, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 75, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -155,22 +163,35 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 				return templ_7745c5c3_Err
 			}
 			if len(data.Tools) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools</div><div class=\"tools-list\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools (")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var5 string
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(data.Tools)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 89, Col: 106}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, ")</div><div class=\"tools-hint\">Operations this integration exposes through the MCP server.</div><div class=\"tools-rows\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, t := range data.Tools {
-					templ_7745c5c3_Err = components.ToolTag(t).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.ToolRow(t.Name, t.Description).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<button type=\"submit\" class=\"btn\">Save Configuration</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<button type=\"submit\" class=\"btn\">Save Configuration</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
