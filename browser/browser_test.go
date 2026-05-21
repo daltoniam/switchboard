@@ -105,7 +105,7 @@ func TestPage_Evaluate(t *testing.T) {
 
 	result, err := pg.Evaluate(ctx, "1 + 1")
 	require.NoError(t, err)
-	assert.Equal(t, float64(2), result)
+	assert.EqualValues(t, 2, result)
 }
 
 func TestPage_Screenshot(t *testing.T) {
