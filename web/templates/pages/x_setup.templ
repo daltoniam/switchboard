@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"fmt"
+
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/components"
 )
@@ -14,7 +16,7 @@ type XSetupData struct {
 	RedirectURI string
 	FlashResult string
 	FlashError  string
-	Tools       []string
+	Tools       []ToolInfo
 }
 
 func xStatusBadge(hasToken bool, healthy bool) string {
@@ -117,10 +119,11 @@ templ XSetup(page layouts.PageData, data XSetupData) {
 		</div>
 		if len(data.Tools) > 0 {
 			<div class="card">
-				<div class="card-title" style="margin-bottom: 0.5rem;">Available Tools</div>
-				<div class="tools-list">
+				<div class="card-title" style="margin-bottom: 0.5rem;">Available Tools ({ fmt.Sprint(len(data.Tools)) })</div>
+				<div class="tools-hint">Operations this integration exposes through the MCP server.</div>
+				<div class="tools-rows">
 					for _, t := range data.Tools {
-						@components.ToolTag(t)
+						@components.ToolRow(t.Name, t.Description)
 					}
 				</div>
 			</div>

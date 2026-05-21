@@ -55,3 +55,14 @@ templ StatCardColor(value int, label string, variant string) {
 templ ToolTag(name string) {
 	<span class="tool-tag">{ name }</span>
 }
+
+templ ToolRow(name string, description string) {
+	<div class="tool-row">
+		<code class="tool-row-name">{ name }</code>
+		if description != "" {
+			<div class="tool-row-desc">{ description }</div>
+		} else {
+			<div class="tool-row-desc tool-row-desc-empty">No description available</div>
+		}
+	</div>
+}

@@ -9,6 +9,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"fmt"
+
 	"github.com/daltoniam/switchboard/web/templates/components"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 )
@@ -22,7 +24,7 @@ type XSetupData struct {
 	RedirectURI string
 	FlashResult string
 	FlashError  string
-	Tools       []string
+	Tools       []ToolInfo
 }
 
 func xStatusBadge(hasToken bool, healthy bool) string {
@@ -98,7 +100,7 @@ func XSetup(page layouts.PageData, data XSetupData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashResult)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/x_setup.templ`, Line: 48, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/x_setup.templ`, Line: 50, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -121,7 +123,7 @@ func XSetup(page layouts.PageData, data XSetupData) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashError)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/x_setup.templ`, Line: 51, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/x_setup.templ`, Line: 53, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -157,7 +159,7 @@ func XSetup(page layouts.PageData, data XSetupData) templ.Component {
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.TokenSource)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/x_setup.templ`, Line: 62, Col: 43}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/x_setup.templ`, Line: 64, Col: 43}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {
@@ -180,7 +182,7 @@ func XSetup(page layouts.PageData, data XSetupData) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.RedirectURI)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/x_setup.templ`, Line: 74, Col: 121}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/x_setup.templ`, Line: 76, Col: 121}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -236,22 +238,35 @@ func XSetup(page layouts.PageData, data XSetupData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if len(data.Tools) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools</div><div class=\"tools-list\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.5rem;\">Available Tools (")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var7 string
+				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(data.Tools)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/x_setup.templ`, Line: 122, Col: 105}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, ")</div><div class=\"tools-hint\">Operations this integration exposes through the MCP server.</div><div class=\"tools-rows\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, t := range data.Tools {
-					templ_7745c5c3_Err = components.ToolTag(t).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.ToolRow(t.Name, t.Description).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, " <script>\n\t\t\tfunction startXOAuth() {\n\t\t\t\tdocument.getElementById('oauth-start-btn').disabled = true;\n\t\t\t\tdocument.getElementById('oauth-start-btn').textContent = 'Starting...';\n\n\t\t\t\tfetch('/api/x/oauth/start', { method: 'POST' })\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(data) {\n\t\t\t\t\t\tif (data.error) {\n\t\t\t\t\t\t\tshowOAuthError(data.error);\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t\twindow.location.href = data.authorize_url;\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function(err) {\n\t\t\t\t\t\tshowOAuthError('Failed to start OAuth flow: ' + err.message);\n\t\t\t\t\t});\n\t\t\t}\n\n\t\t\tfunction showOAuthError(msg) {\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-error-msg').textContent = msg;\n\t\t\t}\n\n\t\t\tfunction resetOAuth() {\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-start-btn').disabled = false;\n\t\t\t\tdocument.getElementById('oauth-start-btn').textContent = 'Sign in with X';\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, " <script>\n\t\t\tfunction startXOAuth() {\n\t\t\t\tdocument.getElementById('oauth-start-btn').disabled = true;\n\t\t\t\tdocument.getElementById('oauth-start-btn').textContent = 'Starting...';\n\n\t\t\t\tfetch('/api/x/oauth/start', { method: 'POST' })\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(data) {\n\t\t\t\t\t\tif (data.error) {\n\t\t\t\t\t\t\tshowOAuthError(data.error);\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t\twindow.location.href = data.authorize_url;\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function(err) {\n\t\t\t\t\t\tshowOAuthError('Failed to start OAuth flow: ' + err.message);\n\t\t\t\t\t});\n\t\t\t}\n\n\t\t\tfunction showOAuthError(msg) {\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-error-msg').textContent = msg;\n\t\t\t}\n\n\t\t\tfunction resetOAuth() {\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-start-btn').disabled = false;\n\t\t\t\tdocument.getElementById('oauth-start-btn').textContent = 'Sign in with X';\n\t\t\t}\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

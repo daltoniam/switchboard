@@ -439,6 +439,41 @@ templ Base(data PageData) {
 					font-family: var(--font-mono);
 					color: var(--text-muted);
 				}
+				.tools-rows {
+					display: flex;
+					flex-direction: column;
+					gap: 0.25rem;
+					margin-top: 0.5rem;
+				}
+				.tool-row {
+					display: grid;
+					grid-template-columns: minmax(180px, 240px) 1fr;
+					gap: 0.875rem;
+					align-items: baseline;
+					padding: 0.4375rem 0;
+					border-bottom: 1px solid var(--border-subtle);
+				}
+				.tool-row:last-child { border-bottom: none; }
+				.tool-row-name {
+					font-family: var(--font-mono);
+					font-size: 0.75rem;
+					color: var(--text-secondary);
+					word-break: break-all;
+				}
+				.tool-row-desc {
+					font-size: 0.75rem;
+					line-height: 1.45;
+					color: var(--text-muted);
+				}
+				.tool-row-desc-empty { font-style: italic; }
+				.tools-hint {
+					font-size: 0.75rem;
+					color: var(--text-muted);
+					margin-top: 0.25rem;
+				}
+				@media (max-width: 560px) {
+					.tool-row { grid-template-columns: 1fr; gap: 0.125rem; }
+				}
 
 				/* --- Footer --- */
 				.footer {

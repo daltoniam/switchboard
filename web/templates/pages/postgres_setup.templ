@@ -21,7 +21,7 @@ type PostgresConnection struct {
 type PostgresSetupData struct {
 	Enabled     bool
 	Healthy     bool
-	Tools       []string
+	Tools       []ToolInfo
 	Default     PostgresConnection
 	Connections []PostgresConnection
 }
@@ -72,10 +72,11 @@ templ PostgresSetup(page layouts.PageData, data PostgresSetupData) {
 			</div>
 			if len(data.Tools) > 0 {
 				<div class="card">
-					<div class="card-title" style="margin-bottom: 0.5rem;">Available Tools</div>
-					<div class="tools-list">
+					<div class="card-title" style="margin-bottom: 0.5rem;">Available Tools ({ fmt.Sprint(len(data.Tools)) })</div>
+					<div class="tools-hint">Operations this integration exposes through the MCP server.</div>
+					<div class="tools-rows">
 						for _, t := range data.Tools {
-							@components.ToolTag(t)
+							@components.ToolRow(t.Name, t.Description)
 						}
 					</div>
 				</div>

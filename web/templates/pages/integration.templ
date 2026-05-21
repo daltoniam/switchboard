@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/daltoniam/switchboard/web/templates/layouts"
@@ -12,6 +13,13 @@ type CredentialField struct {
 	Value string
 }
 
+// ToolInfo describes a single tool exposed by an integration so users
+// can see what each operation does on the integration's detail page.
+type ToolInfo struct {
+	Name        string
+	Description string
+}
+
 type IntegrationDetailData struct {
 	Name          string
 	Enabled       bool
@@ -20,7 +28,7 @@ type IntegrationDetailData struct {
 	PlainTextKeys map[string]bool
 	Placeholders  map[string]string
 	OptionalKeys  map[string]bool
-	Tools         []string
+	Tools         []ToolInfo
 }
 
 func SortedCredentials(creds map[string]string) []CredentialField {
@@ -78,10 +86,11 @@ templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
 			</div>
 			if len(data.Tools) > 0 {
 				<div class="card">
-					<div class="card-title" style="margin-bottom: 0.5rem;">Available Tools</div>
-					<div class="tools-list">
+					<div class="card-title" style="margin-bottom: 0.5rem;">Available Tools ({ fmt.Sprint(len(data.Tools)) })</div>
+					<div class="tools-hint">Operations this integration exposes through the MCP server.</div>
+					<div class="tools-rows">
 						for _, t := range data.Tools {
-							@components.ToolTag(t)
+							@components.ToolRow(t.Name, t.Description)
 						}
 					</div>
 				</div>
