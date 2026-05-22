@@ -254,6 +254,15 @@ type FieldCompactionIntegration interface {
 	CompactSpec(toolName ToolName) ([]CompactField, bool)
 }
 
+// DeferredToolDiscoveryIntegration marks integrations whose tool lists require
+// a live upstream connection (remote MCP proxies). Startup skips blocking
+// tool discovery for these integrations so a slow upstream cannot prevent
+// the server from binding its HTTP port. Tools are discovered lazily on the
+// first search/execute that targets the integration.
+type DeferredToolDiscoveryIntegration interface {
+	DeferStartupToolDiscovery() bool
+}
+
 // IntegrationName identifies an integration by its canonical lowercase name (e.g. "github").
 // Semantic type prevents silent metric fragmentation from typos or case mismatches.
 // Scoped to metrics boundary; Integration.Name() and Registry still use string.

@@ -74,6 +74,18 @@ func pkceChallenge(verifier string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
+// mcpResourceURL returns the RFC 8707 resource indicator for a remote MCP
+// server. LangSmith (and other MCP OAuth 2.1 servers) require this on both
+// the authorize and token requests; without it the authorize endpoint returns
+// invalid_target: "resource is required".
+func mcpResourceURL(serverURL string) string {
+	base := strings.TrimRight(serverURL, "/")
+	if strings.HasSuffix(base, "/mcp") {
+		return base
+	}
+	return base + "/mcp"
+}
+
 func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
 	resp, err := http.Get(serverURL + "/.well-known/oauth-authorization-server")
 	if err != nil {
@@ -154,10 +166,10 @@ func StartOAuth(name, serverURL, redirectURI string) (string, error) {
 		"client_id":             {clientID},
 		"redirect_uri":          {redirectURI},
 		"response_type":         {"code"},
-		"scope":                 {"read,write"},
 		"state":                 {state},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
+		"resource":              {mcpResourceURL(serverURL)},
 	}
 
 	authorizeURL := meta.AuthorizationEndpoint + "?" + params.Encode()
@@ -210,6 +222,7 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 		"client_id":     {os.clientID},
 		"code_verifier": {os.codeVerifier},
 		"grant_type":    {"authorization_code"},
+		"resource":      {mcpResourceURL(os.serverURL)},
 	}
 	if os.clientSecret != "" {
 		data.Set("client_secret", os.clientSecret)

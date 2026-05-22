@@ -135,6 +135,10 @@ func setupTestWeb() (*WebServer, *mockRegistry, *mockConfigService) {
 
 	services := &mcp.Services{Config: cfgService, Registry: reg}
 	ws := New(services, 3847, nil, nil)
+	// New() warms the cache asynchronously to avoid blocking startup on slow
+	// upstreams, so tests that read the cache immediately after construction
+	// must refresh synchronously to get deterministic state.
+	ws.health.refreshAll(context.Background())
 	return ws, reg, cfgService
 }
 

@@ -35,6 +35,7 @@ func fakeOAuthServer(t *testing.T, response any, statusCode int) *httptest.Serve
 		assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
 		_ = r.ParseForm()
 		assert.Equal(t, "refresh_token", r.FormValue("grant_type"))
+		assert.Equal(t, mcpResourceURL(srv.URL), r.FormValue("resource"))
 		w.Header().Set("Content-Type", "application/json")
 		if statusCode != 0 {
 			w.WriteHeader(statusCode)

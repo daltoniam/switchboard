@@ -44,6 +44,7 @@ func RefreshAccessToken(ctx context.Context, serverURL, clientID, clientSecret, 
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {refreshToken},
 		"client_id":     {clientID},
+		"resource":      {mcpResourceURL(serverURL)},
 	}
 	if clientSecret != "" {
 		data.Set("client_secret", clientSecret)

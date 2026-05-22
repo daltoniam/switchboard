@@ -29,7 +29,10 @@ const (
 	RegionAWS  = "https://aws.api.smith.langchain.com"
 )
 
-var _ mcp.Integration = (*langsmith)(nil)
+var (
+	_ mcp.Integration                      = (*langsmith)(nil)
+	_ mcp.DeferredToolDiscoveryIntegration = (*langsmith)(nil)
+)
 
 type langsmith struct {
 	cfg          mcp.ConfigService
@@ -64,6 +67,11 @@ func MCPServerURL(i mcp.Integration) string {
 }
 
 func (l *langsmith) Name() string { return "langsmith" }
+
+// DeferStartupToolDiscovery skips blocking Tools() calls during boot so a
+// slow upstream cannot block the HTTP listener. Tools are fetched on the
+// first search or execute that targets this integration.
+func (l *langsmith) DeferStartupToolDiscovery() bool { return true }
 
 // Configure accepts the credentials persisted by the web OAuth callback:
 // mcp_access_token (required), mcp_refresh_token + client_id + client_secret

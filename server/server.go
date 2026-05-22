@@ -361,6 +361,10 @@ func (s *Server) configureIntegrations() {
 			_ = s.services.Config.SetIntegration(name, ic)
 		}
 
+		if d, ok := integration.(mcp.DeferredToolDiscoveryIntegration); ok && d.DeferStartupToolDiscovery() {
+			log.Printf("Configured integration %q (remote MCP; tools discovered on first use)", name)
+			continue
+		}
 		log.Printf("Configured integration %q with %d tools", name, len(integration.Tools()))
 	}
 }
@@ -403,6 +407,9 @@ func (s *Server) buildSearchIndex() {
 	if s.discoverAll {
 		for _, integration := range s.services.Registry.All() {
 			name := integration.Name()
+			if d, ok := integration.(mcp.DeferredToolDiscoveryIntegration); ok && d.DeferStartupToolDiscovery() {
+				continue
+			}
 			for _, tool := range integration.Tools() {
 				tools = append(tools, toolWithIntegration{Integration: name, Tool: tool})
 			}
@@ -411,6 +418,9 @@ func (s *Server) buildSearchIndex() {
 		for _, name := range s.services.Config.EnabledIntegrations() {
 			integration, ok := s.services.Registry.Get(name)
 			if !ok {
+				continue
+			}
+			if d, ok := integration.(mcp.DeferredToolDiscoveryIntegration); ok && d.DeferStartupToolDiscovery() {
 				continue
 			}
 			for _, tool := range integration.Tools() {
@@ -607,7 +617,8 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 }
 
 // scoredSearch returns tools ranked by TF-IDF + synonym relevance,
-// respecting integration filter and ABAC tool globs.
+// respecting integration filter and ABAC tool globs. Tools from integrations
+// that opt out of startup indexing (remote MCP) are fetched lazily here.
 func (s *Server) scoredSearch(query, integration string) []searchToolInfo {
 	var candidates []toolWithIntegration
 	for _, ti := range s.allTools {
@@ -620,6 +631,14 @@ func (s *Server) scoredSearch(query, integration string) []searchToolInfo {
 		}
 		candidates = append(candidates, ti)
 	}
+	for _, ti := range s.deferredToolCandidates(integration) {
+		ic, _ := s.services.Config.GetIntegration(ti.Integration)
+		if ic != nil && !ic.ToolAllowed(mcp.ToolName(ti.Tool.Name)) {
+			continue
+		}
+		populateToolTokens(&ti)
+		candidates = append(candidates, ti)
+	}
 
 	scored := scoreTools(query, candidates, s.idf, s.synMap)
 	all := make([]searchToolInfo, len(scored))
@@ -627,6 +646,38 @@ func (s *Server) scoredSearch(query, integration string) []searchToolInfo {
 		all[i] = toToolInfo(r)
 	}
 	return all
+}
+
+// deferredToolCandidates returns tools from integrations that skip blocking
+// discovery at startup (remote MCP proxies). Called at search time so the
+// upstream call only happens when the user actually searches.
+func (s *Server) deferredToolCandidates(integrationFilter string) []toolWithIntegration {
+	var out []toolWithIntegration
+	var names []string
+	if s.discoverAll {
+		for _, i := range s.services.Registry.All() {
+			names = append(names, i.Name())
+		}
+	} else {
+		names = s.services.Config.EnabledIntegrations()
+	}
+	for _, name := range names {
+		if integrationFilter != "" && name != integrationFilter {
+			continue
+		}
+		i, ok := s.services.Registry.Get(name)
+		if !ok {
+			continue
+		}
+		d, ok := i.(mcp.DeferredToolDiscoveryIntegration)
+		if !ok || !d.DeferStartupToolDiscovery() {
+			continue
+		}
+		for _, tool := range i.Tools() {
+			out = append(out, toolWithIntegration{Integration: name, Tool: tool})
+		}
+	}
+	return out
 }
 
 // unrankedSearch returns all tools sorted alphabetically, respecting ABAC globs.

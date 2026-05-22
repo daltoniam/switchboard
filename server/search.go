@@ -213,6 +213,22 @@ func computeIDF(tools []toolWithIntegration) map[string]float64 {
 	return idf
 }
 
+// populateToolTokens computes the token set for a tool that was not indexed
+// at startup (e.g. remote MCP integrations with deferred discovery). Mirrors
+// the per-tool work computeIDF performs.
+func populateToolTokens(ti *toolWithIntegration) {
+	if ti.tokens != nil {
+		return
+	}
+	searchable := string(ti.Tool.Name) + " " + ti.Tool.Description + " " + ti.Integration
+	words := tokenize(searchable)
+	tokenSet := make(map[string]bool, len(words))
+	for _, word := range words {
+		tokenSet[word] = true
+	}
+	ti.tokens = tokenSet
+}
+
 // scoreTool computes the TF-IDF relevance score for a single tool against
 // pre-tokenized query words. The tool's token set and the synonym map are
 // both pre-computed — this function does zero allocations.

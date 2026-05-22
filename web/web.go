@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -54,9 +55,15 @@ func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.
 	if wl != nil {
 		ws.wasmLoader = wl
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	ws.health.refreshAll(ctx)
+	// Warm the health cache asynchronously so a slow or hung integration
+	// (e.g. a remote MCP whose SSE handshake stalls) cannot block the HTTP
+	// listener from coming up. Endpoints that read from healthCache tolerate
+	// a missing entry; users can also trigger a manual refresh.
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		ws.health.refreshAll(ctx)
+	}()
 	return ws
 }
 
@@ -821,18 +828,17 @@ func (w *WebServer) handleLinearSaveToken(rw http.ResponseWriter, r *http.Reques
 func (w *WebServer) handleLangsmithSetup(rw http.ResponseWriter, r *http.Request) {
 	ic, exists := w.services.Config.GetIntegration("langsmith")
 
-	integration, integrationOK := w.services.Registry.Get("langsmith")
-
 	hasTokens := exists && ic.Credentials["mcp_access_token"] != ""
 	hasRefresh := exists && ic.Credentials["mcp_refresh_token"] != ""
 
+	// Read health from the async-warmed cache rather than calling
+	// integration.Healthy() inline. LangSmith's Healthy probe opens a
+	// streamable-HTTP MCP connection whose SSE handshake doesn't respect
+	// context cancellation reliably — synchronous probes here would hang
+	// the page render for 10s+ on every load.
 	var healthy bool
-	if hasTokens && integrationOK {
-		if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
-			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-			healthy = integration.Healthy(ctx)
-			cancel()
-		}
+	if entry, ok := w.health.get("langsmith"); ok {
+		healthy = entry.Healthy
 	}
 
 	tokenSource := ""
@@ -1213,11 +1219,15 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 		if errMsg == "" {
 			errMsg = "No authorization code received"
 		}
+		log.Printf("remote MCP OAuth callback for %q: %s", name, errMsg)
 		http.Redirect(rw, r, setupPath+"?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
 		return
 	}
 
+	log.Printf("remote MCP OAuth callback for %q: exchanging authorization code", name)
+
 	if err := remotemcp.HandleOAuthCallback(name, code, state); err != nil {
+		log.Printf("remote MCP OAuth callback for %q failed: %v", name, err)
 		http.Redirect(rw, r, setupPath+"?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
 		return
 	}
@@ -1249,6 +1259,7 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 	ic.Credentials[mcp.CredKeyClientSecret] = tokens.ClientSecret
 	_ = w.services.Config.SetIntegration(name, ic)
 
+	log.Printf("remote MCP OAuth callback for %q: connected successfully", name)
 	http.Redirect(rw, r, setupPath+"?result=Connected+via+MCP+OAuth", http.StatusSeeOther)
 }
 

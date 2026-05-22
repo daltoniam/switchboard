@@ -32,6 +32,12 @@ type remote struct {
 	serverURL string
 	tokenSink TokenSink
 
+	// connectMu serializes connection setup. It MUST NOT be held while
+	// holding mu — client.Connect() issues HTTP requests through
+	// refreshingTransport which needs to RLock mu to read the token, so
+	// holding mu across Connect() would deadlock.
+	connectMu sync.Mutex
+
 	mu           sync.RWMutex
 	token        string
 	refreshToken string
@@ -67,6 +73,8 @@ func New(name, serverURL string, opts ...Option) mcp.Integration {
 }
 
 func (r *remote) Name() string { return r.name }
+
+func (r *remote) DeferStartupToolDiscovery() bool { return true }
 
 func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 	r.mu.Lock()
@@ -247,12 +255,19 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 		return nil, fmt.Errorf("%s: not configured (call Configure first)", r.name)
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	// Serialize connection setup with connectMu, NOT mu. Holding mu across
+	// client.Connect() deadlocks: Connect() makes HTTP requests through
+	// refreshingTransport, which RLocks mu to read the token.
+	r.connectMu.Lock()
+	defer r.connectMu.Unlock()
 
+	r.mu.RLock()
 	if r.session != nil {
-		return r.session, nil
+		sess := r.session
+		r.mu.RUnlock()
+		return sess, nil
 	}
+	r.mu.RUnlock()
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{
 		Name:    "switchboard",
@@ -266,6 +281,10 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 			Timeout:   defaultTimeout,
 		},
 		DisableStandaloneSSE: true,
+		// MaxRetries must be negative to disable MCP SDK reconnect loops (0 means
+		// default 5 retries with exponential backoff, which can hang startup for
+		// minutes when the upstream is slow or misconfigured).
+		MaxRetries: -1,
 	}
 
 	session, err := client.Connect(ctx, transport, nil)
@@ -273,8 +292,10 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 		return nil, fmt.Errorf("connect to %s: %w", r.serverURL, err)
 	}
 
+	r.mu.Lock()
 	r.client = client
 	r.session = session
+	r.mu.Unlock()
 	return session, nil
 }
 

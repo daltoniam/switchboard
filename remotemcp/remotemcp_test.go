@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -193,6 +194,39 @@ func TestOAuth_PkceChallenge(t *testing.T) {
 	challenge := pkceChallenge(verifier)
 	assert.NotEmpty(t, challenge)
 	assert.NotEqual(t, verifier, challenge)
+}
+
+func TestMCPResourceURL(t *testing.T) {
+	assert.Equal(t, "https://api.smith.langchain.com/mcp", mcpResourceURL("https://api.smith.langchain.com"))
+	assert.Equal(t, "https://api.smith.langchain.com/mcp", mcpResourceURL("https://api.smith.langchain.com/"))
+	assert.Equal(t, "https://api.smith.langchain.com/mcp", mcpResourceURL("https://api.smith.langchain.com/mcp"))
+	assert.Equal(t, "https://mcp.linear.app/mcp", mcpResourceURL("https://mcp.linear.app"))
+}
+
+func TestOAuth_StartOAuth_IncludesResource(t *testing.T) {
+	mux := http.NewServeMux()
+	srv := httptest.NewUnstartedServer(mux)
+	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                 srv.URL,
+			"authorization_endpoint": srv.URL + "/authorize",
+			"token_endpoint":         srv.URL + "/token",
+			"registration_endpoint":  srv.URL + "/register",
+		})
+	})
+	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"client_id": "test-client-id"})
+	})
+	srv.Start()
+	defer srv.Close()
+
+	authorizeURL, err := StartOAuth("test", srv.URL, "http://localhost:3847/callback")
+	require.NoError(t, err)
+
+	parsed, err := url.Parse(authorizeURL)
+	require.NoError(t, err)
+	assert.Equal(t, mcpResourceURL(srv.URL), parsed.Query().Get("resource"))
 }
 
 func TestOAuth_PollNoFlow(t *testing.T) {
