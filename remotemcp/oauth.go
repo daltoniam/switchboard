@@ -28,8 +28,22 @@ type OAuthState struct {
 	state        string
 	codeVerifier string
 	token        string
+	refreshToken string
+	expiresIn    int
 	err          string
 	done         bool
+}
+
+// TokenSet holds the full set of OAuth credentials needed to call (and later
+// refresh) a remote MCP server. Returned by GetOAuthTokens after a completed
+// flow so callers can persist all four fields — without ClientID/ClientSecret
+// + RefreshToken there is no way to refresh expired access tokens later.
+type TokenSet struct {
+	AccessToken  string
+	RefreshToken string
+	ClientID     string
+	ClientSecret string
+	ExpiresIn    int // seconds; 0 if upstream didn't advertise
 }
 
 type oauthServerMeta struct {
@@ -234,9 +248,11 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 	}
 
 	var tokenResp struct {
-		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		Error       string `json:"error"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		TokenType    string `json:"token_type"`
+		ExpiresIn    int    `json:"expires_in"`
+		Error        string `json:"error"`
 	}
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		os.err = fmt.Sprintf("parse token response: %v", err)
@@ -257,8 +273,42 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 	}
 
 	os.token = tokenResp.AccessToken
+	os.refreshToken = tokenResp.RefreshToken
+	os.expiresIn = tokenResp.ExpiresIn
 	os.done = true
 	return nil
+}
+
+// GetOAuthTokens returns the full TokenSet from a completed OAuth flow. Unlike
+// PollOAuth (which returns only the access token for backward compatibility),
+// this exposes refresh_token + client credentials so the caller can persist
+// everything needed to refresh later. Returns (TokenSet{}, error) if the flow
+// hasn't completed or errored.
+func GetOAuthTokens(name string) (TokenSet, error) {
+	activeRemoteOAuth.mu.Lock()
+	os := activeRemoteOAuth.states[name]
+	activeRemoteOAuth.mu.Unlock()
+
+	if os == nil {
+		return TokenSet{}, fmt.Errorf("no OAuth flow in progress for %s", name)
+	}
+
+	os.mu.Lock()
+	defer os.mu.Unlock()
+
+	if !os.done {
+		return TokenSet{}, fmt.Errorf("OAuth flow still pending for %s", name)
+	}
+	if os.err != "" {
+		return TokenSet{}, fmt.Errorf("%s", os.err)
+	}
+	return TokenSet{
+		AccessToken:  os.token,
+		RefreshToken: os.refreshToken,
+		ClientID:     os.clientID,
+		ClientSecret: os.clientSecret,
+		ExpiresIn:    os.expiresIn,
+	}, nil
 }
 
 // PollOAuth checks the status of a pending OAuth flow.

@@ -22,6 +22,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
+	langsmithInt "github.com/daltoniam/switchboard/integrations/langsmith"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
@@ -82,6 +83,8 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /integrations/linear/setup", w.handleLinearSetup)
 	mux.HandleFunc("POST /api/linear/save-token", w.handleLinearSaveToken)
+
+	mux.HandleFunc("GET /integrations/langsmith/setup", w.handleLangsmithSetup)
 
 	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
 	mux.HandleFunc("GET /api/remote/{name}/oauth/callback", w.handleRemoteMCPOAuthCallback)
@@ -308,24 +311,25 @@ func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Reque
 const notionExtractionSnippet = `(function(){var c=document.cookie.split(';').find(function(c){return c.trim().startsWith('token_v2=')});if(!c){alert('token_v2 cookie not found. Make sure you are on notion.so and signed in.');return;}var t=c.split('=').slice(1).join('=').trim();prompt('Copy this token_v2 value:',t);})()`
 
 var setupIntegrations = map[string]bool{
-	"slack":    true,
-	"github":   true,
-	"linear":   true,
-	"sentry":   true,
-	"gmail":    true,
-	"gcal":     true,
-	"gdrive":   true,
-	"gdocs":    true,
-	"gsheets":  true,
-	"gslides":  true,
-	"gforms":   true,
-	"gtasks":   true,
-	"gchat":    true,
-	"gpeople":  true,
-	"gmeet":    true,
-	"notion":   true,
-	"x":        true,
-	"postgres": true,
+	"slack":     true,
+	"github":    true,
+	"linear":    true,
+	"langsmith": true,
+	"sentry":    true,
+	"gmail":     true,
+	"gcal":      true,
+	"gdrive":    true,
+	"gdocs":     true,
+	"gsheets":   true,
+	"gslides":   true,
+	"gforms":    true,
+	"gtasks":    true,
+	"gchat":     true,
+	"gpeople":   true,
+	"gmeet":     true,
+	"notion":    true,
+	"x":         true,
+	"postgres":  true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
@@ -814,6 +818,46 @@ func (w *WebServer) handleLinearSaveToken(rw http.ResponseWriter, r *http.Reques
 	http.Redirect(rw, r, "/integrations/linear/setup?result=API+key+saved+successfully", http.StatusSeeOther)
 }
 
+func (w *WebServer) handleLangsmithSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("langsmith")
+
+	integration, integrationOK := w.services.Registry.Get("langsmith")
+
+	hasTokens := exists && ic.Credentials["mcp_access_token"] != ""
+	hasRefresh := exists && ic.Credentials["mcp_refresh_token"] != ""
+
+	var healthy bool
+	if hasTokens && integrationOK {
+		if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			healthy = integration.Healthy(ctx)
+			cancel()
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	page := w.pageData(r, "LangSmith Setup", "/integrations")
+	data := pages.LangsmithSetupData{
+		HasTokens:   hasTokens,
+		Healthy:     healthy,
+		HasRefresh:  hasRefresh,
+		TokenSource: tokenSource,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.LangsmithSetup(page, data).Render(r.Context(), rw)
+}
+
 func (w *WebServer) handleSentrySetup(rw http.ResponseWriter, r *http.Request) {
 	ic, exists := w.services.Config.GetIntegration("sentry")
 	hasToken := exists && ic.Credentials["auth_token"] != ""
@@ -1140,6 +1184,9 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 		serverURL = linearInt.MCPServerURL(integration)
 	}
 	if serverURL == "" {
+		serverURL = langsmithInt.MCPServerURL(integration)
+	}
+	if serverURL == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})
 		return
 	}
@@ -1175,11 +1222,11 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 		return
 	}
 
-	status, token, errStr := remotemcp.PollOAuth(name)
-	if status != "complete" || token == "" {
+	tokens, err := remotemcp.GetOAuthTokens(name)
+	if err != nil || tokens.AccessToken == "" {
 		msg := "Failed to get access token"
-		if errStr != "" {
-			msg = errStr
+		if err != nil {
+			msg = err.Error()
 		}
 		http.Redirect(rw, r, setupPath+"?error="+strings.ReplaceAll(msg, " ", "+"), http.StatusSeeOther)
 		return
@@ -1190,9 +1237,16 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials["mcp_access_token"] = token
+	ic.Credentials["mcp_access_token"] = tokens.AccessToken
 	ic.Credentials["api_key"] = ""
 	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	// Persist refresh material so production agents (which only see what's
+	// stored here, not the in-progress OAuth state) can refresh without a
+	// new browser flow. Empty values are still set so config defaults stay
+	// consistent across all remote MCP integrations.
+	ic.Credentials["mcp_refresh_token"] = tokens.RefreshToken
+	ic.Credentials[mcp.CredKeyClientID] = tokens.ClientID
+	ic.Credentials[mcp.CredKeyClientSecret] = tokens.ClientSecret
 	_ = w.services.Config.SetIntegration(name, ic)
 
 	http.Redirect(rw, r, setupPath+"?result=Connected+via+MCP+OAuth", http.StatusSeeOther)

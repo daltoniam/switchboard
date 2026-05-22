@@ -202,6 +202,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "mcp_access_token": "", mcp.CredKeyTokenSource: ""},
 			},
+			"langsmith": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"mcp_access_token": "", "mcp_refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", mcp.CredKeyTokenSource: ""},
+			},
 			"sentry": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"auth_token": "", "organization": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},

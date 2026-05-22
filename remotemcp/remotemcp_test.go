@@ -262,3 +262,121 @@ func TestOAuth_HandleCallback_NoFlow(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no OAuth flow in progress")
 }
+
+func TestConfigure_StoresRefreshMaterial(t *testing.T) {
+	r := &remote{name: "test", serverURL: "https://example.com"}
+	err := r.Configure(context.Background(), mcp.Credentials{
+		"access_token":  "acc",
+		"refresh_token": "ref",
+		"client_id":     "cid",
+		"client_secret": "csec",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "acc", r.token)
+	assert.Equal(t, "ref", r.refreshToken)
+	assert.Equal(t, "cid", r.clientID)
+	assert.Equal(t, "csec", r.clientSecret)
+	assert.True(t, r.canRefresh())
+}
+
+func TestConfigure_AccessTokenOnly_CannotRefresh(t *testing.T) {
+	r := &remote{name: "test", serverURL: "https://example.com"}
+	err := r.Configure(context.Background(), mcp.Credentials{"access_token": "acc"})
+	require.NoError(t, err)
+	assert.False(t, r.canRefresh(), "Configure must not pretend we can refresh without creds")
+}
+
+func TestConfigure_ClearsStaleRefreshMaterial(t *testing.T) {
+	// Calling Configure with a different set of credentials must overwrite
+	// stale refresh material — otherwise a re-auth that captures only an
+	// access token would silently reuse the previous owner's refresh token.
+	r := &remote{name: "test", serverURL: "https://example.com"}
+	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{
+		"access_token":  "acc1",
+		"refresh_token": "ref1",
+		"client_id":     "cid1",
+	}))
+
+	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{
+		"access_token": "acc2",
+	}))
+	assert.Equal(t, "acc2", r.token)
+	assert.Empty(t, r.refreshToken)
+	assert.Empty(t, r.clientID)
+	assert.False(t, r.canRefresh())
+}
+
+func TestWithTokenSink_OptionApplied(t *testing.T) {
+	var called bool
+	sink := TokenSink(func(_ mcp.Credentials) { called = true })
+	i := New("test", "https://example.com", WithTokenSink(sink))
+	r := i.(*remote)
+	require.NotNil(t, r.tokenSink)
+	r.tokenSink(mcp.Credentials{})
+	assert.True(t, called)
+}
+
+func TestGetOAuthTokens_NoFlow(t *testing.T) {
+	_, err := GetOAuthTokens("does-not-exist")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no OAuth flow")
+}
+
+func TestGetOAuthTokens_Complete(t *testing.T) {
+	const name = "test-gettokens-complete"
+	activeRemoteOAuth.mu.Lock()
+	activeRemoteOAuth.states[name] = &OAuthState{
+		clientID:     "cid",
+		clientSecret: "csec",
+		token:        "acc",
+		refreshToken: "ref",
+		expiresIn:    3600,
+		done:         true,
+	}
+	activeRemoteOAuth.mu.Unlock()
+	defer func() {
+		activeRemoteOAuth.mu.Lock()
+		delete(activeRemoteOAuth.states, name)
+		activeRemoteOAuth.mu.Unlock()
+	}()
+
+	tokens, err := GetOAuthTokens(name)
+	require.NoError(t, err)
+	assert.Equal(t, "acc", tokens.AccessToken)
+	assert.Equal(t, "ref", tokens.RefreshToken)
+	assert.Equal(t, "cid", tokens.ClientID)
+	assert.Equal(t, "csec", tokens.ClientSecret)
+	assert.Equal(t, 3600, tokens.ExpiresIn)
+}
+
+func TestGetOAuthTokens_Pending(t *testing.T) {
+	const name = "test-gettokens-pending"
+	activeRemoteOAuth.mu.Lock()
+	activeRemoteOAuth.states[name] = &OAuthState{} // done=false
+	activeRemoteOAuth.mu.Unlock()
+	defer func() {
+		activeRemoteOAuth.mu.Lock()
+		delete(activeRemoteOAuth.states, name)
+		activeRemoteOAuth.mu.Unlock()
+	}()
+
+	_, err := GetOAuthTokens(name)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "pending")
+}
+
+func TestGetOAuthTokens_Errored(t *testing.T) {
+	const name = "test-gettokens-errored"
+	activeRemoteOAuth.mu.Lock()
+	activeRemoteOAuth.states[name] = &OAuthState{done: true, err: "upstream rejected"}
+	activeRemoteOAuth.mu.Unlock()
+	defer func() {
+		activeRemoteOAuth.mu.Lock()
+		delete(activeRemoteOAuth.states, name)
+		activeRemoteOAuth.mu.Unlock()
+	}()
+
+	_, err := GetOAuthTokens(name)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "upstream rejected")
+}

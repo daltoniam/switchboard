@@ -189,6 +189,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 |---|---|---|
 | GitHub | OAuth Device Flow | Web UI → GitHub → Setup, or set `GITHUB_TOKEN` |
 | Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
+| LangSmith | OAuth 2.1 + DCR | Web UI → LangSmith → Setup (one-time browser flow; refresh token persisted for headless deployments) |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |

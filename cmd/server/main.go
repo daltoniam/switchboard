@@ -43,6 +43,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
 	"github.com/daltoniam/switchboard/integrations/jira"
+	"github.com/daltoniam/switchboard/integrations/langsmith"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
@@ -233,6 +234,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		github.New(),
 		datadog.New(),
 		linear.New("https://mcp.linear.app"),
+		langsmith.New(cfgMgr),
 		sentry.New(),
 		slackInt.New(),
 		metabase.New(),

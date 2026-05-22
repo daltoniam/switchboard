@@ -1,0 +1,127 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+type LangsmithSetupData struct {
+	HasTokens   bool
+	Healthy     bool
+	HasRefresh  bool
+	TokenSource string
+	FlashResult string
+	FlashError  string
+}
+
+func langsmithStatusBadge(data LangsmithSetupData) string {
+	if data.Healthy {
+		return "green"
+	}
+	if data.HasTokens {
+		return "red"
+	}
+	return "muted"
+}
+
+func langsmithStatusLabel(data LangsmithSetupData) string {
+	if data.Healthy {
+		return "Connected"
+	}
+	if data.HasTokens {
+		return "Invalid Token"
+	}
+	return "Not Connected"
+}
+
+templ LangsmithSetup(page layouts.PageData, data LangsmithSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">LangSmith Setup</h1>
+			@components.Badge(langsmithStatusLabel(data), langsmithStatusBadge(data))
+			if data.Healthy {
+				@components.Badge("remote", "muted")
+			}
+		</div>
+		if data.FlashResult != "" {
+			<div class="flash flash-success">{ data.FlashResult }</div>
+		}
+		if data.FlashError != "" {
+			<div class="flash flash-error">{ data.FlashError }</div>
+		}
+		<div class="card">
+			<div class="card-header">
+				<div class="card-title">Sign in with LangSmith</div>
+				if data.Healthy {
+					@components.Badge("Connected", "green")
+				}
+			</div>
+			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+				Connect using LangSmith's Remote MCP OAuth — no API keys needed. You'll be redirected to LangSmith to authorize, then sent back automatically. Switchboard stores the access token plus a refresh token so it can refresh expired tokens without another browser flow.
+			</p>
+			if data.Healthy {
+				<div style="display: flex; align-items: center; gap: 0.75rem;">
+					<button type="button" class="btn btn-outline" id="oauth-start-btn" onclick="startRemoteMCPOAuth()">Re-authorize</button>
+				</div>
+			} else {
+				<div id="oauth-container">
+					<button type="button" class="btn btn-green" id="oauth-start-btn" onclick="startRemoteMCPOAuth()">
+						Sign in with LangSmith →
+					</button>
+				</div>
+			}
+			<div id="oauth-error" style="display: none;">
+				<div class="flash flash-error" id="oauth-error-msg"></div>
+				<button type="button" class="btn btn-outline" onclick="resetOAuth()" style="margin-top: 0.5rem;">Try Again</button>
+			</div>
+		</div>
+		if data.HasTokens && !data.HasRefresh {
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Warning: No refresh token stored</div>
+					@components.Badge("Action recommended", "red")
+				</div>
+				<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+					The current credentials don't include a refresh token. When the access token expires, Switchboard won't be able to refresh it automatically and you'll have to re-authorize. Click "Re-authorize" above to capture a fresh refresh token.
+				</p>
+			</div>
+		}
+		<script>
+			function startRemoteMCPOAuth() {
+				var btn = document.getElementById('oauth-start-btn');
+				btn.disabled = true;
+				btn.textContent = 'Starting...';
+
+				fetch('/api/remote/langsmith/oauth/start', { method: 'POST' })
+					.then(function(r) { return r.json(); })
+					.then(function(data) {
+						if (data.error) {
+							showOAuthError(data.error);
+							return;
+						}
+						window.location.href = data.authorize_url;
+					})
+					.catch(function(err) {
+						showOAuthError('Failed to start OAuth flow: ' + err.message);
+					});
+			}
+
+			function showOAuthError(msg) {
+				var c = document.getElementById('oauth-container');
+				if (c) { c.style.display = 'none'; }
+				document.getElementById('oauth-error').style.display = 'block';
+				document.getElementById('oauth-error-msg').textContent = msg;
+			}
+
+			function resetOAuth() {
+				document.getElementById('oauth-error').style.display = 'none';
+				var c = document.getElementById('oauth-container');
+				if (c) { c.style.display = 'block'; }
+				var btn = document.getElementById('oauth-start-btn');
+				btn.disabled = false;
+				btn.textContent = 'Sign in with LangSmith \u2192';
+			}
+		</script>
+	}
+}
