@@ -1493,6 +1493,22 @@ func (s *Server) Handler() http.Handler {
 	)
 }
 
+// StatelessHandler returns an http.Handler that serves MCP over streamable HTTP
+// transport in stateless mode. Every request is handled independently with no
+// session state retained across calls, which makes it safe to deploy behind a
+// load balancer with multiple replicas (no session affinity required).
+func (s *Server) StatelessHandler() http.Handler {
+	return mcpsdk.NewStreamableHTTPHandler(
+		func(r *http.Request) *mcpsdk.Server {
+			return s.mcpServer
+		},
+		&mcpsdk.StreamableHTTPOptions{
+			Stateless: true,
+			Logger:    slog.Default(),
+		},
+	)
+}
+
 // RunStdio starts the MCP server over stdio transport.
 func (s *Server) RunStdio(ctx context.Context) error {
 	return s.mcpServer.Run(ctx, &mcpsdk.StdioTransport{})
