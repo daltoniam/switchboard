@@ -71,12 +71,29 @@ var (
 	_ compact.ToolViewsIntegration   = (*notion)(nil)
 )
 
+// notion is the integration's top-level type. It holds the v3 cookie
+// backend state inline (for backward compatibility with existing
+// self-hosters) and a non-nil v1 if the user supplied an OAuth access
+// token instead. When v1 is non-nil, Execute/Healthy delegate to it
+// and the v3 fields are unused.
+//
+// Backend selection happens in Configure() based on which credential
+// keys are present:
+//
+//	access_token → v1 (api.notion.com/v1, OAuth bearer, Notion-Version header)
+//	token_v2     → v3 (www.notion.so/api/v3, browser session cookie)
+//
+// If both are present, v1 wins (OAuth is the recommended, supported
+// path; v3 only sticks around for users who set it up before OAuth
+// existed).
 type notion struct {
 	tokenV2 string
 	spaceID string
 	userID  string
 	baseURL string
 	client  *http.Client
+
+	v1 *notionV1
 }
 
 func New() mcp.Integration {
@@ -97,9 +114,25 @@ func New() mcp.Integration {
 func (n *notion) Name() string { return "notion" }
 
 func (n *notion) Configure(ctx context.Context, creds mcp.Credentials) error {
+	// Prefer v1 OAuth if an access token is present.
+	if tok := creds["access_token"]; tok != "" {
+		v1 := newV1Backend(tok)
+		if v := creds["base_url"]; v != "" {
+			v1.baseURL = strings.TrimRight(v, "/")
+		}
+		if v := creds["notion_version"]; v != "" {
+			v1.apiVersion = v
+		}
+		if err := v1.configure(ctx); err != nil {
+			return err
+		}
+		n.v1 = v1
+		return nil
+	}
+
 	n.tokenV2 = creds["token_v2"]
 	if n.tokenV2 == "" {
-		return fmt.Errorf("notion: token_v2 is required")
+		return fmt.Errorf("notion: access_token (OAuth) or token_v2 (cookie) is required")
 	}
 	if v := creds["base_url"]; v != "" {
 		n.baseURL = strings.TrimRight(v, "/")
@@ -154,6 +187,9 @@ func (n *notion) resolveSpaceAndUser(ctx context.Context) (string, string, error
 }
 
 func (n *notion) Healthy(ctx context.Context) bool {
+	if n.v1 != nil {
+		return n.v1.healthy(ctx)
+	}
 	if n.client == nil || n.tokenV2 == "" {
 		return false
 	}
@@ -184,6 +220,16 @@ func (n *notion) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
 }
 
 func (n *notion) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	if n.v1 != nil {
+		fn, ok := dispatchV1[toolName]
+		if !ok {
+			return &mcp.ToolResult{
+				Data:    fmt.Sprintf("tool %q is not yet supported on the Notion OAuth (v1) backend; see switchboard repo issues", toolName),
+				IsError: true,
+			}, nil
+		}
+		return fn(ctx, n.v1, args)
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil

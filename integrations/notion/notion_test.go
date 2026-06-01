@@ -122,7 +122,10 @@ func TestConfigure_RejectsEmptyTokenV2(t *testing.T) {
 	i := New()
 	err := i.Configure(context.Background(), mcp.Credentials{"token_v2": ""})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "token_v2 is required")
+	// Two creds are accepted now (v3 token_v2 OR v1 access_token); the
+	// error message should mention both paths so users know which to set.
+	assert.Contains(t, err.Error(), "access_token")
+	assert.Contains(t, err.Error(), "token_v2")
 }
 
 func TestConfigure_TrimsTrailingSlashFromCustomBaseURL(t *testing.T) {
