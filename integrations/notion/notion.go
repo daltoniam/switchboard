@@ -21,6 +21,9 @@ const maxResponseSize = 512 << 10 // 512 KB — largest real response ~230KB, ca
 //go:embed compact.yaml
 var compactYAML []byte
 
+//go:embed compact_v1.yaml
+var compactV1YAML []byte
+
 // renderFullPageContentMD bridges the legacy raw-bytes markdown renderer
 // (renderPageContentMD in markdown.go) into the new typed Renderer
 // shape. Used as the custom renderer for
@@ -62,6 +65,19 @@ var compactResult = compact.MustLoadWithOverlay("notion", compactYAML, compact.O
 var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
 var viewSets = compactResult.Views
+
+// compact_v1.yaml uses the same per-tool schema but matches the
+// public-API response shapes (parent objects, nested properties,
+// has_more/next_cursor, etc.). No custom markdown renderers — the
+// existing renderers are v3 record-map specific and would mis-render
+// v1 data; v1 stays JSON-only until a v1 renderer lands.
+var compactV1Result = compact.MustLoadWithOverlay("notion_v1", compactV1YAML, compact.Options{
+	Strict: false,
+})
+
+var v1FieldCompactionSpecs = compactV1Result.Specs
+var v1MaxBytesByTool = compactV1Result.MaxBytes
+var v1ViewSets = compactV1Result.Views
 
 var (
 	_ mcp.Integration                = (*notion)(nil)
@@ -202,11 +218,19 @@ func (n *notion) Tools() []mcp.ToolDefinition {
 }
 
 func (n *notion) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
+	if n.v1 != nil {
+		fields, ok := v1FieldCompactionSpecs[toolName]
+		return fields, ok
+	}
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
 func (n *notion) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	if n.v1 != nil {
+		n2, ok := v1MaxBytesByTool[toolName]
+		return n2, ok
+	}
 	n2, ok := maxBytesByTool[toolName]
 	return n2, ok
 }
@@ -214,7 +238,15 @@ func (n *notion) MaxBytes(toolName mcp.ToolName) (int, bool) {
 // Views returns the multi-view config for tools that declared one.
 // Tools without a `views:` block in compact.yaml return (zero, false)
 // and the server falls back to today's single-spec compaction path.
+//
+// When the v1 (OAuth) backend is active we serve specs from
+// compact_v1.yaml — the shapes are different enough that the v3 specs
+// would project the wrong paths.
 func (n *notion) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	if n.v1 != nil {
+		vs, ok := v1ViewSets[toolName]
+		return vs, ok
+	}
 	vs, ok := viewSets[toolName]
 	return vs, ok
 }

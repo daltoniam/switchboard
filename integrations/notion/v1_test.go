@@ -10,8 +10,10 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 // newV1WithServer wires a *notionV1 against a test HTTP server and runs
@@ -488,4 +490,105 @@ func TestDispatchV1_NoOrphanHandlers(t *testing.T) {
 	for name := range dispatchV1 {
 		assert.True(t, toolNames[name], "v1 dispatch handler %s has no tool definition", name)
 	}
+}
+
+// --- v1 compact specs (compact_v1.yaml) ---
+
+// configuredV1 returns a *notion already pointed at a v1 backend with a
+// stub HTTP client. Used by CompactSpec/MaxBytes/Views tests so they
+// exercise the v1 branch rather than the default v3 one.
+func configuredV1(t *testing.T) *notion {
+	t.Helper()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"user","id":"u1","type":"bot"}`))
+	}))
+	t.Cleanup(ts.Close)
+	n := New().(*notion)
+	v1 := newV1Backend("test-token")
+	v1.baseURL = ts.URL
+	v1.client = ts.Client()
+	require.NoError(t, v1.configure(context.Background()))
+	n.v1 = v1
+	return n
+}
+
+func TestV1FieldCompactionSpecs_AllParse(t *testing.T) {
+	require.NotEmpty(t, v1FieldCompactionSpecs, "v1FieldCompactionSpecs should not be empty")
+}
+
+// TestV1FieldCompactionSpecs_NoDuplicateTools confirms the YAML loader
+// kept every tool entry — parse losslessness check.
+func TestV1FieldCompactionSpecs_NoDuplicateTools(t *testing.T) {
+	var sf compact.SpecFile
+	require.NoError(t, yaml.Unmarshal(compactV1YAML, &sf))
+	// Multi-view tools register their default-view spec under Specs in
+	// addition to Views, so Specs == Tools always (Tools count == top-level
+	// keys, regardless of which form they use).
+	assert.Equal(t, len(sf.Tools), len(v1FieldCompactionSpecs))
+}
+
+func TestV1FieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
+	for tool := range v1FieldCompactionSpecs {
+		_, ok := dispatchV1[tool]
+		assert.True(t, ok, "v1 compaction spec %s has no dispatch handler", tool)
+	}
+}
+
+func TestV1FieldCompactionSpecs_NoMutationTools(t *testing.T) {
+	mutationPrefixes := []string{"create", "update", "delete", "move", "append"}
+	for toolName := range v1FieldCompactionSpecs {
+		for _, prefix := range mutationPrefixes {
+			assert.NotContains(t, string(toolName), "_"+prefix+"_",
+				"mutation tool %q should not have a v1 field compaction spec", toolName)
+		}
+	}
+}
+
+// TestV1FieldCompactionSpecs_ParityWithV3 asserts every tool with a v3
+// spec has a v1 spec, and vice versa. Without this, a tool added to
+// compact.yaml but forgotten in compact_v1.yaml would silently fall
+// through to "no compaction" on the OAuth backend — losing the savings
+// users on Notion v1 are paying for.
+func TestV1FieldCompactionSpecs_ParityWithV3(t *testing.T) {
+	for tool := range fieldCompactionSpecs {
+		_, ok := v1FieldCompactionSpecs[tool]
+		assert.True(t, ok, "tool %s has a v3 spec but no v1 spec in compact_v1.yaml", tool)
+	}
+	for tool := range v1FieldCompactionSpecs {
+		_, ok := fieldCompactionSpecs[tool]
+		assert.True(t, ok, "tool %s has a v1 spec but no v3 spec in compact.yaml", tool)
+	}
+}
+
+// TestCompactSpec_SwitchesOnBackend verifies CompactSpec routes to the
+// v1 spec map when a v1 backend is configured. The two maps are *not*
+// equal byte-for-byte (different JSON shapes mean different paths), so
+// any field present in the v1 spec for a tool but absent from v3 (e.g.
+// `results[].properties.title` on search, which uses different parent
+// keys in v3) is enough to distinguish them.
+func TestCompactSpec_SwitchesOnBackend(t *testing.T) {
+	n3 := New().(*notion) // v1 == nil → v3 specs
+	n1 := configuredV1(t) // v1 != nil → v1 specs
+
+	v3Spec, ok := n3.CompactSpec("notion_search")
+	require.True(t, ok)
+	v1Spec, ok := n1.CompactSpec("notion_search")
+	require.True(t, ok)
+
+	// Same tool, different specs.
+	assert.NotEqual(t, v3Spec, v1Spec, "v1 and v3 CompactSpec should return distinct specs for the same tool")
+}
+
+func TestViews_SwitchesOnBackend(t *testing.T) {
+	n3 := New().(*notion)
+	n1 := configuredV1(t)
+
+	// notion_search has views in both files; the spec contents differ.
+	v3Views, ok3 := n3.Views("notion_search")
+	require.True(t, ok3)
+	v1Views, ok1 := n1.Views("notion_search")
+	require.True(t, ok1)
+	assert.NotEqual(t, v3Views.Views["titles"].Spec, v1Views.Views["titles"].Spec,
+		"v1 and v3 should publish distinct titles-view specs")
 }
