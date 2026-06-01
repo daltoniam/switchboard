@@ -2,6 +2,7 @@ package notion
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -171,7 +172,7 @@ func v1FetchBlockType(ctx context.Context, n *notionV1, blockID string) (string,
 	var b struct {
 		Type string `json:"type"`
 	}
-	if err := jsonUnmarshalLite(data, &b); err != nil {
+	if err := json.Unmarshal(data, &b); err != nil {
 		return "", err
 	}
 	if b.Type == "" {

@@ -251,12 +251,12 @@ func v1BuildPageBody(parent, properties map[string]any, title string, children [
 		props[k] = v
 	}
 	if title != "" {
-		// Whether the title property is named "title" or "Name" or
-		// something custom depends on the parent. For page-parented
-		// pages the property key is "title"; for data_source rows it's
-		// the user-defined title column. We default to "title" — the
-		// caller can override via the properties map.
-		titleKey := v1TitleKeyForParent(parentObj)
+		// Notion's title property is conventionally keyed "title". For
+		// rows in a database the actual title column may be user-named
+		// (e.g. "Name"), in which case the caller is expected to supply
+		// the property explicitly via the properties map — we only
+		// auto-fill when nothing collides with "title".
+		const titleKey = "title"
 		if _, exists := props[titleKey]; !exists {
 			props[titleKey] = v1TitleRichText(title)
 		}
@@ -302,17 +302,6 @@ func v1BuildParentObject(parent map[string]any) (map[string]any, error) {
 		return map[string]any{"type": "workspace", "workspace": true}, nil
 	}
 	return nil, fmt.Errorf("parent must contain page_id, database_id, data_source_id, or workspace:true")
-}
-
-// v1TitleKeyForParent returns the property key under which to write a
-// convenience title. Page-parented pages use the literal "title"; rows
-// in a database use whatever the database's title column is named, but
-// the caller must specify that — we default to "title" if unknown.
-func v1TitleKeyForParent(parent map[string]any) string {
-	if t, _ := parent["type"].(string); t == "page_id" || t == "workspace" {
-		return "title"
-	}
-	return "title"
 }
 
 // v1TitleRichText builds the standard {title: [{type:text, text:{content:s}}]}

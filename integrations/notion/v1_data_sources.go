@@ -2,6 +2,7 @@ package notion
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -120,8 +121,16 @@ func v1UpdateDataSource(ctx context.Context, n *notionV1, args map[string]any) (
 	}
 
 	// Prefer data_sources; fall back to databases for older IDs.
+	// Only fall back on non-retryable failures — if Notion rate-limits us
+	// (429) or 5xx's, doRequest returns a *mcp.RetryableError that the
+	// runtime knows how to back off on. Swallowing that and immediately
+	// firing a second request would double the load and lose the signal.
 	data, err := n.patch(ctx, "/data_sources/"+id, body)
 	if err != nil {
+		var re *mcp.RetryableError
+		if errors.As(err, &re) {
+			return mcp.ErrResult(err)
+		}
 		data, err = n.patch(ctx, "/databases/"+id, body)
 		if err != nil {
 			return mcp.ErrResult(err)
@@ -162,6 +171,10 @@ func v1QueryDataSource(ctx context.Context, n *notionV1, args map[string]any) (*
 
 	data, err := n.post(ctx, "/data_sources/"+id+"/query", body)
 	if err != nil {
+		var re *mcp.RetryableError
+		if errors.As(err, &re) {
+			return mcp.ErrResult(err)
+		}
 		// Older callers may pass a database_id under data_source_id.
 		data, err = n.post(ctx, "/databases/"+id+"/query", body)
 		if err != nil {
@@ -199,6 +212,12 @@ func v1FetchDatabaseOrDataSource(ctx context.Context, n *notionV1, id string) (*
 	data, err := n.get(ctx, "/data_sources/%s", id)
 	if err == nil {
 		return mcp.RawResult(data)
+	}
+	// Don't swallow rate-limit / 5xx — those need to bubble up as
+	// retryable so the runtime backs off.
+	var re *mcp.RetryableError
+	if errors.As(err, &re) {
+		return mcp.ErrResult(err)
 	}
 	data, err2 := n.get(ctx, "/databases/%s", id)
 	if err2 != nil {

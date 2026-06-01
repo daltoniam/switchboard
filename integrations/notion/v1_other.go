@@ -2,7 +2,6 @@ package notion
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -150,14 +149,4 @@ func v1RetrieveComments(ctx context.Context, n *notionV1, args map[string]any) (
 		return mcp.ErrResult(err)
 	}
 	return mcp.RawResult(data)
-}
-
-// --- Tiny shared helper ---
-//
-// jsonUnmarshalLite is the smallest possible wrapper around json.Unmarshal
-// so v1 handlers don't have to reach for the legacy unmarshalJSON helper
-// (which exists in the v3 codepath but has no special semantics worth
-// sharing).
-func jsonUnmarshalLite(data []byte, v any) error {
-	return json.Unmarshal(data, v)
 }

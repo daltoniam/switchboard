@@ -463,3 +463,29 @@ func TestV1BuildParentObjectRejectsEmpty(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page_id")
 }
+
+// --- Dispatch parity (v1) ---
+//
+// Mirror the v3 dispatch parity tests so a misspelled handler name or a
+// new tool added to Tools() without a v1 implementation fails at test
+// time rather than silently routing to the "not yet supported on v1
+// backend" error at runtime.
+
+func TestDispatchV1_EveryToolHasHandler(t *testing.T) {
+	i := New()
+	for _, tool := range i.Tools() {
+		_, ok := dispatchV1[tool.Name]
+		assert.True(t, ok, "tool %s has no v1 dispatch handler", tool.Name)
+	}
+}
+
+func TestDispatchV1_NoOrphanHandlers(t *testing.T) {
+	i := New()
+	toolNames := make(map[mcp.ToolName]bool)
+	for _, tool := range i.Tools() {
+		toolNames[tool.Name] = true
+	}
+	for name := range dispatchV1 {
+		assert.True(t, toolNames[name], "v1 dispatch handler %s has no tool definition", name)
+	}
+}
