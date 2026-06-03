@@ -21,6 +21,14 @@ func (m *Module) Name() string {
 	if m.nameOverride != "" {
 		return m.nameOverride
 	}
+	if m.closed.Load() {
+		return "unknown"
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return "unknown"
+	}
 	ctx := context.Background()
 	results, err := m.fnName.Call(ctx)
 	if err != nil {
@@ -44,6 +52,15 @@ func (m *Module) Configure(ctx context.Context, creds mcp.Credentials) error {
 	credsJSON, err := json.Marshal(creds)
 	if err != nil {
 		return fmt.Errorf("wasm: marshal credentials: %w", err)
+	}
+
+	if m.closed.Load() {
+		return ErrModuleClosed
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return ErrModuleClosed
 	}
 
 	ptr, size, err := writeToGuest(ctx, m.mod, credsJSON)
@@ -77,6 +94,14 @@ func (m *Module) Configure(ctx context.Context, creds mcp.Credentials) error {
 
 // Tools implements mcp.Integration.
 func (m *Module) Tools() []mcp.ToolDefinition {
+	if m.closed.Load() {
+		return nil
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return nil
+	}
 	ctx := context.Background()
 	results, err := m.fnTools.Call(ctx)
 	if err != nil {
@@ -115,6 +140,15 @@ func (m *Module) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 	}
 
+	if m.closed.Load() {
+		return &mcp.ToolResult{Data: ErrModuleClosed.Error(), IsError: true}, nil
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return &mcp.ToolResult{Data: ErrModuleClosed.Error(), IsError: true}, nil
+	}
+
 	ptr, size, err := writeToGuest(ctx, m.mod, reqJSON)
 	if err != nil {
 		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
@@ -145,6 +179,14 @@ func (m *Module) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 
 // Healthy implements mcp.Integration.
 func (m *Module) Healthy(ctx context.Context) bool {
+	if m.closed.Load() {
+		return false
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return false
+	}
 	results, err := m.fnHealthy.Call(ctx)
 	if err != nil {
 		return false
@@ -157,6 +199,14 @@ func (m *Module) Healthy(ctx context.Context) bool {
 
 // Metadata returns plugin metadata from the WASM module's `metadata()` export.
 func (m *Module) Metadata() *marketplace.PluginMetadata {
+	if m.closed.Load() {
+		return nil
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return nil
+	}
 	ctx := context.Background()
 	results, err := m.fnMetadata.Call(ctx)
 	if err != nil {

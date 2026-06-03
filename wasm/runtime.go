@@ -3,14 +3,23 @@ package wasm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
+
+// ErrModuleClosed is returned when a Module method is invoked after Close.
+// Callers should treat this as a clean error and not retry against the same
+// module instance. It is also returned to Execute callers that lose the race
+// against a concurrent Loader-driven reload.
+var ErrModuleClosed = errors.New("wasm: module closed")
 
 // Runtime manages the wazero WebAssembly runtime and compiles/instantiates modules.
 type Runtime struct {
@@ -86,7 +95,18 @@ func (r *Runtime) Close(ctx context.Context) error {
 }
 
 // Module wraps an instantiated WASM module and implements mcp.Integration.
+//
+// Concurrency: wazero's api.Function.Call is explicitly not goroutine-safe
+// (see api.Function.Call docs). A single Module instance shares one linear
+// memory and one malloc/free heap, so every host -> guest call sequence
+// (malloc -> Memory().Write -> Call -> Memory().Read -> free) must run as
+// one atomic critical section. callMu serializes all exported methods that
+// touch m.mod or m.fn*. closed is set by Close so racing callers return
+// ErrModuleClosed instead of dereferencing a freed memory instance.
 type Module struct {
+	callMu sync.Mutex
+	closed atomic.Bool
+
 	mod          api.Module
 	nameOverride string
 	fnName       api.Function
@@ -185,7 +205,18 @@ func (m *Module) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	return fields, ok
 }
 
-// Close releases the WASM module instance.
+// Close releases the WASM module instance. Safe to call multiple times.
+// After Close, all other Module methods return ErrModuleClosed (or, for the
+// nil-returning interface methods, an empty result) without touching the
+// underlying wazero module.
 func (m *Module) Close(ctx context.Context) error {
+	// Set the flag before acquiring the lock so in-flight callers fail fast
+	// when they re-check it. The lock then waits for any active Call to
+	// complete before we hand the module to wazero for teardown.
+	if !m.closed.CompareAndSwap(false, true) {
+		return nil
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
 	return m.mod.Close(ctx)
 }
