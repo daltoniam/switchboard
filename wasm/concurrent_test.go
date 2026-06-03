@@ -72,8 +72,8 @@ func TestModule_ConcurrentExecute(t *testing.T) {
 	}
 }
 
-// TestModule_ConcurrentMixed exercises Execute, Tools, Name, Healthy in parallel.
-// All of these touch m.mod and must be serialized.
+// TestModule_ConcurrentMixed exercises Execute, Tools, Name, Healthy, and
+// Metadata in parallel. All of these touch m.mod and must be serialized.
 func TestModule_ConcurrentMixed(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {
@@ -92,13 +92,13 @@ func TestModule_ConcurrentMixed(t *testing.T) {
 		t.Fatalf("Configure: %v", err)
 	}
 
-	const goroutines = 16
+	const goroutines = 20
 	var wg sync.WaitGroup
 	for g := range goroutines {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			switch id % 4 {
+			switch id % 5 {
 			case 0:
 				_, _ = mod.Execute(context.Background(), "example_echo", map[string]any{"message": "x"})
 			case 1:
@@ -107,6 +107,8 @@ func TestModule_ConcurrentMixed(t *testing.T) {
 				_ = mod.Name()
 			case 3:
 				_ = mod.Healthy(context.Background())
+			case 4:
+				_ = mod.Metadata()
 			}
 		}(g)
 	}
@@ -152,6 +154,9 @@ func TestModule_ExecuteAfterClose(t *testing.T) {
 	}
 	if tools := mod.Tools(); tools != nil {
 		t.Errorf("Tools() should return nil after Close, got %d tools", len(tools))
+	}
+	if meta := mod.Metadata(); meta != nil {
+		t.Errorf("Metadata() should return nil after Close, got %v", meta)
 	}
 }
 
