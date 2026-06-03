@@ -2,6 +2,7 @@ package wasm
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -128,12 +129,24 @@ func TestModule_ExecuteAfterClose(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	// Subsequent calls must not panic.
+	// Subsequent calls must not panic. Each entry point has its own
+	// after-close contract; assert them explicitly so a future refactor
+	// that changes one path can't silently regress the others.
 	result, err := mod.Execute(ctx, "example_echo", map[string]any{"message": "x"})
-	if err == nil && (result == nil || !result.IsError) {
-		t.Fatal("expected Execute after Close to return an error")
+	if err != nil {
+		t.Fatalf("Execute after Close returned unexpected Go error: %v", err)
+	}
+	if result == nil || !result.IsError {
+		t.Fatal("expected Execute after Close to return an IsError result")
 	}
 
+	if err := mod.Configure(ctx, mcp.Credentials{"base_url": "https://example.com", "api_key": "k"}); !errors.Is(err, ErrModuleClosed) {
+		t.Errorf("Configure after Close: got %v, want ErrModuleClosed", err)
+	}
+
+	if got := mod.Name(); got != "unknown" {
+		t.Errorf("Name() after Close = %q, want %q", got, "unknown")
+	}
 	if mod.Healthy(ctx) {
 		t.Error("Healthy() should return false after Close")
 	}
