@@ -308,6 +308,29 @@ type MaxResponseBytesIntegration interface {
 	MaxResponseBytes() int
 }
 
+// PerToolMaxResponseBytesIntegration is an optional interface that integrations can
+// implement to raise the response size cap above the server's default for a single
+// tool, without lifting the cap for every tool in the integration. Use this when
+// only a handful of tools legitimately produce large responses (e.g. raw GitHub
+// PR diffs) and you want to keep the safety net low for everything else.
+//
+// Distinguished from MaxResponseBytesIntegration: that interface returns one cap
+// for the entire integration; this one returns a cap per tool. When both interfaces
+// are implemented, the per-tool value takes precedence for tools it returns true
+// for, and the integration-wide value is used as a fallback for the rest.
+//
+// Distinguished from ToolMaxBytesIntegration: that interface declares a stricter
+// per-tool cap that triggers a response_too_large envelope on the post-compaction
+// JSON body; it cannot raise the cap above the integration-wide check. This
+// interface raises the integration-wide cap, applies to both JSON and plain-text
+// responses, and runs before the integration-wide cap check.
+type PerToolMaxResponseBytesIntegration interface {
+	// MaxResponseBytesForTool returns the response size cap for a specific tool.
+	// Returns (0, false) for tools that should use the integration-wide cap.
+	// Returned values at or below the server default are ignored.
+	MaxResponseBytesForTool(toolName ToolName) (int, bool)
+}
+
 // ToolMaxBytesIntegration is an optional interface that integrations can implement
 // to declare per-tool response size caps. When the post-compaction response for a
 // tool exceeds its declared cap, the server replaces the body with a structured

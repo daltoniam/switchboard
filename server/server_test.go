@@ -1694,6 +1694,118 @@ func TestHandleExecute_PerIntegrationCapStillEnforced(t *testing.T) {
 	assert.Contains(t, tc.Text, "256KB", "error should report the integration's own cap")
 }
 
+// mockIntegrationWithPerToolCap also implements
+// mcp.PerToolMaxResponseBytesIntegration, raising the cap for one specific
+// tool only.
+type mockIntegrationWithPerToolCap struct {
+	*mockIntegration
+	perTool map[mcp.ToolName]int
+}
+
+func (m *mockIntegrationWithPerToolCap) MaxResponseBytesForTool(name mcp.ToolName) (int, bool) {
+	v, ok := m.perTool[name]
+	return v, ok
+}
+
+func TestHandleExecute_PerToolCapHonored(t *testing.T) {
+	// 600KB raw response for the diff-style tool — over the default and over a
+	// hypothetical 256KB integration cap, but under the 1MB per-tool override.
+	bigDiff := strings.Repeat("a", 600*1024)
+	mi := &mockIntegrationWithPerToolCap{
+		mockIntegration: &mockIntegration{
+			name:    "bigint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "bigint_get_diff", Description: "Returns raw diff"},
+				{Name: "bigint_get_thing", Description: "Returns a normal payload"},
+			},
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: bigDiff}, nil
+			},
+		},
+		perTool: map[mcp.ToolName]int{"bigint_get_diff": 1024 * 1024},
+	}
+
+	s := setupTestServerWithIntegration(mi)
+	result, err := s.handleExecute(context.Background(), executeRequest("bigint_get_diff", nil))
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "response within per-tool cap should succeed")
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Equal(t, bigDiff, tc.Text)
+}
+
+func TestHandleExecute_PerToolCapDoesNotLeakToOtherTools(t *testing.T) {
+	// Same integration declares a per-tool override only for bigint_get_diff.
+	// A different tool on the same integration must still be rejected at the
+	// 50KB default — the per-tool cap is not contagious.
+	bigPayload := `{"data":"` + strings.Repeat("y", 60*1024) + `"}`
+	mi := &mockIntegrationWithPerToolCap{
+		mockIntegration: &mockIntegration{
+			name:    "bigint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "bigint_get_diff", Description: "Returns raw diff"},
+				{Name: "bigint_get_thing", Description: "Returns a normal payload"},
+			},
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: bigPayload}, nil
+			},
+		},
+		perTool: map[mcp.ToolName]int{"bigint_get_diff": 1024 * 1024},
+	}
+
+	s := setupTestServerWithIntegration(mi)
+	result, err := s.handleExecute(context.Background(), executeRequest("bigint_get_thing", nil))
+	require.NoError(t, err)
+	assert.True(t, result.IsError, "other tools on the same integration must use the default cap")
+
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	capKB := fmt.Sprintf("%dKB", defaultMaxResponseBytes/1024)
+	assert.Contains(t, tc.Text, capKB, "error should report the default cap, not the per-tool override")
+}
+
+// mockIntegrationWithBothCaps implements both the integration-wide cap and the
+// per-tool cap to verify that per-tool overrides take precedence for tools
+// that declare one, while the integration-wide value still covers the rest.
+type mockIntegrationWithBothCaps struct {
+	*mockIntegration
+	integrationCap int
+	perTool        map[mcp.ToolName]int
+}
+
+func (m *mockIntegrationWithBothCaps) MaxResponseBytes() int { return m.integrationCap }
+func (m *mockIntegrationWithBothCaps) MaxResponseBytesForTool(name mcp.ToolName) (int, bool) {
+	v, ok := m.perTool[name]
+	return v, ok
+}
+
+func TestHandleExecute_PerToolCapWinsOverIntegrationCap(t *testing.T) {
+	// Integration declares a 256KB cap and a 1MB per-tool override.
+	// A 600KB response would be rejected under the integration cap but must
+	// be accepted under the per-tool override.
+	bigDiff := strings.Repeat("z", 600*1024)
+	mi := &mockIntegrationWithBothCaps{
+		mockIntegration: &mockIntegration{
+			name:    "bigint",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: "bigint_get_diff", Description: "Returns raw diff"},
+			},
+			execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+				return &mcp.ToolResult{Data: bigDiff}, nil
+			},
+		},
+		integrationCap: 256 * 1024,
+		perTool:        map[mcp.ToolName]int{"bigint_get_diff": 1024 * 1024},
+	}
+
+	s := setupTestServerWithIntegration(mi)
+	result, err := s.handleExecute(context.Background(), executeRequest("bigint_get_diff", nil))
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "per-tool cap should take precedence over integration cap")
+}
+
 func TestToolResultJSON(t *testing.T) {
 	result := &mcp.ToolResult{Data: `{"count":5}`, IsError: false}
 	data, err := json.Marshal(result)

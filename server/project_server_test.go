@@ -332,6 +332,75 @@ func TestProjectRouter_ExecutePerIntegrationCap(t *testing.T) {
 	})
 }
 
+func TestProjectRouter_ExecutePerToolCap(t *testing.T) {
+	// Pins the project router's tool-aware responseLimitFor lookup so a future
+	// refactor can't silently drop the per-tool override branch.
+	def := &project.Definition{Version: "1", Name: "per-tool-cap-test"}
+
+	buildIntegration := func(toolName mcp.ToolName, payload string) *mockProjectIntegrationWithPerToolCap {
+		_ = toolName // Reserved for future per-tool variations; keeps the call sites self-documenting.
+		return &mockProjectIntegrationWithPerToolCap{
+			mockIntegration: &mockIntegration{
+				name:    "bigint",
+				healthy: true,
+				tools: []mcp.ToolDefinition{
+					{Name: "bigint_get_diff", Description: "Returns raw diff"},
+					{Name: "bigint_get_thing", Description: "Returns a normal payload"},
+				},
+				execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+					return &mcp.ToolResult{Data: payload}, nil
+				},
+			},
+			perTool: map[mcp.ToolName]int{"bigint_get_diff": 1024 * 1024},
+		}
+	}
+
+	execute := func(t *testing.T, mi *mockProjectIntegrationWithPerToolCap, toolName string) *mcpsdk.CallToolResult {
+		t.Helper()
+		router, _ := setupProjectRouterWithIntegration(t, def, mi)
+		scopeRule := project.GetEffectiveRule(def, "switchboard", "")
+		handler := router.makeExecuteHandler(def, scopeRule)
+		result, err := handler(context.Background(), projectToolRequest("execute", map[string]any{
+			"tool_name": toolName,
+			"arguments": map[string]any{},
+		}))
+		require.NoError(t, err)
+		return result
+	}
+
+	t.Run("per-tool override allows oversize for declared tool", func(t *testing.T) {
+		payload := strings.Repeat("a", 600*1024) // 600KB plain text, above default
+		result := execute(t, buildIntegration("bigint_get_diff", payload), "bigint_get_diff")
+
+		assert.False(t, result.IsError, "response within per-tool cap should succeed")
+		tc := result.Content[0].(*mcpsdk.TextContent)
+		assert.Equal(t, payload, tc.Text)
+	})
+
+	t.Run("per-tool override does not leak to other tools", func(t *testing.T) {
+		payload := fmt.Sprintf(`{"data":"%s"}`, strings.Repeat("y", 60*1024)) // 60KB, above default
+		result := execute(t, buildIntegration("bigint_get_thing", payload), "bigint_get_thing")
+
+		assert.True(t, result.IsError, "tools without an override must use the default cap")
+		tc := result.Content[0].(*mcpsdk.TextContent)
+		capKB := fmt.Sprintf("%dKB", defaultMaxResponseBytes/1024)
+		assert.Contains(t, tc.Text, capKB, "error should report the default cap")
+	})
+}
+
+// mockProjectIntegrationWithPerToolCap implements PerToolMaxResponseBytesIntegration
+// on top of *mockIntegration so the project router tests can register a fake
+// integration that raises the cap for one specific tool.
+type mockProjectIntegrationWithPerToolCap struct {
+	*mockIntegration
+	perTool map[mcp.ToolName]int
+}
+
+func (m *mockProjectIntegrationWithPerToolCap) MaxResponseBytesForTool(name mcp.ToolName) (int, bool) {
+	v, ok := m.perTool[name]
+	return v, ok
+}
+
 func TestProjectRouter_ContextManifest(t *testing.T) {
 	dir := t.TempDir()
 	repoDir := filepath.Join(dir, "repo")

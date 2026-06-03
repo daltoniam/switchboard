@@ -20,10 +20,19 @@ var maxBytesByTool = compactResult.MaxBytes
 
 // Compile-time interface assertions.
 var (
-	_ mcp.Integration                = (*integration)(nil)
-	_ mcp.FieldCompactionIntegration = (*integration)(nil)
-	_ mcp.ToolMaxBytesIntegration    = (*integration)(nil)
+	_ mcp.Integration                        = (*integration)(nil)
+	_ mcp.FieldCompactionIntegration         = (*integration)(nil)
+	_ mcp.ToolMaxBytesIntegration            = (*integration)(nil)
+	_ mcp.PerToolMaxResponseBytesIntegration = (*integration)(nil)
 )
+
+// githubPullDiffMaxResponseBytes raises the integration-wide response cap for
+// the github_get_pull_diff tool only. Raw unified diffs for real-world PRs
+// routinely exceed the 50KB default (a single 21-file/5k-line PR is already
+// ~200KB), and the diff endpoint has no projection or pagination knob the
+// agent can use to shrink the response. Other GitHub tools still operate
+// under the default safety net.
+const githubPullDiffMaxResponseBytes = 1024 * 1024 // 1MB
 
 type integration struct {
 	token  string
@@ -62,6 +71,18 @@ func (g *integration) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bo
 func (g *integration) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	n, ok := maxBytesByTool[toolName]
 	return n, ok
+}
+
+// MaxResponseBytesForTool raises the integration-wide response cap for tools
+// whose responses are not amenable to compaction or pagination. github_get_pull_diff
+// returns a raw unified diff that has no projection or per-file knob — the only
+// way to keep PR review usable is to give it more headroom.
+func (g *integration) MaxResponseBytesForTool(toolName mcp.ToolName) (int, bool) {
+	switch toolName {
+	case mcp.ToolName("github_get_pull_diff"):
+		return githubPullDiffMaxResponseBytes, true
+	}
+	return 0, false
 }
 
 func (g *integration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
