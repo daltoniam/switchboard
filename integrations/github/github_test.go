@@ -398,3 +398,18 @@ func TestListIssues_MilestonePassthrough(t *testing.T) {
 		})
 	}
 }
+
+func TestMaxResponseBytesForTool(t *testing.T) {
+	g := New().(*integration)
+
+	v, ok := g.MaxResponseBytesForTool(mcp.ToolName("github_get_pull_diff"))
+	assert.True(t, ok, "github_get_pull_diff should declare a per-tool cap")
+	assert.Equal(t, githubPullDiffMaxResponseBytes, v)
+	assert.Greater(t, v, 50*1024, "per-tool cap must exceed the server default to take effect")
+
+	_, ok = g.MaxResponseBytesForTool(mcp.ToolName("github_get_pull"))
+	assert.False(t, ok, "github_get_pull should not declare a per-tool cap")
+
+	_, ok = g.MaxResponseBytesForTool(mcp.ToolName("github_list_issues"))
+	assert.False(t, ok, "unrelated tools should not declare a per-tool cap")
+}

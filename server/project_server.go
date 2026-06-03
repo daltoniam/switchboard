@@ -334,7 +334,7 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 
 		applyResultProcessing(integration, tool, compact.ParseViewArgs(args.Arguments), result, pr.services.Metrics)
 		if !result.IsError {
-			limit := responseLimitFor(integration)
+			limit := responseLimitFor(integration, tool)
 			if len(result.Data) > limit {
 				if pr.services.Metrics != nil {
 					pr.services.Metrics.RecordTruncation()

@@ -25,10 +25,18 @@ import (
 const defaultSearchLimit = 20
 const defaultMaxResponseBytes = 50 * 1024 // 50KB
 
-// responseLimitFor returns the effective response byte cap for an integration.
-// Integrations that implement MaxResponseBytesIntegration may declare a higher
-// cap; values at or below the default are ignored.
-func responseLimitFor(integration mcp.Integration) int {
+// responseLimitFor returns the effective response byte cap for an integration
+// and tool. Tools whose integration implements PerToolMaxResponseBytesIntegration
+// and returns a value above the default take priority; otherwise the
+// integration-wide MaxResponseBytesIntegration override applies; otherwise the
+// server default. Values at or below the default are always ignored so the
+// safety net cannot be lowered by an integration.
+func responseLimitFor(integration mcp.Integration, toolName mcp.ToolName) int {
+	if pti, ok := integration.(mcp.PerToolMaxResponseBytesIntegration); ok {
+		if v, ok := pti.MaxResponseBytesForTool(toolName); ok && v > defaultMaxResponseBytes {
+			return v
+		}
+	}
 	if mri, ok := integration.(mcp.MaxResponseBytesIntegration); ok {
 		if v := mri.MaxResponseBytes(); v > defaultMaxResponseBytes {
 			return v
@@ -754,7 +762,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		}, nil
 	}
 	applyResultProcessing(integration, args.ToolName, compact.ParseViewArgs(args.Arguments), result, s.services.Metrics)
-	limit := responseLimitFor(integration)
+	limit := responseLimitFor(integration, args.ToolName)
 	if len(result.Data) > limit {
 		if s.services.Metrics != nil {
 			s.services.Metrics.RecordTruncation()
