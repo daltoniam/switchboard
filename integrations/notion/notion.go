@@ -21,6 +21,9 @@ const maxResponseSize = 512 << 10 // 512 KB — largest real response ~230KB, ca
 //go:embed compact.yaml
 var compactYAML []byte
 
+//go:embed compact_v1.yaml
+var compactV1YAML []byte
+
 // renderFullPageContentMD bridges the legacy raw-bytes markdown renderer
 // (renderPageContentMD in markdown.go) into the new typed Renderer
 // shape. Used as the custom renderer for
@@ -63,6 +66,19 @@ var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
 var viewSets = compactResult.Views
 
+// compact_v1.yaml uses the same per-tool schema but matches the
+// public-API response shapes (parent objects, nested properties,
+// has_more/next_cursor, etc.). No custom markdown renderers — the
+// existing renderers are v3 record-map specific and would mis-render
+// v1 data; v1 stays JSON-only until a v1 renderer lands.
+var compactV1Result = compact.MustLoadWithOverlay("notion_v1", compactV1YAML, compact.Options{
+	Strict: false,
+})
+
+var v1FieldCompactionSpecs = compactV1Result.Specs
+var v1MaxBytesByTool = compactV1Result.MaxBytes
+var v1ViewSets = compactV1Result.Views
+
 var (
 	_ mcp.Integration                = (*notion)(nil)
 	_ mcp.FieldCompactionIntegration = (*notion)(nil)
@@ -71,12 +87,29 @@ var (
 	_ compact.ToolViewsIntegration   = (*notion)(nil)
 )
 
+// notion is the integration's top-level type. It holds the v3 cookie
+// backend state inline (for backward compatibility with existing
+// self-hosters) and a non-nil v1 if the user supplied an OAuth access
+// token instead. When v1 is non-nil, Execute/Healthy delegate to it
+// and the v3 fields are unused.
+//
+// Backend selection happens in Configure() based on which credential
+// keys are present:
+//
+//	access_token → v1 (api.notion.com/v1, OAuth bearer, Notion-Version header)
+//	token_v2     → v3 (www.notion.so/api/v3, browser session cookie)
+//
+// If both are present, v1 wins (OAuth is the recommended, supported
+// path; v3 only sticks around for users who set it up before OAuth
+// existed).
 type notion struct {
 	tokenV2 string
 	spaceID string
 	userID  string
 	baseURL string
 	client  *http.Client
+
+	v1 *notionV1
 }
 
 func New() mcp.Integration {
@@ -97,9 +130,25 @@ func New() mcp.Integration {
 func (n *notion) Name() string { return "notion" }
 
 func (n *notion) Configure(ctx context.Context, creds mcp.Credentials) error {
+	// Prefer v1 OAuth if an access token is present.
+	if tok := creds["access_token"]; tok != "" {
+		v1 := newV1Backend(tok)
+		if v := creds["base_url"]; v != "" {
+			v1.baseURL = strings.TrimRight(v, "/")
+		}
+		if v := creds["notion_version"]; v != "" {
+			v1.apiVersion = v
+		}
+		if err := v1.configure(ctx); err != nil {
+			return err
+		}
+		n.v1 = v1
+		return nil
+	}
+
 	n.tokenV2 = creds["token_v2"]
 	if n.tokenV2 == "" {
-		return fmt.Errorf("notion: token_v2 is required")
+		return fmt.Errorf("notion: access_token (OAuth) or token_v2 (cookie) is required")
 	}
 	if v := creds["base_url"]; v != "" {
 		n.baseURL = strings.TrimRight(v, "/")
@@ -154,6 +203,9 @@ func (n *notion) resolveSpaceAndUser(ctx context.Context) (string, string, error
 }
 
 func (n *notion) Healthy(ctx context.Context) bool {
+	if n.v1 != nil {
+		return n.v1.healthy(ctx)
+	}
 	if n.client == nil || n.tokenV2 == "" {
 		return false
 	}
@@ -166,11 +218,19 @@ func (n *notion) Tools() []mcp.ToolDefinition {
 }
 
 func (n *notion) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
+	if n.v1 != nil {
+		fields, ok := v1FieldCompactionSpecs[toolName]
+		return fields, ok
+	}
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
 func (n *notion) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	if n.v1 != nil {
+		n2, ok := v1MaxBytesByTool[toolName]
+		return n2, ok
+	}
 	n2, ok := maxBytesByTool[toolName]
 	return n2, ok
 }
@@ -178,12 +238,30 @@ func (n *notion) MaxBytes(toolName mcp.ToolName) (int, bool) {
 // Views returns the multi-view config for tools that declared one.
 // Tools without a `views:` block in compact.yaml return (zero, false)
 // and the server falls back to today's single-spec compaction path.
+//
+// When the v1 (OAuth) backend is active we serve specs from
+// compact_v1.yaml — the shapes are different enough that the v3 specs
+// would project the wrong paths.
 func (n *notion) Views(toolName mcp.ToolName) (compact.ViewSet, bool) {
+	if n.v1 != nil {
+		vs, ok := v1ViewSets[toolName]
+		return vs, ok
+	}
 	vs, ok := viewSets[toolName]
 	return vs, ok
 }
 
 func (n *notion) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	if n.v1 != nil {
+		fn, ok := dispatchV1[toolName]
+		if !ok {
+			return &mcp.ToolResult{
+				Data:    fmt.Sprintf("tool %q is not yet supported on the Notion OAuth (v1) backend; see switchboard repo issues", toolName),
+				IsError: true,
+			}, nil
+		}
+		return fn(ctx, n.v1, args)
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
