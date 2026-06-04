@@ -42,6 +42,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
+	"github.com/daltoniam/switchboard/integrations/intercom"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
@@ -233,6 +234,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		github.New(),
 		datadog.New(),
 		linear.New("https://mcp.linear.app"),
+		intercom.New(),
 		sentry.New(),
 		slackInt.New(),
 		metabase.New(),
