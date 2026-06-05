@@ -30,6 +30,34 @@ tools:
             - result[].type
             - result[].settings.enforce_twofactor
             - result[].created_on
+    cloudflare_list_ai_gateways:
+        spec:
+            - result[].id
+            - result[].slug
+            - result[].account_tag
+            - result[].cache_ttl
+            - result[].collect_logs
+            - result[].rate_limiting_interval
+            - result[].rate_limiting_limit
+            - result[].created_at
+            - result[].modified_at
+    cloudflare_list_ai_gateway_logs:
+        spec:
+            - result[].id
+            - result[].provider
+            - result[].model
+            - result[].model_type
+            - result[].path
+            - result[].success
+            - result[].cached
+            - result[].cost
+            - result[].tokens_in
+            - result[].tokens_out
+            - result[].duration
+            - result[].status_code
+            - result[].step
+            - result[].feedback
+            - result[].created_at
     cloudflare_list_d1_databases:
         spec:
             - result[].uuid

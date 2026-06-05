@@ -320,4 +320,12 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("cloudflare_list_accounts"):        listAccounts,
 	mcp.ToolName("cloudflare_get_account"):          getAccount,
 	mcp.ToolName("cloudflare_list_account_members"): listAccountMembers,
+
+	// AI Gateway
+	mcp.ToolName("cloudflare_list_ai_gateways"):            listAIGateways,
+	mcp.ToolName("cloudflare_get_ai_gateway"):              getAIGateway,
+	mcp.ToolName("cloudflare_list_ai_gateway_logs"):        listAIGatewayLogs,
+	mcp.ToolName("cloudflare_get_ai_gateway_log"):          getAIGatewayLog,
+	mcp.ToolName("cloudflare_get_ai_gateway_log_request"):  getAIGatewayLogRequest,
+	mcp.ToolName("cloudflare_get_ai_gateway_log_response"): getAIGatewayLogResponse,
 }

@@ -379,4 +379,75 @@ var tools = []mcp.ToolDefinition{
 			"per_page":   "Results per page (default 20)",
 		},
 	},
+
+	// ── AI Gateway ───────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_ai_gateways"),
+		Description: "List Cloudflare AI Gateways for an account. AI Gateway proxies LLM traffic to OpenAI, Anthropic, Workers AI, and other providers with caching, rate limiting, logging, and cost tracking. Start here to discover gateway IDs before pulling logs, token usage, or spend.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"page":       "Page number (default 1)",
+			"per_page":   "Results per page (default 20)",
+		},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_ai_gateway"),
+		Description: "Get a Cloudflare AI Gateway's configuration: cache TTL, rate limits, log collection, spend limits, authentication, DLP, and guardrails. Use after list_ai_gateways.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"gateway_id": "AI Gateway identifier",
+		},
+		Required: []string{"gateway_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_list_ai_gateway_logs"),
+		Description: "List AI Gateway request logs with per-request token usage (tokens_in, tokens_out), cost, latency, model, provider, cache hits, and success/error status. Use this to audit LLM spend, debug failing inferences, or attribute token consumption to a model or provider. Filter by date, provider, model, success, cached, or feedback.",
+		Parameters: map[string]string{
+			"account_id":         "Account identifier (defaults to configured account_id)",
+			"gateway_id":         "AI Gateway identifier",
+			"start_date":         "Start of time range (ISO 8601, e.g. 2024-01-01T00:00:00Z)",
+			"end_date":           "End of time range (ISO 8601)",
+			"provider":           "Filter by LLM provider (e.g. openai, anthropic, workers-ai)",
+			"model":              "Filter by model id (e.g. gpt-4o, claude-3-5-sonnet)",
+			"success":            "Filter by success (true/false)",
+			"cached":             "Filter by cache hit (true/false)",
+			"feedback":           "Filter by feedback rating (0 or 1)",
+			"search":             "Free-text search across log content",
+			"order_by":           "Sort field: created_at, provider, model, model_type, success, or cached",
+			"order_by_direction": "Sort direction (asc or desc)",
+			"page":               "Page number (default 1)",
+			"per_page":           "Results per page (default 20, max 50)",
+		},
+		Required: []string{"gateway_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_ai_gateway_log"),
+		Description: "Get a single AI Gateway log entry with full metadata: tokens_in, tokens_out, cost, model, provider, duration, cached, status. Use after list_ai_gateway_logs to drill into a specific request.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"gateway_id": "AI Gateway identifier",
+			"log_id":     "Log entry identifier",
+		},
+		Required: []string{"gateway_id", "log_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_ai_gateway_log_request"),
+		Description: "Get the raw request body (prompt, messages, parameters) sent to the LLM for an AI Gateway log entry. Use after get_ai_gateway_log to inspect the exact prompt that produced a response.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"gateway_id": "AI Gateway identifier",
+			"log_id":     "Log entry identifier",
+		},
+		Required: []string{"gateway_id", "log_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_ai_gateway_log_response"),
+		Description: "Get the raw response body (completion, choices, usage) returned by the LLM for an AI Gateway log entry. Use after get_ai_gateway_log to inspect the model's reply or error.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"gateway_id": "AI Gateway identifier",
+			"log_id":     "Log entry identifier",
+		},
+		Required: []string{"gateway_id", "log_id"},
+	},
 }
