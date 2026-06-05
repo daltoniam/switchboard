@@ -328,4 +328,86 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("cloudflare_get_ai_gateway_log"):          getAIGatewayLog,
 	mcp.ToolName("cloudflare_get_ai_gateway_log_request"):  getAIGatewayLogRequest,
 	mcp.ToolName("cloudflare_get_ai_gateway_log_response"): getAIGatewayLogResponse,
+
+	// Workers AI
+	mcp.ToolName("cloudflare_list_ai_models"): listAIModels,
+	mcp.ToolName("cloudflare_run_ai_model"):   runAIModel,
+
+	// Vectorize
+	mcp.ToolName("cloudflare_list_vectorize_indexes"): listVectorizeIndexes,
+	mcp.ToolName("cloudflare_get_vectorize_index"):    getVectorizeIndex,
+	mcp.ToolName("cloudflare_create_vectorize_index"): createVectorizeIndex,
+	mcp.ToolName("cloudflare_delete_vectorize_index"): deleteVectorizeIndex,
+	mcp.ToolName("cloudflare_query_vectorize_index"):  queryVectorizeIndex,
+
+	// Queues
+	mcp.ToolName("cloudflare_list_queues"):         listQueues,
+	mcp.ToolName("cloudflare_get_queue"):           getQueue,
+	mcp.ToolName("cloudflare_create_queue"):        createQueue,
+	mcp.ToolName("cloudflare_delete_queue"):        deleteQueue,
+	mcp.ToolName("cloudflare_send_queue_messages"): sendQueueMessages,
+
+	// Hyperdrive
+	mcp.ToolName("cloudflare_list_hyperdrive_configs"):  listHyperdriveConfigs,
+	mcp.ToolName("cloudflare_get_hyperdrive_config"):    getHyperdriveConfig,
+	mcp.ToolName("cloudflare_create_hyperdrive_config"): createHyperdriveConfig,
+	mcp.ToolName("cloudflare_delete_hyperdrive_config"): deleteHyperdriveConfig,
+
+	// Workers extras
+	mcp.ToolName("cloudflare_list_worker_secrets"):     listWorkerSecrets,
+	mcp.ToolName("cloudflare_list_worker_deployments"): listWorkerDeployments,
+	mcp.ToolName("cloudflare_get_worker_subdomain"):    getWorkerSubdomain,
+	mcp.ToolName("cloudflare_list_worker_tails"):       listWorkerTails,
+
+	// Pages extras
+	mcp.ToolName("cloudflare_create_pages_project"):    createPagesProject,
+	mcp.ToolName("cloudflare_create_pages_deployment"): createPagesDeployment,
+	mcp.ToolName("cloudflare_list_pages_domains"):      listPagesDomains,
+
+	// KV bulk
+	mcp.ToolName("cloudflare_bulk_delete_kv_values"): bulkDeleteKVValues,
+
+	// Stream
+	mcp.ToolName("cloudflare_list_stream_videos"):  listStreamVideos,
+	mcp.ToolName("cloudflare_get_stream_video"):    getStreamVideo,
+	mcp.ToolName("cloudflare_delete_stream_video"): deleteStreamVideo,
+
+	// Images
+	mcp.ToolName("cloudflare_list_images"):  listImages,
+	mcp.ToolName("cloudflare_get_image"):    getImage,
+	mcp.ToolName("cloudflare_delete_image"): deleteImage,
+
+	// Zero Trust Access
+	mcp.ToolName("cloudflare_list_access_apps"):               listAccessApps,
+	mcp.ToolName("cloudflare_list_access_app_policies"):       listAccessAppPolicies,
+	mcp.ToolName("cloudflare_list_access_identity_providers"): listAccessIdentityProviders,
+
+	// Tunnels
+	mcp.ToolName("cloudflare_list_tunnels"):  listTunnels,
+	mcp.ToolName("cloudflare_get_tunnel"):    getTunnel,
+	mcp.ToolName("cloudflare_delete_tunnel"): deleteTunnel,
+
+	// Email Routing
+	mcp.ToolName("cloudflare_list_email_routing_rules"):     listEmailRoutingRules,
+	mcp.ToolName("cloudflare_list_email_routing_addresses"): listEmailRoutingAddresses,
+	mcp.ToolName("cloudflare_get_email_routing_settings"):   getEmailRoutingSettings,
+
+	// Logpush
+	mcp.ToolName("cloudflare_list_logpush_jobs"):  listLogpushJobs,
+	mcp.ToolName("cloudflare_get_logpush_job"):    getLogpushJob,
+	mcp.ToolName("cloudflare_create_logpush_job"): createLogpushJob,
+
+	// Page Rules
+	mcp.ToolName("cloudflare_list_page_rules"):  listPageRules,
+	mcp.ToolName("cloudflare_get_page_rule"):    getPageRule,
+	mcp.ToolName("cloudflare_delete_page_rule"): deletePageRule,
+
+	// Notifications
+	mcp.ToolName("cloudflare_list_notification_policies"): listNotificationPolicies,
+	mcp.ToolName("cloudflare_list_notification_webhooks"): listNotificationWebhooks,
+
+	// API Tokens
+	mcp.ToolName("cloudflare_list_api_tokens"):  listAPITokens,
+	mcp.ToolName("cloudflare_get_api_token"):    getAPIToken,
+	mcp.ToolName("cloudflare_delete_api_token"): deleteAPIToken,
 }
