@@ -56,6 +56,7 @@ tools:
             - result[].duration
             - result[].status_code
             - result[].step
+            - result[].feedback
             - result[].created_at
     cloudflare_list_d1_databases:
         spec:
