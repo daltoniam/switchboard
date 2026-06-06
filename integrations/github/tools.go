@@ -800,8 +800,18 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo"},
 	},
 	{
+		Name: mcp.ToolName("github_create_runner_registration_token"), Description: "Create a repository self-hosted runner registration token and expiry time. Pass the token to the runner's ./config.sh --token <value> command; tokens are valid for about 1 hour.",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
 		Name: mcp.ToolName("github_list_org_runners"), Description: "List self-hosted runners for an organization",
 		Parameters: map[string]string{"org": "Organization name", "page": "Page number", "per_page": "Results per page"},
+		Required:   []string{"org"},
+	},
+	{
+		Name: mcp.ToolName("github_create_org_runner_registration_token"), Description: "Create an organization self-hosted runner registration token and expiry time. Pass the token to the runner's ./config.sh --token <value> command; tokens are valid for about 1 hour.",
+		Parameters: map[string]string{"org": "Organization name"},
 		Required:   []string{"org"},
 	},
 

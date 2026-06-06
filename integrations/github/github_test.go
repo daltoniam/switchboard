@@ -263,6 +263,44 @@ func TestDeletePRComment(t *testing.T) {
 	assert.Contains(t, result.Data, `"deleted"`)
 }
 
+func TestCreateRunnerRegistrationToken(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Contains(t, r.URL.Path, "/repos/o/r/actions/runners/registration-token")
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"token":"repo-token","expires_at":"2026-06-06T12:00:00Z"}`)
+	}))
+	defer ts.Close()
+
+	result, err := createRunnerRegistrationToken(context.Background(), g, map[string]any{
+		"owner": "o", "repo": "r",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+	assert.Contains(t, result.Data, `"repo-token"`)
+	assert.Contains(t, result.Data, `"2026-06-06T12:00:00Z"`)
+}
+
+func TestCreateOrgRunnerRegistrationToken(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Contains(t, r.URL.Path, "/orgs/acme/actions/runners/registration-token")
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"token":"org-token","expires_at":"2026-06-06T12:00:00Z"}`)
+	}))
+	defer ts.Close()
+
+	result, err := createOrgRunnerRegistrationToken(context.Background(), g, map[string]any{
+		"org": "acme",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+	assert.Contains(t, result.Data, `"org-token"`)
+	assert.Contains(t, result.Data, `"2026-06-06T12:00:00Z"`)
+}
+
 func TestGetPRComment_APIError(t *testing.T) {
 	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
