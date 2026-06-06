@@ -7,18 +7,18 @@
       "max_tokens": 16384
     },
     "small": {
-      "model": "grok-3-mini",
+      "model": "grok-build-0.1",
       "provider": "xAI",
-      "max_tokens": 8192
+      "max_tokens": 16384
     }
   },
   "providers": {
     "xAI": {
       "type": "openai-compat",
-      "base_url": "https://gateway.ai.cloudflare.com/v1/a9d106d880527eaecdaf7835b792849d/curri-gateway/grok",
+      "base_url": "https://gateway.ai.cloudflare.com/v1/${CF_AIG_ACCOUNT_ID:?set CF_AIG_ACCOUNT_ID}/${CF_AIG_GATEWAY_ID:?set CF_AIG_GATEWAY_ID}/grok",
       "api_key": "${CF_AIG_TOKEN:?set CF_AIG_TOKEN to your Cloudflare AI Gateway token}",
       "extra_headers": {
-        "cf-aig-metadata": "{\"developer_id\": \"dalton.cherry\", \"task_type\": \"ci_pr_review\", \"tool\": \"crush\", \"tier\": \"frontier\"}",
+        "cf-aig-metadata": "{\"developer_id\": \"austin.cherry\", \"task_type\": \"ci_pr_review\", \"tool\": \"crush\", \"tier\": \"frontier\"}",
         "cf-aig-collect-log-payload": "false"
       },
       "models": [
@@ -33,13 +33,12 @@
           "supports_attachments": true
         },
         {
-          "id": "grok-3-mini",
-          "name": "Grok 3 Mini",
-          "cost_per_1m_in": 0.3,
-          "cost_per_1m_out": 0.5,
-          "context_window": 131000,
-          "default_max_tokens": 8192,
-          "can_reason": true
+          "id": "grok-build-0.1",
+          "name": "Grok Build 0.1",
+          "context_window": 256000,
+          "default_max_tokens": 16384,
+          "can_reason": true,
+          "supports_attachments": true
         }
       ]
     }

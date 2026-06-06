@@ -49,6 +49,8 @@ jobs:
       - name: Run Crush PR Review
         env:
           CF_AIG_TOKEN: ${{ secrets.CF_AIG_TOKEN }}
+          CF_AIG_ACCOUNT_ID: ${{ secrets.CF_AIG_ACCOUNT_ID }}
+          CF_AIG_GATEWAY_ID: ${{ secrets.CF_AIG_GATEWAY_ID }}
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           CRUSH_SKILLS_DIR: ${{ github.workspace }}/.claude/skills
           CRUSH_GLOBAL_CONFIG: ${{ github.workspace }}/.ci/crush
