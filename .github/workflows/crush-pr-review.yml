@@ -12,7 +12,7 @@ permissions:
 jobs:
   crush-review:
     name: Crush PR Review
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, crush-review]
     # Only run when: CI passed, it was a PR event, and the PR is not from a fork
     if: >
       github.event.workflow_run.conclusion == 'success' &&
@@ -48,8 +48,7 @@ jobs:
 
       - name: Run Crush PR Review
         env:
-          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
-          AWS_REGION: us-east-1
+          CF_AIG_TOKEN: ${{ secrets.CF_AIG_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           CRUSH_SKILLS_DIR: ${{ github.workspace }}/.claude/skills
           CRUSH_GLOBAL_CONFIG: ${{ github.workspace }}/.ci/crush
