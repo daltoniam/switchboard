@@ -215,6 +215,20 @@ func listRunners(ctx context.Context, g *integration, args map[string]any) (*mcp
 	return mcp.JSONResult(resp.Runners)
 }
 
+func createRunnerRegistrationToken(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	token, _, err := g.client.Actions.CreateRegistrationToken(ctx, owner, repo)
+	if err != nil {
+		return errResult(err)
+	}
+	return mcp.JSONResult(token)
+}
+
 func listOrgRunners(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	org := r.Str("org")
@@ -229,4 +243,17 @@ func listOrgRunners(ctx context.Context, g *integration, args map[string]any) (*
 		return errResult(err)
 	}
 	return mcp.JSONResult(resp.Runners)
+}
+
+func createOrgRunnerRegistrationToken(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	token, _, err := g.client.Actions.CreateOrganizationRegistrationToken(ctx, org)
+	if err != nil {
+		return errResult(err)
+	}
+	return mcp.JSONResult(token)
 }
