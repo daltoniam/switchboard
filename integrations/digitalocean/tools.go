@@ -20,8 +20,8 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"droplet_id"},
 	},
 	{
-		Name: mcp.ToolName("digitalocean_create_droplet"), Description: "Create a new droplet",
-		Parameters: map[string]string{"name": "Droplet name", "region": "Region slug (e.g. nyc3)", "size": "Size slug (e.g. s-1vcpu-1gb)", "image": "Image slug or ID (e.g. ubuntu-24-04-x64)", "ssh_keys": "Comma-separated SSH key IDs or fingerprints", "tags": "Comma-separated tags", "vpc_uuid": "VPC UUID"},
+		Name: mcp.ToolName("digitalocean_create_droplet"), Description: "Create a new droplet. Use user_data for cloud-init bootstrapping scripts when the droplet must self-configure on first boot.",
+		Parameters: map[string]string{"name": "Droplet name", "region": "Region slug (e.g. nyc3)", "size": "Size slug (e.g. s-1vcpu-1gb)", "image": "Image slug or ID (e.g. ubuntu-24-04-x64)", "ssh_keys": "Comma-separated SSH key IDs or fingerprints", "tags": "Comma-separated tags", "vpc_uuid": "VPC UUID", "user_data": "Cloud-init user data script for first boot configuration"},
 		Required:   []string{"name", "region", "size", "image"},
 	},
 	{

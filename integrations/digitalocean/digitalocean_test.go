@@ -2,8 +2,10 @@ package digitalocean
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/digitalocean/godo"
@@ -112,6 +114,36 @@ func TestErrResult(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
+}
+
+func TestCreateDroplet_UserData(t *testing.T) {
+	var captured map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Contains(t, r.URL.Path, "/droplets")
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&captured))
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"droplet":{"id":123,"name":"runner"}}`)
+	}))
+	defer ts.Close()
+
+	d := &integration{}
+	require.NoError(t, d.Configure(context.Background(), mcp.Credentials{
+		"api_token": "dop_v1_test123",
+		"base_url":  ts.URL,
+	}))
+
+	result, err := createDroplet(context.Background(), d, map[string]any{
+		"name":      "runner",
+		"region":    "sfo3",
+		"size":      "s-2vcpu-4gb",
+		"image":     "ubuntu-24-04-x64",
+		"user_data": "#cloud-config\npackage_update: true\n",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+	assert.Equal(t, "#cloud-config\npackage_update: true\n", captured["user_data"])
 }
 
 func TestWrapRetryable_RateLimited(t *testing.T) {

@@ -74,6 +74,11 @@ func createDroplet(ctx context.Context, d *integration, args map[string]any) (*m
 		req.VPCUUID = vpcUUID
 	}
 
+	userData, _ := mcp.ArgStr(args, "user_data")
+	if userData != "" {
+		req.UserData = userData
+	}
+
 	droplet, _, err := d.client.Droplets.Create(ctx, req)
 	if err != nil {
 		return errResult(err)
