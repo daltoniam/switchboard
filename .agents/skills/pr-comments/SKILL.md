@@ -16,8 +16,10 @@ Post review findings as inline comments on specific diff lines via the GitHub Pu
 
 **Before doing anything else**, check the pr-review output:
 
-- If the review found **zero Must Fix and zero Should Fix items**, submit an `APPROVE` review with a short body like "Clean PR — builds, tests pass, lint clean. LGTM." and **no inline comments**. Then stop.
-- If only "Consider" items exist and they're truly optional, approve without inline comments.
+- Before submitting any review, fetch PR status checks with `gh pr view <number> --repo <owner>/<repo> --json statusCheckRollup` and include a short status summary in the review body or fallback comment.
+- If the review found **zero Must Fix and zero Should Fix items**, submit an `APPROVE` review with a short body like "Clean PR — CI/status checks are passing and I didn't find any blocking issues. LGTM." and **no inline comments**. Then stop.
+- If GitHub rejects the approval because the token belongs to the PR author, post a regular PR comment with the same short positive summary, include the CI/status check summary, and mention that approval was blocked by GitHub's own-PR restriction. Then stop.
+- If only "Consider" items exist and they're truly optional, approve without inline comments. If approval is blocked by GitHub's own-PR restriction, post a regular PR comment summarizing that the review found no blocking issues and include the CI/status check summary.
 - Only proceed to Step 1 if there are **concrete, actionable findings** worth commenting on.
 
 **Never post test/placeholder comments.** Every comment submitted to the PR must contain real, substantive feedback.
