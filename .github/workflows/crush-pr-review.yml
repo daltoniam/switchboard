@@ -54,8 +54,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           CRUSH_SKILLS_DIR: ${{ github.workspace }}/.claude/skills
           CRUSH_GLOBAL_CONFIG: ${{ github.workspace }}/.ci/crush
+          GOMAXPROCS: "1"
+          GOFLAGS: "-p=1"
         run: >
           crush run -c "${{ github.workspace }}"
           "Review PR #${{ steps.pr.outputs.number }} in ${{ github.repository }}.
+          CI has already passed for this PR. Do not rerun build, test, lint, go mod tidy, golangci-lint, or the full CI matrix. Inspect existing CI/status checks and focus on code review of the diff.
           Use the pr-review skill to do a full code review, then use the pr-comments skill to post your findings as inline comments on the PR.
           The repo is already checked out locally. Use gh CLI for all GitHub API interactions."
