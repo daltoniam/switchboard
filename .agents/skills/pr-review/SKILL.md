@@ -48,46 +48,32 @@ git fetch origin <headRefName> && git checkout <headRefName>
 
 Note the PR size (files changed, additions, deletions) — large PRs deserve extra scrutiny.
 
-### Step 2: Build Verification
+### Step 2: CI Status Verification
 
-The project must compile cleanly:
+CI has already run before this review workflow starts. Do not rerun `go build`, `go mod tidy`, `go test`, `golangci-lint`, or the full CI matrix during automated review.
 
-```bash
-go build -o switchboard ./cmd/server
-```
-
-If the build fails, stop and report it as a **Must Fix** item. No further review is meaningful if the code doesn't compile.
-
-Also check that `go.mod` and `go.sum` are tidy:
-```bash
-go mod tidy
-git diff --exit-code go.mod go.sum
-```
-
-If `go mod tidy` produces changes, flag it.
-
-### Step 3: Test Suite
-
-Run the full test suite with the race detector:
+Use GitHub status and run metadata to verify CI instead:
 
 ```bash
-go test -race ./...
+gh pr view <number> --repo daltoniam/switchboard --json statusCheckRollup
 ```
 
-- If tests fail due to code issues, report each failure as a **Must Fix** item with the test name, file, and error output.
+Report the existing CI result in the review. If CI failed or is missing, report that as a **Must Fix** item. If CI passed, proceed directly to diff review.
+
+### Step 3: Test Coverage Review
+
+Review whether the diff includes appropriate tests for the changed behavior. Do not run the test suite unless needed to validate a specific finding that cannot be assessed from the diff and existing CI status.
+
 - If there are no tests for new functionality, flag it as a **Must Fix** item. Every change must have tests.
 - Check for `testify` assertions — the project uses `github.com/stretchr/testify`.
 - Verify dispatch map parity tests exist for any new/modified adapter.
+- If a targeted command is truly necessary, keep it narrow and set `GOMAXPROCS=1` and `GOFLAGS=-p=1`.
 
-### Step 4: Linting and Static Analysis
+### Step 4: Lint and Static Analysis Status
 
-Run the project's configured linters:
+Do not run `golangci-lint` or broad static analysis during automated review. Use the existing CI result as the lint/static-analysis signal.
 
-```bash
-golangci-lint run
-```
-
-Must return 0 issues. Report linter findings grouped by severity. Don't flag issues that exist in unchanged code unless they're in functions modified by the PR.
+Review changed code manually for correctness, security, performance, and maintainability. Don't flag issues that exist in unchanged code unless they're in functions modified by the PR.
 
 ### Step 5: Code Review — Architecture and Patterns
 
