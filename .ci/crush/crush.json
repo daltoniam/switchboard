@@ -18,7 +18,7 @@
       "base_url": "https://gateway.ai.cloudflare.com/v1/${CF_AIG_ACCOUNT_ID:?set CF_AIG_ACCOUNT_ID}/${CF_AIG_GATEWAY_ID:?set CF_AIG_GATEWAY_ID}/grok",
       "api_key": "${CF_AIG_TOKEN:?set CF_AIG_TOKEN to your Cloudflare AI Gateway token}",
       "extra_headers": {
-        "cf-aig-metadata": "{\"developer_id\": \"austin.cherry\", \"task_type\": \"ci_pr_review\", \"tool\": \"crush\", \"tier\": \"frontier\"}",
+        "cf-aig-metadata": "{\"developer_id\": \"austin.cherry\", \"tier\": \"frontier\"}",
         "cf-aig-collect-log-payload": "false"
       },
       "models": [
