@@ -1,16 +1,46 @@
 {
   "$schema": "https://charm.land/crush.json",
+  "models": {
+    "large": {
+      "model": "grok-4.3",
+      "provider": "xAI",
+      "max_tokens": 16384
+    },
+    "small": {
+      "model": "grok-build-0.1",
+      "provider": "xAI",
+      "max_tokens": 16384
+    }
+  },
   "providers": {
-    "bedrock": {
-      "type": "bedrock",
-      "name": "AWS Bedrock",
-      "extra_params": {
-        "region": "us-east-1"
+    "xAI": {
+      "type": "openai-compat",
+      "base_url": "https://gateway.ai.cloudflare.com/v1/${CF_AIG_ACCOUNT_ID:?set CF_AIG_ACCOUNT_ID}/${CF_AIG_GATEWAY_ID:?set CF_AIG_GATEWAY_ID}/grok",
+      "api_key": "${CF_AIG_TOKEN:?set CF_AIG_TOKEN to your Cloudflare AI Gateway token}",
+      "extra_headers": {
+        "cf-aig-metadata": "{\"developer_id\": \"austin.cherry\", \"task_type\": \"ci_pr_review\", \"tool\": \"crush\", \"tier\": \"frontier\"}",
+        "cf-aig-collect-log-payload": "false"
       },
       "models": [
         {
-          "id": "anthropic.claude-opus-4-6-v1",
-          "name": "Claude Opus 4.6"
+          "id": "grok-4.3",
+          "name": "Grok 4.3",
+          "cost_per_1m_in": 1.25,
+          "cost_per_1m_out": 2.5,
+          "context_window": 1000000,
+          "default_max_tokens": 16384,
+          "can_reason": true,
+          "supports_attachments": true
+        },
+        {
+          "id": "grok-build-0.1",
+          "name": "Grok Build 0.1",
+          "context_window": 256000,
+          "default_max_tokens": 16384,
+          "cost_per_1m_in": 1.0,
+          "cost_per_1m_out": 2.0,
+          "can_reason": true,
+          "supports_attachments": true
         }
       ]
     }
