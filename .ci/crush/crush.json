@@ -37,6 +37,8 @@
           "name": "Grok Build 0.1",
           "context_window": 256000,
           "default_max_tokens": 16384,
+          "cost_per_1m_in": 1.0,
+          "cost_per_1m_out": 2.0,
           "can_reason": true,
           "supports_attachments": true
         }
