@@ -1,6 +1,8 @@
 package rwx
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -759,19 +761,34 @@ func TestGetTaskLogs_MissingArgs(t *testing.T) {
 }
 
 func TestGetTaskLogs_RunIDAndTaskKey(t *testing.T) {
-	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "rwx")
-	script := `#!/bin/sh
-for arg in "$@"; do
-  case "$prev" in
-    --output-dir) echo "log output for task" > "$arg/task.log" ;;
-  esac
-  prev="$arg"
-done
-echo '{}'
-`
-	require.NoError(t, os.WriteFile(bin, []byte(script), 0o755))
-	r := &rwx{cliPath: bin, logCache: newLogCache(), client: &http.Client{}, baseURL: "http://localhost:0", org: "test"}
+	var zipData bytes.Buffer
+	zw := zip.NewWriter(&zipData)
+	f, err := zw.Create("task.log")
+	require.NoError(t, err)
+	_, err = f.Write([]byte("log output for task"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	downloadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(zipData.Bytes())
+	}))
+	defer downloadServer.Close()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/log_download":
+			assert.Equal(t, "run-abc123", r.URL.Query().Get("run_id"))
+			assert.Equal(t, "ci.checks.lint", r.URL.Query().Get("task_key"))
+			_, _ = w.Write([]byte(`{"url":"` + downloadServer.URL + `","token":"tok","filename":"logs.zip","contents":"contents"}`))
+		case "/mint/api/runs/run-abc123":
+			_, _ = w.Write([]byte(`{"completed_at":"2024-01-01T00:00:00Z","run_status":{"execution":"finished","result":"succeeded"}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	r := &rwx{accessToken: "test-token", logCache: newLogCache(), client: ts.Client(), baseURL: ts.URL, org: "test"}
 
 	result, err := getTaskLogs(context.Background(), r, map[string]any{
 		"run_id":   "run-abc123",
@@ -794,13 +811,22 @@ func TestGetRunResults_MissingArgs(t *testing.T) {
 }
 
 func TestGetRunResults_BranchLookup(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"id":"run-abc","completed_runtime_seconds":120,"title":"CI","branch":"main","commit_sha":"abc123","definition_path":".rwx/ci.yml"}`))
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/results/latest":
+			assert.Equal(t, "main", r.URL.Query().Get("branch_name"))
+			_, _ = w.Write([]byte(`{"run_id":"run-abc","result_status":"succeeded","execution_status":"finished"}`))
+		case "/mint/api/results/prompt":
+			_, _ = w.Write([]byte(``))
+		case "/mint/api/runs/run-abc":
+			_, _ = w.Write([]byte(`{"id":"run-abc","completed_runtime_seconds":120,"title":"CI","branch":"main","commit_sha":"abc123","definition_path":".rwx/ci.yml"}`))
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 	defer ts.Close()
 
-	bin := fakeBin(t, `echo '{"RunID":"run-abc","ResultStatus":"succeeded","Completed":true}'`)
-	r := &rwx{cliPath: bin, org: "org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+	r := &rwx{accessToken: "test-token", org: "org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
 
 	result, err := getRunResults(context.Background(), r, map[string]any{
 		"branch": "main",

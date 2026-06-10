@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -340,6 +341,40 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 	})
 }
 
+func fetchResultsStatus(ctx context.Context, r *rwx, runIDRaw, taskKey, branch, commit, repo, definition string) (rwxStatusResult, string, error) {
+	var statusResult rwxStatusResult
+	query := url.Values{}
+	if runIDRaw != "" {
+		id := extractRunID(runIDRaw)
+		if taskKey != "" {
+			query.Set("run_id", id)
+			query.Set("task_key", taskKey)
+		} else {
+			query.Set("id", id)
+		}
+		return statusResult, id, r.apiGetJSON(ctx, "/mint/api/results/status", query, &statusResult)
+	}
+	if branch == "" && commit == "" {
+		return statusResult, "", fmt.Errorf("either run_id or branch/commit is required")
+	}
+	if branch != "" {
+		query.Set("branch_name", branch)
+	}
+	if commit != "" {
+		query.Set("commit_sha", commit)
+	}
+	if repo != "" {
+		query.Set("repository_name", repo)
+	}
+	if definition != "" {
+		query.Set("definition_path", definition)
+	}
+	if err := r.apiGetJSON(ctx, "/mint/api/results/latest", query, &statusResult); err != nil {
+		return statusResult, "", err
+	}
+	return statusResult, statusResult.runID(""), nil
+}
+
 func getRunResults(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
 	ra := mcp.NewArgs(args)
 	runIDRaw := ra.Str("run_id")
@@ -352,65 +387,52 @@ func getRunResults(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 		return mcp.ErrResult(err)
 	}
 
-	var cmdArgs []string
-	if runIDRaw != "" {
-		id := extractRunID(runIDRaw)
-		cmdArgs = []string{"results", id, "--output", "json"}
-	} else if branch != "" || commit != "" {
-		cmdArgs = []string{"results", "--output", "json"}
-		if branch != "" {
-			cmdArgs = append(cmdArgs, "--branch", branch)
-		}
-		if commit != "" {
-			cmdArgs = append(cmdArgs, "--commit", commit)
-		}
-		if repo != "" {
-			cmdArgs = append(cmdArgs, "--repo", repo)
-		}
-		if definition != "" {
-			cmdArgs = append(cmdArgs, "--definition", definition)
-		}
-	} else {
-		return mcp.ErrResult(fmt.Errorf("either run_id or branch/commit is required"))
-	}
-	if taskKey != "" {
-		cmdArgs = append(cmdArgs, "--task", taskKey)
-	}
-
-	output, err := r.runRWXCommand(cmdArgs, 0)
+	statusResult, id, err := fetchResultsStatus(ctx, r, runIDRaw, taskKey, branch, commit, repo, definition)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
 
-	var parsed struct {
-		RunID        string `json:"RunID"`
-		TaskID       string `json:"TaskID"`
-		ResultStatus string `json:"ResultStatus"`
-		Completed    bool   `json:"Completed"`
-		Prompt       string `json:"Prompt"`
+	id = statusResult.runID(id)
+	if id == "" {
+		return mcp.ErrResult(fmt.Errorf("RWX API response did not include run ID"))
 	}
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		return mcp.ErrResult(fmt.Errorf("parse results: %w", err))
-	}
-
-	id := parsed.RunID
 	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
-	status := normalizeStatus(parsed.ResultStatus)
+	status := normalizeStatus(statusResult.resultStatus())
+	if !statusResult.completed() && status == "unknown" {
+		status = "running"
+	}
 
-	failedTasks, failedTests, otherProblems := parseResultsPrompt(parsed.Prompt)
+	promptQuery := url.Values{}
+	if taskKey != "" {
+		promptQuery.Set("run_id", id)
+		promptQuery.Set("task_key", taskKey)
+	} else {
+		promptQuery.Set("id", id)
+	}
+	prompt, promptErr := r.apiGetText(ctx, "/mint/api/results/prompt", promptQuery)
+	if promptErr != nil {
+		prompt = ""
+	}
+	failedTasks, failedTests, otherProblems := parseResultsPrompt(prompt)
 
 	resp := map[string]any{
 		"run_id":    id,
 		"url":       runURL,
 		"status":    status,
-		"completed": parsed.Completed,
+		"completed": statusResult.completed(),
 	}
 
-	if parsed.TaskID != "" {
-		resp["task_id"] = parsed.TaskID
+	if statusResult.taskID() != "" {
+		resp["task_id"] = statusResult.taskID()
 	}
 	if taskKey != "" {
 		resp["task_key"] = taskKey
+	}
+	if statusResult.executionStatus() != "" {
+		resp["execution_status"] = statusResult.executionStatus()
+	}
+	if statusResult.ExecutionAbortedSubStatus != "" {
+		resp["execution_aborted_sub_status"] = statusResult.ExecutionAbortedSubStatus
 	}
 
 	runDetail, detailErr := fetchRunDetail(ctx, r, id)
@@ -450,25 +472,8 @@ func getRunResults(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 }
 
 func fetchRunDetail(ctx context.Context, r *rwx, runID string) (map[string]any, error) {
-	apiURL := fmt.Sprintf("%s/mint/api/runs/%s", r.baseURL, runID)
-	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+r.accessToken)
-
-	resp, err := r.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API error: %d", resp.StatusCode)
-	}
-
 	var data map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+	if err := r.apiGetJSON(ctx, "/mint/api/runs/"+runID, nil, &data); err != nil {
 		return nil, err
 	}
 	return data, nil

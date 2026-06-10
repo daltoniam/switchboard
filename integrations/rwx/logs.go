@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
+	"net/url"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -67,7 +66,7 @@ func downloadLogs(ctx context.Context, r *rwx, id string, taskKey ...string) (st
 		return cached, nil
 	}
 
-	logs, err := r.downloadLogsFromRWX(id, taskKey...)
+	logs, err := r.downloadLogsFromRWX(ctx, id, taskKey...)
 	if err != nil {
 		return "", err
 	}
@@ -84,66 +83,28 @@ func downloadLogs(ctx context.Context, r *rwx, id string, taskKey ...string) (st
 	return logs, nil
 }
 
-func (r *rwx) downloadLogsFromRWX(id string, taskKey ...string) (string, error) {
-	outputDir, err := os.MkdirTemp("", fmt.Sprintf("rwx-logs-%s-", id))
-	if err != nil {
-		return "", fmt.Errorf("create temp dir: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(outputDir) }()
-
-	cmdArgs := []string{"logs", id, "--output-dir", outputDir, "--auto-extract", "--output", "json"}
+func (r *rwx) downloadLogsFromRWX(ctx context.Context, id string, taskKey ...string) (string, error) {
+	query := url.Values{}
 	if len(taskKey) > 0 && taskKey[0] != "" {
-		cmdArgs = append(cmdArgs, "--task", taskKey[0])
+		query.Set("run_id", id)
+		query.Set("task_key", taskKey[0])
+	} else {
+		query.Set("id", id)
 	}
-	_, err = r.runRWXCommand(cmdArgs, 0)
+
+	var request rwxLogDownload
+	if err := r.apiGetJSON(ctx, "/mint/api/log_download", query, &request); err != nil {
+		return "", err
+	}
+	if request.URL == "" {
+		return "", fmt.Errorf("RWX API response did not include log download URL")
+	}
+
+	data, err := r.downloadLogArchive(ctx, request)
 	if err != nil {
 		return "", err
 	}
-
-	logFiles, err := findLogFiles(outputDir)
-	if err != nil {
-		return "", err
-	}
-	if len(logFiles) == 0 {
-		return "", fmt.Errorf("no log files found in downloaded output")
-	}
-
-	if len(logFiles) == 1 {
-		data, err := os.ReadFile(logFiles[0])
-		if err != nil {
-			return "", err
-		}
-		return string(data), nil
-	}
-
-	var contents []string
-	for _, f := range logFiles {
-		relPath, _ := filepath.Rel(outputDir, f)
-		data, err := os.ReadFile(f)
-		if err != nil {
-			continue
-		}
-		contents = append(contents, fmt.Sprintf("\n=== %s ===\n%s", relPath, string(data)))
-	}
-	return strings.Join(contents, "\n"), nil
-}
-
-func findLogFiles(dir string) ([]string, error) {
-	var results []string
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	for _, entry := range entries {
-		fullPath := filepath.Join(dir, entry.Name())
-		if entry.IsDir() {
-			sub, _ := findLogFiles(fullPath)
-			results = append(results, sub...)
-		} else if strings.HasSuffix(entry.Name(), ".log") || strings.HasSuffix(entry.Name(), ".txt") {
-			results = append(results, fullPath)
-		}
-	}
-	return results, nil
+	return extractTextFromArchive(data)
 }
 
 // --- Log tool handlers ---
