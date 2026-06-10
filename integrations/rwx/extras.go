@@ -2,8 +2,8 @@ package rwx
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -11,42 +11,46 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
+func getArtifacts(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
 	ra := mcp.NewArgs(args)
 	runIDRaw := ra.Str("run_id")
 	download := ra.Bool("download")
 	artifactKey := ra.Str("artifact_key")
+	taskKey := ra.Str("task_key")
+	taskIDRaw := ra.Str("task_id")
 	if err := ra.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 
 	id := extractRunID(runIDRaw)
+	taskID := extractRunID(taskIDRaw)
+	if id == "" && taskID == "" {
+		return mcp.ErrResult(fmt.Errorf("either run_id or task_id is required"))
+	}
 	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
 
-	cmdArgs := []string{"artifacts", id, "--output", "json"}
-	if !download {
-		cmdArgs = append(cmdArgs, "--list")
-	}
-	if artifactKey != "" && download {
-		cmdArgs = append(cmdArgs, "--key", artifactKey)
-	}
-
-	output, err := r.runRWXCommand(cmdArgs, 0)
-	if err != nil {
-		return mcp.ErrResult(err)
+	query := url.Values{}
+	if taskID != "" {
+		query.Set("task_id", taskID)
+	} else {
+		query.Set("run_id", id)
+		if taskKey != "" {
+			query.Set("task_key", taskKey)
+		}
 	}
 
-	var parsed struct {
-		RunID     string `json:"run_id"`
-		Artifacts []struct {
-			Key       string `json:"key"`
-			TaskKey   string `json:"task_key"`
-			SizeBytes int    `json:"size_bytes"`
-			Path      string `json:"path"`
-		} `json:"artifacts"`
-	}
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		return mcp.ErrResult(fmt.Errorf("parse artifacts output: %w", err))
+	var artifacts []rwxArtifactDownload
+	if artifactKey != "" {
+		query.Set("key", artifactKey)
+		var artifact rwxArtifactDownload
+		if err := r.apiGetJSON(ctx, "/mint/api/artifact_download", query, &artifact); err != nil {
+			return mcp.ErrResult(err)
+		}
+		artifacts = append(artifacts, artifact)
+	} else {
+		if err := r.apiGetJSON(ctx, "/mint/api/artifact_downloads", query, &artifacts); err != nil {
+			return mcp.ErrResult(err)
+		}
 	}
 
 	action := "listed"
@@ -54,15 +58,34 @@ func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResu
 		action = "downloaded"
 	}
 
+	items := make([]map[string]any, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		item := artifact.toMap(!download)
+		if download {
+			content, err := r.downloadArtifact(ctx, artifact)
+			if err != nil {
+				return mcp.ErrResult(err)
+			}
+			item["content"] = content
+		}
+		items = append(items, item)
+	}
+
 	resp := map[string]any{
 		"run_id":    id,
 		"url":       runURL,
 		"action":    action,
-		"artifacts": parsed.Artifacts,
-		"count":     len(parsed.Artifacts),
+		"artifacts": items,
+		"count":     len(items),
+	}
+	if taskID != "" {
+		resp["task_id"] = taskID
+	}
+	if taskKey != "" {
+		resp["task_key"] = taskKey
 	}
 	if !download {
-		resp["hint"] = "Set download=true to download artifacts"
+		resp["hint"] = "Set download=true to fetch artifact content. Tokens are intentionally omitted from listed results."
 	}
 	return mcp.JSONResult(resp)
 }

@@ -30,9 +30,19 @@ tools:
             - run_id
             - url
             - status
+            - completed
+            - execution_status
+            - execution_aborted_sub_status
             - duration_seconds
-            - summary
+            - title
+            - branch
+            - commit_sha
+            - definition_path
+            - task_id
+            - task_key
             - failed_tasks
+            - failed_tests
+            - other_problems
             - tasks[].key
             - tasks[].status
             - tasks[].duration_seconds
