@@ -44,12 +44,12 @@ const h2cHeaderKey = "X-H2C"
 const rawBodyHeaderKey = "X-Raw-Body"
 
 var (
-	hostHTTPClient = &http.Client{Timeout: 30 * time.Second}
+	hostHTTPClient = &http.Client{Timeout: 60 * time.Second}
 
 	// h2cClient uses an http2.Transport configured for cleartext (no TLS)
 	// connections. Plugins opt in by setting the X-H2C header.
 	h2cClient = &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 60 * time.Second,
 		Transport: &http2.Transport{
 			AllowHTTP: true,
 			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
