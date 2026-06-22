@@ -5,12 +5,15 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
+	"unicode"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
@@ -28,12 +31,19 @@ var (
 	_ mcp.Integration                = (*nomad)(nil)
 	_ mcp.FieldCompactionIntegration = (*nomad)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*nomad)(nil)
+	_ mcp.PlaceholderHints           = (*nomad)(nil)
+	_ mcp.OptionalCredentials        = (*nomad)(nil)
 )
 
 type nomad struct {
-	address string
-	token   string
-	client  *http.Client
+	addresses []string
+	token     string
+	client    *http.Client
+
+	// preferred is the index of the server address to try first. It advances to
+	// the last server that answered so a downed leader is not retried on every
+	// call (sticky failover). Safe for concurrent use.
+	preferred atomic.Uint32
 }
 
 func New() mcp.Integration {
@@ -45,13 +55,29 @@ func New() mcp.Integration {
 func (n *nomad) Name() string { return "nomad" }
 
 func (n *nomad) Configure(_ context.Context, creds mcp.Credentials) error {
-	n.address = creds["address"]
-	if n.address == "" {
+	n.addresses = parseAddresses(creds["address"], creds["addresses"])
+	if len(n.addresses) == 0 {
 		return fmt.Errorf("nomad: address is required")
 	}
-	n.address = strings.TrimRight(n.address, "/")
 	n.token = creds["token"]
+	n.preferred.Store(0)
 	return nil
+}
+
+// Placeholders provides web-UI hints for the credential fields.
+func (n *nomad) Placeholders() map[string]string {
+	return map[string]string{
+		"address":   "http://localhost:4646",
+		"addresses": "HA: comma- or newline-separated, e.g. http://server1:4646,http://server2:4646",
+		"token":     "Nomad ACL token (optional)",
+	}
+}
+
+// OptionalKeys marks credentials that are not strictly required. Either address
+// or addresses must be set; addresses (the HA server list) and the ACL token are
+// optional on their own.
+func (n *nomad) OptionalKeys() []string {
+	return []string{"addresses", "token"}
 }
 
 func (n *nomad) Healthy(ctx context.Context) bool {
@@ -86,30 +112,64 @@ func (n *nomad) Execute(ctx context.Context, toolName mcp.ToolName, args map[str
 
 // --- HTTP helpers ---
 
+// doRequest issues an HTTP request to the configured Nomad server(s). In HA
+// deployments multiple server addresses may be configured; doRequest performs
+// sticky failover: it starts at the last server that answered and walks the
+// remaining servers in order. Definitive (non-retryable) responses are returned
+// immediately, while transport failures and retryable statuses (429/5xx) move on
+// to the next server.
 func (n *nomad) doRequest(ctx context.Context, method, path string, body any) (json.RawMessage, error) {
-	var bodyReader io.Reader
+	var bodyData []byte
 	if body != nil {
 		data, err := json.Marshal(body)
 		if err != nil {
 			return nil, err
 		}
-		bodyReader = bytes.NewReader(data)
+		bodyData = data
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, n.address+path, bodyReader)
+	if len(n.addresses) == 0 {
+		return nil, fmt.Errorf("nomad: no server address configured")
+	}
+
+	start := int(n.preferred.Load()) % len(n.addresses)
+	var lastErr error
+	for i := range n.addresses {
+		idx := (start + i) % len(n.addresses)
+		data, err := n.doRequestTo(ctx, n.addresses[idx], method, path, bodyData, body != nil)
+		if err == nil {
+			n.preferred.Store(uint32(idx))
+			return data, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil || !shouldFailover(err) {
+			return nil, err
+		}
+	}
+	return nil, lastErr
+}
+
+// doRequestTo issues a single request against one server address.
+func (n *nomad) doRequestTo(ctx context.Context, address, method, path string, bodyData []byte, hasBody bool) (json.RawMessage, error) {
+	var bodyReader io.Reader
+	if hasBody {
+		bodyReader = bytes.NewReader(bodyData)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, address+path, bodyReader)
 	if err != nil {
 		return nil, err
 	}
 	if n.token != "" {
 		req.Header.Set("X-Nomad-Token", n.token)
 	}
-	if body != nil {
+	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
 	resp, err := n.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("nomad: request to %s failed: %w", address, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -124,12 +184,62 @@ func (n *nomad) doRequest(ctx context.Context, method, path string, body any) (j
 		return nil, re
 	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("nomad API error (%d): %s", resp.StatusCode, string(data))
+		return nil, &apiError{StatusCode: resp.StatusCode, Body: string(data)}
 	}
 	if resp.StatusCode == 204 || len(data) == 0 {
 		return json.RawMessage(`{"status":"success"}`), nil
 	}
 	return json.RawMessage(data), nil
+}
+
+// apiError is a definitive (non-retryable) HTTP error from a reachable Nomad
+// server. Failover treats these as authoritative and does not retry the request
+// against another server.
+type apiError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *apiError) Error() string {
+	return fmt.Sprintf("nomad API error (%d): %s", e.StatusCode, e.Body)
+}
+
+// shouldFailover reports whether a failed request should be retried against the
+// next server. Definitive 4xx responses (apiError) are authoritative and are not
+// retried; transport failures and retryable statuses (429/5xx) are.
+func shouldFailover(err error) bool {
+	if err == nil {
+		return false
+	}
+	var ae *apiError
+	return !errors.As(err, &ae)
+}
+
+// parseAddresses splits one or more raw credential values into a deduplicated,
+// ordered list of Nomad server base URLs. Values may be separated by commas or
+// any whitespace (spaces, tabs, newlines), so a single multi-line credential
+// field or a comma-separated NOMAD_ADDR both work for HA deployments. Trailing
+// slashes are trimmed and duplicates are dropped while preserving order.
+func parseAddresses(values ...string) []string {
+	var out []string
+	seen := make(map[string]struct{})
+	for _, v := range values {
+		fields := strings.FieldsFunc(v, func(r rune) bool {
+			return r == ',' || unicode.IsSpace(r)
+		})
+		for _, field := range fields {
+			addr := strings.TrimRight(field, "/")
+			if addr == "" {
+				continue
+			}
+			if _, dup := seen[addr]; dup {
+				continue
+			}
+			seen[addr] = struct{}{}
+			out = append(out, addr)
+		}
+	}
+	return out
 }
 
 func (n *nomad) get(ctx context.Context, pathFmt string, args ...any) (json.RawMessage, error) {

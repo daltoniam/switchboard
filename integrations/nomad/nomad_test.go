@@ -43,7 +43,7 @@ func TestConfigure_TrimsTrailingSlash(t *testing.T) {
 	n := &nomad{client: &http.Client{}}
 	err := n.Configure(context.Background(), mcp.Credentials{"address": "http://localhost:4646/"})
 	assert.NoError(t, err)
-	assert.Equal(t, "http://localhost:4646", n.address)
+	assert.Equal(t, "http://localhost:4646", n.addresses[0])
 }
 
 func TestTools(t *testing.T) {
@@ -74,7 +74,7 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
-	n := &nomad{address: "http://localhost:4646", client: &http.Client{}}
+	n := &nomad{addresses: []string{"http://localhost:4646"}, client: &http.Client{}}
 	result, err := n.Execute(context.Background(), "nomad_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -109,7 +109,7 @@ func TestDoRequest_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	data, err := n.get(context.Background(), "/v1/jobs")
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "test-job")
@@ -122,7 +122,7 @@ func TestDoRequest_WithToken(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, token: "my-token", client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, token: "my-token", client: ts.Client()}
 	_, err := n.get(context.Background(), "/v1/agent/self")
 	require.NoError(t, err)
 }
@@ -134,7 +134,7 @@ func TestDoRequest_NoTokenHeader_WhenEmpty(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	_, err := n.get(context.Background(), "/v1/agent/self")
 	require.NoError(t, err)
 }
@@ -146,7 +146,7 @@ func TestDoRequest_APIError(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	_, err := n.get(context.Background(), "/v1/jobs")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "nomad API error (403)")
@@ -158,7 +158,7 @@ func TestDoRequest_204NoContent(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	data, err := n.doRequest(context.Background(), "PUT", "/v1/system/gc", nil)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "success")
@@ -175,7 +175,7 @@ func TestPost(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	data, err := n.post(context.Background(), "/v1/jobs", map[string]any{"Job": map[string]string{"ID": "test"}})
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "eval-123")
@@ -189,7 +189,7 @@ func TestDoRequest_RetryableOn429(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	_, err := n.get(context.Background(), "/v1/jobs")
 	require.Error(t, err)
 	assert.True(t, mcp.IsRetryable(err), "429 should produce RetryableError")
@@ -207,7 +207,7 @@ func TestDoRequest_RetryableOn5xx(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	_, err := n.get(context.Background(), "/v1/jobs")
 	require.Error(t, err)
 	assert.True(t, mcp.IsRetryable(err), "503 should produce RetryableError")
@@ -220,7 +220,7 @@ func TestDoRequest_NonRetryableOn4xx(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	_, err := n.get(context.Background(), "/v1/jobs")
 	require.Error(t, err)
 	assert.False(t, mcp.IsRetryable(err), "404 should NOT be retryable")
@@ -270,7 +270,7 @@ func TestListJobs(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	result, err := n.Execute(context.Background(), "nomad_list_jobs", map[string]any{})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
@@ -284,7 +284,7 @@ func TestGetJob(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	result, err := n.Execute(context.Background(), "nomad_get_job", map[string]any{"job_id": "web"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
@@ -298,7 +298,7 @@ func TestListNodes(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	result, err := n.Execute(context.Background(), "nomad_list_nodes", map[string]any{})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
@@ -320,7 +320,7 @@ func TestGetClusterStatus(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	result, err := n.Execute(context.Background(), "nomad_get_cluster_status", map[string]any{})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
@@ -340,7 +340,7 @@ func TestDrainNode(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	result, err := n.Execute(context.Background(), "nomad_drain_node", map[string]any{"node_id": "node-1", "enable": true, "deadline": "1h"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
@@ -356,7 +356,7 @@ func TestNodeEligibility(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	n := &nomad{address: ts.URL, client: ts.Client()}
+	n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 	result, err := n.Execute(context.Background(), "nomad_node_eligibility", map[string]any{"node_id": "node-1", "eligible": false})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
@@ -377,7 +377,7 @@ func TestHealthy(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		n := &nomad{address: ts.URL, client: ts.Client()}
+		n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 		assert.True(t, n.Healthy(context.Background()))
 	})
 
@@ -388,7 +388,7 @@ func TestHealthy(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		n := &nomad{address: ts.URL, client: ts.Client()}
+		n := &nomad{addresses: []string{ts.URL}, client: ts.Client()}
 		assert.False(t, n.Healthy(context.Background()))
 	})
 
@@ -396,4 +396,178 @@ func TestHealthy(t *testing.T) {
 		n := &nomad{}
 		assert.False(t, n.Healthy(context.Background()))
 	})
+}
+
+// --- HA (multiple servers) tests ---
+
+func TestParseAddresses(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"empty", []string{""}, nil},
+		{"single", []string{"http://a:4646"}, []string{"http://a:4646"}},
+		{"trims trailing slash", []string{"http://a:4646/"}, []string{"http://a:4646"}},
+		{"comma separated", []string{"http://a:4646,http://b:4646"}, []string{"http://a:4646", "http://b:4646"}},
+		{"comma with spaces", []string{"http://a:4646, http://b:4646"}, []string{"http://a:4646", "http://b:4646"}},
+		{"newline separated", []string{"http://a:4646\nhttp://b:4646"}, []string{"http://a:4646", "http://b:4646"}},
+		{"dedups", []string{"http://a:4646,http://a:4646/"}, []string{"http://a:4646"}},
+		{"merges multiple values", []string{"http://a:4646", "http://b:4646"}, []string{"http://a:4646", "http://b:4646"}},
+		{"merges and dedups across values", []string{"http://a:4646", "http://a:4646,http://b:4646"}, []string{"http://a:4646", "http://b:4646"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, parseAddresses(tt.in...))
+		})
+	}
+}
+
+func TestConfigure_MultipleAddresses(t *testing.T) {
+	t.Run("comma-separated in address", func(t *testing.T) {
+		n := &nomad{client: &http.Client{}}
+		require.NoError(t, n.Configure(context.Background(), mcp.Credentials{"address": "http://a:4646, http://b:4646/"}))
+		assert.Equal(t, []string{"http://a:4646", "http://b:4646"}, n.addresses)
+	})
+	t.Run("addresses plural key", func(t *testing.T) {
+		n := &nomad{client: &http.Client{}}
+		require.NoError(t, n.Configure(context.Background(), mcp.Credentials{"addresses": "http://a:4646\nhttp://b:4646"}))
+		assert.Equal(t, []string{"http://a:4646", "http://b:4646"}, n.addresses)
+	})
+	t.Run("merges and dedups address and addresses", func(t *testing.T) {
+		n := &nomad{client: &http.Client{}}
+		require.NoError(t, n.Configure(context.Background(), mcp.Credentials{"address": "http://a:4646", "addresses": "http://a:4646,http://b:4646"}))
+		assert.Equal(t, []string{"http://a:4646", "http://b:4646"}, n.addresses)
+	})
+	t.Run("missing both is error", func(t *testing.T) {
+		n := &nomad{client: &http.Client{}}
+		err := n.Configure(context.Background(), mcp.Credentials{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "address is required")
+	})
+}
+
+func TestDoRequest_FailoverWhenFirstServerDown(t *testing.T) {
+	down := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	downURL := down.URL
+	down.Close() // connection refused from now on
+
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`[{"ID":"web"}]`))
+	}))
+	defer up.Close()
+
+	n := &nomad{addresses: []string{downURL, up.URL}, client: &http.Client{Timeout: 5 * time.Second}}
+	data, err := n.get(context.Background(), "/v1/jobs")
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "web")
+	assert.Equal(t, uint32(1), n.preferred.Load(), "preferred should advance to the healthy server")
+}
+
+func TestDoRequest_FailoverOnRetryableStatus(t *testing.T) {
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(503)
+	}))
+	defer s1.Close()
+	s2Hits := 0
+	s2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		s2Hits++
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s2.Close()
+
+	n := &nomad{addresses: []string{s1.URL, s2.URL}, client: &http.Client{}}
+	data, err := n.get(context.Background(), "/v1/jobs")
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "ok")
+	assert.Equal(t, 1, s2Hits)
+}
+
+func TestDoRequest_FailoverExhaustedReturnsRetryable(t *testing.T) {
+	mk := func() *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(503)
+		}))
+	}
+	s1, s2 := mk(), mk()
+	defer s1.Close()
+	defer s2.Close()
+
+	n := &nomad{addresses: []string{s1.URL, s2.URL}, client: &http.Client{}}
+	_, err := n.get(context.Background(), "/v1/jobs")
+	require.Error(t, err)
+	assert.True(t, mcp.IsRetryable(err), "all servers retryable should surface a retryable error")
+}
+
+func TestDoRequest_NoFailoverOnDefinitiveError(t *testing.T) {
+	s1Hits, s2Hits := 0, 0
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		s1Hits++
+		w.WriteHeader(404)
+		w.Write([]byte("not found"))
+	}))
+	defer s1.Close()
+	s2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		s2Hits++
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s2.Close()
+
+	n := &nomad{addresses: []string{s1.URL, s2.URL}, client: &http.Client{}}
+	_, err := n.get(context.Background(), "/v1/jobs")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nomad API error (404)")
+	assert.Equal(t, 1, s1Hits)
+	assert.Equal(t, 0, s2Hits, "definitive 4xx must not fail over to the next server")
+}
+
+func TestDoRequest_StickyPreferredAfterFailover(t *testing.T) {
+	s1Hits, s2Hits := 0, 0
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		s1Hits++
+		w.WriteHeader(503)
+	}))
+	defer s1.Close()
+	s2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		s2Hits++
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s2.Close()
+
+	n := &nomad{addresses: []string{s1.URL, s2.URL}, client: &http.Client{}}
+	for range 3 {
+		_, err := n.get(context.Background(), "/v1/jobs")
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 1, s1Hits, "unhealthy server should only be tried on the first call")
+	assert.Equal(t, 3, s2Hits)
+}
+
+func TestDoRequest_FailoverReplaysBody(t *testing.T) {
+	down := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	downURL := down.URL
+	down.Close()
+
+	gotJob := false
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		gotJob = body["Job"] != nil
+		w.Write([]byte(`{"EvalID":"e1"}`))
+	}))
+	defer up.Close()
+
+	n := &nomad{addresses: []string{downURL, up.URL}, client: &http.Client{Timeout: 5 * time.Second}}
+	_, err := n.post(context.Background(), "/v1/jobs", map[string]any{"Job": map[string]string{"ID": "x"}})
+	require.NoError(t, err)
+	assert.True(t, gotJob, "request body must be replayed to the failover server")
+}
+
+func TestPlaceholdersAndOptionalKeys(t *testing.T) {
+	n := &nomad{}
+	ph := n.Placeholders()
+	assert.Contains(t, ph, "address")
+	assert.Contains(t, ph, "addresses")
+	assert.Contains(t, ph, "token")
+	assert.Equal(t, []string{"addresses", "token"}, n.OptionalKeys())
 }
