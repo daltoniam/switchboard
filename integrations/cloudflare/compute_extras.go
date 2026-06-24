@@ -163,8 +163,7 @@ func bulkDeleteKVValues(ctx context.Context, c *cloudflare, args map[string]any)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	body := map[string]any{"keys": keys}
-	data, err := c.post(ctx, fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/bulk/delete", acct, namespaceID), body)
+	data, err := c.post(ctx, fmt.Sprintf("/accounts/%s/storage/kv/namespaces/%s/bulk/delete", acct, namespaceID), keys)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

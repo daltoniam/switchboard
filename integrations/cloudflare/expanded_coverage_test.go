@@ -219,6 +219,9 @@ func TestBulkDeleteKVValues(t *testing.T) {
 	c, ts := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Contains(t, r.URL.Path, "/accounts/test-acct/storage/kv/namespaces/ns1/bulk/delete")
+		var body []string
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, []string{"a", "b"}, body)
 		_, _ = w.Write([]byte(`{"success":true,"result":{"successful_key_count":2}}`))
 	}))
 	defer ts.Close()
