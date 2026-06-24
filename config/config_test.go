@@ -283,7 +283,7 @@ func TestDefaultConfig(t *testing.T) {
 		"vercel":        {"api_token", "team_id", "team_slug", "base_url"},
 		"web":           {},
 		"signoz":        {"api_key", "base_url", "skip_verify"},
-		"nomad":         {"address", "token"},
+		"nomad":         {"address", "addresses", "token"},
 	}
 
 	for name, keys := range expected {
@@ -512,6 +512,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "X_BEARER_TOKEN", m["x"]["bearer_token"])
 	assert.Equal(t, "SIGNOZ_API_KEY", m["signoz"]["api_key"])
 	assert.Equal(t, "NOMAD_ADDR", m["nomad"]["address"])
+	assert.Equal(t, "NOMAD_ADDRS", m["nomad"]["addresses"])
 	assert.Equal(t, "NOMAD_TOKEN", m["nomad"]["token"])
 	assert.Equal(t, "STRIPE_API_KEY", m["stripe"]["api_key"])
 	assert.Equal(t, "STRIPE_ACCOUNT", m["stripe"]["account"])
