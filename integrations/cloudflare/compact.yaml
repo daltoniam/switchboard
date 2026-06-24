@@ -326,7 +326,6 @@ tools:
             - result[].dataset
             - result[].enabled
             - result[].name
-            - result[].destination_conf
             - result[].logpull_options
             - result[].last_complete
             - result[].last_error

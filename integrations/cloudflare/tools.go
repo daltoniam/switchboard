@@ -851,26 +851,25 @@ var tools = []mcp.ToolDefinition{
 		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)"},
 	},
 
-	// ── Account API Tokens ──────────────────────────────────────────
+	// ── User API Tokens ─────────────────────────────────────────────
 	{
 		Name:        mcp.ToolName("cloudflare_list_api_tokens"),
-		Description: "List Cloudflare API tokens issued under an account. Start here to audit which tokens exist, their scopes, and their last-used timestamp.",
+		Description: "List Cloudflare API tokens issued under the authenticated user. Start here to audit which tokens exist, their scopes, and their last-used timestamp.",
 		Parameters: map[string]string{
-			"account_id": "Account identifier (defaults to configured account_id)",
-			"page":       "Page number (default 1)",
-			"per_page":   "Results per page (default 20)",
+			"page":     "Page number (default 1)",
+			"per_page": "Results per page (default 20)",
 		},
 	},
 	{
 		Name:        mcp.ToolName("cloudflare_get_api_token"),
 		Description: "Get a Cloudflare API token's policy details: permissions, IP/time restrictions, expiry, last_used_on. Use after list_api_tokens.",
-		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "token_id": "API token identifier"},
+		Parameters:  map[string]string{"token_id": "API token identifier"},
 		Required:    []string{"token_id"},
 	},
 	{
 		Name:        mcp.ToolName("cloudflare_delete_api_token"),
 		Description: "Revoke (delete) a Cloudflare API token. Any client using it will start receiving 401s.",
-		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "token_id": "API token identifier"},
+		Parameters:  map[string]string{"token_id": "API token identifier"},
 		Required:    []string{"token_id"},
 	},
 }

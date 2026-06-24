@@ -84,18 +84,14 @@ func listNotificationWebhooks(ctx context.Context, c *cloudflare, args map[strin
 	return mcp.RawResult(data)
 }
 
-// --- Account API Tokens ---
+// --- User API Tokens ---
 
 func listAPITokens(ctx context.Context, c *cloudflare, args map[string]any) (*mcp.ToolResult, error) {
-	acct, err := c.acctID(args)
-	if err != nil {
-		return mcp.ErrResult(err)
-	}
 	q := queryEncode(map[string]string{
 		"page":     fmt.Sprintf("%d", mcp.OptInt(args, "page", 1)),
 		"per_page": fmt.Sprintf("%d", mcp.OptInt(args, "per_page", 20)),
 	})
-	data, err := c.get(ctx, "/accounts/%s/tokens%s", acct, q)
+	data, err := c.get(ctx, "/user/tokens%s", q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -108,11 +104,7 @@ func getAPIToken(ctx context.Context, c *cloudflare, args map[string]any) (*mcp.
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	acct, err := c.acctID(args)
-	if err != nil {
-		return mcp.ErrResult(err)
-	}
-	data, err := c.get(ctx, "/accounts/%s/tokens/%s", acct, tokenID)
+	data, err := c.get(ctx, "/user/tokens/%s", tokenID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -125,11 +117,7 @@ func deleteAPIToken(ctx context.Context, c *cloudflare, args map[string]any) (*m
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	acct, err := c.acctID(args)
-	if err != nil {
-		return mcp.ErrResult(err)
-	}
-	data, err := c.del(ctx, "/accounts/%s/tokens/%s", acct, tokenID)
+	data, err := c.del(ctx, "/user/tokens/%s", tokenID)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

@@ -68,9 +68,10 @@ func listLogpushJobs(ctx context.Context, c *cloudflare, args map[string]any) (*
 }
 
 func getLogpushJob(ctx context.Context, c *cloudflare, args map[string]any) (*mcp.ToolResult, error) {
-	jobID := mcp.OptInt(args, "job_id", 0)
-	if jobID == 0 {
-		return mcp.ErrResult(fmt.Errorf("job_id (integer) is required"))
+	r := mcp.NewArgs(args)
+	jobID := r.Int("job_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	acct, err := c.acctID(args)
 	if err != nil {

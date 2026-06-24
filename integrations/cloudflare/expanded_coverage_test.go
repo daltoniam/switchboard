@@ -2,10 +2,12 @@ package cloudflare
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
 
+	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -400,7 +402,7 @@ func TestListNotificationPolicies(t *testing.T) {
 func TestListAPITokens(t *testing.T) {
 	c, ts := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/accounts/test-acct/tokens")
+		assert.True(t, strings.HasSuffix(r.URL.Path, "/user/tokens"))
 		_, _ = w.Write([]byte(`{"success":true,"result":[{"id":"tok1","name":"ci","status":"active"}]}`))
 	}))
 	defer ts.Close()
@@ -410,10 +412,25 @@ func TestListAPITokens(t *testing.T) {
 	assert.Contains(t, result.Data, "ci")
 }
 
+func TestGetAPIToken(t *testing.T) {
+	c, ts := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.True(t, strings.HasSuffix(r.URL.Path, "/user/tokens/tok1"))
+		_, _ = w.Write([]byte(`{"success":true,"result":{"id":"tok1","name":"ci","status":"active"}}`))
+	}))
+	defer ts.Close()
+	result, err := c.Execute(context.Background(), "cloudflare_get_api_token", map[string]any{
+		"token_id": "tok1",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "ci")
+}
+
 func TestDeleteAPIToken(t *testing.T) {
 	c, ts := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "/accounts/test-acct/tokens/tok1")
+		assert.True(t, strings.HasSuffix(r.URL.Path, "/user/tokens/tok1"))
 		_, _ = w.Write([]byte(`{"success":true,"result":{}}`))
 	}))
 	defer ts.Close()
@@ -422,4 +439,28 @@ func TestDeleteAPIToken(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
+}
+
+func TestListLogpushJobs_DoesNotCompactDestinationCredentials(t *testing.T) {
+	fields, ok := fieldCompactionSpecs["cloudflare_list_logpush_jobs"]
+	require.True(t, ok)
+
+	var payload any
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"result":[{
+			"id":1,
+			"dataset":"http_requests",
+			"enabled":true,
+			"name":"prod",
+			"destination_conf":"s3://bucket/path?access-key-id=AKIAEXAMPLE&secret-access-key=supersecret",
+			"logpull_options":"fields=RayID"
+		}]
+	}`), &payload))
+
+	compacted := mcp.CompactAny(payload, fields)
+	encoded, err := json.Marshal(compacted)
+	require.NoError(t, err)
+	assert.NotContains(t, string(encoded), "destination_conf")
+	assert.NotContains(t, string(encoded), "supersecret")
+	assert.Contains(t, string(encoded), "http_requests")
 }
