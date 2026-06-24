@@ -181,6 +181,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/x/save-oauth-credentials", w.handleXSaveOAuthCredentials)
 
 	mux.HandleFunc("GET /integrations/postgres/setup", w.handlePostgresSetup)
+	mux.HandleFunc("GET /integrations/clickhouse/setup", w.handleClickHouseSetup)
 
 	mux.HandleFunc("PUT /api/integrations/{name}/credentials", w.handleUpdateCredentials)
 
@@ -318,24 +319,25 @@ func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Reque
 const notionExtractionSnippet = `(function(){var c=document.cookie.split(';').find(function(c){return c.trim().startsWith('token_v2=')});if(!c){alert('token_v2 cookie not found. Make sure you are on notion.so and signed in.');return;}var t=c.split('=').slice(1).join('=').trim();prompt('Copy this token_v2 value:',t);})()`
 
 var setupIntegrations = map[string]bool{
-	"slack":    true,
-	"github":   true,
-	"linear":   true,
-	"sentry":   true,
-	"gmail":    true,
-	"gcal":     true,
-	"gdrive":   true,
-	"gdocs":    true,
-	"gsheets":  true,
-	"gslides":  true,
-	"gforms":   true,
-	"gtasks":   true,
-	"gchat":    true,
-	"gpeople":  true,
-	"gmeet":    true,
-	"notion":   true,
-	"x":        true,
-	"postgres": true,
+	"slack":      true,
+	"github":     true,
+	"linear":     true,
+	"sentry":     true,
+	"gmail":      true,
+	"gcal":       true,
+	"gdrive":     true,
+	"gdocs":      true,
+	"gsheets":    true,
+	"gslides":    true,
+	"gforms":     true,
+	"gtasks":     true,
+	"gchat":      true,
+	"gpeople":    true,
+	"gmeet":      true,
+	"notion":     true,
+	"x":          true,
+	"postgres":   true,
+	"clickhouse": true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
@@ -1144,6 +1146,57 @@ func (w *WebServer) handlePostgresSetup(rw http.ResponseWriter, r *http.Request)
 
 	page := w.pageData(r, "Postgres Setup", "/integrations")
 	pages.PostgresSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleClickHouseSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("clickhouse")
+	enabled := exists && ic.Enabled
+
+	var healthy bool
+	if enabled {
+		integration, ok := w.services.Registry.Get("clickhouse")
+		if ok {
+			ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+			healthy = integration.Healthy(ctx)
+			cancel()
+		}
+	}
+
+	data := pages.ClickHouseSetupData{
+		Enabled: enabled,
+		Healthy: healthy,
+	}
+
+	if exists && ic.Credentials != nil {
+		data.Default = pages.ClickHouseConnection{
+			Host:       ic.Credentials["host"],
+			Port:       ic.Credentials["port"],
+			Username:   ic.Credentials["username"],
+			Password:   ic.Credentials["password"],
+			Database:   ic.Credentials["database"],
+			Secure:     ic.Credentials["secure"],
+			SkipVerify: ic.Credentials["skip_verify"],
+		}
+		if raw := ic.Credentials["connections"]; raw != "" {
+			var conns []pages.ClickHouseConnection
+			if err := json.Unmarshal([]byte(raw), &conns); err == nil {
+				data.Connections = conns
+			}
+		}
+	}
+
+	integration, ok := w.services.Registry.Get("clickhouse")
+	if ok {
+		for _, t := range integration.Tools() {
+			data.Tools = append(data.Tools, pages.ToolInfo{
+				Name:        string(t.Name),
+				Description: t.Description,
+			})
+		}
+	}
+
+	page := w.pageData(r, "ClickHouse Setup", "/integrations")
+	pages.ClickHouseSetup(page, data).Render(r.Context(), rw)
 }
 
 func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
