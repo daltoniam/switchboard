@@ -30,10 +30,32 @@ func listContexts(_ context.Context, k *kubernetes, _ map[string]any) (*mcp.Tool
 	for name, ctx := range cfg.Contexts {
 		out = append(out, contextSummary{
 			Name:      name,
-			Current:   name == cfg.CurrentContext,
+			Current:   name == k.context,
 			Cluster:   ctx.Cluster,
 			AuthInfo:  ctx.AuthInfo,
-			Namespace: ctx.Namespace,
+			Namespace: namespaceForContext(ctx, ""),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Current != out[j].Current {
+			return out[i].Current
+		}
+		return out[i].Name < out[j].Name
+	})
+	return mcp.JSONResult(out)
+}
+
+func listClusters(_ context.Context, k *kubernetes, _ map[string]any) (*mcp.ToolResult, error) {
+	out := make([]clusterSummary, 0, len(k.clients))
+	for name, client := range k.clients {
+		out = append(out, clusterSummary{
+			Name:      name,
+			Context:   client.context,
+			Current:   client.context == k.context,
+			Cluster:   client.cluster,
+			AuthInfo:  client.authInfo,
+			Namespace: client.namespace,
+			Source:    client.source,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -544,6 +566,16 @@ type contextSummary struct {
 	Cluster   string `json:"cluster"`
 	AuthInfo  string `json:"auth_info"`
 	Namespace string `json:"namespace,omitempty"`
+}
+
+type clusterSummary struct {
+	Name      string `json:"name"`
+	Context   string `json:"context"`
+	Current   bool   `json:"current"`
+	Cluster   string `json:"cluster,omitempty"`
+	AuthInfo  string `json:"auth_info,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Source    string `json:"source,omitempty"`
 }
 
 type namespaceSummary struct {

@@ -3,6 +3,8 @@ version: 1
 tools:
   kubernetes_list_contexts:
     spec: [name, current, cluster, auth_info, namespace]
+  kubernetes_list_clusters:
+    spec: [name, context, current, cluster, auth_info, namespace, source]
   kubernetes_list_namespaces:
     spec: [name, status, labels, creation_timestamp]
   kubernetes_list_pods:

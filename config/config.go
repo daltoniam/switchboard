@@ -113,6 +113,7 @@ var envMapping = map[string]map[string]string{
 		"ca_cert":                  "KUBERNETES_CA_CERT",
 		"insecure_skip_tls_verify": "KUBERNETES_INSECURE_SKIP_TLS_VERIFY",
 		"in_cluster":               "KUBERNETES_IN_CLUSTER",
+		"clusters":                 "KUBERNETES_CLUSTERS",
 	},
 	"vercel": {
 		"api_token": "VERCEL_API_TOKEN",
@@ -351,7 +352,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"kubernetes": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"kubeconfig": "", "kubeconfig_path": "", "context": "", "namespace": "", "api_server": "", "token": "", "ca_cert": "", "insecure_skip_tls_verify": "", "in_cluster": ""},
+				Credentials: mcp.Credentials{"kubeconfig": "", "kubeconfig_path": "", "context": "", "namespace": "", "api_server": "", "token": "", "ca_cert": "", "insecure_skip_tls_verify": "", "in_cluster": "", "clusters": ""},
 			},
 			"vercel": {
 				Enabled:     false,

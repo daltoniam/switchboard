@@ -53,6 +53,15 @@ func TestConfigure_InlineKubeconfig(t *testing.T) {
 	assert.Equal(t, "apps", k.namespace)
 }
 
+func TestKubeconfigConfig_HonorsRequestedContext(t *testing.T) {
+	cfg, _, err := kubeconfigConfig(mcp.Credentials{
+		"kubeconfig": testMultiKubeconfig(t),
+		"context":    "west",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "https://west.example.test", cfg.Host)
+}
+
 func TestConfigure_ServiceAccountToken(t *testing.T) {
 	i := New()
 	err := i.Configure(context.Background(), mcp.Credentials{
@@ -68,7 +77,7 @@ func TestConfigure_ServiceAccountToken(t *testing.T) {
 func TestTools(t *testing.T) {
 	i := New()
 	tls := i.Tools()
-	assert.Len(t, tls, 12)
+	assert.Len(t, tls, 13)
 	for _, tool := range tls {
 		assert.NotEmpty(t, tool.Name)
 		assert.NotEmpty(t, tool.Description)
@@ -174,6 +183,43 @@ func TestListContexts(t *testing.T) {
 	assert.True(t, contexts[0].Current)
 }
 
+func TestExecute_ContextSelectsCluster(t *testing.T) {
+	k := &kubernetes{
+		client: fake.NewSimpleClientset(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "east-pod", Namespace: "apps"}}),
+		clients: map[string]*clusterClient{
+			"east": {client: fake.NewSimpleClientset(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "east-pod", Namespace: "apps"}}), namespace: "apps"},
+			"west": {client: fake.NewSimpleClientset(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "west-pod", Namespace: "apps"}}), namespace: "apps"},
+		},
+		namespace: "apps",
+		context:   "east",
+	}
+
+	result, err := k.Execute(context.Background(), "kubernetes_list_pods", map[string]any{"context": "west"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	var pods []podSummary
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &pods))
+	require.Len(t, pods, 1)
+	assert.Equal(t, "west-pod", pods[0].Name)
+}
+
+func TestListClusters(t *testing.T) {
+	i := New()
+	err := i.Configure(context.Background(), mcp.Credentials{"kubeconfig": testMultiKubeconfig(t)})
+	require.NoError(t, err)
+	result, err := i.Execute(context.Background(), "kubernetes_list_clusters", nil)
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	var clusters []clusterSummary
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &clusters))
+	require.Len(t, clusters, 2)
+	assert.Equal(t, "east", clusters[0].Context)
+	assert.True(t, clusters[0].Current)
+	assert.Equal(t, "west", clusters[1].Context)
+}
+
 func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
 	for name := range fieldCompactionSpecs {
 		_, ok := dispatch[name]
@@ -194,6 +240,28 @@ func testKubeconfig(t *testing.T) string {
 			"test": {Cluster: "test", AuthInfo: "test", Namespace: "default"},
 		},
 		CurrentContext: "test",
+	}
+	data, err := clientcmd.Write(cfg)
+	require.NoError(t, err)
+	return string(data)
+}
+
+func testMultiKubeconfig(t *testing.T) string {
+	t.Helper()
+	cfg := api.Config{
+		Clusters: map[string]*api.Cluster{
+			"east": {Server: "https://east.example.test", InsecureSkipTLSVerify: true},
+			"west": {Server: "https://west.example.test", InsecureSkipTLSVerify: true},
+		},
+		AuthInfos: map[string]*api.AuthInfo{
+			"east": {Token: "east-token"},
+			"west": {Token: "west-token"},
+		},
+		Contexts: map[string]*api.Context{
+			"east": {Cluster: "east", AuthInfo: "east", Namespace: "apps"},
+			"west": {Cluster: "west", AuthInfo: "west", Namespace: "apps"},
+		},
+		CurrentContext: "east",
 	}
 	data, err := clientcmd.Write(cfg)
 	require.NoError(t, err)
