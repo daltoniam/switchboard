@@ -43,6 +43,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
 	"github.com/daltoniam/switchboard/integrations/jira"
+	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
@@ -267,6 +268,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		cloudflare.New(),
 		digitalocean.New(),
 		flyInt.New(),
+		kubernetes.New(),
 		vercel.New(),
 		snowflakeInt.New(),
 		acpInt.New(),
@@ -460,7 +462,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	cancelAutoUpdate := mp.StartAutoUpdateLoop(ctx)
 	defer cancelAutoUpdate()
 
-	ws := web.New(services, port, mp, wasmLoader)
+	ws := web.New(services, port, mp, wasmLoader, web.WithConfigChangeHook(srv.RefreshSearchIndex))
 	mux.Handle("/", ws.Handler())
 
 	addr := fmt.Sprintf(":%d", port)

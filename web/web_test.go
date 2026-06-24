@@ -202,6 +202,22 @@ func TestIntegrationSave_PreservesToolGlobs(t *testing.T) {
 	assert.Equal(t, []string{"testint_list_*", "testint_get_*"}, ic.ToolGlobs)
 }
 
+func TestIntegrationSave_NotifiesConfigChange(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	called := false
+	ws.onConfigChange = func() { called = true }
+	handler := ws.Handler()
+
+	form := strings.NewReader("enabled=true&cred_token=new_token_value")
+	req := httptest.NewRequest("POST", "/integrations/testint", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.True(t, called)
+}
+
 func TestIntegrationSave_NotFound(t *testing.T) {
 	ws, _, _ := setupTestWeb()
 	handler := ws.Handler()
@@ -630,6 +646,20 @@ func TestUpdateCredentials(t *testing.T) {
 		mi := reg.integrations["testint"].(*mockIntegration)
 		assert.Equal(t, "refreshed-token", mi.lastCreds["token"])
 		assert.Equal(t, "my-client", mi.lastCreds["client_id"])
+	})
+
+	t.Run("notifies config change after successful update", func(t *testing.T) {
+		ws, _, _ := setupTestWeb()
+		called := false
+		ws.onConfigChange = func() { called = true }
+		handler := ws.Handler()
+
+		req := httptest.NewRequest("PUT", "/api/integrations/testint/credentials", strings.NewReader(`{"token":"new"}`))
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+		assert.True(t, called)
 	})
 
 	t.Run("unknown integration returns 404", func(t *testing.T) {

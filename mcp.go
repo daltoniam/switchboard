@@ -365,6 +365,12 @@ type OptionalCredentials interface {
 	OptionalKeys() []string
 }
 
+// CredentialDetector is an optional interface for integrations whose usable
+// credential state cannot be inferred from non-empty config values alone.
+type CredentialDetector interface {
+	HasCredentials(creds Credentials) bool
+}
+
 // ConfigService manages loading and saving configuration.
 type ConfigService interface {
 	Load() error

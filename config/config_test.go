@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 47)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard"} {
+	assert.Len(t, m.cfg.Integrations, 48)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 47)
+	assert.Len(t, cfg.Integrations, 48)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 47)
+	assert.Len(t, cfg.Integrations, 48)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 47)
+	assert.Len(t, cfg.Integrations, 48)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -279,6 +279,7 @@ func TestDefaultConfig(t *testing.T) {
 		"cloudflare":    {"api_token", "account_id"},
 		"digitalocean":  {"api_token"},
 		"fly":           {"api_token", "base_url"},
+		"kubernetes":    {"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster"},
 		"vercel":        {"api_token", "team_id", "team_slug", "base_url"},
 		"web":           {},
 		"signoz":        {"api_key", "base_url", "skip_verify"},
@@ -515,11 +516,20 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "STRIPE_API_KEY", m["stripe"]["api_key"])
 	assert.Equal(t, "STRIPE_ACCOUNT", m["stripe"]["account"])
 	assert.Equal(t, "STRIPE_BASE_URL", m["stripe"]["base_url"])
+	assert.Equal(t, "KUBECONFIG_CONTENT", m["kubernetes"]["kubeconfig"])
+	assert.Equal(t, "KUBECONFIG", m["kubernetes"]["kubeconfig_path"])
+	assert.Equal(t, "KUBECONTEXT", m["kubernetes"]["context"])
+	assert.Equal(t, "KUBENAMESPACE", m["kubernetes"]["namespace"])
+	assert.Equal(t, "KUBERNETES_API_SERVER", m["kubernetes"]["api_server"])
+	assert.Equal(t, "KUBERNETES_TOKEN", m["kubernetes"]["token"])
+	assert.Equal(t, "KUBERNETES_CA_CERT", m["kubernetes"]["ca_cert"])
+	assert.Equal(t, "KUBERNETES_INSECURE_SKIP_TLS_VERIFY", m["kubernetes"]["insecure_skip_tls_verify"])
+	assert.Equal(t, "KUBERNETES_IN_CLUSTER", m["kubernetes"]["in_cluster"])
 	assert.Equal(t, "VERCEL_API_TOKEN", m["vercel"]["api_token"])
 	assert.Equal(t, "VERCEL_TEAM_ID", m["vercel"]["team_id"])
 	assert.Equal(t, "VERCEL_TEAM_SLUG", m["vercel"]["team_slug"])
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
-	assert.Len(t, m, 27)
+	assert.Len(t, m, 28)
 }
 
 func TestToolGlobs_PersistThroughSaveLoad(t *testing.T) {

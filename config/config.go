@@ -103,6 +103,17 @@ var envMapping = map[string]map[string]string{
 	"fly": {
 		"api_token": "FLY_API_TOKEN",
 	},
+	"kubernetes": {
+		"kubeconfig":               "KUBECONFIG_CONTENT",
+		"kubeconfig_path":          "KUBECONFIG",
+		"context":                  "KUBECONTEXT",
+		"namespace":                "KUBENAMESPACE",
+		"api_server":               "KUBERNETES_API_SERVER",
+		"token":                    "KUBERNETES_TOKEN",
+		"ca_cert":                  "KUBERNETES_CA_CERT",
+		"insecure_skip_tls_verify": "KUBERNETES_INSECURE_SKIP_TLS_VERIFY",
+		"in_cluster":               "KUBERNETES_IN_CLUSTER",
+	},
 	"vercel": {
 		"api_token": "VERCEL_API_TOKEN",
 		"team_id":   "VERCEL_TEAM_ID",
@@ -337,6 +348,10 @@ func defaultConfig() *mcp.Config {
 			"fly": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "base_url": ""},
+			},
+			"kubernetes": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"kubeconfig": "", "kubeconfig_path": "", "context": "", "namespace": "", "api_server": "", "token": "", "ca_cert": "", "insecure_skip_tls_verify": "", "in_cluster": ""},
 			},
 			"vercel": {
 				Enabled:     false,
