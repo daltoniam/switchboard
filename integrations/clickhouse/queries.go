@@ -11,6 +11,10 @@ import (
 )
 
 func executeQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := c.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	r := mcp.NewArgs(args)
 	query := r.Str("query")
 	db := r.Str("database")
@@ -39,20 +43,24 @@ func executeQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*
 		strings.HasPrefix(upper, "EXPLAIN") ||
 		strings.HasPrefix(upper, "EXISTS") ||
 		strings.HasPrefix(upper, "WITH") {
-		data, err := c.query(ctx, query)
+		data, err := c.query(ctx, conn, query)
 		if err != nil {
 			return mcp.ErrResult(err)
 		}
 		return mcp.RawResult(data)
 	}
 
-	if err := c.exec(ctx, query); err != nil {
+	if err := c.exec(ctx, conn, query); err != nil {
 		return mcp.ErrResult(err)
 	}
 	return mcp.RawResult([]byte(`{"status":"ok"}`))
 }
 
 func explainQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := c.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	r := mcp.NewArgs(args)
 	query := r.Str("query")
 	explainType := strings.ToUpper(r.Str("type"))
@@ -71,7 +79,7 @@ func explainQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*
 	}
 
 	sql := "EXPLAIN " + explainType + " " + query // #nosec G201 -- explainType is validated against allowlist above; query is user-provided SQL (the tool's purpose)
-	data, err := c.query(ctx, sql)
+	data, err := c.query(ctx, conn, sql)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

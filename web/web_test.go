@@ -729,3 +729,46 @@ func TestPostgresConnection_DecodesSnakeCase(t *testing.T) {
 	assert.Equal(t, "false", conns[0].ReadOnly)
 	assert.Equal(t, "require", conns[0].SSLMode)
 }
+
+func TestClickHouseConnection_JSONRoundTrip(t *testing.T) {
+	original := pages.ClickHouseConnection{
+		Alias:      "analytics",
+		Host:       "analytics.example.com",
+		Port:       "9440",
+		Username:   "default",
+		Password:   "secret",
+		Database:   "analytics",
+		Secure:     "true",
+		SkipVerify: "false",
+	}
+
+	encoded, err := json.Marshal([]pages.ClickHouseConnection{original})
+	require.NoError(t, err)
+
+	assert.Contains(t, string(encoded), `"skip_verify"`)
+
+	var decoded []pages.ClickHouseConnection
+	require.NoError(t, json.Unmarshal(encoded, &decoded))
+	require.Len(t, decoded, 1)
+	assert.Equal(t, original, decoded[0])
+}
+
+func TestClickHouseConnection_DecodesSnakeCase(t *testing.T) {
+	raw := `[{ 
+		"alias": "warehouse",
+		"host": "warehouse.example.com",
+		"port": "9440",
+		"username": "default",
+		"password": "p",
+		"database": "wh",
+		"secure": "true",
+		"skip_verify": "false"
+	}]`
+
+	var conns []pages.ClickHouseConnection
+	require.NoError(t, json.Unmarshal([]byte(raw), &conns))
+	require.Len(t, conns, 1)
+	assert.Equal(t, "warehouse", conns[0].Alias)
+	assert.Equal(t, "warehouse.example.com", conns[0].Host)
+	assert.Equal(t, "false", conns[0].SkipVerify)
+}

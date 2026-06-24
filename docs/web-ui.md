@@ -13,6 +13,8 @@
   - `GET /integrations/sentry/setup` — Sentry Device Flow OAuth
   - `GET /integrations/slack/setup` — Slack token extraction (Chrome auto-extract, manual browser snippet, direct entry)
   - `GET /integrations/notion/setup` — Notion token_v2 entry (browser snippet extraction, manual entry)
+  - `GET /integrations/postgres/setup` — Postgres default plus additional aliased connections
+  - `GET /integrations/clickhouse/setup` — ClickHouse default plus additional aliased cluster connections
 - All setup pages save credentials to both the integration config and any external token files
 
 ## Build Tooling

@@ -15,6 +15,14 @@
 
 version: 1
 tools:
+    clickhouse_list_connections:
+        spec:
+            - alias
+            - host
+            - port
+            - database
+            - secure
+            - is_default
     clickhouse_describe_table:
         spec:
             - name
@@ -41,7 +49,7 @@ tools:
         spec:
             - name
             - engine
-            - data_path
+            - comment
     clickhouse_list_dictionaries:
         spec:
             - name

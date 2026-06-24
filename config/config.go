@@ -228,7 +228,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"clickhouse": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"host": "", "port": "", "username": "", "password": "", "database": "", "secure": "", "skip_verify": ""},
+				Credentials: mcp.Credentials{"host": "", "port": "", "username": "", "password": "", "database": "", "secure": "", "skip_verify": "", "connections": ""},
 			},
 			"elasticsearch": {
 				Enabled:     false,
