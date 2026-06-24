@@ -292,6 +292,113 @@ func listNodes(ctx context.Context, k *kubernetes, args map[string]any) (*mcp.To
 	return mcp.JSONResult(out)
 }
 
+func scaleDeployment(ctx context.Context, k *kubernetes, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("deployment")
+	replicasValue := r.Int("replicas")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if _, ok := args["replicas"]; !ok {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: replicas is required"))
+	}
+	if replicasValue < 0 {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: replicas must be >= 0"))
+	}
+	replicas := int32(replicasValue)
+	ns, err := namespaceFromArgs(k, args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	deployment, err := k.client.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: scale deployment: %w", err))
+	}
+	deployment.Spec.Replicas = &replicas
+	updated, err := k.client.AppsV1().Deployments(ns).Update(ctx, deployment, metav1.UpdateOptions{})
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: scale deployment: %w", err))
+	}
+	return mcp.JSONResult(mutationSummary{Action: "scaled", Resource: "deployment", Namespace: ns, Name: name, Replicas: replicas, Deployment: summarizeDeployment(*updated)})
+}
+
+func restartDeployment(ctx context.Context, k *kubernetes, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("deployment")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	ns, err := namespaceFromArgs(k, args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	deployment, err := k.client.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: restart deployment: %w", err))
+	}
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = map[string]string{}
+	}
+	restartedAt := time.Now().UTC().Format(time.RFC3339)
+	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = restartedAt
+	updated, err := k.client.AppsV1().Deployments(ns).Update(ctx, deployment, metav1.UpdateOptions{})
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: restart deployment: %w", err))
+	}
+	return mcp.JSONResult(mutationSummary{Action: "restarted", Resource: "deployment", Namespace: ns, Name: name, RestartedAt: restartedAt, Deployment: summarizeDeployment(*updated)})
+}
+
+func cordonNode(ctx context.Context, k *kubernetes, args map[string]any) (*mcp.ToolResult, error) {
+	return setNodeSchedulable(ctx, k, args, true, "cordoned")
+}
+
+func uncordonNode(ctx context.Context, k *kubernetes, args map[string]any) (*mcp.ToolResult, error) {
+	return setNodeSchedulable(ctx, k, args, false, "uncordoned")
+}
+
+func setNodeSchedulable(ctx context.Context, k *kubernetes, args map[string]any, unschedulable bool, action string) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("node")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	node, err := k.client.CoreV1().Nodes().Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: %s node: %w", action, err))
+	}
+	node.Spec.Unschedulable = unschedulable
+	updated, err := k.client.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: %s node: %w", action, err))
+	}
+	return mcp.JSONResult(mutationSummary{Action: action, Resource: "node", Name: name, Node: summarizeNode(*updated)})
+}
+
+func deletePod(ctx context.Context, k *kubernetes, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	podName := r.Str("pod")
+	gracePeriod := r.Int("grace_period_seconds")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	ns, err := namespaceFromArgs(k, args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := metav1.DeleteOptions{}
+	if _, ok := args["grace_period_seconds"]; ok {
+		if gracePeriod < 0 {
+			return mcp.ErrResult(fmt.Errorf("kubernetes: grace_period_seconds must be >= 0"))
+		}
+		v := int64(gracePeriod)
+		opts.GracePeriodSeconds = &v
+	}
+	if err := k.client.CoreV1().Pods(ns).Delete(ctx, podName, opts); err != nil {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: delete pod: %w", err))
+	}
+	return mcp.JSONResult(mutationSummary{Action: "deleted", Resource: "pod", Namespace: ns, Name: podName})
+}
+
 func listOpts(limit int64, labelSelector, fieldSelector string) metav1.ListOptions {
 	return metav1.ListOptions{Limit: limit, LabelSelector: labelSelector, FieldSelector: fieldSelector}
 }
@@ -666,6 +773,17 @@ type rolloutSummary struct {
 	Deployment deploymentSummary `json:"deployment"`
 	Status     string            `json:"status"`
 	Message    string            `json:"message"`
+}
+
+type mutationSummary struct {
+	Action      string            `json:"action"`
+	Resource    string            `json:"resource"`
+	Namespace   string            `json:"namespace,omitempty"`
+	Name        string            `json:"name"`
+	Replicas    int32             `json:"replicas,omitempty"`
+	RestartedAt string            `json:"restarted_at,omitempty"`
+	Deployment  deploymentSummary `json:"deployment,omitempty"`
+	Node        nodeSummary       `json:"node,omitempty"`
 }
 
 type serviceSummary struct {

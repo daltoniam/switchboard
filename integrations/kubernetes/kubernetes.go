@@ -45,6 +45,7 @@ type kubernetes struct {
 	context         string
 	kubeconfigBytes []byte
 	clients         map[string]*clusterClient
+	allowMutations  bool
 }
 
 type clusterClient struct {
@@ -78,7 +79,7 @@ func New() mcp.Integration {
 func (k *kubernetes) Name() string { return "kubernetes" }
 
 func (k *kubernetes) PlainTextKeys() []string {
-	return []string{"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "ca_cert", "insecure_skip_tls_verify", "in_cluster"}
+	return []string{"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "ca_cert", "insecure_skip_tls_verify", "in_cluster", "allow_mutations"}
 }
 
 func (k *kubernetes) Placeholders() map[string]string {
@@ -90,7 +91,7 @@ func (k *kubernetes) Placeholders() map[string]string {
 }
 
 func (k *kubernetes) OptionalKeys() []string {
-	return []string{"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster", "clusters"}
+	return []string{"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster", "clusters", "allow_mutations"}
 }
 
 func (k *kubernetes) HasCredentials(creds mcp.Credentials) bool {
@@ -111,6 +112,7 @@ func (k *kubernetes) Configure(_ context.Context, creds mcp.Credentials) error {
 	k.context = selected.context
 	k.kubeconfigBytes = selected.kubeconfigBytes
 	k.clients = clients
+	k.allowMutations = creds["allow_mutations"] == "true"
 	return nil
 }
 
@@ -444,6 +446,9 @@ func (k *kubernetes) Execute(ctx context.Context, toolName mcp.ToolName, args ma
 	if k.client == nil {
 		return mcp.ErrResult(mcp.ErrNotConfigured)
 	}
+	if isMutationTool(toolName) && !k.allowMutations {
+		return mcp.ErrResult(fmt.Errorf("kubernetes: mutation tool %s requires allow_mutations=true", toolName))
+	}
 	selected, err := k.withSelectedContext(args)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -475,6 +480,19 @@ func (k *kubernetes) withSelectedContext(args map[string]any) (*kubernetes, erro
 	return &clone, nil
 }
 
+func isMutationTool(toolName mcp.ToolName) bool {
+	switch toolName {
+	case mcp.ToolName("kubernetes_scale_deployment"),
+		mcp.ToolName("kubernetes_restart_deployment"),
+		mcp.ToolName("kubernetes_cordon_node"),
+		mcp.ToolName("kubernetes_uncordon_node"),
+		mcp.ToolName("kubernetes_delete_pod"):
+		return true
+	default:
+		return false
+	}
+}
+
 func (k *kubernetes) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
@@ -488,19 +506,24 @@ func (k *kubernetes) MaxBytes(toolName mcp.ToolName) (int, bool) {
 type handlerFunc func(ctx context.Context, k *kubernetes, args map[string]any) (*mcp.ToolResult, error)
 
 var dispatch = map[mcp.ToolName]handlerFunc{
-	mcp.ToolName("kubernetes_list_contexts"):    listContexts,
-	mcp.ToolName("kubernetes_list_clusters"):    listClusters,
-	mcp.ToolName("kubernetes_list_namespaces"):  listNamespaces,
-	mcp.ToolName("kubernetes_list_pods"):        listPods,
-	mcp.ToolName("kubernetes_get_pod"):          getPod,
-	mcp.ToolName("kubernetes_read_pod_logs"):    readPodLogs,
-	mcp.ToolName("kubernetes_list_events"):      listEvents,
-	mcp.ToolName("kubernetes_list_deployments"): listDeployments,
-	mcp.ToolName("kubernetes_get_deployment"):   getDeployment,
-	mcp.ToolName("kubernetes_rollout_status"):   rolloutStatus,
-	mcp.ToolName("kubernetes_list_services"):    listServices,
-	mcp.ToolName("kubernetes_list_ingresses"):   listIngresses,
-	mcp.ToolName("kubernetes_list_nodes"):       listNodes,
+	mcp.ToolName("kubernetes_list_contexts"):      listContexts,
+	mcp.ToolName("kubernetes_list_clusters"):      listClusters,
+	mcp.ToolName("kubernetes_list_namespaces"):    listNamespaces,
+	mcp.ToolName("kubernetes_list_pods"):          listPods,
+	mcp.ToolName("kubernetes_get_pod"):            getPod,
+	mcp.ToolName("kubernetes_read_pod_logs"):      readPodLogs,
+	mcp.ToolName("kubernetes_list_events"):        listEvents,
+	mcp.ToolName("kubernetes_list_deployments"):   listDeployments,
+	mcp.ToolName("kubernetes_get_deployment"):     getDeployment,
+	mcp.ToolName("kubernetes_rollout_status"):     rolloutStatus,
+	mcp.ToolName("kubernetes_list_services"):      listServices,
+	mcp.ToolName("kubernetes_list_ingresses"):     listIngresses,
+	mcp.ToolName("kubernetes_list_nodes"):         listNodes,
+	mcp.ToolName("kubernetes_scale_deployment"):   scaleDeployment,
+	mcp.ToolName("kubernetes_restart_deployment"): restartDeployment,
+	mcp.ToolName("kubernetes_cordon_node"):        cordonNode,
+	mcp.ToolName("kubernetes_uncordon_node"):      uncordonNode,
+	mcp.ToolName("kubernetes_delete_pod"):         deletePod,
 }
 
 func namespaceFromArgs(k *kubernetes, args map[string]any) (string, error) {

@@ -132,4 +132,54 @@ var tools = []mcp.ToolDefinition{
 			"limit":          "Maximum number of nodes to return (default: 100, max: 500).",
 		},
 	},
+	{
+		Name:        mcp.ToolName("kubernetes_scale_deployment"),
+		Description: "Scale a Kubernetes deployment to an explicit replica count. Mutation tool: requires allow_mutations=true and RBAC update permission on deployments/scale.",
+		Parameters: map[string]string{
+			"context":    contextParamDesc,
+			"namespace":  namespaceParamDesc,
+			"deployment": "Deployment name.",
+			"replicas":   "Desired replica count.",
+		},
+		Required: []string{"deployment", "replicas"},
+	},
+	{
+		Name:        mcp.ToolName("kubernetes_restart_deployment"),
+		Description: "Restart a Kubernetes deployment rollout by updating its pod template restart annotation. Mutation tool: requires allow_mutations=true and RBAC patch/update permission on deployments.",
+		Parameters: map[string]string{
+			"context":    contextParamDesc,
+			"namespace":  namespaceParamDesc,
+			"deployment": "Deployment name.",
+		},
+		Required: []string{"deployment"},
+	},
+	{
+		Name:        mcp.ToolName("kubernetes_cordon_node"),
+		Description: "Cordon a Kubernetes node so new pods are not scheduled onto it. Mutation tool: requires allow_mutations=true and RBAC patch/update permission on nodes.",
+		Parameters: map[string]string{
+			"context": contextParamDesc,
+			"node":    "Node name.",
+		},
+		Required: []string{"node"},
+	},
+	{
+		Name:        mcp.ToolName("kubernetes_uncordon_node"),
+		Description: "Uncordon a Kubernetes node so new pods can be scheduled onto it again. Mutation tool: requires allow_mutations=true and RBAC patch/update permission on nodes.",
+		Parameters: map[string]string{
+			"context": contextParamDesc,
+			"node":    "Node name.",
+		},
+		Required: []string{"node"},
+	},
+	{
+		Name:        mcp.ToolName("kubernetes_delete_pod"),
+		Description: "Delete a Kubernetes pod to let its controller recreate it. Mutation tool: requires allow_mutations=true and RBAC delete permission on pods. Prefer this for stuck or crash-looping controller-owned pods, not standalone pods.",
+		Parameters: map[string]string{
+			"context":              contextParamDesc,
+			"namespace":            namespaceParamDesc,
+			"pod":                  "Pod name.",
+			"grace_period_seconds": "Optional graceful termination period in seconds.",
+		},
+		Required: []string{"pod"},
+	},
 }

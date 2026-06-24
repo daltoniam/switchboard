@@ -36,3 +36,13 @@ tools:
   kubernetes_list_nodes:
     spec: [name, ready, roles, kubelet_version, os_image, container_runtime, capacity, allocatable, taints, labels, creation_timestamp]
     max_bytes: 30000
+  kubernetes_scale_deployment:
+    spec: [action, resource, namespace, name, replicas, deployment]
+  kubernetes_restart_deployment:
+    spec: [action, resource, namespace, name, restarted_at, deployment]
+  kubernetes_cordon_node:
+    spec: [action, resource, name, node]
+  kubernetes_uncordon_node:
+    spec: [action, resource, name, node]
+  kubernetes_delete_pod:
+    spec: [action, resource, namespace, name]
