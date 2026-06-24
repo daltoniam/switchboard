@@ -730,6 +730,47 @@ func TestHandleSearch_ResponseIncludesIntegrations(t *testing.T) {
 	})
 }
 
+func TestRefreshSearchIndex_IncludesHotEnabledIntegration(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "hotint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: mcp.ToolName("hotint_list_contexts"), Description: "List Kubernetes contexts"},
+		},
+	}
+
+	bg := &mockIntegration{
+		name:    "bg",
+		healthy: true,
+		tools:   diverseMockTools(),
+	}
+
+	reg := newMockRegistry()
+	reg.Register(mi)
+	reg.Register(bg)
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"hotint": {Enabled: false, Credentials: mcp.Credentials{}},
+		"bg":     {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+	})
+	s := New(&mcp.Services{Config: cfgService, Registry: reg})
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "contexts"}))
+	require.NoError(t, err)
+	assert.Equal(t, 0, parseSearchResponse(t, result).Total)
+
+	require.NoError(t, cfgService.SetIntegration("hotint", &mcp.IntegrationConfig{
+		Enabled:     true,
+		Credentials: mcp.Credentials{"token": "test"},
+	}))
+	s.RefreshSearchIndex()
+
+	result, err = s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "contexts"}))
+	require.NoError(t, err)
+	resp := parseSearchResponse(t, result)
+	assert.Equal(t, 1, resp.Total)
+	assert.Equal(t, []string{"hotint_list_contexts"}, searchToolNames(t, resp))
+}
+
 // --- smoke test ---
 
 // TestSmoke_SearchResponseShape verifies the full search response contract

@@ -13,6 +13,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -76,6 +77,7 @@ type Server struct {
 	breakers         map[string]*breaker
 	breakerThreshold int
 	breakerCooldown  time.Duration
+	searchMu         sync.RWMutex
 	idf              map[string]float64
 	synMap           map[string][]string
 	allTools         []toolWithIntegration // pre-indexed tools with token sets
@@ -350,7 +352,7 @@ func (s *Server) configureIntegrations() {
 		}
 
 		// Respect explicit disable from config toggle.
-		if exists && !ic.Enabled && !hasCredentials(ic.Credentials) {
+		if exists && !ic.Enabled && !integrationHasCredentials(integration, ic.Credentials) {
 			continue
 		}
 
@@ -371,6 +373,13 @@ func (s *Server) configureIntegrations() {
 
 		log.Printf("Configured integration %q with %d tools", name, len(integration.Tools()))
 	}
+}
+
+func integrationHasCredentials(integration mcp.Integration, creds mcp.Credentials) bool {
+	if detector, ok := integration.(mcp.CredentialDetector); ok {
+		return detector.HasCredentials(creds)
+	}
+	return hasCredentials(creds)
 }
 
 func hasCredentials(creds mcp.Credentials) bool {
@@ -399,13 +408,19 @@ func (s *Server) searchableIntegrationNames() []string {
 // SearchIndex returns the pre-computed search index for sharing with
 // ProjectRouter. The returned data is read-only after init.
 func (s *Server) SearchIndex() SearchIndex {
+	s.searchMu.RLock()
+	defer s.searchMu.RUnlock()
 	return SearchIndex{IDF: s.idf, SynMap: s.synMap, AllTools: s.allTools}
+}
+
+func (s *Server) RefreshSearchIndex() {
+	s.buildSearchIndex()
 }
 
 // buildSearchIndex builds the synonym map and IDF index for scored search.
 // When discoverAll is true, indexes all registered integrations (not just enabled).
 func (s *Server) buildSearchIndex() {
-	s.synMap = buildSynonymMap(synonymGroups)
+	synMap := buildSynonymMap(synonymGroups)
 
 	var tools []toolWithIntegration
 	if s.discoverAll {
@@ -426,9 +441,15 @@ func (s *Server) buildSearchIndex() {
 			}
 		}
 	}
-	s.idf = computeIDF(tools) // also populates tools[i].tokens
+	idf := computeIDF(tools) // also populates tools[i].tokens
+	catalogBytes := computeCatalogBytes(tools)
+
+	s.searchMu.Lock()
+	s.idf = idf
+	s.synMap = synMap
 	s.allTools = tools
-	s.catalogBytes = computeCatalogBytes(tools)
+	s.catalogBytes = catalogBytes
+	s.searchMu.Unlock()
 }
 
 // computeCatalogBytes returns the byte size of a faithful tools/list payload
@@ -602,8 +623,11 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	// shipped the matching slice. We use the columnarized response size since
 	// that is what the LLM actually receives.
 	columnarized := columnarizeResult(string(data))
-	if s.services.Metrics != nil && s.catalogBytes > 0 {
-		avoided := s.catalogBytes - int64(len(columnarized))
+	s.searchMu.RLock()
+	catalogBytes := s.catalogBytes
+	s.searchMu.RUnlock()
+	if s.services.Metrics != nil && catalogBytes > 0 {
+		avoided := catalogBytes - int64(len(columnarized))
 		s.services.Metrics.RecordCatalogAvoidance(avoided)
 	}
 
@@ -617,8 +641,14 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 // scoredSearch returns tools ranked by TF-IDF + synonym relevance,
 // respecting integration filter and ABAC tool globs.
 func (s *Server) scoredSearch(query, integration string) []searchToolInfo {
+	s.searchMu.RLock()
+	allTools := s.allTools
+	idf := s.idf
+	synMap := s.synMap
+	s.searchMu.RUnlock()
+
 	var candidates []toolWithIntegration
-	for _, ti := range s.allTools {
+	for _, ti := range allTools {
 		if integration != "" && ti.Integration != integration {
 			continue
 		}
@@ -629,7 +659,7 @@ func (s *Server) scoredSearch(query, integration string) []searchToolInfo {
 		candidates = append(candidates, ti)
 	}
 
-	scored := scoreTools(query, candidates, s.idf, s.synMap)
+	scored := scoreTools(query, candidates, idf, synMap)
 	all := make([]searchToolInfo, len(scored))
 	for i, r := range scored {
 		all[i] = toToolInfo(r)

@@ -35,15 +35,22 @@ import (
 
 // WebServer serves the configuration web UI using templ templates.
 type WebServer struct {
-	services    *mcp.Services
-	port        int
-	health      *healthCache
-	marketplace *marketplace.Manager
-	wasmLoader  pluginLoader
+	services       *mcp.Services
+	port           int
+	health         *healthCache
+	marketplace    *marketplace.Manager
+	wasmLoader     pluginLoader
+	onConfigChange func()
+}
+
+type Option func(*WebServer)
+
+func WithConfigChangeHook(fn func()) Option {
+	return func(w *WebServer) { w.onConfigChange = fn }
 }
 
 // New returns a WebServer that provides a browser-based config UI.
-func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.Loader) *WebServer {
+func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.Loader, opts ...Option) *WebServer {
 	ws := &WebServer{
 		services:    services,
 		port:        port,
@@ -52,6 +59,9 @@ func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.
 	}
 	if wl != nil {
 		ws.wasmLoader = wl
+	}
+	for _, opt := range opts {
+		opt(ws)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -445,6 +455,7 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 		http.Redirect(rw, r, redirect+"?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
 		return
 	}
+	w.notifyConfigChanged()
 
 	redirect := "/integrations/" + name
 	if setupIntegrations[name] {
@@ -500,9 +511,19 @@ func (w *WebServer) handleUpdateCredentials(rw http.ResponseWriter, r *http.Requ
 	}
 	ic.Enabled = true
 	ic.Credentials = creds
-	_ = w.services.Config.SetIntegration(name, ic)
+	if err := w.services.Config.SetIntegration(name, ic); err != nil {
+		writeJSON(rw, http.StatusInternalServerError, map[string]string{"error": "save failed: " + err.Error()})
+		return
+	}
+	w.notifyConfigChanged()
 
 	writeJSON(rw, http.StatusOK, map[string]string{"ok": "true"})
+}
+
+func (w *WebServer) notifyConfigChanged() {
+	if w.onConfigChange != nil {
+		w.onConfigChange()
+	}
 }
 
 func writeJSON(rw http.ResponseWriter, status int, v any) {

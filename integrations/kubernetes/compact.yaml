@@ -1,0 +1,36 @@
+version: 1
+
+tools:
+  kubernetes_list_contexts:
+    spec: [name, current, cluster, auth_info, namespace]
+  kubernetes_list_namespaces:
+    spec: [name, status, labels, creation_timestamp]
+  kubernetes_list_pods:
+    spec: [namespace, name, phase, node, labels, ready_containers, total_containers, restart_count, containers, conditions, owners, creation_timestamp]
+    max_bytes: 30000
+  kubernetes_get_pod:
+    spec: [namespace, name, phase, node, pod_ip, host_ip, labels, ready_containers, total_containers, restart_count, containers, conditions, owners, creation_timestamp]
+    max_bytes: 50000
+  kubernetes_read_pod_logs:
+    spec: [namespace, pod, container, tail_lines, previous, timestamps, logs]
+    max_bytes: 100000
+  kubernetes_list_events:
+    spec: [namespace, name, type, reason, message, count, involved_kind, involved_name, source, reporting, time]
+    max_bytes: 50000
+  kubernetes_list_deployments:
+    spec: [namespace, name, labels, replicas, updated_replicas, ready_replicas, available_replicas, unavailable_replicas, selector, images, strategy, conditions, creation_timestamp]
+    max_bytes: 30000
+  kubernetes_get_deployment:
+    spec: [namespace, name, labels, replicas, updated_replicas, ready_replicas, available_replicas, unavailable_replicas, selector, images, strategy, conditions, creation_timestamp]
+    max_bytes: 50000
+  kubernetes_rollout_status:
+    spec: [status, message, deployment]
+  kubernetes_list_services:
+    spec: [namespace, name, type, cluster_ip, cluster_ips, external_ips, load_balancer_ips, ports, selector, creation_timestamp]
+    max_bytes: 30000
+  kubernetes_list_ingresses:
+    spec: [namespace, name, class_name, rules, tls, load_balancer_ips, creation_timestamp]
+    max_bytes: 30000
+  kubernetes_list_nodes:
+    spec: [name, ready, roles, kubelet_version, os_image, container_runtime, capacity, allocatable, taints, labels, creation_timestamp]
+    max_bytes: 30000
