@@ -175,3 +175,198 @@ tools:
             - result[].plan.name
             - result[].activated_on
             - result[].modified_on
+    cloudflare_list_ai_models:
+        spec:
+            - result[].id
+            - result[].source
+            - result[].name
+            - result[].description
+            - result[].task.id
+            - result[].task.name
+            - result[].properties[].property_id
+            - result[].properties[].value
+    cloudflare_list_vectorize_indexes:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].description
+            - result[].config.dimensions
+            - result[].config.metric
+            - result[].created_on
+            - result[].modified_on
+    cloudflare_list_queues:
+        spec:
+            - result[].queue_id
+            - result[].queue_name
+            - result[].created_on
+            - result[].modified_on
+            - result[].producers_total_count
+            - result[].consumers_total_count
+    cloudflare_list_hyperdrive_configs:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].origin.host
+            - result[].origin.port
+            - result[].origin.database
+            - result[].origin.scheme
+            - result[].caching.disabled
+            - result[].caching.max_age
+            - result[].caching.stale_while_revalidate
+    cloudflare_list_worker_secrets:
+        spec:
+            - result[].name
+            - result[].type
+    cloudflare_list_worker_deployments:
+        spec:
+            - result[].id
+            - result[].source
+            - result[].strategy
+            - result[].author_email
+            - result[].created_on
+            - result[].versions[].version_id
+            - result[].versions[].percentage
+    cloudflare_list_worker_tails:
+        spec:
+            - result[].id
+            - result[].url
+            - result[].expires_at
+    cloudflare_list_pages_domains:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].status
+            - result[].verification_data.status
+            - result[].validation_data.status
+            - result[].certificate_authority
+            - result[].created_on
+    cloudflare_list_stream_videos:
+        spec:
+            - result[].uid
+            - result[].meta.name
+            - result[].duration
+            - result[].size
+            - result[].status.state
+            - result[].readyToStream
+            - result[].thumbnail
+            - result[].preview
+            - result[].playback.hls
+            - result[].playback.dash
+            - result[].created
+            - result[].modified
+    cloudflare_list_images:
+        spec:
+            - result.images[].id
+            - result.images[].filename
+            - result.images[].meta
+            - result.images[].requireSignedURLs
+            - result.images[].variants
+            - result.images[].uploaded
+    cloudflare_list_access_apps:
+        spec:
+            - result[].id
+            - result[].uid
+            - result[].name
+            - result[].domain
+            - result[].type
+            - result[].session_duration
+            - result[].auto_redirect_to_identity
+            - result[].allowed_idps
+            - result[].created_at
+            - result[].updated_at
+    cloudflare_list_access_app_policies:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].decision
+            - result[].precedence
+            - result[].include
+            - result[].exclude
+            - result[].require
+            - result[].created_at
+            - result[].updated_at
+    cloudflare_list_access_identity_providers:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].type
+            - result[].config.client_id
+            - result[].scim_config.enabled
+    cloudflare_list_tunnels:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].status
+            - result[].connections[].id
+            - result[].connections[].colo_name
+            - result[].connections[].is_pending_reconnect
+            - result[].created_at
+            - result[].deleted_at
+    cloudflare_list_email_routing_rules:
+        spec:
+            - result[].tag
+            - result[].name
+            - result[].enabled
+            - result[].priority
+            - result[].matchers[].type
+            - result[].matchers[].field
+            - result[].matchers[].value
+            - result[].actions[].type
+            - result[].actions[].value
+    cloudflare_list_email_routing_addresses:
+        spec:
+            - result[].tag
+            - result[].email
+            - result[].verified
+            - result[].created
+            - result[].modified
+    cloudflare_list_logpush_jobs:
+        spec:
+            - result[].id
+            - result[].dataset
+            - result[].enabled
+            - result[].name
+            - result[].logpull_options
+            - result[].last_complete
+            - result[].last_error
+            - result[].error_message
+    cloudflare_list_page_rules:
+        spec:
+            - result[].id
+            - result[].status
+            - result[].priority
+            - result[].targets[].constraint.operator
+            - result[].targets[].constraint.value
+            - result[].actions[].id
+            - result[].actions[].value
+            - result[].created_on
+            - result[].modified_on
+    cloudflare_list_notification_policies:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].description
+            - result[].enabled
+            - result[].alert_type
+            - result[].mechanisms
+            - result[].created
+            - result[].modified
+    cloudflare_list_notification_webhooks:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].url
+            - result[].type
+            - result[].created_at
+            - result[].last_success
+            - result[].last_failure
+    cloudflare_list_api_tokens:
+        spec:
+            - result[].id
+            - result[].name
+            - result[].status
+            - result[].issued_on
+            - result[].modified_on
+            - result[].last_used_on
+            - result[].expires_on
+            - result[].not_before

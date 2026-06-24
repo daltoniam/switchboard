@@ -450,4 +450,426 @@ var tools = []mcp.ToolDefinition{
 		},
 		Required: []string{"gateway_id", "log_id"},
 	},
+
+	// ── Workers AI ───────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_ai_models"),
+		Description: "List Workers AI models available to run on Cloudflare's edge. Workers AI hosts open-source LLMs, embeddings, image, and speech models. Start here to discover model ids (e.g. @cf/meta/llama-3.1-8b-instruct) before calling run_ai_model.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"search":     "Free-text search filter (e.g. llama, embedding)",
+			"task":       "Filter by task type (e.g. Text Generation, Text Embeddings, Speech Recognition)",
+			"source":     "Filter by source (1 for first-party, 2 for Hugging Face)",
+			"page":       "Page number (default 1)",
+			"per_page":   "Results per page (default 20)",
+		},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_run_ai_model"),
+		Description: "Run inference on a Workers AI model — text generation, embeddings, classification, translation, speech-to-text, image generation. Pass either `prompt` (string) for simple text-in, or `body` (object) for the model's full request schema (messages, input, image, audio, etc.). Use after list_ai_models.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"model_name": "Full model identifier (e.g. @cf/meta/llama-3.1-8b-instruct)",
+			"prompt":     "Convenience: text prompt (wrapped as {\"prompt\":...}). Ignored if `body` is set.",
+			"body":       "Full inference request body as a JSON object (model-specific schema)",
+		},
+		Required: []string{"model_name"},
+	},
+
+	// ── Vectorize ────────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_vectorize_indexes"),
+		Description: "List Vectorize v2 indexes. Vectorize is Cloudflare's globally distributed vector database for semantic search, RAG, and embeddings. Start here to discover index names before querying.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_vectorize_index"),
+		Description: "Get a Vectorize index's configuration: dimensions, distance metric, vector count. Use after list_vectorize_indexes.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "index_name": "Vectorize index name"},
+		Required:    []string{"index_name"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_create_vectorize_index"),
+		Description: "Create a new Vectorize v2 index for storing embeddings. Pick a metric (cosine, euclidean, dot-product) and dimension count (e.g. 768, 1536) that match your embedding model.",
+		Parameters: map[string]string{
+			"account_id":  "Account identifier (defaults to configured account_id)",
+			"name":        "Index name",
+			"metric":      "Distance metric: cosine, euclidean, or dot-product",
+			"dimensions":  "Vector dimension count (e.g. 768, 1024, 1536)",
+			"description": "Optional human description",
+		},
+		Required: []string{"name", "metric", "dimensions"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_vectorize_index"),
+		Description: "Delete a Vectorize index and all its vectors. Irreversible.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "index_name": "Vectorize index name"},
+		Required:    []string{"index_name"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_query_vectorize_index"),
+		Description: "Query a Vectorize index by vector — returns the topK nearest neighbors. Use for semantic search, RAG retrieval, recommendation lookup.",
+		Parameters: map[string]string{
+			"account_id":     "Account identifier (defaults to configured account_id)",
+			"index_name":     "Vectorize index name",
+			"vector":         "Query vector as JSON array of floats",
+			"topK":           "Number of nearest neighbors to return (default 5)",
+			"returnValues":   "Whether to return the matched vectors (true/false)",
+			"returnMetadata": "Whether to return metadata: 'none', 'indexed', or 'all'",
+			"namespace":      "Optional namespace to scope the query",
+			"filter":         "Optional metadata filter (JSON object)",
+		},
+		Required: []string{"index_name", "vector"},
+	},
+
+	// ── Queues ───────────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_queues"),
+		Description: "List Cloudflare Queues. Queues are durable message queues for Workers — producer/consumer messaging, batch processing, async work. Start here to discover queue IDs.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"page":       "Page number (default 1)",
+			"per_page":   "Results per page (default 20)",
+		},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_queue"),
+		Description: "Get a Queue's details: producers, consumers, message counts, settings. Use after list_queues.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "queue_id": "Queue identifier"},
+		Required:    []string{"queue_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_create_queue"),
+		Description: "Create a new Cloudflare Queue.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"queue_name": "Queue name",
+			"settings":   "Optional settings map (delivery_delay, message_retention_period, etc.)",
+		},
+		Required: []string{"queue_name"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_queue"),
+		Description: "Delete a Cloudflare Queue and all pending messages. Irreversible.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "queue_id": "Queue identifier"},
+		Required:    []string{"queue_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_send_queue_messages"),
+		Description: "Publish messages to a Cloudflare Queue. Messages is a JSON array of objects with at least a `body` field.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"queue_id":   "Queue identifier",
+			"messages":   "JSON array of message objects (each with `body` and optional `content_type`, `delay_seconds`)",
+		},
+		Required: []string{"queue_id", "messages"},
+	},
+
+	// ── Hyperdrive ───────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_hyperdrive_configs"),
+		Description: "List Hyperdrive configs. Hyperdrive accelerates database connections from Workers by pooling and caching at the edge. Start here to discover config IDs.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_hyperdrive_config"),
+		Description: "Get a Hyperdrive config's details: origin connection, caching, mTLS. Use after list_hyperdrive_configs.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "hyperdrive_id": "Hyperdrive config identifier"},
+		Required:    []string{"hyperdrive_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_create_hyperdrive_config"),
+		Description: "Create a Hyperdrive config that proxies and caches a database connection (Postgres, MySQL) for Workers.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"name":       "Config name",
+			"origin":     "Origin connection JSON: {scheme, host, port, database, user, password}",
+			"caching":    "Optional caching JSON: {disabled, max_age, stale_while_revalidate}",
+			"mtls":       "Optional mTLS JSON",
+		},
+		Required: []string{"name", "origin"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_hyperdrive_config"),
+		Description: "Delete a Hyperdrive config. Workers using this config will fail until rebound.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "hyperdrive_id": "Hyperdrive config identifier"},
+		Required:    []string{"hyperdrive_id"},
+	},
+
+	// ── Workers extras ───────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_worker_secrets"),
+		Description: "List secret names bound to a Worker script. Values are never returned by the API. Use to audit which secrets a Worker has access to.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "script_name": "Worker script name"},
+		Required:    []string{"script_name"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_list_worker_deployments"),
+		Description: "List recent deployments for a Worker script with versions, authors, timestamps. Use to inspect deploy history or find a version to roll back to.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "script_name": "Worker script name"},
+		Required:    []string{"script_name"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_worker_subdomain"),
+		Description: "Get the workers.dev subdomain enabled for this account (used as the default Worker URL).",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_list_worker_tails"),
+		Description: "List active Worker tails (live log streams) for a script. Use to find existing tails before opening a new live-log session.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "script_name": "Worker script name"},
+		Required:    []string{"script_name"},
+	},
+
+	// ── Pages create/list domains ───────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_create_pages_project"),
+		Description: "Create a Cloudflare Pages project (static site / Jamstack app).",
+		Parameters: map[string]string{
+			"account_id":         "Account identifier (defaults to configured account_id)",
+			"name":               "Project name",
+			"production_branch":  "Production branch (e.g. main)",
+			"build_config":       "Optional build config JSON: {build_command, destination_dir, root_dir, web_analytics_tag}",
+			"source":             "Optional source JSON: {type, config: {owner, repo_name, production_branch, ...}}",
+			"deployment_configs": "Optional deployment_configs JSON: {production, preview}",
+		},
+		Required: []string{"name", "production_branch"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_create_pages_deployment"),
+		Description: "Trigger a new Pages deployment, optionally targeting a specific branch.",
+		Parameters: map[string]string{
+			"account_id":   "Account identifier (defaults to configured account_id)",
+			"project_name": "Pages project name",
+			"branch":       "Optional branch to deploy (defaults to production)",
+		},
+		Required: []string{"project_name"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_list_pages_domains"),
+		Description: "List custom domains attached to a Pages project (DNS + cert state).",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "project_name": "Pages project name"},
+		Required:    []string{"project_name"},
+	},
+
+	// ── KV bulk ──────────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_bulk_delete_kv_values"),
+		Description: "Delete multiple keys from a Workers KV namespace in one call (up to 10000 keys).",
+		Parameters: map[string]string{
+			"account_id":   "Account identifier (defaults to configured account_id)",
+			"namespace_id": "KV namespace identifier",
+			"keys":         "JSON array of key names to delete",
+		},
+		Required: []string{"namespace_id", "keys"},
+	},
+
+	// ── Stream ───────────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_stream_videos"),
+		Description: "List videos hosted on Cloudflare Stream. Start here to discover video IDs for playback URLs, analytics, or deletion.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"after":      "Show videos uploaded after this ISO 8601 timestamp",
+			"before":     "Show videos uploaded before this ISO 8601 timestamp",
+			"creator":    "Filter by creator id",
+			"status":     "Filter by status (queued, inprogress, ready, error)",
+			"search":     "Free-text search across video names",
+		},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_stream_video"),
+		Description: "Get a Stream video's metadata: playback URLs (HLS/DASH), thumbnail, duration, status. Use after list_stream_videos.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "identifier": "Stream video identifier"},
+		Required:    []string{"identifier"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_stream_video"),
+		Description: "Delete a Stream video. Irreversible.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "identifier": "Stream video identifier"},
+		Required:    []string{"identifier"},
+	},
+
+	// ── Images ───────────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_images"),
+		Description: "List images hosted on Cloudflare Images. Start here to discover image IDs for delivery URLs or deletion.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"page":       "Page number (default 1)",
+			"per_page":   "Results per page (default 50)",
+		},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_image"),
+		Description: "Get a Cloudflare Images record: variants, metadata, upload timestamp.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "image_id": "Image identifier"},
+		Required:    []string{"image_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_image"),
+		Description: "Delete an image from Cloudflare Images. Irreversible.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "image_id": "Image identifier"},
+		Required:    []string{"image_id"},
+	},
+
+	// ── Zero Trust Access ────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_access_apps"),
+		Description: "List Cloudflare Zero Trust Access applications (apps protected by Cloudflare Access). Start here to discover app IDs before listing policies or auditing access.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"page":       "Page number (default 1)",
+			"per_page":   "Results per page (default 25)",
+		},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_list_access_app_policies"),
+		Description: "List Access policies bound to a specific application. Shows who can access the app (groups, emails, IPs, IdPs, mTLS). Use after list_access_apps.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "app_id": "Access application identifier"},
+		Required:    []string{"app_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_list_access_identity_providers"),
+		Description: "List configured Access identity providers (Google, Okta, Azure AD, SAML, OIDC, GitHub, etc.).",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)"},
+	},
+
+	// ── Cloudflared Tunnels ─────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_tunnels"),
+		Description: "List Cloudflared tunnels for an account. Tunnels expose private origins to Cloudflare without inbound ports. Start here to discover tunnel IDs and health.",
+		Parameters: map[string]string{
+			"account_id":      "Account identifier (defaults to configured account_id)",
+			"name":            "Filter by tunnel name",
+			"status":          "Filter by status: healthy, degraded, down, inactive",
+			"include_deleted": "Include deleted tunnels (true/false)",
+			"page":            "Page number (default 1)",
+			"per_page":        "Results per page (default 20)",
+		},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_tunnel"),
+		Description: "Get a Cloudflared tunnel's details: name, status, connections, created/deleted timestamps. Use after list_tunnels.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "tunnel_id": "Tunnel identifier"},
+		Required:    []string{"tunnel_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_tunnel"),
+		Description: "Delete a Cloudflared tunnel. Origins behind it become unreachable.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "tunnel_id": "Tunnel identifier"},
+		Required:    []string{"tunnel_id"},
+	},
+
+	// ── Email Routing ────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_email_routing_rules"),
+		Description: "List Email Routing rules for a zone (which incoming addresses forward where). Start here for email routing config audits.",
+		Parameters:  map[string]string{"zone_id": "Zone identifier"},
+		Required:    []string{"zone_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_list_email_routing_addresses"),
+		Description: "List verified destination email addresses for Email Routing (account-scoped).",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"verified":   "Filter by verified status (true/false)",
+			"page":       "Page number (default 1)",
+			"per_page":   "Results per page (default 20)",
+		},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_email_routing_settings"),
+		Description: "Get Email Routing settings for a zone (enabled state, MX/SPF records, skip_wizard).",
+		Parameters:  map[string]string{"zone_id": "Zone identifier"},
+		Required:    []string{"zone_id"},
+	},
+
+	// ── Logpush ──────────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_logpush_jobs"),
+		Description: "List Logpush jobs for an account (HTTP requests, firewall events, Workers traces, etc. exported to S3/GCS/Azure/Sumo/Datadog/Splunk/New Relic/R2). Start here to inspect log-export pipelines.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_logpush_job"),
+		Description: "Get a Logpush job's config: dataset, destination, frequency, filters, last error. Use after list_logpush_jobs.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "job_id": "Logpush job ID (integer)"},
+		Required:    []string{"job_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_create_logpush_job"),
+		Description: "Create a Logpush job to export Cloudflare logs to an external sink (S3, GCS, Azure, R2, Splunk, Datadog, New Relic, Sumo Logic, HTTP).",
+		Parameters: map[string]string{
+			"account_id":       "Account identifier (defaults to configured account_id)",
+			"dataset":          "Log dataset (e.g. http_requests, firewall_events, workers_trace_events)",
+			"destination_conf": "Destination connection string (e.g. s3://bucket/path?region=...)",
+			"name":             "Optional job name",
+			"frequency":        "Optional frequency: high or low",
+			"logpull_options":  "Optional logpull options string (fields, timestamps, etc.)",
+			"output_options":   "Optional output options map (field_names, timestamp_format, batch sizing)",
+			"filter":           "Optional log filter expression",
+			"enabled":          "Whether the job is enabled (true/false)",
+		},
+		Required: []string{"dataset", "destination_conf"},
+	},
+
+	// ── Page Rules ───────────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_page_rules"),
+		Description: "List Page Rules for a zone (URL-pattern rules for cache, redirects, headers, security). Start here for legacy page-rule audits before migrating to Rulesets.",
+		Parameters: map[string]string{
+			"zone_id":   "Zone identifier",
+			"status":    "Filter by status (active, disabled)",
+			"order":     "Sort field (priority, status)",
+			"direction": "Sort direction (asc, desc)",
+		},
+		Required: []string{"zone_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_page_rule"),
+		Description: "Get a Page Rule's targets and actions. Use after list_page_rules.",
+		Parameters:  map[string]string{"zone_id": "Zone identifier", "pagerule_id": "Page Rule identifier"},
+		Required:    []string{"zone_id", "pagerule_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_page_rule"),
+		Description: "Delete a Page Rule.",
+		Parameters:  map[string]string{"zone_id": "Zone identifier", "pagerule_id": "Page Rule identifier"},
+		Required:    []string{"zone_id", "pagerule_id"},
+	},
+
+	// ── Notifications (Alerting v3) ─────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_notification_policies"),
+		Description: "List notification (alerting) policies — what conditions trigger emails, PagerDuty, webhooks for an account.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_list_notification_webhooks"),
+		Description: "List configured webhook destinations for Cloudflare notifications.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)"},
+	},
+
+	// ── User API Tokens ─────────────────────────────────────────────
+	{
+		Name:        mcp.ToolName("cloudflare_list_api_tokens"),
+		Description: "List Cloudflare API tokens issued under the authenticated user. Start here to audit which tokens exist, their scopes, and their last-used timestamp.",
+		Parameters: map[string]string{
+			"page":     "Page number (default 1)",
+			"per_page": "Results per page (default 20)",
+		},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_api_token"),
+		Description: "Get a Cloudflare API token's policy details: permissions, IP/time restrictions, expiry, last_used_on. Use after list_api_tokens.",
+		Parameters:  map[string]string{"token_id": "API token identifier"},
+		Required:    []string{"token_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_api_token"),
+		Description: "Revoke (delete) a Cloudflare API token. Any client using it will start receiving 401s.",
+		Parameters:  map[string]string{"token_id": "API token identifier"},
+		Required:    []string{"token_id"},
+	},
 }
