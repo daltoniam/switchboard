@@ -1,0 +1,10 @@
+version: 1
+tools:
+  web_fetch:
+    description: "Fetches the content of a URL and returns it as readable text. Use this to read documentation, API references, README files, changelogs, GitHub raw content, package docs, or any web page whose content you need to reason about. Returns extracted readable text, not raw HTML. Start here for web browsing, URL reading, and online documentation lookup."
+    parameters:
+      url:
+        description: "The full URL to fetch (https only)."
+        required: true
+      timeout:
+        description: "Request timeout in seconds (default 10, max 30)."

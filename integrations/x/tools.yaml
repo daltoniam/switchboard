@@ -1,0 +1,619 @@
+version: 1
+tools:
+  x_get_tweet:
+    description: "Get a single tweet by ID. Returns full tweet object with text, author, metrics, and entities"
+    parameters:
+      id:
+        description: "Tweet ID"
+        required: true
+      tweet_fields:
+        description: "Comma-separated tweet fields: attachments,author_id,created_at,entities,geo,id,lang,public_metrics,source,text,conversation_id,reply_settings"
+      expansions:
+        description: "Comma-separated expansions: author_id,referenced_tweets.id,attachments.media_keys"
+      user_fields:
+        description: "Comma-separated user fields: id,name,username,profile_image_url,verified,public_metrics"
+
+  x_get_tweets:
+    description: "Get multiple tweets by IDs (up to 100). Start here for bulk tweet lookups"
+    parameters:
+      ids:
+        description: "Comma-separated tweet IDs (max 100)"
+        required: true
+      tweet_fields:
+        description: "Comma-separated tweet fields: attachments,author_id,created_at,entities,geo,id,lang,public_metrics,source,text"
+      expansions:
+        description: "Comma-separated expansions: author_id,referenced_tweets.id,attachments.media_keys"
+      user_fields:
+        description: "Comma-separated user fields: id,name,username,profile_image_url,verified,public_metrics"
+
+  x_create_tweet:
+    description: "Post a new tweet. Supports text, replies, quotes, and polls"
+    parameters:
+      text:
+        description: "Tweet text (up to 280 chars)"
+        required: true
+      reply_to:
+        description: "Tweet ID to reply to"
+      quote_tweet_id:
+        description: "Tweet ID to quote"
+      poll_options:
+        description: "Comma-separated poll options (2-4 choices)"
+      poll_duration_minutes:
+        description: "Poll duration in minutes (5-10080)"
+
+  x_delete_tweet:
+    description: "Delete a tweet by ID. Must be authored by the authenticated user"
+    parameters:
+      id:
+        description: "Tweet ID to delete"
+        required: true
+
+  x_search_recent:
+    description: "Search tweets from the last 7 days. Start here for most tweet discovery workflows. Supports the full X search query syntax"
+    parameters:
+      query:
+        description: "Search query (required). Supports operators: from:, to:, is:retweet, has:media, has:links, lang:, -is:retweet, etc."
+        required: true
+      max_results:
+        description: "Results per page (10-100, default 10)"
+      next_token:
+        description: "Pagination token from previous response"
+      tweet_fields:
+        description: "Comma-separated tweet fields: author_id,created_at,public_metrics,source,text,conversation_id,entities"
+      start_time:
+        description: "Oldest UTC datetime (ISO 8601: 2024-01-01T00:00:00Z)"
+      end_time:
+        description: "Newest UTC datetime (ISO 8601)"
+      sort_order:
+        description: "Order of results: recency or relevancy"
+
+  x_search_all:
+    description: "Full-archive search across all tweets (requires Pro tier or higher). Use x_search_recent for 7-day window instead"
+    parameters:
+      query:
+        description: "Search query (required). Same operators as x_search_recent"
+        required: true
+      max_results:
+        description: "Results per page (10-500, default 10)"
+      next_token:
+        description: "Pagination token from previous response"
+      tweet_fields:
+        description: "Comma-separated tweet fields"
+      start_time:
+        description: "Oldest UTC datetime (ISO 8601)"
+      end_time:
+        description: "Newest UTC datetime (ISO 8601)"
+      sort_order:
+        description: "Order of results: recency or relevancy"
+
+  x_get_tweet_count:
+    description: "Get count of tweets matching a search query from the last 7 days. Useful for analytics without retrieving full tweets"
+    parameters:
+      query:
+        description: "Search query"
+        required: true
+      granularity:
+        description: "Aggregation granularity: minute, hour, or day (default day)"
+      start_time:
+        description: "Oldest UTC datetime (ISO 8601)"
+      end_time:
+        description: "Newest UTC datetime (ISO 8601)"
+
+  x_get_quote_tweets:
+    description: "Get tweets that quote a specific tweet"
+    parameters:
+      id:
+        description: "Tweet ID to get quotes for"
+        required: true
+      max_results:
+        description: "Results per page (10-100, default 10)"
+      tweet_fields:
+        description: "Comma-separated tweet fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_hide_reply:
+    description: "Hide a reply to one of your tweets"
+    parameters:
+      id:
+        description: "Reply tweet ID to hide"
+        required: true
+
+  x_unhide_reply:
+    description: "Unhide a previously hidden reply"
+    parameters:
+      id:
+        description: "Reply tweet ID to unhide"
+        required: true
+
+  x_get_user_tweets:
+    description: "Get tweets posted by a specific user. Use user_id from x_get_user or x_get_user_by_username"
+    parameters:
+      user_id:
+        description: "User ID (not username — use x_get_user_by_username to resolve)"
+        required: true
+      max_results:
+        description: "Results per page (5-100, default 10)"
+      tweet_fields:
+        description: "Comma-separated tweet fields"
+      pagination_token:
+        description: "Pagination token"
+      start_time:
+        description: "Oldest UTC datetime (ISO 8601)"
+      end_time:
+        description: "Newest UTC datetime (ISO 8601)"
+      exclude:
+        description: "Comma-separated: retweets,replies"
+
+  x_get_user_mentions:
+    description: "Get tweets mentioning a specific user"
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      max_results:
+        description: "Results per page (5-100, default 10)"
+      tweet_fields:
+        description: "Comma-separated tweet fields"
+      pagination_token:
+        description: "Pagination token"
+      start_time:
+        description: "Oldest UTC datetime (ISO 8601)"
+      end_time:
+        description: "Newest UTC datetime (ISO 8601)"
+
+  x_get_home_timeline:
+    description: "Get the authenticated user's home timeline (reverse chronological). Requires user context auth"
+    parameters:
+      max_results:
+        description: "Results per page (1-100, default 10)"
+      tweet_fields:
+        description: "Comma-separated tweet fields"
+      pagination_token:
+        description: "Pagination token"
+      start_time:
+        description: "Oldest UTC datetime (ISO 8601)"
+      end_time:
+        description: "Newest UTC datetime (ISO 8601)"
+      exclude:
+        description: "Comma-separated: retweets,replies"
+
+  x_get_user:
+    description: "Get a user by their numeric ID. Use x_get_user_by_username if you have a @handle instead"
+    parameters:
+      id:
+        description: "User ID"
+        required: true
+      user_fields:
+        description: "Comma-separated: id,name,username,created_at,description,location,pinned_tweet_id,profile_image_url,protected,public_metrics,url,verified"
+
+  x_get_user_by_username:
+    description: "Get a user by @username. Preferred entry point when you know the handle. Returns user ID needed for other endpoints"
+    parameters:
+      username:
+        description: "Username without @ prefix"
+        required: true
+      user_fields:
+        description: "Comma-separated user fields"
+
+  x_get_users:
+    description: "Get multiple users by IDs (up to 100)"
+    parameters:
+      ids:
+        description: "Comma-separated user IDs (max 100)"
+        required: true
+      user_fields:
+        description: "Comma-separated user fields"
+
+  x_search_users:
+    description: "Search for users by name or username"
+    parameters:
+      query:
+        description: "Search query"
+        required: true
+      max_results:
+        description: "Results per page (1-100, default 10)"
+      user_fields:
+        description: "Comma-separated user fields"
+
+  x_get_me:
+    description: "Get the authenticated user's profile information"
+    parameters:
+      user_fields:
+        description: "Comma-separated user fields"
+
+  x_get_following:
+    description: "Get users that a user follows"
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      max_results:
+        description: "Results per page (1-1000, default 100)"
+      user_fields:
+        description: "Comma-separated user fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_get_followers:
+    description: "Get users who follow a user"
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      max_results:
+        description: "Results per page (1-1000, default 100)"
+      user_fields:
+        description: "Comma-separated user fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_follow_user:
+    description: "Follow a user. Uses the authenticated user's ID automatically"
+    parameters:
+      target_user_id:
+        description: "User ID to follow"
+        required: true
+
+  x_unfollow_user:
+    description: "Unfollow a user"
+    parameters:
+      target_user_id:
+        description: "User ID to unfollow"
+        required: true
+
+  x_get_blocked:
+    description: "Get users blocked by the authenticated user"
+    parameters:
+      max_results:
+        description: "Results per page (1-1000, default 100)"
+      user_fields:
+        description: "Comma-separated user fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_block_user:
+    description: "Block a user"
+    parameters:
+      target_user_id:
+        description: "User ID to block"
+        required: true
+
+  x_unblock_user:
+    description: "Unblock a user"
+    parameters:
+      target_user_id:
+        description: "User ID to unblock"
+        required: true
+
+  x_get_muted:
+    description: "Get users muted by the authenticated user"
+    parameters:
+      max_results:
+        description: "Results per page (1-1000, default 100)"
+      user_fields:
+        description: "Comma-separated user fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_mute_user:
+    description: "Mute a user"
+    parameters:
+      target_user_id:
+        description: "User ID to mute"
+        required: true
+
+  x_unmute_user:
+    description: "Unmute a user"
+    parameters:
+      target_user_id:
+        description: "User ID to unmute"
+        required: true
+
+  x_get_liking_users:
+    description: "Get users who liked a specific tweet"
+    parameters:
+      tweet_id:
+        description: "Tweet ID"
+        required: true
+      max_results:
+        description: "Results per page (1-100, default 100)"
+      user_fields:
+        description: "Comma-separated user fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_get_liked_tweets:
+    description: "Get tweets liked by a specific user"
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      max_results:
+        description: "Results per page (10-100, default 10)"
+      tweet_fields:
+        description: "Comma-separated tweet fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_like_tweet:
+    description: "Like a tweet"
+    parameters:
+      tweet_id:
+        description: "Tweet ID to like"
+        required: true
+
+  x_unlike_tweet:
+    description: "Unlike a previously liked tweet"
+    parameters:
+      tweet_id:
+        description: "Tweet ID to unlike"
+        required: true
+
+  x_get_retweeters:
+    description: "Get users who retweeted a specific tweet"
+    parameters:
+      tweet_id:
+        description: "Tweet ID"
+        required: true
+      max_results:
+        description: "Results per page (1-100, default 100)"
+      user_fields:
+        description: "Comma-separated user fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_retweet:
+    description: "Retweet a tweet"
+    parameters:
+      tweet_id:
+        description: "Tweet ID to retweet"
+        required: true
+
+  x_unretweet:
+    description: "Remove a retweet"
+    parameters:
+      tweet_id:
+        description: "Tweet ID to unretweet"
+        required: true
+
+  x_get_bookmarks:
+    description: "Get tweets bookmarked by the authenticated user"
+    parameters:
+      max_results:
+        description: "Results per page (1-100, default 10)"
+      tweet_fields:
+        description: "Comma-separated tweet fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_bookmark_tweet:
+    description: "Bookmark a tweet"
+    parameters:
+      tweet_id:
+        description: "Tweet ID to bookmark"
+        required: true
+
+  x_remove_bookmark:
+    description: "Remove a tweet from bookmarks"
+    parameters:
+      tweet_id:
+        description: "Tweet ID to remove from bookmarks"
+        required: true
+
+  x_get_list:
+    description: "Get a list by ID"
+    parameters:
+      id:
+        description: "List ID"
+        required: true
+      list_fields:
+        description: "Comma-separated: id,name,description,private,follower_count,member_count,owner_id,created_at"
+
+  x_get_owned_lists:
+    description: "Get lists owned by a user"
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      max_results:
+        description: "Results per page (1-100, default 100)"
+      list_fields:
+        description: "Comma-separated list fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_create_list:
+    description: "Create a new list"
+    parameters:
+      name:
+        description: "List name (1-25 chars)"
+        required: true
+      description:
+        description: "List description"
+      private:
+        description: "Whether list is private (true/false, default false)"
+
+  x_update_list:
+    description: "Update a list's name, description, or privacy setting"
+    parameters:
+      id:
+        description: "List ID"
+        required: true
+      name:
+        description: "New list name"
+      description:
+        description: "New list description"
+      private:
+        description: "Whether list is private (true/false)"
+
+  x_delete_list:
+    description: "Delete a list. Must be owned by the authenticated user"
+    parameters:
+      id:
+        description: "List ID to delete"
+        required: true
+
+  x_get_list_tweets:
+    description: "Get tweets from a list's timeline"
+    parameters:
+      id:
+        description: "List ID"
+        required: true
+      max_results:
+        description: "Results per page (1-100, default 100)"
+      tweet_fields:
+        description: "Comma-separated tweet fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_get_list_members:
+    description: "Get members of a list"
+    parameters:
+      id:
+        description: "List ID"
+        required: true
+      max_results:
+        description: "Results per page (1-100, default 100)"
+      user_fields:
+        description: "Comma-separated user fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_add_list_member:
+    description: "Add a user to a list. Must own the list"
+    parameters:
+      id:
+        description: "List ID"
+        required: true
+      user_id:
+        description: "User ID to add"
+        required: true
+
+  x_remove_list_member:
+    description: "Remove a user from a list"
+    parameters:
+      id:
+        description: "List ID"
+        required: true
+      user_id:
+        description: "User ID to remove"
+        required: true
+
+  x_get_list_followers:
+    description: "Get users who follow a list"
+    parameters:
+      id:
+        description: "List ID"
+        required: true
+      max_results:
+        description: "Results per page (1-100, default 100)"
+      user_fields:
+        description: "Comma-separated user fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_follow_list:
+    description: "Follow a list"
+    parameters:
+      list_id:
+        description: "List ID to follow"
+        required: true
+
+  x_unfollow_list:
+    description: "Unfollow a list"
+    parameters:
+      list_id:
+        description: "List ID to unfollow"
+        required: true
+
+  x_get_pinned_lists:
+    description: "Get lists pinned by the authenticated user"
+    parameters:
+      list_fields:
+        description: "Comma-separated list fields"
+
+  x_pin_list:
+    description: "Pin a list"
+    parameters:
+      list_id:
+        description: "List ID to pin"
+        required: true
+
+  x_unpin_list:
+    description: "Unpin a list"
+    parameters:
+      list_id:
+        description: "List ID to unpin"
+        required: true
+
+  x_list_dm_events:
+    description: "List recent DM events for the authenticated user. Rate limit: 15 requests per 15 minutes"
+    parameters:
+      max_results:
+        description: "Results per page (1-100, default 100)"
+      dm_event_fields:
+        description: "Comma-separated: id,text,event_type,dm_conversation_id,created_at,sender_id"
+      pagination_token:
+        description: "Pagination token"
+
+  x_get_dm_conversation:
+    description: "Get DM events with a specific user"
+    parameters:
+      participant_id:
+        description: "User ID of the other participant"
+        required: true
+      max_results:
+        description: "Results per page (1-100, default 100)"
+      dm_event_fields:
+        description: "Comma-separated DM event fields"
+      pagination_token:
+        description: "Pagination token"
+
+  x_send_dm:
+    description: "Send a direct message to a user in an existing conversation"
+    parameters:
+      participant_id:
+        description: "User ID to send the DM to"
+        required: true
+      text:
+        description: "Message text"
+        required: true
+
+  x_create_dm_conversation:
+    description: "Create a new group DM conversation"
+    parameters:
+      participant_ids:
+        description: "Comma-separated user IDs to include"
+        required: true
+      text:
+        description: "Initial message text"
+        required: true
+
+  x_get_space:
+    description: "Get details about a X Space by ID"
+    parameters:
+      id:
+        description: "Space ID"
+        required: true
+      space_fields:
+        description: "Comma-separated: id,title,state,host_ids,speaker_ids,participant_count,scheduled_start,created_at,lang"
+
+  x_search_spaces:
+    description: "Search for X Spaces by title"
+    parameters:
+      query:
+        description: "Search query for Space titles"
+        required: true
+      state:
+        description: "Filter by state: live, scheduled, or all (default all)"
+      max_results:
+        description: "Results per page (1-100, default 10)"
+      space_fields:
+        description: "Comma-separated space fields"
+
+  x_get_usage:
+    description: "Get API usage statistics for tweet endpoints. Track your consumption"
+    parameters:
+      days:
+        description: "Number of days to look back (1-90, default 7)"

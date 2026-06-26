@@ -115,7 +115,17 @@ that your tools surface for natural-language queries users would actually type.
 
 Add an OAuth flow when the API supports it *and* you want guided credential setup in the Web UI. Get basic token auth working first. Grant type depends on the API: Device Flow for headless, PKCE for browser-redirect. Add a corresponding setup page in `web/templates/pages/`.
 
-## 3. Implementation
+## 3. Tool Definition Authoring (YAML-first)
+
+Tool definitions live in `integrations/<name>/tools.yaml`. See [`docs/tool-yaml.md`](../../../docs/tool-yaml.md) for schema, wiring, and strict-key rules.
+
+When adding a new adapter:
+- Author `tools.yaml` directly — no inline `[]mcp.ToolDefinition{...}` literals.
+- Skip the `//go:build parity` test pattern — it exists only for adapters being *migrated* from inline Go literals; a new adapter writing one would be testing nothing.
+
+The strict-mode loader (`KnownFields(true)`) panics at startup on key typos like `descripton:` instead of silently producing blank prose. Prose-only YAML edits also avoid Go-review noise.
+
+## 4. Implementation
 
 Reference `AGENTS.md > Adding a New Integration` for the 7-step mechanical checklist.
 Focus here on judgment calls:

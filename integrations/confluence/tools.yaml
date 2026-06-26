@@ -1,0 +1,214 @@
+version: 1
+tools:
+  confluence_list_spaces:
+    description: "List all accessible Confluence spaces. Start here to find space IDs for other operations"
+    parameters:
+      cursor:
+        description: "Pagination cursor from previous response"
+      limit:
+        description: "Max results per page (default 25, max 250)"
+      type:
+        description: "Filter by type: global, personal"
+      status:
+        description: "Filter by status: current, archived"
+  confluence_get_space:
+    description: "Get details of a specific space by ID"
+    parameters:
+      space_id:
+        description: "Space ID"
+        required: true
+  confluence_search:
+    description: "Search Confluence content using CQL (Confluence Query Language). Supports pages, blog posts, comments, and attachments"
+    parameters:
+      cql:
+        description: 'CQL query (e.g., ''type=page AND space=DEV AND title~"design doc"'')'
+        required: true
+      limit:
+        description: "Max results per page (default 25, max 100)"
+      start:
+        description: "Pagination offset (0-based)"
+      excerpt:
+        description: "Include excerpt in results: none, highlight, indexed (default none)"
+  confluence_list_pages:
+    description: "List pages, optionally filtered by space or title"
+    parameters:
+      space_id:
+        description: "Filter by space ID"
+      title:
+        description: "Filter by exact title"
+      status:
+        description: "Filter by status: current, trashed, draft (default current)"
+      cursor:
+        description: "Pagination cursor from previous response"
+      limit:
+        description: "Max results per page (default 25, max 250)"
+      sort:
+        description: "Sort order: id, -id, title, -title, created-date, -created-date, modified-date, -modified-date"
+  confluence_get_page:
+    description: "Get full details of a specific page by ID, including body content"
+    parameters:
+      page_id:
+        description: "Page ID"
+        required: true
+      body_format:
+        description: "Body format to return: storage, atlas_doc_format, view (default storage)"
+      version:
+        description: "Specific version number to retrieve"
+  confluence_create_page:
+    description: "Create a new page in a space"
+    parameters:
+      space_id:
+        description: "Space ID to create page in"
+        required: true
+      title:
+        description: "Page title"
+        required: true
+      body_value:
+        description: "Page body content"
+        required: true
+      body_format:
+        description: "Body format: storage (XHTML), atlas_doc_format (ADF JSON) (default storage)"
+      parent_id:
+        description: "Parent page ID for nesting"
+      status:
+        description: "Page status: current, draft (default current)"
+  confluence_update_page:
+    description: "Update an existing page. Requires the current version number (use confluence_get_page to find it)"
+    parameters:
+      page_id:
+        description: "Page ID"
+        required: true
+      title:
+        description: "New page title"
+        required: true
+      body_value:
+        description: "New page body content"
+        required: true
+      body_format:
+        description: "Body format: storage (XHTML), atlas_doc_format (ADF JSON) (default storage)"
+      version_number:
+        description: "New version number (must be current version + 1)"
+        required: true
+      version_message:
+        description: "Version change message"
+      status:
+        description: "Page status: current, draft"
+  confluence_delete_page:
+    description: "Delete a page by ID"
+    parameters:
+      page_id:
+        description: "Page ID"
+        required: true
+  confluence_get_page_children:
+    description: "Get child pages of a specific page"
+    parameters:
+      page_id:
+        description: "Parent page ID"
+        required: true
+      cursor:
+        description: "Pagination cursor from previous response"
+      limit:
+        description: "Max results per page (default 25, max 250)"
+      sort:
+        description: "Sort order: id, -id, title, -title, created-date, -created-date, modified-date, -modified-date"
+  confluence_list_blog_posts:
+    description: "List blog posts, optionally filtered by space or title"
+    parameters:
+      space_id:
+        description: "Filter by space ID"
+      title:
+        description: "Filter by exact title"
+      status:
+        description: "Filter by status: current, trashed, draft (default current)"
+      cursor:
+        description: "Pagination cursor from previous response"
+      limit:
+        description: "Max results per page (default 25, max 250)"
+      sort:
+        description: "Sort order: id, -id, title, -title, created-date, -created-date, modified-date, -modified-date"
+  confluence_get_blog_post:
+    description: "Get full details of a specific blog post by ID, including body content"
+    parameters:
+      blogpost_id:
+        description: "Blog post ID"
+        required: true
+      body_format:
+        description: "Body format to return: storage, atlas_doc_format, view (default storage)"
+      version:
+        description: "Specific version number to retrieve"
+  confluence_create_blog_post:
+    description: "Create a new blog post in a space"
+    parameters:
+      space_id:
+        description: "Space ID to create blog post in"
+        required: true
+      title:
+        description: "Blog post title"
+        required: true
+      body_value:
+        description: "Blog post body content"
+        required: true
+      body_format:
+        description: "Body format: storage (XHTML), atlas_doc_format (ADF JSON) (default storage)"
+      status:
+        description: "Blog post status: current, draft (default current)"
+  confluence_update_blog_post:
+    description: "Update an existing blog post. Requires the current version number (use confluence_get_blog_post to find it)"
+    parameters:
+      blogpost_id:
+        description: "Blog post ID"
+        required: true
+      title:
+        description: "New blog post title"
+        required: true
+      body_value:
+        description: "New blog post body content"
+        required: true
+      body_format:
+        description: "Body format: storage (XHTML), atlas_doc_format (ADF JSON) (default storage)"
+      version_number:
+        description: "New version number (must be current version + 1)"
+        required: true
+      version_message:
+        description: "Version change message"
+      status:
+        description: "Blog post status: current, draft"
+  confluence_delete_blog_post:
+    description: "Delete a blog post by ID"
+    parameters:
+      blogpost_id:
+        description: "Blog post ID"
+        required: true
+  confluence_list_comments:
+    description: "List footer comments on a page or blog post"
+    parameters:
+      parent_type:
+        description: "Parent content type: page, blogpost"
+        required: true
+      parent_id:
+        description: "Parent content ID"
+        required: true
+      cursor:
+        description: "Pagination cursor from previous response"
+      limit:
+        description: "Max results per page (default 25, max 250)"
+  confluence_create_comment:
+    description: "Add a footer comment to a page or blog post"
+    parameters:
+      parent_type:
+        description: "Parent content type: page, blogpost"
+        required: true
+      parent_id:
+        description: "Parent content ID"
+        required: true
+      body_value:
+        description: "Comment body content"
+        required: true
+      body_format:
+        description: "Body format: storage (XHTML), atlas_doc_format (ADF JSON) (default storage)"
+  confluence_delete_comment:
+    description: "Delete a footer comment by ID"
+    parameters:
+      comment_id:
+        description: "Comment ID"
+        required: true

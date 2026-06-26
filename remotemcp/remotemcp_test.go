@@ -105,20 +105,24 @@ func TestConvertTools(t *testing.T) {
 	err = json.Unmarshal(schemaJSON, &rawSchema)
 	require.NoError(t, err)
 
-	params := extractParams(rawSchema)
-	assert.Equal(t, "Issue title", params["title"])
-	assert.Equal(t, "Issue body", params["body"])
-
-	required := extractRequired(rawSchema)
-	assert.Equal(t, []string{"title"}, required)
+	// extractParameters now combines extractParams + extractRequired into []mcp.Parameter.
+	params := extractParameters(rawSchema)
+	paramMap := make(map[string]string, len(params))
+	var requiredNames []string
+	for _, p := range params {
+		paramMap[string(p.Name)] = p.Description
+		if p.Required {
+			requiredNames = append(requiredNames, string(p.Name))
+		}
+	}
+	assert.Equal(t, "Issue title", paramMap["title"])
+	assert.Equal(t, "Issue body", paramMap["body"])
+	assert.Equal(t, []string{"title"}, requiredNames)
 }
 
 func TestConvertTools_EmptySchema(t *testing.T) {
-	params := extractParams(nil)
+	params := extractParameters(nil)
 	assert.Empty(t, params)
-
-	required := extractRequired(nil)
-	assert.Nil(t, required)
 }
 
 func TestConvertResult_Nil(t *testing.T) {

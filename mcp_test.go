@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -120,24 +121,134 @@ func TestToolDefinition(t *testing.T) {
 	td := ToolDefinition{
 		Name:        ToolName("github_list_issues"),
 		Description: "List issues",
-		Parameters:  map[string]string{"owner": "Repo owner", "repo": "Repo name"},
-		Required:    []string{"owner", "repo"},
+		Parameters: []Parameter{
+			{Name: ParamName("owner"), Description: "Repo owner", Required: true},
+			{Name: ParamName("repo"), Description: "Repo name", Required: true},
+		},
 	}
 
 	assert.Equal(t, ToolName("github_list_issues"), td.Name)
 	assert.Equal(t, "List issues", td.Description)
 	assert.Len(t, td.Parameters, 2)
-	assert.Equal(t, []string{"owner", "repo"}, td.Required)
+	assert.True(t, td.Parameters[0].Required)
+	assert.True(t, td.Parameters[1].Required)
 }
 
 func TestToolDefinitionOptionalRequired(t *testing.T) {
 	td := ToolDefinition{
 		Name:        ToolName("github_search_repos"),
 		Description: "Search repos",
-		Parameters:  map[string]string{"query": "Search query"},
+		Parameters:  []Parameter{{Name: ParamName("query"), Description: "Search query"}},
 	}
 
-	assert.Nil(t, td.Required)
+	assert.False(t, td.Parameters[0].Required)
+}
+
+// TestToolDefinition_UnmarshalJSON exercises the backward-compat shape
+// negotiation for WASM cached catalogs. The new shape (Parameters as
+// []Parameter with per-param Required) and the legacy shape (Parameters as
+// map[string]string + a top-level Required []string) must both decode into
+// an equivalent ToolDefinition. The unmarshaler is the only consumer that
+// sees the legacy shape and is otherwise untested.
+func TestToolDefinition_UnmarshalJSON(t *testing.T) {
+	t.Run("new shape with required", func(t *testing.T) {
+		raw := `{
+			"name": "github_get_repo",
+			"description": "Get a repository",
+			"parameters": [
+				{"name": "owner", "description": "Repo owner", "required": true},
+				{"name": "repo", "description": "Repo name", "required": true},
+				{"name": "fields", "description": "Field projection"}
+			]
+		}`
+		var td ToolDefinition
+		require.NoError(t, json.Unmarshal([]byte(raw), &td))
+		assert.Equal(t, ToolName("github_get_repo"), td.Name)
+		assert.Equal(t, "Get a repository", td.Description)
+		require.Len(t, td.Parameters, 3)
+		assert.Equal(t, ParamName("owner"), td.Parameters[0].Name)
+		assert.True(t, td.Parameters[0].Required)
+		assert.True(t, td.Parameters[1].Required)
+		assert.False(t, td.Parameters[2].Required)
+	})
+
+	t.Run("legacy shape with required list", func(t *testing.T) {
+		raw := `{
+			"name": "github_get_repo",
+			"description": "Get a repository",
+			"parameters": {"owner": "Repo owner", "repo": "Repo name", "fields": "Field projection"},
+			"required": ["owner", "repo"]
+		}`
+		var td ToolDefinition
+		require.NoError(t, json.Unmarshal([]byte(raw), &td))
+		assert.Equal(t, ToolName("github_get_repo"), td.Name)
+		assert.Equal(t, "Get a repository", td.Description)
+		require.Len(t, td.Parameters, 3)
+
+		// Legacy shape decoding iterates a Go map, so Parameter order is not
+		// deterministic. Index by name and verify by lookup.
+		byName := map[ParamName]Parameter{}
+		for _, p := range td.Parameters {
+			byName[p.Name] = p
+		}
+		assert.Equal(t, "Repo owner", byName["owner"].Description)
+		assert.True(t, byName["owner"].Required)
+		assert.Equal(t, "Repo name", byName["repo"].Description)
+		assert.True(t, byName["repo"].Required)
+		assert.Equal(t, "Field projection", byName["fields"].Description)
+		assert.False(t, byName["fields"].Required)
+	})
+
+	t.Run("legacy shape without required list", func(t *testing.T) {
+		raw := `{
+			"name": "tool",
+			"description": "desc",
+			"parameters": {"query": "Search query"}
+		}`
+		var td ToolDefinition
+		require.NoError(t, json.Unmarshal([]byte(raw), &td))
+		require.Len(t, td.Parameters, 1)
+		assert.Equal(t, ParamName("query"), td.Parameters[0].Name)
+		assert.False(t, td.Parameters[0].Required)
+	})
+
+	t.Run("legacy required points to missing key", func(t *testing.T) {
+		// Required field lists a name that is not a key in the parameters map.
+		// The unmarshaler iterates the map only — phantom required names are
+		// silently dropped. Captures current behavior; if this changes the
+		// test will surface it.
+		raw := `{
+			"name": "tool",
+			"description": "desc",
+			"parameters": {"query": "Search query"},
+			"required": ["query", "phantom"]
+		}`
+		var td ToolDefinition
+		require.NoError(t, json.Unmarshal([]byte(raw), &td))
+		require.Len(t, td.Parameters, 1)
+		assert.Equal(t, ParamName("query"), td.Parameters[0].Name)
+		assert.True(t, td.Parameters[0].Required)
+	})
+
+	t.Run("empty parameters", func(t *testing.T) {
+		raw := `{"name": "tool", "description": "desc"}`
+		var td ToolDefinition
+		require.NoError(t, json.Unmarshal([]byte(raw), &td))
+		assert.Empty(t, td.Parameters)
+	})
+
+	t.Run("malformed json", func(t *testing.T) {
+		raw := `{"name": "tool", "description": "desc", "parameters": {`
+		var td ToolDefinition
+		assert.Error(t, json.Unmarshal([]byte(raw), &td))
+	})
+
+	t.Run("parameters is invalid type", func(t *testing.T) {
+		// Not an array, not an object — should error after both paths fail.
+		raw := `{"name": "tool", "description": "desc", "parameters": 42}`
+		var td ToolDefinition
+		assert.Error(t, json.Unmarshal([]byte(raw), &td))
+	})
 }
 
 func TestToolResult(t *testing.T) {

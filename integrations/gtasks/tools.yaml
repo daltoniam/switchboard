@@ -1,0 +1,124 @@
+version: 1
+tools:
+  gtasks_list_tasklists:
+    description: "List the authenticated user's Google Tasks tasklists (todo lists, task lists, todo categories). Start here for todos, to-do items, action items, daily tasks, reminders, checklists — to discover the tasklist IDs needed by every other gtasks tool. The default tasklist (named 'My Tasks' or similar) always exists for any Google account."
+    parameters:
+      max_results:
+        description: "Optional max tasklists per page (1-100, default 100)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+  gtasks_create_tasklist:
+    description: "Create a new Google Tasks tasklist (todo list, task category). Returns the new tasklist including its id."
+    parameters:
+      title:
+        description: "Tasklist title (shown in the Tasks UI)"
+        required: true
+  gtasks_delete_tasklist:
+    description: "Delete a Google Tasks tasklist. Permanently removes the list AND all tasks within it. Cannot delete the default tasklist."
+    parameters:
+      tasklist_id:
+        description: "The tasklist ID (from gtasks_list_tasklists)"
+        required: true
+  gtasks_list_tasks:
+    description: "List tasks (todos, action items) within a Google Tasks tasklist. Returns tasks with their title, notes, due date, status (needsAction/completed), parent, and position. Use to view a user's todo list, find overdue items, or build a daily agenda alongside gcal_list_events. Combine with show_completed=true to include finished tasks."
+    parameters:
+      tasklist_id:
+        description: "The tasklist ID (from gtasks_list_tasklists)"
+        required: true
+      max_results:
+        description: "Optional max tasks per page (1-100, default 100)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+      show_completed:
+        description: "Optional boolean — include completed tasks (default false)"
+      show_hidden:
+        description: "Optional boolean — include hidden tasks (default false)"
+      show_deleted:
+        description: "Optional boolean — include deleted tasks (default false)"
+      due_min:
+        description: "Optional lower bound on due date (RFC 3339 timestamp, e.g. 2024-01-01T00:00:00Z)"
+      due_max:
+        description: "Optional upper bound on due date (RFC 3339 timestamp)"
+      completed_min:
+        description: "Optional lower bound on completion time (RFC 3339 timestamp)"
+      completed_max:
+        description: "Optional upper bound on completion time (RFC 3339 timestamp)"
+      updated_min:
+        description: "Optional lower bound on last-modified time (RFC 3339 timestamp)"
+  gtasks_get_task:
+    description: "Retrieve a single Google Tasks task by ID. Useful when you already have the task ID from a previous list call."
+    parameters:
+      tasklist_id:
+        description: "The tasklist ID"
+        required: true
+      task_id:
+        description: "The task ID (from gtasks_list_tasks)"
+        required: true
+  gtasks_create_task:
+    description: "Create a new task (todo, action item, reminder) in a Google Tasks tasklist. Returns the new task including its id. Use parent_id to make this a subtask of an existing task. Use previous_id to control position within siblings."
+    parameters:
+      tasklist_id:
+        description: "The tasklist ID to add the task to"
+        required: true
+      title:
+        description: "Task title"
+        required: true
+      notes:
+        description: "Optional task notes / description"
+      due:
+        description: "Optional due date (RFC 3339 timestamp). Note: the Tasks API only stores the date portion; the time is always 00:00:00Z."
+      parent_id:
+        description: "Optional parent task ID — makes this a subtask of an existing task"
+      previous_id:
+        description: "Optional sibling task ID — new task will be positioned immediately after this one (omit to insert at top)"
+  gtasks_update_task:
+    description: "Update fields on an existing Google Tasks task (mark complete, change title, edit notes, set due date). Uses PATCH semantics — only the fields you provide are changed. Set status='completed' to mark a task done; set status='needsAction' to reopen."
+    parameters:
+      tasklist_id:
+        description: "The tasklist ID"
+        required: true
+      task_id:
+        description: "The task ID"
+        required: true
+      title:
+        description: "Optional new title"
+      notes:
+        description: "Optional new notes (pass empty string to clear)"
+      due:
+        description: "Optional new due date (RFC 3339 timestamp)"
+      status:
+        description: "Optional new status: 'needsAction' (open) or 'completed' (done)"
+      completed:
+        description: "Optional completion timestamp (RFC 3339); usually set automatically when status='completed'"
+      deleted:
+        description: "Optional boolean — soft-delete the task"
+      hidden:
+        description: "Optional boolean — hide the task from the default view"
+  gtasks_delete_task:
+    description: "Permanently delete a Google Tasks task. To soft-delete instead (so it can be recovered), use gtasks_update_task with deleted=true."
+    parameters:
+      tasklist_id:
+        description: "The tasklist ID"
+        required: true
+      task_id:
+        description: "The task ID"
+        required: true
+  gtasks_move_task:
+    description: "Move a Google Tasks task to a new position within its tasklist — reparent (make it a subtask) and/or reorder (place after a sibling). Returns the updated task."
+    parameters:
+      tasklist_id:
+        description: "The tasklist ID"
+        required: true
+      task_id:
+        description: "The task ID to move"
+        required: true
+      parent_id:
+        description: "Optional new parent task ID (omit for top-level)"
+      previous_id:
+        description: "Optional sibling ID — task will be positioned immediately after this one (omit to move to top)"
+  gtasks_clear_completed:
+    description: "Clear all completed tasks from a Google Tasks tasklist (hides them from the default view). Returns no content on success. Equivalent to the 'Delete all completed tasks' menu action in the Tasks UI — note: tasks are hidden, not permanently deleted."
+    parameters:
+      tasklist_id:
+        description: "The tasklist ID"
+        required: true

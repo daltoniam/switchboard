@@ -1,0 +1,423 @@
+version: 1
+tools:
+  ynab_get_user:
+    description: "Get the authenticated user's information"
+
+  ynab_list_budgets:
+    description: "List all personal finance budgets the user has access to. Start here for budget, spending, and money management workflows."
+    parameters:
+      include_accounts:
+        description: "Include account data (true/false)"
+
+  ynab_get_budget:
+    description: "Get a single budget with all related entities (accounts, categories, payees, transactions, etc.)"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+
+  ynab_get_budget_settings:
+    description: "Get budget settings including date and currency format"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+
+  ynab_list_accounts:
+    description: "List all accounts in a budget"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+
+  ynab_get_account:
+    description: "Get a single account by ID"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      account_id:
+        description: "Account ID"
+        required: true
+
+  ynab_create_account:
+    description: "Create a new account in a budget"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      name:
+        description: "Account name"
+        required: true
+      type:
+        description: "Account type: checking, savings, cash, creditCard, lineOfCredit, otherAsset, otherLiability, mortgage, autoLoan, studentLoan, personalLoan, medicalDebt, otherDebt"
+        required: true
+      balance:
+        description: "Starting balance in milliunits (1000 = $1.00)"
+        required: true
+
+  ynab_list_categories:
+    description: "List all category groups and their categories for a budget"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+
+  ynab_get_category:
+    description: "Get a single category by ID"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      category_id:
+        description: "Category ID"
+        required: true
+
+  ynab_create_category:
+    description: "Create a new category in a category group"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      name:
+        description: "Category name"
+        required: true
+      category_group_id:
+        description: "Category group ID to add this category to"
+        required: true
+
+  ynab_update_category:
+    description: "Update a category's name or note"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      category_id:
+        description: "Category ID"
+        required: true
+      name:
+        description: "New category name"
+      note:
+        description: "Category note"
+
+  ynab_get_month_category:
+    description: "Get a category's budget amounts for a specific month"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      month:
+        description: "Month in ISO date format (e.g. 2024-01-01) or 'current'"
+        required: true
+      category_id:
+        description: "Category ID"
+        required: true
+
+  ynab_update_month_category:
+    description: "Update the budgeted/assigned amount for a category in a specific month"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      month:
+        description: "Month in ISO date format or 'current'"
+        required: true
+      category_id:
+        description: "Category ID"
+        required: true
+      budgeted:
+        description: "Assigned amount in milliunits (1000 = $1.00)"
+        required: true
+
+  ynab_create_category_group:
+    description: "Create a new category group"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      name:
+        description: "Category group name (max 50 chars)"
+        required: true
+
+  ynab_update_category_group:
+    description: "Update a category group's name"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      category_group_id:
+        description: "Category group ID"
+        required: true
+      name:
+        description: "New category group name (max 50 chars)"
+        required: true
+
+  ynab_list_payees:
+    description: "List all payees in a budget"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+
+  ynab_get_payee:
+    description: "Get a single payee by ID"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      payee_id:
+        description: "Payee ID"
+        required: true
+
+  ynab_update_payee:
+    description: "Update a payee's name"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      payee_id:
+        description: "Payee ID"
+        required: true
+      name:
+        description: "New payee name (max 500 chars)"
+        required: true
+
+  ynab_list_payee_locations:
+    description: "List all payee locations (latitude/longitude) in a budget"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+
+  ynab_get_payee_location:
+    description: "Get a single payee location by ID"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      payee_location_id:
+        description: "Payee location ID"
+        required: true
+
+  ynab_list_locations_for_payee:
+    description: "List all locations for a specific payee"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      payee_id:
+        description: "Payee ID"
+        required: true
+
+  ynab_list_months:
+    description: "List all budget months (summary of each month's budget status)"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+
+  ynab_get_month:
+    description: "Get a single budget month with category details"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      month:
+        description: "Month in ISO date format (e.g. 2024-01-01) or 'current'"
+        required: true
+
+  ynab_list_transactions:
+    description: "List financial transactions (spending, expenses, purchases) for a budget, optionally filtered by date or type"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      since_date:
+        description: "Only return transactions on or after this date (ISO format, e.g. 2024-01-01)"
+      type:
+        description: "Filter: uncategorized or unapproved"
+
+  ynab_get_transaction:
+    description: "Get a single transaction by ID"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      transaction_id:
+        description: "Transaction ID"
+        required: true
+
+  ynab_list_account_transactions:
+    description: "List transactions for a specific account"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      account_id:
+        description: "Account ID"
+        required: true
+      since_date:
+        description: "Only return transactions on or after this date (ISO format)"
+      type:
+        description: "Filter: uncategorized or unapproved"
+
+  ynab_list_category_transactions:
+    description: "List transactions for a specific category"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      category_id:
+        description: "Category ID"
+        required: true
+      since_date:
+        description: "Only return transactions on or after this date (ISO format)"
+      type:
+        description: "Filter: uncategorized or unapproved"
+
+  ynab_list_payee_transactions:
+    description: "List transactions for a specific payee"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      payee_id:
+        description: "Payee ID"
+        required: true
+      since_date:
+        description: "Only return transactions on or after this date (ISO format)"
+      type:
+        description: "Filter: uncategorized or unapproved"
+
+  ynab_list_month_transactions:
+    description: "List transactions for a specific month"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      month:
+        description: "Month in ISO date format (e.g. 2024-01-01) or 'current'"
+        required: true
+      since_date:
+        description: "Only return transactions on or after this date (ISO format)"
+      type:
+        description: "Filter: uncategorized or unapproved"
+
+  ynab_create_transaction:
+    description: "Create a new transaction. Amounts are in milliunits (1000 = $1.00). Outflows are negative."
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      account_id:
+        description: "Account ID (required)"
+        required: true
+      date:
+        description: "Transaction date in ISO format (required, e.g. 2024-01-15)"
+        required: true
+      amount:
+        description: "Amount in milliunits (negative for outflows, e.g. -50000 = -$50.00)"
+        required: true
+      payee_id:
+        description: "Payee ID"
+      payee_name:
+        description: "Payee name (max 200 chars, creates new payee if payee_id not given)"
+      category_id:
+        description: "Category ID"
+      memo:
+        description: "Memo text (max 500 chars)"
+      cleared:
+        description: "Cleared status: cleared, uncleared, or reconciled"
+      approved:
+        description: "Whether transaction is approved (true/false)"
+      flag_color:
+        description: "Flag color: red, orange, yellow, green, blue, purple"
+
+  ynab_update_transaction:
+    description: "Update an existing transaction"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      transaction_id:
+        description: "Transaction ID"
+        required: true
+      account_id:
+        description: "Account ID"
+      date:
+        description: "Transaction date in ISO format"
+      amount:
+        description: "Amount in milliunits"
+      payee_id:
+        description: "Payee ID"
+      payee_name:
+        description: "Payee name"
+      category_id:
+        description: "Category ID"
+      memo:
+        description: "Memo text"
+      cleared:
+        description: "Cleared status: cleared, uncleared, or reconciled"
+      approved:
+        description: "Whether transaction is approved (true/false)"
+      flag_color:
+        description: "Flag color: red, orange, yellow, green, blue, purple"
+
+  ynab_delete_transaction:
+    description: "Delete a transaction"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      transaction_id:
+        description: "Transaction ID"
+        required: true
+
+  ynab_list_scheduled_transactions:
+    description: "List all scheduled (recurring) transactions for a budget"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+
+  ynab_get_scheduled_transaction:
+    description: "Get a single scheduled transaction by ID"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      scheduled_transaction_id:
+        description: "Scheduled transaction ID"
+        required: true
+
+  ynab_create_scheduled_transaction:
+    description: "Create a new scheduled (recurring) transaction"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      account_id:
+        description: "Account ID (required)"
+        required: true
+      date:
+        description: "First occurrence date in ISO format (required, max 5 years in future)"
+        required: true
+      amount:
+        description: "Amount in milliunits (negative for outflows)"
+        required: true
+      frequency:
+        description: "Recurrence: never, daily, weekly, everyOtherWeek, twiceAMonth, every4Weeks, monthly, everyOtherMonth, every3Months, every4Months, twiceAYear, yearly, everyOtherYear"
+        required: true
+      payee_id:
+        description: "Payee ID"
+      payee_name:
+        description: "Payee name (max 200 chars)"
+      category_id:
+        description: "Category ID"
+      memo:
+        description: "Memo text (max 500 chars)"
+      flag_color:
+        description: "Flag color: red, orange, yellow, green, blue, purple"
+
+  ynab_update_scheduled_transaction:
+    description: "Update an existing scheduled transaction"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      scheduled_transaction_id:
+        description: "Scheduled transaction ID"
+        required: true
+      account_id:
+        description: "Account ID"
+      date:
+        description: "First occurrence date in ISO format"
+      amount:
+        description: "Amount in milliunits"
+      frequency:
+        description: "Recurrence frequency"
+      payee_id:
+        description: "Payee ID"
+      payee_name:
+        description: "Payee name"
+      category_id:
+        description: "Category ID"
+      memo:
+        description: "Memo text"
+      flag_color:
+        description: "Flag color: red, orange, yellow, green, blue, purple"
+
+  ynab_delete_scheduled_transaction:
+    description: "Delete a scheduled transaction"
+    parameters:
+      budget_id:
+        description: "Budget ID (defaults to last-used)"
+      scheduled_transaction_id:
+        description: "Scheduled transaction ID"
+        required: true

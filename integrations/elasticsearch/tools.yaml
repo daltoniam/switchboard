@@ -1,0 +1,328 @@
+version: 1
+tools:
+  elasticsearch_cluster_health:
+    description: "Get cluster health status (green/yellow/red), node count, shard counts, and pending tasks"
+    parameters: {}
+
+  elasticsearch_cluster_stats:
+    description: "Get cluster-wide statistics including indices count, document count, store size, and node info"
+    parameters: {}
+
+  elasticsearch_node_stats:
+    description: "Get statistics for all nodes including JVM heap, CPU, disk, and indexing metrics"
+    parameters:
+      node_id:
+        description: "Optional node ID or name to filter (omit for all nodes)"
+
+  elasticsearch_cat_nodes:
+    description: "Get a compact summary of each node: name, IP, heap, RAM, CPU, load, role, and version"
+    parameters: {}
+
+  elasticsearch_pending_tasks:
+    description: "List pending cluster-level tasks (e.g. shard allocation, mapping updates)"
+    parameters: {}
+
+  elasticsearch_list_indices:
+    description: "List all indices with health, status, document count, and store size. Start here for index discovery"
+    parameters:
+      pattern:
+        description: "Optional index name pattern with wildcards (e.g. 'logs-*'). Omit for all indices"
+
+  elasticsearch_get_index:
+    description: "Get full index configuration including settings, mappings, and aliases"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+
+  elasticsearch_create_index:
+    description: "Create a new index with optional settings (shards, replicas) and field mappings"
+    parameters:
+      index:
+        description: "Index name to create"
+        required: true
+      settings:
+        description: 'Optional JSON object for index settings (e.g. {"number_of_shards": 1})'
+      mappings:
+        description: 'Optional JSON object for field mappings (e.g. {"properties": {"title": {"type": "text"}}})'
+
+  elasticsearch_delete_index:
+    description: "Delete an index and all its data. This action is irreversible"
+    parameters:
+      index:
+        description: "Index name to delete"
+        required: true
+
+  elasticsearch_get_mapping:
+    description: "Get field mappings for an index — shows field names, types, and analyzers"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+
+  elasticsearch_put_mapping:
+    description: "Add new fields to an existing index mapping. Cannot change existing field types"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+      properties:
+        description: 'JSON object of field definitions (e.g. {"new_field": {"type": "keyword"}})'
+        required: true
+
+  elasticsearch_get_settings:
+    description: "Get index settings (shards, replicas, refresh interval, analysis config)"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+
+  elasticsearch_put_settings:
+    description: "Update dynamic index settings (e.g. number_of_replicas, refresh_interval)"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+      settings:
+        description: 'JSON object of settings to update (e.g. {"index": {"number_of_replicas": 2}})'
+        required: true
+
+  elasticsearch_index_stats:
+    description: "Get indexing, search, merge, and segment statistics for an index"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+
+  elasticsearch_open_index:
+    description: "Open a previously closed index to make it available for search and indexing"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+
+  elasticsearch_close_index:
+    description: "Close an index to reduce cluster overhead. Closed indices cannot be searched"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+
+  elasticsearch_refresh_index:
+    description: "Refresh an index to make recent changes visible to search immediately"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+
+  elasticsearch_forcemerge_index:
+    description: "Force merge an index to reduce segment count. Useful for read-only indices"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+      max_segments:
+        description: "Optional max number of segments to merge down to (default: 1)"
+
+  elasticsearch_get_document:
+    description: "Get a single document by its ID from an index"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+      id:
+        description: "Document ID"
+        required: true
+
+  elasticsearch_index_document:
+    description: "Index (create or replace) a document. If no ID is provided, one is auto-generated"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+      id:
+        description: "Optional document ID (auto-generated if omitted)"
+      document:
+        description: "JSON object — the document body to index"
+        required: true
+
+  elasticsearch_update_document:
+    description: "Partially update a document by merging fields. Use 'doc' for partial updates or 'script' for scripted updates"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+      id:
+        description: "Document ID"
+        required: true
+      doc:
+        description: "JSON object of fields to merge into the existing document"
+      script:
+        description: 'Optional Painless script for scripted updates (e.g. {"source": "ctx._source.count++"})'
+
+  elasticsearch_delete_document:
+    description: "Delete a single document by ID"
+    parameters:
+      index:
+        description: "Index name"
+        required: true
+      id:
+        description: "Document ID"
+        required: true
+
+  elasticsearch_bulk:
+    description: "Perform multiple index/create/update/delete operations in a single request. Each action is a JSON object with the operation type as key"
+    parameters:
+      operations:
+        description: 'JSON array of bulk operations. Each element is {"action": "index|create|update|delete", "index": "...", "id": "...", "doc": {...}}'
+        required: true
+
+  elasticsearch_mget:
+    description: "Get multiple documents by ID in a single request"
+    parameters:
+      index:
+        description: "Optional default index name"
+      docs:
+        description: 'JSON array of {"_index": "...", "_id": "..."} objects. _index can be omitted if index param is set'
+        required: true
+
+  elasticsearch_count:
+    description: "Count documents matching a query. Returns total count without fetching documents"
+    parameters:
+      index:
+        description: "Index name or pattern (e.g. 'logs-*')"
+        required: true
+      query:
+        description: "Optional Elasticsearch query DSL as JSON (omit to count all documents)"
+
+  elasticsearch_delete_by_query:
+    description: "Delete all documents matching a query. Use with caution — this is irreversible"
+    parameters:
+      index:
+        description: "Index name or pattern"
+        required: true
+      query:
+        description: "Elasticsearch query DSL as JSON to select documents for deletion"
+        required: true
+
+  elasticsearch_update_by_query:
+    description: "Update all documents matching a query using a script"
+    parameters:
+      index:
+        description: "Index name or pattern"
+        required: true
+      query:
+        description: "Elasticsearch query DSL as JSON to select documents"
+        required: true
+      script:
+        description: "Painless script for the update (e.g. {\"source\": \"ctx._source.status = 'archived'\"})"
+        required: true
+
+  elasticsearch_reindex:
+    description: "Copy documents from one index to another, optionally transforming with a script or filtering with a query. Runs asynchronously — returns a task ID that can be monitored with elasticsearch_list_tasks"
+    parameters:
+      source_index:
+        description: "Source index name"
+        required: true
+      dest_index:
+        description: "Destination index name"
+        required: true
+      query:
+        description: "Optional query DSL to filter source documents"
+      script:
+        description: "Optional Painless script to transform documents during reindex"
+
+  elasticsearch_search:
+    description: "Search documents using Elasticsearch Query DSL. Supports full-text search, filters, aggregations, sorting, and highlighting. Start here for querying data"
+    parameters:
+      index:
+        description: "Index name or pattern (e.g. 'logs-*')"
+        required: true
+      query:
+        description: 'Elasticsearch query DSL as JSON (e.g. {"match": {"title": "search term"}})'
+      size:
+        description: "Max results to return (default: 10, max: 10000)"
+      from:
+        description: "Offset for pagination (default: 0)"
+      sort:
+        description: 'Optional sort as JSON array (e.g. [{"timestamp": "desc"}])'
+      aggs:
+        description: "Optional aggregations as JSON object"
+      _source:
+        description: "Optional source filtering — JSON array of field names to include, or false to exclude _source"
+      highlight:
+        description: "Optional highlight configuration as JSON object"
+
+  elasticsearch_msearch:
+    description: "Execute multiple searches in a single request. More efficient than individual search calls"
+    parameters:
+      searches:
+        description: "JSON array of search objects, each with optional 'index' and required 'body' (query DSL)"
+        required: true
+
+  elasticsearch_sql_query:
+    description: "Execute a SQL query against Elasticsearch using the SQL plugin. Useful for analysts familiar with SQL"
+    parameters:
+      query:
+        description: "SQL query string (e.g. \"SELECT * FROM my_index WHERE status = 'active' LIMIT 10\")"
+        required: true
+      format:
+        description: "Response format: json (default), csv, tsv, txt, yaml"
+
+  elasticsearch_list_aliases:
+    description: "List all index aliases or aliases for a specific index"
+    parameters:
+      index:
+        description: "Optional index name to filter aliases"
+
+  elasticsearch_update_aliases:
+    description: "Atomically add or remove index aliases. Useful for zero-downtime reindexing"
+    parameters:
+      actions:
+        description: 'JSON array of alias actions (e.g. [{"add": {"index": "idx-v2", "alias": "idx"}}, {"remove": {"index": "idx-v1", "alias": "idx"}}])'
+        required: true
+
+  elasticsearch_list_index_templates:
+    description: "List all index templates with their patterns, priority, and settings"
+    parameters: {}
+
+  elasticsearch_get_index_template:
+    description: "Get a specific index template definition including patterns, settings, mappings, and aliases"
+    parameters:
+      name:
+        description: "Template name"
+        required: true
+
+  elasticsearch_list_snapshot_repos:
+    description: "List registered snapshot repositories and their types"
+    parameters: {}
+
+  elasticsearch_list_snapshots:
+    description: "List snapshots in a repository with status, indices, and timing"
+    parameters:
+      repository:
+        description: "Snapshot repository name"
+        required: true
+
+  elasticsearch_list_tasks:
+    description: "List currently running tasks (reindex, update-by-query, etc.) with progress info"
+    parameters:
+      actions:
+        description: "Optional comma-separated action patterns to filter (e.g. '*reindex*')"
+
+  elasticsearch_cancel_task:
+    description: "Cancel a running task by its task ID"
+    parameters:
+      task_id:
+        description: "Task ID (e.g. 'node_id:task_number')"
+        required: true
+
+  elasticsearch_cat_shards:
+    description: "Get shard allocation details: index, shard number, primary/replica, state, size, node"
+    parameters:
+      index:
+        description: "Optional index name to filter"
+
+  elasticsearch_cat_allocation:
+    description: "Get disk allocation per node: shards, disk used/available, host, IP"
+    parameters: {}

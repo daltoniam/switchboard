@@ -1,0 +1,294 @@
+version: 1
+tools:
+  botidentity_gh_get_app:
+    description: "Get the authenticated GitHub App's metadata including name, permissions, and events. Start here for GitHub bot and app identity management."
+    parameters: {}
+  botidentity_gh_list_installations:
+    description: "List all installations of a GitHub App across organizations and users. Shows where the bot is installed and its access scope."
+    parameters:
+      per_page:
+        description: "Results per page (default: 30, max: 100)"
+      page:
+        description: "Page number (default: 1)"
+  botidentity_gh_get_installation:
+    description: "Get details of a specific GitHub App installation including target account, permissions, and repository access. Use after botidentity_gh_list_installations."
+    parameters:
+      installation_id:
+        description: "Installation ID (from botidentity_gh_list_installations)"
+        required: true
+  botidentity_gh_create_install_token:
+    description: "Create a short-lived installation access token for a GitHub App bot. Token grants the bot's permissions and expires in 1 hour. Use to authenticate bot API calls."
+    parameters:
+      installation_id:
+        description: "Installation ID to create token for"
+        required: true
+      repositories:
+        description: "JSON array of repository names to scope the token to (optional, defaults to all)"
+      permissions:
+        description: 'JSON object of permission overrides e.g. {"contents":"read","issues":"write"} (optional, defaults to app permissions)'
+  botidentity_gh_list_install_repos:
+    description: "List repositories accessible to a GitHub App installation. Shows which repos the bot identity can access."
+    parameters:
+      installation_id:
+        description: "Installation ID"
+        required: true
+      per_page:
+        description: "Results per page (default: 30, max: 100)"
+      page:
+        description: "Page number (default: 1)"
+  botidentity_gh_add_install_repo:
+    description: "Add a repository to a GitHub App installation. Grants the bot identity access to an additional repository."
+    parameters:
+      installation_id:
+        description: "Installation ID"
+        required: true
+      repository_id:
+        description: "Repository ID to add (numeric ID, not name)"
+        required: true
+  botidentity_gh_remove_install_repo:
+    description: "Remove a repository from a GitHub App installation. Revokes the bot identity's access to a repository."
+    parameters:
+      installation_id:
+        description: "Installation ID"
+        required: true
+      repository_id:
+        description: "Repository ID to remove (numeric ID, not name)"
+        required: true
+  botidentity_gh_suspend_installation:
+    description: "Suspend a GitHub App installation. Disables the bot identity without uninstalling. All API access and webhooks are paused."
+    parameters:
+      installation_id:
+        description: "Installation ID to suspend"
+        required: true
+  botidentity_gh_unsuspend_installation:
+    description: "Unsuspend a GitHub App installation. Re-enables a previously suspended bot identity, restoring API access and webhooks."
+    parameters:
+      installation_id:
+        description: "Installation ID to unsuspend"
+        required: true
+  botidentity_gh_delete_installation:
+    description: "Delete a GitHub App installation. Permanently removes the bot identity from an organization or user account. Irreversible."
+    parameters:
+      installation_id:
+        description: "Installation ID to delete"
+        required: true
+  botidentity_gh_get_webhook_config:
+    description: "Get the webhook configuration for a GitHub App. Shows delivery URL, content type, and SSL verification settings."
+    parameters: {}
+  botidentity_gh_update_webhook_config:
+    description: "Update the webhook configuration for a GitHub App. Change the delivery URL, content type, secret, or SSL settings."
+    parameters:
+      url:
+        description: "Webhook payload delivery URL"
+      content_type:
+        description: "Content type: 'json' or 'form' (default: 'form')"
+      secret:
+        description: "Secret for HMAC signature verification"
+      insecure_ssl:
+        description: "SSL verification: '0' (verify) or '1' (skip)"
+  botidentity_gh_list_webhook_deliveries:
+    description: "List recent webhook deliveries for a GitHub App. Shows delivery status, response codes, and timing for debugging bot event handling."
+    parameters:
+      per_page:
+        description: "Results per page (default: 30, max: 100)"
+      cursor:
+        description: "Pagination cursor from previous response"
+  botidentity_gh_redeliver_webhook:
+    description: "Redeliver a failed webhook for a GitHub App. Retry a specific delivery that the bot failed to process."
+    parameters:
+      delivery_id:
+        description: "Webhook delivery ID to redeliver"
+        required: true
+  botidentity_gh_create_app:
+    description: "Create a GitHub App via the manifest flow. Starts a temporary local web server, opens a browser form that auto-submits to GitHub, waits for the user to approve, captures the redirect code, exchanges it for credentials, and stores everything in the bot inventory. All-in-one."
+    parameters:
+      name:
+        description: "GitHub App name"
+        required: true
+      bot_id:
+        description: "Bot inventory ID to store credentials on (from botidentity_create_bot)"
+      url:
+        description: "App homepage URL (default: https://github.com)"
+      webhook_url:
+        description: "Webhook delivery URL (optional)"
+      org:
+        description: "Organization slug to create the app under (optional, defaults to personal account)"
+      permissions:
+        description: 'JSON object of permissions e.g. {"contents":"read","issues":"write"} (optional, sensible defaults provided)'
+      events:
+        description: 'JSON array of webhook events e.g. ["push","pull_request"] (optional, sensible defaults provided)'
+  botidentity_slack_create_app:
+    description: "Create a new Slack bot app from a manifest. Defines the bot's name, scopes, event subscriptions, slash commands, and OAuth settings. Start here for Slack bot identity creation."
+    parameters:
+      manifest:
+        description: "JSON string of the Slack app manifest defining bot name, scopes, features, and settings"
+        required: true
+  botidentity_slack_update_app:
+    description: "Update an existing Slack bot app's manifest. Modify the bot's name, scopes, event subscriptions, slash commands, or OAuth settings."
+    parameters:
+      app_id:
+        description: "Slack app ID to update"
+        required: true
+      manifest:
+        description: "JSON string of the full updated manifest (must include all fields, not just changes)"
+        required: true
+  botidentity_slack_delete_app:
+    description: "Permanently delete a Slack bot app. Removes the bot identity and revokes all tokens. Irreversible."
+    parameters:
+      app_id:
+        description: "Slack app ID to delete"
+        required: true
+  botidentity_slack_validate_app:
+    description: "Validate a Slack bot app manifest without creating or updating. Check for errors before applying changes to bot configuration."
+    parameters:
+      manifest:
+        description: "JSON string of the Slack app manifest to validate"
+        required: true
+      app_id:
+        description: "Optional existing app ID to validate against"
+  botidentity_slack_export_app:
+    description: "Export the current manifest of an existing Slack bot app. Use to inspect a bot's configuration or as a template for creating new bots."
+    parameters:
+      app_id:
+        description: "Slack app ID to export manifest from"
+        required: true
+  botidentity_slack_get_bot_info:
+    description: "Get information about a Slack bot user including name, icons, and associated app. Use to verify bot identity details."
+    parameters:
+      bot:
+        description: "Bot user ID (e.g. B12345678)"
+        required: true
+      token:
+        description: "Bot or user token with users:read scope (uses configured slack_config_token if omitted)"
+  botidentity_slack_rotate_token:
+    description: "Rotate the Slack app configuration token using the refresh token. Returns a new access token and refresh token. The old tokens are invalidated. Config tokens expire after 12 hours."
+    parameters:
+      refresh_token:
+        description: "The xoxe refresh token (uses configured slack_refresh_token if omitted)"
+  botidentity_slack_set_bot_icon:
+    description: "Set a Slack bot's profile photo from a file path or base64-encoded image. Requires a bot token with users.profile:write scope. Use after botidentity_generate_logo to apply the generated image."
+    parameters:
+      path:
+        description: "File path to a PNG image (e.g. from botidentity_generate_logo output). Preferred over image_base64."
+      image_base64:
+        description: "Base64-encoded PNG image data (alternative to path)"
+      token:
+        description: "Bot token with users.profile:write scope (uses configured slack_bot_token if omitted)"
+  botidentity_generate_logo:
+    description: "Open an interactive logo generator in the browser. Preview logos, tweak the prompt, regenerate until satisfied, then confirm. Logo is compressed under 900KB and saved to ~/.config/switchboard/logos/<bot-id> when bot_id is provided. Start here for bot branding and avatar creation."
+    parameters:
+      prompt:
+        description: "Initial text prompt for logo generation"
+      negative_prompt:
+        description: "Initial negative prompt (things to avoid)"
+      bot_id:
+        description: "Bot inventory ID — saves logo to config dir and updates inventory automatically"
+      model_id:
+        description: "Bedrock model ID (default: stability.stable-image-core-v1:1). Alternatives: stability.stable-image-ultra-v1:1, stability.sd3-5-large-v1:0"
+  botidentity_create_bot:
+    description: "Create a new bot identity across GitHub and Slack. Attempts to create on both platforms, registers in local inventory, and returns next steps for setup (install URLs, tokens to provide). Start here for new bot creation."
+    parameters:
+      id:
+        description: "Unique bot identifier (e.g. 'deploy-bot', 'ci-notifier')"
+        required: true
+      name:
+        description: "Human-readable display name for the bot"
+        required: true
+      slack:
+        description: "Enable Slack identity: 'true' (default) or 'false'"
+      github:
+        description: "Enable GitHub identity: 'true' (default) or 'false'"
+      slack_manifest:
+        description: "Custom Slack app manifest JSON (optional — a sensible default is generated from the bot name)"
+  botidentity_delete_bot:
+    description: "Delete a bot identity. Removes the Slack app (if created), provides instructions for GitHub App deletion, and removes the local inventory entry."
+    parameters:
+      id:
+        description: "Bot identifier to delete"
+        required: true
+  botidentity_inv_list:
+    description: "List all bots in the local inventory. Shows each bot's enabled platforms, app IDs, and logo. Filter by platform."
+    parameters:
+      platform:
+        description: "Filter by platform: 'github' or 'slack' (optional, lists all if omitted)"
+  botidentity_inv_get:
+    description: "Get full details of a bot from the inventory including credentials (masked), platform status, and next steps for incomplete setup. Use after botidentity_inv_list."
+    parameters:
+      id:
+        description: "Bot identifier"
+        required: true
+  botidentity_inv_update:
+    description: "Update a bot's profile in the inventory. Change name, logo, or platform-specific IDs."
+    parameters:
+      id:
+        description: "Bot identifier"
+        required: true
+      name:
+        description: "New display name"
+      logo_path:
+        description: "New logo image path"
+      slack_app_id:
+        description: "Slack App ID (also enables Slack if not already)"
+      slack_bot_user_id:
+        description: "Slack bot user ID"
+      github_app_id:
+        description: "GitHub App ID (also enables GitHub if not already)"
+      github_app_slug:
+        description: "GitHub App slug (for URL generation)"
+  botidentity_inv_set_cred:
+    description: "Store a credential for a bot. Well-known keys (slack_bot_token, github_private_key, github_webhook_secret, github_client_id, github_client_secret, slack_webhook_url) are stored in platform-specific fields. Other keys go to the generic credentials map."
+    parameters:
+      id:
+        description: "Bot identifier"
+        required: true
+      key:
+        description: "Credential key (e.g. 'slack_bot_token', 'github_private_key', 'github_webhook_secret')"
+        required: true
+      value:
+        description: "Credential value"
+        required: true
+  botidentity_inv_delete_cred:
+    description: "Remove a stored credential from a bot in the inventory."
+    parameters:
+      id:
+        description: "Bot identifier"
+        required: true
+      key:
+        description: "Credential key to remove"
+        required: true
+  botidentity_inv_get_creds:
+    description: "List all credentials stored for a bot (values masked). Use botidentity_inv_get_cred to reveal a specific value."
+    parameters:
+      id:
+        description: "Bot identifier"
+        required: true
+  botidentity_inv_get_cred:
+    description: "Get the full unmasked value of a specific credential for a bot. Use after botidentity_inv_get_creds to identify the key."
+    parameters:
+      id:
+        description: "Bot identifier"
+        required: true
+      key:
+        description: "Credential key to retrieve"
+        required: true
+  botidentity_inv_set_logo:
+    description: "Set or update a bot's logo path in the inventory. Use after botidentity_generate_logo to associate the generated image."
+    parameters:
+      id:
+        description: "Bot identifier"
+        required: true
+      logo_path:
+        description: "Path to logo image file"
+        required: true
+  botidentity_inv_set_meta:
+    description: "Set a metadata key-value pair on a bot in the inventory. Use for descriptions, environment, team ownership, or any custom labels."
+    parameters:
+      id:
+        description: "Bot identifier"
+        required: true
+      key:
+        description: "Metadata key (e.g. 'environment', 'team', 'description')"
+        required: true
+      value:
+        description: "Metadata value"
+        required: true

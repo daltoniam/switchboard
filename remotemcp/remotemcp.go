@@ -194,29 +194,33 @@ func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 func convertTools(prefix string, tools []*mcpsdk.Tool) []mcp.ToolDefinition {
 	var defs []mcp.ToolDefinition
 	for _, t := range tools {
-		params := extractParams(t.InputSchema)
-		required := extractRequired(t.InputSchema)
-
 		defs = append(defs, mcp.ToolDefinition{
 			Name:        mcp.ToolName(prefix + "_" + t.Name),
 			Description: t.Description,
-			Parameters:  params,
-			Required:    required,
+			Parameters:  extractParameters(t.InputSchema),
 		})
 	}
 	return defs
 }
 
-func extractParams(schema any) map[string]string {
-	params := make(map[string]string)
+func extractParameters(schema any) []mcp.Parameter {
 	schemaMap, ok := toMap(schema)
 	if !ok {
-		return params
+		return nil
 	}
 	props, ok := toMap(schemaMap["properties"])
 	if !ok {
-		return params
+		return nil
 	}
+	required := make(map[string]bool)
+	if reqArr, ok := schemaMap["required"].([]any); ok {
+		for _, v := range reqArr {
+			if s, ok := v.(string); ok {
+				required[s] = true
+			}
+		}
+	}
+	var params []mcp.Parameter
 	for k, v := range props {
 		desc := ""
 		if vMap, ok := toMap(v); ok {
@@ -224,31 +228,13 @@ func extractParams(schema any) map[string]string {
 				desc = d
 			}
 		}
-		params[k] = desc
+		params = append(params, mcp.Parameter{
+			Name:        mcp.ParamName(k),
+			Description: desc,
+			Required:    required[k],
+		})
 	}
 	return params
-}
-
-func extractRequired(schema any) []string {
-	schemaMap, ok := toMap(schema)
-	if !ok {
-		return nil
-	}
-	req, ok := schemaMap["required"]
-	if !ok {
-		return nil
-	}
-	reqArr, ok := req.([]any)
-	if !ok {
-		return nil
-	}
-	var result []string
-	for _, v := range reqArr {
-		if s, ok := v.(string); ok {
-			result = append(result, s)
-		}
-	}
-	return result
 }
 
 func toMap(v any) (map[string]any, bool) {

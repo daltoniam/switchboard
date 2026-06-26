@@ -1,0 +1,214 @@
+version: 1
+tools:
+  suno_generate_music:
+    description: "Generate a music track with Suno AI. Each request produces 2 songs. Start here for music creation workflows. Stream URL available in ~30s, download URL in ~2-3 min. Use suno_get_generation to poll status"
+    parameters:
+      prompt:
+        description: "Text description or lyrics for the song (500 chars in non-custom mode, up to 5000 in custom mode)"
+        required: true
+      style:
+        description: "Music genre/style (e.g. pop, rock, jazz, folk, synthwave). Required in custom mode"
+      title:
+        description: "Song title (max 80-100 chars depending on model). Required in custom mode"
+      model:
+        description: "Model version: V5, V4_5PLUS, V4_5ALL, V4_5, V4 (default: V4_5ALL)"
+      custom_mode:
+        description: "Enable custom mode for fine control over style/title/lyrics (true/false, default: true)"
+      instrumental:
+        description: "Generate instrumental only, no vocals (true/false, default: false)"
+      callback_url:
+        description: "Webhook URL for completion notification"
+      persona_id:
+        description: "Persona ID for personalized style"
+      negative_tags:
+        description: "Styles to avoid (e.g. 'Heavy Metal, Upbeat Drums')"
+      vocal_gender:
+        description: "Vocal gender: m or f"
+      style_weight:
+        description: "Style influence weight 0-1 (default: 0.65)"
+  suno_get_generation:
+    description: "Check the status of a music generation task. Returns track URLs when complete. Status values: PENDING, TEXT_SUCCESS, FIRST_SUCCESS, SUCCESS, FAILED"
+    parameters:
+      task_id:
+        description: "Task ID returned from suno_generate_music or other generation tools"
+        required: true
+  suno_extend_music:
+    description: "Extend an existing audio track with additional content. Creates a continuation from a specific timestamp"
+    parameters:
+      audio_id:
+        description: "ID of the audio track to extend"
+        required: true
+      prompt:
+        description: "Description or lyrics for the extension"
+      style:
+        description: "Music style for the extension"
+      title:
+        description: "Title for the extended track"
+      continue_at:
+        description: "Time in seconds to start extension from"
+      model:
+        description: "Model version: V5, V4_5PLUS, V4_5ALL, V4_5, V4 (default: V4_5ALL)"
+      use_default_params:
+        description: "Use original track parameters instead of custom (true/false, default: false)"
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_get_credits:
+    description: "Get the number of remaining generation credits for the authenticated account"
+  suno_generate_lyrics:
+    description: "Generate song lyrics from a text prompt. Max 200 characters. Use suno_get_lyrics to poll for results"
+    parameters:
+      prompt:
+        description: "Description of desired lyrics (max 200 chars)"
+        required: true
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_get_lyrics:
+    description: "Get the status and result of a lyrics generation task"
+    parameters:
+      task_id:
+        description: "Task ID from suno_generate_lyrics"
+        required: true
+  suno_get_aligned_lyrics:
+    description: "Get timestamped/word-level aligned lyrics for an audio track. Useful for karaoke or synced display"
+    parameters:
+      audio_id:
+        description: "ID of the audio track"
+        required: true
+  suno_separate_stems:
+    description: "Separate an audio track into vocal and instrumental stems. Use suno_get_stem_separation to poll status"
+    parameters:
+      audio_id:
+        description: "ID of the audio track to separate"
+        required: true
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_get_stem_separation:
+    description: "Get the status and URLs of a stem separation task. Returns vocal and instrumental track URLs when complete"
+    parameters:
+      task_id:
+        description: "Task ID from suno_separate_stems"
+        required: true
+  suno_convert_wav:
+    description: "Convert a generated audio track to WAV format. Use suno_get_wav_conversion to poll status"
+    parameters:
+      audio_id:
+        description: "ID of the audio track to convert"
+        required: true
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_get_wav_conversion:
+    description: "Get the status and download URL of a WAV conversion task"
+    parameters:
+      task_id:
+        description: "Task ID from suno_convert_wav"
+        required: true
+  suno_cover_audio:
+    description: "Create a cover version of uploaded audio with a new style and arrangement"
+    parameters:
+      upload_url:
+        description: "URL of the source audio file"
+        required: true
+      style:
+        description: "Target music style for the cover"
+      title:
+        description: "Title for the cover version"
+      prompt:
+        description: "Description or lyrics for the cover"
+      custom_mode:
+        description: "Enable custom mode (true/false, default: true)"
+      model:
+        description: "Model version (default: V4_5ALL)"
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_upload_extend:
+    description: "Upload audio and extend it with AI-generated continuation"
+    parameters:
+      upload_url:
+        description: "URL of the audio file to extend"
+        required: true
+      prompt:
+        description: "Description or lyrics for the extension"
+      style:
+        description: "Music style for the extension"
+      title:
+        description: "Title for the extended track"
+      model:
+        description: "Model version (default: V4_5ALL)"
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_add_vocals:
+    description: "Generate vocal tracks for instrumental music"
+    parameters:
+      audio_id:
+        description: "ID of the instrumental audio track"
+        required: true
+      prompt:
+        description: "Lyrics or vocal description"
+      style:
+        description: "Vocal style"
+      model:
+        description: "Model version (default: V4_5ALL)"
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_add_instrumental:
+    description: "Generate instrumental accompaniment for a vocal track"
+    parameters:
+      audio_id:
+        description: "ID of the vocal audio track"
+        required: true
+      prompt:
+        description: "Instrumental description"
+      style:
+        description: "Instrumental style"
+      model:
+        description: "Model version (default: V4_5ALL)"
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_generate_mashup:
+    description: "Generate a mashup combining elements from multiple tracks"
+    parameters:
+      audio_ids:
+        description: "Comma-separated list of audio IDs to mashup"
+        required: true
+      style:
+        description: "Target style for the mashup"
+      prompt:
+        description: "Description of the desired mashup"
+      model:
+        description: "Model version (default: V4_5ALL)"
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_generate_persona:
+    description: "Create a personalized music persona based on generated tracks. Returns a persona_id for use in suno_generate_music"
+    parameters:
+      audio_ids:
+        description: "Comma-separated list of audio IDs to base the persona on"
+        required: true
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_generate_video:
+    description: "Generate a music video from an audio track. Use suno_get_video to poll status"
+    parameters:
+      audio_id:
+        description: "ID of the audio track"
+        required: true
+      author:
+        description: "Author/artist name for the video"
+      domain_name:
+        description: "Brand domain name for the video"
+      callback_url:
+        description: "Webhook URL for completion notification"
+  suno_get_video:
+    description: "Get the status and URL of a video generation task"
+    parameters:
+      task_id:
+        description: "Task ID from suno_generate_video"
+        required: true
+  suno_generate_midi:
+    description: "Generate a MIDI file from an audio track"
+    parameters:
+      audio_id:
+        description: "ID of the audio track"
+        required: true
+      callback_url:
+        description: "Webhook URL for completion notification"

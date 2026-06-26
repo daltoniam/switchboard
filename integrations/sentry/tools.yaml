@@ -1,0 +1,480 @@
+version: 1
+tools:
+  sentry_get_organization:
+    description: "Get details of the Sentry organization"
+    parameters: {}
+
+  sentry_list_org_projects:
+    description: "List all projects in the organization"
+    parameters:
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_list_org_teams:
+    description: "List all teams in the organization"
+    parameters:
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_list_org_members:
+    description: "List members of the organization"
+    parameters:
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_get_org_member:
+    description: "Get details of an organization member"
+    parameters:
+      member_id:
+        description: "Member ID (or 'me' for current user)"
+        required: true
+
+  sentry_list_org_repos:
+    description: "List repositories connected to the organization"
+    parameters:
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_resolve_short_id:
+    description: "Resolve a Sentry short ID (e.g., PROJECT-123) to full error issue details. Use to look up a bug by its short reference."
+    parameters:
+      short_id:
+        description: "Short ID (e.g., PROJECT-123)"
+        required: true
+
+  sentry_list_projects:
+    description: "List all projects accessible to the auth token"
+    parameters:
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_get_project:
+    description: "Get details of a specific project"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+
+  sentry_update_project:
+    description: "Update a project's settings"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+      name:
+        description: "New name"
+      slug:
+        description: "New slug"
+      platform:
+        description: "Platform (e.g., python, javascript)"
+      isBookmarked:
+        description: "Bookmark project (true/false)"
+
+  sentry_delete_project:
+    description: "Delete a project"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+
+  sentry_create_project:
+    description: "Create a new project under a team"
+    parameters:
+      team:
+        description: "Team slug"
+        required: true
+      name:
+        description: "Project name"
+        required: true
+      slug:
+        description: "Project slug (optional, auto-generated from name)"
+      platform:
+        description: "Platform (e.g., python, javascript)"
+
+  sentry_list_project_keys:
+    description: "List a project's client keys (DSN)"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+
+  sentry_list_project_envs:
+    description: "List a project's environments"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+
+  sentry_list_project_tags:
+    description: "List tags for a project"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+
+  sentry_get_project_stats:
+    description: "Get error and crash event count statistics for a project. Use to monitor error rate and volume."
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+      stat:
+        description: "Stat type: received, rejected, blacklisted, generated (default: received)"
+      since:
+        description: "Unix timestamp for start"
+      until:
+        description: "Unix timestamp for end"
+      resolution:
+        description: "Resolution in seconds (e.g., 3600 for hourly)"
+
+  sentry_list_project_hooks:
+    description: "List service hooks for a project"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+
+  sentry_get_team:
+    description: "Get details of a specific team"
+    parameters:
+      team:
+        description: "Team slug"
+        required: true
+
+  sentry_create_team:
+    description: "Create a new team in the organization"
+    parameters:
+      name:
+        description: "Team name"
+        required: true
+      slug:
+        description: "Team slug (optional)"
+
+  sentry_delete_team:
+    description: "Delete a team"
+    parameters:
+      team:
+        description: "Team slug"
+        required: true
+
+  sentry_list_team_projects:
+    description: "List projects belonging to a team"
+    parameters:
+      team:
+        description: "Team slug"
+        required: true
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_list_issues:
+    description: "List errors and exceptions for a project. Start here for error tracking, debugging, and finding unresolved bugs or crashes."
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+      query:
+        description: "Search query (e.g., 'is:unresolved', 'assigned:me')"
+      cursor:
+        description: "Pagination cursor"
+      sort:
+        description: "Sort: date, new, freq, user (default: date)"
+      statsPeriod:
+        description: "Stats period: '' (default), '24h', or '14d'"
+
+  sentry_get_issue:
+    description: "Get details of a specific error or exception issue, including stacktrace and debugging context"
+    parameters:
+      issue_id:
+        description: "Issue ID"
+        required: true
+
+  sentry_update_issue:
+    description: "Update an error issue (resolve, assign, triage, etc.)"
+    parameters:
+      issue_id:
+        description: "Issue ID"
+        required: true
+      status:
+        description: "Status: resolved, unresolved, ignored"
+      assignedTo:
+        description: "Assign to user (email or username, empty to unassign)"
+      hasSeen:
+        description: "Mark as seen (true/false)"
+      isBookmarked:
+        description: "Bookmark (true/false)"
+      isSubscribed:
+        description: "Subscribe (true/false)"
+      isPublic:
+        description: "Make public (true/false)"
+
+  sentry_delete_issue:
+    description: "Delete an issue"
+    parameters:
+      issue_id:
+        description: "Issue ID"
+        required: true
+
+  sentry_list_issue_events:
+    description: "List error occurrences and crash events for a specific issue"
+    parameters:
+      issue_id:
+        description: "Issue ID"
+        required: true
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_list_issue_hashes:
+    description: "List hashes (fingerprints) for an issue"
+    parameters:
+      issue_id:
+        description: "Issue ID"
+        required: true
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_get_issue_tag_values:
+    description: "Get tag value distribution for an issue"
+    parameters:
+      issue_id:
+        description: "Issue ID"
+        required: true
+      tag_name:
+        description: "Tag key (e.g., browser, os, url, environment)"
+        required: true
+
+  sentry_list_project_events:
+    description: "List error and exception events for a project. Use to investigate crashes and debug production issues."
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_get_event:
+    description: "Get details of a specific event"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+      event_id:
+        description: "Event ID"
+        required: true
+
+  sentry_list_org_issues:
+    description: "List error and exception issues across the entire organization. Search all projects for bugs, crashes, and unresolved problems."
+    parameters:
+      query:
+        description: "Search query (e.g., 'is:unresolved level:error')"
+      project:
+        description: "Filter by project slug"
+      cursor:
+        description: "Pagination cursor"
+      sort:
+        description: "Sort: date, new, freq, user"
+      statsPeriod:
+        description: "Stats period: '' (default), '24h', or '14d'"
+
+  sentry_list_releases:
+    description: "List releases for the organization"
+    parameters:
+      query:
+        description: "Filter releases by version"
+      project:
+        description: "Filter by project slug"
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_get_release:
+    description: "Get details of a specific release"
+    parameters:
+      version:
+        description: "Release version identifier"
+        required: true
+
+  sentry_create_release:
+    description: "Create a new release"
+    parameters:
+      version:
+        description: "Release version"
+        required: true
+      ref:
+        description: "Git ref (commit SHA or tag)"
+      url:
+        description: "URL for the release"
+      projects:
+        description: "Comma-separated project slugs"
+        required: true
+      dateReleased:
+        description: "Release date (ISO 8601)"
+
+  sentry_delete_release:
+    description: "Delete a release"
+    parameters:
+      version:
+        description: "Release version"
+        required: true
+
+  sentry_list_release_commits:
+    description: "List commits in a release"
+    parameters:
+      version:
+        description: "Release version"
+        required: true
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_list_release_deploys:
+    description: "List deploys for a release"
+    parameters:
+      version:
+        description: "Release version"
+        required: true
+
+  sentry_create_deploy:
+    description: "Create a deploy for a release"
+    parameters:
+      version:
+        description: "Release version"
+        required: true
+      environment:
+        description: "Environment name (e.g., production)"
+        required: true
+      name:
+        description: "Deploy name"
+      url:
+        description: "Deploy URL"
+      dateStarted:
+        description: "Start time (ISO 8601)"
+      dateFinished:
+        description: "Finish time (ISO 8601)"
+
+  sentry_list_release_files:
+    description: "List files (artifacts) in a release"
+    parameters:
+      version:
+        description: "Release version"
+        required: true
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_list_metric_alerts:
+    description: "List metric alert rules for monitoring thresholds and warnings across the organization"
+    parameters: {}
+
+  sentry_get_metric_alert:
+    description: "Get a specific metric alert rule"
+    parameters:
+      alert_rule_id:
+        description: "Alert rule ID"
+        required: true
+
+  sentry_delete_metric_alert:
+    description: "Delete a metric alert rule"
+    parameters:
+      alert_rule_id:
+        description: "Alert rule ID"
+        required: true
+
+  sentry_list_issue_alerts:
+    description: "List error alert rules that trigger notifications for a project"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+
+  sentry_get_issue_alert:
+    description: "Get a specific issue alert rule"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+      alert_rule_id:
+        description: "Alert rule ID"
+        required: true
+
+  sentry_delete_issue_alert:
+    description: "Delete an issue alert rule"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+      alert_rule_id:
+        description: "Alert rule ID"
+        required: true
+
+  sentry_list_monitors:
+    description: "List cron monitors for the organization"
+    parameters:
+      project:
+        description: "Filter by project slug"
+      cursor:
+        description: "Pagination cursor"
+
+  sentry_get_monitor:
+    description: "Get a specific cron monitor"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+      monitor_id:
+        description: "Monitor ID or slug"
+        required: true
+
+  sentry_delete_monitor:
+    description: "Delete a cron monitor"
+    parameters:
+      project:
+        description: "Project slug"
+        required: true
+      monitor_id:
+        description: "Monitor ID or slug"
+        required: true
+
+  sentry_list_saved_queries:
+    description: "List saved Discover queries"
+    parameters:
+      cursor:
+        description: "Pagination cursor"
+      sortBy:
+        description: "Sort by: dateCreated, dateUpdated, name, myqueries (default: dateUpdated)"
+
+  sentry_get_saved_query:
+    description: "Get a specific saved Discover query"
+    parameters:
+      query_id:
+        description: "Saved query ID"
+        required: true
+
+  sentry_delete_saved_query:
+    description: "Delete a saved Discover query"
+    parameters:
+      query_id:
+        description: "Saved query ID"
+        required: true
+
+  sentry_list_replays:
+    description: "List session replay recordings. Use to visually reproduce and investigate specific user sessions."
+    parameters:
+      query:
+        description: "Search query"
+      cursor:
+        description: "Pagination cursor"
+      limit:
+        description: "Max results (default 50)"
+      statsPeriod:
+        description: "Stats period: '' (default), '24h', or '14d'"
+
+  sentry_get_replay:
+    description: "Get details of a specific replay"
+    parameters:
+      replay_id:
+        description: "Replay ID"
+        required: true
+
+  sentry_delete_replay:
+    description: "Delete a replay"
+    parameters:
+      replay_id:
+        description: "Replay ID"
+        required: true

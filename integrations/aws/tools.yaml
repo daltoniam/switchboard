@@ -1,0 +1,543 @@
+version: 1
+tools:
+  aws_get_caller_identity:
+    description: "Get details about the IAM identity making the API call"
+    parameters: {}
+  aws_s3_list_buckets:
+    description: "List all S3 buckets in the account"
+    parameters: {}
+  aws_s3_list_objects:
+    description: "List objects in an S3 bucket"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+      prefix:
+        description: "Object key prefix filter"
+      max_keys:
+        description: "Maximum number of keys to return (default 1000)"
+      continuation_token:
+        description: "Token for pagination"
+  aws_s3_get_object:
+    description: "Get an object from S3 (returns metadata and body as text for text types, base64 for binary)"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+      key:
+        description: "Object key"
+        required: true
+  aws_s3_put_object:
+    description: "Upload an object to S3"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+      key:
+        description: "Object key"
+        required: true
+      body:
+        description: "Object content (text)"
+        required: true
+      content_type:
+        description: "MIME type (default: application/octet-stream)"
+  aws_s3_delete_object:
+    description: "Delete an object from S3"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+      key:
+        description: "Object key"
+        required: true
+  aws_s3_head_object:
+    description: "Get metadata for an S3 object without downloading it"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+      key:
+        description: "Object key"
+        required: true
+  aws_s3_copy_object:
+    description: "Copy an object within S3"
+    parameters:
+      source_bucket:
+        description: "Source bucket name"
+        required: true
+      source_key:
+        description: "Source object key"
+        required: true
+      dest_bucket:
+        description: "Destination bucket name"
+        required: true
+      dest_key:
+        description: "Destination object key"
+        required: true
+  aws_ec2_describe_instances:
+    description: 'List EC2 instances (servers/VMs) with optional filters. Start here for infrastructure inventory and production servers.'
+    parameters:
+      instance_ids:
+        description: "Comma-separated instance IDs"
+      filters:
+        description: 'JSON array of filters [{"Name":"tag:Env","Values":["prod"]}]'
+      max_results:
+        description: "Maximum number of results"
+  aws_ec2_describe_instance:
+    description: "Get details for a specific EC2 instance"
+    parameters:
+      instance_id:
+        description: "Instance ID"
+        required: true
+  aws_ec2_start_instances:
+    description: "Start one or more EC2 instances"
+    parameters:
+      instance_ids:
+        description: "Comma-separated instance IDs to start"
+        required: true
+  aws_ec2_stop_instances:
+    description: "Stop one or more EC2 instances"
+    parameters:
+      instance_ids:
+        description: "Comma-separated instance IDs to stop"
+        required: true
+  aws_ec2_describe_security_groups:
+    description: "List security groups with optional filters"
+    parameters:
+      group_ids:
+        description: "Comma-separated security group IDs"
+      filters:
+        description: "JSON array of filters"
+  aws_ec2_describe_vpcs:
+    description: "List VPCs"
+    parameters:
+      vpc_ids:
+        description: "Comma-separated VPC IDs"
+      filters:
+        description: "JSON array of filters"
+  aws_ec2_describe_subnets:
+    description: "List subnets"
+    parameters:
+      subnet_ids:
+        description: "Comma-separated subnet IDs"
+      filters:
+        description: "JSON array of filters"
+  aws_ec2_describe_images:
+    description: "List AMI images"
+    parameters:
+      image_ids:
+        description: "Comma-separated AMI IDs"
+      owners:
+        description: "Comma-separated owner IDs or aliases (self, amazon)"
+      filters:
+        description: "JSON array of filters"
+  aws_ec2_describe_volumes:
+    description: "List EBS volumes"
+    parameters:
+      volume_ids:
+        description: "Comma-separated volume IDs"
+      filters:
+        description: "JSON array of filters"
+  aws_ec2_describe_addresses:
+    description: "List Elastic IP addresses"
+    parameters:
+      allocation_ids:
+        description: "Comma-separated allocation IDs"
+      filters:
+        description: "JSON array of filters"
+  aws_ec2_describe_key_pairs:
+    description: "List EC2 key pairs"
+    parameters:
+      key_names:
+        description: "Comma-separated key pair names"
+  aws_lambda_list_functions:
+    description: "List Lambda functions"
+    parameters:
+      max_items:
+        description: "Maximum number of functions to return"
+  aws_lambda_get_function:
+    description: "Get details about a Lambda function"
+    parameters:
+      function_name:
+        description: "Function name or ARN"
+        required: true
+  aws_lambda_invoke:
+    description: "Invoke (run/trigger) a Lambda function. Use after list_functions to find the function name."
+    parameters:
+      function_name:
+        description: "Function name or ARN"
+        required: true
+      payload:
+        description: "JSON payload to pass to the function"
+      invocation_type:
+        description: "RequestResponse (sync, default), Event (async), or DryRun"
+  aws_lambda_list_event_source_mappings:
+    description: "List event source mappings for a function"
+    parameters:
+      function_name:
+        description: "Function name or ARN"
+  aws_lambda_get_function_configuration:
+    description: "Get the configuration of a Lambda function"
+    parameters:
+      function_name:
+        description: "Function name or ARN"
+        required: true
+  aws_iam_list_users:
+    description: "List IAM users. Start here for access audits and finding who has AWS access."
+    parameters:
+      path_prefix:
+        description: "Path prefix for filtering (default /)"
+      max_items:
+        description: "Maximum number of users to return"
+  aws_iam_get_user:
+    description: "Get details about an IAM user"
+    parameters:
+      username:
+        description: "IAM username (omit for current user)"
+  aws_iam_list_roles:
+    description: "List IAM roles"
+    parameters:
+      path_prefix:
+        description: "Path prefix for filtering (default /)"
+      max_items:
+        description: "Maximum number of roles to return"
+  aws_iam_get_role:
+    description: "Get details about an IAM role"
+    parameters:
+      role_name:
+        description: "IAM role name"
+        required: true
+  aws_iam_list_policies:
+    description: "List IAM policies"
+    parameters:
+      scope:
+        description: "Scope: All, AWS, Local (default All)"
+      only_attached:
+        description: "Only show attached policies (true/false)"
+      path_prefix:
+        description: "Path prefix filter"
+      max_items:
+        description: "Maximum number of policies to return"
+  aws_iam_get_policy:
+    description: "Get details about an IAM policy"
+    parameters:
+      policy_arn:
+        description: "Policy ARN"
+        required: true
+  aws_iam_list_groups:
+    description: "List IAM groups"
+    parameters:
+      path_prefix:
+        description: "Path prefix for filtering"
+      max_items:
+        description: "Maximum number of groups to return"
+  aws_iam_list_attached_role_policies:
+    description: "List policies attached to an IAM role"
+    parameters:
+      role_name:
+        description: "IAM role name"
+        required: true
+      path_prefix:
+        description: "Path prefix filter"
+  aws_iam_list_attached_user_policies:
+    description: "List policies attached to an IAM user"
+    parameters:
+      username:
+        description: "IAM username"
+        required: true
+      path_prefix:
+        description: "Path prefix filter"
+  aws_iam_list_attached_group_policies:
+    description: "List policies attached to an IAM group"
+    parameters:
+      group_name:
+        description: "IAM group name"
+        required: true
+      path_prefix:
+        description: "Path prefix filter"
+  aws_cloudwatch_list_metrics:
+    description: "List CloudWatch metrics"
+    parameters:
+      namespace:
+        description: "Metric namespace (e.g. AWS/EC2)"
+      metric_name:
+        description: "Metric name filter"
+  aws_cloudwatch_get_metric_data:
+    description: "Get CloudWatch metric data points (time series). Use for monitoring performance over a time range. Use after list_metrics to discover available metrics."
+    parameters:
+      metric_name:
+        description: "Metric name"
+        required: true
+      namespace:
+        description: "Metric namespace"
+        required: true
+      stat:
+        description: "Statistic: Average, Sum, Minimum, Maximum, SampleCount"
+        required: true
+      period:
+        description: "Period in seconds (default 300)"
+      start_time:
+        description: "Start time (RFC3339 or relative e.g. -1h)"
+      end_time:
+        description: "End time (RFC3339 or relative, default now)"
+      dimensions:
+        description: "JSON object of dimension key-value pairs"
+  aws_cloudwatch_describe_alarms:
+    description: "List CloudWatch alarms for active alerts, firing monitors, and threshold warnings. Filter by state (ALARM, OK, INSUFFICIENT_DATA)."
+    parameters:
+      alarm_names:
+        description: "Comma-separated alarm names"
+      state_value:
+        description: "Filter by state: OK, ALARM, INSUFFICIENT_DATA"
+      max_records:
+        description: "Maximum number of alarms to return"
+  aws_cloudwatch_get_metric_statistics:
+    description: "Get statistics for a specific CloudWatch metric"
+    parameters:
+      namespace:
+        description: "Metric namespace"
+        required: true
+      metric_name:
+        description: "Metric name"
+        required: true
+      start_time:
+        description: "Start time (RFC3339 or relative e.g. -1h)"
+        required: true
+      end_time:
+        description: "End time (RFC3339)"
+      period:
+        description: "Period in seconds"
+        required: true
+      statistics:
+        description: "Comma-separated: Average, Sum, Minimum, Maximum, SampleCount"
+        required: true
+      dimensions:
+        description: "JSON object of dimension key-value pairs"
+  aws_ecs_list_clusters:
+    description: "List ECS clusters"
+    parameters: {}
+  aws_ecs_describe_clusters:
+    description: "Get details about one or more ECS clusters"
+    parameters:
+      clusters:
+        description: "Comma-separated cluster names or ARNs"
+        required: true
+  aws_ecs_list_services:
+    description: "List services (deployed containers) in an ECS cluster. Use after list_clusters to find the cluster name."
+    parameters:
+      cluster:
+        description: "Cluster name or ARN"
+        required: true
+  aws_ecs_describe_services:
+    description: "Get details about ECS services including deploy status, health, and running/desired count. Use after list_services."
+    parameters:
+      cluster:
+        description: "Cluster name or ARN"
+        required: true
+      services:
+        description: "Comma-separated service names or ARNs"
+        required: true
+  aws_ecs_list_tasks:
+    description: "List tasks in an ECS cluster"
+    parameters:
+      cluster:
+        description: "Cluster name or ARN"
+      service_name:
+        description: "Filter by service name"
+      desired_status:
+        description: "Filter by status: RUNNING, PENDING, STOPPED"
+  aws_ecs_describe_tasks:
+    description: "Get details about one or more ECS tasks"
+    parameters:
+      cluster:
+        description: "Cluster name or ARN"
+        required: true
+      tasks:
+        description: "Comma-separated task IDs or ARNs"
+        required: true
+  aws_ecs_list_task_definitions:
+    description: "List ECS task definition families or revisions"
+    parameters:
+      family_prefix:
+        description: "Task definition family prefix filter"
+      status:
+        description: "Filter: ACTIVE or INACTIVE"
+  aws_ecs_describe_task_definition:
+    description: "Get details about an ECS task definition"
+    parameters:
+      task_definition:
+        description: "Task definition family:revision or full ARN"
+        required: true
+  aws_sns_list_topics:
+    description: "List SNS topics"
+    parameters: {}
+  aws_sns_get_topic_attributes:
+    description: "Get attributes for an SNS topic"
+    parameters:
+      topic_arn:
+        description: "SNS topic ARN"
+        required: true
+  aws_sns_list_subscriptions:
+    description: "List SNS subscriptions"
+    parameters:
+      topic_arn:
+        description: "Filter by topic ARN"
+  aws_sns_publish:
+    description: "Publish (send) a notification message to an SNS topic. Use after list_topics to find the topic ARN."
+    parameters:
+      topic_arn:
+        description: "SNS topic ARN"
+        required: true
+      message:
+        description: "Message body"
+        required: true
+      subject:
+        description: "Message subject (for email subscriptions)"
+  aws_sqs_list_queues:
+    description: "List SQS queues"
+    parameters:
+      queue_name_prefix:
+        description: "Queue name prefix filter"
+  aws_sqs_get_queue_attributes:
+    description: "Get attributes for an SQS queue"
+    parameters:
+      queue_url:
+        description: "SQS queue URL"
+        required: true
+  aws_sqs_send_message:
+    description: "Send a message to an SQS queue"
+    parameters:
+      queue_url:
+        description: "SQS queue URL"
+        required: true
+      message_body:
+        description: "Message content"
+        required: true
+      delay_seconds:
+        description: "Delay in seconds (0-900)"
+  aws_sqs_receive_message:
+    description: "Receive messages from an SQS queue"
+    parameters:
+      queue_url:
+        description: "SQS queue URL"
+        required: true
+      max_messages:
+        description: "Max messages to receive (1-10, default 1)"
+      wait_time_seconds:
+        description: "Long poll wait time (0-20)"
+  aws_sqs_delete_message:
+    description: "Delete a message from an SQS queue"
+    parameters:
+      queue_url:
+        description: "SQS queue URL"
+        required: true
+      receipt_handle:
+        description: "Receipt handle from receive"
+        required: true
+  aws_sqs_purge_queue:
+    description: "Purge all messages from an SQS queue"
+    parameters:
+      queue_url:
+        description: "SQS queue URL"
+        required: true
+  aws_dynamodb_list_tables:
+    description: "List DynamoDB tables"
+    parameters:
+      limit:
+        description: "Maximum number of tables to return"
+  aws_dynamodb_describe_table:
+    description: "Get details about a DynamoDB table"
+    parameters:
+      table_name:
+        description: "Table name"
+        required: true
+  aws_dynamodb_get_item:
+    description: "Get an item from a DynamoDB table"
+    parameters:
+      table_name:
+        description: "Table name"
+        required: true
+      key:
+        description: 'JSON object with key attributes (e.g. {"id":{"S":"123"}})'
+        required: true
+  aws_dynamodb_put_item:
+    description: "Put an item into a DynamoDB table"
+    parameters:
+      table_name:
+        description: "Table name"
+        required: true
+      item:
+        description: "JSON object with item attributes in DynamoDB format"
+        required: true
+  aws_dynamodb_query:
+    description: "Query a DynamoDB table"
+    parameters:
+      table_name:
+        description: "Table name"
+        required: true
+      key_condition_expression:
+        description: "Key condition expression"
+        required: true
+      expression_attribute_values:
+        description: "JSON object of expression attribute values in DynamoDB format"
+        required: true
+      expression_attribute_names:
+        description: "JSON object of expression attribute name placeholders"
+      index_name:
+        description: "Secondary index name"
+      limit:
+        description: "Maximum number of items to return"
+      scan_index_forward:
+        description: "Sort ascending (true, default) or descending (false)"
+  aws_dynamodb_scan:
+    description: "Scan a DynamoDB table"
+    parameters:
+      table_name:
+        description: "Table name"
+        required: true
+      filter_expression:
+        description: "Filter expression"
+      expression_attribute_values:
+        description: "JSON object of expression attribute values"
+      expression_attribute_names:
+        description: "JSON object of expression attribute name placeholders"
+      limit:
+        description: "Maximum number of items to return"
+  aws_dynamodb_delete_item:
+    description: "Delete an item from a DynamoDB table"
+    parameters:
+      table_name:
+        description: "Table name"
+        required: true
+      key:
+        description: "JSON object with key attributes in DynamoDB format"
+        required: true
+  aws_cloudformation_list_stacks:
+    description: "List CloudFormation stacks"
+    parameters:
+      status_filter:
+        description: "Comma-separated status filter (e.g. CREATE_COMPLETE,UPDATE_COMPLETE)"
+  aws_cloudformation_describe_stack:
+    description: "Get details about a CloudFormation stack"
+    parameters:
+      stack_name:
+        description: "Stack name or ID"
+        required: true
+  aws_cloudformation_list_stack_resources:
+    description: "List resources in a CloudFormation stack"
+    parameters:
+      stack_name:
+        description: "Stack name or ID"
+        required: true
+  aws_cloudformation_get_template:
+    description: "Get the template for a CloudFormation stack"
+    parameters:
+      stack_name:
+        description: "Stack name or ID"
+        required: true
+  aws_cloudformation_describe_stack_events:
+    description: "List events for a CloudFormation stack. Use to debug deploy failures, rollbacks, or track infrastructure change history."
+    parameters:
+      stack_name:
+        description: "Stack name or ID"
+        required: true

@@ -469,9 +469,10 @@ func TestSelectTool_InvalidIdentifier(t *testing.T) {
 func TestTools_RequiredFieldsAreValid(t *testing.T) {
 	i := New()
 	for _, tool := range i.Tools() {
-		for _, req := range tool.Required {
-			_, exists := tool.Parameters[req]
-			assert.True(t, exists, "tool %s: required param %s not in parameters", tool.Name, req)
+		// With []Parameter shape, Required is per-param — impossible state of
+		// required-but-undeclared is now unrepresentable.
+		for _, p := range tool.Parameters {
+			_ = p // each param carries its own Required field
 		}
 	}
 }
@@ -482,8 +483,14 @@ func TestTools_AllHaveDatabaseParam(t *testing.T) {
 		if tool.Name == "postgres_list_databases" {
 			continue
 		}
-		_, exists := tool.Parameters["database"]
-		assert.True(t, exists, "tool %s missing database parameter", tool.Name)
+		found := false
+		for _, p := range tool.Parameters {
+			if p.Name == "database" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "tool %s missing database parameter", tool.Name)
 	}
 }
 

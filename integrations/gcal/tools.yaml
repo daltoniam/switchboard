@@ -1,0 +1,402 @@
+version: 1
+tools:
+  gcal_list_events:
+    description: "List events on a calendar with filters for time range, search query, recurrence, and updates. Start here for browsing the schedule, finding meetings, or checking what's on the calendar."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary' for the user's primary calendar)"
+      q:
+        description: "Free-text search across summary, description, location, attendees"
+      time_min:
+        description: "Lower bound (inclusive) RFC3339 timestamp, e.g. '2024-03-15T00:00:00Z'"
+      time_max:
+        description: "Upper bound (exclusive) RFC3339 timestamp"
+      single_events:
+        description: "Expand recurring events into individual instances (true/false, default false)"
+      order_by:
+        description: "Order: 'startTime' (requires single_events=true) or 'updated'"
+      max_results:
+        description: "Max results per page (default 250, max 2500)"
+      page_token:
+        description: "Token for next page"
+      show_deleted:
+        description: "Include cancelled events (true/false)"
+      updated_min:
+        description: "Only events updated at/after this RFC3339 timestamp"
+      ical_uid:
+        description: "Filter to a specific iCalendar UID"
+      private_extended_property:
+        description: "Repeated propertyName=value pairs, comma-separated, for private extended-property filters"
+      shared_extended_property:
+        description: "Repeated propertyName=value pairs, comma-separated, for shared extended-property filters"
+      time_zone:
+        description: "Time zone used in response (default: calendar's time zone)"
+  gcal_get_event:
+    description: "Get a single calendar event by ID. Read the full meeting details including attendees, location, attachments, and conference data."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      event_id:
+        description: "Event ID"
+        required: true
+      time_zone:
+        description: "Time zone used in response (default: calendar's time zone)"
+  gcal_create_event:
+    description: "Create a calendar event. Schedule a meeting or appointment with attendees, time, location, and notifications."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      summary:
+        description: "Event title"
+      description:
+        description: "Event description (plain text or HTML)"
+      location:
+        description: "Event location"
+      start:
+        description: "Start time RFC3339 (e.g. '2024-03-15T14:00:00-07:00') OR YYYY-MM-DD for all-day"
+      end:
+        description: "End time RFC3339 OR YYYY-MM-DD for all-day (exclusive)"
+      time_zone:
+        description: "Time zone for start/end (e.g. 'America/Los_Angeles')"
+      attendees:
+        description: "Comma-separated attendee emails"
+      recurrence:
+        description: "Comma-separated RRULE/EXRULE/RDATE/EXDATE lines (e.g. 'RRULE:FREQ=WEEKLY;COUNT=10')"
+      send_updates:
+        description: "Send notifications: all, externalOnly, none (default none)"
+      conference_data_version:
+        description: "Set to '1' to enable conferenceData (e.g. auto-create Google Meet link via 'create_meet=true')"
+      create_meet:
+        description: "If true, attaches a Google Meet conference (requires conference_data_version=1)"
+      reminders_use_default:
+        description: "Use the calendar's default reminders (true/false)"
+      visibility:
+        description: "Visibility: default, public, private, confidential"
+      transparency:
+        description: "Show as: opaque (busy) or transparent (free)"
+      color_id:
+        description: "Color ID from gcal_get_colors event palette"
+      body:
+        description: "Raw JSON body — overrides all other fields. Use for advanced cases (attachments, custom reminders, extendedProperties)"
+  gcal_update_event:
+    description: "Replace a calendar event with PUT semantics — all fields must be provided. Prefer gcal_patch_event for partial updates."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      event_id:
+        description: "Event ID"
+        required: true
+      body:
+        description: "Full JSON event resource (replaces the entire event)"
+        required: true
+      send_updates:
+        description: "Send notifications: all, externalOnly, none (default none)"
+  gcal_patch_event:
+    description: "Partially update a calendar event. Edit a meeting's title, time, attendees, or other fields without replacing the entire event."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      event_id:
+        description: "Event ID"
+        required: true
+      summary:
+        description: "New title (optional)"
+      description:
+        description: "New description (optional)"
+      location:
+        description: "New location (optional)"
+      start:
+        description: "New start time RFC3339 or YYYY-MM-DD (optional)"
+      end:
+        description: "New end time RFC3339 or YYYY-MM-DD (optional)"
+      time_zone:
+        description: "Time zone for start/end"
+      attendees:
+        description: "Replace attendee list with comma-separated emails"
+      recurrence:
+        description: "Replace recurrence rules (comma-separated lines)"
+      send_updates:
+        description: "Send notifications: all, externalOnly, none (default none)"
+      visibility:
+        description: "Visibility: default, public, private, confidential"
+      transparency:
+        description: "Show as: opaque or transparent"
+      color_id:
+        description: "Color ID"
+      body:
+        description: "Raw JSON patch body — overrides other fields"
+  gcal_delete_event:
+    description: "Delete a calendar event. Cancel a meeting; optionally notify attendees."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      event_id:
+        description: "Event ID"
+        required: true
+      send_updates:
+        description: "Send cancellation notifications: all, externalOnly, none (default none)"
+  gcal_move_event:
+    description: "Move an event to a different calendar (re-home a meeting from personal to shared, for example)."
+    parameters:
+      calendar_id:
+        description: "Source calendar ID (defaults to 'primary')"
+      event_id:
+        description: "Event ID"
+        required: true
+      destination:
+        description: "Destination calendar ID"
+        required: true
+      send_updates:
+        description: "Send notifications: all, externalOnly, none (default none)"
+  gcal_list_instances:
+    description: "List the individual instances of a recurring event. Expand a weekly meeting into the actual occurrences."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      event_id:
+        description: "Recurring event ID"
+        required: true
+      time_min:
+        description: "Lower bound RFC3339"
+      time_max:
+        description: "Upper bound RFC3339"
+      max_results:
+        description: "Max results per page"
+      page_token:
+        description: "Token for next page"
+      show_deleted:
+        description: "Include cancelled instances (true/false)"
+      original_start:
+        description: "Original start time of a specific instance (RFC3339)"
+      time_zone:
+        description: "Time zone used in response"
+  gcal_quick_add_event:
+    description: "Create an event from a natural-language string (e.g. 'Lunch with Sarah Friday 1pm'). Quick way to schedule when you have a free-form text description."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      text:
+        description: "Natural-language event description"
+        required: true
+      send_updates:
+        description: "Send notifications: all, externalOnly, none (default none)"
+  gcal_import_event:
+    description: "Import an event from an external calendar (preserves the iCalUID, organizer, and original creation time). Use for syncing events; use create_event for new events."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      body:
+        description: "Full JSON event resource including iCalUID and organizer"
+        required: true
+      conference_data_version:
+        description: "Set to '1' to preserve conferenceData"
+      supports_attachments:
+        description: "Whether the API client supports event attachments (true/false)"
+  gcal_list_calendars:
+    description: "List the calendars in the user's calendar list. Discover which calendars are available to query (primary, secondary, shared, subscribed)."
+    parameters:
+      max_results:
+        description: "Max results per page (default 100, max 250)"
+      page_token:
+        description: "Token for next page"
+      show_deleted:
+        description: "Include deleted entries (true/false)"
+      show_hidden:
+        description: "Include hidden entries (true/false)"
+      min_access_role:
+        description: "Filter by minimum access role: freeBusyReader, reader, writer, owner"
+  gcal_get_calendar_subscription:
+    description: "Get a single calendar-list entry (the user-specific view of a subscribed calendar: color, hidden state, default reminders)."
+    parameters:
+      calendar_id:
+        description: "Calendar ID"
+        required: true
+  gcal_subscribe_calendar:
+    description: "Subscribe to an existing calendar by inserting it into the user's calendar list."
+    parameters:
+      calendar_id:
+        description: "Calendar ID to subscribe to"
+        required: true
+      color_rgb_format:
+        description: "Set to 'true' to use the color_id/background_color/foreground_color values"
+      background_color:
+        description: "Background color hex (e.g. '#ffffff')"
+      foreground_color:
+        description: "Foreground color hex"
+      color_id:
+        description: "Color ID from gcal_get_colors calendar palette"
+      hidden:
+        description: "Hide from UI (true/false)"
+      selected:
+        description: "Show in calendar view (true/false)"
+      summary_override:
+        description: "Custom display name for this user"
+  gcal_update_calendar_subscription:
+    description: "Update the user-specific properties of a calendar subscription (color, hidden state, summary override)."
+    parameters:
+      calendar_id:
+        description: "Calendar ID"
+        required: true
+      color_rgb_format:
+        description: "Set to 'true' to use the color hex values"
+      background_color:
+        description: "Background color hex"
+      foreground_color:
+        description: "Foreground color hex"
+      color_id:
+        description: "Color ID"
+      hidden:
+        description: "Hide from UI (true/false)"
+      selected:
+        description: "Show in calendar view (true/false)"
+      summary_override:
+        description: "Custom display name for this user"
+      body:
+        description: "Raw JSON body — overrides other fields"
+  gcal_unsubscribe_calendar:
+    description: "Remove a calendar from the user's calendar list (unsubscribe — does not delete the underlying calendar)."
+    parameters:
+      calendar_id:
+        description: "Calendar ID"
+        required: true
+  gcal_get_calendar:
+    description: "Get the metadata of a calendar resource (summary, description, time zone, location)."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+  gcal_create_calendar:
+    description: "Create a new secondary calendar owned by the user."
+    parameters:
+      summary:
+        description: "Calendar title"
+        required: true
+      description:
+        description: "Calendar description"
+      location:
+        description: "Geographic location of the calendar"
+      time_zone:
+        description: "Time zone (e.g. 'America/Los_Angeles')"
+      body:
+        description: "Raw JSON body — overrides other fields"
+  gcal_update_calendar:
+    description: "Update a calendar's metadata (summary, description, time zone)."
+    parameters:
+      calendar_id:
+        description: "Calendar ID"
+        required: true
+      summary:
+        description: "New calendar title"
+      description:
+        description: "New description"
+      location:
+        description: "New location"
+      time_zone:
+        description: "New time zone"
+      body:
+        description: "Raw JSON patch body — overrides other fields"
+  gcal_delete_calendar:
+    description: "Permanently delete a secondary calendar (cannot delete primary calendars; use gcal_clear_calendar for primary)."
+    parameters:
+      calendar_id:
+        description: "Calendar ID"
+        required: true
+  gcal_clear_calendar:
+    description: "Clear all events from the user's primary calendar. Use only for the primary calendar; secondaries should be deleted instead."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+  gcal_list_acl:
+    description: "List the access control rules (sharing) for a calendar."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      max_results:
+        description: "Max results per page"
+      page_token:
+        description: "Token for next page"
+      show_deleted:
+        description: "Include deleted ACL entries (true/false)"
+  gcal_get_acl:
+    description: "Get a single access control rule by ID."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      rule_id:
+        description: "ACL rule ID"
+        required: true
+  gcal_create_acl:
+    description: "Grant access to a calendar. Share with a specific user, group, or domain."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      role:
+        description: "Role: none, freeBusyReader, reader, writer, owner"
+        required: true
+      scope_type:
+        description: "Scope type: default, user, group, domain"
+        required: true
+      scope_value:
+        description: "Scope value (email for user/group, domain name for domain; omit for 'default')"
+      send_notifications:
+        description: "Send notification email (true/false)"
+      body:
+        description: "Raw JSON body — overrides other fields"
+  gcal_update_acl:
+    description: "Update a calendar access control rule (change the granted role)."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      rule_id:
+        description: "ACL rule ID"
+        required: true
+      role:
+        description: "New role: none, freeBusyReader, reader, writer, owner"
+      scope_type:
+        description: "Scope type (must match existing): default, user, group, domain"
+      scope_value:
+        description: "Scope value"
+      body:
+        description: "Raw JSON body — overrides other fields"
+  gcal_delete_acl:
+    description: "Revoke a calendar access control rule (unshare)."
+    parameters:
+      calendar_id:
+        description: "Calendar ID (defaults to 'primary')"
+      rule_id:
+        description: "ACL rule ID"
+        required: true
+  gcal_query_freebusy:
+    description: "Check availability across calendars in a time range. Returns busy intervals — use to find open time slots for scheduling meetings."
+    parameters:
+      time_min:
+        description: "Lower bound RFC3339"
+        required: true
+      time_max:
+        description: "Upper bound RFC3339"
+        required: true
+      items:
+        description: "Comma-separated calendar IDs (or group IDs) to query"
+        required: true
+      time_zone:
+        description: "Time zone for the response"
+      calendar_expansion_max:
+        description: "Max number of calendars to expand from groups (default 50)"
+      group_expansion_max:
+        description: "Max members per group expansion (default 100)"
+      body:
+        description: "Raw JSON body — overrides other fields"
+  gcal_list_settings:
+    description: "List the user's Calendar settings (week start, timezone, default event length, working hours)."
+    parameters:
+      max_results:
+        description: "Max results per page"
+      page_token:
+        description: "Token for next page"
+  gcal_get_setting:
+    description: "Get a single user Calendar setting by ID."
+    parameters:
+      setting_id:
+        description: "Setting ID (e.g. 'timezone', 'weekStart', 'defaultEventLength')"
+        required: true
+  gcal_get_colors:
+    description: "Get the color palettes available for calendars and events. Returns the mapping of color IDs to hex values."

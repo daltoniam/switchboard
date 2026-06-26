@@ -1,0 +1,52 @@
+version: 1
+tools:
+  gforms_get_form:
+    description: "Retrieve (get) a Google Forms form by ID, including all questions (items), info (title/description), settings, and the linked responder URL. Start here for surveys, quizzes, polls, questionnaires, feedback forms — to discover question item IDs for batchUpdate, inspect existing form structure, or read the form's response-collection settings. Use gforms_list_responses to fetch submitted answers."
+    parameters:
+      form_id:
+        description: "The Google Forms form ID (the long string in the URL between /d/ and /edit)"
+        required: true
+  gforms_create_form:
+    description: "Create a new Google Forms form (survey, quiz, poll, questionnaire). Only the title can be set at creation time per the Forms API; add questions via gforms_batch_update afterward. Returns the new form including its formId and the linked responderUri (public URL for submitters)."
+    parameters:
+      title:
+        description: "Form title (shown to respondents)"
+        required: true
+      document_title:
+        description: "Optional document title (shown in Drive). Defaults to the form title."
+  gforms_batch_update:
+    description: "Apply a batch of edit requests to a Google Forms form — the primary mutation API. Use for adding/deleting questions (items), updating titles or descriptions, changing settings (quiz mode, response collection), and moving items. Pass 'requests' as a JSON array of Forms API Request objects (e.g. [{\"createItem\":{\"item\":{\"title\":\"Q1\",\"questionItem\":{\"question\":{\"textQuestion\":{}}}},\"location\":{\"index\":0}}}]). For pure read access, use gforms_get_form instead."
+    parameters:
+      form_id:
+        description: "The form ID"
+        required: true
+      requests:
+        description: "JSON array of Forms API Request objects"
+        required: true
+      include_form_in_response:
+        description: "Optional boolean — if true, the response includes the updated form"
+      write_control_revision:
+        description: "Optional required revision ID for optimistic concurrency (will fail if the form has been edited since this revision)"
+      write_control_target_revision:
+        description: "Optional target revision ID — overrides required_revision_id when present"
+  gforms_list_responses:
+    description: "List submitted responses (answers, submissions) for a Google Forms form. Returns paginated FormResponse objects with respondent answers keyed by question item ID. Use to analyze survey results, quiz submissions, feedback, or any collected form data. Combine with gforms_get_form to map question IDs to question text."
+    parameters:
+      form_id:
+        description: "The form ID"
+        required: true
+      page_size:
+        description: "Optional max responses per page (1-5000, default 5000)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+      filter:
+        description: "Optional filter (e.g. 'timestamp > 2024-01-01T00:00:00Z') — see Forms API filter syntax"
+  gforms_get_response:
+    description: "Retrieve a single submitted response (answer, submission) from a Google Forms form by its response ID. Lighter than gforms_list_responses when you already have the responseId."
+    parameters:
+      form_id:
+        description: "The form ID"
+        required: true
+      response_id:
+        description: "The response ID (from FormResponse.responseId)"
+        required: true

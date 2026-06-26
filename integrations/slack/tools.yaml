@@ -1,0 +1,500 @@
+version: 1
+tools:
+  slack_token_status:
+    description: "Check token health for all workspaces: type (OAuth vs browser session), age, auto-refresh status, and source."
+    parameters: {}
+
+  slack_refresh_tokens:
+    description: "Force refresh browser session tokens. Tries cookie-based HTTP refresh first (works on all platforms), then Chrome LevelDB extraction (macOS). OAuth tokens (xoxp-) don't need refresh."
+    parameters:
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_list_workspaces:
+    description: "List all configured Slack workspaces with team IDs and names. Use to find the team_id for a specific workspace."
+    parameters: {}
+
+  slack_list_conversations:
+    description: "Start here to discover channels. List channels and DMs in the workspace. Filter by type (public_channel, private_channel, im, mpim). Returns channel IDs needed by most other Slack tools."
+    parameters:
+      types:
+        description: "Comma-separated types: public_channel, private_channel, im, mpim (default: public_channel,private_channel)"
+      limit:
+        description: "Max results per page (default 100, max 1000)"
+      cursor:
+        description: "Pagination cursor from previous response"
+      exclude_archived:
+        description: "Exclude archived channels (default true)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_get_conversation_info:
+    description: "Get detailed information about a specific channel or DM, including topic, purpose, and member count. Use after list_conversations to inspect a channel."
+    parameters:
+      channel_id:
+        description: "Channel or DM ID"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_conversations_history:
+    description: "Start here to read channel messages. Returns messages in reverse chronological order. Requires channel ID (C...), not channel name. Use list_conversations to find IDs."
+    parameters:
+      channel_id:
+        description: "Channel or DM ID"
+        required: true
+      limit:
+        description: "Number of messages to fetch (default 50, max 100)"
+      oldest:
+        description: "Unix timestamp — get messages after this time"
+      latest:
+        description: "Unix timestamp — get messages before this time"
+      cursor:
+        description: "Pagination cursor from previous response"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_get_thread:
+    description: "Get all replies in a message thread. Use after conversations_history to read full thread replies. Requires channel ID and thread_ts from conversations_history."
+    parameters:
+      channel_id:
+        description: "Channel or DM ID"
+        required: true
+      thread_ts:
+        description: "Thread parent message timestamp"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_create_conversation:
+    description: "Create a new channel."
+    parameters:
+      name:
+        description: "Channel name (lowercase, no spaces, max 80 chars)"
+        required: true
+      is_private:
+        description: "Create as private channel (default false)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_archive_conversation:
+    description: "Archive a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID to archive"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_invite_to_conversation:
+    description: "Invite users to a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      user_ids:
+        description: "Comma-separated user IDs to invite"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_kick_from_conversation:
+    description: "Remove a user from a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      user_id:
+        description: "User ID to remove"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_set_conversation_topic:
+    description: "Set the topic of a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      topic:
+        description: "New topic text"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_set_conversation_purpose:
+    description: "Set the purpose of a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      purpose:
+        description: "New purpose text"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_join_conversation:
+    description: "Join a public channel."
+    parameters:
+      channel_id:
+        description: "Channel ID to join"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_leave_conversation:
+    description: "Leave a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID to leave"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_rename_conversation:
+    description: "Rename a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      name:
+        description: "New channel name"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_send_message:
+    description: "Send (post) a message to a channel or DM. Requires channel ID (C...), not channel name. Supports Slack mrkdwn formatting and threads."
+    parameters:
+      channel_id:
+        description: "Channel or DM ID to send to"
+        required: true
+      text:
+        description: "Message text (supports Slack mrkdwn)"
+        required: true
+      thread_ts:
+        description: "Thread timestamp to reply in a thread (optional)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_update_message:
+    description: "Update an existing message."
+    parameters:
+      channel_id:
+        description: "Channel ID where the message is"
+        required: true
+      ts:
+        description: "Timestamp of the message to update"
+        required: true
+      text:
+        description: "New message text"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_delete_message:
+    description: "Delete a message from a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      ts:
+        description: "Timestamp of the message to delete"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_search_messages:
+    description: "Start here to find messages. Search across the entire Slack workspace. Supports Slack search syntax: from:@user, in:#channel, has:link, before:2024-01-01, after:2024-01-01."
+    parameters:
+      query:
+        description: "Search query (supports Slack search modifiers)"
+        required: true
+      count:
+        description: "Number of results (default 20, max 100)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_add_reaction:
+    description: "Add an emoji reaction to a message."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      ts:
+        description: "Message timestamp"
+        required: true
+      emoji:
+        description: "Emoji name without colons (e.g., thumbsup)"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_remove_reaction:
+    description: "Remove an emoji reaction from a message."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      ts:
+        description: "Message timestamp"
+        required: true
+      emoji:
+        description: "Emoji name without colons"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_get_reactions:
+    description: "Get all reactions on a message."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      ts:
+        description: "Message timestamp"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_add_pin:
+    description: "Pin a message in a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      ts:
+        description: "Message timestamp to pin"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_remove_pin:
+    description: "Remove a pinned message."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      ts:
+        description: "Message timestamp to unpin"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_list_pins:
+    description: "List all pinned items in a channel. Use to find important messages and references pinned by the team."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_schedule_message:
+    description: "Schedule a message to be sent at a specific time."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      text:
+        description: "Message text"
+        required: true
+      post_at:
+        description: "Unix timestamp for when to send the message"
+        required: true
+      thread_ts:
+        description: "Thread timestamp to reply in a thread (optional)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_list_users:
+    description: "Start here to find users. List all users in the workspace with display names, emails, and IDs. Supports pagination for large workspaces."
+    parameters:
+      limit:
+        description: "Max users per page (default 200, max 1000)"
+      cursor:
+        description: "Pagination cursor"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_get_user_info:
+    description: "Get detailed profile for a single user including status, timezone, and admin status. Use after list_users when you need full details for a specific person."
+    parameters:
+      user_id:
+        description: "Slack user ID"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_get_user_presence:
+    description: "Get a user's current presence status (active/away). Use after list_users to check if someone is online."
+    parameters:
+      user_id:
+        description: "Slack user ID"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_list_user_groups:
+    description: "List all user groups (handles like @engineering) in the workspace. Use to find group IDs and membership."
+    parameters:
+      include_users:
+        description: "Include list of member user IDs (default false)"
+      include_disabled:
+        description: "Include disabled user groups (default false)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_get_user_group:
+    description: "Get members of a specific user group."
+    parameters:
+      usergroup_id:
+        description: "User group ID"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_auth_test:
+    description: "Test authentication and get current user/workspace info. Use to verify credentials and find your own user ID."
+    parameters:
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_team_info:
+    description: "Get information about the workspace/team."
+    parameters:
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_upload_file:
+    description: "Upload a text file or snippet to a channel."
+    parameters:
+      channels:
+        description: "Comma-separated channel IDs to share the file in"
+        required: true
+      content:
+        description: "Text content of the file"
+        required: true
+      filename:
+        description: "Filename (e.g., report.txt)"
+        required: true
+      title:
+        description: "Title for the file"
+      filetype:
+        description: "File type identifier (e.g., text, python, javascript)"
+      initial_comment:
+        description: "Message to include with the file"
+      thread_ts:
+        description: "Thread timestamp to upload into a thread (optional)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_list_files:
+    description: "List files shared in the workspace. Use to find documents, images, and snippets. Filter by channel, user, or type."
+    parameters:
+      channel_id:
+        description: "Filter by channel ID (optional)"
+      user_id:
+        description: "Filter by user ID (optional)"
+      types:
+        description: "Filter by file type: spaces, snippets, images, gdocs, zips, pdfs (optional)"
+      count:
+        description: "Number of files to return (default 20, max 100)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_delete_file:
+    description: "Delete a file."
+    parameters:
+      file_id:
+        description: "File ID to delete"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_list_emoji:
+    description: "List all custom emoji in the workspace."
+    parameters:
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_set_status:
+    description: "Set the authenticated user's status."
+    parameters:
+      status_text:
+        description: "Status text"
+        required: true
+      status_emoji:
+        description: "Status emoji (e.g., :house_with_garden:)"
+      status_expiration:
+        description: "Unix timestamp when status expires (0 for no expiration)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_list_bookmarks:
+    description: "List bookmarks in a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_add_bookmark:
+    description: "Add a bookmark to a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      title:
+        description: "Bookmark title"
+        required: true
+      link:
+        description: "URL to bookmark"
+        required: true
+      emoji:
+        description: "Emoji for the bookmark (optional)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_remove_bookmark:
+    description: "Remove a bookmark from a channel."
+    parameters:
+      channel_id:
+        description: "Channel ID"
+        required: true
+      bookmark_id:
+        description: "Bookmark ID to remove"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_add_reminder:
+    description: "Create a reminder. Time can be natural language (e.g., 'in 15 minutes', 'tomorrow at 9am')."
+    parameters:
+      text:
+        description: "Reminder text"
+        required: true
+      time:
+        description: "When to remind (natural language or Unix timestamp)"
+        required: true
+      user:
+        description: "User ID to remind (defaults to authenticated user)"
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_list_reminders:
+    description: "List all reminders for the authenticated user."
+    parameters:
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."
+
+  slack_delete_reminder:
+    description: "Delete a reminder."
+    parameters:
+      reminder_id:
+        description: "Reminder ID to delete"
+        required: true
+      team_id:
+        description: "Workspace team ID (omit to use default workspace). Use slack_list_workspaces to see available workspaces."

@@ -1,0 +1,159 @@
+version: 1
+tools:
+  snowflake_execute_query:
+    description: "Execute a SQL query against a Snowflake data warehouse and return results as JSON rows. Supports SELECT, SHOW, DESCRIBE, DDL, and DML statements"
+    parameters:
+      query:
+        description: "SQL statement to execute"
+        required: true
+      database:
+        description: "Database context (overrides configured default)"
+      schema:
+        description: "Schema context (overrides configured default)"
+      warehouse:
+        description: "Warehouse to use (overrides configured default)"
+      role:
+        description: "Role to use (overrides configured default)"
+      timeout:
+        description: "Query timeout in seconds (default: 60)"
+  snowflake_get_query_status:
+    description: "Check the status of an async Snowflake query and retrieve results when complete. Use the statement handle returned from snowflake_execute_query"
+    parameters:
+      statement_handle:
+        description: "UUID statement handle from a previous query submission"
+        required: true
+      partition:
+        description: "Partition number to fetch for large result sets (0-based)"
+  snowflake_cancel_query:
+    description: "Cancel a running Snowflake query by its statement handle"
+    parameters:
+      statement_handle:
+        description: "UUID statement handle of the query to cancel"
+        required: true
+  snowflake_list_databases:
+    description: "List all databases accessible in the Snowflake account. Start here for schema discovery."
+    parameters:
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_schemas:
+    description: "List all schemas in a Snowflake database"
+    parameters:
+      database:
+        description: "Database name (defaults to configured database)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_tables:
+    description: "List tables in a Snowflake database/schema with row counts and sizes"
+    parameters:
+      database:
+        description: "Database name (defaults to configured database)"
+      schema:
+        description: "Schema name (defaults to configured schema)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_views:
+    description: "List views in a Snowflake database/schema"
+    parameters:
+      database:
+        description: "Database name (defaults to configured database)"
+      schema:
+        description: "Schema name (defaults to configured schema)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_describe_table:
+    description: "Describe a table's columns with names, types, and constraints in Snowflake"
+    parameters:
+      table:
+        description: "Table name"
+        required: true
+      database:
+        description: "Database name (defaults to configured database)"
+      schema:
+        description: "Schema name (defaults to configured schema)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_show_create_table:
+    description: "Show the DDL CREATE statement for a Snowflake table"
+    parameters:
+      table:
+        description: "Table name"
+        required: true
+      database:
+        description: "Database name (defaults to configured database)"
+      schema:
+        description: "Schema name (defaults to configured schema)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_warehouses:
+    description: "List all warehouses in the Snowflake account with state, size, and cluster info"
+    parameters:
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_running_queries:
+    description: "List currently running and recently completed queries in Snowflake"
+    parameters:
+      limit:
+        description: "Maximum number of queries to return (default: 50)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_current_session:
+    description: "Get current Snowflake session info including user, role, warehouse, and database"
+    parameters: {}
+  snowflake_list_users:
+    description: "List all users in the Snowflake account"
+    parameters:
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_roles:
+    description: "List all roles in the Snowflake account"
+    parameters:
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_stages:
+    description: "List stages in a Snowflake database/schema for data loading"
+    parameters:
+      database:
+        description: "Database name (defaults to configured database)"
+      schema:
+        description: "Schema name (defaults to configured schema)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_tasks:
+    description: "List tasks (scheduled SQL jobs) in a Snowflake database/schema"
+    parameters:
+      database:
+        description: "Database name (defaults to configured database)"
+      schema:
+        description: "Schema name (defaults to configured schema)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_pipes:
+    description: "List Snowpipe definitions for continuous data ingestion"
+    parameters:
+      database:
+        description: "Database name (defaults to configured database)"
+      schema:
+        description: "Schema name (defaults to configured schema)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_list_streams:
+    description: "List streams (change data capture) in a Snowflake database/schema"
+    parameters:
+      database:
+        description: "Database name (defaults to configured database)"
+      schema:
+        description: "Schema name (defaults to configured schema)"
+      role:
+        description: "Role to use (overrides configured default)"
+  snowflake_cortex_analyst:
+    description: "Ask a natural-language question against a Snowflake Cortex Analyst semantic layer. Returns generated SQL, an explanation, and follow-up suggestions. Use snowflake_execute_query to run the returned SQL"
+    parameters:
+      question:
+        description: "Natural-language question to ask (e.g. 'What were our top 10 products by revenue last quarter?')"
+        required: true
+      semantic_view:
+        description: "Fully qualified semantic view name (overrides configured default)"
+      semantic_model_file:
+        description: "Stage path to a semantic model YAML (e.g. @MY_DB.MY_SCHEMA.MY_STAGE/model.yaml)"
+      semantic_model:
+        description: "Inline semantic model YAML (alternative to semantic_model_file and semantic_view)"

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
@@ -84,6 +86,89 @@ func (f *fakeIntegration) Execute(_ context.Context, toolName mcp.ToolName, _ ma
 	return &mcp.ToolResult{Data: "executed " + string(toolName)}, nil
 }
 func (f *fakeIntegration) Healthy(_ context.Context) bool { return f.healthy }
+
+// --- timed integration for concurrency tests ---
+
+// probeTracker records peak concurrent probes across N timedIntegration
+// instances that share it. peak == N proves all probes ran in parallel.
+type probeTracker struct {
+	inFlight atomic.Int32
+	peak     atomic.Int32
+}
+
+func (p *probeTracker) enter() {
+	n := p.inFlight.Add(1)
+	for {
+		peak := p.peak.Load()
+		if n <= peak || p.peak.CompareAndSwap(peak, n) {
+			break
+		}
+	}
+}
+
+func (p *probeTracker) exit() { p.inFlight.Add(-1) }
+
+// timedIntegration is a fake integration whose Healthy probe sleeps for
+// `delay` before returning true. If ctx is cancelled first, returns false
+// — used to verify the budget cap. If tracker is non-nil, records peak
+// concurrent probes.
+type timedIntegration struct {
+	name    string
+	delay   time.Duration
+	tracker *probeTracker
+}
+
+func (t *timedIntegration) Name() string { return t.name }
+func (t *timedIntegration) Configure(_ context.Context, _ mcp.Credentials) error {
+	return nil
+}
+func (t *timedIntegration) Tools() []mcp.ToolDefinition { return nil }
+func (t *timedIntegration) Execute(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+	return nil, nil
+}
+func (t *timedIntegration) Healthy(ctx context.Context) bool {
+	if t.tracker != nil {
+		t.tracker.enter()
+		defer t.tracker.exit()
+	}
+	// Respect already-cancelled context first — otherwise a delay of 0
+	// races the cancellation signal in select (both channels are
+	// simultaneously ready, scheduler picks randomly).
+	if err := ctx.Err(); err != nil {
+		return false
+	}
+	timer := time.NewTimer(t.delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// withProbeBudget overrides the package-level probeBudget for the duration
+// of the test and restores it on cleanup.
+func withProbeBudget(t *testing.T, b time.Duration) {
+	t.Helper()
+	orig := probeBudget
+	probeBudget = b
+	t.Cleanup(func() { probeBudget = orig })
+}
+
+func newTimedTestServices(timed ...*timedIntegration) *mcp.Services {
+	reg := registry.New()
+	integrations := map[string]*mcp.IntegrationConfig{}
+	for _, ti := range timed {
+		_ = reg.Register(ti)
+		integrations[ti.name] = &mcp.IntegrationConfig{Enabled: true}
+	}
+	return &mcp.Services{
+		Config:   newMockConfigService(integrations),
+		Registry: reg,
+		Metrics:  mcp.NewMetrics(),
+	}
+}
 
 // --- test helpers ---
 
@@ -394,6 +479,140 @@ func TestCheckHealth_All(t *testing.T) {
 	var results []map[string]any
 	require.NoError(t, json.Unmarshal([]byte(res.Data), &results))
 	assert.Len(t, results, 2)
+}
+
+// --- Per-probe budget + parallel fan-out tests ---
+
+// TestHealthyWithBudget verifies the helper enforces a per-probe timeout.
+// A misconfigured or unreachable integration must not exceed the budget;
+// the helper returns false in that case.
+func TestHealthyWithBudget(t *testing.T) {
+	tests := []struct {
+		name   string
+		delay  time.Duration
+		budget time.Duration
+		want   bool
+	}{
+		{"probe completes within budget", 5 * time.Millisecond, 100 * time.Millisecond, true},
+		{"probe exceeds budget returns false", 200 * time.Millisecond, 50 * time.Millisecond, false},
+		{"already-cancelled context returns false", 0, 100 * time.Millisecond, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ti := &timedIntegration{name: "t", delay: tt.delay}
+			ctx := context.Background()
+			if strings.HasPrefix(tt.name, "already-cancelled") {
+				cancelled, cancel := context.WithCancel(ctx)
+				cancel()
+				ctx = cancelled
+			}
+			start := time.Now()
+			got := healthyWithBudget(ctx, ti, tt.budget)
+			elapsed := time.Since(start)
+			assert.Equal(t, tt.want, got, "Healthy result")
+			assert.LessOrEqual(t, elapsed, tt.budget+30*time.Millisecond,
+				"probe must not exceed budget by more than scheduler slack")
+		})
+	}
+}
+
+// TestListIntegrations_RunsHealthProbesInParallel proves that probes for
+// multiple integrations run concurrently — peak inFlight equals the
+// integration count. Without parallel fan-out, peak would be 1 (serial).
+func TestListIntegrations_RunsHealthProbesInParallel(t *testing.T) {
+	tracker := &probeTracker{}
+	const n = 4
+	const probeDelay = 60 * time.Millisecond
+
+	ints := make([]*timedIntegration, n)
+	for i := range ints {
+		ints[i] = &timedIntegration{
+			name:    string(rune('a' + i)),
+			delay:   probeDelay,
+			tracker: tracker,
+		}
+	}
+	services := newTimedTestServices(ints...)
+	s := newTestIntegration(services)
+
+	start := time.Now()
+	res, err := listIntegrations(context.Background(), s, map[string]any{"enabled_only": true})
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	assert.False(t, res.IsError)
+
+	assert.Equal(t, int32(n), tracker.peak.Load(),
+		"all %d probes must run concurrently", n)
+	assert.Less(t, elapsed, probeDelay*time.Duration(n-1),
+		"parallel total must be strictly less than serial total (n*delay)")
+}
+
+// TestListIntegrations_SlowIntegrationDoesNotBlockOthers combines parallelism
+// with the per-probe budget: one slow integration times out at the budget
+// while fast integrations report their real result, all within ~budget.
+func TestListIntegrations_SlowIntegrationDoesNotBlockOthers(t *testing.T) {
+	withProbeBudget(t, 80*time.Millisecond)
+	tracker := &probeTracker{}
+
+	fast1 := &timedIntegration{name: "fast1", delay: 5 * time.Millisecond, tracker: tracker}
+	fast2 := &timedIntegration{name: "fast2", delay: 5 * time.Millisecond, tracker: tracker}
+	slow := &timedIntegration{name: "slow", delay: 500 * time.Millisecond, tracker: tracker}
+
+	services := newTimedTestServices(fast1, fast2, slow)
+	s := newTestIntegration(services)
+
+	start := time.Now()
+	res, err := listIntegrations(context.Background(), s, map[string]any{"enabled_only": true})
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	require.False(t, res.IsError)
+
+	// Total wall time bounded by budget (not by the slow integration's 500ms).
+	assert.Less(t, elapsed, 200*time.Millisecond,
+		"total must be ~budget (80ms) + slack, not the slow integration's 500ms")
+
+	var results []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(res.Data), &results))
+	byName := map[string]map[string]any{}
+	for _, r := range results {
+		byName[r["name"].(string)] = r
+	}
+	// Fast integrations reported their real probe result (true).
+	assert.Equal(t, true, byName["fast1"]["healthy"], "fast1 must report its real result")
+	assert.Equal(t, true, byName["fast2"]["healthy"], "fast2 must report its real result")
+	// Slow integration timed out — wire shape omits healthy:false via omitempty.
+	_, slowHasHealthy := byName["slow"]["healthy"]
+	assert.False(t, slowHasHealthy, "slow integration must not report healthy:true after budget exceeded")
+}
+
+// TestCheckHealth_AllRunsHealthProbesInParallel mirrors the listIntegrations
+// concurrency test for the checkHealth no-name path.
+func TestCheckHealth_AllRunsHealthProbesInParallel(t *testing.T) {
+	tracker := &probeTracker{}
+	const n = 3
+	const probeDelay = 60 * time.Millisecond
+
+	ints := make([]*timedIntegration, n)
+	for i := range ints {
+		ints[i] = &timedIntegration{
+			name:    string(rune('a' + i)),
+			delay:   probeDelay,
+			tracker: tracker,
+		}
+	}
+	services := newTimedTestServices(ints...)
+	s := newTestIntegration(services)
+
+	start := time.Now()
+	res, err := checkHealth(context.Background(), s, map[string]any{})
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	require.False(t, res.IsError)
+
+	assert.Equal(t, int32(n), tracker.peak.Load(),
+		"checkHealth must run all %d probes concurrently", n)
+	assert.Less(t, elapsed, probeDelay*time.Duration(n-1),
+		"parallel total must be strictly less than serial total")
 }
 
 func TestBrowsePlugins_NilMarketplace(t *testing.T) {

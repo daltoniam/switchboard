@@ -1,0 +1,448 @@
+version: 1
+tools:
+  gcp_get_project:
+    description: "Get details about the configured GCP project. Start here to verify project access."
+    parameters: {}
+
+  gcp_list_projects:
+    description: "Search for GCP projects the caller has access to"
+    parameters:
+      query:
+        description: "Filter query (e.g. name:my-project)"
+
+  gcp_list_folders:
+    description: "List folders under a parent resource"
+    parameters:
+      parent:
+        description: "Parent resource name (e.g. organizations/123)"
+        required: true
+
+  gcp_get_folder:
+    description: "Get details about a folder"
+    parameters:
+      folder_id:
+        description: "Folder ID"
+        required: true
+
+  gcp_get_iam_policy:
+    description: "Get IAM policy for the configured project"
+    parameters: {}
+
+  gcp_storage_list_buckets:
+    description: "List all Cloud Storage buckets in the project"
+    parameters:
+      limit:
+        description: "Maximum number of buckets to return (default 1000)"
+
+  gcp_storage_get_bucket:
+    description: "Get metadata for a Cloud Storage bucket"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+
+  gcp_storage_list_objects:
+    description: "List objects in a Cloud Storage bucket (default limit 1000)"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+      prefix:
+        description: "Object name prefix filter"
+      delimiter:
+        description: "Delimiter for hierarchy (e.g. /)"
+      limit:
+        description: "Maximum total results to return (default 1000)"
+
+  gcp_storage_get_object:
+    description: "Get an object from Cloud Storage (max 10MB; returns metadata and body as text for text types, base64 for binary)"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+      object:
+        description: "Object name/path"
+        required: true
+
+  gcp_storage_put_object:
+    description: "Upload an object to Cloud Storage"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+      object:
+        description: "Object name/path"
+        required: true
+      body:
+        description: "Object content (text)"
+        required: true
+      content_type:
+        description: "MIME type (default: application/octet-stream)"
+
+  gcp_storage_delete_object:
+    description: "Delete an object from Cloud Storage"
+    parameters:
+      bucket:
+        description: "Bucket name"
+        required: true
+      object:
+        description: "Object name/path"
+        required: true
+
+  gcp_storage_copy_object:
+    description: "Copy an object within Cloud Storage"
+    parameters:
+      source_bucket:
+        description: "Source bucket name"
+        required: true
+      source_object:
+        description: "Source object name"
+        required: true
+      dest_bucket:
+        description: "Destination bucket name"
+        required: true
+      dest_object:
+        description: "Destination object name"
+        required: true
+
+  gcp_compute_list_instances:
+    description: "List Compute Engine VM instances (virtual machines) in a zone. View production server infrastructure. Default limit 500."
+    parameters:
+      zone:
+        description: "Zone name (e.g. us-central1-a)"
+        required: true
+      filter:
+        description: "Filter expression"
+      max_results:
+        description: "Page size for API requests"
+      limit:
+        description: "Maximum total results to return (default 500)"
+
+  gcp_compute_get_instance:
+    description: "Get details for a specific Compute Engine instance"
+    parameters:
+      zone:
+        description: "Zone name"
+        required: true
+      instance:
+        description: "Instance name"
+        required: true
+
+  gcp_compute_start_instance:
+    description: "Start a Compute Engine instance"
+    parameters:
+      zone:
+        description: "Zone name"
+        required: true
+      instance:
+        description: "Instance name"
+        required: true
+
+  gcp_compute_stop_instance:
+    description: "Stop a Compute Engine instance"
+    parameters:
+      zone:
+        description: "Zone name"
+        required: true
+      instance:
+        description: "Instance name"
+        required: true
+
+  gcp_compute_list_disks:
+    description: "List persistent disks in a zone (default limit 500)"
+    parameters:
+      zone:
+        description: "Zone name"
+        required: true
+      filter:
+        description: "Filter expression"
+      max_results:
+        description: "Page size for API requests"
+      limit:
+        description: "Maximum total results to return (default 500)"
+
+  gcp_compute_list_networks:
+    description: "List VPC networks in the project (default limit 500)"
+    parameters:
+      filter:
+        description: "Filter expression"
+      max_results:
+        description: "Page size for API requests"
+      limit:
+        description: "Maximum total results to return (default 500)"
+
+  gcp_compute_list_subnetworks:
+    description: "List subnetworks in a region (default limit 500)"
+    parameters:
+      region:
+        description: "Region name (e.g. us-central1)"
+        required: true
+      filter:
+        description: "Filter expression"
+      max_results:
+        description: "Page size for API requests"
+      limit:
+        description: "Maximum total results to return (default 500)"
+
+  gcp_compute_list_firewalls:
+    description: "List firewall rules in the project (default limit 500)"
+    parameters:
+      filter:
+        description: "Filter expression"
+      max_results:
+        description: "Page size for API requests"
+      limit:
+        description: "Maximum total results to return (default 500)"
+
+  gcp_compute_get_firewall:
+    description: "Get details for a specific firewall rule"
+    parameters:
+      firewall:
+        description: "Firewall rule name"
+        required: true
+
+  gcp_functions_list:
+    description: "List Cloud Functions (serverless) in a location. View deployed functions and their configurations."
+    parameters:
+      location:
+        description: "Location (e.g. us-central1, or - for all locations)"
+
+  gcp_functions_get:
+    description: "Get details about a Cloud Function"
+    parameters:
+      name:
+        description: "Full resource name (projects/PROJECT/locations/LOCATION/functions/NAME)"
+        required: true
+
+  gcp_functions_get_iam_policy:
+    description: "Get IAM policy for a Cloud Function"
+    parameters:
+      name:
+        description: "Full resource name of the function"
+        required: true
+
+  gcp_iam_list_service_accounts:
+    description: "List service accounts (automation identities) in the project. Review access credentials and security configuration."
+    parameters: {}
+
+  gcp_iam_get_service_account:
+    description: "Get details about a service account"
+    parameters:
+      email:
+        description: "Service account email"
+        required: true
+
+  gcp_iam_list_service_account_keys:
+    description: "List keys for a service account"
+    parameters:
+      email:
+        description: "Service account email"
+        required: true
+
+  gcp_iam_list_roles:
+    description: "List predefined and custom IAM roles"
+    parameters:
+      show_deleted:
+        description: "Include deleted roles (true/false)"
+
+  gcp_iam_get_role:
+    description: "Get details about an IAM role"
+    parameters:
+      name:
+        description: "Role name (e.g. roles/editor or projects/PROJECT/roles/CUSTOM)"
+        required: true
+
+  gcp_monitoring_list_metric_descriptors:
+    description: "List available metric descriptors"
+    parameters:
+      filter:
+        description: 'Metric filter (e.g. metric.type = starts_with("compute.googleapis.com"))'
+
+  gcp_monitoring_list_time_series:
+    description: "Get Cloud Monitoring time series data for a metric. Query production performance, CPU, memory, and custom metric graphs."
+    parameters:
+      filter:
+        description: 'Time series filter (e.g. metric.type="compute.googleapis.com/instance/cpu/utilization")'
+        required: true
+      start_time:
+        description: "Start time (RFC3339)"
+        required: true
+      end_time:
+        description: "End time (RFC3339, default now)"
+      alignment_period:
+        description: "Alignment period in seconds (e.g. 60s)"
+      per_series_aligner:
+        description: "Aligner: ALIGN_MEAN, ALIGN_SUM, ALIGN_MAX, ALIGN_MIN, etc."
+
+  gcp_monitoring_list_alert_policies:
+    description: "List Cloud Monitoring alert policies for production threshold warnings and notifications"
+    parameters:
+      filter:
+        description: "Filter expression"
+
+  gcp_monitoring_get_alert_policy:
+    description: "Get details about an alert policy"
+    parameters:
+      name:
+        description: "Full resource name of the alert policy"
+        required: true
+
+  gcp_monitoring_list_monitored_resources:
+    description: "List monitored resource descriptors"
+    parameters:
+      filter:
+        description: "Filter expression"
+
+  gcp_run_list_services:
+    description: "List Cloud Run serverless container services in a location. View production deployments and configurations."
+    parameters:
+      location:
+        description: "Location (e.g. us-central1)"
+        required: true
+
+  gcp_run_get_service:
+    description: "Get details about a Cloud Run service"
+    parameters:
+      name:
+        description: "Full resource name (projects/PROJECT/locations/LOCATION/services/NAME)"
+        required: true
+
+  gcp_run_list_revisions:
+    description: "List revisions of a Cloud Run service"
+    parameters:
+      service_name:
+        description: "Full resource name of the parent service"
+        required: true
+
+  gcp_run_get_revision:
+    description: "Get details about a Cloud Run revision"
+    parameters:
+      name:
+        description: "Full resource name of the revision"
+        required: true
+
+  gcp_pubsub_list_topics:
+    description: "List Pub/Sub topics in the project"
+    parameters: {}
+
+  gcp_pubsub_get_topic:
+    description: "Get configuration for a Pub/Sub topic"
+    parameters:
+      topic:
+        description: "Topic ID"
+        required: true
+
+  gcp_pubsub_publish:
+    description: "Publish a message to a Pub/Sub topic"
+    parameters:
+      topic:
+        description: "Topic ID"
+        required: true
+      message:
+        description: "Message data (text)"
+        required: true
+      attributes:
+        description: "JSON object of message attributes"
+
+  gcp_pubsub_list_subscriptions:
+    description: "List Pub/Sub subscriptions in the project"
+    parameters: {}
+
+  gcp_pubsub_get_subscription:
+    description: "Get configuration for a Pub/Sub subscription"
+    parameters:
+      subscription:
+        description: "Subscription ID"
+        required: true
+
+  gcp_pubsub_pull:
+    description: "Pull messages from a Pub/Sub subscription"
+    parameters:
+      subscription:
+        description: "Subscription ID"
+        required: true
+      max_messages:
+        description: "Maximum messages to pull (default 10)"
+      timeout:
+        description: "Timeout in seconds to wait for messages (default 10)"
+
+  gcp_firestore_list_collections:
+    description: "List top-level collections in Firestore"
+    parameters: {}
+
+  gcp_firestore_list_documents:
+    description: "List documents in a Firestore collection"
+    parameters:
+      collection:
+        description: "Collection path"
+        required: true
+      limit:
+        description: "Maximum number of documents to return"
+
+  gcp_firestore_get_document:
+    description: "Get a document from Firestore"
+    parameters:
+      path:
+        description: "Document path (e.g. collection/docId)"
+        required: true
+
+  gcp_firestore_set_document:
+    description: "Create or update a document in Firestore"
+    parameters:
+      path:
+        description: "Document path (e.g. collection/docId)"
+        required: true
+      data:
+        description: "JSON object with document fields"
+        required: true
+
+  gcp_firestore_delete_document:
+    description: "Delete a document from Firestore"
+    parameters:
+      path:
+        description: "Document path (e.g. collection/docId)"
+        required: true
+
+  gcp_firestore_query:
+    description: "Query documents in a Firestore collection"
+    parameters:
+      collection:
+        description: "Collection path"
+        required: true
+      where_field:
+        description: "Field to filter on"
+      where_op:
+        description: "Operator: ==, !=, <, <=, >, >=, array-contains, in"
+      where_value:
+        description: 'Value to compare (JSON-encoded: use 123 for numbers, "\"text\"" for strings, true/false for booleans)'
+      order_by:
+        description: "Field to order by"
+      order_dir:
+        description: "Order direction: asc or desc"
+      limit:
+        description: "Maximum number of documents"
+
+  gcp_logging_list_entries:
+    description: "List Cloud Logging entries for the project. Search production logs for errors, debugging, and observability."
+    parameters:
+      filter:
+        description: "Logging filter (e.g. severity>=ERROR)"
+      order_by:
+        description: "Order: timestamp asc or timestamp desc (default desc)"
+      page_size:
+        description: "Maximum entries to return (default 50)"
+
+  gcp_logging_list_log_names:
+    description: "List log names in the project"
+    parameters: {}
+
+  gcp_logging_list_sinks:
+    description: "List logging sinks in the project"
+    parameters: {}
+
+  gcp_logging_get_sink:
+    description: "Get details about a logging sink"
+    parameters:
+      sink_name:
+        description: "Sink name"
+        required: true

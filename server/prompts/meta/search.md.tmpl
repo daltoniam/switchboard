@@ -1,0 +1,10 @@
+<%- /* search.md.tmpl — v1, no variants */ -%>
+Search available tools across all integrations (GitHub, Datadog, Linear, Sentry, Slack, etc.).
+
+Tool names shift across integration versions. A guessed name returns "tool not found" with no fallback — search first to get the live name.
+
+Query format — use 1-2 keywords, not full sentences. Fewer words = better results:
+- {"query": "create ticket"} — synonym matching finds linear_create_issue
+- {"query": "slack send"} — integration name + verb is ideal
+- {"integration": "sentry", "query": "errors"} — or use the integration filter
+Avoid 4+ word queries — they return fewer results. Search twice with short queries instead of once with a long query.

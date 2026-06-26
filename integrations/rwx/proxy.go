@@ -227,16 +227,17 @@ func (p *proxyClient) fetchTools() error {
 func (p *proxyClient) toolDefinitions() []mcp.ToolDefinition {
 	var defs []mcp.ToolDefinition
 	for _, t := range p.tools {
-		params := make(map[string]string)
-		if props, ok := t.InputSchema["properties"].(map[string]interface{}); ok {
-			required := make(map[string]bool)
-			if reqList, ok := t.InputSchema["required"].([]interface{}); ok {
-				for _, r := range reqList {
-					if s, ok := r.(string); ok {
-						required[s] = true
-					}
+		required := make(map[string]bool)
+		if reqList, ok := t.InputSchema["required"].([]interface{}); ok {
+			for _, r := range reqList {
+				if s, ok := r.(string); ok {
+					required[s] = true
 				}
 			}
+		}
+
+		var params []mcp.Parameter
+		if props, ok := t.InputSchema["properties"].(map[string]interface{}); ok {
 			for key, val := range props {
 				desc := ""
 				if propMap, ok := val.(map[string]interface{}); ok {
@@ -244,28 +245,23 @@ func (p *proxyClient) toolDefinitions() []mcp.ToolDefinition {
 						desc = transformCLIReferences(d)
 					}
 				}
-				params[key] = desc
+				params = append(params, mcp.Parameter{
+					Name:        mcp.ParamName(key),
+					Description: desc,
+					Required:    required[key],
+				})
 			}
 		}
+
 		desc := t.Description
 		if desc != "" {
 			desc = transformCLIReferences(desc)
-		}
-
-		var requiredFields []string
-		if reqList, ok := t.InputSchema["required"].([]interface{}); ok {
-			for _, r := range reqList {
-				if s, ok := r.(string); ok {
-					requiredFields = append(requiredFields, s)
-				}
-			}
 		}
 
 		defs = append(defs, mcp.ToolDefinition{
 			Name:        mcp.ToolName("rwx_proxy_" + t.Name),
 			Description: "[Proxied from rwx mcp serve] " + desc,
 			Parameters:  params,
-			Required:    requiredFields,
 		})
 	}
 	return defs

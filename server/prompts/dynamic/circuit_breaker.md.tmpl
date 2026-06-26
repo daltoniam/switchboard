@@ -1,0 +1,2 @@
+<%- /* circuit_breaker.md.tmpl — v1, no variants */ -%>
+integration <% printf "%q" .Integration %> temporarily unavailable (circuit breaker open, try again in ~<% .CooldownSeconds %>s). Other integrations still work.

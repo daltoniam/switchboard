@@ -1,0 +1,1093 @@
+version: 1
+tools:
+  cloudflare_list_zones:
+    description: "List Cloudflare zones (domains). Start here for DNS management, CDN configuration, and website performance. Zones represent domains registered with Cloudflare."
+    parameters:
+      name:
+        description: "Zone name filter (exact domain match, e.g. example.com)"
+      status:
+        description: "Zone status filter (active, pending, initializing, moved, deleted, deactivated, read_only)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20, max 50)"
+
+  cloudflare_get_zone:
+    description: "Get details for a specific Cloudflare zone including status, nameservers, and settings. Use after list_zones."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_create_zone:
+    description: "Add a new domain (zone) to Cloudflare. Requires account_id."
+    parameters:
+      name:
+        description: "Domain name (e.g. example.com)"
+        required: true
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      type:
+        description: "Zone type: full (default) or partial"
+      jump_start:
+        description: "Auto-fetch DNS records (true/false, default false)"
+
+  cloudflare_edit_zone:
+    description: "Update zone settings like paused status or vanity nameservers. Use after get_zone."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      paused:
+        description: "Pause Cloudflare for this zone (true/false)"
+      plan:
+        description: "Plan identifier to change zone plan"
+
+  cloudflare_delete_zone:
+    description: "Remove a zone (domain) from Cloudflare. Irreversible."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_purge_cache:
+    description: "Purge cached content for a Cloudflare zone. Purge everything or specific URLs/tags/hosts. Use for cache invalidation after deployments."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      purge_everything:
+        description: "Purge all cached content (true/false)"
+      files:
+        description: "JSON array of URLs to purge (alternative to purge_everything)"
+      tags:
+        description: "Comma-separated cache tags to purge"
+      hosts:
+        description: "Comma-separated hostnames to purge"
+
+  cloudflare_list_dns_records:
+    description: "List DNS records for a Cloudflare zone. View A, AAAA, CNAME, MX, TXT, NS, and other record types. Start here for DNS management and troubleshooting."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      type:
+        description: "DNS record type filter (A, AAAA, CNAME, MX, TXT, NS, SRV, etc.)"
+      name:
+        description: "DNS record name filter (e.g. subdomain.example.com)"
+      content:
+        description: "DNS record content filter (e.g. IP address)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20, max 100)"
+
+  cloudflare_get_dns_record:
+    description: "Get details for a specific DNS record. Use after list_dns_records."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      record_id:
+        description: "DNS record identifier"
+        required: true
+
+  cloudflare_create_dns_record:
+    description: "Create a new DNS record in a Cloudflare zone. Add A, AAAA, CNAME, MX, TXT records and more."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      type:
+        description: "DNS record type (A, AAAA, CNAME, MX, TXT, NS, SRV, etc.)"
+        required: true
+      name:
+        description: "DNS record name (e.g. subdomain or @ for root)"
+        required: true
+      content:
+        description: "DNS record content (e.g. IP address, target domain)"
+        required: true
+      ttl:
+        description: "TTL in seconds (1 = automatic, default 1)"
+      proxied:
+        description: "Whether traffic is proxied through Cloudflare (true/false)"
+      priority:
+        description: "MX/SRV record priority"
+
+  cloudflare_update_dns_record:
+    description: "Update an existing DNS record. Use after list_dns_records to get record_id."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      record_id:
+        description: "DNS record identifier"
+        required: true
+      type:
+        description: "DNS record type"
+        required: true
+      name:
+        description: "DNS record name"
+        required: true
+      content:
+        description: "DNS record content"
+        required: true
+      ttl:
+        description: "TTL in seconds (1 = automatic)"
+      proxied:
+        description: "Whether traffic is proxied through Cloudflare (true/false)"
+      priority:
+        description: "MX/SRV record priority"
+
+  cloudflare_delete_dns_record:
+    description: "Delete a DNS record from a Cloudflare zone."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      record_id:
+        description: "DNS record identifier"
+        required: true
+
+  cloudflare_list_workers:
+    description: "List Cloudflare Workers scripts. View serverless functions, edge computing workers, and deployed scripts. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_worker:
+    description: "Get metadata for a specific Cloudflare Worker script including bindings, routes, and compatibility settings. Use after list_workers."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      script_name:
+        description: "Worker script name"
+        required: true
+
+  cloudflare_delete_worker:
+    description: "Delete a Cloudflare Worker script."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      script_name:
+        description: "Worker script name"
+        required: true
+
+  cloudflare_list_worker_routes:
+    description: "List Worker routes for a zone. Shows URL patterns mapped to Worker scripts."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_list_pages_projects:
+    description: "List Cloudflare Pages projects. View static sites, Jamstack deployments, and frontend projects hosted on Pages. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_pages_project:
+    description: "Get details for a Cloudflare Pages project including build config, domains, and deployment settings. Use after list_pages_projects."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+
+  cloudflare_list_pages_deployments:
+    description: "List deployments for a Cloudflare Pages project. View deploy history, build status, and rollback targets."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+
+  cloudflare_get_pages_deployment:
+    description: "Get details for a specific Pages deployment including build logs and environment. Use after list_pages_deployments."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+      deployment_id:
+        description: "Deployment identifier"
+        required: true
+
+  cloudflare_delete_pages_deployment:
+    description: "Delete a specific Pages deployment."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+      deployment_id:
+        description: "Deployment identifier"
+        required: true
+
+  cloudflare_rollback_pages_deployment:
+    description: "Rollback a Pages project to a previous deployment. Use after list_pages_deployments to find deployment_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+      deployment_id:
+        description: "Deployment identifier to rollback to"
+        required: true
+
+  cloudflare_list_r2_buckets:
+    description: "List R2 object storage buckets. Cloudflare R2 is S3-compatible storage with zero egress fees. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_create_r2_bucket:
+    description: "Create a new R2 object storage bucket."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Bucket name"
+        required: true
+
+  cloudflare_delete_r2_bucket:
+    description: "Delete an R2 object storage bucket. Bucket must be empty."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Bucket name"
+        required: true
+
+  cloudflare_list_kv_namespaces:
+    description: "List Workers KV namespaces. KV is Cloudflare's global key-value store for edge data. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_create_kv_namespace:
+    description: "Create a new Workers KV namespace."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      title:
+        description: "Namespace title"
+        required: true
+
+  cloudflare_delete_kv_namespace:
+    description: "Delete a Workers KV namespace and all its keys."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+
+  cloudflare_list_kv_keys:
+    description: "List keys in a Workers KV namespace. Returns key names with optional metadata."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+      prefix:
+        description: "Key prefix filter"
+      limit:
+        description: "Maximum keys to return (default 1000)"
+      cursor:
+        description: "Pagination cursor from previous response"
+
+  cloudflare_get_kv_value:
+    description: "Read a value from Workers KV by key. Returns the stored value as text."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+      key_name:
+        description: "Key name to read"
+        required: true
+
+  cloudflare_put_kv_value:
+    description: "Write a key-value pair to Workers KV."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+      key_name:
+        description: "Key name"
+        required: true
+      value:
+        description: "Value to store"
+        required: true
+      metadata:
+        description: "JSON metadata object to attach to the key"
+
+  cloudflare_delete_kv_value:
+    description: "Delete a key-value pair from Workers KV."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+      key_name:
+        description: "Key name to delete"
+        required: true
+
+  cloudflare_list_d1_databases:
+    description: "List D1 SQL databases. D1 is Cloudflare's serverless SQLite database for Workers. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_d1_database:
+    description: "Get details for a specific D1 database including size and table count. Use after list_d1_databases."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      database_id:
+        description: "D1 database identifier"
+        required: true
+
+  cloudflare_create_d1_database:
+    description: "Create a new D1 SQL database."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Database name"
+        required: true
+
+  cloudflare_delete_d1_database:
+    description: "Delete a D1 SQL database and all its data. Irreversible."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      database_id:
+        description: "D1 database identifier"
+        required: true
+
+  cloudflare_query_d1_database:
+    description: "Execute a SQL query against a D1 database. Supports SELECT, INSERT, UPDATE, DELETE and DDL. Use parameterized queries with params array for safety."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      database_id:
+        description: "D1 database identifier"
+        required: true
+      sql:
+        description: "SQL query to execute"
+        required: true
+      params:
+        description: "JSON array of query parameters for prepared statements"
+
+  cloudflare_list_waf_rulesets:
+    description: "List WAF (Web Application Firewall) rulesets for a zone. View security rules protecting against attacks, bots, and threats."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_get_waf_ruleset:
+    description: "Get details for a specific WAF ruleset including individual rules and their actions. Use after list_waf_rulesets."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      ruleset_id:
+        description: "Ruleset identifier"
+        required: true
+
+  cloudflare_list_load_balancers:
+    description: "List load balancers for a zone. View traffic distribution, health checks, and failover configuration."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_get_load_balancer:
+    description: "Get details for a specific load balancer including pools, rules, and session affinity. Use after list_load_balancers."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      lb_id:
+        description: "Load balancer identifier"
+        required: true
+
+  cloudflare_list_lb_pools:
+    description: "List load balancer pools (origin server groups). View pool health, origins, and traffic steering. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_lb_pool:
+    description: "Get details for a specific load balancer pool including origins and health check results. Use after list_lb_pools."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      pool_id:
+        description: "Pool identifier"
+        required: true
+
+  cloudflare_list_lb_monitors:
+    description: "List load balancer health monitors. View health check configurations for origin pools. Requires account_id."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_zone_analytics:
+    description: "Get zone analytics dashboard data including requests, bandwidth, threats, and page views. Provides traffic overview and performance metrics for a Cloudflare zone."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      since:
+        description: "Start time (ISO 8601 or relative like -1440 for minutes ago, default -1440)"
+      until:
+        description: "End time (ISO 8601 or relative, default 0 for now)"
+
+  cloudflare_list_accounts:
+    description: "List Cloudflare accounts the API token has access to."
+    parameters:
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_get_account:
+    description: "Get details for a specific Cloudflare account. Use after list_accounts."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_list_account_members:
+    description: "List members of a Cloudflare account with their roles and permissions."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_list_ai_gateways:
+    description: "List Cloudflare AI Gateways for an account. AI Gateway proxies LLM traffic to OpenAI, Anthropic, Workers AI, and other providers with caching, rate limiting, logging, and cost tracking. Start here to discover gateway IDs before pulling logs, token usage, or spend."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_get_ai_gateway:
+    description: "Get a Cloudflare AI Gateway's configuration: cache TTL, rate limits, log collection, spend limits, authentication, DLP, and guardrails. Use after list_ai_gateways."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      gateway_id:
+        description: "AI Gateway identifier"
+        required: true
+
+  cloudflare_list_ai_gateway_logs:
+    description: "List AI Gateway request logs with per-request token usage (tokens_in, tokens_out), cost, latency, model, provider, cache hits, and success/error status. Use this to audit LLM spend, debug failing inferences, or attribute token consumption to a model or provider. Filter by date, provider, model, success, cached, or feedback."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      gateway_id:
+        description: "AI Gateway identifier"
+        required: true
+      start_date:
+        description: "Start of time range (ISO 8601, e.g. 2024-01-01T00:00:00Z)"
+      end_date:
+        description: "End of time range (ISO 8601)"
+      provider:
+        description: "Filter by LLM provider (e.g. openai, anthropic, workers-ai)"
+      model:
+        description: "Filter by model id (e.g. gpt-4o, claude-3-5-sonnet)"
+      success:
+        description: "Filter by success (true/false)"
+      cached:
+        description: "Filter by cache hit (true/false)"
+      feedback:
+        description: "Filter by feedback rating (0 or 1)"
+      search:
+        description: "Free-text search across log content"
+      order_by:
+        description: "Sort field: created_at, provider, model, model_type, success, or cached"
+      order_by_direction:
+        description: "Sort direction (asc or desc)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20, max 50)"
+
+  cloudflare_get_ai_gateway_log:
+    description: "Get a single AI Gateway log entry with full metadata: tokens_in, tokens_out, cost, model, provider, duration, cached, status. Use after list_ai_gateway_logs to drill into a specific request."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      gateway_id:
+        description: "AI Gateway identifier"
+        required: true
+      log_id:
+        description: "Log entry identifier"
+        required: true
+
+  cloudflare_get_ai_gateway_log_request:
+    description: "Get the raw request body (prompt, messages, parameters) sent to the LLM for an AI Gateway log entry. Use after get_ai_gateway_log to inspect the exact prompt that produced a response."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      gateway_id:
+        description: "AI Gateway identifier"
+        required: true
+      log_id:
+        description: "Log entry identifier"
+        required: true
+
+  cloudflare_get_ai_gateway_log_response:
+    description: "Get the raw response body (completion, choices, usage) returned by the LLM for an AI Gateway log entry. Use after get_ai_gateway_log to inspect the model's reply or error."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      gateway_id:
+        description: "AI Gateway identifier"
+        required: true
+      log_id:
+        description: "Log entry identifier"
+        required: true
+
+  cloudflare_list_ai_models:
+    description: "List Workers AI models available to run on Cloudflare's edge. Workers AI hosts open-source LLMs, embeddings, image, and speech models. Start here to discover model ids (e.g. @cf/meta/llama-3.1-8b-instruct) before calling run_ai_model."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      search:
+        description: "Free-text search filter (e.g. llama, embedding)"
+      task:
+        description: "Filter by task type (e.g. Text Generation, Text Embeddings, Speech Recognition)"
+      source:
+        description: "Filter by source (1 for first-party, 2 for Hugging Face)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_run_ai_model:
+    description: "Run inference on a Workers AI model — text generation, embeddings, classification, translation, speech-to-text, image generation. Pass either `prompt` (string) for simple text-in, or `body` (object) for the model's full request schema (messages, input, image, audio, etc.). Use after list_ai_models."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      model_name:
+        description: "Full model identifier (e.g. @cf/meta/llama-3.1-8b-instruct)"
+        required: true
+      prompt:
+        description: "Convenience: text prompt (wrapped as {\"prompt\":...}). Ignored if `body` is set."
+      body:
+        description: "Full inference request body as a JSON object (model-specific schema)"
+
+  cloudflare_list_vectorize_indexes:
+    description: "List Vectorize v2 indexes. Vectorize is Cloudflare's globally distributed vector database for semantic search, RAG, and embeddings. Start here to discover index names before querying."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_vectorize_index:
+    description: "Get a Vectorize index's configuration: dimensions, distance metric, vector count. Use after list_vectorize_indexes."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      index_name:
+        description: "Vectorize index name"
+        required: true
+
+  cloudflare_create_vectorize_index:
+    description: "Create a new Vectorize v2 index for storing embeddings. Pick a metric (cosine, euclidean, dot-product) and dimension count (e.g. 768, 1536) that match your embedding model."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Index name"
+        required: true
+      metric:
+        description: "Distance metric: cosine, euclidean, or dot-product"
+        required: true
+      dimensions:
+        description: "Vector dimension count (e.g. 768, 1024, 1536)"
+        required: true
+      description:
+        description: "Optional human description"
+
+  cloudflare_delete_vectorize_index:
+    description: "Delete a Vectorize index and all its vectors. Irreversible."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      index_name:
+        description: "Vectorize index name"
+        required: true
+
+  cloudflare_query_vectorize_index:
+    description: "Query a Vectorize index by vector — returns the topK nearest neighbors. Use for semantic search, RAG retrieval, recommendation lookup."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      index_name:
+        description: "Vectorize index name"
+        required: true
+      vector:
+        description: "Query vector as JSON array of floats"
+        required: true
+      topK:
+        description: "Number of nearest neighbors to return (default 5)"
+      returnValues:
+        description: "Whether to return the matched vectors (true/false)"
+      returnMetadata:
+        description: "Whether to return metadata: 'none', 'indexed', or 'all'"
+      namespace:
+        description: "Optional namespace to scope the query"
+      filter:
+        description: "Optional metadata filter (JSON object)"
+
+  cloudflare_list_queues:
+    description: "List Cloudflare Queues. Queues are durable message queues for Workers — producer/consumer messaging, batch processing, async work. Start here to discover queue IDs."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_get_queue:
+    description: "Get a Queue's details: producers, consumers, message counts, settings. Use after list_queues."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      queue_id:
+        description: "Queue identifier"
+        required: true
+
+  cloudflare_create_queue:
+    description: "Create a new Cloudflare Queue."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      queue_name:
+        description: "Queue name"
+        required: true
+      settings:
+        description: "Optional settings map (delivery_delay, message_retention_period, etc.)"
+
+  cloudflare_delete_queue:
+    description: "Delete a Cloudflare Queue and all pending messages. Irreversible."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      queue_id:
+        description: "Queue identifier"
+        required: true
+
+  cloudflare_send_queue_messages:
+    description: "Publish messages to a Cloudflare Queue. Messages is a JSON array of objects with at least a `body` field."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      queue_id:
+        description: "Queue identifier"
+        required: true
+      messages:
+        description: "JSON array of message objects (each with `body` and optional `content_type`, `delay_seconds`)"
+        required: true
+
+  cloudflare_list_hyperdrive_configs:
+    description: "List Hyperdrive configs. Hyperdrive accelerates database connections from Workers by pooling and caching at the edge. Start here to discover config IDs."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_hyperdrive_config:
+    description: "Get a Hyperdrive config's details: origin connection, caching, mTLS. Use after list_hyperdrive_configs."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      hyperdrive_id:
+        description: "Hyperdrive config identifier"
+        required: true
+
+  cloudflare_create_hyperdrive_config:
+    description: "Create a Hyperdrive config that proxies and caches a database connection (Postgres, MySQL) for Workers."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Config name"
+        required: true
+      origin:
+        description: "Origin connection JSON: {scheme, host, port, database, user, password}"
+        required: true
+      caching:
+        description: "Optional caching JSON: {disabled, max_age, stale_while_revalidate}"
+      mtls:
+        description: "Optional mTLS JSON"
+
+  cloudflare_delete_hyperdrive_config:
+    description: "Delete a Hyperdrive config. Workers using this config will fail until rebound."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      hyperdrive_id:
+        description: "Hyperdrive config identifier"
+        required: true
+
+  cloudflare_list_worker_secrets:
+    description: "List secret names bound to a Worker script. Values are never returned by the API. Use to audit which secrets a Worker has access to."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      script_name:
+        description: "Worker script name"
+        required: true
+
+  cloudflare_list_worker_deployments:
+    description: "List recent deployments for a Worker script with versions, authors, timestamps. Use to inspect deploy history or find a version to roll back to."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      script_name:
+        description: "Worker script name"
+        required: true
+
+  cloudflare_get_worker_subdomain:
+    description: "Get the workers.dev subdomain enabled for this account (used as the default Worker URL)."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_list_worker_tails:
+    description: "List active Worker tails (live log streams) for a script. Use to find existing tails before opening a new live-log session."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      script_name:
+        description: "Worker script name"
+        required: true
+
+  cloudflare_create_pages_project:
+    description: "Create a Cloudflare Pages project (static site / Jamstack app)."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Project name"
+        required: true
+      production_branch:
+        description: "Production branch (e.g. main)"
+        required: true
+      build_config:
+        description: "Optional build config JSON: {build_command, destination_dir, root_dir, web_analytics_tag}"
+      source:
+        description: "Optional source JSON: {type, config: {owner, repo_name, production_branch, ...}}"
+      deployment_configs:
+        description: "Optional deployment_configs JSON: {production, preview}"
+
+  cloudflare_create_pages_deployment:
+    description: "Trigger a new Pages deployment, optionally targeting a specific branch."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+      branch:
+        description: "Optional branch to deploy (defaults to production)"
+
+  cloudflare_list_pages_domains:
+    description: "List custom domains attached to a Pages project (DNS + cert state)."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      project_name:
+        description: "Pages project name"
+        required: true
+
+  cloudflare_bulk_delete_kv_values:
+    description: "Delete multiple keys from a Workers KV namespace in one call (up to 10000 keys)."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      namespace_id:
+        description: "KV namespace identifier"
+        required: true
+      keys:
+        description: "JSON array of key names to delete"
+        required: true
+
+  cloudflare_list_stream_videos:
+    description: "List videos hosted on Cloudflare Stream. Start here to discover video IDs for playback URLs, analytics, or deletion."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      after:
+        description: "Show videos uploaded after this ISO 8601 timestamp"
+      before:
+        description: "Show videos uploaded before this ISO 8601 timestamp"
+      creator:
+        description: "Filter by creator id"
+      status:
+        description: "Filter by status (queued, inprogress, ready, error)"
+      search:
+        description: "Free-text search across video names"
+
+  cloudflare_get_stream_video:
+    description: "Get a Stream video's metadata: playback URLs (HLS/DASH), thumbnail, duration, status. Use after list_stream_videos."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      identifier:
+        description: "Stream video identifier"
+        required: true
+
+  cloudflare_delete_stream_video:
+    description: "Delete a Stream video. Irreversible."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      identifier:
+        description: "Stream video identifier"
+        required: true
+
+  cloudflare_list_images:
+    description: "List images hosted on Cloudflare Images. Start here to discover image IDs for delivery URLs or deletion."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 50)"
+
+  cloudflare_get_image:
+    description: "Get a Cloudflare Images record: variants, metadata, upload timestamp."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      image_id:
+        description: "Image identifier"
+        required: true
+
+  cloudflare_delete_image:
+    description: "Delete an image from Cloudflare Images. Irreversible."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      image_id:
+        description: "Image identifier"
+        required: true
+
+  cloudflare_list_access_apps:
+    description: "List Cloudflare Zero Trust Access applications (apps protected by Cloudflare Access). Start here to discover app IDs before listing policies or auditing access."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 25)"
+
+  cloudflare_list_access_app_policies:
+    description: "List Access policies bound to a specific application. Shows who can access the app (groups, emails, IPs, IdPs, mTLS). Use after list_access_apps."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      app_id:
+        description: "Access application identifier"
+        required: true
+
+  cloudflare_list_access_identity_providers:
+    description: "List configured Access identity providers (Google, Okta, Azure AD, SAML, OIDC, GitHub, etc.)."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_list_tunnels:
+    description: "List Cloudflared tunnels for an account. Tunnels expose private origins to Cloudflare without inbound ports. Start here to discover tunnel IDs and health."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      name:
+        description: "Filter by tunnel name"
+      status:
+        description: "Filter by status: healthy, degraded, down, inactive"
+      include_deleted:
+        description: "Include deleted tunnels (true/false)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_get_tunnel:
+    description: "Get a Cloudflared tunnel's details: name, status, connections, created/deleted timestamps. Use after list_tunnels."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      tunnel_id:
+        description: "Tunnel identifier"
+        required: true
+
+  cloudflare_delete_tunnel:
+    description: "Delete a Cloudflared tunnel. Origins behind it become unreachable."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      tunnel_id:
+        description: "Tunnel identifier"
+        required: true
+
+  cloudflare_list_email_routing_rules:
+    description: "List Email Routing rules for a zone (which incoming addresses forward where). Start here for email routing config audits."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_list_email_routing_addresses:
+    description: "List verified destination email addresses for Email Routing (account-scoped)."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      verified:
+        description: "Filter by verified status (true/false)"
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_get_email_routing_settings:
+    description: "Get Email Routing settings for a zone (enabled state, MX/SPF records, skip_wizard)."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+
+  cloudflare_list_logpush_jobs:
+    description: "List Logpush jobs for an account (HTTP requests, firewall events, Workers traces, etc. exported to S3/GCS/Azure/Sumo/Datadog/Splunk/New Relic/R2). Start here to inspect log-export pipelines."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_get_logpush_job:
+    description: "Get a Logpush job's config: dataset, destination, frequency, filters, last error. Use after list_logpush_jobs."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      job_id:
+        description: "Logpush job ID (integer)"
+        required: true
+
+  cloudflare_create_logpush_job:
+    description: "Create a Logpush job to export Cloudflare logs to an external sink (S3, GCS, Azure, R2, Splunk, Datadog, New Relic, Sumo Logic, HTTP)."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+      dataset:
+        description: "Log dataset (e.g. http_requests, firewall_events, workers_trace_events)"
+        required: true
+      destination_conf:
+        description: "Destination connection string (e.g. s3://bucket/path?region=...)"
+        required: true
+      name:
+        description: "Optional job name"
+      frequency:
+        description: "Optional frequency: high or low"
+      logpull_options:
+        description: "Optional logpull options string (fields, timestamps, etc.)"
+      output_options:
+        description: "Optional output options map (field_names, timestamp_format, batch sizing)"
+      filter:
+        description: "Optional log filter expression"
+      enabled:
+        description: "Whether the job is enabled (true/false)"
+
+  cloudflare_list_page_rules:
+    description: "List Page Rules for a zone (URL-pattern rules for cache, redirects, headers, security). Start here for legacy page-rule audits before migrating to Rulesets."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      status:
+        description: "Filter by status (active, disabled)"
+      order:
+        description: "Sort field (priority, status)"
+      direction:
+        description: "Sort direction (asc, desc)"
+
+  cloudflare_get_page_rule:
+    description: "Get a Page Rule's targets and actions. Use after list_page_rules."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      pagerule_id:
+        description: "Page Rule identifier"
+        required: true
+
+  cloudflare_delete_page_rule:
+    description: "Delete a Page Rule."
+    parameters:
+      zone_id:
+        description: "Zone identifier"
+        required: true
+      pagerule_id:
+        description: "Page Rule identifier"
+        required: true
+
+  cloudflare_list_notification_policies:
+    description: "List notification (alerting) policies — what conditions trigger emails, PagerDuty, webhooks for an account."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_list_notification_webhooks:
+    description: "List configured webhook destinations for Cloudflare notifications."
+    parameters:
+      account_id:
+        description: "Account identifier (defaults to configured account_id)"
+
+  cloudflare_list_api_tokens:
+    description: "List Cloudflare API tokens issued under the authenticated user. Start here to audit which tokens exist, their scopes, and their last-used timestamp."
+    parameters:
+      page:
+        description: "Page number (default 1)"
+      per_page:
+        description: "Results per page (default 20)"
+
+  cloudflare_get_api_token:
+    description: "Get a Cloudflare API token's policy details: permissions, IP/time restrictions, expiry, last_used_on. Use after list_api_tokens."
+    parameters:
+      token_id:
+        description: "API token identifier"
+        required: true
+
+  cloudflare_delete_api_token:
+    description: "Revoke (delete) a Cloudflare API token. Any client using it will start receiving 401s."
+    parameters:
+      token_id:
+        description: "API token identifier"
+        required: true

@@ -113,8 +113,7 @@ func TestHandleExecute_SessionContextInjected(t *testing.T) {
 			{
 				Name:        "github_list_issues",
 				Description: "List issues",
-				Parameters:  map[string]string{"owner": "Repo owner", "repo": "Repo name", "state": "Issue state"},
-				Required:    []string{"owner", "repo"},
+				Parameters:  []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repo owner", Required: true}, {Name: mcp.ParamName("repo"), Description: "Repo name", Required: true}, {Name: mcp.ParamName("state"), Description: "Issue state"}},
 			},
 		},
 		execFn: func(_ context.Context, _ mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
@@ -146,8 +145,7 @@ func TestHandleExecute_ExplicitArgsOverrideSession(t *testing.T) {
 			{
 				Name:        "github_list_issues",
 				Description: "List issues",
-				Parameters:  map[string]string{"owner": "Repo owner", "repo": "Repo name"},
-				Required:    []string{"owner", "repo"},
+				Parameters:  []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repo owner", Required: true}, {Name: mcp.ParamName("repo"), Description: "Repo name", Required: true}},
 			},
 		},
 		execFn: func(_ context.Context, _ mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {

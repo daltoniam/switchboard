@@ -1,0 +1,407 @@
+version: 1
+tools:
+  digitalocean_get_account:
+    description: "Get current account information including email, droplet limit, and status. Start here to verify access."
+    parameters: {}
+
+  digitalocean_list_droplets:
+    description: "List all droplets in the account"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page (max 200)"
+      tag_name:
+        description: "Filter by tag"
+
+  digitalocean_get_droplet:
+    description: "Get details of a specific droplet"
+    parameters:
+      droplet_id:
+        description: "Droplet ID (integer)"
+        required: true
+
+  digitalocean_create_droplet:
+    description: "Create a new droplet"
+    parameters:
+      name:
+        description: "Droplet name"
+        required: true
+      region:
+        description: "Region slug (e.g. nyc3)"
+        required: true
+      size:
+        description: "Size slug (e.g. s-1vcpu-1gb)"
+        required: true
+      image:
+        description: "Image slug or ID (e.g. ubuntu-24-04-x64)"
+        required: true
+      ssh_keys:
+        description: "Comma-separated SSH key IDs or fingerprints"
+      tags:
+        description: "Comma-separated tags"
+      vpc_uuid:
+        description: "VPC UUID"
+
+  digitalocean_delete_droplet:
+    description: "Delete a droplet by ID"
+    parameters:
+      droplet_id:
+        description: "Droplet ID (integer)"
+        required: true
+
+  digitalocean_reboot_droplet:
+    description: "Reboot a droplet"
+    parameters:
+      droplet_id:
+        description: "Droplet ID (integer)"
+        required: true
+
+  digitalocean_poweroff_droplet:
+    description: "Power off a droplet (hard shutdown)"
+    parameters:
+      droplet_id:
+        description: "Droplet ID (integer)"
+        required: true
+
+  digitalocean_poweron_droplet:
+    description: "Power on a droplet"
+    parameters:
+      droplet_id:
+        description: "Droplet ID (integer)"
+        required: true
+
+  digitalocean_list_kubernetes_clusters:
+    description: "List all Kubernetes clusters"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_get_kubernetes_cluster:
+    description: "Get details of a specific Kubernetes cluster"
+    parameters:
+      cluster_id:
+        description: "Cluster UUID"
+        required: true
+
+  digitalocean_list_kubernetes_node_pools:
+    description: "List node pools for a Kubernetes cluster"
+    parameters:
+      cluster_id:
+        description: "Cluster UUID"
+        required: true
+
+  digitalocean_list_databases:
+    description: "List all managed database clusters"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_get_database:
+    description: "Get details of a managed database cluster"
+    parameters:
+      database_id:
+        description: "Database cluster UUID"
+        required: true
+
+  digitalocean_list_database_dbs:
+    description: "List databases within a managed database cluster"
+    parameters:
+      database_id:
+        description: "Database cluster UUID"
+        required: true
+
+  digitalocean_list_database_users:
+    description: "List users for a managed database cluster"
+    parameters:
+      database_id:
+        description: "Database cluster UUID"
+        required: true
+
+  digitalocean_list_database_pools:
+    description: "List connection pools for a managed database cluster"
+    parameters:
+      database_id:
+        description: "Database cluster UUID"
+        required: true
+
+  digitalocean_list_domains:
+    description: "List all domains"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_get_domain:
+    description: "Get details of a domain"
+    parameters:
+      domain_name:
+        description: "Domain name (e.g. example.com)"
+        required: true
+
+  digitalocean_list_domain_records:
+    description: "List DNS records for a domain"
+    parameters:
+      domain_name:
+        description: "Domain name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_list_load_balancers:
+    description: "List all load balancers"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_get_load_balancer:
+    description: "Get details of a load balancer"
+    parameters:
+      lb_id:
+        description: "Load balancer UUID"
+        required: true
+
+  digitalocean_list_firewalls:
+    description: "List all cloud firewalls"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_get_firewall:
+    description: "Get details of a cloud firewall"
+    parameters:
+      firewall_id:
+        description: "Firewall UUID"
+        required: true
+
+  digitalocean_list_vpcs:
+    description: "List all VPCs"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_get_vpc:
+    description: "Get details of a VPC"
+    parameters:
+      vpc_id:
+        description: "VPC UUID"
+        required: true
+
+  digitalocean_list_volumes:
+    description: "List all block storage volumes"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+      region:
+        description: "Filter by region slug"
+
+  digitalocean_get_volume:
+    description: "Get details of a block storage volume"
+    parameters:
+      volume_id:
+        description: "Volume UUID"
+        required: true
+
+  digitalocean_list_apps:
+    description: "List all App Platform apps"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_get_app:
+    description: "Get details of an App Platform app including its spec and active deployment"
+    parameters:
+      app_id:
+        description: "App UUID"
+        required: true
+
+  digitalocean_delete_app:
+    description: "Delete an App Platform app"
+    parameters:
+      app_id:
+        description: "App UUID"
+        required: true
+
+  digitalocean_restart_app:
+    description: "Restart an App Platform app, optionally targeting specific components"
+    parameters:
+      app_id:
+        description: "App UUID"
+        required: true
+      components:
+        description: "Comma-separated component names to restart (omit to restart all)"
+
+  digitalocean_list_app_deployments:
+    description: "List deployments for an App Platform app"
+    parameters:
+      app_id:
+        description: "App UUID"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_get_app_deployment:
+    description: "Get details of a specific App Platform deployment"
+    parameters:
+      app_id:
+        description: "App UUID"
+        required: true
+      deployment_id:
+        description: "Deployment UUID"
+        required: true
+
+  digitalocean_create_app_deployment:
+    description: "Trigger a new deployment for an App Platform app"
+    parameters:
+      app_id:
+        description: "App UUID"
+        required: true
+      force_build:
+        description: "Force rebuild even if no source changes (true/false)"
+
+  digitalocean_get_app_logs:
+    description: "Get logs for an App Platform app. Use log_type BUILD for build logs, DEPLOY for deploy logs, or RUN for runtime logs"
+    parameters:
+      app_id:
+        description: "App UUID"
+        required: true
+      deployment_id:
+        description: "Deployment UUID (omit for active deployment)"
+      component:
+        description: "Component name (omit for all components)"
+      log_type:
+        description: "Log type: BUILD, DEPLOY, RUN, RUN_RESTARTED, or AUTOSCALE_EVENT"
+        required: true
+      tail_lines:
+        description: "Number of log lines to return (default 100)"
+
+  digitalocean_get_app_health:
+    description: "Get health status of all components in an App Platform app"
+    parameters:
+      app_id:
+        description: "App UUID"
+        required: true
+
+  digitalocean_list_app_alerts:
+    description: "List alerts configured for an App Platform app"
+    parameters:
+      app_id:
+        description: "App UUID"
+        required: true
+
+  digitalocean_list_regions:
+    description: "List all available regions"
+    parameters: {}
+
+  digitalocean_list_sizes:
+    description: "List all available droplet sizes"
+    parameters: {}
+
+  digitalocean_list_images:
+    description: "List available images (OS distributions and snapshots)"
+    parameters:
+      type:
+        description: "Filter by type: distribution, application, or user"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_list_ssh_keys:
+    description: "List all SSH keys in the account"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_list_snapshots:
+    description: "List all snapshots (droplet and volume)"
+    parameters:
+      resource_type:
+        description: "Filter: droplet or volume"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_list_projects:
+    description: "List all projects"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_get_project:
+    description: "Get details of a project"
+    parameters:
+      project_id:
+        description: "Project UUID"
+        required: true
+
+  digitalocean_get_balance:
+    description: "Get current account balance"
+    parameters: {}
+
+  digitalocean_list_invoices:
+    description: "List billing invoices"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_list_cdn_endpoints:
+    description: "List all CDN endpoints"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_list_certificates:
+    description: "List all SSL/TLS certificates"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_list_registries:
+    description: "List container registry repositories"
+    parameters:
+      registry_name:
+        description: "Registry name"
+        required: true
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"
+
+  digitalocean_list_tags:
+    description: "List all tags"
+    parameters:
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page"

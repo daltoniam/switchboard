@@ -279,10 +279,22 @@ func TestProxy_ToolDefinitions_RequiredFields(t *testing.T) {
 	p, _ := newTestPganalyze(t)
 	for _, tool := range p.Tools() {
 		if tool.Name == "pganalyze_get_server_details" {
-			assert.Contains(t, tool.Required, "server_id")
+			found := false
+			for _, param := range tool.Parameters {
+				if string(param.Name) == "server_id" && param.Required {
+					found = true
+				}
+			}
+			assert.True(t, found, "pganalyze_get_server_details: server_id not required")
 		}
 		if tool.Name == "pganalyze_get_query_stats" {
-			assert.Contains(t, tool.Required, "database_id")
+			found := false
+			for _, param := range tool.Parameters {
+				if string(param.Name) == "database_id" && param.Required {
+					found = true
+				}
+			}
+			assert.True(t, found, "pganalyze_get_query_stats: database_id not required")
 		}
 	}
 }

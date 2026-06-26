@@ -164,13 +164,72 @@ type Config struct {
 	DollarsPerMTokInput float64 `json:"dollars_per_mtok_input,omitempty"`
 }
 
+// ParamName identifies a parameter by name within a tool.
+// Semantic type prevents mixing parameter names with arbitrary strings.
+type ParamName string
+
+// Parameter describes a single parameter for a tool, including its name,
+// description, and whether it is required.
+type Parameter struct {
+	Name        ParamName `json:"name"`
+	Description string    `json:"description"`
+	Required    bool      `json:"required,omitempty"`
+}
+
 // ToolDefinition describes an API operation an integration exposes.
 // These are used by the search tool to let the AI discover available operations.
 type ToolDefinition struct {
-	Name        ToolName          `json:"name"`
-	Description string            `json:"description"`
-	Parameters  map[string]string `json:"parameters"` // param name -> description
-	Required    []string          `json:"required,omitempty"`
+	Name        ToolName    `json:"name"`
+	Description string      `json:"description"`
+	Parameters  []Parameter `json:"parameters"`
+}
+
+// UnmarshalJSON implements backward-compatible deserialization for ToolDefinition.
+// Handles the legacy map[string]string shape emitted by WASM guest binaries compiled
+// against the pre-Phase-0 type, in addition to the new []Parameter array shape.
+func (td *ToolDefinition) UnmarshalJSON(data []byte) error {
+	type wire struct {
+		Name        ToolName        `json:"name"`
+		Description string          `json:"description"`
+		Parameters  json.RawMessage `json:"parameters"`
+		Required    []string        `json:"required,omitempty"` // legacy field
+	}
+	var w wire
+	if err := json.Unmarshal(data, &w); err != nil {
+		return err
+	}
+	td.Name = w.Name
+	td.Description = w.Description
+
+	if len(w.Parameters) == 0 {
+		return nil
+	}
+
+	// Try new shape first: []Parameter
+	var params []Parameter
+	if err := json.Unmarshal(w.Parameters, &params); err == nil {
+		td.Parameters = params
+		return nil
+	}
+
+	// Fall back to legacy shape: map[string]string + Required []string
+	var legacyMap map[string]string
+	if err := json.Unmarshal(w.Parameters, &legacyMap); err != nil {
+		return err
+	}
+	requiredSet := make(map[string]bool, len(w.Required))
+	for _, r := range w.Required {
+		requiredSet[r] = true
+	}
+	td.Parameters = make([]Parameter, 0, len(legacyMap))
+	for name, desc := range legacyMap {
+		td.Parameters = append(td.Parameters, Parameter{
+			Name:        ParamName(name),
+			Description: desc,
+			Required:    requiredSet[name],
+		})
+	}
+	return nil
 }
 
 // ToolResult is the output of executing a tool.

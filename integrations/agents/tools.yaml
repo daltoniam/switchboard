@@ -1,0 +1,203 @@
+version: 1
+tools:
+  agents_project_list:
+    description: "List all registered projects via gRPC ProjectService.ListProjects. Returns Project objects with name, repo, branch, and agent templates."
+    parameters: {}
+  agents_project_register:
+    description: "Register a new project via gRPC ProjectService.RegisterProject. A project defines a git repo and agent templates for spawning."
+    parameters:
+      name:
+        description: "Unique project name"
+        required: true
+      repo:
+        description: "Path or URL to the git repository"
+        required: true
+      branch:
+        description: "Default branch for new workspaces (default: main)"
+      agents:
+        description: 'JSON array of AgentTemplate objects. Each has: name (required), command (required), port_env, capabilities (string array), a2a_card_config ({name, description, skills, input_modes, output_modes, streaming})'
+  agents_project_unregister:
+    description: "Unregister a project via gRPC ProjectService.UnregisterProject. Fails if active workspaces with running agents exist."
+    parameters:
+      name:
+        description: "Project name to unregister"
+        required: true
+  agents_workspace_create:
+    description: "Create a new workspace via gRPC WorkspaceService.CreateWorkspace. Creates a git worktree and optionally auto-spawns agents."
+    parameters:
+      name:
+        description: "Unique workspace name (used as worktree branch name)"
+        required: true
+      project:
+        description: "Project to create workspace from (must be registered)"
+        required: true
+      branch:
+        description: "Git branch override (defaults to project's default branch)"
+      auto_agents:
+        description: 'JSON array of template names to auto-spawn (e.g. ["crush", "reviewer"])'
+  agents_workspace_list:
+    description: "List workspaces via gRPC WorkspaceService.ListWorkspaces. Optionally filter by project or status."
+    parameters:
+      project:
+        description: "Filter by project name"
+      status:
+        description: "Filter by status: active or inactive"
+  agents_workspace_get:
+    description: "Get workspace details via gRPC WorkspaceService.GetWorkspace. Returns agents, directory path, and creation time."
+    parameters:
+      name:
+        description: "Workspace name"
+        required: true
+  agents_workspace_destroy:
+    description: "Destroy a workspace via gRPC WorkspaceService.DestroyWorkspace. Stops all agents, cancels working tasks, and optionally removes the worktree."
+    parameters:
+      name:
+        description: "Workspace name to destroy"
+        required: true
+      keep_worktree:
+        description: "If true, preserve the git worktree directory on disk (default: false)"
+  agents_agent_spawn:
+    description: "Spawn a new A2A agent via gRPC AgentService.SpawnAgent. Returns AgentInstance with id, port, direct_url, proxy_url, and status."
+    parameters:
+      workspace:
+        description: "Workspace name to spawn the agent in"
+        required: true
+      template:
+        description: "Agent template name from the project"
+        required: true
+      name:
+        description: "Custom instance name (defaults to template name)"
+      env:
+        description: "JSON object of additional environment variables"
+      prompt:
+        description: "Initial prompt to send after agent reaches READY"
+      scope:
+        description: 'JSON Scope object: {"global": false, "projects": ["proj-a"]}'
+      permission:
+        description: "Permission level: session, project, or admin"
+  agents_agent_list:
+    description: "List agent instances via gRPC AgentService.ListAgents. Optionally filter by workspace, status, or template."
+    parameters:
+      workspace:
+        description: "Filter by workspace name"
+      status:
+        description: "Filter by status: starting, ready, busy, error, stopping, stopped"
+      template:
+        description: "Filter by template name"
+  agents_agent_status:
+    description: "Get agent status via gRPC AgentService.GetAgentStatus. Returns AgentInstance with resolved A2A AgentCard."
+    parameters:
+      agent_id:
+        description: "Agent instance ID"
+        required: true
+  agents_agent_stop:
+    description: "Stop an agent via gRPC AgentService.StopAgent. Cancels working A2A tasks, sends SIGTERM, waits grace period, then SIGKILL."
+    parameters:
+      agent_id:
+        description: "Agent instance ID to stop"
+        required: true
+      grace_period_ms:
+        description: "Milliseconds to wait after SIGTERM before SIGKILL (default: 5000)"
+  agents_agent_restart:
+    description: "Restart an agent via gRPC AgentService.RestartAgent. Stop + spawn with same config. proxy_url stays stable."
+    parameters:
+      agent_id:
+        description: "Agent instance ID to restart"
+        required: true
+  agents_agent_message:
+    description: "Send a message to an agent via gRPC AgentService.SendAgentMessage. When blocking=true (default), polls until the task completes. When blocking=false, returns the task immediately for async tracking via agents_agent_task_status."
+    parameters:
+      agent_id:
+        description: "Agent instance ID"
+        required: true
+      message:
+        description: "Text message to send"
+        required: true
+      context_id:
+        description: "A2A context_id for multi-turn conversations"
+      blocking:
+        description: "If true (default), wait for response. If false, return immediately."
+  agents_agent_task:
+    description: "Create a task on an agent via gRPC AgentService.CreateAgentTask. Returns immediately with a Task for async tracking via agents_agent_task_status (never blocks on completion)."
+    parameters:
+      agent_id:
+        description: "Agent instance ID"
+        required: true
+      message:
+        description: "Task description"
+        required: true
+      context_id:
+        description: "A2A context_id to continue a conversation"
+  agents_agent_task_status:
+    description: "Get task status via gRPC AgentService.GetAgentTaskStatus. Returns Task with status, artifacts, and history."
+    parameters:
+      agent_id:
+        description: "Agent instance ID"
+        required: true
+      task_id:
+        description: "A2A task ID to check"
+        required: true
+      history_length:
+        description: "Maximum number of recent messages to include (default: 10)"
+  agents_discover:
+    description: "Discover agents via gRPC DiscoveryService.DiscoverAgents. Returns enriched AgentCards. Supports local/network scope and capability filtering."
+    parameters:
+      scope:
+        description: "Discovery scope: local (default) or network"
+      capability:
+        description: 'Filter by AgentSkill tag (e.g. "coding")'
+      urls:
+        description: "JSON array of base URLs to probe for AgentCards (network scope)"
+  agents_proxy_list:
+    description: "List all A2A AgentCards via the ARP HTTP proxy at /a2a/agents. Returns cards for READY/BUSY agents with metadata.arp fields."
+    parameters: {}
+  agents_agent_card:
+    description: "Get an enriched A2A AgentCard via the ARP HTTP proxy. Includes metadata.arp and supportedInterfaces pointing to the proxy."
+    parameters:
+      agent_id:
+        description: "Agent ID, name, or workspace/instance_name"
+        required: true
+  agents_proxy_send_message:
+    description: "Send an A2A message through the ARP HTTP proxy at /a2a/agents/{id}/message:send. Routes by agent ID, name, or workspace/name."
+    parameters:
+      agent_id:
+        description: "Agent ID, name, or workspace/instance_name"
+        required: true
+      message:
+        description: "Text message to send"
+        required: true
+      context_id:
+        description: "A2A context_id for multi-turn conversation"
+      message_id:
+        description: "Message ID (auto-generated if omitted)"
+  agents_proxy_get_task:
+    description: "Get an A2A task via the ARP HTTP proxy."
+    parameters:
+      agent_id:
+        description: "Agent ID"
+        required: true
+      task_id:
+        description: "A2A task ID"
+        required: true
+  agents_proxy_cancel_task:
+    description: "Cancel an A2A task via the ARP HTTP proxy."
+    parameters:
+      agent_id:
+        description: "Agent ID"
+        required: true
+      task_id:
+        description: "A2A task ID to cancel"
+        required: true
+  agents_route_message:
+    description: "Route an A2A message by skill tags via the ARP HTTP proxy at /a2a/route/message:send. Finds best matching agent (prefers READY over BUSY)."
+    parameters:
+      message:
+        description: "Text message to send"
+        required: true
+      tags:
+        description: 'JSON array of skill tags to match (e.g. ["coding"])'
+        required: true
+      context_id:
+        description: "A2A context_id for multi-turn conversation"
+      message_id:
+        description: "Message ID (auto-generated if omitted)"

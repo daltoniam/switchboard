@@ -1,0 +1,1037 @@
+version: 1
+tools:
+  datadog_search_logs:
+    description: "Search Datadog logs for production debugging and observability. Find errors, traces, and events by query string."
+    parameters:
+      query:
+        description: "Log search query (e.g., 'service:nginx status:error')"
+        required: true
+      from:
+        description: "Start time (ISO 8601, epoch seconds, or relative like 'now-1h')"
+      to:
+        description: "End time (default: now)"
+      limit:
+        description: "Max results (default 50, max 1000)"
+      sort:
+        description: "Sort order: timestamp (asc) or -timestamp (desc, default)"
+  datadog_aggregate_logs:
+    description: "Aggregate Datadog logs for monitoring analytics (count, sum, avg, etc.). Use for production observability and trend analysis."
+    parameters:
+      query:
+        description: "Log search query"
+        required: true
+      compute_type:
+        description: "Aggregation type: count, cardinality, avg, sum, min, max, percentile"
+        required: true
+      compute_field:
+        description: "Field to aggregate on (required for non-count types, e.g., @duration)"
+      group_by:
+        description: "Field to group by (e.g., service, @http.status_code)"
+      from:
+        description: "Start time"
+      to:
+        description: "End time"
+  datadog_query_metrics:
+    description: "Query Datadog metrics timeseries data for production monitoring. Analyze performance, CPU, memory, latency, and custom metrics."
+    parameters:
+      query:
+        description: "Metrics query (e.g., 'avg:system.cpu.user{*}')"
+        required: true
+      from:
+        description: "Start time (epoch seconds or relative)"
+      to:
+        description: "End time"
+  datadog_list_active_metrics:
+    description: "List actively reporting metrics from a given time"
+    parameters:
+      from:
+        description: "Start time (epoch seconds, default: now-1h)"
+      host:
+        description: "Filter by host"
+      tag_filter:
+        description: "Filter by tag (e.g., env:prod)"
+  datadog_search_metrics:
+    description: "Search for metrics by name"
+    parameters:
+      query:
+        description: "Metric name query (e.g., 'system.cpu')"
+        required: true
+  datadog_get_metric_metadata:
+    description: "Get metadata for a specific metric"
+    parameters:
+      metric:
+        description: "Metric name (e.g., system.cpu.user)"
+        required: true
+  datadog_list_monitors:
+    description: "List Datadog monitors for production alerting and observability. Filter by status, tags, or environment."
+    parameters:
+      query:
+        description: "Filter query (e.g., 'status:alert tag:env:prod')"
+      page:
+        description: "Page number (0-based)"
+      page_size:
+        description: "Results per page (default 100)"
+  datadog_search_monitors:
+    description: "Search Datadog monitors and alerts by query string. Find production monitoring rules and notification policies."
+    parameters:
+      query:
+        description: "Search query (e.g., 'type:metric status:alert')"
+      page:
+        description: "Page number"
+      per_page:
+        description: "Results per page (default 30)"
+  datadog_get_monitor:
+    description: "Get a specific monitor by ID"
+    parameters:
+      id:
+        description: "Monitor ID"
+        required: true
+  datadog_create_monitor:
+    description: "Create a new Datadog monitor for production alerting. Set thresholds and notification rules for metrics, logs, or services."
+    parameters:
+      name:
+        description: "Monitor name"
+        required: true
+      type:
+        description: "Monitor type: metric alert, service check, event alert, query alert, composite, log alert, etc."
+        required: true
+      query:
+        description: "Monitor query"
+        required: true
+      message:
+        description: "Notification message (supports @mentions)"
+      tags:
+        description: "Comma-separated tags"
+      priority:
+        description: "Priority (1-5)"
+  datadog_update_monitor:
+    description: "Update an existing monitor"
+    parameters:
+      id:
+        description: "Monitor ID"
+        required: true
+      name:
+        description: "New name"
+      query:
+        description: "New query"
+      message:
+        description: "New message"
+      tags:
+        description: "Comma-separated tags"
+      priority:
+        description: "Priority (1-5)"
+  datadog_delete_monitor:
+    description: "Delete a monitor"
+    parameters:
+      id:
+        description: "Monitor ID"
+        required: true
+  datadog_mute_monitor:
+    description: "Mute a monitor (silence notifications)"
+    parameters:
+      id:
+        description: "Monitor ID"
+        required: true
+      scope:
+        description: "Scope to mute (e.g., 'host:myhost')"
+      end:
+        description: "End timestamp (epoch seconds, omit for indefinite)"
+  datadog_list_dashboards:
+    description: "List all Datadog dashboards for production monitoring and observability visualization"
+    parameters:
+      filter_shared:
+        description: "Filter shared dashboards (true/false)"
+      filter_deleted:
+        description: "Include deleted (true/false)"
+      count:
+        description: "Max results (default 100)"
+      start:
+        description: "Offset for pagination"
+  datadog_get_dashboard:
+    description: "Get a specific dashboard by ID"
+    parameters:
+      id:
+        description: "Dashboard ID (e.g., 'abc-def-ghi')"
+        required: true
+  datadog_create_dashboard:
+    description: "Create a new dashboard (JSON body)"
+    parameters:
+      title:
+        description: "Dashboard title"
+        required: true
+      layout_type:
+        description: "Layout: ordered or free"
+        required: true
+      description:
+        description: "Dashboard description"
+      widgets_json:
+        description: "JSON array of widget definitions"
+  datadog_delete_dashboard:
+    description: "Delete a dashboard"
+    parameters:
+      id:
+        description: "Dashboard ID"
+        required: true
+  datadog_list_events:
+    description: "List Datadog events for production monitoring. Track deployments, changes, alerts, and system events."
+    parameters:
+      query:
+        description: "Event search query"
+      from:
+        description: "Start time"
+      to:
+        description: "End time"
+      limit:
+        description: "Max results (default 10)"
+      sort:
+        description: "Sort: timestamp (asc) or -timestamp (desc)"
+  datadog_search_events:
+    description: "Search Datadog events by query. Find production changes, deployments, and system events."
+    parameters:
+      query:
+        description: "Event search query"
+        required: true
+      from:
+        description: "Start time"
+      to:
+        description: "End time"
+      limit:
+        description: "Max results (default 10)"
+      sort:
+        description: "Sort: timestamp or -timestamp"
+  datadog_get_event:
+    description: "Get a specific event by ID"
+    parameters:
+      id:
+        description: "Event ID"
+        required: true
+  datadog_create_event:
+    description: "Create a new event"
+    parameters:
+      title:
+        description: "Event title"
+        required: true
+      text:
+        description: "Event text/body"
+        required: true
+      alert_type:
+        description: "Type: error, warning, info, success, user_update, recommendation, snapshot"
+      tags:
+        description: "Comma-separated tags"
+      aggregation_key:
+        description: "Aggregation key for grouping"
+  datadog_list_hosts:
+    description: "List Datadog hosts (servers and infrastructure). Filter production machines by environment, CPU, load, or tags."
+    parameters:
+      filter:
+        description: "Filter string (e.g., 'env:prod')"
+      sort_field:
+        description: "Sort by: apps, cpu, iowait, load, etc."
+      sort_dir:
+        description: "Sort direction: asc or desc"
+      count:
+        description: "Max results (default 100)"
+      from:
+        description: "Seconds since hosts last reported"
+  datadog_get_host_totals:
+    description: "Get total number of hosts"
+    parameters:
+      from:
+        description: "Seconds since hosts last reported"
+  datadog_mute_host:
+    description: "Mute a host"
+    parameters:
+      hostname:
+        description: "Hostname to mute"
+        required: true
+      message:
+        description: "Mute reason"
+      end:
+        description: "End timestamp (epoch seconds)"
+      override:
+        description: "Override existing mute (true/false)"
+  datadog_unmute_host:
+    description: "Unmute a host"
+    parameters:
+      hostname:
+        description: "Hostname to unmute"
+        required: true
+  datadog_list_tags:
+    description: "List all host tags"
+    parameters:
+      source:
+        description: "Tag source (e.g., datadog-agent, chef, users)"
+  datadog_get_host_tags:
+    description: "Get tags for a specific host"
+    parameters:
+      hostname:
+        description: "Hostname"
+        required: true
+      source:
+        description: "Tag source"
+  datadog_create_host_tags:
+    description: "Add tags to a host"
+    parameters:
+      hostname:
+        description: "Hostname"
+        required: true
+      tags:
+        description: "Comma-separated tags (e.g., 'env:prod,role:web')"
+        required: true
+      source:
+        description: "Tag source"
+  datadog_update_host_tags:
+    description: "Replace all tags on a host"
+    parameters:
+      hostname:
+        description: "Hostname"
+        required: true
+      tags:
+        description: "Comma-separated tags"
+        required: true
+      source:
+        description: "Tag source"
+  datadog_delete_host_tags:
+    description: "Remove tags from a host"
+    parameters:
+      hostname:
+        description: "Hostname"
+        required: true
+      source:
+        description: "Tag source"
+  datadog_list_slos:
+    description: "List Service Level Objectives"
+    parameters:
+      ids:
+        description: "Comma-separated SLO IDs"
+      query:
+        description: "Filter query (e.g., 'name:my-slo')"
+      tags_query:
+        description: "Filter by tags (e.g., 'env:prod')"
+      limit:
+        description: "Max results (default 1000)"
+      offset:
+        description: "Pagination offset"
+  datadog_search_slos:
+    description: "Search SLOs"
+    parameters:
+      query:
+        description: "Search query"
+      page_size:
+        description: "Results per page"
+      page_number:
+        description: "Page number"
+  datadog_get_slo:
+    description: "Get a specific SLO by ID"
+    parameters:
+      id:
+        description: "SLO ID"
+        required: true
+  datadog_get_slo_history:
+    description: "Get SLO history data"
+    parameters:
+      id:
+        description: "SLO ID"
+        required: true
+      from:
+        description: "Start time (epoch seconds)"
+        required: true
+      to:
+        description: "End time (epoch seconds)"
+        required: true
+  datadog_create_slo:
+    description: "Create a new SLO"
+    parameters:
+      name:
+        description: "SLO name"
+        required: true
+      type:
+        description: "Type: metric or monitor"
+        required: true
+      description:
+        description: "Description"
+      target:
+        description: "Target percentage (e.g., 99.9)"
+        required: true
+      timeframe:
+        description: "Timeframe: 7d, 30d, 90d"
+        required: true
+      monitor_ids:
+        description: "Comma-separated monitor IDs (for monitor type)"
+      query_numerator:
+        description: "Good events query (for metric type)"
+      query_denominator:
+        description: "Total events query (for metric type)"
+      tags:
+        description: "Comma-separated tags"
+  datadog_delete_slo:
+    description: "Delete a SLO"
+    parameters:
+      id:
+        description: "SLO ID"
+        required: true
+  datadog_list_downtimes:
+    description: "List scheduled downtimes"
+    parameters:
+      current_only:
+        description: "Only show current downtimes (true/false)"
+  datadog_get_downtime:
+    description: "Get a specific downtime by ID"
+    parameters:
+      id:
+        description: "Downtime ID"
+        required: true
+  datadog_create_downtime:
+    description: "Schedule a downtime"
+    parameters:
+      scope:
+        description: "Scope (e.g., 'env:prod', 'host:myhost')"
+        required: true
+      message:
+        description: "Message/reason"
+      start:
+        description: "Start time (epoch seconds, default: now)"
+      end:
+        description: "End time (epoch seconds)"
+      monitor_identifier_type:
+        description: "Type: id or tags"
+      monitor_identifier_id:
+        description: "Monitor ID (when type=id)"
+      monitor_identifier_tags:
+        description: "Monitor tags (when type=tags, comma-separated)"
+  datadog_cancel_downtime:
+    description: "Cancel a scheduled downtime"
+    parameters:
+      id:
+        description: "Downtime ID"
+        required: true
+  datadog_list_incidents:
+    description: "List Datadog incidents for production outages and service disruptions. Track severity and incident response."
+    parameters:
+      page_size:
+        description: "Results per page (default 10)"
+      page_offset:
+        description: "Pagination offset"
+  datadog_search_incidents:
+    description: "Search Datadog incidents by query. Find production outages, disruptions, and postmortems by severity, status, or team."
+    parameters:
+      query:
+        description: "Incident search query (e.g., 'state:active AND severity:SEV-1')"
+        required: true
+      sort:
+        description: "Sort order: created or -created (default)"
+      page_size:
+        description: "Results per page (default 10)"
+      page_offset:
+        description: "Pagination offset"
+  datadog_get_incident:
+    description: "Get details of a specific Datadog incident, including timeline and response data for outage investigation"
+    parameters:
+      id:
+        description: "Incident ID"
+        required: true
+  datadog_create_incident:
+    description: "Create a new incident"
+    parameters:
+      title:
+        description: "Incident title"
+        required: true
+      severity:
+        description: "Severity: SEV-1, SEV-2, SEV-3, SEV-4, SEV-5, UNKNOWN"
+      customer_impacted:
+        description: "Customer impacted (true/false)"
+        required: true
+  datadog_update_incident:
+    description: "Update an incident"
+    parameters:
+      id:
+        description: "Incident ID"
+        required: true
+      title:
+        description: "New title"
+      severity:
+        description: "New severity"
+      status:
+        description: "Status: active, stable, resolved"
+      customer_impacted:
+        description: "Customer impacted (true/false)"
+  datadog_list_incident_attachments:
+    description: "List attachments for a Datadog incident. View postmortems and linked resources attached to an outage."
+    parameters:
+      incident_id:
+        description: "Incident ID"
+        required: true
+  datadog_list_incident_todos:
+    description: "List todos and action items for a Datadog incident. Track remediation tasks and follow-up work."
+    parameters:
+      incident_id:
+        description: "Incident ID"
+        required: true
+  datadog_list_incident_services:
+    description: "List Datadog incident services. View services configured for incident management and response."
+    parameters:
+      page_size:
+        description: "Results per page (default 10)"
+      page_offset:
+        description: "Pagination offset"
+      filter:
+        description: "Filter services by name"
+  datadog_get_incident_service:
+    description: "Get details of a specific incident service. Use after list_incident_services."
+    parameters:
+      service_id:
+        description: "Incident service ID"
+        required: true
+  datadog_create_incident_service:
+    description: "Create a new incident service for incident management"
+    parameters:
+      name:
+        description: "Service name"
+        required: true
+  datadog_update_incident_service:
+    description: "Update an existing incident service"
+    parameters:
+      service_id:
+        description: "Incident service ID"
+        required: true
+      name:
+        description: "New service name"
+        required: true
+  datadog_delete_incident_service:
+    description: "Delete an incident service"
+    parameters:
+      service_id:
+        description: "Incident service ID"
+        required: true
+  datadog_list_incident_teams:
+    description: "List Datadog incident teams. View teams configured for incident response and on-call rotation."
+    parameters:
+      page_size:
+        description: "Results per page (default 10)"
+      page_offset:
+        description: "Pagination offset"
+      filter:
+        description: "Filter teams by name"
+  datadog_get_incident_team:
+    description: "Get details of a specific incident team. Use after list_incident_teams."
+    parameters:
+      team_id:
+        description: "Incident team ID"
+        required: true
+  datadog_create_incident_team:
+    description: "Create a new incident team for incident response"
+    parameters:
+      name:
+        description: "Team name"
+        required: true
+  datadog_update_incident_team:
+    description: "Update an existing incident team"
+    parameters:
+      team_id:
+        description: "Incident team ID"
+        required: true
+      name:
+        description: "New team name"
+        required: true
+  datadog_delete_incident_team:
+    description: "Delete an incident team"
+    parameters:
+      team_id:
+        description: "Incident team ID"
+        required: true
+  datadog_list_synthetics_tests:
+    description: "List synthetic monitoring tests"
+    parameters:
+      page_size:
+        description: "Results per page (default 100)"
+      page_number:
+        description: "Page number"
+  datadog_get_synthetics_api_test:
+    description: "Get a specific synthetics API test"
+    parameters:
+      id:
+        description: "Test public ID"
+        required: true
+  datadog_get_synthetics_test_result:
+    description: "Get latest results for a synthetics test"
+    parameters:
+      id:
+        description: "Test public ID"
+        required: true
+  datadog_trigger_synthetics_tests:
+    description: "Trigger synthetic tests on demand"
+    parameters:
+      public_ids:
+        description: "Comma-separated test public IDs to trigger"
+        required: true
+  datadog_list_notebooks:
+    description: "List Datadog notebooks"
+    parameters:
+      query:
+        description: "Search query"
+      count:
+        description: "Max results (default 100)"
+      start:
+        description: "Offset for pagination"
+      sort_field:
+        description: "Sort by: modified or name"
+      sort_dir:
+        description: "Sort direction: asc or desc"
+  datadog_get_notebook:
+    description: "Get a specific notebook by ID"
+    parameters:
+      id:
+        description: "Notebook ID"
+        required: true
+  datadog_create_notebook:
+    description: "Create a new notebook (JSON body)"
+    parameters:
+      name:
+        description: "Notebook name"
+        required: true
+      cells_json:
+        description: "JSON array of notebook cells"
+      time_from:
+        description: "Time range start"
+      time_to:
+        description: "Time range end"
+  datadog_delete_notebook:
+    description: "Delete a notebook"
+    parameters:
+      id:
+        description: "Notebook ID"
+        required: true
+  datadog_list_users:
+    description: "List users in the organization"
+    parameters:
+      page_size:
+        description: "Results per page (default 10)"
+      page_number:
+        description: "Page number"
+      sort:
+        description: "Sort field (e.g., name, email)"
+      filter:
+        description: "Filter string"
+  datadog_get_user:
+    description: "Get a specific user by ID"
+    parameters:
+      id:
+        description: "User ID"
+        required: true
+  datadog_list_teams:
+    description: "List Datadog teams. View organizational teams, ownership, and membership. Start here for team management."
+    parameters:
+      page_size:
+        description: "Results per page (default 10)"
+      page_number:
+        description: "Page number"
+      filter:
+        description: "Filter teams by keyword/name"
+      sort:
+        description: "Sort: name, -name, user_count, -user_count"
+  datadog_get_team:
+    description: "Get details of a specific Datadog team including handle, description, and member count. Use after list_teams."
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+  datadog_create_team:
+    description: "Create a new Datadog team"
+    parameters:
+      name:
+        description: "Team name"
+        required: true
+      handle:
+        description: "Team handle (URL-safe identifier)"
+        required: true
+      description:
+        description: "Team description"
+  datadog_update_team:
+    description: "Update an existing team"
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      name:
+        description: "New team name"
+        required: true
+      handle:
+        description: "New team handle"
+        required: true
+      description:
+        description: "New description"
+  datadog_delete_team:
+    description: "Delete a team"
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+  datadog_list_team_members:
+    description: "List members of a Datadog team. View who belongs to a team and their roles."
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      page_size:
+        description: "Results per page (default 10)"
+      page_number:
+        description: "Page number"
+      filter:
+        description: "Filter members by keyword"
+  datadog_add_team_member:
+    description: "Add a user to a team"
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      user_id:
+        description: "User ID to add"
+        required: true
+      role:
+        description: "Role: admin (omit for regular member)"
+  datadog_update_team_member:
+    description: "Update a team member's role"
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      user_id:
+        description: "User ID"
+        required: true
+      role:
+        description: "New role: admin (omit for regular member)"
+  datadog_remove_team_member:
+    description: "Remove a user from a team"
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      user_id:
+        description: "User ID to remove"
+        required: true
+  datadog_get_user_team_memberships:
+    description: "Get all team memberships for a user. Find which teams a user belongs to."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+  datadog_list_team_links:
+    description: "List external links for a team. View runbooks, dashboards, and documentation links associated with a team."
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+  datadog_get_team_link:
+    description: "Get a specific team link. Use after list_team_links."
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      link_id:
+        description: "Link ID"
+        required: true
+  datadog_create_team_link:
+    description: "Add a link to a team (runbook, dashboard, documentation)"
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      label:
+        description: "Link label"
+        required: true
+      url:
+        description: "Link URL"
+        required: true
+  datadog_update_team_link:
+    description: "Update a team link"
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      link_id:
+        description: "Link ID"
+        required: true
+      label:
+        description: "New label"
+        required: true
+      url:
+        description: "New URL"
+        required: true
+  datadog_delete_team_link:
+    description: "Delete a team link"
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      link_id:
+        description: "Link ID"
+        required: true
+  datadog_get_team_permission_settings:
+    description: "Get permission settings for a team. View who can manage membership and edit the team."
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+  datadog_update_team_permission_setting:
+    description: "Update a team permission setting"
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      action:
+        description: "Permission action: manage_membership or edit"
+        required: true
+      value:
+        description: "Permission value: admins, members, organization, user_access_manage, teams_manage"
+        required: true
+  datadog_search_spans:
+    description: "Search Datadog APM spans and distributed traces for production performance debugging. Investigate latency and service dependencies."
+    parameters:
+      query:
+        description: "Span search query (e.g., 'service:web-store resource_name:GET')"
+        required: true
+      from:
+        description: "Start time"
+      to:
+        description: "End time"
+      limit:
+        description: "Max results (default 10)"
+      sort:
+        description: "Sort: timestamp or -timestamp"
+  datadog_list_services:
+    description: "List services from the Datadog Software Catalog. View production microservices, dependencies, and ownership."
+    parameters:
+      page_size:
+        description: "Results per page (default 20)"
+      page_offset:
+        description: "Pagination offset"
+  datadog_list_oncall_schedules:
+    description: "List all Datadog On-Call schedules. Start here to find schedule IDs before getting details."
+    parameters:
+      include:
+        description: "Comma-separated related resources to include (e.g. teams)"
+  datadog_get_oncall_schedule:
+    description: "Get a Datadog On-Call schedule with layers, members, and rotation details. View who is on-call and when."
+    parameters:
+      schedule_id:
+        description: "On-Call schedule ID"
+        required: true
+  datadog_create_oncall_schedule:
+    description: 'Create a new On-Call schedule with layers, rotation intervals, and members. Use body_json with Datadog schedule create schema.'
+    parameters:
+      body_json:
+        description: 'JSON body matching Datadog ScheduleCreateRequest schema: {"data":{"type":"schedules","attributes":{"name":"...","time_zone":"...","layers":[{"name":"...","effective_date":"...","rotation_start":"...","interval":{"days":7},"members":[{"user":{"id":"..."}}]}]}}}'
+        required: true
+  datadog_update_oncall_schedule:
+    description: "Update an existing On-Call schedule (layers, members, rotations). IMPORTANT: Always include the full relationships.teams block in body_json — omitting it silently removes the team association. Fetch current schedule with get_oncall_schedule first, then modify and submit."
+    parameters:
+      schedule_id:
+        description: "Schedule ID"
+        required: true
+      body_json:
+        description: "JSON body matching Datadog ScheduleUpdateRequest schema. MUST include relationships.teams to preserve team association."
+        required: true
+  datadog_delete_oncall_schedule:
+    description: "Delete an On-Call schedule"
+    parameters:
+      schedule_id:
+        description: "Schedule ID"
+        required: true
+  datadog_get_schedule_oncall_user:
+    description: "Get the current on-call user for a schedule. Find who is on-call right now for a given rotation."
+    parameters:
+      schedule_id:
+        description: "On-Call schedule ID"
+        required: true
+  datadog_list_oncall_escalation_policies:
+    description: "List all Datadog On-Call escalation policies. Start here to find policy IDs before getting details."
+    parameters:
+      include:
+        description: "Comma-separated related resources to include (e.g. teams,steps,steps.targets)"
+  datadog_get_oncall_escalation_policy:
+    description: "Get a Datadog On-Call escalation policy with steps, targets, and notification chain. View escalation rules and timing."
+    parameters:
+      policy_id:
+        description: "Escalation policy ID"
+        required: true
+  datadog_create_oncall_escalation_policy:
+    description: 'Create a new On-Call escalation policy with steps and targets. Use body_json with Datadog escalation policy create schema.'
+    parameters:
+      body_json:
+        description: 'JSON body matching Datadog EscalationPolicyCreateRequest schema: {"data":{"type":"policies","attributes":{"name":"...","steps":[{"targets":[{"type":"users","id":"..."}],"escalate_after_seconds":300}]}}}'
+        required: true
+  datadog_update_oncall_escalation_policy:
+    description: "Update an existing On-Call escalation policy (steps, targets, timing). Fetch current policy with get_oncall_escalation_policy first, then modify and submit."
+    parameters:
+      policy_id:
+        description: "Escalation policy ID"
+        required: true
+      body_json:
+        description: "JSON body matching Datadog EscalationPolicyUpdateRequest schema"
+        required: true
+  datadog_delete_oncall_escalation_policy:
+    description: "Delete an On-Call escalation policy"
+    parameters:
+      policy_id:
+        description: "Escalation policy ID"
+        required: true
+  datadog_get_oncall_team_routing_rules:
+    description: "Get On-Call routing rules for a team. View how pages are routed to schedules and escalation policies."
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+  datadog_set_oncall_team_routing_rules:
+    description: "Set (replace) On-Call routing rules for a team. Define how pages are routed to escalation policies. Fetch current rules with get_oncall_team_routing_rules first."
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+      body_json:
+        description: 'JSON body matching Datadog TeamRoutingRulesRequest schema: {"data":{"type":"team_routing_rules","attributes":{"rules":[{"policy_id":"...","urgency":"high"}]}}}'
+        required: true
+  datadog_get_team_oncall_users:
+    description: "Get the current on-call users for a team. Find who is on-call right now across all team schedules."
+    parameters:
+      team_id:
+        description: "Team ID"
+        required: true
+  datadog_list_oncall_pages:
+    description: "List On-Call pages. Filter by status and urgency to find active or past pages."
+    parameters:
+      include:
+        description: "Comma-separated related resources to include"
+      status:
+        description: "Filter by page status (e.g. triggered, acknowledged, resolved)"
+      urgency:
+        description: "Filter by urgency (low or high)"
+  datadog_get_oncall_page:
+    description: "Get details of a specific On-Call page including status, responders, and timeline."
+    parameters:
+      page_id:
+        description: "Page UUID"
+        required: true
+      include:
+        description: "Comma-separated related resources to include"
+  datadog_create_oncall_page:
+    description: "Create a new On-Call page to alert responders. Page a team or user for production incidents and urgent issues."
+    parameters:
+      title:
+        description: "Page title"
+        required: true
+      urgency:
+        description: "Urgency: low or high (default high)"
+      target_id:
+        description: "Target identifier (team handle, team ID, or user ID)"
+        required: true
+      target_type:
+        description: "Target type: team_handle, team_id, or user_id (default team_handle)"
+      description:
+        description: "Page description with details"
+      tags:
+        description: "Comma-separated tags"
+  datadog_acknowledge_oncall_page:
+    description: "Acknowledge an On-Call page to indicate responder awareness"
+    parameters:
+      page_id:
+        description: "Page UUID"
+        required: true
+  datadog_escalate_oncall_page:
+    description: "Escalate an On-Call page to the next responder in the escalation policy"
+    parameters:
+      page_id:
+        description: "Page UUID"
+        required: true
+  datadog_resolve_oncall_page:
+    description: "Resolve an On-Call page to mark the issue as handled"
+    parameters:
+      page_id:
+        description: "Page UUID"
+        required: true
+  datadog_list_user_notification_channels:
+    description: "List On-Call notification channels for a user (email, Slack, SMS, push). View how a user receives on-call alerts."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+  datadog_create_user_notification_channel:
+    description: "Create a notification channel for a user (email, Slack, SMS, push)."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      body_json:
+        description: "JSON body matching Datadog CreateUserNotificationChannelRequest schema"
+        required: true
+  datadog_get_user_notification_channel:
+    description: "Get a specific notification channel for a user."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      channel_id:
+        description: "Notification channel ID"
+        required: true
+  datadog_delete_user_notification_channel:
+    description: "Delete a notification channel for a user."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      channel_id:
+        description: "Notification channel ID"
+        required: true
+  datadog_list_user_notification_rules:
+    description: "List On-Call notification rules for a user. Rules define when and how a user is notified for on-call pages."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      include:
+        description: "Comma-separated related resources to include"
+  datadog_create_user_notification_rule:
+    description: "Create a notification rule for a user defining when and how they are notified for on-call pages."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      body_json:
+        description: "JSON body matching Datadog CreateOnCallNotificationRuleRequest schema"
+        required: true
+  datadog_get_user_notification_rule:
+    description: "Get a specific notification rule for a user."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      rule_id:
+        description: "Notification rule ID"
+        required: true
+      include:
+        description: "Comma-separated related resources to include"
+  datadog_update_user_notification_rule:
+    description: "Update a notification rule for a user."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      rule_id:
+        description: "Notification rule ID"
+        required: true
+      body_json:
+        description: "JSON body matching Datadog UpdateOnCallNotificationRuleRequest schema"
+        required: true
+      include:
+        description: "Comma-separated related resources to include"
+  datadog_delete_user_notification_rule:
+    description: "Delete a notification rule for a user."
+    parameters:
+      user_id:
+        description: "User ID"
+        required: true
+      rule_id:
+        description: "Notification rule ID"
+        required: true
+  datadog_get_ip_ranges:
+    description: "Get Datadog IP address ranges used for inbound/outbound traffic"
+    parameters: {}

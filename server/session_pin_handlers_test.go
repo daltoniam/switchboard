@@ -55,10 +55,7 @@ func TestHandleExecute_RefResolution(t *testing.T) {
 		healthy: true,
 		tools: []mcp.ToolDefinition{
 			{Name: "github_get_repo", Description: "Get repo"},
-			{Name: "github_get_issue", Description: "Get issue", Parameters: map[string]string{
-				"owner":        "Repo owner",
-				"issue_number": "Issue number",
-			}},
+			{Name: "github_get_issue", Description: "Get issue", Parameters: []mcp.Parameter{{Name: mcp.ParamName("owner"), Description: "Repo owner"}, {Name: mcp.ParamName("issue_number"), Description: "Issue number"}}},
 		},
 		execFn: func(_ context.Context, tn mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			if tn == "github_get_repo" {
