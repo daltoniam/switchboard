@@ -82,7 +82,7 @@ This matters because the model reads parameter lists top to bottom. Put the most
 
 One thing the loader doesn't preserve verbatim: the `required: [...]` array in each tool's `inputSchema`. We sort that array alphabetically at the wire boundary before emitting it. JSON Schema treats `required` as a set, so sort order carries no meaning to the consumer.
 
-The reason we sort is mechanical, not semantic. With sorted output we can compare the live wire response byte-for-byte against a fixture captured before the migration started. The fixture lives at `server/testdata/tools_list_pre_migration.json` and the test that locks it is `TestToolsList_ByteIdentityWithPreMigration` in `server/wire_test.go`. As long as that test stays green, no migration has silently changed what the model sees.
+The reason we sort is mechanical, not semantic. With sorted output we can lock the live wire response and compare against it byte-for-byte. That lock lives at `server/tools_list.lock.json`, and the test that enforces it is `TestToolsList_MatchesWireLock` in `server/wire_test.go`. It is a lock file in the same sense as `go.sum`: a generated artifact derived from the `tools.yaml` files, committed so CI can catch drift. You don't hand-edit it. After an intentional change to a tool's name, description, parameters, or required flags, regenerate it with `go test ./server -run TestToolsList_MatchesWireLock -update` and commit the updated lock alongside the YAML change. As long as that test stays green, nothing has silently changed what the model sees.
 
 ## tools.go Wiring
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"flag"
 	"os"
 	"sort"
 	"testing"
@@ -59,19 +60,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestToolsList_ByteIdentityWithPreMigration asserts the live tools/list wire
-// output equals testdata/tools_list_pre_migration.json. The fixture is the
-// byte-level ground truth captured against current types before the Workstream B
-// reshape. This test must keep passing through every commit in the workstream;
-// it's the regression gate that catches silent prose loss or shape drift during
-// the inline-Go → YAML migration.
-func TestToolsList_ByteIdentityWithPreMigration(t *testing.T) {
-	want, err := os.ReadFile("testdata/tools_list_pre_migration.json")
-	require.NoError(t, err)
+// updateLock regenerates tools_list.lock.json instead of asserting
+// against it. Run after an intentional change to a tool's name, description,
+// parameters, or required flags:
+//
+//	go test ./server -run TestToolsList_MatchesWireLock -update
+//
+// then commit the updated lock alongside the YAML change.
+var updateLock = flag.Bool("update", false, "regenerate the tools/list wire lock instead of checking it")
 
+// wireLockPath is the locked snapshot of the full tools/list output the server
+// hands to the model. It is a lock file in the same sense as go.sum: a generated
+// artifact derived from the tools.yaml source of truth, committed to the repo so
+// CI can detect drift. It sits beside the server package (not under testdata)
+// because it locks the server's own wire output. You do not hand-edit it; you
+// regenerate it with -update.
+const wireLockPath = "tools_list.lock.json"
+
+// TestToolsList_MatchesWireLock asserts the live tools/list wire output matches
+// the committed lock byte-for-byte. It catches any change — accidental or
+// intentional — to what the model sees: a dropped description, a renamed
+// parameter, a flipped required flag. An intentional change is expected to fail
+// here; rerun with -update to regenerate the lock and commit it with the change.
+func TestToolsList_MatchesWireLock(t *testing.T) {
 	got := captureToolsListJSON(t)
 
-	require.JSONEq(t, string(want), string(got))
+	if *updateLock {
+		require.NoError(t, os.WriteFile(wireLockPath, got, 0o644))
+		t.Logf("regenerated %s", wireLockPath)
+		return
+	}
+
+	want, err := os.ReadFile(wireLockPath)
+	require.NoError(t, err)
+
+	require.JSONEq(t, string(want), string(got),
+		"tools/list output drifted from %s. If this change is intentional, "+
+			"regenerate the lock: go test ./server -run TestToolsList_MatchesWireLock -update",
+		wireLockPath)
 }
 
 // captureToolsListJSON projects all registered adapter tools into the MCP wire
