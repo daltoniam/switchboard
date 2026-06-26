@@ -44,19 +44,7 @@ func queryTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 
 	wrapped := fmt.Sprintf("SELECT * FROM (%s) AS _q LIMIT %d", strings.TrimRight(strings.TrimSpace(sqlStr), ";"), limit) // #nosec G201 -- intentional: this tool executes user-provided SQL in a read-only transaction
 
-	tx, err := conn.db.BeginTx(ctx, &readOnlyTx)
-	if err != nil {
-		return mcp.ErrResult(fmt.Errorf("begin transaction: %w", err))
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	rows, err := tx.QueryContext(ctx, wrapped)
-	if err != nil {
-		return mcp.ErrResult(fmt.Errorf("query error: %w", err))
-	}
-	defer func() { _ = rows.Close() }()
-
-	data, err := scanRows(rows)
+	data, err := conn.runner.queryReadOnly(ctx, wrapped)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -127,19 +115,7 @@ func explainTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		explain = fmt.Sprintf("EXPLAIN (FORMAT %s) %s", format, sqlStr)
 	}
 
-	tx, err := conn.db.BeginTx(ctx, &readOnlyTx)
-	if err != nil {
-		return mcp.ErrResult(fmt.Errorf("begin transaction: %w", err))
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	rows, err := tx.QueryContext(ctx, explain)
-	if err != nil {
-		return mcp.ErrResult(fmt.Errorf("explain error: %w", err))
-	}
-	defer func() { _ = rows.Close() }()
-
-	data, err := scanRows(rows)
+	data, err := conn.runner.queryReadOnly(ctx, explain)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -209,19 +185,7 @@ func selectTool(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		q += fmt.Sprintf(" OFFSET %d", offset)
 	}
 
-	tx, err := conn.db.BeginTx(ctx, &readOnlyTx)
-	if err != nil {
-		return mcp.ErrResult(fmt.Errorf("begin transaction: %w", err))
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	rows, err := tx.QueryContext(ctx, q)
-	if err != nil {
-		return mcp.ErrResult(fmt.Errorf("query error: %w", err))
-	}
-	defer func() { _ = rows.Close() }()
-
-	data, err := scanRows(rows)
+	data, err := conn.runner.queryReadOnly(ctx, q)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
