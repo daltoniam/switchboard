@@ -145,7 +145,7 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 
 func TestExecute_UnknownTool(t *testing.T) {
 	p := &postgres{
-		conns:        map[string]*pgConn{"default": {db: &sql.DB{}, readOnly: true, alias: "default"}},
+		conns:        map[string]*pgConn{"default": {runner: &sqlRunner{db: &sql.DB{}}, readOnly: true, alias: "default"}},
 		defaultAlias: "default",
 	}
 	result, err := p.Execute(context.Background(), "postgres_nonexistent", nil)
@@ -186,8 +186,8 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 func TestGetConnForArgs_Default(t *testing.T) {
 	p := &postgres{
 		conns: map[string]*pgConn{
-			"default": {db: &sql.DB{}, alias: "default"},
-			"prod":    {db: &sql.DB{}, alias: "prod"},
+			"default": {runner: &sqlRunner{db: &sql.DB{}}, alias: "default"},
+			"prod":    {runner: &sqlRunner{db: &sql.DB{}}, alias: "prod"},
 		},
 		defaultAlias: "default",
 	}
@@ -199,8 +199,8 @@ func TestGetConnForArgs_Default(t *testing.T) {
 func TestGetConnForArgs_ExplicitAlias(t *testing.T) {
 	p := &postgres{
 		conns: map[string]*pgConn{
-			"default": {db: &sql.DB{}, alias: "default"},
-			"prod":    {db: &sql.DB{}, alias: "prod"},
+			"default": {runner: &sqlRunner{db: &sql.DB{}}, alias: "default"},
+			"prod":    {runner: &sqlRunner{db: &sql.DB{}}, alias: "prod"},
 		},
 		defaultAlias: "default",
 	}
@@ -212,7 +212,7 @@ func TestGetConnForArgs_ExplicitAlias(t *testing.T) {
 func TestGetConnForArgs_UnknownAlias(t *testing.T) {
 	p := &postgres{
 		conns: map[string]*pgConn{
-			"default": {db: &sql.DB{}, alias: "default"},
+			"default": {runner: &sqlRunner{db: &sql.DB{}}, alias: "default"},
 		},
 		defaultAlias: "default",
 	}
@@ -227,8 +227,8 @@ func TestGetConnForArgs_UnknownAlias(t *testing.T) {
 func TestListDatabases(t *testing.T) {
 	p := &postgres{
 		conns: map[string]*pgConn{
-			"default":   {db: &sql.DB{}, alias: "default", host: "localhost", dbName: "mydb", readOnly: true},
-			"analytics": {db: &sql.DB{}, alias: "analytics", host: "analytics.example.com", dbName: "analytics", readOnly: false},
+			"default":   {runner: &sqlRunner{db: &sql.DB{}}, alias: "default", host: "localhost", dbName: "mydb", readOnly: true},
+			"analytics": {runner: &sqlRunner{db: &sql.DB{}}, alias: "analytics", host: "analytics.example.com", dbName: "analytics", readOnly: false},
 		},
 		defaultAlias: "default",
 	}
@@ -304,7 +304,7 @@ func TestSanitizeIdentifier(t *testing.T) {
 func newTestPostgres() *postgres {
 	return &postgres{
 		conns: map[string]*pgConn{
-			"default": {db: &sql.DB{}, readOnly: true, alias: "default"},
+			"default": {runner: &sqlRunner{db: &sql.DB{}}, readOnly: true, alias: "default"},
 		},
 		defaultAlias: "default",
 	}
@@ -313,7 +313,7 @@ func newTestPostgres() *postgres {
 func newTestPostgresWritable() *postgres {
 	return &postgres{
 		conns: map[string]*pgConn{
-			"default": {db: &sql.DB{}, readOnly: false, alias: "default"},
+			"default": {runner: &sqlRunner{db: &sql.DB{}}, readOnly: false, alias: "default"},
 		},
 		defaultAlias: "default",
 	}

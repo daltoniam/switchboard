@@ -35,9 +35,11 @@ var (
 	_ mcp.ToolMaxBytesIntegration    = (*postgres)(nil)
 )
 
-// pgConn holds a single Postgres connection and its metadata.
+// pgConn holds a single Postgres connection and its metadata. Statement
+// execution goes through runner, which is either a direct *sql.DB (sqlRunner)
+// or a hosted tunnel relay (tunnelRunner) when mode=agent.
 type pgConn struct {
-	db       *sql.DB
+	runner   runner
 	connStr  string
 	readOnly bool
 	alias    string
@@ -73,7 +75,7 @@ func New() mcp.Integration {
 func (p *postgres) Name() string { return "postgres" }
 
 func (p *postgres) PlainTextKeys() []string {
-	return []string{"host", "port", "user", "database", "sslmode", "read_only", "connections"}
+	return []string{"host", "port", "user", "database", "sslmode", "read_only", "connections", "mode", "tunnel_url", "org"}
 }
 
 func (p *postgres) Placeholders() map[string]string {
@@ -83,7 +85,7 @@ func (p *postgres) Placeholders() map[string]string {
 }
 
 func (p *postgres) OptionalKeys() []string {
-	return []string{"connections"}
+	return []string{"connections", "mode", "tunnel_url", "org", "tunnel_auth_token"}
 }
 
 func (p *postgres) Configure(ctx context.Context, creds mcp.Credentials) error {
@@ -135,7 +137,7 @@ func (p *postgres) Configure(ctx context.Context, creds mcp.Credentials) error {
 		c, err := openConn(ctx, pc.alias, pc.creds)
 		if err != nil {
 			for _, prev := range newConns {
-				_ = prev.db.Close()
+				_ = prev.runner.close()
 			}
 			if pc.alias != "default" {
 				return fmt.Errorf("postgres: connection %q: %w", pc.alias, err)
@@ -152,13 +154,17 @@ func (p *postgres) Configure(ctx context.Context, creds mcp.Credentials) error {
 	p.mu.Unlock()
 
 	for _, c := range old {
-		_ = c.db.Close()
+		_ = c.runner.close()
 	}
 
 	return nil
 }
 
 func openConn(ctx context.Context, alias string, creds mcp.Credentials) (*pgConn, error) {
+	if strings.EqualFold(strings.TrimSpace(creds["mode"]), "agent") {
+		return openAgentConn(ctx, alias, creds)
+	}
+
 	readOnly := creds["read_only"] != "false"
 	connStr, host, dbName, err := buildConnStr(creds)
 	if err != nil {
@@ -181,12 +187,36 @@ func openConn(ctx context.Context, alias string, creds mcp.Credentials) (*pgConn
 	}
 
 	return &pgConn{
-		db:       db,
+		runner:   &sqlRunner{db: db},
 		connStr:  connStr,
 		readOnly: readOnly,
 		alias:    alias,
 		host:     host,
 		dbName:   dbName,
+	}, nil
+}
+
+// openAgentConn builds a tunnel-backed connection. The real DSN lives in the
+// customer-side agent; hosted only needs the tunnel endpoint and org ID. Agent
+// mode is always read-only because tunneld enforces it server-side.
+func openAgentConn(ctx context.Context, alias string, creds mcp.Credentials) (*pgConn, error) {
+	r, err := newTunnelRunner(creds["tunnel_url"], creds["org"], creds["tunnel_auth_token"])
+	if err != nil {
+		return nil, err
+	}
+
+	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := r.ping(pingCtx); err != nil {
+		return nil, fmt.Errorf("postgres: failed to reach agent tunnel: %w", err)
+	}
+
+	return &pgConn{
+		runner:   r,
+		readOnly: true,
+		alias:    alias,
+		host:     "agent:" + strings.TrimSpace(creds["org"]),
+		dbName:   creds["database"],
 	}, nil
 }
 
@@ -247,7 +277,7 @@ func (p *postgres) Close() error {
 	defer p.mu.Unlock()
 	var firstErr error
 	for _, c := range p.conns {
-		if err := c.db.Close(); err != nil && firstErr == nil {
+		if err := c.runner.close(); err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}
@@ -265,7 +295,7 @@ func (p *postgres) Healthy(ctx context.Context) bool {
 	if !ok {
 		return false
 	}
-	return c.db.PingContext(ctx) == nil
+	return c.runner.ping(ctx) == nil
 }
 
 func (p *postgres) Tools() []mcp.ToolDefinition {
@@ -321,36 +351,20 @@ func (p *postgres) getConnForArgs(args map[string]any) (*pgConn, error) {
 // --- Query helpers ---
 
 func (p *postgres) query(ctx context.Context, conn *pgConn, q string, args ...any) (json.RawMessage, error) {
-	rows, err := conn.db.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	return scanRows(rows)
+	return conn.runner.queryRows(ctx, q, args...)
 }
 
 func (p *postgres) exec(ctx context.Context, conn *pgConn, query string, args ...any) (json.RawMessage, error) {
-	result, err := conn.db.ExecContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("exec error: %w", err)
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	data, _ := json.Marshal(map[string]any{
-		"status":        "success",
-		"rows_affected": rowsAffected,
-	})
-	return json.RawMessage(data), nil
+	return conn.runner.exec(ctx, query, args...)
 }
 
 func (p *postgres) queryRow(ctx context.Context, conn *pgConn, query string, args ...any) (json.RawMessage, error) {
-	rows, err := conn.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query error: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
+	return conn.runner.queryRow(ctx, query, args...)
+}
 
+// scanFirstRow returns the first row of a result set as a JSON object, or {} if
+// there are no rows. It mirrors the previous direct queryRow behavior.
+func scanFirstRow(rows *sql.Rows) (json.RawMessage, error) {
 	columns, err := rows.Columns()
 	if err != nil {
 		return nil, fmt.Errorf("columns error: %w", err)
