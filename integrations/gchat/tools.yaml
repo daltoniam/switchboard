@@ -1,0 +1,96 @@
+version: 1
+tools:
+  gchat_list_spaces:
+    description: "List Google Chat spaces the authenticated user belongs to. Start here for chat, conversations, messages, group chats, rooms, direct messages, DMs, threads, channels — to discover the space IDs needed by every other gchat tool. Returns spaces (full resource names like 'spaces/AAQAtuk0o-A'), their type (SPACE / GROUP_CHAT / DIRECT_MESSAGE), and display name (for named rooms)."
+    parameters:
+      page_size:
+        description: "Optional max spaces per page (1-1000, default 100)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+      filter:
+        description: "Optional filter expression (e.g. 'space_type = \"SPACE\"' for named rooms only, 'space_type = \"DIRECT_MESSAGE\"' for DMs)"
+  gchat_get_space:
+    description: "Retrieve a single Google Chat space by resource name. Returns the space's display name, type, threading state, and history state."
+    parameters:
+      space_id:
+        description: "The space ID — accepts either bare ID ('AAQAtuk0o-A') or full resource name ('spaces/AAQAtuk0o-A')"
+        required: true
+  gchat_list_messages:
+    description: "List messages in a Google Chat space (rooms, group chats, DMs). Returns messages with sender, text, createTime, lastUpdateTime, and thread info. Use filter to narrow by createTime range; use order_by='createTime desc' to get newest-first."
+    parameters:
+      space_id:
+        description: "The space ID (bare or 'spaces/X' form)"
+        required: true
+      page_size:
+        description: "Optional max messages per page (1-1000, default 25)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+      filter:
+        description: "Optional filter expression (e.g. 'createTime > \"2024-01-01T00:00:00Z\"', 'thread.name = \"spaces/X/threads/Y\"')"
+      order_by:
+        description: "Optional ordering — 'createTime' (oldest first, default) or 'createTime desc' (newest first)"
+      show_deleted:
+        description: "Optional boolean — include deleted messages (default false)"
+  gchat_get_message:
+    description: "Retrieve a single Google Chat message by space + message ID. Returns the message text, sender, createTime, lastUpdateTime, thread, attachments, and any cardsV2 payload."
+    parameters:
+      space_id:
+        description: "The space ID (bare or 'spaces/X' form)"
+        required: true
+      message_id:
+        description: "The message ID (the segment after 'messages/' in the message name — typically contains dots, e.g. 'UMOmwAAAAAE.UMOmwAAAAAE')"
+        required: true
+  gchat_create_message:
+    description: "Send a new message to a Google Chat space. Returns the created message including its resource name. Pass text for a plain-text message; pass cards_v2 (raw JSON) for a card message. Use thread_key with message_reply_option to reply in an existing thread."
+    parameters:
+      space_id:
+        description: "The space ID (bare or 'spaces/X' form) to send the message to"
+        required: true
+      text:
+        description: "Message text (plain text; supports basic formatting like *bold*, _italic_, `code`, and <https://link|label> annotations)"
+      cards_v2:
+        description: "Optional raw JSON for cardsV2 payload (array of card objects per the Chat API spec). Use instead of or alongside text."
+      thread_key:
+        description: "Optional client-supplied thread key — messages sharing the same key go in one thread (requires message_reply_option)"
+      message_reply_option:
+        description: "Optional reply behavior: 'REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD' (reply in thread; new thread if no match), 'REPLY_MESSAGE_OR_FAIL' (reply or fail)"
+      message_id:
+        description: "Optional custom message ID (alphanumeric, max 56 chars, must start with 'client-')"
+  gchat_update_message:
+    description: "Update an existing Google Chat message (edit its text or replace its cardsV2 content). Uses PATCH semantics with an auto-generated updateMask — only the fields you pass are changed. Only messages sent by the authenticated user / app can be updated."
+    parameters:
+      space_id:
+        description: "The space ID (bare or 'spaces/X' form)"
+        required: true
+      message_id:
+        description: "The message ID"
+        required: true
+      text:
+        description: "Optional new message text"
+      cards_v2:
+        description: "Optional new cardsV2 payload (raw JSON array)"
+  gchat_delete_message:
+    description: "Delete a Google Chat message. Only messages sent by the authenticated user / app can be deleted. Set force=true to also delete any threaded replies when deleting the thread head."
+    parameters:
+      space_id:
+        description: "The space ID (bare or 'spaces/X' form)"
+        required: true
+      message_id:
+        description: "The message ID to delete"
+        required: true
+      force:
+        description: "Optional boolean — when deleting the head of a thread, also delete the threaded replies (default false)"
+  gchat_list_members:
+    description: "List members (human users and chat apps) of a Google Chat space. Returns each member's name (resource id), role (ROLE_MEMBER / ROLE_MANAGER), state (JOINED / INVITED / NOT_A_MEMBER), and member type (HUMAN / BOT)."
+    parameters:
+      space_id:
+        description: "The space ID (bare or 'spaces/X' form)"
+        required: true
+      page_size:
+        description: "Optional max members per page (1-1000, default 100)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+      show_invited:
+        description: "Optional boolean — include invited members (default false; only JOINED members otherwise)"
+      filter:
+        description: "Optional filter (e.g. 'member.type = \"HUMAN\"', 'role = \"ROLE_MANAGER\"')"

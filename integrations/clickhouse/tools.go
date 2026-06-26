@@ -12,6 +12,8 @@ var toolsYAML []byte
 var tools = mcp.MustLoadToolsYAML(toolsYAML)
 
 var dispatch = map[mcp.ToolName]handlerFunc{
+	mcp.ToolName("clickhouse_list_connections"): listConnections,
+
 	// Queries
 	mcp.ToolName("clickhouse_execute_query"): executeQuery,
 	mcp.ToolName("clickhouse_explain_query"): explainQuery,

@@ -1,0 +1,79 @@
+version: 1
+tools:
+  gdocs_get_document:
+    description: "Retrieve (get) a Google Docs document by ID, including its full structured content (paragraphs, tables, lists, headings, images, footnotes). Start here for reading document text, getting word counts, finding sections, or fetching raw structure for analysis. Returns the document body as markdown via the renderer."
+    parameters:
+      document_id:
+        description: "The Google Docs document ID (the long string in the document URL)"
+        required: true
+      suggestions_view_mode:
+        description: "How suggested edits are surfaced: DEFAULT_FOR_CURRENT_ACCESS, SUGGESTIONS_INLINE, PREVIEW_SUGGESTIONS_ACCEPTED, PREVIEW_WITHOUT_SUGGESTIONS"
+      include_tabs_content:
+        description: "true/false — include content of all tabs (default false; the API returns the active tab only otherwise)"
+  gdocs_create_document:
+    description: "Create a new, empty Google Docs document. Returns the new document including its ID, which you can then pass to gdocs_batch_update, gdocs_insert_text, or gdocs_append_text to add content. To save the document into a specific Drive folder, use gdrive_update_file afterward to set parents."
+    parameters:
+      title:
+        description: "Document title (defaults to 'Untitled document')"
+  gdocs_batch_update:
+    description: "Apply a batch of edit requests to a Google Docs document — the full power of the Docs API. Use after gdocs_get_document to see existing indices. Each request is one of: insertText, deleteContentRange, replaceAllText, insertTableRow, insertPageBreak, updateTextStyle, updateParagraphStyle, createParagraphBullets, deleteParagraphBullets, insertInlineImage, and many more. Prefer the convenience tools (gdocs_insert_text, gdocs_append_text, gdocs_replace_text, gdocs_delete_content) for simple edits; use this for compound or formatting changes."
+    parameters:
+      document_id:
+        description: "The document ID to edit"
+        required: true
+      requests:
+        description: 'JSON array of Docs API Request objects (e.g. [{"insertText":{"location":{"index":1},"text":"Hello"}}])'
+        required: true
+      write_control_revision:
+        description: "Optional required_revision_id — only apply if the document is at this revision"
+      write_control_target:
+        description: "Optional target_revision_id — only apply if the document is at or below this revision (use revision_id from gdocs_get_document)"
+  gdocs_insert_text:
+    description: "Insert plain text at a specific character index in a Google Docs document. Convenience wrapper over gdocs_batch_update for the most common edit. Use gdocs_get_document first to find the index; index 1 is the start of the document body (index 0 is reserved)."
+    parameters:
+      document_id:
+        description: "The document ID"
+        required: true
+      text:
+        description: "The text to insert (may contain newlines for paragraph breaks)"
+        required: true
+      index:
+        description: "Insertion index (1-based; 1 = start of body). Use gdocs_append_text to insert at end."
+        required: true
+  gdocs_append_text:
+    description: "Append text to the end of a Google Docs document. Convenience wrapper that fetches the doc, computes the end index, and inserts. The simplest way to add content without needing to track indices."
+    parameters:
+      document_id:
+        description: "The document ID"
+        required: true
+      text:
+        description: "The text to append"
+        required: true
+      leading_newline:
+        description: "true/false — prepend a newline before the appended text (default true for clean separation)"
+  gdocs_replace_text:
+    description: "Find and replace all occurrences of a string in a Google Docs document. Convenience wrapper over the Docs API's replaceAllText request. Use match_case=true for case-sensitive replacement."
+    parameters:
+      document_id:
+        description: "The document ID"
+        required: true
+      find:
+        description: "Text to find"
+        required: true
+      replace:
+        description: "Replacement text (use empty string to delete all matches)"
+        required: true
+      match_case:
+        description: "true/false — case-sensitive matching (default false)"
+  gdocs_delete_content:
+    description: "Delete a range of content (text, images, tables) between two character indices in a Google Docs document. Convenience wrapper over the Docs API's deleteContentRange request. Use gdocs_get_document to find the indices first."
+    parameters:
+      document_id:
+        description: "The document ID"
+        required: true
+      start_index:
+        description: "Start of range to delete (inclusive)"
+        required: true
+      end_index:
+        description: "End of range to delete (exclusive)"
+        required: true

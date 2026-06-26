@@ -19,10 +19,21 @@ import (
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
 	flyInt "github.com/daltoniam/switchboard/integrations/fly"
+	"github.com/daltoniam/switchboard/integrations/gcal"
+	"github.com/daltoniam/switchboard/integrations/gchat"
 	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
+	"github.com/daltoniam/switchboard/integrations/gdocs"
+	"github.com/daltoniam/switchboard/integrations/gdrive"
+	"github.com/daltoniam/switchboard/integrations/gforms"
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
+	"github.com/daltoniam/switchboard/integrations/gmeet"
+	"github.com/daltoniam/switchboard/integrations/gpeople"
+	"github.com/daltoniam/switchboard/integrations/gsheets"
+	"github.com/daltoniam/switchboard/integrations/gslides"
+	"github.com/daltoniam/switchboard/integrations/gtasks"
 	"github.com/daltoniam/switchboard/integrations/jira"
+	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
@@ -40,6 +51,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/stripe"
 	"github.com/daltoniam/switchboard/integrations/suno"
 	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
+	"github.com/daltoniam/switchboard/integrations/vercel"
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/integrations/ynab"
@@ -160,6 +172,18 @@ func buildAllIntegrationsServer(t *testing.T) *Server {
 		nomadInt.New(),
 		botidentity.New(),
 		xInt.New(),
+		gcal.New(),
+		gchat.New(),
+		gdocs.New(),
+		gdrive.New(),
+		gforms.New(),
+		gmeet.New(),
+		gpeople.New(),
+		gsheets.New(),
+		gslides.New(),
+		gtasks.New(),
+		kubernetes.New(),
+		vercel.New(),
 	} {
 		require.NoError(t, reg.Register(i), "registering %s", i.Name())
 	}

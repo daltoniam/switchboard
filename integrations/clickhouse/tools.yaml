@@ -1,5 +1,8 @@
 version: 1
 tools:
+  clickhouse_list_connections:
+    description: "List all configured ClickHouse cluster connections with their alias, host, database, TLS, and default status. Start here when choosing which cluster to query."
+    parameters: {}
   clickhouse_execute_query:
     description: "Execute a SQL query (SELECT, SHOW, DESCRIBE, or DDL) against a ClickHouse analytics database and return results as JSON rows"
     parameters:

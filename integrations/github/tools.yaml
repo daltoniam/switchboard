@@ -2196,6 +2196,15 @@ tools:
         description: "Page number"
       per_page:
         description: "Results per page"
+  github_create_runner_registration_token:
+    description: "Create a repository self-hosted runner registration token and expiry time. Pass the token to the runner's ./config.sh --token <value> command; tokens are valid for about 1 hour."
+    parameters:
+      owner:
+        description: "Repository owner"
+        required: true
+      repo:
+        description: "Repository name"
+        required: true
   github_list_org_runners:
     description: "List self-hosted runners for an organization"
     parameters:
@@ -2206,6 +2215,12 @@ tools:
         description: "Page number"
       per_page:
         description: "Results per page"
+  github_create_org_runner_registration_token:
+    description: "Create an organization self-hosted runner registration token and expiry time. Pass the token to the runner's ./config.sh --token <value> command; tokens are valid for about 1 hour."
+    parameters:
+      org:
+        description: "Organization name"
+        required: true
   github_list_check_runs:
     description: "List check runs for a git reference"
     parameters:

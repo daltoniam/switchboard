@@ -1,0 +1,110 @@
+version: 1
+tools:
+  kubernetes_list_contexts:
+    description: "List Kubernetes kubeconfig contexts, clusters, users, and namespaces. Start here for local Kubernetes context discovery before choosing a cluster."
+  kubernetes_list_namespaces:
+    description: "List Kubernetes namespaces in the cluster. Start here for Kubernetes cluster discovery and finding available environments."
+  kubernetes_list_pods:
+    description: "List Kubernetes pods with phase, node, labels, restarts, and readiness. Start here for workload health, container debugging, and finding failing pods."
+    parameters:
+      namespace:
+        description: "Namespace (omit to use configured namespace; use all_namespaces=true for all namespaces where supported)."
+      all_namespaces:
+        description: "Set true to list pods across all namespaces."
+      label_selector:
+        description: "Kubernetes label selector, for example app=api,tier=backend."
+      field_selector:
+        description: "Kubernetes field selector, for example status.phase=Running."
+      limit:
+        description: "Maximum number of pods to return (default: 100, max: 500)."
+  kubernetes_get_pod:
+    description: "Get details for a specific Kubernetes pod, including containers, conditions, owner references, and recent status. Use after list_pods."
+    parameters:
+      namespace:
+        description: "Namespace (omit to use configured namespace; use all_namespaces=true for all namespaces where supported)."
+      pod:
+        description: "Pod name."
+        required: true
+  kubernetes_read_pod_logs:
+    description: "Read logs from a Kubernetes pod container. Use after list_pods or get_pod for debugging crashes, errors, and workload failures."
+    parameters:
+      namespace:
+        description: "Namespace (omit to use configured namespace; use all_namespaces=true for all namespaces where supported)."
+      pod:
+        description: "Pod name."
+        required: true
+      container:
+        description: "Container name (optional for single-container pods)."
+      tail:
+        description: "Number of log lines from the end (default: 200, max: 2000)."
+      previous:
+        description: "Set true to read logs from the previous terminated container instance."
+      timestamps:
+        description: "Set true to include log timestamps."
+  kubernetes_list_events:
+    description: "List Kubernetes events sorted by time. Use for debugging scheduling, image pulls, probes, restarts, and rollout failures."
+    parameters:
+      namespace:
+        description: "Namespace (omit to use configured namespace; use all_namespaces=true for all namespaces where supported)."
+      all_namespaces:
+        description: "Set true to list events across all namespaces."
+      field_selector:
+        description: "Kubernetes field selector, for example involvedObject.name=api."
+      limit:
+        description: "Maximum number of events to return (default: 100, max: 500)."
+  kubernetes_list_deployments:
+    description: "List Kubernetes deployments with replicas, availability, labels, and images. Use for workload discovery and rollout health checks."
+    parameters:
+      namespace:
+        description: "Namespace (omit to use configured namespace; use all_namespaces=true for all namespaces where supported)."
+      all_namespaces:
+        description: "Set true to list deployments across all namespaces."
+      label_selector:
+        description: "Kubernetes label selector."
+      limit:
+        description: "Maximum number of deployments to return (default: 100, max: 500)."
+  kubernetes_get_deployment:
+    description: "Get details for a specific Kubernetes deployment, including rollout conditions, replica counts, strategy, selectors, and images. Use after list_deployments."
+    parameters:
+      namespace:
+        description: "Namespace (omit to use configured namespace; use all_namespaces=true for all namespaces where supported)."
+      deployment:
+        description: "Deployment name."
+        required: true
+  kubernetes_rollout_status:
+    description: "Check Kubernetes deployment rollout status and explain whether a rollout is complete, progressing, or stuck. Use after list_deployments or get_deployment."
+    parameters:
+      namespace:
+        description: "Namespace (omit to use configured namespace; use all_namespaces=true for all namespaces where supported)."
+      deployment:
+        description: "Deployment name."
+        required: true
+  kubernetes_list_services:
+    description: "List Kubernetes services with type, cluster IPs, external IPs, ports, and selectors. Use for service discovery and network debugging."
+    parameters:
+      namespace:
+        description: "Namespace (omit to use configured namespace; use all_namespaces=true for all namespaces where supported)."
+      all_namespaces:
+        description: "Set true to list services across all namespaces."
+      label_selector:
+        description: "Kubernetes label selector."
+      limit:
+        description: "Maximum number of services to return (default: 100, max: 500)."
+  kubernetes_list_ingresses:
+    description: "List Kubernetes ingresses with hosts, paths, classes, TLS, and load balancer addresses. Use for HTTP routing and exposure debugging."
+    parameters:
+      namespace:
+        description: "Namespace (omit to use configured namespace; use all_namespaces=true for all namespaces where supported)."
+      all_namespaces:
+        description: "Set true to list ingresses across all namespaces."
+      label_selector:
+        description: "Kubernetes label selector."
+      limit:
+        description: "Maximum number of ingresses to return (default: 100, max: 500)."
+  kubernetes_list_nodes:
+    description: "List Kubernetes cluster nodes with readiness, versions, roles, taints, capacity, and allocatable resources. Use for cluster capacity and node health debugging."
+    parameters:
+      label_selector:
+        description: "Kubernetes label selector."
+      limit:
+        description: "Maximum number of nodes to return (default: 100, max: 500)."

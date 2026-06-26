@@ -1,0 +1,88 @@
+version: 1
+tools:
+  gmeet_create_space:
+    description: "Create a new Google Meet meeting space (meeting room). Start here for create meet, new meeting, schedule call, video call, conference room, meeting URL. Returns a Space with meetingUri (the join URL to share), meetingCode (the short code like 'abc-defg-hij'), and a stable resource name 'spaces/{id}'. The space is persistent — anyone with the join URL can start a conference at any time. Optionally pass 'config' to control who can join and moderation settings."
+    parameters:
+      config:
+        description: "Optional SpaceConfig (JSON object or string) controlling join behavior. Common fields: accessType ('OPEN' = anyone with link, 'TRUSTED' = signed-in only, 'RESTRICTED' = invited only — default OPEN), entryPointAccess ('ALL' or 'CREATOR_APP_ONLY'), moderation ('ON'/'OFF'), moderationRestrictions (object). Example: {\"accessType\":\"TRUSTED\",\"moderation\":\"ON\"}"
+  gmeet_get_space:
+    description: "Retrieve a Google Meet space by resource name or meeting code. Accepts the full 'spaces/{id}', a bare id, or a meeting code like 'abc-defg-hij'. Returns the Space including meetingUri, meetingCode, config, and (if a conference is currently in progress) activeConference.conferenceRecord — the conference record id you can use to look up live participants."
+    parameters:
+      name:
+        description: "Space resource name ('spaces/{id}'), bare id, or meeting code ('abc-defg-hij'). Meeting codes are case-insensitive and hyphens are optional."
+        required: true
+  gmeet_update_space:
+    description: "Update a Meet space's configuration (PATCH). Only fields named in update_mask are replaced. Use to change accessType, moderation, moderationRestrictions, or entryPointAccess on an existing space. Requires the meetings.space.settings OAuth scope."
+    parameters:
+      name:
+        description: "Space resource name ('spaces/{id}') or bare id"
+        required: true
+      space:
+        description: 'Space object (JSON object or string) with the new field values. Only the fields listed in update_mask are applied. Example: {"config":{"accessType":"RESTRICTED","moderation":"ON"}}'
+        required: true
+      update_mask:
+        description: "Required FieldMask of paths to update (e.g. 'config.accessType,config.moderation'). Valid: config.accessType, config.entryPointAccess, config.moderation, config.moderationRestrictions.chatRestriction, config.moderationRestrictions.reactionRestriction, config.moderationRestrictions.presentRestriction, config.moderationRestrictions.defaultJoinAsViewerType."
+        required: true
+  gmeet_end_active_conference:
+    description: "End the conference currently in progress in a Meet space. All participants are disconnected. The space itself persists — anyone with the join link can start a new conference later. No-op (succeeds with empty body) if no conference is active."
+    parameters:
+      name:
+        description: "Space resource name ('spaces/{id}') or bare id"
+        required: true
+  gmeet_list_conference_records:
+    description: "List past Google Meet conferences (conference records) the user attended or owns. Use for queries like 'recent meetings', 'past calls', 'meetings I joined last week'. Returns each conference record with name, the space it was held in, startTime, and endTime. Supports an EBNF filter for date ranges, space, etc."
+    parameters:
+      filter:
+        description: "Optional EBNF filter expression. Examples: 'space.meeting_code = \"abc-mnop-xyz\"', 'space.name = \"spaces/{spaceId}\"', 'start_time>=\"2024-01-01T00:00:00Z\" AND end_time<=\"2024-02-01T00:00:00Z\"'."
+      page_size:
+        description: "Optional page size (1-50, default 10)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+  gmeet_get_conference_record:
+    description: "Retrieve a single past conference (conference record) by name. Use when you already have a conference record id from a previous list call or from a space's activeConference."
+    parameters:
+      name:
+        description: "Conference record resource name ('conferenceRecords/{id}') or bare id"
+        required: true
+  gmeet_list_participants:
+    description: "List participants who attended a past conference. Returns each participant with their identity (signedinUser.displayName + user.email when available; anonymous attendees are reported separately), earliestStartTime, and latestEndTime. Useful for 'who was in the meeting' / 'attendee list' queries."
+    parameters:
+      conference_record:
+        description: "Conference record resource name ('conferenceRecords/{id}') or bare id"
+        required: true
+      filter:
+        description: "Optional filter (e.g. 'earliest_start_time>=\"2024-01-01T00:00:00Z\"')"
+      page_size:
+        description: "Optional page size (1-100, default 100)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+  gmeet_list_recordings:
+    description: "List video recordings for a past conference. Each recording links to a Google Drive file (driveDestination.file) and has a state (FILE_GENERATED = ready to view, STARTED = still recording, ENDED = stopped). Most conferences have at most one recording."
+    parameters:
+      conference_record:
+        description: "Conference record resource name ('conferenceRecords/{id}') or bare id"
+        required: true
+      page_size:
+        description: "Optional page size (1-10, default 10)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+  gmeet_list_transcripts:
+    description: "List captions transcripts for a past conference. Each transcript is delivered as a Google Doc (docsDestination.document). Use gmeet_list_transcript_entries to retrieve individual spoken segments from a transcript without downloading the Doc."
+    parameters:
+      conference_record:
+        description: "Conference record resource name ('conferenceRecords/{id}') or bare id"
+        required: true
+      page_size:
+        description: "Optional page size (1-10, default 10)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"
+  gmeet_list_transcript_entries:
+    description: "List individual transcript entries (spoken segments) from a conference transcript. Each entry has the participant who spoke, the text they said, languageCode, startTime, and endTime — useful for searching what was said in a meeting without parsing the Doc. Order is chronological."
+    parameters:
+      transcript:
+        description: "Transcript resource name ('conferenceRecords/{cid}/transcripts/{tid}'). Get it from gmeet_list_transcripts."
+        required: true
+      page_size:
+        description: "Optional page size (1-1000, default 100)"
+      page_token:
+        description: "Optional pagination token from a previous response's nextPageToken"

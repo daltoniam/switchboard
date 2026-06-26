@@ -1,0 +1,361 @@
+version: 1
+tools:
+  vercel_list_teams:
+    description: "List Vercel teams and workspaces available to the token. Start here to discover team_id or team_slug for scoped project, deployment, domain, and environment workflows."
+    parameters:
+      limit:
+        description: "Results per page (default 20)"
+      next:
+        description: "Pagination cursor from previous response"
+      since:
+        description: "Lower timestamp cursor/filter in milliseconds"
+      until:
+        description: "Upper timestamp cursor/filter in milliseconds"
+  vercel_get_team:
+    description: "Get details for a Vercel team or workspace. Use after vercel_list_teams."
+    parameters:
+      team_id:
+        description: "Team identifier (team_...)"
+      team_slug:
+        description: "Team URL slug if team_id is not known"
+  vercel_list_team_members:
+    description: "List Vercel team members and roles. Use after vercel_list_teams to inspect workspace access."
+    parameters:
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      limit:
+        description: "Results per page (default 20)"
+      next:
+        description: "Pagination cursor from previous response"
+      search:
+        description: "Search by name, username, or email"
+      role:
+        description: "Filter by team role"
+  vercel_list_user_events:
+    description: "List Vercel audit and activity events such as deployments, login activity, and team changes."
+    parameters:
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      limit:
+        description: "Results per page (default 20)"
+      next:
+        description: "Pagination cursor from previous response"
+      since:
+        description: "Lower timestamp cursor/filter in milliseconds"
+      until:
+        description: "Upper timestamp cursor/filter in milliseconds"
+      types:
+        description: "Comma-separated event types"
+      project_ids:
+        description: "Comma-separated project IDs"
+      principal_id:
+        description: "User or team principal ID"
+      with_payload:
+        description: "Include event payload details (true/false)"
+  vercel_list_projects:
+    description: "List Vercel projects, apps, frontend sites, and repositories. Start here for deployment, environment variable, domain, and alias workflows."
+    parameters:
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      limit:
+        description: "Results per page (default 20)"
+      next:
+        description: "Pagination cursor from previous response"
+      search:
+        description: "Search projects by name"
+  vercel_get_project:
+    description: "Get Vercel project details including framework, repository linkage, targets, and configuration. Use after vercel_list_projects."
+    parameters:
+      id_or_name:
+        description: "Project ID or name"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_create_project:
+    description: "Create a Vercel project. Provide body with project settings such as name, framework, gitRepository, buildCommand, outputDirectory, and installCommand."
+    parameters:
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      body:
+        description: "Project create request object"
+        required: true
+  vercel_update_project:
+    description: "Update Vercel project settings. Use after vercel_get_project to modify build, framework, command, or environment configuration."
+    parameters:
+      id_or_name:
+        description: "Project ID or name"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      body:
+        description: "Project update request object"
+        required: true
+  vercel_delete_project:
+    description: "Delete a Vercel project. Use after vercel_list_projects or vercel_get_project when removing an app/site."
+    parameters:
+      id_or_name:
+        description: "Project ID or name"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_list_deployments:
+    description: "List Vercel deployments, deploy history, build status, preview URLs, production rollouts, and failed deploys. Start here for CI/CD deployment debugging."
+    parameters:
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      limit:
+        description: "Results per page (default 20)"
+      next:
+        description: "Pagination cursor from previous response"
+      since:
+        description: "Lower timestamp cursor/filter in milliseconds"
+      until:
+        description: "Upper timestamp cursor/filter in milliseconds"
+      project_id:
+        description: "Project ID filter"
+      app:
+        description: "Project/app name filter"
+      state:
+        description: "Deployment state: BUILDING, ERROR, READY, CANCELED, QUEUED, INITIALIZING"
+      target:
+        description: "Deployment target: production, preview, or staging"
+  vercel_get_deployment:
+    description: "Get details for a specific Vercel deployment including state, URL, git source, target, and build metadata. Use after vercel_list_deployments."
+    parameters:
+      deployment_id:
+        description: "Deployment ID (dpl_...)"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_create_deployment:
+    description: "Create or redeploy a Vercel deployment. Provide body with name, files, gitMetadata, projectSettings, target, deploymentId, or withLatestCommit."
+    parameters:
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      body:
+        description: "Deployment create request object"
+        required: true
+      force_new:
+        description: "Force new deployment instead of reusing build cache (true/false)"
+  vercel_cancel_deployment:
+    description: "Cancel a queued or building Vercel deployment. Use after vercel_list_deployments when a build is stuck or no longer needed."
+    parameters:
+      deployment_id:
+        description: "Deployment ID (dpl_...)"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_delete_deployment:
+    description: "Delete a Vercel deployment. Use after vercel_list_deployments to remove old preview or failed deployments."
+    parameters:
+      deployment_id:
+        description: "Deployment ID (dpl_...)"
+        required: true
+      url:
+        description: "Deployment URL alternative identifier"
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_list_deployment_events:
+    description: "List Vercel deployment build events and logs. Use after vercel_list_deployments or vercel_get_deployment to debug build errors and failed deploys."
+    parameters:
+      deployment_id_or_url:
+        description: "Deployment ID or URL"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      limit:
+        description: "Results per page (default 100)"
+      since:
+        description: "Lower timestamp cursor/filter in milliseconds"
+      until:
+        description: "Upper timestamp cursor/filter in milliseconds"
+      direction:
+        description: "Log direction: forward or backward"
+      name:
+        description: "Build step name filter"
+      status_code:
+        description: "HTTP status code filter"
+      builds:
+        description: "Include build logs/events (true/false)"
+  vercel_list_runtime_logs:
+    description: "List Vercel runtime logs for a deployment. Use after vercel_get_deployment to inspect function, edge, and request logs."
+    parameters:
+      project_id:
+        description: "Project ID"
+        required: true
+      deployment_id:
+        description: "Deployment ID"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      limit:
+        description: "Results per page (default 100)"
+      since:
+        description: "Lower timestamp cursor/filter in milliseconds"
+      until:
+        description: "Upper timestamp cursor/filter in milliseconds"
+      next:
+        description: "Pagination cursor from previous response"
+  vercel_list_project_env_vars:
+    description: "List Vercel project environment variables and secret metadata. Use after vercel_get_project to inspect production, preview, and development config."
+    parameters:
+      project_id_or_name:
+        description: "Project ID or name"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      limit:
+        description: "Results per page (default 20)"
+      next:
+        description: "Pagination cursor from previous response"
+      git_branch:
+        description: "Filter environment variables by git branch"
+      target:
+        description: "Filter by target: production, preview, or development"
+  vercel_create_project_env_vars:
+    description: "Create one or more Vercel project environment variables. Values are write-only; use after vercel_get_project."
+    parameters:
+      project_id_or_name:
+        description: "Project ID or name"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      envs:
+        description: "Array of env var objects with key, value, target, type, gitBranch, comment"
+        required: true
+      upsert:
+        description: "Update existing variables with same key/target (true/false)"
+  vercel_update_project_env_var:
+    description: "Update a Vercel project environment variable by ID. Use after vercel_list_project_env_vars."
+    parameters:
+      project_id_or_name:
+        description: "Project ID or name"
+        required: true
+      env_id:
+        description: "Environment variable ID"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+      body:
+        description: "Environment variable update object"
+        required: true
+  vercel_delete_project_env_var:
+    description: "Delete a Vercel project environment variable by ID. Use after vercel_list_project_env_vars."
+    parameters:
+      project_id_or_name:
+        description: "Project ID or name"
+        required: true
+      env_id:
+        description: "Environment variable ID"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_add_project_domain:
+    description: "Add a domain to a Vercel project. Use after vercel_get_project when configuring custom domains."
+    parameters:
+      project_id_or_name:
+        description: "Project ID or name"
+        required: true
+      domain:
+        description: "Domain name to add"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_remove_project_domain:
+    description: "Remove a domain from a Vercel project. Use after vercel_get_project or vercel_get_domain_config."
+    parameters:
+      project_id_or_name:
+        description: "Project ID or name"
+        required: true
+      domain:
+        description: "Domain name to remove"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_get_domain_config:
+    description: "Get Vercel domain DNS configuration and misconfiguration status. Use when debugging custom domain setup."
+    parameters:
+      domain:
+        description: "Domain name"
+        required: true
+      project_id_or_name:
+        description: "Optional project ID or name for stricter checks"
+      strict:
+        description: "Perform strict configuration check (true/false)"
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_list_deployment_aliases:
+    description: "List aliases assigned to a Vercel deployment. Use after vercel_get_deployment to inspect production and preview URLs."
+    parameters:
+      deployment_id:
+        description: "Deployment ID (dpl_...)"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_assign_deployment_alias:
+    description: "Assign a custom alias URL to a Vercel deployment. Use after vercel_get_deployment for manual alias promotion."
+    parameters:
+      deployment_id:
+        description: "Deployment ID (dpl_...)"
+        required: true
+      alias:
+        description: "Alias domain or URL to assign"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
+  vercel_delete_deployment_alias:
+    description: "Delete a Vercel deployment alias by alias ID. Use after vercel_list_deployment_aliases."
+    parameters:
+      alias_id:
+        description: "Alias ID"
+        required: true
+      team_id:
+        description: "Team identifier (defaults to configured team_id)"
+      team_slug:
+        description: "Team slug (defaults to configured team_slug when team_id is empty)"
