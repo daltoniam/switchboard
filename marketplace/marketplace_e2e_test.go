@@ -138,6 +138,12 @@ func (s *stubConfigService) SetWasmModules(modules []mcp.WasmModuleConfig) error
 	s.cfg.WasmModules = modules
 	return nil
 }
+func (s *stubConfigService) SetSpecImports(imports []mcp.SpecImportConfig) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cfg.SpecImports = imports
+	return nil
+}
 func (s *stubConfigService) EnabledIntegrations() []string           { return nil }
 func (s *stubConfigService) DefaultCredentialKeys(_ string) []string { return nil }
 
