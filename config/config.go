@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/specimport"
 )
 
 const (
@@ -432,6 +433,7 @@ func (m *manager) Load() error {
 func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 	cfg := defaultConfig()
 	cfg.WasmModules = file.WasmModules
+	cfg.SpecImports = file.SpecImports
 	cfg.Marketplace = file.Marketplace
 	cfg.SessionStore = file.SessionStore
 	cfg.ShowDollarEstimate = file.ShowDollarEstimate
@@ -542,6 +544,13 @@ func (m *manager) SetWasmModules(modules []mcp.WasmModuleConfig) error {
 	return m.saveLocked()
 }
 
+func (m *manager) SetSpecImports(imports []mcp.SpecImportConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cfg.SpecImports = imports
+	return m.saveLocked()
+}
+
 func (m *manager) EnabledIntegrations() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -549,6 +558,14 @@ func (m *manager) EnabledIntegrations() []string {
 	for name, ic := range m.cfg.Integrations {
 		if ic.Enabled {
 			names = append(names, name)
+		}
+	}
+	// Spec imports are registered under their sanitized name and must be
+	// reported here so search indexing and execute resolution can find them —
+	// they live in a separate config list from built-in integrations.
+	for _, si := range m.cfg.SpecImports {
+		if si.Enabled {
+			names = append(names, specimport.SanitizedName(si.Name))
 		}
 	}
 	return names

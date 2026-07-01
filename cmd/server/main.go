@@ -69,6 +69,7 @@ import (
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
 	"github.com/daltoniam/switchboard/server"
+	"github.com/daltoniam/switchboard/specimport"
 	"github.com/daltoniam/switchboard/version"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web"
@@ -295,6 +296,16 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		log.Fatalf("Failed to register switchboard integration: %v", err)
 	}
 
+	// Register bring-your-own-spec integrations declared in config, and keep
+	// them live-reloadable: the syncer reconciles the registry against
+	// Config.SpecImports at startup and again on every config change.
+	specSyncer := specimport.NewSyncer(reg)
+	if res := specSyncer.Sync(cfgMgr.Get().SpecImports); len(res.Errors) > 0 {
+		for _, err := range res.Errors {
+			log.Printf("spec import: %v", err)
+		}
+	}
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
@@ -462,7 +473,17 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	cancelAutoUpdate := mp.StartAutoUpdateLoop(ctx)
 	defer cancelAutoUpdate()
 
-	ws := web.New(services, port, mp, wasmLoader, web.WithConfigChangeHook(srv.RefreshSearchIndex))
+	// On any config change, reconcile spec imports first (registry membership
+	// may change), then refresh the search index so new/removed tools surface.
+	onConfigChange := func() {
+		if res := specSyncer.Sync(cfgMgr.Get().SpecImports); len(res.Errors) > 0 {
+			for _, err := range res.Errors {
+				log.Printf("spec import: %v", err)
+			}
+		}
+		srv.RefreshSearchIndex()
+	}
+	ws := web.New(services, port, mp, wasmLoader, web.WithConfigChangeHook(onConfigChange))
 	mux.Handle("/", ws.Handler())
 
 	addr := fmt.Sprintf(":%d", port)

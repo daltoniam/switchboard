@@ -59,6 +59,26 @@ func TestLoad_ParsesExistingFile(t *testing.T) {
 	assert.Equal(t, "abc", m.cfg.Integrations["github"].Credentials["token"])
 }
 
+func TestLoad_PreservesSpecImports(t *testing.T) {
+	m, path := newTestManager(t)
+
+	cfg := &mcp.Config{
+		SpecImports: []mcp.SpecImportConfig{
+			{Name: "Demo API", Kind: "openapi", Spec: "{}", Endpoint: "https://ex.com", Enabled: true},
+		},
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
+	require.NoError(t, os.WriteFile(path, data, 0600))
+
+	require.NoError(t, m.Load())
+	require.Len(t, m.cfg.SpecImports, 1)
+	assert.Equal(t, "Demo API", m.cfg.SpecImports[0].Name)
+	assert.Equal(t, "https://ex.com", m.cfg.SpecImports[0].Endpoint)
+	assert.True(t, m.cfg.SpecImports[0].Enabled)
+}
+
 func TestLoad_BackfillsMissingIntegrations(t *testing.T) {
 	m, path := newTestManager(t)
 
@@ -248,6 +268,21 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 	enabled := m.EnabledIntegrations()
 	assert.Len(t, enabled, 2)
 	assert.ElementsMatch(t, []string{"github", "datadog"}, enabled)
+}
+
+func TestEnabledIntegrations_SpecImports(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	err := m.SetSpecImports([]mcp.SpecImportConfig{
+		{Name: "Demo API", Enabled: true},
+		{Name: "Disabled API", Enabled: false},
+	})
+	require.NoError(t, err)
+
+	enabled := m.EnabledIntegrations()
+	assert.Contains(t, enabled, "demo_api")
+	assert.NotContains(t, enabled, "disabled_api")
 }
 
 func TestDefaultConfig(t *testing.T) {
