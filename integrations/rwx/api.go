@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path"
@@ -100,11 +99,24 @@ func rwxAPIError(resp *http.Response) error {
 	return err
 }
 
+type rwxNestedStatus struct {
+	Result        string `json:"result"`
+	Execution     string `json:"execution"`
+	AbortedStatus string `json:"aborted_status"`
+}
+
 type rwxStatusResult struct {
-	RunID                     string `json:"run_id"`
-	RunIDCamel                string `json:"RunID"`
-	TaskID                    string `json:"task_id"`
-	TaskIDCamel               string `json:"TaskID"`
+	RunID       string          `json:"run_id"`
+	RunIDCamel  string          `json:"RunID"`
+	TaskID      string          `json:"task_id"`
+	TaskIDCamel string          `json:"TaskID"`
+	RunStatus   rwxNestedStatus `json:"run_status"`
+	TaskStatus  rwxNestedStatus `json:"task_status"`
+	Polling     struct {
+		Completed bool `json:"completed"`
+	} `json:"polling"`
+	// Legacy flat fields — retained for backward compatibility with any
+	// endpoint or fixture that still returns the un-nested shape.
 	ExecutionStatus           string `json:"execution_status"`
 	ExecutionStatusCamel      string `json:"ExecutionStatus"`
 	ResultStatus              string `json:"result_status"`
@@ -132,6 +144,12 @@ func (s rwxStatusResult) taskID() string {
 }
 
 func (s rwxStatusResult) executionStatus() string {
+	if s.TaskStatus.Execution != "" {
+		return s.TaskStatus.Execution
+	}
+	if s.RunStatus.Execution != "" {
+		return s.RunStatus.Execution
+	}
 	if s.ExecutionStatus != "" {
 		return s.ExecutionStatus
 	}
@@ -139,6 +157,12 @@ func (s rwxStatusResult) executionStatus() string {
 }
 
 func (s rwxStatusResult) resultStatus() string {
+	if s.TaskStatus.Result != "" {
+		return s.TaskStatus.Result
+	}
+	if s.RunStatus.Result != "" {
+		return s.RunStatus.Result
+	}
 	if s.ResultStatus != "" {
 		return s.ResultStatus
 	}
@@ -146,7 +170,17 @@ func (s rwxStatusResult) resultStatus() string {
 }
 
 func (s rwxStatusResult) completed() bool {
-	return s.Completed || s.CompletedCamel || s.executionStatus() == "finished"
+	return s.Polling.Completed || s.Completed || s.CompletedCamel || s.executionStatus() == "finished"
+}
+
+func (s rwxStatusResult) abortedSubStatus() string {
+	if s.TaskStatus.AbortedStatus != "" && s.TaskStatus.AbortedStatus != "not_applicable" {
+		return s.TaskStatus.AbortedStatus
+	}
+	if s.RunStatus.AbortedStatus != "" && s.RunStatus.AbortedStatus != "not_applicable" {
+		return s.RunStatus.AbortedStatus
+	}
+	return s.ExecutionAbortedSubStatus
 }
 
 type rwxLogDownload struct {
@@ -205,26 +239,16 @@ func (r *rwx) downloadArtifact(ctx context.Context, artifact rwxArtifactDownload
 }
 
 func (r *rwx) downloadLogArchive(ctx context.Context, request rwxLogDownload) ([]byte, error) {
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	if err := writer.WriteField("token", request.Token); err != nil {
-		return nil, err
-	}
-	if err := writer.WriteField("filename", request.Filename); err != nil {
-		return nil, err
-	}
-	if err := writer.WriteField("contents", request.Contents); err != nil {
-		return nil, err
-	}
-	if err := writer.Close(); err != nil {
-		return nil, err
-	}
+	form := url.Values{}
+	form.Set("token", request.Token)
+	form.Set("filename", request.Filename)
+	form.Set("contents", request.Contents)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, request.URL, &body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, request.URL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/octet-stream")
 
 	resp, err := r.client.Do(req)

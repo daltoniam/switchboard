@@ -398,7 +398,7 @@ func getRunResults(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 	}
 	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
 	status := normalizeStatus(statusResult.resultStatus())
-	if !statusResult.completed() && status == "unknown" {
+	if !statusResult.completed() && (status == "unknown" || status == "no_result") {
 		status = "running"
 	}
 
@@ -431,8 +431,8 @@ func getRunResults(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 	if statusResult.executionStatus() != "" {
 		resp["execution_status"] = statusResult.executionStatus()
 	}
-	if statusResult.ExecutionAbortedSubStatus != "" {
-		resp["execution_aborted_sub_status"] = statusResult.ExecutionAbortedSubStatus
+	if statusResult.abortedSubStatus() != "" {
+		resp["execution_aborted_sub_status"] = statusResult.abortedSubStatus()
 	}
 
 	runDetail, detailErr := fetchRunDetail(ctx, r, id)
@@ -497,15 +497,15 @@ func parseResultsPrompt(prompt string) (tasks []failedTask, failedTests []string
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		if strings.HasPrefix(trimmed, "# Failed tests:") {
+		if strings.HasPrefix(trimmed, "# Failed test") {
 			section = "tests"
 			continue
 		}
-		if strings.HasPrefix(trimmed, "# Failed tasks:") {
+		if strings.HasPrefix(trimmed, "# Failed task") {
 			section = "tasks"
 			continue
 		}
-		if strings.HasPrefix(trimmed, "# Other problems:") {
+		if strings.HasPrefix(trimmed, "# Other problem") {
 			section = "problems"
 			continue
 		}
