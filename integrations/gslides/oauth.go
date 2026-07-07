@@ -15,11 +15,6 @@ const (
 	// adapter. Each Google service keys its in-progress OAuth flow by
 	// this name so concurrent flows don't collide.
 	integrationName = "gslides"
-
-	// gslidesScope grants full read/write access to the user's Google
-	// Slides presentations. Drive scope is intentionally NOT requested
-	// here — the gdrive integration owns that surface.
-	gslidesScope = "https://www.googleapis.com/auth/presentations"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gslides/oauth/start.
@@ -36,7 +31,7 @@ func StartGslidesOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartR
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{gslidesScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 

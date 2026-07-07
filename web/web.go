@@ -10,6 +10,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/googleoauth"
 	"github.com/daltoniam/switchboard/integrations/gcal"
 	"github.com/daltoniam/switchboard/integrations/gchat"
 	"github.com/daltoniam/switchboard/integrations/gdocs"
@@ -102,6 +103,11 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/sentry/oauth/poll", w.handleSentryOAuthPoll)
 	mux.HandleFunc("POST /api/sentry/oauth/save", w.handleSentryOAuthSave)
 	mux.HandleFunc("POST /api/sentry/save-token", w.handleSentrySaveToken)
+
+	mux.HandleFunc("GET /integrations/google/setup", w.handleGoogleSetup)
+	mux.HandleFunc("POST /api/google/save-oauth-credentials", w.handleGoogleSaveOAuthCredentials)
+	mux.HandleFunc("POST /api/google/oauth/start", w.handleGoogleOAuthStart)
+	mux.HandleFunc("GET /api/google/oauth/callback", w.handleGoogleOAuthCallback)
 
 	mux.HandleFunc("GET /integrations/gmail/setup", w.handleGmailSetup)
 	mux.HandleFunc("POST /api/gmail/oauth/start", w.handleGmailOAuthStart)
@@ -297,7 +303,15 @@ func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Reque
 	summaries := w.integrationSummaries(r.Context())
 
 	var errored, connected, disabled []pages.IntegrationSummary
+	var googleSummary pages.GoogleGroupSummary
 	for _, s := range summaries {
+		if googleWorkspaceServices[s.Name] {
+			googleSummary.TotalCount++
+			if s.Enabled && s.Healthy {
+				googleSummary.ConnectedCount++
+			}
+			continue
+		}
 		if !s.Enabled {
 			disabled = append(disabled, s)
 		} else if s.Healthy {
@@ -312,11 +326,23 @@ func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Reque
 		Errored:   errored,
 		Connected: connected,
 		Disabled:  disabled,
+		Google:    googleSummary,
 	}
 	pages.IntegrationsList(page, data).Render(r.Context(), rw)
 }
 
 const notionExtractionSnippet = `(function(){var c=document.cookie.split(';').find(function(c){return c.trim().startsWith('token_v2=')});if(!c){alert('token_v2 cookie not found. Make sure you are on notion.so and signed in.');return;}var t=c.split('=').slice(1).join('=').trim();prompt('Copy this token_v2 value:',t);})()`
+
+// googleWorkspaceServices is the set of integration names managed by the
+// unified Google Workspace setup page. Derived from googleoauth.Services() so
+// it stays in sync with the single source of truth for Google scopes.
+var googleWorkspaceServices = func() map[string]bool {
+	m := make(map[string]bool)
+	for _, s := range googleoauth.Services() {
+		m[s.Name] = true
+	}
+	return m
+}()
 
 var setupIntegrations = map[string]bool{
 	"slack":      true,
@@ -3015,6 +3041,196 @@ func (w *WebServer) handleGmeetSaveOAuthCredentials(rw http.ResponseWriter, r *h
 	_ = w.services.Config.SetIntegration("gmeet", ic)
 
 	http.Redirect(rw, r, "/integrations/gmeet/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Google.", http.StatusSeeOther)
+}
+
+// --- Unified Google Workspace setup ---------------------------------------
+//
+// One OAuth client, one consent screen, N services. The client_id/secret is
+// written to every Google service's config; a single token is fanned out to
+// each service the user authorizes so the existing per-adapter refresh path
+// works unchanged.
+
+const googleSetupPath = "/integrations/google/setup"
+
+func googleFlash(result, errMsg string) string {
+	if errMsg != "" {
+		return googleSetupPath + "?error=" + strings.ReplaceAll(errMsg, " ", "+")
+	}
+	return googleSetupPath + "?result=" + strings.ReplaceAll(result, " ", "+")
+}
+
+func (w *WebServer) handleGoogleSetup(rw http.ResponseWriter, r *http.Request) {
+	svcDefs := googleoauth.Services()
+	var hasOAuth bool
+	var clientID string
+	statuses := make([]pages.GoogleServiceStatus, 0, len(svcDefs))
+	connected := 0
+
+	for _, def := range svcDefs {
+		ic, exists := w.services.Config.GetIntegration(def.Name)
+		hasToken := exists && ic.Credentials["access_token"] != ""
+		if exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != "" {
+			hasOAuth = true
+			if clientID == "" {
+				clientID = ic.Credentials[mcp.CredKeyClientID]
+			}
+		}
+
+		var healthy bool
+		if hasToken {
+			if integration, ok := w.services.Registry.Get(def.Name); ok {
+				if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+					healthy = integration.Healthy(r.Context())
+				}
+			}
+		}
+		if hasToken {
+			connected++
+		}
+		statuses = append(statuses, pages.GoogleServiceStatus{
+			Name:        def.Name,
+			DisplayName: def.DisplayName,
+			Connected:   hasToken,
+			Healthy:     healthy,
+		})
+	}
+
+	data := pages.GoogleSetupData{
+		HasOAuth:       hasOAuth,
+		ClientID:       clientID,
+		RedirectURI:    fmt.Sprintf("http://localhost:%d/api/google/oauth/callback", w.port),
+		Services:       statuses,
+		ConnectedCount: connected,
+		TotalCount:     len(svcDefs),
+	}
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	page := w.pageData(r, "Google Workspace Setup", "/integrations")
+	pages.GoogleSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGoogleSaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, googleFlash("", "Invalid form data"), http.StatusSeeOther)
+		return
+	}
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, googleFlash("", "Client ID and Client Secret are required"), http.StatusSeeOther)
+		return
+	}
+	for _, def := range googleoauth.Services() {
+		ic, _ := w.services.Config.GetIntegration(def.Name)
+		if ic == nil {
+			ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+		}
+		ic.Credentials[mcp.CredKeyClientID] = clientID
+		ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+		_ = w.services.Config.SetIntegration(def.Name, ic)
+	}
+	http.Redirect(rw, r, googleFlash("OAuth credentials saved. Choose services and sign in with Google.", ""), http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGoogleOAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	var body struct {
+		Services []string `json:"services"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Services) == 0 {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Select at least one service to connect"})
+		return
+	}
+
+	// Client credentials are shared across all Google services; read them
+	// from the first selected service that has them configured.
+	var clientID, clientSecret string
+	for _, name := range body.Services {
+		if ic, ok := w.services.Config.GetIntegration(name); ok {
+			if ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != "" {
+				clientID = ic.Credentials[mcp.CredKeyClientID]
+				clientSecret = ic.Credentials[mcp.CredKeyClientSecret]
+				break
+			}
+		}
+	}
+	if clientID == "" || clientSecret == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Google OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/google/oauth/callback", w.port)
+	result, err := googleoauth.StartGroup(clientID, clientSecret, redirectURI, body.Services)
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleGoogleOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, googleFlash("", errMsg), http.StatusSeeOther)
+		return
+	}
+
+	if err := googleoauth.HandleGroupCallback(code, state); err != nil {
+		http.Redirect(rw, r, googleFlash("", err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	result := googleoauth.PollGroup()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, googleFlash("", "Failed to get access token"), http.StatusSeeOther)
+		return
+	}
+
+	// Only enable services whose scopes Google actually granted. If Google
+	// did not echo a scope string, fall back to enabling all services the
+	// flow requested (older token responses omit scope on refresh).
+	requested := make([]string, 0, len(googleoauth.Services()))
+	for _, def := range googleoauth.Services() {
+		requested = append(requested, def.Name)
+	}
+	granted := googleoauth.GrantedServices(requested, result.Scope)
+	if len(granted) == 0 && result.Scope == "" {
+		granted = requested
+	}
+	if len(granted) == 0 {
+		http.Redirect(rw, r, googleFlash("", "Google did not grant access to any selected service"), http.StatusSeeOther)
+		return
+	}
+
+	for _, name := range granted {
+		ic, _ := w.services.Config.GetIntegration(name)
+		if ic == nil {
+			ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+		}
+		ic.Enabled = true
+		ic.Credentials["access_token"] = result.AccessToken
+		if result.RefreshToken != "" {
+			ic.Credentials["refresh_token"] = result.RefreshToken
+		}
+		if result.Scope != "" {
+			ic.Credentials["scope"] = result.Scope
+		}
+		ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+		_ = w.services.Config.SetIntegration(name, ic)
+	}
+
+	http.Redirect(rw, r, googleFlash(fmt.Sprintf("Connected %d Google service(s) via OAuth", len(granted)), ""), http.StatusSeeOther)
 }
 
 func (w *WebServer) handleMetricsAPI(rw http.ResponseWriter, r *http.Request) {

@@ -15,9 +15,6 @@ const (
 	// adapter. It's used to key the in-progress OAuth flow so flows for
 	// different Google services don't collide.
 	integrationName = "gmail"
-
-	// gmailScope grants full read/write/send access to the user's mail.
-	gmailScope = "https://mail.google.com/"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gmail/oauth/start.
@@ -34,7 +31,7 @@ func StartGmailOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartRes
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{gmailScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 

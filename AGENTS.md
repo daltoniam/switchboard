@@ -76,6 +76,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | [docs/notion-v3-transactions.md](docs/notion-v3-transactions.md) | Debugging Notion v3 400 errors, transaction patterns, ID disambiguation |
 | [docs/markdown-rendering.md](docs/markdown-rendering.md) | Adding markdown rendering to an integration (decision framework, shared utilities, implementation checklist) |
 | [docs/web-ui.md](docs/web-ui.md) | Modifying the web config UI |
+| [docs/google-setup.md](docs/google-setup.md) | Unified Google Workspace OAuth setup (BYO client, token fan-out) |
 
 ## Skills
 

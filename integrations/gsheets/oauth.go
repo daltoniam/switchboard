@@ -15,11 +15,6 @@ const (
 	// adapter. Each Google service keys its in-progress OAuth flow by
 	// this name so concurrent flows don't collide.
 	integrationName = "gsheets"
-
-	// gsheetsScope grants full read/write access to the user's Google
-	// Sheets spreadsheets. Drive scope is intentionally NOT requested
-	// here — the gdrive integration owns that surface.
-	gsheetsScope = "https://www.googleapis.com/auth/spreadsheets"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gsheets/oauth/start.
@@ -36,7 +31,7 @@ func StartGsheetsOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartR
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{gsheetsScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 

@@ -15,14 +15,6 @@ const (
 	// adapter. Each Google service keys its in-progress OAuth flow by
 	// this name so concurrent flows don't collide.
 	integrationName = "gtasks"
-
-	// gtasksScope grants full read/write access to the user's Google
-	// Tasks resources (tasklists and tasks). The Tasks API does not
-	// expose a separate read-only scope at the per-service level —
-	// /auth/tasks.readonly exists but is broader than needed; we use
-	// the read/write scope so the same token can power both list and
-	// mutation tools.
-	gtasksScope = "https://www.googleapis.com/auth/tasks"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gtasks/oauth/start.
@@ -39,7 +31,7 @@ func StartGtasksOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartRe
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{gtasksScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 
