@@ -431,6 +431,7 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("slack_schedule_message"):         scheduleMessage,
 	mcp.ToolName("slack_list_users"):               listUsers,
 	mcp.ToolName("slack_get_user_info"):            getUserInfo,
+	mcp.ToolName("slack_lookup_user_by_email"):     lookupUserByEmail,
 	mcp.ToolName("slack_get_user_presence"):        getUserPresence,
 	mcp.ToolName("slack_list_user_groups"):         listUserGroups,
 	mcp.ToolName("slack_get_user_group"):           getUserGroup,

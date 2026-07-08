@@ -84,6 +84,27 @@ func getUserPresence(ctx context.Context, s *slackIntegration, args map[string]a
 	return mcp.JSONResult(map[string]any{"user_id": userID, "presence": presence.Presence, "online": presence.Online})
 }
 
+func lookupUserByEmail(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
+	client, err := s.getClientForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	r := mcp.NewArgs(args)
+	email := r.Str("email")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	user, err := client.GetUserByEmailContext(ctx, email)
+	if err != nil {
+		return errResult(err)
+	}
+	return mcp.JSONResult(map[string]any{
+		"id": user.ID, "name": user.Name, "real_name": user.RealName, "display_name": user.Profile.DisplayName,
+		"email": user.Profile.Email, "mention": "<@" + user.ID + ">", "timezone": user.TZ,
+		"is_admin": user.IsAdmin, "is_bot": user.IsBot, "deleted": user.Deleted,
+	})
+}
+
 func listUserGroups(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
