@@ -293,6 +293,15 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"user_id"},
 	},
 	{
+		Name:        mcp.ToolName("slack_lookup_user_by_email"),
+		Description: "Find a Slack user by their email address (Slack users.lookupByEmail). Returns the user's Slack ID plus a ready-to-use `mention` string (`<@U…>`) for tagging them in a message. Use this to map an internal/admin user's email to a Slack mention without paging the whole workspace. Requires the bot token to have the `users:read.email` scope. Returns an error if no user with that email exists in the workspace.",
+		Parameters: map[string]string{
+			"email":   "The user's email address to look up",
+			"team_id": teamIDDesc,
+		},
+		Required: []string{"email"},
+	},
+	{
 		Name:        mcp.ToolName("slack_get_user_presence"),
 		Description: "Get a user's current presence status (active/away). Use after list_users to check if someone is online.",
 		Parameters: map[string]string{
