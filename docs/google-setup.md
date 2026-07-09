@@ -38,6 +38,15 @@ Enable an API for each service you plan to connect. In the console go to
 | Contacts  | People API                        |
 | Meet      | Google Meet API                   |
 
+> **⚠️ Enabling an API is separate from granting a scope.** Signing in and
+> approving the consent screen only grants your token the *scopes*; it does
+> **not** enable the APIs. If an API is not enabled in your project, calls to it
+> return `403 "<Service> API has not been used in project ... before or it is
+> disabled"` — even though your token is perfectly valid. On the setup page
+> these services show a yellow **"Enable API"** badge (not "Invalid token").
+> Enable the API from the Library, wait a minute for it to propagate, then
+> reload the page.
+
 You can enable more later; just re-run the sign-in and Switchboard will request
 the additional scopes incrementally (it sends `include_granted_scopes=true`, so
 previously granted access is preserved).
@@ -131,6 +140,11 @@ adapter refreshes its own copy of the token and persists the rotated value.
 
 ## Troubleshooting
 
+- **Yellow "Enable API" badge** — your token is valid but the service's API is
+  not enabled in your Cloud project. Enable it from **APIs & Services →
+  Library** (see step 2), wait ~1 minute, then reload the page. This is the most
+  common first-run issue: granting scopes on the consent screen does not enable
+  the APIs.
 - **"Invalid token" badge after ~7 days** — your consent screen is in Testing
   status. Sign in again, or publish your app (see step 3).
 - **`redirect_uri_mismatch`** — the redirect URI registered in the console must
