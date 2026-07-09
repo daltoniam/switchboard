@@ -349,6 +349,29 @@ func TestEnvOverrides_OverridesEmptyCredentials(t *testing.T) {
 	assert.Equal(t, "dd_env_app", m.cfg.Integrations["datadog"].Credentials["app_key"])
 }
 
+func TestEnvOverrides_GoogleSharedClientFansOut(t *testing.T) {
+	m, _ := newTestManager(t)
+	m.envLookup = func(key string) string {
+		switch key {
+		case "GOOGLE_OAUTH_CLIENT_ID":
+			return "shared-client-id"
+		case "GOOGLE_OAUTH_CLIENT_SECRET":
+			return "shared-secret"
+		default:
+			return ""
+		}
+	}
+
+	require.NoError(t, m.Load())
+
+	for _, name := range googleWorkspaceIntegrations {
+		ic := m.cfg.Integrations[name]
+		require.NotNil(t, ic, "integration %q missing", name)
+		assert.Equal(t, "shared-client-id", ic.Credentials[mcp.CredKeyClientID], "client_id for %q", name)
+		assert.Equal(t, "shared-secret", ic.Credentials[mcp.CredKeyClientSecret], "client_secret for %q", name)
+	}
+}
+
 func TestEnvOverrides_OverridesExistingValues(t *testing.T) {
 	m, path := newTestManager(t)
 
@@ -529,7 +552,13 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_TEAM_ID", m["vercel"]["team_id"])
 	assert.Equal(t, "VERCEL_TEAM_SLUG", m["vercel"]["team_slug"])
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
-	assert.Len(t, m, 28)
+	// 28 base integrations + 11 Google Workspace services sharing the
+	// GOOGLE_OAUTH_CLIENT_ID/SECRET env vars.
+	assert.Len(t, m, 39)
+	for _, name := range googleWorkspaceIntegrations {
+		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
+		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
+	}
 }
 
 func TestToolGlobs_PersistThroughSaveLoad(t *testing.T) {

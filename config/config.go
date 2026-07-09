@@ -163,6 +163,25 @@ var envMapping = map[string]map[string]string{
 	},
 }
 
+// googleWorkspaceIntegrations lists the integrations that share one Google
+// Cloud OAuth client. The shared GOOGLE_OAUTH_CLIENT_ID / _SECRET env vars are
+// fanned out to each of them so a headless/Docker deployment can configure the
+// whole Google Workspace suite with two variables. Env names match the hosted
+// Switchboard product for parity.
+var googleWorkspaceIntegrations = []string{
+	"gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides",
+	"gforms", "gtasks", "gchat", "gpeople", "gmeet",
+}
+
+func init() {
+	for _, name := range googleWorkspaceIntegrations {
+		envMapping[name] = map[string]string{
+			mcp.CredKeyClientID:     "GOOGLE_OAUTH_CLIENT_ID",
+			mcp.CredKeyClientSecret: "GOOGLE_OAUTH_CLIENT_SECRET",
+		}
+	}
+}
+
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
 func EnvMapping() map[string]map[string]string {
 	return envMapping

@@ -16,15 +16,6 @@ const (
 	// adapter. Each Google service keys its in-progress OAuth flow by
 	// this name so concurrent flows don't collide.
 	integrationName = "gchat"
-
-	// gchatSpacesScope grants read-only access to the Chat spaces the
-	// user belongs to (rooms, group DMs, direct messages). Needed to
-	// enumerate spaces and list members.
-	gchatSpacesScope = "https://www.googleapis.com/auth/chat.spaces.readonly"
-
-	// gchatMessagesScope grants read/write access to messages within
-	// spaces the user belongs to. Covers list/get/create/update/delete.
-	gchatMessagesScope = "https://www.googleapis.com/auth/chat.messages"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gchat/oauth/start.
@@ -40,7 +31,7 @@ func StartGchatOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartRes
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{gchatSpacesScope, gchatMessagesScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 

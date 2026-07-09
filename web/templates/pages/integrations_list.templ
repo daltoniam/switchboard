@@ -12,6 +12,35 @@ type IntegrationsListData struct {
 	Errored   []IntegrationSummary
 	Connected []IntegrationSummary
 	Disabled  []IntegrationSummary
+	// Google summarizes the unified Google Workspace group shown as a single
+	// banner card linking to the consolidated setup page.
+	Google GoogleGroupSummary
+}
+
+// GoogleGroupSummary describes the collapsed Google Workspace group card.
+type GoogleGroupSummary struct {
+	ConnectedCount int
+	TotalCount     int
+}
+
+func googleGroupLabel(g GoogleGroupSummary) string {
+	if g.TotalCount > 0 && g.ConnectedCount == g.TotalCount {
+		return "All connected"
+	}
+	if g.ConnectedCount > 0 {
+		return fmt.Sprintf("%d of %d connected", g.ConnectedCount, g.TotalCount)
+	}
+	return "Not connected"
+}
+
+func googleGroupBadge(g GoogleGroupSummary) string {
+	if g.TotalCount > 0 && g.ConnectedCount == g.TotalCount {
+		return "green"
+	}
+	if g.ConnectedCount > 0 {
+		return "yellow"
+	}
+	return "muted"
 }
 
 func sortByName(items []IntegrationSummary) []IntegrationSummary {
@@ -35,6 +64,22 @@ templ IntegrationsList(page layouts.PageData, data IntegrationsListData) {
 				<button type="submit" class="btn btn-outline btn-sm">Re-check all</button>
 			</form>
 		</div>
+		if data.Google.TotalCount > 0 {
+			<section class="metrics-section">
+				<h2 class="section-title">Google Workspace</h2>
+				<div class="integration-grid">
+					<a href="/integrations/google/setup" class="integration-card">
+						<div class="integration-card-header">
+							<span class="name">Google Workspace</span>
+						</div>
+						<div class="integration-card-footer">
+							@components.Badge(googleGroupLabel(data.Google), googleGroupBadge(data.Google))
+							<span class="integration-card-tools">{ fmt.Sprintf("%d services", data.Google.TotalCount) }</span>
+						</div>
+					</a>
+				</div>
+			</section>
+		}
 		if len(data.Errored) > 0 {
 			<section class="metrics-section">
 				<h2 class="section-title" style="color: var(--yellow);">Needs Attention</h2>
