@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/googleoauth"
 	"github.com/daltoniam/switchboard/marketplace"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/pages"
@@ -801,4 +802,101 @@ func TestClickHouseConnection_DecodesSnakeCase(t *testing.T) {
 	assert.Equal(t, "warehouse", conns[0].Alias)
 	assert.Equal(t, "warehouse.example.com", conns[0].Host)
 	assert.Equal(t, "false", conns[0].SkipVerify)
+}
+
+func TestGoogleSetup_Renders(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("GET", "/integrations/google/setup", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Google Workspace")
+}
+
+func TestGoogleSaveOAuthCredentials_FansOutToAllServices(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	handler := ws.Handler()
+
+	form := strings.NewReader("client_id=cid.apps.googleusercontent.com&client_secret=secret123")
+	req := httptest.NewRequest("POST", "/api/google/save-oauth-credentials", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "/integrations/google/setup")
+	assert.Contains(t, rr.Header().Get("Location"), "result=")
+
+	for _, def := range googleoauth.Services() {
+		ic, ok := cfgService.GetIntegration(def.Name)
+		require.Truef(t, ok, "expected %s to be configured", def.Name)
+		assert.Equal(t, "cid.apps.googleusercontent.com", ic.Credentials[mcp.CredKeyClientID])
+		assert.Equal(t, "secret123", ic.Credentials[mcp.CredKeyClientSecret])
+	}
+}
+
+func TestGoogleSaveOAuthCredentials_RequiresBothFields(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	handler := ws.Handler()
+
+	form := strings.NewReader("client_id=cid&client_secret=")
+	req := httptest.NewRequest("POST", "/api/google/save-oauth-credentials", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error=")
+
+	_, ok := cfgService.GetIntegration("gmail")
+	assert.False(t, ok, "no service should be configured when a field is missing")
+}
+
+func TestGoogleOAuthStart_RequiresServices(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("POST", "/api/google/oauth/start", strings.NewReader(`{"services":[]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "error")
+
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	assert.NotEmpty(t, resp["error"])
+}
+
+func TestGoogleOAuthStart_RequiresConfiguredClient(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("POST", "/api/google/oauth/start", strings.NewReader(`{"services":["gmail"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	assert.Contains(t, resp["error"], "client_id")
+}
+
+func TestGoogleOAuthCallback_NoCodeRedirectsWithError(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("GET", "/api/google/oauth/callback?error=access_denied", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "/integrations/google/setup")
+	assert.Contains(t, rr.Header().Get("Location"), "error=")
 }
