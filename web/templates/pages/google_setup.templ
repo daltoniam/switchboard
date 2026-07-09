@@ -17,6 +17,10 @@ type GoogleServiceStatus struct {
 	DisplayName string
 	Connected   bool
 	Healthy     bool
+	// APIDisabled is true when the token is valid but the service's Google
+	// API call still fails — almost always because the API has not been
+	// enabled in the Google Cloud project.
+	APIDisabled bool
 }
 
 // GoogleSetupData drives the unified Google Workspace setup page.
@@ -33,6 +37,9 @@ type GoogleSetupData struct {
 	// ConnectedCount / TotalCount summarize progress in the header.
 	ConnectedCount int
 	TotalCount     int
+	// AnyAPIDisabled is true when at least one connected service has a valid
+	// token but its Google API is not enabled in the Cloud project.
+	AnyAPIDisabled bool
 	FlashResult    string
 	FlashError     string
 }
@@ -87,6 +94,15 @@ templ GoogleSetup(page layouts.PageData, data GoogleSetupData) {
 					Select which Google services to authorize, then sign in once. You'll be
 					redirected to Google to grant access, then sent back automatically.
 				</p>
+				if data.AnyAPIDisabled {
+					<div class="flash" style="background: var(--bg); border: 1px solid var(--yellow); color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1rem;">
+						Your token is valid, but some services show <strong>Enable API</strong>. That
+						means the matching API is not turned on in your Google Cloud project. Open
+						<strong>APIs &amp; Services → Library</strong>, enable each service's API
+						(Gmail API, Google Calendar API, Google Drive API, etc.), wait a minute, then
+						reload this page.
+					</div>
+				}
 				<div id="oauth-container">
 					<div style="display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem;">
 						for _, svc := range data.Services {
@@ -96,6 +112,8 @@ templ GoogleSetup(page layouts.PageData, data GoogleSetupData) {
 								if svc.Connected {
 									if svc.Healthy {
 										@components.Badge("Connected", "green")
+									} else if svc.APIDisabled {
+										@components.Badge("Enable API", "yellow")
 									} else {
 										@components.Badge("Invalid token", "red")
 									}

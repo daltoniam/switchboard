@@ -3063,10 +3063,17 @@ func (w *WebServer) handleGoogleSetup(rw http.ResponseWriter, r *http.Request) {
 	svcDefs := googleoauth.Services()
 	var hasOAuth bool
 	var clientID string
+	var sharedToken string
 	statuses := make([]pages.GoogleServiceStatus, 0, len(svcDefs))
-	connected := 0
 
-	for _, def := range svcDefs {
+	type probe struct {
+		hasToken bool
+		healthy  bool
+	}
+	probes := make([]probe, len(svcDefs))
+	anyUnhealthyWithToken := false
+
+	for i, def := range svcDefs {
 		ic, exists := w.services.Config.GetIntegration(def.Name)
 		hasToken := exists && ic.Credentials["access_token"] != ""
 		if exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != "" {
@@ -3078,21 +3085,53 @@ func (w *WebServer) handleGoogleSetup(rw http.ResponseWriter, r *http.Request) {
 
 		var healthy bool
 		if hasToken {
+			if sharedToken == "" {
+				sharedToken = ic.Credentials["access_token"]
+			}
 			if integration, ok := w.services.Registry.Get(def.Name); ok {
 				if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
 					healthy = integration.Healthy(r.Context())
 				}
 			}
+			if !healthy {
+				anyUnhealthyWithToken = true
+			}
 		}
-		if hasToken {
-			connected++
+		probes[i] = probe{hasToken: hasToken, healthy: healthy}
+	}
+
+	// A service can hold a perfectly valid token yet still report unhealthy
+	// when its Google API has not been enabled in the Cloud project (a 403
+	// "API has not been used ... or it is disabled"). Probe the shared token
+	// once so the UI can show an actionable "Enable the API" hint instead of
+	// a misleading "Invalid token" badge. The token is shared across every
+	// service, so a single probe is authoritative for all of them.
+	tokenValid := false
+	if anyUnhealthyWithToken && sharedToken != "" {
+		tokenValid = googleoauth.TokenValid(r.Context(), sharedToken)
+	}
+
+	healthyCount := 0
+	anyAPIDisabled := false
+	for i, def := range svcDefs {
+		p := probes[i]
+		apiDisabled := p.hasToken && !p.healthy && tokenValid
+		if apiDisabled {
+			anyAPIDisabled = true
 		}
 		statuses = append(statuses, pages.GoogleServiceStatus{
 			Name:        def.Name,
 			DisplayName: def.DisplayName,
-			Connected:   hasToken,
-			Healthy:     healthy,
+			Connected:   p.hasToken,
+			Healthy:     p.healthy,
+			// APIDisabled is true when the token works but this service's
+			// API call still fails — almost always because the API is not
+			// enabled in the Google Cloud project.
+			APIDisabled: apiDisabled,
 		})
+		if p.healthy {
+			healthyCount++
+		}
 	}
 
 	data := pages.GoogleSetupData{
@@ -3100,8 +3139,9 @@ func (w *WebServer) handleGoogleSetup(rw http.ResponseWriter, r *http.Request) {
 		ClientID:       clientID,
 		RedirectURI:    fmt.Sprintf("http://localhost:%d/api/google/oauth/callback", w.port),
 		Services:       statuses,
-		ConnectedCount: connected,
+		ConnectedCount: healthyCount,
 		TotalCount:     len(svcDefs),
+		AnyAPIDisabled: anyAPIDisabled,
 	}
 	if flash := r.URL.Query().Get("result"); flash != "" {
 		data.FlashResult = flash

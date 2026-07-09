@@ -1,6 +1,9 @@
 package googleoauth
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"sort"
@@ -121,5 +124,33 @@ func TestStartGroup_NoServices(t *testing.T) {
 	Reset()
 	if _, err := StartGroup("cid", "secret", "http://localhost/cb", nil); err == nil {
 		t.Error("StartGroup with no services should error")
+	}
+}
+
+func TestTokenValid(t *testing.T) {
+	tests := []struct {
+		name       string
+		token      string
+		statusCode int
+		want       bool
+	}{
+		{name: "empty token", token: "", statusCode: 200, want: false},
+		{name: "valid token", token: "good", statusCode: 200, want: true},
+		{name: "invalid token", token: "bad", statusCode: 400, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer srv.Close()
+			orig := tokenInfoURL
+			tokenInfoURL = srv.URL
+			defer func() { tokenInfoURL = orig }()
+
+			if got := TokenValid(context.Background(), tt.token); got != tt.want {
+				t.Errorf("TokenValid() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

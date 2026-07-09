@@ -1,10 +1,45 @@
 package googleoauth
 
 import (
+	"context"
 	"errors"
+	"net/http"
+	"net/url"
 	"sort"
 	"strings"
+	"time"
 )
+
+// tokenInfoURL is Google's tokeninfo endpoint. It reports whether an access
+// token is currently valid and which scopes it carries. It is a var so tests
+// can point it at an httptest server.
+var tokenInfoURL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
+
+// TokenValid reports whether the given Google access token is currently valid
+// (not expired or revoked). It does not check any particular API — a token can
+// be valid yet still fail an API call because that API is not enabled in the
+// Cloud project. Callers use this to distinguish a genuinely bad token from a
+// disabled/unpermitted API when a health check fails.
+func TokenValid(ctx context.Context, accessToken string) bool {
+	if accessToken == "" {
+		return false
+	}
+	reqURL := tokenInfoURL + "?access_token=" + url.QueryEscape(accessToken)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	// tokeninfo returns 200 for a live token and 400 for an
+	// invalid/expired/revoked one.
+	return resp.StatusCode == http.StatusOK
+}
 
 // errNoServices is returned when a unified flow is started with no selected
 // services (or only unknown names).

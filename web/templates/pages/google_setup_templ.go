@@ -25,6 +25,10 @@ type GoogleServiceStatus struct {
 	DisplayName string
 	Connected   bool
 	Healthy     bool
+	// APIDisabled is true when the token is valid but the service's Google
+	// API call still fails — almost always because the API has not been
+	// enabled in the Google Cloud project.
+	APIDisabled bool
 }
 
 // GoogleSetupData drives the unified Google Workspace setup page.
@@ -41,6 +45,9 @@ type GoogleSetupData struct {
 	// ConnectedCount / TotalCount summarize progress in the header.
 	ConnectedCount int
 	TotalCount     int
+	// AnyAPIDisabled is true when at least one connected service has a valid
+	// token but its Google API is not enabled in the Cloud project.
+	AnyAPIDisabled bool
 	FlashResult    string
 	FlashError     string
 }
@@ -110,7 +117,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashResult)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 60, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 67, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -133,7 +140,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashError)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 63, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 70, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -151,7 +158,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.RedirectURI)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 72, Col: 121}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 79, Col: 121}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -174,44 +181,59 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if data.HasOAuth {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">2. Choose services &amp; sign in</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Select which Google services to authorize, then sign in once. You'll be redirected to Google to grant access, then sent back automatically.</p><div id=\"oauth-container\"><div style=\"display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem;\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">2. Choose services &amp; sign in</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Select which Google services to authorize, then sign in once. You'll be redirected to Google to grant access, then sent back automatically.</p>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if data.AnyAPIDisabled {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"flash\" style=\"background: var(--bg); border: 1px solid var(--yellow); color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 1rem;\">Your token is valid, but some services show <strong>Enable API</strong>. That means the matching API is not turned on in your Google Cloud project. Open <strong>APIs &amp; Services → Library</strong>, enable each service's API (Gmail API, Google Calendar API, Google Drive API, etc.), wait a minute, then reload this page.</div>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div id=\"oauth-container\"><div style=\"display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem;\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, svc := range data.Services {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<label style=\"display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;\"><input type=\"checkbox\" class=\"gsvc\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<label style=\"display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;\"><input type=\"checkbox\" class=\"gsvc\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var6 string
 					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(svc.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 94, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 110, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" checked> <span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" checked> <span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(svc.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 95, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 111, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</span> ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</span> ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if svc.Connected {
 						if svc.Healthy {
 							templ_7745c5c3_Err = components.Badge("Connected", "green").Render(ctx, templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+						} else if svc.APIDisabled {
+							templ_7745c5c3_Err = components.Badge("Enable API", "yellow").Render(ctx, templ_7745c5c3_Buffer)
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -222,17 +244,17 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 							}
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</label>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</label>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div><button type=\"button\" class=\"btn\" id=\"oauth-start-btn\" onclick=\"startGoogleOAuth()\">Sign in with Google</button></div><div id=\"oauth-error\" style=\"display: none;\"><div class=\"flash flash-error\" id=\"oauth-error-msg\"></div><button type=\"button\" class=\"btn btn-outline\" onclick=\"resetOAuth()\" style=\"margin-top: 0.5rem;\">Try Again</button></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div><button type=\"button\" class=\"btn\" id=\"oauth-start-btn\" onclick=\"startGoogleOAuth()\">Sign in with Google</button></div><div id=\"oauth-error\" style=\"display: none;\"><div class=\"flash flash-error\" id=\"oauth-error-msg\"></div><button type=\"button\" class=\"btn btn-outline\" onclick=\"resetOAuth()\" style=\"margin-top: 0.5rem;\">Try Again</button></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, " <script>\n\t\t\tfunction startGoogleOAuth() {\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tvar checks = document.querySelectorAll('.gsvc:checked');\n\t\t\t\tvar services = [];\n\t\t\t\tfor (var i = 0; i < checks.length; i = i + 1) { services.push(checks[i].value); }\n\t\t\t\tif (services.length === 0) {\n\t\t\t\t\tshowOAuthError('Select at least one service to connect.');\n\t\t\t\t\treturn;\n\t\t\t\t}\n\t\t\t\tbtn.disabled = true;\n\t\t\t\tbtn.textContent = 'Starting...';\n\t\t\t\tfetch('/api/google/oauth/start', {\n\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\theaders: { 'Content-Type': 'application/json' },\n\t\t\t\t\tbody: JSON.stringify({ services: services })\n\t\t\t\t})\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(data) {\n\t\t\t\t\t\tif (data.error) { showOAuthError(data.error); return; }\n\t\t\t\t\t\twindow.location.href = data.authorize_url;\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function(err) {\n\t\t\t\t\t\tshowOAuthError('Failed to start OAuth flow: ' + err.message);\n\t\t\t\t\t});\n\t\t\t}\n\n\t\t\tfunction showOAuthError(msg) {\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-error-msg').textContent = msg;\n\t\t\t}\n\n\t\t\tfunction resetOAuth() {\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'block';\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tbtn.disabled = false;\n\t\t\t\tbtn.textContent = 'Sign in with Google';\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, " <script>\n\t\t\tfunction startGoogleOAuth() {\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tvar checks = document.querySelectorAll('.gsvc:checked');\n\t\t\t\tvar services = [];\n\t\t\t\tfor (var i = 0; i < checks.length; i = i + 1) { services.push(checks[i].value); }\n\t\t\t\tif (services.length === 0) {\n\t\t\t\t\tshowOAuthError('Select at least one service to connect.');\n\t\t\t\t\treturn;\n\t\t\t\t}\n\t\t\t\tbtn.disabled = true;\n\t\t\t\tbtn.textContent = 'Starting...';\n\t\t\t\tfetch('/api/google/oauth/start', {\n\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\theaders: { 'Content-Type': 'application/json' },\n\t\t\t\t\tbody: JSON.stringify({ services: services })\n\t\t\t\t})\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(data) {\n\t\t\t\t\t\tif (data.error) { showOAuthError(data.error); return; }\n\t\t\t\t\t\twindow.location.href = data.authorize_url;\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function(err) {\n\t\t\t\t\t\tshowOAuthError('Failed to start OAuth flow: ' + err.message);\n\t\t\t\t\t});\n\t\t\t}\n\n\t\t\tfunction showOAuthError(msg) {\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-error-msg').textContent = msg;\n\t\t\t}\n\n\t\t\tfunction resetOAuth() {\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'block';\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tbtn.disabled = false;\n\t\t\t\tbtn.textContent = 'Sign in with Google';\n\t\t\t}\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
