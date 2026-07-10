@@ -279,7 +279,7 @@ func TestDefaultConfig(t *testing.T) {
 		"cloudflare":    {"api_token", "account_id"},
 		"digitalocean":  {"api_token"},
 		"fly":           {"api_token", "base_url"},
-		"kubernetes":    {"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster"},
+		"kubernetes":    {"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster", "clusters", "allow_mutations"},
 		"vercel":        {"api_token", "team_id", "team_slug", "base_url"},
 		"web":           {},
 		"signoz":        {"api_key", "base_url", "skip_verify"},
@@ -548,6 +548,8 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "KUBERNETES_CA_CERT", m["kubernetes"]["ca_cert"])
 	assert.Equal(t, "KUBERNETES_INSECURE_SKIP_TLS_VERIFY", m["kubernetes"]["insecure_skip_tls_verify"])
 	assert.Equal(t, "KUBERNETES_IN_CLUSTER", m["kubernetes"]["in_cluster"])
+	assert.Equal(t, "KUBERNETES_CLUSTERS", m["kubernetes"]["clusters"])
+	assert.Equal(t, "KUBERNETES_ALLOW_MUTATIONS", m["kubernetes"]["allow_mutations"])
 	assert.Equal(t, "VERCEL_API_TOKEN", m["vercel"]["api_token"])
 	assert.Equal(t, "VERCEL_TEAM_ID", m["vercel"]["team_id"])
 	assert.Equal(t, "VERCEL_TEAM_SLUG", m["vercel"]["team_slug"])
