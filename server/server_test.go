@@ -3682,3 +3682,47 @@ func mustMarshal(v any) json.RawMessage {
 	}
 	return data
 }
+
+func TestWithExtraInstructions(t *testing.T) {
+	extra := "This org has private-resource tunnels; pass agent_id to target one."
+
+	cases := []struct {
+		name      string
+		opts      []Option
+		wantExtra bool
+	}{
+		{name: "default has no extra", opts: nil, wantExtra: false},
+		{name: "extra appended", opts: []Option{WithExtraInstructions(extra)}, wantExtra: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			services := &mcp.Services{
+				Config:   newMockConfigService(nil),
+				Registry: newMockRegistry(),
+			}
+			s := New(services, tc.opts...)
+
+			clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			ss, err := s.mcpServer.Connect(ctx, serverTransport, nil)
+			require.NoError(t, err)
+			defer ss.Close() //nolint:errcheck
+
+			client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "1.0"}, nil)
+			cs, err := client.Connect(ctx, clientTransport, nil)
+			require.NoError(t, err)
+			defer cs.Close() //nolint:errcheck
+
+			got := cs.InitializeResult().Instructions
+			assert.Contains(t, got, "search and execute", "base instructions must always be present")
+			if tc.wantExtra {
+				assert.Contains(t, got, extra, "extra instructions should be appended")
+			} else {
+				assert.NotContains(t, got, extra)
+			}
+		})
+	}
+}
