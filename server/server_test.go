@@ -597,6 +597,47 @@ func TestHandleSearch_Pagination(t *testing.T) {
 	}
 }
 
+// TestHandleSearch_SmallCatalogReturnsMatches is the end-to-end regression
+// for the IDF smoothing fix. With a tiny catalog every query token appears
+// in "every" tool, so unsmoothed TF-IDF scored all candidates 0 and search
+// returned nothing. A matching query must now return the matching tools.
+func TestHandleSearch_SmallCatalogReturnsMatches(t *testing.T) {
+	t.Run("single tool", func(t *testing.T) {
+		mi := &mockIntegration{
+			name:    "echo",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("echo_ping"), Description: "ping the server"},
+			},
+		}
+		s := setupTestServer(mi)
+
+		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "ping"}))
+		require.NoError(t, err)
+		resp := parseSearchResponse(t, result)
+		assert.Equal(t, 1, resp.Total, "single-tool catalog must still surface a matching tool")
+		assert.Contains(t, searchToolNames(t, resp), "echo_ping")
+	})
+
+	t.Run("two tools sharing a word", func(t *testing.T) {
+		mi := &mockIntegration{
+			name:    "widgets",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("widgets_list_item"), Description: "list item"},
+				{Name: mcp.ToolName("widgets_get_item"), Description: "get item"},
+			},
+		}
+		s := setupTestServer(mi)
+
+		// "item" appears in both tools (df == N). Must still match both.
+		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "item"}))
+		require.NoError(t, err)
+		resp := parseSearchResponse(t, result)
+		assert.Equal(t, 2, resp.Total, "a word shared by all tools must still return them")
+	})
+}
+
 func TestHandleSearch_QueryFiltersCombinedWithPagination(t *testing.T) {
 	mi := &mockIntegration{
 		name:    "testint",
