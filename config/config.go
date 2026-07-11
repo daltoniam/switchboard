@@ -150,8 +150,9 @@ var envMapping = map[string]map[string]string{
 		"base_url": "SIGNOZ_BASE_URL",
 	},
 	"nomad": {
-		"address": "NOMAD_ADDR",
-		"token":   "NOMAD_TOKEN",
+		"address":   "NOMAD_ADDR",
+		"addresses": "NOMAD_ADDRS",
+		"token":     "NOMAD_TOKEN",
 	},
 	"agents": {
 		"base_url": "AGENTS_BASE_URL",
@@ -404,7 +405,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"nomad": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"address": "", "token": ""},
+				Credentials: mcp.Credentials{"address": "", "addresses": "", "token": ""},
 			},
 			"agents": {
 				Enabled:     false,
