@@ -111,23 +111,26 @@ Then complete the sign-in from the web UI to obtain tokens.
 
 ## Scopes requested per service
 
+Enter these full scope strings when Google's console asks you to *Manually add
+scopes* — the abbreviated `.../auth/...` form is rejected as invalid.
+
 | Service   | Scopes |
 |-----------|--------|
 | Gmail     | `https://mail.google.com/` |
-| Calendar  | `.../auth/calendar` |
-| Drive     | `.../auth/drive` |
-| Docs      | `.../auth/documents` |
-| Sheets    | `.../auth/spreadsheets` |
-| Slides    | `.../auth/presentations` |
-| Forms     | `.../auth/forms.body`, `.../auth/forms.responses.readonly` |
-| Tasks     | `.../auth/tasks` |
-| Chat      | `.../auth/chat.spaces.readonly`, `.../auth/chat.messages` |
-| Contacts  | `.../auth/contacts`, `.../auth/contacts.other.readonly`, `.../auth/directory.readonly` |
-| Meet      | `.../auth/meetings.space.created`, `.../auth/meetings.space.readonly`, `.../auth/meetings.space.settings` |
+| Calendar  | `https://www.googleapis.com/auth/calendar` |
+| Drive     | `https://www.googleapis.com/auth/drive` |
+| Docs      | `https://www.googleapis.com/auth/documents` |
+| Sheets    | `https://www.googleapis.com/auth/spreadsheets` |
+| Slides    | `https://www.googleapis.com/auth/presentations` |
+| Forms     | `https://www.googleapis.com/auth/forms.body`, `https://www.googleapis.com/auth/forms.responses.readonly` |
+| Tasks     | `https://www.googleapis.com/auth/tasks` |
+| Chat      | `https://www.googleapis.com/auth/chat.spaces.readonly`, `https://www.googleapis.com/auth/chat.messages` |
+| Contacts  | `https://www.googleapis.com/auth/contacts`, `https://www.googleapis.com/auth/contacts.other.readonly`, `https://www.googleapis.com/auth/directory.readonly` |
+| Meet      | `https://www.googleapis.com/auth/meetings.space.created`, `https://www.googleapis.com/auth/meetings.space.readonly`, `https://www.googleapis.com/auth/meetings.space.settings` |
 
-(`...` = `https://www.googleapis.com`.) Only the scopes for the services you
-select are requested. If Google grants a subset (partial consent), Switchboard
-enables only the services whose scopes were actually granted.
+Only the scopes for the services you select are requested. If Google grants a
+subset (partial consent), Switchboard enables only the services whose scopes
+were actually granted.
 
 ---
 
