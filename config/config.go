@@ -30,6 +30,9 @@ var envMapping = map[string]map[string]string{
 	"linear": {
 		"api_key": "LINEAR_API_KEY",
 	},
+	"intercom": {
+		"access_token": "INTERCOM_ACCESS_TOKEN",
+	},
 	"sentry": {
 		"auth_token":   "SENTRY_AUTH_TOKEN",
 		"organization": "SENTRY_ORG",
@@ -233,6 +236,10 @@ func defaultConfig() *mcp.Config {
 			"linear": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "mcp_access_token": "", mcp.CredKeyTokenSource: ""},
+			},
+			"intercom": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": ""},
 			},
 			"sentry": {
 				Enabled:     false,
