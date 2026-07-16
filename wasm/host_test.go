@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -72,6 +73,72 @@ func TestDoHostHTTP_H2C_HeaderNotForwarded(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("doHostHTTP: %v", err)
+	}
+}
+
+func TestDoHostHTTP_PerRequestTimeout(t *testing.T) {
+	base := newH2CServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(1500 * time.Millisecond)
+		_, _ = w.Write([]byte("ok"))
+	}))
+
+	_, err := doHostHTTP(context.Background(), &httpRequest{
+		Method:  "GET",
+		URL:     base + "/slow",
+		Headers: map[string]string{hostTimeoutHeaderKey: "1"},
+	})
+	if err == nil {
+		t.Fatal("expected one-second timeout")
+	}
+
+	resp, err := doHostHTTP(context.Background(), &httpRequest{
+		Method:  "GET",
+		URL:     base + "/slow",
+		Headers: map[string]string{hostTimeoutHeaderKey: "2"},
+	})
+	if err != nil {
+		t.Fatalf("two-second override should succeed: %v", err)
+	}
+	if resp.Body != "ok" {
+		t.Errorf("body = %q, want ok", resp.Body)
+	}
+}
+
+func TestDoHostHTTP_TimeoutHeaderNotForwarded(t *testing.T) {
+	base := newH2CServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if v := r.Header.Get(hostTimeoutHeaderKey); v != "" {
+			t.Errorf("timeout control header leaked upstream: %q", v)
+		}
+		_, _ = w.Write([]byte("ok"))
+	}))
+
+	_, err := doHostHTTP(context.Background(), &httpRequest{
+		Method:  "GET",
+		URL:     base + "/test",
+		Headers: map[string]string{hostTimeoutHeaderKey: "300"},
+	})
+	if err != nil {
+		t.Fatalf("doHostHTTP: %v", err)
+	}
+}
+
+func TestHostHTTPTimeoutClamps(t *testing.T) {
+	cases := []struct {
+		value string
+		want  time.Duration
+	}{
+		{"", 60 * time.Second},
+		{"invalid", 60 * time.Second},
+		{"0", 60 * time.Second},
+		{"120", 120 * time.Second},
+		{"999", 300 * time.Second},
+	}
+	for _, tc := range cases {
+		t.Run(tc.value, func(t *testing.T) {
+			if got := hostHTTPTimeout(tc.value); got != tc.want {
+				t.Errorf("hostHTTPTimeout(%q) = %s, want %s", tc.value, got, tc.want)
+			}
+		})
 	}
 }
 
