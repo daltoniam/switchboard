@@ -47,6 +47,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
+	"github.com/daltoniam/switchboard/integrations/netsuite"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	"github.com/daltoniam/switchboard/integrations/ollama"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -265,6 +266,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),
+		netsuite.New(),
 		cloudflare.New(),
 		digitalocean.New(),
 		flyInt.New(),
