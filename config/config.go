@@ -163,6 +163,11 @@ var envMapping = map[string]map[string]string{
 		"account":  "STRIPE_ACCOUNT",
 		"base_url": "STRIPE_BASE_URL",
 	},
+	"gong": {
+		"access_key":        "GONG_ACCESS_KEY",
+		"access_key_secret": "GONG_ACCESS_KEY_SECRET",
+		"base_url":          "GONG_BASE_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -333,6 +338,10 @@ func defaultConfig() *mcp.Config {
 			"stripe": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "account": "", "base_url": ""},
+			},
+			"gong": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_key": "", "access_key_secret": "", "base_url": ""},
 			},
 			"jira": {
 				Enabled:     false,

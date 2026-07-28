@@ -1,0 +1,142 @@
+# Switchboard compaction specs for the gong integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    gong_list_calls:
+        spec:
+            - calls[].id
+            - calls[].title
+            - calls[].started
+            - calls[].duration
+            - calls[].direction
+            - calls[].system
+            - calls[].scope
+            - calls[].media
+            - calls[].language
+            - calls[].workspaceId
+            - calls[].primaryUserId
+            - records.totalRecords
+            - records.currentPageSize
+            - records.cursor
+            - requestId
+    gong_get_call:
+        spec:
+            - call.id
+            - call.title
+            - call.started
+            - call.duration
+            - call.direction
+            - call.system
+            - call.scope
+            - call.media
+            - call.language
+            - call.workspaceId
+            - call.primaryUserId
+            - call.url
+            - requestId
+    gong_list_calls_extensive:
+        spec:
+            - calls[].metaData.id
+            - calls[].metaData.title
+            - calls[].metaData.started
+            - calls[].metaData.duration
+            - calls[].metaData.direction
+            - calls[].metaData.primaryUserId
+            - calls[].metaData.workspaceId
+            - calls[].parties[].emailAddress
+            - calls[].parties[].name
+            - calls[].parties[].userId
+            - calls[].content.trackers
+            - calls[].content.topics
+            - records.totalRecords
+            - records.cursor
+            - requestId
+    gong_get_transcripts:
+        spec:
+            - callTranscripts[].callId
+            - callTranscripts[].transcript[].speakerId
+            - callTranscripts[].transcript[].topic
+            - callTranscripts[].transcript[].sentences[].text
+            - callTranscripts[].transcript[].sentences[].start
+            - callTranscripts[].transcript[].sentences[].end
+            - records.totalRecords
+            - records.cursor
+            - requestId
+    gong_list_users:
+        spec:
+            - users[].id
+            - users[].emailAddress
+            - users[].firstName
+            - users[].lastName
+            - users[].title
+            - users[].active
+            - users[].managerId
+            - records.totalRecords
+            - records.cursor
+            - requestId
+    gong_get_user:
+        spec:
+            - user.id
+            - user.emailAddress
+            - user.firstName
+            - user.lastName
+            - user.title
+            - user.active
+            - user.managerId
+            - requestId
+    gong_list_users_extensive:
+        spec:
+            - users[].id
+            - users[].emailAddress
+            - users[].firstName
+            - users[].lastName
+            - users[].title
+            - users[].active
+            - users[].managerId
+            - records.cursor
+            - requestId
+    gong_list_workspaces:
+        spec:
+            - workspaces[].id
+            - workspaces[].name
+            - workspaces[].description
+            - requestId
+    gong_list_library_folders:
+        spec:
+            - folders[].id
+            - folders[].name
+            - folders[].parentFolderId
+            - folders[].createdBy
+            - requestId
+    gong_get_library_folder:
+        spec:
+            - id
+            - name
+            - folderContent
+            - requestId
+    gong_list_stats_activity:
+        spec:
+            - peopleActivityStats
+            - requestId
+    gong_list_stats_interaction:
+        spec:
+            - peopleInteractionStats
+            - requestId
+    gong_list_stats_scorecards:
+        spec:
+            - scorecardStats
+            - requestId
+    gong_list_logs:
+        spec:
+            - logEntries
+            - records.cursor
+            - requestId
+    gong_list_data_privacy:
+        spec:
+            - requests
+            - records.cursor
+            - requestId
