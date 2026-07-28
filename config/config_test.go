@@ -32,7 +32,7 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 48)
+	assert.Len(t, m.cfg.Integrations, 49)
 	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 48)
+	assert.Len(t, cfg.Integrations, 49)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 48)
+	assert.Len(t, cfg.Integrations, 49)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 48)
+	assert.Len(t, cfg.Integrations, 49)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -556,7 +556,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	// 28 base integrations + 11 Google Workspace services sharing the
 	// GOOGLE_OAUTH_CLIENT_ID/SECRET env vars.
-	assert.Len(t, m, 39)
+	assert.Len(t, m, 40)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
