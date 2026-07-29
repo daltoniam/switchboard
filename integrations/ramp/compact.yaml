@@ -206,14 +206,16 @@ tools:
             - data[].id
             - data[].name
             - data[].is_active
-            - data[].remote_id
+            - data[].accounting_vendor_remote_id
+            - data[].external_vendor_id
             - page.next
     ramp_get_vendor:
         spec:
             - id
             - name
             - is_active
-            - remote_id
+            - accounting_vendor_remote_id
+            - external_vendor_id
             - contacts
     ramp_list_entities:
         spec:
