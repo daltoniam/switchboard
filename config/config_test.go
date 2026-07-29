@@ -33,7 +33,7 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Len(t, m.cfg.Integrations, 49)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard"} {
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "ramp"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -272,6 +272,7 @@ func TestDefaultConfig(t *testing.T) {
 		"notion":        {"token_v2"},
 		"ollama":        {"base_url", "api_key"},
 		"ynab":          {"api_key"},
+		"ramp":          {"access_token", "base_url"},
 		"gcp":           {"project_id", "credentials_json"},
 		"confluence":    {"email", "api_token", "domain"},
 		"elasticsearch": {"base_url", "api_key", "username", "password"},
@@ -539,6 +540,8 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "STRIPE_API_KEY", m["stripe"]["api_key"])
 	assert.Equal(t, "STRIPE_ACCOUNT", m["stripe"]["account"])
 	assert.Equal(t, "STRIPE_BASE_URL", m["stripe"]["base_url"])
+	assert.Equal(t, "RAMP_ACCESS_TOKEN", m["ramp"]["access_token"])
+	assert.Equal(t, "RAMP_BASE_URL", m["ramp"]["base_url"])
 	assert.Equal(t, "KUBECONFIG_CONTENT", m["kubernetes"]["kubeconfig"])
 	assert.Equal(t, "KUBECONFIG", m["kubernetes"]["kubeconfig_path"])
 	assert.Equal(t, "KUBECONTEXT", m["kubernetes"]["context"])

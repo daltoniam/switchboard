@@ -26,18 +26,28 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"transaction_id"},
 	},
 	{
-		Name: mcp.ToolName("ramp_update_transaction"), Description: "Update a Ramp transaction memo or accounting fields. Use after get_transaction.",
+		Name: mcp.ToolName("ramp_set_transaction_memo"), Description: "Set or replace the memo on a Ramp transaction. Use after get_transaction.",
+		Parameters: map[string]string{
+			"transaction_id":    "Transaction ID",
+			"memo":              "Memo text (max 255 characters)",
+			"is_memo_recurring": "If true, apply this memo to similar future transactions (optional)",
+		},
+		Required: []string{"transaction_id", "memo"},
+	},
+	{
+		Name: mcp.ToolName("ramp_update_transaction_splits"), Description: "Split or unsplit a Ramp transaction into accounting line items. Empty line_items array unsplits. Use after get_transaction.",
 		Parameters: map[string]string{
 			"transaction_id": "Transaction ID",
-			"data":           "JSON object of fields to update (e.g. {\"memo\":\"Client dinner\"})",
+			"line_items":     `JSON array of split line items (e.g. [{"amount":4000,"memo":"Case-1"}]). Empty array removes splits.`,
 		},
-		Required: []string{"transaction_id", "data"},
+		Required: []string{"transaction_id", "line_items"},
 	},
 	{
 		Name: mcp.ToolName("ramp_list_reimbursements"), Description: "List employee expense reimbursements and out-of-pocket spend claims on Ramp",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -49,7 +59,8 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_list_bills"), Description: "List accounts payable bills and vendor invoices managed in Ramp Bill Pay",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -75,7 +86,8 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_list_virtual_cards"), Description: "List virtual corporate credit cards issued on Ramp",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -87,7 +99,8 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_list_physical_cards"), Description: "List physical corporate credit cards issued on Ramp",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -99,7 +112,8 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_list_receipts"), Description: "List receipts attached to Ramp spend and expenses",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -111,7 +125,8 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_list_departments"), Description: "List departments used for Ramp spend allocation and reporting",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -123,7 +138,8 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_list_locations"), Description: "List office locations used for Ramp spend allocation",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -135,14 +151,16 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_list_merchants"), Description: "List merchants and vendors that appear on Ramp card transactions",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
 		Name: mcp.ToolName("ramp_list_vendors"), Description: "List accounts payable vendors configured for Ramp Bill Pay",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -154,7 +172,8 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_list_entities"), Description: "List legal entities on the Ramp business account",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -166,7 +185,8 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_list_bank_accounts"), Description: "List linked business bank accounts on Ramp",
 		Parameters: map[string]string{
 			"page_size": "Results per page (2-100, default 20)",
-			"start":     "Pagination cursor",
+			"start":     "Pagination start token from the previous page URL query string",
+			"next":      "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{

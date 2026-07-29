@@ -150,6 +150,10 @@ func (r *ramp) patch(ctx context.Context, path string, body any) (json.RawMessag
 	return r.doRequest(ctx, http.MethodPatch, path, body)
 }
 
+func (r *ramp) post(ctx context.Context, path string, body any) (json.RawMessage, error) {
+	return r.doRequest(ctx, http.MethodPost, path, body)
+}
+
 type handlerFunc func(ctx context.Context, r *ramp, args map[string]any) (*mcp.ToolResult, error)
 
 func queryEncode(params map[string]string) string {
@@ -169,7 +173,16 @@ func pageParams(args map[string]any) map[string]string {
 	r := mcp.NewArgs(args)
 	start := r.Str("start")
 	pageSize := r.Str("page_size")
+	nextURL := r.Str("next")
 	_ = r.Err()
+	if start == "" && nextURL != "" {
+		if u, err := url.Parse(nextURL); err == nil {
+			start = u.Query().Get("start")
+			if pageSize == "" {
+				pageSize = u.Query().Get("page_size")
+			}
+		}
+	}
 	return map[string]string{
 		"start":     start,
 		"page_size": pageSize,
@@ -177,30 +190,31 @@ func pageParams(args map[string]any) map[string]string {
 }
 
 var dispatch = map[mcp.ToolName]handlerFunc{
-	mcp.ToolName("ramp_list_transactions"):   listTransactions,
-	mcp.ToolName("ramp_get_transaction"):     getTransaction,
-	mcp.ToolName("ramp_update_transaction"):  updateTransaction,
-	mcp.ToolName("ramp_list_reimbursements"): listReimbursements,
-	mcp.ToolName("ramp_get_reimbursement"):   getReimbursement,
-	mcp.ToolName("ramp_list_bills"):          listBills,
-	mcp.ToolName("ramp_get_bill"):            getBill,
-	mcp.ToolName("ramp_list_users"):          listUsers,
-	mcp.ToolName("ramp_get_user"):            getUser,
-	mcp.ToolName("ramp_list_virtual_cards"):  listVirtualCards,
-	mcp.ToolName("ramp_get_virtual_card"):    getVirtualCard,
-	mcp.ToolName("ramp_list_physical_cards"): listPhysicalCards,
-	mcp.ToolName("ramp_get_physical_card"):   getPhysicalCard,
-	mcp.ToolName("ramp_list_receipts"):       listReceipts,
-	mcp.ToolName("ramp_get_receipt"):         getReceipt,
-	mcp.ToolName("ramp_list_departments"):    listDepartments,
-	mcp.ToolName("ramp_get_department"):      getDepartment,
-	mcp.ToolName("ramp_list_locations"):      listLocations,
-	mcp.ToolName("ramp_get_location"):        getLocation,
-	mcp.ToolName("ramp_list_merchants"):      listMerchants,
-	mcp.ToolName("ramp_list_vendors"):        listVendors,
-	mcp.ToolName("ramp_get_vendor"):          getVendor,
-	mcp.ToolName("ramp_list_entities"):       listEntities,
-	mcp.ToolName("ramp_get_entity"):          getEntity,
-	mcp.ToolName("ramp_list_bank_accounts"):  listBankAccounts,
-	mcp.ToolName("ramp_get_bank_account"):    getBankAccount,
+	mcp.ToolName("ramp_list_transactions"):         listTransactions,
+	mcp.ToolName("ramp_get_transaction"):           getTransaction,
+	mcp.ToolName("ramp_set_transaction_memo"):      setTransactionMemo,
+	mcp.ToolName("ramp_update_transaction_splits"): updateTransactionSplits,
+	mcp.ToolName("ramp_list_reimbursements"):       listReimbursements,
+	mcp.ToolName("ramp_get_reimbursement"):         getReimbursement,
+	mcp.ToolName("ramp_list_bills"):                listBills,
+	mcp.ToolName("ramp_get_bill"):                  getBill,
+	mcp.ToolName("ramp_list_users"):                listUsers,
+	mcp.ToolName("ramp_get_user"):                  getUser,
+	mcp.ToolName("ramp_list_virtual_cards"):        listVirtualCards,
+	mcp.ToolName("ramp_get_virtual_card"):          getVirtualCard,
+	mcp.ToolName("ramp_list_physical_cards"):       listPhysicalCards,
+	mcp.ToolName("ramp_get_physical_card"):         getPhysicalCard,
+	mcp.ToolName("ramp_list_receipts"):             listReceipts,
+	mcp.ToolName("ramp_get_receipt"):               getReceipt,
+	mcp.ToolName("ramp_list_departments"):          listDepartments,
+	mcp.ToolName("ramp_get_department"):            getDepartment,
+	mcp.ToolName("ramp_list_locations"):            listLocations,
+	mcp.ToolName("ramp_get_location"):              getLocation,
+	mcp.ToolName("ramp_list_merchants"):            listMerchants,
+	mcp.ToolName("ramp_list_vendors"):              listVendors,
+	mcp.ToolName("ramp_get_vendor"):                getVendor,
+	mcp.ToolName("ramp_list_entities"):             listEntities,
+	mcp.ToolName("ramp_get_entity"):                getEntity,
+	mcp.ToolName("ramp_list_bank_accounts"):        listBankAccounts,
+	mcp.ToolName("ramp_get_bank_account"):          getBankAccount,
 }

@@ -41,6 +41,6 @@ func TestFieldCompactionSpec_ReturnsFalseForUnknownTool(t *testing.T) {
 
 func TestFieldCompactionSpec_ReturnsFalseForMutationTool(t *testing.T) {
 	r := &ramp{}
-	_, ok := r.CompactSpec("ramp_update_transaction")
+	_, ok := r.CompactSpec("ramp_set_transaction_memo")
 	assert.False(t, ok, "mutation tools should not have compaction specs")
 }

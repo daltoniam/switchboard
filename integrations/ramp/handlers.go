@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -43,19 +44,41 @@ func getTransaction(ctx context.Context, r *ramp, args map[string]any) (*mcp.Too
 	return mcp.RawResult(data)
 }
 
-func updateTransaction(ctx context.Context, r *ramp, args map[string]any) (*mcp.ToolResult, error) {
+func setTransactionMemo(ctx context.Context, r *ramp, args map[string]any) (*mcp.ToolResult, error) {
 	rd := mcp.NewArgs(args)
 	id := rd.Str("transaction_id")
-	dataStr := rd.Str("data")
+	memo := rd.Str("memo")
 	if err := rd.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	var body any
-	if err := json.Unmarshal([]byte(dataStr), &body); err != nil {
-		return mcp.ErrResult(fmt.Errorf("invalid JSON for data: %w", err))
+	body := map[string]any{"memo": memo}
+	if v := rd.Str("is_memo_recurring"); v != "" {
+		body["is_memo_recurring"] = strings.EqualFold(v, "true") || v == "1"
+	}
+	if err := rd.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/developer/v1/memos/%s", url.PathEscape(id))
+	data, err := r.post(ctx, path, body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
+}
+
+func updateTransactionSplits(ctx context.Context, r *ramp, args map[string]any) (*mcp.ToolResult, error) {
+	rd := mcp.NewArgs(args)
+	id := rd.Str("transaction_id")
+	lineItemsRaw := rd.Str("line_items")
+	if err := rd.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	var lineItems any
+	if err := json.Unmarshal([]byte(lineItemsRaw), &lineItems); err != nil {
+		return mcp.ErrResult(fmt.Errorf("invalid JSON for line_items: %w", err))
 	}
 	path := fmt.Sprintf("/developer/v1/transactions/%s", url.PathEscape(id))
-	data, err := r.patch(ctx, path, body)
+	data, err := r.patch(ctx, path, map[string]any{"line_items": lineItems})
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

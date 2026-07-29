@@ -198,9 +198,10 @@ func TestGetTransaction(t *testing.T) {
 	assert.Contains(t, result.Data, "Acme")
 }
 
-func TestUpdateTransaction(t *testing.T) {
+func TestSetTransactionMemo(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPatch, r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/developer/v1/memos/tx-1", r.URL.Path)
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		assert.Equal(t, "Client dinner", body["memo"])
@@ -209,13 +210,51 @@ func TestUpdateTransaction(t *testing.T) {
 	defer ts.Close()
 
 	r := &ramp{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
-	result, err := r.Execute(context.Background(), "ramp_update_transaction", map[string]any{
+	result, err := r.Execute(context.Background(), "ramp_set_transaction_memo", map[string]any{
 		"transaction_id": "tx-1",
-		"data":           `{"memo":"Client dinner"}`,
+		"memo":           "Client dinner",
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	assert.Contains(t, result.Data, "Client dinner")
+}
+
+func TestUpdateTransactionSplits(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method)
+		assert.Equal(t, "/developer/v1/transactions/tx-1", r.URL.Path)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		items, ok := body["line_items"].([]any)
+		require.True(t, ok)
+		assert.Len(t, items, 1)
+		_, _ = w.Write([]byte(`{"id":"tx-1"}`))
+	}))
+	defer ts.Close()
+
+	r := &ramp{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := r.Execute(context.Background(), "ramp_update_transaction_splits", map[string]any{
+		"transaction_id": "tx-1",
+		"line_items":     `[{"amount":4000,"memo":"Case-1"}]`,
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestListTransactions_NextURL(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "cursor-abc", r.URL.Query().Get("start"))
+		assert.Equal(t, "50", r.URL.Query().Get("page_size"))
+		_, _ = w.Write([]byte(`{"data":[],"page":{"next":null}}`))
+	}))
+	defer ts.Close()
+
+	r := &ramp{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := r.Execute(context.Background(), "ramp_list_transactions", map[string]any{
+		"next": ts.URL + "/developer/v1/transactions?start=cursor-abc&page_size=50",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
 }
 
 func TestHealthy(t *testing.T) {
