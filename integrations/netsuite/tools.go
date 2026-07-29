@@ -66,7 +66,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: mcp.ToolName("netsuite_get_customer"), Description: "Get a NetSuite customer by internal ID. Use after list_customers.",
-		Parameters: map[string]string{"id": "Customer internal ID"},
+		Parameters: map[string]string{"id": "Customer internal ID", "expand": "If true, expand subresources"},
 		Required:   []string{"id"},
 	},
 	{

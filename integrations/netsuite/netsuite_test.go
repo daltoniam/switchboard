@@ -291,6 +291,16 @@ func TestCreateRecord(t *testing.T) {
 	require.False(t, result.IsError)
 }
 
+func TestInvalidRecordType(t *testing.T) {
+	n := &netsuite{accessToken: "t", accountID: "1", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := n.Execute(context.Background(), "netsuite_list_records", map[string]any{
+		"record_type": "../evil",
+	})
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	assert.Contains(t, result.Data, "invalid record_type")
+}
+
 func TestPctEncode(t *testing.T) {
 	assert.Equal(t, "abc-._~XYZ", pctEncode("abc-._~XYZ"))
 	assert.Equal(t, "a%20b", pctEncode("a b"))

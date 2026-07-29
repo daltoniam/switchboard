@@ -5,10 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
+
+var recordTypePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
+
+func validRecordType(recordType string) error {
+	if !recordTypePattern.MatchString(recordType) {
+		return fmt.Errorf("invalid record_type %q: must be alphanumeric/underscore", recordType)
+	}
+	return nil
+}
 
 func suiteQL(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
@@ -34,6 +44,9 @@ func listRecords(ctx context.Context, n *netsuite, args map[string]any) (*mcp.To
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := validRecordType(recordType); err != nil {
+		return mcp.ErrResult(err)
+	}
 	return listTyped(ctx, n, recordType, args)
 }
 
@@ -44,6 +57,9 @@ func getRecord(ctx context.Context, n *netsuite, args map[string]any) (*mcp.Tool
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := validRecordType(recordType); err != nil {
+		return mcp.ErrResult(err)
+	}
 	return getTyped(ctx, n, recordType, id, args)
 }
 
@@ -52,6 +68,9 @@ func createRecord(ctx context.Context, n *netsuite, args map[string]any) (*mcp.T
 	recordType := r.Str("record_type")
 	dataStr := r.Str("data")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := validRecordType(recordType); err != nil {
 		return mcp.ErrResult(err)
 	}
 	var body any
@@ -74,6 +93,9 @@ func updateRecord(ctx context.Context, n *netsuite, args map[string]any) (*mcp.T
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := validRecordType(recordType); err != nil {
+		return mcp.ErrResult(err)
+	}
 	var body any
 	if err := json.Unmarshal([]byte(dataStr), &body); err != nil {
 		return mcp.ErrResult(fmt.Errorf("invalid JSON for data: %w", err))
@@ -91,6 +113,9 @@ func deleteRecord(ctx context.Context, n *netsuite, args map[string]any) (*mcp.T
 	recordType := r.Str("record_type")
 	id := r.Str("id")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := validRecordType(recordType); err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := n.del(ctx, "/services/rest/record/v1/%s/%s", url.PathEscape(recordType), url.PathEscape(id))
@@ -241,11 +266,11 @@ func metadataCatalog(ctx context.Context, n *netsuite, args map[string]any) (*mc
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	q := ""
+	path := "/services/rest/record/v1/metadata-catalog/"
 	if selectType != "" {
-		q = queryEncode(map[string]string{"select": selectType})
+		path += queryEncode(map[string]string{"select": selectType})
 	}
-	data, err := n.get(ctx, "/services/rest/record/v1/metadata-catalog/%s", q)
+	data, err := n.get(ctx, "%s", path)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
