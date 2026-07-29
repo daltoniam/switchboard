@@ -278,6 +278,7 @@ func TestCreateRecord(t *testing.T) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		assert.Equal(t, "Acme", body["companyName"])
+		w.Header().Set("Location", "https://example.suitetalk.api.netsuite.com/services/rest/record/v1/customer/647")
 		w.WriteHeader(204)
 	}))
 	defer ts.Close()
@@ -289,6 +290,8 @@ func TestCreateRecord(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, `"id":"647"`)
+	assert.Contains(t, result.Data, "location")
 }
 
 func TestMetadataCatalog_SelectPath(t *testing.T) {

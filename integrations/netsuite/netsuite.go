@@ -179,9 +179,26 @@ func (n *netsuite) doRequest(ctx context.Context, method, path string, body any,
 		return nil, fmt.Errorf("netsuite API error (%d): %s", resp.StatusCode, string(data))
 	}
 	if resp.StatusCode == 204 || len(data) == 0 {
-		return json.RawMessage(`{"status":"success"}`), nil
+		return emptySuccessResult(resp.Header.Get("Location"))
 	}
 	return json.RawMessage(data), nil
+}
+
+func emptySuccessResult(location string) (json.RawMessage, error) {
+	out := map[string]any{"status": "success"}
+	if location != "" {
+		out["location"] = location
+		if i := strings.LastIndex(location, "/"); i >= 0 && i+1 < len(location) {
+			if id := strings.TrimSuffix(location[i+1:], "/"); id != "" {
+				out["id"] = id
+			}
+		}
+	}
+	encoded, err := json.Marshal(out)
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(encoded), nil
 }
 
 func (n *netsuite) setAuth(req *http.Request) error {
