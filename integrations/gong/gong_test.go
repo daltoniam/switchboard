@@ -280,8 +280,10 @@ func TestListStatsScorecards_Body(t *testing.T) {
 		assert.Equal(t, http.MethodPost, r.Method)
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "2024-01-01", body["callFromDate"])
-		assert.Equal(t, "2024-01-31", body["callToDate"])
+		filter, ok := body["filter"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "2024-01-01", filter["callFromDate"])
+		assert.Equal(t, "2024-01-31", filter["callToDate"])
 		_, _ = w.Write([]byte(`{"answeredScorecards":[]}`))
 	}))
 	defer ts.Close()

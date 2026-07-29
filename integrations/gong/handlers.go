@@ -225,13 +225,11 @@ func listLibraryFolders(ctx context.Context, g *gong, args map[string]any) (*mcp
 func getLibraryFolder(ctx context.Context, g *gong, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	folderID := r.Str("folder_id")
-	workspaceID := r.Str("workspace_id")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 	params := map[string]string{
-		"folderId":    folderID,
-		"workspaceId": workspaceID,
+		"folderId": folderID,
 	}
 	data, err := g.get(ctx, "/v2/library/folder-content%s", queryEncode(params))
 	if err != nil {
@@ -244,20 +242,14 @@ func statsBody(args map[string]any) (map[string]any, error) {
 	r := mcp.NewArgs(args)
 	from := r.Str("from_date")
 	to := r.Str("to_date")
-	workspaceID := r.Str("workspace_id")
 	userIDsRaw := r.Str("user_ids")
+	cursor := r.Str("cursor")
 	if err := r.Err(); err != nil {
 		return nil, err
 	}
-	body := map[string]any{
-		"filter": map[string]any{
-			"fromDate": from,
-			"toDate":   to,
-		},
-	}
-	filter := body["filter"].(map[string]any)
-	if workspaceID != "" {
-		filter["workspaceId"] = workspaceID
+	filter := map[string]any{
+		"fromDate": from,
+		"toDate":   to,
 	}
 	if userIDsRaw != "" {
 		ids, err := parseJSONArray(userIDsRaw)
@@ -265,6 +257,10 @@ func statsBody(args map[string]any) (map[string]any, error) {
 			return nil, err
 		}
 		filter["userIds"] = ids
+	}
+	body := map[string]any{"filter": filter}
+	if cursor != "" {
+		body["cursor"] = cursor
 	}
 	return body, nil
 }
@@ -301,7 +297,8 @@ func listStatsScorecards(ctx context.Context, g *gong, args map[string]any) (*mc
 	reviewTo := r.Str("review_to_date")
 	reviewedUserIDsRaw := r.Str("reviewed_user_ids")
 	scorecardIDsRaw := r.Str("scorecard_ids")
-	// Back-compat aliases used by older tool descriptions.
+	cursor := r.Str("cursor")
+	// Back-compat aliases.
 	if callFrom == "" {
 		callFrom = r.Str("from_date")
 	}
@@ -314,32 +311,39 @@ func listStatsScorecards(ctx context.Context, g *gong, args map[string]any) (*mc
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	if callFrom == "" || callTo == "" {
-		return mcp.ErrResult(fmt.Errorf("call_from_date and call_to_date are required"))
+	filter := map[string]any{}
+	if callFrom != "" {
+		filter["callFromDate"] = callFrom
 	}
-	body := map[string]any{
-		"callFromDate": callFrom,
-		"callToDate":   callTo,
+	if callTo != "" {
+		filter["callToDate"] = callTo
 	}
 	if reviewFrom != "" {
-		body["reviewFromDate"] = reviewFrom
+		filter["reviewFromDate"] = reviewFrom
 	}
 	if reviewTo != "" {
-		body["reviewToDate"] = reviewTo
+		filter["reviewToDate"] = reviewTo
 	}
 	if reviewedUserIDsRaw != "" {
 		ids, err := parseJSONArray(reviewedUserIDsRaw)
 		if err != nil {
 			return mcp.ErrResult(err)
 		}
-		body["reviewedUserIds"] = ids
+		filter["reviewedUserIds"] = ids
 	}
 	if scorecardIDsRaw != "" {
 		ids, err := parseJSONArray(scorecardIDsRaw)
 		if err != nil {
 			return mcp.ErrResult(err)
 		}
-		body["scorecardIds"] = ids
+		filter["scorecardIds"] = ids
+	}
+	if len(filter) == 0 {
+		return mcp.ErrResult(fmt.Errorf("provide at least one scorecard filter (call/review dates, reviewed_user_ids, or scorecard_ids)"))
+	}
+	body := map[string]any{"filter": filter}
+	if cursor != "" {
+		body["cursor"] = cursor
 	}
 	data, err := g.post(ctx, "/v2/stats/activity/scorecards", body)
 	if err != nil {

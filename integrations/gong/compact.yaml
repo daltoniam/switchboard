@@ -116,7 +116,12 @@ tools:
         spec:
             - id
             - name
-            - folderContent
+            - createdBy
+            - updated
+            - calls[].id
+            - calls[].title
+            - calls[].url
+            - calls[].note
             - requestId
     gong_list_stats_activity:
         spec:
@@ -138,4 +143,9 @@ tools:
             - requestId
     gong_get_data_privacy:
         spec:
+            - emails
+            - calls
+            - meetings
+            - customerData
+            - customerEngagement
             - requestId
