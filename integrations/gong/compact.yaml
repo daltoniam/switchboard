@@ -47,9 +47,7 @@ tools:
             - calls[].metaData.direction
             - calls[].metaData.primaryUserId
             - calls[].metaData.workspaceId
-            - calls[].parties[].emailAddress
-            - calls[].parties[].name
-            - calls[].parties[].userId
+            - calls[].parties
             - calls[].content.trackers
             - calls[].content.topics
             - records.totalRecords
@@ -58,11 +56,7 @@ tools:
     gong_get_transcripts:
         spec:
             - callTranscripts[].callId
-            - callTranscripts[].transcript[].speakerId
-            - callTranscripts[].transcript[].topic
-            - callTranscripts[].transcript[].sentences[].text
-            - callTranscripts[].transcript[].sentences[].start
-            - callTranscripts[].transcript[].sentences[].end
+            - callTranscripts[].transcript
             - records.totalRecords
             - records.cursor
             - requestId
@@ -126,10 +120,12 @@ tools:
     gong_list_stats_activity:
         spec:
             - usersAggregateActivityStats
+            - records.cursor
             - requestId
     gong_list_stats_interaction:
         spec:
             - peopleInteractionStats
+            - records.cursor
             - requestId
     gong_list_stats_scorecards:
         spec:

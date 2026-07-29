@@ -298,16 +298,6 @@ func listStatsScorecards(ctx context.Context, g *gong, args map[string]any) (*mc
 	reviewedUserIDsRaw := r.Str("reviewed_user_ids")
 	scorecardIDsRaw := r.Str("scorecard_ids")
 	cursor := r.Str("cursor")
-	// Back-compat aliases.
-	if callFrom == "" {
-		callFrom = r.Str("from_date")
-	}
-	if callTo == "" {
-		callTo = r.Str("to_date")
-	}
-	if reviewedUserIDsRaw == "" {
-		reviewedUserIDsRaw = r.Str("user_ids")
-	}
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
