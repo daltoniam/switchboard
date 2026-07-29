@@ -2,7 +2,7 @@
   "$schema": "https://charm.land/crush.json",
   "models": {
     "large": {
-      "model": "grok-4.3",
+      "model": "grok-4.5",
       "provider": "xAI",
       "max_tokens": 16384
     },
@@ -18,10 +18,20 @@
       "base_url": "https://gateway.ai.cloudflare.com/v1/${CF_AIG_ACCOUNT_ID:?set CF_AIG_ACCOUNT_ID}/${CF_AIG_GATEWAY_ID:?set CF_AIG_GATEWAY_ID}/grok",
       "api_key": "${CF_AIG_TOKEN:?set CF_AIG_TOKEN to your Cloudflare AI Gateway token}",
       "extra_headers": {
-        "cf-aig-metadata": "{\"developer_id\": \"austin.cherry\", \"tier\": \"frontier\"}",
+        "cf-aig-metadata": "{"developer_id": "austin.cherry", "tier": "frontier"}",
         "cf-aig-collect-log-payload": "false"
       },
       "models": [
+        {
+          "id": "grok-4.5",
+          "name": "Grok 4.5",
+          "cost_per_1m_in": 1.25,
+          "cost_per_1m_out": 2.5,
+          "context_window": 500000,
+          "default_max_tokens": 16384,
+          "can_reason": true,
+          "supports_attachments": true
+        },
         {
           "id": "grok-4.3",
           "name": "Grok 4.3",
