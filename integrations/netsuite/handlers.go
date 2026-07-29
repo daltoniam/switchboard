@@ -26,7 +26,10 @@ func suiteQL(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolRe
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	params := pageParams(args)
+	params, err := pageParams(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	delete(params, "q")
 	path := "/services/rest/query/v1/suiteql" + queryEncode(params)
 	data, err := n.post(ctx, path, map[string]any{"q": q}, map[string]string{
@@ -126,7 +129,10 @@ func deleteRecord(ctx context.Context, n *netsuite, args map[string]any) (*mcp.T
 }
 
 func listTyped(ctx context.Context, n *netsuite, recordType string, args map[string]any) (*mcp.ToolResult, error) {
-	params := pageParams(args)
+	params, err := pageParams(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	path := fmt.Sprintf("/services/rest/record/v1/%s%s", url.PathEscape(recordType), queryEncode(params))
 	data, err := n.get(ctx, "%s", path)
 	if err != nil {

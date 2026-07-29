@@ -355,17 +355,22 @@ func queryEncode(params map[string]string) string {
 	return "?" + vals.Encode()
 }
 
-func pageParams(args map[string]any) map[string]string {
+func pageParams(args map[string]any) (map[string]string, error) {
 	r := mcp.NewArgs(args)
 	limit := r.Str("limit")
 	offset := r.Str("offset")
 	q := r.Str("q")
-	_ = r.Err()
+	if err := r.Err(); err != nil {
+		return nil, err
+	}
+	if limit == "" {
+		limit = "100"
+	}
 	return map[string]string{
 		"limit":  limit,
 		"offset": offset,
 		"q":      q,
-	}
+	}, nil
 }
 
 var dispatch = map[mcp.ToolName]handlerFunc{

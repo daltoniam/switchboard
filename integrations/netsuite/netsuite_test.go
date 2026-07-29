@@ -215,6 +215,21 @@ func TestDoRequest_204NoContent(t *testing.T) {
 	assert.Contains(t, string(data), "success")
 }
 
+func TestSuiteQL_DefaultLimit(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "100", r.URL.Query().Get("limit"))
+		_, _ = w.Write([]byte(`{"items":[]}`))
+	}))
+	defer ts.Close()
+
+	n := &netsuite{accessToken: "t", accountID: "1", client: ts.Client(), baseURL: ts.URL}
+	result, err := n.Execute(context.Background(), "netsuite_suiteql", map[string]any{
+		"q": "SELECT id FROM customer",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestSuiteQL(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)

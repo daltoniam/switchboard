@@ -7,7 +7,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_suiteql"), Description: "Run a SuiteQL query against NetSuite ERP data (customers, vendors, invoices, transactions, inventory). Start here for ad-hoc reporting, joins, and flexible ERP searches.",
 		Parameters: map[string]string{
 			"q":      "SuiteQL query string (e.g. SELECT id, companyname FROM customer WHERE isinactive = 'F')",
-			"limit":  "Max rows per page (default 1000, max 1000)",
+			"limit":  "Max rows per page (default 100, max 1000)",
 			"offset": "Pagination offset (must be divisible by limit)",
 		},
 		Required: []string{"q"},
@@ -17,7 +17,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"record_type": "REST record type (e.g. customer, vendor, invoice, vendorbill, salesorder, purchaseorder, employee, journalentry)",
 			"q":           "Optional collection filter query (e.g. companyName CONTAIN \"Acme\")",
-			"limit":       "Page size (default 1000)",
+			"limit":       "Page size (default 100, max 1000)",
 			"offset":      "Pagination offset",
 		},
 		Required: []string{"record_type"},
@@ -60,7 +60,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_customers"), Description: "List NetSuite customers and accounts receivable entities",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
@@ -73,7 +73,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_vendors"), Description: "List NetSuite vendors and suppliers for accounts payable",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
@@ -86,7 +86,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_invoices"), Description: "List NetSuite customer invoices and AR billing documents",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
@@ -99,7 +99,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_bills"), Description: "List NetSuite vendor bills (AP bills / vendorbill records)",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
@@ -112,7 +112,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_purchase_orders"), Description: "List NetSuite purchase orders (PO documents)",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
@@ -125,7 +125,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_sales_orders"), Description: "List NetSuite sales orders",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
@@ -138,7 +138,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_employees"), Description: "List NetSuite employees",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
@@ -151,7 +151,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_subsidiaries"), Description: "List NetSuite subsidiaries in a OneWorld account",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
@@ -159,7 +159,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_departments"), Description: "List NetSuite departments used for classification and reporting",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
@@ -167,7 +167,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("netsuite_list_journal_entries"), Description: "List NetSuite journal entries and GL adjustments",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
-			"limit":  "Page size",
+			"limit":  "Page size (default 100)",
 			"offset": "Pagination offset",
 		},
 	},
