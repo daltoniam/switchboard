@@ -106,6 +106,19 @@ func listCallsExtensive(ctx context.Context, g *gong, args map[string]any) (*mcp
 			return mcp.ErrResult(fmt.Errorf("invalid JSON for content_selector: %w", err))
 		}
 		body["contentSelector"] = cs
+	} else {
+		body["contentSelector"] = map[string]any{
+			"exposedFields": map[string]any{
+				"parties": true,
+				"content": map[string]any{
+					"structure":        true,
+					"topics":           true,
+					"trackers":         true,
+					"pointsOfInterest": true,
+				},
+				"media": true,
+			},
+		}
 	}
 	data, err := g.post(ctx, "/v2/calls/extensive", body)
 	if err != nil {

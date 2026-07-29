@@ -121,7 +121,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("gong_get_data_privacy"), Description: "Look up Gong data-privacy references for a subject email or phone number",
 		Parameters: map[string]string{
 			"email":        "Subject email address (provide exactly one of email or phone_number)",
-			"phone_number": "Subject phone number (provide exactly one of email or phone_number)",
+			"phone_number": "Subject phone number starting with + and country code (provide exactly one of email or phone_number)",
 		},
 	},
 }

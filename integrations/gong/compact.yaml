@@ -19,6 +19,7 @@ tools:
             - calls[].language
             - calls[].workspaceId
             - calls[].primaryUserId
+            - calls[].url
             - records.totalRecords
             - records.currentPageSize
             - records.cursor
@@ -54,6 +55,7 @@ tools:
             - records.cursor
             - requestId
     gong_get_transcripts:
+        max_bytes: 200000
         spec:
             - callTranscripts[].callId
             - callTranscripts[].transcript
