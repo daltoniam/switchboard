@@ -231,6 +231,14 @@ func TestGetTranscripts(t *testing.T) {
 	assert.Contains(t, result.Data, "c1")
 }
 
+func TestGetTranscripts_RequiresFilter(t *testing.T) {
+	g := &gong{accessKey: "k", accessKeySecret: "s", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := g.Execute(context.Background(), "gong_get_transcripts", map[string]any{})
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	assert.Contains(t, result.Data, "from_date_time")
+}
+
 func TestHealthy(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Contains(t, r.URL.Path, "/v2/users")

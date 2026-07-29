@@ -19,7 +19,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"call_id"},
 	},
 	{
-		Name: mcp.ToolName("gong_list_calls_extensive"), Description: "Retrieve extensive Gong call details (parties, content, media, collaboration) for filtered calls. Prefer over repeated get_call when many fields are needed.",
+		Name: mcp.ToolName("gong_list_calls_extensive"), Description: "Retrieve extensive Gong call details (parties, content, media, collaboration) for filtered calls. Prefer over repeated get_call when many fields are needed. Requires a date range and/or call_ids.",
 		Parameters: map[string]string{
 			"from_date_time":   "Start of range (ISO 8601)",
 			"to_date_time":     "End of range (ISO 8601)",
@@ -30,7 +30,7 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name: mcp.ToolName("gong_get_transcripts"), Description: "Fetch call transcripts and spoken sentences for Gong recordings. Use after list_calls or get_call when you need conversation text.",
+		Name: mcp.ToolName("gong_get_transcripts"), Description: "Fetch call transcripts and spoken sentences for Gong recordings. Use after list_calls or get_call when you need conversation text. Requires a date range and/or call_ids.",
 		Parameters: map[string]string{
 			"from_date_time": "Start of range (ISO 8601)",
 			"to_date_time":   "End of range (ISO 8601)",

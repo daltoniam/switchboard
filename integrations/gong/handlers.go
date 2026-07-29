@@ -20,6 +20,16 @@ func parseJSONArray(raw string) ([]any, error) {
 	return out, nil
 }
 
+func requireCallFilter(from, to, callIDsRaw string) error {
+	if from == "" && to == "" && callIDsRaw == "" {
+		return fmt.Errorf("provide from_date_time/to_date_time and/or call_ids")
+	}
+	if (from == "") != (to == "") {
+		return fmt.Errorf("from_date_time and to_date_time must be provided together")
+	}
+	return nil
+}
+
 func listCalls(ctx context.Context, g *gong, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	from := r.Str("from_date_time")
@@ -66,6 +76,9 @@ func listCallsExtensive(ctx context.Context, g *gong, args map[string]any) (*mcp
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireCallFilter(from, to, callIDsRaw); err != nil {
+		return mcp.ErrResult(err)
+	}
 	filter := map[string]any{}
 	if from != "" {
 		filter["fromDateTime"] = from
@@ -109,6 +122,9 @@ func getTranscripts(ctx context.Context, g *gong, args map[string]any) (*mcp.Too
 	workspaceID := r.Str("workspace_id")
 	cursor := r.Str("cursor")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireCallFilter(from, to, callIDsRaw); err != nil {
 		return mcp.ErrResult(err)
 	}
 	filter := map[string]any{}
