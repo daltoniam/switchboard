@@ -120,7 +120,7 @@ tools:
             - requestId
     gong_list_stats_activity:
         spec:
-            - peopleActivityStats
+            - usersAggregateActivityStats
             - requestId
     gong_list_stats_interaction:
         spec:
@@ -128,15 +128,14 @@ tools:
             - requestId
     gong_list_stats_scorecards:
         spec:
-            - scorecardStats
+            - answeredScorecards
+            - records.cursor
             - requestId
     gong_list_logs:
         spec:
             - logEntries
             - records.cursor
             - requestId
-    gong_list_data_privacy:
+    gong_get_data_privacy:
         spec:
-            - requests
-            - records.cursor
             - requestId

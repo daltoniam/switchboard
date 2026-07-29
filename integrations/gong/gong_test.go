@@ -231,6 +231,70 @@ func TestGetTranscripts(t *testing.T) {
 	assert.Contains(t, result.Data, "c1")
 }
 
+func TestListLogs_RequiresLogType(t *testing.T) {
+	g := &gong{accessKey: "k", accessKeySecret: "s", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := g.Execute(context.Background(), "gong_list_logs", map[string]any{
+		"from_date_time": "2024-01-01T00:00:00Z",
+	})
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	assert.Contains(t, result.Data, "log_type")
+}
+
+func TestListLogs(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v2/logs", r.URL.Path)
+		assert.Equal(t, "AccessLog", r.URL.Query().Get("logType"))
+		assert.Equal(t, "2024-01-01T00:00:00Z", r.URL.Query().Get("fromDateTime"))
+		_, _ = w.Write([]byte(`{"logEntries":[]}`))
+	}))
+	defer ts.Close()
+
+	g := &gong{accessKey: "k", accessKeySecret: "s", client: ts.Client(), baseURL: ts.URL}
+	result, err := g.Execute(context.Background(), "gong_list_logs", map[string]any{
+		"log_type":       "AccessLog",
+		"from_date_time": "2024-01-01T00:00:00Z",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestGetDataPrivacy_Email(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v2/data-privacy/data-for-email-address", r.URL.Path)
+		assert.Equal(t, "a@b.com", r.URL.Query().Get("emailAddress"))
+		_, _ = w.Write([]byte(`{"requestId":"1"}`))
+	}))
+	defer ts.Close()
+
+	g := &gong{accessKey: "k", accessKeySecret: "s", client: ts.Client(), baseURL: ts.URL}
+	result, err := g.Execute(context.Background(), "gong_get_data_privacy", map[string]any{
+		"email": "a@b.com",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestListStatsScorecards_Body(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "2024-01-01", body["callFromDate"])
+		assert.Equal(t, "2024-01-31", body["callToDate"])
+		_, _ = w.Write([]byte(`{"answeredScorecards":[]}`))
+	}))
+	defer ts.Close()
+
+	g := &gong{accessKey: "k", accessKeySecret: "s", client: ts.Client(), baseURL: ts.URL}
+	result, err := g.Execute(context.Background(), "gong_list_stats_scorecards", map[string]any{
+		"call_from_date": "2024-01-01",
+		"call_to_date":   "2024-01-31",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestGetTranscripts_RequiresFilter(t *testing.T) {
 	g := &gong{accessKey: "k", accessKeySecret: "s", client: &http.Client{}, baseURL: "http://localhost"}
 	result, err := g.Execute(context.Background(), "gong_get_transcripts", map[string]any{})

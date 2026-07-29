@@ -199,5 +199,5 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("gong_list_stats_interaction"): listStatsInteraction,
 	mcp.ToolName("gong_list_stats_scorecards"):  listStatsScorecards,
 	mcp.ToolName("gong_list_logs"):              listLogs,
-	mcp.ToolName("gong_list_data_privacy"):      listDataPrivacy,
+	mcp.ToolName("gong_get_data_privacy"):       getDataPrivacy,
 }

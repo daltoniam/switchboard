@@ -294,9 +294,52 @@ func listStatsInteraction(ctx context.Context, g *gong, args map[string]any) (*m
 }
 
 func listStatsScorecards(ctx context.Context, g *gong, args map[string]any) (*mcp.ToolResult, error) {
-	body, err := statsBody(args)
-	if err != nil {
+	r := mcp.NewArgs(args)
+	callFrom := r.Str("call_from_date")
+	callTo := r.Str("call_to_date")
+	reviewFrom := r.Str("review_from_date")
+	reviewTo := r.Str("review_to_date")
+	reviewedUserIDsRaw := r.Str("reviewed_user_ids")
+	scorecardIDsRaw := r.Str("scorecard_ids")
+	// Back-compat aliases used by older tool descriptions.
+	if callFrom == "" {
+		callFrom = r.Str("from_date")
+	}
+	if callTo == "" {
+		callTo = r.Str("to_date")
+	}
+	if reviewedUserIDsRaw == "" {
+		reviewedUserIDsRaw = r.Str("user_ids")
+	}
+	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
+	}
+	if callFrom == "" || callTo == "" {
+		return mcp.ErrResult(fmt.Errorf("call_from_date and call_to_date are required"))
+	}
+	body := map[string]any{
+		"callFromDate": callFrom,
+		"callToDate":   callTo,
+	}
+	if reviewFrom != "" {
+		body["reviewFromDate"] = reviewFrom
+	}
+	if reviewTo != "" {
+		body["reviewToDate"] = reviewTo
+	}
+	if reviewedUserIDsRaw != "" {
+		ids, err := parseJSONArray(reviewedUserIDsRaw)
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		body["reviewedUserIds"] = ids
+	}
+	if scorecardIDsRaw != "" {
+		ids, err := parseJSONArray(scorecardIDsRaw)
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		body["scorecardIds"] = ids
 	}
 	data, err := g.post(ctx, "/v2/stats/activity/scorecards", body)
 	if err != nil {
@@ -307,13 +350,21 @@ func listStatsScorecards(ctx context.Context, g *gong, args map[string]any) (*mc
 
 func listLogs(ctx context.Context, g *gong, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
+	logType := r.Str("log_type")
 	from := r.Str("from_date_time")
 	to := r.Str("to_date_time")
 	cursor := r.Str("cursor")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if logType == "" {
+		return mcp.ErrResult(fmt.Errorf("log_type is required (AccessLog, UserActivityLog, UserCallPlay, ExternallySharedCallAccess, ExternallySharedCallPlay)"))
+	}
+	if from == "" {
+		return mcp.ErrResult(fmt.Errorf("from_date_time is required"))
+	}
 	params := map[string]string{
+		"logType":      logType,
 		"fromDateTime": from,
 		"toDateTime":   to,
 		"cursor":       cursor,
@@ -325,8 +376,23 @@ func listLogs(ctx context.Context, g *gong, args map[string]any) (*mcp.ToolResul
 	return mcp.RawResult(data)
 }
 
-func listDataPrivacy(ctx context.Context, g *gong, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := g.get(ctx, "/v2/data-privacy/data-for-all-users%s", queryEncode(cursorParam(args)))
+func getDataPrivacy(ctx context.Context, g *gong, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	email := r.Str("email")
+	phone := r.Str("phone_number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if (email == "") == (phone == "") {
+		return mcp.ErrResult(fmt.Errorf("provide exactly one of email or phone_number"))
+	}
+	var path string
+	if email != "" {
+		path = "/v2/data-privacy/data-for-email-address" + queryEncode(map[string]string{"emailAddress": email})
+	} else {
+		path = "/v2/data-privacy/data-for-phone-number" + queryEncode(map[string]string{"phoneNumber": phone})
+	}
+	data, err := g.get(ctx, "%s", path)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

@@ -97,28 +97,32 @@ var tools = []mcp.ToolDefinition{
 		Required: []string{"from_date", "to_date"},
 	},
 	{
-		Name: mcp.ToolName("gong_list_stats_scorecards"), Description: "Get Gong scorecard review statistics for call coaching quality scores",
+		Name: mcp.ToolName("gong_list_stats_scorecards"), Description: "Get answered Gong scorecards for coaching quality reviews over a call date range",
 		Parameters: map[string]string{
-			"from_date":    "Start date (YYYY-MM-DD)",
-			"to_date":      "End date (YYYY-MM-DD)",
-			"workspace_id": "Optional workspace ID",
-			"user_ids":     "Optional JSON array of user IDs",
+			"call_from_date":    "Call range start date (YYYY-MM-DD)",
+			"call_to_date":      "Call range end date (YYYY-MM-DD)",
+			"review_from_date":  "Optional review range start date (YYYY-MM-DD)",
+			"review_to_date":    "Optional review range end date (YYYY-MM-DD)",
+			"reviewed_user_ids": "Optional JSON array of reviewed user IDs",
+			"scorecard_ids":     "Optional JSON array of scorecard IDs",
 		},
-		Required: []string{"from_date", "to_date"},
+		Required: []string{"call_from_date", "call_to_date"},
 	},
 	{
-		Name: mcp.ToolName("gong_list_logs"), Description: "List Gong API and activity logs for auditing integration usage",
+		Name: mcp.ToolName("gong_list_logs"), Description: "Retrieve Gong logs by type and time range for auditing access and activity",
 		Parameters: map[string]string{
+			"log_type":       "Required log type: AccessLog, UserActivityLog, UserCallPlay, ExternallySharedCallAccess, ExternallySharedCallPlay",
 			"from_date_time": "Start of range (ISO 8601)",
-			"to_date_time":   "End of range (ISO 8601)",
+			"to_date_time":   "Optional end of range (ISO 8601)",
 			"cursor":         "Pagination cursor",
 		},
-		Required: []string{"from_date_time", "to_date_time"},
+		Required: []string{"log_type", "from_date_time"},
 	},
 	{
-		Name: mcp.ToolName("gong_list_data_privacy"), Description: "List Gong data-privacy deletion requests and compliance status",
+		Name: mcp.ToolName("gong_get_data_privacy"), Description: "Look up Gong data-privacy references for a subject email or phone number",
 		Parameters: map[string]string{
-			"cursor": "Pagination cursor",
+			"email":        "Subject email address (provide exactly one of email or phone_number)",
+			"phone_number": "Subject phone number (provide exactly one of email or phone_number)",
 		},
 	},
 }
