@@ -267,10 +267,22 @@ func metadataCatalog(ctx context.Context, n *netsuite, args map[string]any) (*mc
 		return mcp.ErrResult(err)
 	}
 	path := "/services/rest/record/v1/metadata-catalog/"
+	headers := map[string]string{}
 	if selectType != "" {
-		path += queryEncode(map[string]string{"select": selectType})
+		if err := validRecordType(selectType); err != nil {
+			return mcp.ErrResult(err)
+		}
+		// Describe a single record type via path segment + schema Accept header.
+		path = "/services/rest/record/v1/metadata-catalog/" + url.PathEscape(selectType)
+		headers["Accept"] = "application/schema+json"
 	}
-	data, err := n.get(ctx, "%s", path)
+	var data json.RawMessage
+	var err error
+	if len(headers) > 0 {
+		data, err = n.getWithHeaders(ctx, path, headers)
+	} else {
+		data, err = n.get(ctx, "%s", path)
+	}
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

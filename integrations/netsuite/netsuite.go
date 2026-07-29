@@ -307,6 +307,10 @@ func (n *netsuite) get(ctx context.Context, pathFmt string, args ...any) (json.R
 	return n.doRequest(ctx, http.MethodGet, fmt.Sprintf(pathFmt, args...), nil, nil)
 }
 
+func (n *netsuite) getWithHeaders(ctx context.Context, path string, extraHeaders map[string]string) (json.RawMessage, error) {
+	return n.doRequest(ctx, http.MethodGet, path, nil, extraHeaders)
+}
+
 func (n *netsuite) post(ctx context.Context, path string, body any, extraHeaders map[string]string) (json.RawMessage, error) {
 	return n.doRequest(ctx, http.MethodPost, path, body, extraHeaders)
 }

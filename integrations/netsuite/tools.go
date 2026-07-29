@@ -177,9 +177,9 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"id"},
 	},
 	{
-		Name: mcp.ToolName("netsuite_metadata_catalog"), Description: "Fetch the NetSuite REST metadata catalog for available record types and fields",
+		Name: mcp.ToolName("netsuite_metadata_catalog"), Description: "Fetch the NetSuite REST metadata catalog. Omit select for the full catalog; set select to a record type (e.g. customer) to describe that type's schema.",
 		Parameters: map[string]string{
-			"select": "Optional record type to describe (e.g. customer). Omit for full catalog.",
+			"select": "Optional record type path segment to describe (e.g. customer). Uses application/schema+json. Omit for the full catalog listing.",
 		},
 	},
 }

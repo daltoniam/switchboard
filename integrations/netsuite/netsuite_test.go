@@ -291,6 +291,23 @@ func TestCreateRecord(t *testing.T) {
 	require.False(t, result.IsError)
 }
 
+func TestMetadataCatalog_SelectPath(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/services/rest/record/v1/metadata-catalog/customer", r.URL.Path)
+		assert.Equal(t, "application/schema+json", r.Header.Get("Accept"))
+		_, _ = w.Write([]byte(`{"title":"customer"}`))
+	}))
+	defer ts.Close()
+
+	n := &netsuite{accessToken: "t", accountID: "1", client: ts.Client(), baseURL: ts.URL}
+	result, err := n.Execute(context.Background(), "netsuite_metadata_catalog", map[string]any{
+		"select": "customer",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, "customer")
+}
+
 func TestInvalidRecordType(t *testing.T) {
 	n := &netsuite{accessToken: "t", accountID: "1", client: &http.Client{}, baseURL: "http://localhost"}
 	result, err := n.Execute(context.Background(), "netsuite_list_records", map[string]any{
