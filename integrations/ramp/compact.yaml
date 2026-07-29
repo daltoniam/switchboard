@@ -49,8 +49,10 @@ tools:
     ramp_list_reimbursements:
         spec:
             - data[].id
-            - data[].amount
-            - data[].currency
+            - data[].entity_amount.value
+            - data[].entity_amount.currency
+            - data[].merchant_amount.value
+            - data[].merchant_amount.currency
             - data[].state
             - data[].user_id
             - data[].merchant
@@ -60,8 +62,12 @@ tools:
     ramp_get_reimbursement:
         spec:
             - id
-            - amount
-            - currency
+            - entity_amount.value
+            - entity_amount.currency
+            - merchant_amount.value
+            - merchant_amount.currency
+            - payee_amount.amount
+            - payee_amount.currency_code
             - state
             - user_id
             - merchant
@@ -129,20 +135,18 @@ tools:
     ramp_list_virtual_cards:
         spec:
             - data[].id
-            - data[].display_name
-            - data[].last_four
-            - data[].state
-            - data[].cardholder_id
-            - data[].is_physical
+            - data[].user_id
+            - data[].fund_id
+            - data[].is_card_suspended
+            - data[].created_at
             - page.next
     ramp_get_virtual_card:
         spec:
             - id
-            - display_name
-            - last_four
-            - state
-            - cardholder_id
-            - spending_restrictions
+            - user_id
+            - fund_id
+            - is_card_suspended
+            - created_at
     ramp_list_physical_cards:
         spec:
             - data[].id
@@ -158,7 +162,6 @@ tools:
             - last_four
             - state
             - cardholder_id
-            - spending_restrictions
     ramp_list_receipts:
         spec:
             - data[].id
@@ -194,8 +197,9 @@ tools:
     ramp_list_merchants:
         spec:
             - data[].id
-            - data[].name
+            - data[].merchant_name
             - data[].sk_category_name
+            - data[].is_auto_approved
             - page.next
     ramp_list_vendors:
         spec:

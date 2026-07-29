@@ -69,13 +69,12 @@ func setTransactionMemo(ctx context.Context, r *ramp, args map[string]any) (*mcp
 func updateTransactionSplits(ctx context.Context, r *ramp, args map[string]any) (*mcp.ToolResult, error) {
 	rd := mcp.NewArgs(args)
 	id := rd.Str("transaction_id")
-	lineItemsRaw := rd.Str("line_items")
 	if err := rd.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	var lineItems any
-	if err := json.Unmarshal([]byte(lineItemsRaw), &lineItems); err != nil {
-		return mcp.ErrResult(fmt.Errorf("invalid JSON for line_items: %w", err))
+	lineItems, err := anyJSONArg(args, "line_items")
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
 	path := fmt.Sprintf("/developer/v1/transactions/%s", url.PathEscape(id))
 	data, err := r.patch(ctx, path, map[string]any{"line_items": lineItems})
@@ -83,6 +82,24 @@ func updateTransactionSplits(ctx context.Context, r *ramp, args map[string]any) 
 		return mcp.ErrResult(err)
 	}
 	return mcp.RawResult(data)
+}
+
+// anyJSONArg accepts either a native JSON value (array/object) or a JSON string.
+func anyJSONArg(args map[string]any, key string) (any, error) {
+	v, ok := args[key]
+	if !ok || v == nil {
+		return nil, fmt.Errorf("%s is required", key)
+	}
+	switch v := v.(type) {
+	case string:
+		var out any
+		if err := json.Unmarshal([]byte(v), &out); err != nil {
+			return nil, fmt.Errorf("invalid JSON for %s: %w", key, err)
+		}
+		return out, nil
+	default:
+		return v, nil
+	}
 }
 
 func listReimbursements(ctx context.Context, r *ramp, args map[string]any) (*mcp.ToolResult, error) {

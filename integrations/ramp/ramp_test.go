@@ -239,6 +239,13 @@ func TestUpdateTransactionSplits(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
+
+	result, err = r.Execute(context.Background(), "ramp_update_transaction_splits", map[string]any{
+		"transaction_id": "tx-1",
+		"line_items":     []any{map[string]any{"amount": 4000.0, "memo": "Case-1"}},
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
 }
 
 func TestListTransactions_NextURL(t *testing.T) {
