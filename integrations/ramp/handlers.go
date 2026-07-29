@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 )
@@ -52,11 +51,12 @@ func setTransactionMemo(ctx context.Context, r *ramp, args map[string]any) (*mcp
 		return mcp.ErrResult(err)
 	}
 	body := map[string]any{"memo": memo}
-	if v := rd.Str("is_memo_recurring"); v != "" {
-		body["is_memo_recurring"] = strings.EqualFold(v, "true") || v == "1"
-	}
-	if err := rd.Err(); err != nil {
-		return mcp.ErrResult(err)
+	if _, ok := args["is_memo_recurring"]; ok {
+		recurring, err := mcp.ArgBool(args, "is_memo_recurring")
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		body["is_memo_recurring"] = recurring
 	}
 	path := fmt.Sprintf("/developer/v1/memos/%s", url.PathEscape(id))
 	data, err := r.post(ctx, path, body)

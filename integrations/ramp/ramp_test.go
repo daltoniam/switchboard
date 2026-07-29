@@ -252,13 +252,33 @@ func TestListTransactions_NextURL(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "cursor-abc", r.URL.Query().Get("start"))
 		assert.Equal(t, "50", r.URL.Query().Get("page_size"))
+		assert.Equal(t, "u1", r.URL.Query().Get("user_id"))
 		_, _ = w.Write([]byte(`{"data":[],"page":{"next":null}}`))
 	}))
 	defer ts.Close()
 
 	r := &ramp{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
 	result, err := r.Execute(context.Background(), "ramp_list_transactions", map[string]any{
-		"next": ts.URL + "/developer/v1/transactions?start=cursor-abc&page_size=50",
+		"next": ts.URL + "/developer/v1/transactions?start=cursor-abc&page_size=50&user_id=u1",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestSetTransactionMemo_BoolArg(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, true, body["is_memo_recurring"])
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer ts.Close()
+
+	r := &ramp{accessToken: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := r.Execute(context.Background(), "ramp_set_transaction_memo", map[string]any{
+		"transaction_id":    "tx-1",
+		"memo":              "note",
+		"is_memo_recurring": true,
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)

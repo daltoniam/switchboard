@@ -169,24 +169,33 @@ func queryEncode(params map[string]string) string {
 	return "?" + vals.Encode()
 }
 
+// pageParams builds list query params. When next is set to a full page.next URL,
+// all query params from that URL are used so filters are preserved across pages.
+// Explicit args override values from next.
 func pageParams(args map[string]any) map[string]string {
 	r := mcp.NewArgs(args)
+	nextURL := r.Str("next")
 	start := r.Str("start")
 	pageSize := r.Str("page_size")
-	nextURL := r.Str("next")
 	_ = r.Err()
-	if start == "" && nextURL != "" {
+
+	params := map[string]string{}
+	if nextURL != "" {
 		if u, err := url.Parse(nextURL); err == nil {
-			start = u.Query().Get("start")
-			if pageSize == "" {
-				pageSize = u.Query().Get("page_size")
+			for k, vs := range u.Query() {
+				if len(vs) > 0 && vs[0] != "" {
+					params[k] = vs[0]
+				}
 			}
 		}
 	}
-	return map[string]string{
-		"start":     start,
-		"page_size": pageSize,
+	if start != "" {
+		params["start"] = start
 	}
+	if pageSize != "" {
+		params["page_size"] = pageSize
+	}
+	return params
 }
 
 var dispatch = map[mcp.ToolName]handlerFunc{

@@ -10,6 +10,7 @@ tools:
         spec:
             - data[].id
             - data[].amount
+            - data[].minor_unit_conversion_rate
             - data[].currency_code
             - data[].merchant_name
             - data[].merchant_id
@@ -28,6 +29,7 @@ tools:
         spec:
             - id
             - amount
+            - minor_unit_conversion_rate
             - currency_code
             - merchant_name
             - merchant_id

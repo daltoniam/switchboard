@@ -39,7 +39,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("ramp_update_transaction_splits"), Description: "Split or unsplit a Ramp transaction into accounting line items. Empty line_items array unsplits. Use after get_transaction.",
 		Parameters: map[string]string{
 			"transaction_id": "Transaction ID",
-			"line_items":     `JSON array of split line items (e.g. [{"amount":4000,"memo":"Case-1"}]). Empty array removes splits.`,
+			"line_items":     `JSON array of split line items (e.g. [{"amount":4000,"memo":"Case-1"}]). amount is minor units (4000 = $40.00) and must sum to the transaction amount. Empty array removes splits.`,
 		},
 		Required: []string{"transaction_id", "line_items"},
 	},
