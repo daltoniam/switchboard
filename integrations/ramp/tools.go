@@ -17,7 +17,8 @@ var tools = []mcp.ToolDefinition{
 			"sync_status":   "Accounting sync status filter",
 			"entity_id":     "Filter by entity ID",
 			"page_size":     "Results per page (2-100, default 20)",
-			"start":         "Pagination cursor (ID of last entity from previous page)",
+			"start":         "Pagination start token from the previous page URL query string",
+			"next":          "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
@@ -74,7 +75,8 @@ var tools = []mcp.ToolDefinition{
 			"department_id": "Filter by department ID",
 			"location_id":   "Filter by location ID",
 			"page_size":     "Results per page (2-100, default 20)",
-			"start":         "Pagination cursor",
+			"start":         "Pagination start token from the previous page URL query string",
+			"next":          "Full page.next URL from a previous list response (preferred over start)",
 		},
 	},
 	{
