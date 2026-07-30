@@ -180,6 +180,9 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Stripe | `api_key` | `STRIPE_API_KEY` |
 | Stripe | `account` | `STRIPE_ACCOUNT` (optional — `Stripe-Account` header for Connect) |
 | Stripe | `base_url` | `STRIPE_BASE_URL` (optional — override API endpoint, e.g. stripe-mock) |
+| Gong | `access_key` | `GONG_ACCESS_KEY` |
+| Gong | `access_key_secret` | `GONG_ACCESS_KEY_SECRET` |
+| Gong | `base_url` | `GONG_BASE_URL` (optional — default `https://api.gong.io`) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
 | Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
 | NetSuite | `account_id` | `NETSUITE_ACCOUNT_ID` |

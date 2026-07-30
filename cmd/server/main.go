@@ -38,6 +38,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
 	"github.com/daltoniam/switchboard/integrations/gmeet"
+	"github.com/daltoniam/switchboard/integrations/gong"
 	"github.com/daltoniam/switchboard/integrations/gpeople"
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
@@ -251,6 +252,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		stripe.New(),
 		amazonIntegration,
 		gmailIntegration,
+		gong.New(),
 		gcalIntegration,
 		gdriveIntegration,
 		gdocsIntegration,

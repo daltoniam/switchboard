@@ -172,6 +172,11 @@ var envMapping = map[string]map[string]string{
 		"account":  "STRIPE_ACCOUNT",
 		"base_url": "STRIPE_BASE_URL",
 	},
+	"gong": {
+		"access_key":        "GONG_ACCESS_KEY",
+		"access_key_secret": "GONG_ACCESS_KEY_SECRET",
+		"base_url":          "GONG_BASE_URL",
+	},
 	"ramp": {
 		"access_token": "RAMP_ACCESS_TOKEN",
 		"base_url":     "RAMP_BASE_URL",
@@ -346,6 +351,10 @@ func defaultConfig() *mcp.Config {
 			"stripe": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "account": "", "base_url": ""},
+			},
+			"gong": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_key": "", "access_key_secret": "", "base_url": ""},
 			},
 			"ramp": {
 				Enabled:     false,

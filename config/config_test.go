@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 50)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp"} {
+	assert.Len(t, m.cfg.Integrations, 51)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 50)
+	assert.Len(t, cfg.Integrations, 51)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 50)
+	assert.Len(t, cfg.Integrations, 51)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 50)
+	assert.Len(t, cfg.Integrations, 51)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -272,6 +272,7 @@ func TestDefaultConfig(t *testing.T) {
 		"notion":        {"token_v2"},
 		"ollama":        {"base_url", "api_key"},
 		"ynab":          {"api_key"},
+		"gong":          {"access_key", "access_key_secret", "base_url"},
 		"ramp":          {"access_token", "base_url"},
 		"gcp":           {"project_id", "credentials_json"},
 		"confluence":    {"email", "api_token", "domain"},
@@ -541,6 +542,8 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "STRIPE_API_KEY", m["stripe"]["api_key"])
 	assert.Equal(t, "STRIPE_ACCOUNT", m["stripe"]["account"])
 	assert.Equal(t, "STRIPE_BASE_URL", m["stripe"]["base_url"])
+	assert.Equal(t, "GONG_ACCESS_KEY", m["gong"]["access_key"])
+	assert.Equal(t, "GONG_ACCESS_KEY_SECRET", m["gong"]["access_key_secret"])
 	assert.Equal(t, "RAMP_ACCESS_TOKEN", m["ramp"]["access_token"])
 	assert.Equal(t, "RAMP_BASE_URL", m["ramp"]["base_url"])
 	assert.Equal(t, "NETSUITE_ACCOUNT_ID", m["netsuite"]["account_id"])
@@ -562,7 +565,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	// 28 base integrations + 11 Google Workspace services sharing the
 	// GOOGLE_OAUTH_CLIENT_ID/SECRET env vars.
-	assert.Len(t, m, 41)
+	assert.Len(t, m, 42)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
