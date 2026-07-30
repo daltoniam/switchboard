@@ -232,14 +232,23 @@ func TestExecuteOpenAPI_UpstreamError(t *testing.T) {
 	}
 }
 
-func TestIsWrite(t *testing.T) {
+func TestWriteDescriptionPrefix(t *testing.T) {
 	im, _ := Parse(KindOpenAPI, "demo", []byte(openAPIFixture), "https://x.test")
 	in := NewIntegration(im)
-	if in.IsWrite("demo_getuser") {
-		t.Error("GET should not be write")
+	var getDesc, deleteDesc string
+	for _, tool := range in.Tools() {
+		switch tool.Name {
+		case "demo_getuser":
+			getDesc = tool.Description
+		case "demo_deleteuser":
+			deleteDesc = tool.Description
+		}
 	}
-	if !in.IsWrite("demo_deleteuser") {
-		t.Error("DELETE should be write")
+	if strings.HasPrefix(getDesc, "[write]") {
+		t.Error("GET should not be tagged [write]")
+	}
+	if !strings.HasPrefix(deleteDesc, "[write]") {
+		t.Error("DELETE should be tagged [write]")
 	}
 }
 
@@ -332,12 +341,20 @@ func TestParseGraphQL(t *testing.T) {
 	if len(tools) != 2 {
 		t.Fatalf("got %d tools, want 2", len(tools))
 	}
-	in := NewIntegration(im)
-	if !in.IsWrite("gql_createuser") {
-		t.Error("mutation should be write")
+	var createDesc, queryDesc string
+	for _, tool := range tools {
+		switch string(tool.Name) {
+		case "gql_createuser":
+			createDesc = tool.Description
+		case "gql_user":
+			queryDesc = tool.Description
+		}
 	}
-	if in.IsWrite("gql_user") {
-		t.Error("query should not be write")
+	if !strings.HasPrefix(createDesc, "[write]") {
+		t.Error("mutation should be tagged [write]")
+	}
+	if strings.HasPrefix(queryDesc, "[write]") {
+		t.Error("query should not be tagged [write]")
 	}
 }
 

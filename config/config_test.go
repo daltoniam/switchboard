@@ -285,6 +285,36 @@ func TestEnabledIntegrations_SpecImports(t *testing.T) {
 	assert.NotContains(t, enabled, "disabled_api")
 }
 
+func TestEnabledIntegrations_SpecImportDedupe(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	require.NoError(t, m.SetIntegration("github", &mcp.IntegrationConfig{
+		Enabled:     true,
+		Credentials: mcp.Credentials{"token": "t"},
+	}))
+	// Two names that sanitize to the same id, plus a collision with a built-in.
+	require.NoError(t, m.SetSpecImports([]mcp.SpecImportConfig{
+		{Name: "Demo API", Enabled: true},
+		{Name: "demo-api", Enabled: true},
+		{Name: "github", Enabled: true},
+	}))
+
+	enabled := m.EnabledIntegrations()
+	assert.Equal(t, 1, countName(enabled, "demo_api"))
+	assert.Equal(t, 1, countName(enabled, "github"))
+}
+
+func countName(names []string, want string) int {
+	n := 0
+	for _, name := range names {
+		if name == want {
+			n++
+		}
+	}
+	return n
+}
+
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)

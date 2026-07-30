@@ -606,18 +606,27 @@ func (m *manager) EnabledIntegrations() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	var names []string
+	seen := make(map[string]struct{})
 	for name, ic := range m.cfg.Integrations {
-		if ic.Enabled {
-			names = append(names, name)
+		if !ic.Enabled {
+			continue
 		}
+		names = append(names, name)
+		seen[name] = struct{}{}
 	}
 	// Spec imports are registered under their sanitized name and must be
 	// reported here so search indexing and execute resolution can find them —
 	// they live in a separate config list from built-in integrations.
 	for _, si := range m.cfg.SpecImports {
-		if si.Enabled {
-			names = append(names, specimport.SanitizedName(si.Name))
+		if !si.Enabled {
+			continue
 		}
+		n := specimport.SanitizedName(si.Name)
+		if _, ok := seen[n]; ok {
+			continue
+		}
+		seen[n] = struct{}{}
+		names = append(names, n)
 	}
 	return names
 }
