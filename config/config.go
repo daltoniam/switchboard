@@ -93,6 +93,15 @@ var envMapping = map[string]map[string]string{
 		"instance_url": "SALESFORCE_INSTANCE_URL",
 		"api_version":  "SALESFORCE_API_VERSION",
 	},
+	"netsuite": {
+		"account_id":      "NETSUITE_ACCOUNT_ID",
+		"consumer_key":    "NETSUITE_CONSUMER_KEY",
+		"consumer_secret": "NETSUITE_CONSUMER_SECRET",
+		"token_id":        "NETSUITE_TOKEN_ID",
+		"token_secret":    "NETSUITE_TOKEN_SECRET",
+		"access_token":    "NETSUITE_ACCESS_TOKEN",
+		"base_url":        "NETSUITE_BASE_URL",
+	},
 	"cloudflare": {
 		"api_token":  "CLOUDFLARE_API_TOKEN",
 		"account_id": "CLOUDFLARE_ACCOUNT_ID",
@@ -366,6 +375,10 @@ func defaultConfig() *mcp.Config {
 			"salesforce": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "instance_url": "", "api_version": ""},
+			},
+			"netsuite": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"account_id": "", "consumer_key": "", "consumer_secret": "", "token_id": "", "token_secret": "", "access_token": "", "base_url": ""},
 			},
 			"cloudflare": {
 				Enabled:     false,

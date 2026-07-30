@@ -52,6 +52,7 @@ tools:
             - calls[].parties
             - calls[].content.trackers
             - calls[].content.topics
+            - calls[].content.brief
             - records.totalRecords
             - records.cursor
             - requestId

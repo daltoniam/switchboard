@@ -1,0 +1,241 @@
+# Switchboard compaction specs for the netsuite integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    netsuite_suiteql:
+        spec:
+            - items
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_list_records:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].links
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_get_record:
+        spec: []
+    netsuite_list_customers:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].companyName
+            - items[].email
+            - items[].entityId
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_get_customer:
+        spec:
+            - id
+            - companyName
+            - entityId
+            - email
+            - phone
+            - subsidiary
+            - isInactive
+            - dateCreated
+            - lastModifiedDate
+    netsuite_list_vendors:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].companyName
+            - items[].email
+            - items[].entityId
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_get_vendor:
+        spec:
+            - id
+            - companyName
+            - entityId
+            - email
+            - phone
+            - subsidiary
+            - isInactive
+    netsuite_list_invoices:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].tranId
+            - items[].tranDate
+            - items[].entity
+            - items[].status
+            - items[].total
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_get_invoice:
+        spec:
+            - id
+            - tranId
+            - tranDate
+            - entity
+            - status
+            - total
+            - dueDate
+            - currency
+            - memo
+            - item
+    netsuite_list_bills:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].tranId
+            - items[].tranDate
+            - items[].entity
+            - items[].status
+            - items[].total
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_get_bill:
+        spec:
+            - id
+            - tranId
+            - tranDate
+            - entity
+            - status
+            - total
+            - dueDate
+            - memo
+            - expense
+            - item
+    netsuite_list_purchase_orders:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].tranId
+            - items[].tranDate
+            - items[].entity
+            - items[].status
+            - items[].total
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_get_purchase_order:
+        spec:
+            - id
+            - tranId
+            - tranDate
+            - entity
+            - status
+            - total
+            - memo
+            - item
+    netsuite_list_sales_orders:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].tranId
+            - items[].tranDate
+            - items[].entity
+            - items[].status
+            - items[].total
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_get_sales_order:
+        spec:
+            - id
+            - tranId
+            - tranDate
+            - entity
+            - status
+            - total
+            - memo
+            - item
+    netsuite_list_employees:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].entityId
+            - items[].email
+            - items[].firstName
+            - items[].lastName
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_get_employee:
+        spec:
+            - id
+            - entityId
+            - email
+            - firstName
+            - lastName
+            - title
+            - department
+            - subsidiary
+            - isInactive
+    netsuite_list_subsidiaries:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].name
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_list_departments:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].name
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_list_journal_entries:
+        spec:
+            - items[].id
+            - items[].refName
+            - items[].tranId
+            - items[].tranDate
+            - items[].memo
+            - count
+            - hasMore
+            - offset
+            - totalResults
+            - links
+    netsuite_get_journal_entry:
+        spec:
+            - id
+            - tranId
+            - tranDate
+            - memo
+            - currency
+            - line
+    netsuite_metadata_catalog:
+        spec:
+            - items
+            - name
+            - links
