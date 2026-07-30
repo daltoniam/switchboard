@@ -172,6 +172,10 @@ var envMapping = map[string]map[string]string{
 		"account":  "STRIPE_ACCOUNT",
 		"base_url": "STRIPE_BASE_URL",
 	},
+	"ramp": {
+		"access_token": "RAMP_ACCESS_TOKEN",
+		"base_url":     "RAMP_BASE_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -342,6 +346,10 @@ func defaultConfig() *mcp.Config {
 			"stripe": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "account": "", "base_url": ""},
+			},
+			"ramp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
 			},
 			"jira": {
 				Enabled:     false,
