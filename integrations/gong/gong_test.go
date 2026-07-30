@@ -231,6 +231,51 @@ func TestGetTranscripts(t *testing.T) {
 	assert.Contains(t, result.Data, "c1")
 }
 
+func TestListCallsExtensive_DefaultSelector(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		cs, ok := body["contentSelector"].(map[string]any)
+		require.True(t, ok)
+		exposed, ok := cs["exposedFields"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, true, exposed["parties"])
+		_, hasMedia := exposed["media"]
+		assert.False(t, hasMedia)
+		_, _ = w.Write([]byte(`{"calls":[]}`))
+	}))
+	defer ts.Close()
+
+	g := &gong{accessKey: "k", accessKeySecret: "s", client: ts.Client(), baseURL: ts.URL}
+	result, err := g.Execute(context.Background(), "gong_list_calls_extensive", map[string]any{
+		"from_date_time": "2024-01-01T00:00:00Z",
+		"to_date_time":   "2024-01-08T00:00:00Z",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestListCallsExtensive_ExplicitSelectorWins(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		cs := body["contentSelector"].(map[string]any)
+		assert.Equal(t, true, cs["exposedFields"].(map[string]any)["media"])
+		_, _ = w.Write([]byte(`{"calls":[]}`))
+	}))
+	defer ts.Close()
+
+	g := &gong{accessKey: "k", accessKeySecret: "s", client: ts.Client(), baseURL: ts.URL}
+	result, err := g.Execute(context.Background(), "gong_list_calls_extensive", map[string]any{
+		"from_date_time":   "2024-01-01T00:00:00Z",
+		"to_date_time":     "2024-01-08T00:00:00Z",
+		"content_selector": `{"exposedFields":{"media":true}}`,
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestListLogs_RequiresLogType(t *testing.T) {
 	g := &gong{accessKey: "k", accessKeySecret: "s", client: &http.Client{}, baseURL: "http://localhost"}
 	result, err := g.Execute(context.Background(), "gong_list_logs", map[string]any{

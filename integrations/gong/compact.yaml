@@ -48,6 +48,7 @@ tools:
             - calls[].metaData.direction
             - calls[].metaData.primaryUserId
             - calls[].metaData.workspaceId
+            - calls[].metaData.url
             - calls[].parties
             - calls[].content.trackers
             - calls[].content.topics
@@ -146,4 +147,7 @@ tools:
             - meetings
             - customerData
             - customerEngagement
+            - suppliedPhoneNumber
+            - matchingPhoneNumbers
+            - emailAddresses
             - requestId

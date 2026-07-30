@@ -111,12 +111,10 @@ func listCallsExtensive(ctx context.Context, g *gong, args map[string]any) (*mcp
 			"exposedFields": map[string]any{
 				"parties": true,
 				"content": map[string]any{
-					"structure":        true,
-					"topics":           true,
-					"trackers":         true,
-					"pointsOfInterest": true,
+					"topics":   true,
+					"trackers": true,
+					"brief":    true,
 				},
-				"media": true,
 			},
 		}
 	}

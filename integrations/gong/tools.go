@@ -19,7 +19,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"call_id"},
 	},
 	{
-		Name: mcp.ToolName("gong_list_calls_extensive"), Description: "Retrieve extensive Gong call details (parties, content, media, collaboration) for filtered calls. Prefer over repeated get_call when many fields are needed. Requires a date range and/or call_ids.",
+		Name: mcp.ToolName("gong_list_calls_extensive"), Description: "Retrieve extensive Gong call details (parties and content topics/trackers/brief by default) for filtered calls. Pass content_selector to request media or other sections when your API key has the needed scopes. Prefer over repeated get_call when many fields are needed. Requires a date range and/or call_ids.",
 		Parameters: map[string]string{
 			"from_date_time":   "Start of range (ISO 8601)",
 			"to_date_time":     "End of range (ISO 8601)",
