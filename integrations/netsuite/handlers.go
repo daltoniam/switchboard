@@ -194,7 +194,7 @@ func getInvoice(ctx context.Context, n *netsuite, args map[string]any) (*mcp.Too
 }
 
 func listBills(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
-	return listTyped(ctx, n, "vendorbill", args)
+	return listTyped(ctx, n, "vendorBill", args)
 }
 
 func getBill(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
@@ -203,11 +203,11 @@ func getBill(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolRe
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	return getTyped(ctx, n, "vendorbill", id, args)
+	return getTyped(ctx, n, "vendorBill", id, args)
 }
 
 func listPurchaseOrders(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
-	return listTyped(ctx, n, "purchaseorder", args)
+	return listTyped(ctx, n, "purchaseOrder", args)
 }
 
 func getPurchaseOrder(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
@@ -216,11 +216,11 @@ func getPurchaseOrder(ctx context.Context, n *netsuite, args map[string]any) (*m
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	return getTyped(ctx, n, "purchaseorder", id, args)
+	return getTyped(ctx, n, "purchaseOrder", id, args)
 }
 
 func listSalesOrders(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
-	return listTyped(ctx, n, "salesorder", args)
+	return listTyped(ctx, n, "salesOrder", args)
 }
 
 func getSalesOrder(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
@@ -229,7 +229,7 @@ func getSalesOrder(ctx context.Context, n *netsuite, args map[string]any) (*mcp.
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	return getTyped(ctx, n, "salesorder", id, args)
+	return getTyped(ctx, n, "salesOrder", id, args)
 }
 
 func listEmployees(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
@@ -254,7 +254,7 @@ func listDepartments(ctx context.Context, n *netsuite, args map[string]any) (*mc
 }
 
 func listJournalEntries(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
-	return listTyped(ctx, n, "journalentry", args)
+	return listTyped(ctx, n, "journalEntry", args)
 }
 
 func getJournalEntry(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {
@@ -263,7 +263,7 @@ func getJournalEntry(ctx context.Context, n *netsuite, args map[string]any) (*mc
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	return getTyped(ctx, n, "journalentry", id, args)
+	return getTyped(ctx, n, "journalEntry", id, args)
 }
 
 func metadataCatalog(ctx context.Context, n *netsuite, args map[string]any) (*mcp.ToolResult, error) {

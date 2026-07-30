@@ -15,7 +15,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name: mcp.ToolName("netsuite_list_records"), Description: "List NetSuite REST records of any type with optional filter query. Prefer typed list tools when available.",
 		Parameters: map[string]string{
-			"record_type": "REST record type (e.g. customer, vendor, invoice, vendorbill, salesorder, purchaseorder, employee, journalentry)",
+			"record_type": "REST record type (e.g. customer, vendor, invoice, vendorBill, salesOrder, purchaseOrder, employee, journalEntry)",
 			"q":           "Optional collection filter query (e.g. companyName CONTAIN \"Acme\")",
 			"limit":       "Page size (default 100, max 1000)",
 			"offset":      "Pagination offset",
@@ -34,7 +34,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name: mcp.ToolName("netsuite_create_record"), Description: "Create a NetSuite REST record. Provide field values as JSON.",
 		Parameters: map[string]string{
-			"record_type": "REST record type (e.g. customer, invoice, vendorbill)",
+			"record_type": "REST record type (e.g. customer, invoice, vendorBill)",
 			"data":        "JSON object of field values (e.g. {\"companyName\":\"Acme\",\"subsidiary\":{\"id\":\"1\"}})",
 		},
 		Required: []string{"record_type", "data"},
@@ -96,7 +96,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"id"},
 	},
 	{
-		Name: mcp.ToolName("netsuite_list_bills"), Description: "List NetSuite vendor bills (AP bills / vendorbill records)",
+		Name: mcp.ToolName("netsuite_list_bills"), Description: "List NetSuite vendor bills (AP bills / vendorBill records)",
 		Parameters: map[string]string{
 			"q":      "Optional filter query",
 			"limit":  "Page size (default 100)",

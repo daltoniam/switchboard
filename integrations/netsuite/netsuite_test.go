@@ -251,6 +251,19 @@ func TestSuiteQL(t *testing.T) {
 	assert.Contains(t, result.Data, `"id":"9"`)
 }
 
+func TestListBills_PathCasing(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/services/rest/record/v1/vendorBill", r.URL.Path)
+		_, _ = w.Write([]byte(`{"items":[]}`))
+	}))
+	defer ts.Close()
+
+	n := &netsuite{accessToken: "t", accountID: "1", client: ts.Client(), baseURL: ts.URL}
+	result, err := n.Execute(context.Background(), "netsuite_list_bills", map[string]any{})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestListCustomers(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/services/rest/record/v1/customer", r.URL.Path)
