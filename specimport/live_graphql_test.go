@@ -180,7 +180,7 @@ func importLive(t *testing.T, a liveAuth) (*Integration, *Imported, error) {
 	// from the Mutation root must be flagged as a write.
 	var sawWrite bool
 	for _, tool := range tools {
-		if in.IsWrite(tool.Name) {
+		if strings.HasPrefix(tool.Description, "[write]") {
 			sawWrite = true
 			break
 		}

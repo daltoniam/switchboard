@@ -395,13 +395,5 @@ func (in *Integration) Placeholders() map[string]string {
 	}
 }
 
-// IsWrite reports whether a tool was classified as a mutating operation.
-// The policy layer uses this to require approval for writes derived from the
-// spec's semantics (HTTP verb / GraphQL operation type).
-func (in *Integration) IsWrite(toolName mcp.ToolName) bool {
-	op, ok := in.opByTool[toolName]
-	return ok && op.effect == effectWrite
-}
-
 // compile-time check that we satisfy the primary port.
 var _ mcp.Integration = (*Integration)(nil)
