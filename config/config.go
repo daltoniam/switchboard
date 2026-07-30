@@ -177,6 +177,10 @@ var envMapping = map[string]map[string]string{
 		"access_key_secret": "GONG_ACCESS_KEY_SECRET",
 		"base_url":          "GONG_BASE_URL",
 	},
+	"ramp": {
+		"access_token": "RAMP_ACCESS_TOKEN",
+		"base_url":     "RAMP_BASE_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -351,6 +355,10 @@ func defaultConfig() *mcp.Config {
 			"gong": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_key": "", "access_key_secret": "", "base_url": ""},
+			},
+			"ramp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
 			},
 			"jira": {
 				Enabled:     false,

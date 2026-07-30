@@ -1,0 +1,248 @@
+# Switchboard compaction specs for the ramp integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    ramp_list_transactions:
+        spec:
+            - data[].id
+            - data[].amount
+            - data[].minor_unit_conversion_rate
+            - data[].currency_code
+            - data[].merchant_name
+            - data[].merchant_id
+            - data[].state
+            - data[].user_transaction_time
+            - data[].card_id
+            - data[].card_holder.first_name
+            - data[].card_holder.last_name
+            - data[].card_holder.user_id
+            - data[].memo
+            - data[].sync_status
+            - data[].sk_category_name
+            - data[].entity_id
+            - page.next
+    ramp_get_transaction:
+        spec:
+            - id
+            - amount
+            - minor_unit_conversion_rate
+            - currency_code
+            - merchant_name
+            - merchant_id
+            - merchant_descriptor
+            - state
+            - user_transaction_time
+            - settlement_date
+            - card_id
+            - card_holder.first_name
+            - card_holder.last_name
+            - card_holder.user_id
+            - memo
+            - sync_status
+            - sk_category_name
+            - entity_id
+            - receipts
+            - accounting_field_selections
+            - line_items
+    ramp_list_reimbursements:
+        spec:
+            - data[].id
+            - data[].entity_amount.value
+            - data[].entity_amount.currency
+            - data[].merchant_amount.value
+            - data[].merchant_amount.currency
+            - data[].state
+            - data[].user_id
+            - data[].merchant
+            - data[].transaction_date
+            - data[].created_at
+            - page.next
+    ramp_get_reimbursement:
+        spec:
+            - id
+            - entity_amount.value
+            - entity_amount.currency
+            - merchant_amount.value
+            - merchant_amount.currency
+            - payee_amount.amount
+            - payee_amount.currency_code
+            - payee_amount.minor_unit_conversion_rate
+            - state
+            - user_id
+            - merchant
+            - transaction_date
+            - created_at
+            - memo
+            - receipts
+    ramp_list_bills:
+        spec:
+            - data[].id
+            - data[].invoice_number
+            - data[].status
+            - data[].status_summary
+            - data[].amount.amount
+            - data[].amount.currency_code
+            - data[].amount.minor_unit_conversion_rate
+            - data[].due_at
+            - data[].issued_at
+            - data[].vendor.id
+            - data[].vendor.name
+            - data[].entity_id
+            - data[].sync_status
+            - page.next
+    ramp_get_bill:
+        spec:
+            - id
+            - invoice_number
+            - status
+            - status_summary
+            - amount
+            - due_at
+            - issued_at
+            - paid_at
+            - vendor
+            - entity_id
+            - memo
+            - line_items
+            - sync_status
+            - payment
+    ramp_list_users:
+        spec:
+            - data[].id
+            - data[].email
+            - data[].first_name
+            - data[].last_name
+            - data[].status
+            - data[].role
+            - data[].department_id
+            - data[].location_id
+            - data[].manager_id
+            - data[].employee_id
+            - page.next
+    ramp_get_user:
+        spec:
+            - id
+            - email
+            - first_name
+            - last_name
+            - status
+            - role
+            - department_id
+            - location_id
+            - manager_id
+            - employee_id
+            - phone
+    ramp_list_virtual_cards:
+        spec:
+            - data[].id
+            - data[].user_id
+            - data[].fund_id
+            - data[].is_card_suspended
+            - data[].created_at
+            - page.next
+    ramp_get_virtual_card:
+        spec:
+            - id
+            - user_id
+            - fund_id
+            - is_card_suspended
+            - created_at
+    ramp_list_physical_cards:
+        spec:
+            - data[].id
+            - data[].display_name
+            - data[].last_four
+            - data[].state
+            - data[].cardholder_id
+            - page.next
+    ramp_get_physical_card:
+        spec:
+            - id
+            - display_name
+            - last_four
+            - state
+            - cardholder_id
+    ramp_list_receipts:
+        spec:
+            - data[].id
+            - data[].transaction_id
+            - data[].user_id
+            - data[].created_at
+            - page.next
+    ramp_get_receipt:
+        spec:
+            - id
+            - transaction_id
+            - user_id
+            - created_at
+            - receipt_url
+    ramp_list_departments:
+        spec:
+            - data[].id
+            - data[].name
+            - page.next
+    ramp_get_department:
+        spec:
+            - id
+            - name
+    ramp_list_locations:
+        spec:
+            - data[].id
+            - data[].name
+            - page.next
+    ramp_get_location:
+        spec:
+            - id
+            - name
+    ramp_list_merchants:
+        spec:
+            - data[].id
+            - data[].merchant_name
+            - data[].sk_category_name
+            - data[].is_auto_approved
+            - page.next
+    ramp_list_vendors:
+        spec:
+            - data[].id
+            - data[].name
+            - data[].is_active
+            - data[].accounting_vendor_remote_id
+            - data[].external_vendor_id
+            - page.next
+    ramp_get_vendor:
+        spec:
+            - id
+            - name
+            - is_active
+            - accounting_vendor_remote_id
+            - external_vendor_id
+            - contacts
+    ramp_list_entities:
+        spec:
+            - data[].id
+            - data[].entity_name
+            - data[].currency
+            - page.next
+    ramp_get_entity:
+        spec:
+            - id
+            - entity_name
+            - currency
+    ramp_list_bank_accounts:
+        spec:
+            - data[].id
+            - data[].account_name
+            - data[].account_number_last_four
+            - data[].financial_institution_name
+            - page.next
+    ramp_get_bank_account:
+        spec:
+            - id
+            - account_name
+            - account_number_last_four
+            - financial_institution_name
+            - account_subtype

@@ -183,6 +183,8 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Gong | `access_key` | `GONG_ACCESS_KEY` |
 | Gong | `access_key_secret` | `GONG_ACCESS_KEY_SECRET` |
 | Gong | `base_url` | `GONG_BASE_URL` (optional — default `https://api.gong.io`) |
+| Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
+| Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
 | NetSuite | `account_id` | `NETSUITE_ACCOUNT_ID` |
 | NetSuite | `access_token` | `NETSUITE_ACCESS_TOKEN` (OAuth 2.0; alternative to TBA) |
 | NetSuite | `consumer_key` | `NETSUITE_CONSUMER_KEY` (TBA) |

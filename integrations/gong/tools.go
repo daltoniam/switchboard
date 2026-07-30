@@ -6,7 +6,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name: mcp.ToolName("gong_list_calls"), Description: "List Gong sales call recordings and conversations in a date range. Start here for call review, coaching, deal conversations, and conversation intelligence workflows.",
 		Parameters: map[string]string{
-			"from_date_time": "Start of range (ISO 8601, required by Gong; max 90-day window)",
+			"from_date_time": "Start of range (ISO 8601, required by Gong)",
 			"to_date_time":   "End of range (ISO 8601)",
 			"workspace_id":   "Optional workspace ID filter",
 			"cursor":         "Pagination cursor from a previous response",
