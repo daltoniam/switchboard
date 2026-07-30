@@ -133,3 +133,54 @@ func TestHandleSpecImports_FlashRenderedOnce(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(body, "spec import needs a spec or path"),
 		"flash message must render exactly once, not duplicated by the page")
 }
+
+func TestHandleSpecImportSave_ReservedName(t *testing.T) {
+	ws, reg, cfg := setupTestWeb()
+	// Register a built-in-style integration under "github".
+	require.NoError(t, reg.Register(&mockIntegration{name: "github"}))
+
+	form := url.Values{}
+	form.Set("name", "github")
+	form.Set("kind", "openapi")
+	form.Set("spec", specImportOpenAPI)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/spec-imports/save", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rw := httptest.NewRecorder()
+
+	ws.handleSpecImportSave(rw, req)
+
+	assert.Equal(t, http.StatusSeeOther, rw.Code)
+	assert.Empty(t, cfg.cfg.SpecImports)
+	assert.Contains(t, rw.Header().Get("Location"), "reserved")
+}
+
+func TestHandleSpecImportSave_RawAuthScheme(t *testing.T) {
+	ws, _, cfg := setupTestWeb()
+
+	form := url.Values{}
+	form.Set("name", "Demo API")
+	form.Set("kind", "openapi")
+	form.Set("spec", specImportOpenAPI)
+	form.Set("api_key", "secret")
+	form.Set("auth_scheme", "") // explicit raw key
+
+	req := httptest.NewRequest(http.MethodPost, "/api/spec-imports/save", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rw := httptest.NewRecorder()
+
+	ws.handleSpecImportSave(rw, req)
+
+	require.Len(t, cfg.cfg.SpecImports, 1)
+	assert.Equal(t, "secret", cfg.cfg.SpecImports[0].Credentials["api_key"])
+	_, hasScheme := cfg.cfg.SpecImports[0].Credentials["auth_scheme"]
+	assert.True(t, hasScheme, "auth_scheme must be persisted even when empty")
+	assert.Equal(t, "", cfg.cfg.SpecImports[0].Credentials["auth_scheme"])
+}
+
+func TestUpsertSpecImport_DoesNotMutateInput(t *testing.T) {
+	orig := []mcp.SpecImportConfig{{Name: "Demo API", Kind: "openapi", Enabled: true}}
+	snapshot := append([]mcp.SpecImportConfig(nil), orig...)
+	_ = upsertSpecImport(orig, mcp.SpecImportConfig{Name: "Demo API", Kind: "openapi", Spec: "x", Enabled: true})
+	assert.Equal(t, snapshot, orig, "upsert must not mutate the shared config slice")
+}

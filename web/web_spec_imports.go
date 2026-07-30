@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -52,6 +53,17 @@ func (w *WebServer) handleSpecImportSave(rw http.ResponseWriter, r *http.Request
 	if name == "" {
 		specImportRedirect(rw, r, "", "name is required")
 		return
+	}
+	regName := specimport.SanitizedName(name)
+	if w.services.Registry != nil {
+		if _, exists := w.services.Registry.Get(regName); exists {
+			// Allow replace of an already-registered spec import (same name).
+			// Reject only when the name is owned by a non-spec-import integration.
+			if !isSpecImportName(w.services.Config.Get().SpecImports, regName) {
+				specImportRedirect(rw, r, "", fmt.Sprintf("name %q is reserved by a built-in integration", regName))
+				return
+			}
+		}
 	}
 
 	entry := mcp.SpecImportConfig{
@@ -107,10 +119,15 @@ func (w *WebServer) handleSpecImportDelete(rw http.ResponseWriter, r *http.Reque
 // returning nil when none are set so we don't persist empty maps.
 func specImportCreds(r *http.Request) mcp.Credentials {
 	creds := mcp.Credentials{}
-	for _, key := range []string{"api_key", "auth_header", "auth_scheme"} {
-		if v := strings.TrimSpace(r.FormValue(key)); v != "" {
-			creds[key] = v
-		}
+	apiKey := strings.TrimSpace(r.FormValue("api_key"))
+	if apiKey != "" {
+		// Always record scheme when a key is present so empty means "raw key"
+		// (not "default to Bearer").
+		creds["api_key"] = apiKey
+		creds["auth_scheme"] = strings.TrimSpace(r.FormValue("auth_scheme"))
+	}
+	if v := strings.TrimSpace(r.FormValue("auth_header")); v != "" {
+		creds["auth_header"] = v
 	}
 	if len(creds) == 0 {
 		return nil
@@ -129,13 +146,26 @@ func specImportSource(si mcp.SpecImportConfig) string {
 // upsertSpecImport replaces an entry with the same sanitized name or appends it.
 func upsertSpecImport(list []mcp.SpecImportConfig, entry mcp.SpecImportConfig) []mcp.SpecImportConfig {
 	target := specimport.SanitizedName(entry.Name)
-	for i := range list {
-		if specimport.SanitizedName(list[i].Name) == target {
-			list[i] = entry
-			return list
+	out := make([]mcp.SpecImportConfig, len(list))
+	copy(out, list)
+	for i := range out {
+		if specimport.SanitizedName(out[i].Name) == target {
+			out[i] = entry
+			return out
 		}
 	}
-	return append(list, entry)
+	return append(out, entry)
+}
+
+// isSpecImportName reports whether sanitized name already belongs to a
+// configured spec import (so re-save/replace is allowed).
+func isSpecImportName(list []mcp.SpecImportConfig, sanitized string) bool {
+	for _, si := range list {
+		if specimport.SanitizedName(si.Name) == sanitized {
+			return true
+		}
+	}
+	return false
 }
 
 // removeSpecImport drops the entry whose sanitized name matches.
