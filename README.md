@@ -180,6 +180,13 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Stripe | `api_key` | `STRIPE_API_KEY` |
 | Stripe | `account` | `STRIPE_ACCOUNT` (optional — `Stripe-Account` header for Connect) |
 | Stripe | `base_url` | `STRIPE_BASE_URL` (optional — override API endpoint, e.g. stripe-mock) |
+| NetSuite | `account_id` | `NETSUITE_ACCOUNT_ID` |
+| NetSuite | `access_token` | `NETSUITE_ACCESS_TOKEN` (OAuth 2.0; alternative to TBA) |
+| NetSuite | `consumer_key` | `NETSUITE_CONSUMER_KEY` (TBA) |
+| NetSuite | `consumer_secret` | `NETSUITE_CONSUMER_SECRET` (TBA) |
+| NetSuite | `token_id` | `NETSUITE_TOKEN_ID` (TBA) |
+| NetSuite | `token_secret` | `NETSUITE_TOKEN_SECRET` (TBA) |
+| NetSuite | `base_url` | `NETSUITE_BASE_URL` (optional — default `https://{account}.suitetalk.api.netsuite.com`) |
 
 ### OAuth Setup
 
