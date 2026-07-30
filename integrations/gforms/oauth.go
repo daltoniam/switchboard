@@ -15,14 +15,6 @@ const (
 	// adapter. Each Google service keys its in-progress OAuth flow by
 	// this name so concurrent flows don't collide.
 	integrationName = "gforms"
-
-	// gformsBodyScope grants read/write access to the user's Google
-	// Forms form structure (items, info, settings).
-	gformsBodyScope = "https://www.googleapis.com/auth/forms.body"
-
-	// gformsResponsesScope grants read-only access to form responses.
-	// Required for the responses.list / responses.get endpoints.
-	gformsResponsesScope = "https://www.googleapis.com/auth/forms.responses.readonly"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gforms/oauth/start.
@@ -39,7 +31,7 @@ func StartGformsOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartRe
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{gformsBodyScope, gformsResponsesScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 

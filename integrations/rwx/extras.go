@@ -27,6 +27,9 @@ func getArtifacts(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRe
 	if id == "" && taskID == "" {
 		return mcp.ErrResult(fmt.Errorf("either run_id or task_id is required"))
 	}
+	if taskID == "" && taskKey == "" {
+		return mcp.ErrResult(fmt.Errorf("artifacts are task-scoped: pass task_id, or run_id together with task_key (get failed task keys from rwx_get_run_results)"))
+	}
 	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
 
 	query := url.Values{}

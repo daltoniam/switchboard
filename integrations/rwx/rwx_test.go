@@ -387,6 +387,26 @@ For more documentation on the RWX CLI, see ` + "`rwx --help`" + `
 	assert.Empty(t, problems)
 }
 
+func TestParseResultsPrompt_SingularHeaders(t *testing.T) {
+	// Real RWX prompt for a single-task failure uses singular headers
+	// ("# Failed task:") and "for this task" phrasing.
+	prompt := `# Failed task:
+
+You can pull the logs for this task using ` + "`rwx logs <task-id>`" + `
+
+- database (task-id: 33912f93fb072b62652054fb663c85e9)
+
+For more documentation on the RWX CLI, see ` + "`rwx --help`" + `
+`
+	tasks, tests, problems := parseResultsPrompt(prompt)
+
+	require.Len(t, tasks, 1)
+	assert.Equal(t, "database", tasks[0].Key)
+	assert.Equal(t, "33912f93fb072b62652054fb663c85e9", tasks[0].TaskID)
+	assert.Empty(t, tests)
+	assert.Empty(t, problems)
+}
+
 func TestParseResultsPrompt_OtherProblems(t *testing.T) {
 	prompt := `# Other problems:
 
@@ -769,7 +789,13 @@ func TestGetTaskLogs_RunIDAndTaskKey(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, zw.Close())
 
-	downloadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	downloadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, http.MethodPost, req.Method)
+		assert.Equal(t, "application/x-www-form-urlencoded", req.Header.Get("Content-Type"))
+		require.NoError(t, req.ParseForm())
+		assert.Equal(t, "tok", req.PostFormValue("token"))
+		assert.Equal(t, "logs.zip", req.PostFormValue("filename"))
+		assert.Equal(t, "contents", req.PostFormValue("contents"))
 		_, _ = w.Write(zipData.Bytes())
 	}))
 	defer downloadServer.Close()
@@ -815,7 +841,7 @@ func TestGetRunResults_BranchLookup(t *testing.T) {
 		switch r.URL.Path {
 		case "/mint/api/results/latest":
 			assert.Equal(t, "main", r.URL.Query().Get("branch_name"))
-			_, _ = w.Write([]byte(`{"run_id":"run-abc","result_status":"succeeded","execution_status":"finished"}`))
+			_, _ = w.Write([]byte(`{"run_id":"run-abc","run_status":{"result":"succeeded","execution":"finished"},"polling":{"completed":true}}`))
 		case "/mint/api/results/prompt":
 			_, _ = w.Write([]byte(``))
 		case "/mint/api/runs/run-abc":
@@ -839,6 +865,92 @@ func TestGetRunResults_BranchLookup(t *testing.T) {
 	assert.Equal(t, "run-abc", parsed["run_id"])
 	assert.Equal(t, "success", parsed["status"])
 	assert.Equal(t, "main", parsed["branch"])
+}
+
+func TestGetRunResults_NestedStatusFailed(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/results/status":
+			assert.Equal(t, "run-xyz", r.URL.Query().Get("id"))
+			_, _ = w.Write([]byte(`{"run_status":{"result":"failed","execution":"finished"},"run_id":"run-xyz","polling":{"completed":true}}`))
+		case "/mint/api/results/prompt":
+			_, _ = w.Write([]byte(``))
+		case "/mint/api/runs/run-xyz":
+			_, _ = w.Write([]byte(`{"id":"run-xyz","completed_runtime_seconds":512,"title":"CI","branch":"main","commit_sha":"abc","definition_path":".rwx/ci.yml"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	r := &rwx{accessToken: "test-token", org: "org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+
+	result, err := getRunResults(context.Background(), r, map[string]any{"run_id": "run-xyz"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "failure", parsed["status"])
+	assert.Equal(t, true, parsed["completed"])
+}
+
+func TestGetRunResults_NestedTaskStatus(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/results/status":
+			assert.Equal(t, "run-xyz", r.URL.Query().Get("run_id"))
+			assert.Equal(t, "database", r.URL.Query().Get("task_key"))
+			_, _ = w.Write([]byte(`{"run_status":{"result":"failed","execution":"finished"},"task_status":{"result":"failed","execution":"finished"},"run_id":"run-xyz","task_id":"task-123","polling":{"completed":true}}`))
+		case "/mint/api/results/prompt":
+			_, _ = w.Write([]byte(``))
+		case "/mint/api/runs/run-xyz":
+			_, _ = w.Write([]byte(`{"id":"run-xyz","title":"CI"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	r := &rwx{accessToken: "test-token", org: "org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+
+	result, err := getRunResults(context.Background(), r, map[string]any{"run_id": "run-xyz", "task_key": "database"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "failure", parsed["status"])
+	assert.Equal(t, true, parsed["completed"])
+	assert.Equal(t, "task-123", parsed["task_id"])
+	assert.Equal(t, "database", parsed["task_key"])
+}
+
+func TestGetRunResults_NestedStatusRunning(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/results/status":
+			_, _ = w.Write([]byte(`{"run_status":{"result":"no_result"},"run_id":"run-run","polling":{"completed":false}}`))
+		case "/mint/api/results/prompt":
+			_, _ = w.Write([]byte(``))
+		case "/mint/api/runs/run-run":
+			_, _ = w.Write([]byte(`{"id":"run-run","title":"CI"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	r := &rwx{accessToken: "test-token", org: "org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+
+	result, err := getRunResults(context.Background(), r, map[string]any{"run_id": "run-run"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "running", parsed["status"])
+	assert.Equal(t, false, parsed["completed"])
 }
 
 // --- Vault handler tests ---

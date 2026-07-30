@@ -16,21 +16,6 @@ const (
 	// adapter. Each Google service keys its in-progress OAuth flow by
 	// this name so concurrent flows don't collide.
 	integrationName = "gmeet"
-
-	// meetingsCreatedScope lets the app create + manage spaces it owns
-	// and read conference records for those spaces. This is the default
-	// scope a user-facing meet integration needs.
-	meetingsCreatedScope = "https://www.googleapis.com/auth/meetings.space.created"
-
-	// meetingsReadonlyScope grants read access to all spaces and
-	// conference records the user has access to (not just ones created
-	// by this app). Needed for listing past meetings the user attended.
-	meetingsReadonlyScope = "https://www.googleapis.com/auth/meetings.space.readonly"
-
-	// meetingsSettingsScope grants permission to update a space's
-	// configuration (access type, moderation, etc.). Without it,
-	// gmeet_update_space returns 403.
-	meetingsSettingsScope = "https://www.googleapis.com/auth/meetings.space.settings"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gmeet/oauth/start.
@@ -46,7 +31,7 @@ func StartGmeetOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartRes
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{meetingsCreatedScope, meetingsReadonlyScope, meetingsSettingsScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 

@@ -100,14 +100,11 @@ func TestComputeIDF(t *testing.T) {
 		assert.Greater(t, deleteIDF, listIDF, "rare word 'delete' should have higher IDF than common word 'list'")
 	})
 
-	t.Run("word in all tools has zero IDF", func(t *testing.T) {
-		// Every tool has some word in common — check if any universal words get IDF=0
-		// "item" or "a" might appear in all, but let's verify the math
-		// log(N/N) = log(1) = 0
+	t.Run("word in all tools still has positive IDF", func(t *testing.T) {
+		// Smoothing (log(N/df)+1) keeps universal words above zero so a
+		// matched tool never scores 0 and gets dropped from results.
 		for word, val := range idf {
-			if val == 0.0 {
-				t.Logf("Word %q has IDF=0 (appears in all tools)", word)
-			}
+			assert.Greater(t, val, 0.0, "word %q must have positive IDF after smoothing", word)
 		}
 	})
 
@@ -116,12 +113,37 @@ func TestComputeIDF(t *testing.T) {
 		assert.Equal(t, 0.0, idf["nonexistent_word_xyz"])
 	})
 
-	t.Run("IDF formula is log(total/count)", func(t *testing.T) {
+	t.Run("IDF formula is log(total/count)+1", func(t *testing.T) {
 		// "delete" appears in exactly 1 tool (c_delete_item)
-		// IDF = log(10/1) ≈ 2.302
+		// IDF = log(10/1) + 1 ≈ 3.302
 		deleteIDF := idf["delete"]
-		expected := math.Log(10.0 / 1.0)
-		assert.InDelta(t, expected, deleteIDF, 0.01, "IDF for 'delete' should be log(10/1)")
+		expected := math.Log(10.0/1.0) + 1
+		assert.InDelta(t, expected, deleteIDF, 0.01, "IDF for 'delete' should be log(10/1)+1")
+	})
+}
+
+// TestComputeIDF_SmallCorpus is the regression for the degenerate case that
+// made search return nothing: when a word appears in every tool, plain
+// log(N/df) is 0. Smoothing must keep it positive.
+func TestComputeIDF_SmallCorpus(t *testing.T) {
+	t.Run("single tool", func(t *testing.T) {
+		tools := []toolWithIntegration{
+			{Integration: "echo", Tool: mcp.ToolDefinition{Name: mcp.ToolName("echo_ping"), Description: "ping the server"}},
+		}
+		idf := computeIDF(tools)
+		for word, val := range idf {
+			assert.Greater(t, val, 0.0, "single-tool corpus: %q must have positive IDF", word)
+		}
+	})
+
+	t.Run("word shared by all tools", func(t *testing.T) {
+		tools := []toolWithIntegration{
+			{Integration: "a", Tool: mcp.ToolDefinition{Name: mcp.ToolName("a_list_item"), Description: "list item"}},
+			{Integration: "b", Tool: mcp.ToolDefinition{Name: mcp.ToolName("b_get_item"), Description: "get item"}},
+		}
+		idf := computeIDF(tools)
+		// "item" appears in both tools: df == N. Must not be zero.
+		assert.Greater(t, idf["item"], 0.0, "universal word must not collapse to zero")
 	})
 }
 

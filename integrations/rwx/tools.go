@@ -108,13 +108,13 @@ var tools = []mcp.ToolDefinition{
 	// ── Artifacts ───────────────────────────────────────────────────
 	{
 		Name:        mcp.ToolName("rwx_get_artifacts"),
-		Description: "List or download artifacts for a run directly from the RWX API. Listed results omit download tokens; download=true fetches artifact content.",
+		Description: "List or download CI/CD artifacts directly from the RWX API. Artifacts are task-scoped: pass task_id, or run_id together with task_key (get failed task keys from rwx_get_run_results). Listed results omit download tokens; download=true fetches artifact content.",
 		Parameters: map[string]string{
-			"run_id":       "RWX run ID or full URL to get artifacts for",
+			"run_id":       "RWX run ID or full URL (must be combined with task_key)",
 			"download":     "Download artifacts (true/false, default: false — just list)",
 			"artifact_key": "Specific artifact key to download (optional, downloads all if not specified)",
-			"task_id":      "RWX task ID or task URL to list/download artifacts for a specific task (optional)",
-			"task_key":     "Task key to list/download artifacts for a task within run_id (optional)",
+			"task_id":      "RWX task ID or task URL to list/download artifacts for a specific task",
+			"task_key":     "Task key to list/download artifacts for a task within run_id (e.g. from rwx_get_run_results failed_tasks)",
 		},
 	},
 

@@ -60,11 +60,11 @@ func TestDownloadLogs_UsesDirectAPIZipDownload(t *testing.T) {
 
 	downloadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Contains(t, r.Header.Get("Content-Type"), "multipart/form-data")
-		require.NoError(t, r.ParseMultipartForm(1024))
-		assert.Equal(t, "tok", r.FormValue("token"))
-		assert.Equal(t, "logs.zip", r.FormValue("filename"))
-		assert.Equal(t, "contents", r.FormValue("contents"))
+		assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
+		require.NoError(t, r.ParseForm())
+		assert.Equal(t, "tok", r.PostFormValue("token"))
+		assert.Equal(t, "logs.zip", r.PostFormValue("filename"))
+		assert.Equal(t, "contents", r.PostFormValue("contents"))
 		_, _ = w.Write(zipData.Bytes())
 	}))
 	defer downloadServer.Close()
@@ -95,12 +95,13 @@ func TestGetArtifacts_UsesDirectAPI(t *testing.T) {
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 		assert.Equal(t, "/mint/api/artifact_downloads", r.URL.Path)
 		assert.Equal(t, "run-123", r.URL.Query().Get("run_id"))
+		assert.Equal(t, "lint", r.URL.Query().Get("task_key"))
 		_, _ = w.Write([]byte(`[{"key":"coverage","filename":"coverage.txt","url":"https://example.test/download","token":"secret-token"}]`))
 	}))
 	defer ts.Close()
 
 	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
-	result, err := getArtifacts(context.Background(), r, map[string]any{"run_id": "run-123"})
+	result, err := getArtifacts(context.Background(), r, map[string]any{"run_id": "run-123", "task_key": "lint"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 
@@ -111,4 +112,12 @@ func TestGetArtifacts_UsesDirectAPI(t *testing.T) {
 	artifact := parsed["artifacts"].([]any)[0].(map[string]any)
 	assert.Equal(t, "coverage", artifact["key"])
 	assert.Nil(t, artifact["token"])
+}
+
+func TestGetArtifacts_RunIDWithoutTaskRejected(t *testing.T) {
+	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: "https://cloud.rwx.com", logCache: newLogCache()}
+	result, err := getArtifacts(context.Background(), r, map[string]any{"run_id": "run-123"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "task-scoped")
 }

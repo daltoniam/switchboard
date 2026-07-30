@@ -63,7 +63,11 @@ type PollResult struct {
 	Status       string `json:"status"`
 	AccessToken  string `json:"access_token,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
-	Error        string `json:"error,omitempty"`
+	// Scope is the space-separated set of scopes Google actually granted.
+	// It may be narrower than requested if the user denied individual
+	// scopes on the consent screen.
+	Scope string `json:"scope,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 // flow holds the state for a single in-progress OAuth flow.
@@ -76,6 +80,7 @@ type flow struct {
 	codeVerifier string
 	accessToken  string
 	refreshToken string
+	scope        string
 	err          string
 	done         bool
 	startedAt    time.Time
@@ -127,6 +132,10 @@ func Start(cfg Config) (*StartResult, error) {
 		"code_challenge":        {codeChallenge},
 		"code_challenge_method": {"S256"},
 		"prompt":                {"consent"},
+		// include_granted_scopes lets a later flow (e.g. adding a service to
+		// an already-connected Google account) build incrementally on scopes
+		// the user has previously granted instead of discarding them.
+		"include_granted_scopes": {"true"},
 	}
 
 	f := &flow{
@@ -246,6 +255,7 @@ func HandleCallback(integrationName, code, state string) error {
 
 	f.accessToken = tokenResp.AccessToken
 	f.refreshToken = tokenResp.RefreshToken
+	f.scope = tokenResp.Scope
 	f.done = true
 	return nil
 }
@@ -270,6 +280,7 @@ func Poll(integrationName string) PollResult {
 		Status:       "complete",
 		AccessToken:  f.accessToken,
 		RefreshToken: f.refreshToken,
+		Scope:        f.scope,
 	}
 }
 

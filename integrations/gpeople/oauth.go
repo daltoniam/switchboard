@@ -16,20 +16,6 @@ const (
 	// adapter. Each Google service keys its in-progress OAuth flow by
 	// this name so concurrent flows don't collide.
 	integrationName = "gpeople"
-
-	// contactsScope grants full read/write access to the authenticated
-	// user's Google Contacts (the /people/me/connections and the create/
-	// update/delete contact endpoints).
-	contactsScope = "https://www.googleapis.com/auth/contacts"
-
-	// otherContactsScope grants read access to "Other contacts" — auto-
-	// collected contacts the user has emailed but never explicitly saved.
-	otherContactsScope = "https://www.googleapis.com/auth/contacts.other.readonly"
-
-	// directoryScope grants read access to the user's Google Workspace
-	// directory (coworkers in the same organization). Without it,
-	// listDirectoryPeople / searchDirectoryPeople return 403.
-	directoryScope = "https://www.googleapis.com/auth/directory.readonly"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gpeople/oauth/start.
@@ -46,7 +32,7 @@ func StartGpeopleOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartR
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{contactsScope, otherContactsScope, directoryScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 

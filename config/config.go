@@ -94,6 +94,15 @@ var envMapping = map[string]map[string]string{
 		"instance_url": "SALESFORCE_INSTANCE_URL",
 		"api_version":  "SALESFORCE_API_VERSION",
 	},
+	"netsuite": {
+		"account_id":      "NETSUITE_ACCOUNT_ID",
+		"consumer_key":    "NETSUITE_CONSUMER_KEY",
+		"consumer_secret": "NETSUITE_CONSUMER_SECRET",
+		"token_id":        "NETSUITE_TOKEN_ID",
+		"token_secret":    "NETSUITE_TOKEN_SECRET",
+		"access_token":    "NETSUITE_ACCESS_TOKEN",
+		"base_url":        "NETSUITE_BASE_URL",
+	},
 	"cloudflare": {
 		"api_token":  "CLOUDFLARE_API_TOKEN",
 		"account_id": "CLOUDFLARE_ACCOUNT_ID",
@@ -114,6 +123,8 @@ var envMapping = map[string]map[string]string{
 		"ca_cert":                  "KUBERNETES_CA_CERT",
 		"insecure_skip_tls_verify": "KUBERNETES_INSECURE_SKIP_TLS_VERIFY",
 		"in_cluster":               "KUBERNETES_IN_CLUSTER",
+		"clusters":                 "KUBERNETES_CLUSTERS",
+		"allow_mutations":          "KUBERNETES_ALLOW_MUTATIONS",
 	},
 	"vercel": {
 		"api_token": "VERCEL_API_TOKEN",
@@ -162,6 +173,34 @@ var envMapping = map[string]map[string]string{
 		"account":  "STRIPE_ACCOUNT",
 		"base_url": "STRIPE_BASE_URL",
 	},
+	"gong": {
+		"access_key":        "GONG_ACCESS_KEY",
+		"access_key_secret": "GONG_ACCESS_KEY_SECRET",
+		"base_url":          "GONG_BASE_URL",
+	},
+	"ramp": {
+		"access_token": "RAMP_ACCESS_TOKEN",
+		"base_url":     "RAMP_BASE_URL",
+	},
+}
+
+// googleWorkspaceIntegrations lists the integrations that share one Google
+// Cloud OAuth client. The shared GOOGLE_OAUTH_CLIENT_ID / _SECRET env vars are
+// fanned out to each of them so a headless/Docker deployment can configure the
+// whole Google Workspace suite with two variables. Env names match the hosted
+// Switchboard product for parity.
+var googleWorkspaceIntegrations = []string{
+	"gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides",
+	"gforms", "gtasks", "gchat", "gpeople", "gmeet",
+}
+
+func init() {
+	for _, name := range googleWorkspaceIntegrations {
+		envMapping[name] = map[string]string{
+			mcp.CredKeyClientID:     "GOOGLE_OAUTH_CLIENT_ID",
+			mcp.CredKeyClientSecret: "GOOGLE_OAUTH_CLIENT_SECRET",
+		}
+	}
 }
 
 // EnvMapping returns the env var mapping table. Useful for documentation and debugging.
@@ -314,6 +353,14 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "account": "", "base_url": ""},
 			},
+			"gong": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_key": "", "access_key_secret": "", "base_url": ""},
+			},
+			"ramp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
 			"jira": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"email": "", "api_token": "", "domain": ""},
@@ -338,6 +385,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "instance_url": "", "api_version": ""},
 			},
+			"netsuite": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"account_id": "", "consumer_key": "", "consumer_secret": "", "token_id": "", "token_secret": "", "access_token": "", "base_url": ""},
+			},
 			"cloudflare": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "account_id": ""},
@@ -352,7 +403,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"kubernetes": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"kubeconfig": "", "kubeconfig_path": "", "context": "", "namespace": "", "api_server": "", "token": "", "ca_cert": "", "insecure_skip_tls_verify": "", "in_cluster": ""},
+				Credentials: mcp.Credentials{"kubeconfig": "", "kubeconfig_path": "", "context": "", "namespace": "", "api_server": "", "token": "", "ca_cert": "", "insecure_skip_tls_verify": "", "in_cluster": "", "clusters": "", "allow_mutations": ""},
 			},
 			"vercel": {
 				Enabled:     false,

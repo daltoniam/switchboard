@@ -179,7 +179,17 @@ func buildSynonymMap(groups [][]string) map[string][]string {
 // computeIDF builds the inverse document frequency map from the tool corpus
 // and pre-computes each tool's token set (stored on toolWithIntegration.tokens).
 // Only words appearing in at least one tool are indexed.
-// Formula: IDF(word) = log(totalTools / toolsContainingWord)
+//
+// Formula: IDF(word) = log(totalTools / toolsContainingWord) + 1
+//
+// The +1 is smoothing. Plain log(N/df) collapses to 0 when a word appears in
+// every tool (log(N/N) = log(1) = 0). In a small corpus — a single-integration
+// deployment, or an org whose policy narrows the catalog to one tool — that
+// makes every candidate score 0, and scoreTools drops all of them, so search
+// returns nothing even though the query clearly matched. Smoothing guarantees
+// a matched token always contributes a positive floor while preserving the
+// relative ordering (a rarer word still outscores a common one).
+//
 // Missing keys at score time are treated as 0.0 (word contributes nothing).
 func computeIDF(tools []toolWithIntegration) map[string]float64 {
 	total := len(tools)
@@ -208,7 +218,7 @@ func computeIDF(tools []toolWithIntegration) map[string]float64 {
 
 	idf := make(map[string]float64, len(docFreq))
 	for word, count := range docFreq {
-		idf[word] = math.Log(float64(total) / float64(count))
+		idf[word] = math.Log(float64(total)/float64(count)) + 1
 	}
 	return idf
 }

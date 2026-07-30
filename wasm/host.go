@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/tetratelabs/wazero/api"
@@ -43,13 +44,23 @@ const h2cHeaderKey = "X-H2C"
 // string in the body field. Required for binary payloads (protobuf, images, etc.).
 const rawBodyHeaderKey = "X-Raw-Body"
 
+// hostTimeoutHeaderKey lets trusted WASM plugins extend one outbound request
+// beyond the default timeout without slowing every integration. The header is
+// consumed by the host and never forwarded upstream.
+const hostTimeoutHeaderKey = "X-Host-Timeout-Seconds"
+
+const (
+	defaultHostHTTPTimeout = 60 * time.Second
+	maxHostHTTPTimeout     = 300 * time.Second
+)
+
 var (
-	hostHTTPClient = &http.Client{Timeout: 60 * time.Second}
+	hostHTTPClient = &http.Client{Timeout: defaultHostHTTPTimeout}
 
 	// h2cClient uses an http2.Transport configured for cleartext (no TLS)
 	// connections. Plugins opt in by setting the X-H2C header.
 	h2cClient = &http.Client{
-		Timeout: 60 * time.Second,
+		Timeout: defaultHostHTTPTimeout,
 		Transport: &http2.Transport{
 			AllowHTTP: true,
 			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
@@ -112,8 +123,9 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 	// Check for control headers before copying to the outgoing request.
 	useH2C := req.Headers[h2cHeaderKey] != ""
 	rawBody := req.Headers[rawBodyHeaderKey] != ""
+	timeout := hostHTTPTimeout(req.Headers[hostTimeoutHeaderKey])
 	for k, v := range req.Headers {
-		if k == h2cHeaderKey || k == rawBodyHeaderKey {
+		if k == h2cHeaderKey || k == rawBodyHeaderKey || k == hostTimeoutHeaderKey {
 			continue
 		}
 		httpReq.Header.Set(k, v)
@@ -123,8 +135,10 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 	if useH2C {
 		client = h2cClient
 	}
+	clientCopy := *client
+	clientCopy.Timeout = timeout
 
-	resp, err := client.Do(httpReq)
+	resp, err := clientCopy.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
@@ -150,6 +164,18 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 		result.Body = string(body)
 	}
 	return result, nil
+}
+
+func hostHTTPTimeout(raw string) time.Duration {
+	seconds, err := strconv.Atoi(raw)
+	if err != nil || seconds <= 0 {
+		return defaultHostHTTPTimeout
+	}
+	timeout := time.Duration(seconds) * time.Second
+	if timeout > maxHostHTTPTimeout {
+		return maxHostHTTPTimeout
+	}
+	return timeout
 }
 
 func writeErrorResponse(ctx context.Context, mod api.Module, msg string) uint64 {

@@ -601,6 +601,47 @@ func TestHandleSearch_Pagination(t *testing.T) {
 	}
 }
 
+// TestHandleSearch_SmallCatalogReturnsMatches is the end-to-end regression
+// for the IDF smoothing fix. With a tiny catalog every query token appears
+// in "every" tool, so unsmoothed TF-IDF scored all candidates 0 and search
+// returned nothing. A matching query must now return the matching tools.
+func TestHandleSearch_SmallCatalogReturnsMatches(t *testing.T) {
+	t.Run("single tool", func(t *testing.T) {
+		mi := &mockIntegration{
+			name:    "echo",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("echo_ping"), Description: "ping the server"},
+			},
+		}
+		s := setupTestServer(mi)
+
+		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "ping"}))
+		require.NoError(t, err)
+		resp := parseSearchResponse(t, result)
+		assert.Equal(t, 1, resp.Total, "single-tool catalog must still surface a matching tool")
+		assert.Contains(t, searchToolNames(t, resp), "echo_ping")
+	})
+
+	t.Run("two tools sharing a word", func(t *testing.T) {
+		mi := &mockIntegration{
+			name:    "widgets",
+			healthy: true,
+			tools: []mcp.ToolDefinition{
+				{Name: mcp.ToolName("widgets_list_item"), Description: "list item"},
+				{Name: mcp.ToolName("widgets_get_item"), Description: "get item"},
+			},
+		}
+		s := setupTestServer(mi)
+
+		// "item" appears in both tools (df == N). Must still match both.
+		result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{"query": "item"}))
+		require.NoError(t, err)
+		resp := parseSearchResponse(t, result)
+		assert.Equal(t, 2, resp.Total, "a word shared by all tools must still return them")
+	})
+}
+
 func TestHandleSearch_QueryFiltersCombinedWithPagination(t *testing.T) {
 	mi := &mockIntegration{
 		name:    "testint",
@@ -3685,4 +3726,48 @@ func mustMarshal(v any) json.RawMessage {
 		panic(err)
 	}
 	return data
+}
+
+func TestWithExtraInstructions(t *testing.T) {
+	extra := "This org has private-resource tunnels; pass agent_id to target one."
+
+	cases := []struct {
+		name      string
+		opts      []Option
+		wantExtra bool
+	}{
+		{name: "default has no extra", opts: nil, wantExtra: false},
+		{name: "extra appended", opts: []Option{WithExtraInstructions(extra)}, wantExtra: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			services := &mcp.Services{
+				Config:   newMockConfigService(nil),
+				Registry: newMockRegistry(),
+			}
+			s := New(services, tc.opts...)
+
+			clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			ss, err := s.mcpServer.Connect(ctx, serverTransport, nil)
+			require.NoError(t, err)
+			defer ss.Close() //nolint:errcheck
+
+			client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "test", Version: "1.0"}, nil)
+			cs, err := client.Connect(ctx, clientTransport, nil)
+			require.NoError(t, err)
+			defer cs.Close() //nolint:errcheck
+
+			got := cs.InitializeResult().Instructions
+			assert.Contains(t, got, "search and execute", "base instructions must always be present")
+			if tc.wantExtra {
+				assert.Contains(t, got, extra, "extra instructions should be appended")
+			} else {
+				assert.NotContains(t, got, extra)
+			}
+		})
+	}
 }

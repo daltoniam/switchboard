@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 48)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard"} {
+	assert.Len(t, m.cfg.Integrations, 51)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 48)
+	assert.Len(t, cfg.Integrations, 51)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 48)
+	assert.Len(t, cfg.Integrations, 51)
 }
 
 func TestUpdate(t *testing.T) {
@@ -288,7 +288,7 @@ func TestEnabledIntegrations_SpecImports(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 48)
+	assert.Len(t, cfg.Integrations, 51)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -307,14 +307,17 @@ func TestDefaultConfig(t *testing.T) {
 		"notion":        {"token_v2"},
 		"ollama":        {"base_url", "api_key"},
 		"ynab":          {"api_key"},
+		"gong":          {"access_key", "access_key_secret", "base_url"},
+		"ramp":          {"access_token", "base_url"},
 		"gcp":           {"project_id", "credentials_json"},
 		"confluence":    {"email", "api_token", "domain"},
 		"elasticsearch": {"base_url", "api_key", "username", "password"},
 		"salesforce":    {"access_token", "instance_url", "api_version"},
+		"netsuite":      {"account_id", "consumer_key", "consumer_secret", "token_id", "token_secret", "access_token", "base_url"},
 		"cloudflare":    {"api_token", "account_id"},
 		"digitalocean":  {"api_token"},
 		"fly":           {"api_token", "base_url"},
-		"kubernetes":    {"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster"},
+		"kubernetes":    {"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster", "clusters", "allow_mutations"},
 		"vercel":        {"api_token", "team_id", "team_slug", "base_url"},
 		"web":           {},
 		"signoz":        {"api_key", "base_url", "skip_verify"},
@@ -382,6 +385,29 @@ func TestEnvOverrides_OverridesEmptyCredentials(t *testing.T) {
 	assert.Equal(t, "gh_env_token", m.cfg.Integrations["github"].Credentials["token"])
 	assert.Equal(t, "dd_env_key", m.cfg.Integrations["datadog"].Credentials["api_key"])
 	assert.Equal(t, "dd_env_app", m.cfg.Integrations["datadog"].Credentials["app_key"])
+}
+
+func TestEnvOverrides_GoogleSharedClientFansOut(t *testing.T) {
+	m, _ := newTestManager(t)
+	m.envLookup = func(key string) string {
+		switch key {
+		case "GOOGLE_OAUTH_CLIENT_ID":
+			return "shared-client-id"
+		case "GOOGLE_OAUTH_CLIENT_SECRET":
+			return "shared-secret"
+		default:
+			return ""
+		}
+	}
+
+	require.NoError(t, m.Load())
+
+	for _, name := range googleWorkspaceIntegrations {
+		ic := m.cfg.Integrations[name]
+		require.NotNil(t, ic, "integration %q missing", name)
+		assert.Equal(t, "shared-client-id", ic.Credentials[mcp.CredKeyClientID], "client_id for %q", name)
+		assert.Equal(t, "shared-secret", ic.Credentials[mcp.CredKeyClientSecret], "client_secret for %q", name)
+	}
 }
 
 func TestEnvOverrides_OverridesExistingValues(t *testing.T) {
@@ -551,6 +577,12 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "STRIPE_API_KEY", m["stripe"]["api_key"])
 	assert.Equal(t, "STRIPE_ACCOUNT", m["stripe"]["account"])
 	assert.Equal(t, "STRIPE_BASE_URL", m["stripe"]["base_url"])
+	assert.Equal(t, "GONG_ACCESS_KEY", m["gong"]["access_key"])
+	assert.Equal(t, "GONG_ACCESS_KEY_SECRET", m["gong"]["access_key_secret"])
+	assert.Equal(t, "RAMP_ACCESS_TOKEN", m["ramp"]["access_token"])
+	assert.Equal(t, "RAMP_BASE_URL", m["ramp"]["base_url"])
+	assert.Equal(t, "NETSUITE_ACCOUNT_ID", m["netsuite"]["account_id"])
+	assert.Equal(t, "NETSUITE_ACCESS_TOKEN", m["netsuite"]["access_token"])
 	assert.Equal(t, "KUBECONFIG_CONTENT", m["kubernetes"]["kubeconfig"])
 	assert.Equal(t, "KUBECONFIG", m["kubernetes"]["kubeconfig_path"])
 	assert.Equal(t, "KUBECONTEXT", m["kubernetes"]["context"])
@@ -560,11 +592,19 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "KUBERNETES_CA_CERT", m["kubernetes"]["ca_cert"])
 	assert.Equal(t, "KUBERNETES_INSECURE_SKIP_TLS_VERIFY", m["kubernetes"]["insecure_skip_tls_verify"])
 	assert.Equal(t, "KUBERNETES_IN_CLUSTER", m["kubernetes"]["in_cluster"])
+	assert.Equal(t, "KUBERNETES_CLUSTERS", m["kubernetes"]["clusters"])
+	assert.Equal(t, "KUBERNETES_ALLOW_MUTATIONS", m["kubernetes"]["allow_mutations"])
 	assert.Equal(t, "VERCEL_API_TOKEN", m["vercel"]["api_token"])
 	assert.Equal(t, "VERCEL_TEAM_ID", m["vercel"]["team_id"])
 	assert.Equal(t, "VERCEL_TEAM_SLUG", m["vercel"]["team_slug"])
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
-	assert.Len(t, m, 28)
+	// 28 base integrations + 11 Google Workspace services sharing the
+	// GOOGLE_OAUTH_CLIENT_ID/SECRET env vars.
+	assert.Len(t, m, 42)
+	for _, name := range googleWorkspaceIntegrations {
+		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
+		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
+	}
 }
 
 func TestToolGlobs_PersistThroughSaveLoad(t *testing.T) {

@@ -15,10 +15,6 @@ const (
 	// adapter. Each Google service keys its in-progress OAuth flow by
 	// this name so concurrent flows don't collide.
 	integrationName = "gcal"
-
-	// gcalScope grants full read/write access to the user's calendars
-	// and events.
-	gcalScope = "https://www.googleapis.com/auth/calendar"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gcal/oauth/start.
@@ -34,7 +30,7 @@ func StartGcalOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartResu
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{gcalScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 

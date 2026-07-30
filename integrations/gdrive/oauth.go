@@ -15,12 +15,6 @@ const (
 	// adapter. Each Google service keys its in-progress OAuth flow by
 	// this name so concurrent flows don't collide.
 	integrationName = "gdrive"
-
-	// gdriveScope grants full read/write access to the user's Drive
-	// files, including ones the user has not authored but has access to.
-	// Use the narrower drive.file scope if/when we expose a per-tool
-	// access model.
-	gdriveScope = "https://www.googleapis.com/auth/drive"
 )
 
 // OAuthStartResult is the wire shape returned by /api/gdrive/oauth/start.
@@ -36,7 +30,7 @@ func StartGdriveOAuth(clientID, clientSecret, redirectURI string) (*OAuthStartRe
 		ClientID:        clientID,
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
-		Scopes:          []string{gdriveScope},
+		Scopes:          googleoauth.ScopesFor(integrationName),
 	})
 }
 

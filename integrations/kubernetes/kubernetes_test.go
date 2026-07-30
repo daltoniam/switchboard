@@ -8,6 +8,7 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -53,6 +54,15 @@ func TestConfigure_InlineKubeconfig(t *testing.T) {
 	assert.Equal(t, "apps", k.namespace)
 }
 
+func TestKubeconfigConfig_HonorsRequestedContext(t *testing.T) {
+	cfg, _, err := kubeconfigConfig(mcp.Credentials{
+		"kubeconfig": testMultiKubeconfig(t),
+		"context":    "west",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "https://west.example.test", cfg.Host)
+}
+
 func TestConfigure_ServiceAccountToken(t *testing.T) {
 	i := New()
 	err := i.Configure(context.Background(), mcp.Credentials{
@@ -65,10 +75,22 @@ func TestConfigure_ServiceAccountToken(t *testing.T) {
 	assert.Equal(t, "default", k.namespace)
 }
 
+func TestConfigure_AllowMutations(t *testing.T) {
+	i := New()
+	err := i.Configure(context.Background(), mcp.Credentials{
+		"api_server":      "https://kubernetes.example.test",
+		"token":           "token",
+		"allow_mutations": "true",
+	})
+	require.NoError(t, err)
+	k := i.(*kubernetes)
+	assert.True(t, k.allowMutations)
+}
+
 func TestTools(t *testing.T) {
 	i := New()
 	tls := i.Tools()
-	assert.Len(t, tls, 12)
+	assert.Len(t, tls, 18)
 	for _, tool := range tls {
 		assert.NotEmpty(t, tool.Name)
 		assert.NotEmpty(t, tool.Description)
@@ -174,6 +196,108 @@ func TestListContexts(t *testing.T) {
 	assert.True(t, contexts[0].Current)
 }
 
+func TestExecute_ContextSelectsCluster(t *testing.T) {
+	k := &kubernetes{
+		client: fake.NewSimpleClientset(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "east-pod", Namespace: "apps"}}),
+		clients: map[string]*clusterClient{
+			"east": {client: fake.NewSimpleClientset(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "east-pod", Namespace: "apps"}}), namespace: "apps"},
+			"west": {client: fake.NewSimpleClientset(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "west-pod", Namespace: "apps"}}), namespace: "apps"},
+		},
+		namespace: "apps",
+		context:   "east",
+	}
+
+	result, err := k.Execute(context.Background(), "kubernetes_list_pods", map[string]any{"context": "west"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	var pods []podSummary
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &pods))
+	require.Len(t, pods, 1)
+	assert.Equal(t, "west-pod", pods[0].Name)
+}
+
+func TestListClusters(t *testing.T) {
+	i := New()
+	err := i.Configure(context.Background(), mcp.Credentials{"kubeconfig": testMultiKubeconfig(t)})
+	require.NoError(t, err)
+	result, err := i.Execute(context.Background(), "kubernetes_list_clusters", nil)
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	var clusters []clusterSummary
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &clusters))
+	require.Len(t, clusters, 2)
+	assert.Equal(t, "east", clusters[0].Context)
+	assert.True(t, clusters[0].Current)
+	assert.Equal(t, "west", clusters[1].Context)
+}
+
+func TestMutationToolsRequireAllowMutations(t *testing.T) {
+	k := &kubernetes{client: fake.NewSimpleClientset(), namespace: "default"}
+	result, err := k.Execute(context.Background(), "kubernetes_scale_deployment", map[string]any{"deployment": "api", "replicas": 2})
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	assert.Contains(t, result.Data, "allow_mutations=true")
+}
+
+func TestScaleDeployment(t *testing.T) {
+	replicas := int32(1)
+	client := fake.NewSimpleClientset(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "api", Namespace: "apps"},
+		Spec:       appsv1.DeploymentSpec{Replicas: &replicas},
+	})
+	k := &kubernetes{client: client, namespace: "apps", allowMutations: true}
+
+	result, err := k.Execute(context.Background(), "kubernetes_scale_deployment", map[string]any{"deployment": "api", "replicas": 3})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	updated, err := client.AppsV1().Deployments("apps").Get(context.Background(), "api", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NotNil(t, updated.Spec.Replicas)
+	assert.Equal(t, int32(3), *updated.Spec.Replicas)
+	assert.Contains(t, result.Data, "scaled")
+}
+
+func TestRestartDeploymentRollout(t *testing.T) {
+	client := fake.NewSimpleClientset(&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "api", Namespace: "apps"}})
+	k := &kubernetes{client: client, namespace: "apps", allowMutations: true}
+
+	result, err := k.Execute(context.Background(), "kubernetes_restart_deployment", map[string]any{"deployment": "api"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	updated, err := client.AppsV1().Deployments("apps").Get(context.Background(), "api", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.NotEmpty(t, updated.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"])
+}
+
+func TestCordonNode(t *testing.T) {
+	client := fake.NewSimpleClientset(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1"}})
+	k := &kubernetes{client: client, allowMutations: true}
+
+	result, err := k.Execute(context.Background(), "kubernetes_cordon_node", map[string]any{"node": "node-1"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	updated, err := client.CoreV1().Nodes().Get(context.Background(), "node-1", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, updated.Spec.Unschedulable)
+}
+
+func TestDeletePod(t *testing.T) {
+	client := fake.NewSimpleClientset(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "api", Namespace: "apps"}})
+	k := &kubernetes{client: client, namespace: "apps", allowMutations: true}
+
+	result, err := k.Execute(context.Background(), "kubernetes_delete_pod", map[string]any{"pod": "api", "grace_period_seconds": 0})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	_, err = client.CoreV1().Pods("apps").Get(context.Background(), "api", metav1.GetOptions{})
+	require.Error(t, err)
+}
+
 func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
 	for name := range fieldCompactionSpecs {
 		_, ok := dispatch[name]
@@ -194,6 +318,28 @@ func testKubeconfig(t *testing.T) string {
 			"test": {Cluster: "test", AuthInfo: "test", Namespace: "default"},
 		},
 		CurrentContext: "test",
+	}
+	data, err := clientcmd.Write(cfg)
+	require.NoError(t, err)
+	return string(data)
+}
+
+func testMultiKubeconfig(t *testing.T) string {
+	t.Helper()
+	cfg := api.Config{
+		Clusters: map[string]*api.Cluster{
+			"east": {Server: "https://east.example.test", InsecureSkipTLSVerify: true},
+			"west": {Server: "https://west.example.test", InsecureSkipTLSVerify: true},
+		},
+		AuthInfos: map[string]*api.AuthInfo{
+			"east": {Token: "east-token"},
+			"west": {Token: "west-token"},
+		},
+		Contexts: map[string]*api.Context{
+			"east": {Cluster: "east", AuthInfo: "east", Namespace: "apps"},
+			"west": {Cluster: "west", AuthInfo: "west", Namespace: "apps"},
+		},
+		CurrentContext: "east",
 	}
 	data, err := clientcmd.Write(cfg)
 	require.NoError(t, err)

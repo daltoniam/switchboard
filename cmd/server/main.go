@@ -38,6 +38,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/github"
 	"github.com/daltoniam/switchboard/integrations/gmail"
 	"github.com/daltoniam/switchboard/integrations/gmeet"
+	"github.com/daltoniam/switchboard/integrations/gong"
 	"github.com/daltoniam/switchboard/integrations/gpeople"
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
@@ -46,12 +47,14 @@ import (
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
+	"github.com/daltoniam/switchboard/integrations/netsuite"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	"github.com/daltoniam/switchboard/integrations/ollama"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
+	"github.com/daltoniam/switchboard/integrations/ramp"
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/salesforce"
 	"github.com/daltoniam/switchboard/integrations/sentry"
@@ -245,10 +248,12 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		elasticsearch.New(),
 		pganalyze.New(),
 		rwx.New(),
+		ramp.New(),
 		ynab.New(),
 		stripe.New(),
 		amazonIntegration,
 		gmailIntegration,
+		gong.New(),
 		gcalIntegration,
 		gdriveIntegration,
 		gdocsIntegration,
@@ -266,6 +271,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),
+		netsuite.New(),
 		cloudflare.New(),
 		digitalocean.New(),
 		flyInt.New(),

@@ -49,6 +49,12 @@ templ GdocsSetup(page layouts.PageData, data GdocsSetupData) {
 		if data.FlashError != "" {
 			<div class="flash flash-error">{ data.FlashError }</div>
 		}
+		<div class="flash" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; line-height: 1.5;">
+			This per-service page still works, but you can now connect all Google
+			services at once from the new
+			<a href="/integrations/google/setup" style="color: var(--accent);">Google Workspace setup</a>
+			page — one OAuth client, one sign-in.
+		</div>
 		if data.HasToken && data.Healthy {
 			<div class="card">
 				<div class="card-header">

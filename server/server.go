@@ -69,21 +69,36 @@ const (
 
 // Server wraps the MCP SDK server and exposes search/execute tools.
 type Server struct {
-	mcpServer        *mcpsdk.Server
-	services         *mcp.Services
-	scriptEngine     *script.Engine
-	sessionStore     SessionStore
-	retryBackoff     time.Duration
-	breakers         map[string]*breaker
-	breakerThreshold int
-	breakerCooldown  time.Duration
-	searchMu         sync.RWMutex
-	idf              map[string]float64
-	synMap           map[string][]string
-	allTools         []toolWithIntegration // pre-indexed tools with token sets
-	catalogBytes     int64                 // byte size of full tool catalog (for savings accounting)
-	discoverAll      bool
+	mcpServer         *mcpsdk.Server
+	services          *mcp.Services
+	scriptEngine      *script.Engine
+	sessionStore      SessionStore
+	retryBackoff      time.Duration
+	breakers          map[string]*breaker
+	breakerThreshold  int
+	breakerCooldown   time.Duration
+	searchMu          sync.RWMutex
+	idf               map[string]float64
+	synMap            map[string][]string
+	allTools          []toolWithIntegration // pre-indexed tools with token sets
+	catalogBytes      int64                 // byte size of full tool catalog (for savings accounting)
+	discoverAll       bool
+	extraInstructions string // appended to the base MCP instructions
 }
+
+// baseInstructions is the default guidance sent to clients in the MCP
+// initialize response. Deployments can append deployment-specific guidance
+// (e.g. "this org has private tunnels") via WithExtraInstructions.
+const baseInstructions = "Switchboard aggregates tools from multiple integrations " +
+	"behind two meta-tools: search and execute. " +
+	"Always search before calling execute — do not guess tool names. " +
+	"Search uses synonym matching, so short keyword queries work best " +
+	"(e.g., {\"query\": \"get page\"} finds notion_retrieve_page). " +
+	"Use the session tool to set context (e.g., owner/repo) once — " +
+	"subsequent execute calls auto-inject those values as defaults. " +
+	"Use the history tool to review prior calls after context compression. " +
+	"Every execute result is auto-pinned ($1, $2, ...) — use pin to retrieve or " +
+	"pass handles like $1.field in execute arguments to reference previous results."
 
 // Option configures optional Server behavior.
 type Option func(*Server)
@@ -107,31 +122,20 @@ func WithSessionStore(store SessionStore) Option {
 	return func(s *Server) { s.sessionStore = store }
 }
 
+// WithExtraInstructions appends deployment-specific guidance to the base MCP
+// instructions returned in the initialize response. Hosted deployments use
+// this to tell clients about capabilities that only exist for some orgs — for
+// example that an org has private-resource tunnels and how to target them.
+// The text is appended after the base instructions, separated by a space.
+func WithExtraInstructions(text string) Option {
+	return func(s *Server) { s.extraInstructions = strings.TrimSpace(text) }
+}
+
 // New creates a Server that exposes two MCP tools — search and execute —
 // following the Cloudflare "code mode" pattern for progressive discovery
 // and efficient tool execution.
 func New(services *mcp.Services, opts ...Option) *Server {
-	mcpServer := mcpsdk.NewServer(
-		&mcpsdk.Implementation{
-			Name:    "switchboard",
-			Version: version.String(),
-		},
-		&mcpsdk.ServerOptions{
-			Instructions: "Switchboard aggregates tools from multiple integrations " +
-				"behind two meta-tools: search and execute. " +
-				"Always search before calling execute — do not guess tool names. " +
-				"Search uses synonym matching, so short keyword queries work best " +
-				"(e.g., {\"query\": \"get page\"} finds notion_retrieve_page). " +
-				"Use the session tool to set context (e.g., owner/repo) once — " +
-				"subsequent execute calls auto-inject those values as defaults. " +
-				"Use the history tool to review prior calls after context compression. " +
-				"Every execute result is auto-pinned ($1, $2, ...) — use pin to retrieve or " +
-				"pass handles like $1.field in execute arguments to reference previous results.",
-		},
-	)
-
 	s := &Server{
-		mcpServer:        mcpServer,
 		services:         services,
 		sessionStore:     NewMemorySessionStore(DefaultSessionTTL),
 		retryBackoff:     500 * time.Millisecond,
@@ -142,6 +146,19 @@ func New(services *mcp.Services, opts ...Option) *Server {
 	for _, opt := range opts {
 		opt(s)
 	}
+
+	instructions := baseInstructions
+	if s.extraInstructions != "" {
+		instructions += " " + s.extraInstructions
+	}
+	s.mcpServer = mcpsdk.NewServer(
+		&mcpsdk.Implementation{
+			Name:    "switchboard",
+			Version: version.String(),
+		},
+		&mcpsdk.ServerOptions{Instructions: instructions},
+	)
+
 	s.scriptEngine = script.New(&toolExecutor{server: s})
 
 	s.registerTools()
