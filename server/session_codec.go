@@ -1,8 +1,11 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,32 +24,49 @@ type sessionSnapshot struct {
 }
 
 // EncodeSession serializes a Session (including pins) to JSON for durable stores.
+// Field snapshots are copied under the session lock so marshal does not block
+// concurrent PinResult/SetContext on large pin payloads.
 func EncodeSession(s *Session) ([]byte, error) {
 	if s == nil {
 		return nil, fmt.Errorf("encode session: nil")
 	}
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	snap := sessionSnapshot{
-		ID:          s.ID,
-		Context:     s.Context,
-		CreatedAt:   s.CreatedAt,
-		LastUsed:    s.LastUsed,
-		Breadcrumbs: s.Breadcrumbs,
-		NextSeq:     s.nextSeq,
-		NextHandle:  s.nextHandle,
-		PinnedSize:  s.pinnedSize,
+		ID:         s.ID,
+		CreatedAt:  s.CreatedAt,
+		LastUsed:   s.LastUsed,
+		NextSeq:    s.nextSeq,
+		NextHandle: s.nextHandle,
+		PinnedSize: s.pinnedSize,
+	}
+	if len(s.Context) > 0 {
+		snap.Context = make(map[string]any, len(s.Context))
+		for k, v := range s.Context {
+			snap.Context[k] = v
+		}
+	} else {
+		snap.Context = map[string]any{}
+	}
+	if len(s.Breadcrumbs) > 0 {
+		snap.Breadcrumbs = make([]Breadcrumb, len(s.Breadcrumbs))
+		copy(snap.Breadcrumbs, s.Breadcrumbs)
 	}
 	if len(s.pinned) > 0 {
 		snap.Pinned = make(map[string]*PinnedResult, len(s.pinned))
 		for k, v := range s.pinned {
-			snap.Pinned[k] = v
+			if v == nil {
+				continue
+			}
+			// Deep-copy pin payload so marshal is independent of the live map.
+			cp := *v
+			if len(v.Data) > 0 {
+				cp.Data = bytes.Clone(v.Data)
+			}
+			snap.Pinned[k] = &cp
 		}
 	}
-	if snap.Context == nil {
-		snap.Context = map[string]any{}
-	}
+	s.mu.RUnlock()
+
 	return json.Marshal(snap)
 }
 
@@ -89,6 +109,16 @@ func DecodeSession(id string, data []byte) (*Session, error) {
 		for _, pr := range s.pinned {
 			if pr != nil {
 				s.pinnedSize += pr.SizeBytes
+			}
+		}
+	}
+	// Recover nextHandle so the next PinResult does not reuse $N.
+	if s.nextHandle == 0 && len(s.pinned) > 0 {
+		for h := range s.pinned {
+			if strings.HasPrefix(h, "$") {
+				if n, err := strconv.Atoi(h[1:]); err == nil && n > s.nextHandle {
+					s.nextHandle = n
+				}
 			}
 		}
 	}

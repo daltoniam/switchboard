@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -260,4 +261,34 @@ func TestHandleExecute_AppHeaderPinsAcrossCalls(t *testing.T) {
 
 func TestAppSessionIDHeaderConstant(t *testing.T) {
 	assert.Equal(t, "X-Switchboard-Session-Id", AppSessionIDHeader)
+}
+
+func TestNormalizeAppSessionID(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"", ""},
+		{"  ", ""},
+		{"abc-123", "abc-123"},
+		{"uuid-like_ok.here:1", "uuid-like_ok.here:1"},
+		{"has space", ""},
+		{"bad!", ""},
+		{strings.Repeat("a", maxAppSessionIDLen), strings.Repeat("a", maxAppSessionIDLen)},
+		{strings.Repeat("a", maxAppSessionIDLen+1), ""},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, normalizeAppSessionID(tt.in), "in=%q", tt.in)
+	}
+}
+
+func TestResolveAppSessionID_RejectsInvalidHeader(t *testing.T) {
+	req := &mcpsdk.CallToolRequest{
+		Extra: &mcpsdk.RequestExtra{
+			Header: http.Header{
+				AppSessionIDHeader: []string{"not valid!!"},
+				mcpSessionIDHeader: []string{"good-fallback"},
+			},
+		},
+	}
+	assert.Equal(t, "good-fallback", resolveAppSessionID(context.Background(), req))
 }

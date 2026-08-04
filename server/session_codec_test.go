@@ -64,3 +64,23 @@ func TestDecodeSession_PreservesTimestamps(t *testing.T) {
 	assert.True(t, got.CreatedAt.Equal(created))
 	assert.True(t, got.LastUsed.Equal(created.Add(time.Hour)))
 }
+
+func TestDecodeSession_RecoversNextHandle(t *testing.T) {
+	// Snapshot with pins but next_handle omitted (0).
+	raw := []byte(`{
+		"id":"h",
+		"context":{},
+		"created_at":"2026-01-01T00:00:00Z",
+		"last_used":"2026-01-01T00:00:00Z",
+		"pinned":{"$3":{"handle":"$3","tool":"t","data":{"x":1},"pinned_at":"2026-01-01T00:00:00Z","size_bytes":7}},
+		"next_handle":0,
+		"pinned_size":0
+	}`)
+	got, err := DecodeSession("h", raw)
+	require.NoError(t, err)
+	assert.Equal(t, 3, got.nextHandle)
+	handle := got.PinResult("t2", `{"y":2}`)
+	assert.Equal(t, "$4", handle)
+	_, ok := got.GetPinned("$3")
+	assert.True(t, ok)
+}

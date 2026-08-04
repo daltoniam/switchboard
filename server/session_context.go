@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"unicode"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -23,6 +24,10 @@ const AppSessionIDHeader = "X-Switchboard-Session-Id"
 // one place when go-sdk renames or deprecates it.
 const mcpSessionIDHeader = "Mcp-Session-Id"
 
+// maxAppSessionIDLen caps client-minted session keys so a chatty client cannot
+// grow the SessionStore with unbounded unique ids.
+const maxAppSessionIDLen = 128
+
 type sessionContextKey struct{}
 type appSessionIDKey struct{}
 
@@ -36,9 +41,9 @@ func sessionFromCtx(ctx context.Context) *Session {
 }
 
 // WithAppSessionID stores an app session id on the context. Used by
-// AppSessionMiddleware and by tests that bypass HTTP.
+// AppSessionMiddleware and by tests that bypass HTTP. Invalid ids are ignored.
 func WithAppSessionID(ctx context.Context, id string) context.Context {
-	id = strings.TrimSpace(id)
+	id = normalizeAppSessionID(id)
 	if id == "" {
 		return ctx
 	}
@@ -54,6 +59,27 @@ func AppSessionIDFromCtx(ctx context.Context) string {
 
 const defaultSessionID = "default"
 
+// normalizeAppSessionID trims and validates a client-supplied session id.
+// Empty or invalid values return "" so callers fall through to the next source.
+// Allow-list: ASCII letters, digits, and - _ . : (UUID-safe plus common tokens).
+func normalizeAppSessionID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" || len(id) > maxAppSessionIDLen {
+		return ""
+	}
+	for _, r := range id {
+		if r > unicode.MaxASCII {
+			return ""
+		}
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' || r == ':' {
+			continue
+		}
+		return ""
+	}
+	return id
+}
+
 // AppSessionMiddleware copies X-Switchboard-Session-Id from the HTTP request
 // onto the request context so tool handlers can resolve app sessions even
 // when the MCP transport session id is empty (go-sdk Stateless mode).
@@ -62,7 +88,7 @@ const defaultSessionID = "default"
 // go-sdk streamable transport propagates req.Context() into tool handlers.
 func AppSessionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if id := strings.TrimSpace(r.Header.Get(AppSessionIDHeader)); id != "" {
+		if id := normalizeAppSessionID(r.Header.Get(AppSessionIDHeader)); id != "" {
 			r = r.WithContext(WithAppSessionID(r.Context(), id))
 		}
 		next.ServeHTTP(w, r)
@@ -76,16 +102,19 @@ func AppSessionMiddleware(next http.Handler) http.Handler {
 //  2. X-Switchboard-Session-Id on the HTTP request (via req.Extra.Header)
 //  3. Mcp-Session-Id header (legacy clients / go-sdk ≤1.6 Stateless)
 //  4. MCP ServerSession.ID() (stateful transport)
-//  5. "default" (single-shot scripts; shared across callers — not for multi-agent)
+//  5. "default" (single-shot scripts / stdio — shared; multi-tenant HTTP
+//     deployments must namespace further, e.g. org+user prefix in the store)
+//
+// All client-supplied values are validated via normalizeAppSessionID.
 func resolveAppSessionID(ctx context.Context, req *mcpsdk.CallToolRequest) string {
 	if id := AppSessionIDFromCtx(ctx); id != "" {
 		return id
 	}
 	if req != nil && req.Extra != nil && req.Extra.Header != nil {
-		if id := strings.TrimSpace(req.Extra.Header.Get(AppSessionIDHeader)); id != "" {
+		if id := normalizeAppSessionID(req.Extra.Header.Get(AppSessionIDHeader)); id != "" {
 			return id
 		}
-		if id := strings.TrimSpace(req.Extra.Header.Get(mcpSessionIDHeader)); id != "" {
+		if id := normalizeAppSessionID(req.Extra.Header.Get(mcpSessionIDHeader)); id != "" {
 			return id
 		}
 	}
@@ -96,12 +125,13 @@ func resolveAppSessionID(ctx context.Context, req *mcpsdk.CallToolRequest) strin
 }
 
 // sessionIDFromMCPSession reads the transport session id. Empty when the
-// server is in Stateless mode on go-sdk 1.7+.
+// server is in Stateless mode on go-sdk 1.7+. Transport ids are also
+// normalized; invalid values fall back to "default".
 func sessionIDFromMCPSession(ss *mcpsdk.ServerSession) string {
 	if ss == nil {
 		return defaultSessionID
 	}
-	if id := ss.ID(); id != "" {
+	if id := normalizeAppSessionID(ss.ID()); id != "" {
 		return id
 	}
 	return defaultSessionID
