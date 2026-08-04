@@ -107,12 +107,6 @@ func sessionIDFromMCPSession(ss *mcpsdk.ServerSession) string {
 	return defaultSessionID
 }
 
-// sessionIDFromReq is retained for call sites and tests that only have a
-// ServerSession. Prefer resolveAppSessionID when a CallToolRequest is available.
-func sessionIDFromReq(ss *mcpsdk.ServerSession) string {
-	return sessionIDFromMCPSession(ss)
-}
-
 // sessionFor returns the Session bound to this tool call, creating it if needed.
 func (s *Server) sessionFor(ctx context.Context, req *mcpsdk.CallToolRequest) *Session {
 	if sess := sessionFromCtx(ctx); sess != nil {
