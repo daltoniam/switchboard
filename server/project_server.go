@@ -67,7 +67,7 @@ func (pr *ProjectRouter) Handler() http.Handler {
 			return
 		}
 
-		handler := mcpsdk.NewStreamableHTTPHandler(
+		handler := AppSessionMiddleware(mcpsdk.NewStreamableHTTPHandler(
 			func(_ *http.Request) *mcpsdk.Server {
 				return srv.mcpSrv
 			},
@@ -75,7 +75,7 @@ func (pr *ProjectRouter) Handler() http.Handler {
 				Stateless: true,
 				Logger:    slog.Default(),
 			},
-		)
+		))
 		handler.ServeHTTP(w, r)
 	})
 }

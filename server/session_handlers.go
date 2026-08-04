@@ -22,10 +22,7 @@ func (s *Server) handleSession(ctx context.Context, req *mcpsdk.CallToolRequest)
 		return errorResult("invalid arguments: " + err.Error()), nil
 	}
 
-	sess := sessionFromCtx(ctx)
-	if sess == nil {
-		sess = s.sessionStore.GetOrCreate(sessionIDFromReq(req.Session))
-	}
+	sess := s.sessionFor(ctx, req)
 
 	switch args.Action {
 	case "set":
@@ -74,10 +71,7 @@ func (s *Server) handleHistory(ctx context.Context, req *mcpsdk.CallToolRequest)
 		args.LastN = maxHistoryN
 	}
 
-	sess := sessionFromCtx(ctx)
-	if sess == nil {
-		sess = s.sessionStore.GetOrCreate(sessionIDFromReq(req.Session))
-	}
+	sess := s.sessionFor(ctx, req)
 
 	bcs := sess.RecentBreadcrumbs(args.LastN, mcp.ToolName(args.Tool))
 
@@ -107,10 +101,7 @@ func (s *Server) handlePin(ctx context.Context, req *mcpsdk.CallToolRequest) (*m
 		return errorResult("invalid arguments: " + err.Error()), nil
 	}
 
-	sess := sessionFromCtx(ctx)
-	if sess == nil {
-		sess = s.sessionStore.GetOrCreate(sessionIDFromReq(req.Session))
-	}
+	sess := s.sessionFor(ctx, req)
 
 	switch args.Action {
 	case "list":
