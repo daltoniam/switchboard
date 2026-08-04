@@ -783,10 +783,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		args.Arguments = map[string]any{}
 	}
 
-	sess := sessionFromCtx(ctx)
-	if sess == nil {
-		sess = s.sessionStore.GetOrCreate(sessionIDFromReq(req.Session))
-	}
+	sess := s.sessionFor(ctx, req)
 	resolveRefs(sess, args.Arguments)
 	args.Arguments = sess.MergeDefaults(args.Arguments)
 
@@ -1537,23 +1534,29 @@ func (te *toolExecutor) ExecuteRendered(ctx context.Context, toolName mcp.ToolNa
 }
 
 // Handler returns an http.Handler that serves MCP over streamable HTTP transport.
+// App session ids (pin/context/history) are resolved via X-Switchboard-Session-Id
+// when present; see AppSessionMiddleware and resolveAppSessionID.
 func (s *Server) Handler() http.Handler {
-	return mcpsdk.NewStreamableHTTPHandler(
+	return AppSessionMiddleware(mcpsdk.NewStreamableHTTPHandler(
 		func(r *http.Request) *mcpsdk.Server {
 			return s.mcpServer
 		},
 		&mcpsdk.StreamableHTTPOptions{
 			Logger: slog.Default(),
 		},
-	)
+	))
 }
 
 // StatelessHandler returns an http.Handler that serves MCP over streamable HTTP
-// transport in stateless mode. Every request is handled independently with no
-// session state retained across calls, which makes it safe to deploy behind a
-// load balancer with multiple replicas (no session affinity required).
+// transport in stateless mode. Transport-level session state is not retained
+// across calls, so it is safe behind a load balancer without session affinity.
+//
+// Switchboard app sessions (pin/context/history) are still keyed by
+// X-Switchboard-Session-Id (or legacy Mcp-Session-Id). Pair with a shared
+// SessionStore in multi-replica deployments; the default in-memory store is
+// process-local.
 func (s *Server) StatelessHandler() http.Handler {
-	return mcpsdk.NewStreamableHTTPHandler(
+	return AppSessionMiddleware(mcpsdk.NewStreamableHTTPHandler(
 		func(r *http.Request) *mcpsdk.Server {
 			return s.mcpServer
 		},
@@ -1561,7 +1564,7 @@ func (s *Server) StatelessHandler() http.Handler {
 			Stateless: true,
 			Logger:    slog.Default(),
 		},
-	)
+	))
 }
 
 // RunStdio starts the MCP server over stdio transport.
