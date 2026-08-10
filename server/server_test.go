@@ -41,6 +41,10 @@ func (m *mockConfigService) SetWasmModules(modules []mcp.WasmModuleConfig) error
 	m.cfg.WasmModules = modules
 	return nil
 }
+func (m *mockConfigService) SetSpecImports(imports []mcp.SpecImportConfig) error {
+	m.cfg.SpecImports = imports
+	return nil
+}
 func (m *mockConfigService) EnabledIntegrations() []string {
 	var names []string
 	for name, ic := range m.cfg.Integrations {

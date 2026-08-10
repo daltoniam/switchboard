@@ -1,0 +1,148 @@
+package pages
+
+import (
+	"strconv"
+
+	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+// SpecImportRow is a single configured spec import shown in the list.
+type SpecImportRow struct {
+	Name       string
+	Kind       string
+	Endpoint   string
+	Source     string // "inline" or a file path
+	Enabled    bool
+	ToolCount  int
+	Registered bool
+}
+
+// SpecImportsData drives the Spec Imports page.
+type SpecImportsData struct {
+	Imports []SpecImportRow
+}
+
+func specImportBadge(row SpecImportRow) string {
+	if row.Enabled && row.Registered {
+		return "green"
+	}
+	if row.Enabled {
+		return "red"
+	}
+	return "muted"
+}
+
+func specImportLabel(row SpecImportRow) string {
+	if row.Enabled && row.Registered {
+		return "Active"
+	}
+	if row.Enabled {
+		return "Error"
+	}
+	return "Disabled"
+}
+
+func specImportToolCount(row SpecImportRow) string {
+	if !row.Registered {
+		return "—"
+	}
+	return strconv.Itoa(row.ToolCount)
+}
+
+templ SpecImports(page layouts.PageData, data SpecImportsData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<h1 class="page-title" style="margin-bottom: 0;">Spec Imports</h1>
+		</div>
+		<p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem; max-width: 60ch;">
+			Import any OpenAPI 3.x document or GraphQL introspection result and turn every
+			operation into an MCP tool — no hand-written adapter required. Credentials are
+			injected server-side and never exposed to the model. Changes apply live; no restart needed.
+		</p>
+		<div class="card">
+			<div class="card-header">
+				<div class="card-title">Imported APIs</div>
+			</div>
+			if len(data.Imports) == 0 {
+				<p style="color: var(--text-muted); font-size: 0.85rem;">No spec imports yet. Add one below.</p>
+			} else {
+				<table style="width: 100%; border-collapse: collapse;">
+					<thead>
+						<tr style="text-align: left; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">
+							<th style="padding: 0.5rem 0.75rem;">Name</th>
+							<th style="padding: 0.5rem 0.75rem;">Kind</th>
+							<th style="padding: 0.5rem 0.75rem;">Endpoint</th>
+							<th style="padding: 0.5rem 0.75rem;">Source</th>
+							<th style="padding: 0.5rem 0.75rem;">Tools</th>
+							<th style="padding: 0.5rem 0.75rem;">Status</th>
+							<th style="padding: 0.5rem 0.75rem;"></th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, row := range data.Imports {
+							<tr style="border-top: 1px solid var(--border);">
+								<td style="padding: 0.5rem 0.75rem; font-weight: 600;">{ row.Name }</td>
+								<td style="padding: 0.5rem 0.75rem;">{ row.Kind }</td>
+								<td style="padding: 0.5rem 0.75rem; color: var(--text-muted); font-size: 0.8rem;">{ row.Endpoint }</td>
+								<td style="padding: 0.5rem 0.75rem; color: var(--text-muted); font-size: 0.8rem;">{ row.Source }</td>
+								<td style="padding: 0.5rem 0.75rem;">{ specImportToolCount(row) }</td>
+								<td style="padding: 0.5rem 0.75rem;">
+									@components.Badge(specImportLabel(row), specImportBadge(row))
+								</td>
+								<td style="padding: 0.5rem 0.75rem; text-align: right;">
+									<form method="POST" action="/api/spec-imports/delete" onsubmit="return confirm('Remove spec import?');" style="display: inline;">
+										<input type="hidden" name="name" value={ row.Name }/>
+										<button type="submit" class="btn btn-sm btn-outline">Remove</button>
+									</form>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</div>
+		<div class="card">
+			<div class="card-header">
+				<div class="card-title">Add a Spec Import</div>
+			</div>
+			<form method="POST" action="/api/spec-imports/save">
+				<div class="form-group">
+					<label class="form-label" for="name">Name</label>
+					<input class="form-input" type="text" id="name" name="name" placeholder="petstore" required/>
+				</div>
+				<div class="form-group">
+					<label class="form-label" for="kind">Kind</label>
+					<select class="form-input" id="kind" name="kind">
+						<option value="openapi">OpenAPI 3.x</option>
+						<option value="graphql">GraphQL</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label class="form-label" for="endpoint">Endpoint URL</label>
+					<input class="form-input" type="text" id="endpoint" name="endpoint" placeholder="https://api.example.com (required for GraphQL, overrides OpenAPI server)"/>
+				</div>
+				<div class="form-group">
+					<label class="form-label" for="spec">Spec Document (JSON)</label>
+					<textarea class="form-input" id="spec" name="spec" rows="10" placeholder="Paste the OpenAPI document or GraphQL introspection JSON here" style="font-family: monospace; font-size: 0.8rem;"></textarea>
+				</div>
+				<div class="card" style="background: var(--bg-subtle);">
+					<div class="card-title" style="font-size: 0.9rem; margin-bottom: 0.75rem;">Credentials (optional, injected server-side)</div>
+					<div class="form-group">
+						<label class="form-label" for="api_key">API Key</label>
+						<input class="form-input" type="password" id="api_key" name="api_key" placeholder="Sent as a bearer token by default"/>
+					</div>
+					<div class="form-group">
+						<label class="form-label" for="auth_header">Auth Header</label>
+						<input class="form-input" type="text" id="auth_header" name="auth_header" placeholder="Authorization (default)"/>
+					</div>
+					<div class="form-group">
+						<label class="form-label" for="auth_scheme">Auth Scheme</label>
+						<input class="form-input" type="text" id="auth_scheme" name="auth_scheme" placeholder="Bearer (default; leave empty to send the raw key)"/>
+					</div>
+				</div>
+				<button type="submit" class="btn">Add Import</button>
+			</form>
+		</div>
+	}
+}

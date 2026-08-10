@@ -147,10 +147,36 @@ type MarketplaceInstalledPlugin struct {
 	LatestVersion string `json:"latest_version,omitempty"`
 }
 
+// SpecImportConfig describes a bring-your-own API imported from an OpenAPI 3.x
+// document or GraphQL introspection result. Each entry becomes a runtime
+// integration whose operations are exposed as MCP tools. The spec is supplied
+// inline via Spec or read from Path; exactly one must be set.
+type SpecImportConfig struct {
+	// Name is the integration identifier and tool-name prefix (sanitized).
+	Name string `json:"name"`
+	// Kind is "openapi" or "graphql".
+	Kind string `json:"kind"`
+	// Spec is the inline spec document (JSON). Mutually exclusive with Path.
+	Spec string `json:"spec,omitempty"`
+	// Path is a filesystem path to the spec document. Mutually exclusive with Spec.
+	Path string `json:"path,omitempty"`
+	// Endpoint overrides the base/server URL from the spec. Required for
+	// GraphQL introspection results (which carry no endpoint) and optional
+	// for OpenAPI documents that already declare a server.
+	Endpoint string `json:"endpoint,omitempty"`
+	// Enabled gates registration. Disabled entries are skipped.
+	Enabled bool `json:"enabled"`
+	// Credentials are injected server-side into every outbound request and
+	// never exposed to the model. Recognized keys: api_key, auth_header,
+	// auth_scheme, base_url.
+	Credentials Credentials `json:"credentials,omitempty"`
+}
+
 // Config is the top-level configuration containing all integrations.
 type Config struct {
 	Integrations map[string]*IntegrationConfig `json:"integrations"`
 	WasmModules  []WasmModuleConfig            `json:"wasm_modules,omitempty"`
+	SpecImports  []SpecImportConfig            `json:"spec_imports,omitempty"`
 	Marketplace  *MarketplaceConfig            `json:"marketplace,omitempty"`
 	SessionStore string                        `json:"session_store,omitempty"` // "memory" or "file" (default: "memory")
 
@@ -380,6 +406,7 @@ type ConfigService interface {
 	GetIntegration(name string) (*IntegrationConfig, bool)
 	SetIntegration(name string, ic *IntegrationConfig) error
 	SetWasmModules(modules []WasmModuleConfig) error
+	SetSpecImports(imports []SpecImportConfig) error
 	EnabledIntegrations() []string
 	DefaultCredentialKeys(name string) []string
 }
