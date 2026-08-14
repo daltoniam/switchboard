@@ -7,6 +7,8 @@
   - `GET /integrations` — Integration list
   - `GET /integrations/{name}` — Integration detail + credential form
   - `POST /integrations/{name}` — Save integration credentials
+  - `POST /integrations/{name}/identities` — Add or update a named identity (secret fields stay write-only)
+  - `POST /integrations/{name}/identities/{identity}/delete` — Remove a named identity
 - **OAuth/Setup pages** (guided credential flows):
   - `GET /integrations/github/setup` — GitHub Device Flow OAuth
   - `GET /integrations/linear/setup` — Linear OAuth (PKCE)
@@ -17,6 +19,7 @@
   - `GET /integrations/postgres/setup` — Postgres default plus additional aliased connections
   - `GET /integrations/clickhouse/setup` — ClickHouse default plus additional aliased cluster connections
 - All setup pages save credentials to both the integration config and any external token files
+- Integrations implementing `MultiIdentityIntegration` + `IdentityConfigHints` render a generic named-identity editor. Identity credentials and metadata persist under `integrations.<name>.identities` in the standard config file.
 
 ## Build Tooling
 

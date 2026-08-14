@@ -19,7 +19,8 @@ import (
 // --- test helpers ---
 
 type mockConfigService struct {
-	cfg *mcp.Config
+	cfg                 *mcp.Config
+	setIntegrationCalls int
 }
 
 func newMockConfigService(integrations map[string]*mcp.IntegrationConfig) *mockConfigService {
@@ -35,6 +36,7 @@ func (m *mockConfigService) GetIntegration(name string) (*mcp.IntegrationConfig,
 	return ic, ok
 }
 func (m *mockConfigService) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
+	m.setIntegrationCalls++
 	m.cfg.Integrations[name] = ic
 	return nil
 }
@@ -259,7 +261,7 @@ func TestConfigureIntegrations_SkipsFailedConfigure(t *testing.T) {
 	require.NotNil(t, s)
 }
 
-func TestConfigureIntegrations_DisablesPreviouslyEnabledOnFailure(t *testing.T) {
+func TestConfigureIntegrations_PreservesEnabledConfigOnFailure(t *testing.T) {
 	mi := &mockIntegration{
 		name:      "failint",
 		configErr: fmt.Errorf("connection timeout"),
@@ -278,8 +280,9 @@ func TestConfigureIntegrations_DisablesPreviouslyEnabledOnFailure(t *testing.T) 
 
 	ic, ok := cfgService.GetIntegration("failint")
 	require.True(t, ok)
-	assert.False(t, ic.Enabled, "integration should be disabled after Configure failure")
-	assert.Empty(t, cfgService.EnabledIntegrations())
+	assert.True(t, ic.Enabled, "startup failure must preserve the user's enabled state")
+	assert.Equal(t, []string{"failint"}, cfgService.EnabledIntegrations())
+	assert.Zero(t, cfgService.setIntegrationCalls, "startup failure must not persist a destructive config rewrite")
 }
 
 func TestHandleSearch_Integration(t *testing.T) {
@@ -3866,7 +3869,7 @@ func TestConfigureIntegrations_ConfiguresIdentitiesOnlyCredentials(t *testing.T)
 	require.NoError(t, reg.Register(mi))
 	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
 		"multi": {
-			Enabled:     false,
+			Enabled:     true,
 			Credentials: mcp.Credentials{},
 			Identities: map[string]mcp.IntegrationIdentity{
 				"work": {Credentials: mcp.Credentials{"access_token": "tok-work"}},
@@ -3883,7 +3886,29 @@ func TestConfigureIntegrations_ConfiguresIdentitiesOnlyCredentials(t *testing.T)
 
 	ic, ok := cfgService.GetIntegration("multi")
 	require.True(t, ok)
-	assert.True(t, ic.Enabled, "disabled integration with identities should auto-enable")
+	assert.True(t, ic.Enabled, "enabled multi-identity integration should remain enabled")
+	assert.Zero(t, cfgService.setIntegrationCalls, "startup configuration must not rewrite durable config")
+}
+
+func TestConfigureIntegrations_SkipsDisabledWithCredentials(t *testing.T) {
+	mi := &multiIdentityMockIntegration{name: "multi", healthy: true}
+	reg := newMockRegistry()
+	require.NoError(t, reg.Register(mi))
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"multi": {
+			Enabled: false,
+			Identities: map[string]mcp.IntegrationIdentity{
+				"work": {Credentials: mcp.Credentials{"access_token": "tok-work"}},
+			},
+		},
+	})
+
+	_ = New(&mcp.Services{Config: cfgService, Registry: reg})
+
+	assert.Zero(t, mi.configureCalls)
+	assert.Zero(t, mi.identitiesCalls)
+	assert.False(t, cfgService.cfg.Integrations["multi"].Enabled)
+	assert.Zero(t, cfgService.setIntegrationCalls)
 }
 
 func TestConfigureIntegrations_SkipsDisabledWithoutCredentialsOrIdentities(t *testing.T) {

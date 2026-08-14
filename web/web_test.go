@@ -24,7 +24,8 @@ import (
 // --- mock types for testing ---
 
 type mockConfigService struct {
-	cfg *mcp.Config
+	cfg    *mcp.Config
+	setErr error
 }
 
 func newMockConfigService(integrations map[string]*mcp.IntegrationConfig) *mockConfigService {
@@ -40,6 +41,9 @@ func (m *mockConfigService) GetIntegration(name string) (*mcp.IntegrationConfig,
 	return ic, ok
 }
 func (m *mockConfigService) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
+	if m.setErr != nil {
+		return m.setErr
+	}
 	m.cfg.Integrations[name] = ic
 	return nil
 }
@@ -698,6 +702,21 @@ func TestUpdateCredentials(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 		assert.Contains(t, rr.Body.String(), "bad token")
 	})
+
+	t.Run("persistence failure rolls back live credentials", func(t *testing.T) {
+		ws, reg, cfgService := setupTestWeb()
+		mi := reg.integrations["testint"].(*mockIntegration)
+		cfgService.setErr = errors.New("disk full")
+		handler := ws.Handler()
+
+		req := httptest.NewRequest("PUT", "/api/integrations/testint/credentials", strings.NewReader(`{"token":"new"}`))
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		assert.Equal(t, "test", mi.lastCreds["token"])
+		assert.Equal(t, "test", cfgService.cfg.Integrations["testint"].Credentials["token"])
+	})
 }
 
 // TestPostgresConnection_JSONRoundTrip verifies that the PostgresConnection
@@ -979,3 +998,158 @@ func (m *multiIdentityWebMock) Execute(context.Context, mcp.ToolName, map[string
 	return &mcp.ToolResult{Data: "ok"}, nil
 }
 func (m *multiIdentityWebMock) Healthy(context.Context) bool { return m.healthy }
+
+func (m *multiIdentityWebMock) IdentityCredentialKeys() []string {
+	return []string{"access_token"}
+}
+
+func (m *multiIdentityWebMock) IdentityMetadataKeys() []string {
+	return []string{"label", "app_id"}
+}
+
+func TestIntegrationIdentitySave_AddsAndConfiguresIdentity(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+	mi := &multiIdentityWebMock{name: "testint", healthy: true}
+	reg.integrations["testint"] = mi
+	cfgService.cfg.Integrations["testint"].Enabled = false
+	handler := ws.Handler()
+
+	form := strings.NewReader("identity_id=work&identity_cred_access_token=tok-work&identity_meta_label=Work+Slack&identity_meta_app_id=A123")
+	req := httptest.NewRequest("POST", "/integrations/testint/identities", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	require.Contains(t, mi.lastIdentities, "work")
+	assert.Equal(t, "tok-work", mi.lastIdentities["work"].Credentials["access_token"])
+	assert.Equal(t, "Work Slack", mi.lastIdentities["work"].Metadata["label"])
+
+	ic, ok := cfgService.GetIntegration("testint")
+	require.True(t, ok)
+	assert.False(t, ic.Enabled, "identity changes must preserve the explicit integration toggle")
+	assert.Equal(t, "tok-work", ic.Identities["work"].Credentials["access_token"])
+	assert.Equal(t, "A123", ic.Identities["work"].Metadata["app_id"])
+}
+
+func TestIntegrationIdentitySave_BlankSecretPreservesCredential(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+	mi := &multiIdentityWebMock{name: "testint", healthy: true}
+	reg.integrations["testint"] = mi
+	cfgService.cfg.Integrations["testint"].Identities = map[string]mcp.IntegrationIdentity{
+		"work": {
+			Credentials: mcp.Credentials{"access_token": "existing-token"},
+			Metadata:    map[string]string{"label": "Old label"},
+		},
+	}
+	handler := ws.Handler()
+
+	form := strings.NewReader("identity_id=work&identity_cred_access_token=&identity_meta_label=New+label&identity_meta_app_id=A456")
+	req := httptest.NewRequest("POST", "/integrations/testint/identities", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	ic, ok := cfgService.GetIntegration("testint")
+	require.True(t, ok)
+	assert.Equal(t, "existing-token", ic.Identities["work"].Credentials["access_token"])
+	assert.Equal(t, "New label", ic.Identities["work"].Metadata["label"])
+	assert.Equal(t, "A456", ic.Identities["work"].Metadata["app_id"])
+}
+
+func TestIntegrationIdentitySave_RollsBackLiveConfigurationWhenPersistenceFails(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+	mi := &multiIdentityWebMock{name: "testint", healthy: true}
+	reg.integrations["testint"] = mi
+	cfgService.cfg.Integrations["testint"].Identities = map[string]mcp.IntegrationIdentity{
+		"work": {Credentials: mcp.Credentials{"access_token": "existing-token"}, Metadata: map[string]string{"label": "Old label"}},
+	}
+	cfgService.setErr = errors.New("disk full")
+
+	form := strings.NewReader("identity_id=work&identity_cred_access_token=new-token&identity_meta_label=New+label")
+	req := httptest.NewRequest("POST", "/integrations/testint/identities", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error=")
+	assert.Equal(t, "existing-token", mi.lastIdentities["work"].Credentials["access_token"])
+	assert.Equal(t, "Old label", mi.lastIdentities["work"].Metadata["label"])
+	assert.Equal(t, "existing-token", cfgService.cfg.Integrations["testint"].Identities["work"].Credentials["access_token"])
+}
+
+func TestIntegrationIdentityDelete_RemovesAndReconfiguresIdentity(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+	mi := &multiIdentityWebMock{name: "testint", healthy: true}
+	reg.integrations["testint"] = mi
+	cfgService.cfg.Integrations["testint"].Identities = map[string]mcp.IntegrationIdentity{
+		"work": {Credentials: mcp.Credentials{"access_token": "existing-token"}},
+	}
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("POST", "/integrations/testint/identities/work/delete", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.NotContains(t, mi.lastIdentities, "work")
+	ic, ok := cfgService.GetIntegration("testint")
+	require.True(t, ok)
+	assert.NotContains(t, ic.Identities, "work")
+	assert.True(t, ic.Enabled, "deleting an identity must preserve the explicit integration toggle")
+}
+
+func TestIntegrationIdentityDelete_RejectsUnknownIdentity(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+	mi := &multiIdentityWebMock{name: "testint", healthy: true}
+	reg.integrations["testint"] = mi
+	cfgService.cfg.Integrations["testint"].Enabled = false
+	cfgService.cfg.Integrations["testint"].Identities = map[string]mcp.IntegrationIdentity{}
+
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest("POST", "/integrations/testint/identities/missing/delete", nil))
+
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error=")
+	ic, ok := cfgService.GetIntegration("testint")
+	require.True(t, ok)
+	assert.False(t, ic.Enabled)
+	assert.Empty(t, ic.Identities)
+}
+
+func TestIntegrationIdentitySave_RejectsInvalidID(t *testing.T) {
+	ws, reg, _ := setupTestWeb()
+	reg.integrations["testint"] = &multiIdentityWebMock{name: "testint", healthy: true}
+	handler := ws.Handler()
+
+	form := strings.NewReader("identity_id=not%2Fsafe&identity_cred_access_token=tok")
+	req := httptest.NewRequest("POST", "/integrations/testint/identities", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error=")
+}
+
+func TestIntegrationDetail_DoesNotRenderIdentitySecretValues(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+	reg.integrations["testint"] = &multiIdentityWebMock{name: "testint", healthy: true}
+	cfgService.cfg.Integrations["testint"].Identities = map[string]mcp.IntegrationIdentity{
+		"work": {
+			Credentials: mcp.Credentials{"access_token": "never-render-this-secret"},
+			Metadata:    map[string]string{"label": "Work Slack"},
+		},
+	}
+
+	req := httptest.NewRequest("GET", "/integrations/testint", nil)
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Work Slack")
+	assert.Contains(t, rr.Body.String(), "Configured — leave blank to keep")
+	assert.NotContains(t, rr.Body.String(), "never-render-this-secret")
+}

@@ -293,6 +293,14 @@ type MultiIdentityIntegration interface {
 	ConfigureIdentities(ctx context.Context, identities map[string]IntegrationIdentity) error
 }
 
+// IdentityConfigHints describes the editable fields for named identities in
+// generic configuration surfaces. Credential values are always treated as
+// secrets; metadata values are safe to render as plain text.
+type IdentityConfigHints interface {
+	IdentityCredentialKeys() []string
+	IdentityMetadataKeys() []string
+}
+
 // ConfigureIntegration applies integration-level credentials via Configure,
 // then ConfigureIdentities when the adapter implements MultiIdentityIntegration.
 func ConfigureIntegration(ctx context.Context, integration Integration, ic *IntegrationConfig) error {

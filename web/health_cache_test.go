@@ -52,7 +52,7 @@ func TestHealthCache_RefreshAll(t *testing.T) {
 	assert.False(t, entry.Healthy)
 }
 
-func TestHealthCache_RefreshAll_EnablesOnHealthy(t *testing.T) {
+func TestHealthCache_RefreshAll_DoesNotEnableDisabledIntegration(t *testing.T) {
 	reg := newMockRegistry()
 	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{})
 
@@ -69,10 +69,11 @@ func TestHealthCache_RefreshAll_EnablesOnHealthy(t *testing.T) {
 
 	entry, ok := hc.get("gamma")
 	require.True(t, ok)
-	assert.True(t, entry.Enabled)
+	assert.False(t, entry.Enabled)
+	assert.False(t, entry.Healthy)
 
 	ic, _ := cfgService.GetIntegration("gamma")
-	assert.True(t, ic.Enabled, "config should be updated to enabled")
+	assert.False(t, ic.Enabled, "health checks must not rewrite explicit config state")
 }
 
 func TestHealthCache_RefreshAll_NoConfig(t *testing.T) {
@@ -118,7 +119,7 @@ func TestHealthCache_RefreshAll_ConfiguresIdentities(t *testing.T) {
 	mi := &multiIdentityWebMock{name: "multi", healthy: true}
 	reg.Register(mi)
 	cfgService.cfg.Integrations["multi"] = &mcp.IntegrationConfig{
-		Enabled:     false,
+		Enabled:     true,
 		Credentials: mcp.Credentials{},
 		Identities: map[string]mcp.IntegrationIdentity{
 			"work": {Credentials: mcp.Credentials{"access_token": "tok"}},

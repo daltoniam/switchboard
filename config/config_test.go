@@ -779,3 +779,63 @@ func TestDefaultConfig_SlackMCP(t *testing.T) {
 	require.NotNil(t, ic.Identities)
 	assert.Empty(t, ic.Identities)
 }
+
+func TestSetIntegration_RollsBackMemoryWhenSaveFails(t *testing.T) {
+	m, path := newTestManager(t)
+	m.cfg = defaultConfig()
+	require.NoError(t, os.Mkdir(path, 0700))
+
+	original := m.cfg.Integrations["github"]
+	err := m.SetIntegration("github", &mcp.IntegrationConfig{
+		Enabled:     true,
+		Credentials: mcp.Credentials{"token": "new-token"},
+	})
+
+	require.Error(t, err)
+	assert.Same(t, original, m.cfg.Integrations["github"])
+	assert.False(t, m.cfg.Integrations["github"].Enabled)
+	assert.Empty(t, m.cfg.Integrations["github"].Credentials["token"])
+}
+
+func TestSetWasmModules_DoesNotPersistEnvironmentOverrides(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	initial := &mcp.Config{Integrations: map[string]*mcp.IntegrationConfig{
+		"github": {Enabled: true, Credentials: mcp.Credentials{"token": "disk-token"}},
+	}}
+	data, err := json.Marshal(initial)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, data, 0600))
+	m := &manager{filePath: path, envLookup: func(name string) string {
+		if name == "GITHUB_TOKEN" {
+			return "environment-token"
+		}
+		return ""
+	}}
+	require.NoError(t, m.Load())
+	require.NoError(t, m.SetWasmModules([]mcp.WasmModuleConfig{{Path: "/tmp/plugin.wasm"}}))
+
+	var persisted mcp.Config
+	persistedData, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(persistedData, &persisted))
+	assert.Equal(t, "disk-token", persisted.Integrations["github"].Credentials["token"])
+}
+
+func TestConfigReads_ReturnCopies(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	cfg := m.Get()
+	cfg.Integrations["github"].Enabled = true
+	cfg.Integrations["github"].Credentials["token"] = "mutated"
+	ic, ok := m.GetIntegration("github")
+	require.True(t, ok)
+	ic.Enabled = true
+	ic.Credentials["token"] = "mutated-again"
+
+	stored, ok := m.GetIntegration("github")
+	require.True(t, ok)
+	assert.False(t, stored.Enabled)
+	assert.Empty(t, stored.Credentials["token"])
+}

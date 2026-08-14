@@ -209,7 +209,8 @@ func EnvMapping() map[string]map[string]string {
 
 type manager struct {
 	mu        sync.RWMutex
-	cfg       *mcp.Config
+	cfg       *mcp.Config // runtime config, including environment overrides
+	persisted *mcp.Config // durable config, never containing environment overrides
 	filePath  string
 	envLookup func(string) string // defaults to os.Getenv; override in tests
 }
@@ -460,7 +461,8 @@ func (m *manager) Load() error {
 	data, err := os.ReadFile(m.filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			m.cfg = defaultConfig()
+			m.persisted = defaultConfig()
+			m.cfg = cloneConfig(m.persisted)
 			if saveErr := m.saveLocked(); saveErr != nil {
 				return saveErr
 			}
@@ -474,7 +476,8 @@ func (m *manager) Load() error {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("parse config: %w", err)
 	}
-	m.cfg = mergeWithDefaults(&cfg)
+	m.persisted = mergeWithDefaults(&cfg)
+	m.cfg = cloneConfig(m.persisted)
 	// Validate user-supplied globs from the config file (defaults have no globs).
 	for name, ic := range cfg.Integrations {
 		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
@@ -513,6 +516,30 @@ func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 	return cfg
 }
 
+func cloneConfig(source *mcp.Config) *mcp.Config {
+	if source == nil {
+		return nil
+	}
+	data, err := json.Marshal(source)
+	if err != nil {
+		panic(fmt.Sprintf("clone config: %v", err))
+	}
+	var clone mcp.Config
+	if err := json.Unmarshal(data, &clone); err != nil {
+		panic(fmt.Sprintf("clone config: %v", err))
+	}
+	return &clone
+}
+
+func cloneIntegrationConfig(source *mcp.IntegrationConfig) *mcp.IntegrationConfig {
+	if source == nil {
+		return nil
+	}
+	return cloneConfig(&mcp.Config{
+		Integrations: map[string]*mcp.IntegrationConfig{"integration": source},
+	}).Integrations["integration"]
+}
+
 func (m *manager) applyEnvOverrides() {
 	if m.cfg.Integrations == nil {
 		return
@@ -539,6 +566,9 @@ func (m *manager) applyEnvOverrides() {
 func (m *manager) Save() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.persisted == nil {
+		m.persisted = cloneConfig(m.cfg)
+	}
 	return m.saveLocked()
 }
 
@@ -548,7 +578,11 @@ func (m *manager) saveLocked() error {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 
-	data, err := json.MarshalIndent(m.cfg, "", "  ")
+	target := m.persisted
+	if target == nil {
+		target = m.cfg
+	}
+	data, err := json.MarshalIndent(target, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
@@ -562,7 +596,27 @@ func (m *manager) saveLocked() error {
 func (m *manager) Get() *mcp.Config {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.cfg
+	return cloneConfig(m.cfg)
+}
+
+func (m *manager) durableConfigFromRuntime(cfg *mcp.Config) *mcp.Config {
+	durable := cloneConfig(cfg)
+	if m.persisted == nil {
+		return durable
+	}
+	for name, mapping := range envMapping {
+		durableIC := durable.Integrations[name]
+		persistedIC := m.persisted.Integrations[name]
+		if durableIC == nil || persistedIC == nil {
+			continue
+		}
+		for credentialKey, envVar := range mapping {
+			if m.envLookup(envVar) != "" {
+				durableIC.Credentials[credentialKey] = persistedIC.Credentials[credentialKey]
+			}
+		}
+	}
+	return durable
 }
 
 func (m *manager) Update(cfg *mcp.Config) error {
@@ -573,15 +627,23 @@ func (m *manager) Update(cfg *mcp.Config) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	previousRuntime := m.cfg
+	previousPersisted := m.persisted
 	m.cfg = cfg
-	return m.saveLocked()
+	m.persisted = m.durableConfigFromRuntime(cfg)
+	if err := m.saveLocked(); err != nil {
+		m.cfg = previousRuntime
+		m.persisted = previousPersisted
+		return err
+	}
+	return nil
 }
 
 func (m *manager) GetIntegration(name string) (*mcp.IntegrationConfig, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	ic, ok := m.cfg.Integrations[name]
-	return ic, ok
+	return cloneIntegrationConfig(ic), ok
 }
 
 func (m *manager) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
@@ -590,15 +652,54 @@ func (m *manager) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	previous, existed := m.cfg.Integrations[name]
+	if m.persisted == nil {
+		m.persisted = cloneConfig(m.cfg)
+	}
+	previousPersisted, persistedExisted := m.persisted.Integrations[name]
+	durable := cloneIntegrationConfig(ic)
+	for credentialKey, envVar := range envMapping[name] {
+		if m.envLookup(envVar) == "" || previous == nil || durable.Credentials[credentialKey] != previous.Credentials[credentialKey] {
+			continue
+		}
+		if previousPersisted != nil {
+			durable.Credentials[credentialKey] = previousPersisted.Credentials[credentialKey]
+		}
+	}
 	m.cfg.Integrations[name] = ic
-	return m.saveLocked()
+	m.persisted.Integrations[name] = durable
+	if err := m.saveLocked(); err != nil {
+		if existed {
+			m.cfg.Integrations[name] = previous
+		} else {
+			delete(m.cfg.Integrations, name)
+		}
+		if persistedExisted {
+			m.persisted.Integrations[name] = previousPersisted
+		} else {
+			delete(m.persisted.Integrations, name)
+		}
+		return err
+	}
+	return nil
 }
 
 func (m *manager) SetWasmModules(modules []mcp.WasmModuleConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.persisted == nil {
+		m.persisted = cloneConfig(m.cfg)
+	}
+	previousRuntime := m.cfg.WasmModules
+	previousPersisted := m.persisted.WasmModules
 	m.cfg.WasmModules = modules
-	return m.saveLocked()
+	m.persisted.WasmModules = modules
+	if err := m.saveLocked(); err != nil {
+		m.cfg.WasmModules = previousRuntime
+		m.persisted.WasmModules = previousPersisted
+		return err
+	}
+	return nil
 }
 
 func (m *manager) EnabledIntegrations() []string {

@@ -614,3 +614,19 @@ func TestDynamicRoutingParity_NoStaticDispatchMap(t *testing.T) {
 		require.False(t, res.IsError, "%s: %s", td.Name, res.Data)
 	}
 }
+
+func TestConfigureIdentities_RejectsUnreachableHostedMCP(t *testing.T) {
+	upstream := httptest.NewServer(http.NotFoundHandler())
+	defer upstream.Close()
+
+	integration := New()
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"base_url": upstream.URL}))
+	multi := integration.(mcp.MultiIdentityIntegration)
+
+	err := multi.ConfigureIdentities(context.Background(), map[string]mcp.IntegrationIdentity{
+		"work": {Credentials: mcp.Credentials{"access_token": "revoked-token"}},
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unhealthy")
+}

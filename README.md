@@ -171,7 +171,7 @@ Each named identity needs a **user OAuth access token** (`access_token`, typical
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
 
-Any integration with credentials provided via env vars will auto-enable without needing to toggle it in the web UI.
+Environment variables override credential values but do not change the durable enabled state. Enable the integration explicitly in config or the web UI; transient startup failures never rewrite that choice.
 
 | Integration | Credential | Env Var |
 |---|---|---|

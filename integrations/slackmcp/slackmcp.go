@@ -25,6 +25,7 @@ const (
 var (
 	_ mcp.Integration              = (*slackmcp)(nil)
 	_ mcp.MultiIdentityIntegration = (*slackmcp)(nil)
+	_ mcp.IdentityConfigHints      = (*slackmcp)(nil)
 	_ mcp.PlainTextCredentials     = (*slackmcp)(nil)
 	_ mcp.OptionalCredentials      = (*slackmcp)(nil)
 )
@@ -69,6 +70,12 @@ func (s *slackmcp) Name() string { return integrationName }
 func (s *slackmcp) PlainTextKeys() []string { return []string{"base_url"} }
 
 func (s *slackmcp) OptionalKeys() []string { return []string{"base_url"} }
+
+func (s *slackmcp) IdentityCredentialKeys() []string { return []string{"access_token"} }
+
+func (s *slackmcp) IdentityMetadataKeys() []string {
+	return []string{"label", "app_id", "team_id", "user_id", "credential_source"}
+}
 
 func (s *slackmcp) Configure(_ context.Context, creds mcp.Credentials) error {
 	s.cfgMu.Lock()
@@ -155,6 +162,13 @@ func (s *slackmcp) ConfigureIdentities(ctx context.Context, identities map[strin
 				closeRemote(r)
 			}
 			return fmt.Errorf("slackmcp: identity %q: %w", id, err)
+		}
+		if !remote.Healthy(ctx) {
+			closeRemote(remote)
+			for _, r := range created {
+				closeRemote(r)
+			}
+			return fmt.Errorf("slackmcp: identity %q: hosted MCP is unhealthy", id)
 		}
 		created = append(created, remote)
 		st := &identityState{

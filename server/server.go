@@ -383,43 +383,19 @@ func (s *Server) configureIntegrations() {
 			continue
 		}
 
-		// Respect explicit disable from config toggle.
-		if exists && !ic.Enabled && !integrationConfigHasCredentials(integration, ic) {
+		// Enabled is explicit durable user intent. Startup must never flip it in
+		// either direction based on transient credentials or network health.
+		if !ic.Enabled {
 			continue
 		}
 
 		if err := mcp.ConfigureIntegration(context.Background(), integration, ic); err != nil {
 			log.Printf("WARN: failed to configure %q: %v", name, err)
-			if ic.Enabled {
-				ic.Enabled = false
-				_ = s.services.Config.SetIntegration(name, ic)
-			}
 			continue
-		}
-
-		// Auto-enable in config if Configure succeeded.
-		if !ic.Enabled {
-			ic.Enabled = true
-			_ = s.services.Config.SetIntegration(name, ic)
 		}
 
 		log.Printf("Configured integration %q with %d tools", name, len(integration.Tools()))
 	}
-}
-
-func integrationConfigHasCredentials(integration mcp.Integration, ic *mcp.IntegrationConfig) bool {
-	if ic == nil {
-		return false
-	}
-	if detector, ok := integration.(mcp.CredentialDetector); ok {
-		if detector.HasCredentials(ic.Credentials) {
-			return true
-		}
-		// Named identities still count as usable credentials even when the
-		// detector only inspects top-level keys.
-		return ic.HasUsableCredentials() && len(ic.Identities) > 0
-	}
-	return ic.HasUsableCredentials()
 }
 
 // searchableIntegrationNames returns the list of integration names included in search.
