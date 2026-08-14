@@ -60,6 +60,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	signozInt "github.com/daltoniam/switchboard/integrations/signoz"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
+	"github.com/daltoniam/switchboard/integrations/slackmcp"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
 	"github.com/daltoniam/switchboard/integrations/stripe"
 	"github.com/daltoniam/switchboard/integrations/suno"
@@ -239,6 +240,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		linear.New("https://mcp.linear.app"),
 		sentry.New(),
 		slackInt.New(),
+		slackmcp.New(),
 		metabase.New(),
 		awsInt.New(),
 		posthog.New(),

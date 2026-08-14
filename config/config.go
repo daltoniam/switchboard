@@ -260,6 +260,11 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "cookie": "", "team_id": "", mcp.CredKeyTokenSource: ""},
 			},
+			"slackmcp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": ""},
+				Identities:  map[string]mcp.IntegrationIdentity{},
+			},
 			"metabase": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "url": ""},
@@ -500,6 +505,9 @@ func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 		defIC.ToolGlobs = fileIC.ToolGlobs
 		for k, v := range fileIC.Credentials {
 			defIC.Credentials[k] = v
+		}
+		if fileIC.Identities != nil {
+			defIC.Identities = fileIC.Identities
 		}
 	}
 	return cfg

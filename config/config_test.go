@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 51)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong"} {
+	assert.Len(t, m.cfg.Integrations, 52)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "slackmcp", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 51)
+	assert.Len(t, cfg.Integrations, 52)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 51)
+	assert.Len(t, cfg.Integrations, 52)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,7 +253,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 51)
+	assert.Len(t, cfg.Integrations, 52)
 
 	expected := map[string][]string{
 		"github":        {"token", "client_id", "token_source"},
@@ -261,6 +261,7 @@ func TestDefaultConfig(t *testing.T) {
 		"linear":        {"api_key", "mcp_access_token", "token_source"},
 		"sentry":        {"auth_token", "organization", "client_id", "token_source"},
 		"slack":         {"token", "cookie", "token_source"},
+		"slackmcp":      {"base_url"},
 		"metabase":      {"api_key", "url"},
 		"aws":           {"access_key_id", "secret_access_key", "session_token", "region"},
 		"posthog":       {"api_key", "project_id", "base_url"},
@@ -715,4 +716,66 @@ func TestSetWasmModules_PreservedOnReload(t *testing.T) {
 	require.Len(t, m2.Get().WasmModules, 1)
 	assert.Equal(t, "/tmp/persist.wasm", m2.Get().WasmModules[0].Path)
 	assert.Equal(t, "abc", m2.Get().WasmModules[0].Credentials["token"])
+}
+
+func TestMergeWithDefaults_PreservesIdentities(t *testing.T) {
+	file := &mcp.Config{
+		Integrations: map[string]*mcp.IntegrationConfig{
+			"slack": {
+				Enabled: true,
+				Credentials: mcp.Credentials{
+					"token": "xoxc",
+				},
+				Identities: map[string]mcp.IntegrationIdentity{
+					"work": {
+						Credentials: mcp.Credentials{"access_token": "xoxp-work"},
+						Metadata:    map[string]string{"label": "Work"},
+					},
+				},
+			},
+		},
+	}
+	cfg := mergeWithDefaults(file)
+	require.NotNil(t, cfg.Integrations["slack"])
+	assert.True(t, cfg.Integrations["slack"].Enabled)
+	assert.Equal(t, "xoxc", cfg.Integrations["slack"].Credentials["token"])
+	require.Contains(t, cfg.Integrations["slack"].Identities, "work")
+	assert.Equal(t, "xoxp-work", cfg.Integrations["slack"].Identities["work"].Credentials["access_token"])
+	assert.Equal(t, "Work", cfg.Integrations["slack"].Identities["work"].Metadata["label"])
+}
+
+func TestLoad_PreservesIdentities(t *testing.T) {
+	m, path := newTestManager(t)
+	cfg := &mcp.Config{
+		Integrations: map[string]*mcp.IntegrationConfig{
+			"github": {
+				Enabled:     true,
+				Credentials: mcp.Credentials{"token": "abc"},
+				Identities: map[string]mcp.IntegrationIdentity{
+					"alt": {Credentials: mcp.Credentials{"token": "alt-tok"}, Metadata: map[string]string{"label": "Alt"}},
+				},
+			},
+		},
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
+	require.NoError(t, os.WriteFile(path, data, 0600))
+
+	require.NoError(t, m.Load())
+	ic := m.cfg.Integrations["github"]
+	require.Contains(t, ic.Identities, "alt")
+	assert.Equal(t, "alt-tok", ic.Identities["alt"].Credentials["token"])
+	assert.Equal(t, "Alt", ic.Identities["alt"].Metadata["label"])
+}
+
+func TestDefaultConfig_SlackMCP(t *testing.T) {
+	cfg := defaultConfig()
+	ic, ok := cfg.Integrations["slackmcp"]
+	require.True(t, ok)
+	assert.False(t, ic.Enabled)
+	_, hasBase := ic.Credentials["base_url"]
+	assert.True(t, hasBase)
+	require.NotNil(t, ic.Identities)
+	assert.Empty(t, ic.Identities)
 }

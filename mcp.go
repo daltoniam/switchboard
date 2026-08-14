@@ -73,11 +73,53 @@ const (
 	CredKeyTokenSource  = "token_source"
 )
 
+// IntegrationIdentity holds credentials and optional non-secret metadata for one
+// named identity within an integration (e.g. a Slack user/workspace pair).
+type IntegrationIdentity struct {
+	Credentials Credentials       `json:"credentials"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
+}
+
 // IntegrationConfig stores the enabled state and credentials for a single integration.
 type IntegrationConfig struct {
-	Enabled     bool        `json:"enabled"`
-	Credentials Credentials `json:"credentials"`
-	ToolGlobs   []string    `json:"tool_globs,omitempty"`
+	Enabled     bool                           `json:"enabled"`
+	Credentials Credentials                    `json:"credentials"`
+	ToolGlobs   []string                       `json:"tool_globs,omitempty"`
+	Identities  map[string]IntegrationIdentity `json:"identities,omitempty"`
+}
+
+// HasUsableCredentials reports whether the config has any non-empty usable
+// credential value at the integration level or in any named identity.
+// OAuth infrastructure keys (client_id, client_secret, token_source) alone
+// do not count as usable credentials.
+func (ic *IntegrationConfig) HasUsableCredentials() bool {
+	if ic == nil {
+		return false
+	}
+	if hasUsableCredentialValues(ic.Credentials) {
+		return true
+	}
+	for _, id := range ic.Identities {
+		if hasUsableCredentialValues(id.Credentials) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasUsableCredentialValues(creds Credentials) bool {
+	for k, v := range creds {
+		if v == "" {
+			continue
+		}
+		switch k {
+		case CredKeyClientID, CredKeyClientSecret, CredKeyTokenSource:
+			continue
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 // ToolAllowed reports whether toolName is permitted by the integration's tool glob
@@ -242,6 +284,33 @@ type Integration interface {
 
 	// Healthy returns true if the integration can reach its upstream API.
 	Healthy(ctx context.Context) bool
+}
+
+// MultiIdentityIntegration is an optional interface for integrations that
+// support multiple named credential identities (e.g. one Slack user token per
+// workspace). Existing single-identity adapters remain source-compatible.
+type MultiIdentityIntegration interface {
+	ConfigureIdentities(ctx context.Context, identities map[string]IntegrationIdentity) error
+}
+
+// ConfigureIntegration applies integration-level credentials via Configure,
+// then ConfigureIdentities when the adapter implements MultiIdentityIntegration.
+func ConfigureIntegration(ctx context.Context, integration Integration, ic *IntegrationConfig) error {
+	if integration == nil {
+		return errors.New("integration is nil")
+	}
+	if ic == nil {
+		ic = &IntegrationConfig{}
+	}
+	if err := integration.Configure(ctx, ic.Credentials); err != nil {
+		return err
+	}
+	if multi, ok := integration.(MultiIdentityIntegration); ok {
+		if err := multi.ConfigureIdentities(ctx, ic.Identities); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // FieldCompactionIntegration is an optional interface that integrations can implement

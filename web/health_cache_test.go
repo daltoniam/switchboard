@@ -111,3 +111,26 @@ func TestHealthCache_RefreshAll_UpdatesTimestamp(t *testing.T) {
 
 	assert.True(t, second.CheckedAt.After(first.CheckedAt))
 }
+
+func TestHealthCache_RefreshAll_ConfiguresIdentities(t *testing.T) {
+	reg := newMockRegistry()
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{})
+	mi := &multiIdentityWebMock{name: "multi", healthy: true}
+	reg.Register(mi)
+	cfgService.cfg.Integrations["multi"] = &mcp.IntegrationConfig{
+		Enabled:     false,
+		Credentials: mcp.Credentials{},
+		Identities: map[string]mcp.IntegrationIdentity{
+			"work": {Credentials: mcp.Credentials{"access_token": "tok"}},
+		},
+	}
+	hc := newHealthCache(&mcp.Services{Config: cfgService, Registry: reg})
+	hc.refreshAll(context.Background())
+
+	require.Contains(t, mi.lastIdentities, "work")
+	assert.Equal(t, "tok", mi.lastIdentities["work"].Credentials["access_token"])
+	entry, ok := hc.get("multi")
+	require.True(t, ok)
+	assert.True(t, entry.Healthy)
+	assert.True(t, entry.Enabled)
+}

@@ -385,7 +385,7 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 
 	var healthy bool
 	if exists && enabled {
-		if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+		if err := mcp.ConfigureIntegration(r.Context(), integration, ic); err == nil {
 			healthy = integration.Healthy(r.Context())
 		}
 	}
@@ -473,6 +473,7 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 	}
 	if existingIC, ok := w.services.Config.GetIntegration(name); ok {
 		ic.ToolGlobs = existingIC.ToolGlobs
+		ic.Identities = existingIC.Identities
 	}
 
 	if err := w.services.Config.SetIntegration(name, ic); err != nil {
@@ -517,6 +518,7 @@ func (w *WebServer) handleUpdateCredentials(rw http.ResponseWriter, r *http.Requ
 	// Merge with existing credentials so callers can send partial updates
 	// (e.g. only the rotated token, keeping client_id etc.).
 	ic, exists := w.services.Config.GetIntegration(name)
+	var identities map[string]mcp.IntegrationIdentity
 	if exists {
 		merged := mcp.Credentials{}
 		for k, v := range ic.Credentials {
@@ -526,9 +528,13 @@ func (w *WebServer) handleUpdateCredentials(rw http.ResponseWriter, r *http.Requ
 			merged[k] = v
 		}
 		creds = merged
+		identities = ic.Identities
 	}
 
-	if err := integration.Configure(r.Context(), creds); err != nil {
+	if err := mcp.ConfigureIntegration(r.Context(), integration, &mcp.IntegrationConfig{
+		Credentials: creds,
+		Identities:  identities,
+	}); err != nil {
 		writeJSON(rw, http.StatusInternalServerError, map[string]string{"error": "configure failed: " + err.Error()})
 		return
 	}

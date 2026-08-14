@@ -369,11 +369,11 @@ func (s *Server) configureIntegrations() {
 		}
 
 		// Respect explicit disable from config toggle.
-		if exists && !ic.Enabled && !integrationHasCredentials(integration, ic.Credentials) {
+		if exists && !ic.Enabled && !integrationConfigHasCredentials(integration, ic) {
 			continue
 		}
 
-		if err := integration.Configure(context.Background(), ic.Credentials); err != nil {
+		if err := mcp.ConfigureIntegration(context.Background(), integration, ic); err != nil {
 			log.Printf("WARN: failed to configure %q: %v", name, err)
 			if ic.Enabled {
 				ic.Enabled = false
@@ -392,26 +392,19 @@ func (s *Server) configureIntegrations() {
 	}
 }
 
-func integrationHasCredentials(integration mcp.Integration, creds mcp.Credentials) bool {
-	if detector, ok := integration.(mcp.CredentialDetector); ok {
-		return detector.HasCredentials(creds)
+func integrationConfigHasCredentials(integration mcp.Integration, ic *mcp.IntegrationConfig) bool {
+	if ic == nil {
+		return false
 	}
-	return hasCredentials(creds)
-}
-
-func hasCredentials(creds mcp.Credentials) bool {
-	for k, v := range creds {
-		if v == "" {
-			continue
-		}
-		switch k {
-		case mcp.CredKeyClientID, mcp.CredKeyClientSecret, mcp.CredKeyTokenSource:
-			continue
-		default:
+	if detector, ok := integration.(mcp.CredentialDetector); ok {
+		if detector.HasCredentials(ic.Credentials) {
 			return true
 		}
+		// Named identities still count as usable credentials even when the
+		// detector only inspects top-level keys.
+		return ic.HasUsableCredentials() && len(ic.Identities) > 0
 	}
-	return false
+	return ic.HasUsableCredentials()
 }
 
 // searchableIntegrationNames returns the list of integration names included in search.

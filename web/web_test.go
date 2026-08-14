@@ -900,3 +900,82 @@ func TestGoogleOAuthCallback_NoCodeRedirectsWithError(t *testing.T) {
 	assert.Contains(t, rr.Header().Get("Location"), "/integrations/google/setup")
 	assert.Contains(t, rr.Header().Get("Location"), "error=")
 }
+
+func TestIntegrationSave_PreservesIdentities(t *testing.T) {
+	ws, _, cfgService := setupTestWeb()
+	cfgService.cfg.Integrations["testint"].Identities = map[string]mcp.IntegrationIdentity{
+		"work": {
+			Credentials: mcp.Credentials{"access_token": "secret-tok"},
+			Metadata:    map[string]string{"label": "Work"},
+		},
+	}
+	handler := ws.Handler()
+
+	form := strings.NewReader("enabled=true&cred_token=updated_token")
+	req := httptest.NewRequest("POST", "/integrations/testint", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	ic, ok := cfgService.GetIntegration("testint")
+	require.True(t, ok)
+	assert.Equal(t, "updated_token", ic.Credentials["token"])
+	require.Contains(t, ic.Identities, "work")
+	assert.Equal(t, "secret-tok", ic.Identities["work"].Credentials["access_token"])
+	assert.Equal(t, "Work", ic.Identities["work"].Metadata["label"])
+}
+
+func TestUpdateCredentials_PreservesIdentities(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+	cfgService.cfg.Integrations["testint"].Identities = map[string]mcp.IntegrationIdentity{
+		"work": {
+			Credentials: mcp.Credentials{"access_token": "id-tok"},
+			Metadata:    map[string]string{"label": "Work"},
+		},
+	}
+	// multi-identity capable mock
+	mi := &multiIdentityWebMock{name: "testint", healthy: true}
+	reg.integrations["testint"] = mi
+	handler := ws.Handler()
+
+	req := httptest.NewRequest("PUT", "/api/integrations/testint/credentials", strings.NewReader(`{"token":"rotated"}`))
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+
+	assert.Equal(t, "rotated", mi.lastCreds["token"])
+	require.Contains(t, mi.lastIdentities, "work")
+	assert.Equal(t, "id-tok", mi.lastIdentities["work"].Credentials["access_token"])
+
+	ic, ok := cfgService.GetIntegration("testint")
+	require.True(t, ok)
+	require.Contains(t, ic.Identities, "work")
+	assert.Equal(t, "id-tok", ic.Identities["work"].Credentials["access_token"])
+}
+
+type multiIdentityWebMock struct {
+	name           string
+	healthy        bool
+	lastCreds      mcp.Credentials
+	lastIdentities map[string]mcp.IntegrationIdentity
+	configureErr   error
+}
+
+func (m *multiIdentityWebMock) Name() string { return m.name }
+func (m *multiIdentityWebMock) Configure(_ context.Context, creds mcp.Credentials) error {
+	if m.configureErr != nil {
+		return m.configureErr
+	}
+	m.lastCreds = creds
+	return nil
+}
+func (m *multiIdentityWebMock) ConfigureIdentities(_ context.Context, identities map[string]mcp.IntegrationIdentity) error {
+	m.lastIdentities = identities
+	return nil
+}
+func (m *multiIdentityWebMock) Tools() []mcp.ToolDefinition { return nil }
+func (m *multiIdentityWebMock) Execute(context.Context, mcp.ToolName, map[string]any) (*mcp.ToolResult, error) {
+	return &mcp.ToolResult{Data: "ok"}, nil
+}
+func (m *multiIdentityWebMock) Healthy(context.Context) bool { return m.healthy }

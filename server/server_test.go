@@ -3767,3 +3767,74 @@ func TestWithExtraInstructions(t *testing.T) {
 		})
 	}
 }
+
+type multiIdentityMockIntegration struct {
+	name            string
+	tools           []mcp.ToolDefinition
+	healthy         bool
+	configErr       error
+	identitiesErr   error
+	lastCreds       mcp.Credentials
+	lastIdentities  map[string]mcp.IntegrationIdentity
+	configureCalls  int
+	identitiesCalls int
+}
+
+func (m *multiIdentityMockIntegration) Name() string { return m.name }
+func (m *multiIdentityMockIntegration) Configure(_ context.Context, creds mcp.Credentials) error {
+	m.configureCalls++
+	m.lastCreds = creds
+	return m.configErr
+}
+func (m *multiIdentityMockIntegration) ConfigureIdentities(_ context.Context, identities map[string]mcp.IntegrationIdentity) error {
+	m.identitiesCalls++
+	m.lastIdentities = identities
+	return m.identitiesErr
+}
+func (m *multiIdentityMockIntegration) Tools() []mcp.ToolDefinition { return m.tools }
+func (m *multiIdentityMockIntegration) Execute(context.Context, mcp.ToolName, map[string]any) (*mcp.ToolResult, error) {
+	return &mcp.ToolResult{Data: "ok"}, nil
+}
+func (m *multiIdentityMockIntegration) Healthy(context.Context) bool { return m.healthy }
+
+func TestConfigureIntegrations_ConfiguresIdentitiesOnlyCredentials(t *testing.T) {
+	mi := &multiIdentityMockIntegration{
+		name:    "multi",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("multi_list")}},
+	}
+	reg := newMockRegistry()
+	require.NoError(t, reg.Register(mi))
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"multi": {
+			Enabled:     false,
+			Credentials: mcp.Credentials{},
+			Identities: map[string]mcp.IntegrationIdentity{
+				"work": {Credentials: mcp.Credentials{"access_token": "tok-work"}},
+			},
+		},
+	})
+	services := &mcp.Services{Config: cfgService, Registry: reg}
+	s := New(services)
+	require.NotNil(t, s)
+
+	assert.Equal(t, 1, mi.configureCalls)
+	assert.Equal(t, 1, mi.identitiesCalls)
+	assert.Equal(t, "tok-work", mi.lastIdentities["work"].Credentials["access_token"])
+
+	ic, ok := cfgService.GetIntegration("multi")
+	require.True(t, ok)
+	assert.True(t, ic.Enabled, "disabled integration with identities should auto-enable")
+}
+
+func TestConfigureIntegrations_SkipsDisabledWithoutCredentialsOrIdentities(t *testing.T) {
+	mi := &multiIdentityMockIntegration{name: "multi", healthy: true}
+	reg := newMockRegistry()
+	require.NoError(t, reg.Register(mi))
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"multi": {Enabled: false, Credentials: mcp.Credentials{}},
+	})
+	_ = New(&mcp.Services{Config: cfgService, Registry: reg})
+	assert.Equal(t, 0, mi.configureCalls)
+	assert.Equal(t, 0, mi.identitiesCalls)
+}

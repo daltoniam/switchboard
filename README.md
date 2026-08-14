@@ -134,6 +134,39 @@ convenience layer over this file — you can also edit it by hand.
 }
 ```
 
+### Slack official hosted MCP (`slackmcp`)
+
+Separate from the native `slack` session-token adapter. Proxies Slack's hosted MCP at `https://mcp.slack.com` (optional `credentials.base_url` override; Switchboard appends `/mcp`).
+
+Each named identity needs a **user OAuth access token** (`access_token`, typically `xoxp-...`). An app/bot may host the agent, but **`xoxb-` bot tokens cannot authenticate** Slack's hosted MCP endpoint.
+
+```json
+{
+  "integrations": {
+    "slackmcp": {
+      "enabled": true,
+      "credentials": {
+        "base_url": ""
+      },
+      "identities": {
+        "work": {
+          "credentials": { "access_token": "xoxp-..." },
+          "metadata": { "label": "Work", "team": "T0123WORK" }
+        },
+        "personal": {
+          "credentials": { "access_token": "xoxp-..." },
+          "metadata": { "label": "Personal", "team": "T0456HOME" }
+        }
+      }
+    }
+  }
+}
+```
+
+- Start with `slackmcp_list_available_identites` (spelling is intentional) — returns identity IDs, metadata, and non-secret tool capability info (never tokens).
+- Every other `slackmcp_*` tool requires `identity_id` selecting which configured identity to use.
+- Upstream tools named `slack_*` are exposed once as `slackmcp_*` (not `slackmcp_slack_*`).
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
@@ -151,6 +184,7 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Sentry | `organization` | `SENTRY_ORG` (optional — auto-detected from API) |
 | Slack | `token` | `SLACK_TOKEN` |
 | Slack | `cookie` | `SLACK_COOKIE` |
+| Slack MCP (official hosted) | multi-identity `access_token` | configure via `identities` in JSON (see below) |
 | Metabase | `api_key` | `METABASE_API_KEY` |
 | Metabase | `url` | `METABASE_URL` |
 | AWS | `access_key_id` | `AWS_ACCESS_KEY_ID` |
@@ -203,6 +237,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
+| Slack MCP (official hosted) | User OAuth access tokens per identity | Edit `~/.config/switchboard/config.json` `slackmcp.identities` (see below). Bot `xoxb-` tokens are **not** accepted by Slack's hosted MCP endpoint. |
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
