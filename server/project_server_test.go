@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/project"
@@ -91,6 +92,33 @@ func projectToolRequest(name string, args map[string]any) *mcpsdk.CallToolReques
 			Arguments: json.RawMessage(data),
 		},
 	}
+}
+
+func TestProjectRouter_StaticToolListCapability(t *testing.T) {
+	def := &project.Definition{Version: "1", Name: "test-project"}
+	router, _ := setupProjectRouter(t, def, &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("github_list_issues"), Description: "List issues"}},
+	})
+	srv, err := router.getOrCreate("test-project")
+	require.NoError(t, err)
+
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ss, err := srv.mcpSrv.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err)
+	defer ss.Close() //nolint:errcheck
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "crush", Version: "0.89.0"}, nil)
+	cs, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer cs.Close() //nolint:errcheck
+
+	require.NotNil(t, cs.InitializeResult().Capabilities.Tools)
+	assert.False(t, cs.InitializeResult().Capabilities.Tools.ListChanged)
 }
 
 func TestProjectRouter_GetOrCreate(t *testing.T) {
