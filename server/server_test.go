@@ -142,6 +142,27 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, s.services)
 }
 
+func TestWithMCPFeaturesRegistersPrompt(t *testing.T) {
+	reg := newMockRegistry()
+	services := &mcp.Services{
+		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
+		Registry: reg,
+	}
+	srv := New(services, WithMCPFeatures(func(s *mcpsdk.Server) {
+		s.AddPrompt(&mcpsdk.Prompt{Name: "skill_review", Description: "review"}, func(_ context.Context, _ *mcpsdk.GetPromptRequest) (*mcpsdk.GetPromptResult, error) {
+			return &mcpsdk.GetPromptResult{
+				Description: "review",
+				Messages: []*mcpsdk.PromptMessage{{
+					Role:    "user",
+					Content: &mcpsdk.TextContent{Text: "review this"},
+				}},
+			}, nil
+		})
+	}))
+	require.NotNil(t, srv)
+	require.NotNil(t, srv.mcpServer)
+}
+
 func TestMatches(t *testing.T) {
 	tool := mcp.ToolDefinition{
 		Name:        mcp.ToolName("github_list_issues"),

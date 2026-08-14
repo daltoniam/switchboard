@@ -84,6 +84,7 @@ type Server struct {
 	catalogBytes      int64                 // byte size of full tool catalog (for savings accounting)
 	discoverAll       bool
 	extraInstructions string // appended to the base MCP instructions
+	features          []func(*mcpsdk.Server)
 }
 
 // baseInstructions is the default guidance sent to clients in the MCP
@@ -129,6 +130,18 @@ func WithSessionStore(store SessionStore) Option {
 // The text is appended after the base instructions, separated by a space.
 func WithExtraInstructions(text string) Option {
 	return func(s *Server) { s.extraInstructions = strings.TrimSpace(text) }
+}
+
+// WithMCPFeatures registers additional MCP prompts or resources on the
+// underlying SDK server after the built-in tools are in place. Hosted
+// deployments use this to expose org-scoped skills as prompts/resources
+// without changing Switchboard's search/execute tool surface.
+func WithMCPFeatures(register func(*mcpsdk.Server)) Option {
+	return func(s *Server) {
+		if register != nil {
+			s.features = append(s.features, register)
+		}
+	}
 }
 
 // staticMCPCapabilities advertises a stable tool list. Crush 0.89 / MCP
@@ -177,6 +190,9 @@ func New(services *mcp.Services, opts ...Option) *Server {
 	s.scriptEngine = script.New(&toolExecutor{server: s})
 
 	s.registerTools()
+	for _, register := range s.features {
+		register(s.mcpServer)
+	}
 	return s
 }
 
