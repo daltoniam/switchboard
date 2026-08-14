@@ -69,6 +69,9 @@ integrations/
     extract.go               Exported helpers for web UI token extraction (Chrome, manual, snippet)
     oauth.go                 Slack OAuth v2 (authorization code flow, callback handling)
     refresh.go               Cookie-based token refresh (fetches fresh xoxc via xoxd cookie HTTP request)
+  slackmcp/
+    slackmcp.go              Official hosted Slack MCP multi-identity proxy (remotemcp per identity, identity_id routing)
+    slackmcp_test.go         Streamable HTTP MCP fixture tests (bearer routing, union, schema injection)
   metabase/
     metabase.go              Metabase integration adapter (core, dispatch, HTTP helpers)
     tools.go                 Metabase tool definitions (~22 tools)

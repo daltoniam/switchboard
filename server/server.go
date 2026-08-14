@@ -383,50 +383,19 @@ func (s *Server) configureIntegrations() {
 			continue
 		}
 
-		// Respect explicit disable from config toggle.
-		if exists && !ic.Enabled && !integrationHasCredentials(integration, ic.Credentials) {
-			continue
-		}
-
-		if err := integration.Configure(context.Background(), ic.Credentials); err != nil {
-			log.Printf("WARN: failed to configure %q: %v", name, err)
-			if ic.Enabled {
-				ic.Enabled = false
-				_ = s.services.Config.SetIntegration(name, ic)
-			}
-			continue
-		}
-
-		// Auto-enable in config if Configure succeeded.
+		// Enabled is explicit durable user intent. Startup must never flip it in
+		// either direction based on transient credentials or network health.
 		if !ic.Enabled {
-			ic.Enabled = true
-			_ = s.services.Config.SetIntegration(name, ic)
+			continue
+		}
+
+		if err := mcp.ConfigureIntegration(context.Background(), integration, ic); err != nil {
+			log.Printf("WARN: failed to configure %q: %v", name, err)
+			continue
 		}
 
 		log.Printf("Configured integration %q with %d tools", name, len(integration.Tools()))
 	}
-}
-
-func integrationHasCredentials(integration mcp.Integration, creds mcp.Credentials) bool {
-	if detector, ok := integration.(mcp.CredentialDetector); ok {
-		return detector.HasCredentials(creds)
-	}
-	return hasCredentials(creds)
-}
-
-func hasCredentials(creds mcp.Credentials) bool {
-	for k, v := range creds {
-		if v == "" {
-			continue
-		}
-		switch k {
-		case mcp.CredKeyClientID, mcp.CredKeyClientSecret, mcp.CredKeyTokenSource:
-			continue
-		default:
-			return true
-		}
-	}
-	return false
 }
 
 // searchableIntegrationNames returns the list of integration names included in search.

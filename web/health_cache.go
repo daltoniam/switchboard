@@ -54,14 +54,9 @@ func (hc *healthCache) refreshAll(ctx context.Context) {
 			enabled := exists && ic.Enabled
 
 			var healthy bool
-			if exists {
-				if err := a.Configure(ctx, ic.Credentials); err == nil {
+			if exists && enabled {
+				if err := mcp.ConfigureIntegration(ctx, a, ic); err == nil {
 					healthy = a.Healthy(ctx)
-					if healthy && !enabled {
-						enabled = true
-						ic.Enabled = true
-						_ = hc.services.Config.SetIntegration(a.Name(), ic)
-					}
 				}
 			}
 
