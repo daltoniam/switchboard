@@ -131,6 +131,18 @@ func WithExtraInstructions(text string) Option {
 	return func(s *Server) { s.extraInstructions = strings.TrimSpace(text) }
 }
 
+// staticMCPCapabilities advertises a stable tool list. Crush 0.89 / MCP
+// SDK 1.7 opens a long-lived subscriptions/listen stream whenever
+// tools.listChanged is true. Switchboard serves MCP from request-scoped
+// servers (especially hosted mcpd StatelessHandler), so that stream has
+// nowhere to live and the client tears down tools/list with it.
+func staticMCPCapabilities() *mcpsdk.ServerCapabilities {
+	return &mcpsdk.ServerCapabilities{
+		Logging: &mcpsdk.LoggingCapabilities{},
+		Tools:   &mcpsdk.ToolCapabilities{ListChanged: false},
+	}
+}
+
 // New creates a Server that exposes two MCP tools — search and execute —
 // following the Cloudflare "code mode" pattern for progressive discovery
 // and efficient tool execution.
@@ -156,7 +168,10 @@ func New(services *mcp.Services, opts ...Option) *Server {
 			Name:    "switchboard",
 			Version: version.String(),
 		},
-		&mcpsdk.ServerOptions{Instructions: instructions},
+		&mcpsdk.ServerOptions{
+			Instructions: instructions,
+			Capabilities: staticMCPCapabilities(),
+		},
 	)
 
 	s.scriptEngine = script.New(&toolExecutor{server: s})

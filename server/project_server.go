@@ -113,7 +113,8 @@ func (pr *ProjectRouter) buildServer(def *project.Definition) *projectMCPServer 
 				"Project-scoped MCP server for %q. Use the search tool to discover available operations — do not guess tool names. Use project_context to retrieve project context.",
 				def.Name,
 			),
-			Logger: slog.Default(),
+			Logger:       slog.Default(),
+			Capabilities: staticMCPCapabilities(),
 		},
 	)
 

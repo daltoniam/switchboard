@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -3722,6 +3723,64 @@ func mustMarshal(v any) json.RawMessage {
 		panic(err)
 	}
 	return data
+}
+
+func TestStaticMCPCapabilities_DisableListChanged(t *testing.T) {
+	s := setupTestServer()
+
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ss, err := s.mcpServer.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err)
+	defer ss.Close() //nolint:errcheck
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "crush", Version: "0.89.0"}, &mcpsdk.ClientOptions{
+		ToolListChangedHandler: func(context.Context, *mcpsdk.ToolListChangedRequest) {},
+	})
+	cs, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer cs.Close() //nolint:errcheck
+
+	caps := cs.InitializeResult().Capabilities
+	require.NotNil(t, caps.Tools, "tools capability must still be advertised")
+	assert.False(t, caps.Tools.ListChanged, "listChanged must be false so Crush 0.89 does not open subscriptions/listen")
+
+	tools, err := cs.ListTools(ctx, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, tools.Tools)
+}
+
+func TestStatelessHandler_Crush089ListTools(t *testing.T) {
+	s := setupTestServer()
+	ts := httptest.NewServer(s.StatelessHandler())
+	t.Cleanup(ts.Close)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "crush", Version: "0.89.0"}, &mcpsdk.ClientOptions{
+		ToolListChangedHandler: func(context.Context, *mcpsdk.ToolListChangedRequest) {},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cs, err := client.Connect(ctx, &mcpsdk.StreamableClientTransport{Endpoint: ts.URL}, nil)
+	require.NoError(t, err)
+	defer cs.Close() //nolint:errcheck
+
+	require.False(t, cs.InitializeResult().Capabilities.Tools.ListChanged)
+
+	tools, err := cs.ListTools(ctx, nil)
+	require.NoError(t, err)
+	var hasSearch, hasExecute bool
+	for _, tool := range tools.Tools {
+		switch tool.Name {
+		case "search":
+			hasSearch = true
+		case "execute":
+			hasExecute = true
+		}
+	}
+	assert.True(t, hasSearch && hasExecute, "expected search and execute after Crush-style connect")
 }
 
 func TestWithExtraInstructions(t *testing.T) {
