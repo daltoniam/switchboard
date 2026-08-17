@@ -3,15 +3,52 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/project"
+	"github.com/daltoniam/switchboard/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestBuildHTTPMux_ProductionRoutesUseStatelessMCP(t *testing.T) {
+	mux := server.BuildHTTPMux(server.HTTPMuxConfig{
+		MCP: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Route", "mcp")
+			w.WriteHeader(http.StatusOK)
+		}),
+		Project: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Route", "project")
+			w.WriteHeader(http.StatusOK)
+		}),
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK || rr.Header().Get("X-Route") != "mcp" {
+		t.Fatalf("GET /mcp: status=%d route=%q", rr.Code, rr.Header().Get("X-Route"))
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/mcp/acme", nil)
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK || rr.Header().Get("X-Route") != "project" {
+		t.Fatalf("GET /mcp/acme: status=%d route=%q", rr.Code, rr.Header().Get("X-Route"))
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/project-catalog/mcp", nil)
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("disabled catalog route: status=%d want 404", rr.Code)
+	}
+}
 
 func TestProjectConfigRoot(t *testing.T) {
 	tests := []struct {

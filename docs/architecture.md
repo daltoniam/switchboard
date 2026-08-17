@@ -294,6 +294,15 @@ type Registry interface {
 }
 ```
 
+## MCP protocol versions and sessions
+
+Switchboard speaks MCP over Streamable HTTP at `/mcp`.
+
+- **Modern clients (2026-07-28)** use `server/discover` plus per-request `_meta` / `Mcp-Protocol-Version`. Production mounts `Server.StatelessHandler()` through `server.BuildHTTPMux`, so no `Mcp-Session-Id` is required or minted. Tool availability does not depend on a prior initialize handshake.
+- **Legacy clients** still complete the initialize / initialized sequence on the same endpoint. The SDK's stateless compatibility path handles that during the migration window.
+- **Switchboard app sessions** (`X-Switchboard-Session-Id`, with `Mcp-Session-Id` only as a documented legacy fallback) key history, pins, and context. They never select a project and are not advertised as MCP transport sessions.
+- MCP Roots and Tasks are not used. Project workspace identity is an explicit `rootUri` on Project Catalog operations.
+
 ## Services Struct (DI Container)
 
 ```go

@@ -397,10 +397,10 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 
 	projectRouter := server.NewProjectRouter(services, projectStore, "", srv.SearchIndex())
 
-	mux := http.NewServeMux()
-
-	mux.Handle("/mcp", srv.Handler())
-	mux.Handle("/mcp/{project}", projectRouter.Handler())
+	mux := server.BuildHTTPMux(server.HTTPMuxConfig{
+		MCP:     srv.StatelessHandler(),
+		Project: projectRouter.Handler(),
+	})
 
 	// Initialize plugin marketplace.
 	var mpCfg marketplace.Config

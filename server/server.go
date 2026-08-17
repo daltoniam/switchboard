@@ -137,9 +137,12 @@ func WithExtraInstructions(text string) Option {
 // servers (especially hosted mcpd StatelessHandler), so that stream has
 // nowhere to live and the client tears down tools/list with it.
 func staticMCPCapabilities() *mcpsdk.ServerCapabilities {
+	// Non-nil Capabilities overrides the SDK default {"logging":{}}. Logging
+	// is deprecated in 2026-07-28 and must not be advertised on modern
+	// server/discover. Tools.listChanged stays false so clients do not open
+	// a long-lived subscriptions/listen stream for a static tool list.
 	return &mcpsdk.ServerCapabilities{
-		Logging: &mcpsdk.LoggingCapabilities{},
-		Tools:   &mcpsdk.ToolCapabilities{ListChanged: false},
+		Tools: &mcpsdk.ToolCapabilities{ListChanged: false},
 	}
 }
 
@@ -1517,7 +1520,11 @@ func (te *toolExecutor) ExecuteRendered(ctx context.Context, toolName mcp.ToolNa
 	return result, nil
 }
 
-// Handler returns an http.Handler that serves MCP over streamable HTTP transport.
+// Handler returns an http.Handler that serves MCP over streamable HTTP transport
+// in the SDK's stateful compatibility mode. Production HTTP must use
+// [Server.StatelessHandler] via [BuildHTTPMux] so modern 2026-07-28 clients
+// can discover and call tools without an MCP transport session.
+//
 // App session ids (pin/context/history) are resolved via X-Switchboard-Session-Id
 // when present; see AppSessionMiddleware and resolveAppSessionID.
 func (s *Server) Handler() http.Handler {
