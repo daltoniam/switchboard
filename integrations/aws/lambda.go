@@ -10,36 +10,49 @@ import (
 )
 
 func lambdaListFunctions(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &lambda.ListFunctionsInput{}
-	if v := argInt32(args, "max_items"); v > 0 {
+	if v := r.Int32("max_items"); v > 0 {
 		input.MaxItems = aws.Int32(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.lambdaClient.ListFunctions(ctx, input)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func lambdaGetFunction(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	fnName := r.Str("function_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.lambdaClient.GetFunction(ctx, &lambda.GetFunctionInput{
-		FunctionName: aws.String(argStr(args, "function_name")),
+		FunctionName: aws.String(fnName),
 	})
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func lambdaInvoke(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &lambda.InvokeInput{
-		FunctionName: aws.String(argStr(args, "function_name")),
+		FunctionName: aws.String(r.Str("function_name")),
 	}
-	if payload := argStr(args, "payload"); payload != "" {
+	if payload := r.Str("payload"); payload != "" {
 		input.Payload = []byte(payload)
 	}
-	if invType := argStr(args, "invocation_type"); invType != "" {
+	if invType := r.Str("invocation_type"); invType != "" {
 		input.InvocationType = lambdatypes.InvocationType(invType)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.lambdaClient.Invoke(ctx, input)
 	if err != nil {
@@ -58,27 +71,36 @@ func lambdaInvoke(ctx context.Context, a *integration, args map[string]any) (*mc
 	if out.FunctionError != nil {
 		result.FunctionError = *out.FunctionError
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func lambdaListEventSourceMappings(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &lambda.ListEventSourceMappingsInput{}
-	if fn := argStr(args, "function_name"); fn != "" {
+	if fn := r.Str("function_name"); fn != "" {
 		input.FunctionName = aws.String(fn)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.lambdaClient.ListEventSourceMappings(ctx, input)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func lambdaGetFunctionConfiguration(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	fnName := r.Str("function_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.lambdaClient.GetFunctionConfiguration(ctx, &lambda.GetFunctionConfigurationInput{
-		FunctionName: aws.String(argStr(args, "function_name")),
+		FunctionName: aws.String(fnName),
 	})
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

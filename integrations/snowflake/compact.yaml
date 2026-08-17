@@ -1,0 +1,127 @@
+# Switchboard compaction specs for the snowflake integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# snowflake.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    snowflake_current_session:
+        spec:
+            - current_user
+            - current_role
+            - current_warehouse
+            - current_database
+            - current_schema
+    snowflake_describe_table:
+        spec:
+            - name
+            - type
+            - kind
+            - null?
+            - default
+            - primary key
+            - comment
+    snowflake_list_databases:
+        spec:
+            - name
+            - owner
+            - created_on
+            - options
+    snowflake_list_pipes:
+        spec:
+            - name
+            - database_name
+            - schema_name
+            - definition
+            - owner
+    snowflake_list_roles:
+        spec:
+            - name
+            - owner
+            - assigned_to_users
+            - granted_to_roles
+            - granted_roles
+    snowflake_list_running_queries:
+        spec:
+            - query_id
+            - query_text
+            - user_name
+            - warehouse_name
+            - execution_status
+            - total_elapsed_time
+    snowflake_list_schemas:
+        spec:
+            - name
+            - database_name
+            - owner
+            - created_on
+    snowflake_list_stages:
+        spec:
+            - name
+            - database_name
+            - schema_name
+            - type
+            - owner
+            - url
+    snowflake_list_streams:
+        spec:
+            - name
+            - database_name
+            - schema_name
+            - table_name
+            - type
+            - stale
+            - mode
+    snowflake_list_tables:
+        spec:
+            - name
+            - database_name
+            - schema_name
+            - rows
+            - bytes
+            - owner
+            - created_on
+    snowflake_list_tasks:
+        spec:
+            - name
+            - database_name
+            - schema_name
+            - schedule
+            - state
+            - definition
+            - owner
+    snowflake_list_users:
+        spec:
+            - name
+            - login_name
+            - display_name
+            - default_role
+            - owner
+            - disabled
+    snowflake_list_views:
+        spec:
+            - name
+            - database_name
+            - schema_name
+            - owner
+            - created_on
+            - text
+    snowflake_list_warehouses:
+        spec:
+            - name
+            - state
+            - type
+            - size
+            - running
+            - queued
+            - owner

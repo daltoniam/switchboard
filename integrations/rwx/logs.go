@@ -1,11 +1,11 @@
 package rwx
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"os"
+	"net/url"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -57,92 +57,81 @@ func (c *logCache) set(id, logs string) {
 
 // --- Log download ---
 
-func downloadLogs(ctx context.Context, r *rwx, id string) (string, error) {
-	if cached, ok := r.logCache.get(id); ok {
+func downloadLogs(ctx context.Context, r *rwx, id string, taskKey ...string) (string, error) {
+	cacheKey := id
+	if len(taskKey) > 0 && taskKey[0] != "" {
+		cacheKey = id + ":" + taskKey[0]
+	}
+	if cached, ok := r.logCache.get(cacheKey); ok {
 		return cached, nil
 	}
 
-	logs, err := downloadLogsFromRWX(id)
+	logs, err := r.downloadLogsFromRWX(ctx, id, taskKey...)
 	if err != nil {
 		return "", err
 	}
 
 	go func() {
-		status, isComplete, err := fetchRunStatus(ctx, r, id)
+		bgCtx := context.WithoutCancel(ctx)
+		status, isComplete, err := fetchRunStatus(bgCtx, r, id)
 		_ = status
 		if err == nil && isComplete {
-			r.logCache.set(id, logs)
+			r.logCache.set(cacheKey, logs)
 		}
 	}()
 
 	return logs, nil
 }
 
-func downloadLogsFromRWX(id string) (string, error) {
-	outputDir, err := os.MkdirTemp("", fmt.Sprintf("rwx-logs-%s-", id))
-	if err != nil {
-		return "", fmt.Errorf("create temp dir: %w", err)
+func (r *rwx) downloadLogsFromRWX(ctx context.Context, id string, taskKey ...string) (string, error) {
+	query := url.Values{}
+	if len(taskKey) > 0 && taskKey[0] != "" {
+		query.Set("run_id", id)
+		query.Set("task_key", taskKey[0])
+	} else {
+		query.Set("id", id)
 	}
-	defer func() { _ = os.RemoveAll(outputDir) }()
 
-	_, err = runRWXCommand([]string{"logs", id, "--output-dir", outputDir, "--auto-extract", "--output", "json"}, 0)
+	var request rwxLogDownload
+	if err := r.apiGetJSON(ctx, "/mint/api/log_download", query, &request); err != nil {
+		return "", err
+	}
+	if request.URL == "" {
+		return "", fmt.Errorf("RWX API response did not include log download URL")
+	}
+
+	data, err := r.downloadLogArchive(ctx, request)
 	if err != nil {
 		return "", err
 	}
-
-	logFiles, err := findLogFiles(outputDir)
-	if err != nil {
-		return "", err
-	}
-	if len(logFiles) == 0 {
-		return "", fmt.Errorf("no log files found in downloaded output")
-	}
-
-	if len(logFiles) == 1 {
-		data, err := os.ReadFile(logFiles[0])
-		if err != nil {
-			return "", err
-		}
-		return string(data), nil
-	}
-
-	var contents []string
-	for _, f := range logFiles {
-		relPath, _ := filepath.Rel(outputDir, f)
-		data, err := os.ReadFile(f)
-		if err != nil {
-			continue
-		}
-		contents = append(contents, fmt.Sprintf("\n=== %s ===\n%s", relPath, string(data)))
-	}
-	return strings.Join(contents, "\n"), nil
-}
-
-func findLogFiles(dir string) ([]string, error) {
-	var results []string
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	for _, entry := range entries {
-		fullPath := filepath.Join(dir, entry.Name())
-		if entry.IsDir() {
-			sub, _ := findLogFiles(fullPath)
-			results = append(results, sub...)
-		} else if strings.HasSuffix(entry.Name(), ".log") || strings.HasSuffix(entry.Name(), ".txt") {
-			results = append(results, fullPath)
-		}
-	}
-	return results, nil
+	return extractTextFromArchive(data)
 }
 
 // --- Log tool handlers ---
 
 func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "task_id"))
-	logs, err := downloadLogs(ctx, r, id)
+	ra := mcp.NewArgs(args)
+	taskIDRaw := ra.Str("task_id")
+	runIDRaw := ra.Str("run_id")
+	taskKey := ra.Str("task_key")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	var id string
+	var logTaskKey string
+	if taskKey != "" && runIDRaw != "" {
+		id = extractRunID(runIDRaw)
+		logTaskKey = taskKey
+	} else if taskIDRaw != "" {
+		id = extractRunID(taskIDRaw)
+	} else {
+		return mcp.ErrResult(fmt.Errorf("either task_id or run_id+task_key is required"))
+	}
+
+	logs, err := downloadLogs(ctx, r, id, logTaskKey)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	lines := strings.Split(logs, "\n")
@@ -168,7 +157,7 @@ func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRes
 		truncatedLogs = truncatedLogs[:maxLogSize]
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"task_id":            id,
 		"exit_code":          exitCode,
 		"failure_highlights": failureHighlights,
@@ -177,16 +166,22 @@ func getTaskLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRes
 }
 
 func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "id"))
-	numLines := argInt(args, "lines")
+	ra := mcp.NewArgs(args)
+	idRaw := ra.Str("id")
+	numLines := ra.Int("lines")
+	offset := ra.Int("offset")
+	taskKey := ra.Str("task_key")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(idRaw)
 	if numLines <= 0 || numLines > maxLinesPerPage {
 		numLines = maxLinesPerPage
 	}
-	offset := argInt(args, "offset")
 
-	logs, err := downloadLogs(ctx, r, id)
+	logs, err := downloadLogs(ctx, r, id, taskKey)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	allLines := strings.Split(logs, "\n")
@@ -214,20 +209,26 @@ func headLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 	if hasMore {
 		resp["next_offset"] = end
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "id"))
-	numLines := argInt(args, "lines")
+	ra := mcp.NewArgs(args)
+	idRaw := ra.Str("id")
+	numLines := ra.Int("lines")
+	offset := ra.Int("offset")
+	taskKey := ra.Str("task_key")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(idRaw)
 	if numLines <= 0 || numLines > maxLinesPerPage {
 		numLines = maxLinesPerPage
 	}
-	offset := argInt(args, "offset")
 
-	logs, err := downloadLogs(ctx, r, id)
+	logs, err := downloadLogs(ctx, r, id, taskKey)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	allLines := strings.Split(logs, "\n")
@@ -257,30 +258,36 @@ func tailLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 	if hasMore {
 		resp["next_offset"] = offset + len(tailLines)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "id"))
-	pattern := argStr(args, "pattern")
-	contextLines := argInt(args, "context")
+	ra := mcp.NewArgs(args)
+	idRaw := ra.Str("id")
+	pattern := ra.Str("pattern")
+	contextLines := ra.Int("context")
+	page := ra.Int("page")
+	taskKey := ra.Str("task_key")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	id := extractRunID(idRaw)
 	if contextLines <= 0 {
 		contextLines = 3
 	}
-	page := argInt(args, "page")
 	if page <= 0 {
 		page = 1
 	}
 
-	logs, err := downloadLogs(ctx, r, id)
+	logs, err := downloadLogs(ctx, r, id, taskKey)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	allLines := strings.Split(logs, "\n")
 	re, err := regexp.Compile("(?i)" + pattern)
 	if err != nil {
-		return errResult(fmt.Errorf("invalid pattern: %w", err))
+		return mcp.ErrResult(fmt.Errorf("invalid pattern: %w", err))
 	}
 
 	var matchingIndices []int
@@ -346,27 +353,35 @@ func grepLogs(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult
 	if hasMore {
 		resp["next_page"] = page + 1
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 // --- CLI helper ---
 
-func runRWXCommand(args []string, timeoutMs int) (string, error) {
-	cmd := exec.Command("rwx", args...) // #nosec G204 -- fixed binary name, args are controlled
-	cmd.Env = os.Environ()
+func (r *rwx) runRWXCommand(args []string, timeoutMs int) (string, error) {
+	bin := r.cliPath
+	cmd := exec.Command(bin, args...) // #nosec G204 -- resolved binary path, args are controlled
+	cmd.Env = r.cmdEnv()
 	if timeoutMs > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
 		defer cancel()
-		cmd = exec.CommandContext(ctx, "rwx", args...) // #nosec G204 -- fixed binary name, args are controlled
-		cmd.Env = os.Environ()
+		cmd = exec.CommandContext(ctx, bin, args...) // #nosec G204 -- resolved binary path, args are controlled
+		cmd.Env = r.cmdEnv()
 	}
 
-	output, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
 	if err != nil {
-		if len(output) > 0 {
-			return string(output), nil
+		if stdout.Len() > 0 {
+			return stdout.String(), nil
+		}
+		if stderr.Len() > 0 {
+			return "", fmt.Errorf("rwx command failed: %w: %s", err, stderr.String())
 		}
 		return "", fmt.Errorf("rwx command failed: %w", err)
 	}
-	return string(output), nil
+	return stdout.String(), nil
 }

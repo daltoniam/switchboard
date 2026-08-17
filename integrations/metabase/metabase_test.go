@@ -21,27 +21,27 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "mb_key", "url": "https://metabase.example.com"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "mb_key", "url": "https://metabase.example.com"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "", "url": "https://metabase.example.com"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "", "url": "https://metabase.example.com"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api_key is required")
 }
 
 func TestConfigure_MissingURL(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "key", "url": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "key", "url": ""})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "url is required")
 }
 
 func TestConfigure_TrimsTrailingSlash(t *testing.T) {
 	m := &metabase{client: &http.Client{}}
-	err := m.Configure(mcp.Credentials{"api_key": "key", "url": "https://metabase.example.com/"})
+	err := m.Configure(context.Background(), mcp.Credentials{"api_key": "key", "url": "https://metabase.example.com/"})
 	assert.NoError(t, err)
 	assert.Equal(t, "https://metabase.example.com", m.baseURL)
 }
@@ -66,7 +66,7 @@ func TestTools_AllHaveMetabasePrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -91,7 +91,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -162,34 +162,15 @@ func TestPost(t *testing.T) {
 
 func TestRawResult(t *testing.T) {
 	data := json.RawMessage(`{"key":"value"}`)
-	result, err := rawResult(data)
+	result, err := mcp.RawResult(data)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
-}
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
 }

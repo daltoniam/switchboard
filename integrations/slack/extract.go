@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -27,35 +28,43 @@ type ExtractResult struct {
 
 // TokenInfo holds current token status for the web UI.
 type TokenInfo struct {
-	HasToken  bool      `json:"has_token"`
-	HasCookie bool      `json:"has_cookie"`
-	Source    string    `json:"source"`
-	UpdatedAt time.Time `json:"updated_at"`
-	AgeHours  float64   `json:"age_hours"`
-	Status    string    `json:"status"`
+	HasToken       bool      `json:"has_token"`
+	HasCookie      bool      `json:"has_cookie"`
+	TeamID         string    `json:"team_id"`
+	WorkspaceCount int       `json:"workspace_count"`
+	Source         string    `json:"source"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	AgeHours       float64   `json:"age_hours"`
+	Status         string    `json:"status"`
 }
 
-// ListWorkspacesFromChrome returns all Slack workspaces found in Chrome's localStorage.
+// ListWorkspacesFromBrowsers returns all Slack workspaces found in any supported
+// browser's localStorage (Chrome, Brave, Slack desktop app).
 // Exported for use by the web UI to let the user pick which workspace to extract.
-func ListWorkspacesFromChrome() ([]WorkspaceInfo, error) {
+func ListWorkspacesFromBrowsers() ([]WorkspaceInfo, error) {
 	if runtime.GOOS != "darwin" {
-		return nil, fmt.Errorf("chrome extraction is only available on macOS")
+		return nil, fmt.Errorf("browser extraction is only available on macOS")
 	}
-	return listWorkspacesFromChrome()
+	return listWorkspacesFromAllBrowsers()
 }
 
-// ExtractFromChromeForWeb triggers Chrome extraction and returns the result.
-// If teamID is non-empty, only the token for that workspace is extracted.
+// ListWorkspacesFromChrome is an alias kept for backward compatibility.
+func ListWorkspacesFromChrome() ([]WorkspaceInfo, error) {
+	return ListWorkspacesFromBrowsers()
+}
+
+// ExtractFromBrowserForWeb triggers extraction from all supported browsers and
+// returns the result. If teamID is non-empty, only that workspace's token is extracted.
 // This is exported for use by the web UI server.
-func ExtractFromChromeForWeb(teamID string) *ExtractResult {
+func ExtractFromBrowserForWeb(teamID string) *ExtractResult {
 	if runtime.GOOS != "darwin" {
 		return &ExtractResult{
 			Success: false,
-			Error:   "Chrome extraction is only available on macOS. Use the manual method below.",
+			Error:   "Browser extraction is only available on macOS. Use the manual method below.",
 		}
 	}
 
-	extracted, err := extractFromChromeWithError(teamID)
+	extracted, err := extractFromBrowserWithError(teamID)
 	if err != nil {
 		return &ExtractResult{
 			Success: false,
@@ -66,14 +75,107 @@ func ExtractFromChromeForWeb(teamID string) *ExtractResult {
 	return &ExtractResult{
 		Token:   extracted.token,
 		Cookie:  extracted.cookie,
-		Source:  "chrome",
+		Source:  extracted.source,
 		Success: true,
 	}
 }
 
+// ExtractFromChromeForWeb is an alias kept for backward compatibility.
+func ExtractFromChromeForWeb(teamID string) *ExtractResult {
+	return ExtractFromBrowserForWeb(teamID)
+}
+
+// ExtractAllFromBrowsersForWeb extracts tokens for every workspace from all
+// supported browsers and saves them to the persistent file. Returns the count
+// of workspaces extracted and any error.
+func ExtractAllFromBrowsersForWeb() (int, error) {
+	if runtime.GOOS != "darwin" {
+		return 0, fmt.Errorf("browser extraction is only available on macOS")
+	}
+
+	type extractedWorkspace struct {
+		browserWorkspace
+		cookie string
+		source string
+	}
+
+	allWorkspaces := func() []extractedWorkspace {
+		extractMu.Lock()
+		defer extractMu.Unlock()
+
+		var result []extractedWorkspace
+		seen := make(map[string]bool)
+
+		for _, src := range browserSources {
+			profiles, err := findBrowserProfiles(src)
+			if err != nil {
+				continue
+			}
+
+			password, pwErr := browserKeychainPassword(src.keychainService)
+
+			var cookie string
+			if pwErr == nil {
+				for _, profile := range profiles {
+					if c, err := extractCookieFromBrowser(profile, password); err == nil {
+						cookie = c
+						break
+					}
+				}
+			}
+
+			workspaces := listWorkspacesWithTokensFromBrowser(profiles)
+			for _, ws := range workspaces {
+				if seen[ws.TeamID] {
+					continue
+				}
+				seen[ws.TeamID] = true
+				result = append(result, extractedWorkspace{
+					browserWorkspace: ws,
+					cookie:           cookie,
+					source:           strings.ToLower(src.name),
+				})
+			}
+		}
+		return result
+	}()
+
+	if len(allWorkspaces) == 0 {
+		return 0, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in any browser or Slack app")
+	}
+
+	home, _ := os.UserHomeDir()
+	fp := filepath.Join(home, ".slack-mcp-tokens.json")
+	store := &tokenStore{
+		workspaces: make(map[string]*workspace),
+		filePath:   fp,
+	}
+	store.loadFromFile()
+
+	for _, ws := range allWorkspaces {
+		store.setWorkspace(&workspace{
+			TeamID:   ws.TeamID,
+			TeamName: ws.Name,
+			Token:    ws.Token,
+			Cookie:   ws.cookie,
+			Source:   ws.source,
+		})
+	}
+
+	if err := store.saveToFile(); err != nil {
+		return len(allWorkspaces), err
+	}
+	return len(allWorkspaces), nil
+}
+
+// ExtractAllFromChromeForWeb is an alias kept for backward compatibility.
+func ExtractAllFromChromeForWeb() (int, error) {
+	return ExtractAllFromBrowsersForWeb()
+}
+
 // SaveTokensForWeb saves the given token/cookie to the persistent file
 // and returns token info. Exported for use by the web UI server.
-func SaveTokensForWeb(token, cookie string) (*TokenInfo, error) {
+func SaveTokensForWeb(token, cookie, teamID string) (*TokenInfo, error) {
 	if token == "" {
 		return nil, fmt.Errorf("token is required")
 	}
@@ -81,30 +183,37 @@ func SaveTokensForWeb(token, cookie string) (*TokenInfo, error) {
 	home, _ := os.UserHomeDir()
 	fp := filepath.Join(home, ".slack-mcp-tokens.json")
 
-	data, err := json.MarshalIndent(map[string]string{
-		"token":      token,
-		"cookie":     cookie,
-		"updated_at": time.Now().UTC().Format(time.RFC3339),
-	}, "", "  ")
-	if err != nil {
-		return nil, err
+	// Load existing file to preserve other workspaces.
+	store := &tokenStore{
+		workspaces: make(map[string]*workspace),
+		filePath:   fp,
 	}
+	store.loadFromFile()
 
-	tmp := fp + ".tmp"
-	if err := os.WriteFile(tmp, data, 0600); err != nil {
-		return nil, err
+	if teamID == "" {
+		teamID = "_web"
 	}
-	if err := os.Rename(tmp, fp); err != nil {
+	store.setWorkspace(&workspace{
+		TeamID: teamID,
+		Token:  token,
+		Cookie: cookie,
+		Source: "web_setup",
+	})
+	store.setDefault(teamID)
+
+	if err := store.saveToFile(); err != nil {
 		return nil, err
 	}
 
 	return &TokenInfo{
-		HasToken:  true,
-		HasCookie: cookie != "",
-		Source:    "web_setup",
-		UpdatedAt: time.Now(),
-		AgeHours:  0,
-		Status:    "healthy",
+		HasToken:       true,
+		HasCookie:      cookie != "",
+		TeamID:         teamID,
+		WorkspaceCount: len(store.allWorkspaces()),
+		Source:         "web_setup",
+		UpdatedAt:      time.Now(),
+		AgeHours:       0,
+		Status:         "healthy",
 	}, nil
 }
 
@@ -119,9 +228,16 @@ func GetTokenInfoForWeb() *TokenInfo {
 		return &TokenInfo{Status: "no_tokens"}
 	}
 
+	// Try v2 format.
+	if info := tokenInfoFromV2(data); info != nil {
+		return info
+	}
+
+	// Fall back to legacy format.
 	var f struct {
 		Token     string `json:"token"`
 		Cookie    string `json:"cookie"`
+		TeamID    string `json:"team_id"`
 		UpdatedAt string `json:"updated_at"`
 	}
 	if err := json.Unmarshal(data, &f); err != nil || f.Token == "" {
@@ -129,9 +245,11 @@ func GetTokenInfoForWeb() *TokenInfo {
 	}
 
 	info := &TokenInfo{
-		HasToken:  true,
-		HasCookie: f.Cookie != "",
-		Source:    "file",
+		HasToken:       true,
+		HasCookie:      f.Cookie != "",
+		TeamID:         f.TeamID,
+		WorkspaceCount: 1,
+		Source:         "file",
 	}
 
 	if t, err := time.Parse(time.RFC3339, f.UpdatedAt); err == nil {
@@ -150,10 +268,70 @@ func GetTokenInfoForWeb() *TokenInfo {
 	return info
 }
 
-// CanExtractFromChrome returns true if the current platform supports
-// automatic Chrome extraction (macOS only).
-func CanExtractFromChrome() bool {
+// CanExtractFromBrowser returns true if the current platform supports
+// automatic browser extraction (macOS only).
+func CanExtractFromBrowser() bool {
 	return runtime.GOOS == "darwin"
+}
+
+// CanExtractFromChrome is an alias kept for backward compatibility.
+func CanExtractFromChrome() bool {
+	return CanExtractFromBrowser()
+}
+
+// ConfiguredWorkspaceInfo describes a workspace from the persistent token file.
+type ConfiguredWorkspaceInfo struct {
+	TeamID    string `json:"team_id"`
+	TeamName  string `json:"team_name"`
+	IsDefault bool   `json:"is_default"`
+}
+
+// GetConfiguredWorkspacesForWeb returns all workspaces from the token file.
+func GetConfiguredWorkspacesForWeb() ([]ConfiguredWorkspaceInfo, string) {
+	home, _ := os.UserHomeDir()
+	fp := filepath.Join(home, ".slack-mcp-tokens.json")
+
+	data, err := os.ReadFile(fp)
+	if err != nil {
+		return nil, ""
+	}
+
+	var v2 tokenFileV2
+	if err := json.Unmarshal(data, &v2); err != nil || v2.Version != 2 {
+		return nil, ""
+	}
+
+	var out []ConfiguredWorkspaceInfo
+	for _, ws := range v2.Workspaces {
+		name := ws.TeamName
+		if name == "" {
+			name = ws.TeamID
+		}
+		out = append(out, ConfiguredWorkspaceInfo{
+			TeamID:    ws.TeamID,
+			TeamName:  name,
+			IsDefault: ws.TeamID == v2.DefaultTeamID,
+		})
+	}
+	return out, v2.DefaultTeamID
+}
+
+// SetDefaultWorkspaceForWeb updates the default workspace in the token file.
+func SetDefaultWorkspaceForWeb(teamID string) error {
+	home, _ := os.UserHomeDir()
+	fp := filepath.Join(home, ".slack-mcp-tokens.json")
+
+	store := &tokenStore{
+		workspaces: make(map[string]*workspace),
+		filePath:   fp,
+	}
+	store.loadFromFile()
+
+	if ws := store.getWorkspace(teamID); ws == nil {
+		return fmt.Errorf("workspace %s not found", teamID)
+	}
+	store.setDefault(teamID)
+	return store.saveToFile()
 }
 
 // ExtractionSnippet returns the JavaScript snippet users should run in
@@ -201,4 +379,44 @@ func ExtractionSnippet() string {
     alert('Could not extract tokens. Make sure you are on a Slack workspace page (app.slack.com).');
   }
 })();`
+}
+
+func tokenInfoFromV2(data []byte) *TokenInfo {
+	var v2 tokenFileV2
+	if err := json.Unmarshal(data, &v2); err != nil || v2.Version != 2 {
+		return nil
+	}
+	if len(v2.Workspaces) == 0 {
+		return &TokenInfo{Status: "no_tokens"}
+	}
+	var defaultWS *tokenFileEntry
+	for _, ws := range v2.Workspaces {
+		if ws.TeamID == v2.DefaultTeamID {
+			defaultWS = ws
+			break
+		}
+	}
+	if defaultWS == nil {
+		defaultWS = v2.Workspaces[0]
+	}
+
+	info := &TokenInfo{
+		HasToken:       true,
+		HasCookie:      defaultWS.Cookie != "",
+		TeamID:         defaultWS.TeamID,
+		WorkspaceCount: len(v2.Workspaces),
+		Source:         defaultWS.Source,
+	}
+	if t, err := time.Parse(time.RFC3339, defaultWS.UpdatedAt); err == nil {
+		info.UpdatedAt = t
+		info.AgeHours = float64(int(time.Since(t).Hours()*10)) / 10
+	}
+	if info.AgeHours > 10 {
+		info.Status = "critical"
+	} else if info.AgeHours > 6 {
+		info.Status = "warning"
+	} else {
+		info.Status = "healthy"
+	}
+	return info
 }

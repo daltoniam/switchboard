@@ -44,7 +44,7 @@ func FilterTools(tools []mcp.ToolDefinition, rule *ScopeRule) []mcp.ToolDefiniti
 	}
 	var result []mcp.ToolDefinition
 	for _, t := range tools {
-		if IsToolPermitted(t.Name, rule) {
+		if IsToolPermitted(string(t.Name), rule) {
 			result = append(result, t)
 		}
 	}

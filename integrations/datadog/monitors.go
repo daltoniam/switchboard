@@ -10,121 +10,149 @@ import (
 )
 
 func listMonitors(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewMonitorsApi(d.client)
 	opts := datadogV1.NewListMonitorsOptionalParameters()
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		opts = opts.WithGroupStates(v)
 	}
-	if v := argInt64(args, "page"); v >= 0 {
+	if v := r.Int64("page"); v >= 0 {
 		if _, ok := args["page"]; ok {
 			opts = opts.WithPage(v)
 		}
 	}
-	if v := argInt(args, "page_size"); v > 0 && v <= math.MaxInt32 {
+	if v := r.Int("page_size"); v > 0 && v <= math.MaxInt32 {
 		opts = opts.WithPageSize(int32(v))
 	}
 
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	resp, _, err := api.ListMonitors(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func searchMonitors(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewMonitorsApi(d.client)
 	opts := datadogV1.NewSearchMonitorsOptionalParameters()
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		opts = opts.WithQuery(v)
 	}
-	if v := argInt64(args, "page"); v >= 0 {
+	if v := r.Int64("page"); v >= 0 {
 		if _, ok := args["page"]; ok {
 			opts = opts.WithPage(v)
 		}
 	}
-	if v := argInt64(args, "per_page"); v > 0 {
+	if v := r.Int64("per_page"); v > 0 {
 		opts = opts.WithPerPage(v)
 	}
 
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	resp, _, err := api.SearchMonitors(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
-	api := datadogV1.NewMonitorsApi(d.client)
-	resp, _, err := api.GetMonitor(ctx, argInt64(args, "id"), *datadogV1.NewGetMonitorOptionalParameters())
-	if err != nil {
-		return errResult(err)
+	r := mcp.NewArgs(args)
+	id := r.Int64("id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	api := datadogV1.NewMonitorsApi(d.client)
+	resp, _, err := api.GetMonitor(ctx, id, *datadogV1.NewGetMonitorOptionalParameters())
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
 }
 
 func createMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewMonitorsApi(d.client)
 
-	monType, _ := datadogV1.NewMonitorTypeFromValue(argStr(args, "type"))
+	monType, _ := datadogV1.NewMonitorTypeFromValue(r.Str("type"))
 	body := datadogV1.Monitor{
-		Name:    datadog.PtrString(argStr(args, "name")),
-		Query:   argStr(args, "query"),
-		Message: datadog.PtrString(argStr(args, "message")),
+		Name:    datadog.PtrString(r.Str("name")),
+		Query:   r.Str("query"),
+		Message: datadog.PtrString(r.Str("message")),
 	}
 	if monType != nil {
 		body.Type = *monType
 	}
-	if tags := argStrSlice(args, "tags"); len(tags) > 0 {
+	if tags := r.StrSlice("tags"); len(tags) > 0 {
 		body.Tags = tags
 	}
-	if v := argInt64(args, "priority"); v > 0 {
+	if v := r.Int64("priority"); v > 0 {
 		body.Priority = *datadog.NewNullableInt64(&v)
 	}
 
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	resp, _, err := api.CreateMonitor(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func updateMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewMonitorsApi(d.client)
 
 	body := datadogV1.MonitorUpdateRequest{}
-	if v := argStr(args, "name"); v != "" {
+	if v := r.Str("name"); v != "" {
 		body.Name = datadog.PtrString(v)
 	}
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		body.Query = datadog.PtrString(v)
 	}
-	if v := argStr(args, "message"); v != "" {
+	if v := r.Str("message"); v != "" {
 		body.Message = datadog.PtrString(v)
 	}
-	if tags := argStrSlice(args, "tags"); len(tags) > 0 {
+	if tags := r.StrSlice("tags"); len(tags) > 0 {
 		body.Tags = tags
 	}
-	if v := argInt64(args, "priority"); v > 0 {
+	if v := r.Int64("priority"); v > 0 {
 		body.Priority = *datadog.NewNullableInt64(&v)
 	}
 
-	resp, _, err := api.UpdateMonitor(ctx, argInt64(args, "id"), body)
-	if err != nil {
-		return errResult(err)
+	id := r.Int64("id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	resp, _, err := api.UpdateMonitor(ctx, id, body)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
 }
 
 func deleteMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
-	api := datadogV1.NewMonitorsApi(d.client)
-	resp, _, err := api.DeleteMonitor(ctx, argInt64(args, "id"), *datadogV1.NewDeleteMonitorOptionalParameters())
-	if err != nil {
-		return errResult(err)
+	r := mcp.NewArgs(args)
+	id := r.Int64("id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	api := datadogV1.NewMonitorsApi(d.client)
+	resp, _, err := api.DeleteMonitor(ctx, id, *datadogV1.NewDeleteMonitorOptionalParameters())
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
 }
 
 func muteMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV1.NewMonitorsApi(d.client)
 
 	// Mute via update: set the mute options
@@ -138,11 +166,15 @@ func muteMonitor(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 	// Fallback: The V1 API has /api/v1/monitor/{id}/mute but the Go SDK doesn't expose it directly.
 	// We can use the general-purpose mute approach via downtime instead.
 	// For a practical implementation, return the monitor info.
-	resp, _, err := api.GetMonitor(ctx, argInt64(args, "id"), *datadogV1.NewGetMonitorOptionalParameters())
-	if err != nil {
-		return errResult(err)
+	muteID := r.Int64("id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(map[string]any{
+	resp, _, err := api.GetMonitor(ctx, muteID, *datadogV1.NewGetMonitorOptionalParameters())
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(map[string]any{
 		"message": "Monitor retrieved - use datadog_create_downtime to schedule monitor silencing",
 		"monitor": resp,
 	})

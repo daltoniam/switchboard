@@ -1,11 +1,16 @@
 package rwx
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -21,13 +26,13 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"access_token": "rwx_test_token"})
+	err := i.Configure(context.Background(), mcp.Credentials{"access_token": "rwx_test_token", "org": "my-org"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAccessToken(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"access_token": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"access_token": "", "org": "my-org"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "access_token is required")
 }
@@ -53,7 +58,7 @@ func TestTools_AllHaveRwxPrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -61,7 +66,7 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
-	r := &rwx{accessToken: "test", client: &http.Client{}, logCache: newLogCache()}
+	r := &rwx{accessToken: "test", org: "my-org", client: &http.Client{}, logCache: newLogCache()}
 	result, err := r.Execute(context.Background(), "rwx_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -78,7 +83,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -87,76 +92,34 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	}
 }
 
-// --- Argument helper tests ---
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
-
-func TestArgStrSlice(t *testing.T) {
-	t.Run("from []any", func(t *testing.T) {
-		result := argStrSlice(map[string]any{"tags": []any{"a", "b"}}, "tags")
-		assert.Equal(t, []string{"a", "b"}, result)
-	})
-
-	t.Run("from []string", func(t *testing.T) {
-		result := argStrSlice(map[string]any{"tags": []string{"x", "y"}}, "tags")
-		assert.Equal(t, []string{"x", "y"}, result)
-	})
-
-	t.Run("missing key", func(t *testing.T) {
-		result := argStrSlice(map[string]any{}, "tags")
-		assert.Nil(t, result)
-	})
-}
-
 // --- Result helper tests ---
 
 func TestRawResult(t *testing.T) {
-	result, err := rawResult(`{"key":"value"}`)
+	result, err := mcp.RawResult([]byte(`{"key":"value"}`))
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
 }
 
 func TestJsonResult(t *testing.T) {
-	result, err := jsonResult(map[string]string{"key": "value"})
+	result, err := mcp.JSONResult(map[string]string{"key": "value"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"key":"value"`)
-}
-
-func TestMustJSON(t *testing.T) {
-	assert.Equal(t, `{"a":"b"}`, mustJSON(map[string]string{"a": "b"}))
 }
 
 // --- Utility tests ---
 
 func TestExtractRunID(t *testing.T) {
 	assert.Equal(t, "abc123", extractRunID("abc123"))
-	assert.Equal(t, "abc123", extractRunID("https://cloud.rwx.com/mint/curri/runs/abc123"))
+	assert.Equal(t, "abc123", extractRunID("https://cloud.rwx.com/mint/my-org/runs/abc123"))
 }
 
 func TestNormalizeStatus(t *testing.T) {
@@ -208,9 +171,11 @@ func TestTransformCLIReferences(t *testing.T) {
 		{"`rwx logs abc`", "rwx_get_task_logs"},
 		{"`rwx results abc`", "rwx_get_run_results"},
 		{"`rwx artifacts abc`", "rwx_get_artifacts"},
+		{"`rwx dispatch my-workflow`", "rwx_dispatch_run"},
 		{"`rwx run .rwx/ci.yml`", "rwx_launch_ci_run"},
 		{"Use rwx logs to see output", "rwx_get_task_logs"},
 		{"Use rwx results to check", "rwx_get_run_results"},
+		{"Use rwx dispatch to trigger", "rwx_dispatch_run"},
 	}
 	for _, tc := range tests {
 		result := transformCLIReferences(tc.input)
@@ -228,15 +193,12 @@ func TestHealthy_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", client: ts.Client(), logCache: newLogCache()}
-	// Override the rwxAPIBase for testing — we need to test via the actual method
-	// Since rwxAPIBase is a const, we test via an httptest redirect approach
-	// Instead, we can test the health check logic directly
-	assert.NotNil(t, r)
+	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+	assert.True(t, r.Healthy(context.Background()))
 }
 
 func TestHealthy_NoToken(t *testing.T) {
-	r := &rwx{accessToken: "", client: &http.Client{}, logCache: newLogCache()}
+	r := &rwx{accessToken: "", org: "my-org", client: &http.Client{}, logCache: newLogCache()}
 	assert.False(t, r.Healthy(context.Background()))
 }
 
@@ -253,17 +215,19 @@ func TestGetRecentRuns(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", client: ts.Client(), logCache: newLogCache()}
+	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
 
-	// We can't easily test since the API base URL is a const, but we can verify
-	// the function doesn't panic and the handler is properly wired
 	result, err := r.Execute(context.Background(), "rwx_get_recent_runs", map[string]any{
 		"ref": "main",
 	})
 	require.NoError(t, err)
-	// Will be an error because the httptest server URL doesn't match rwxAPIBase
-	// but the dispatch works correctly
 	assert.NotNil(t, result)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "main", parsed["ref"])
+	assert.Equal(t, float64(1), parsed["count"])
 }
 
 func TestGetRecentRuns_Response(t *testing.T) {
@@ -271,20 +235,53 @@ func TestGetRecentRuns_Response(t *testing.T) {
 		_, _ = w.Write([]byte(`{"runs":[
 			{"id":"run-1","branch":"main","commit_sha":"abc","result_status":"succeeded","execution_status":"finished","title":"Test","definition_path":".rwx/ci.yml"},
 			{"id":"run-2","branch":"main","commit_sha":"def","result_status":"failed","execution_status":"finished","title":"Test 2","definition_path":".rwx/ci.yml"},
-			{"id":"run-3","branch":"feat","commit_sha":"ghi","result_status":"succeeded","execution_status":"finished","title":"Other","definition_path":".rwx/ci.yml"}
+			{"id":"run-3","branch":"feat","commit_sha":"ghi","result_status":"succeeded","execution_status":"finished","title":"Other","definition_path":".rwx/ci.yml"},
+			{"id":"run-4","branch":"main","commit_sha":"jkl","result_status":"succeeded","execution_status":"finished","title":"Deploy","definition_path":".rwx/auto-deploy.yml"}
 		]}`))
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", client: ts.Client(), logCache: newLogCache()}
+	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
 
-	// Call the handler directly to bypass const URL
-	result, err := getRecentRuns(context.Background(), r, map[string]any{"ref": "main", "limit": float64(5)})
+	t.Run("no definition_path returns all workflows for branch", func(t *testing.T) {
+		result, err := getRecentRuns(context.Background(), r, map[string]any{"ref": "main", "limit": float64(10)})
+		require.NoError(t, err)
+		assert.False(t, result.IsError)
 
-	// This will fail due to const URL, but we can at least verify it executes
-	// If httptest URL matched, it would filter correctly
-	_ = result
-	_ = err
+		var parsed map[string]any
+		require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+		assert.Equal(t, float64(3), parsed["count"], "should return all 3 main branch runs across workflows")
+
+		runs := parsed["runs"].([]any)
+		run4 := runs[2].(map[string]any)
+		assert.Equal(t, "run-4", run4["run_id"])
+		assert.Equal(t, ".rwx/auto-deploy.yml", run4["definition_path"])
+	})
+
+	t.Run("definition_path filters to specific workflow", func(t *testing.T) {
+		result, err := getRecentRuns(context.Background(), r, map[string]any{"ref": "main", "limit": float64(10), "definition_path": ".rwx/ci.yml"})
+		require.NoError(t, err)
+		assert.False(t, result.IsError)
+
+		var parsed map[string]any
+		require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+		assert.Equal(t, float64(2), parsed["count"], "should return only ci.yml runs")
+	})
+
+	t.Run("definition_path filters to deploy workflow", func(t *testing.T) {
+		result, err := getRecentRuns(context.Background(), r, map[string]any{"ref": "main", "limit": float64(10), "definition_path": ".rwx/auto-deploy.yml"})
+		require.NoError(t, err)
+		assert.False(t, result.IsError)
+
+		var parsed map[string]any
+		require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+		assert.Equal(t, float64(1), parsed["count"], "should return only auto-deploy.yml runs")
+
+		runs := parsed["runs"].([]any)
+		run := runs[0].(map[string]any)
+		assert.Equal(t, "run-4", run["run_id"])
+		assert.Equal(t, ".rwx/auto-deploy.yml", run["definition_path"])
+	})
 }
 
 func TestFetchRunStatus_Success(t *testing.T) {
@@ -293,9 +290,11 @@ func TestFetchRunStatus_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	r := &rwx{accessToken: "test-token", client: ts.Client(), logCache: newLogCache()}
-	// Direct call would need URL override — tested via integration
-	_ = r
+	r := &rwx{accessToken: "test-token", org: "my-org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+	status, isComplete, err := fetchRunStatus(context.Background(), r, "run-123")
+	require.NoError(t, err)
+	assert.True(t, isComplete)
+	assert.Equal(t, "success", status)
 }
 
 // --- Proxy tests ---
@@ -322,7 +321,7 @@ func TestProxyToolDefinitions_TransformsCLIReferences(t *testing.T) {
 
 	defs := p.toolDefinitions()
 	require.Len(t, defs, 1)
-	assert.Equal(t, "rwx_proxy_some_tool", defs[0].Name)
+	assert.Equal(t, mcp.ToolName("rwx_proxy_some_tool"), defs[0].Name)
 	assert.Contains(t, defs[0].Description, "rwx_get_task_logs")
 	assert.Contains(t, defs[0].Parameters["id"], "rwx_get_run_results")
 	assert.Equal(t, []string{"id"}, defs[0].Required)
@@ -330,16 +329,727 @@ func TestProxyToolDefinitions_TransformsCLIReferences(t *testing.T) {
 
 // --- JSON marshal test ---
 
-func TestMustJSON_Complex(t *testing.T) {
+func TestJSONResult_Complex(t *testing.T) {
 	resp := map[string]any{
 		"status": "success",
 		"count":  3,
 		"items":  []string{"a", "b", "c"},
 	}
-	result := mustJSON(resp)
+	tr, err := mcp.JSONResult(resp)
+	require.NoError(t, err)
 	var parsed map[string]any
-	err := json.Unmarshal([]byte(result), &parsed)
+	err = json.Unmarshal([]byte(tr.Data), &parsed)
 	require.NoError(t, err)
 	assert.Equal(t, "success", parsed["status"])
 	assert.Equal(t, float64(3), parsed["count"])
+}
+
+// --- parseResultsPrompt tests ---
+
+func TestParseResultsPrompt_Empty(t *testing.T) {
+	tasks, tests, problems := parseResultsPrompt("")
+	assert.Nil(t, tasks)
+	assert.Nil(t, tests)
+	assert.Nil(t, problems)
+}
+
+func TestParseResultsPrompt_FailedTasksWithArtifacts(t *testing.T) {
+	prompt := `# Failed tests:
+
+- packages/curri-db/src/models/Orders/tests/OrderQuotes.integration.test.ts
+  - OrderQuotes > OrderQuotesCrud.findById (numeric) > finds existing order quote by numeric id
+  - OrderQuotes > OrderQuotesCrud.findById (string external_id) > finds existing order quote by string external id
+
+# Failed tasks:
+
+You can pull the logs for these tasks using ` + "`rwx logs <task-id>`" + ` and see available artifacts using ` + "`rwx artifacts list <task-id>`" + `
+
+- jest-integration-tests.jest-integration-tests-0 (task-id: 191a345d35d42c0e9b9c7a6150cf7d32) (has artifacts)
+- jest-integration-tests.jest-integration-tests-2 (task-id: 0b5fe5a97b7ede3068820c00653e8666) (has artifacts)
+
+For more documentation on the RWX CLI, see ` + "`rwx --help`" + `
+`
+	tasks, tests, problems := parseResultsPrompt(prompt)
+
+	require.Len(t, tasks, 2)
+	assert.Equal(t, "jest-integration-tests.jest-integration-tests-0", tasks[0].Key)
+	assert.Equal(t, "191a345d35d42c0e9b9c7a6150cf7d32", tasks[0].TaskID)
+	assert.True(t, tasks[0].HasArtifacts)
+	assert.Equal(t, "jest-integration-tests.jest-integration-tests-2", tasks[1].Key)
+	assert.Equal(t, "0b5fe5a97b7ede3068820c00653e8666", tasks[1].TaskID)
+	assert.True(t, tasks[1].HasArtifacts)
+
+	require.Len(t, tests, 3)
+	assert.Contains(t, tests[0], "OrderQuotes.integration.test.ts")
+	assert.Contains(t, tests[1], "findById (numeric)")
+	assert.Contains(t, tests[2], "findById (string external_id)")
+
+	assert.Empty(t, problems)
+}
+
+func TestParseResultsPrompt_SingularHeaders(t *testing.T) {
+	// Real RWX prompt for a single-task failure uses singular headers
+	// ("# Failed task:") and "for this task" phrasing.
+	prompt := `# Failed task:
+
+You can pull the logs for this task using ` + "`rwx logs <task-id>`" + `
+
+- database (task-id: 33912f93fb072b62652054fb663c85e9)
+
+For more documentation on the RWX CLI, see ` + "`rwx --help`" + `
+`
+	tasks, tests, problems := parseResultsPrompt(prompt)
+
+	require.Len(t, tasks, 1)
+	assert.Equal(t, "database", tasks[0].Key)
+	assert.Equal(t, "33912f93fb072b62652054fb663c85e9", tasks[0].TaskID)
+	assert.Empty(t, tests)
+	assert.Empty(t, problems)
+}
+
+func TestParseResultsPrompt_OtherProblems(t *testing.T) {
+	prompt := `# Other problems:
+
+- [build:tsgo] src/graphql/resolvers/DriverResolver.ts
+  - [Error] Type assignment mismatch [tsc - 2322] (line 337:9)
+
+# Failed tasks:
+
+You can pull the logs for these tasks using ` + "`rwx logs <task-id>`" + `
+
+- build (task-id: 06ca539c77d27a637433e81110bddb97)
+- db-and-api-build (task-id: a72aafdaf5f759c3c1fe3ba16c5137d5)
+
+For more documentation on the RWX CLI, see ` + "`rwx --help`" + `
+`
+	tasks, tests, problems := parseResultsPrompt(prompt)
+
+	require.Len(t, tasks, 2)
+	assert.Equal(t, "build", tasks[0].Key)
+	assert.Equal(t, "06ca539c77d27a637433e81110bddb97", tasks[0].TaskID)
+	assert.False(t, tasks[0].HasArtifacts)
+
+	assert.Empty(t, tests)
+
+	require.Len(t, problems, 2)
+	assert.Contains(t, problems[0], "DriverResolver.ts")
+	assert.Contains(t, problems[1], "tsc - 2322")
+}
+
+// --- resolveRWXBinary tests ---
+
+func TestResolveRWXBinary_ExplicitPath(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("#!/bin/sh\n"), 0o755))
+
+	result := resolveRWXBinary(fakeBin)
+	assert.Equal(t, fakeBin, result)
+}
+
+func TestResolveRWXBinary_ExplicitPathNotExecutable(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("not executable"), 0o644))
+
+	result := resolveRWXBinary(fakeBin)
+	assert.NotEqual(t, fakeBin, result, "should reject non-executable configured path")
+}
+
+func TestResolveRWXBinary_ExplicitPathMissing(t *testing.T) {
+	result := resolveRWXBinary("/nonexistent/path/to/rwx")
+	assert.NotEqual(t, "/nonexistent/path/to/rwx", result)
+}
+
+func TestResolveRWXBinary_EmptyConfigFallsBackToLookPath(t *testing.T) {
+	result := resolveRWXBinary("")
+	assert.NotEmpty(t, result)
+}
+
+func TestIsExecutable(t *testing.T) {
+	tmp := t.TempDir()
+
+	t.Run("executable file", func(t *testing.T) {
+		p := filepath.Join(tmp, "good")
+		require.NoError(t, os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755))
+		assert.True(t, isExecutable(p))
+	})
+
+	t.Run("non-executable file", func(t *testing.T) {
+		p := filepath.Join(tmp, "noexec")
+		require.NoError(t, os.WriteFile(p, []byte("data"), 0o644))
+		assert.False(t, isExecutable(p))
+	})
+
+	t.Run("directory", func(t *testing.T) {
+		assert.False(t, isExecutable(tmp))
+	})
+
+	t.Run("nonexistent", func(t *testing.T) {
+		assert.False(t, isExecutable(filepath.Join(tmp, "nope")))
+	})
+}
+
+func TestConfigure_StoresCliPath(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(fakeBin, []byte("#!/bin/sh\n"), 0o755))
+
+	r := &rwx{client: &http.Client{}, logCache: newLogCache()}
+	err := r.Configure(context.Background(), mcp.Credentials{
+		"access_token": "test",
+		"org":          "my-org",
+		"cli_path":     fakeBin,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, fakeBin, r.cliPath)
+}
+
+// --- runRWXCommand stdout/stderr separation tests ---
+
+func TestRunRWXCommand_StdoutOnly(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho '{\"ok\":true}'\n"), 0o755))
+
+	r := &rwx{cliPath: bin}
+	out, err := r.runRWXCommand(nil, 0)
+	require.NoError(t, err)
+	assert.Equal(t, "{\"ok\":true}\n", out)
+}
+
+func TestRunRWXCommand_StderrIgnored(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho 'Authenticating...' >&2\necho '{\"ok\":true}'\n"), 0o755))
+
+	r := &rwx{cliPath: bin}
+	out, err := r.runRWXCommand(nil, 0)
+	require.NoError(t, err)
+	assert.Equal(t, "{\"ok\":true}\n", out)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &parsed), "stdout should be valid JSON without stderr contamination")
+	assert.Equal(t, true, parsed["ok"])
+}
+
+func TestRunRWXCommand_FailureIncludesStderr(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho 'something went wrong' >&2\nexit 1\n"), 0o755))
+
+	r := &rwx{cliPath: bin}
+	_, err := r.runRWXCommand(nil, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "something went wrong")
+}
+
+func TestRunRWXCommand_FailureWithStdoutReturnsStdout(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho '{\"partial\":true}'\nexit 1\n"), 0o755))
+
+	r := &rwx{cliPath: bin}
+	out, err := r.runRWXCommand(nil, 0)
+	require.NoError(t, err, "should return stdout on failure when stdout has content")
+	assert.Contains(t, out, "{\"partial\":true}")
+}
+
+// --- Access token env injection tests ---
+
+// The rwx CLI authenticates via the RWX_ACCESS_TOKEN env var (or --access-token
+// flag, or a credentials file from `rwx login`). The plugin holds the token in
+// r.accessToken from Configure() but must inject it into every CLI subprocess
+// or commands fail with "no access token configured" — see cmdEnv() in rwx.go.
+
+func TestCmdEnv_InjectsAccessToken(t *testing.T) {
+	r := &rwx{accessToken: "rwx_pat_test_token_123"}
+	env := r.cmdEnv()
+
+	var found bool
+	for _, e := range env {
+		if e == "RWX_ACCESS_TOKEN=rwx_pat_test_token_123" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "cmdEnv must include RWX_ACCESS_TOKEN=<token>")
+}
+
+func TestCmdEnv_SkipsWhenTokenEmpty(t *testing.T) {
+	r := &rwx{accessToken: ""}
+	env := r.cmdEnv()
+
+	for _, e := range env {
+		assert.NotEqual(t, "RWX_ACCESS_TOKEN=", e, "must not append an empty token entry")
+	}
+}
+
+func TestRunRWXCommand_PassesAccessTokenToSubprocess(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	// Fake CLI: echoes the access token from its env. If the plugin doesn't
+	// inject it, this prints an empty string and the test fails.
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\necho \"$RWX_ACCESS_TOKEN\"\n"), 0o755))
+
+	r := &rwx{cliPath: bin, accessToken: "rwx_pat_subprocess_token"}
+	out, err := r.runRWXCommand(nil, 0)
+	require.NoError(t, err)
+	assert.Equal(t, "rwx_pat_subprocess_token\n", out)
+}
+
+// --- Dispatch handler tests ---
+
+func fakeBin(t *testing.T, script string) string {
+	t.Helper()
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	require.NoError(t, os.WriteFile(bin, []byte("#!/bin/sh\n"+script), 0o755))
+	return bin
+}
+
+func TestDispatchRun_Launched(t *testing.T) {
+	bin := fakeBin(t, `echo '{"run_id":"dispatch-123","run_url":"https://cloud.rwx.com/mint/org/runs/dispatch-123"}'`)
+	r := &rwx{cliPath: bin, org: "org", baseURL: "https://cloud.rwx.com", logCache: newLogCache()}
+
+	result, err := dispatchRun(context.Background(), r, map[string]any{
+		"dispatch_key": "deploy-staging",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "dispatch-123", parsed["run_id"])
+	assert.Equal(t, "launched", parsed["status"])
+	assert.Equal(t, false, parsed["completed"])
+}
+
+func TestDispatchRun_WaitFailure(t *testing.T) {
+	bin := fakeBin(t, `echo '{"run_id":"dispatch-456","result":"failed"}'`)
+	r := &rwx{cliPath: bin, org: "org", baseURL: "https://cloud.rwx.com", logCache: newLogCache()}
+
+	result, err := dispatchRun(context.Background(), r, map[string]any{
+		"dispatch_key": "deploy-staging",
+		"wait":         true,
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "failure", parsed["status"])
+	assert.Equal(t, true, parsed["completed"])
+}
+
+func TestDispatchRun_WaitSuccess(t *testing.T) {
+	bin := fakeBin(t, `echo '{"run_id":"dispatch-ok","result":"succeeded"}'`)
+	r := &rwx{cliPath: bin, org: "org", baseURL: "https://cloud.rwx.com", logCache: newLogCache()}
+
+	result, err := dispatchRun(context.Background(), r, map[string]any{
+		"dispatch_key": "deploy-staging",
+		"wait":         true,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "success", parsed["status"])
+	assert.Equal(t, "Run completed successfully", parsed["next_step"])
+}
+
+func TestDispatchRun_URLFallback(t *testing.T) {
+	bin := fakeBin(t, `echo '{"run_id":"dispatch-789"}'`)
+	r := &rwx{cliPath: bin, org: "my-org", baseURL: "https://cloud.rwx.com", logCache: newLogCache()}
+
+	result, err := dispatchRun(context.Background(), r, map[string]any{
+		"dispatch_key": "test",
+	})
+	require.NoError(t, err)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "https://cloud.rwx.com/mint/my-org/runs/dispatch-789", parsed["url"])
+}
+
+// --- Docs handler tests ---
+
+func TestDocsSearch(t *testing.T) {
+	jsonOut := `{"Query":"caching","TotalHits":2,"Results":[{"url":"https://www.rwx.com/docs/caching","path":"/docs/caching","title":"Caching","body":"Short body here."}]}`
+	bin := fakeBin(t, fmt.Sprintf(`echo '%s'`, jsonOut))
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := docsSearch(context.Background(), r, map[string]any{"query": "caching"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "caching", parsed["query"])
+	assert.Equal(t, float64(2), parsed["total_hits"])
+	assert.Equal(t, float64(1), parsed["count"])
+
+	results := parsed["results"].([]any)
+	first := results[0].(map[string]any)
+	assert.Equal(t, "Caching", first["title"])
+	assert.Equal(t, "Short body here.", first["snippet"])
+}
+
+func TestDocsSearch_SnippetTruncation(t *testing.T) {
+	longBody := ""
+	for i := 0; i < 600; i++ {
+		longBody += "x"
+	}
+	jsonOut := fmt.Sprintf(`{"Query":"test","TotalHits":1,"Results":[{"url":"u","path":"p","title":"T","body":"%s"}]}`, longBody)
+	bin := fakeBin(t, fmt.Sprintf(`echo '%s'`, jsonOut))
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := docsSearch(context.Background(), r, map[string]any{"query": "test"})
+	require.NoError(t, err)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	results := parsed["results"].([]any)
+	first := results[0].(map[string]any)
+	snippet := first["snippet"].(string)
+	assert.True(t, len(snippet) <= 504, "snippet should be truncated to ~500+...")
+	assert.True(t, strings.HasSuffix(snippet, "..."))
+}
+
+func TestDocsPull(t *testing.T) {
+	tmp := t.TempDir()
+	bin := filepath.Join(tmp, "rwx")
+	script := "#!/bin/sh\nprintf '{\"URL\":\"https://www.rwx.com/docs/caching\",\"Body\":\"Caching content here.\"}'\n"
+	require.NoError(t, os.WriteFile(bin, []byte(script), 0o755))
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := docsPull(context.Background(), r, map[string]any{"url_or_path": "/docs/caching"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "https://www.rwx.com/docs/caching", parsed["url"])
+	assert.Contains(t, parsed["content"], "Caching content here.")
+}
+
+// --- LaunchCIRun handler tests ---
+
+func TestLaunchCIRun_WaitAddsFailFast(t *testing.T) {
+	bin := fakeBin(t, `echo '{"run_id":"run-1","result":"succeeded"}'`)
+	r := &rwx{cliPath: bin, org: "org", baseURL: "https://cloud.rwx.com", logCache: newLogCache()}
+
+	result, err := launchCIRun(context.Background(), r, map[string]any{
+		"wait": true,
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "success", parsed["status"])
+	assert.Equal(t, true, parsed["completed"])
+}
+
+func TestLaunchCIRun_TitleAndInit(t *testing.T) {
+	bin := fakeBin(t, `echo '{"run_id":"run-2"}'`)
+	r := &rwx{cliPath: bin, org: "org", baseURL: "https://cloud.rwx.com", logCache: newLogCache()}
+
+	result, err := launchCIRun(context.Background(), r, map[string]any{
+		"title": "Deploy v2",
+		"init":  map[string]any{"env": "staging"},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "run-2", parsed["run_id"])
+	assert.Equal(t, "launched", parsed["status"])
+}
+
+// --- GetTaskLogs handler tests ---
+
+func TestGetTaskLogs_MissingArgs(t *testing.T) {
+	r := &rwx{cliPath: "rwx", logCache: newLogCache()}
+
+	result, err := getTaskLogs(context.Background(), r, map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "either task_id or run_id+task_key is required")
+}
+
+func TestGetTaskLogs_RunIDAndTaskKey(t *testing.T) {
+	var zipData bytes.Buffer
+	zw := zip.NewWriter(&zipData)
+	f, err := zw.Create("task.log")
+	require.NoError(t, err)
+	_, err = f.Write([]byte("log output for task"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	downloadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		assert.Equal(t, http.MethodPost, req.Method)
+		assert.Equal(t, "application/x-www-form-urlencoded", req.Header.Get("Content-Type"))
+		require.NoError(t, req.ParseForm())
+		assert.Equal(t, "tok", req.PostFormValue("token"))
+		assert.Equal(t, "logs.zip", req.PostFormValue("filename"))
+		assert.Equal(t, "contents", req.PostFormValue("contents"))
+		_, _ = w.Write(zipData.Bytes())
+	}))
+	defer downloadServer.Close()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/log_download":
+			assert.Equal(t, "run-abc123", r.URL.Query().Get("run_id"))
+			assert.Equal(t, "ci.checks.lint", r.URL.Query().Get("task_key"))
+			_, _ = w.Write([]byte(`{"url":"` + downloadServer.URL + `","token":"tok","filename":"logs.zip","contents":"contents"}`))
+		case "/mint/api/runs/run-abc123":
+			_, _ = w.Write([]byte(`{"completed_at":"2024-01-01T00:00:00Z","run_status":{"execution":"finished","result":"succeeded"}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	r := &rwx{accessToken: "test-token", logCache: newLogCache(), client: ts.Client(), baseURL: ts.URL, org: "test"}
+
+	result, err := getTaskLogs(context.Background(), r, map[string]any{
+		"run_id":   "run-abc123",
+		"task_key": "ci.checks.lint",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "log output for task")
+}
+
+// --- GetRunResults handler tests ---
+
+func TestGetRunResults_MissingArgs(t *testing.T) {
+	r := &rwx{cliPath: "rwx", org: "org", baseURL: "https://cloud.rwx.com", logCache: newLogCache()}
+
+	result, err := getRunResults(context.Background(), r, map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "either run_id or branch/commit is required")
+}
+
+func TestGetRunResults_BranchLookup(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/results/latest":
+			assert.Equal(t, "main", r.URL.Query().Get("branch_name"))
+			_, _ = w.Write([]byte(`{"run_id":"run-abc","run_status":{"result":"succeeded","execution":"finished"},"polling":{"completed":true}}`))
+		case "/mint/api/results/prompt":
+			_, _ = w.Write([]byte(``))
+		case "/mint/api/runs/run-abc":
+			_, _ = w.Write([]byte(`{"id":"run-abc","completed_runtime_seconds":120,"title":"CI","branch":"main","commit_sha":"abc123","definition_path":".rwx/ci.yml"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	r := &rwx{accessToken: "test-token", org: "org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+
+	result, err := getRunResults(context.Background(), r, map[string]any{
+		"branch": "main",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "run-abc", parsed["run_id"])
+	assert.Equal(t, "success", parsed["status"])
+	assert.Equal(t, "main", parsed["branch"])
+}
+
+func TestGetRunResults_NestedStatusFailed(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/results/status":
+			assert.Equal(t, "run-xyz", r.URL.Query().Get("id"))
+			_, _ = w.Write([]byte(`{"run_status":{"result":"failed","execution":"finished"},"run_id":"run-xyz","polling":{"completed":true}}`))
+		case "/mint/api/results/prompt":
+			_, _ = w.Write([]byte(``))
+		case "/mint/api/runs/run-xyz":
+			_, _ = w.Write([]byte(`{"id":"run-xyz","completed_runtime_seconds":512,"title":"CI","branch":"main","commit_sha":"abc","definition_path":".rwx/ci.yml"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	r := &rwx{accessToken: "test-token", org: "org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+
+	result, err := getRunResults(context.Background(), r, map[string]any{"run_id": "run-xyz"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "failure", parsed["status"])
+	assert.Equal(t, true, parsed["completed"])
+}
+
+func TestGetRunResults_NestedTaskStatus(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/results/status":
+			assert.Equal(t, "run-xyz", r.URL.Query().Get("run_id"))
+			assert.Equal(t, "database", r.URL.Query().Get("task_key"))
+			_, _ = w.Write([]byte(`{"run_status":{"result":"failed","execution":"finished"},"task_status":{"result":"failed","execution":"finished"},"run_id":"run-xyz","task_id":"task-123","polling":{"completed":true}}`))
+		case "/mint/api/results/prompt":
+			_, _ = w.Write([]byte(``))
+		case "/mint/api/runs/run-xyz":
+			_, _ = w.Write([]byte(`{"id":"run-xyz","title":"CI"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	r := &rwx{accessToken: "test-token", org: "org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+
+	result, err := getRunResults(context.Background(), r, map[string]any{"run_id": "run-xyz", "task_key": "database"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "failure", parsed["status"])
+	assert.Equal(t, true, parsed["completed"])
+	assert.Equal(t, "task-123", parsed["task_id"])
+	assert.Equal(t, "database", parsed["task_key"])
+}
+
+func TestGetRunResults_NestedStatusRunning(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/mint/api/results/status":
+			_, _ = w.Write([]byte(`{"run_status":{"result":"no_result"},"run_id":"run-run","polling":{"completed":false}}`))
+		case "/mint/api/results/prompt":
+			_, _ = w.Write([]byte(``))
+		case "/mint/api/runs/run-run":
+			_, _ = w.Write([]byte(`{"id":"run-run","title":"CI"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	r := &rwx{accessToken: "test-token", org: "org", baseURL: ts.URL, client: ts.Client(), logCache: newLogCache()}
+
+	result, err := getRunResults(context.Background(), r, map[string]any{"run_id": "run-run"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "running", parsed["status"])
+	assert.Equal(t, false, parsed["completed"])
+}
+
+// --- Vault handler tests ---
+
+func TestVaultsVarShow(t *testing.T) {
+	bin := fakeBin(t, `echo '{"name":"MY_VAR","value":"hello","vault":"default"}'`)
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := vaultsVarShow(context.Background(), r, map[string]any{"name": "MY_VAR"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "MY_VAR")
+}
+
+func TestVaultsVarShow_EmptyOutput(t *testing.T) {
+	bin := fakeBin(t, `true`)
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := vaultsVarShow(context.Background(), r, map[string]any{"name": "MISSING"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "no output from CLI")
+}
+
+func TestVaultsVarSet_WithOutput(t *testing.T) {
+	bin := fakeBin(t, `echo '{"ok":true}'`)
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := vaultsVarSet(context.Background(), r, map[string]any{"name": "K", "value": "V"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "ok")
+}
+
+func TestVaultsVarSet_EmptyOutput(t *testing.T) {
+	bin := fakeBin(t, `true`)
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := vaultsVarSet(context.Background(), r, map[string]any{"name": "K", "value": "V"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "set", parsed["status"])
+	assert.Equal(t, "K", parsed["name"])
+	assert.Equal(t, "default", parsed["vault"])
+}
+
+func TestVaultsVarDelete_EmptyOutput(t *testing.T) {
+	bin := fakeBin(t, `true`)
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := vaultsVarDelete(context.Background(), r, map[string]any{"name": "K"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "deleted", parsed["status"])
+	assert.Equal(t, "K", parsed["name"])
+}
+
+func TestVaultsSecretSet_EmptyOutput(t *testing.T) {
+	bin := fakeBin(t, `true`)
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := vaultsSecretSet(context.Background(), r, map[string]any{"name": "S", "value": "secret"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "set", parsed["status"])
+	assert.Equal(t, "S", parsed["name"])
+}
+
+func TestVaultsSecretDelete_EmptyOutput(t *testing.T) {
+	bin := fakeBin(t, `true`)
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := vaultsSecretDelete(context.Background(), r, map[string]any{"name": "S"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "deleted", parsed["status"])
+	assert.Equal(t, "S", parsed["name"])
+}
+
+func TestVaultsVarSet_CustomVault(t *testing.T) {
+	bin := fakeBin(t, `true`)
+	r := &rwx{cliPath: bin, logCache: newLogCache()}
+
+	result, err := vaultsVarSet(context.Background(), r, map[string]any{"name": "K", "value": "V", "vault": "staging"})
+	require.NoError(t, err)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "staging", parsed["vault"])
 }

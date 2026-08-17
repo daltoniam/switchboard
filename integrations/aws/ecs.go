@@ -13,99 +13,128 @@ func ecsListClusters(ctx context.Context, a *integration, _ map[string]any) (*mc
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsDescribeClusters(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	clusters := r.StrSlice("clusters")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.ecsClient.DescribeClusters(ctx, &ecs.DescribeClustersInput{
-		Clusters: argStrSlice(args, "clusters"),
+		Clusters: clusters,
 	})
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsListServices(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &ecs.ListServicesInput{}
-	if v := argStr(args, "cluster"); v != "" {
+	if v := r.Str("cluster"); v != "" {
 		input.Cluster = &v
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.ecsClient.ListServices(ctx, input)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsDescribeServices(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &ecs.DescribeServicesInput{
-		Services: argStrSlice(args, "services"),
+		Services: r.StrSlice("services"),
 	}
-	if v := argStr(args, "cluster"); v != "" {
+	if v := r.Str("cluster"); v != "" {
 		input.Cluster = &v
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.ecsClient.DescribeServices(ctx, input)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsListTasks(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &ecs.ListTasksInput{}
-	if v := argStr(args, "cluster"); v != "" {
+	if v := r.Str("cluster"); v != "" {
 		input.Cluster = &v
 	}
-	if v := argStr(args, "service_name"); v != "" {
+	if v := r.Str("service_name"); v != "" {
 		input.ServiceName = &v
 	}
-	if v := argStr(args, "desired_status"); v != "" {
+	if v := r.Str("desired_status"); v != "" {
 		input.DesiredStatus = ecstypes.DesiredStatus(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.ecsClient.ListTasks(ctx, input)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsDescribeTasks(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &ecs.DescribeTasksInput{
-		Tasks: argStrSlice(args, "tasks"),
+		Tasks: r.StrSlice("tasks"),
 	}
-	if v := argStr(args, "cluster"); v != "" {
+	if v := r.Str("cluster"); v != "" {
 		input.Cluster = &v
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.ecsClient.DescribeTasks(ctx, input)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsListTaskDefinitions(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &ecs.ListTaskDefinitionsInput{}
-	if v := argStr(args, "family_prefix"); v != "" {
+	if v := r.Str("family_prefix"); v != "" {
 		input.FamilyPrefix = &v
 	}
-	if v := argStr(args, "status"); v != "" {
+	if v := r.Str("status"); v != "" {
 		input.Status = ecstypes.TaskDefinitionStatus(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.ecsClient.ListTaskDefinitions(ctx, input)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func ecsDescribeTaskDefinition(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
-	td := argStr(args, "task_definition")
+	r := mcp.NewArgs(args)
+	td := r.Str("task_definition")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: &td,
 	})
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

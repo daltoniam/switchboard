@@ -9,199 +9,355 @@ import (
 )
 
 func listIssues(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	state := r.Str("state")
+	sort := r.Str("sort")
+	direction := r.Str("direction")
+	assignee := r.Str("assignee")
+	milestone := r.Str("milestone")
+	labels := r.StrSlice("labels")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	opts := &gh.IssueListByRepoOptions{
-		State:       argStr(args, "state"),
-		Labels:      argStrSlice(args, "labels"),
-		Sort:        argStr(args, "sort"),
-		Direction:   argStr(args, "direction"),
-		Assignee:    argStr(args, "assignee"),
-		ListOptions: listOpts(args),
+		State:       state,
+		Labels:      labels,
+		Sort:        sort,
+		Direction:   direction,
+		Assignee:    assignee,
+		Milestone:   milestone,
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
 	}
-	if m := argInt(args, "milestone"); m > 0 {
-		opts.Milestone = argStr(args, "milestone")
-	}
-	issues, _, err := g.client.Issues.ListByRepo(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	issues, _, err := g.client.Issues.ListByRepo(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(issues)
+	return mcp.JSONResult(issues)
 }
 
 func getIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	issue, _, err := g.client.Issues.Get(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	issue, _, err := g.client.Issues.Get(ctx, owner, repo, number)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(issue)
+	return mcp.JSONResult(issue)
 }
 
 func createIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	req := &gh.IssueRequest{
-		Title: gh.Ptr(argStr(args, "title")),
-		Body:  gh.Ptr(argStr(args, "body")),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	title := r.Str("title")
+	body := r.Str("body")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if assignees := argStrSlice(args, "assignees"); len(assignees) > 0 {
+	req := &gh.IssueRequest{
+		Title: gh.Ptr(title),
+		Body:  gh.Ptr(body),
+	}
+	if assignees, err := mcp.ArgStrSlice(args, "assignees"); err != nil {
+		return mcp.ErrResult(err)
+	} else if len(assignees) > 0 {
 		req.Assignees = &assignees
 	}
-	if labels := argStrSlice(args, "labels"); len(labels) > 0 {
+	if labels, err := mcp.ArgStrSlice(args, "labels"); err != nil {
+		return mcp.ErrResult(err)
+	} else if len(labels) > 0 {
 		req.Labels = &labels
 	}
-	if m := argInt(args, "milestone"); m > 0 {
+	if m, err := mcp.ArgInt(args, "milestone"); err != nil {
+		return mcp.ErrResult(err)
+	} else if m > 0 {
 		req.Milestone = gh.Ptr(m)
 	}
-	issue, _, err := g.client.Issues.Create(ctx, argStr(args, "owner"), argStr(args, "repo"), req)
+	issue, _, err := g.client.Issues.Create(ctx, owner, repo, req)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(issue)
+	return mcp.JSONResult(issue)
 }
 
 func updateIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	req := &gh.IssueRequest{}
-	if v := argStr(args, "title"); v != "" {
+	if v, err := mcp.ArgStr(args, "title"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		req.Title = gh.Ptr(v)
 	}
-	if v := argStr(args, "body"); v != "" {
+	if v, err := mcp.ArgStr(args, "body"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		req.Body = gh.Ptr(v)
 	}
-	if v := argStr(args, "state"); v != "" {
+	if v, err := mcp.ArgStr(args, "state"); err != nil {
+		return mcp.ErrResult(err)
+	} else if v != "" {
 		req.State = gh.Ptr(v)
 	}
-	if assignees := argStrSlice(args, "assignees"); len(assignees) > 0 {
+	if assignees, err := mcp.ArgStrSlice(args, "assignees"); err != nil {
+		return mcp.ErrResult(err)
+	} else if len(assignees) > 0 {
 		req.Assignees = &assignees
 	}
-	if labels := argStrSlice(args, "labels"); len(labels) > 0 {
+	if labels, err := mcp.ArgStrSlice(args, "labels"); err != nil {
+		return mcp.ErrResult(err)
+	} else if len(labels) > 0 {
 		req.Labels = &labels
 	}
-	if m := argInt(args, "milestone"); m > 0 {
+	if m, err := mcp.ArgInt(args, "milestone"); err != nil {
+		return mcp.ErrResult(err)
+	} else if m > 0 {
 		req.Milestone = gh.Ptr(m)
 	}
-	issue, _, err := g.client.Issues.Edit(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), req)
+	issue, _, err := g.client.Issues.Edit(ctx, owner, repo, number, req)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(issue)
+	return mcp.JSONResult(issue)
 }
 
 func listIssueComments(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.IssueListCommentsOptions{ListOptions: listOpts(args)}
-	comments, _, err := g.client.Issues.ListComments(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.IssueListCommentsOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	comments, _, err := g.client.Issues.ListComments(ctx, owner, repo, number, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(comments)
+	return mcp.JSONResult(comments)
 }
 
 func createIssueComment(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	comment := &gh.IssueComment{Body: gh.Ptr(argStr(args, "body"))}
-	c, _, err := g.client.Issues.CreateComment(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), comment)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	body := r.Str("body")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	comment := &gh.IssueComment{Body: gh.Ptr(body)}
+	c, _, err := g.client.Issues.CreateComment(ctx, owner, repo, number, comment)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(c)
+	return mcp.JSONResult(c)
 }
 
 func listIssueLabels(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	labels, _, err := g.client.Issues.ListLabelsByIssue(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	labels, _, err := g.client.Issues.ListLabelsByIssue(ctx, owner, repo, number, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(labels)
+	return mcp.JSONResult(labels)
 }
 
 func addIssueLabels(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	labels := argStrSlice(args, "labels")
-	result, _, err := g.client.Issues.AddLabelsToIssue(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), labels)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	labels := r.StrSlice("labels")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	result, _, err := g.client.Issues.AddLabelsToIssue(ctx, owner, repo, number, labels)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(result)
+	return mcp.JSONResult(result)
 }
 
 func removeIssueLabel(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Issues.RemoveLabelForIssue(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), argStr(args, "label"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	label := r.Str("label")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Issues.RemoveLabelForIssue(ctx, owner, repo, number, label)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "removed"})
+	return mcp.JSONResult(map[string]string{"status": "removed"})
 }
 
 func lockIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	opts := &gh.LockIssueOptions{}
-	if reason := argStr(args, "lock_reason"); reason != "" {
+	if reason, err := mcp.ArgStr(args, "lock_reason"); err != nil {
+		return mcp.ErrResult(err)
+	} else if reason != "" {
 		opts.LockReason = reason
 	}
-	_, err := g.client.Issues.Lock(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	_, err := g.client.Issues.Lock(ctx, owner, repo, number, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "locked"})
+	return mcp.JSONResult(map[string]string{"status": "locked"})
 }
 
 func unlockIssue(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Issues.Unlock(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Issues.Unlock(ctx, owner, repo, number)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "unlocked"})
+	return mcp.JSONResult(map[string]string{"status": "unlocked"})
 }
 
 func listMilestones(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.MilestoneListOptions{
-		State:       argStr(args, "state"),
-		Sort:        argStr(args, "sort"),
-		ListOptions: listOpts(args),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	state := r.Str("state")
+	sort := r.Str("sort")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	milestones, _, err := g.client.Issues.ListMilestones(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	opts := &gh.MilestoneListOptions{
+		State:       state,
+		Sort:        sort,
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
+	}
+	milestones, _, err := g.client.Issues.ListMilestones(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(milestones)
+	return mcp.JSONResult(milestones)
 }
 
 func createMilestone(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	m := &gh.Milestone{
-		Title:       gh.Ptr(argStr(args, "title")),
-		Description: gh.Ptr(argStr(args, "description")),
-		State:       gh.Ptr(argStr(args, "state")),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	title := r.Str("title")
+	description := r.Str("description")
+	state := r.Str("state")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	if due := argStr(args, "due_on"); due != "" {
+	m := &gh.Milestone{
+		Title:       gh.Ptr(title),
+		Description: gh.Ptr(description),
+		State:       gh.Ptr(state),
+	}
+	if due, err := mcp.ArgStr(args, "due_on"); err != nil {
+		return mcp.ErrResult(err)
+	} else if due != "" {
 		if t, err := time.Parse(time.RFC3339, due); err == nil {
 			ts := gh.Timestamp{Time: t}
 			m.DueOn = &ts
 		}
 	}
-	milestone, _, err := g.client.Issues.CreateMilestone(ctx, argStr(args, "owner"), argStr(args, "repo"), m)
+	milestone, _, err := g.client.Issues.CreateMilestone(ctx, owner, repo, m)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(milestone)
+	return mcp.JSONResult(milestone)
 }
 
 func listIssueEvents(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	events, _, err := g.client.Issues.ListIssueEvents(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	events, _, err := g.client.Issues.ListIssueEvents(ctx, owner, repo, number, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(events)
+	return mcp.JSONResult(events)
 }
 
 func listIssueTimeline(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	events, _, err := g.client.Issues.ListIssueTimeline(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt(args, "number"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	number := r.Int("number")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	events, _, err := g.client.Issues.ListIssueTimeline(ctx, owner, repo, number, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(events)
+	return mcp.JSONResult(events)
 }
 
 func listAssignees(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	users, _, err := g.client.Issues.ListAssignees(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	users, _, err := g.client.Issues.ListAssignees(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(users)
+	return mcp.JSONResult(users)
 }

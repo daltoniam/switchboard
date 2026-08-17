@@ -1,0 +1,341 @@
+# Switchboard compaction specs for the sentry integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# sentry.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    sentry_get_event:
+        spec:
+            - eventID
+            - title
+            - message
+            - dateCreated
+            - tags
+            - entries
+            - context
+            - contexts
+            - user
+    sentry_get_issue:
+        spec:
+            - id
+            - shortId
+            - title
+            - level
+            - status
+            - count
+            - userCount
+            - firstSeen
+            - lastSeen
+            - assignedTo.name
+            - project.slug
+            - metadata
+            - type
+    sentry_get_issue_alert:
+        spec:
+            - id
+            - name
+            - status
+            - conditions
+            - actions
+            - filters
+            - dateCreated
+    sentry_get_issue_tag_values:
+        spec:
+            - key
+            - name
+            - value
+            - count
+            - lastSeen
+            - firstSeen
+    sentry_get_metric_alert:
+        spec:
+            - id
+            - name
+            - status
+            - dataset
+            - query
+            - aggregate
+            - triggers
+            - dateCreated
+    sentry_get_monitor:
+        spec:
+            - id
+            - slug
+            - name
+            - status
+            - type
+            - schedule
+            - config
+            - dateCreated
+            - project.slug
+    sentry_get_org_member:
+        spec:
+            - id
+            - email
+            - name
+            - role
+            - pending
+            - dateCreated
+            - teams
+    sentry_get_organization:
+        spec:
+            - id
+            - slug
+            - name
+            - status.id
+            - dateCreated
+            - features
+    sentry_get_project:
+        spec:
+            - id
+            - slug
+            - name
+            - platform
+            - dateCreated
+            - status
+            - features
+            - team.slug
+    sentry_get_release:
+        spec:
+            - version
+            - shortVersion
+            - dateCreated
+            - dateReleased
+            - newGroups
+            - projects[].slug
+            - firstEvent
+            - lastEvent
+            - authors
+    sentry_get_replay:
+        spec:
+            - id
+            - title
+            - duration
+            - countErrors
+            - startedAt
+            - finishedAt
+            - urls
+            - tags
+            - user
+    sentry_get_saved_query:
+        spec:
+            - id
+            - name
+            - query
+            - fields
+            - dateCreated
+            - dateUpdated
+            - createdBy
+    sentry_get_team:
+        spec:
+            - id
+            - slug
+            - name
+            - memberCount
+            - dateCreated
+    sentry_list_issue_alerts:
+        spec:
+            - id
+            - name
+            - status
+            - conditions
+            - actions
+            - dateCreated
+    sentry_list_issue_events:
+        spec:
+            - eventID
+            - title
+            - message
+            - dateCreated
+            - tags
+    sentry_list_issue_hashes:
+        spec:
+            - id
+            - latestEvent.eventID
+    sentry_list_issues:
+        spec:
+            - id
+            - shortId
+            - title
+            - level
+            - status
+            - count
+            - userCount
+            - firstSeen
+            - lastSeen
+            - assignedTo.name
+            - project.slug
+    sentry_list_metric_alerts:
+        spec:
+            - id
+            - name
+            - status
+            - dataset
+            - query
+            - aggregate
+            - dateCreated
+    sentry_list_monitors:
+        spec:
+            - id
+            - slug
+            - name
+            - status
+            - type
+            - schedule
+            - dateCreated
+            - project.slug
+    sentry_list_org_issues:
+        spec:
+            - id
+            - shortId
+            - title
+            - level
+            - status
+            - count
+            - userCount
+            - firstSeen
+            - lastSeen
+            - project.slug
+    sentry_list_org_members:
+        spec:
+            - id
+            - email
+            - name
+            - role
+            - pending
+            - dateCreated
+    sentry_list_org_projects:
+        spec:
+            - id
+            - slug
+            - name
+            - platform
+            - dateCreated
+            - status
+    sentry_list_org_repos:
+        spec:
+            - id
+            - name
+            - provider.id
+            - status
+            - dateCreated
+            - url
+    sentry_list_org_teams:
+        spec:
+            - id
+            - slug
+            - name
+            - memberCount
+            - dateCreated
+    sentry_list_project_envs:
+        spec:
+            - id
+            - name
+    sentry_list_project_events:
+        spec:
+            - eventID
+            - title
+            - message
+            - dateCreated
+            - tags
+    sentry_list_project_hooks:
+        spec:
+            - id
+            - url
+            - status
+            - events
+            - dateCreated
+    sentry_list_project_keys:
+        spec:
+            - id
+            - name
+            - label
+            - dsn.public
+            - dsn.secret
+            - dateCreated
+            - isActive
+    sentry_list_project_tags:
+        spec:
+            - key
+            - name
+            - totalValues
+    sentry_list_projects:
+        spec:
+            - id
+            - slug
+            - name
+            - platform
+            - dateCreated
+            - status
+    sentry_list_release_commits:
+        spec:
+            - id
+            - message
+            - author.name
+            - dateCreated
+    sentry_list_release_deploys:
+        spec:
+            - id
+            - environment
+            - name
+            - dateStarted
+            - dateFinished
+    sentry_list_release_files:
+        spec:
+            - id
+            - name
+            - size
+            - sha1
+            - dateCreated
+    sentry_list_releases:
+        spec:
+            - version
+            - shortVersion
+            - dateCreated
+            - dateReleased
+            - newGroups
+            - projects[].slug
+    sentry_list_replays:
+        spec:
+            - id
+            - title
+            - duration
+            - countErrors
+            - startedAt
+            - finishedAt
+            - urls
+    sentry_list_saved_queries:
+        spec:
+            - id
+            - name
+            - query
+            - fields
+            - dateCreated
+            - dateUpdated
+            - createdBy
+    sentry_list_team_projects:
+        spec:
+            - id
+            - slug
+            - name
+            - platform
+            - dateCreated
+    sentry_resolve_short_id:
+        spec:
+            - group.id
+            - group.title
+            - group.status
+            - group.level
+            - group.count
+            - shortId

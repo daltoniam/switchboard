@@ -1,0 +1,210 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type ClickHouseConnection struct {
+	Alias      string `json:"alias"`
+	Host       string `json:"host"`
+	Port       string `json:"port"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	Database   string `json:"database"`
+	Secure     string `json:"secure"`
+	SkipVerify string `json:"skip_verify"`
+}
+
+type ClickHouseSetupData struct {
+	Enabled     bool
+	Healthy     bool
+	Tools       []ToolInfo
+	Default     ClickHouseConnection
+	Connections []ClickHouseConnection
+}
+
+templ ClickHouseSetup(page layouts.PageData, data ClickHouseSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">ClickHouse</h1>
+			@components.Badge(healthLabel(data.Enabled, data.Healthy), healthBadge(data.Enabled, data.Healthy))
+		</div>
+		<form method="POST" action="/integrations/clickhouse">
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Default Connection</div>
+					@components.Toggle("enabled", data.Enabled)
+				</div>
+				<div>
+					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+						@components.FormGroup("host", "cred_host", "text", data.Default.Host, "localhost")
+						@components.FormGroup("port", "cred_port", "text", data.Default.Port, "9000")
+					</div>
+					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+						@components.FormGroup("username", "cred_username", "text", data.Default.Username, "default")
+						@components.FormGroup("password", "cred_password", "password", data.Default.Password, "Enter password")
+					</div>
+					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+						@components.FormGroup("database", "cred_database", "text", data.Default.Database, "default")
+						@components.FormGroup("secure", "cred_secure", "text", data.Default.Secure, "true for TLS")
+					</div>
+					@components.FormGroup("skip_verify", "cred_skip_verify", "text", data.Default.SkipVerify, "false")
+				</div>
+			</div>
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Additional Connections</div>
+					<button type="button" class="btn btn-sm btn-outline" onclick="addClickHouseConnection()">+ Add Connection</button>
+				</div>
+				<p style="color: var(--text-secondary); font-size: 0.8125rem; margin-bottom: 0.75rem;">
+					Add additional ClickHouse cluster connections. Each requires a unique alias used to target it via the <code style="background: var(--bg); padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-family: var(--font-mono);">connection</code> parameter.
+				</p>
+				<div id="clickhouse-connections-list">
+					for i, conn := range data.Connections {
+						@clickHouseConnectionCard(i, conn)
+					}
+				</div>
+			</div>
+			if len(data.Tools) > 0 {
+				<div class="card">
+					<div class="card-title" style="margin-bottom: 0.5rem;">Available Tools ({ fmt.Sprint(len(data.Tools)) })</div>
+					<div class="tools-hint">Operations this integration exposes through the MCP server.</div>
+					<div class="tools-rows">
+						for _, t := range data.Tools {
+							@components.ToolRow(t.Name, t.Description)
+						}
+					</div>
+				</div>
+			}
+			<button type="submit" class="btn">Save Configuration</button>
+		</form>
+		<template id="clickhouse-connection-template">
+			<div class="clickhouse-conn-card" style="background: var(--bg); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.5rem;">
+				<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+					<div class="form-group" style="margin-bottom: 0; flex: 1; margin-right: 0.5rem;">
+						<label class="form-label">alias</label>
+						<input class="form-input" type="text" data-field="alias" placeholder="e.g. affinity, driver, notifications" required/>
+					</div>
+					<button type="button" class="btn btn-sm btn-outline" onclick="removeClickHouseConnection(this)" style="margin-top: 1.1rem; color: var(--red);">Remove</button>
+				</div>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+					<div class="form-group">
+						<label class="form-label">host</label>
+						<input class="form-input" type="text" data-field="host" placeholder="cluster.region.clickhouse.cloud"/>
+					</div>
+					<div class="form-group">
+						<label class="form-label">port</label>
+						<input class="form-input" type="text" data-field="port" placeholder="9440"/>
+					</div>
+				</div>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+					<div class="form-group">
+						<label class="form-label">username</label>
+						<input class="form-input" type="text" data-field="username" placeholder="default"/>
+					</div>
+					<div class="form-group">
+						<label class="form-label">password</label>
+						<input class="form-input" type="password" data-field="password" placeholder="Enter password"/>
+					</div>
+				</div>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+					<div class="form-group">
+						<label class="form-label">database</label>
+						<input class="form-input" type="text" data-field="database" placeholder="default"/>
+					</div>
+					<div class="form-group">
+						<label class="form-label">secure</label>
+						<input class="form-input" type="text" data-field="secure" placeholder="true"/>
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="form-label">skip_verify</label>
+					<input class="form-input" type="text" data-field="skip_verify" placeholder="false"/>
+				</div>
+			</div>
+		</template>
+		<input type="hidden" name="cred_connections" id="clickhouse-connections-json" value=""/>
+		<script>
+			function addClickHouseConnection() {
+				var template = document.getElementById('clickhouse-connection-template');
+				var clone = template.content.cloneNode(true);
+				document.getElementById('clickhouse-connections-list').appendChild(clone);
+			}
+			function removeClickHouseConnection(btn) {
+				var card = btn.closest('.clickhouse-conn-card');
+				if (card) card.remove();
+			}
+			function gatherClickHouseConnections() {
+				var cards = document.querySelectorAll('#clickhouse-connections-list .clickhouse-conn-card');
+				var conns = [];
+				for (var i = 0; i < cards.length; i++) {
+					var card = cards[i];
+					var conn = {};
+					var inputs = card.querySelectorAll('[data-field]');
+					for (var j = 0; j < inputs.length; j++) {
+						var field = inputs[j].getAttribute('data-field');
+						var val = inputs[j].value;
+						if (val) conn[field] = val;
+					}
+					if (conn.alias) conns.push(conn);
+				}
+				document.getElementById('clickhouse-connections-json').value = conns.length > 0 ? JSON.stringify(conns) : '';
+			}
+			var form = document.querySelector('form[method="POST"]');
+			if (form) {
+				form.addEventListener('submit', function() {
+					gatherClickHouseConnections();
+				});
+			}
+		</script>
+	}
+}
+
+templ clickHouseConnectionCard(index int, conn ClickHouseConnection) {
+	<div class="clickhouse-conn-card" style="background: var(--bg); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.5rem;">
+		<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+			<div class="form-group" style="margin-bottom: 0; flex: 1; margin-right: 0.5rem;">
+				<label class="form-label">alias</label>
+				<input class="form-input" type="text" data-field="alias" value={ conn.Alias } placeholder="e.g. affinity, driver, notifications" required/>
+			</div>
+			<button type="button" class="btn btn-sm btn-outline" onclick="removeClickHouseConnection(this)" style="margin-top: 1.1rem; color: var(--red);">Remove</button>
+		</div>
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+			<div class="form-group">
+				<label class="form-label">host</label>
+				<input class="form-input" type="text" data-field="host" value={ conn.Host } placeholder="cluster.region.clickhouse.cloud"/>
+			</div>
+			<div class="form-group">
+				<label class="form-label">port</label>
+				<input class="form-input" type="text" data-field="port" value={ conn.Port } placeholder="9440"/>
+			</div>
+		</div>
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+			<div class="form-group">
+				<label class="form-label">username</label>
+				<input class="form-input" type="text" data-field="username" value={ conn.Username } placeholder="default"/>
+			</div>
+			<div class="form-group">
+				<label class="form-label">password</label>
+				<input class="form-input" type="password" data-field="password" value={ conn.Password } placeholder="Enter password"/>
+			</div>
+		</div>
+		<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+			<div class="form-group">
+				<label class="form-label">database</label>
+				<input class="form-input" type="text" data-field="database" value={ conn.Database } placeholder="default"/>
+			</div>
+			<div class="form-group">
+				<label class="form-label">secure</label>
+				<input class="form-input" type="text" data-field="secure" value={ conn.Secure } placeholder="true"/>
+			</div>
+		</div>
+		<div class="form-group">
+			<label class="form-label">skip_verify</label>
+			<input class="form-input" type="text" data-field="skip_verify" value={ conn.SkipVerify } placeholder="false"/>
+		</div>
+	</div>
+}

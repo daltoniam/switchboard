@@ -12,5 +12,5 @@ func getCallerIdentity(ctx context.Context, a *integration, _ map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }

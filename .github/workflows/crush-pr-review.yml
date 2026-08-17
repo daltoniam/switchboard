@@ -1,9 +1,9 @@
 name: Crush PR Review
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -12,11 +12,25 @@ permissions:
 jobs:
   crush-review:
     name: Crush PR Review
-    runs-on: [self-hosted, macOS]
+    runs-on: ubuntu-latest
+    # Only run when: CI passed, it was a PR event, and the PR is not from a fork
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.event.workflow_run.repository.full_name
     steps:
+      - name: Get PR number
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh api repos/${{ github.repository }}/commits/${{ github.event.workflow_run.head_sha }}/pulls --jq '.[0].number')
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: Setup Go environment
@@ -25,14 +39,26 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: Install Crush CLI
+        run: |
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+          sudo apt update && sudo apt install -y crush
+
       - name: Run Crush PR Review
         env:
-          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
-          AWS_REGION: us-east-1
+          CF_AIG_TOKEN: ${{ secrets.CF_AIG_TOKEN }}
+          CF_AIG_ACCOUNT_ID: ${{ secrets.CF_AIG_ACCOUNT_ID }}
+          CF_AIG_GATEWAY_ID: ${{ secrets.CF_AIG_GATEWAY_ID }}
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           CRUSH_SKILLS_DIR: ${{ github.workspace }}/.claude/skills
+          CRUSH_GLOBAL_CONFIG: ${{ github.workspace }}/.ci/crush
+          GOMAXPROCS: "1"
+          GOFLAGS: "-p=1"
         run: >
           crush run -c "${{ github.workspace }}"
-          "Review PR #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+          "Review PR #${{ steps.pr.outputs.number }} in ${{ github.repository }}.
+          CI has already passed for this PR. Do not rerun build, test, lint, go mod tidy, golangci-lint, or the full CI matrix. Inspect existing CI/status checks and focus on code review of the diff.
           Use the pr-review skill to do a full code review, then use the pr-comments skill to post your findings as inline comments on the PR.
           The repo is already checked out locally. Use gh CLI for all GitHub API interactions."

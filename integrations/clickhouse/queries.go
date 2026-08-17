@@ -11,12 +11,21 @@ import (
 )
 
 func executeQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	query := argStr(args, "query")
+	conn, err := c.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	db := r.Str("database")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if query == "" {
-		return errResult(fmt.Errorf("query is required"))
+		return mcp.ErrResult(fmt.Errorf("query is required"))
 	}
 
-	if db := argStr(args, "database"); db != "" {
+	if db != "" {
 		ctx = ch.Context(ctx, ch.WithSettings(ch.Settings{
 			"database": db,
 		}))
@@ -34,38 +43,45 @@ func executeQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*
 		strings.HasPrefix(upper, "EXPLAIN") ||
 		strings.HasPrefix(upper, "EXISTS") ||
 		strings.HasPrefix(upper, "WITH") {
-		data, err := c.query(ctx, query)
+		data, err := c.query(ctx, conn, query)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
-	if err := c.exec(ctx, query); err != nil {
-		return errResult(err)
+	if err := c.exec(ctx, conn, query); err != nil {
+		return mcp.ErrResult(err)
 	}
-	return rawResult([]byte(`{"status":"ok"}`))
+	return mcp.RawResult([]byte(`{"status":"ok"}`))
 }
 
 func explainQuery(ctx context.Context, c *clickhouseInt, args map[string]any) (*mcp.ToolResult, error) {
-	query := argStr(args, "query")
-	if query == "" {
-		return errResult(fmt.Errorf("query is required"))
+	conn, err := c.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-
-	explainType := strings.ToUpper(argStr(args, "type"))
+	r := mcp.NewArgs(args)
+	query := r.Str("query")
+	explainType := strings.ToUpper(r.Str("type"))
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if query == "" {
+		return mcp.ErrResult(fmt.Errorf("query is required"))
+	}
 	switch explainType {
 	case "PIPELINE", "SYNTAX", "AST", "ESTIMATE":
 	case "PLAN", "":
 		explainType = "PLAN"
 	default:
-		return errResult(fmt.Errorf("invalid explain type: %s (valid: PLAN, PIPELINE, SYNTAX, AST, ESTIMATE)", explainType))
+		return mcp.ErrResult(fmt.Errorf("invalid explain type: %s (valid: PLAN, PIPELINE, SYNTAX, AST, ESTIMATE)", explainType))
 	}
 
 	sql := "EXPLAIN " + explainType + " " + query // #nosec G201 -- explainType is validated against allowlist above; query is user-provided SQL (the tool's purpose)
-	data, err := c.query(ctx, sql)
+	data, err := c.query(ctx, conn, sql)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

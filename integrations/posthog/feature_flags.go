@@ -8,94 +8,151 @@ import (
 )
 
 func listFeatureFlags(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	q := queryEncode(map[string]string{
-		"search": argStr(args, "search"),
-		"active": argStr(args, "active"),
-		"type":   argStr(args, "type"),
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
-	})
-	data, err := p.get(ctx, "/api/projects/%s/feature_flags/%s", p.proj(args), q)
+	projID, err := p.proj(args)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	r := mcp.NewArgs(args)
+	q := queryEncode(map[string]string{
+		"search": r.Str("search"),
+		"active": r.Str("active"),
+		"type":   r.Str("type"),
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
+	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/feature_flags/%s", projID, q)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
 }
 
 func getFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/feature_flags/%s/", p.proj(args), argStr(args, "flag_id"))
+	projID, err := p.proj(args)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	flagID, err := mcp.ArgStr(args, "flag_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/feature_flags/%s/", projID, flagID)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
 }
 
 func createFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{"key": argStr(args, "key")}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	projID, err := p.proj(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	r := mcp.NewArgs(args)
+	key := r.Str("key")
+	name := r.Str("name")
+	active := r.Bool("active")
+	ensureExpCont := r.Bool("ensure_experience_continuity")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{"key": key}
+	if name != "" {
+		body["name"] = name
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
 	if _, ok := args["active"]; ok {
-		body["active"] = argBool(args, "active")
+		body["active"] = active
 	}
 	if _, ok := args["ensure_experience_continuity"]; ok {
-		body["ensure_experience_continuity"] = argBool(args, "ensure_experience_continuity")
+		body["ensure_experience_continuity"] = ensureExpCont
 	}
-	path := fmt.Sprintf("/api/projects/%s/feature_flags/", p.proj(args))
+	path := fmt.Sprintf("/api/projects/%s/feature_flags/", projID)
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{}
-	if v := argStr(args, "key"); v != "" {
-		body["key"] = v
+	projID, err := p.proj(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	r := mcp.NewArgs(args)
+	flagID := r.Str("flag_id")
+	key := r.Str("key")
+	name := r.Str("name")
+	active := r.Bool("active")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{}
+	if key != "" {
+		body["key"] = key
+	}
+	if name != "" {
+		body["name"] = name
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
 	if _, ok := args["active"]; ok {
-		body["active"] = argBool(args, "active")
+		body["active"] = active
 	}
-	path := fmt.Sprintf("/api/projects/%s/feature_flags/%s/", p.proj(args), argStr(args, "flag_id"))
+	path := fmt.Sprintf("/api/projects/%s/feature_flags/%s/", projID, flagID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteFeatureFlag(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/api/projects/%s/feature_flags/%s/", p.proj(args), argStr(args, "flag_id"))
+	projID, err := p.proj(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	flagID, err := mcp.ArgStr(args, "flag_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/api/projects/%s/feature_flags/%s/", projID, flagID)
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func featureFlagActivity(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
-	})
-	data, err := p.get(ctx, "/api/projects/%s/feature_flags/%s/activity/%s", p.proj(args), argStr(args, "flag_id"), q)
+	projID, err := p.proj(args)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	r := mcp.NewArgs(args)
+	flagID := r.Str("flag_id")
+	q := queryEncode(map[string]string{
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
+	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/feature_flags/%s/activity/%s", projID, flagID, q)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
 }

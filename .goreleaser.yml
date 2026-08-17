@@ -19,7 +19,10 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+      - -s -w
+      - -X github.com/daltoniam/switchboard/version.Version={{.Version}}
+      - -X github.com/daltoniam/switchboard/version.Commit={{.ShortCommit}}
+      - -X github.com/daltoniam/switchboard/version.Date={{.Date}}
 
 archives:
   - formats:
@@ -52,34 +55,43 @@ brews:
       name: homebrew-tap
     directory: Formula
     homepage: "https://github.com/daltoniam/switchboard"
-    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    description: "Unified MCP server aggregating 17+ integrations (GitHub, Datadog, Linear, Slack, AWS, GCP, and more) behind a single endpoint"
     license: "MIT"
-    install: |
-      bin.install "switchboard"
-    post_install: |
-      system bin/"switchboard", "daemon", "install"
-    pre_uninstall: |
-      system bin/"switchboard", "daemon", "uninstall"
-    service: |
-      run [opt_bin/"switchboard", "--port", "3847"]
-      keep_alive true
-      log_path var/"log/switchboard.log"
-      error_log_path var/"log/switchboard.log"
     test: |
-      system "#{bin}/switchboard", "--version"
+      system "#{bin}/switchboard", "--help"
+
+homebrew_casks:
+  - repository:
+      owner: daltoniam
+      name: homebrew-tap
+    directory: Casks
+    homepage: "https://github.com/daltoniam/switchboard"
+    description: "Unified MCP server aggregating 17+ integrations (GitHub, Datadog, Linear, Slack, AWS, GCP, and more) behind a single endpoint"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/switchboard"]
+          end
+    caveats: |
+      To start the background daemon, run:
+        switchboard daemon install
+
+      To uninstall the daemon before removing the cask, run:
+        switchboard daemon uninstall
 
 scoops:
   - repository:
       owner: daltoniam
       name: scoop-bucket
     homepage: "https://github.com/daltoniam/switchboard"
-    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    description: "Unified MCP server aggregating 17+ integrations (GitHub, Datadog, Linear, Slack, AWS, GCP, and more) behind a single endpoint"
     license: "MIT"
 
 nfpms:
   - package_name: switchboard
     homepage: "https://github.com/daltoniam/switchboard"
-    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
+    description: "Unified MCP server aggregating 17+ integrations (GitHub, Datadog, Linear, Slack, AWS, GCP, and more) behind a single endpoint"
     maintainer: "Austin Cherry <austin@daltoniam.com>"
     license: "MIT"
     formats:
@@ -96,17 +108,33 @@ nfpms:
       postinstall: scripts/postinstall.sh
       preremove: scripts/preremove.sh
 
-aurs:
-  - name: switchboard-bin
-    homepage: "https://github.com/daltoniam/switchboard"
-    description: "Unified MCP server aggregating GitHub, Datadog, Linear, Sentry, Slack, and Metabase behind a single endpoint"
-    maintainers:
-      - "Austin Cherry <austin@daltoniam.com>"
-    license: "MIT"
-    private_key: "{{ .Env.AUR_KEY }}"
-    git_url: "ssh://aur@aur.archlinux.org/switchboard-bin.git"
-    package: |-
-      install -Dm755 "./switchboard" "${pkgdir}/usr/bin/switchboard"
+dockers:
+  - image_templates:
+      - "ghcr.io/daltoniam/switchboard:{{ .Version }}-amd64"
+    use: buildx
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+  - image_templates:
+      - "ghcr.io/daltoniam/switchboard:{{ .Version }}-arm64"
+    use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+
+docker_manifests:
+  - name_template: "ghcr.io/daltoniam/switchboard:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/daltoniam/switchboard:{{ .Version }}-amd64"
+      - "ghcr.io/daltoniam/switchboard:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/daltoniam/switchboard:latest"
+    image_templates:
+      - "ghcr.io/daltoniam/switchboard:{{ .Version }}-amd64"
+      - "ghcr.io/daltoniam/switchboard:{{ .Version }}-arm64"
 
 release:
   github:

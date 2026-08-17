@@ -11,22 +11,29 @@ import (
 // ── Cycles ────────────────────────────────────────────────────────
 
 func listCycles(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	team := r.Str("team")
+	after := r.Str("after")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	filter := map[string]any{}
-	if team := argStr(args, "team"); team != "" {
+	if team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		filter["team"] = map[string]any{"id": map[string]any{"eq": teamID}}
 	}
 
 	vars := map[string]any{
-		"first": optInt(args, "first", 50),
+		"first": mcp.OptInt(args, "first", 50),
 	}
 	if len(filter) > 0 {
 		vars["filter"] = filter
 	}
-	if after := argStr(args, "after"); after != "" {
+	if after != "" {
 		vars["after"] = after
 	}
 
@@ -42,12 +49,16 @@ func listCycles(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 		}
 	}`, vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `query($id: String!) {
 		cycle(id: $id) {
 			id name number description
@@ -58,29 +69,39 @@ func getCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolRes
 				nodes { id identifier title state { name } assignee { name } priority }
 			}
 		}
-	}`, map[string]any{"id": argStr(args, "id")})
+	}`, map[string]any{"id": id})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
-	teamID, err := l.resolveTeamID(ctx, argStr(args, "team"))
+	r := mcp.NewArgs(args)
+	team := r.Str("team")
+	startsAt := r.Str("starts_at")
+	endsAt := r.Str("ends_at")
+	name := r.Str("name")
+	description := r.Str("description")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	teamID, err := l.resolveTeamID(ctx, team)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	input := map[string]any{
 		"teamId":   teamID,
-		"startsAt": argStr(args, "starts_at"),
-		"endsAt":   argStr(args, "ends_at"),
+		"startsAt": startsAt,
+		"endsAt":   endsAt,
 	}
-	if v := argStr(args, "name"); v != "" {
-		input["name"] = v
+	if name != "" {
+		input["name"] = name
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
 
 	data, err := l.gql(ctx, `mutation($input: CycleCreateInput!) {
@@ -89,51 +110,66 @@ func createCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateCycle(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	id := r.Str("id")
+	name := r.Str("name")
+	description := r.Str("description")
+	startsAt := r.Str("starts_at")
+	endsAt := r.Str("ends_at")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		input["name"] = v
+	if name != "" {
+		input["name"] = name
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
-	if v := argStr(args, "starts_at"); v != "" {
-		input["startsAt"] = v
+	if startsAt != "" {
+		input["startsAt"] = startsAt
 	}
-	if v := argStr(args, "ends_at"); v != "" {
-		input["endsAt"] = v
+	if endsAt != "" {
+		input["endsAt"] = endsAt
 	}
 
 	data, err := l.gql(ctx, `mutation($id: String!, $input: CycleUpdateInput!) {
 		cycleUpdate(id: $id, input: $input) {
 			cycle { id name number startsAt endsAt }
 		}
-	}`, map[string]any{"id": argStr(args, "id"), "input": input})
+	}`, map[string]any{"id": id, "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Labels ────────────────────────────────────────────────────────
 
 func listLabels(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	team, err := mcp.ArgStr(args, "team")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	filter := map[string]any{}
-	if team := argStr(args, "team"); team != "" {
+	if team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		filter["team"] = map[string]any{"id": map[string]any{"eq": teamID}}
 	}
 
 	vars := map[string]any{
-		"first": optInt(args, "first", 100),
+		"first": mcp.OptInt(args, "first", 100),
 	}
 	if len(filter) > 0 {
 		vars["filter"] = filter
@@ -149,25 +185,34 @@ func listLabels(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolR
 		}
 	}`, vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	color := r.Str("color")
+	description := r.Str("description")
+	team := r.Str("team")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{
-		"name": argStr(args, "name"),
+		"name": name,
 	}
-	if v := argStr(args, "color"); v != "" {
-		input["color"] = v
+	if color != "" {
+		input["color"] = color
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
-	if team := argStr(args, "team"); team != "" {
+	if team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["teamId"] = teamID
 	}
@@ -178,58 +223,76 @@ func createLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	id := r.Str("id")
+	name := r.Str("name")
+	color := r.Str("color")
+	description := r.Str("description")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		input["name"] = v
+	if name != "" {
+		input["name"] = name
 	}
-	if v := argStr(args, "color"); v != "" {
-		input["color"] = v
+	if color != "" {
+		input["color"] = color
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
 
 	data, err := l.gql(ctx, `mutation($id: String!, $input: IssueLabelUpdateInput!) {
 		issueLabelUpdate(id: $id, input: $input) {
 			issueLabel { id name color description }
 		}
-	}`, map[string]any{"id": argStr(args, "id"), "input": input})
+	}`, map[string]any{"id": id, "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteLabel(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `mutation($id: String!) {
 		issueLabelArchive(id: $id) { success }
-	}`, map[string]any{"id": argStr(args, "id")})
+	}`, map[string]any{"id": id})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Workflow States ───────────────────────────────────────────────
 
 func listWorkflowStates(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	team, err := mcp.ArgStr(args, "team")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	filter := map[string]any{}
-	if team := argStr(args, "team"); team != "" {
+	if team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		filter["team"] = map[string]any{"id": map[string]any{"eq": teamID}}
 	}
 
 	vars := map[string]any{
-		"first": optInt(args, "first", 50),
+		"first": mcp.OptInt(args, "first", 50),
 	}
 	if len(filter) > 0 {
 		vars["filter"] = filter
@@ -244,25 +307,35 @@ func listWorkflowStates(ctx context.Context, l *linear, args map[string]any) (*m
 		}
 	}`, vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createWorkflowState(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
-	teamID, err := l.resolveTeamID(ctx, argStr(args, "team"))
+	r := mcp.NewArgs(args)
+	team := r.Str("team")
+	name := r.Str("name")
+	stateType := r.Str("type")
+	color := r.Str("color")
+	description := r.Str("description")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	teamID, err := l.resolveTeamID(ctx, team)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	input := map[string]any{
 		"teamId": teamID,
-		"name":   argStr(args, "name"),
-		"type":   argStr(args, "type"),
-		"color":  argStr(args, "color"),
+		"name":   name,
+		"type":   stateType,
+		"color":  color,
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
 
 	data, err := l.gql(ctx, `mutation($input: WorkflowStateCreateInput!) {
@@ -271,21 +344,26 @@ func createWorkflowState(ctx context.Context, l *linear, args map[string]any) (*
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Documents ─────────────────────────────────────────────────────
 
 func listDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	project, err := mcp.ArgStr(args, "project")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	filter := map[string]any{}
-	if project := argStr(args, "project"); project != "" {
+	if project != "" {
 		filter["project"] = map[string]any{"name": map[string]any{"eqIgnoreCase": project}}
 	}
 
 	vars := map[string]any{
-		"first": optInt(args, "first", 50),
+		"first": mcp.OptInt(args, "first", 50),
 	}
 	if len(filter) > 0 {
 		vars["filter"] = filter
@@ -303,12 +381,16 @@ func listDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		}
 	}`, vars)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func searchDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	query, err := mcp.ArgStr(args, "query")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `query($term: String!, $first: Int) {
 		searchDocuments(term: $term, first: $first) {
 			nodes {
@@ -319,16 +401,20 @@ func searchDocuments(ctx context.Context, l *linear, args map[string]any) (*mcp.
 			}
 		}
 	}`, map[string]any{
-		"term":  argStr(args, "query"),
-		"first": optInt(args, "first", 25),
+		"term":  query,
+		"first": mcp.OptInt(args, "first", 25),
 	})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `query($id: String!) {
 		document(id: $id) {
 			id title icon color content slugId
@@ -336,25 +422,34 @@ func getDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.Tool
 			creator { id name }
 			project { id name }
 		}
-	}`, map[string]any{"id": argStr(args, "id")})
+	}`, map[string]any{"id": id})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	title := r.Str("title")
+	content := r.Str("content")
+	icon := r.Str("icon")
+	project := r.Str("project")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{
-		"title": argStr(args, "title"),
+		"title": title,
 	}
-	if v := argStr(args, "content"); v != "" {
-		input["content"] = v
+	if content != "" {
+		input["content"] = content
 	}
-	if v := argStr(args, "icon"); v != "" {
-		input["icon"] = v
+	if icon != "" {
+		input["icon"] = icon
 	}
-	if v := argStr(args, "project"); v != "" {
-		input["projectId"] = v
+	if project != "" {
+		input["projectId"] = project
 	}
 
 	data, err := l.gql(ctx, `mutation($input: DocumentCreateInput!) {
@@ -363,32 +458,41 @@ func createDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateDocument(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	id := r.Str("id")
+	title := r.Str("title")
+	content := r.Str("content")
+	icon := r.Str("icon")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{}
-	if v := argStr(args, "title"); v != "" {
-		input["title"] = v
+	if title != "" {
+		input["title"] = title
 	}
-	if v := argStr(args, "content"); v != "" {
-		input["content"] = v
+	if content != "" {
+		input["content"] = content
 	}
-	if v := argStr(args, "icon"); v != "" {
-		input["icon"] = v
+	if icon != "" {
+		input["icon"] = icon
 	}
 
 	data, err := l.gql(ctx, `mutation($id: String!, $input: DocumentUpdateInput!) {
 		documentUpdate(id: $id, input: $input) {
 			document { id title slugId updatedAt }
 		}
-	}`, map[string]any{"id": argStr(args, "id"), "input": input})
+	}`, map[string]any{"id": id, "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Initiatives ───────────────────────────────────────────────────
@@ -404,14 +508,18 @@ func listInitiatives(ctx context.Context, l *linear, args map[string]any) (*mcp.
 			}
 			pageInfo { hasNextPage endCursor }
 		}
-	}`, map[string]any{"first": optInt(args, "first", 50)})
+	}`, map[string]any{"first": mcp.OptInt(args, "first", 50)})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func getInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `query($id: String!) {
 		initiative(id: $id) {
 			id name description status icon color
@@ -419,25 +527,34 @@ func getInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 			owner { id name }
 			projects { nodes { id name state progress } }
 		}
-	}`, map[string]any{"id": argStr(args, "id")})
+	}`, map[string]any{"id": id})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	targetDate := r.Str("target_date")
+	status := r.Str("status")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{
-		"name": argStr(args, "name"),
+		"name": name,
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
-	if v := argStr(args, "target_date"); v != "" {
-		input["targetDate"] = v
+	if targetDate != "" {
+		input["targetDate"] = targetDate
 	}
-	if v := argStr(args, "status"); v != "" {
-		input["status"] = v
+	if status != "" {
+		input["status"] = status
 	}
 
 	data, err := l.gql(ctx, `mutation($input: InitiativeCreateInput!) {
@@ -446,35 +563,45 @@ func createInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateInitiative(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	id := r.Str("id")
+	name := r.Str("name")
+	description := r.Str("description")
+	targetDate := r.Str("target_date")
+	status := r.Str("status")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		input["name"] = v
+	if name != "" {
+		input["name"] = name
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
-	if v := argStr(args, "target_date"); v != "" {
-		input["targetDate"] = v
+	if targetDate != "" {
+		input["targetDate"] = targetDate
 	}
-	if v := argStr(args, "status"); v != "" {
-		input["status"] = v
+	if status != "" {
+		input["status"] = status
 	}
 
 	data, err := l.gql(ctx, `mutation($id: String!, $input: InitiativeUpdateInput!) {
 		initiativeUpdate(id: $id, input: $input) {
 			initiative { id name status updatedAt }
 		}
-	}`, map[string]any{"id": argStr(args, "id"), "input": input})
+	}`, map[string]any{"id": id, "input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Favorites ─────────────────────────────────────────────────────
@@ -493,24 +620,33 @@ func listFavorites(ctx context.Context, l *linear, _ map[string]any) (*mcp.ToolR
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createFavorite(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	issueID := r.Str("issue_id")
+	projectID := r.Str("project_id")
+	cycleID := r.Str("cycle_id")
+	customViewID := r.Str("custom_view_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{}
-	if v := argStr(args, "issue_id"); v != "" {
-		input["issueId"] = v
+	if issueID != "" {
+		input["issueId"] = issueID
 	}
-	if v := argStr(args, "project_id"); v != "" {
-		input["projectId"] = v
+	if projectID != "" {
+		input["projectId"] = projectID
 	}
-	if v := argStr(args, "cycle_id"); v != "" {
-		input["cycleId"] = v
+	if cycleID != "" {
+		input["cycleId"] = cycleID
 	}
-	if v := argStr(args, "custom_view_id"); v != "" {
-		input["customViewId"] = v
+	if customViewID != "" {
+		input["customViewId"] = customViewID
 	}
 
 	data, err := l.gql(ctx, `mutation($input: FavoriteCreateInput!) {
@@ -519,19 +655,23 @@ func createFavorite(ctx context.Context, l *linear, args map[string]any) (*mcp.T
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteFavorite(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `mutation($id: String!) {
 		favoriteDelete(id: $id) { success }
-	}`, map[string]any{"id": argStr(args, "id")})
+	}`, map[string]any{"id": id})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Webhooks ──────────────────────────────────────────────────────
@@ -549,29 +689,39 @@ func listWebhooks(ctx context.Context, l *linear, _ map[string]any) (*mcp.ToolRe
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createWebhook(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	url := r.Str("url")
+	label := r.Str("label")
+	resourceTypes := r.Str("resource_types")
+	team := r.Str("team")
+	allPublicTeams := r.Bool("all_public_teams")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{
-		"url": argStr(args, "url"),
+		"url": url,
 	}
-	if v := argStr(args, "label"); v != "" {
-		input["label"] = v
+	if label != "" {
+		input["label"] = label
 	}
-	if v := argStr(args, "resource_types"); v != "" {
-		input["resourceTypes"] = strings.Split(v, ",")
+	if resourceTypes != "" {
+		input["resourceTypes"] = strings.Split(resourceTypes, ",")
 	}
-	if team := argStr(args, "team"); team != "" {
+	if team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["teamId"] = teamID
 	}
-	if argBool(args, "all_public_teams") {
+	if allPublicTeams {
 		input["allPublicTeams"] = true
 	}
 
@@ -581,19 +731,23 @@ func createWebhook(ctx context.Context, l *linear, args map[string]any) (*mcp.To
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteWebhook(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := mcp.ArgStr(args, "id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := l.gql(ctx, `mutation($id: String!) {
 		webhookDelete(id: $id) { success }
-	}`, map[string]any{"id": argStr(args, "id")})
+	}`, map[string]any{"id": id})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Notifications ─────────────────────────────────────────────────
@@ -615,11 +769,11 @@ func listNotifications(ctx context.Context, l *linear, args map[string]any) (*mc
 				}
 			}
 		}
-	}`, map[string]any{"first": optInt(args, "first", 50)})
+	}`, map[string]any{"first": mcp.OptInt(args, "first", 50)})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Templates ─────────────────────────────────────────────────────
@@ -633,9 +787,9 @@ func listTemplates(ctx context.Context, l *linear, _ map[string]any) (*mcp.ToolR
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Organization ──────────────────────────────────────────────────
@@ -652,9 +806,9 @@ func getOrganization(ctx context.Context, l *linear, _ map[string]any) (*mcp.Too
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Custom Views ──────────────────────────────────────────────────
@@ -671,45 +825,57 @@ func listCustomViews(ctx context.Context, l *linear, args map[string]any) (*mcp.
 				createdAt updatedAt
 			}
 		}
-	}`, map[string]any{"first": optInt(args, "first", 50)})
+	}`, map[string]any{"first": mcp.OptInt(args, "first", 50)})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func createCustomView(ctx context.Context, l *linear, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	team := r.Str("team")
+	filterState := r.Str("filter_state")
+	filterAssignee := r.Str("filter_assignee")
+	filterLabel := r.Str("filter_label")
+	filterPriority := r.Int("filter_priority")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := map[string]any{
-		"name": argStr(args, "name"),
+		"name": name,
 	}
-	if v := argStr(args, "description"); v != "" {
-		input["description"] = v
+	if description != "" {
+		input["description"] = description
 	}
-	if team := argStr(args, "team"); team != "" {
+	if team != "" {
 		teamID, err := l.resolveTeamID(ctx, team)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
 		input["teamId"] = teamID
 	}
 
 	filterData := map[string]any{}
-	if v := argStr(args, "filter_state"); v != "" {
-		names := strings.Split(v, ",")
+	if filterState != "" {
+		names := strings.Split(filterState, ",")
 		filterData["state"] = map[string]any{"name": map[string]any{"in": names}}
 	}
-	if v := argStr(args, "filter_assignee"); v != "" {
-		if v == "me" {
+	if filterAssignee != "" {
+		if filterAssignee == "me" {
 			filterData["assignee"] = map[string]any{"isMe": map[string]any{"eq": true}}
 		} else {
-			filterData["assignee"] = map[string]any{"name": map[string]any{"eqIgnoreCase": v}}
+			filterData["assignee"] = map[string]any{"name": map[string]any{"eqIgnoreCase": filterAssignee}}
 		}
 	}
-	if v := argStr(args, "filter_label"); v != "" {
-		filterData["labels"] = map[string]any{"name": map[string]any{"eqIgnoreCase": v}}
+	if filterLabel != "" {
+		filterData["labels"] = map[string]any{"name": map[string]any{"eqIgnoreCase": filterLabel}}
 	}
-	if v := argInt(args, "filter_priority"); v > 0 {
-		filterData["priority"] = map[string]any{"eq": v}
+	if filterPriority > 0 {
+		filterData["priority"] = map[string]any{"eq": filterPriority}
 	}
 	if len(filterData) > 0 {
 		input["filterData"] = filterData
@@ -721,9 +887,9 @@ func createCustomView(ctx context.Context, l *linear, args map[string]any) (*mcp
 		}
 	}`, map[string]any{"input": input})
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 // ── Rate Limit ────────────────────────────────────────────────────
@@ -740,9 +906,9 @@ func rateLimitStatus(ctx context.Context, l *linear, _ map[string]any) (*mcp.Too
 		}
 	}`, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 var _ = fmt.Sprintf

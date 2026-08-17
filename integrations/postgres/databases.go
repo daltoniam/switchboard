@@ -2,31 +2,80 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 
 	mcp "github.com/daltoniam/switchboard"
 )
 
-func listSchemas(ctx context.Context, p *postgres, _ map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.query(ctx, `
+func listDatabases(_ context.Context, p *postgres, _ map[string]any) (*mcp.ToolResult, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	type dbInfo struct {
+		Alias    string `json:"alias"`
+		Host     string `json:"host"`
+		Database string `json:"database"`
+		ReadOnly bool   `json:"read_only"`
+		Default  bool   `json:"is_default"`
+	}
+
+	aliases := make([]string, 0, len(p.conns))
+	for alias := range p.conns {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+
+	results := make([]dbInfo, 0, len(p.conns))
+	for _, alias := range aliases {
+		c := p.conns[alias]
+		results = append(results, dbInfo{
+			Alias:    alias,
+			Host:     c.host,
+			Database: c.dbName,
+			ReadOnly: c.readOnly,
+			Default:  alias == p.defaultAlias,
+		})
+	}
+
+	data, err := json.Marshal(results)
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("marshal error: %w", err))
+	}
+	return mcp.RawResult(json.RawMessage(data))
+}
+
+func listSchemas(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	data, err := p.query(ctx, conn, `
 		SELECT schema_name, 
 		       schema_owner,
 		       CASE WHEN schema_name IN ('pg_catalog', 'information_schema', 'pg_toast') THEN true ELSE false END AS is_system
 		FROM information_schema.schemata
 		ORDER BY schema_name`)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listTables(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT c.relname AS table_name,
 		       pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size,
 		       pg_size_pretty(pg_relation_size(c.oid)) AS data_size,
@@ -40,22 +89,27 @@ func listTables(ctx context.Context, p *postgres, args map[string]any) (*mcp.Too
 		  AND c.relkind = 'r'
 		ORDER BY c.relname`, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func describeTable(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
-	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	schema := argStr(args, "schema")
+
+	table, _ := mcp.ArgStr(args, "table")
+	if table == "" {
+		return mcp.ErrResult(fmt.Errorf("table is required"))
+	}
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT c.column_name,
 		       c.data_type,
 		       c.character_maximum_length,
@@ -77,43 +131,53 @@ func describeTable(ctx context.Context, p *postgres, args map[string]any) (*mcp.
 		WHERE c.table_schema = $1 AND c.table_name = $2
 		ORDER BY c.ordinal_position`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listColumns(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
-	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	schema := argStr(args, "schema")
+
+	table, _ := mcp.ArgStr(args, "table")
+	if table == "" {
+		return mcp.ErrResult(fmt.Errorf("table is required"))
+	}
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT column_name, data_type, is_nullable, column_default, ordinal_position
 		FROM information_schema.columns
 		WHERE table_schema = $1 AND table_name = $2
 		ORDER BY ordinal_position`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listIndexes(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
-	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	schema := argStr(args, "schema")
+
+	table, _ := mcp.ArgStr(args, "table")
+	if table == "" {
+		return mcp.ErrResult(fmt.Errorf("table is required"))
+	}
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT i.relname AS index_name,
 		       ix.indisunique AS is_unique,
 		       ix.indisprimary AS is_primary,
@@ -126,22 +190,27 @@ func listIndexes(ctx context.Context, p *postgres, args map[string]any) (*mcp.To
 		WHERE n.nspname = $1 AND t.relname = $2
 		ORDER BY i.relname`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listConstraints(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
-	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	schema := argStr(args, "schema")
+
+	table, _ := mcp.ArgStr(args, "table")
+	if table == "" {
+		return mcp.ErrResult(fmt.Errorf("table is required"))
+	}
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT tc.constraint_name,
 		       tc.constraint_type,
 		       tc.table_name,
@@ -160,22 +229,27 @@ func listConstraints(ctx context.Context, p *postgres, args map[string]any) (*mc
 		WHERE tc.table_schema = $1 AND tc.table_name = $2
 		ORDER BY tc.constraint_type, tc.constraint_name`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listForeignKeys(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	table := argStr(args, "table")
-	if table == "" {
-		return errResult(fmt.Errorf("table is required"))
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	schema := argStr(args, "schema")
+
+	table, _ := mcp.ArgStr(args, "table")
+	if table == "" {
+		return mcp.ErrResult(fmt.Errorf("table is required"))
+	}
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT tc.constraint_name,
 		       kcu.column_name AS from_column,
 		       ccu.table_schema AS to_schema,
@@ -194,18 +268,23 @@ func listForeignKeys(ctx context.Context, p *postgres, args map[string]any) (*mc
 		  AND tc.table_schema = $1 AND tc.table_name = $2
 		ORDER BY tc.constraint_name`, schema, table)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listViews(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT table_name AS view_name,
 		       view_definition,
 		       is_updatable,
@@ -214,18 +293,23 @@ func listViews(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 		WHERE table_schema = $1
 		ORDER BY table_name`, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listFunctions(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT p.proname AS function_name,
 		       pg_get_function_arguments(p.oid) AS arguments,
 		       pg_get_function_result(p.oid) AS return_type,
@@ -237,17 +321,22 @@ func listFunctions(ctx context.Context, p *postgres, args map[string]any) (*mcp.
 		WHERE n.nspname = $1
 		ORDER BY p.proname`, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listTriggers(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
-	table := argStr(args, "table")
+	table, _ := mcp.ArgStr(args, "table")
 
 	q := `
 		SELECT trigger_name,
@@ -261,28 +350,33 @@ func listTriggers(ctx context.Context, p *postgres, args map[string]any) (*mcp.T
 
 	if table != "" {
 		q += ` AND event_object_table = $2 ORDER BY trigger_name`
-		data, err := p.query(ctx, q, schema, table)
+		data, err := p.query(ctx, conn, q, schema, table)
 		if err != nil {
-			return errResult(err)
+			return mcp.ErrResult(err)
 		}
-		return rawResult(data)
+		return mcp.RawResult(data)
 	}
 
 	q += ` ORDER BY event_object_table, trigger_name`
-	data, err := p.query(ctx, q, schema)
+	data, err := p.query(ctx, conn, q, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listEnums(ctx context.Context, p *postgres, args map[string]any) (*mcp.ToolResult, error) {
-	schema := argStr(args, "schema")
+	conn, err := p.getConnForArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	schema, _ := mcp.ArgStr(args, "schema")
 	if schema == "" {
 		schema = "public"
 	}
 
-	data, err := p.query(ctx, `
+	data, err := p.query(ctx, conn, `
 		SELECT t.typname AS enum_name,
 		       array_agg(e.enumlabel ORDER BY e.enumsortorder) AS values
 		FROM pg_type t
@@ -292,7 +386,7 @@ func listEnums(ctx context.Context, p *postgres, args map[string]any) (*mcp.Tool
 		GROUP BY t.typname
 		ORDER BY t.typname`, schema)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }

@@ -10,9 +10,12 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 	"github.com/daltoniam/switchboard/project"
+	"github.com/daltoniam/switchboard/version"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -23,6 +26,7 @@ type ProjectRouter struct {
 	services *mcp.Services
 	store    *project.Store
 	serverID string
+	search   SearchIndex
 
 	mu      sync.RWMutex
 	servers map[string]*projectMCPServer
@@ -35,7 +39,7 @@ type projectMCPServer struct {
 
 // NewProjectRouter creates a router that dispatches /mcp/{project} requests
 // to per-project MCP servers with tool scoping and context delivery.
-func NewProjectRouter(services *mcp.Services, store *project.Store, serverID string) *ProjectRouter {
+func NewProjectRouter(services *mcp.Services, store *project.Store, serverID string, search SearchIndex) *ProjectRouter {
 	if serverID == "" {
 		serverID = defaultServerID
 	}
@@ -43,6 +47,7 @@ func NewProjectRouter(services *mcp.Services, store *project.Store, serverID str
 		services: services,
 		store:    store,
 		serverID: serverID,
+		search:   search,
 		servers:  make(map[string]*projectMCPServer),
 	}
 }
@@ -62,7 +67,7 @@ func (pr *ProjectRouter) Handler() http.Handler {
 			return
 		}
 
-		handler := mcpsdk.NewStreamableHTTPHandler(
+		handler := AppSessionMiddleware(mcpsdk.NewStreamableHTTPHandler(
 			func(_ *http.Request) *mcpsdk.Server {
 				return srv.mcpSrv
 			},
@@ -70,7 +75,7 @@ func (pr *ProjectRouter) Handler() http.Handler {
 				Stateless: true,
 				Logger:    slog.Default(),
 			},
-		)
+		))
 		handler.ServeHTTP(w, r)
 	})
 }
@@ -101,14 +106,15 @@ func (pr *ProjectRouter) buildServer(def *project.Definition) *projectMCPServer 
 	mcpSrv := mcpsdk.NewServer(
 		&mcpsdk.Implementation{
 			Name:    "switchboard",
-			Version: "0.2.0",
+			Version: version.String(),
 		},
 		&mcpsdk.ServerOptions{
 			Instructions: fmt.Sprintf(
-				"Project-scoped MCP server for %q. Use the search tool to discover available operations and project_context to retrieve project context.",
+				"Project-scoped MCP server for %q. Use the search tool to discover available operations — do not guess tool names. Use project_context to retrieve project context.",
 				def.Name,
 			),
-			Logger: slog.Default(),
+			Logger:       slog.Default(),
+			Capabilities: staticMCPCapabilities(),
 		},
 	)
 
@@ -184,6 +190,9 @@ Use search first to discover available tools and their parameter schemas.`,
 
 func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.ToolHandler {
 	return func(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+		if pr.services.Metrics != nil {
+			pr.services.Metrics.RecordSearch()
+		}
 		var args struct {
 			Query  string `json:"query"`
 			Limit  *int   `json:"limit"`
@@ -204,45 +213,33 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 		}
 		query := strings.ToLower(args.Query)
 
-		type toolInfo struct {
-			Integration string            `json:"integration"`
-			Name        string            `json:"name"`
-			Description string            `json:"description"`
-			Parameters  map[string]string `json:"parameters"`
-			Required    []string          `json:"required,omitempty"`
+		// Filter indexed tools to project-permitted ones.
+		var permitted []toolWithIntegration
+		for _, ti := range pr.search.AllTools {
+			if project.IsToolPermitted(string(ti.Tool.Name), scopeRule) {
+				permitted = append(permitted, ti)
+			}
 		}
 
-		enabled := pr.services.Config.EnabledIntegrations()
-		var all []toolInfo
-
-		for _, name := range enabled {
-			integration, ok := pr.services.Registry.Get(name)
-			if !ok {
-				continue
+		// Score if query present, otherwise return all alphabetically.
+		var results []searchToolInfo
+		if query != "" {
+			for _, r := range scoreTools(query, permitted, pr.search.IDF, pr.search.SynMap) {
+				results = append(results, toToolInfo(r))
 			}
-
-			permitted := project.FilterTools(integration.Tools(), scopeRule)
-			for _, tool := range permitted {
-				if query == "" || matches(tool, name, query) {
-					all = append(all, toolInfo{
-						Integration: name,
-						Name:        tool.Name,
-						Description: tool.Description,
-						Parameters:  tool.Parameters,
-						Required:    tool.Required,
-					})
+		} else {
+			for _, ti := range permitted {
+				results = append(results, toolDefToInfo(ti.Integration, ti.Tool))
+			}
+			slices.SortFunc(results, func(a, b searchToolInfo) int {
+				if c := cmp.Compare(a.Integration, b.Integration); c != 0 {
+					return c
 				}
-			}
+				return cmp.Compare(a.Name, b.Name)
+			})
 		}
 
-		slices.SortFunc(all, func(a, b toolInfo) int {
-			if c := cmp.Compare(a.Integration, b.Integration); c != 0 {
-				return c
-			}
-			return cmp.Compare(a.Name, b.Name)
-		})
-
-		total := len(all)
+		total := len(results)
 		offset := args.Offset
 		if offset > total {
 			offset = total
@@ -251,16 +248,16 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 		if end > total {
 			end = total
 		}
-		page := all[offset:end]
+		page := results[offset:end]
 
 		type response struct {
-			Summary      string     `json:"summary"`
-			Total        int        `json:"total"`
-			Offset       int        `json:"offset"`
-			Limit        int        `json:"limit"`
-			HasMore      bool       `json:"has_more"`
-			Integrations []string   `json:"integrations"`
-			Tools        []toolInfo `json:"tools"`
+			Summary      string           `json:"summary"`
+			Total        int              `json:"total"`
+			Offset       int              `json:"offset"`
+			Limit        int              `json:"limit"`
+			HasMore      bool             `json:"has_more"`
+			Integrations []string         `json:"integrations"`
+			Tools        []searchToolInfo `json:"tools"`
 		}
 
 		summary := fmt.Sprintf("Found %d tools", total)
@@ -268,15 +265,18 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 			summary += fmt.Sprintf(" matching %q", args.Query)
 		}
 
-		data, _ := json.Marshal(response{
+		data, err := json.Marshal(response{
 			Summary:      summary,
 			Total:        total,
 			Offset:       offset,
 			Limit:        limit,
 			HasMore:      limit > 0 && offset+limit < total,
-			Integrations: enabled,
+			Integrations: pr.services.Config.EnabledIntegrations(),
 			Tools:        page,
 		})
+		if err != nil {
+			return errorResult("marshal search response: " + err.Error()), nil
+		}
 
 		return &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: string(data)}},
@@ -287,7 +287,7 @@ func (pr *ProjectRouter) makeSearchHandler(scopeRule *project.ScopeRule) mcpsdk.
 func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *project.ScopeRule) mcpsdk.ToolHandler {
 	return func(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 		var args struct {
-			ToolName  string         `json:"tool_name"`
+			ToolName  mcp.ToolName   `json:"tool_name"`
 			Arguments map[string]any `json:"arguments"`
 			Script    string         `json:"script"`
 		}
@@ -303,32 +303,46 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 			return errorResult("tool_name is required"), nil
 		}
 
-		if !project.IsToolPermitted(args.ToolName, scopeRule) {
+		toolStr := string(args.ToolName)
+		if !project.IsToolPermitted(toolStr, scopeRule) {
 			return errorResult(fmt.Sprintf("tool %q is denied by project scoping rules", args.ToolName)), nil
 		}
 
 		if args.Arguments == nil {
 			args.Arguments = map[string]any{}
 		}
-		args.Arguments = project.ResolveDefaults(args.ToolName, scopeRule, args.Arguments)
+		args.Arguments = project.ResolveDefaults(toolStr, scopeRule, args.Arguments)
 
-		integration, found := pr.findIntegration(args.ToolName)
+		integration, found := pr.findIntegration(toolStr)
 		if !found {
 			return errorResult(fmt.Sprintf("tool %q not found. Use the search tool to discover available tools.", args.ToolName)), nil
 		}
 
-		result, err := integration.Execute(ctx, args.ToolName, args.Arguments)
+		tool := args.ToolName
+		callStart := time.Now()
+		result, err := integration.Execute(ctx, tool, args.Arguments)
+		callDuration := time.Since(callStart)
 		if err != nil {
+			if pr.services.Metrics != nil {
+				pr.services.Metrics.RecordExecution(mcp.IntegrationName(integration.Name()), tool, callDuration, true, 0)
+			}
 			return errorResult(err.Error()), nil
 		}
 
-		if !result.IsError {
-			result.Data = compactResult(integration, args.ToolName, result.Data)
+		if pr.services.Metrics != nil {
+			pr.services.Metrics.RecordExecution(mcp.IntegrationName(integration.Name()), tool, callDuration, result.IsError, 0)
+		}
 
-			if len(result.Data) > maxResponseBytes {
+		applyResultProcessing(integration, tool, compact.ParseViewArgs(args.Arguments), result, pr.services.Metrics)
+		if !result.IsError {
+			limit := responseLimitFor(integration, tool)
+			if len(result.Data) > limit {
+				if pr.services.Metrics != nil {
+					pr.services.Metrics.RecordTruncation()
+				}
 				return errorResult(fmt.Sprintf(
 					"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
-					maxResponseBytes/1024, len(result.Data)/1024,
+					limit/1024, len(result.Data)/1024,
 				)), nil
 			}
 		}
@@ -347,7 +361,7 @@ func (pr *ProjectRouter) findIntegration(toolName string) (mcp.Integration, bool
 			continue
 		}
 		for _, tool := range integration.Tools() {
-			if tool.Name == toolName {
+			if string(tool.Name) == toolName {
 				return integration, true
 			}
 		}
@@ -661,7 +675,7 @@ func (pr *ProjectRouter) makeProjectToolsHandler(boundDef *project.Definition) m
 				continue
 			}
 			for _, tool := range project.FilterTools(integration.Tools(), rule) {
-				toolNames = append(toolNames, tool.Name)
+				toolNames = append(toolNames, string(tool.Name))
 			}
 		}
 

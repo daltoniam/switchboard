@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,16 +15,40 @@ import (
 )
 
 func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	cmdArgs := []string{"run", ".rwx/ci.yml", "--output", "json"}
+	ra := mcp.NewArgs(args)
+	workflow := ra.Str("workflow")
+	wait := ra.Bool("wait")
+	title := ra.Str("title")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if workflow == "" {
+		workflow = ".rwx/ci.yml"
+	}
+	cmdArgs := []string{"run", workflow, "--output", "json"}
 
-	wait := argBool(args, "wait")
 	if wait {
-		cmdArgs = append(cmdArgs, "--wait")
+		cmdArgs = append(cmdArgs, "--wait", "--fail-fast")
 	}
 
-	targets := argStrSlice(args, "targets")
+	targets, err := mcp.ArgStrSlice(args, "targets")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	for _, t := range targets {
 		cmdArgs = append(cmdArgs, "--target", t)
+	}
+
+	if title != "" {
+		cmdArgs = append(cmdArgs, "--title", title)
+	}
+
+	initParams, err := mcp.ArgMap(args, "init")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	for k, v := range initParams {
+		cmdArgs = append(cmdArgs, "--init", fmt.Sprintf("%s=%v", k, v))
 	}
 
 	var timeoutMs int
@@ -30,9 +56,9 @@ func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResul
 		timeoutMs = 30 * 60 * 1000 // 30 min
 	}
 
-	output, err := runRWXCommand(cmdArgs, timeoutMs)
+	output, err := r.runRWXCommand(cmdArgs, timeoutMs)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
 	var parsed struct {
@@ -42,12 +68,12 @@ func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResul
 		Execution string `json:"execution"`
 	}
 	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		return errResult(fmt.Errorf("parse run output: %w", err))
+		return mcp.ErrResult(fmt.Errorf("parse run output: %w", err))
 	}
 
 	runURL := parsed.RunURL
 	if runURL == "" {
-		runURL = fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, parsed.RunID)
+		runURL = fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, parsed.RunID)
 	}
 
 	if wait {
@@ -63,14 +89,14 @@ func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResul
 		} else {
 			resp["next_step"] = "Run completed successfully"
 		}
-		result, _ := jsonResult(resp)
+		result, _ := mcp.JSONResult(resp)
 		if status == "failure" {
 			result.IsError = true
 		}
 		return result, nil
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"completed": false,
 		"run_id":    parsed.RunID,
 		"status":    "launched",
@@ -79,15 +105,104 @@ func launchCIRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResul
 	})
 }
 
-func waitForCIRun(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "run_id"))
-	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, id)
+func dispatchRun(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
+	ra := mcp.NewArgs(args)
+	dispatchKey := ra.Str("dispatch_key")
+	ref := ra.Str("ref")
+	wait := ra.Bool("wait")
+	title := ra.Str("title")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 
-	timeoutSec := argInt(args, "timeout_seconds")
+	cmdArgs := []string{"dispatch", dispatchKey, "--output", "json"}
+	if ref != "" {
+		cmdArgs = append(cmdArgs, "--ref", ref)
+	}
+	if wait {
+		cmdArgs = append(cmdArgs, "--wait", "--fail-fast")
+	}
+	if title != "" {
+		cmdArgs = append(cmdArgs, "--title", title)
+	}
+
+	params, err := mcp.ArgMap(args, "params")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	for k, v := range params {
+		cmdArgs = append(cmdArgs, "--param", fmt.Sprintf("%s=%v", k, v))
+	}
+
+	var timeoutMs int
+	if wait {
+		timeoutMs = 30 * 60 * 1000
+	}
+
+	output, err := r.runRWXCommand(cmdArgs, timeoutMs)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	var parsed struct {
+		RunID     string `json:"run_id"`
+		RunURL    string `json:"run_url"`
+		Result    string `json:"result"`
+		Execution string `json:"execution"`
+	}
+	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
+		return mcp.ErrResult(fmt.Errorf("parse dispatch output: %w", err))
+	}
+
+	runURL := parsed.RunURL
+	if runURL == "" {
+		runURL = fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, parsed.RunID)
+	}
+
+	if wait {
+		status := normalizeStatus(parsed.Result)
+		resp := map[string]any{
+			"completed": true,
+			"run_id":    parsed.RunID,
+			"status":    status,
+			"url":       runURL,
+		}
+		if status == "failure" {
+			resp["next_step"] = "Use rwx_get_run_results to see task failures, or rwx_grep_logs to search for errors"
+		} else {
+			resp["next_step"] = "Run completed successfully"
+		}
+		result, _ := mcp.JSONResult(resp)
+		if status == "failure" {
+			result.IsError = true
+		}
+		return result, nil
+	}
+
+	return mcp.JSONResult(map[string]any{
+		"completed": false,
+		"run_id":    parsed.RunID,
+		"status":    "launched",
+		"url":       runURL,
+		"next_step": "Use rwx_wait_for_ci_run to wait for completion, or dispatch with wait=true",
+	})
+}
+
+func waitForCIRun(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
+	ra := mcp.NewArgs(args)
+	runIDRaw := ra.Str("run_id")
+	timeoutSec := ra.Int("timeout_seconds")
+	pollSec := ra.Int("poll_interval_seconds")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	id := extractRunID(runIDRaw)
+	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
+
 	if timeoutSec <= 0 {
 		timeoutSec = 1800
 	}
-	pollSec := argInt(args, "poll_interval_seconds")
 	if pollSec <= 0 {
 		pollSec = 30
 	}
@@ -103,12 +218,12 @@ func waitForCIRun(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRe
 		if err != nil {
 			consecutiveErrors++
 			if consecutiveErrors >= 5 {
-				return errResult(fmt.Errorf("failed to fetch run status after 5 consecutive errors: %w", err))
+				return mcp.ErrResult(fmt.Errorf("failed to fetch run status after 5 consecutive errors: %w", err))
 			}
 		} else {
 			consecutiveErrors = 0
 			if isComplete {
-				return jsonResult(map[string]any{
+				return mcp.JSONResult(map[string]any{
 					"completed":       true,
 					"run_id":          id,
 					"run_url":         runURL,
@@ -121,12 +236,12 @@ func waitForCIRun(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRe
 
 		select {
 		case <-ctx.Done():
-			return errResult(ctx.Err())
+			return mcp.ErrResult(ctx.Err())
 		case <-time.After(time.Duration(pollSec) * time.Second):
 		}
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"completed":       false,
 		"timeout":         true,
 		"run_id":          id,
@@ -138,8 +253,13 @@ func waitForCIRun(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolRe
 }
 
 func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	ref := argStr(args, "ref")
-	limit := argInt(args, "limit")
+	ra := mcp.NewArgs(args)
+	ref := ra.Str("ref")
+	limit := ra.Int("limit")
+	definitionPath := ra.Str("definition_path")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if limit <= 0 {
 		limit = 5
 	}
@@ -149,22 +269,28 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 		fetchLimit = 100
 	}
 
-	apiURL := fmt.Sprintf("%s/mint/api/runs?limit=%d", rwxAPIBase, fetchLimit)
+	apiURL := fmt.Sprintf("%s/mint/api/runs?limit=%d", r.baseURL, fetchLimit)
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	req.Header.Set("Authorization", "Bearer "+r.accessToken)
 
 	resp, err := r.client.Do(req)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("RWX API error (%d): %s", resp.StatusCode, string(body))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return mcp.ErrResult(re)
+	}
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return errResult(fmt.Errorf("RWX API error (%d): %s", resp.StatusCode, string(body)))
+		return mcp.ErrResult(fmt.Errorf("RWX API error (%d): %s", resp.StatusCode, string(body)))
 	}
 
 	var data struct {
@@ -180,12 +306,15 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 		} `json:"runs"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return errResult(fmt.Errorf("parse runs response: %w", err))
+		return mcp.ErrResult(fmt.Errorf("parse runs response: %w", err))
 	}
 
 	var runs []map[string]any
 	for _, run := range data.Runs {
-		if run.Branch != ref || run.DefinitionPath != ".rwx/ci.yml" {
+		if run.Branch != ref {
+			continue
+		}
+		if definitionPath != "" && run.DefinitionPath != definitionPath {
 			continue
 		}
 		status := "running"
@@ -193,95 +322,226 @@ func getRecentRuns(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolR
 			status = normalizeStatus(run.ResultStatus)
 		}
 		runs = append(runs, map[string]any{
-			"run_id":     run.ID,
-			"status":     status,
-			"commit_sha": run.CommitSHA,
-			"title":      run.Title,
-			"url":        fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, run.ID),
+			"run_id":          run.ID,
+			"status":          status,
+			"commit_sha":      run.CommitSHA,
+			"title":           run.Title,
+			"definition_path": run.DefinitionPath,
+			"url":             fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, run.ID),
 		})
 		if len(runs) >= limit {
 			break
 		}
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"ref":   ref,
 		"count": len(runs),
 		"runs":  runs,
 	})
 }
 
-func getRunResults(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "run_id"))
-	output, err := runRWXCommand([]string{"results", id, "--output", "json"}, 0)
+func fetchResultsStatus(ctx context.Context, r *rwx, runIDRaw, taskKey, branch, commit, repo, definition string) (rwxStatusResult, string, error) {
+	var statusResult rwxStatusResult
+	query := url.Values{}
+	if runIDRaw != "" {
+		id := extractRunID(runIDRaw)
+		if taskKey != "" {
+			query.Set("run_id", id)
+			query.Set("task_key", taskKey)
+		} else {
+			query.Set("id", id)
+		}
+		return statusResult, id, r.apiGetJSON(ctx, "/mint/api/results/status", query, &statusResult)
+	}
+	if branch == "" && commit == "" {
+		return statusResult, "", fmt.Errorf("either run_id or branch/commit is required")
+	}
+	if branch != "" {
+		query.Set("branch_name", branch)
+	}
+	if commit != "" {
+		query.Set("commit_sha", commit)
+	}
+	if repo != "" {
+		query.Set("repository_name", repo)
+	}
+	if definition != "" {
+		query.Set("definition_path", definition)
+	}
+	if err := r.apiGetJSON(ctx, "/mint/api/results/latest", query, &statusResult); err != nil {
+		return statusResult, "", err
+	}
+	return statusResult, statusResult.runID(""), nil
+}
+
+func getRunResults(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
+	ra := mcp.NewArgs(args)
+	runIDRaw := ra.Str("run_id")
+	taskKey := ra.Str("task_key")
+	branch := ra.Str("branch")
+	commit := ra.Str("commit")
+	repo := ra.Str("repo")
+	definition := ra.Str("definition")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	statusResult, id, err := fetchResultsStatus(ctx, r, runIDRaw, taskKey, branch, commit, repo, definition)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
 
-	var parsed struct {
-		RunID     string `json:"run_id"`
-		Result    string `json:"result"`
-		Execution string `json:"execution"`
-		Duration  int    `json:"duration_seconds"`
-		Tasks     []struct {
-			Key      string `json:"key"`
-			Status   string `json:"status"`
-			Duration int    `json:"duration_seconds"`
-			CacheHit bool   `json:"cache_hit"`
-		} `json:"tasks"`
+	id = statusResult.runID(id)
+	if id == "" {
+		return mcp.ErrResult(fmt.Errorf("RWX API response did not include run ID"))
 	}
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		return errResult(fmt.Errorf("parse results: %w", err))
+	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
+	status := normalizeStatus(statusResult.resultStatus())
+	if !statusResult.completed() && (status == "unknown" || status == "no_result") {
+		status = "running"
 	}
 
-	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, id)
-	status := normalizeStatus(parsed.Result)
-
-	var failedKeys []string
-	succeeded, failed, skipped, cached := 0, 0, 0, 0
-	for _, t := range parsed.Tasks {
-		switch strings.ToLower(t.Status) {
-		case "succeeded":
-			succeeded++
-		case "failed":
-			failed++
-			failedKeys = append(failedKeys, t.Key)
-		case "skipped":
-			skipped++
-		}
-		if t.CacheHit {
-			cached++
-		}
+	promptQuery := url.Values{}
+	if taskKey != "" {
+		promptQuery.Set("run_id", id)
+		promptQuery.Set("task_key", taskKey)
+	} else {
+		promptQuery.Set("id", id)
 	}
+	prompt, promptErr := r.apiGetText(ctx, "/mint/api/results/prompt", promptQuery)
+	if promptErr != nil {
+		prompt = ""
+	}
+	failedTasks, failedTests, otherProblems := parseResultsPrompt(prompt)
 
 	resp := map[string]any{
-		"run_id":           id,
-		"url":              runURL,
-		"status":           status,
-		"execution":        parsed.Execution,
-		"duration_seconds": parsed.Duration,
-		"summary": map[string]int{
-			"total":     len(parsed.Tasks),
-			"succeeded": succeeded,
-			"failed":    failed,
-			"skipped":   skipped,
-			"cached":    cached,
-		},
-		"failed_tasks": failedKeys,
-		"tasks":        parsed.Tasks,
+		"run_id":    id,
+		"url":       runURL,
+		"status":    status,
+		"completed": statusResult.completed(),
 	}
 
-	result, _ := jsonResult(resp)
+	if statusResult.taskID() != "" {
+		resp["task_id"] = statusResult.taskID()
+	}
+	if taskKey != "" {
+		resp["task_key"] = taskKey
+	}
+	if statusResult.executionStatus() != "" {
+		resp["execution_status"] = statusResult.executionStatus()
+	}
+	if statusResult.abortedSubStatus() != "" {
+		resp["execution_aborted_sub_status"] = statusResult.abortedSubStatus()
+	}
+
+	runDetail, detailErr := fetchRunDetail(ctx, r, id)
+	if detailErr == nil {
+		if v, ok := runDetail["completed_runtime_seconds"]; ok {
+			resp["duration_seconds"] = v
+		}
+		if v, ok := runDetail["title"]; ok {
+			resp["title"] = v
+		}
+		if v, ok := runDetail["branch"]; ok {
+			resp["branch"] = v
+		}
+		if v, ok := runDetail["commit_sha"]; ok {
+			resp["commit_sha"] = v
+		}
+		if v, ok := runDetail["definition_path"]; ok {
+			resp["definition_path"] = v
+		}
+	}
+
+	if len(failedTasks) > 0 {
+		resp["failed_tasks"] = failedTasks
+	}
+	if len(failedTests) > 0 {
+		resp["failed_tests"] = failedTests
+	}
+	if len(otherProblems) > 0 {
+		resp["other_problems"] = otherProblems
+	}
+
+	result, _ := mcp.JSONResult(resp)
 	if status == "failure" {
 		result.IsError = true
 	}
 	return result, nil
 }
 
+func fetchRunDetail(ctx context.Context, r *rwx, runID string) (map[string]any, error) {
+	var data map[string]any
+	if err := r.apiGetJSON(ctx, "/mint/api/runs/"+runID, nil, &data); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+type failedTask struct {
+	Key          string `json:"key"`
+	TaskID       string `json:"task_id"`
+	HasArtifacts bool   `json:"has_artifacts,omitempty"`
+}
+
+func parseResultsPrompt(prompt string) (tasks []failedTask, failedTests []string, otherProblems []string) {
+	if prompt == "" {
+		return nil, nil, nil
+	}
+
+	lines := strings.Split(prompt, "\n")
+	var section string
+	taskRe := regexp.MustCompile(`^- (.+?) \(task-id: ([a-f0-9]+)\)(.*)`)
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "# Failed test") {
+			section = "tests"
+			continue
+		}
+		if strings.HasPrefix(trimmed, "# Failed task") {
+			section = "tasks"
+			continue
+		}
+		if strings.HasPrefix(trimmed, "# Other problem") {
+			section = "problems"
+			continue
+		}
+		if strings.HasPrefix(trimmed, "For more documentation") {
+			section = ""
+			continue
+		}
+		if strings.HasPrefix(trimmed, "You can pull the logs") {
+			continue
+		}
+		if trimmed == "" {
+			continue
+		}
+
+		switch section {
+		case "tests":
+			failedTests = append(failedTests, trimmed)
+		case "tasks":
+			if m := taskRe.FindStringSubmatch(trimmed); m != nil {
+				ft := failedTask{Key: m[1], TaskID: m[2]}
+				if strings.Contains(m[3], "has artifacts") {
+					ft.HasArtifacts = true
+				}
+				tasks = append(tasks, ft)
+			}
+		case "problems":
+			otherProblems = append(otherProblems, trimmed)
+		}
+	}
+	return tasks, failedTests, otherProblems
+}
+
 // --- helpers ---
 
 func fetchRunStatus(ctx context.Context, r *rwx, runID string) (status string, isComplete bool, err error) {
-	apiURL := fmt.Sprintf("%s/mint/api/runs/%s", rwxAPIBase, runID)
+	apiURL := fmt.Sprintf("%s/mint/api/runs/%s", r.baseURL, runID)
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		return "", false, err
@@ -294,6 +554,12 @@ func fetchRunStatus(ctx context.Context, r *rwx, runID string) (status string, i
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("API request failed: %d %s", resp.StatusCode, string(body))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return "", false, re
+	}
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return "", false, fmt.Errorf("API request failed: %d %s", resp.StatusCode, string(body))

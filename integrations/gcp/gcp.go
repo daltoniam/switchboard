@@ -1,0 +1,298 @@
+package gcp
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	compute "cloud.google.com/go/compute/apiv1"
+	"cloud.google.com/go/firestore"
+	functions "cloud.google.com/go/functions/apiv2"
+	logging "cloud.google.com/go/logging/apiv2"
+	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
+	"cloud.google.com/go/pubsub"
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
+	resourcemanagerpb "cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
+	run "cloud.google.com/go/run/apiv2"
+	"cloud.google.com/go/storage"
+	"google.golang.org/api/option"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	iamv1 "google.golang.org/api/iam/v1"
+
+	mcp "github.com/daltoniam/switchboard"
+)
+
+// Compile-time interface assertions.
+var _ mcp.PlainTextCredentials = (*integration)(nil)
+
+const (
+	defaultComputeLimit = 500
+	defaultStorageLimit = 1000
+)
+
+func (g *integration) PlainTextKeys() []string {
+	return []string{"project_id"}
+}
+
+type integration struct {
+	projectID string
+
+	storageClient       *storage.Client
+	instancesClient     *compute.InstancesClient
+	disksClient         *compute.DisksClient
+	networksClient      *compute.NetworksClient
+	subnetworksClient   *compute.SubnetworksClient
+	firewallsClient     *compute.FirewallsClient
+	functionsClient     *functions.FunctionClient
+	iamService          *iamv1.Service
+	monitoringClient    *monitoring.MetricClient
+	alertClient         *monitoring.AlertPolicyClient
+	runServicesClient   *run.ServicesClient
+	runRevisionsClient  *run.RevisionsClient
+	pubsubClient        *pubsub.Client
+	firestoreClient     *firestore.Client
+	loggingClient       *logging.Client
+	loggingConfigClient *logging.ConfigClient
+	projectsClient      *resourcemanager.ProjectsClient
+	foldersClient       *resourcemanager.FoldersClient
+}
+
+func New() mcp.Integration {
+	return &integration{}
+}
+
+func (g *integration) Name() string { return "gcp" }
+
+func (g *integration) Configure(ctx context.Context, creds mcp.Credentials) error {
+	g.projectID = creds["project_id"]
+	if g.projectID == "" {
+		return fmt.Errorf("gcp: project_id is required")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	var opts []option.ClientOption
+	if v := creds["credentials_json"]; v != "" {
+		opts = append(opts, option.WithCredentialsJSON([]byte(v)))
+	}
+
+	var err error
+
+	g.storageClient, err = storage.NewClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: storage client: %w", err)
+	}
+
+	g.instancesClient, err = compute.NewInstancesRESTClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: compute instances client: %w", err)
+	}
+
+	g.disksClient, err = compute.NewDisksRESTClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: compute disks client: %w", err)
+	}
+
+	g.networksClient, err = compute.NewNetworksRESTClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: compute networks client: %w", err)
+	}
+
+	g.subnetworksClient, err = compute.NewSubnetworksRESTClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: compute subnetworks client: %w", err)
+	}
+
+	g.firewallsClient, err = compute.NewFirewallsRESTClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: compute firewalls client: %w", err)
+	}
+
+	g.functionsClient, err = functions.NewFunctionClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: functions client: %w", err)
+	}
+
+	g.iamService, err = iamv1.NewService(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: iam service: %w", err)
+	}
+
+	g.monitoringClient, err = monitoring.NewMetricClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: monitoring client: %w", err)
+	}
+
+	g.alertClient, err = monitoring.NewAlertPolicyClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: alert policy client: %w", err)
+	}
+
+	g.runServicesClient, err = run.NewServicesClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: cloud run services client: %w", err)
+	}
+
+	g.runRevisionsClient, err = run.NewRevisionsClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: cloud run revisions client: %w", err)
+	}
+
+	g.pubsubClient, err = pubsub.NewClient(ctx, g.projectID, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: pubsub client: %w", err)
+	}
+
+	g.firestoreClient, err = firestore.NewClient(ctx, g.projectID, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: firestore client: %w", err)
+	}
+
+	g.loggingClient, err = logging.NewClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: logging client: %w", err)
+	}
+
+	g.loggingConfigClient, err = logging.NewConfigClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: logging config client: %w", err)
+	}
+
+	g.projectsClient, err = resourcemanager.NewProjectsClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: projects client: %w", err)
+	}
+
+	g.foldersClient, err = resourcemanager.NewFoldersClient(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("gcp: folders client: %w", err)
+	}
+
+	return nil
+}
+
+func (g *integration) Healthy(ctx context.Context) bool {
+	if g.projectsClient == nil {
+		return false
+	}
+	_, err := g.projectsClient.GetProject(ctx, &resourcemanagerpb.GetProjectRequest{
+		Name: g.projectName(),
+	})
+	return err == nil
+}
+
+func (g *integration) Tools() []mcp.ToolDefinition {
+	return tools
+}
+
+func (g *integration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	fn, ok := dispatch[toolName]
+	if !ok {
+		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
+	}
+	return fn(ctx, g, args)
+}
+
+type handlerFunc func(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error)
+
+func wrapRetryable(err error) error {
+	if err == nil {
+		return nil
+	}
+	st, ok := status.FromError(err)
+	if !ok {
+		return err
+	}
+	switch st.Code() {
+	case codes.Unavailable, codes.Internal, codes.ResourceExhausted, codes.DeadlineExceeded:
+		return &mcp.RetryableError{StatusCode: int(st.Code()), Err: err}
+	}
+	return err
+}
+
+func errResult(err error) (*mcp.ToolResult, error) {
+	return mcp.ErrResult(wrapRetryable(err))
+}
+
+func (g *integration) projectName() string {
+	return "projects/" + g.projectID
+}
+
+var dispatch = map[mcp.ToolName]handlerFunc{
+	// Resource Manager
+	mcp.ToolName("gcp_get_project"):    getProject,
+	mcp.ToolName("gcp_list_projects"):  listProjects,
+	mcp.ToolName("gcp_list_folders"):   listFolders,
+	mcp.ToolName("gcp_get_folder"):     getFolder,
+	mcp.ToolName("gcp_get_iam_policy"): getIAMPolicy,
+
+	// Storage
+	mcp.ToolName("gcp_storage_list_buckets"):  storageListBuckets,
+	mcp.ToolName("gcp_storage_get_bucket"):    storageGetBucket,
+	mcp.ToolName("gcp_storage_list_objects"):  storageListObjects,
+	mcp.ToolName("gcp_storage_get_object"):    storageGetObject,
+	mcp.ToolName("gcp_storage_put_object"):    storagePutObject,
+	mcp.ToolName("gcp_storage_delete_object"): storageDeleteObject,
+	mcp.ToolName("gcp_storage_copy_object"):   storageCopyObject,
+
+	// Compute Engine
+	mcp.ToolName("gcp_compute_list_instances"):   computeListInstances,
+	mcp.ToolName("gcp_compute_get_instance"):     computeGetInstance,
+	mcp.ToolName("gcp_compute_start_instance"):   computeStartInstance,
+	mcp.ToolName("gcp_compute_stop_instance"):    computeStopInstance,
+	mcp.ToolName("gcp_compute_list_disks"):       computeListDisks,
+	mcp.ToolName("gcp_compute_list_networks"):    computeListNetworks,
+	mcp.ToolName("gcp_compute_list_subnetworks"): computeListSubnetworks,
+	mcp.ToolName("gcp_compute_list_firewalls"):   computeListFirewalls,
+	mcp.ToolName("gcp_compute_get_firewall"):     computeGetFirewall,
+
+	// Cloud Functions
+	mcp.ToolName("gcp_functions_list"):           functionsList,
+	mcp.ToolName("gcp_functions_get"):            functionsGet,
+	mcp.ToolName("gcp_functions_get_iam_policy"): functionsGetIAMPolicy,
+
+	// IAM
+	mcp.ToolName("gcp_iam_list_service_accounts"):     iamListServiceAccounts,
+	mcp.ToolName("gcp_iam_get_service_account"):       iamGetServiceAccount,
+	mcp.ToolName("gcp_iam_list_service_account_keys"): iamListServiceAccountKeys,
+	mcp.ToolName("gcp_iam_list_roles"):                iamListRoles,
+	mcp.ToolName("gcp_iam_get_role"):                  iamGetRole,
+
+	// Cloud Monitoring
+	mcp.ToolName("gcp_monitoring_list_metric_descriptors"):  monitoringListMetricDescriptors,
+	mcp.ToolName("gcp_monitoring_list_time_series"):         monitoringListTimeSeries,
+	mcp.ToolName("gcp_monitoring_list_alert_policies"):      monitoringListAlertPolicies,
+	mcp.ToolName("gcp_monitoring_get_alert_policy"):         monitoringGetAlertPolicy,
+	mcp.ToolName("gcp_monitoring_list_monitored_resources"): monitoringListMonitoredResources,
+
+	// Cloud Run
+	mcp.ToolName("gcp_run_list_services"):  runListServices,
+	mcp.ToolName("gcp_run_get_service"):    runGetService,
+	mcp.ToolName("gcp_run_list_revisions"): runListRevisions,
+	mcp.ToolName("gcp_run_get_revision"):   runGetRevision,
+
+	// Pub/Sub
+	mcp.ToolName("gcp_pubsub_list_topics"):        pubsubListTopics,
+	mcp.ToolName("gcp_pubsub_get_topic"):          pubsubGetTopic,
+	mcp.ToolName("gcp_pubsub_publish"):            pubsubPublish,
+	mcp.ToolName("gcp_pubsub_list_subscriptions"): pubsubListSubscriptions,
+	mcp.ToolName("gcp_pubsub_get_subscription"):   pubsubGetSubscription,
+	mcp.ToolName("gcp_pubsub_pull"):               pubsubPull,
+
+	// Firestore
+	mcp.ToolName("gcp_firestore_list_collections"): firestoreListCollections,
+	mcp.ToolName("gcp_firestore_list_documents"):   firestoreListDocuments,
+	mcp.ToolName("gcp_firestore_get_document"):     firestoreGetDocument,
+	mcp.ToolName("gcp_firestore_set_document"):     firestoreSetDocument,
+	mcp.ToolName("gcp_firestore_delete_document"):  firestoreDeleteDocument,
+	mcp.ToolName("gcp_firestore_query"):            firestoreQuery,
+
+	// Cloud Logging
+	mcp.ToolName("gcp_logging_list_entries"):   loggingListEntries,
+	mcp.ToolName("gcp_logging_list_log_names"): loggingListLogNames,
+	mcp.ToolName("gcp_logging_list_sinks"):     loggingListSinks,
+	mcp.ToolName("gcp_logging_get_sink"):       loggingGetSink,
+}

@@ -20,7 +20,16 @@ const (
 
 // Executor looks up an integration by tool name prefix and executes the tool.
 type Executor interface {
-	Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error)
+	Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error)
+}
+
+// RenderedExecutor is an optional interface that extends Executor with a
+// rendered path. ExecuteRendered applies the same markdown/compaction/columnarization
+// pipeline as the execute meta-tool, returning LLM-readable output instead of raw JSON.
+// If the executor does not implement this, api.callRendered() falls back to api.call().
+type RenderedExecutor interface {
+	Executor
+	ExecuteRendered(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error)
 }
 
 // Engine runs JavaScript scripts with access to integration tools via api.call().
@@ -56,8 +65,92 @@ func New(executor Executor, opts ...Option) *Engine {
 	return e
 }
 
+// parseCallArgs extracts the tool name, argument map, and optional options from a goja function call.
+// The third argument is optional: api.call(tool, args, {fields: ["id", "title"]})
+func parseCallArgs(call goja.FunctionCall) (string, map[string]any, map[string]any) {
+	toolName := call.Argument(0).String()
+
+	var args map[string]any
+	if len(call.Arguments) > 1 {
+		argsVal := call.Argument(1)
+		if argsVal != nil && !goja.IsUndefined(argsVal) && !goja.IsNull(argsVal) {
+			exported := argsVal.Export()
+			if m, ok := exported.(map[string]any); ok {
+				args = m
+			} else {
+				raw, _ := json.Marshal(exported)
+				_ = json.Unmarshal(raw, &args)
+			}
+		}
+	}
+	if args == nil {
+		args = map[string]any{}
+	}
+
+	var opts map[string]any
+	if len(call.Arguments) > 2 {
+		optsVal := call.Argument(2)
+		if optsVal != nil && !goja.IsUndefined(optsVal) && !goja.IsNull(optsVal) {
+			if m, ok := optsVal.Export().(map[string]any); ok {
+				opts = m
+			}
+		}
+	}
+	return toolName, args, opts
+}
+
+// projectFields applies field projection to result data when opts contains a "fields" key.
+// Returns the original data unchanged if no fields option is provided.
+func projectFields(data string, opts map[string]any) (string, error) {
+	if opts == nil {
+		return data, nil
+	}
+	fieldsRaw, ok := opts["fields"]
+	if !ok {
+		return data, nil
+	}
+	fieldSlice, ok := fieldsRaw.([]any)
+	if !ok {
+		return "", fmt.Errorf("fields option must be an array, got %T", fieldsRaw)
+	}
+	specs := make([]string, len(fieldSlice))
+	for i, f := range fieldSlice {
+		s, ok := f.(string)
+		if !ok {
+			return "", fmt.Errorf("fields[%d] must be a string, got %T", i, f)
+		}
+		specs[i] = s
+	}
+	fields, err := mcp.ParseCompactSpecs(specs)
+	if err != nil {
+		return "", fmt.Errorf("invalid field projection: %w", err)
+	}
+	var parsed any
+	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+		return "", fmt.Errorf("field projection parse: %w", err)
+	}
+	projected := mcp.CompactAny(parsed, fields)
+	result, err := json.Marshal(projected)
+	if err != nil {
+		return "", fmt.Errorf("field projection marshal: %w", err)
+	}
+	return string(result), nil
+}
+
+// parseResult JSON-parses a ToolResult.Data string and returns it as a goja value.
+func parseResult(vm *goja.Runtime, data string) goja.Value {
+	var parsed any
+	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+		return vm.ToValue(data)
+	}
+	return vm.ToValue(parsed)
+}
+
 // Run executes a JavaScript script. The script has access to:
-//   - api.call(toolName, args) — calls an integration tool and returns the parsed JSON result
+//   - api.call(toolName, args[, opts]) — calls an integration tool and returns the parsed JSON result.
+//     Optional opts object with fields key applies a secondary field projection: {fields: ["id", "title"]}.
+//   - api.tryCall(toolName, args[, opts]) — like call, but returns {ok, data/error} instead of throwing.
+//     Also supports the optional opts with field projection.
 //   - console.log(...args) — collects log output (available in result on error)
 //
 // The script's return value is JSON-serialized as the ToolResult.Data.
@@ -76,55 +169,154 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 
 	callCount := 0
 	var logs []string
+	// intermediateBytes accumulates the raw byte size of every api.call()
+	// result inside the script — bytes that flow through the engine but
+	// never reach the LLM unless the script explicitly returns them. This
+	// underwrites the "context window saved by Switchboard scripts" metric.
+	var intermediateBytes int64
 
 	apiObj := vm.NewObject()
-	if err := apiObj.Set("call", func(call goja.FunctionCall) goja.Value {
+
+	// checkCallLimit enforces context cancellation and the per-script call cap.
+	// Both api.call() and api.tryCall() share this limit.
+	checkCallLimit := func() {
 		if err := ctx.Err(); err != nil {
 			panic(vm.NewGoError(fmt.Errorf("script cancelled: %w", err)))
 		}
-
 		callCount++
 		if callCount > e.maxCalls {
-			panic(vm.NewGoError(fmt.Errorf("exceeded maximum of %d api.call() invocations", e.maxCalls)))
+			panic(vm.NewGoError(fmt.Errorf("exceeded maximum of %d api calls per script", e.maxCalls)))
 		}
+	}
 
-		toolName := call.Argument(0).String()
+	if err := apiObj.Set("call", func(call goja.FunctionCall) goja.Value {
+		checkCallLimit()
+
+		toolName, args, opts := parseCallArgs(call)
 		if toolName == "" || toolName == "undefined" {
 			panic(vm.NewGoError(fmt.Errorf("api.call() requires a tool name as the first argument")))
 		}
 
-		var args map[string]any
-		if len(call.Arguments) > 1 {
-			argsVal := call.Argument(1)
-			if argsVal != nil && !goja.IsUndefined(argsVal) && !goja.IsNull(argsVal) {
-				exported := argsVal.Export()
-				if m, ok := exported.(map[string]any); ok {
-					args = m
-				} else {
-					raw, _ := json.Marshal(exported)
-					_ = json.Unmarshal(raw, &args)
-				}
-			}
-		}
-		if args == nil {
-			args = map[string]any{}
-		}
-
-		result, err := e.executor.Execute(ctx, toolName, args)
+		result, err := e.executor.Execute(ctx, mcp.ToolName(toolName), args)
 		if err != nil {
 			panic(vm.NewGoError(fmt.Errorf("api.call(%q) failed: %w", toolName, err)))
 		}
 		if result.IsError {
 			panic(vm.NewGoError(fmt.Errorf("api.call(%q) returned error: %s", toolName, result.Data)))
 		}
+		intermediateBytes += int64(len(result.Data))
 
-		var parsed any
-		if err := json.Unmarshal([]byte(result.Data), &parsed); err != nil {
-			return vm.ToValue(result.Data)
+		data, err := projectFields(result.Data, opts)
+		if err != nil {
+			panic(vm.NewGoError(fmt.Errorf("api.call(%q) field projection: %w", toolName, err)))
 		}
-		return vm.ToValue(parsed)
+
+		return parseResult(vm, data)
 	}); err != nil {
 		return nil, fmt.Errorf("failed to set api.call: %w", err)
+	}
+
+	if err := apiObj.Set("tryCall", func(call goja.FunctionCall) goja.Value {
+		// Context cancellation still kills the script — nothing can execute anyway.
+		if err := ctx.Err(); err != nil {
+			panic(vm.NewGoError(fmt.Errorf("script cancelled: %w", err)))
+		}
+		// maxCalls returns an error envelope instead of killing the script,
+		// so partial results from earlier calls are preserved.
+		callCount++
+		if callCount > e.maxCalls {
+			return vm.ToValue(map[string]any{"ok": false, "error": fmt.Sprintf("exceeded maximum of %d api calls per script", e.maxCalls)})
+		}
+
+		toolName, args, opts := parseCallArgs(call)
+		if toolName == "" || toolName == "undefined" {
+			return vm.ToValue(map[string]any{"ok": false, "error": "api.tryCall() requires a tool name"})
+		}
+
+		result, err := e.executor.Execute(ctx, mcp.ToolName(toolName), args)
+		if err != nil {
+			return vm.ToValue(map[string]any{"ok": false, "error": err.Error()})
+		}
+		if result.IsError {
+			return vm.ToValue(map[string]any{"ok": false, "error": result.Data})
+		}
+		intermediateBytes += int64(len(result.Data))
+
+		data := result.Data
+		if projected, err := projectFields(data, opts); err != nil {
+			return vm.ToValue(map[string]any{"ok": false, "error": err.Error()})
+		} else {
+			data = projected
+		}
+
+		var parsed any
+		if jsonErr := json.Unmarshal([]byte(data), &parsed); jsonErr != nil {
+			return vm.ToValue(map[string]any{"ok": true, "data": data})
+		}
+		return vm.ToValue(map[string]any{"ok": true, "data": parsed})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to set api.tryCall: %w", err)
+	}
+
+	// executeRenderedOrFallback calls ExecuteRendered if the executor supports it,
+	// otherwise falls back to Execute.
+	executeRenderedOrFallback := func(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+		if re, ok := e.executor.(RenderedExecutor); ok {
+			return re.ExecuteRendered(ctx, toolName, args)
+		}
+		return e.executor.Execute(ctx, toolName, args)
+	}
+
+	if err := apiObj.Set("callRendered", func(call goja.FunctionCall) goja.Value {
+		checkCallLimit()
+
+		toolName, args, _ := parseCallArgs(call)
+		if toolName == "" || toolName == "undefined" {
+			panic(vm.NewGoError(fmt.Errorf("api.callRendered() requires a tool name as the first argument")))
+		}
+
+		result, err := executeRenderedOrFallback(ctx, mcp.ToolName(toolName), args)
+		if err != nil {
+			panic(vm.NewGoError(fmt.Errorf("api.callRendered(%q) failed: %w", toolName, err)))
+		}
+		if result.IsError {
+			panic(vm.NewGoError(fmt.Errorf("api.callRendered(%q) returned error: %s", toolName, result.Data)))
+		}
+		intermediateBytes += int64(len(result.Data))
+
+		// Return as string — rendered output is LLM-readable text, not JSON to parse.
+		return vm.ToValue(result.Data)
+	}); err != nil {
+		return nil, fmt.Errorf("failed to set api.callRendered: %w", err)
+	}
+
+	if err := apiObj.Set("tryCallRendered", func(call goja.FunctionCall) goja.Value {
+		if err := ctx.Err(); err != nil {
+			panic(vm.NewGoError(fmt.Errorf("script cancelled: %w", err)))
+		}
+		callCount++
+		if callCount > e.maxCalls {
+			return vm.ToValue(map[string]any{"ok": false, "error": fmt.Sprintf("exceeded maximum of %d api calls per script", e.maxCalls)})
+		}
+
+		toolName, args, _ := parseCallArgs(call)
+		if toolName == "" || toolName == "undefined" {
+			return vm.ToValue(map[string]any{"ok": false, "error": "api.tryCallRendered() requires a tool name"})
+		}
+
+		result, err := executeRenderedOrFallback(ctx, mcp.ToolName(toolName), args)
+		if err != nil {
+			return vm.ToValue(map[string]any{"ok": false, "error": err.Error()})
+		}
+		if result.IsError {
+			return vm.ToValue(map[string]any{"ok": false, "error": result.Data})
+		}
+		intermediateBytes += int64(len(result.Data))
+
+		// Return as string — no JSON parsing, rendered output is text.
+		return vm.ToValue(map[string]any{"ok": true, "data": result.Data})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to set api.tryCallRendered: %w", err)
 	}
 
 	if err := vm.Set("api", apiObj); err != nil {
@@ -161,21 +353,44 @@ func (e *Engine) Run(ctx context.Context, source string) (*mcp.ToolResult, error
 			logData, _ := json.Marshal(logs)
 			errMsg += "\nconsole output: " + string(logData)
 		}
-		return &mcp.ToolResult{Data: errMsg, IsError: true}, nil
+		// Errored scripts still claim credit for intermediate bytes hidden so
+		// far — those bytes really did flow through the engine.
+		return &mcp.ToolResult{
+			Data:              errMsg,
+			IsError:           true,
+			IntermediateBytes: intermediateBytes,
+		}, nil
 	}
 
 	if val == nil || goja.IsUndefined(val) || goja.IsNull(val) {
 		if len(logs) > 0 {
 			logData, _ := json.Marshal(logs)
-			return &mcp.ToolResult{Data: string(logData)}, nil
+			return &mcp.ToolResult{
+				Data:              string(logData),
+				IntermediateBytes: intermediateBytes,
+				FinalBytes:        int64(len(logData)),
+			}, nil
 		}
-		return &mcp.ToolResult{Data: "null"}, nil
+		return &mcp.ToolResult{
+			Data:              "null",
+			IntermediateBytes: intermediateBytes,
+			FinalBytes:        int64(len("null")),
+		}, nil
 	}
 
 	exported := val.Export()
 	data, err := json.Marshal(exported)
 	if err != nil {
-		return &mcp.ToolResult{Data: fmt.Sprintf("%v", exported)}, nil
+		fallback := fmt.Sprintf("%v", exported)
+		return &mcp.ToolResult{
+			Data:              fallback,
+			IntermediateBytes: intermediateBytes,
+			FinalBytes:        int64(len(fallback)),
+		}, nil
 	}
-	return &mcp.ToolResult{Data: string(data)}, nil
+	return &mcp.ToolResult{
+		Data:              string(data),
+		IntermediateBytes: intermediateBytes,
+		FinalBytes:        int64(len(data)),
+	}, nil
 }

@@ -21,27 +21,26 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "phx_test123", "project_id": "12345"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "phx_test123", "project_id": "12345"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "", "project_id": "12345"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "", "project_id": "12345"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api_key is required")
 }
 
-func TestConfigure_MissingProjectID(t *testing.T) {
+func TestConfigure_NoProjectID(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "phx_test123", "project_id": ""})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "project_id is required")
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "phx_test123"})
+	assert.NoError(t, err)
 }
 
 func TestConfigure_CustomBaseURL(t *testing.T) {
 	p := &posthog{client: &http.Client{}, baseURL: "https://us.posthog.com"}
-	err := p.Configure(mcp.Credentials{
+	err := p.Configure(context.Background(), mcp.Credentials{
 		"api_key":    "phx_test",
 		"project_id": "1",
 		"base_url":   "https://eu.posthog.com/",
@@ -70,7 +69,7 @@ func TestTools_AllHavePosthogPrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -95,7 +94,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -180,38 +179,17 @@ func TestPatch(t *testing.T) {
 
 func TestRawResult(t *testing.T) {
 	data := json.RawMessage(`{"key":"value"}`)
-	result, err := rawResult(data)
+	result, err := mcp.RawResult(data)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
-}
-
-// --- argument helper tests ---
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
 }
 
 func TestQueryEncode(t *testing.T) {
@@ -229,10 +207,33 @@ func TestQueryEncode(t *testing.T) {
 }
 
 func TestProj(t *testing.T) {
-	p := &posthog{projectID: "default-proj"}
+	t.Run("with default", func(t *testing.T) {
+		p := &posthog{projectID: "default-proj"}
+		v, err := p.proj(map[string]any{})
+		assert.NoError(t, err)
+		assert.Equal(t, "default-proj", v)
+	})
 
-	assert.Equal(t, "default-proj", p.proj(map[string]any{}))
-	assert.Equal(t, "custom-proj", p.proj(map[string]any{"project_id": "custom-proj"}))
+	t.Run("override", func(t *testing.T) {
+		p := &posthog{projectID: "default-proj"}
+		v, err := p.proj(map[string]any{"project_id": "custom-proj"})
+		assert.NoError(t, err)
+		assert.Equal(t, "custom-proj", v)
+	})
+
+	t.Run("no default no arg", func(t *testing.T) {
+		p := &posthog{}
+		_, err := p.proj(map[string]any{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "project_id is required")
+	})
+
+	t.Run("no default with arg", func(t *testing.T) {
+		p := &posthog{}
+		v, err := p.proj(map[string]any{"project_id": "explicit"})
+		assert.NoError(t, err)
+		assert.Equal(t, "explicit", v)
+	})
 }
 
 func TestParseJSON_Valid(t *testing.T) {
@@ -404,6 +405,116 @@ func TestProjectOverride(t *testing.T) {
 	p := &posthog{apiKey: "token", projectID: "1", client: ts.Client(), baseURL: ts.URL}
 	result, err := p.Execute(context.Background(), "posthog_get_project", map[string]any{
 		"project_id": "99",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestNoDefaultProject_RequiresArg(t *testing.T) {
+	p := &posthog{apiKey: "token", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := p.Execute(context.Background(), "posthog_list_feature_flags", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "project_id is required")
+}
+
+func TestNoDefaultProject_WithArg(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.URL.Path, "/api/projects/42/feature_flags/")
+		_, _ = w.Write([]byte(`{"results":[]}`))
+	}))
+	defer ts.Close()
+
+	p := &posthog{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := p.Execute(context.Background(), "posthog_list_feature_flags", map[string]any{
+		"project_id": "42",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestRunQuery(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/api/projects/1/query/", r.URL.Path)
+		assert.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+
+		q, ok := body["query"].(map[string]any)
+		require.True(t, ok, "query must be a nested object")
+		assert.Equal(t, "HogQLQuery", q["kind"])
+		assert.Equal(t, "SELECT count() FROM events", q["query"])
+
+		// Optional fields must be omitted when not provided.
+		_, hasClientID := body["client_query_id"]
+		_, hasRefresh := body["refresh"]
+		assert.False(t, hasClientID, "client_query_id should be omitted when empty")
+		assert.False(t, hasRefresh, "refresh should be omitted when empty")
+
+		_, _ = w.Write([]byte(`{"columns":["count"],"results":[[42]],"hogql":"SELECT count() FROM events"}`))
+	}))
+	defer ts.Close()
+
+	p := &posthog{apiKey: "token", projectID: "1", client: ts.Client(), baseURL: ts.URL}
+	result, err := p.Execute(context.Background(), "posthog_query", map[string]any{
+		"query": "SELECT count() FROM events",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, `"results"`)
+	assert.Contains(t, result.Data, "42")
+}
+
+func TestRunQuery_OptionalFields(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, "trace-abc", body["client_query_id"])
+		assert.Equal(t, "blocking", body["refresh"])
+		_, _ = w.Write([]byte(`{"columns":[],"results":[]}`))
+	}))
+	defer ts.Close()
+
+	p := &posthog{apiKey: "token", projectID: "1", client: ts.Client(), baseURL: ts.URL}
+	result, err := p.Execute(context.Background(), "posthog_query", map[string]any{
+		"query":           "SELECT 1",
+		"client_query_id": "trace-abc",
+		"refresh":         "blocking",
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+}
+
+func TestRunQuery_EmptyQuery(t *testing.T) {
+	// Server should never be called when query is empty.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("unexpected request to %s", r.URL.Path)
+	}))
+	defer ts.Close()
+
+	p := &posthog{apiKey: "token", projectID: "1", client: ts.Client(), baseURL: ts.URL}
+	result, err := p.Execute(context.Background(), "posthog_query", map[string]any{
+		"query": "",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "query is required")
+}
+
+func TestRunQuery_UsesProjectArg(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/projects/77/query/", r.URL.Path)
+		_, _ = w.Write([]byte(`{"results":[]}`))
+	}))
+	defer ts.Close()
+
+	// No default projectID configured — must come from args.
+	p := &posthog{apiKey: "token", client: ts.Client(), baseURL: ts.URL}
+	result, err := p.Execute(context.Background(), "posthog_query", map[string]any{
+		"project_id": "77",
+		"query":      "SELECT 1",
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)

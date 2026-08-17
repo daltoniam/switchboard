@@ -6,10 +6,13 @@ linters:
     - errcheck
     - govet
     - ineffassign
+    - nestif
     - staticcheck
     - unused
 
   settings:
+    nestif:
+      min-complexity: 7
     errcheck:
       exclude-functions:
         - (net/http.ResponseWriter).Write

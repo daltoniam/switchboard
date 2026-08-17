@@ -1,0 +1,228 @@
+# Switchboard compaction specs for the posthog integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# posthog.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    posthog_feature_flag_activity:
+        spec:
+            - results[].id
+            - results[].activity
+            - results[].created_at
+            - results[].user.email
+            - results[].detail
+    posthog_find_group:
+        spec:
+            - group_type_index
+            - group_key
+            - group_properties
+            - created_at
+    posthog_get_action:
+        spec:
+            - id
+            - name
+            - description
+            - steps
+            - tags
+            - created_at
+            - created_by.email
+    posthog_get_annotation:
+        spec:
+            - id
+            - content
+            - date_marker
+            - scope
+            - created_at
+            - created_by.email
+    posthog_get_cohort:
+        spec:
+            - id
+            - name
+            - description
+            - count
+            - is_static
+            - filters
+            - created_at
+            - created_by.email
+    posthog_get_dashboard:
+        spec:
+            - id
+            - name
+            - description
+            - pinned
+            - tiles
+            - created_at
+            - created_by.email
+            - tags
+    posthog_get_event:
+        spec:
+            - id
+            - event
+            - distinct_id
+            - timestamp
+            - properties
+    posthog_get_experiment:
+        spec:
+            - id
+            - name
+            - description
+            - start_date
+            - end_date
+            - feature_flag_key
+            - filters
+            - created_at
+    posthog_get_feature_flag:
+        spec:
+            - id
+            - key
+            - name
+            - active
+            - created_at
+            - created_by.email
+            - rollout_percentage
+            - filters
+            - ensure_experience_continuity
+    posthog_get_insight:
+        spec:
+            - id
+            - name
+            - short_id
+            - description
+            - filters
+            - query
+            - result
+            - created_at
+            - created_by.email
+            - last_modified_at
+    posthog_get_person:
+        spec:
+            - id
+            - distinct_ids
+            - properties
+            - created_at
+    posthog_get_project:
+        spec:
+            - id
+            - name
+            - created_at
+            - updated_at
+            - timezone
+            - completed_snippet_onboarding
+    posthog_get_survey:
+        spec:
+            - id
+            - name
+            - description
+            - type
+            - questions
+            - created_at
+            - targeting_flag_filters
+    posthog_list_actions:
+        spec:
+            - results[].id
+            - results[].name
+            - results[].description
+            - results[].tags
+            - results[].created_at
+            - results[].created_by.email
+    posthog_list_annotations:
+        spec:
+            - results[].id
+            - results[].content
+            - results[].date_marker
+            - results[].scope
+            - results[].created_at
+            - results[].created_by.email
+    posthog_list_cohort_persons:
+        spec:
+            - results[].id
+            - results[].distinct_ids
+            - results[].properties
+            - results[].created_at
+    posthog_list_cohorts:
+        spec:
+            - results[].id
+            - results[].name
+            - results[].count
+            - results[].is_static
+            - results[].created_at
+            - results[].created_by.email
+    posthog_list_dashboards:
+        spec:
+            - results[].id
+            - results[].name
+            - results[].description
+            - results[].pinned
+            - results[].created_at
+            - results[].created_by.email
+            - results[].tags
+    posthog_list_events:
+        spec:
+            - results[].id
+            - results[].event
+            - results[].distinct_id
+            - results[].timestamp
+            - results[].properties
+    posthog_list_experiments:
+        spec:
+            - results[].id
+            - results[].name
+            - results[].start_date
+            - results[].end_date
+            - results[].feature_flag_key
+            - results[].created_at
+    posthog_list_feature_flags:
+        spec:
+            - results[].id
+            - results[].key
+            - results[].name
+            - results[].active
+            - results[].created_at
+            - results[].created_by.email
+            - results[].rollout_percentage
+            - results[].filters
+    posthog_list_groups:
+        spec:
+            - results[].group_type_index
+            - results[].group_key
+            - results[].group_properties
+            - results[].created_at
+    posthog_list_insights:
+        spec:
+            - results[].id
+            - results[].name
+            - results[].short_id
+            - results[].filters
+            - results[].created_at
+            - results[].created_by.email
+            - results[].last_modified_at
+    posthog_list_persons:
+        spec:
+            - results[].id
+            - results[].distinct_ids
+            - results[].properties.email
+            - results[].properties.name
+            - results[].created_at
+    posthog_list_projects:
+        spec:
+            - results[].id
+            - results[].name
+            - results[].created_at
+            - results[].updated_at
+    posthog_list_surveys:
+        spec:
+            - results[].id
+            - results[].name
+            - results[].type
+            - results[].created_at

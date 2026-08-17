@@ -8,85 +8,141 @@ import (
 )
 
 func listCohorts(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
-	})
-	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s", p.proj(args), q)
+	projID, err := p.proj(args)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	r := mcp.NewArgs(args)
+	q := queryEncode(map[string]string{
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
+	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s", projID, q)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
 }
 
 func getCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/", p.proj(args), argStr(args, "cohort_id"))
+	projID, err := p.proj(args)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	r := mcp.NewArgs(args)
+	cohortID := r.Str("cohort_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/", projID, cohortID)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
 }
 
 func createCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{"name": argStr(args, "name")}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	projID, err := p.proj(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	r := mcp.NewArgs(args)
+	name := r.Str("name")
+	description := r.Str("description")
+	isStatic := r.Bool("is_static")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{"name": name}
+	if description != "" {
+		body["description"] = description
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
 	if _, ok := args["is_static"]; ok {
-		body["is_static"] = argBool(args, "is_static")
+		body["is_static"] = isStatic
 	}
-	path := fmt.Sprintf("/api/projects/%s/cohorts/", p.proj(args))
+	path := fmt.Sprintf("/api/projects/%s/cohorts/", projID)
 	data, err := p.post(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func updateCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	body := map[string]any{}
-	if v := argStr(args, "name"); v != "" {
-		body["name"] = v
+	projID, err := p.proj(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	if v := argStr(args, "description"); v != "" {
-		body["description"] = v
+	r := mcp.NewArgs(args)
+	cohortID := r.Str("cohort_id")
+	name := r.Str("name")
+	description := r.Str("description")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	if description != "" {
+		body["description"] = description
 	}
 	if filters, err := parseJSON(args, "filters"); err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	} else if filters != nil {
 		body["filters"] = filters
 	}
-	path := fmt.Sprintf("/api/projects/%s/cohorts/%s/", p.proj(args), argStr(args, "cohort_id"))
+	path := fmt.Sprintf("/api/projects/%s/cohorts/%s/", projID, cohortID)
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func deleteCohort(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	path := fmt.Sprintf("/api/projects/%s/cohorts/%s/", p.proj(args), argStr(args, "cohort_id"))
+	projID, err := p.proj(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	cohortID, err := mcp.ArgStr(args, "cohort_id")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	path := fmt.Sprintf("/api/projects/%s/cohorts/%s/", projID, cohortID)
 	body := map[string]any{"deleted": true}
 	data, err := p.patch(ctx, path, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	return mcp.RawResult(data)
 }
 
 func listCohortPersons(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {
-	q := queryEncode(map[string]string{
-		"limit":  argStr(args, "limit"),
-		"offset": argStr(args, "offset"),
-	})
-	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/persons/%s", p.proj(args), argStr(args, "cohort_id"), q)
+	projID, err := p.proj(args)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return rawResult(data)
+	r := mcp.NewArgs(args)
+	cohortID := r.Str("cohort_id")
+	q := queryEncode(map[string]string{
+		"limit":  r.Str("limit"),
+		"offset": r.Str("offset"),
+	})
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, err := p.get(ctx, "/api/projects/%s/cohorts/%s/persons/%s", projID, cohortID, q)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
 }

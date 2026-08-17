@@ -2,8 +2,8 @@ package rwx
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -11,35 +11,49 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
-func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	id := extractRunID(argStr(args, "run_id"))
-	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", rwxAPIBase, rwxOrg, id)
-	download := argBool(args, "download")
-
-	cmdArgs := []string{"artifacts", id, "--output", "json"}
-	if !download {
-		cmdArgs = append(cmdArgs, "--list")
-	}
-	if key := argStr(args, "artifact_key"); key != "" && download {
-		cmdArgs = append(cmdArgs, "--key", key)
+func getArtifacts(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
+	ra := mcp.NewArgs(args)
+	runIDRaw := ra.Str("run_id")
+	download := ra.Bool("download")
+	artifactKey := ra.Str("artifact_key")
+	taskKey := ra.Str("task_key")
+	taskIDRaw := ra.Str("task_id")
+	if err := ra.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	output, err := runRWXCommand(cmdArgs, 0)
-	if err != nil {
-		return errResult(err)
+	id := extractRunID(runIDRaw)
+	taskID := extractRunID(taskIDRaw)
+	if id == "" && taskID == "" {
+		return mcp.ErrResult(fmt.Errorf("either run_id or task_id is required"))
+	}
+	if taskID == "" && taskKey == "" {
+		return mcp.ErrResult(fmt.Errorf("artifacts are task-scoped: pass task_id, or run_id together with task_key (get failed task keys from rwx_get_run_results)"))
+	}
+	runURL := fmt.Sprintf("%s/mint/%s/runs/%s", r.baseURL, r.org, id)
+
+	query := url.Values{}
+	if taskID != "" {
+		query.Set("task_id", taskID)
+	} else {
+		query.Set("run_id", id)
+		if taskKey != "" {
+			query.Set("task_key", taskKey)
+		}
 	}
 
-	var parsed struct {
-		RunID     string `json:"run_id"`
-		Artifacts []struct {
-			Key       string `json:"key"`
-			TaskKey   string `json:"task_key"`
-			SizeBytes int    `json:"size_bytes"`
-			Path      string `json:"path"`
-		} `json:"artifacts"`
-	}
-	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
-		return errResult(fmt.Errorf("parse artifacts output: %w", err))
+	var artifacts []rwxArtifactDownload
+	if artifactKey != "" {
+		query.Set("key", artifactKey)
+		var artifact rwxArtifactDownload
+		if err := r.apiGetJSON(ctx, "/mint/api/artifact_download", query, &artifact); err != nil {
+			return mcp.ErrResult(err)
+		}
+		artifacts = append(artifacts, artifact)
+	} else {
+		if err := r.apiGetJSON(ctx, "/mint/api/artifact_downloads", query, &artifacts); err != nil {
+			return mcp.ErrResult(err)
+		}
 	}
 
 	action := "listed"
@@ -47,68 +61,89 @@ func getArtifacts(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResu
 		action = "downloaded"
 	}
 
+	items := make([]map[string]any, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		item := artifact.toMap(!download)
+		if download {
+			content, err := r.downloadArtifact(ctx, artifact)
+			if err != nil {
+				return mcp.ErrResult(err)
+			}
+			item["content"] = content
+		}
+		items = append(items, item)
+	}
+
 	resp := map[string]any{
 		"run_id":    id,
 		"url":       runURL,
 		"action":    action,
-		"artifacts": parsed.Artifacts,
-		"count":     len(parsed.Artifacts),
+		"artifacts": items,
+		"count":     len(items),
+	}
+	if taskID != "" {
+		resp["task_id"] = taskID
+	}
+	if taskKey != "" {
+		resp["task_key"] = taskKey
 	}
 	if !download {
-		resp["hint"] = "Set download=true to download artifacts"
+		resp["hint"] = "Set download=true to fetch artifact content. Tokens are intentionally omitted from listed results."
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
-func validateWorkflow(_ context.Context, _ *rwx, args map[string]any) (*mcp.ToolResult, error) {
-	filePath := argStr(args, "file_path")
+func validateWorkflow(_ context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error) {
+	filePath, err := mcp.ArgStr(args, "file_path")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if filePath == "" {
 		filePath = ".rwx/ci.yml"
 	}
 
-	output, err := runRWXCommand([]string{"lint", filePath, "--output", "json"}, 30000)
+	output, err := r.runRWXCommand([]string{"lint", filePath, "--output", "json"}, 30000)
 	if err != nil {
-		exitErr, ok := err.(*exec.ExitError)
-		if ok && len(exitErr.Stderr) > 0 {
-			return jsonResult(map[string]any{
-				"isValid": false,
-				"errors": []map[string]string{
-					{"severity": "error", "message": string(exitErr.Stderr)},
-				},
-				"warnings": []any{},
-			})
-		}
-		if output != "" {
-			return &mcp.ToolResult{Data: output, IsError: true}, nil
-		}
-		return errResult(err)
+		return mcp.JSONResult(map[string]any{
+			"isValid": false,
+			"errors": []map[string]string{
+				{"severity": "error", "message": err.Error()},
+			},
+			"warnings": []any{},
+		})
 	}
-
-	return rawResult(output)
+	if output != "" {
+		return &mcp.ToolResult{Data: output}, nil
+	}
+	return mcp.JSONResult(map[string]any{
+		"isValid":  true,
+		"errors":   []any{},
+		"warnings": []any{},
+	})
 }
 
-func verifyCLI(_ context.Context, _ *rwx, _ map[string]any) (*mcp.ToolResult, error) {
-	check := getRWXCLIVersion()
+func verifyCLI(_ context.Context, r *rwx, _ map[string]any) (*mcp.ToolResult, error) {
+	check := r.getRWXCLIVersion()
 
 	if !check.installed {
-		return jsonResult(map[string]any{
-			"status":  "not_installed",
-			"message": fmt.Sprintf("rwx CLI is not installed. Please install version >= %s.", minRWXVersion),
+		return mcp.JSONResult(map[string]any{
+			"status":               "not_installed",
+			"message":              fmt.Sprintf("rwx CLI is not installed. Please install version >= %s.", minRWXVersion),
 			"install_instructions": "Visit https://github.com/rwx-research/rwx-cli/releases or use: brew install rwx-research/tap/rwx",
 		})
 	}
 
 	if !check.meetsMinimum {
-		return jsonResult(map[string]any{
-			"status":           "outdated",
-			"current_version":  check.version,
-			"required_version": minRWXVersion,
-			"message":          fmt.Sprintf("rwx CLI version %s is below minimum required version %s. Please upgrade.", check.version, minRWXVersion),
+		return mcp.JSONResult(map[string]any{
+			"status":               "outdated",
+			"current_version":      check.version,
+			"required_version":     minRWXVersion,
+			"message":              fmt.Sprintf("rwx CLI version %s is below minimum required version %s. Please upgrade.", check.version, minRWXVersion),
 			"install_instructions": "Visit https://github.com/rwx-research/rwx-cli/releases or use: brew upgrade rwx-research/tap/rwx",
 		})
 	}
 
-	return jsonResult(map[string]any{
+	return mcp.JSONResult(map[string]any{
 		"status":  "ready",
 		"version": check.version,
 		"message": fmt.Sprintf("rwx CLI version %s is installed and ready.", check.version),
@@ -123,8 +158,8 @@ type rwxVersionCheck struct {
 	meetsMinimum bool
 }
 
-func getRWXCLIVersion() rwxVersionCheck {
-	output, err := exec.Command("rwx", "--version").CombinedOutput()
+func (r *rwx) getRWXCLIVersion() rwxVersionCheck {
+	output, err := exec.Command(r.cliPath, "--version").CombinedOutput() // #nosec G204 -- resolved binary path
 	if err != nil {
 		return rwxVersionCheck{installed: false}
 	}

@@ -2,12 +2,12 @@ package projectinterop
 
 import mcp "github.com/daltoniam/switchboard"
 
-var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(map[string][]string{
+var fieldCompactionSpecs = mustBuildFieldCompactionSpecs(map[mcp.ToolName][]string{
 	"projectinterop_list_projects": {"name", "repo", "branch"},
 })
 
-func mustBuildFieldCompactionSpecs(raw map[string][]string) map[string][]mcp.CompactField {
-	specs := make(map[string][]mcp.CompactField, len(raw))
+func mustBuildFieldCompactionSpecs(raw map[mcp.ToolName][]string) map[mcp.ToolName][]mcp.CompactField {
+	specs := make(map[mcp.ToolName][]mcp.CompactField, len(raw))
 	for toolName, fields := range raw {
 		parsed, err := mcp.ParseCompactSpecs(fields)
 		if err != nil {

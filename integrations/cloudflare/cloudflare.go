@@ -1,0 +1,413 @@
+package cloudflare
+
+import (
+	"bytes"
+	"context"
+	_ "embed"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
+)
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compact.MustLoadWithOverlay("cloudflare", compactYAML, compact.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
+
+type cloudflare struct {
+	apiToken  string
+	accountID string
+	client    *http.Client
+	baseURL   string
+}
+
+var (
+	_ mcp.FieldCompactionIntegration = (*cloudflare)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*cloudflare)(nil)
+)
+
+const maxResponseSize = 10 * 1024 * 1024 // 10 MB
+
+func New() mcp.Integration {
+	return &cloudflare{
+		client:  &http.Client{Timeout: 30 * time.Second},
+		baseURL: "https://api.cloudflare.com/client/v4",
+	}
+}
+
+func (c *cloudflare) Name() string { return "cloudflare" }
+
+func (c *cloudflare) Configure(_ context.Context, creds mcp.Credentials) error {
+	c.apiToken = creds["api_token"]
+	if c.apiToken == "" {
+		return fmt.Errorf("cloudflare: api_token is required")
+	}
+	c.accountID = creds["account_id"]
+	if v := creds["base_url"]; v != "" {
+		c.baseURL = strings.TrimRight(v, "/")
+	}
+	return nil
+}
+
+func (c *cloudflare) Healthy(ctx context.Context) bool {
+	if c.client == nil || c.apiToken == "" {
+		return false
+	}
+	_, err := c.get(ctx, "/user/tokens/verify")
+	return err == nil
+}
+
+func (c *cloudflare) Tools() []mcp.ToolDefinition {
+	return tools
+}
+
+func (c *cloudflare) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	fn, ok := dispatch[toolName]
+	if !ok {
+		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
+	}
+	return fn(ctx, c, args)
+}
+
+func (c *cloudflare) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
+}
+
+func (c *cloudflare) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
+}
+
+func (c *cloudflare) PlainTextKeys() []string {
+	return []string{"account_id"}
+}
+
+func (c *cloudflare) OptionalKeys() []string {
+	return []string{"account_id", "base_url"}
+}
+
+// --- HTTP helpers ---
+
+func (c *cloudflare) doRequest(ctx context.Context, method, path string, body any) (json.RawMessage, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		bodyReader = bytes.NewReader(data)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.apiToken)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	if err != nil {
+		return nil, err
+	}
+	return c.handleResponse(resp, data)
+}
+
+func (c *cloudflare) get(ctx context.Context, pathFmt string, args ...any) (json.RawMessage, error) {
+	return c.doRequest(ctx, "GET", fmt.Sprintf(pathFmt, args...), nil)
+}
+
+func (c *cloudflare) post(ctx context.Context, path string, body any) (json.RawMessage, error) {
+	return c.doRequest(ctx, "POST", path, body)
+}
+
+func (c *cloudflare) put(ctx context.Context, path string, body any) (json.RawMessage, error) {
+	return c.doRequest(ctx, "PUT", path, body)
+}
+
+func (c *cloudflare) patch(ctx context.Context, path string, body any) (json.RawMessage, error) {
+	return c.doRequest(ctx, "PATCH", path, body)
+}
+
+func (c *cloudflare) del(ctx context.Context, pathFmt string, args ...any) (json.RawMessage, error) {
+	return c.doRequest(ctx, "DELETE", fmt.Sprintf(pathFmt, args...), nil)
+}
+
+// doRawRequest sends a request with a raw string body (not JSON-marshaled).
+// Used for KV value writes where the API expects raw bytes with text/plain content type.
+func (c *cloudflare) doRawRequest(ctx context.Context, method, path, body string) (json.RawMessage, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, strings.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.apiToken)
+	req.Header.Set("Content-Type", "text/plain")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	if err != nil {
+		return nil, err
+	}
+	return c.handleResponse(resp, data)
+}
+
+// getRaw performs a GET and returns the response body wrapped in a {"value":"..."} JSON
+// envelope. Used for KV value reads where the API returns raw bytes, not a JSON envelope.
+func (c *cloudflare) getRaw(ctx context.Context, pathFmt string, args ...any) (json.RawMessage, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+fmt.Sprintf(pathFmt, args...), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.apiToken)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.handleResponse(resp, data); err != nil {
+		return nil, err
+	}
+	wrapped, err := json.Marshal(map[string]string{"value": string(data)})
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(wrapped), nil
+}
+
+// handleResponse processes an HTTP response, returning retryable errors for 429/5xx,
+// plain errors for 4xx, and the raw body for success responses.
+func (c *cloudflare) handleResponse(resp *http.Response, data []byte) (json.RawMessage, error) {
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("cloudflare API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("cloudflare API error (%d): %s", resp.StatusCode, string(data))
+	}
+	if resp.StatusCode == 204 || len(data) == 0 {
+		return json.RawMessage(`{"status":"success"}`), nil
+	}
+	return json.RawMessage(data), nil
+}
+
+// --- Helpers ---
+
+type handlerFunc func(ctx context.Context, c *cloudflare, args map[string]any) (*mcp.ToolResult, error)
+
+func queryEncode(params map[string]string) string {
+	vals := url.Values{}
+	for k, v := range params {
+		if v != "" {
+			vals.Set(k, v)
+		}
+	}
+	if len(vals) == 0 {
+		return ""
+	}
+	return "?" + vals.Encode()
+}
+
+// acctID returns the account_id from args, falling back to the configured default.
+// Returns an error if neither is set — prevents malformed URLs like /accounts//workers/scripts.
+func (c *cloudflare) acctID(args map[string]any) (string, error) {
+	v, _ := mcp.ArgStr(args, "account_id")
+	if v != "" {
+		return v, nil
+	}
+	if c.accountID != "" {
+		return c.accountID, nil
+	}
+	return "", fmt.Errorf("account_id is required — pass it as an argument or set CLOUDFLARE_ACCOUNT_ID")
+}
+
+// --- Dispatch map ---
+
+var dispatch = map[mcp.ToolName]handlerFunc{
+	// Zones
+	mcp.ToolName("cloudflare_list_zones"):  listZones,
+	mcp.ToolName("cloudflare_get_zone"):    getZone,
+	mcp.ToolName("cloudflare_create_zone"): createZone,
+	mcp.ToolName("cloudflare_edit_zone"):   editZone,
+	mcp.ToolName("cloudflare_delete_zone"): deleteZone,
+	mcp.ToolName("cloudflare_purge_cache"): purgeCache,
+
+	// DNS Records
+	mcp.ToolName("cloudflare_list_dns_records"):  listDNSRecords,
+	mcp.ToolName("cloudflare_get_dns_record"):    getDNSRecord,
+	mcp.ToolName("cloudflare_create_dns_record"): createDNSRecord,
+	mcp.ToolName("cloudflare_update_dns_record"): updateDNSRecord,
+	mcp.ToolName("cloudflare_delete_dns_record"): deleteDNSRecord,
+
+	// Workers
+	mcp.ToolName("cloudflare_list_workers"):       listWorkers,
+	mcp.ToolName("cloudflare_get_worker"):         getWorker,
+	mcp.ToolName("cloudflare_delete_worker"):      deleteWorker,
+	mcp.ToolName("cloudflare_list_worker_routes"): listWorkerRoutes,
+
+	// Pages
+	mcp.ToolName("cloudflare_list_pages_projects"):       listPagesProjects,
+	mcp.ToolName("cloudflare_get_pages_project"):         getPagesProject,
+	mcp.ToolName("cloudflare_list_pages_deployments"):    listPagesDeployments,
+	mcp.ToolName("cloudflare_get_pages_deployment"):      getPagesDeployment,
+	mcp.ToolName("cloudflare_delete_pages_deployment"):   deletePagesDeployment,
+	mcp.ToolName("cloudflare_rollback_pages_deployment"): rollbackPagesDeployment,
+
+	// R2
+	"cloudflare_list_r2_buckets":  listR2Buckets,
+	"cloudflare_create_r2_bucket": createR2Bucket,
+	"cloudflare_delete_r2_bucket": deleteR2Bucket,
+
+	// KV
+	mcp.ToolName("cloudflare_list_kv_namespaces"):  listKVNamespaces,
+	mcp.ToolName("cloudflare_create_kv_namespace"): createKVNamespace,
+	mcp.ToolName("cloudflare_delete_kv_namespace"): deleteKVNamespace,
+	mcp.ToolName("cloudflare_list_kv_keys"):        listKVKeys,
+	mcp.ToolName("cloudflare_get_kv_value"):        getKVValue,
+	mcp.ToolName("cloudflare_put_kv_value"):        putKVValue,
+	mcp.ToolName("cloudflare_delete_kv_value"):     deleteKVValue,
+
+	// D1
+	"cloudflare_list_d1_databases":  listD1Databases,
+	"cloudflare_get_d1_database":    getD1Database,
+	"cloudflare_create_d1_database": createD1Database,
+	"cloudflare_delete_d1_database": deleteD1Database,
+	"cloudflare_query_d1_database":  queryD1Database,
+
+	// Firewall / WAF
+	mcp.ToolName("cloudflare_list_waf_rulesets"): listWAFRulesets,
+	mcp.ToolName("cloudflare_get_waf_ruleset"):   getWAFRuleset,
+
+	// Load Balancers
+	mcp.ToolName("cloudflare_list_load_balancers"): listLoadBalancers,
+	mcp.ToolName("cloudflare_get_load_balancer"):   getLoadBalancer,
+	mcp.ToolName("cloudflare_list_lb_pools"):       listLBPools,
+	mcp.ToolName("cloudflare_get_lb_pool"):         getLBPool,
+	mcp.ToolName("cloudflare_list_lb_monitors"):    listLBMonitors,
+
+	// Analytics
+	mcp.ToolName("cloudflare_get_zone_analytics"): getZoneAnalytics,
+
+	// Accounts
+	mcp.ToolName("cloudflare_list_accounts"):        listAccounts,
+	mcp.ToolName("cloudflare_get_account"):          getAccount,
+	mcp.ToolName("cloudflare_list_account_members"): listAccountMembers,
+
+	// AI Gateway
+	mcp.ToolName("cloudflare_list_ai_gateways"):            listAIGateways,
+	mcp.ToolName("cloudflare_get_ai_gateway"):              getAIGateway,
+	mcp.ToolName("cloudflare_list_ai_gateway_logs"):        listAIGatewayLogs,
+	mcp.ToolName("cloudflare_get_ai_gateway_log"):          getAIGatewayLog,
+	mcp.ToolName("cloudflare_get_ai_gateway_log_request"):  getAIGatewayLogRequest,
+	mcp.ToolName("cloudflare_get_ai_gateway_log_response"): getAIGatewayLogResponse,
+
+	// Workers AI
+	mcp.ToolName("cloudflare_list_ai_models"): listAIModels,
+	mcp.ToolName("cloudflare_run_ai_model"):   runAIModel,
+
+	// Vectorize
+	mcp.ToolName("cloudflare_list_vectorize_indexes"): listVectorizeIndexes,
+	mcp.ToolName("cloudflare_get_vectorize_index"):    getVectorizeIndex,
+	mcp.ToolName("cloudflare_create_vectorize_index"): createVectorizeIndex,
+	mcp.ToolName("cloudflare_delete_vectorize_index"): deleteVectorizeIndex,
+	mcp.ToolName("cloudflare_query_vectorize_index"):  queryVectorizeIndex,
+
+	// Queues
+	mcp.ToolName("cloudflare_list_queues"):         listQueues,
+	mcp.ToolName("cloudflare_get_queue"):           getQueue,
+	mcp.ToolName("cloudflare_create_queue"):        createQueue,
+	mcp.ToolName("cloudflare_delete_queue"):        deleteQueue,
+	mcp.ToolName("cloudflare_send_queue_messages"): sendQueueMessages,
+
+	// Hyperdrive
+	mcp.ToolName("cloudflare_list_hyperdrive_configs"):  listHyperdriveConfigs,
+	mcp.ToolName("cloudflare_get_hyperdrive_config"):    getHyperdriveConfig,
+	mcp.ToolName("cloudflare_create_hyperdrive_config"): createHyperdriveConfig,
+	mcp.ToolName("cloudflare_delete_hyperdrive_config"): deleteHyperdriveConfig,
+
+	// Workers extras
+	mcp.ToolName("cloudflare_list_worker_secrets"):     listWorkerSecrets,
+	mcp.ToolName("cloudflare_list_worker_deployments"): listWorkerDeployments,
+	mcp.ToolName("cloudflare_get_worker_subdomain"):    getWorkerSubdomain,
+	mcp.ToolName("cloudflare_list_worker_tails"):       listWorkerTails,
+
+	// Pages extras
+	mcp.ToolName("cloudflare_create_pages_project"):    createPagesProject,
+	mcp.ToolName("cloudflare_create_pages_deployment"): createPagesDeployment,
+	mcp.ToolName("cloudflare_list_pages_domains"):      listPagesDomains,
+
+	// KV bulk
+	mcp.ToolName("cloudflare_bulk_delete_kv_values"): bulkDeleteKVValues,
+
+	// Stream
+	mcp.ToolName("cloudflare_list_stream_videos"):  listStreamVideos,
+	mcp.ToolName("cloudflare_get_stream_video"):    getStreamVideo,
+	mcp.ToolName("cloudflare_delete_stream_video"): deleteStreamVideo,
+
+	// Images
+	mcp.ToolName("cloudflare_list_images"):  listImages,
+	mcp.ToolName("cloudflare_get_image"):    getImage,
+	mcp.ToolName("cloudflare_delete_image"): deleteImage,
+
+	// Zero Trust Access
+	mcp.ToolName("cloudflare_list_access_apps"):               listAccessApps,
+	mcp.ToolName("cloudflare_list_access_app_policies"):       listAccessAppPolicies,
+	mcp.ToolName("cloudflare_list_access_identity_providers"): listAccessIdentityProviders,
+
+	// Tunnels
+	mcp.ToolName("cloudflare_list_tunnels"):  listTunnels,
+	mcp.ToolName("cloudflare_get_tunnel"):    getTunnel,
+	mcp.ToolName("cloudflare_delete_tunnel"): deleteTunnel,
+
+	// Email Routing
+	mcp.ToolName("cloudflare_list_email_routing_rules"):     listEmailRoutingRules,
+	mcp.ToolName("cloudflare_list_email_routing_addresses"): listEmailRoutingAddresses,
+	mcp.ToolName("cloudflare_get_email_routing_settings"):   getEmailRoutingSettings,
+
+	// Logpush
+	mcp.ToolName("cloudflare_list_logpush_jobs"):  listLogpushJobs,
+	mcp.ToolName("cloudflare_get_logpush_job"):    getLogpushJob,
+	mcp.ToolName("cloudflare_create_logpush_job"): createLogpushJob,
+
+	// Page Rules
+	mcp.ToolName("cloudflare_list_page_rules"):  listPageRules,
+	mcp.ToolName("cloudflare_get_page_rule"):    getPageRule,
+	mcp.ToolName("cloudflare_delete_page_rule"): deletePageRule,
+
+	// Notifications
+	mcp.ToolName("cloudflare_list_notification_policies"): listNotificationPolicies,
+	mcp.ToolName("cloudflare_list_notification_webhooks"): listNotificationWebhooks,
+
+	// API Tokens
+	mcp.ToolName("cloudflare_list_api_tokens"):  listAPITokens,
+	mcp.ToolName("cloudflare_get_api_token"):    getAPIToken,
+	mcp.ToolName("cloudflare_delete_api_token"): deleteAPIToken,
+}

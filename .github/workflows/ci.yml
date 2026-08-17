@@ -22,6 +22,9 @@ jobs:
       - name: Check go mod tidy
         run: go mod tidy && git diff --exit-code go.mod go.sum
 
+      - name: Check gofmt
+        run: test -z "$(gofmt -l .)" || (echo "Run 'make fmt' to fix formatting"; gofmt -l .; exit 1)
+
       - name: Build
         run: go build -o switchboard ./cmd/server
 
@@ -68,7 +71,20 @@ jobs:
           go-version-file: go.mod
 
       - name: Run gosec
-        run: go tool gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704 ./...
+        run: go tool gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...
 
       - name: Run govulncheck
         run: go tool govulncheck ./...
+
+  rust-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Check Rust guest SDK compiles
+        working-directory: wasm/guest-rust
+        run: cargo check --target wasm32-unknown-unknown

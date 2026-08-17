@@ -2,32 +2,48 @@ package rwx
 
 import (
 	"context"
-	"encoding/json"
+	_ "embed"
 	"fmt"
 	"net/http"
-	"strconv"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 )
 
-func mustJSON(v any) string {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return fmt.Sprintf(`{"error":%q}`, err.Error())
-	}
-	return string(data)
-}
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compact.MustLoadWithOverlay("rwx", compactYAML, compact.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
 
 const (
-	rwxOrg         = "curri"
-	minRWXVersion  = "3.0.0"
-	rwxAPIBase     = "https://cloud.rwx.com"
-	maxResponseSize = 10 * 1024 * 1024 // 10 MB
+	minRWXVersion     = "3.13.0"
+	defaultRWXAPIBase = "https://cloud.rwx.com"
+	maxResponseSize   = 10 * 1024 * 1024 // 10 MB
 )
+
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*rwx)(nil)
+	_ mcp.FieldCompactionIntegration = (*rwx)(nil)
+	_ mcp.PlainTextCredentials       = (*rwx)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*rwx)(nil)
+)
+
+func (r *rwx) PlainTextKeys() []string {
+	return []string{"org", "cli_path"}
+}
 
 type rwx struct {
 	accessToken string
+	org         string
+	cliPath     string
+	baseURL     string
 	client      *http.Client
 	proxy       *proxyClient
 	logCache    *logCache
@@ -36,17 +52,23 @@ type rwx struct {
 func New() mcp.Integration {
 	return &rwx{
 		client:   &http.Client{Timeout: 30 * time.Second},
+		baseURL:  defaultRWXAPIBase,
 		logCache: newLogCache(),
 	}
 }
 
 func (r *rwx) Name() string { return "rwx" }
 
-func (r *rwx) Configure(creds mcp.Credentials) error {
+func (r *rwx) Configure(_ context.Context, creds mcp.Credentials) error {
 	r.accessToken = creds["access_token"]
 	if r.accessToken == "" {
 		return fmt.Errorf("rwx: access_token is required")
 	}
+	r.org = creds["org"]
+	if r.org == "" {
+		return fmt.Errorf("rwx: org is required")
+	}
+	r.cliPath = resolveRWXBinary(creds["cli_path"])
 	return nil
 }
 
@@ -54,7 +76,7 @@ func (r *rwx) Healthy(ctx context.Context) bool {
 	if r.accessToken == "" {
 		return false
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", rwxAPIBase+"/mint/api/runs?limit=1", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", r.baseURL+"/mint/api/runs?limit=1", nil)
 	if err != nil {
 		return false
 	}
@@ -75,7 +97,17 @@ func (r *rwx) Tools() []mcp.ToolDefinition {
 	return nativeTools
 }
 
-func (r *rwx) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (r *rwx) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
+}
+
+func (r *rwx) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
+}
+
+func (r *rwx) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if ok {
 		return fn(ctx, r, args)
@@ -90,11 +122,31 @@ func (r *rwx) Execute(ctx context.Context, toolName string, args map[string]any)
 // Called from main after Configure. Non-fatal — tools still work via CLI/API.
 func (r *rwx) StartProxy() {
 	p := newProxyClient()
-	if err := p.start(); err != nil {
+	if err := p.start(r.cliPath, r.cmdEnv()); err != nil {
 		fmt.Printf("[rwx] proxy start failed (tools still available via CLI): %v\n", err)
 		return
 	}
 	r.proxy = p
+}
+
+// cmdEnv builds the environment for rwx CLI subprocesses, injecting
+// RWX_ACCESS_TOKEN from the configured credentials.
+//
+// The rwx CLI (v3.13+) authenticates via the RWX_ACCESS_TOKEN env var,
+// the --access-token flag, or a local credentials file written by
+// `rwx login`. Without one of these, every command fails with
+// "no access token configured" — even though the plugin holds the
+// token in r.accessToken from Configure().
+//
+// We inject the env var on every subprocess so the plugin Just Works
+// after the user pastes their token into the switchboard UI, with no
+// separate `rwx login` step required.
+func (r *rwx) cmdEnv() []string {
+	env := os.Environ()
+	if r.accessToken != "" {
+		env = append(env, "RWX_ACCESS_TOKEN="+r.accessToken)
+	}
+	return env
 }
 
 // StopProxy shuts down the MCP proxy subprocess.
@@ -105,89 +157,87 @@ func (r *rwx) StopProxy() {
 	}
 }
 
+// resolveRWXBinary determines the absolute path to the rwx CLI binary.
+// Priority: explicit config > PATH lookup > common install locations.
+func resolveRWXBinary(configured string) string {
+	if configured != "" {
+		if isExecutable(configured) {
+			return configured
+		}
+	}
+	if p, err := exec.LookPath("rwx"); err == nil {
+		return p
+	}
+	candidates := absoluteCandidates()
+	for _, candidate := range candidates {
+		if isExecutable(candidate) {
+			return candidate
+		}
+	}
+	return "rwx"
+}
+
+// absoluteCandidates returns common rwx install paths, including
+// home-relative paths when the home directory is available.
+func absoluteCandidates() []string {
+	var paths []string
+	if home, err := os.UserHomeDir(); err == nil {
+		paths = append(paths,
+			filepath.Join(home, ".local", "bin", "rwx"),
+			filepath.Join(home, ".rwx", "bin", "rwx"),
+		)
+	}
+	paths = append(paths, "/usr/local/bin/rwx", "/opt/homebrew/bin/rwx")
+	return paths
+}
+
+func isExecutable(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir() && info.Mode()&0o111 != 0
+}
+
 // --- Result helpers ---
 
 type handlerFunc func(ctx context.Context, r *rwx, args map[string]any) (*mcp.ToolResult, error)
 
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	return rawResult(mustJSON(v))
-}
-
-func rawResult(data string) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: data}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
-func argStrSlice(args map[string]any, key string) []string {
-	switch v := args[key].(type) {
-	case []any:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				out = append(out, s)
-			}
-		}
-		return out
-	case []string:
-		return v
-	}
-	return nil
-}
+// --- Argument helpers (use shared mcp.Arg* / mcp.Args) ---
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Runs
-	"rwx_launch_ci_run":    launchCIRun,
-	"rwx_wait_for_ci_run":  waitForCIRun,
-	"rwx_get_recent_runs":  getRecentRuns,
-	"rwx_get_run_results":  getRunResults,
+	mcp.ToolName("rwx_launch_ci_run"):   launchCIRun,
+	mcp.ToolName("rwx_dispatch_run"):    dispatchRun,
+	mcp.ToolName("rwx_wait_for_ci_run"): waitForCIRun,
+	mcp.ToolName("rwx_get_recent_runs"): getRecentRuns,
+	mcp.ToolName("rwx_get_run_results"): getRunResults,
 
 	// Logs
-	"rwx_get_task_logs": getTaskLogs,
-	"rwx_head_logs":     headLogs,
-	"rwx_tail_logs":     tailLogs,
-	"rwx_grep_logs":     grepLogs,
+	mcp.ToolName("rwx_get_task_logs"): getTaskLogs,
+	mcp.ToolName("rwx_head_logs"):     headLogs,
+	mcp.ToolName("rwx_tail_logs"):     tailLogs,
+	mcp.ToolName("rwx_grep_logs"):     grepLogs,
 
 	// Artifacts
-	"rwx_get_artifacts": getArtifacts,
+	mcp.ToolName("rwx_get_artifacts"): getArtifacts,
 
 	// Workflow
-	"rwx_validate_workflow": validateWorkflow,
+	mcp.ToolName("rwx_validate_workflow"): validateWorkflow,
+
+	// Docs
+	mcp.ToolName("rwx_docs_search"): docsSearch,
+	mcp.ToolName("rwx_docs_pull"):   docsPull,
+
+	// Vaults
+	mcp.ToolName("rwx_vaults_var_show"):      vaultsVarShow,
+	mcp.ToolName("rwx_vaults_var_set"):       vaultsVarSet,
+	mcp.ToolName("rwx_vaults_var_delete"):    vaultsVarDelete,
+	mcp.ToolName("rwx_vaults_secret_set"):    vaultsSecretSet,
+	mcp.ToolName("rwx_vaults_secret_delete"): vaultsSecretDelete,
 
 	// CLI
-	"rwx_verify_cli": verifyCLI,
+	mcp.ToolName("rwx_verify_cli"): verifyCLI,
 }

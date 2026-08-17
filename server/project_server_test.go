@@ -3,9 +3,12 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/project"
@@ -36,7 +39,48 @@ func setupProjectRouter(t *testing.T, def *project.Definition, integrations ...*
 		Registry: reg,
 	}
 
-	router := NewProjectRouter(services, store, "switchboard")
+	// Build search index from test integrations so project-scoped search
+	// gets TF-IDF + synonym scoring.
+	sm := buildSynonymMap(synonymGroups)
+	var tools []toolWithIntegration
+	for _, i := range integrations {
+		for _, tool := range i.Tools() {
+			tools = append(tools, toolWithIntegration{Integration: i.Name(), Tool: tool})
+		}
+	}
+	idf := computeIDF(tools)
+
+	router := NewProjectRouter(services, store, "switchboard", SearchIndex{IDF: idf, SynMap: sm, AllTools: tools})
+	return router, store
+}
+
+// setupProjectRouterWithIntegration mirrors setupProjectRouter but accepts an
+// arbitrary mcp.Integration so tests can register wrapper types like
+// mockIntegrationWithCap that aren't *mockIntegration directly.
+func setupProjectRouterWithIntegration(t *testing.T, def *project.Definition, i mcp.Integration) (*ProjectRouter, *project.Store) {
+	t.Helper()
+	dir := t.TempDir()
+	store := project.NewStore(dir)
+	require.NoError(t, store.Create(def))
+
+	reg := newMockRegistry()
+	reg.Register(i)
+
+	services := &mcp.Services{
+		Config: newMockConfigService(map[string]*mcp.IntegrationConfig{
+			i.Name(): {Enabled: true, Credentials: mcp.Credentials{"token": "test"}},
+		}),
+		Registry: reg,
+	}
+
+	sm := buildSynonymMap(synonymGroups)
+	var tools []toolWithIntegration
+	for _, tool := range i.Tools() {
+		tools = append(tools, toolWithIntegration{Integration: i.Name(), Tool: tool})
+	}
+	idf := computeIDF(tools)
+
+	router := NewProjectRouter(services, store, "switchboard", SearchIndex{IDF: idf, SynMap: sm, AllTools: tools})
 	return router, store
 }
 
@@ -50,13 +94,40 @@ func projectToolRequest(name string, args map[string]any) *mcpsdk.CallToolReques
 	}
 }
 
+func TestProjectRouter_StaticToolListCapability(t *testing.T) {
+	def := &project.Definition{Version: "1", Name: "test-project"}
+	router, _ := setupProjectRouter(t, def, &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("github_list_issues"), Description: "List issues"}},
+	})
+	srv, err := router.getOrCreate("test-project")
+	require.NoError(t, err)
+
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ss, err := srv.mcpSrv.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err)
+	defer ss.Close() //nolint:errcheck
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "crush", Version: "0.89.0"}, nil)
+	cs, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer cs.Close() //nolint:errcheck
+
+	require.NotNil(t, cs.InitializeResult().Capabilities.Tools)
+	assert.False(t, cs.InitializeResult().Capabilities.Tools.ListChanged)
+}
+
 func TestProjectRouter_GetOrCreate(t *testing.T) {
 	def := &project.Definition{Version: "1", Name: "test-project"}
 	mi := &mockIntegration{
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
 		},
 	}
 	router, _ := setupProjectRouter(t, def, mi)
@@ -93,9 +164,9 @@ func TestProjectRouter_SearchFiltersTools(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
-			{Name: "github_delete_repo", Description: "Delete repo"},
-			{Name: "github_get_issue", Description: "Get issue"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete repo"},
+			{Name: mcp.ToolName("github_get_issue"), Description: "Get issue"},
 		},
 	}
 	router, _ := setupProjectRouter(t, def, mi)
@@ -111,10 +182,7 @@ func TestProjectRouter_SearchFiltersTools(t *testing.T) {
 	resp := parseSearchResponse(t, result)
 	assert.Equal(t, 2, resp.Total)
 
-	var names []string
-	for _, tool := range resp.Tools {
-		names = append(names, tool.Name)
-	}
+	names := searchToolNames(t, resp)
 	assert.Contains(t, names, "github_list_issues")
 	assert.Contains(t, names, "github_get_issue")
 	assert.NotContains(t, names, "github_delete_repo")
@@ -140,9 +208,9 @@ func TestProjectRouter_ExecuteInjectsDefaults(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
 		},
-		execFn: func(_ context.Context, _ string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			capturedArgs = args
 			return &mcp.ToolResult{Data: `[]`}, nil
 		},
@@ -181,9 +249,9 @@ func TestProjectRouter_ExecuteAgentOverridesDefaults(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
 		},
-		execFn: func(_ context.Context, _ string, args map[string]any) (*mcp.ToolResult, error) {
+		execFn: func(_ context.Context, _ mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 			capturedArgs = args
 			return &mcp.ToolResult{Data: `[]`}, nil
 		},
@@ -216,7 +284,7 @@ func TestProjectRouter_ExecuteDenied(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_delete_repo", Description: "Delete repo"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete repo"},
 		},
 	}
 	router, _ := setupProjectRouter(t, def, mi)
@@ -232,6 +300,133 @@ func TestProjectRouter_ExecuteDenied(t *testing.T) {
 
 	tc := result.Content[0].(*mcpsdk.TextContent)
 	assert.Contains(t, tc.Text, "denied")
+}
+
+func TestProjectRouter_ExecutePerIntegrationCap(t *testing.T) {
+	// The project router's execute handler and server.handleExecute both call
+	// responseLimitFor. These subtests pin the project router path so a future
+	// refactor can't silently regress the per-integration cap behavior there.
+	def := &project.Definition{Version: "1", Name: "cap-test"}
+
+	buildIntegration := func(payload string) *mockIntegrationWithCap {
+		return &mockIntegrationWithCap{
+			mockIntegration: &mockIntegration{
+				name:    "bigint",
+				healthy: true,
+				tools: []mcp.ToolDefinition{
+					{Name: "bigint_get_page", Description: "Returns rich page content"},
+				},
+				execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+					return &mcp.ToolResult{Data: payload}, nil
+				},
+			},
+			maxBytes: 256 * 1024,
+		}
+	}
+
+	executeTool := func(t *testing.T, mi *mockIntegrationWithCap) *mcpsdk.CallToolResult {
+		t.Helper()
+		router, _ := setupProjectRouterWithIntegration(t, def, mi)
+		scopeRule := project.GetEffectiveRule(def, "switchboard", "")
+		handler := router.makeExecuteHandler(def, scopeRule)
+		result, err := handler(context.Background(), projectToolRequest("execute", map[string]any{
+			"tool_name": "bigint_get_page",
+			"arguments": map[string]any{},
+		}))
+		require.NoError(t, err)
+		return result
+	}
+
+	t.Run("honored above default under override", func(t *testing.T) {
+		// 100KB payload is above the 50KB default but under the 256KB override —
+		// a default-capped integration would reject this, the override must allow it.
+		payload := fmt.Sprintf(`{"data":"%s"}`, strings.Repeat("x", 100*1024))
+		result := executeTool(t, buildIntegration(payload))
+
+		assert.False(t, result.IsError, "response within per-integration cap should succeed")
+		tc := result.Content[0].(*mcpsdk.TextContent)
+		assert.Equal(t, payload, tc.Text)
+	})
+
+	t.Run("still enforced above override", func(t *testing.T) {
+		// 300KB payload exceeds even the raised 256KB cap — must still be rejected,
+		// and the error must report the integration's cap, not the default.
+		payload := fmt.Sprintf(`{"data":"%s"}`, strings.Repeat("x", 300*1024))
+		result := executeTool(t, buildIntegration(payload))
+
+		assert.True(t, result.IsError, "response above per-integration cap should be rejected")
+		tc := result.Content[0].(*mcpsdk.TextContent)
+		assert.Contains(t, tc.Text, "256KB", "error should report the integration's own cap")
+	})
+}
+
+func TestProjectRouter_ExecutePerToolCap(t *testing.T) {
+	// Pins the project router's tool-aware responseLimitFor lookup so a future
+	// refactor can't silently drop the per-tool override branch.
+	def := &project.Definition{Version: "1", Name: "per-tool-cap-test"}
+
+	buildIntegration := func(toolName mcp.ToolName, payload string) *mockProjectIntegrationWithPerToolCap {
+		_ = toolName // Reserved for future per-tool variations; keeps the call sites self-documenting.
+		return &mockProjectIntegrationWithPerToolCap{
+			mockIntegration: &mockIntegration{
+				name:    "bigint",
+				healthy: true,
+				tools: []mcp.ToolDefinition{
+					{Name: "bigint_get_diff", Description: "Returns raw diff"},
+					{Name: "bigint_get_thing", Description: "Returns a normal payload"},
+				},
+				execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+					return &mcp.ToolResult{Data: payload}, nil
+				},
+			},
+			perTool: map[mcp.ToolName]int{"bigint_get_diff": 1024 * 1024},
+		}
+	}
+
+	execute := func(t *testing.T, mi *mockProjectIntegrationWithPerToolCap, toolName string) *mcpsdk.CallToolResult {
+		t.Helper()
+		router, _ := setupProjectRouterWithIntegration(t, def, mi)
+		scopeRule := project.GetEffectiveRule(def, "switchboard", "")
+		handler := router.makeExecuteHandler(def, scopeRule)
+		result, err := handler(context.Background(), projectToolRequest("execute", map[string]any{
+			"tool_name": toolName,
+			"arguments": map[string]any{},
+		}))
+		require.NoError(t, err)
+		return result
+	}
+
+	t.Run("per-tool override allows oversize for declared tool", func(t *testing.T) {
+		payload := strings.Repeat("a", 600*1024) // 600KB plain text, above default
+		result := execute(t, buildIntegration("bigint_get_diff", payload), "bigint_get_diff")
+
+		assert.False(t, result.IsError, "response within per-tool cap should succeed")
+		tc := result.Content[0].(*mcpsdk.TextContent)
+		assert.Equal(t, payload, tc.Text)
+	})
+
+	t.Run("per-tool override does not leak to other tools", func(t *testing.T) {
+		payload := fmt.Sprintf(`{"data":"%s"}`, strings.Repeat("y", 60*1024)) // 60KB, above default
+		result := execute(t, buildIntegration("bigint_get_thing", payload), "bigint_get_thing")
+
+		assert.True(t, result.IsError, "tools without an override must use the default cap")
+		tc := result.Content[0].(*mcpsdk.TextContent)
+		capKB := fmt.Sprintf("%dKB", defaultMaxResponseBytes/1024)
+		assert.Contains(t, tc.Text, capKB, "error should report the default cap")
+	})
+}
+
+// mockProjectIntegrationWithPerToolCap implements PerToolMaxResponseBytesIntegration
+// on top of *mockIntegration so the project router tests can register a fake
+// integration that raises the cap for one specific tool.
+type mockProjectIntegrationWithPerToolCap struct {
+	*mockIntegration
+	perTool map[mcp.ToolName]int
+}
+
+func (m *mockProjectIntegrationWithPerToolCap) MaxResponseBytesForTool(name mcp.ToolName) (int, bool) {
+	v, ok := m.perTool[name]
+	return v, ok
 }
 
 func TestProjectRouter_ContextManifest(t *testing.T) {
@@ -262,7 +457,7 @@ func TestProjectRouter_ContextManifest(t *testing.T) {
 		Config:   newMockConfigService(nil),
 		Registry: newMockRegistry(),
 	}
-	router := NewProjectRouter(services, store, "switchboard")
+	router := NewProjectRouter(services, store, "switchboard", SearchIndex{})
 
 	handler := router.makeContextHandler(def)
 
@@ -402,9 +597,9 @@ func TestProjectRouter_ProjectTools(t *testing.T) {
 		name:    "github",
 		healthy: true,
 		tools: []mcp.ToolDefinition{
-			{Name: "github_list_issues", Description: "List issues"},
-			{Name: "github_get_issue", Description: "Get issue"},
-			{Name: "github_delete_repo", Description: "Delete repo"},
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_get_issue"), Description: "Get issue"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete repo"},
 		},
 	}
 	router, _ := setupProjectRouter(t, def, mi)
@@ -451,4 +646,3 @@ func TestProjectRouter_Handler(t *testing.T) {
 	handler := router.Handler()
 	assert.NotNil(t, handler)
 }
-

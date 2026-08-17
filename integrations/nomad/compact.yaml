@@ -1,0 +1,185 @@
+# Switchboard compaction specs for the nomad integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# nomad.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    nomad_get_agent_self:
+        spec:
+            - config.Datacenter
+            - config.Region
+            - config.Version
+            - config.Server.Enabled
+            - config.Client.Enabled
+            - member.Name
+            - member.Addr
+            - member.Status
+            - stats.nomad
+            - stats.raft
+    nomad_get_allocation:
+        spec:
+            - ID
+            - JobID
+            - TaskGroup
+            - NodeID
+            - NodeName
+            - DesiredStatus
+            - ClientStatus
+            - ClientDescription
+            - TaskStates
+            - CreateTime
+            - ModifyTime
+            - Resources
+            - DeploymentID
+    nomad_get_cluster_status:
+        spec:
+            - leader
+            - peers
+    nomad_get_deployment:
+        spec:
+            - ID
+            - JobID
+            - Namespace
+            - Status
+            - StatusDescription
+            - TaskGroups
+            - IsMultiregion
+            - JobVersion
+            - JobCreateIndex
+    nomad_get_job:
+        spec:
+            - ID
+            - Name
+            - Type
+            - Status
+            - Priority
+            - Namespace
+            - Datacenters
+            - TaskGroups[].Name
+            - TaskGroups[].Count
+            - TaskGroups[].Tasks[].Name
+            - TaskGroups[].Tasks[].Driver
+            - TaskGroups[].Tasks[].Resources
+            - Constraints
+            - SubmitTime
+            - Version
+    nomad_get_job_allocations:
+        spec:
+            - ID
+            - TaskGroup
+            - NodeID
+            - NodeName
+            - DesiredStatus
+            - ClientStatus
+            - ClientDescription
+            - CreateTime
+    nomad_get_job_versions:
+        spec:
+            - Versions[].ID
+            - Versions[].Version
+            - Versions[].SubmitTime
+            - Versions[].Status
+            - Versions[].Stable
+    nomad_get_node:
+        spec:
+            - ID
+            - Name
+            - Address
+            - Datacenter
+            - NodeClass
+            - NodePool
+            - Status
+            - Drain
+            - SchedulingEligibility
+            - Drivers
+            - HostVolumes
+            - Attributes
+            - Resources
+            - Reserved
+            - Meta
+            - Version
+    nomad_get_node_allocations:
+        spec:
+            - ID
+            - JobID
+            - TaskGroup
+            - DesiredStatus
+            - ClientStatus
+            - ClientDescription
+            - CreateTime
+    nomad_list_allocations:
+        spec:
+            - ID
+            - JobID
+            - TaskGroup
+            - NodeID
+            - NodeName
+            - DesiredStatus
+            - ClientStatus
+            - ClientDescription
+            - CreateTime
+            - ModifyTime
+    nomad_list_deployments:
+        spec:
+            - ID
+            - JobID
+            - Namespace
+            - Status
+            - StatusDescription
+            - TaskGroups
+            - IsMultiregion
+            - CreateIndex
+            - ModifyIndex
+    nomad_list_evaluations:
+        spec:
+            - ID
+            - JobID
+            - Type
+            - Status
+            - StatusDescription
+            - Priority
+            - TriggeredBy
+            - CreateTime
+            - ModifyTime
+    nomad_list_jobs:
+        spec:
+            - ID
+            - Name
+            - Type
+            - Status
+            - StatusDescription
+            - Priority
+            - Namespace
+            - Datacenters
+            - SubmitTime
+            - JobSummary.Summary
+    nomad_list_nodes:
+        spec:
+            - ID
+            - Name
+            - Address
+            - Datacenter
+            - NodeClass
+            - NodePool
+            - Status
+            - StatusDescription
+            - Drain
+            - SchedulingEligibility
+            - Drivers
+            - Version
+    nomad_list_services:
+        spec:
+            - Namespace
+            - Services[].ServiceName
+            - Services[].Tags

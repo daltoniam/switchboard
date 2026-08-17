@@ -1,6 +1,7 @@
 package datadog
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -18,32 +19,32 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "key123", "app_key": "app456"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "key123", "app_key": "app456"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "", "app_key": "app456"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "", "app_key": "app456"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "api_key and app_key are required")
 }
 
 func TestConfigure_MissingAppKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "key123", "app_key": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "key123", "app_key": ""})
 	assert.Error(t, err)
 }
 
 func TestConfigure_EmptyCredentials(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{})
+	err := i.Configure(context.Background(), mcp.Credentials{})
 	assert.Error(t, err)
 }
 
 func TestConfigure_WithSite(t *testing.T) {
 	d := &dd{}
-	err := d.Configure(mcp.Credentials{"api_key": "key", "app_key": "app", "site": "datadoghq.eu"})
+	err := d.Configure(context.Background(), mcp.Credentials{"api_key": "key", "app_key": "app", "site": "datadoghq.eu"})
 	assert.NoError(t, err)
 	assert.Equal(t, "datadoghq.eu", d.site)
 }
@@ -68,7 +69,7 @@ func TestTools_AllHaveDatadogPrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -77,7 +78,7 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 
 func TestExecute_UnknownTool(t *testing.T) {
 	d := &dd{apiKey: "key", appKey: "app"}
-	d.Configure(mcp.Credentials{"api_key": "key", "app_key": "app"})
+	d.Configure(context.Background(), mcp.Credentials{"api_key": "key", "app_key": "app"})
 	result, err := d.Execute(t.Context(), "datadog_nonexistent", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
@@ -94,7 +95,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -103,105 +104,17 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	}
 }
 
-// --- helper function tests ---
-
-func TestArgStr(t *testing.T) {
-	args := map[string]any{"key": "value"}
-	assert.Equal(t, "value", argStr(args, "key"))
-	assert.Empty(t, argStr(args, "missing"))
-}
-
-func TestArgInt(t *testing.T) {
-	tests := []struct {
-		name string
-		args map[string]any
-		key  string
-		want int
-	}{
-		{"float64", map[string]any{"n": float64(42)}, "n", 42},
-		{"int", map[string]any{"n": 42}, "n", 42},
-		{"string", map[string]any{"n": "42"}, "n", 42},
-		{"missing", map[string]any{}, "n", 0},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, argInt(tt.args, tt.key))
-		})
-	}
-}
-
-func TestArgInt64(t *testing.T) {
-	tests := []struct {
-		name string
-		args map[string]any
-		key  string
-		want int64
-	}{
-		{"float64", map[string]any{"n": float64(100)}, "n", 100},
-		{"int", map[string]any{"n": 100}, "n", 100},
-		{"int64", map[string]any{"n": int64(100)}, "n", 100},
-		{"string", map[string]any{"n": "100"}, "n", 100},
-		{"missing", map[string]any{}, "n", 0},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, argInt64(tt.args, tt.key))
-		})
-	}
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
-
-func TestArgStrSlice(t *testing.T) {
-	t.Run("[]any", func(t *testing.T) {
-		args := map[string]any{"tags": []any{"a", "b"}}
-		assert.Equal(t, []string{"a", "b"}, argStrSlice(args, "tags"))
-	})
-
-	t.Run("[]string", func(t *testing.T) {
-		args := map[string]any{"tags": []string{"a"}}
-		assert.Equal(t, []string{"a"}, argStrSlice(args, "tags"))
-	})
-
-	t.Run("csv string", func(t *testing.T) {
-		args := map[string]any{"tags": "a,b"}
-		assert.Equal(t, []string{"a", "b"}, argStrSlice(args, "tags"))
-	})
-
-	t.Run("empty string", func(t *testing.T) {
-		assert.Nil(t, argStrSlice(map[string]any{"tags": ""}, "tags"))
-	})
-
-	t.Run("missing", func(t *testing.T) {
-		assert.Nil(t, argStrSlice(map[string]any{}, "tags"))
-	})
-}
-
-func TestOptInt(t *testing.T) {
-	assert.Equal(t, 42, optInt(map[string]any{"n": float64(42)}, "n", 10))
-	assert.Equal(t, 10, optInt(map[string]any{}, "n", 10))
-	assert.Equal(t, 10, optInt(map[string]any{"n": float64(0)}, "n", 10))
-}
-
-func TestOptInt64(t *testing.T) {
-	assert.Equal(t, int64(42), optInt64(map[string]any{"n": float64(42)}, "n", 10))
-	assert.Equal(t, int64(10), optInt64(map[string]any{}, "n", 10))
-}
+// Argument helper tests removed — shared helpers are tested in args_test.go.
 
 func TestJsonResult(t *testing.T) {
-	result, err := jsonResult(map[string]string{"key": "val"})
+	result, err := mcp.JSONResult(map[string]string{"key": "val"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"key"`)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)

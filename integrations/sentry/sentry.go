@@ -3,16 +3,36 @@ package sentry
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compact.MustLoadWithOverlay("sentry", compactYAML, compact.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
+
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*sentry)(nil)
+	_ mcp.FieldCompactionIntegration = (*sentry)(nil)
+	_ mcp.PlainTextCredentials       = (*sentry)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*sentry)(nil)
+)
+
+func (s *sentry) PlainTextKeys() []string {
+	return []string{"organization"}
+}
 
 type sentry struct {
 	authToken    string
@@ -30,19 +50,57 @@ func New() mcp.Integration {
 
 func (s *sentry) Name() string { return "sentry" }
 
-func (s *sentry) Configure(creds mcp.Credentials) error {
+func (s *sentry) Configure(_ context.Context, creds mcp.Credentials) error {
 	s.authToken = creds["auth_token"]
 	s.organization = creds["organization"]
 	if s.authToken == "" {
 		return fmt.Errorf("sentry: auth_token is required")
 	}
-	if s.organization == "" {
-		return fmt.Errorf("sentry: organization is required")
-	}
 	if v := creds["base_url"]; v != "" {
 		s.baseURL = strings.TrimRight(v, "/")
 	}
+	if s.organization == "" {
+		org, err := s.fetchOrganization()
+		if err != nil {
+			return fmt.Errorf("sentry: organization is required (auto-detect failed: %v)", err)
+		}
+		s.organization = org
+	}
 	return nil
+}
+
+// fetchOrganization calls GET /organizations/ to auto-detect the user's organization slug.
+func (s *sentry) fetchOrganization() (string, error) {
+	req, err := http.NewRequest("GET", s.baseURL+"/organizations/", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+s.authToken)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("API error (%d): %s", resp.StatusCode, string(data))
+	}
+
+	var orgs []struct {
+		Slug string `json:"slug"`
+	}
+	if err := json.Unmarshal(data, &orgs); err != nil {
+		return "", fmt.Errorf("parse organizations: %w", err)
+	}
+	if len(orgs) == 0 {
+		return "", fmt.Errorf("no organizations found for this token")
+	}
+	return orgs[0].Slug, nil
 }
 
 func (s *sentry) Healthy(ctx context.Context) bool {
@@ -54,7 +112,17 @@ func (s *sentry) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (s *sentry) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (s *sentry) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
+}
+
+func (s *sentry) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
+}
+
+func (s *sentry) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -93,6 +161,11 @@ func (s *sentry) doRequest(ctx context.Context, method, path string, body any) (
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("sentry API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("sentry API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -122,44 +195,6 @@ func (s *sentry) del(ctx context.Context, pathFmt string, args ...any) (json.Raw
 
 type handlerFunc func(ctx context.Context, s *sentry, args map[string]any) (*mcp.ToolResult, error)
 
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}
-
 // queryEncode builds a query string from non-empty key/value pairs.
 func queryEncode(params map[string]string) string {
 	vals := url.Values{}
@@ -176,7 +211,8 @@ func queryEncode(params map[string]string) string {
 
 // org returns the organization slug from args, falling back to the configured default.
 func (s *sentry) org(args map[string]any) string {
-	if v := argStr(args, "organization"); v != "" {
+	v, _ := mcp.ArgStr(args, "organization")
+	if v != "" {
 		return v
 	}
 	return s.organization
@@ -184,76 +220,76 @@ func (s *sentry) org(args map[string]any) string {
 
 // --- Dispatch map ---
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	// Organizations
-	"sentry_get_organization":    getOrganization,
-	"sentry_list_org_projects":   listOrgProjects,
-	"sentry_list_org_teams":      listOrgTeams,
-	"sentry_list_org_members":    listOrgMembers,
-	"sentry_get_org_member":      getOrgMember,
-	"sentry_list_org_repos":      listOrgRepos,
-	"sentry_resolve_short_id":    resolveShortID,
+	mcp.ToolName("sentry_get_organization"):  getOrganization,
+	mcp.ToolName("sentry_list_org_projects"): listOrgProjects,
+	mcp.ToolName("sentry_list_org_teams"):    listOrgTeams,
+	mcp.ToolName("sentry_list_org_members"):  listOrgMembers,
+	mcp.ToolName("sentry_get_org_member"):    getOrgMember,
+	mcp.ToolName("sentry_list_org_repos"):    listOrgRepos,
+	mcp.ToolName("sentry_resolve_short_id"):  resolveShortID,
 
 	// Projects
-	"sentry_list_projects":        listProjects,
-	"sentry_get_project":          getProject,
-	"sentry_update_project":       updateProject,
-	"sentry_delete_project":       deleteProject,
-	"sentry_create_project":       createProject,
-	"sentry_list_project_keys":    listProjectKeys,
-	"sentry_list_project_envs":    listProjectEnvironments,
-	"sentry_list_project_tags":    listProjectTags,
-	"sentry_get_project_stats":    getProjectStats,
-	"sentry_list_project_hooks":   listProjectHooks,
+	mcp.ToolName("sentry_list_projects"):      listProjects,
+	mcp.ToolName("sentry_get_project"):        getProject,
+	mcp.ToolName("sentry_update_project"):     updateProject,
+	mcp.ToolName("sentry_delete_project"):     deleteProject,
+	mcp.ToolName("sentry_create_project"):     createProject,
+	mcp.ToolName("sentry_list_project_keys"):  listProjectKeys,
+	mcp.ToolName("sentry_list_project_envs"):  listProjectEnvironments,
+	mcp.ToolName("sentry_list_project_tags"):  listProjectTags,
+	mcp.ToolName("sentry_get_project_stats"):  getProjectStats,
+	mcp.ToolName("sentry_list_project_hooks"): listProjectHooks,
 
 	// Teams
-	"sentry_get_team":             getTeam,
-	"sentry_create_team":          createTeam,
-	"sentry_delete_team":          deleteTeam,
-	"sentry_list_team_projects":   listTeamProjects,
+	mcp.ToolName("sentry_get_team"):           getTeam,
+	mcp.ToolName("sentry_create_team"):        createTeam,
+	mcp.ToolName("sentry_delete_team"):        deleteTeam,
+	mcp.ToolName("sentry_list_team_projects"): listTeamProjects,
 
 	// Issues & Events
-	"sentry_list_issues":          listIssues,
-	"sentry_get_issue":            getIssue,
-	"sentry_update_issue":         updateIssue,
-	"sentry_delete_issue":         deleteIssue,
-	"sentry_list_issue_events":    listIssueEvents,
-	"sentry_list_issue_hashes":    listIssueHashes,
-	"sentry_get_issue_tag_values": getIssueTagValues,
-	"sentry_list_project_events":  listProjectEvents,
-	"sentry_get_event":            getEvent,
-	"sentry_list_org_issues":      listOrgIssues,
+	mcp.ToolName("sentry_list_issues"):          listIssues,
+	mcp.ToolName("sentry_get_issue"):            getIssue,
+	mcp.ToolName("sentry_update_issue"):         updateIssue,
+	mcp.ToolName("sentry_delete_issue"):         deleteIssue,
+	mcp.ToolName("sentry_list_issue_events"):    listIssueEvents,
+	mcp.ToolName("sentry_list_issue_hashes"):    listIssueHashes,
+	mcp.ToolName("sentry_get_issue_tag_values"): getIssueTagValues,
+	mcp.ToolName("sentry_list_project_events"):  listProjectEvents,
+	mcp.ToolName("sentry_get_event"):            getEvent,
+	mcp.ToolName("sentry_list_org_issues"):      listOrgIssues,
 
 	// Releases
-	"sentry_list_releases":        listReleases,
-	"sentry_get_release":          getRelease,
-	"sentry_create_release":       createRelease,
-	"sentry_delete_release":       deleteRelease,
-	"sentry_list_release_commits": listReleaseCommits,
-	"sentry_list_release_deploys": listReleaseDeploys,
-	"sentry_create_deploy":        createDeploy,
-	"sentry_list_release_files":   listReleaseFiles,
+	mcp.ToolName("sentry_list_releases"):        listReleases,
+	mcp.ToolName("sentry_get_release"):          getRelease,
+	mcp.ToolName("sentry_create_release"):       createRelease,
+	mcp.ToolName("sentry_delete_release"):       deleteRelease,
+	mcp.ToolName("sentry_list_release_commits"): listReleaseCommits,
+	mcp.ToolName("sentry_list_release_deploys"): listReleaseDeploys,
+	mcp.ToolName("sentry_create_deploy"):        createDeploy,
+	mcp.ToolName("sentry_list_release_files"):   listReleaseFiles,
 
 	// Alerts
-	"sentry_list_metric_alerts":       listMetricAlerts,
-	"sentry_get_metric_alert":         getMetricAlert,
-	"sentry_delete_metric_alert":      deleteMetricAlert,
-	"sentry_list_issue_alerts":        listIssueAlerts,
-	"sentry_get_issue_alert":          getIssueAlert,
-	"sentry_delete_issue_alert":       deleteIssueAlert,
+	mcp.ToolName("sentry_list_metric_alerts"):  listMetricAlerts,
+	mcp.ToolName("sentry_get_metric_alert"):    getMetricAlert,
+	mcp.ToolName("sentry_delete_metric_alert"): deleteMetricAlert,
+	mcp.ToolName("sentry_list_issue_alerts"):   listIssueAlerts,
+	mcp.ToolName("sentry_get_issue_alert"):     getIssueAlert,
+	mcp.ToolName("sentry_delete_issue_alert"):  deleteIssueAlert,
 
 	// Monitors (Cron)
-	"sentry_list_monitors":         listMonitors,
-	"sentry_get_monitor":           getMonitor,
-	"sentry_delete_monitor":        deleteMonitor,
+	mcp.ToolName("sentry_list_monitors"):  listMonitors,
+	mcp.ToolName("sentry_get_monitor"):    getMonitor,
+	mcp.ToolName("sentry_delete_monitor"): deleteMonitor,
 
 	// Discover
-	"sentry_list_saved_queries":  listSavedQueries,
-	"sentry_get_saved_query":     getSavedQuery,
-	"sentry_delete_saved_query":  deleteSavedQuery,
+	mcp.ToolName("sentry_list_saved_queries"): listSavedQueries,
+	mcp.ToolName("sentry_get_saved_query"):    getSavedQuery,
+	mcp.ToolName("sentry_delete_saved_query"): deleteSavedQuery,
 
 	// Replays
-	"sentry_list_replays":  listReplays,
-	"sentry_get_replay":    getReplay,
-	"sentry_delete_replay": deleteReplay,
+	mcp.ToolName("sentry_list_replays"):  listReplays,
+	mcp.ToolName("sentry_get_replay"):    getReplay,
+	mcp.ToolName("sentry_delete_replay"): deleteReplay,
 }

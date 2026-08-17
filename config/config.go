@@ -15,19 +15,215 @@ const (
 	configFile = "config.json"
 )
 
+// envMapping maps integration credential keys to environment variable names.
+// When an env var is set, it overrides the corresponding JSON config value.
+// These use standard/conventional env var names where they exist.
+var envMapping = map[string]map[string]string{
+	"github": {
+		"token": "GITHUB_TOKEN",
+	},
+	"datadog": {
+		"api_key": "DD_API_KEY",
+		"app_key": "DD_APP_KEY",
+		"site":    "DD_SITE",
+	},
+	"linear": {
+		"api_key": "LINEAR_API_KEY",
+	},
+	"sentry": {
+		"auth_token":   "SENTRY_AUTH_TOKEN",
+		"organization": "SENTRY_ORG",
+	},
+	"slack": {
+		"token":   "SLACK_TOKEN",
+		"cookie":  "SLACK_COOKIE",
+		"team_id": "SLACK_TEAM_ID",
+	},
+	"metabase": {
+		"api_key": "METABASE_API_KEY",
+		"url":     "METABASE_URL",
+	},
+	"aws": {
+		"access_key_id":     "AWS_ACCESS_KEY_ID",
+		"secret_access_key": "AWS_SECRET_ACCESS_KEY",
+		"session_token":     "AWS_SESSION_TOKEN",
+		"region":            "AWS_REGION",
+	},
+	"posthog": {
+		"api_key":    "POSTHOG_API_KEY",
+		"project_id": "POSTHOG_PROJECT_ID",
+		"base_url":   "POSTHOG_URL",
+	},
+	"jira": {
+		"email":     "JIRA_EMAIL",
+		"api_token": "JIRA_API_TOKEN",
+		"domain":    "JIRA_DOMAIN",
+	},
+	"confluence": {
+		"email":     "CONFLUENCE_EMAIL",
+		"api_token": "CONFLUENCE_API_TOKEN",
+		"domain":    "CONFLUENCE_DOMAIN",
+	},
+	"postgres": {
+		"connection_string": "DATABASE_URL",
+		"host":              "PGHOST",
+		"port":              "PGPORT",
+		"user":              "PGUSER",
+		"password":          "PGPASSWORD",
+		"database":          "PGDATABASE",
+		"sslmode":           "PGSSLMODE",
+	},
+	"rwx": {
+		"access_token": "RWX_ACCESS_TOKEN",
+		"org":          "RWX_ORG",
+		"cli_path":     "RWX_CLI_PATH",
+	},
+	"elasticsearch": {
+		"base_url": "ELASTICSEARCH_URL",
+		"api_key":  "ELASTICSEARCH_API_KEY",
+		"username": "ELASTICSEARCH_USERNAME",
+		"password": "ELASTICSEARCH_PASSWORD",
+	},
+	"ollama": {
+		"base_url": "OLLAMA_HOST",
+		"api_key":  "OLLAMA_API_KEY",
+	},
+	"salesforce": {
+		"access_token": "SALESFORCE_ACCESS_TOKEN",
+		"instance_url": "SALESFORCE_INSTANCE_URL",
+		"api_version":  "SALESFORCE_API_VERSION",
+	},
+	"netsuite": {
+		"account_id":      "NETSUITE_ACCOUNT_ID",
+		"consumer_key":    "NETSUITE_CONSUMER_KEY",
+		"consumer_secret": "NETSUITE_CONSUMER_SECRET",
+		"token_id":        "NETSUITE_TOKEN_ID",
+		"token_secret":    "NETSUITE_TOKEN_SECRET",
+		"access_token":    "NETSUITE_ACCESS_TOKEN",
+		"base_url":        "NETSUITE_BASE_URL",
+	},
+	"cloudflare": {
+		"api_token":  "CLOUDFLARE_API_TOKEN",
+		"account_id": "CLOUDFLARE_ACCOUNT_ID",
+	},
+	"digitalocean": {
+		"api_token": "DIGITALOCEAN_TOKEN",
+	},
+	"fly": {
+		"api_token": "FLY_API_TOKEN",
+	},
+	"kubernetes": {
+		"kubeconfig":               "KUBECONFIG_CONTENT",
+		"kubeconfig_path":          "KUBECONFIG",
+		"context":                  "KUBECONTEXT",
+		"namespace":                "KUBENAMESPACE",
+		"api_server":               "KUBERNETES_API_SERVER",
+		"token":                    "KUBERNETES_TOKEN",
+		"ca_cert":                  "KUBERNETES_CA_CERT",
+		"insecure_skip_tls_verify": "KUBERNETES_INSECURE_SKIP_TLS_VERIFY",
+		"in_cluster":               "KUBERNETES_IN_CLUSTER",
+		"clusters":                 "KUBERNETES_CLUSTERS",
+		"allow_mutations":          "KUBERNETES_ALLOW_MUTATIONS",
+	},
+	"vercel": {
+		"api_token": "VERCEL_API_TOKEN",
+		"team_id":   "VERCEL_TEAM_ID",
+		"team_slug": "VERCEL_TEAM_SLUG",
+		"base_url":  "VERCEL_BASE_URL",
+	},
+	"snowflake": {
+		"account":       "SNOWFLAKE_ACCOUNT",
+		"token":         "SNOWFLAKE_TOKEN",
+		"user":          "SNOWFLAKE_USER",
+		"private_key":   "SNOWFLAKE_PRIVATE_KEY",
+		"warehouse":     "SNOWFLAKE_WAREHOUSE",
+		"database":      "SNOWFLAKE_DATABASE",
+		"schema":        "SNOWFLAKE_SCHEMA",
+		"role":          "SNOWFLAKE_ROLE",
+		"semantic_view": "SNOWFLAKE_SEMANTIC_VIEW",
+		"account_url":   "SNOWFLAKE_ACCOUNT_URL",
+	},
+	"acp": {
+		"config": "ACP_CONFIG",
+	},
+	"botidentity": {
+		"github_token":        "BOTIDENTITY_GITHUB_TOKEN",
+		"slack_config_token":  "BOTIDENTITY_SLACK_CONFIG_TOKEN",
+		"slack_refresh_token": "BOTIDENTITY_SLACK_REFRESH_TOKEN",
+	},
+	"x": {
+		"bearer_token": "X_BEARER_TOKEN",
+	},
+	"signoz": {
+		"api_key":  "SIGNOZ_API_KEY",
+		"base_url": "SIGNOZ_BASE_URL",
+	},
+	"nomad": {
+		"address": "NOMAD_ADDR",
+		"token":   "NOMAD_TOKEN",
+	},
+	"agents": {
+		"base_url": "AGENTS_BASE_URL",
+		"a2a_url":  "AGENTS_A2A_URL",
+		"token":    "AGENTS_TOKEN",
+	},
+	"stripe": {
+		"api_key":  "STRIPE_API_KEY",
+		"account":  "STRIPE_ACCOUNT",
+		"base_url": "STRIPE_BASE_URL",
+	},
+	"gong": {
+		"access_key":        "GONG_ACCESS_KEY",
+		"access_key_secret": "GONG_ACCESS_KEY_SECRET",
+		"base_url":          "GONG_BASE_URL",
+	},
+	"ramp": {
+		"access_token": "RAMP_ACCESS_TOKEN",
+		"base_url":     "RAMP_BASE_URL",
+	},
+}
+
+// googleWorkspaceIntegrations lists the integrations that share one Google
+// Cloud OAuth client. The shared GOOGLE_OAUTH_CLIENT_ID / _SECRET env vars are
+// fanned out to each of them so a headless/Docker deployment can configure the
+// whole Google Workspace suite with two variables. Env names match the hosted
+// Switchboard product for parity.
+var googleWorkspaceIntegrations = []string{
+	"gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides",
+	"gforms", "gtasks", "gchat", "gpeople", "gmeet",
+}
+
+func init() {
+	for _, name := range googleWorkspaceIntegrations {
+		envMapping[name] = map[string]string{
+			mcp.CredKeyClientID:     "GOOGLE_OAUTH_CLIENT_ID",
+			mcp.CredKeyClientSecret: "GOOGLE_OAUTH_CLIENT_SECRET",
+		}
+	}
+}
+
+// EnvMapping returns the env var mapping table. Useful for documentation and debugging.
+func EnvMapping() map[string]map[string]string {
+	return envMapping
+}
+
 type manager struct {
-	mu       sync.RWMutex
-	cfg      *mcp.Config
-	filePath string
+	mu        sync.RWMutex
+	cfg       *mcp.Config // runtime config, including environment overrides
+	persisted *mcp.Config // durable config, never containing environment overrides
+	filePath  string
+	envLookup func(string) string // defaults to os.Getenv; override in tests
 }
 
 // NewManager returns a ConfigService backed by a JSON file at ~/.config/switchboard/config.json.
+// After loading the JSON config, environment variables are overlaid on top.
+// Any env var that maps to an integration credential will override the JSON value.
 func NewManager() (mcp.ConfigService, error) {
 	path, err := configPath()
 	if err != nil {
 		return nil, err
 	}
-	m := &manager{filePath: path}
+	m := &manager{filePath: path, envLookup: os.Getenv}
 	if err := m.Load(); err != nil {
 		return nil, err
 	}
@@ -47,23 +243,28 @@ func defaultConfig() *mcp.Config {
 		Integrations: map[string]*mcp.IntegrationConfig{
 			"github": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"token": "", "client_id": "", "token_source": ""},
+				Credentials: mcp.Credentials{"token": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
 			},
 			"datadog": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"api_key": "", "app_key": ""},
+				Credentials: mcp.Credentials{"api_key": "", "app_key": "", "site": ""},
 			},
 			"linear": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"api_key": "", "client_id": "", "client_secret": "", "token_source": ""},
+				Credentials: mcp.Credentials{"api_key": "", "mcp_access_token": "", mcp.CredKeyTokenSource: ""},
 			},
 			"sentry": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"auth_token": "", "organization": "", "client_id": "", "token_source": ""},
+				Credentials: mcp.Credentials{"auth_token": "", "organization": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
 			},
 			"slack": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"token": "", "cookie": "", "client_id": "", "client_secret": "", "token_source": ""},
+				Credentials: mcp.Credentials{"token": "", "cookie": "", "team_id": "", mcp.CredKeyTokenSource: ""},
+			},
+			"slackmcp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": ""},
+				Identities:  map[string]mcp.IntegrationIdentity{},
 			},
 			"metabase": {
 				Enabled:     false,
@@ -79,19 +280,175 @@ func defaultConfig() *mcp.Config {
 			},
 			"postgres": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"connection_string": "", "host": "", "port": "", "user": "", "password": "", "database": "", "sslmode": "", "read_only": ""},
+				Credentials: mcp.Credentials{"connection_string": "", "host": "", "port": "", "user": "", "password": "", "database": "", "sslmode": "", "read_only": "", "connections": ""},
 			},
 			"clickhouse": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"host": "", "port": "", "username": "", "password": "", "database": "", "secure": "", "skip_verify": ""},
+				Credentials: mcp.Credentials{"host": "", "port": "", "username": "", "password": "", "database": "", "secure": "", "skip_verify": "", "connections": ""},
+			},
+			"elasticsearch": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_key": "", "username": "", "password": ""},
 			},
 			"pganalyze": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "organization_slug": ""},
+				Credentials: mcp.Credentials{"api_key": "", "base_url": ""},
 			},
 			"rwx": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"access_token": ""},
+				Credentials: mcp.Credentials{"access_token": "", "org": "", "cli_path": ""},
+			},
+			"gmail": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gcal": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gdrive": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", "upload_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gdocs": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gsheets": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gslides": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gforms": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gtasks": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gchat": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gpeople": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"gmeet": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"notion": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"token_v2": ""},
+			},
+			"ollama": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_key": ""},
+			},
+			"ynab": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": ""},
+			},
+			"stripe": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "account": "", "base_url": ""},
+			},
+			"gong": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_key": "", "access_key_secret": "", "base_url": ""},
+			},
+			"ramp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"jira": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"email": "", "api_token": "", "domain": ""},
+			},
+			"confluence": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"email": "", "api_token": "", "domain": ""},
+			},
+			"gcp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"project_id": "", "credentials_json": ""},
+			},
+			"suno": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "base_url": ""},
+			},
+			"amazon": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"email": "", "password": "", "otp_secret": "", "cookies": "", "domain": ""},
+			},
+			"salesforce": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "instance_url": "", "api_version": ""},
+			},
+			"netsuite": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"account_id": "", "consumer_key": "", "consumer_secret": "", "token_id": "", "token_secret": "", "access_token": "", "base_url": ""},
+			},
+			"cloudflare": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "account_id": ""},
+			},
+			"digitalocean": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": ""},
+			},
+			"fly": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "base_url": ""},
+			},
+			"kubernetes": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"kubeconfig": "", "kubeconfig_path": "", "context": "", "namespace": "", "api_server": "", "token": "", "ca_cert": "", "insecure_skip_tls_verify": "", "in_cluster": "", "clusters": "", "allow_mutations": ""},
+			},
+			"vercel": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "team_id": "", "team_slug": "", "base_url": ""},
+			},
+			"snowflake": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"account": "", "token": "", "user": "", "private_key": "", "warehouse": "", "database": "", "schema": "", "role": "", "semantic_view": "", "account_url": ""},
+			},
+			"acp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"config": ""},
+			},
+			"web": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{},
+			},
+			"botidentity": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"github_token": "", "github_app_pem": "", "github_app_id": "", "slack_config_token": "", "slack_refresh_token": "", "slack_bot_token": "", "aws_access_key_id": "", "aws_secret_access_key": "", "aws_session_token": "", "aws_region": ""},
+			},
+			"x": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"bearer_token": "", "client_id": "", "client_secret": ""},
+			},
+			"signoz": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "skip_verify": ""},
+			},
+			"nomad": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"address": "", "token": ""},
+			},
+			"agents": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "a2a_url": "", "token": ""},
+			},
+			"switchboard": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{},
 			},
 			"projectinterop": {
 				Enabled:     false,
@@ -108,8 +465,13 @@ func (m *manager) Load() error {
 	data, err := os.ReadFile(m.filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			m.cfg = defaultConfig()
-			return m.saveLocked()
+			m.persisted = defaultConfig()
+			m.cfg = cloneConfig(m.persisted)
+			if saveErr := m.saveLocked(); saveErr != nil {
+				return saveErr
+			}
+			m.applyEnvOverrides()
+			return nil
 		}
 		return fmt.Errorf("read config: %w", err)
 	}
@@ -118,12 +480,25 @@ func (m *manager) Load() error {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("parse config: %w", err)
 	}
-	m.cfg = mergeWithDefaults(&cfg)
+	m.persisted = mergeWithDefaults(&cfg)
+	m.cfg = cloneConfig(m.persisted)
+	// Validate user-supplied globs from the config file (defaults have no globs).
+	for name, ic := range cfg.Integrations {
+		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
+			return fmt.Errorf("config: integration %q: %w", name, err)
+		}
+	}
+	m.applyEnvOverrides()
 	return nil
 }
 
 func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 	cfg := defaultConfig()
+	cfg.WasmModules = file.WasmModules
+	cfg.Marketplace = file.Marketplace
+	cfg.SessionStore = file.SessionStore
+	cfg.ShowDollarEstimate = file.ShowDollarEstimate
+	cfg.DollarsPerMTokInput = file.DollarsPerMTokInput
 	if file.Integrations == nil {
 		return cfg
 	}
@@ -134,16 +509,70 @@ func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 			continue
 		}
 		defIC.Enabled = fileIC.Enabled
+		defIC.ToolGlobs = fileIC.ToolGlobs
 		for k, v := range fileIC.Credentials {
 			defIC.Credentials[k] = v
+		}
+		if fileIC.Identities != nil {
+			defIC.Identities = fileIC.Identities
 		}
 	}
 	return cfg
 }
 
+func cloneConfig(source *mcp.Config) *mcp.Config {
+	if source == nil {
+		return nil
+	}
+	data, err := json.Marshal(source)
+	if err != nil {
+		panic(fmt.Sprintf("clone config: %v", err))
+	}
+	var clone mcp.Config
+	if err := json.Unmarshal(data, &clone); err != nil {
+		panic(fmt.Sprintf("clone config: %v", err))
+	}
+	return &clone
+}
+
+func cloneIntegrationConfig(source *mcp.IntegrationConfig) *mcp.IntegrationConfig {
+	if source == nil {
+		return nil
+	}
+	return cloneConfig(&mcp.Config{
+		Integrations: map[string]*mcp.IntegrationConfig{"integration": source},
+	}).Integrations["integration"]
+}
+
+func (m *manager) applyEnvOverrides() {
+	if m.cfg.Integrations == nil {
+		return
+	}
+	for integration, mapping := range envMapping {
+		ic, ok := m.cfg.Integrations[integration]
+		if !ok {
+			ic = &mcp.IntegrationConfig{
+				Credentials: mcp.Credentials{},
+			}
+			m.cfg.Integrations[integration] = ic
+		}
+		if ic.Credentials == nil {
+			ic.Credentials = mcp.Credentials{}
+		}
+		for credKey, envVar := range mapping {
+			if val := m.envLookup(envVar); val != "" {
+				ic.Credentials[credKey] = val
+			}
+		}
+	}
+}
+
 func (m *manager) Save() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.persisted == nil {
+		m.persisted = cloneConfig(m.cfg)
+	}
 	return m.saveLocked()
 }
 
@@ -153,7 +582,11 @@ func (m *manager) saveLocked() error {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 
-	data, err := json.MarshalIndent(m.cfg, "", "  ")
+	target := m.persisted
+	if target == nil {
+		target = m.cfg
+	}
+	data, err := json.MarshalIndent(target, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
@@ -167,28 +600,110 @@ func (m *manager) saveLocked() error {
 func (m *manager) Get() *mcp.Config {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.cfg
+	return cloneConfig(m.cfg)
+}
+
+func (m *manager) durableConfigFromRuntime(cfg *mcp.Config) *mcp.Config {
+	durable := cloneConfig(cfg)
+	if m.persisted == nil {
+		return durable
+	}
+	for name, mapping := range envMapping {
+		durableIC := durable.Integrations[name]
+		persistedIC := m.persisted.Integrations[name]
+		if durableIC == nil || persistedIC == nil {
+			continue
+		}
+		for credentialKey, envVar := range mapping {
+			if m.envLookup(envVar) != "" {
+				durableIC.Credentials[credentialKey] = persistedIC.Credentials[credentialKey]
+			}
+		}
+	}
+	return durable
 }
 
 func (m *manager) Update(cfg *mcp.Config) error {
+	for name, ic := range cfg.Integrations {
+		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
+			return fmt.Errorf("integration %q: %w", name, err)
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	previousRuntime := m.cfg
+	previousPersisted := m.persisted
 	m.cfg = cfg
-	return m.saveLocked()
+	m.persisted = m.durableConfigFromRuntime(cfg)
+	if err := m.saveLocked(); err != nil {
+		m.cfg = previousRuntime
+		m.persisted = previousPersisted
+		return err
+	}
+	return nil
 }
 
 func (m *manager) GetIntegration(name string) (*mcp.IntegrationConfig, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	ic, ok := m.cfg.Integrations[name]
-	return ic, ok
+	return cloneIntegrationConfig(ic), ok
 }
 
 func (m *manager) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
+	if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
+		return fmt.Errorf("integration %q: %w", name, err)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	previous, existed := m.cfg.Integrations[name]
+	if m.persisted == nil {
+		m.persisted = cloneConfig(m.cfg)
+	}
+	previousPersisted, persistedExisted := m.persisted.Integrations[name]
+	durable := cloneIntegrationConfig(ic)
+	for credentialKey, envVar := range envMapping[name] {
+		if m.envLookup(envVar) == "" || previous == nil || durable.Credentials[credentialKey] != previous.Credentials[credentialKey] {
+			continue
+		}
+		if previousPersisted != nil {
+			durable.Credentials[credentialKey] = previousPersisted.Credentials[credentialKey]
+		}
+	}
 	m.cfg.Integrations[name] = ic
-	return m.saveLocked()
+	m.persisted.Integrations[name] = durable
+	if err := m.saveLocked(); err != nil {
+		if existed {
+			m.cfg.Integrations[name] = previous
+		} else {
+			delete(m.cfg.Integrations, name)
+		}
+		if persistedExisted {
+			m.persisted.Integrations[name] = previousPersisted
+		} else {
+			delete(m.persisted.Integrations, name)
+		}
+		return err
+	}
+	return nil
+}
+
+func (m *manager) SetWasmModules(modules []mcp.WasmModuleConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.persisted == nil {
+		m.persisted = cloneConfig(m.cfg)
+	}
+	previousRuntime := m.cfg.WasmModules
+	previousPersisted := m.persisted.WasmModules
+	m.cfg.WasmModules = modules
+	m.persisted.WasmModules = modules
+	if err := m.saveLocked(); err != nil {
+		m.cfg.WasmModules = previousRuntime
+		m.persisted.WasmModules = previousPersisted
+		return err
+	}
+	return nil
 }
 
 func (m *manager) EnabledIntegrations() []string {

@@ -1,0 +1,274 @@
+package wasm
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/marketplace"
+)
+
+var _ mcp.FieldCompactionIntegration = (*Module)(nil)
+
+// SetName overrides the name returned by the WASM module's name() export.
+func (m *Module) SetName(name string) {
+	m.nameOverride = name
+}
+
+// Name implements mcp.Integration.
+func (m *Module) Name() string {
+	if m.nameOverride != "" {
+		return m.nameOverride
+	}
+	if m.closed.Load() {
+		return "unknown"
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return "unknown"
+	}
+	ctx := context.Background()
+	results, err := m.fnName.Call(ctx)
+	if err != nil {
+		return "unknown"
+	}
+	if len(results) == 0 {
+		return "unknown"
+	}
+
+	ptr, size := unpackPtrSize(results[0])
+	data, err := readFromGuest(m.mod, ptr, size)
+	freeInGuest(ctx, m.mod, ptr)
+	if err != nil {
+		return "unknown"
+	}
+	return string(data)
+}
+
+// Configure implements mcp.Integration.
+func (m *Module) Configure(ctx context.Context, creds mcp.Credentials) error {
+	credsJSON, err := json.Marshal(creds)
+	if err != nil {
+		return fmt.Errorf("wasm: marshal credentials: %w", err)
+	}
+
+	if m.closed.Load() {
+		return ErrModuleClosed
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return ErrModuleClosed
+	}
+
+	ptr, size, err := writeToGuest(ctx, m.mod, credsJSON)
+	if err != nil {
+		return fmt.Errorf("wasm: write credentials: %w", err)
+	}
+	defer freeInGuest(ctx, m.mod, ptr)
+
+	results, err := m.fnConfig.Call(ctx, packPtrSize(ptr, size))
+	if err != nil {
+		return fmt.Errorf("wasm: configure call failed: %w", err)
+	}
+	if len(results) == 0 {
+		return nil
+	}
+
+	rPtr, rSize := unpackPtrSize(results[0])
+	if rSize == 0 {
+		return nil
+	}
+	errData, readErr := readFromGuest(m.mod, rPtr, rSize)
+	freeInGuest(ctx, m.mod, rPtr)
+	if readErr != nil {
+		return fmt.Errorf("wasm: read configure result: %w", readErr)
+	}
+	if len(errData) > 0 {
+		return fmt.Errorf("%s", string(errData))
+	}
+	return nil
+}
+
+// Tools implements mcp.Integration.
+func (m *Module) Tools() []mcp.ToolDefinition {
+	if m.closed.Load() {
+		return nil
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return nil
+	}
+	ctx := context.Background()
+	results, err := m.fnTools.Call(ctx)
+	if err != nil {
+		return nil
+	}
+	if len(results) == 0 {
+		return nil
+	}
+
+	ptr, size := unpackPtrSize(results[0])
+	data, err := readFromGuest(m.mod, ptr, size)
+	freeInGuest(ctx, m.mod, ptr)
+	if err != nil {
+		return nil
+	}
+
+	var tools []mcp.ToolDefinition
+	if err := json.Unmarshal(data, &tools); err != nil {
+		return nil
+	}
+	return tools
+}
+
+// Execute implements mcp.Integration.
+func (m *Module) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	req := struct {
+		ToolName string         `json:"tool_name"`
+		Args     map[string]any `json:"args"`
+	}{
+		ToolName: string(toolName),
+		Args:     args,
+	}
+
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+	}
+
+	if m.closed.Load() {
+		return &mcp.ToolResult{Data: ErrModuleClosed.Error(), IsError: true}, nil
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return &mcp.ToolResult{Data: ErrModuleClosed.Error(), IsError: true}, nil
+	}
+
+	ptr, size, err := writeToGuest(ctx, m.mod, reqJSON)
+	if err != nil {
+		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
+	}
+	defer freeInGuest(ctx, m.mod, ptr)
+
+	results, err := m.fnExec.Call(ctx, packPtrSize(ptr, size))
+	if err != nil {
+		return nil, fmt.Errorf("wasm: execute call failed: %w", err)
+	}
+	if len(results) == 0 {
+		return &mcp.ToolResult{Data: "empty response from wasm module", IsError: true}, nil
+	}
+
+	rPtr, rSize := unpackPtrSize(results[0])
+	data, readErr := readFromGuest(m.mod, rPtr, rSize)
+	freeInGuest(ctx, m.mod, rPtr)
+	if readErr != nil {
+		return &mcp.ToolResult{Data: readErr.Error(), IsError: true}, nil
+	}
+
+	var result mcp.ToolResult
+	if err := json.Unmarshal(data, &result); err != nil {
+		return &mcp.ToolResult{Data: string(data)}, nil
+	}
+	return &result, nil
+}
+
+// Healthy implements mcp.Integration.
+func (m *Module) Healthy(ctx context.Context) bool {
+	if m.closed.Load() {
+		return false
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return false
+	}
+	results, err := m.fnHealthy.Call(ctx)
+	if err != nil {
+		return false
+	}
+	if len(results) == 0 {
+		return false
+	}
+	return results[0] == 1
+}
+
+// Metadata returns plugin metadata from the WASM module's `metadata()` export.
+func (m *Module) Metadata() *marketplace.PluginMetadata {
+	if m.closed.Load() {
+		return nil
+	}
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return nil
+	}
+	ctx := context.Background()
+	results, err := m.fnMetadata.Call(ctx)
+	if err != nil {
+		return nil
+	}
+	if len(results) == 0 {
+		return nil
+	}
+
+	ptr, size := unpackPtrSize(results[0])
+	if size == 0 {
+		return nil
+	}
+	data, err := readFromGuest(m.mod, ptr, size)
+	freeInGuest(ctx, m.mod, ptr)
+	if err != nil {
+		return nil
+	}
+
+	var meta marketplace.PluginMetadata
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return nil
+	}
+	return &meta
+}
+
+// PlainTextKeys implements mcp.PlainTextCredentials.
+// Returns plain-text credential keys declared in the plugin metadata.
+func (m *Module) PlainTextKeys() []string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.PlainTextKeys
+}
+
+// Placeholders implements mcp.PlaceholderHints.
+// Returns placeholder hints declared in the plugin metadata.
+func (m *Module) Placeholders() map[string]string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.Placeholders
+}
+
+// OptionalKeys implements mcp.OptionalCredentials.
+// Returns optional credential keys declared in the plugin metadata.
+func (m *Module) OptionalKeys() []string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.OptionalKeys
+}
+
+// CredentialKeys returns the credential keys this plugin expects, as declared
+// in its metadata. Used by loadWasmModule to register default config entries.
+func (m *Module) CredentialKeys() []string {
+	meta := m.Metadata()
+	if meta == nil {
+		return nil
+	}
+	return meta.CredentialKeys
+}

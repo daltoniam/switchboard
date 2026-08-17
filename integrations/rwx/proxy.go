@@ -23,10 +23,12 @@ var cliToMCPReplacements = []struct {
 	{regexp.MustCompile("`rwx logs[^`]*`"), "the log tools (rwx_get_task_logs, rwx_head_logs, rwx_tail_logs, rwx_grep_logs)"},
 	{regexp.MustCompile("`rwx results[^`]*`"), "the rwx_get_run_results tool"},
 	{regexp.MustCompile("`rwx artifacts[^`]*`"), "the rwx_get_artifacts tool"},
+	{regexp.MustCompile("`rwx dispatch[^`]*`"), "the rwx_dispatch_run tool"},
 	{regexp.MustCompile("`rwx run[^`]*`"), "the rwx_launch_ci_run tool"},
 	{regexp.MustCompile(`(?i)\brwx logs\b`), "the log tools (rwx_get_task_logs, rwx_head_logs, rwx_tail_logs, rwx_grep_logs)"},
 	{regexp.MustCompile(`(?i)\brwx results\b`), "the rwx_get_run_results tool"},
 	{regexp.MustCompile(`(?i)\brwx artifacts\b`), "the rwx_get_artifacts tool"},
+	{regexp.MustCompile(`(?i)\brwx dispatch\b`), "the rwx_dispatch_run tool"},
 	{regexp.MustCompile(`(?i)\brwx run\b`), "the rwx_launch_ci_run tool"},
 }
 
@@ -39,14 +41,14 @@ func transformCLIReferences(text string) string {
 
 // proxyClient manages a subprocess running `rwx mcp serve` and proxies tool calls.
 type proxyClient struct {
-	mu       sync.Mutex
-	proc     *exec.Cmd
-	stdin    io.WriteCloser
-	scanner  *bufio.Scanner
-	nextID   int
-	pending  map[int]chan json.RawMessage
-	tools    []proxyToolDef
-	running  bool
+	mu      sync.Mutex
+	proc    *exec.Cmd
+	stdin   io.WriteCloser
+	scanner *bufio.Scanner
+	nextID  int
+	pending map[int]chan json.RawMessage
+	tools   []proxyToolDef
+	running bool
 }
 
 type proxyToolDef struct {
@@ -61,8 +63,9 @@ func newProxyClient() *proxyClient {
 	}
 }
 
-func (p *proxyClient) start() error {
-	cmd := exec.Command("rwx", "mcp", "serve")
+func (p *proxyClient) start(rwxBin string, env []string) error {
+	cmd := exec.Command(rwxBin, "mcp", "serve") // #nosec G204 -- resolved binary path
+	cmd.Env = env
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("stdin pipe: %w", err)
@@ -259,7 +262,7 @@ func (p *proxyClient) toolDefinitions() []mcp.ToolDefinition {
 		}
 
 		defs = append(defs, mcp.ToolDefinition{
-			Name:        "rwx_proxy_" + t.Name,
+			Name:        mcp.ToolName("rwx_proxy_" + t.Name),
 			Description: "[Proxied from rwx mcp serve] " + desc,
 			Parameters:  params,
 			Required:    requiredFields,
@@ -268,8 +271,8 @@ func (p *proxyClient) toolDefinitions() []mcp.ToolDefinition {
 	return defs
 }
 
-func (p *proxyClient) execute(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
-	originalName := strings.TrimPrefix(toolName, "rwx_proxy_")
+func (p *proxyClient) execute(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	originalName := strings.TrimPrefix(string(toolName), "rwx_proxy_")
 
 	found := false
 	for _, t := range p.tools {
@@ -287,7 +290,7 @@ func (p *proxyClient) execute(_ context.Context, toolName string, args map[strin
 		"arguments": args,
 	})
 	if err != nil {
-		return errResult(fmt.Errorf("proxy call %s: %w", originalName, err))
+		return mcp.ErrResult(fmt.Errorf("proxy call %s: %w", originalName, err))
 	}
 
 	var callResult struct {
@@ -298,7 +301,7 @@ func (p *proxyClient) execute(_ context.Context, toolName string, args map[strin
 		IsError bool `json:"isError"`
 	}
 	if err := json.Unmarshal(result, &callResult); err != nil {
-		return rawResult(transformCLIReferences(string(result)))
+		return &mcp.ToolResult{Data: transformCLIReferences(string(result))}, nil
 	}
 
 	var texts []string

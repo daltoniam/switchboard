@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -23,22 +24,55 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": "lin_api_test123"})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "lin_api_test123"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"api_key": ""})
+	err := i.Configure(context.Background(), mcp.Credentials{"api_key": ""})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "api_key is required")
+	assert.Contains(t, err.Error(), "api_key or mcp_access_token is required")
 }
 
 func TestConfigure_EmptyCredentials(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{})
+	err := i.Configure(context.Background(), mcp.Credentials{})
 	assert.Error(t, err)
 }
+
+func TestNew_WithMCPServerURL(t *testing.T) {
+	i := New("https://mcp.linear.app")
+	require.NotNil(t, i)
+	assert.Equal(t, "linear", i.Name())
+	assert.Equal(t, "https://mcp.linear.app", MCPServerURL(i))
+}
+
+func TestNew_WithoutMCPServerURL(t *testing.T) {
+	i := New()
+	assert.Equal(t, "", MCPServerURL(i))
+}
+
+func TestIsRemoteMCP_APIKeyMode(t *testing.T) {
+	i := New("https://mcp.linear.app")
+	_ = i.Configure(context.Background(), mcp.Credentials{"api_key": "lin_api_test"})
+	assert.False(t, IsRemoteMCP(i))
+}
+
+func TestIsRemoteMCP_NonLinear(t *testing.T) {
+	assert.False(t, IsRemoteMCP(&mockIntegration{}))
+	assert.Equal(t, "", MCPServerURL(&mockIntegration{}))
+}
+
+type mockIntegration struct{}
+
+func (m *mockIntegration) Name() string                                         { return "mock" }
+func (m *mockIntegration) Configure(_ context.Context, _ mcp.Credentials) error { return nil }
+func (m *mockIntegration) Tools() []mcp.ToolDefinition                          { return nil }
+func (m *mockIntegration) Execute(context.Context, mcp.ToolName, map[string]any) (*mcp.ToolResult, error) {
+	return nil, nil
+}
+func (m *mockIntegration) Healthy(context.Context) bool { return false }
 
 func TestTools(t *testing.T) {
 	i := New()
@@ -60,7 +94,7 @@ func TestTools_AllHaveLinearPrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -85,7 +119,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -120,7 +154,11 @@ func testGQL(url string, l *linear, query string, variables map[string]any) (jso
 		return data, nil
 	}
 	if len(gqlResp.Errors) > 0 {
-		return nil, fmt.Errorf("graphql errors: %s", gqlResp.Errors[0].Message)
+		msgs := make([]string, len(gqlResp.Errors))
+		for i, e := range gqlResp.Errors {
+			msgs[i] = e.String()
+		}
+		return nil, fmt.Errorf("graphql errors: %s", strings.Join(msgs, "; "))
 	}
 	return gqlResp.Data, nil
 }
@@ -169,42 +207,56 @@ func TestGQL_GraphQLErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "field not found")
 }
 
-// --- arg helper tests ---
+func TestGQL_GraphQLErrorsWithPathAndExtensions(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"errors": []map[string]any{
+				{
+					"message":    "Argument Validation Error",
+					"path":       []string{"searchIssues"},
+					"extensions": map[string]any{"code": "INVALID_INPUT", "field": "term"},
+				},
+			},
+		})
+	}))
+	defer ts.Close()
 
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
+	l := &linear{apiKey: "test-key", client: ts.Client()}
+	_, err := testGQL(ts.URL, l, `{ searchIssues(term: "") { nodes { id } } }`, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Argument Validation Error")
+	assert.Contains(t, err.Error(), "searchIssues")
+	assert.Contains(t, err.Error(), "INVALID_INPUT")
 }
 
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
+func TestGQL_GraphQLErrorsWithoutExtensions(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"errors": []map[string]any{
+				{"message": "Not authorized"},
+			},
+		})
+	}))
+	defer ts.Close()
+
+	l := &linear{apiKey: "test-key", client: ts.Client()}
+	_, err := testGQL(ts.URL, l, `{ viewer { id } }`, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Not authorized")
 }
 
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
-
-func TestOptInt(t *testing.T) {
-	assert.Equal(t, 42, optInt(map[string]any{"n": float64(42)}, "n", 10))
-	assert.Equal(t, 10, optInt(map[string]any{}, "n", 10))
-}
+// Arg helper tests removed — shared helpers are tested in args_test.go.
 
 func TestRawResult(t *testing.T) {
 	data := json.RawMessage(`{"key":"value"}`)
-	result, err := rawResult(data)
+	result, err := mcp.RawResult(data)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
 func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)

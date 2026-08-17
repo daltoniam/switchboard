@@ -17,7 +17,7 @@ type projectInterop struct {
 
 type handlerFunc func(context.Context, *projectInterop, map[string]any) (*mcp.ToolResult, error)
 
-var dispatch = map[string]handlerFunc{
+var dispatch = map[mcp.ToolName]handlerFunc{
 	"projectinterop_list_projects":  listProjects,
 	"projectinterop_get_project":    getProject,
 	"projectinterop_create_project": createProject,
@@ -35,7 +35,7 @@ func New() mcp.Integration {
 
 func (p *projectInterop) Name() string { return "projectinterop" }
 
-func (p *projectInterop) Configure(creds mcp.Credentials) error {
+func (p *projectInterop) Configure(_ context.Context, creds mcp.Credentials) error {
 	root := strings.TrimSpace(creds["config_root"])
 	if root == "" {
 		root = project.DefaultConfigDir()
@@ -55,12 +55,12 @@ func (p *projectInterop) Tools() []mcp.ToolDefinition { return tools }
 
 func (p *projectInterop) PlainTextKeys() []string { return []string{"config_root"} }
 
-func (p *projectInterop) CompactSpec(toolName string) ([]mcp.CompactField, bool) {
+func (p *projectInterop) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
 }
 
-func (p *projectInterop) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (p *projectInterop) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	handler, ok := dispatch[toolName]
 	if !ok {
 		return errResult(fmt.Errorf("unknown tool: %s", toolName))

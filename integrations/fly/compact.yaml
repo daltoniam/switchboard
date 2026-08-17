@@ -1,0 +1,63 @@
+# Switchboard compaction specs for the fly integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# fly.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    fly_list_apps:
+        spec:
+            - apps[].id
+            - apps[].name
+            - apps[].machine_count
+            - apps[].volume_count
+            - apps[].network
+    fly_list_machines:
+        spec:
+            - '[].id'
+            - '[].name'
+            - '[].state'
+            - '[].region'
+            - '[].instance_id'
+            - '[].private_ip'
+            - '[].image_ref.repository'
+            - '[].image_ref.tag'
+            - '[].created_at'
+            - '[].updated_at'
+            - '[].config.guest.cpus'
+            - '[].config.guest.memory_mb'
+            - '[].config.guest.cpu_kind'
+    fly_list_secrets:
+        spec:
+            - '[].label'
+            - '[].type'
+            - '[].created_at'
+    fly_list_volume_snapshots:
+        spec:
+            - '[].id'
+            - '[].size'
+            - '[].digest'
+            - '[].created_at'
+            - '[].status'
+            - '[].retention_days'
+    fly_list_volumes:
+        spec:
+            - '[].id'
+            - '[].name'
+            - '[].state'
+            - '[].size_gb'
+            - '[].region'
+            - '[].encrypted'
+            - '[].attached_machine_id'
+            - '[].created_at'
+            - '[].auto_backup_enabled'

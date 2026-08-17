@@ -19,7 +19,7 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_WithStaticCredentials(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{
+	err := i.Configure(context.Background(), mcp.Credentials{
 		"access_key_id":     "AKIAIOSFODNN7EXAMPLE",
 		"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 		"region":            "us-west-2",
@@ -29,7 +29,7 @@ func TestConfigure_WithStaticCredentials(t *testing.T) {
 
 func TestConfigure_DefaultRegion(t *testing.T) {
 	a := &integration{}
-	err := a.Configure(mcp.Credentials{
+	err := a.Configure(context.Background(), mcp.Credentials{
 		"access_key_id":     "AKIAIOSFODNN7EXAMPLE",
 		"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 	})
@@ -39,7 +39,7 @@ func TestConfigure_DefaultRegion(t *testing.T) {
 
 func TestConfigure_WithSessionToken(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{
+	err := i.Configure(context.Background(), mcp.Credentials{
 		"access_key_id":     "AKIAIOSFODNN7EXAMPLE",
 		"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 		"session_token":     "FwoGZXIvYXdzEBYaDG...",
@@ -50,7 +50,7 @@ func TestConfigure_WithSessionToken(t *testing.T) {
 
 func TestConfigure_DefaultConfig(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"region": "ap-southeast-1"})
+	err := i.Configure(context.Background(), mcp.Credentials{"region": "ap-southeast-1"})
 	assert.NoError(t, err)
 }
 
@@ -74,7 +74,7 @@ func TestTools_AllHaveAWSPrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -83,7 +83,7 @@ func TestTools_NoDuplicateNames(t *testing.T) {
 
 func TestExecute_UnknownTool(t *testing.T) {
 	a := &integration{}
-	err := a.Configure(mcp.Credentials{
+	err := a.Configure(context.Background(), mcp.Credentials{
 		"access_key_id":     "AKIAIOSFODNN7EXAMPLE",
 		"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 		"region":            "us-east-1",
@@ -106,7 +106,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -118,7 +118,7 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 // --- Result helper tests ---
 
 func TestJsonResult(t *testing.T) {
-	result, err := jsonResult(map[string]string{"key": "value"})
+	result, err := mcp.JSONResult(map[string]string{"key": "value"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, `"key"`)
@@ -130,50 +130,6 @@ func TestErrResult(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
-}
-
-// --- Argument helper tests ---
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgInt32(t *testing.T) {
-	assert.Equal(t, int32(42), argInt32(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, int32(42), argInt32(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, int32(42), argInt32(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, int32(0), argInt32(map[string]any{}, "n"))
-}
-
-func TestArgInt64(t *testing.T) {
-	assert.Equal(t, int64(42), argInt64(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, int64(42), argInt64(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, int64(42), argInt64(map[string]any{"n": int64(42)}, "n"))
-	assert.Equal(t, int64(42), argInt64(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, int64(0), argInt64(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
-}
-
-func TestArgStrSlice(t *testing.T) {
-	assert.Equal(t, []string{"a", "b"}, argStrSlice(map[string]any{"s": []any{"a", "b"}}, "s"))
-	assert.Equal(t, []string{"a", "b"}, argStrSlice(map[string]any{"s": []string{"a", "b"}}, "s"))
-	assert.Equal(t, []string{"a", "b"}, argStrSlice(map[string]any{"s": "a,b"}, "s"))
-	assert.Nil(t, argStrSlice(map[string]any{}, "s"))
-	assert.Nil(t, argStrSlice(map[string]any{"s": ""}, "s"))
 }
 
 // --- CloudWatch time parsing tests ---

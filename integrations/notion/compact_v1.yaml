@@ -1,0 +1,302 @@
+# Switchboard compaction specs for the notion v1 (OAuth / api.notion.com) backend.
+#
+# Schema: see compact.yaml (the v3 specs) for the full intro. Same syntax,
+# same `version: 1`, same RenderKey wiring — this file just describes the
+# different JSON shape v1 returns.
+#
+# Why a separate file: v1 and v3 share tool names but produce structurally
+# incompatible responses. v3 is record-map-shaped (parent_id, parent_table,
+# properties.title as a flat string), v1 is object-shaped (parent.type +
+# parent.page_id, properties.<name>.title[].plain_text). A single spec
+# can't match both. notion.CompactSpec / MaxBytes / Views switch on
+# n.v1 != nil at request time and pick this set when v1 is configured.
+#
+# Field selection notes (per Notion v1 docs):
+#   - Drop universally: object, type wrappers, request_status, public_url,
+#     cover, icon, created_by, last_edited_by full objects.
+#   - Drop on list responses: per-result created_time/last_edited_time
+#     unless we're in a forensic view.
+#   - Keep: id, parent, properties, url (where present), rich_text content.
+#   - in_trash vs archived: keep `in_trash` (newer spelling); drop the
+#     deprecated `archived` alias.
+#
+# When adding a v1 tool: also wire it in dispatchV1, and consider whether
+# the response is large enough to justify a `views:` block (default rule:
+# if any field path returns a tree, add a slim default view).
+
+version: 1
+tools:
+  # ── List/search tools ────────────────────────────────────────────
+  # v1 search returns {object:"list", results:[{object:"page"|"data_source", id, parent,
+  # properties, url, created_time, last_edited_time, created_by, last_edited_by,
+  # icon, cover, public_url, in_trash, is_archived, is_locked}], next_cursor, has_more}.
+  #
+  # titles (default): id + parent + url + the title rich-text array, so the
+  # LLM has enough to pick a result. ~1–2KB for 20 results.
+  # full: above + properties (in case the LLM wants other column values) +
+  # timestamps for ordering. Still drops cover/icon/public_url/created_by/
+  # last_edited_by/locked metadata — that stuff is never useful to an LLM.
+  notion_search:
+    views:
+      titles:
+        spec:
+          - results[].id
+          - results[].parent
+          - results[].url
+          - results[].properties.title
+          - next_cursor
+          - has_more
+        hint: "Result id, parent, url, and title rich-text. Use to pick a result before drilling in."
+        formats: [json]
+      full:
+        spec:
+          - results[].id
+          - results[].parent
+          - results[].url
+          - results[].properties
+          - results[].created_time
+          - results[].last_edited_time
+          - next_cursor
+          - has_more
+        hint: "All result properties + timestamps. Use after picking a result."
+        formats: [json]
+    default:
+      view: titles
+      format: json
+
+  # v1 query_data_source returns {object:"list", results:[<page>], next_cursor, has_more}.
+  # Each row is a full v1 page object (same shape as search results).
+  #
+  # summary (default): id + last_edited_time + the title column rich-text.
+  # full: every property + timestamps. Drops cover/icon/user objects/url.
+  notion_query_data_source:
+    views:
+      summary:
+        spec:
+          - results[].id
+          - results[].properties.title
+          - results[].last_edited_time
+          - next_cursor
+          - has_more
+        hint: "Row id + title + last_edited per row. Use to find the row, then view=full for properties."
+        formats: [json]
+      full:
+        spec:
+          - results[].id
+          - results[].properties
+          - results[].created_time
+          - results[].last_edited_time
+          - next_cursor
+          - has_more
+        hint: "All properties per row. Use after picking the row(s) you need."
+        formats: [json]
+    default:
+      view: summary
+      format: json
+
+  # v1 /users returns {object:"list", results:[{id, name, type, avatar_url,
+  # person:{email}, bot:{}}], next_cursor, has_more}. Drop avatar_url and
+  # the wrapper object/type/has_more+cursor — for a workspace member list
+  # the LLM almost always just wants id + name + email.
+  notion_list_users:
+    spec:
+      - results[].id
+      - results[].name
+      - results[].person.email
+
+  # v1 /comments returns {object:"list", results:[{id, parent, discussion_id,
+  # rich_text:[{plain_text, ...}], created_time, created_by, display_name,
+  # attachments}], ...}. Comments don't have the v3-style discussion
+  # grouping; the discussion_id is per-comment.
+  #
+  # topics (default): rich_text content + discussion_id grouping key.
+  # Keeps the conversation, drops author/timestamps/attachments.
+  # full: everything including attachments.
+  notion_retrieve_comments:
+    views:
+      topics:
+        spec:
+          - results[].id
+          - results[].discussion_id
+          - results[].rich_text
+          - next_cursor
+          - has_more
+        hint: "Comment id, discussion_id, and rich-text content. Use to scan what's been said."
+        formats: [json]
+      full:
+        spec:
+          - results[].id
+          - results[].parent
+          - results[].discussion_id
+          - results[].rich_text
+          - results[].created_time
+          - results[].created_by.id
+          - results[].display_name
+          - results[].attachments
+          - next_cursor
+          - has_more
+        hint: "Full thread metadata: author id, display name, attachments, timestamps."
+        formats: [json]
+    default:
+      view: topics
+      format: json
+
+  # v1 has no "list data source templates" endpoint — v1ListDataSourceTemplates
+  # returns the synthetic shape {results:[], note:"..."}. Whitelist both
+  # so the explanatory note isn't stripped out.
+  notion_list_data_source_templates:
+    spec:
+      - results
+      - note
+
+  # ── Composite read tools ─────────────────────────────────────────
+  # v1 notion_get_page_content returns {page:<v1 page>, blocks:[<v1 block>],
+  # has_more, next_cursor}, built by our handler. The page object is the
+  # full v1 page (object, id, parent, properties, url, cover, icon,
+  # created_*, last_edited_*, archived, in_trash). Block objects each
+  # have {object, id, type, parent, has_children, archived, in_trash,
+  # created_*, last_edited_*, <type>:{...}}.
+  #
+  # toc (default): page id + parent + title property + per-block id/type +
+  # the type-specific payload (paragraph, heading_*, bulleted_list_item,
+  # etc. each live under a key matching `type`). Compaction keeps anything
+  # under `blocks[].<type>` paths if listed; since the type key varies
+  # per block, we whitelist `blocks[].id`, `blocks[].type`, and
+  # `blocks[].has_children` — the rich_text payload lives at
+  # `blocks[].paragraph.rich_text`, etc. The framework doesn't currently
+  # support dynamic per-type field selection, so `toc` deliberately omits
+  # block bodies; for the body, use view=full.
+  # full: page properties + every block field. Big but accurate.
+  #
+  # markdown rendering is JSON-only on v1 — the existing renderPageContentMD
+  # is shaped for v3 record-map block trees, not v1's typed-object blocks.
+  # Adding a v1 markdown renderer is a future PR.
+  notion_get_page_content:
+    views:
+      toc:
+        spec:
+          - page.id
+          - page.parent
+          - page.url
+          - page.properties.title
+          - blocks[].id
+          - blocks[].type
+          - blocks[].has_children
+          - has_more
+          - next_cursor
+        hint: "Page id/parent/title + per-block id/type/has_children. Use to navigate before reading."
+        formats: [json]
+      full:
+        spec:
+          - page.id
+          - page.parent
+          - page.url
+          - page.properties
+          - page.created_time
+          - page.last_edited_time
+          - blocks
+          - has_more
+          - next_cursor
+        hint: "Full page properties + entire block list. Use when you need the content."
+        formats: [json]
+    default:
+      view: toc
+      format: json
+
+  # v1 /blocks/{id}/children returns a list of v1 block objects. Keep id,
+  # type, has_children, parent, archived/in_trash status, and the
+  # type-specific payload via the whole-result-object fallthrough. Drop
+  # created_by/last_edited_by full user objects.
+  notion_get_block_children:
+    spec:
+      - results[].id
+      - results[].type
+      - results[].has_children
+      - results[].parent
+      - results[].in_trash
+      - results[].created_time
+      - results[].last_edited_time
+      - next_cursor
+      - has_more
+
+  # ── Single-record get tools ──────────────────────────────────────
+  # v1 GET /pages/{id} — drop cover/icon/public_url/created_by/last_edited_by
+  # full user objects and the deprecated `archived` alias.
+  notion_retrieve_page:
+    spec:
+      - id
+      - parent
+      - properties
+      - url
+      - in_trash
+      - created_time
+      - last_edited_time
+
+  # v1 GET /blocks/{id} — drop created_by/last_edited_by full user objects.
+  notion_retrieve_block:
+    spec:
+      - id
+      - type
+      - parent
+      - has_children
+      - in_trash
+      - created_time
+      - last_edited_time
+
+  # v1 GET /databases/{id} — drop cover/icon/created_by/last_edited_by/
+  # public_url/url. Keep id + title + parent + description + properties
+  # (the schema) + data_sources (the 2025-09-03 split list).
+  notion_retrieve_database:
+    spec:
+      - id
+      - title
+      - description
+      - parent
+      - properties
+      - data_sources
+      - in_trash
+
+  # v1 GET /data_sources/{id} — same drops as retrieve_database. The
+  # 2025-09-03 split moved the schema under data_source while the
+  # container metadata stays on the database.
+  #
+  # full stays default for the same reason it does on v3: most callers
+  # hit retrieve_data_source to learn columns before query_data_source.
+  notion_retrieve_data_source:
+    views:
+      summary:
+        spec:
+          - id
+          - name
+          - parent
+        hint: "Data source id + name + parent only. Use to verify it exists."
+        formats: [json]
+      full:
+        spec:
+          - id
+          - name
+          - description
+          - parent
+          - properties
+          - in_trash
+        hint: "id + name + description + full property schema. Use before query_data_source."
+        formats: [json]
+    default:
+      view: full
+      format: json
+
+  # v1 GET /users/{id} — drop avatar_url, type, bot/person discriminator
+  # body (we surface person.email but the bot object has nothing useful).
+  notion_retrieve_user:
+    spec:
+      - id
+      - name
+      - person.email
+
+  # v1 GET /users/me — same shape as retrieve_user but the response is
+  # always a bot user (the integration itself). Email is rarely populated.
+  notion_get_self:
+    spec:
+      - id
+      - name
+      - bot.workspace_name

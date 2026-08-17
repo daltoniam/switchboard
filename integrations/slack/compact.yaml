@@ -1,0 +1,174 @@
+# Switchboard compaction specs for the slack integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# slack.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    slack_auth_test:
+        spec:
+            - user
+            - user_id
+            - team
+            - team_id
+            - url
+    slack_conversations_history:
+        spec:
+            - messages[].ts
+            - messages[].user
+            - messages[].text
+            - messages[].thread_ts
+            - messages[].reply_count
+            - count
+            - has_more
+            - next_cursor
+    slack_get_conversation_info:
+        spec:
+            - id
+            - name
+            - type
+            - num_members
+            - topic
+            - purpose
+            - is_archived
+            - creator
+            - created
+    slack_get_reactions:
+        spec:
+            - name
+            - count
+            - users
+    slack_get_thread:
+        spec:
+            - messages[].ts
+            - messages[].user
+            - messages[].text
+            - messages[].is_parent
+            - count
+            - thread_ts
+    slack_get_user_group:
+        spec:
+            - usergroup_id
+            - count
+            - members
+    slack_get_user_info:
+        spec:
+            - id
+            - name
+            - real_name
+            - display_name
+            - email
+            - status_text
+            - status_emoji
+            - timezone
+            - is_admin
+            - is_bot
+    slack_get_user_presence:
+        spec:
+            - user_id
+            - presence
+            - online
+    slack_list_bookmarks:
+        spec:
+            - bookmarks[].id
+            - bookmarks[].title
+            - bookmarks[].link
+            - bookmarks[].emoji
+            - bookmarks[].type
+            - count
+    slack_list_conversations:
+        spec:
+            - conversations[].id
+            - conversations[].name
+            - conversations[].type
+            - conversations[].num_members
+            - conversations[].topic
+            - conversations[].purpose
+            - conversations[].is_archived
+            - count
+            - next_cursor
+    slack_list_emoji:
+        spec:
+            - count
+            - emoji
+    slack_list_files:
+        spec:
+            - files[].id
+            - files[].name
+            - files[].title
+            - files[].filetype
+            - files[].size
+            - files[].user
+            - count
+    slack_list_pins:
+        spec:
+            - pins[].type
+            - pins[].channel
+            - pins[].message.ts
+            - pins[].message.text
+            - pins[].message.user
+            - pins[].created
+            - count
+    slack_list_reminders:
+        spec:
+            - reminders[].id
+            - reminders[].text
+            - reminders[].user
+            - reminders[].time
+            - count
+    slack_list_user_groups:
+        spec:
+            - user_groups[].id
+            - user_groups[].name
+            - user_groups[].handle
+            - user_groups[].description
+            - user_groups[].user_count
+            - count
+    slack_list_users:
+        spec:
+            - users[].id
+            - users[].name
+            - users[].real_name
+            - users[].display_name
+            - users[].email
+            - users[].is_admin
+            - users[].is_bot
+            - users[].deleted
+            - count
+    slack_list_workspaces:
+        spec:
+            - count
+            - default_team_id
+            - workspaces
+    slack_search_messages:
+        spec:
+            - matches[].ts
+            - matches[].text
+            - matches[].user
+            - matches[].channel
+            - matches[].channel_id
+            - matches[].permalink
+            - total
+            - query
+    slack_team_info:
+        spec:
+            - id
+            - name
+            - domain
+            - icon
+    slack_token_status:
+        spec:
+            - workspace_count
+            - default_team_id
+            - workspaces
+            - auto_refresh

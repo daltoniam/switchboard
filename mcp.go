@@ -2,7 +2,15 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"path"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/daltoniam/switchboard/markdown"
 )
 
 // ErrNotConfigured is returned when an integration is used before being configured.
@@ -11,26 +19,199 @@ var ErrNotConfigured = errors.New("integration not configured")
 // ErrUnhealthy is returned when an integration cannot reach its upstream API.
 var ErrUnhealthy = errors.New("integration unhealthy")
 
+// RetryableError signals that an operation failed with a transient error (5xx, 429)
+// and should be retried. The server layer retries these automatically with backoff.
+// Adapters return this from their HTTP helpers; non-retryable errors (4xx) use plain errors.
+type RetryableError struct {
+	StatusCode int
+	Err        error
+	RetryAfter time.Duration // server-suggested wait; 0 means use default backoff
+}
+
+func (e *RetryableError) Error() string {
+	return fmt.Sprintf("retryable (%d): %s", e.StatusCode, e.Err)
+}
+
+func (e *RetryableError) Unwrap() error { return e.Err }
+
+// IsRetryable reports whether err (or any error in its chain) is a RetryableError.
+func IsRetryable(err error) bool {
+	var re *RetryableError
+	return errors.As(err, &re)
+}
+
+const maxRetryAfter = 60 * time.Second
+
+// ParseRetryAfter parses a Retry-After header value (integer seconds) into a Duration.
+// Returns 0 for empty, non-numeric, or non-positive values. Caps at 60s.
+// Does not handle HTTP-date format (RFC 7231 §7.1.3) — all known upstream APIs use
+// integer seconds.
+func ParseRetryAfter(header string) time.Duration {
+	if header == "" {
+		return 0
+	}
+	secs, err := strconv.Atoi(header)
+	if err != nil || secs <= 0 {
+		return 0
+	}
+	d := time.Duration(secs) * time.Second
+	if d > maxRetryAfter {
+		return maxRetryAfter
+	}
+	return d
+}
+
 // Credentials holds key-value credential pairs for an integration.
 type Credentials map[string]string
 
+// Credential key constants for OAuth/infrastructure keys that are not
+// real secrets. Centralized here to prevent hasCredentials and web handlers
+// from diverging on which keys to treat as non-credential metadata.
+const (
+	CredKeyClientID     = "client_id"
+	CredKeyClientSecret = "client_secret"
+	CredKeyTokenSource  = "token_source"
+)
+
+// IntegrationIdentity holds credentials and optional non-secret metadata for one
+// named identity within an integration (e.g. a Slack user/workspace pair).
+type IntegrationIdentity struct {
+	Credentials Credentials       `json:"credentials"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
+}
+
 // IntegrationConfig stores the enabled state and credentials for a single integration.
 type IntegrationConfig struct {
-	Enabled     bool        `json:"enabled"`
-	Credentials Credentials `json:"credentials"`
+	Enabled     bool                           `json:"enabled"`
+	Credentials Credentials                    `json:"credentials"`
+	ToolGlobs   []string                       `json:"tool_globs,omitempty"`
+	Identities  map[string]IntegrationIdentity `json:"identities,omitempty"`
+}
+
+// HasUsableCredentials reports whether the config has any non-empty usable
+// credential value at the integration level or in any named identity.
+// OAuth infrastructure keys (client_id, client_secret, token_source) alone
+// do not count as usable credentials.
+func (ic *IntegrationConfig) HasUsableCredentials() bool {
+	if ic == nil {
+		return false
+	}
+	if hasUsableCredentialValues(ic.Credentials) {
+		return true
+	}
+	for _, id := range ic.Identities {
+		if hasUsableCredentialValues(id.Credentials) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasUsableCredentialValues(creds Credentials) bool {
+	for k, v := range creds {
+		if v == "" {
+			continue
+		}
+		switch k {
+		case CredKeyClientID, CredKeyClientSecret, CredKeyTokenSource:
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+// ToolAllowed reports whether toolName is permitted by the integration's tool glob
+// restrictions. An empty ToolGlobs slice means all tools are permitted.
+// Multiple globs are OR'd: the tool is allowed if any glob matches.
+// Invalid patterns are skipped (use ValidateToolGlobs to catch them at config time).
+func (ic *IntegrationConfig) ToolAllowed(toolName ToolName) bool {
+	if len(ic.ToolGlobs) == 0 {
+		return true
+	}
+	for _, pattern := range ic.ToolGlobs {
+		matched, err := path.Match(pattern, string(toolName))
+		if err != nil {
+			continue
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateToolGlobs checks that all tool glob patterns are syntactically valid.
+// Returns an error naming the first invalid pattern.
+func ValidateToolGlobs(globs []string) error {
+	for _, pattern := range globs {
+		if _, err := path.Match(pattern, ""); err != nil {
+			return fmt.Errorf("invalid tool glob pattern %q: %w", pattern, err)
+		}
+	}
+	return nil
+}
+
+// WasmModuleConfig describes a WASM module to load as an integration.
+type WasmModuleConfig struct {
+	Path        string      `json:"path"`
+	Name        string      `json:"name,omitempty"`
+	Credentials Credentials `json:"credentials,omitempty"`
+}
+
+// MarketplaceConfig holds plugin marketplace settings.
+type MarketplaceConfig struct {
+	ManifestSources  []MarketplaceManifestSource  `json:"manifest_sources,omitempty"`
+	InstalledPlugins []MarketplaceInstalledPlugin `json:"installed_plugins,omitempty"`
+	AutoUpdate       bool                         `json:"auto_update"`
+	CheckInterval    string                       `json:"check_interval,omitempty"`
+	PluginDir        string                       `json:"plugin_dir,omitempty"`
+	LastCheck        string                       `json:"last_check,omitempty"`
+}
+
+// MarketplaceManifestSource is a configured manifest URL.
+type MarketplaceManifestSource struct {
+	URL     string `json:"url"`
+	Name    string `json:"name,omitempty"`
+	Enabled bool   `json:"enabled"`
+}
+
+// MarketplaceInstalledPlugin tracks a plugin installed via the marketplace.
+type MarketplaceInstalledPlugin struct {
+	Name          string `json:"name"`
+	Version       string `json:"version"`
+	ManifestURL   string `json:"manifest_url,omitempty"`
+	InstalledAt   string `json:"installed_at"`
+	Path          string `json:"path"`
+	SHA256        string `json:"sha256"`
+	AutoUpdate    bool   `json:"auto_update"`
+	LatestVersion string `json:"latest_version,omitempty"`
 }
 
 // Config is the top-level configuration containing all integrations.
 type Config struct {
 	Integrations map[string]*IntegrationConfig `json:"integrations"`
+	WasmModules  []WasmModuleConfig            `json:"wasm_modules,omitempty"`
+	Marketplace  *MarketplaceConfig            `json:"marketplace,omitempty"`
+	SessionStore string                        `json:"session_store,omitempty"` // "memory" or "file" (default: "memory")
+
+	// ShowDollarEstimate toggles the dashboard's "tokens saved" hero card
+	// from displaying a dollar-equivalent figure. Hidden by default to keep
+	// the headline number honest (token estimates are heuristic, dollar
+	// estimates compound that with pricing assumptions).
+	ShowDollarEstimate bool `json:"show_dollar_estimate,omitempty"`
+	// DollarsPerMTokInput is the price per million input tokens used to
+	// compute the dollar estimate. Zero falls back to DefaultInputDollarsPerMTok.
+	DollarsPerMTokInput float64 `json:"dollars_per_mtok_input,omitempty"`
 }
 
 // ToolDefinition describes an API operation an integration exposes.
 // These are used by the search tool to let the AI discover available operations.
 type ToolDefinition struct {
-	Name        string            `json:"name"`
+	Name        ToolName          `json:"name"`
 	Description string            `json:"description"`
-	Parameters  map[string]string `json:"parameters"`           // param name -> description
+	Parameters  map[string]string `json:"parameters"` // param name -> description
 	Required    []string          `json:"required,omitempty"`
 }
 
@@ -38,6 +219,42 @@ type ToolDefinition struct {
 type ToolResult struct {
 	Data    string `json:"data,omitempty"`
 	IsError bool   `json:"is_error,omitempty"`
+
+	// IntermediateBytes is populated only by the script engine and is the
+	// sum of every api.call() raw response size accumulated while running
+	// the script. Zero for normal (non-script) tool invocations. Not
+	// serialized — internal-only telemetry consumed by handleScriptExecute.
+	IntermediateBytes int64 `json:"-"`
+	// FinalBytes is the script's returned-value size, also script-only.
+	FinalBytes int64 `json:"-"`
+}
+
+// JSONResult marshals v to JSON and returns it as a ToolResult.
+func JSONResult(v any) (*ToolResult, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return &ToolResult{Data: err.Error(), IsError: true}, nil
+	}
+	return &ToolResult{Data: string(data)}, nil
+}
+
+// RawResult wraps already-serialized JSON bytes as a ToolResult.
+// Passing nil is equivalent to passing an empty slice — returns an empty, non-error result.
+func RawResult(data []byte) (*ToolResult, error) {
+	return &ToolResult{Data: string(data)}, nil
+}
+
+// ErrResult converts an error to a ToolResult.
+// Retryable errors are propagated as Go errors for the server retry loop.
+// Non-retryable errors become ToolResult with IsError=true.
+func ErrResult(err error) (*ToolResult, error) {
+	if err == nil {
+		return nil, nil
+	}
+	if IsRetryable(err) {
+		return nil, err
+	}
+	return &ToolResult{Data: err.Error(), IsError: true}, nil
 }
 
 // HealthStatus represents the health of an integration.
@@ -56,17 +273,52 @@ type Integration interface {
 	Name() string
 
 	// Configure initializes the integration with credentials.
-	Configure(creds Credentials) error
+	Configure(ctx context.Context, creds Credentials) error
 
 	// Tools returns the tool definitions this integration provides.
 	// Used by the search tool for progressive discovery.
 	Tools() []ToolDefinition
 
 	// Execute runs a named tool with the given arguments and returns the result.
-	Execute(ctx context.Context, toolName string, args map[string]any) (*ToolResult, error)
+	Execute(ctx context.Context, toolName ToolName, args map[string]any) (*ToolResult, error)
 
 	// Healthy returns true if the integration can reach its upstream API.
 	Healthy(ctx context.Context) bool
+}
+
+// MultiIdentityIntegration is an optional interface for integrations that
+// support multiple named credential identities (e.g. one Slack user token per
+// workspace). Existing single-identity adapters remain source-compatible.
+type MultiIdentityIntegration interface {
+	ConfigureIdentities(ctx context.Context, identities map[string]IntegrationIdentity) error
+}
+
+// IdentityConfigHints describes the editable fields for named identities in
+// generic configuration surfaces. Credential values are always treated as
+// secrets; metadata values are safe to render as plain text.
+type IdentityConfigHints interface {
+	IdentityCredentialKeys() []string
+	IdentityMetadataKeys() []string
+}
+
+// ConfigureIntegration applies integration-level credentials via Configure,
+// then ConfigureIdentities when the adapter implements MultiIdentityIntegration.
+func ConfigureIntegration(ctx context.Context, integration Integration, ic *IntegrationConfig) error {
+	if integration == nil {
+		return errors.New("integration is nil")
+	}
+	if ic == nil {
+		ic = &IntegrationConfig{}
+	}
+	if err := integration.Configure(ctx, ic.Credentials); err != nil {
+		return err
+	}
+	if multi, ok := integration.(MultiIdentityIntegration); ok {
+		if err := multi.ConfigureIdentities(ctx, ic.Identities); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // FieldCompactionIntegration is an optional interface that integrations can implement
@@ -76,7 +328,99 @@ type FieldCompactionIntegration interface {
 	// CompactSpec returns pre-parsed field compaction specs for a tool.
 	// Returns false if the tool has no specs (skip compaction).
 	// Adapters should parse specs once at init time via ParseCompactSpecs.
-	CompactSpec(toolName string) ([]CompactField, bool)
+	CompactSpec(toolName ToolName) ([]CompactField, bool)
+}
+
+// IntegrationName identifies an integration by its canonical lowercase name (e.g. "github").
+// Semantic type prevents silent metric fragmentation from typos or case mismatches.
+// Scoped to metrics boundary; Integration.Name() and Registry still use string.
+type IntegrationName string
+
+// ToolName identifies a tool by its integration-prefixed name (e.g. "notion_get_page_content").
+// Semantic type prevents mixing with arbitrary strings at interface boundaries.
+type ToolName string
+
+// UnmarshalJSON normalizes whitespace and rejects empty tool names at parse time.
+func (tn *ToolName) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" {
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return errors.New("tool_name cannot be empty")
+	}
+	*tn = ToolName(s)
+	return nil
+}
+
+// Markdown is rendered markdown content returned by MarkdownIntegration.
+// Alias lets adapter authors use mcp.Markdown without importing the markdown subpackage.
+type Markdown = markdown.Markdown
+
+// MarkdownIntegration is an optional interface that integrations can implement
+// to render tool responses as Markdown instead of JSON. The server calls
+// RenderMarkdown in processResult before compaction — if it returns rendered
+// content, compaction and columnarization are skipped entirely.
+type MarkdownIntegration interface {
+	// RenderMarkdown converts a tool's JSON response to Markdown.
+	// Returns (markdown, true) if the tool supports rendering.
+	// Returns ("", false) for tools that return JSON normally.
+	RenderMarkdown(toolName ToolName, data []byte) (Markdown, bool)
+}
+
+// MaxResponseBytesIntegration is an optional interface that integrations can implement
+// to raise the response size cap above the server's default. Content-heavy integrations
+// (e.g. Confluence pages, Notion documents) can declare a higher cap when a single
+// record legitimately exceeds the default. Integrations that don't implement this
+// interface use the server default and are expected to stay under it via filters,
+// pagination, and field compaction.
+type MaxResponseBytesIntegration interface {
+	// MaxResponseBytes returns the maximum response size in bytes that this
+	// integration's tools are allowed to produce. Values at or below the server
+	// default are ignored (the default applies).
+	MaxResponseBytes() int
+}
+
+// PerToolMaxResponseBytesIntegration is an optional interface that integrations can
+// implement to raise the response size cap above the server's default for a single
+// tool, without lifting the cap for every tool in the integration. Use this when
+// only a handful of tools legitimately produce large responses (e.g. raw GitHub
+// PR diffs) and you want to keep the safety net low for everything else.
+//
+// Distinguished from MaxResponseBytesIntegration: that interface returns one cap
+// for the entire integration; this one returns a cap per tool. When both interfaces
+// are implemented, the per-tool value takes precedence for tools it returns true
+// for, and the integration-wide value is used as a fallback for the rest.
+//
+// Distinguished from ToolMaxBytesIntegration: that interface declares a stricter
+// per-tool cap that triggers a response_too_large envelope on the post-compaction
+// JSON body; it cannot raise the cap above the integration-wide check. This
+// interface raises the integration-wide cap, applies to both JSON and plain-text
+// responses, and runs before the integration-wide cap check.
+type PerToolMaxResponseBytesIntegration interface {
+	// MaxResponseBytesForTool returns the response size cap for a specific tool.
+	// Returns (0, false) for tools that should use the integration-wide cap.
+	// Returned values at or below the server default are ignored.
+	MaxResponseBytesForTool(toolName ToolName) (int, bool)
+}
+
+// ToolMaxBytesIntegration is an optional interface that integrations can implement
+// to declare per-tool response size caps. When the post-compaction response for a
+// tool exceeds its declared cap, the server replaces the body with a structured
+// error envelope (response_too_large) so the LLM can detect and recover from
+// over-large responses without parsing a truncated JSON document.
+//
+// Distinguished from MaxResponseBytesIntegration: that interface returns one cap
+// for the entire integration; this one returns a different cap per tool, sourced
+// from compact.yaml's optional max_bytes field.
+type ToolMaxBytesIntegration interface {
+	// MaxBytes returns the per-tool response size cap. Returns (0, false) for
+	// tools without a declared cap (no check applied).
+	MaxBytes(toolName ToolName) (int, bool)
 }
 
 // PlainTextCredentials is an optional interface that integrations can implement
@@ -84,6 +428,24 @@ type FieldCompactionIntegration interface {
 // instead of password fields in the web UI.
 type PlainTextCredentials interface {
 	PlainTextKeys() []string
+}
+
+// PlaceholderHints is an optional interface that integrations can implement
+// to provide custom placeholder text for credential input fields in the web UI.
+type PlaceholderHints interface {
+	Placeholders() map[string]string
+}
+
+// OptionalCredentials is an optional interface that integrations can implement
+// to declare which credential keys are not required, so the web UI can label them.
+type OptionalCredentials interface {
+	OptionalKeys() []string
+}
+
+// CredentialDetector is an optional interface for integrations whose usable
+// credential state cannot be inferred from non-empty config values alone.
+type CredentialDetector interface {
+	HasCredentials(creds Credentials) bool
 }
 
 // ConfigService manages loading and saving configuration.
@@ -94,6 +456,7 @@ type ConfigService interface {
 	Update(cfg *Config) error
 	GetIntegration(name string) (*IntegrationConfig, bool)
 	SetIntegration(name string, ic *IntegrationConfig) error
+	SetWasmModules(modules []WasmModuleConfig) error
 	EnabledIntegrations() []string
 	DefaultCredentialKeys(name string) []string
 }
@@ -101,6 +464,7 @@ type ConfigService interface {
 // Registry holds all registered integrations and provides lookup.
 type Registry interface {
 	Register(i Integration) error
+	Unregister(name string) (Integration, bool)
 	Get(name string) (Integration, bool)
 	All() []Integration
 	Names() []string
@@ -110,4 +474,52 @@ type Registry interface {
 type Services struct {
 	Config   ConfigService
 	Registry Registry
+	Browser  BrowserService // nil if playwright driver is not installed
+	Metrics  *Metrics       // nil until initialized; callers must nil-check
+}
+
+// BrowserService manages browser lifecycle for web automation.
+// Pass via integration constructors — never exposed as MCP tools.
+type BrowserService interface {
+	NewSession(ctx context.Context) (BrowserSession, error)
+	Close() error
+}
+
+// BrowserCookie represents a browser cookie for injection into a BrowserSession.
+type BrowserCookie struct {
+	Name     string
+	Value    string
+	Domain   string
+	Path     string
+	Secure   bool
+	HTTPOnly bool
+	Expires  *time.Time
+}
+
+// BrowserSession is an isolated browser context (own cookies, local storage).
+// One session per integration; pages within the same session share auth state.
+// AddCookies should be called before navigating any pages — cookies injected
+// after the first navigation may not apply to already-loaded page contexts.
+type BrowserSession interface {
+	AddCookies(ctx context.Context, cookies []BrowserCookie) error
+	NewPage(ctx context.Context) (BrowserPage, error)
+	Close() error
+}
+
+// BrowserPage is a single browser tab.
+// Note: context.Context parameters are accepted for API consistency and future-proofing,
+// but the underlying playwright-go driver does not support context cancellation.
+// Long-running calls (Navigate, WaitForSelector) will not be interrupted by ctx.Done().
+type BrowserPage interface {
+	Navigate(ctx context.Context, url string) error
+	Fill(ctx context.Context, selector, value string) error
+	Click(ctx context.Context, selector string) error
+	SelectOption(ctx context.Context, selector, value string) error
+	InnerText(ctx context.Context, selector string) (string, error)
+	InnerHTML(ctx context.Context, selector string) (string, error)
+	Content(ctx context.Context) (string, error)
+	WaitForSelector(ctx context.Context, selector string) error
+	Screenshot(ctx context.Context) ([]byte, error)
+	Evaluate(ctx context.Context, expression string, args ...any) (any, error)
+	Close() error
 }

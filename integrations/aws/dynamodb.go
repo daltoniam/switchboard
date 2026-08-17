@@ -12,86 +12,117 @@ import (
 )
 
 func dynamoListTables(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	input := &dynamodb.ListTablesInput{}
-	if v := argInt32(args, "limit"); v > 0 {
+	if v := r.Int32("limit"); v > 0 {
 		input.Limit = aws.Int32(v)
+	}
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 	out, err := a.dynamoClient.ListTables(ctx, input)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoDescribeTable(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	tableName := r.Str("table_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	out, err := a.dynamoClient.DescribeTable(ctx, &dynamodb.DescribeTableInput{
-		TableName: aws.String(argStr(args, "table_name")),
+		TableName: aws.String(tableName),
 	})
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoGetItem(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
-	keyStr := argStr(args, "key")
+	r := mcp.NewArgs(args)
+	keyStr := r.Str("key")
+	tableName := r.Str("table_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	var key map[string]dynamotypes.AttributeValue
 	if err := unmarshalDynamoJSON(keyStr, &key); err != nil {
 		return errResult(err)
 	}
 	out, err := a.dynamoClient.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(argStr(args, "table_name")),
+		TableName: aws.String(tableName),
 		Key:       key,
 	})
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoPutItem(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
-	itemStr := argStr(args, "item")
+	r := mcp.NewArgs(args)
+	itemStr := r.Str("item")
+	tableName := r.Str("table_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	var item map[string]dynamotypes.AttributeValue
 	if err := unmarshalDynamoJSON(itemStr, &item); err != nil {
 		return errResult(err)
 	}
 	out, err := a.dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(argStr(args, "table_name")),
+		TableName: aws.String(tableName),
 		Item:      item,
 	})
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoQuery(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
-	input := &dynamodb.QueryInput{
-		TableName:              aws.String(argStr(args, "table_name")),
-		KeyConditionExpression: aws.String(argStr(args, "key_condition_expression")),
+	r := mcp.NewArgs(args)
+	tableName := r.Str("table_name")
+	keyCondExpr := r.Str("key_condition_expression")
+	exprAttrVals := r.Str("expression_attribute_values")
+	exprAttrNames := r.Str("expression_attribute_names")
+	indexName := r.Str("index_name")
+	limit := r.Int32("limit")
+	scanFwd := r.Str("scan_index_forward")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
 
-	if v := argStr(args, "expression_attribute_values"); v != "" {
+	input := &dynamodb.QueryInput{
+		TableName:              aws.String(tableName),
+		KeyConditionExpression: aws.String(keyCondExpr),
+	}
+
+	if exprAttrVals != "" {
 		var vals map[string]dynamotypes.AttributeValue
-		if err := unmarshalDynamoJSON(v, &vals); err != nil {
+		if err := unmarshalDynamoJSON(exprAttrVals, &vals); err != nil {
 			return errResult(err)
 		}
 		input.ExpressionAttributeValues = vals
 	}
-	if v := argStr(args, "expression_attribute_names"); v != "" {
+	if exprAttrNames != "" {
 		var names map[string]string
-		if err := json.Unmarshal([]byte(v), &names); err != nil {
+		if err := json.Unmarshal([]byte(exprAttrNames), &names); err != nil {
 			return errResult(err)
 		}
 		input.ExpressionAttributeNames = names
 	}
-	if v := argStr(args, "index_name"); v != "" {
-		input.IndexName = aws.String(v)
+	if indexName != "" {
+		input.IndexName = aws.String(indexName)
 	}
-	if v := argInt32(args, "limit"); v > 0 {
-		input.Limit = aws.Int32(v)
+	if limit > 0 {
+		input.Limit = aws.Int32(limit)
 	}
-	if argStr(args, "scan_index_forward") == "false" {
+	if scanFwd == "false" {
 		input.ScanIndexForward = aws.Bool(false)
 	}
 
@@ -99,54 +130,69 @@ func dynamoQuery(ctx context.Context, a *integration, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoScan(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	tableName := r.Str("table_name")
+	filterExpr := r.Str("filter_expression")
+	exprAttrVals := r.Str("expression_attribute_values")
+	exprAttrNames := r.Str("expression_attribute_names")
+	limit := r.Int32("limit")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	input := &dynamodb.ScanInput{
-		TableName: aws.String(argStr(args, "table_name")),
+		TableName: aws.String(tableName),
 	}
-	if v := argStr(args, "filter_expression"); v != "" {
-		input.FilterExpression = aws.String(v)
+	if filterExpr != "" {
+		input.FilterExpression = aws.String(filterExpr)
 	}
-	if v := argStr(args, "expression_attribute_values"); v != "" {
+	if exprAttrVals != "" {
 		var vals map[string]dynamotypes.AttributeValue
-		if err := unmarshalDynamoJSON(v, &vals); err != nil {
+		if err := unmarshalDynamoJSON(exprAttrVals, &vals); err != nil {
 			return errResult(err)
 		}
 		input.ExpressionAttributeValues = vals
 	}
-	if v := argStr(args, "expression_attribute_names"); v != "" {
+	if exprAttrNames != "" {
 		var names map[string]string
-		if err := json.Unmarshal([]byte(v), &names); err != nil {
+		if err := json.Unmarshal([]byte(exprAttrNames), &names); err != nil {
 			return errResult(err)
 		}
 		input.ExpressionAttributeNames = names
 	}
-	if v := argInt32(args, "limit"); v > 0 {
-		input.Limit = aws.Int32(v)
+	if limit > 0 {
+		input.Limit = aws.Int32(limit)
 	}
 	out, err := a.dynamoClient.Scan(ctx, input)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func dynamoDeleteItem(ctx context.Context, a *integration, args map[string]any) (*mcp.ToolResult, error) {
-	keyStr := argStr(args, "key")
+	r := mcp.NewArgs(args)
+	keyStr := r.Str("key")
+	tableName := r.Str("table_name")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	var key map[string]dynamotypes.AttributeValue
 	if err := unmarshalDynamoJSON(keyStr, &key); err != nil {
 		return errResult(err)
 	}
 	out, err := a.dynamoClient.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-		TableName: aws.String(argStr(args, "table_name")),
+		TableName: aws.String(tableName),
 		Key:       key,
 	})
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(out)
+	return mcp.JSONResult(out)
 }
 
 func unmarshalDynamoJSON(s string, out *map[string]dynamotypes.AttributeValue) error {

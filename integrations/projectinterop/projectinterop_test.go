@@ -22,7 +22,7 @@ func TestConfigure(t *testing.T) {
 	root := t.TempDir()
 	integration := New()
 
-	require.NoError(t, integration.Configure(mcp.Credentials{"config_root": root}))
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"config_root": root}))
 	assert.True(t, integration.Healthy(context.Background()))
 	assert.Equal(t, []string{"config_root"}, integration.(mcp.PlainTextCredentials).PlainTextKeys())
 }
@@ -31,13 +31,13 @@ func TestConfigure_DefaultRoot(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	integration := New()
 
-	require.NoError(t, integration.Configure(mcp.Credentials{}))
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{}))
 	assert.True(t, integration.Healthy(context.Background()))
 }
 
 func TestTools(t *testing.T) {
 	integration := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range integration.Tools() {
 		assert.NotEmpty(t, tool.Name)
 		assert.NotEmpty(t, tool.Description)
@@ -56,7 +56,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 }
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range New().Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -73,7 +73,7 @@ func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
 }
 
 func TestExecute_UnknownTool(t *testing.T) {
-	result, err := New().Execute(context.Background(), "projectinterop_unknown", nil)
+	result, err := New().Execute(context.Background(), mcp.ToolName("projectinterop_unknown"), nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "unknown tool")
@@ -82,7 +82,7 @@ func TestExecute_UnknownTool(t *testing.T) {
 func TestProjectCRUD(t *testing.T) {
 	root := t.TempDir()
 	integration := New()
-	require.NoError(t, integration.Configure(mcp.Credentials{"config_root": root}))
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"config_root": root}))
 
 	created := executeJSON(t, integration, "projectinterop_create_project", map[string]any{
 		"name": "acme-api", "repo": "/work/acme", "branch": "main",
@@ -103,7 +103,7 @@ func TestProjectCRUD(t *testing.T) {
 	assert.Equal(t, "develop", got["branch"])
 	assert.Equal(t, "preserved", got["custom"])
 
-	result, err := integration.Execute(context.Background(), "projectinterop_delete_project", map[string]any{"name": "acme-api"})
+	result, err := integration.Execute(context.Background(), mcp.ToolName("projectinterop_delete_project"), map[string]any{"name": "acme-api"})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Data, "deleted")
@@ -120,7 +120,7 @@ func TestProjectContext(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "context", "acme", "sprint.md"), []byte("store guidance"), 0600))
 
 	integration := New()
-	require.NoError(t, integration.Configure(mcp.Credentials{"config_root": root}))
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"config_root": root}))
 	executeJSON(t, integration, "projectinterop_create_project", map[string]any{"name": "acme", "repo": repo})
 	executeJSON(t, integration, "projectinterop_update_project", map[string]any{
 		"name": "acme",
@@ -133,7 +133,7 @@ func TestProjectContext(t *testing.T) {
 	require.Len(t, manifest, 2)
 	assert.Equal(t, "AGENTS.md", manifest[0]["path"])
 
-	result, err := integration.Execute(context.Background(), "projectinterop_get_context", map[string]any{"name": "acme", "path": "sprint.md"})
+	result, err := integration.Execute(context.Background(), mcp.ToolName("projectinterop_get_context"), map[string]any{"name": "acme", "path": "sprint.md"})
 	require.NoError(t, err)
 	assert.Equal(t, "store guidance", result.Data)
 
@@ -144,7 +144,7 @@ func TestProjectContext(t *testing.T) {
 
 func TestErrorsAreToolResults(t *testing.T) {
 	integration := New()
-	require.NoError(t, integration.Configure(mcp.Credentials{"config_root": t.TempDir()}))
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"config_root": t.TempDir()}))
 
 	tests := []struct {
 		name string
@@ -158,7 +158,7 @@ func TestErrorsAreToolResults(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := integration.Execute(context.Background(), test.tool, test.args)
+			result, err := integration.Execute(context.Background(), mcp.ToolName(test.tool), test.args)
 			require.NoError(t, err)
 			assert.True(t, result.IsError)
 			assert.Contains(t, result.Data, test.want)
@@ -168,7 +168,7 @@ func TestErrorsAreToolResults(t *testing.T) {
 
 func executeJSON(t *testing.T, integration mcp.Integration, tool string, args map[string]any) map[string]any {
 	t.Helper()
-	result, err := integration.Execute(context.Background(), tool, args)
+	result, err := integration.Execute(context.Background(), mcp.ToolName(tool), args)
 	require.NoError(t, err)
 	require.False(t, result.IsError, result.Data)
 	var value map[string]any
@@ -178,7 +178,7 @@ func executeJSON(t *testing.T, integration mcp.Integration, tool string, args ma
 
 func executeJSONArray(t *testing.T, integration mcp.Integration, tool string, args map[string]any) []map[string]any {
 	t.Helper()
-	result, err := integration.Execute(context.Background(), tool, args)
+	result, err := integration.Execute(context.Background(), mcp.ToolName(tool), args)
 	require.NoError(t, err)
 	require.False(t, result.IsError, result.Data)
 	var value []map[string]any

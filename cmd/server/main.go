@@ -8,35 +8,75 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/browser"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
+	acpInt "github.com/daltoniam/switchboard/integrations/acp"
+	agentsInt "github.com/daltoniam/switchboard/integrations/agents"
+	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
+	"github.com/daltoniam/switchboard/integrations/botidentity"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
+	"github.com/daltoniam/switchboard/integrations/cloudflare"
+	"github.com/daltoniam/switchboard/integrations/confluence"
 	"github.com/daltoniam/switchboard/integrations/datadog"
+	"github.com/daltoniam/switchboard/integrations/digitalocean"
+	"github.com/daltoniam/switchboard/integrations/elasticsearch"
+	flyInt "github.com/daltoniam/switchboard/integrations/fly"
+	"github.com/daltoniam/switchboard/integrations/gcal"
+	"github.com/daltoniam/switchboard/integrations/gchat"
+	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
+	"github.com/daltoniam/switchboard/integrations/gdocs"
+	"github.com/daltoniam/switchboard/integrations/gdrive"
+	"github.com/daltoniam/switchboard/integrations/gforms"
 	"github.com/daltoniam/switchboard/integrations/github"
+	"github.com/daltoniam/switchboard/integrations/gmail"
+	"github.com/daltoniam/switchboard/integrations/gmeet"
+	"github.com/daltoniam/switchboard/integrations/gong"
+	"github.com/daltoniam/switchboard/integrations/gpeople"
+	"github.com/daltoniam/switchboard/integrations/gsheets"
+	"github.com/daltoniam/switchboard/integrations/gslides"
+	"github.com/daltoniam/switchboard/integrations/gtasks"
+	"github.com/daltoniam/switchboard/integrations/jira"
+	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
+	"github.com/daltoniam/switchboard/integrations/netsuite"
+	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
+	notionInt "github.com/daltoniam/switchboard/integrations/notion"
+	"github.com/daltoniam/switchboard/integrations/ollama"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
 	"github.com/daltoniam/switchboard/integrations/projectinterop"
+	"github.com/daltoniam/switchboard/integrations/ramp"
 	"github.com/daltoniam/switchboard/integrations/rwx"
+	"github.com/daltoniam/switchboard/integrations/salesforce"
 	"github.com/daltoniam/switchboard/integrations/sentry"
+	signozInt "github.com/daltoniam/switchboard/integrations/signoz"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
+	"github.com/daltoniam/switchboard/integrations/slackmcp"
+	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
+	"github.com/daltoniam/switchboard/integrations/stripe"
+	"github.com/daltoniam/switchboard/integrations/suno"
+	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
+	"github.com/daltoniam/switchboard/integrations/vercel"
+	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
+	xInt "github.com/daltoniam/switchboard/integrations/x"
+	"github.com/daltoniam/switchboard/integrations/ynab"
+	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
 	"github.com/daltoniam/switchboard/server"
+	"github.com/daltoniam/switchboard/version"
+	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web"
-)
-
-var (
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
 )
 
 func main() {
@@ -47,15 +87,16 @@ func main() {
 
 	stdioMode := flag.Bool("stdio", false, "Run MCP server over stdio transport (default is HTTP)")
 	port := flag.Int("port", 3847, "Port for the HTTP server")
+	discoverAll := flag.Bool("discover-all", false, "Search returns tools from all registered integrations, not just enabled ones")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("switchboard %s (commit: %s, built: %s)\n", version, commit, date)
+		fmt.Printf("switchboard %s\n", version.Full())
 		os.Exit(0)
 	}
 
-	runServer(*stdioMode, *port)
+	runServer(*stdioMode, *port, *discoverAll)
 }
 
 func handleDaemon(args []string) {
@@ -161,27 +202,92 @@ Options:
 	}
 }
 
-func runServer(stdioMode bool, port int) {
+func runServer(stdioMode bool, port int, discoverAll bool) {
 	cfgMgr, err := config.NewManager()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	browserSvc := newLazyBrowserService(func(ctx context.Context) (mcp.BrowserService, error) {
+		svc, err := browser.New(true /* headless */)
+		if err != nil {
+			return nil, fmt.Errorf("browser service unavailable: %w", err)
+		}
+		log.Println("browser service ready — Amazon browser features enabled")
+		return svc, nil
+	})
+	defer func() {
+		if err := browserSvc.Close(); err != nil {
+			log.Printf("browser service close failed: %v", err)
+		}
+	}()
+
+	gmailIntegration := gmail.New()
+	gcalIntegration := gcal.New()
+	gdriveIntegration := gdrive.New()
+	gdocsIntegration := gdocs.New()
+	gsheetsIntegration := gsheets.New()
+	gslidesIntegration := gslides.New()
+	gformsIntegration := gforms.New()
+	gtasksIntegration := gtasks.New()
+	gchatIntegration := gchat.New()
+	gpeopleIntegration := gpeople.New()
+	gmeetIntegration := gmeet.New()
+	amazonIntegration := amazon.New()
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
 		github.New(),
 		datadog.New(),
-		linear.New(),
+		linear.New("https://mcp.linear.app"),
 		sentry.New(),
 		slackInt.New(),
+		slackmcp.New(),
 		metabase.New(),
 		awsInt.New(),
 		posthog.New(),
 		postgres.New(),
 		clickhouse.New(),
+		elasticsearch.New(),
 		pganalyze.New(),
 		rwx.New(),
 		projectinterop.New(),
+		ramp.New(),
+		ynab.New(),
+		stripe.New(),
+		amazonIntegration,
+		gmailIntegration,
+		gong.New(),
+		gcalIntegration,
+		gdriveIntegration,
+		gdocsIntegration,
+		gsheetsIntegration,
+		gslidesIntegration,
+		gformsIntegration,
+		gtasksIntegration,
+		gchatIntegration,
+		gpeopleIntegration,
+		gmeetIntegration,
+		jira.New(),
+		confluence.New(),
+		notionInt.New(),
+		ollama.New(),
+		gcpInt.New(),
+		suno.New(),
+		salesforce.New(),
+		netsuite.New(),
+		cloudflare.New(),
+		digitalocean.New(),
+		flyInt.New(),
+		kubernetes.New(),
+		vercel.New(),
+		snowflakeInt.New(),
+		acpInt.New(),
+		agentsInt.New(),
+		signozInt.New(),
+		webfetchInt.New(),
+		nomadInt.New(),
+		botidentity.New(),
+		xInt.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
@@ -191,12 +297,80 @@ func runServer(stdioMode bool, port int) {
 	services := &mcp.Services{
 		Config:   cfgMgr,
 		Registry: reg,
+		Metrics:  mcp.NewMetrics().WithPersistence(metricsPath()),
+	}
+
+	switchboardIntegration := switchboardInt.New(services)
+	if err := reg.Register(switchboardIntegration); err != nil {
+		log.Fatalf("Failed to register switchboard integration: %v", err)
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	srv := server.New(services)
+	// Periodic metrics flush. Flush is a no-op when not dirty, so this
+	// produces zero disk traffic during idle periods.
+	startMetricsFlusher(ctx, services.Metrics, 5*time.Minute)
+	defer func() {
+		if err := services.Metrics.Flush(); err != nil {
+			log.Printf("metrics: final flush failed: %v", err)
+		}
+	}()
+
+	// Create WASM runtime and loader (always — needed for live-reload from web UI).
+	cfg := cfgMgr.Get()
+	wasmCtx := context.Background()
+	wasmRT, err := wasmmod.NewRuntime(wasmCtx)
+	if err != nil {
+		log.Fatalf("Failed to create WASM runtime: %v", err)
+	}
+	defer wasmRT.Close(ctx) //nolint:errcheck
+	wasmLoader := wasmmod.NewLoader(wasmRT, reg, cfgMgr)
+
+	// Load WASM modules from config + marketplace installed plugins.
+	allWasmModules := make([]mcp.WasmModuleConfig, len(cfg.WasmModules))
+	copy(allWasmModules, cfg.WasmModules)
+	if cfg.Marketplace != nil {
+		seen := make(map[string]bool)
+		for _, wm := range allWasmModules {
+			seen[wm.Path] = true
+		}
+		for _, ip := range cfg.Marketplace.InstalledPlugins {
+			if ip.Path != "" && !seen[ip.Path] {
+				allWasmModules = append(allWasmModules, mcp.WasmModuleConfig{Path: ip.Path})
+				seen[ip.Path] = true
+			}
+		}
+	}
+	for _, wc := range allWasmModules {
+		if err := wasmLoader.LoadPlugin(wasmCtx, wc.Path, wc.Name); err != nil {
+			log.Printf("WARN: %v", err)
+		}
+	}
+
+	gmail.SetConfigService(gmailIntegration, cfgMgr)
+	gcal.SetConfigService(gcalIntegration, cfgMgr)
+	gdrive.SetConfigService(gdriveIntegration, cfgMgr)
+	gdocs.SetConfigService(gdocsIntegration, cfgMgr)
+	gsheets.SetConfigService(gsheetsIntegration, cfgMgr)
+	gslides.SetConfigService(gslidesIntegration, cfgMgr)
+	gforms.SetConfigService(gformsIntegration, cfgMgr)
+	gtasks.SetConfigService(gtasksIntegration, cfgMgr)
+	gchat.SetConfigService(gchatIntegration, cfgMgr)
+	gpeople.SetConfigService(gpeopleIntegration, cfgMgr)
+	gmeet.SetConfigService(gmeetIntegration, cfgMgr)
+	amazon.SetBrowserService(amazonIntegration, browserSvc)
+
+	var serverOpts []server.Option
+	if discoverAll {
+		serverOpts = append(serverOpts, server.WithDiscoverAll(true))
+	}
+	if cfg.SessionStore == "file" {
+		serverOpts = append(serverOpts, server.WithSessionStore(
+			server.NewFileSessionStore(server.DefaultSessionDir(), server.DefaultSessionTTL),
+		))
+	}
+	srv := server.New(services, serverOpts...)
 
 	if stdioMode {
 		if err := srv.RunStdio(ctx); err != nil {
@@ -221,18 +395,89 @@ func runServer(stdioMode bool, port int) {
 		log.Printf("Loaded %d project(s): %v", len(names), names)
 	}
 
-	projectRouter := server.NewProjectRouter(services, projectStore, "")
+	projectRouter := server.NewProjectRouter(services, projectStore, "", srv.SearchIndex())
 
 	mux := http.NewServeMux()
 
 	mux.Handle("/mcp", srv.Handler())
 	mux.Handle("/mcp/{project}", projectRouter.Handler())
 
-	ws := web.New(services, port)
+	// Initialize plugin marketplace.
+	var mpCfg marketplace.Config
+	if cfg.Marketplace != nil {
+		mpCfg = marketplace.Config{
+			AutoUpdate:    cfg.Marketplace.AutoUpdate,
+			CheckInterval: cfg.Marketplace.CheckInterval,
+			PluginDir:     cfg.Marketplace.PluginDir,
+			LastCheck:     cfg.Marketplace.LastCheck,
+		}
+		for _, src := range cfg.Marketplace.ManifestSources {
+			mpCfg.ManifestSources = append(mpCfg.ManifestSources, marketplace.ManifestSource{
+				URL:     src.URL,
+				Name:    src.Name,
+				Enabled: src.Enabled,
+			})
+		}
+		for _, ip := range cfg.Marketplace.InstalledPlugins {
+			mpCfg.InstalledPlugins = append(mpCfg.InstalledPlugins, marketplace.InstalledPlugin{
+				Name:          ip.Name,
+				Version:       ip.Version,
+				ManifestURL:   ip.ManifestURL,
+				InstalledAt:   ip.InstalledAt,
+				Path:          ip.Path,
+				SHA256:        ip.SHA256,
+				AutoUpdate:    ip.AutoUpdate,
+				LatestVersion: ip.LatestVersion,
+			})
+		}
+	}
+	mp := marketplace.NewManager(mpCfg, "", func(c marketplace.Config) error {
+		mc := &mcp.MarketplaceConfig{
+			AutoUpdate:    c.AutoUpdate,
+			CheckInterval: c.CheckInterval,
+			PluginDir:     c.PluginDir,
+			LastCheck:     c.LastCheck,
+		}
+		for _, src := range c.ManifestSources {
+			mc.ManifestSources = append(mc.ManifestSources, mcp.MarketplaceManifestSource{
+				URL:     src.URL,
+				Name:    src.Name,
+				Enabled: src.Enabled,
+			})
+		}
+		for _, ip := range c.InstalledPlugins {
+			mc.InstalledPlugins = append(mc.InstalledPlugins, mcp.MarketplaceInstalledPlugin{
+				Name:          ip.Name,
+				Version:       ip.Version,
+				ManifestURL:   ip.ManifestURL,
+				InstalledAt:   ip.InstalledAt,
+				Path:          ip.Path,
+				SHA256:        ip.SHA256,
+				AutoUpdate:    ip.AutoUpdate,
+				LatestVersion: ip.LatestVersion,
+			})
+		}
+		cfgNow := cfgMgr.Get()
+		cfgNow.Marketplace = mc
+		return cfgMgr.Update(cfgNow)
+	}, marketplace.WithTokenFunc(marketplace.GitHubTokenFunc(func() string {
+		ic, ok := cfgMgr.GetIntegration("github")
+		if !ok || ic == nil {
+			return ""
+		}
+		return ic.Credentials["token"]
+	})))
+
+	switchboardInt.SetMarketplace(switchboardIntegration, mp)
+
+	cancelAutoUpdate := mp.StartAutoUpdateLoop(ctx)
+	defer cancelAutoUpdate()
+
+	ws := web.New(services, port, mp, wasmLoader, web.WithConfigChangeHook(srv.RefreshSearchIndex))
 	mux.Handle("/", ws.Handler())
 
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Fprintf(os.Stderr, "Switchboard on http://localhost:%d\n", port)
+	fmt.Fprintf(os.Stderr, "Switchboard %s on http://localhost:%d\n", version.String(), port)
 	fmt.Fprintf(os.Stderr, "  Web UI:  http://localhost:%d/\n", port)
 	fmt.Fprintf(os.Stderr, "  MCP:     http://localhost:%d/mcp\n", port)
 	fmt.Fprintf(os.Stderr, "  Project: http://localhost:%d/mcp/{project}\n", port)
@@ -246,8 +491,56 @@ func runServer(stdioMode bool, port int) {
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("HTTP server error: %v", err)
 	}
+
 }
 
+type lazyBrowserService struct {
+	mu      sync.Mutex
+	new     func(ctx context.Context) (mcp.BrowserService, error)
+	service mcp.BrowserService
+	closed  bool
+}
+
+func newLazyBrowserService(newFn func(ctx context.Context) (mcp.BrowserService, error)) *lazyBrowserService {
+	return &lazyBrowserService{new: newFn}
+}
+
+func (s *lazyBrowserService) NewSession(ctx context.Context) (mcp.BrowserSession, error) {
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("browser service closed")
+	}
+	if s.service == nil {
+		svc, err := s.new(ctx)
+		if err != nil {
+			s.mu.Unlock()
+			return nil, err
+		}
+		s.service = svc
+	}
+	svc := s.service
+	s.mu.Unlock()
+	return svc.NewSession(ctx)
+}
+
+func (s *lazyBrowserService) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+	if s.service == nil {
+		return nil
+	}
+	return s.service.Close()
+}
+
+// metricsPath returns the on-disk path for persisted lifetime metrics.
+// Falls back to an empty string (persistence disabled) if the home dir cannot
+// be resolved, which only happens in unusual environments where we'd rather
+// run without persistence than crash on startup.
 func projectConfigRoot(integrationConfig *mcp.IntegrationConfig) string {
 	if integrationConfig != nil {
 		if root := integrationConfig.Credentials["config_root"]; root != "" {
@@ -255,4 +548,36 @@ func projectConfigRoot(integrationConfig *mcp.IntegrationConfig) string {
 		}
 	}
 	return project.DefaultConfigDir()
+}
+
+func metricsPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "switchboard", "metrics.json")
+}
+
+// startMetricsFlusher launches a goroutine that flushes lifetime metric
+// counters to disk every interval. Flush is a no-op when the dirty flag is
+// clear, so this does not produce a steady stream of writes when the server
+// is idle. The goroutine exits when ctx is cancelled.
+func startMetricsFlusher(ctx context.Context, metrics *mcp.Metrics, interval time.Duration) {
+	if metrics == nil || interval <= 0 {
+		return
+	}
+	go func() {
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if err := metrics.Flush(); err != nil {
+					log.Printf("metrics: periodic flush failed: %v", err)
+				}
+			}
+		}
+	}()
 }

@@ -2,24 +2,47 @@ package slack
 
 import (
 	"context"
-	"encoding/json"
+	_ "embed"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 	"github.com/slack-go/slack"
 )
 
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compact.MustLoadWithOverlay("slack", compactYAML, compact.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
+
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*slackIntegration)(nil)
+	_ mcp.FieldCompactionIntegration = (*slackIntegration)(nil)
+	_ mcp.PlainTextCredentials       = (*slackIntegration)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*slackIntegration)(nil)
+)
+
+func (s *slackIntegration) PlainTextKeys() []string {
+	return []string{"team_id"}
+}
+
 type slackIntegration struct {
-	mu     sync.RWMutex
-	client *slack.Client
-	store  *tokenStore
-	stopBg chan struct{}
+	mu      sync.RWMutex
+	clients map[string]*slack.Client // keyed by team_id
+	store   *tokenStore
+	stopBg  chan struct{}
+
+	// refreshWorkspace is overridable in tests; defaults to (*slackIntegration).tryRefreshWorkspace.
+	refreshWorkspace func(teamID string) bool
 }
 
 func New() mcp.Integration {
@@ -28,63 +51,264 @@ func New() mcp.Integration {
 
 func (s *slackIntegration) Name() string { return "slack" }
 
-func (s *slackIntegration) Configure(creds mcp.Credentials) error {
+func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials) error {
 	s.store = newTokenStore()
+	s.mu.Lock()
+	s.clients = make(map[string]*slack.Client)
+	s.mu.Unlock()
 
-	// Seed the store from config credentials if present.
-	if t := creds["token"]; t != "" {
-		s.store.set(t, creds["cookie"])
-	}
+	configToken := creds["token"]
+	// xoxc-* tokens are browser session tokens that rotate constantly. Even
+	// when bootstrapped from config, they must participate in the local
+	// refresh/file-persistence loop or they go stale within hours.
+	//   - token_source: "browser"            → explicitly a browser snapshot
+	//   - token has xoxc- prefix             → structurally a session token
+	// Genuine externally-managed tokens (xoxb-, xoxp-, OAuth) keep the old
+	// "config is authoritative" behavior so we never clobber them.
+	isBrowserConfig := configToken != "" &&
+		(creds[mcp.CredKeyTokenSource] == "browser" || strings.HasPrefix(configToken, "xoxc-"))
 
-	// Try to load from the persistent token file (overrides config if fresher).
-	s.store.loadFromFile()
-
-	tok, cookie := s.store.get()
-	if tok == "" {
-		// Last resort: try Chrome extraction now.
-		if extracted := extractFromChrome(); extracted != nil {
-			s.store.set(extracted.token, extracted.cookie)
-			_ = s.store.saveToFile()
-			tok = extracted.token
-			cookie = extracted.cookie
+	if configToken != "" {
+		teamID := creds["team_id"]
+		if teamID == "" {
+			teamID = "_config"
+		}
+		source := "config"
+		if isBrowserConfig {
+			source = "browser"
+		}
+		s.store.setWorkspace(&workspace{
+			TeamID: teamID,
+			Token:  configToken,
+			Cookie: creds["cookie"],
+			Source: source,
+		})
+		if creds["team_id"] != "" {
+			s.store.setDefault(creds["team_id"])
 		}
 	}
 
-	if tok == "" {
+	// When the config token is a rotating browser snapshot, also load the
+	// persisted file. The file may carry a fresher copy (background refresh
+	// writes there) and we want that to win.
+	if configToken == "" || isBrowserConfig {
+		s.store.loadFromFile()
+
+		if len(s.store.allWorkspaces()) == 0 {
+			wss, _ := listWorkspacesFromAllBrowsers()
+			for _, ws := range wss {
+				s.store.setWorkspace(&workspace{
+					TeamID:   ws.TeamID,
+					TeamName: ws.Name,
+					Source:   "chrome",
+				})
+			}
+		}
+	}
+
+	if len(s.store.allWorkspaces()) == 0 {
 		return fmt.Errorf("slack: no token found — run with --web to configure, set SLACK_TOKEN/SLACK_COOKIE env vars, or open Slack in Chrome (macOS)")
 	}
 
-	s.buildClient(tok, cookie)
+	s.buildAllClients()
+	s.resolveWorkspaceIdentities(ctx)
 
-	// Start background refresh (every 4 hours).
-	s.stopBg = make(chan struct{})
-	go s.backgroundRefresh()
+	if tid := creds["team_id"]; tid != "" {
+		s.store.setDefault(tid)
+	}
+
+	// Persist + run background refresh for any non-OAuth-style token (file-
+	// loaded or browser-sourced from config). Only genuine externally-managed
+	// tokens skip this.
+	if configToken == "" || isBrowserConfig {
+		_ = s.store.saveToFile()
+
+		if s.stopBg != nil {
+			close(s.stopBg)
+		}
+		s.stopBg = make(chan struct{})
+		go s.backgroundRefresh()
+	} else if s.stopBg != nil {
+		close(s.stopBg)
+		s.stopBg = nil
+	}
 
 	return nil
 }
 
-// buildClient creates a new slack.Client with the cookie-injecting transport.
-func (s *slackIntegration) buildClient(token, cookie string) {
-	transport := &cookieTransport{
-		cookie: cookie,
-		inner:  http.DefaultTransport,
-	}
-	httpClient := &http.Client{Transport: transport}
+func (s *slackIntegration) buildAllClients() {
 	s.mu.Lock()
-	s.client = slack.New(token, slack.OptionHTTPClient(httpClient))
+	defer s.mu.Unlock()
+	for _, ws := range s.store.allWorkspaces() {
+		transport := &cookieTransport{cookie: ws.Cookie, inner: http.DefaultTransport}
+		s.clients[ws.TeamID] = slack.New(ws.Token, slack.OptionHTTPClient(&http.Client{Transport: transport}))
+	}
+}
+
+func (s *slackIntegration) buildClientForWorkspace(ws *workspace) {
+	transport := &cookieTransport{cookie: ws.Cookie, inner: http.DefaultTransport}
+	s.mu.Lock()
+	s.clients[ws.TeamID] = slack.New(ws.Token, slack.OptionHTTPClient(&http.Client{Transport: transport}))
 	s.mu.Unlock()
 }
 
-// getClient returns the current slack.Client under read-lock.
-func (s *slackIntegration) getClient() *slack.Client {
+func (s *slackIntegration) resolveWorkspaceIdentities(ctx context.Context) {
+	for _, ws := range s.store.allWorkspaces() {
+		client := s.getClientForTeam(ws.TeamID)
+		if client == nil {
+			continue
+		}
+		resp, err := client.AuthTestContext(ctx)
+		if err != nil {
+			recovered, retryResp := s.tryRecoverAuth(ctx, ws, err)
+			if !recovered {
+				continue
+			}
+			resp = retryResp
+		}
+		if ws.TeamID == resp.TeamID {
+			if ws.TeamName == "" {
+				ws.TeamName = resp.Team
+				s.store.setWorkspace(ws)
+			}
+			continue
+		}
+		wasDefault := s.store.defaultID() == ws.TeamID
+		s.mu.Lock()
+		delete(s.clients, ws.TeamID)
+		s.mu.Unlock()
+		s.store.removeWorkspace(ws.TeamID)
+		if existing := s.store.getWorkspace(resp.TeamID); existing != nil {
+			if existing.TeamName == "" {
+				existing.TeamName = resp.Team
+				s.store.setWorkspace(existing)
+			}
+			if wasDefault {
+				s.store.setDefault(resp.TeamID)
+			}
+			continue
+		}
+		ws.TeamID = resp.TeamID
+		ws.TeamName = resp.Team
+		s.store.setWorkspace(ws)
+		s.buildClientForWorkspace(ws)
+		if wasDefault {
+			s.store.setDefault(resp.TeamID)
+		}
+	}
+}
+
+// tryRecoverAuth attempts a one-shot self-refresh for a workspace whose
+// startup auth.test just failed. xoxc-* browser session tokens rotate
+// frequently and the fresh token usually sits in the browser's local storage;
+// config-provided and OAuth (xoxp-*) tokens are managed externally and must
+// never be clobbered by a local refresh. Returns (true, newResp) when the
+// post-refresh auth.test succeeds, (false, nil) otherwise (caller logs the
+// original error and gives up).
+func (s *slackIntegration) tryRecoverAuth(ctx context.Context, ws *workspace, origErr error) (bool, *slack.AuthTestResponse) {
+	if !s.canSelfRefresh(ws) {
+		log.Printf("slack: auth test failed for workspace %s: %v (skipping self-refresh: source=%s token=%s)", ws.TeamID, origErr, ws.Source, tokenPrefix(ws.Token))
+		return false, nil
+	}
+	log.Printf("slack: auth test failed for workspace %s: %v — attempting startup refresh", ws.TeamID, origErr)
+	if !s.refreshFn()(ws.TeamID) {
+		log.Printf("slack: startup refresh failed for workspace %s — manual re-extract may be required (open Slack in Chrome and re-extract via web UI)", ws.TeamID)
+		return false, nil
+	}
+	// Defensive: tryRefreshWorkspace's success path always calls
+	// buildClientForWorkspace (see tryRefreshWorkspace + tryRefreshViaCookieForTeam),
+	// so this branch is unreachable under the current implementation. Kept to
+	// avoid a startup-goroutine panic if that invariant ever regresses.
+	c := s.getClientForTeam(ws.TeamID)
+	if c == nil {
+		log.Printf("slack: startup refresh produced no client for workspace %s", ws.TeamID)
+		return false, nil
+	}
+	resp, err := c.AuthTestContext(ctx)
+	if err != nil {
+		log.Printf("slack: post-refresh auth test still failing for workspace %s: %v", ws.TeamID, err)
+		return false, nil
+	}
+	log.Printf("slack: auth recovered for workspace %s after startup refresh", ws.TeamID)
+	return true, resp
+}
+
+// tokenPrefix returns the leading non-secret portion of a Slack token for
+// log diagnostics. Slack token type prefixes ("xoxc-", "xoxp-", "xoxb-",
+// "xoxd-") are 5 bytes; anything past that is the secret body and is
+// replaced with an ellipsis.
+func tokenPrefix(tok string) string {
+	const prefixLen = 5 // len("xoxc-")
+	if tok == "" {
+		return "<empty>"
+	}
+	if len(tok) <= prefixLen {
+		return tok
+	}
+	return tok[:prefixLen] + "…"
+}
+
+func (s *slackIntegration) getClientForTeam(teamID string) *slack.Client {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.client
+	if teamID == "" {
+		teamID = s.store.defaultID()
+	}
+	return s.clients[teamID]
+}
+
+// canSelfRefresh reports whether the workspace's token may be safely replaced
+// by a locally-sourced (cookie/browser) refresh. Config-provided tokens are
+// managed externally; OAuth (xoxp-*) tokens do not rotate and a refresh path
+// for them does not exist.
+func (s *slackIntegration) canSelfRefresh(ws *workspace) bool {
+	if ws == nil || ws.Source == "config" {
+		return false
+	}
+	// Only xoxc-* browser session tokens rotate and have a local refresh
+	// path. xoxb-/xoxp-/xapp-/etc. are externally managed and must never
+	// be replaced by a browser extract, even when stored locally.
+	return strings.HasPrefix(ws.Token, "xoxc-")
+}
+
+// refreshFn returns the workspace-refresh callback, defaulting to the real
+// browser/cookie path. Tests override s.refreshWorkspace for determinism.
+func (s *slackIntegration) refreshFn() func(teamID string) bool {
+	if s.refreshWorkspace != nil {
+		return s.refreshWorkspace
+	}
+	return s.tryRefreshWorkspace
+}
+
+func (s *slackIntegration) getClientForArgs(args map[string]any) (*slack.Client, error) {
+	teamID, _ := mcp.ArgStr(args, "team_id")
+	client := s.getClientForTeam(teamID)
+	if client == nil {
+		if teamID != "" {
+			return nil, fmt.Errorf("unknown workspace: %s — use slack_list_workspaces to see available workspaces", teamID)
+		}
+		return nil, fmt.Errorf("no slack workspace configured")
+	}
+	return client, nil
+}
+
+func (s *slackIntegration) getClient() *slack.Client {
+	return s.getClientForTeam("")
 }
 
 func (s *slackIntegration) Tools() []mcp.ToolDefinition { return tools }
 
-func (s *slackIntegration) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (s *slackIntegration) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
+}
+
+func (s *slackIntegration) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
+}
+
+func (s *slackIntegration) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -93,14 +317,14 @@ func (s *slackIntegration) Execute(ctx context.Context, toolName string, args ma
 }
 
 func (s *slackIntegration) Healthy(ctx context.Context) bool {
-	_, err := s.getClient().AuthTestContext(ctx)
+	client := s.getClient()
+	if client == nil {
+		return false
+	}
+	_, err := client.AuthTestContext(ctx)
 	return err == nil
 }
 
-// backgroundRefresh checks token health periodically and auto-refreshes.
-// For xoxp- tokens (OAuth), no refresh is needed — they don't expire.
-// For xoxc- tokens (browser session), tries cookie-based HTTP refresh first,
-// then falls back to Chrome LevelDB extraction.
 func (s *slackIntegration) backgroundRefresh() {
 	ticker := time.NewTicker(4 * time.Hour)
 	defer ticker.Stop()
@@ -114,36 +338,46 @@ func (s *slackIntegration) backgroundRefresh() {
 	}
 }
 
-// tryRefresh attempts to refresh tokens. Prefers cookie-based HTTP refresh
-// (no Chrome dependency), falls back to Chrome LevelDB extraction.
-// Skips refresh entirely for OAuth tokens (xoxp-) which don't expire.
 func (s *slackIntegration) tryRefresh() bool {
-	tok, _ := s.store.get()
-	if strings.HasPrefix(tok, "xoxp-") {
-		return true // OAuth tokens don't expire, nothing to refresh
+	allOk := true
+	refresh := s.refreshFn()
+	for _, ws := range s.store.allWorkspaces() {
+		if !s.canSelfRefresh(ws) {
+			continue
+		}
+		if !refresh(ws.TeamID) {
+			allOk = false
+		}
 	}
+	return allOk
+}
 
-	// Try cookie-based HTTP refresh first (works without Chrome running).
-	if s.tryRefreshViaCookie() {
+func (s *slackIntegration) tryRefreshWorkspace(teamID string) bool {
+	if s.tryRefreshViaCookieForTeam(teamID) {
 		return true
 	}
-
-	// Fall back to Chrome LevelDB extraction.
-	extracted := extractFromChrome()
-	if extracted == nil {
+	extracted := extractFromBrowser(teamID)
+	if extracted == nil || extracted.token == "" {
 		return false
 	}
-	s.store.set(extracted.token, extracted.cookie)
+	cookie := extracted.cookie
+	if cookie == "" {
+		if ws := s.store.getWorkspace(teamID); ws != nil {
+			cookie = ws.Cookie
+		}
+	}
+	s.store.updateTokens(teamID, extracted.token, cookie)
+	ws := s.store.getWorkspace(teamID)
+	if ws != nil {
+		s.buildClientForWorkspace(ws)
+	}
 	_ = s.store.saveToFile()
-	s.buildClient(extracted.token, extracted.cookie)
-	log.Println("slack: tokens refreshed from Chrome")
+	log.Printf("slack: tokens refreshed from %s for %s", extracted.source, teamID)
 	return true
 }
 
 // --- cookie-injecting HTTP transport ---
 
-// cookieTransport injects the Slack `d=` session cookie on every request.
-// This is required for xoxc-* tokens which are tied to a browser session.
 type cookieTransport struct {
 	cookie string
 	inner  http.RoundTripper
@@ -167,113 +401,68 @@ func (t *cookieTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 type handlerFunc func(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error)
 
-var dispatch = map[string]handlerFunc{
-	// Token management
-	"slack_token_status":    tokenStatus,
-	"slack_refresh_tokens":  refreshTokens,
-
-	// Conversations
-	"slack_list_conversations":       listConversations,
-	"slack_get_conversation_info":    getConversationInfo,
-	"slack_conversations_history":    conversationsHistory,
-	"slack_get_thread":               getThread,
-	"slack_create_conversation":      createConversation,
-	"slack_archive_conversation":     archiveConversation,
-	"slack_invite_to_conversation":   inviteToConversation,
-	"slack_kick_from_conversation":   kickFromConversation,
-	"slack_set_conversation_topic":   setConversationTopic,
-	"slack_set_conversation_purpose": setConversationPurpose,
-	"slack_join_conversation":        joinConversation,
-	"slack_leave_conversation":       leaveConversation,
-	"slack_rename_conversation":      renameConversation,
-
-	// Messages
-	"slack_send_message":     sendMessage,
-	"slack_update_message":   updateMessage,
-	"slack_delete_message":   deleteMessage,
-	"slack_search_messages":  searchMessages,
-	"slack_add_reaction":     addReaction,
-	"slack_remove_reaction":  removeReaction,
-	"slack_get_reactions":    getReactions,
-	"slack_add_pin":          addPin,
-	"slack_remove_pin":       removePin,
-	"slack_list_pins":        listPins,
-	"slack_schedule_message": scheduleMessage,
-
-	// Users
-	"slack_list_users":        listUsers,
-	"slack_get_user_info":     getUserInfo,
-	"slack_get_user_presence": getUserPresence,
-	"slack_list_user_groups":  listUserGroups,
-	"slack_get_user_group":    getUserGroup,
-
-	// Extras
-	"slack_auth_test":       authTest,
-	"slack_team_info":       teamInfo,
-	"slack_upload_file":     uploadFile,
-	"slack_list_files":      listFiles,
-	"slack_delete_file":     deleteFile,
-	"slack_list_emoji":      listEmoji,
-	"slack_set_status":      setStatus,
-	"slack_list_bookmarks":  listBookmarks,
-	"slack_add_bookmark":    addBookmark,
-	"slack_remove_bookmark": removeBookmark,
-	"slack_add_reminder":    addReminder,
-	"slack_list_reminders":  listReminders,
-	"slack_delete_reminder": deleteReminder,
+var dispatch = map[mcp.ToolName]handlerFunc{
+	mcp.ToolName("slack_token_status"):             tokenStatus,
+	mcp.ToolName("slack_refresh_tokens"):           refreshTokens,
+	mcp.ToolName("slack_list_workspaces"):          listWorkspaces,
+	mcp.ToolName("slack_list_conversations"):       listConversations,
+	mcp.ToolName("slack_get_conversation_info"):    getConversationInfo,
+	mcp.ToolName("slack_conversations_history"):    conversationsHistory,
+	mcp.ToolName("slack_get_thread"):               getThread,
+	mcp.ToolName("slack_create_conversation"):      createConversation,
+	mcp.ToolName("slack_archive_conversation"):     archiveConversation,
+	mcp.ToolName("slack_invite_to_conversation"):   inviteToConversation,
+	mcp.ToolName("slack_kick_from_conversation"):   kickFromConversation,
+	mcp.ToolName("slack_set_conversation_topic"):   setConversationTopic,
+	mcp.ToolName("slack_set_conversation_purpose"): setConversationPurpose,
+	mcp.ToolName("slack_join_conversation"):        joinConversation,
+	mcp.ToolName("slack_leave_conversation"):       leaveConversation,
+	mcp.ToolName("slack_rename_conversation"):      renameConversation,
+	mcp.ToolName("slack_send_message"):             sendMessage,
+	mcp.ToolName("slack_update_message"):           updateMessage,
+	mcp.ToolName("slack_delete_message"):           deleteMessage,
+	mcp.ToolName("slack_search_messages"):          searchMessages,
+	mcp.ToolName("slack_add_reaction"):             addReaction,
+	mcp.ToolName("slack_remove_reaction"):          removeReaction,
+	mcp.ToolName("slack_get_reactions"):            getReactions,
+	mcp.ToolName("slack_add_pin"):                  addPin,
+	mcp.ToolName("slack_remove_pin"):               removePin,
+	mcp.ToolName("slack_list_pins"):                listPins,
+	mcp.ToolName("slack_schedule_message"):         scheduleMessage,
+	mcp.ToolName("slack_list_users"):               listUsers,
+	mcp.ToolName("slack_get_user_info"):            getUserInfo,
+	mcp.ToolName("slack_lookup_user_by_email"):     lookupUserByEmail,
+	mcp.ToolName("slack_get_user_presence"):        getUserPresence,
+	mcp.ToolName("slack_list_user_groups"):         listUserGroups,
+	mcp.ToolName("slack_get_user_group"):           getUserGroup,
+	mcp.ToolName("slack_auth_test"):                authTest,
+	mcp.ToolName("slack_team_info"):                teamInfo,
+	mcp.ToolName("slack_upload_file"):              uploadFile,
+	mcp.ToolName("slack_list_files"):               listFiles,
+	mcp.ToolName("slack_delete_file"):              deleteFile,
+	mcp.ToolName("slack_list_emoji"):               listEmoji,
+	mcp.ToolName("slack_set_status"):               setStatus,
+	mcp.ToolName("slack_list_bookmarks"):           listBookmarks,
+	mcp.ToolName("slack_add_bookmark"):             addBookmark,
+	mcp.ToolName("slack_remove_bookmark"):          removeBookmark,
+	mcp.ToolName("slack_add_reminder"):             addReminder,
+	mcp.ToolName("slack_list_reminders"):           listReminders,
+	mcp.ToolName("slack_delete_reminder"):          deleteReminder,
 }
 
 // --- helpers ---
 
-func jsonResult(v any) (*mcp.ToolResult, error) {
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return errResult(err), nil
+func wrapRetryable(err error) error {
+	if err == nil {
+		return nil
 	}
-	return &mcp.ToolResult{Data: string(data)}, nil
+	var rle *slack.RateLimitedError
+	if errors.As(err, &rle) {
+		return &mcp.RetryableError{StatusCode: 429, Err: err, RetryAfter: rle.RetryAfter}
+	}
+	return err
 }
 
-func errResult(err error) *mcp.ToolResult {
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}
-}
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case float64:
-		return v != 0
-	case string:
-		return strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes")
-	}
-	return false
-}
-
-func optInt(args map[string]any, key string, def int) int {
-	if _, ok := args[key]; !ok {
-		return def
-	}
-	v := argInt(args, key)
-	if v == 0 {
-		return def
-	}
-	return v
+func errResult(err error) (*mcp.ToolResult, error) {
+	return mcp.ErrResult(wrapRetryable(err))
 }

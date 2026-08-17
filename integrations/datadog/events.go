@@ -11,41 +11,51 @@ import (
 )
 
 func listEvents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewEventsApi(d.client)
 	opts := datadogV2.NewListEventsOptionalParameters()
-	if v := argStr(args, "query"); v != "" {
+	if v := r.Str("query"); v != "" {
 		opts = opts.WithFilterQuery(v)
 	}
 
-	from := parseTime(argStr(args, "from"), -time.Hour)
-	to := parseTime(argStr(args, "to"), 0)
+	from := parseTime(r.Str("from"), -time.Hour)
+	to := parseTime(r.Str("to"), 0)
 	opts = opts.WithFilterFrom(from.Format(time.RFC3339))
 	opts = opts.WithFilterTo(to.Format(time.RFC3339))
 
-	if v := argInt(args, "limit"); v > 0 && v <= math.MaxInt32 {
+	if v := r.Int("limit"); v > 0 && v <= math.MaxInt32 {
 		opts = opts.WithPageLimit(int32(v))
 	}
-	if argStr(args, "sort") == "timestamp" {
+	sortStr := r.Str("sort")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if sortStr == "timestamp" {
 		opts = opts.WithSort(datadogV2.EVENTSSORT_TIMESTAMP_ASCENDING)
 	}
 
 	resp, _, err := api.ListEvents(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func searchEvents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewEventsApi(d.client)
 
-	from := parseTime(argStr(args, "from"), -time.Hour)
-	to := parseTime(argStr(args, "to"), 0)
-	query := argStr(args, "query")
-	limit := int32(min(optInt(args, "limit", 10), math.MaxInt32))
+	from := parseTime(r.Str("from"), -time.Hour)
+	to := parseTime(r.Str("to"), 0)
+	query := r.Str("query")
+	limit := int32(min(mcp.OptInt(args, "limit", 10), math.MaxInt32))
 
+	evtSort := r.Str("sort")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	sort := datadogV2.EVENTSSORT_TIMESTAMP_DESCENDING
-	if argStr(args, "sort") == "timestamp" {
+	if evtSort == "timestamp" {
 		sort = datadogV2.EVENTSSORT_TIMESTAMP_ASCENDING
 	}
 
@@ -63,25 +73,31 @@ func searchEvents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRes
 
 	resp, _, err := api.SearchEvents(ctx, *opts)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }
 
 func getEvent(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
-	api := datadogV2.NewEventsApi(d.client)
-	resp, _, err := api.GetEvent(ctx, argStr(args, "id"))
-	if err != nil {
-		return errResult(err)
+	r := mcp.NewArgs(args)
+	id := r.Str("id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	api := datadogV2.NewEventsApi(d.client)
+	resp, _, err := api.GetEvent(ctx, id)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(resp)
 }
 
 func createEvent(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
 	api := datadogV2.NewEventsApi(d.client)
 
-	title := argStr(args, "title")
-	text := argStr(args, "text")
+	title := r.Str("title")
+	text := r.Str("text")
 
 	payload := datadogV2.EventPayload{
 		Title:    title,
@@ -98,10 +114,10 @@ func createEvent(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 	if text != "" {
 		payload.Message = datadog.PtrString(text)
 	}
-	if tags := argStrSlice(args, "tags"); len(tags) > 0 {
+	if tags := r.StrSlice("tags"); len(tags) > 0 {
 		payload.Tags = tags
 	}
-	if v := argStr(args, "aggregation_key"); v != "" {
+	if v := r.Str("aggregation_key"); v != "" {
 		payload.AggregationKey = datadog.PtrString(v)
 	}
 
@@ -112,9 +128,12 @@ func createEvent(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResu
 		},
 	}
 
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	resp, _, err := api.CreateEvent(ctx, body)
 	if err != nil {
-		return errResult(err)
+		return mcp.ErrResult(err)
 	}
-	return jsonResult(resp)
+	return mcp.JSONResult(resp)
 }

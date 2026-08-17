@@ -11,147 +11,262 @@ import (
 // ── Workflows ─────────────────────────────────────────────────────
 
 func listWorkflows(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	resp, _, err := g.client.Actions.ListWorkflows(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	resp, _, err := g.client.Actions.ListWorkflows(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Workflows)
+	return mcp.JSONResult(resp.Workflows)
 }
 
 func listWorkflowRuns(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	branch := r.Str("branch")
+	event := r.Str("event")
+	status := r.Str("status")
+	wfID := r.Str("workflow_id")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
 	opts := &gh.ListWorkflowRunsOptions{
-		Branch:      argStr(args, "branch"),
-		Event:       argStr(args, "event"),
-		Status:      argStr(args, "status"),
-		ListOptions: listOpts(args),
+		Branch:      branch,
+		Event:       event,
+		Status:      status,
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
 	}
 
 	var runs *gh.WorkflowRuns
 	var err error
-	if wfID := argStr(args, "workflow_id"); wfID != "" {
-		runs, _, err = g.client.Actions.ListWorkflowRunsByFileName(ctx, argStr(args, "owner"), argStr(args, "repo"), wfID, opts)
+	if wfID != "" {
+		runs, _, err = g.client.Actions.ListWorkflowRunsByFileName(ctx, owner, repo, wfID, opts)
 	} else {
-		runs, _, err = g.client.Actions.ListRepositoryWorkflowRuns(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+		runs, _, err = g.client.Actions.ListRepositoryWorkflowRuns(ctx, owner, repo, opts)
 	}
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(runs.WorkflowRuns)
+	return mcp.JSONResult(runs.WorkflowRuns)
 }
 
 func getWorkflowRun(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	run, _, err := g.client.Actions.GetWorkflowRunByID(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "run_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	runID := r.Int64("run_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	run, _, err := g.client.Actions.GetWorkflowRunByID(ctx, owner, repo, runID)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(run)
+	return mcp.JSONResult(run)
 }
 
 func listWorkflowJobs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListWorkflowJobsOptions{
-		Filter:      argStr(args, "filter"),
-		ListOptions: listOpts(args),
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	runID := r.Int64("run_id")
+	filter := r.Str("filter")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
 	}
-	resp, _, err := g.client.Actions.ListWorkflowJobs(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "run_id"), opts)
+	opts := &gh.ListWorkflowJobsOptions{
+		Filter:      filter,
+		ListOptions: gh.ListOptions{Page: page, PerPage: perPage},
+	}
+	resp, _, err := g.client.Actions.ListWorkflowJobs(ctx, owner, repo, runID, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Jobs)
+	return mcp.JSONResult(resp.Jobs)
 }
 
 func downloadWorkflowLogs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	url, _, err := g.client.Actions.GetWorkflowRunLogs(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "run_id"), 0)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	runID := r.Int64("run_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	url, _, err := g.client.Actions.GetWorkflowRunLogs(ctx, owner, repo, runID, 0)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"logs_url": url.String()})
+	return mcp.JSONResult(map[string]string{"logs_url": url.String()})
 }
 
 func rerunWorkflow(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Actions.RerunWorkflowByID(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "run_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	runID := r.Int64("run_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Actions.RerunWorkflowByID(ctx, owner, repo, runID)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "rerun_requested"})
+	return mcp.JSONResult(map[string]string{"status": "rerun_requested"})
 }
 
 func cancelWorkflowRun(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	_, err := g.client.Actions.CancelWorkflowRunByID(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "run_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	runID := r.Int64("run_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	_, err := g.client.Actions.CancelWorkflowRunByID(ctx, owner, repo, runID)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(map[string]string{"status": "cancelled"})
+	return mcp.JSONResult(map[string]string{"status": "cancelled"})
 }
 
 // ── Secrets ───────────────────────────────────────────────────────
 
 func listRepoSecrets(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	resp, _, err := g.client.Actions.ListRepoSecrets(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	resp, _, err := g.client.Actions.ListRepoSecrets(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Secrets)
+	return mcp.JSONResult(resp.Secrets)
 }
 
 func listArtifacts(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListArtifactsOptions{ListOptions: listOpts(args)}
-	resp, _, err := g.client.Actions.ListArtifacts(ctx, argStr(args, "owner"), argStr(args, "repo"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListArtifactsOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	resp, _, err := g.client.Actions.ListArtifacts(ctx, owner, repo, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Artifacts)
+	return mcp.JSONResult(resp.Artifacts)
 }
 
 func listEnvironmentSecrets(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	repoID, err := g.repoID(ctx, argStr(args, "owner"), argStr(args, "repo"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	environment := r.Str("environment")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	repoID, err := g.repoID(ctx, owner, repo)
 	if err != nil {
 		return errResult(err)
 	}
-	resp, _, err := g.client.Actions.ListEnvSecrets(ctx, repoID, argStr(args, "environment"), opts)
+	resp, _, err := g.client.Actions.ListEnvSecrets(ctx, repoID, environment, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Secrets)
+	return mcp.JSONResult(resp.Secrets)
 }
 
 func listOrgSecrets(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListOptions{Page: listOpts(args).Page, PerPage: listOpts(args).PerPage}
-	resp, _, err := g.client.Actions.ListOrgSecrets(ctx, argStr(args, "org"), opts)
+	r := mcp.NewArgs(args)
+	org := r.Str("org")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListOptions{Page: page, PerPage: perPage}
+	resp, _, err := g.client.Actions.ListOrgSecrets(ctx, org, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.Secrets)
+	return mcp.JSONResult(resp.Secrets)
 }
 
 // ── Checks ────────────────────────────────────────────────────────
 
 func listCheckRuns(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListCheckRunsOptions{ListOptions: listOpts(args)}
-	resp, _, err := g.client.Checks.ListCheckRunsForRef(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "ref"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	ref := r.Str("ref")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListCheckRunsOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	resp, _, err := g.client.Checks.ListCheckRunsForRef(ctx, owner, repo, ref, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.CheckRuns)
+	return mcp.JSONResult(resp.CheckRuns)
 }
 
 func getCheckRun(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	run, _, err := g.client.Checks.GetCheckRun(ctx, argStr(args, "owner"), argStr(args, "repo"), argInt64(args, "check_run_id"))
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	checkRunID := r.Int64("check_run_id")
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	run, _, err := g.client.Checks.GetCheckRun(ctx, owner, repo, checkRunID)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(run)
+	return mcp.JSONResult(run)
 }
 
 func listCheckSuites(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {
-	opts := &gh.ListCheckSuiteOptions{ListOptions: listOpts(args)}
-	resp, _, err := g.client.Checks.ListCheckSuitesForRef(ctx, argStr(args, "owner"), argStr(args, "repo"), argStr(args, "ref"), opts)
+	r := mcp.NewArgs(args)
+	owner := r.Str("owner")
+	repo := r.Str("repo")
+	ref := r.Str("ref")
+	page := r.OptInt("page", 1)
+	perPage := r.OptInt("per_page", 10)
+	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	opts := &gh.ListCheckSuiteOptions{ListOptions: gh.ListOptions{Page: page, PerPage: perPage}}
+	resp, _, err := g.client.Checks.ListCheckSuitesForRef(ctx, owner, repo, ref, opts)
 	if err != nil {
 		return errResult(err)
 	}
-	return jsonResult(resp.CheckSuites)
+	return mcp.JSONResult(resp.CheckSuites)
 }
 
 // helper to get repo numeric ID for env secrets API

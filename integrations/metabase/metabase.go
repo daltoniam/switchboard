@@ -3,15 +3,38 @@ package metabase
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/compact"
 )
+
+//go:embed compact.yaml
+var compactYAML []byte
+
+var compactResult = compact.MustLoadWithOverlay("metabase", compactYAML, compact.Options{Strict: false})
+var fieldCompactionSpecs = compactResult.Specs
+var maxBytesByTool = compactResult.MaxBytes
+
+// Compile-time interface assertions.
+var (
+	_ mcp.Integration                = (*metabase)(nil)
+	_ mcp.FieldCompactionIntegration = (*metabase)(nil)
+	_ mcp.PlainTextCredentials       = (*metabase)(nil)
+	_ mcp.PlaceholderHints           = (*metabase)(nil)
+	_ mcp.ToolMaxBytesIntegration    = (*metabase)(nil)
+)
+
+func (m *metabase) PlainTextKeys() []string { return []string{"url"} }
+
+func (m *metabase) Placeholders() map[string]string {
+	return map[string]string{"url": "https://your-metabase-instance.com"}
+}
 
 type metabase struct {
 	apiKey  string
@@ -27,7 +50,7 @@ func New() mcp.Integration {
 
 func (m *metabase) Name() string { return "metabase" }
 
-func (m *metabase) Configure(creds mcp.Credentials) error {
+func (m *metabase) Configure(_ context.Context, creds mcp.Credentials) error {
 	m.apiKey = creds["api_key"]
 	m.baseURL = strings.TrimRight(creds["url"], "/")
 	if m.apiKey == "" {
@@ -48,7 +71,17 @@ func (m *metabase) Tools() []mcp.ToolDefinition {
 	return tools
 }
 
-func (m *metabase) Execute(ctx context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
+func (m *metabase) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
+	fields, ok := fieldCompactionSpecs[toolName]
+	return fields, ok
+}
+
+func (m *metabase) MaxBytes(toolName mcp.ToolName) (int, bool) {
+	n, ok := maxBytesByTool[toolName]
+	return n, ok
+}
+
+func (m *metabase) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -87,6 +120,11 @@ func (m *metabase) doRequest(ctx context.Context, method, path string, body any)
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("metabase API error (%d): %s", resp.StatusCode, string(data))}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, re
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("metabase API error (%d): %s", resp.StatusCode, string(data))
 	}
@@ -115,41 +153,3 @@ func (m *metabase) del(ctx context.Context, pathFmt string, args ...any) (json.R
 // --- Result helpers ---
 
 type handlerFunc func(ctx context.Context, m *metabase, args map[string]any) (*mcp.ToolResult, error)
-
-func rawResult(data json.RawMessage) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: string(data)}, nil
-}
-
-func errResult(err error) (*mcp.ToolResult, error) {
-	return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
-}
-
-// --- Argument helpers ---
-
-func argStr(args map[string]any, key string) string {
-	v, _ := args[key].(string)
-	return v
-}
-
-func argInt(args map[string]any, key string) int {
-	switch v := args[key].(type) {
-	case float64:
-		return int(v)
-	case int:
-		return v
-	case string:
-		n, _ := strconv.Atoi(v)
-		return n
-	}
-	return 0
-}
-
-func argBool(args map[string]any, key string) bool {
-	switch v := args[key].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true"
-	}
-	return false
-}

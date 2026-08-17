@@ -1,0 +1,18 @@
+services:
+  switchboard:
+    image: ghcr.io/daltoniam/switchboard:latest
+    ports:
+      - "3847:3847"
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - LINEAR_API_KEY=${LINEAR_API_KEY}
+      - SLACK_TOKEN=${SLACK_TOKEN}
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_APP_KEY=${DD_APP_KEY}
+    volumes:
+      - switchboard-config:/root/.config/switchboard
+    restart: unless-stopped
+
+volumes:
+  switchboard-config:

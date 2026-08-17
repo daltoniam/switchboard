@@ -2,12 +2,61 @@ package pages
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/components"
 )
 
-templ IntegrationsList(page layouts.PageData, integrations []IntegrationSummary) {
+type IntegrationsListData struct {
+	Errored   []IntegrationSummary
+	Connected []IntegrationSummary
+	Disabled  []IntegrationSummary
+	// Google summarizes the unified Google Workspace group shown as a single
+	// banner card linking to the consolidated setup page.
+	Google GoogleGroupSummary
+}
+
+// GoogleGroupSummary describes the collapsed Google Workspace group card.
+type GoogleGroupSummary struct {
+	ConnectedCount int
+	TotalCount     int
+}
+
+func googleGroupLabel(g GoogleGroupSummary) string {
+	if g.TotalCount > 0 && g.ConnectedCount == g.TotalCount {
+		return "All connected"
+	}
+	if g.ConnectedCount > 0 {
+		return fmt.Sprintf("%d of %d connected", g.ConnectedCount, g.TotalCount)
+	}
+	return "Not connected"
+}
+
+func googleGroupBadge(g GoogleGroupSummary) string {
+	if g.TotalCount > 0 && g.ConnectedCount == g.TotalCount {
+		return "green"
+	}
+	if g.ConnectedCount > 0 {
+		return "yellow"
+	}
+	return "muted"
+}
+
+func sortByName(items []IntegrationSummary) []IntegrationSummary {
+	sorted := make([]IntegrationSummary, len(items))
+	copy(sorted, items)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Name < sorted[j].Name
+	})
+	return sorted
+}
+
+func intToStr(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
+templ IntegrationsList(page layouts.PageData, data IntegrationsListData) {
 	@layouts.Base(page) {
 		<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
 			<h1 class="page-title" style="margin-bottom: 0;">Integrations</h1>
@@ -15,28 +64,66 @@ templ IntegrationsList(page layouts.PageData, integrations []IntegrationSummary)
 				<button type="submit" class="btn btn-outline btn-sm">Re-check all</button>
 			</form>
 		</div>
-		for _, i := range integrations {
-			<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-link">
-				<div>
-					<span class="name">{ i.Name }</span>
-					<span style="margin-left: 0.5rem;">
-						@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
-					</span>
-					if i.Healthy && lastCheckLabel(i.LastCheck) != "" {
-						<span class="last-check">last check: { lastCheckLabel(i.LastCheck) }</span>
+		if data.Google.TotalCount > 0 {
+			<section class="metrics-section">
+				<h2 class="section-title">Google Workspace</h2>
+				<div class="integration-grid">
+					<a href="/integrations/google/setup" class="integration-card">
+						<div class="integration-card-header">
+							<span class="name">Google Workspace</span>
+						</div>
+						<div class="integration-card-footer">
+							@components.Badge(googleGroupLabel(data.Google), googleGroupBadge(data.Google))
+							<span class="integration-card-tools">{ fmt.Sprintf("%d services", data.Google.TotalCount) }</span>
+						</div>
+					</a>
+				</div>
+			</section>
+		}
+		if len(data.Errored) > 0 {
+			<section class="metrics-section">
+				<h2 class="section-title" style="color: var(--yellow);">Needs Attention</h2>
+				<div class="integration-grid">
+					for _, i := range sortByName(data.Errored) {
+						@integrationCard(i)
 					}
 				</div>
-				<div class="meta">
-					<span>
-						@components.Badge(intToStr(i.ToolCount) + " tools", "muted")
-					</span>
-					<span>→</span>
+			</section>
+		}
+		if len(data.Connected) > 0 {
+			<section class="metrics-section">
+				<h2 class="section-title">Connected</h2>
+				<div class="integration-grid">
+					for _, i := range sortByName(data.Connected) {
+						@integrationCard(i)
+					}
 				</div>
-			</a>
+			</section>
+		}
+		if len(data.Disabled) > 0 {
+			<section class="metrics-section">
+				<h2 class="section-title">Disabled</h2>
+				<div class="integration-grid">
+					for _, i := range sortByName(data.Disabled) {
+						@integrationCard(i)
+					}
+				</div>
+			</section>
 		}
 	}
 }
 
-func intToStr(i int) string {
-	return fmt.Sprintf("%d", i)
+templ integrationCard(i IntegrationSummary) {
+	<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-card">
+		<div class="integration-card-header">
+			<span class="name">{ i.Name }</span>
+			if i.IsRemote {
+				@components.Badge("remote", "muted")
+			}
+		</div>
+		<div class="integration-card-footer">
+			@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))
+			<span class="integration-card-tools">{ fmt.Sprintf("%d tools", i.ToolCount) }</span>
+		</div>
+	</a>
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/stretchr/testify/assert"
@@ -21,27 +22,58 @@ func TestNew(t *testing.T) {
 
 func TestConfigure_Success(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"auth_token": "sntrys_test", "organization": "my-org"})
+	err := i.Configure(context.Background(), mcp.Credentials{"auth_token": "sntrys_test", "organization": "my-org"})
 	assert.NoError(t, err)
 }
 
 func TestConfigure_MissingAuthToken(t *testing.T) {
 	i := New()
-	err := i.Configure(mcp.Credentials{"auth_token": "", "organization": "my-org"})
+	err := i.Configure(context.Background(), mcp.Credentials{"auth_token": "", "organization": "my-org"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "auth_token is required")
 }
 
 func TestConfigure_MissingOrganization(t *testing.T) {
-	i := New()
-	err := i.Configure(mcp.Credentials{"auth_token": "token", "organization": ""})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/organizations/", r.URL.Path)
+		w.Write([]byte(`[{"slug":"auto-org"}]`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{client: ts.Client(), baseURL: ts.URL}
+	err := s.Configure(context.Background(), mcp.Credentials{"auth_token": "token", "organization": ""})
+	assert.NoError(t, err)
+	assert.Equal(t, "auto-org", s.organization)
+}
+
+func TestConfigure_AutoDetectOrgFails(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(401)
+		w.Write([]byte(`{"detail":"unauthorized"}`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{client: ts.Client(), baseURL: ts.URL}
+	err := s.Configure(context.Background(), mcp.Credentials{"auth_token": "bad-token", "organization": ""})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "organization is required")
+	assert.Contains(t, err.Error(), "auto-detect failed")
+}
+
+func TestConfigure_AutoDetectNoOrgs(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`[]`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{client: ts.Client(), baseURL: ts.URL}
+	err := s.Configure(context.Background(), mcp.Credentials{"auth_token": "token", "organization": ""})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no organizations found")
 }
 
 func TestConfigure_CustomBaseURL(t *testing.T) {
 	s := &sentry{client: &http.Client{}, baseURL: "https://sentry.io/api/0"}
-	err := s.Configure(mcp.Credentials{
+	err := s.Configure(context.Background(), mcp.Credentials{
 		"auth_token":   "token",
 		"organization": "org",
 		"base_url":     "https://custom.sentry.io/api/0/",
@@ -70,7 +102,7 @@ func TestTools_AllHaveSentryPrefix(t *testing.T) {
 
 func TestTools_NoDuplicateNames(t *testing.T) {
 	i := New()
-	seen := make(map[string]bool)
+	seen := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		assert.False(t, seen[tool.Name], "duplicate tool name: %s", tool.Name)
 		seen[tool.Name] = true
@@ -95,7 +127,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 
 func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	i := New()
-	toolNames := make(map[string]bool)
+	toolNames := make(map[mcp.ToolName]bool)
 	for _, tool := range i.Tools() {
 		toolNames[tool.Name] = true
 	}
@@ -162,42 +194,82 @@ func TestPost(t *testing.T) {
 	assert.Contains(t, string(data), "created")
 }
 
+func TestDoRequest_RetryableOn429(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "30")
+		w.WriteHeader(429)
+		w.Write([]byte(`{"detail":"rate limited"}`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{authToken: "token", organization: "org", client: ts.Client(), baseURL: ts.URL}
+	_, err := s.get(context.Background(), "/test")
+	require.Error(t, err)
+	assert.True(t, mcp.IsRetryable(err), "429 should produce RetryableError")
+
+	var re *mcp.RetryableError
+	require.ErrorAs(t, err, &re)
+	assert.Equal(t, 429, re.StatusCode)
+	assert.Equal(t, 30*time.Second, re.RetryAfter)
+}
+
+func TestDoRequest_RetryableOn5xx(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(503)
+		w.Write([]byte(`service unavailable`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{authToken: "token", organization: "org", client: ts.Client(), baseURL: ts.URL}
+	_, err := s.get(context.Background(), "/test")
+	require.Error(t, err)
+	assert.True(t, mcp.IsRetryable(err), "503 should produce RetryableError")
+}
+
+func TestDoRequest_NonRetryableOn4xx(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(404)
+		w.Write([]byte(`not found`))
+	}))
+	defer ts.Close()
+
+	s := &sentry{authToken: "token", organization: "org", client: ts.Client(), baseURL: ts.URL}
+	_, err := s.get(context.Background(), "/test")
+	require.Error(t, err)
+	assert.False(t, mcp.IsRetryable(err), "404 should NOT be retryable")
+}
+
 // --- result helper tests ---
+
+func TestErrResult_PropagatesRetryableError(t *testing.T) {
+	retryErr := &mcp.RetryableError{StatusCode: 503, Err: fmt.Errorf("service unavailable")}
+	result, err := mcp.ErrResult(retryErr)
+	assert.Nil(t, result, "retryable error should not produce a ToolResult")
+	assert.Error(t, err, "retryable error should be propagated as Go error")
+	assert.True(t, mcp.IsRetryable(err))
+}
+
+func TestErrResult_WrapsNonRetryableError(t *testing.T) {
+	plainErr := fmt.Errorf("bad request")
+	result, err := mcp.ErrResult(plainErr)
+	require.NoError(t, err, "non-retryable error should not propagate as Go error")
+	assert.True(t, result.IsError)
+	assert.Equal(t, "bad request", result.Data)
+}
 
 func TestRawResult(t *testing.T) {
 	data := json.RawMessage(`{"key":"value"}`)
-	result, err := rawResult(data)
+	result, err := mcp.RawResult(data)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	assert.Equal(t, `{"key":"value"}`, result.Data)
 }
 
-func TestErrResult(t *testing.T) {
-	result, err := errResult(fmt.Errorf("test error"))
+func TestErrResult_NonRetryable(t *testing.T) {
+	result, err := mcp.ErrResult(fmt.Errorf("test error"))
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "test error", result.Data)
-}
-
-// --- argument helper tests ---
-
-func TestArgStr(t *testing.T) {
-	assert.Equal(t, "val", argStr(map[string]any{"k": "val"}, "k"))
-	assert.Empty(t, argStr(map[string]any{}, "k"))
-}
-
-func TestArgInt(t *testing.T) {
-	assert.Equal(t, 42, argInt(map[string]any{"n": float64(42)}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": 42}, "n"))
-	assert.Equal(t, 42, argInt(map[string]any{"n": "42"}, "n"))
-	assert.Equal(t, 0, argInt(map[string]any{}, "n"))
-}
-
-func TestArgBool(t *testing.T) {
-	assert.True(t, argBool(map[string]any{"b": true}, "b"))
-	assert.False(t, argBool(map[string]any{"b": false}, "b"))
-	assert.True(t, argBool(map[string]any{"b": "true"}, "b"))
-	assert.False(t, argBool(map[string]any{}, "b"))
 }
 
 func TestQueryEncode(t *testing.T) {

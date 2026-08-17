@@ -24,15 +24,36 @@ type executorCall struct {
 	Args     map[string]any
 }
 
-func (m *mockExecutor) Execute(_ context.Context, toolName string, args map[string]any) (*mcp.ToolResult, error) {
-	m.calls = append(m.calls, executorCall{ToolName: toolName, Args: args})
+func (m *mockExecutor) Execute(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	m.calls = append(m.calls, executorCall{ToolName: string(toolName), Args: args})
 	if m.err != nil {
 		return nil, m.err
 	}
-	if r, ok := m.results[toolName]; ok {
+	if r, ok := m.results[string(toolName)]; ok {
 		return r, nil
 	}
 	return &mcp.ToolResult{Data: `{"ok":true}`, IsError: false}, nil
+}
+
+// mockRenderedExecutor implements both Executor and RenderedExecutor.
+type mockRenderedExecutor struct {
+	mockExecutor
+	renderedResults map[string]*mcp.ToolResult
+}
+
+func (m *mockRenderedExecutor) ExecuteRendered(_ context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	m.calls = append(m.calls, executorCall{ToolName: string(toolName) + ":rendered", Args: args})
+	if m.err != nil {
+		return nil, m.err
+	}
+	if r, ok := m.renderedResults[string(toolName)]; ok {
+		return r, nil
+	}
+	// Fall through to raw results (simulates tools without rendered output)
+	if r, ok := m.results[string(toolName)]; ok {
+		return r, nil
+	}
+	return &mcp.ToolResult{Data: "rendered fallback"}, nil
 }
 
 func TestEngine_SimpleScript(t *testing.T) {
@@ -324,6 +345,111 @@ func TestEngine_ScriptTooLarge(t *testing.T) {
 	assert.Contains(t, result.Data, "script too large")
 }
 
+func TestEngine_TryCallSuccess(t *testing.T) {
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"github_list_issues": {Data: `[{"id":1,"title":"Bug"}]`},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var r = api.tryCall("github_list_issues", {owner: "test"});
+		r;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, true, parsed["ok"])
+	assert.NotNil(t, parsed["data"])
+}
+
+func TestEngine_TryCallError(t *testing.T) {
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"bad_tool": {Data: "not found", IsError: true},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var r = api.tryCall("bad_tool", {});
+		r;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "tryCall should not kill the script")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, false, parsed["ok"])
+	assert.Contains(t, parsed["error"], "not found")
+}
+
+func TestEngine_TryCallGoError(t *testing.T) {
+	exec := &mockExecutor{err: fmt.Errorf("connection refused")}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var r = api.tryCall("some_tool", {});
+		r;
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "tryCall should not kill the script")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, false, parsed["ok"])
+	assert.Contains(t, parsed["error"], "connection refused")
+}
+
+func TestEngine_TryCallMixedWithCall(t *testing.T) {
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"good_tool": {Data: `{"status":"ok"}`},
+			"bad_tool":  {Data: "boom", IsError: true},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var good = api.call("good_tool", {});
+		var bad = api.tryCall("bad_tool", {});
+		({good: good, bad: bad});
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	bad, _ := parsed["bad"].(map[string]any)
+	assert.Equal(t, false, bad["ok"])
+	good, _ := parsed["good"].(map[string]any)
+	assert.Equal(t, "ok", good["status"])
+}
+
+func TestEngine_TryCallRespectsMaxCalls(t *testing.T) {
+	exec := &mockExecutor{results: map[string]*mcp.ToolResult{}}
+	engine := New(exec, WithMaxCalls(2))
+
+	result, err := engine.Run(context.Background(), `
+		var r1 = api.tryCall("tool_1", {});
+		var r2 = api.tryCall("tool_2", {});
+		var r3 = api.tryCall("tool_3", {});
+		({r1: r1.ok, r2: r2.ok, r3_ok: r3.ok, r3_error: r3.error});
+	`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, "tryCall should return error envelope, not kill script")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, true, parsed["r1"])
+	assert.Equal(t, true, parsed["r2"])
+	assert.Equal(t, false, parsed["r3_ok"])
+	assert.Contains(t, parsed["r3_error"], "exceeded maximum")
+}
+
 func TestEngine_ConsoleLogCapped(t *testing.T) {
 	exec := &mockExecutor{results: map[string]*mcp.ToolResult{}}
 	engine := New(exec)
@@ -339,4 +465,263 @@ func TestEngine_ConsoleLogCapped(t *testing.T) {
 	var logs []string
 	require.NoError(t, json.Unmarshal([]byte(result.Data), &logs))
 	assert.Equal(t, MaxLogEntries, len(logs))
+}
+
+func TestEngine_FieldProjection(t *testing.T) {
+	fullIssue := `{"number":42,"title":"bug","state":"open","body":"long text","user":{"login":"alice","id":99}}`
+
+	tests := []struct {
+		name       string
+		script     string
+		wantFields []string // fields expected in result
+		wantAbsent []string // fields expected NOT in result
+		wantError  bool
+	}{
+		{
+			name:       "projects specified fields from api.call result",
+			script:     `api.call("tool", {}, {fields: ["number", "title"]})`,
+			wantFields: []string{"number", "title"},
+			wantAbsent: []string{"state", "body", "user"},
+		},
+		{
+			name:       "omitted third arg preserves all fields",
+			script:     `api.call("tool", {})`,
+			wantFields: []string{"number", "title", "state", "body", "user"},
+		},
+		{
+			name:       "tryCall also supports field projection",
+			script:     `api.tryCall("tool", {}, {fields: ["number", "state"]}).data`,
+			wantFields: []string{"number", "state"},
+			wantAbsent: []string{"title", "body", "user"},
+		},
+		{
+			name:      "invalid fields option returns error",
+			script:    `api.call("tool", {}, {fields: "not_an_array"})`,
+			wantError: true,
+		},
+		{
+			name:       "bare array third arg is ignored (must use opts object)",
+			script:     `api.call("tool", {}, ["number", "title"])`,
+			wantFields: []string{"number", "title", "state", "body", "user"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exec := &mockExecutor{
+				results: map[string]*mcp.ToolResult{
+					"tool": {Data: fullIssue},
+				},
+			}
+			engine := New(exec)
+
+			result, err := engine.Run(context.Background(), tt.script)
+			require.NoError(t, err)
+
+			if tt.wantError {
+				assert.True(t, result.IsError)
+				return
+			}
+
+			assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+
+			var parsed map[string]any
+			require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+
+			for _, field := range tt.wantFields {
+				assert.Contains(t, parsed, field, "expected field %q", field)
+			}
+			for _, field := range tt.wantAbsent {
+				assert.NotContains(t, parsed, field, "unexpected field %q", field)
+			}
+		})
+	}
+}
+
+// --- api.callRendered() tests ---
+
+func TestEngine_CallRendered_ReturnsString(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor: mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{
+			"notion_get_page_content": {Data: "# Welcome to Notion\n*Last edited*\n"},
+		},
+	}
+	engine := New(exec)
+
+	// callRendered returns a JS string — usable with + concatenation inside scripts.
+	// Wrap in an object to verify the string value without JSON double-encoding.
+	result, err := engine.Run(context.Background(), `({text: api.callRendered('notion_get_page_content', {page_id: 'abc'})})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "# Welcome to Notion\n*Last edited*\n", parsed["text"])
+}
+
+func TestEngine_CallRendered_UsableInConcatenation(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor: mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{
+			"notion_get_page_content": {Data: "# Page Title"},
+		},
+	}
+	engine := New(exec)
+
+	// The real use case: concatenate rendered output with other strings
+	result, err := engine.Run(context.Background(), `({prompt: 'Summarize:\n' + api.callRendered('notion_get_page_content', {page_id: 'abc'})})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, "Summarize:\n# Page Title", parsed["prompt"])
+}
+
+func TestEngine_CallRendered_FallsBackToRawWhenNotImplemented(t *testing.T) {
+	// Plain mockExecutor does NOT implement RenderedExecutor
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"some_tool": {Data: `{"raw":"json"}`},
+		},
+	}
+	engine := New(exec)
+
+	// Falls back to raw Execute — but callRendered still returns result.Data as a string
+	result, err := engine.Run(context.Background(), `({text: api.callRendered('some_tool', {})})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	// Fallback returns the raw JSON string (not parsed)
+	assert.Equal(t, `{"raw":"json"}`, parsed["text"])
+}
+
+func TestEngine_CallRendered_PropagatesError(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor:    mockExecutor{results: map[string]*mcp.ToolResult{}, err: fmt.Errorf("connection refused")},
+		renderedResults: map[string]*mcp.ToolResult{},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `api.callRendered('bad_tool', {})`)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "connection refused")
+}
+
+func TestEngine_TryCallRendered_ReturnsString(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor: mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{
+			"jira_get_issue": {Data: "<!-- jira:key=PROJ-1 -->\n# PROJ-1: Fix bug\n"},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `api.tryCallRendered('jira_get_issue', {issue_key: 'PROJ-1'})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, true, parsed["ok"])
+	assert.Equal(t, "<!-- jira:key=PROJ-1 -->\n# PROJ-1: Fix bug\n", parsed["data"])
+}
+
+func TestEngine_TryCallRendered_ErrorEnvelope(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor: mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{
+			"bad_tool": {Data: "not found", IsError: true},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `api.tryCallRendered('bad_tool', {})`)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	assert.Equal(t, false, parsed["ok"])
+	assert.Contains(t, parsed["error"], "not found")
+}
+
+func TestEngine_CallRendered_CountsAgainstCallLimit(t *testing.T) {
+	exec := &mockRenderedExecutor{
+		mockExecutor:    mockExecutor{results: map[string]*mcp.ToolResult{}},
+		renderedResults: map[string]*mcp.ToolResult{},
+	}
+	engine := New(exec, WithMaxCalls(2))
+
+	// 2 callRendered calls should succeed, 3rd should fail
+	result, err := engine.Run(context.Background(), `
+		api.callRendered('tool1', {});
+		api.callRendered('tool2', {});
+		api.callRendered('tool3', {});
+	`)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "exceeded maximum")
+}
+
+func TestEngine_TracksIntermediateAndFinalBytes(t *testing.T) {
+	bigResp := `{"data":"` + strings.Repeat("x", 5000) + `"}`
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"big_tool": {Data: bigResp},
+		},
+	}
+	engine := New(exec)
+
+	result, err := engine.Run(context.Background(), `
+		var r1 = api.call("big_tool", {});
+		var r2 = api.call("big_tool", {});
+		({summary: "done"});
+	`)
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	// Two calls of ~5KB each flowed through the engine.
+	expected := int64(2 * len(bigResp))
+	assert.Equal(t, expected, result.IntermediateBytes)
+	// Final returned object is small.
+	assert.Less(t, result.FinalBytes, int64(50))
+	assert.Greater(t, result.IntermediateBytes, result.FinalBytes,
+		"the headline savings story requires intermediate > final")
+}
+
+func TestEngine_TryCall_AlsoTracksBytes(t *testing.T) {
+	resp := `{"items":[1,2,3]}`
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{
+			"t": {Data: resp},
+		},
+	}
+	engine := New(exec)
+	result, err := engine.Run(context.Background(), `
+		var r = api.tryCall("t", {});
+		(r.ok ? "ok" : "err");
+	`)
+	require.NoError(t, err)
+	assert.Equal(t, int64(len(resp)), result.IntermediateBytes)
+}
+
+func TestEngine_ErroredScript_StillRecordsPriorIntermediates(t *testing.T) {
+	resp := `{"k":"v"}`
+	exec := &mockExecutor{
+		results: map[string]*mcp.ToolResult{"t": {Data: resp}},
+	}
+	engine := New(exec)
+	result, err := engine.Run(context.Background(), `
+		api.call("t", {});
+		throw new Error("boom");
+	`)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Equal(t, int64(len(resp)), result.IntermediateBytes,
+		"bytes from the first call must still count even when the script later throws")
 }

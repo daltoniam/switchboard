@@ -1,0 +1,325 @@
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use base64::Engine as _;
+
+// ── Types matching the host ABI ─────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ToolDefinition {
+    pub name: String,
+    pub description: String,
+    pub parameters: HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub required: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ToolResult {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub data: String,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub is_error: bool,
+}
+
+fn is_false(v: &bool) -> bool {
+    !v
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PluginMetadata {
+    pub name: String,
+    pub version: String,
+    pub abi_version: i32,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub author: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub homepage: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub license: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub credential_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub plain_text_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub optional_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub placeholders: HashMap<String, String>,
+}
+
+/// Helper to export plugin metadata as a WASM function.
+/// Call this from your `#[no_mangle] pub extern "C" fn metadata() -> u64` export.
+pub fn leaked_metadata(meta: &PluginMetadata) -> u64 {
+    let data = serde_json::to_vec(meta).unwrap_or_default();
+    leaked_result(&data)
+}
+
+/// Helper to export field compaction specs as a WASM function.
+/// Accepts a map of tool_name → list of dot-notation field specs.
+/// Call this from your `#[no_mangle] pub extern "C" fn compact_specs() -> u64` export.
+///
+/// Example:
+/// ```ignore
+/// use std::collections::HashMap;
+/// let mut specs: HashMap<String, Vec<String>> = HashMap::new();
+/// specs.insert("my_list_items".into(), vec![
+///     "id".into(), "name".into(), "status".into(),
+/// ]);
+/// sdk::leaked_compact_specs(&specs);
+/// ```
+pub fn leaked_compact_specs(specs: &HashMap<String, Vec<String>>) -> u64 {
+    let data = serde_json::to_vec(specs).unwrap_or_default();
+    leaked_result(&data)
+}
+
+#[derive(Deserialize)]
+pub struct ExecuteRequest {
+    pub tool_name: String,
+    pub args: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Serialize, Default)]
+pub struct HttpRequest {
+    pub method: String,
+    pub url: String,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub headers: HashMap<String, String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub body: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub body_base64: String,
+}
+
+#[derive(Deserialize)]
+pub struct HttpResponse {
+    pub status: i32,
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
+    #[serde(default)]
+    pub body: String,
+    #[serde(default)]
+    pub body_base64: String,
+}
+
+// ── Host imports ────────────────────────────────────────────────────────────
+
+extern "C" {
+    #[link_name = "host_http_request"]
+    fn host_http_request_raw(ptr_size: u64) -> u64;
+    #[link_name = "host_log"]
+    fn host_log_raw(ptr: u32, size: u32);
+}
+
+pub fn host_log(msg: &str) {
+    unsafe {
+        host_log_raw(msg.as_ptr() as u32, msg.len() as u32);
+    }
+}
+
+impl HttpRequest {
+    /// Create a request with a raw binary body. The bytes are base64-encoded
+    /// for transport over the JSON ABI.
+    pub fn with_body_bytes(method: &str, url: &str, headers: HashMap<String, String>, body: &[u8]) -> Self {
+        HttpRequest {
+            method: method.into(),
+            url: url.into(),
+            headers,
+            body: String::new(),
+            body_base64: base64::engine::general_purpose::STANDARD.encode(body),
+        }
+    }
+}
+
+impl HttpResponse {
+    /// Returns the response body as raw bytes. If the response was requested
+    /// with `X-Raw-Body`, decodes `body_base64`; otherwise returns the `body`
+    /// string as UTF-8 bytes.
+    pub fn body_bytes(&self) -> Result<Vec<u8>, String> {
+        if !self.body_base64.is_empty() {
+            base64::engine::general_purpose::STANDARD
+                .decode(&self.body_base64)
+                .map_err(|e| format!("decode body_base64: {e}"))
+        } else {
+            Ok(self.body.as_bytes().to_vec())
+        }
+    }
+}
+
+/// Execute an HTTP request via the host. For standard HTTP/1.1 or
+/// auto-negotiated HTTP/2 over TLS, use this directly.
+///
+/// To force HTTP/2 cleartext (h2c) — required for plaintext gRPC endpoints —
+/// use [`host_http_request_h2c`] instead.
+pub fn host_http_request(req: &HttpRequest) -> Result<HttpResponse, String> {
+    do_host_http_request(req)
+}
+
+/// Execute an HTTP request using HTTP/2 cleartext (h2c) transport.
+///
+/// This is required for talking to gRPC servers or other HTTP/2 services
+/// that listen on plain `http://` without TLS.
+///
+/// Internally this sets the `X-H2C` header which tells the host to use
+/// an h2c-capable HTTP/2 transport instead of the default HTTP/1.1 client.
+pub fn host_http_request_h2c(req: &HttpRequest) -> Result<HttpResponse, String> {
+    let mut patched = HttpRequest {
+        method: req.method.clone(),
+        url: req.url.clone(),
+        headers: req.headers.clone(),
+        body: req.body.clone(),
+        body_base64: req.body_base64.clone(),
+    };
+    patched.headers.insert("X-H2C".into(), "1".into());
+    do_host_http_request(&patched)
+}
+
+/// Execute an HTTP request and receive the response body as raw bytes.
+///
+/// Sets the `X-Raw-Body` header so the host returns the body as base64
+/// in `body_base64` instead of a UTF-8 string in `body`. Use
+/// [`HttpResponse::body_bytes`] to decode the result.
+pub fn host_http_request_raw_body(req: &HttpRequest) -> Result<HttpResponse, String> {
+    let mut patched = HttpRequest {
+        method: req.method.clone(),
+        url: req.url.clone(),
+        headers: req.headers.clone(),
+        body: req.body.clone(),
+        body_base64: req.body_base64.clone(),
+    };
+    patched.headers.insert("X-Raw-Body".into(), "1".into());
+    do_host_http_request(&patched)
+}
+
+fn do_host_http_request(req: &HttpRequest) -> Result<HttpResponse, String> {
+    let req_json = serde_json::to_vec(req).map_err(|e| e.to_string())?;
+    let ptr_size = pack_ptr_size(req_json.as_ptr() as u32, req_json.len() as u32);
+    let result = unsafe { host_http_request_raw(ptr_size) };
+    let (r_ptr, r_size) = unpack_ptr_size(result);
+    if r_size == 0 {
+        return Err("empty response from host".into());
+    }
+    let resp_data = unsafe { read_bytes(r_ptr, r_size) };
+    serde_json::from_slice(&resp_data).map_err(|e| e.to_string())
+}
+
+// ── Result helpers ──────────────────────────────────────────────────────────
+
+pub fn err_result(msg: &str) -> ToolResult {
+    ToolResult {
+        data: msg.to_string(),
+        is_error: true,
+    }
+}
+
+pub fn raw_result(data: String) -> ToolResult {
+    ToolResult {
+        data,
+        is_error: false,
+    }
+}
+
+// ── Arg extraction ──────────────────────────────────────────────────────────
+
+pub fn arg_str(args: &HashMap<String, serde_json::Value>, key: &str) -> String {
+    args.get(key)
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+pub fn arg_str_slice(args: &HashMap<String, serde_json::Value>, key: &str) -> Vec<String> {
+    match args.get(key) {
+        Some(serde_json::Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect(),
+        Some(serde_json::Value::String(s)) => {
+            serde_json::from_str::<Vec<String>>(s).unwrap_or_default()
+        }
+        _ => Vec::new(),
+    }
+}
+
+pub fn arg_int(args: &HashMap<String, serde_json::Value>, key: &str) -> Option<i64> {
+    args.get(key).and_then(|v| {
+        v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
+    })
+}
+
+pub fn arg_bool(args: &HashMap<String, serde_json::Value>, key: &str) -> Option<bool> {
+    args.get(key).and_then(|v| {
+        v.as_bool().or_else(|| v.as_str().and_then(|s| match s {
+            "true" | "1" | "yes" => Some(true),
+            "false" | "0" | "no" => Some(false),
+            _ => None,
+        }))
+    })
+}
+
+pub fn arg_map(
+    args: &HashMap<String, serde_json::Value>,
+    key: &str,
+) -> Option<HashMap<String, serde_json::Value>> {
+    args.get(key).and_then(|v| {
+        if let serde_json::Value::Object(m) = v {
+            Some(m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+        } else {
+            None
+        }
+    })
+}
+
+// ── Memory helpers ──────────────────────────────────────────────────────────
+
+pub fn leaked_result(data: &[u8]) -> u64 {
+    let boxed = data.to_vec().into_boxed_slice();
+    let ptr = boxed.as_ptr() as u32;
+    let size = boxed.len() as u32;
+    std::mem::forget(boxed);
+    pack_ptr_size(ptr, size)
+}
+
+pub fn leaked_string(s: &str) -> u64 {
+    leaked_result(s.as_bytes())
+}
+
+pub fn read_input(ptr_size: u64) -> Vec<u8> {
+    let (ptr, size) = unpack_ptr_size(ptr_size);
+    unsafe { read_bytes(ptr, size) }
+}
+
+unsafe fn read_bytes(ptr: u32, size: u32) -> Vec<u8> {
+    let slice = std::slice::from_raw_parts(ptr as *const u8, size as usize);
+    slice.to_vec()
+}
+
+fn pack_ptr_size(ptr: u32, size: u32) -> u64 {
+    ((ptr as u64) << 32) | (size as u64)
+}
+
+fn unpack_ptr_size(v: u64) -> (u32, u32) {
+    ((v >> 32) as u32, v as u32)
+}
+
+// ── Allocator exports (called by host) ──────────────────────────────────────
+
+#[no_mangle]
+pub extern "C" fn guest_malloc(size: u32) -> u32 {
+    let layout = std::alloc::Layout::from_size_align(size as usize, 1).unwrap();
+    unsafe { std::alloc::alloc(layout) as u32 }
+}
+
+#[no_mangle]
+pub extern "C" fn guest_free(ptr: u32) {
+    if ptr == 0 {
+        return;
+    }
+    // We don't track allocation sizes, so we deallocate with size=1 alignment=1.
+    // This is safe because wasm linear memory isn't reclaimed per-allocation;
+    // the host only calls guest_free to signal the guest can reuse the memory.
+    let layout = std::alloc::Layout::from_size_align(1, 1).unwrap();
+    unsafe { std::alloc::dealloc(ptr as *mut u8, layout) }
+}
