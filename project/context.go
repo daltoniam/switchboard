@@ -122,20 +122,33 @@ func assembleManifestFromConfig(ctx *ContextConfig, repoRoot, configDir, project
 func ReadContextFile(def *Definition, configDir, path string) (string, error) {
 	contextDir := filepath.Join(configDir, "context", def.Name)
 
-	candidates := []string{
-		filepath.Join(contextDir, path),
-	}
+	roots := []string{contextDir}
 	if repoRoot := def.ResolvedRepo(); repoRoot != "" {
-		candidates = append(candidates, filepath.Join(repoRoot, path))
+		roots = append(roots, repoRoot)
 	}
 
-	for _, candidate := range candidates {
+	for _, root := range roots {
+		candidate, ok := pathWithinRoot(root, path)
+		if !ok {
+			continue
+		}
 		data, err := os.ReadFile(candidate)
 		if err == nil {
 			return string(data), nil
 		}
 	}
 	return "", fmt.Errorf("context file not found: %s", path)
+}
+
+func pathWithinRoot(root, relativePath string) (string, bool) {
+	if filepath.IsAbs(relativePath) {
+		return "", false
+	}
+	clean := filepath.Clean(relativePath)
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return filepath.Join(root, clean), true
 }
 
 // AssembleBundle assembles the full context bundle as a concatenated string.

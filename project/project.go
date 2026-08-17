@@ -14,16 +14,17 @@ var nameRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // Definition represents a project-interop project definition (.project.json).
 type Definition struct {
-	Schema     string                `json:"$schema,omitempty"`
-	Version    string                `json:"version"`
-	Name       string                `json:"name"`
-	Repo       string                `json:"repo,omitempty"`
-	Branch     string                `json:"branch,omitempty"`
-	Launch     *LaunchConfig         `json:"launch,omitempty"`
-	Tools      map[string]*ScopeRule `json:"tools,omitempty"`
-	Context    *ContextConfig        `json:"context,omitempty"`
-	Agents     *AgentsConfig         `json:"agents,omitempty"`
-	Extensions map[string]any        `json:"extensions,omitempty"`
+	Schema     string                     `json:"$schema,omitempty"`
+	Version    string                     `json:"version"`
+	Name       string                     `json:"name"`
+	Repo       string                     `json:"repo,omitempty"`
+	Branch     string                     `json:"branch,omitempty"`
+	Launch     *LaunchConfig              `json:"launch,omitempty"`
+	Tools      map[string]*ScopeRule      `json:"tools,omitempty"`
+	Context    *ContextConfig             `json:"context,omitempty"`
+	Agents     *AgentsConfig              `json:"agents,omitempty"`
+	Extensions map[string]any             `json:"extensions,omitempty"`
+	Additional map[string]json.RawMessage `json:"-"`
 }
 
 // LaunchConfig controls how agents are bootstrapped.
@@ -394,18 +395,20 @@ func (s *Store) Update(name string, patch json.RawMessage) (*Definition, error) 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	existing, ok := s.projects[name]
-	if !ok {
+	if _, ok := s.projects[name]; !ok {
 		return nil, fmt.Errorf("project %q not found", name)
 	}
 
-	base, err := json.Marshal(existing)
+	path := filepath.Join(s.configDir, "projects", name+".project.json")
+	base, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read project definition: %w", err)
 	}
 
 	var baseMap map[string]any
-	_ = json.Unmarshal(base, &baseMap)
+	if err := json.Unmarshal(base, &baseMap); err != nil {
+		return nil, fmt.Errorf("parse project definition: %w", err)
+	}
 
 	var patchMap map[string]any
 	if err := json.Unmarshal(patch, &patchMap); err != nil {
@@ -428,6 +431,14 @@ func (s *Store) Update(name string, patch json.RawMessage) (*Definition, error) 
 
 	if err := s.writeToDisk(&def); err != nil {
 		return nil, err
+	}
+	mergedDef, err := s.mergeRepoLocal(&def)
+	if err != nil {
+		return nil, err
+	}
+	if mergedDef != nil {
+		s.projects[name] = mergedDef
+		return mergedDef, nil
 	}
 	s.projects[name] = &def
 	return &def, nil

@@ -21,8 +21,9 @@ import (
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
-	"github.com/daltoniam/switchboard/integrations/posthog"
 	"github.com/daltoniam/switchboard/integrations/postgres"
+	"github.com/daltoniam/switchboard/integrations/posthog"
+	"github.com/daltoniam/switchboard/integrations/projectinterop"
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
@@ -180,6 +181,7 @@ func runServer(stdioMode bool, port int) {
 		clickhouse.New(),
 		pganalyze.New(),
 		rwx.New(),
+		projectinterop.New(),
 	} {
 		if err := reg.Register(i); err != nil {
 			log.Fatalf("Failed to register integration: %v", err)
@@ -210,7 +212,8 @@ func runServer(stdioMode bool, port int) {
 		defer func() { _ = daemon.RemovePID() }()
 	}
 
-	projectStore := project.NewStore(project.DefaultConfigDir())
+	projectIntegrationConfig, _ := cfgMgr.GetIntegration("projectinterop")
+	projectStore := project.NewStore(projectConfigRoot(projectIntegrationConfig))
 	if err := projectStore.Load(); err != nil {
 		log.Printf("WARN: failed to load project definitions: %v", err)
 	}
@@ -243,4 +246,13 @@ func runServer(stdioMode bool, port int) {
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("HTTP server error: %v", err)
 	}
+}
+
+func projectConfigRoot(integrationConfig *mcp.IntegrationConfig) string {
+	if integrationConfig != nil {
+		if root := integrationConfig.Credentials["config_root"]; root != "" {
+			return project.ExpandHome(root)
+		}
+	}
+	return project.DefaultConfigDir()
 }
