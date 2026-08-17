@@ -720,6 +720,10 @@ func parseMCPHTTPBody(t *testing.T, contentType string, raw []byte) map[string]a
 			return last
 		}
 	}
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) > 0 && trimmed[0] != '{' && trimmed[0] != '[' {
+		return map[string]any{"error": map[string]any{"message": string(trimmed)}}
+	}
 	var obj map[string]any
 	if err := json.Unmarshal(raw, &obj); err != nil {
 		t.Fatalf("decode MCP body %q: %v", string(raw), err)

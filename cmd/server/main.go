@@ -243,6 +243,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	if err := projectStore.Load(); err != nil {
 		log.Fatalf("Failed to load project catalog: %v", err)
 	}
+	projectStore.SetEventBus(project.NewEventBus())
 	if names := projectStore.Names(); len(names) > 0 {
 		log.Printf("Loaded %d project(s): %v", len(names), names)
 	}
@@ -320,6 +321,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	go func() { _ = projectStore.Watch(ctx) }()
 
 	// Periodic metrics flush. Flush is a no-op when not dirty, so this
 	// produces zero disk traffic during idle periods.
@@ -401,9 +403,23 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 
 	projectRouter := server.NewProjectRouter(services, projectStore, "", srv.SearchIndex())
 
+	var catalogHandler http.Handler
+	if cfg.ProjectCatalog.Enabled {
+		if err := mcp.ValidateProjectCatalogConfig(cfg.ProjectCatalog); err != nil {
+			log.Fatalf("Invalid project catalog config: %v", err)
+		}
+		catalogSrv := server.NewProjectCatalogServer(projectStore, projectStore, projectStore, projectStore, server.ProjectCatalogOptions{
+			WritesEnabled: cfg.ProjectCatalog.WritesEnabled,
+			AccessToken:   cfg.ProjectCatalog.AccessToken,
+		})
+		catalogHandler = catalogSrv.Handler()
+		log.Printf("Project Catalog MCP enabled at /project-catalog/mcp (writes_enabled=%v)", cfg.ProjectCatalog.WritesEnabled)
+	}
+
 	mux := server.BuildHTTPMux(server.HTTPMuxConfig{
-		MCP:     srv.StatelessHandler(),
-		Project: projectRouter.Handler(),
+		MCP:            srv.StatelessHandler(),
+		Project:        projectRouter.Handler(),
+		ProjectCatalog: catalogHandler,
 	})
 
 	// Initialize plugin marketplace.

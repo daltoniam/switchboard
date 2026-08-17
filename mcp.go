@@ -204,6 +204,34 @@ type Config struct {
 	// DollarsPerMTokInput is the price per million input tokens used to
 	// compute the dollar estimate. Zero falls back to DefaultInputDollarsPerMTok.
 	DollarsPerMTokInput float64 `json:"dollars_per_mtok_input,omitempty"`
+
+	// ProjectCatalog configures the dedicated local Project Catalog MCP
+	// endpoint. It is disabled by default and independent of the ordinary
+	// projectinterop integration.
+	ProjectCatalog ProjectCatalogConfig `json:"project_catalog,omitempty"`
+}
+
+// ProjectCatalogConfig is the first-release local catalog access contract.
+type ProjectCatalogConfig struct {
+	Enabled       bool   `json:"enabled"`
+	WritesEnabled bool   `json:"writes_enabled"`
+	AccessToken   string `json:"access_token,omitempty"`
+}
+
+// MinProjectCatalogTokenBytes is the minimum UTF-8 byte length of a configured
+// local catalog bearer token.
+const MinProjectCatalogTokenBytes = 32
+
+// ValidateProjectCatalogConfig rejects Enabled=true unless the token meets
+// the frozen 32-byte minimum.
+func ValidateProjectCatalogConfig(cfg ProjectCatalogConfig) error {
+	if !cfg.Enabled {
+		return nil
+	}
+	if len([]byte(cfg.AccessToken)) < MinProjectCatalogTokenBytes {
+		return fmt.Errorf("project_catalog.access_token must be at least %d bytes when project_catalog.enabled is true", MinProjectCatalogTokenBytes)
+	}
+	return nil
 }
 
 // ToolDefinition describes an API operation an integration exposes.

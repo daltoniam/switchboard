@@ -302,6 +302,7 @@ Switchboard speaks MCP over Streamable HTTP at `/mcp`.
 - **Legacy clients** still complete the initialize / initialized sequence on the same endpoint. The SDK's stateless compatibility path handles that during the migration window.
 - **Switchboard app sessions** (`X-Switchboard-Session-Id`, with `Mcp-Session-Id` only as a documented legacy fallback) key history, pins, and context. They never select a project and are not advertised as MCP transport sessions.
 - MCP Roots and Tasks are not used. Project workspace identity is an explicit `rootUri` on Project Catalog operations.
+- The dedicated Project Catalog endpoint is `/project-catalog/mcp`. See [docs/project-catalog.md](project-catalog.md).
 
 ## Services Struct (DI Container)
 

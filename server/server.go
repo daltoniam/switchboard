@@ -1552,8 +1552,9 @@ func (s *Server) StatelessHandler() http.Handler {
 			return s.mcpServer
 		},
 		&mcpsdk.StreamableHTTPOptions{
-			Stateless: true,
-			Logger:    slog.Default(),
+			Stateless:    true,
+			JSONResponse: true,
+			Logger:       slog.Default(),
 		},
 	))
 }
