@@ -8,23 +8,23 @@ import (
 type EventKind string
 
 const (
-	EventProjectAdded          EventKind = "project_added"
-	EventProjectRemoved        EventKind = "project_removed"
-	EventDefinitionChanged     EventKind = "definition_changed"
-	EventContextChanged        EventKind = "context_changed"
-	EventDiagnosticsChanged    EventKind = "diagnostics_changed"
+	EventProjectAdded           EventKind = "project_added"
+	EventProjectRemoved         EventKind = "project_removed"
+	EventDefinitionChanged      EventKind = "definition_changed"
+	EventContextChanged         EventKind = "context_changed"
+	EventDiagnosticsChanged     EventKind = "diagnostics_changed"
 	EventProjectValidityChanged EventKind = "project_validity_changed"
 )
 
 // Event is a transport-neutral catalog change notification.
 // It never carries project:// URIs; adapters map IDs to resources.
 type Event struct {
-	Kind        EventKind
-	ProjectID   ProjectID
-	OldRevision Revision
-	NewRevision Revision
-	SourceKind  string
-	RootURI     string
+	Kind         EventKind
+	ProjectID    ProjectID
+	OldRevision  Revision
+	NewRevision  Revision
+	SourceKind   string
+	RootURI      string
 	ContextPaths []string
 }
 

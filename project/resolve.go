@@ -18,7 +18,7 @@ func gitCommonDir(ctx context.Context, root string) (string, error) {
 		ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 	}
-	cmd := exec.CommandContext(ctx, "git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	cmd := exec.CommandContext(ctx, "git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir") // #nosec G204 -- git binary is fixed; root is a canonical existing directory // #nosec G204 -- fixed git argv; root is a validated absolute directory
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

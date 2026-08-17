@@ -303,25 +303,6 @@ func (s *Store) Load() error {
 	return s.rebuildIndex()
 }
 
-func (s *Store) mergeRepoLocal(base *Definition) (*Definition, error) {
-	repoRoot := base.ResolvedRepo()
-	if repoRoot == "" {
-		return nil, nil
-	}
-	repoLocalPath := filepath.Join(repoRoot, ".project.json")
-	data, err := os.ReadFile(repoLocalPath)
-	if err != nil {
-		return nil, nil
-	}
-	var overlay Definition
-	if err := json.Unmarshal(data, &overlay); err != nil {
-		return nil, err
-	}
-	return Merge(base, &overlay)
-}
-
-// Definition returns a project definition by name. Prefer Catalog.Get for
-// revisioned snapshots; this helper remains for compatibility adapters.
 func (s *Store) Definition(name string) (*Definition, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -394,24 +375,6 @@ func (s *Store) DeleteDefinition(name string) error {
 	return err
 }
 
-func (s *Store) writeToDisk(def *Definition) error {
-	dir := filepath.Join(s.configDir, "projects")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(def, "", "  ")
-	if err != nil {
-		return err
-	}
-	path := filepath.Join(dir, def.Name+".project.json")
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
-}
-
-// jsonMergePatch implements RFC 7396 JSON Merge Patch.
 func jsonMergePatch(base, patch map[string]any) map[string]any {
 	result := make(map[string]any)
 	for k, v := range base {

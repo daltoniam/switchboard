@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"unicode"
 )
 
 const (
@@ -923,14 +922,4 @@ func atomicWriteFile(path string, data []byte, mode fs.FileMode) error {
 		return err
 	}
 	return nil
-}
-
-// Compatibility helpers used by existing Store methods after catalog migration.
-func isPrintableName(s string) bool {
-	for _, r := range s {
-		if !unicode.IsPrint(r) {
-			return false
-		}
-	}
-	return true
 }

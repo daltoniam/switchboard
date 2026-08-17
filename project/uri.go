@@ -68,10 +68,6 @@ func diagnosticsURI(id ProjectID) string {
 	return fmt.Sprintf("project://registry/projects/%s/diagnostics", url.PathEscape(string(id)))
 }
 
-func revisionURI(id ProjectID, rev Revision) string {
-	return fmt.Sprintf("project://registry/projects/%s/revisions/%s", url.PathEscape(string(id)), url.PathEscape(string(rev)))
-}
-
 func projectFileName(id ProjectID) string {
 	return string(id) + ".project.json"
 }

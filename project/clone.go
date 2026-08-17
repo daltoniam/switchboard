@@ -81,15 +81,6 @@ func cloneRole(r *RoleDefinition) *RoleDefinition {
 	return out
 }
 
-func cloneSnapshot(in Snapshot) Snapshot {
-	out := in
-	out.Definition = *cloneDefinition(&in.Definition)
-	out.Sources = append([]Source(nil), in.Sources...)
-	out.Diagnostics = append([]Diagnostic(nil), in.Diagnostics...)
-	out.UserBytes = append([]byte(nil), in.UserBytes...)
-	return out
-}
-
 func cloneRevisionSnapshot(in RevisionSnapshot) RevisionSnapshot {
 	out := in
 	out.Definition = *cloneDefinition(&in.Definition)

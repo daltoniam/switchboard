@@ -51,10 +51,6 @@ func (e *Error) Is(target error) bool {
 	return e.Code == other.Code
 }
 
-func newError(code, message string) *Error {
-	return &Error{Code: code, Message: message}
-}
-
 func errorWithProject(code, message string, id ProjectID) *Error {
 	return &Error{Code: code, Message: message, ProjectID: id}
 }
