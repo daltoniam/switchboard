@@ -20,7 +20,6 @@ func TestProjectCatalog_ListChangedOnCreate(t *testing.T) {
 	store.SetEventBus(bus)
 	cat := NewProjectCatalogServer(store, store, store, store, ProjectCatalogOptions{
 		WritesEnabled: true,
-		AccessToken:   testCatalogToken,
 	})
 	// Bridge bus events to SDK list-changed by adding/removing a marker resource.
 	go func() {
@@ -49,11 +48,8 @@ func TestProjectCatalog_ListChangedOnCreate(t *testing.T) {
 		},
 	})
 	session, err := client.Connect(context.Background(), &mcpsdk.StreamableClientTransport{
-		Endpoint: httpSrv.URL + "/project-catalog/mcp",
-		HTTPClient: &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			req.Header.Set("Authorization", "Bearer "+testCatalogToken)
-			return http.DefaultTransport.RoundTrip(req)
-		})},
+		Endpoint:   httpSrv.URL + "/project-catalog/mcp",
+		HTTPClient: http.DefaultClient,
 	}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = session.Close() })

@@ -205,32 +205,36 @@ type Config struct {
 	// compute the dollar estimate. Zero falls back to DefaultInputDollarsPerMTok.
 	DollarsPerMTokInput float64 `json:"dollars_per_mtok_input,omitempty"`
 
-	// ProjectCatalog configures the dedicated local Project Catalog MCP
-	// endpoint. It is disabled by default and independent of the ordinary
-	// projectinterop integration.
+	// ProjectCatalog configures Project Catalog tools and resources on the
+	// main /mcp endpoint. Omitted or empty defaults to enabled with writes on.
 	ProjectCatalog ProjectCatalogConfig `json:"project_catalog,omitempty"`
 }
 
-// ProjectCatalogConfig is the first-release local catalog access contract.
+// ProjectCatalogConfig controls catalog tools/resources on the main MCP server.
+// Nil Enabled/WritesEnabled mean default-on (true).
 type ProjectCatalogConfig struct {
-	Enabled       bool   `json:"enabled"`
-	WritesEnabled bool   `json:"writes_enabled"`
-	AccessToken   string `json:"access_token,omitempty"`
+	Enabled       *bool `json:"enabled,omitempty"`
+	WritesEnabled *bool `json:"writes_enabled,omitempty"`
 }
 
-// MinProjectCatalogTokenBytes is the minimum UTF-8 byte length of a configured
-// local catalog bearer token.
-const MinProjectCatalogTokenBytes = 32
+// ProjectCatalogEnabled reports whether catalog tools/resources are on (default true).
+func ProjectCatalogEnabled(cfg ProjectCatalogConfig) bool {
+	if cfg.Enabled == nil {
+		return true
+	}
+	return *cfg.Enabled
+}
 
-// ValidateProjectCatalogConfig rejects Enabled=true unless the token meets
-// the frozen 32-byte minimum.
+// ProjectCatalogWritesEnabled reports whether canonical writes are on (default true).
+func ProjectCatalogWritesEnabled(cfg ProjectCatalogConfig) bool {
+	if cfg.WritesEnabled == nil {
+		return true
+	}
+	return *cfg.WritesEnabled
+}
+
+// ValidateProjectCatalogConfig is retained for call-site compatibility.
 func ValidateProjectCatalogConfig(cfg ProjectCatalogConfig) error {
-	if !cfg.Enabled {
-		return nil
-	}
-	if len([]byte(cfg.AccessToken)) < MinProjectCatalogTokenBytes {
-		return fmt.Errorf("project_catalog.access_token must be at least %d bytes when project_catalog.enabled is true", MinProjectCatalogTokenBytes)
-	}
 	return nil
 }
 

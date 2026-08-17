@@ -84,6 +84,7 @@ type Server struct {
 	catalogBytes      int64                 // byte size of full tool catalog (for savings accounting)
 	discoverAll       bool
 	extraInstructions string // appended to the base MCP instructions
+	projectCatalog    *ProjectCatalogServer
 }
 
 // baseInstructions is the default guidance sent to clients in the MCP
@@ -131,6 +132,12 @@ func WithExtraInstructions(text string) Option {
 	return func(s *Server) { s.extraInstructions = strings.TrimSpace(text) }
 }
 
+// WithProjectCatalog attaches Project Catalog tools and resources to the main
+// /mcp server. When nil, catalog surface is omitted.
+func WithProjectCatalog(cat *ProjectCatalogServer) Option {
+	return func(s *Server) { s.projectCatalog = cat }
+}
+
 // staticMCPCapabilities advertises a stable tool list. Crush 0.89 / MCP
 // SDK 1.7 opens a long-lived subscriptions/listen stream whenever
 // tools.listChanged is true. Switchboard serves MCP from request-scoped
@@ -166,20 +173,30 @@ func New(services *mcp.Services, opts ...Option) *Server {
 	if s.extraInstructions != "" {
 		instructions += " " + s.extraInstructions
 	}
+	caps := staticMCPCapabilities()
+	serverOpts := &mcpsdk.ServerOptions{
+		Instructions: instructions,
+		Capabilities: caps,
+	}
+	if s.projectCatalog != nil {
+		caps.Resources = &mcpsdk.ResourceCapabilities{ListChanged: true, Subscribe: true}
+		serverOpts.SubscribeHandler = func(context.Context, *mcpsdk.SubscribeRequest) error { return nil }
+		serverOpts.UnsubscribeHandler = func(context.Context, *mcpsdk.UnsubscribeRequest) error { return nil }
+	}
 	s.mcpServer = mcpsdk.NewServer(
 		&mcpsdk.Implementation{
 			Name:    "switchboard",
 			Version: version.String(),
 		},
-		&mcpsdk.ServerOptions{
-			Instructions: instructions,
-			Capabilities: staticMCPCapabilities(),
-		},
+		serverOpts,
 	)
 
 	s.scriptEngine = script.New(&toolExecutor{server: s})
 
 	s.registerTools()
+	if s.projectCatalog != nil {
+		s.projectCatalog.AttachTo(s.mcpServer)
+	}
 	return s
 }
 

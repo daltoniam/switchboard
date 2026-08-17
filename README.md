@@ -92,11 +92,10 @@ List and search responses are compact by default. When the LLM identifies a spec
 
 ## Quick Start
 
-```bash
-Project Catalog (`/project-catalog/mcp`) is a local, resources-first registry of
-project definition files. It is disabled by default and documented in
-[docs/project-catalog.md](docs/project-catalog.md).
+Project Catalog tools (`project.*`) and `project://` resources are on the main
+`/mcp` endpoint by default. See [docs/project-catalog.md](docs/project-catalog.md).
 
+```bash
 # Run (default — HTTP server with MCP + web UI on port 3847)
 switchboard
 

@@ -385,6 +385,13 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 			server.NewFileSessionStore(server.DefaultSessionDir(), server.DefaultSessionTTL),
 		))
 	}
+	if mcp.ProjectCatalogEnabled(cfg.ProjectCatalog) {
+		catalogSrv := server.NewProjectCatalogServer(projectStore, projectStore, projectStore, projectStore, server.ProjectCatalogOptions{
+			WritesEnabled: mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog),
+		})
+		serverOpts = append(serverOpts, server.WithProjectCatalog(catalogSrv))
+		log.Printf("Project Catalog on /mcp (writes_enabled=%v)", mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog))
+	}
 	srv := server.New(services, serverOpts...)
 
 	if stdioMode {
@@ -403,23 +410,9 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 
 	projectRouter := server.NewProjectRouter(services, projectStore, "", srv.SearchIndex())
 
-	var catalogHandler http.Handler
-	if cfg.ProjectCatalog.Enabled {
-		if err := mcp.ValidateProjectCatalogConfig(cfg.ProjectCatalog); err != nil {
-			log.Fatalf("Invalid project catalog config: %v", err)
-		}
-		catalogSrv := server.NewProjectCatalogServer(projectStore, projectStore, projectStore, projectStore, server.ProjectCatalogOptions{
-			WritesEnabled: cfg.ProjectCatalog.WritesEnabled,
-			AccessToken:   cfg.ProjectCatalog.AccessToken,
-		})
-		catalogHandler = catalogSrv.Handler()
-		log.Printf("Project Catalog MCP enabled at /project-catalog/mcp (writes_enabled=%v)", cfg.ProjectCatalog.WritesEnabled)
-	}
-
 	mux := server.BuildHTTPMux(server.HTTPMuxConfig{
-		MCP:            srv.StatelessHandler(),
-		Project:        projectRouter.Handler(),
-		ProjectCatalog: catalogHandler,
+		MCP:     srv.StatelessHandler(),
+		Project: projectRouter.Handler(),
 	})
 
 	// Initialize plugin marketplace.

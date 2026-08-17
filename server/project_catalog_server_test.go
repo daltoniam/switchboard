@@ -14,15 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testCatalogToken = "0123456789abcdef0123456789abcdef"
-
 func newCatalogTestServer(t *testing.T, writes bool) (*httptest.Server, *project.Store) {
 	t.Helper()
 	store := project.NewStore(t.TempDir())
 	require.NoError(t, store.Load())
 	cat := NewProjectCatalogServer(store, store, store, store, ProjectCatalogOptions{
 		WritesEnabled: writes,
-		AccessToken:   testCatalogToken,
 	})
 	mux := BuildHTTPMux(HTTPMuxConfig{ProjectCatalog: cat.Handler()})
 	httpSrv := httptest.NewServer(mux)
@@ -31,34 +28,20 @@ func newCatalogTestServer(t *testing.T, writes bool) (*httptest.Server, *project
 }
 
 func catalogHeaders(method, name string) http.Header {
-	h := modernHTTPHeaders(method, name)
-	h.Set("Authorization", "Bearer "+testCatalogToken)
-	return h
+	return modernHTTPHeaders(method, name)
 }
 
-func TestProjectCatalog_Unauthorized(t *testing.T) {
+func TestProjectCatalog_NoBearerRequired(t *testing.T) {
 	httpSrv, _ := newCatalogTestServer(t, false)
-	status, headers, body := postJSONRPC(t, httpSrv.URL+"/project-catalog/mcp", jsonRPCRequest{
+	status, _, body := postJSONRPC(t, httpSrv.URL+"/project-catalog/mcp", jsonRPCRequest{
 		JSONRPC: "2.0",
 		ID:      1,
 		Method:  "server/discover",
 		Params:  map[string]any{"_meta": modernRequestMeta()},
 	}, modernHTTPHeaders("server/discover", ""))
-	assert.Equal(t, http.StatusUnauthorized, status, body)
-	assert.Equal(t, "Bearer", headers.Get("WWW-Authenticate"))
-
-	// Forged forwarding / app-session headers do not grant access.
-	h := modernHTTPHeaders("server/discover", "")
-	h.Set("X-Forwarded-For", "127.0.0.1")
-	h.Set("X-Real-IP", "127.0.0.1")
-	h.Set(AppSessionIDHeader, "not-a-capability")
-	status, _, _ = postJSONRPC(t, httpSrv.URL+"/project-catalog/mcp", jsonRPCRequest{
-		JSONRPC: "2.0",
-		ID:      2,
-		Method:  "server/discover",
-		Params:  map[string]any{"_meta": modernRequestMeta()},
-	}, h)
-	assert.Equal(t, http.StatusUnauthorized, status)
+	require.Equal(t, http.StatusOK, status, body)
+	result := jsonRPCResult(t, body)
+	assert.Equal(t, "complete", result["resultType"])
 }
 
 func TestProjectCatalog_DiscoverAndListResources(t *testing.T) {
@@ -187,21 +170,14 @@ func newCatalogClient(t *testing.T, endpoint string) *mcpsdk.ClientSession {
 	t.Helper()
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "catalog-test", Version: "0"}, nil)
 	session, err := client.Connect(context.Background(), &mcpsdk.StreamableClientTransport{
-		Endpoint: endpoint,
-		HTTPClient: &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-			req.Header.Set("Authorization", "Bearer "+testCatalogToken)
-			return http.DefaultTransport.RoundTrip(req)
-		})},
+		Endpoint:             endpoint,
+		HTTPClient:           http.DefaultClient,
 		DisableStandaloneSSE: true,
 	}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = session.Close() })
 	return session
 }
-
-type roundTripperFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func readResourceRawAuth(t *testing.T, endpoint, uri string) map[string]any {
 	t.Helper()

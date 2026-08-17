@@ -18,25 +18,25 @@ In-memory indexes and watchers accelerate reads and notifications. They never re
 
 | Surface | Path | Role |
 |---|---|---|
-| Global Switchboard | `/mcp` | search/execute plus compatibility `projectinterop_*` tools |
+| Global Switchboard | `/mcp` | search/execute, `project.*` catalog tools, `project://` resources, and compatibility `projectinterop_*` |
 | Project-scoped gateway | `/mcp/{project}` | current-project search/execute; no cross-project admin |
-| Project Catalog | `/project-catalog/mcp` | resources-first catalog; disabled by default |
 
-## Access
+Catalog tools and resources live on the **main** `/mcp` endpoint. There is no separate bearer-gated catalog URL and no access token.
 
-`/project-catalog/mcp` mounts only when:
+## Config
+
+Omitted `project_catalog` defaults to **enabled** with **writes enabled**:
 
 ```json
 {
   "project_catalog": {
     "enabled": true,
-    "writes_enabled": false,
-    "access_token": "<at least 32 UTF-8 bytes>"
+    "writes_enabled": true
   }
 }
 ```
 
-Every request requires `Authorization: Bearer <access_token>`. Missing/invalid tokens receive HTTP 401 with `WWW-Authenticate: Bearer`. Loopback, `X-Forwarded-For`, and `Mcp-Session-Id` are not authorization. Canonical writes still fail with `write_disabled` unless `writes_enabled` is true.
+Disable either flag explicitly with `false` if needed. Canonical write tools still honor `writes_enabled`.
 
 Project files can contain local paths and unknown fields. Do not store secrets in them that local agents should not see.
 
@@ -58,11 +58,10 @@ Patch/delete require a CAS token (`expectedSourceRevision` or raw-source recover
 
 ## Compatibility
 
-The six `projectinterop_*` tools remain on `/mcp` with their existing success shapes. They use last-write-wins compatibility methods on the same catalog. Do not remove them in this release.
+The six `projectinterop_*` tools remain on `/mcp` with their existing success shapes. They use last-write-wins compatibility methods on the same catalog.
 
 ## Migration
 
-1. Keep using `projectinterop_*` if needed.
-2. Enable `/project-catalog/mcp` with a local bearer token.
-3. Discover via `resources/list` / `project.search`.
-4. Mutate with `project.create` / `project.patch` / `project.delete` only after setting `writes_enabled=true`.
+1. Prefer `project.search` / resources on `/mcp` for discovery.
+2. Mutate with `project.create` / `project.patch` / `project.delete` (writes on by default).
+3. Keep `projectinterop_*` only while older clients still call them.

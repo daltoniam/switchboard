@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -17,41 +15,34 @@ import (
 const (
 	catalogListTTLMs     = 10_000
 	catalogRevisionTTLMs = 3_600_000
-	wwwAuthenticate      = `Bearer`
 )
 
 // ProjectCatalogServer exposes the dedicated /project-catalog/mcp surface.
 type ProjectCatalogServer struct {
-	catalog project.Catalog
-	writer  project.CatalogWriter
-	compat  project.CompatibilityWriter
-	valid   project.CatalogValidator
-	cfg     projectCatalogRuntime
-	mcp     *mcpsdk.Server
+	catalog    project.Catalog
+	writer     project.CatalogWriter
+	compat     project.CompatibilityWriter
+	valid      project.CatalogValidator
+	cfg        projectCatalogRuntime
+	mcp        *mcpsdk.Server
+	standalone *mcpsdk.Server
 }
 
 type projectCatalogRuntime struct {
 	writesEnabled bool
-	tokenSHA      [32]byte
-	hasToken      bool
 }
 
 func newProjectCatalogRuntime(cfg ProjectCatalogOptions) projectCatalogRuntime {
-	rt := projectCatalogRuntime{writesEnabled: cfg.WritesEnabled}
-	if cfg.AccessToken != "" {
-		rt.tokenSHA = sha256.Sum256([]byte(cfg.AccessToken))
-		rt.hasToken = true
-	}
-	return rt
+	return projectCatalogRuntime{writesEnabled: cfg.WritesEnabled}
 }
 
 // ProjectCatalogOptions is the runtime view of mcp.ProjectCatalogConfig.
 type ProjectCatalogOptions struct {
 	WritesEnabled bool
-	AccessToken   string
 }
 
-// NewProjectCatalogServer constructs the dedicated catalog MCP server.
+// NewProjectCatalogServer constructs a catalog surface that can AttachTo the
+// main Switchboard MCP server or serve standalone (tests).
 func NewProjectCatalogServer(cat project.Catalog, writer project.CatalogWriter, compat project.CompatibilityWriter, valid project.CatalogValidator, cfg ProjectCatalogOptions) *ProjectCatalogServer {
 	s := &ProjectCatalogServer{
 		catalog: cat,
@@ -75,6 +66,7 @@ func NewProjectCatalogServer(cat project.Catalog, writer project.CatalogWriter, 
 			UnsubscribeHandler: func(context.Context, *mcpsdk.UnsubscribeRequest) error { return nil },
 		},
 	)
+	s.standalone = s.mcp
 	s.registerResources()
 	s.registerTools()
 	s.mcp.AddReceivingMiddleware(s.reconcileMiddleware)
@@ -369,34 +361,36 @@ func omitEmpty(s string) any {
 	return s
 }
 
-func (s *ProjectCatalogServer) authorize(r *http.Request) bool {
-	if !s.cfg.hasToken {
-		return false
+// AttachTo registers catalog tools and resources on an existing MCP server
+// (the main Switchboard /mcp endpoint).
+func (s *ProjectCatalogServer) AttachTo(mcpSrv *mcpsdk.Server) {
+	if s == nil || mcpSrv == nil {
+		return
 	}
-	got := strings.TrimSpace(r.Header.Get("Authorization"))
-	const prefix = "Bearer "
-	if !strings.HasPrefix(got, prefix) {
-		return false
+	prev := s.mcp
+	s.mcp = mcpSrv
+	s.registerResources()
+	s.registerTools()
+	mcpSrv.AddReceivingMiddleware(s.reconcileMiddleware)
+	mcpSrv.AddReceivingMiddleware(s.cacheMiddleware)
+	// Keep standalone server for tests that still construct a dedicated handler.
+	if prev != nil && prev != mcpSrv {
+		s.standalone = prev
 	}
-	sum := sha256.Sum256([]byte(strings.TrimSpace(strings.TrimPrefix(got, prefix))))
-	return subtle.ConstantTimeCompare(sum[:], s.cfg.tokenSHA[:]) == 1
 }
 
-// Handler returns the bearer-gated stateless Streamable HTTP handler.
+// Handler returns a stateless Streamable HTTP handler for tests or optional
+// dedicated mounting. No bearer token is required.
 func (s *ProjectCatalogServer) Handler() http.Handler {
-	inner := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server {
-		return s.mcp
+	target := s.mcp
+	if s.standalone != nil {
+		target = s.standalone
+	}
+	return mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server {
+		return target
 	}, &mcpsdk.StreamableHTTPOptions{
 		Stateless:    true,
 		JSONResponse: true,
 		Logger:       slog.Default(),
-	})
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !s.authorize(r) {
-			w.Header().Set("WWW-Authenticate", wwwAuthenticate)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		inner.ServeHTTP(w, r)
 	})
 }
