@@ -12,7 +12,8 @@ import (
 )
 
 type projectInterop struct {
-	store *project.Store
+	store    *project.Store
+	injected bool
 }
 
 type handlerFunc func(context.Context, *projectInterop, map[string]any) (*mcp.ToolResult, error)
@@ -33,9 +34,18 @@ func New() mcp.Integration {
 	return &projectInterop{}
 }
 
+// NewWithCatalog constructs ProjectInterop over an already-loaded catalog.
+// Configure will not allocate a second store.
+func NewWithCatalog(store *project.Store) mcp.Integration {
+	return &projectInterop{store: store, injected: true}
+}
+
 func (p *projectInterop) Name() string { return "projectinterop" }
 
 func (p *projectInterop) Configure(_ context.Context, creds mcp.Credentials) error {
+	if p.injected && p.store != nil {
+		return nil
+	}
 	root := strings.TrimSpace(creds["config_root"])
 	if root == "" {
 		root = project.DefaultConfigDir()

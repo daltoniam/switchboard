@@ -314,6 +314,8 @@ type Services struct {
 
 Constructed in `cmd/server/main.go` and passed to both `server.New()` and `web.New()`.
 
+The composition root also constructs **one** filesystem Project Catalog (`project.NewStore`) and injects that same object into `projectinterop.NewWithCatalog` and `server.NewProjectRouter`. The JSON files under the catalog root remain authoritative; adapters do not own a second store.
+
 ## Adding a New Integration
 
 1. Create `integrations/<name>/<name>.go`.

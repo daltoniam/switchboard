@@ -234,6 +234,19 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	gpeopleIntegration := gpeople.New()
 	gmeetIntegration := gmeet.New()
 	amazonIntegration := amazon.New()
+
+	// One process-wide filesystem catalog. ProjectInterop and the
+	// project-scoped router receive this same object; neither allocates
+	// another store.
+	projectIntegrationConfig, _ := cfgMgr.GetIntegration("projectinterop")
+	projectStore := project.NewStore(projectConfigRoot(projectIntegrationConfig))
+	if err := projectStore.Load(); err != nil {
+		log.Fatalf("Failed to load project catalog: %v", err)
+	}
+	if names := projectStore.Names(); len(names) > 0 {
+		log.Printf("Loaded %d project(s): %v", len(names), names)
+	}
+
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
 		github.New(),
@@ -250,7 +263,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		elasticsearch.New(),
 		pganalyze.New(),
 		rwx.New(),
-		projectinterop.New(),
+		projectinterop.NewWithCatalog(projectStore),
 		ramp.New(),
 		ynab.New(),
 		stripe.New(),
@@ -384,15 +397,6 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 			log.Printf("WARN: failed to write PID file: %v", err)
 		}
 		defer func() { _ = daemon.RemovePID() }()
-	}
-
-	projectIntegrationConfig, _ := cfgMgr.GetIntegration("projectinterop")
-	projectStore := project.NewStore(projectConfigRoot(projectIntegrationConfig))
-	if err := projectStore.Load(); err != nil {
-		log.Printf("WARN: failed to load project definitions: %v", err)
-	}
-	if names := projectStore.Names(); len(names) > 0 {
-		log.Printf("Loaded %d project(s): %v", len(names), names)
 	}
 
 	projectRouter := server.NewProjectRouter(services, projectStore, "", srv.SearchIndex())

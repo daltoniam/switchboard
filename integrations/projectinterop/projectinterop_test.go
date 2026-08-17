@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,6 +78,48 @@ func TestExecute_UnknownTool(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "unknown tool")
+}
+
+func TestNewWithCatalog_DoesNotAllocateSecondStore(t *testing.T) {
+	root := t.TempDir()
+	store := project.NewStore(root)
+	require.NoError(t, store.Load())
+	_, err := store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{
+		Version: "1",
+		Name:    "shared",
+		Branch:  "main",
+	}})
+	require.NoError(t, err)
+
+	integration := NewWithCatalog(store)
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"config_root": t.TempDir()}))
+
+	got := executeJSON(t, integration, "projectinterop_get_project", map[string]any{"name": "shared"})
+	assert.Equal(t, "shared", got["name"])
+	assert.Equal(t, "main", got["branch"])
+
+	executeJSON(t, integration, "projectinterop_update_project", map[string]any{
+		"name":  "shared",
+		"patch": map[string]any{"branch": "from-interop"},
+	})
+	snap, err := store.Get(context.Background(), "shared")
+	require.NoError(t, err)
+	assert.Equal(t, "from-interop", snap.Definition.Branch)
+}
+
+func TestCreate_ReturnsUserDefinitionNotOverlay(t *testing.T) {
+	root := t.TempDir()
+	repo := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(repo, ".project.json"), []byte(`{"version":"1","name":"acme","branch":"overlay"}`), 0600))
+	integration := New()
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"config_root": root}))
+
+	created := executeJSON(t, integration, "projectinterop_create_project", map[string]any{
+		"name": "acme", "repo": repo, "branch": "user",
+	})
+	assert.Equal(t, "acme", created["name"])
+	assert.Equal(t, "user", created["branch"])
+	assert.Equal(t, repo, created["repo"])
 }
 
 func TestProjectCRUD(t *testing.T) {
