@@ -98,7 +98,7 @@ func getProject(_ context.Context, p *projectInterop, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	definition, ok := p.store.Get(name)
+	definition, ok := p.store.Definition(name)
 	if !ok {
 		return errResult(fmt.Errorf("project %q not found", name))
 	}
@@ -116,7 +116,7 @@ func createProject(_ context.Context, p *projectInterop, args map[string]any) (*
 		Repo:    argString(args, "repo"),
 		Branch:  argString(args, "branch"),
 	}
-	if err := p.store.Create(definition); err != nil {
+	if err := p.store.CreateDefinition(definition); err != nil {
 		return errResult(err)
 	}
 	return jsonResult(definition)
@@ -147,7 +147,7 @@ func deleteProject(_ context.Context, p *projectInterop, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	if err := p.store.Delete(name); err != nil {
+	if err := p.store.DeleteDefinition(name); err != nil {
 		return errResult(err)
 	}
 	return rawResult(fmt.Sprintf("project %q deleted", name))
@@ -158,7 +158,7 @@ func getContext(_ context.Context, p *projectInterop, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	definition, ok := p.store.Get(name)
+	definition, ok := p.store.Definition(name)
 	if !ok {
 		return errResult(fmt.Errorf("project %q not found", name))
 	}

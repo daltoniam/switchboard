@@ -208,9 +208,9 @@ func TestStore_CRUD(t *testing.T) {
 		Repo:    "~/work/test",
 	}
 
-	require.NoError(t, store.Create(def))
+	require.NoError(t, store.CreateDefinition(def))
 
-	got, ok := store.Get("test-project")
+	got, ok := store.Definition("test-project")
 	require.True(t, ok)
 	assert.Equal(t, "test-project", got.Name)
 
@@ -223,11 +223,11 @@ func TestStore_CRUD(t *testing.T) {
 	_, err := store.Update("test-project", json.RawMessage(`{"branch": "develop"}`))
 	require.NoError(t, err)
 
-	got, _ = store.Get("test-project")
+	got, _ = store.Definition("test-project")
 	assert.Equal(t, "develop", got.Branch)
 
-	require.NoError(t, store.Delete("test-project"))
-	_, ok = store.Get("test-project")
+	require.NoError(t, store.DeleteDefinition("test-project"))
+	_, ok = store.Definition("test-project")
 	assert.False(t, ok)
 }
 
@@ -236,9 +236,9 @@ func TestStore_CreateDuplicate(t *testing.T) {
 	store := NewStore(dir)
 
 	def := &Definition{Version: "1", Name: "dup"}
-	require.NoError(t, store.Create(def))
+	require.NoError(t, store.CreateDefinition(def))
 
-	err := store.Create(def)
+	err := store.CreateDefinition(def)
 	assert.ErrorContains(t, err, "already exists")
 }
 
@@ -254,7 +254,7 @@ func TestStore_Load(t *testing.T) {
 	store := NewStore(dir)
 	require.NoError(t, store.Load())
 
-	got, ok := store.Get("loaded-project")
+	got, ok := store.Definition("loaded-project")
 	require.True(t, ok)
 	assert.Equal(t, "loaded-project", got.Name)
 }
@@ -294,7 +294,7 @@ func TestStore_LoadWithRepoLocal(t *testing.T) {
 	store := NewStore(dir)
 	require.NoError(t, store.Load())
 
-	got, ok := store.Get("merged")
+	got, ok := store.Definition("merged")
 	require.True(t, ok)
 	assert.Equal(t, []string{"a.md", "b.md"}, got.Context.Files)
 }
@@ -302,7 +302,7 @@ func TestStore_LoadWithRepoLocal(t *testing.T) {
 func TestStore_DeleteNotFound(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStore(dir)
-	err := store.Delete("nonexistent")
+	err := store.DeleteDefinition("nonexistent")
 	assert.ErrorContains(t, err, "not found")
 }
 

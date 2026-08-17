@@ -126,6 +126,15 @@ func TestReadContextFile(t *testing.T) {
 		_, err := ReadContextFile(def, configDir, "../../secret.txt")
 		assert.ErrorContains(t, err, "context file not found")
 	})
+
+	t.Run("rejects symlink escape", func(t *testing.T) {
+		outside := filepath.Join(t.TempDir(), "secret.txt")
+		require.NoError(t, os.WriteFile(outside, []byte("leaked"), 0600))
+		link := filepath.Join(configDir, "context", "test-project", "escape.md")
+		require.NoError(t, os.Symlink(outside, link))
+		_, err := ReadContextFile(def, configDir, "escape.md")
+		assert.ErrorContains(t, err, "context file not found")
+	})
 }
 
 func TestAssembleManifestWithRole(t *testing.T) {

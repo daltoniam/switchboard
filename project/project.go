@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -259,17 +260,29 @@ func mergeExtensions(base, overlay map[string]any) map[string]any {
 }
 
 // Store manages project definitions in the user-level store.
+// The JSON files under configDir/projects remain the source of truth;
+// in-memory maps are a rebuilt index, never authority.
 type Store struct {
 	configDir string
 	mu        sync.RWMutex
 	projects  map[string]*Definition
+	index     map[ProjectID]*catalogRecord
+	bus       *EventBus
 }
+
+var (
+	_ Catalog             = (*Store)(nil)
+	_ CatalogValidator    = (*Store)(nil)
+	_ CatalogWriter       = (*Store)(nil)
+	_ CompatibilityWriter = (*Store)(nil)
+)
 
 // NewStore creates a store rooted at the project-interop config directory.
 func NewStore(configDir string) *Store {
 	return &Store{
 		configDir: configDir,
 		projects:  make(map[string]*Definition),
+		index:     make(map[ProjectID]*catalogRecord),
 	}
 }
 
@@ -285,42 +298,9 @@ func DefaultConfigDir() string {
 // Load discovers and loads all project definitions from the user-level store.
 // For each project with a repo path, it also attempts to merge a repo-local .project.json.
 func (s *Store) Load() error {
-	dir := filepath.Join(s.configDir, "projects")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("reading projects dir: %w", err)
-	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	for _, e := range entries {
-		if !strings.HasSuffix(e.Name(), ".project.json") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
-		if err != nil {
-			continue
-		}
-		var def Definition
-		if err := json.Unmarshal(data, &def); err != nil {
-			continue
-		}
-		if err := def.Validate(); err != nil {
-			continue
-		}
-
-		merged, err := s.mergeRepoLocal(&def)
-		if err == nil && merged != nil {
-			s.projects[merged.Name] = merged
-		} else {
-			s.projects[def.Name] = &def
-		}
-	}
-	return nil
+	return s.rebuildIndex()
 }
 
 func (s *Store) mergeRepoLocal(base *Definition) (*Definition, error) {
@@ -340,29 +320,33 @@ func (s *Store) mergeRepoLocal(base *Definition) (*Definition, error) {
 	return Merge(base, &overlay)
 }
 
-// Get returns a project definition by name.
-func (s *Store) Get(name string) (*Definition, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+// Definition returns a project definition by name. Prefer Catalog.Get for
+// revisioned snapshots; this helper remains for compatibility adapters.
+func (s *Store) Definition(name string) (*Definition, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_ = s.rebuildIndex()
 	d, ok := s.projects[name]
-	return d, ok
+	return cloneDefinition(d), ok
 }
 
 // All returns all loaded project definitions.
 func (s *Store) All() map[string]*Definition {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_ = s.rebuildIndex()
 	result := make(map[string]*Definition, len(s.projects))
 	for k, v := range s.projects {
-		result[k] = v
+		result[k] = cloneDefinition(v)
 	}
 	return result
 }
 
 // Names returns all project names.
 func (s *Store) Names() []string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_ = s.rebuildIndex()
 	names := make([]string, 0, len(s.projects))
 	for k := range s.projects {
 		names = append(names, k)
@@ -370,95 +354,44 @@ func (s *Store) Names() []string {
 	return names
 }
 
-// Create writes a new project definition to the user-level store.
-func (s *Store) Create(def *Definition) error {
-	if err := def.Validate(); err != nil {
-		return fmt.Errorf("invalid project definition: %w", err)
+// CreateDefinition writes a new project definition to the user-level store.
+// Compatibility adapters should prefer CreateCompatibility.
+func (s *Store) CreateDefinition(def *Definition) error {
+	if def == nil {
+		return fmt.Errorf("invalid project definition: name is required")
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.projects[def.Name]; exists {
-		return fmt.Errorf("project %q already exists", def.Name)
-	}
-
-	if err := s.writeToDisk(def); err != nil {
+	_, _, err := s.CreateCompatibility(context.Background(), CreateRequest{Definition: *def})
+	if err != nil {
+		if IsCode(err, CodeProjectAlreadyExists) {
+			return fmt.Errorf("project %q already exists", def.Name)
+		}
+		if e, ok := AsError(err); ok && e.Code == CodeInvalidDefinition {
+			return fmt.Errorf("invalid project definition: %s", e.Message)
+		}
 		return err
 	}
-	s.projects[def.Name] = def
 	return nil
 }
 
 // Update applies a JSON merge patch to the user-level store file.
 func (s *Store) Update(name string, patch json.RawMessage) (*Definition, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, ok := s.projects[name]; !ok {
-		return nil, fmt.Errorf("project %q not found", name)
-	}
-
-	path := filepath.Join(s.configDir, "projects", name+".project.json")
-	base, err := os.ReadFile(path)
+	snap, err := s.PatchCompatibility(context.Background(), ProjectID(name), patch)
 	if err != nil {
-		return nil, fmt.Errorf("read project definition: %w", err)
-	}
-
-	var baseMap map[string]any
-	if err := json.Unmarshal(base, &baseMap); err != nil {
-		return nil, fmt.Errorf("parse project definition: %w", err)
-	}
-
-	var patchMap map[string]any
-	if err := json.Unmarshal(patch, &patchMap); err != nil {
-		return nil, fmt.Errorf("invalid patch: %w", err)
-	}
-
-	merged := jsonMergePatch(baseMap, patchMap)
-	result, err := json.Marshal(merged)
-	if err != nil {
+		if IsCode(err, CodeProjectNotFound) {
+			return nil, fmt.Errorf("project %q not found", name)
+		}
 		return nil, err
 	}
-
-	var def Definition
-	if err := json.Unmarshal(result, &def); err != nil {
-		return nil, err
-	}
-	if err := def.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid project definition after patch: %w", err)
-	}
-
-	if err := s.writeToDisk(&def); err != nil {
-		return nil, err
-	}
-	mergedDef, err := s.mergeRepoLocal(&def)
-	if err != nil {
-		return nil, err
-	}
-	if mergedDef != nil {
-		s.projects[name] = mergedDef
-		return mergedDef, nil
-	}
-	s.projects[name] = &def
-	return &def, nil
+	return cloneDefinition(&snap.Definition), nil
 }
 
-// Delete removes a project definition from the user-level store.
-func (s *Store) Delete(name string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, ok := s.projects[name]; !ok {
+// DeleteDefinition removes a project definition from the user-level store.
+func (s *Store) DeleteDefinition(name string) error {
+	err := s.DeleteCompatibility(context.Background(), ProjectID(name))
+	if IsCode(err, CodeProjectNotFound) {
 		return fmt.Errorf("project %q not found", name)
 	}
-
-	path := filepath.Join(s.configDir, "projects", name+".project.json")
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	delete(s.projects, name)
-	return nil
+	return err
 }
 
 func (s *Store) writeToDisk(def *Definition) error {

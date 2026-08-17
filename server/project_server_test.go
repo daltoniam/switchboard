@@ -21,7 +21,7 @@ func setupProjectRouter(t *testing.T, def *project.Definition, integrations ...*
 	t.Helper()
 	dir := t.TempDir()
 	store := project.NewStore(dir)
-	require.NoError(t, store.Create(def))
+	require.NoError(t, store.CreateDefinition(def))
 
 	reg := newMockRegistry()
 	cfgIntegrations := make(map[string]*mcp.IntegrationConfig)
@@ -61,7 +61,7 @@ func setupProjectRouterWithIntegration(t *testing.T, def *project.Definition, i 
 	t.Helper()
 	dir := t.TempDir()
 	store := project.NewStore(dir)
-	require.NoError(t, store.Create(def))
+	require.NoError(t, store.CreateDefinition(def))
 
 	reg := newMockRegistry()
 	reg.Register(i)
@@ -451,7 +451,7 @@ func TestProjectRouter_ContextManifest(t *testing.T) {
 	}
 
 	store := project.NewStore(configDir)
-	require.NoError(t, store.Create(def))
+	require.NoError(t, store.CreateDefinition(def))
 
 	services := &mcp.Services{
 		Config:   newMockConfigService(nil),
@@ -501,7 +501,7 @@ func TestProjectRouter_ProjectList(t *testing.T) {
 	router, store := setupProjectRouter(t, def)
 
 	def2 := &project.Definition{Version: "1", Name: "p2"}
-	require.NoError(t, store.Create(def2))
+	require.NoError(t, store.CreateDefinition(def2))
 
 	result, err := router.handleProjectList(context.Background(), projectToolRequest("project_list", nil))
 	require.NoError(t, err)
@@ -539,7 +539,7 @@ func TestProjectRouter_ProjectCreate(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 
-	got, ok := router.store.Get("new-project")
+	got, ok := router.store.Definition("new-project")
 	require.True(t, ok)
 	assert.Equal(t, "~/work/new", got.Repo)
 }
@@ -566,7 +566,7 @@ func TestProjectRouter_ProjectUpdate(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 
-	got, _ := router.store.Get("updatable")
+	got, _ := router.store.Definition("updatable")
 	assert.Equal(t, "develop", got.Branch)
 }
 
@@ -579,7 +579,7 @@ func TestProjectRouter_ProjectDelete(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 
-	_, ok := router.store.Get("deletable")
+	_, ok := router.store.Definition("deletable")
 	assert.False(t, ok)
 }
 

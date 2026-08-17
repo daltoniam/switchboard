@@ -88,7 +88,7 @@ func (pr *ProjectRouter) getOrCreate(projectName string) (*projectMCPServer, err
 		return srv, nil
 	}
 
-	def, exists := pr.store.Get(projectName)
+	def, exists := pr.store.Definition(projectName)
 	if !exists {
 		return nil, fmt.Errorf("project %q not found", projectName)
 	}
@@ -571,7 +571,7 @@ func (pr *ProjectRouter) handleProjectList(_ context.Context, _ *mcpsdk.CallTool
 func (pr *ProjectRouter) makeProjectGetHandler(boundDef *project.Definition) mcpsdk.ToolHandler {
 	return func(_ context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 		name := pr.resolveProjectName(req, boundDef)
-		def, ok := pr.store.Get(name)
+		def, ok := pr.store.Definition(name)
 		if !ok {
 			return errorResult(fmt.Sprintf("project %q not found", name)), nil
 		}
@@ -600,7 +600,7 @@ func (pr *ProjectRouter) handleProjectCreate(_ context.Context, req *mcpsdk.Call
 		Repo:    args.Repo,
 		Branch:  args.Branch,
 	}
-	if err := pr.store.Create(def); err != nil {
+	if err := pr.store.CreateDefinition(def); err != nil {
 		return errorResult(err.Error()), nil
 	}
 	data, _ := json.MarshalIndent(def, "", "  ")
@@ -639,7 +639,7 @@ func (pr *ProjectRouter) makeProjectUpdateHandler(boundDef *project.Definition) 
 func (pr *ProjectRouter) makeProjectDeleteHandler(boundDef *project.Definition) mcpsdk.ToolHandler {
 	return func(_ context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 		name := pr.resolveProjectName(req, boundDef)
-		if err := pr.store.Delete(name); err != nil {
+		if err := pr.store.DeleteDefinition(name); err != nil {
 			return errorResult(err.Error()), nil
 		}
 		return &mcpsdk.CallToolResult{
@@ -661,7 +661,7 @@ func (pr *ProjectRouter) makeProjectToolsHandler(boundDef *project.Definition) m
 		if name == "" && boundDef != nil {
 			name = boundDef.Name
 		}
-		def, ok := pr.store.Get(name)
+		def, ok := pr.store.Definition(name)
 		if !ok {
 			return errorResult(fmt.Sprintf("project %q not found", name)), nil
 		}
@@ -700,7 +700,7 @@ func (pr *ProjectRouter) makeProjectDefaultsHandler(boundDef *project.Definition
 		if name == "" && boundDef != nil {
 			name = boundDef.Name
 		}
-		def, ok := pr.store.Get(name)
+		def, ok := pr.store.Definition(name)
 		if !ok {
 			return errorResult(fmt.Sprintf("project %q not found", name)), nil
 		}

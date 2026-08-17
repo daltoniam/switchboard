@@ -36,8 +36,10 @@ require (
 	github.com/digitalocean/godo v1.178.0
 	github.com/dop251/goja v0.0.0-20260226184354-913bd86fb70c
 	github.com/go-sqlite/sqlite3 v0.0.0-20180313105335-53dd8e640ee7
+	github.com/gofrs/flock v0.13.0
 	github.com/google/go-github/v68 v68.0.0
 	github.com/google/uuid v1.6.0
+	github.com/gowebpki/jcs v1.0.1
 	github.com/lib/pq v1.11.2
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/playwright-community/playwright-go v0.5001.0
@@ -180,7 +182,6 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/godoc-lint/godoc-lint v0.11.2 // indirect
-	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/golangci/asciicheck v0.5.0 // indirect

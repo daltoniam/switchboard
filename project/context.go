@@ -20,10 +20,19 @@ type ContextEntry struct {
 // Layer 2: files (non-committed files from the context store)
 // Deduplication: higher layer wins.
 func AssembleManifest(def *Definition, configDir string) []ContextEntry {
-	if def.Context == nil {
+	return AssembleManifestAtRoot(def, configDir, def.ResolvedRepo())
+}
+
+// AssembleManifestAtRoot assembles context against an explicit worktree root
+// rather than always using Definition.Repo.
+func AssembleManifestAtRoot(def *Definition, configDir, root string) []ContextEntry {
+	if def == nil || def.Context == nil {
 		return nil
 	}
-	return assembleManifestFromConfig(def.Context, def.ResolvedRepo(), configDir, def.Name)
+	if root == "" {
+		root = def.ResolvedRepo()
+	}
+	return assembleManifestFromConfig(def.Context, root, configDir, def.Name)
 }
 
 // AssembleManifestWithRole applies role context overrides before assembling.
@@ -148,7 +157,37 @@ func pathWithinRoot(root, relativePath string) (string, bool) {
 	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 		return "", false
 	}
-	return filepath.Join(root, clean), true
+	joined := filepath.Join(root, clean)
+	resolved, err := filepath.EvalSymlinks(joined)
+	if err != nil {
+		// Non-existent paths stay lexical; callers treat missing files as absent.
+		absRoot, rootErr := filepath.Abs(root)
+		if rootErr != nil {
+			return "", false
+		}
+		absJoined, joinErr := filepath.Abs(joined)
+		if joinErr != nil {
+			return "", false
+		}
+		rel, relErr := filepath.Rel(absRoot, absJoined)
+		if relErr != nil || strings.HasPrefix(rel, "..") {
+			return "", false
+		}
+		return joined, true
+	}
+	absRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		absRoot = root
+	}
+	rel, err := filepath.Rel(absRoot, resolved)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "", false
+	}
+	info, err := os.Lstat(resolved)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", false
+	}
+	return resolved, true
 }
 
 // AssembleBundle assembles the full context bundle as a concatenated string.
