@@ -67,9 +67,9 @@ type createOut struct {
 }
 
 type patchIn struct {
-	ProjectID              string          `json:"projectId"`
-	ExpectedSourceRevision string          `json:"expectedSourceRevision"`
-	Patch                  json.RawMessage `json:"patch"`
+	ProjectID              string         `json:"projectId"`
+	ExpectedSourceRevision string         `json:"expectedSourceRevision"`
+	Patch                  map[string]any `json:"patch"`
 }
 
 type deleteIn struct {
@@ -197,10 +197,14 @@ func (s *ProjectCatalogServer) toolPatch(ctx context.Context, _ *mcpsdk.CallTool
 	if !s.cfg.writesEnabled {
 		return writeDisabled()
 	}
+	patchBytes, err := json.Marshal(in.Patch)
+	if err != nil {
+		return typedDomainError[createOut](projectToolError{Code: project.CodeInvalidDefinition, Message: "invalid patch"})
+	}
 	snap, err := s.writer.Patch(ctx, project.PatchRequest{
 		ProjectID:              project.ProjectID(in.ProjectID),
 		ExpectedSourceRevision: project.Revision(in.ExpectedSourceRevision),
-		Patch:                  in.Patch,
+		Patch:                  patchBytes,
 	})
 	if err != nil {
 		return domainAnyError(err)
