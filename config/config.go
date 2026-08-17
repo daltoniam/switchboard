@@ -450,6 +450,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{},
 			},
+			"projectinterop": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"config_root": ""},
+			},
 		},
 	}
 }

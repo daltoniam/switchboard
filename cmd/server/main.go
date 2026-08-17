@@ -54,6 +54,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
+	"github.com/daltoniam/switchboard/integrations/projectinterop"
 	"github.com/daltoniam/switchboard/integrations/ramp"
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/salesforce"
@@ -249,6 +250,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		elasticsearch.New(),
 		pganalyze.New(),
 		rwx.New(),
+		projectinterop.New(),
 		ramp.New(),
 		ynab.New(),
 		stripe.New(),
@@ -384,7 +386,8 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		defer func() { _ = daemon.RemovePID() }()
 	}
 
-	projectStore := project.NewStore(project.DefaultConfigDir())
+	projectIntegrationConfig, _ := cfgMgr.GetIntegration("projectinterop")
+	projectStore := project.NewStore(projectConfigRoot(projectIntegrationConfig))
 	if err := projectStore.Load(); err != nil {
 		log.Printf("WARN: failed to load project definitions: %v", err)
 	}
@@ -538,6 +541,15 @@ func (s *lazyBrowserService) Close() error {
 // Falls back to an empty string (persistence disabled) if the home dir cannot
 // be resolved, which only happens in unusual environments where we'd rather
 // run without persistence than crash on startup.
+func projectConfigRoot(integrationConfig *mcp.IntegrationConfig) string {
+	if integrationConfig != nil {
+		if root := integrationConfig.Credentials["config_root"]; root != "" {
+			return project.ExpandHome(root)
+		}
+	}
+	return project.DefaultConfigDir()
+}
+
 func metricsPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

@@ -313,6 +313,34 @@ func TestStore_UpdateNotFound(t *testing.T) {
 	assert.ErrorContains(t, err, "not found")
 }
 
+func TestStore_UpdatePreservesUnknownFieldsAndRepoOverride(t *testing.T) {
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	projectsDir := filepath.Join(dir, "projects")
+	require.NoError(t, os.MkdirAll(repoDir, 0700))
+	require.NoError(t, os.MkdirAll(projectsDir, 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(projectsDir, "acme.project.json"), []byte(`{
+		"version":"1","name":"acme","repo":"`+repoDir+`","branch":"main","custom":{"keep":true}
+	}`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(repoDir, ".project.json"), []byte(`{
+		"version":"1","name":"acme","branch":"repo-branch","repoOnly":"not-user-data"
+	}`), 0600))
+
+	store := NewStore(dir)
+	require.NoError(t, store.Load())
+	updated, err := store.Update("acme", json.RawMessage(`{"launch":{"prompt":"updated"}}`))
+	require.NoError(t, err)
+	assert.Equal(t, "repo-branch", updated.Branch)
+
+	data, err := os.ReadFile(filepath.Join(projectsDir, "acme.project.json"))
+	require.NoError(t, err)
+	var saved map[string]any
+	require.NoError(t, json.Unmarshal(data, &saved))
+	assert.Equal(t, "main", saved["branch"])
+	assert.Equal(t, map[string]any{"keep": true}, saved["custom"])
+	assert.NotContains(t, saved, "repoOnly")
+}
+
 func TestJsonMergePatch(t *testing.T) {
 	base := map[string]any{"a": "1", "b": "2", "c": map[string]any{"d": "3"}}
 	patch := map[string]any{"b": nil, "c": map[string]any{"e": "4"}}

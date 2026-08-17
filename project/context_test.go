@@ -119,6 +119,13 @@ func TestReadContextFile(t *testing.T) {
 		_, err := ReadContextFile(def, configDir, "nonexistent.md")
 		assert.ErrorContains(t, err, "context file not found")
 	})
+
+	t.Run("rejects paths outside context roots", func(t *testing.T) {
+		secretPath := filepath.Join(configDir, "secret.txt")
+		require.NoError(t, os.WriteFile(secretPath, []byte("secret"), 0600))
+		_, err := ReadContextFile(def, configDir, "../../secret.txt")
+		assert.ErrorContains(t, err, "context file not found")
+	})
 }
 
 func TestAssembleManifestWithRole(t *testing.T) {

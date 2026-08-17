@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 52)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "slackmcp", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong"} {
+	assert.Len(t, m.cfg.Integrations, 53)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "slackmcp", "metabase", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -134,7 +134,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 52)
+	assert.Len(t, cfg.Integrations, 53)
 }
 
 func TestGet(t *testing.T) {
@@ -143,7 +143,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 52)
+	assert.Len(t, cfg.Integrations, 53)
 }
 
 func TestUpdate(t *testing.T) {
@@ -253,41 +253,42 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 52)
+	assert.Len(t, cfg.Integrations, 53)
 
 	expected := map[string][]string{
-		"github":        {"token", "client_id", "token_source"},
-		"datadog":       {"api_key", "app_key"},
-		"linear":        {"api_key", "mcp_access_token", "token_source"},
-		"sentry":        {"auth_token", "organization", "client_id", "token_source"},
-		"slack":         {"token", "cookie", "token_source"},
-		"slackmcp":      {"base_url"},
-		"metabase":      {"api_key", "url"},
-		"aws":           {"access_key_id", "secret_access_key", "session_token", "region"},
-		"posthog":       {"api_key", "project_id", "base_url"},
-		"postgres":      {"connection_string", "host", "user", "read_only"},
-		"clickhouse":    {"host", "port", "username", "password", "database", "secure", "skip_verify", "connections"},
-		"pganalyze":     {"api_key", "base_url"},
-		"rwx":           {"access_token", "org"},
-		"gmail":         {"access_token", "refresh_token", "client_id", "client_secret", "base_url", "token_source"},
-		"notion":        {"token_v2"},
-		"ollama":        {"base_url", "api_key"},
-		"ynab":          {"api_key"},
-		"gong":          {"access_key", "access_key_secret", "base_url"},
-		"ramp":          {"access_token", "base_url"},
-		"gcp":           {"project_id", "credentials_json"},
-		"confluence":    {"email", "api_token", "domain"},
-		"elasticsearch": {"base_url", "api_key", "username", "password"},
-		"salesforce":    {"access_token", "instance_url", "api_version"},
-		"netsuite":      {"account_id", "consumer_key", "consumer_secret", "token_id", "token_secret", "access_token", "base_url"},
-		"cloudflare":    {"api_token", "account_id"},
-		"digitalocean":  {"api_token"},
-		"fly":           {"api_token", "base_url"},
-		"kubernetes":    {"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster", "clusters", "allow_mutations"},
-		"vercel":        {"api_token", "team_id", "team_slug", "base_url"},
-		"web":           {},
-		"signoz":        {"api_key", "base_url", "skip_verify"},
-		"nomad":         {"address", "token"},
+		"github":         {"token", "client_id", "token_source"},
+		"datadog":        {"api_key", "app_key"},
+		"linear":         {"api_key", "mcp_access_token", "token_source"},
+		"sentry":         {"auth_token", "organization", "client_id", "token_source"},
+		"slack":          {"token", "cookie", "token_source"},
+		"slackmcp":       {"base_url"},
+		"metabase":       {"api_key", "url"},
+		"aws":            {"access_key_id", "secret_access_key", "session_token", "region"},
+		"posthog":        {"api_key", "project_id", "base_url"},
+		"postgres":       {"connection_string", "host", "user", "read_only"},
+		"clickhouse":     {"host", "port", "username", "password", "database", "secure", "skip_verify", "connections"},
+		"pganalyze":      {"api_key", "base_url"},
+		"rwx":            {"access_token", "org"},
+		"projectinterop": {"config_root"},
+		"gmail":          {"access_token", "refresh_token", "client_id", "client_secret", "base_url", "token_source"},
+		"notion":         {"token_v2"},
+		"ollama":         {"base_url", "api_key"},
+		"ynab":           {"api_key"},
+		"gong":           {"access_key", "access_key_secret", "base_url"},
+		"ramp":           {"access_token", "base_url"},
+		"gcp":            {"project_id", "credentials_json"},
+		"confluence":     {"email", "api_token", "domain"},
+		"elasticsearch":  {"base_url", "api_key", "username", "password"},
+		"salesforce":     {"access_token", "instance_url", "api_version"},
+		"netsuite":       {"account_id", "consumer_key", "consumer_secret", "token_id", "token_secret", "access_token", "base_url"},
+		"cloudflare":     {"api_token", "account_id"},
+		"digitalocean":   {"api_token"},
+		"fly":            {"api_token", "base_url"},
+		"kubernetes":     {"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster", "clusters", "allow_mutations"},
+		"vercel":         {"api_token", "team_id", "team_slug", "base_url"},
+		"web":            {},
+		"signoz":         {"api_key", "base_url", "skip_verify"},
+		"nomad":          {"address", "token"},
 	}
 
 	for name, keys := range expected {
