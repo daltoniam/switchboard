@@ -529,7 +529,7 @@ func (s *Store) GetAgentProfile(ctx context.Context, id string) (AgentProfile, e
 	p, err := readJSON[AgentProfile](s.agentProfilePath(id))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return AgentProfile{}, fmt.Errorf("agent profile %q not found", id)
+			return AgentProfile{}, notFound("agent_profile", id)
 		}
 		return AgentProfile{}, err
 	}
@@ -1042,15 +1042,28 @@ func (s *Store) AssertProjectDeletable(ctx context.Context, projectID string) er
 	if err := validateID("project_id", projectID); err != nil {
 		return invalidInput(err.Error())
 	}
-	var ref string
-	err := s.withLock(ctx, func() error {
-		ref = s.firstSessionReferencingProjectUnlocked(projectID)
-		return nil
+	return s.withLock(ctx, func() error {
+		return s.assertProjectDeletableUnlocked(projectID)
 	})
-	if err != nil {
-		return err
+}
+
+// WithExclusive runs fn while holding the AWM store lock. Use when a catalog
+// delete must not race concurrent work_session_create against the same project.
+func (s *Store) WithExclusive(ctx context.Context, fn func() error) error {
+	return s.withLock(ctx, fn)
+}
+
+// AssertProjectDeletableUnlocked is the lock-free form of AssertProjectDeletable.
+// Caller must already hold the AWM store lock (see WithExclusive).
+func (s *Store) AssertProjectDeletableUnlocked(projectID string) error {
+	if err := validateID("project_id", projectID); err != nil {
+		return invalidInput(err.Error())
 	}
-	if ref != "" {
+	return s.assertProjectDeletableUnlocked(projectID)
+}
+
+func (s *Store) assertProjectDeletableUnlocked(projectID string) error {
+	if ref := s.firstSessionReferencingProjectUnlocked(projectID); ref != "" {
 		return &Error{
 			Code:          CodeReferenced,
 			Message:       "project is referenced by a retained work session",

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,4 +57,12 @@ func TestCatalog_PatchConflict(t *testing.T) {
 		Patch: json.RawMessage(`{"description":"stale"}`),
 	})
 	assert.True(t, IsCode(err, CodeRevisionConflict))
+}
+
+func TestGetRevision_RejectsInvalidProjectID(t *testing.T) {
+	store := NewStore(t.TempDir())
+	require.NoError(t, store.Load())
+	_, err := store.GetRevision(context.Background(), ProjectID(".."), Revision("sha256:"+strings.Repeat("a", 64)))
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeInvalidDefinition) || IsCode(err, CodeProjectNotFound))
 }

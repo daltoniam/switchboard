@@ -307,3 +307,10 @@ func TestDeleteAgentProfile_Referenced(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, IsCode(err, CodeReferenced))
 }
+
+func TestGetAgentProfile_NotFoundTyped(t *testing.T) {
+	s := NewStore(t.TempDir())
+	_, err := s.GetAgentProfile(context.Background(), "missing")
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeNotFound), "%v", err)
+}

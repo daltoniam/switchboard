@@ -485,11 +485,20 @@ func (s *Store) GetRevision(ctx context.Context, id ProjectID, rev Revision) (Re
 	if err := ctx.Err(); err != nil {
 		return RevisionSnapshot{}, err
 	}
+	if !nameRE.MatchString(string(id)) {
+		return RevisionSnapshot{}, &Error{Code: CodeInvalidDefinition, Message: "invalid project id", ProjectID: id}
+	}
 	parsed, err := ParseRevision(rev)
 	if err != nil {
 		return RevisionSnapshot{}, &Error{Code: CodeInvalidDefinition, Message: "invalid revision", ProjectID: id}
 	}
-	path := filepath.Join(s.revisionsDir(), string(id), parsed.DigestHex()+".json")
+	base := s.revisionsDir()
+	path := filepath.Join(base, string(id), parsed.DigestHex()+".json")
+	// Reject path escape even if Join cleans ".." segments.
+	rel, err := filepath.Rel(base, filepath.Clean(path))
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return RevisionSnapshot{}, errorWithProject(CodeProjectNotFound, "revision not found", id)
+	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return RevisionSnapshot{}, errorWithProject(CodeProjectNotFound, "revision not found", id)

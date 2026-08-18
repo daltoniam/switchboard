@@ -269,7 +269,7 @@ func (w *WebServer) handleProjectWorkSessionDetail(rw http.ResponseWriter, r *ht
 	data := pages.WorkSessionDetailData{ProjectID: projectID, ID: sessionID, NotFound: true}
 	if w.awmStore != nil {
 		s, err := w.awmStore.GetWorkSession(r.Context(), sessionID)
-		if err == nil && (s.ProjectID == "" || s.ProjectID == projectID) {
+		if err == nil && s.ProjectID == projectID {
 			data.NotFound = false
 			data.Session = s
 			page.Title = firstNonEmpty(s.DisplayName, s.WorkSessionID)

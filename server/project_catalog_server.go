@@ -21,8 +21,12 @@ const (
 )
 
 // ProjectDeleteGuard rejects Project deletion while retained WorkSessions reference it.
+// WithExclusive holds the work-model lock across check+catalog-delete so a concurrent
+// work_session_create cannot race in a dangling project_id reference.
 type ProjectDeleteGuard interface {
 	AssertProjectDeletable(ctx context.Context, projectID string) error
+	AssertProjectDeletableUnlocked(projectID string) error
+	WithExclusive(ctx context.Context, fn func() error) error
 }
 
 // ProjectCatalogServer exposes the dedicated /project-catalog/mcp surface.

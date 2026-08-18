@@ -323,24 +323,35 @@ func (s *ProjectCatalogServer) toolDelete(ctx context.Context, _ *mcpsdk.CallToo
 	if !s.cfg.writesEnabled {
 		return writeDisabled()
 	}
-	if s.workGuard != nil {
-		if err := s.workGuard.AssertProjectDeletable(ctx, in.ProjectID); err != nil {
-			if e, ok := awm.AsError(err); ok {
-				return domainAnyError(&project.Error{
-					Code:      project.CodeInvalidDefinition,
-					Message:   e.Message + " (work_session_id=" + e.WorkSessionID + ")",
-					ProjectID: project.ProjectID(in.ProjectID),
-				})
-			}
-			return domainAnyError(err)
-		}
-	}
-	err := s.writer.Delete(ctx, project.DeleteRequest{
+	delReq := project.DeleteRequest{
 		ProjectID:                 project.ProjectID(in.ProjectID),
 		ExpectedSourceRevision:    project.Revision(in.ExpectedSourceRevision),
 		ExpectedRawSourceRevision: project.Revision(in.ExpectedRawSourceRevision),
-	})
+	}
+	// Hold the AWM lock across the reference check and catalog delete so a
+	// concurrent work_session_create cannot attach to this project mid-delete.
+	run := func() error {
+		if s.workGuard != nil {
+			if err := s.workGuard.AssertProjectDeletableUnlocked(in.ProjectID); err != nil {
+				return err
+			}
+		}
+		return s.writer.Delete(ctx, delReq)
+	}
+	var err error
+	if s.workGuard != nil {
+		err = s.workGuard.WithExclusive(ctx, run)
+	} else {
+		err = run()
+	}
 	if err != nil {
+		if e, ok := awm.AsError(err); ok {
+			return domainAnyError(&project.Error{
+				Code:      project.CodeInvalidDefinition,
+				Message:   e.Message + " (work_session_id=" + e.WorkSessionID + ")",
+				ProjectID: project.ProjectID(in.ProjectID),
+			})
+		}
 		return domainAnyError(err)
 	}
 	return nil, deleteOut{ProjectID: project.ProjectID(in.ProjectID), Deleted: true}, nil

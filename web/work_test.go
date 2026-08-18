@@ -173,3 +173,24 @@ func TestProjectWorkHub_NilStore(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Work")
 }
+
+func TestProjectWorkSessionDetail_RequiresProjectMatch(t *testing.T) {
+	catalog := project.NewStore(t.TempDir())
+	require.NoError(t, catalog.Load())
+	work := awm.NewStore(catalog.ConfigDir())
+	seedProjectWork(t, catalog, work)
+	ctx := context.Background()
+	_, err := work.PutProject(ctx, awm.Project{Version: "1", ProjectID: "other"})
+	require.NoError(t, err)
+	_, err = work.PutWorkProfile(ctx, awm.WorkProfile{Version: "1", WorkProfileID: "other.default", ProjectIDs: []string{"other"}})
+	require.NoError(t, err)
+	_, err = work.CreateWorkSession(ctx, awm.WorkSession{
+		Version: "1", WorkSessionID: "ws-other", ProjectID: "other", WorkProfileID: "other.default", State: awm.StateOpen,
+	})
+	require.NoError(t, err)
+	ws := testWebWithStores(t, catalog, work)
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/projects/switchboard/work/sessions/ws-other", nil))
+	require.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "not found")
+}
