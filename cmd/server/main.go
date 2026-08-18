@@ -486,7 +486,10 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	cancelAutoUpdate := mp.StartAutoUpdateLoop(ctx)
 	defer cancelAutoUpdate()
 
-	ws := web.New(services, port, mp, wasmLoader, web.WithConfigChangeHook(srv.RefreshSearchIndex))
+	ws := web.New(services, port, mp, wasmLoader,
+		web.WithConfigChangeHook(srv.RefreshSearchIndex),
+		web.WithProjectCatalog(projectStore),
+	)
 	mux.Handle("/", ws.Handler())
 
 	addr := fmt.Sprintf(":%d", port)

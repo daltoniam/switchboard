@@ -4,6 +4,8 @@
 - Go 1.22+ method-pattern routing (`"GET /integrations/{name}"`, `"POST /api/slack/save-tokens"`)
 - Routes:
   - `GET /` — Dashboard with integration health status
+  - `GET /projects` — Project Catalog browser (search + list)
+  - `GET /projects/{id}` — Project definition detail, sources, context
   - `GET /integrations` — Integration list
   - `GET /integrations/{name}` — Integration detail + credential form
   - `POST /integrations/{name}` — Save integration credentials

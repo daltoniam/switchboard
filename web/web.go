@@ -31,6 +31,7 @@ import (
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/marketplace"
+	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/remotemcp"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
@@ -44,6 +45,7 @@ type WebServer struct {
 	health         *healthCache
 	marketplace    *marketplace.Manager
 	wasmLoader     pluginLoader
+	catalog        project.Catalog
 	onConfigChange func()
 	configMu       sync.Mutex
 }
@@ -200,6 +202,9 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
 	mux.HandleFunc("GET /api/metrics", w.handleMetricsAPI)
+
+	mux.HandleFunc("GET /projects", w.handleProjectsList)
+	mux.HandleFunc("GET /projects/{id}", w.handleProjectDetail)
 
 	mux.HandleFunc("GET /settings", w.handleSettings)
 	mux.HandleFunc("POST /settings", w.handleSettingsSave)

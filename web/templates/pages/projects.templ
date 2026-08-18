@@ -1,0 +1,366 @@
+package pages
+
+import (
+	"fmt"
+	"net/url"
+
+	"github.com/daltoniam/switchboard/project"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+type ProjectsListData struct {
+	Query           string
+	Projects        []project.ProjectSummary
+	InvalidProjects []project.InvalidProjectSummary
+	NextCursor      string
+	TotalValid      int
+	TotalInvalid    int
+}
+
+func projectDetailHref(id project.ProjectID) string {
+	return "/projects/" + url.PathEscape(string(id))
+}
+
+func shortRev(r project.Revision) string {
+	s := string(r)
+	if len(s) > 19 {
+		return s[:19] + "…"
+	}
+	return s
+}
+
+func diagLabel(n int) string {
+	if n == 0 {
+		return "Clean"
+	}
+	return fmt.Sprintf("%d diagnostics", n)
+}
+
+func diagBadge(n int) string {
+	if n == 0 {
+		return "green"
+	}
+	return "yellow"
+}
+
+templ ProjectsList(page layouts.PageData, data ProjectsListData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+			<div>
+				<p class="section-title" style="margin-bottom: 0.25rem; letter-spacing: 0.04em;">Project Catalog</p>
+				<h1 class="page-title" style="margin-bottom: 0.25rem;">Projects</h1>
+				<p style="color: var(--text-secondary); font-size: 0.875rem; max-width: 40rem;">
+					Browse local project definitions. Files under the catalog root remain the source of truth.
+				</p>
+			</div>
+			<div style="display: flex; gap: 0.75rem; color: var(--text-muted); font-size: 0.8125rem; font-family: var(--font-mono);">
+				<span>{ fmt.Sprintf("%d valid", data.TotalValid) }</span>
+				if data.TotalInvalid > 0 {
+					<span style="color: var(--yellow);">{ fmt.Sprintf("%d invalid", data.TotalInvalid) }</span>
+				}
+			</div>
+		</div>
+
+		<form method="GET" action="/projects" style="display: flex; gap: 0.5rem; margin: 1.25rem 0 1.5rem; flex-wrap: wrap;">
+			<input
+				type="search"
+				name="q"
+				value={ data.Query }
+				placeholder="Search by name or repo…"
+				class="form-input"
+				style="flex: 1; min-width: 14rem;"
+				aria-label="Search projects"
+			/>
+			<button type="submit" class="btn btn-outline">Search</button>
+			if data.Query != "" {
+				<a href="/projects" class="btn btn-outline">Clear</a>
+			}
+		</form>
+
+		if len(data.Projects) == 0 && len(data.InvalidProjects) == 0 {
+			<div class="card" style="padding: 1.5rem;">
+				<p style="color: var(--text-secondary); margin: 0 0 0.5rem 0;">No projects match this view.</p>
+				<p style="color: var(--text-muted); font-size: 0.8125rem; margin: 0;">
+					Create one with <code style="font-family: var(--font-mono);">project.create</code> on <code style="font-family: var(--font-mono);">/mcp</code>,
+					or add a <code style="font-family: var(--font-mono);">*.project.json</code> under the catalog projects directory.
+				</p>
+			</div>
+		}
+
+		if len(data.InvalidProjects) > 0 {
+			<section class="metrics-section">
+				<h2 class="section-title" style="color: var(--yellow);">Needs attention</h2>
+				<div class="table-wrap">
+					<table class="metrics-table">
+						<thead>
+							<tr>
+								<th>Project</th>
+								<th>Diagnostics</th>
+								<th>Raw source</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, inv := range data.InvalidProjects {
+								<tr>
+									<td>
+										<a href={ templ.SafeURL(projectDetailHref(inv.ProjectID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
+											{ inv.Title }
+										</a>
+										<div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">{ string(inv.ProjectID) }</div>
+									</td>
+									<td>
+										@components.Badge(diagLabel(inv.DiagnosticCount), "yellow")
+									</td>
+									<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">
+										{ shortRev(inv.RawSourceRevision) }
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		}
+
+		if len(data.Projects) > 0 {
+			<section class="metrics-section">
+				if len(data.InvalidProjects) > 0 {
+					<h2 class="section-title">Valid</h2>
+				}
+				<div class="table-wrap">
+					<table class="metrics-table">
+						<thead>
+							<tr>
+								<th>Project</th>
+								<th>Branch</th>
+								<th>Repo</th>
+								<th>Status</th>
+								<th>Revision</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, p := range data.Projects {
+								<tr>
+									<td>
+										<a href={ templ.SafeURL(projectDetailHref(p.ProjectID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
+											{ p.Title }
+										</a>
+										<div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">{ string(p.ProjectID) }</div>
+									</td>
+									<td style="color: var(--text-secondary);">
+										if p.Branch != "" {
+											{ p.Branch }
+										} else {
+											<span style="color: var(--text-muted);">—</span>
+										}
+									</td>
+									<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={ p.Repo }>
+										if p.Repo != "" {
+											{ p.Repo }
+										} else {
+											<span style="color: var(--text-muted);">—</span>
+										}
+									</td>
+									<td>
+										@components.Badge(diagLabel(p.DiagnosticCount), diagBadge(p.DiagnosticCount))
+									</td>
+									<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">
+										{ shortRev(p.Revision) }
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		}
+
+		if data.NextCursor != "" {
+			<div style="margin-top: 1rem;">
+				<a
+					class="btn btn-outline btn-sm"
+					href={ templ.SafeURL(fmt.Sprintf("/projects?q=%s&cursor=%s", url.QueryEscape(data.Query), url.QueryEscape(data.NextCursor))) }
+				>
+					Next page
+				</a>
+			</div>
+		}
+	}
+}
+
+type ProjectDetailData struct {
+	Snapshot project.Snapshot
+	Invalid  *project.InvalidProjectSummary
+	NotFound bool
+	ProjectID string
+	Context   []project.ContextEntry
+	JSON      string
+}
+
+templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
+	@layouts.Base(page) {
+		<p style="margin-bottom: 0.75rem;">
+			<a href="/projects" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Projects</a>
+		</p>
+
+		if data.NotFound {
+			<div class="card" style="padding: 1.5rem;">
+				<h1 class="page-title">Project not found</h1>
+				<p style="color: var(--text-secondary);">No catalog entry for <code style="font-family: var(--font-mono);">{ data.ProjectID }</code>.</p>
+			</div>
+		} else if data.Invalid != nil {
+			<div style="margin-bottom: 1rem;">
+				<p class="section-title" style="margin-bottom: 0.25rem;">Invalid source</p>
+				<h1 class="page-title" style="margin-bottom: 0.5rem;">{ data.Invalid.Title }</h1>
+				@components.Badge(diagLabel(data.Invalid.DiagnosticCount), "yellow")
+			</div>
+			<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+				<div class="section-title" style="margin-bottom: 0.75rem;">Diagnostics</div>
+				if len(data.Invalid.Diagnostics) == 0 {
+					<p style="color: var(--text-muted); margin: 0;">No diagnostic details.</p>
+				} else {
+					<ul style="margin: 0; padding-left: 1.1rem; color: var(--text-secondary);">
+						for _, d := range data.Invalid.Diagnostics {
+							<li style="margin-bottom: 0.4rem;">
+								<span style="color: var(--yellow); font-family: var(--font-mono); font-size: 0.75rem;">{ d.Code }</span>
+								{ " — " }
+								{ d.Message }
+								if d.Path != "" {
+									<span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.75rem;"> ({ d.Path })</span>
+								}
+							</li>
+						}
+					</ul>
+				}
+			</div>
+			<div class="card" style="padding: 1rem 1.25rem;">
+				<div class="section-title" style="margin-bottom: 0.5rem;">Recovery</div>
+				<p style="color: var(--text-secondary); font-size: 0.875rem; margin: 0;">
+					Delete with <code style="font-family: var(--font-mono);">expectedRawSourceRevision</code>
+					then recreate via <code style="font-family: var(--font-mono);">project.create</code>.
+					Raw CAS: <code style="font-family: var(--font-mono); font-size: 0.75rem;">{ string(data.Invalid.RawSourceRevision) }</code>
+				</p>
+			</div>
+		} else {
+			<div style="margin-bottom: 1.25rem;">
+				<p class="section-title" style="margin-bottom: 0.25rem;">Project</p>
+				<h1 class="page-title" style="margin-bottom: 0.35rem;">{ data.Snapshot.Definition.Name }</h1>
+				<div style="display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; color: var(--text-secondary); font-size: 0.8125rem;">
+					<span style="font-family: var(--font-mono); color: var(--text-muted);">{ string(data.Snapshot.ProjectID) }</span>
+					if data.Snapshot.Definition.Branch != "" {
+						<span>branch <strong style="color: var(--text); font-weight: 500;">{ data.Snapshot.Definition.Branch }</strong></span>
+					}
+					@components.Badge(diagLabel(len(data.Snapshot.Diagnostics)), diagBadge(len(data.Snapshot.Diagnostics)))
+				</div>
+			</div>
+
+			<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+				<div class="section-title" style="margin-bottom: 0.75rem;">Identity</div>
+				<div class="table-wrap">
+					<table class="metrics-table">
+						<tbody>
+							<tr>
+								<td style="color: var(--text-muted); width: 9rem;">Repo</td>
+								<td style="font-family: var(--font-mono); font-size: 0.8125rem;">
+									if data.Snapshot.Definition.Repo != "" {
+										{ data.Snapshot.Definition.Repo }
+									} else {
+										<span style="color: var(--text-muted);">—</span>
+									}
+								</td>
+							</tr>
+							<tr>
+								<td style="color: var(--text-muted);">Revision</td>
+								<td style="font-family: var(--font-mono); font-size: 0.75rem; word-break: break-all;">{ string(data.Snapshot.Revision) }</td>
+							</tr>
+							<tr>
+								<td style="color: var(--text-muted);">Source revision</td>
+								<td style="font-family: var(--font-mono); font-size: 0.75rem; word-break: break-all;">{ string(data.Snapshot.SourceRevision) }</td>
+							</tr>
+							if data.Snapshot.RootURI != "" {
+								<tr>
+									<td style="color: var(--text-muted);">Root</td>
+									<td style="font-family: var(--font-mono); font-size: 0.75rem; word-break: break-all;">{ data.Snapshot.RootURI }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			if len(data.Snapshot.Sources) > 0 {
+				<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+					<div class="section-title" style="margin-bottom: 0.75rem;">Sources</div>
+					<div class="table-wrap">
+						<table class="metrics-table">
+							<thead>
+								<tr>
+									<th>Kind</th>
+									<th>Precedence</th>
+									<th>URI</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, src := range data.Snapshot.Sources {
+									<tr>
+										<td>{ src.Kind }</td>
+										<td class="num">{ fmt.Sprintf("%d", src.Precedence) }</td>
+										<td style="font-family: var(--font-mono); font-size: 0.75rem; word-break: break-all; color: var(--text-secondary);">{ src.URI }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			}
+
+			if len(data.Snapshot.Diagnostics) > 0 {
+				<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+					<div class="section-title" style="margin-bottom: 0.75rem;">Diagnostics</div>
+					<ul style="margin: 0; padding-left: 1.1rem; color: var(--text-secondary);">
+						for _, d := range data.Snapshot.Diagnostics {
+							<li style="margin-bottom: 0.35rem;">
+								<span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--yellow);">{ d.Code }</span>
+								{ " — " }{ d.Message }
+							</li>
+						}
+					</ul>
+				</div>
+			}
+
+			if len(data.Context) > 0 {
+				<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+					<div class="section-title" style="margin-bottom: 0.75rem;">Context files</div>
+					<div class="table-wrap">
+						<table class="metrics-table">
+							<thead>
+								<tr>
+									<th>Path</th>
+									<th>Source</th>
+									<th>Type</th>
+									<th class="num">Bytes</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, e := range data.Context {
+									<tr>
+										<td style="font-family: var(--font-mono); font-size: 0.8125rem;">{ e.Path }</td>
+										<td style="color: var(--text-secondary);">{ e.Source }</td>
+										<td style="color: var(--text-muted); font-size: 0.75rem;">{ e.MIMEType }</td>
+										<td class="num">{ fmt.Sprintf("%d", e.Size) }</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			}
+
+			<div class="card" style="padding: 1rem 1.25rem;">
+				<div class="section-title" style="margin-bottom: 0.75rem;">Definition</div>
+				<pre style="margin: 0; padding: 0.75rem 0; overflow-x: auto; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word;">{ data.JSON }</pre>
+			</div>
+		}
+	}
+}
