@@ -40,7 +40,12 @@ func TestProjectCatalog_OnMainMCPEndpoint(t *testing.T) {
 		m, _ := raw.(map[string]any)
 		names[fmt.Sprint(m["name"])] = true
 	}
-	for _, n := range []string{"search", "execute", "project.search", "project.create", "project.resolve"} {
+	for _, n := range []string{
+		"search", "execute",
+		"project.list", "project.get", "project.create", "project.update", "project.delete",
+		// transition aliases
+		"project.search", "project.resolve", "project.patch",
+	} {
 		assert.True(t, names[n], "missing tool %s", n)
 	}
 
@@ -64,7 +69,13 @@ func TestProjectCatalog_OnMainMCPEndpoint(t *testing.T) {
 	created, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
 		Name: "project.create",
 		Arguments: map[string]any{
-			"definition": map[string]any{"version": "1", "name": "on-main", "branch": "main"},
+			"definition": map[string]any{
+				"version": "1",
+				"name":    "on-main",
+				"resources": map[string]any{
+					"main": map[string]any{"type": "repo", "path": "/tmp/on-main", "branch": "main"},
+				},
+			},
 		},
 	})
 	require.NoError(t, err)

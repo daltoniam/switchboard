@@ -33,6 +33,22 @@ type searchOut struct {
 	NextCursor string                   `json:"nextCursor,omitempty"`
 }
 
+type getIn struct {
+	ProjectID string `json:"projectId"`
+}
+
+type getOut struct {
+	ProjectID      project.ProjectID      `json:"projectId"`
+	Revision       project.Revision       `json:"revision"`
+	SourceRevision project.Revision       `json:"sourceRevision"`
+	Definition     project.Definition     `json:"definition"`
+	Summary        project.ProjectSummary `json:"summary"`
+	Sources        []project.Source       `json:"sources"`
+	Diagnostics    []project.Diagnostic   `json:"diagnostics"`
+	URI            string                 `json:"uri"`
+	ResourcesURI   string                 `json:"resourcesUri"`
+}
+
 type resolveIn struct {
 	ProjectID string `json:"projectId,omitempty"`
 	RootURI   string `json:"rootUri,omitempty"`
@@ -44,6 +60,7 @@ type resolveOut struct {
 	DefinitionURI      string               `json:"definitionUri"`
 	RootURI            string               `json:"rootUri,omitempty"`
 	ContextManifestURI string               `json:"contextManifestUri"`
+	ResourcesURI       string               `json:"resourcesUri"`
 	Sources            []project.Source     `json:"sources"`
 	Diagnostics        []project.Diagnostic `json:"diagnostics"`
 }
@@ -72,6 +89,15 @@ type patchIn struct {
 	Patch                  map[string]any `json:"patch"`
 }
 
+// updateIn is the clean update.md name; accepts either a full definition or a
+// merge-patch document with CAS.
+type updateIn struct {
+	ProjectID              string         `json:"projectId"`
+	ExpectedSourceRevision string         `json:"expectedSourceRevision"`
+	Definition             map[string]any `json:"definition,omitempty"`
+	Patch                  map[string]any `json:"patch,omitempty"`
+}
+
 type deleteIn struct {
 	ProjectID                 string `json:"projectId"`
 	ExpectedSourceRevision    string `json:"expectedSourceRevision,omitempty"`
@@ -88,9 +114,37 @@ func (s *ProjectCatalogServer) registerTools() {
 	notDestructive := false
 	closedWorld := false
 
+	// Clean names from update.md.
+	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
+		Name:        "project.list",
+		Description: "List or search Project Catalog summaries. Start here to discover local projects.",
+		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
+	}, s.toolSearch)
+	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
+		Name:        "project.get",
+		Description: "Get a project envelope (definition + summary) by id.",
+		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
+	}, s.toolGet)
+	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
+		Name:        "project.create",
+		Description: "Create a user-level project definition (resources map schema).",
+		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
+	}, s.toolCreate)
+	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
+		Name:        "project.update",
+		Description: "Update a user-level project definition with optimistic concurrency (merge-patch or full definition).",
+		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
+	}, s.toolUpdate)
+	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
+		Name:        "project.delete",
+		Description: "Delete a user-level project definition. Does not cascade to repo, context, or revisions.",
+		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
+	}, s.toolDelete)
+
+	// Transition aliases for existing Crush MCP clients / tests.
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
 		Name:        "project.search",
-		Description: "Search Project Catalog summaries. Start here to discover local projects.",
+		Description: "Alias of project.list. Search Project Catalog summaries.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.toolSearch)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
@@ -100,24 +154,14 @@ func (s *ProjectCatalogServer) registerTools() {
 	}, s.toolResolve)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
 		Name:        "project.validate",
-		Description: "Validate a candidate project definition without writing.",
+		Description: "Validate a candidate project definition (resources schema + semantic repo refs) without writing.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.toolValidate)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.create",
-		Description: "Create a user-level project definition.",
-		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
-	}, s.toolCreate)
-	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
 		Name:        "project.patch",
-		Description: "Patch a user-level project definition with optimistic concurrency.",
+		Description: "Alias of project.update. Patch a user-level project definition with optimistic concurrency.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
 	}, s.toolPatch)
-	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.delete",
-		Description: "Delete a user-level project definition. Does not cascade to repo, context, or revisions.",
-		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
-	}, s.toolDelete)
 }
 
 func (s *ProjectCatalogServer) toolSearch(ctx context.Context, _ *mcpsdk.CallToolRequest, in searchIn) (*mcpsdk.CallToolResult, searchOut, error) {
@@ -126,6 +170,27 @@ func (s *ProjectCatalogServer) toolSearch(ctx context.Context, _ *mcpsdk.CallToo
 		return domainToolError[searchOut](err)
 	}
 	return nil, searchOut{Projects: nonNil(page.Projects), NextCursor: page.NextCursor}, nil
+}
+
+func (s *ProjectCatalogServer) toolGet(ctx context.Context, _ *mcpsdk.CallToolRequest, in getIn) (*mcpsdk.CallToolResult, getOut, error) {
+	if in.ProjectID == "" {
+		return typedDomainError[getOut](projectToolError{Code: project.CodeInvalidDefinition, Message: "projectId is required"})
+	}
+	snap, err := s.catalog.Get(ctx, project.ProjectID(in.ProjectID))
+	if err != nil {
+		return domainToolError[getOut](err)
+	}
+	return nil, getOut{
+		ProjectID:      snap.ProjectID,
+		Revision:       snap.Revision,
+		SourceRevision: snap.SourceRevision,
+		Definition:     snap.Definition,
+		Summary:        summaryFromSnap(snap),
+		Sources:        nonNil(snap.Sources),
+		Diagnostics:    nonNil(snap.Diagnostics),
+		URI:            projectResourceURI(snap.ProjectID),
+		ResourcesURI:   projectResourcesURI(snap.ProjectID),
+	}, nil
 }
 
 func (s *ProjectCatalogServer) toolResolve(ctx context.Context, _ *mcpsdk.CallToolRequest, in resolveIn) (*mcpsdk.CallToolResult, resolveOut, error) {
@@ -139,9 +204,10 @@ func (s *ProjectCatalogServer) toolResolve(ctx context.Context, _ *mcpsdk.CallTo
 	return nil, resolveOut{
 		ProjectID:          snap.ProjectID,
 		Revision:           snap.Revision,
-		DefinitionURI:      revisionResourceURI(snap.ProjectID, snap.Revision),
+		DefinitionURI:      projectResourceURI(snap.ProjectID),
 		RootURI:            snap.RootURI,
 		ContextManifestURI: contextManifestURI(snap.ProjectID, snap.RootURI),
+		ResourcesURI:       projectResourcesURI(snap.ProjectID),
 		Sources:            nonNil(snap.Sources),
 		Diagnostics:        nonNil(snap.Diagnostics),
 	}, nil
@@ -186,6 +252,11 @@ func (s *ProjectCatalogServer) toolCreate(ctx context.Context, _ *mcpsdk.CallToo
 	if err := json.Unmarshal(raw, &def); err != nil {
 		return domainAnyError(&project.Error{Code: project.CodeInvalidDefinition, Message: "definition must be a JSON object"})
 	}
+	if def.Resources == nil {
+		// Normalize omitted resources to empty map so create of bare name works
+		// for transition tests; domain Validate will still accept empty.
+		def.Resources = map[string]project.Resource{}
+	}
 	snap, err := s.writer.Create(ctx, project.CreateRequest{Definition: def})
 	if err != nil {
 		return domainAnyError(err)
@@ -200,6 +271,42 @@ func (s *ProjectCatalogServer) toolPatch(ctx context.Context, _ *mcpsdk.CallTool
 	patchBytes, err := json.Marshal(in.Patch)
 	if err != nil {
 		return typedDomainError[createOut](projectToolError{Code: project.CodeInvalidDefinition, Message: "invalid patch"})
+	}
+	snap, err := s.writer.Patch(ctx, project.PatchRequest{
+		ProjectID:              project.ProjectID(in.ProjectID),
+		ExpectedSourceRevision: project.Revision(in.ExpectedSourceRevision),
+		Patch:                  patchBytes,
+	})
+	if err != nil {
+		return domainAnyError(err)
+	}
+	return nil, createOut{Project: summaryFromSnap(snap)}, nil
+}
+
+func (s *ProjectCatalogServer) toolUpdate(ctx context.Context, _ *mcpsdk.CallToolRequest, in updateIn) (*mcpsdk.CallToolResult, any, error) {
+	if !s.cfg.writesEnabled {
+		return writeDisabled()
+	}
+	if in.ProjectID == "" {
+		return domainAnyError(&project.Error{Code: project.CodeInvalidDefinition, Message: "projectId is required"})
+	}
+	if in.ExpectedSourceRevision == "" {
+		return domainAnyError(&project.Error{Code: project.CodeRevisionConflict, Message: "expectedSourceRevision is required"})
+	}
+	var patch map[string]any
+	switch {
+	case in.Patch != nil:
+		patch = in.Patch
+	case in.Definition != nil:
+		// Full definition replacement via merge-patch of provided fields.
+		// Strip immutable name if present to avoid name-change rejection when equal.
+		patch = in.Definition
+	default:
+		return domainAnyError(&project.Error{Code: project.CodeInvalidDefinition, Message: "patch or definition is required"})
+	}
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return domainAnyError(&project.Error{Code: project.CodeInvalidDefinition, Message: "invalid update payload"})
 	}
 	snap, err := s.writer.Patch(ctx, project.PatchRequest{
 		ProjectID:              project.ProjectID(in.ProjectID),
@@ -235,8 +342,8 @@ func summaryFromSnap(snap project.Snapshot) project.ProjectSummary {
 		Branch:          snap.Definition.PrimaryBranch(),
 		Revision:        snap.Revision,
 		SourceRevision:  snap.SourceRevision,
-		DefinitionURI:   definitionResourceURI(snap.ProjectID),
-		ContextURI:      contextManifestURI(snap.ProjectID, ""),
+		DefinitionURI:   projectResourceURI(snap.ProjectID),
+		ContextURI:      projectResourcesURI(snap.ProjectID),
 		DiagnosticCount: len(snap.Diagnostics),
 	}
 }

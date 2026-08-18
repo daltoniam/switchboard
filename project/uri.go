@@ -56,16 +56,39 @@ func parseFileURI(raw string) (string, error) {
 	return abs, nil
 }
 
+// definitionURI is the canonical project envelope URI used in summaries.
 func definitionURI(id ProjectID) string {
-	return fmt.Sprintf("project://registry/projects/%s/definition", url.PathEscape(string(id)))
+	return fmt.Sprintf("project://registry/projects/%s", url.PathEscape(string(id)))
 }
 
+// contextURI points at the project's resources collection (multi-resource model).
 func contextURI(id ProjectID) string {
-	return fmt.Sprintf("project://registry/projects/%s/context", url.PathEscape(string(id)))
+	return fmt.Sprintf("project://registry/projects/%s/resources", url.PathEscape(string(id)))
 }
 
 func diagnosticsURI(id ProjectID) string {
 	return fmt.Sprintf("project://registry/projects/%s/diagnostics", url.PathEscape(string(id)))
+}
+
+// ResourceURI builds project://registry/projects/{project}/resources/{resource}.
+func ResourceURI(projectID ProjectID, resourceID string) string {
+	return fmt.Sprintf("project://registry/projects/%s/resources/%s",
+		url.PathEscape(string(projectID)), url.PathEscape(resourceID))
+}
+
+// ResourceContentURI builds .../resources/{resource}/content.
+func ResourceContentURI(projectID ProjectID, resourceID string) string {
+	return ResourceURI(projectID, resourceID) + "/content"
+}
+
+// ResourceFileURI builds a progressive file URI under a files resource.
+// filePath is encoded as a single path segment (slashes become %2F).
+func ResourceFileURI(projectID ProjectID, resourceID, filePath string) string {
+	return fmt.Sprintf("project://registry/projects/%s/resources/%s/files/%s",
+		url.PathEscape(string(projectID)),
+		url.PathEscape(resourceID),
+		url.PathEscape(filepath.ToSlash(filePath)),
+	)
 }
 
 func projectFileName(id ProjectID) string {

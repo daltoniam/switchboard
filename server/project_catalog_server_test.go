@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -198,11 +200,215 @@ func TestParseCatalogURI(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "catalog", got.kind)
 
+	got, err = parseCatalogURI("project://registry/projects/acme")
+	require.NoError(t, err)
+	assert.Equal(t, "project", got.kind)
+	assert.Equal(t, project.ProjectID("acme"), got.projectID)
+
+	got, err = parseCatalogURI("project://registry/projects/acme/resources")
+	require.NoError(t, err)
+	assert.Equal(t, "resources", got.kind)
+
+	got, err = parseCatalogURI("project://registry/projects/acme/resources/architecture")
+	require.NoError(t, err)
+	assert.Equal(t, "resource", got.kind)
+	assert.Equal(t, "architecture", got.resourceID)
+
+	got, err = parseCatalogURI("project://registry/projects/acme/resources/architecture/content")
+	require.NoError(t, err)
+	assert.Equal(t, "resource-content", got.kind)
+
+	got, err = parseCatalogURI("project://registry/projects/switchboard/resources/project-specs/files/docs%2Fspecs%2Fproject-interop%2FREADME.md")
+	require.NoError(t, err)
+	assert.Equal(t, "resource-file", got.kind)
+	assert.Equal(t, "project-specs", got.resourceID)
+	assert.Equal(t, "docs/specs/project-interop/README.md", got.path)
+
 	got, err = parseCatalogURI("project://registry/projects/acme/context/AGENTS.md?rootUri=file:///tmp/wt")
 	require.NoError(t, err)
 	assert.Equal(t, "context", got.kind)
 	assert.Equal(t, "AGENTS.md", got.path)
 	assert.Equal(t, "file:///tmp/wt", got.rootURI)
+
+	// Compatibility alias.
+	got, err = parseCatalogURI("project://registry/projects/acme/definition")
+	require.NoError(t, err)
+	assert.Equal(t, "definition", got.kind)
+}
+
+func TestProjectCatalog_ResourceURIsAndContent(t *testing.T) {
+	httpSrv, store := newCatalogTestServer(t, true)
+
+	repoA := t.TempDir()
+	repoB := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(repoA, "AGENTS.md"), []byte("# agents\n"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(repoB, "docs", "specs"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(repoB, "docs", "specs", "one.md"), []byte("spec one"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(repoB, "docs", "specs", "two.md"), []byte("spec two"), 0o600))
+	notes := filepath.Join(t.TempDir(), "notes.md")
+	require.NoError(t, os.WriteFile(notes, []byte("private"), 0o600))
+
+	def := map[string]any{
+		"version":     "1",
+		"name":        "switchboard",
+		"description": "Switchboard and related projects",
+		"resources": map[string]any{
+			"switchboard": map[string]any{"type": "repo", "path": repoA, "branch": "main"},
+			"awesometree": map[string]any{"type": "repo", "path": repoB, "branch": "master"},
+			"architecture": map[string]any{
+				"type": "file", "repo": "switchboard", "path": "AGENTS.md",
+			},
+			"private-notes": map[string]any{"type": "file", "path": notes},
+			"project-specs": map[string]any{
+				"type": "files", "repo": "awesometree",
+				"include": []string{"docs/specs/**/*.md"},
+			},
+		},
+	}
+
+	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
+	created, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name:      "project.create",
+		Arguments: map[string]any{"definition": def},
+	})
+	require.NoError(t, err)
+	require.False(t, created.IsError, "%v", created.StructuredContent)
+
+	// project.list / project.get clean names
+	listed, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name:      "project.list",
+		Arguments: map[string]any{"query": "switch"},
+	})
+	require.NoError(t, err)
+	require.False(t, listed.IsError)
+
+	got, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name:      "project.get",
+		Arguments: map[string]any{"projectId": "switchboard"},
+	})
+	require.NoError(t, err)
+	require.False(t, got.IsError)
+
+	// Envelope URI
+	envRaw := readResourceRawAuth(t, httpSrv.URL+"/project-catalog/mcp", projectResourceURI("switchboard"))
+	envText, _ := resultArray(t, envRaw, "contents")[0].(map[string]any)["text"].(string)
+	var env map[string]any
+	require.NoError(t, json.Unmarshal([]byte(envText), &env))
+	assert.Equal(t, "switchboard", env["projectId"])
+	assert.Contains(t, env, "definition")
+	assert.Contains(t, env, "summary")
+
+	// Resources list
+	listRaw := readResourceRawAuth(t, httpSrv.URL+"/project-catalog/mcp", projectResourcesURI("switchboard"))
+	listText, _ := resultArray(t, listRaw, "contents")[0].(map[string]any)["text"].(string)
+	var listEnv map[string]any
+	require.NoError(t, json.Unmarshal([]byte(listText), &listEnv))
+	resources, _ := listEnv["resources"].([]any)
+	assert.GreaterOrEqual(t, len(resources), 5)
+
+	// Repo metadata
+	repoRaw := readResourceRawAuth(t, httpSrv.URL+"/project-catalog/mcp", projectResourceMetaURI("switchboard", "switchboard"))
+	repoText, _ := resultArray(t, repoRaw, "contents")[0].(map[string]any)["text"].(string)
+	var repoMeta map[string]any
+	require.NoError(t, json.Unmarshal([]byte(repoText), &repoMeta))
+	assert.Equal(t, "repo", repoMeta["type"])
+	assert.Equal(t, "main", repoMeta["branch"])
+	assert.Equal(t, repoA, repoMeta["path"])
+
+	// Repo content is metadata
+	repoContentRaw := readResourceRawAuth(t, httpSrv.URL+"/project-catalog/mcp", projectResourceContentURI("switchboard", "switchboard"))
+	repoContentText, _ := resultArray(t, repoContentRaw, "contents")[0].(map[string]any)["text"].(string)
+	assert.Contains(t, repoContentText, `"type":"repo"`)
+
+	// File content
+	fileRaw := readResourceRawAuth(t, httpSrv.URL+"/project-catalog/mcp", projectResourceContentURI("switchboard", "architecture"))
+	fileText, _ := resultArray(t, fileRaw, "contents")[0].(map[string]any)["text"].(string)
+	assert.Contains(t, fileText, "# agents")
+
+	localRaw := readResourceRawAuth(t, httpSrv.URL+"/project-catalog/mcp", projectResourceContentURI("switchboard", "private-notes"))
+	localText, _ := resultArray(t, localRaw, "contents")[0].(map[string]any)["text"].(string)
+	assert.Equal(t, "private", localText)
+
+	// Files manifest with progressive URIs
+	manifestRaw := readResourceRawAuth(t, httpSrv.URL+"/project-catalog/mcp", projectResourceContentURI("switchboard", "project-specs"))
+	manifestText, _ := resultArray(t, manifestRaw, "contents")[0].(map[string]any)["text"].(string)
+	var manifest map[string]any
+	require.NoError(t, json.Unmarshal([]byte(manifestText), &manifest))
+	assert.Equal(t, "project-specs", manifest["resource"])
+	files, _ := manifest["files"].([]any)
+	require.NotEmpty(t, files)
+	first, _ := files[0].(map[string]any)
+	uri, _ := first["uri"].(string)
+	assert.Contains(t, uri, "/resources/project-specs/files/")
+	assert.Contains(t, uri, "docs")
+
+	// Progressive file read
+	progRaw := readResourceRawAuth(t, httpSrv.URL+"/project-catalog/mcp", uri)
+	progText, _ := resultArray(t, progRaw, "contents")[0].(map[string]any)["text"].(string)
+	assert.Contains(t, progText, "spec")
+
+	// validate semantic repo refs
+	bad, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project.validate",
+		Arguments: map[string]any{
+			"definition": map[string]any{
+				"version": "1",
+				"name":    "bad",
+				"resources": map[string]any{
+					"doc": map[string]any{"type": "file", "repo": "missing", "path": "x.md"},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, bad.IsError)
+	raw, err := json.Marshal(bad.StructuredContent)
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), `"valid":false`)
+
+	// multi-repo search still works
+	search, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name:      "project.search",
+		Arguments: map[string]any{"query": "switchboard"},
+	})
+	require.NoError(t, err)
+	require.False(t, search.IsError)
+
+	// ensure store isolation path remains under configured dir (temp store)
+	assert.NotContains(t, store.ConfigDir(), "project-interop")
+}
+
+func TestProjectCatalog_UpdateAlias(t *testing.T) {
+	httpSrv, store := newCatalogTestServer(t, true)
+	snap, err := store.Create(context.Background(), project.CreateRequest{
+		Definition: project.Definition{
+			Version: "1", Name: "upd",
+			Resources: map[string]project.Resource{
+				"main": {Type: project.ResourceTypeRepo, Path: "/tmp/upd", Branch: "one"},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
+	updated, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project.update",
+		Arguments: map[string]any{
+			"projectId":              "upd",
+			"expectedSourceRevision": string(snap.SourceRevision),
+			"patch": map[string]any{
+				"resources": map[string]any{
+					"main": map[string]any{"type": "repo", "path": "/tmp/upd", "branch": "two"},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, updated.IsError, "%v", updated.StructuredContent)
+
+	got, err := store.Get(context.Background(), "upd")
+	require.NoError(t, err)
+	assert.Equal(t, "two", got.Definition.Resources["main"].Branch)
 }
 
 var _ = strings.TrimSpace
