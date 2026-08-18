@@ -46,7 +46,7 @@ func TestProjectCatalog_NoBearerRequired(t *testing.T) {
 
 func TestProjectCatalog_DiscoverAndListResources(t *testing.T) {
 	httpSrv, store := newCatalogTestServer(t, true)
-	_, err := store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{Version: "1", Name: "acme"}})
+	_, err := store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{Version: "1", Name: "acme", Resources: map[string]project.Resource{}}})
 	require.NoError(t, err)
 
 	status, headers, body := postJSONRPC(t, httpSrv.URL+"/project-catalog/mcp", jsonRPCRequest{
@@ -81,13 +81,13 @@ func TestProjectCatalog_DiscoverAndListResources(t *testing.T) {
 
 func TestProjectCatalog_ReadDefinitionAndRevision(t *testing.T) {
 	httpSrv, store := newCatalogTestServer(t, true)
-	created, err := store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{Version: "1", Name: "acme", Branch: "one"}})
+	created, err := store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{Version: "1", Name: "acme", Resources: map[string]project.Resource{"main": {Type: project.ResourceTypeRepo, Path: "/tmp/acme", Branch: "one"}}}})
 	require.NoError(t, err)
 	r1 := created.Revision
 	_, err = store.Patch(context.Background(), project.PatchRequest{
 		ProjectID:              "acme",
 		ExpectedSourceRevision: created.SourceRevision,
-		Patch:                  json.RawMessage(`{"branch":"two"}`),
+		Patch:                  json.RawMessage(`{"resources":{"main":{"type":"repo","path":"/tmp/acme","branch":"two"}}}`),
 	})
 	require.NoError(t, err)
 
@@ -106,7 +106,9 @@ func TestProjectCatalog_ReadDefinitionAndRevision(t *testing.T) {
 	var revEnv map[string]any
 	require.NoError(t, json.Unmarshal([]byte(revText), &revEnv))
 	def, _ := revEnv["definition"].(map[string]any)
-	assert.Equal(t, "one", def["branch"])
+	resources, _ := def["resources"].(map[string]any)
+	main, _ := resources["main"].(map[string]any)
+	assert.Equal(t, "one", main["branch"])
 	assert.NotContains(t, revEnv, "sources")
 }
 
@@ -115,7 +117,7 @@ func TestProjectCatalog_WritesDisabledByDefault(t *testing.T) {
 	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
 	res, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
 		Name:      "project.create",
-		Arguments: map[string]any{"definition": map[string]any{"version": "1", "name": "nope"}},
+		Arguments: map[string]any{"definition": map[string]any{"version": "1", "name": "nope", "resources": map[string]any{}}},
 	})
 	require.NoError(t, err)
 	require.True(t, res.IsError)
@@ -129,7 +131,7 @@ func TestProjectCatalog_CreateSearchResolve(t *testing.T) {
 	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
 	created, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
 		Name:      "project.create",
-		Arguments: map[string]any{"definition": map[string]any{"version": "1", "name": "acme", "branch": "main"}},
+		Arguments: map[string]any{"definition": map[string]any{"version": "1", "name": "acme", "resources": map[string]any{"main": map[string]any{"type": "repo", "path": "/tmp/acme", "branch": "main"}}}},
 	})
 	require.NoError(t, err)
 	require.False(t, created.IsError)

@@ -93,8 +93,8 @@ func listProjects(_ context.Context, p *projectInterop, _ map[string]any) (*mcp.
 	for _, definition := range all {
 		projects = append(projects, summary{
 			Name:   definition.Name,
-			Repo:   definition.Repo,
-			Branch: definition.Branch,
+			Repo:   definition.PrimaryRepo(),
+			Branch: definition.PrimaryBranch(),
 		})
 	}
 	slices.SortFunc(projects, func(a, b summary) int {
@@ -121,10 +121,23 @@ func createProject(_ context.Context, p *projectInterop, args map[string]any) (*
 		return errResult(err)
 	}
 	definition := &project.Definition{
-		Version: "1",
-		Name:    name,
-		Repo:    argString(args, "repo"),
-		Branch:  argString(args, "branch"),
+		Version:   "1",
+		Name:      name,
+		Resources: map[string]project.Resource{},
+	}
+	if repo := argString(args, "repo"); repo != "" {
+		definition.Resources["main"] = project.Resource{
+			Type:   project.ResourceTypeRepo,
+			Path:   repo,
+			Branch: argString(args, "branch"),
+		}
+	} else if branch := argString(args, "branch"); branch != "" {
+		// Branch without repo: store as additional for round-trip of legacy tool args.
+		definition.Resources["main"] = project.Resource{
+			Type:   project.ResourceTypeRepo,
+			Path:   ".",
+			Branch: branch,
+		}
 	}
 	if err := p.store.CreateDefinition(definition); err != nil {
 		return errResult(err)

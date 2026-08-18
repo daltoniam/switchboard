@@ -17,7 +17,7 @@ func TestProjectsList_RendersCatalog(t *testing.T) {
 	store := project.NewStore(t.TempDir())
 	require.NoError(t, store.Load())
 	_, err := store.Create(context.Background(), project.CreateRequest{
-		Definition: project.Definition{Version: "1", Name: "browse-me", Branch: "main", Repo: "/tmp/browse"},
+		Definition: project.Definition{Version: "1", Name: "browse-me", Resources: map[string]project.Resource{"main": {Type: project.ResourceTypeRepo, Path: "/tmp/browse", Branch: "main"}}},
 	})
 	require.NoError(t, err)
 
@@ -37,11 +37,11 @@ func TestProjectsList_SearchQuery(t *testing.T) {
 	store := project.NewStore(t.TempDir())
 	require.NoError(t, store.Load())
 	_, err := store.Create(context.Background(), project.CreateRequest{
-		Definition: project.Definition{Version: "1", Name: "alpha"},
+		Definition: project.Definition{Version: "1", Name: "alpha", Resources: map[string]project.Resource{}},
 	})
 	require.NoError(t, err)
 	_, err = store.Create(context.Background(), project.CreateRequest{
-		Definition: project.Definition{Version: "1", Name: "beta"},
+		Definition: project.Definition{Version: "1", Name: "beta", Resources: map[string]project.Resource{}},
 	})
 	require.NoError(t, err)
 
@@ -60,7 +60,7 @@ func TestProjectDetail_RendersDefinition(t *testing.T) {
 	store := project.NewStore(t.TempDir())
 	require.NoError(t, store.Load())
 	_, err := store.Create(context.Background(), project.CreateRequest{
-		Definition: project.Definition{Version: "1", Name: "detail-me", Branch: "dev"},
+		Definition: project.Definition{Version: "1", Name: "detail-me", Resources: map[string]project.Resource{"main": {Type: project.ResourceTypeRepo, Path: "/tmp/detail", Branch: "dev"}}},
 	})
 	require.NoError(t, err)
 

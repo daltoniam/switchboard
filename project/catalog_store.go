@@ -135,6 +135,7 @@ func (s *Store) readUserRecord(id ProjectID, path string) *catalogRecord {
 		return rec
 	}
 	user := cloneDefinition(&def)
+	user.SetBaseDir(filepath.Dir(path))
 	rec.user = user
 	if user.Name == "" {
 		rec.invalid = true
@@ -225,6 +226,15 @@ func valueFreeValidationMessage(err error) string {
 	if strings.Contains(msg, "does not match pattern") {
 		return "name does not match the required pattern"
 	}
+	if strings.Contains(msg, "resources is required") {
+		return "resources is required"
+	}
+	if strings.Contains(msg, "cannot set both repo and root") {
+		return "files resource cannot set both repo and root"
+	}
+	if strings.Contains(msg, "does not reference a resource") || strings.Contains(msg, "must reference a resource with type repo") {
+		return "repo reference is invalid"
+	}
 	return "invalid project definition"
 }
 
@@ -239,6 +249,9 @@ func hasError(diags []Diagnostic) bool {
 
 func (s *Store) mergeEffective(user *Definition, root, userPath string) (*Definition, []Source, []Diagnostic) {
 	effective := cloneDefinition(user)
+	if effective != nil {
+		effective.SetBaseDir(filepath.Dir(userPath))
+	}
 	sources := []Source{{
 		Kind:       "user",
 		URI:        fileURI(userPath),
@@ -246,8 +259,11 @@ func (s *Store) mergeEffective(user *Definition, root, userPath string) (*Defini
 	}}
 	var diags []Diagnostic
 
+	// Overlay applies when resolving a concrete root, or against the sole
+	// primary repo resource. Multi-repo projects skip automatic overlay unless
+	// an explicit root is provided (resolve path).
 	overlayRoot := root
-	if overlayRoot == "" && user.ResolvedRepo() != "" {
+	if overlayRoot == "" {
 		overlayRoot = user.ResolvedRepo()
 	}
 	if overlayRoot == "" {
@@ -268,6 +284,7 @@ func (s *Store) mergeEffective(user *Definition, root, userPath string) (*Defini
 		})
 		return effective, sources, diags
 	}
+	overlay.SetBaseDir(overlayRoot)
 	if overlay.Name != "" && overlay.Name != user.Name {
 		diags = append(diags, Diagnostic{
 			Severity:  "error",
@@ -287,6 +304,9 @@ func (s *Store) mergeEffective(user *Definition, root, userPath string) (*Defini
 			SourceURI: fileURI(overlayPath),
 		})
 		return effective, sources, diags
+	}
+	if merged != nil {
+		merged.SetBaseDir(filepath.Dir(userPath))
 	}
 	effective = merged
 	sources = append(sources, Source{
@@ -336,8 +356,8 @@ func (s *Store) summaryFromRecord(rec *catalogRecord) (ProjectSummary, InvalidPr
 	return ProjectSummary{
 		ProjectID:       rec.id,
 		Title:           rec.effective.Name,
-		Repo:            rec.effective.Repo,
-		Branch:          rec.effective.Branch,
+		Repo:            rec.effective.PrimaryRepo(),
+		Branch:          rec.effective.PrimaryBranch(),
 		Revision:        rec.revision,
 		SourceRevision:  rec.sourceRevision,
 		DefinitionURI:   definitionURI(rec.id),
@@ -407,7 +427,7 @@ func (s *Store) pageFrom(kind, query, cursor string) (Page, error) {
 		}
 		rec := s.index[id]
 		if q != "" && !strings.Contains(strings.ToLower(string(id)), q) && (rec.effective == nil || !strings.Contains(strings.ToLower(rec.effective.TitleOrName()), q)) {
-			if rec.effective == nil || !strings.Contains(strings.ToLower(rec.effective.Repo), q) {
+			if rec.effective == nil || !strings.Contains(strings.ToLower(rec.effective.PrimaryRepo()), q) {
 				continue
 			}
 		}

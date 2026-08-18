@@ -13,7 +13,9 @@ func TestRevision_DeterministicJCS(t *testing.T) {
 	left := &Definition{
 		Version: "1",
 		Name:    "acme",
-		Repo:    "/tmp/repo",
+		Resources: map[string]Resource{
+			"main": {Type: ResourceTypeRepo, Path: "/tmp/repo"},
+		},
 		Additional: map[string]json.RawMessage{
 			"zField": json.RawMessage(`{"b":2,"a":1}`),
 			"aField": json.RawMessage(`"keep"`),
@@ -22,7 +24,9 @@ func TestRevision_DeterministicJCS(t *testing.T) {
 	right := &Definition{
 		Version: "1",
 		Name:    "acme",
-		Repo:    "/tmp/repo",
+		Resources: map[string]Resource{
+			"main": {Type: ResourceTypeRepo, Path: "/tmp/repo"},
+		},
 		Additional: map[string]json.RawMessage{
 			"aField": json.RawMessage(`"keep"`),
 			"zField": json.RawMessage(`{"a":1,"b":2}`),
@@ -55,7 +59,7 @@ func TestRevision_RejectsNonJCSValues(t *testing.T) {
 }
 
 func TestRevision_IgnoresProvenanceInHash(t *testing.T) {
-	def := &Definition{Version: "1", Name: "acme"}
+	def := &Definition{Version: "1", Name: "acme", Resources: map[string]Resource{}}
 	revA, srcA, err := HashDefinition(def)
 	require.NoError(t, err)
 	revB, srcB, err := HashDefinition(def)

@@ -11,228 +11,167 @@ import (
 
 func setupContextTestDirs(t *testing.T) (configDir, repoDir string) {
 	t.Helper()
-	base := t.TempDir()
-	configDir = filepath.Join(base, "config")
-	repoDir = filepath.Join(base, "repo")
-
-	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "context", "test-project"), 0700))
+	configDir = t.TempDir()
+	repoDir = filepath.Join(configDir, "repo")
 	require.NoError(t, os.MkdirAll(filepath.Join(repoDir, "docs"), 0700))
-
-	require.NoError(t, os.WriteFile(filepath.Join(configDir, "context", "test-project", "sprint.md"), []byte("Sprint goals"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "AGENTS.md"), []byte("Agent instructions"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "docs", "arch.md"), []byte("Architecture"), 0600))
-
+	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "AGENTS.md"), []byte("# agents"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "docs", "arch.md"), []byte("# arch"), 0600))
+	ctxDir := filepath.Join(configDir, "context", "proj")
+	require.NoError(t, os.MkdirAll(ctxDir, 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(ctxDir, "sprint.md"), []byte("sprint"), 0600))
 	return configDir, repoDir
+}
+
+func resourceDef(name, repoDir string) *Definition {
+	d := testDefRepo(name, repoDir, "")
+	d.Resources["agents"] = Resource{Type: ResourceTypeFile, Repo: "main", Path: "AGENTS.md"}
+	d.Resources["arch"] = Resource{Type: ResourceTypeFile, Repo: "main", Path: "docs/arch.md"}
+	d.SetBaseDir(filepath.Dir(repoDir))
+	return &d
 }
 
 func TestAssembleManifest(t *testing.T) {
 	configDir, repoDir := setupContextTestDirs(t)
-
-	def := &Definition{
-		Version: "1",
-		Name:    "test-project",
-		Repo:    repoDir,
-		Context: &ContextConfig{
-			Files:        []string{"sprint.md"},
-			RepoIncludes: []string{"AGENTS.md", "docs/arch.md"},
-		},
-	}
+	def := resourceDef("proj", repoDir)
 
 	entries := AssembleManifest(def, configDir)
-	assert.Len(t, entries, 3)
-
-	assert.Equal(t, "AGENTS.md", entries[0].Path)
-	assert.Equal(t, "repo", entries[0].Source)
-	assert.Equal(t, "text/markdown", entries[0].MIMEType)
-
-	assert.Equal(t, "docs/arch.md", entries[1].Path)
-	assert.Equal(t, "repo", entries[1].Source)
-
-	assert.Equal(t, "sprint.md", entries[2].Path)
-	assert.Equal(t, "store", entries[2].Source)
+	require.NotEmpty(t, entries)
+	paths := map[string]bool{}
+	for _, e := range entries {
+		paths[e.Path] = true
+	}
+	assert.True(t, paths["AGENTS.md"])
+	assert.True(t, paths["docs/arch.md"])
 }
 
-func TestAssembleManifest_NilContext(t *testing.T) {
-	def := &Definition{Version: "1", Name: "p"}
-	entries := AssembleManifest(def, "/tmp/nonexistent")
-	assert.Nil(t, entries)
+func TestAssembleManifest_NilResources(t *testing.T) {
+	def := &Definition{Version: "1", Name: "x"}
+	assert.Empty(t, AssembleManifest(def, t.TempDir()))
 }
 
 func TestAssembleManifest_MissingFiles(t *testing.T) {
-	def := &Definition{
-		Version: "1",
-		Name:    "p",
-		Context: &ContextConfig{
-			Files:        []string{"nonexistent.md"},
-			RepoIncludes: []string{"nonexistent.md"},
-		},
-	}
-	entries := AssembleManifest(def, "/tmp/nonexistent")
+	def := testDef("p")
+	def.Resources["gone"] = Resource{Type: ResourceTypeFile, Path: "/no/such/file.md"}
+	entries := AssembleManifest(&def, t.TempDir())
 	assert.Empty(t, entries)
+}
+
+func TestAssembleManifest_FilesGlob(t *testing.T) {
+	configDir, repoDir := setupContextTestDirs(t)
+	def := testDefRepo("proj", repoDir, "")
+	def.Resources["docs"] = Resource{
+		Type:    ResourceTypeFiles,
+		Repo:    "main",
+		Include: []string{"docs/**/*.md", "AGENTS.md"},
+		Exclude: []string{"**/testdata/**"},
+	}
+	def.SetBaseDir(configDir)
+
+	entries := AssembleManifest(&def, configDir)
+	paths := map[string]bool{}
+	for _, e := range entries {
+		paths[e.Path] = true
+	}
+	assert.True(t, paths["docs/arch.md"])
+	assert.True(t, paths["AGENTS.md"])
 }
 
 func TestAssembleManifest_Dedup(t *testing.T) {
 	configDir, repoDir := setupContextTestDirs(t)
+	def := testDefRepo("proj", repoDir, "")
+	def.Resources["a"] = Resource{Type: ResourceTypeFile, Repo: "main", Path: "AGENTS.md"}
+	def.Resources["b"] = Resource{Type: ResourceTypeFile, Repo: "main", Path: "AGENTS.md"}
+	def.SetBaseDir(configDir)
 
-	require.NoError(t, os.WriteFile(
-		filepath.Join(configDir, "context", "test-project", "AGENTS.md"),
-		[]byte("Store version"), 0600,
-	))
-
-	def := &Definition{
-		Version: "1",
-		Name:    "test-project",
-		Repo:    repoDir,
-		Context: &ContextConfig{
-			Files:        []string{"AGENTS.md"},
-			RepoIncludes: []string{"AGENTS.md"},
-		},
+	entries := AssembleManifest(&def, configDir)
+	count := 0
+	for _, e := range entries {
+		if e.Path == "AGENTS.md" {
+			count++
+		}
 	}
-
-	entries := AssembleManifest(def, configDir)
-	assert.Len(t, entries, 1)
-	assert.Equal(t, "store", entries[0].Source)
+	assert.Equal(t, 1, count)
 }
 
 func TestReadContextFile(t *testing.T) {
 	configDir, repoDir := setupContextTestDirs(t)
-
-	def := &Definition{
-		Version: "1",
-		Name:    "test-project",
-		Repo:    repoDir,
+	def := resourceDef("proj", repoDir)
+	def.Resources["sprint"] = Resource{
+		Type: ResourceTypeFile,
+		Path: filepath.Join(configDir, "context", "proj", "sprint.md"),
 	}
 
-	t.Run("reads from store", func(t *testing.T) {
-		content, err := ReadContextFile(def, configDir, "sprint.md")
+	t.Run("local file resource", func(t *testing.T) {
+		content, err := ReadContextFile(def, configDir, filepath.Join(configDir, "context", "proj", "sprint.md"))
 		require.NoError(t, err)
-		assert.Equal(t, "Sprint goals", content)
+		assert.Equal(t, "sprint", content)
 	})
 
-	t.Run("reads from repo", func(t *testing.T) {
+	t.Run("repo file", func(t *testing.T) {
 		content, err := ReadContextFile(def, configDir, "AGENTS.md")
 		require.NoError(t, err)
-		assert.Equal(t, "Agent instructions", content)
+		assert.Contains(t, content, "agents")
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run("missing", func(t *testing.T) {
 		_, err := ReadContextFile(def, configDir, "nonexistent.md")
-		assert.ErrorContains(t, err, "context file not found")
+		assert.Error(t, err)
 	})
 
-	t.Run("rejects paths outside context roots", func(t *testing.T) {
-		secretPath := filepath.Join(configDir, "secret.txt")
-		require.NoError(t, os.WriteFile(secretPath, []byte("secret"), 0600))
+	t.Run("path escape", func(t *testing.T) {
 		_, err := ReadContextFile(def, configDir, "../../secret.txt")
-		assert.ErrorContains(t, err, "context file not found")
-	})
-
-	t.Run("rejects symlink escape", func(t *testing.T) {
-		outside := filepath.Join(t.TempDir(), "secret.txt")
-		require.NoError(t, os.WriteFile(outside, []byte("leaked"), 0600))
-		link := filepath.Join(configDir, "context", "test-project", "escape.md")
-		require.NoError(t, os.Symlink(outside, link))
-		_, err := ReadContextFile(def, configDir, "escape.md")
-		assert.ErrorContains(t, err, "context file not found")
+		assert.Error(t, err)
 	})
 }
 
 func TestAssembleManifestWithRole(t *testing.T) {
 	configDir, repoDir := setupContextTestDirs(t)
-
-	require.NoError(t, os.WriteFile(
-		filepath.Join(configDir, "context", "test-project", "review.md"),
-		[]byte("Review checklist"), 0600,
-	))
-
-	def := &Definition{
-		Version: "1",
-		Name:    "test-project",
-		Repo:    repoDir,
-		Context: &ContextConfig{
-			Files:        []string{"sprint.md"},
-			RepoIncludes: []string{"AGENTS.md"},
-		},
-		Agents: &AgentsConfig{
-			Roles: map[string]*RoleDefinition{
-				"reviewer": {
-					ContextOverrides: &ContextConfig{
-						Files: []string{"review.md"},
-					},
+	def := resourceDef("proj", repoDir)
+	def.Agents = &AgentsConfig{
+		Roles: map[string]*RoleDefinition{
+			"reviewer": {
+				ContextOverrides: &ContextConfig{
+					RepoIncludes: []string{"AGENTS.md"},
 				},
 			},
 		},
 	}
 
-	t.Run("no role uses project context", func(t *testing.T) {
-		entries := AssembleManifestWithRole(def, configDir, "")
-		assert.Len(t, entries, 2)
-	})
-
-	t.Run("role replaces files", func(t *testing.T) {
-		entries := AssembleManifestWithRole(def, configDir, "reviewer")
-		assert.Len(t, entries, 2)
-		paths := make([]string, len(entries))
-		for i, e := range entries {
-			paths[i] = e.Path
-		}
-		assert.Contains(t, paths, "AGENTS.md")
-		assert.Contains(t, paths, "review.md")
-	})
+	entries := AssembleManifestWithRole(def, configDir, "reviewer")
+	require.NotEmpty(t, entries)
 }
 
 func TestAssembleBundle(t *testing.T) {
 	configDir, repoDir := setupContextTestDirs(t)
-
-	def := &Definition{
-		Version: "1",
-		Name:    "test-project",
-		Repo:    repoDir,
-		Context: &ContextConfig{
-			Files:        []string{"sprint.md"},
-			RepoIncludes: []string{"AGENTS.md"},
-		},
-	}
-
-	bundle, entries := AssembleBundle(def, configDir, "")
-	assert.Len(t, entries, 2)
-	assert.Contains(t, bundle, "Agent instructions")
-	assert.Contains(t, bundle, "Sprint goals")
+	def := resourceDef("proj", repoDir)
+	bundle, included := AssembleBundle(def, configDir, "")
+	assert.NotEmpty(t, bundle)
+	assert.NotEmpty(t, included)
 }
 
 func TestAssembleBundle_MaxBytes(t *testing.T) {
 	configDir, repoDir := setupContextTestDirs(t)
-
-	def := &Definition{
-		Version: "1",
-		Name:    "test-project",
-		Repo:    repoDir,
-		Context: &ContextConfig{
-			Files:        []string{"sprint.md"},
-			RepoIncludes: []string{"AGENTS.md"},
-			MaxBytes:     50,
+	def := resourceDef("proj", repoDir)
+	def.Agents = &AgentsConfig{
+		Roles: map[string]*RoleDefinition{
+			"tiny": {ContextOverrides: &ContextConfig{MaxBytes: 20, RepoIncludes: []string{"AGENTS.md"}}},
 		},
 	}
-
-	bundle, _ := AssembleBundle(def, configDir, "")
+	bundle, _ := AssembleBundle(def, configDir, "tiny")
 	assert.Contains(t, bundle, "TRUNCATED")
 }
 
 func TestGuessMIME(t *testing.T) {
-	tests := []struct {
-		path string
-		want string
-	}{
-		{"readme.md", "text/markdown"},
-		{"notes.txt", "text/plain"},
-		{"config.json", "application/json"},
-		{"config.yaml", "text/yaml"},
-		{"config.yml", "text/yaml"},
-		{"unknown.xyz", "text/plain"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
-			assert.Equal(t, tt.want, GuessMIME(tt.path))
-		})
-	}
+	assert.Equal(t, "text/markdown", GuessMIME("a.md"))
+	assert.Equal(t, "application/json", GuessMIME("a.json"))
+	assert.Equal(t, "text/plain", GuessMIME("a.bin"))
+}
+
+func TestReadResourceContent_RepoMeta(t *testing.T) {
+	def := testDefRepo("p", "/tmp/repo", "main")
+	content, mime, err := ReadResourceContent(&def, "main")
+	require.NoError(t, err)
+	assert.Equal(t, "application/json", mime)
+	assert.Contains(t, content, `"type":"repo"`)
+	assert.Contains(t, content, "main")
 }

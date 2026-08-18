@@ -55,7 +55,7 @@ func TestProjectCatalog_ListChangedOnCreate(t *testing.T) {
 	t.Cleanup(func() { _ = session.Close() })
 
 	time.Sleep(100 * time.Millisecond)
-	_, err = store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{Version: "1", Name: "listen"}})
+	_, err = store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{Version: "1", Name: "listen", Resources: map[string]project.Resource{}}})
 	require.NoError(t, err)
 
 	select {

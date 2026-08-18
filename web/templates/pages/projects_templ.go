@@ -631,13 +631,13 @@ func ProjectDetail(page layouts.PageData, data ProjectDetailData) templ.Componen
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if data.Snapshot.Definition.Branch != "" {
+				if data.Snapshot.Definition.PrimaryBranch() != "" {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<span>branch <strong style=\"color: var(--text); font-weight: 500;\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var29 string
-					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(data.Snapshot.Definition.Branch)
+					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(data.Snapshot.Definition.PrimaryBranch())
 					if templ_7745c5c3_Err != nil {
 						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/projects.templ`, Line: 252, Col: 106}
 					}
@@ -658,9 +658,9 @@ func ProjectDetail(page layouts.PageData, data ProjectDetailData) templ.Componen
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if data.Snapshot.Definition.Repo != "" {
+				if data.Snapshot.Definition.PrimaryRepo() != "" {
 					var templ_7745c5c3_Var30 string
-					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(data.Snapshot.Definition.Repo)
+					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(data.Snapshot.Definition.PrimaryRepo())
 					if templ_7745c5c3_Err != nil {
 						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/projects.templ`, Line: 267, Col: 41}
 					}

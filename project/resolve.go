@@ -46,15 +46,23 @@ func (s *Store) matchProjectByRoot(ctx context.Context, root string) (ProjectID,
 		if rec == nil || rec.user == nil || rec.invalid {
 			continue
 		}
-		repo := rec.user.ResolvedRepo()
-		if repo == "" {
-			continue
+		matched := false
+		for _, repoID := range rec.user.RepoResourceIDs() {
+			repoRes := rec.user.Resources[repoID]
+			repo := rec.user.ResolveRepoPath(repoRes)
+			if repo == "" {
+				continue
+			}
+			repoCommon, err := gitCommonDir(ctx, repo)
+			if err != nil {
+				continue
+			}
+			if repoCommon == rootCommon {
+				matched = true
+				break
+			}
 		}
-		repoCommon, err := gitCommonDir(ctx, repo)
-		if err != nil {
-			continue
-		}
-		if repoCommon == rootCommon {
+		if matched {
 			matches = append(matches, id)
 		}
 	}

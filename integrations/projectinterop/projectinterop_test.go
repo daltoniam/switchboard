@@ -85,9 +85,9 @@ func TestNewWithCatalog_DoesNotAllocateSecondStore(t *testing.T) {
 	store := project.NewStore(root)
 	require.NoError(t, store.Load())
 	_, err := store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{
-		Version: "1",
-		Name:    "shared",
-		Branch:  "main",
+		Version:   "1",
+		Name:      "shared",
+		Resources: map[string]project.Resource{"main": {Type: project.ResourceTypeRepo, Path: "/tmp/shared", Branch: "main"}},
 	}})
 	require.NoError(t, err)
 
@@ -96,21 +96,26 @@ func TestNewWithCatalog_DoesNotAllocateSecondStore(t *testing.T) {
 
 	got := executeJSON(t, integration, "projectinterop_get_project", map[string]any{"name": "shared"})
 	assert.Equal(t, "shared", got["name"])
-	assert.Equal(t, "main", got["branch"])
+	resources := got["resources"].(map[string]any)
+	main := resources["main"].(map[string]any)
+	assert.Equal(t, "main", main["branch"])
 
 	executeJSON(t, integration, "projectinterop_update_project", map[string]any{
-		"name":  "shared",
-		"patch": map[string]any{"branch": "from-interop"},
+		"name": "shared",
+		"patch": map[string]any{"resources": map[string]any{
+			"main": map[string]any{"type": "repo", "path": "/tmp/shared", "branch": "from-interop"},
+		}},
 	})
 	snap, err := store.Get(context.Background(), "shared")
 	require.NoError(t, err)
-	assert.Equal(t, "from-interop", snap.Definition.Branch)
+	assert.Equal(t, "from-interop", snap.Definition.PrimaryBranch())
 }
 
 func TestCreate_ReturnsUserDefinitionNotOverlay(t *testing.T) {
 	root := t.TempDir()
 	repo := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(repo, ".project.json"), []byte(`{"version":"1","name":"acme","branch":"overlay"}`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, ".project.json"), []byte(
+		`{"version":"1","name":"acme","resources":{"main":{"type":"repo","path":"`+repo+`","branch":"overlay"}}}`), 0600))
 	integration := New()
 	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"config_root": root}))
 
@@ -118,8 +123,10 @@ func TestCreate_ReturnsUserDefinitionNotOverlay(t *testing.T) {
 		"name": "acme", "repo": repo, "branch": "user",
 	})
 	assert.Equal(t, "acme", created["name"])
-	assert.Equal(t, "user", created["branch"])
-	assert.Equal(t, repo, created["repo"])
+	resources := created["resources"].(map[string]any)
+	main := resources["main"].(map[string]any)
+	assert.Equal(t, "user", main["branch"])
+	assert.Equal(t, repo, main["path"])
 }
 
 func TestProjectCRUD(t *testing.T) {
@@ -137,13 +144,21 @@ func TestProjectCRUD(t *testing.T) {
 	assert.Equal(t, "acme-api", listed[0]["name"])
 
 	updated := executeJSON(t, integration, "projectinterop_update_project", map[string]any{
-		"name": "acme-api", "patch": map[string]any{"branch": "develop", "custom": "preserved"},
+		"name": "acme-api",
+		"patch": map[string]any{
+			"resources": map[string]any{"main": map[string]any{"type": "repo", "path": "/work/acme", "branch": "develop"}},
+			"custom":    "preserved",
+		},
 	})
-	assert.Equal(t, "develop", updated["branch"])
+	resources := updated["resources"].(map[string]any)
+	main := resources["main"].(map[string]any)
+	assert.Equal(t, "develop", main["branch"])
 	assert.Equal(t, "preserved", updated["custom"])
 
 	got := executeJSON(t, integration, "projectinterop_get_project", map[string]any{"name": "acme-api"})
-	assert.Equal(t, "develop", got["branch"])
+	resources = got["resources"].(map[string]any)
+	main = resources["main"].(map[string]any)
+	assert.Equal(t, "develop", main["branch"])
 	assert.Equal(t, "preserved", got["custom"])
 
 	result, err := integration.Execute(context.Background(), mcp.ToolName("projectinterop_delete_project"), map[string]any{"name": "acme-api"})
@@ -165,20 +180,27 @@ func TestProjectContext(t *testing.T) {
 	integration := New()
 	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"config_root": root}))
 	executeJSON(t, integration, "projectinterop_create_project", map[string]any{"name": "acme", "repo": repo})
+	sprintPath := filepath.Join(root, "context", "acme", "sprint.md")
 	executeJSON(t, integration, "projectinterop_update_project", map[string]any{
 		"name": "acme",
-		"patch": map[string]any{"context": map[string]any{
-			"repoIncludes": []any{"AGENTS.md"}, "files": []any{"sprint.md"},
+		"patch": map[string]any{"resources": map[string]any{
+			"main":   map[string]any{"type": "repo", "path": repo},
+			"agents": map[string]any{"type": "file", "repo": "main", "path": "AGENTS.md"},
+			"sprint": map[string]any{"type": "file", "path": sprintPath},
 		}},
 	})
 
 	manifest := executeJSONArray(t, integration, "projectinterop_get_context", map[string]any{"name": "acme"})
-	require.Len(t, manifest, 2)
-	assert.Equal(t, "AGENTS.md", manifest[0]["path"])
+	require.GreaterOrEqual(t, len(manifest), 2)
+	paths := map[string]bool{}
+	for _, e := range manifest {
+		paths[e["path"].(string)] = true
+	}
+	assert.True(t, paths["AGENTS.md"])
 
-	result, err := integration.Execute(context.Background(), mcp.ToolName("projectinterop_get_context"), map[string]any{"name": "acme", "path": "sprint.md"})
+	result, err := integration.Execute(context.Background(), mcp.ToolName("projectinterop_get_context"), map[string]any{"name": "acme", "path": "AGENTS.md"})
 	require.NoError(t, err)
-	assert.Equal(t, "store guidance", result.Data)
+	assert.Equal(t, "repo guidance", result.Data)
 
 	filtered := executeJSONArray(t, integration, "projectinterop_get_context", map[string]any{"name": "acme", "query": "agent"})
 	require.Len(t, filtered, 1)

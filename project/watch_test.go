@@ -19,13 +19,13 @@ func TestWatch_ExternalReplace(t *testing.T) {
 	defer cancel()
 	go func() { _ = store.Watch(ctx) }()
 
-	_, err := store.Create(context.Background(), CreateRequest{Definition: Definition{Version: "1", Name: "acme", Branch: "one"}})
+	_, err := store.Create(context.Background(), CreateRequest{Definition: testDefRepo("acme", "/tmp/acme", "one")})
 	require.NoError(t, err)
 	drainEvents(ch)
 
 	tmp := filepath.Join(store.ConfigDir(), "projects", "acme.project.json.tmp")
 	dst := filepath.Join(store.ConfigDir(), "projects", "acme.project.json")
-	require.NoError(t, os.WriteFile(tmp, []byte(`{"version":"1","name":"acme","branch":"external"}`), 0600))
+	require.NoError(t, os.WriteFile(tmp, []byte(`{"version":"1","name":"acme","resources":{"main":{"type":"repo","path":"/tmp/acme","branch":"external"}}}`), 0600))
 	require.NoError(t, os.Rename(tmp, dst))
 
 	select {

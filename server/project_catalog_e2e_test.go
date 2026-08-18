@@ -15,7 +15,7 @@ func TestProjectCatalog_E2ECreateReadDelete(t *testing.T) {
 	created, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
 		Name: "project.create",
 		Arguments: map[string]any{
-			"definition": map[string]any{"version": "1", "name": "lifecycle", "branch": "main"},
+			"definition": map[string]any{"version": "1", "name": "lifecycle", "resources": map[string]any{}},
 		},
 	})
 	require.NoError(t, err)

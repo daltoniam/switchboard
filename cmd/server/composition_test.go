@@ -32,13 +32,13 @@ func TestSharedCatalog_InteropMutationVisibleToRouterStore(t *testing.T) {
 	require.NotNil(t, router)
 
 	_, err := interop.Execute(context.Background(), "projectinterop_create_project", map[string]any{
-		"name": "shared", "branch": "from-interop",
+		"name": "shared", "repo": "/tmp/shared", "branch": "from-interop",
 	})
 	require.NoError(t, err)
 
 	def, ok := store.Definition("shared")
 	require.True(t, ok)
-	assert.Equal(t, "from-interop", def.Branch)
+	assert.Equal(t, "from-interop", def.PrimaryBranch())
 }
 
 type stubConfig struct {

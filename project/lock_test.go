@@ -22,7 +22,7 @@ func TestLock_Cancel(t *testing.T) {
 
 func TestCatalog_ConcurrentPatchOneWinner(t *testing.T) {
 	store := newTestCatalog(t)
-	created, err := store.Create(context.Background(), CreateRequest{Definition: Definition{Version: "1", Name: "acme", Branch: "one"}})
+	created, err := store.Create(context.Background(), CreateRequest{Definition: testDef("acme")})
 	require.NoError(t, err)
 
 	var okCount atomic.Int32
@@ -35,7 +35,7 @@ func TestCatalog_ConcurrentPatchOneWinner(t *testing.T) {
 			_, err := store.Patch(context.Background(), PatchRequest{
 				ProjectID:              "acme",
 				ExpectedSourceRevision: created.SourceRevision,
-				Patch:                  []byte(`{"branch":"race"}`),
+				Patch:                  []byte(`{"description":"race"}`),
 			})
 			if err == nil {
 				okCount.Add(1)

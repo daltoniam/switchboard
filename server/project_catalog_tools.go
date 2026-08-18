@@ -231,8 +231,8 @@ func summaryFromSnap(snap project.Snapshot) project.ProjectSummary {
 	return project.ProjectSummary{
 		ProjectID:       snap.ProjectID,
 		Title:           snap.Definition.Name,
-		Repo:            snap.Definition.Repo,
-		Branch:          snap.Definition.Branch,
+		Repo:            snap.Definition.PrimaryRepo(),
+		Branch:          snap.Definition.PrimaryBranch(),
 		Revision:        snap.Revision,
 		SourceRevision:  snap.SourceRevision,
 		DefinitionURI:   definitionResourceURI(snap.ProjectID),

@@ -248,8 +248,8 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 				<h1 class="page-title" style="margin-bottom: 0.35rem;">{ data.Snapshot.Definition.Name }</h1>
 				<div style="display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; color: var(--text-secondary); font-size: 0.8125rem;">
 					<span style="font-family: var(--font-mono); color: var(--text-muted);">{ string(data.Snapshot.ProjectID) }</span>
-					if data.Snapshot.Definition.Branch != "" {
-						<span>branch <strong style="color: var(--text); font-weight: 500;">{ data.Snapshot.Definition.Branch }</strong></span>
+					if data.Snapshot.Definition.PrimaryBranch() != "" {
+						<span>branch <strong style="color: var(--text); font-weight: 500;">{ data.Snapshot.Definition.PrimaryBranch() }</strong></span>
 					}
 					@components.Badge(diagLabel(len(data.Snapshot.Diagnostics)), diagBadge(len(data.Snapshot.Diagnostics)))
 				</div>
@@ -263,8 +263,8 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 							<tr>
 								<td style="color: var(--text-muted); width: 9rem;">Repo</td>
 								<td style="font-family: var(--font-mono); font-size: 0.8125rem;">
-									if data.Snapshot.Definition.Repo != "" {
-										{ data.Snapshot.Definition.Repo }
+									if data.Snapshot.Definition.PrimaryRepo() != "" {
+										{ data.Snapshot.Definition.PrimaryRepo() }
 									} else {
 										<span style="color: var(--text-muted);">—</span>
 									}

@@ -43,12 +43,7 @@ func initGitRepo(t *testing.T, dir string) {
 
 func TestCatalog_ResolveByIDDeterministic(t *testing.T) {
 	store := newTestCatalog(t)
-	_, err := store.Create(context.Background(), CreateRequest{Definition: Definition{
-		Version: "1",
-		Name:    "acme",
-		Repo:    "/tmp/acme",
-		Branch:  "main",
-	}})
+	_, err := store.Create(context.Background(), CreateRequest{Definition: testDefRepo("acme", "/tmp/acme", "main")})
 	require.NoError(t, err)
 
 	first, err := store.Resolve(context.Background(), ResolveRequest{ProjectID: "acme"})
@@ -73,27 +68,24 @@ func TestCatalog_ExplicitWorktreeOverlay(t *testing.T) {
 	if err != nil {
 		t.Skipf("git worktree unavailable: %s", out)
 	}
-	require.NoError(t, os.WriteFile(filepath.Join(base, ".project.json"), []byte(`{"version":"1","name":"acme","branch":"base-branch"}`), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(worktree, ".project.json"), []byte(`{"version":"1","name":"acme","branch":"wt-branch"}`), 0600))
+	overlayBase := `{"version":"1","name":"acme","resources":{"main":{"type":"repo","path":` + jsonString(base) + `,"branch":"base-branch"}}}`
+	overlayWT := `{"version":"1","name":"acme","resources":{"main":{"type":"repo","path":` + jsonString(worktree) + `,"branch":"wt-branch"}}}`
+	require.NoError(t, os.WriteFile(filepath.Join(base, ".project.json"), []byte(overlayBase), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(worktree, ".project.json"), []byte(overlayWT), 0600))
 
-	_, err = store.Create(context.Background(), CreateRequest{Definition: Definition{
-		Version: "1",
-		Name:    "acme",
-		Repo:    base,
-		Branch:  "main",
-	}})
+	_, err = store.Create(context.Background(), CreateRequest{Definition: testDefRepo("acme", base, "main")})
 	require.NoError(t, err)
 
 	byID, err := store.Resolve(context.Background(), ResolveRequest{ProjectID: "acme"})
 	require.NoError(t, err)
-	assert.Equal(t, "base-branch", byID.Definition.Branch)
+	assert.Equal(t, "base-branch", byID.Definition.PrimaryBranch())
 
 	byRoot, err := store.Resolve(context.Background(), ResolveRequest{
 		ProjectID: "acme",
 		RootURI:   fileURI(worktree),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "wt-branch", byRoot.Definition.Branch)
+	assert.Equal(t, "wt-branch", byRoot.Definition.PrimaryBranch())
 	assert.NotEqual(t, byID.Revision, byRoot.Revision)
 	require.GreaterOrEqual(t, len(byRoot.Sources), 2)
 	assert.Equal(t, "user", byRoot.Sources[0].Kind)
@@ -110,19 +102,16 @@ func TestCatalog_RejectUnsafeRoot(t *testing.T) {
 func TestCatalog_OptimisticConflictHiddenByOverlay(t *testing.T) {
 	store := newTestCatalog(t)
 	repo := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(repo, ".project.json"), []byte(`{"version":"1","name":"acme","branch":"overlay"}`), 0600))
-	created, err := store.Create(context.Background(), CreateRequest{Definition: Definition{
-		Version: "1",
-		Name:    "acme",
-		Repo:    repo,
-		Branch:  "user-one",
-	}})
+	require.NoError(t, os.WriteFile(filepath.Join(repo, ".project.json"), []byte(
+		`{"version":"1","name":"acme","resources":{"main":{"type":"repo","path":`+jsonString(repo)+`,"branch":"overlay"}}}`), 0600))
+	created, err := store.Create(context.Background(), CreateRequest{Definition: testDefRepo("acme", repo, "user-one")})
 	require.NoError(t, err)
 	s1 := created.SourceRevision
 
 	// Hidden user-layer change: branch is still overlay in the effective snapshot.
 	userPath := filepath.Join(store.ConfigDir(), "projects", "acme.project.json")
-	require.NoError(t, os.WriteFile(userPath, []byte(`{"version":"1","name":"acme","repo":"`+repo+`","branch":"user-two"}`), 0600))
+	require.NoError(t, os.WriteFile(userPath, []byte(
+		`{"version":"1","name":"acme","resources":{"main":{"type":"repo","path":`+jsonString(repo)+`,"branch":"user-two"}}}`), 0600))
 
 	_, err = store.Patch(context.Background(), PatchRequest{
 		ProjectID:              "acme",
@@ -139,9 +128,10 @@ func TestCatalog_OptimisticConflictHiddenByOverlay(t *testing.T) {
 func TestCatalog_PatchPreservesUnknownFieldsAndRepoFile(t *testing.T) {
 	store := newTestCatalog(t)
 	repo := t.TempDir()
-	overlay := []byte(`{"version":"1","name":"acme","branch":"overlay","repoOnly":true}`)
+	overlay := []byte(`{"version":"1","name":"acme","resources":{"main":{"type":"repo","path":` + jsonString(repo) + `,"branch":"overlay"}},"repoOnly":true}`)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".project.json"), overlay, 0600))
-	writeProjectFile(t, store.ConfigDir(), "acme", `{"version":"1","name":"acme","repo":"`+repo+`","branch":"user","custom":{"keep":true}}`)
+	writeProjectFile(t, store.ConfigDir(), "acme",
+		`{"version":"1","name":"acme","resources":{"main":{"type":"repo","path":`+jsonString(repo)+`,"branch":"user"}},"custom":{"keep":true}}`)
 	require.NoError(t, store.Load())
 
 	got, err := store.Get(context.Background(), "acme")
@@ -152,13 +142,15 @@ func TestCatalog_PatchPreservesUnknownFieldsAndRepoFile(t *testing.T) {
 		Patch:                  json.RawMessage(`{"launch":{"prompt":"hi"}}`),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "overlay", patched.Definition.Branch)
+	assert.Equal(t, "overlay", patched.Definition.PrimaryBranch())
 
 	userRaw, err := os.ReadFile(filepath.Join(store.ConfigDir(), "projects", "acme.project.json"))
 	require.NoError(t, err)
 	var saved map[string]any
 	require.NoError(t, json.Unmarshal(userRaw, &saved))
-	assert.Equal(t, "user", saved["branch"])
+	resources := saved["resources"].(map[string]any)
+	main := resources["main"].(map[string]any)
+	assert.Equal(t, "user", main["branch"])
 	assert.Equal(t, map[string]any{"keep": true}, saved["custom"])
 	repoRaw, err := os.ReadFile(filepath.Join(repo, ".project.json"))
 	require.NoError(t, err)
@@ -167,7 +159,7 @@ func TestCatalog_PatchPreservesUnknownFieldsAndRepoFile(t *testing.T) {
 
 func TestCatalog_RejectRenameThroughPatch(t *testing.T) {
 	store := newTestCatalog(t)
-	created, err := store.Create(context.Background(), CreateRequest{Definition: Definition{Version: "1", Name: "acme"}})
+	created, err := store.Create(context.Background(), CreateRequest{Definition: testDef("acme")})
 	require.NoError(t, err)
 	_, err = store.Patch(context.Background(), PatchRequest{
 		ProjectID:              "acme",
@@ -182,7 +174,7 @@ func TestCatalog_RejectRenameThroughPatch(t *testing.T) {
 
 func TestCatalog_InvalidSourceDiagnostics(t *testing.T) {
 	store := newTestCatalog(t)
-	writeProjectFile(t, store.ConfigDir(), "broken", `{"version":"nope","name":"broken"}`)
+	writeProjectFile(t, store.ConfigDir(), "broken", `{"version":"nope","name":"broken","resources":{}}`)
 	page, err := store.List(context.Background(), "")
 	require.NoError(t, err)
 	require.Empty(t, page.Projects)
@@ -199,14 +191,14 @@ func TestCatalog_InvalidSourceDiagnostics(t *testing.T) {
 func TestCatalog_RevisionsSurviveDeleteAndReconstruction(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStore(dir)
-	created, err := store.Create(context.Background(), CreateRequest{Definition: Definition{Version: "1", Name: "acme", Branch: "one"}})
+	created, err := store.Create(context.Background(), CreateRequest{Definition: testDefRepo("acme", "/tmp/acme", "one")})
 	require.NoError(t, err)
 	r1 := created.Revision
 
 	patched, err := store.Patch(context.Background(), PatchRequest{
 		ProjectID:              "acme",
 		ExpectedSourceRevision: created.SourceRevision,
-		Patch:                  json.RawMessage(`{"branch":"two"}`),
+		Patch:                  json.RawMessage(`{"resources":{"main":{"type":"repo","path":"/tmp/acme","branch":"two"}}}`),
 	})
 	require.NoError(t, err)
 	require.NoError(t, store.Delete(context.Background(), DeleteRequest{
@@ -218,17 +210,18 @@ func TestCatalog_RevisionsSurviveDeleteAndReconstruction(t *testing.T) {
 	got, err := again.GetRevision(context.Background(), "acme", r1)
 	require.NoError(t, err)
 	assert.Equal(t, r1, got.Revision)
-	assert.Equal(t, "one", got.Definition.Branch)
+	assert.Equal(t, "one", got.Definition.PrimaryBranch())
 }
 
 func TestCatalog_ExternalFileRefresh(t *testing.T) {
 	store := newTestCatalog(t)
-	_, err := store.Create(context.Background(), CreateRequest{Definition: Definition{Version: "1", Name: "acme", Branch: "one"}})
+	_, err := store.Create(context.Background(), CreateRequest{Definition: testDefRepo("acme", "/tmp/acme", "one")})
 	require.NoError(t, err)
-	writeProjectFile(t, store.ConfigDir(), "acme", `{"version":"1","name":"acme","branch":"external"}`)
+	writeProjectFile(t, store.ConfigDir(), "acme",
+		`{"version":"1","name":"acme","resources":{"main":{"type":"repo","path":"/tmp/acme","branch":"external"}}}`)
 	got, err := store.Get(context.Background(), "acme")
 	require.NoError(t, err)
-	assert.Equal(t, "external", got.Definition.Branch)
+	assert.Equal(t, "external", got.Definition.PrimaryBranch())
 }
 
 func TestCatalog_RawCASDeleteRecreate(t *testing.T) {
@@ -251,7 +244,7 @@ func TestCatalog_RawCASDeleteRecreate(t *testing.T) {
 		ProjectID:                 "broken",
 		ExpectedRawSourceRevision: raw,
 	}))
-	_, err = store.Create(context.Background(), CreateRequest{Definition: Definition{Version: "1", Name: "broken"}})
+	_, err = store.Create(context.Background(), CreateRequest{Definition: testDef("broken")})
 	require.NoError(t, err)
 }
 
@@ -259,7 +252,7 @@ func TestCatalog_ValidateJSONNoWrite(t *testing.T) {
 	store := newTestCatalog(t)
 	before, err := os.ReadDir(store.ConfigDir())
 	require.NoError(t, err)
-	diags := store.ValidateJSON(context.Background(), json.RawMessage(`{"version":"9","name":"x"}`), nil)
+	diags := store.ValidateJSON(context.Background(), json.RawMessage(`{"version":"9","name":"x","resources":{}}`), nil)
 	require.NotEmpty(t, diags)
 	assert.Equal(t, "error", diags[0].Severity)
 	after, err := os.ReadDir(store.ConfigDir())
