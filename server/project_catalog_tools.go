@@ -346,9 +346,17 @@ func (s *ProjectCatalogServer) toolDelete(ctx context.Context, _ *mcpsdk.CallToo
 	}
 	if err != nil {
 		if e, ok := awm.AsError(err); ok {
+			code := project.CodeInvalidDefinition
+			if e.Code == awm.CodeReferenced {
+				code = project.CodeReferenced
+			}
+			msg := e.Message
+			if e.WorkSessionID != "" {
+				msg = e.Message + " (work_session_id=" + e.WorkSessionID + ")"
+			}
 			return domainAnyError(&project.Error{
-				Code:      project.CodeInvalidDefinition,
-				Message:   e.Message + " (work_session_id=" + e.WorkSessionID + ")",
+				Code:      code,
+				Message:   msg,
 				ProjectID: project.ProjectID(in.ProjectID),
 			})
 		}

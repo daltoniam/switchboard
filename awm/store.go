@@ -235,23 +235,29 @@ func normalizeProject(p Project) Project {
 }
 
 // PutProject creates or replaces a Project definition using the catalog file
-// schema (version/name/description) under the shared .catalog.lock so it cannot
-// race project.Store writers on the same path.
+// schema under the shared .catalog.lock so it cannot race project.Store writers.
+// Existing extra fields (tools, agents, resources/Additional) are preserved.
 func (s *Store) PutProject(ctx context.Context, p Project) (Project, error) {
 	p = normalizeProject(p)
 	if err := p.Validate(); err != nil {
-		return Project{}, err
-	}
-	// Catalog-canonical on-disk shape (not AWM-only fields).
-	doc := map[string]any{
-		"version": p.Version,
-		"name":    p.ProjectID,
-	}
-	if p.Description != "" {
-		doc["description"] = p.Description
+		return Project{}, invalidInput(err.Error())
 	}
 	err := s.withCatalogLock(ctx, func() error {
-		return atomicWriteJSON(s.projectPath(p.ProjectID), doc)
+		path := s.projectPath(p.ProjectID)
+		doc := map[string]any{}
+		if raw, err := os.ReadFile(path); err == nil {
+			_ = json.Unmarshal(raw, &doc)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		doc["version"] = p.Version
+		doc["name"] = p.ProjectID
+		if p.Description != "" {
+			doc["description"] = p.Description
+		} else {
+			delete(doc, "description")
+		}
+		return atomicWriteJSON(path, doc)
 	})
 	return p, err
 }
@@ -327,7 +333,11 @@ func (s *Store) DeleteProject(ctx context.Context, id string) error {
 	// Reference check needs the AWM session tree; project file removal uses the
 	// shared catalog lock so it cannot race project.Store deletes.
 	if err := s.withLock(ctx, func() error {
-		if ref := s.firstSessionReferencingProjectUnlocked(id); ref != "" {
+		ref, err := s.firstSessionReferencingProjectUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if ref != "" {
 			return &Error{
 				Code:          CodeReferenced,
 				Message:       "project is referenced by a retained work session",
@@ -450,7 +460,11 @@ func (s *Store) DeleteWorkProfile(ctx context.Context, id string) error {
 			}
 			return err
 		}
-		if ref := s.firstSessionReferencingProfileUnlocked(id); ref != "" {
+		ref, err := s.firstSessionReferencingProfileUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if ref != "" {
 			return &Error{
 				Code:          CodeReferenced,
 				Message:       "work profile is referenced by a retained work session",
@@ -464,10 +478,10 @@ func (s *Store) DeleteWorkProfile(ctx context.Context, id string) error {
 	})
 }
 
-func (s *Store) firstSessionReferencingProfileUnlocked(profileID string) string {
+func (s *Store) firstSessionReferencingProfileUnlocked(profileID string) (string, error) {
 	ids, err := listJSONIDs(s.workSessionsDir(), ".json")
 	if err != nil {
-		return ""
+		return "", err
 	}
 	for _, id := range ids {
 		sess, err := readJSON[WorkSession](s.workSessionPath(id))
@@ -475,16 +489,16 @@ func (s *Store) firstSessionReferencingProfileUnlocked(profileID string) string 
 			continue
 		}
 		if sess.WorkProfileID == profileID {
-			return sess.WorkSessionID
+			return sess.WorkSessionID, nil
 		}
 	}
-	return ""
+	return "", nil
 }
 
-func (s *Store) firstSessionReferencingProjectUnlocked(projectID string) string {
+func (s *Store) firstSessionReferencingProjectUnlocked(projectID string) (string, error) {
 	ids, err := listJSONIDs(s.workSessionsDir(), ".json")
 	if err != nil {
-		return ""
+		return "", err
 	}
 	for _, id := range ids {
 		sess, err := readJSON[WorkSession](s.workSessionPath(id))
@@ -492,10 +506,10 @@ func (s *Store) firstSessionReferencingProjectUnlocked(projectID string) string 
 			continue
 		}
 		if sess.ProjectID == projectID {
-			return sess.WorkSessionID
+			return sess.WorkSessionID, nil
 		}
 	}
-	return ""
+	return "", nil
 }
 
 // --- AgentProfile ---
@@ -510,7 +524,7 @@ func (s *Store) PutAgentProfile(ctx context.Context, p AgentProfile) (AgentProfi
 		p.Version = "1"
 	}
 	if err := p.Validate(); err != nil {
-		return AgentProfile{}, err
+		return AgentProfile{}, invalidInput(err.Error())
 	}
 	err := s.withLock(ctx, func() error {
 		return atomicWriteJSON(s.agentProfilePath(p.AgentProfileID), p)
@@ -524,7 +538,7 @@ func (s *Store) GetAgentProfile(ctx context.Context, id string) (AgentProfile, e
 		return AgentProfile{}, err
 	}
 	if err := validateID("agent_profile_id", id); err != nil {
-		return AgentProfile{}, err
+		return AgentProfile{}, invalidInput(err.Error())
 	}
 	p, err := readJSON[AgentProfile](s.agentProfilePath(id))
 	if err != nil {
@@ -559,10 +573,14 @@ func (s *Store) ListAgentProfiles(ctx context.Context) ([]AgentProfile, error) {
 // DeleteAgentProfile removes an agent profile.
 func (s *Store) DeleteAgentProfile(ctx context.Context, id string) error {
 	if err := validateID("agent_profile_id", id); err != nil {
-		return err
+		return invalidInput(err.Error())
 	}
 	return s.withLock(ctx, func() error {
-		if ref := s.firstSessionReferencingAgentUnlocked(id); ref != "" {
+		ref, err := s.firstSessionReferencingAgentUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if ref != "" {
 			return &Error{
 				Code:          CodeReferenced,
 				Message:       "agent profile is referenced by a retained work session",
@@ -582,10 +600,10 @@ func (s *Store) DeleteAgentProfile(ctx context.Context, id string) error {
 	})
 }
 
-func (s *Store) firstSessionReferencingAgentUnlocked(agentID string) string {
+func (s *Store) firstSessionReferencingAgentUnlocked(agentID string) (string, error) {
 	ids, err := listJSONIDs(s.workSessionsDir(), ".json")
 	if err != nil {
-		return ""
+		return "", err
 	}
 	for _, id := range ids {
 		sess, err := readJSON[WorkSession](s.workSessionPath(id))
@@ -594,11 +612,11 @@ func (s *Store) firstSessionReferencingAgentUnlocked(agentID string) string {
 		}
 		for _, ap := range sess.AgentProfileIDs {
 			if ap == agentID {
-				return sess.WorkSessionID
+				return sess.WorkSessionID, nil
 			}
 		}
 	}
-	return ""
+	return "", nil
 }
 
 // --- WorkSession ---
@@ -1063,7 +1081,11 @@ func (s *Store) AssertProjectDeletableUnlocked(projectID string) error {
 }
 
 func (s *Store) assertProjectDeletableUnlocked(projectID string) error {
-	if ref := s.firstSessionReferencingProjectUnlocked(projectID); ref != "" {
+	ref, err := s.firstSessionReferencingProjectUnlocked(projectID)
+	if err != nil {
+		return err
+	}
+	if ref != "" {
 		return &Error{
 			Code:          CodeReferenced,
 			Message:       "project is referenced by a retained work session",
