@@ -277,3 +277,14 @@ func TestProjectCRUD_AndLegacyFile(t *testing.T) {
 	require.NoError(t, s.DeleteWorkSession(ctx, "ws-p"))
 	require.NoError(t, s.DeleteProject(ctx, "newproj"))
 }
+
+func TestTransitionAndPatch_RejectInvalidID(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	// Path traversal must not touch catalog files under projects/.
+	bad := "../../projects/acme.project"
+	_, err := s.TransitionWorkSession(ctx, bad, StateOpen)
+	require.Error(t, err)
+	_, err = s.PatchWorkSession(ctx, bad, nil, nil, nil)
+	require.Error(t, err)
+}

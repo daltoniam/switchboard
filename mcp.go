@@ -211,7 +211,9 @@ type Config struct {
 }
 
 // ProjectCatalogConfig controls catalog tools/resources on the main MCP server.
-// Nil Enabled/WritesEnabled mean default-on (true).
+// Nil Enabled means default-on (true). Nil WritesEnabled means default-on (true)
+// for local/dev convenience; network-exposed deployments must set
+// writes_enabled=false or put /mcp behind an external auth layer.
 type ProjectCatalogConfig struct {
 	Enabled       *bool `json:"enabled,omitempty"`
 	WritesEnabled *bool `json:"writes_enabled,omitempty"`
@@ -226,6 +228,8 @@ func ProjectCatalogEnabled(cfg ProjectCatalogConfig) bool {
 }
 
 // ProjectCatalogWritesEnabled reports whether canonical writes are on (default true).
+// When true on a reachable /mcp endpoint, create/update/delete are unauthenticated
+// unless an external proxy authenticates callers.
 func ProjectCatalogWritesEnabled(cfg ProjectCatalogConfig) bool {
 	if cfg.WritesEnabled == nil {
 		return true

@@ -541,9 +541,6 @@ func (s *Store) Resolve(ctx context.Context, req ResolveRequest) (Snapshot, erro
 	if req.ProjectID == "" && req.RootURI == "" {
 		return Snapshot{}, &Error{Code: CodeInvalidRoot, Message: "projectId or rootUri is required"}
 	}
-	if err := s.rebuildIndex(); err != nil {
-		return Snapshot{}, err
-	}
 
 	var rootAbs string
 	if req.RootURI != "" {
@@ -554,37 +551,55 @@ func (s *Store) Resolve(ctx context.Context, req ResolveRequest) (Snapshot, erro
 		rootAbs = abs
 	}
 
+	// Hold the store mutex while rebuilding/reading the index so Resolve cannot
+	// race List/Get/Search (which also rebuild under s.mu).
+	s.mu.Lock()
+	if err := s.rebuildIndex(); err != nil {
+		s.mu.Unlock()
+		return Snapshot{}, err
+	}
+
 	id := req.ProjectID
 	if id == "" {
 		matched, matchErr := s.matchProjectByRoot(ctx, rootAbs)
 		if matchErr != nil {
+			s.mu.Unlock()
 			return Snapshot{}, matchErr
 		}
 		id = matched
 	} else if rootAbs != "" {
 		matched, matchErr := s.matchProjectByRoot(ctx, rootAbs)
 		if matchErr != nil && matchErr.Code != CodeProjectNotFound && matchErr.Code != CodeInvalidRoot {
+			s.mu.Unlock()
 			return Snapshot{}, matchErr
 		}
 		if matchErr == nil && matched != id {
+			s.mu.Unlock()
 			return Snapshot{}, &Error{Code: CodeRootProjectMismatch, Message: "rootUri does not belong to project", ProjectID: id, RootURI: req.RootURI}
 		}
 	}
 
 	rec := s.index[id]
 	if rec == nil {
+		s.mu.Unlock()
 		return Snapshot{}, errorWithProject(CodeProjectNotFound, "project not found", id)
 	}
 	if rec.invalid || rec.user == nil {
+		diags := cloneDiagnostics(rec.diagnostics)
+		s.mu.Unlock()
 		return Snapshot{}, &Error{
 			Code:        CodeInvalidDefinition,
 			Message:     "project definition is invalid",
 			ProjectID:   id,
-			Diagnostics: cloneDiagnostics(rec.diagnostics),
+			Diagnostics: diags,
 		}
 	}
+	user := cloneDefinition(rec.user)
+	userBytes := append([]byte(nil), rec.userBytes...)
+	userPath := rec.path
+	s.mu.Unlock()
 
-	effective, sources, diags := s.mergeEffective(rec.user, rootAbs, rec.path)
+	effective, sources, diags := s.mergeEffective(user, rootAbs, userPath)
 	if hasError(diags) {
 		return Snapshot{}, &Error{
 			Code:        CodeInvalidDefinition,
@@ -594,7 +609,7 @@ func (s *Store) Resolve(ctx context.Context, req ResolveRequest) (Snapshot, erro
 			RootURI:     req.RootURI,
 		}
 	}
-	rev, srcRev, err := HashUserAndEffective(rec.user, effective)
+	rev, srcRev, err := HashUserAndEffective(user, effective)
 	if err != nil {
 		return Snapshot{}, &Error{Code: CodeInternalError, Message: err.Error(), ProjectID: id}
 	}
@@ -613,7 +628,7 @@ func (s *Store) Resolve(ctx context.Context, req ResolveRequest) (Snapshot, erro
 		Sources:        sources,
 		Diagnostics:    cloneDiagnostics(diags),
 		RootURI:        rootURI,
-		UserBytes:      append([]byte(nil), rec.userBytes...),
+		UserBytes:      userBytes,
 	}, nil
 }
 

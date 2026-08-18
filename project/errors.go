@@ -19,6 +19,9 @@ const (
 	CodeInternalError        = "internal_error"
 	CodeLockTimeout          = "lock_timeout"
 	CodeDuplicateProjectID   = "duplicate_project_id"
+	// CodeReferenced is returned when a Project cannot be deleted because a
+	// retained WorkSession still pins it.
+	CodeReferenced = "referenced"
 )
 
 // Error is a typed catalog error. Adapters must not string-match messages.

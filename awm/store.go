@@ -100,16 +100,34 @@ func (s *Store) agentProfilesDir() string { return filepath.Join(s.root, "agent_
 func (s *Store) workSessionsDir() string  { return filepath.Join(s.root, "work_sessions") }
 func (s *Store) lockPath() string         { return filepath.Join(s.root, ".awm.lock") }
 
+// catalogLockPath is shared with project.Store (.catalog.lock) so AWM project
+// writes cannot interleave with catalog create/update/delete on the same files.
+func (s *Store) catalogLockPath() string {
+	return filepath.Join(s.configRoot, ".catalog.lock")
+}
+
 func (s *Store) withLock(ctx context.Context, fn func() error) error {
-	if err := ctx.Err(); err != nil {
+	if err := os.MkdirAll(s.root, 0700); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(s.root, 0700); err != nil {
+	return s.withFlock(ctx, s.lockPath(), "awm lock timeout", fn)
+}
+
+// withCatalogLock serializes writes to projects/*.project.json with project.Store.
+func (s *Store) withCatalogLock(ctx context.Context, fn func() error) error {
+	if err := os.MkdirAll(s.configRoot, 0700); err != nil {
+		return err
+	}
+	return s.withFlock(ctx, s.catalogLockPath(), "catalog lock timeout", fn)
+}
+
+func (s *Store) withFlock(ctx context.Context, path, timeoutMsg string, fn func() error) error {
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	fl := flock.New(s.lockPath())
+	fl := flock.New(path)
 	deadline := time.Now().Add(10 * time.Second)
 	if dl, ok := ctx.Deadline(); ok && dl.Before(deadline) {
 		deadline = dl
@@ -127,7 +145,7 @@ func (s *Store) withLock(ctx context.Context, fn func() error) error {
 			return fn()
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("awm lock timeout")
+			return fmt.Errorf("%s", timeoutMsg)
 		}
 		select {
 		case <-ctx.Done():
@@ -216,14 +234,24 @@ func normalizeProject(p Project) Project {
 	return p
 }
 
-// PutProject creates or replaces a Project definition.
+// PutProject creates or replaces a Project definition using the catalog file
+// schema (version/name/description) under the shared .catalog.lock so it cannot
+// race project.Store writers on the same path.
 func (s *Store) PutProject(ctx context.Context, p Project) (Project, error) {
 	p = normalizeProject(p)
 	if err := p.Validate(); err != nil {
 		return Project{}, err
 	}
-	err := s.withLock(ctx, func() error {
-		return atomicWriteJSON(s.projectPath(p.ProjectID), p)
+	// Catalog-canonical on-disk shape (not AWM-only fields).
+	doc := map[string]any{
+		"version": p.Version,
+		"name":    p.ProjectID,
+	}
+	if p.Description != "" {
+		doc["description"] = p.Description
+	}
+	err := s.withCatalogLock(ctx, func() error {
+		return atomicWriteJSON(s.projectPath(p.ProjectID), doc)
 	})
 	return p, err
 }
@@ -296,7 +324,9 @@ func (s *Store) DeleteProject(ctx context.Context, id string) error {
 	if err := validateID("project_id", id); err != nil {
 		return invalidInput(err.Error())
 	}
-	return s.withLock(ctx, func() error {
+	// Reference check needs the AWM session tree; project file removal uses the
+	// shared catalog lock so it cannot race project.Store deletes.
+	if err := s.withLock(ctx, func() error {
 		if ref := s.firstSessionReferencingProjectUnlocked(id); ref != "" {
 			return &Error{
 				Code:          CodeReferenced,
@@ -307,6 +337,11 @@ func (s *Store) DeleteProject(ctx context.Context, id string) error {
 				WorkSessionID: ref,
 			}
 		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return s.withCatalogLock(ctx, func() error {
 		removed := false
 		for _, path := range []string{s.projectPath(id), s.projectAltPath(id)} {
 			if err := os.Remove(path); err == nil {
@@ -859,6 +894,9 @@ func (s *Store) ListWorkSessions(ctx context.Context, state, projectID string) (
 
 // TransitionWorkSession moves a session to a new lifecycle state.
 func (s *Store) TransitionWorkSession(ctx context.Context, id, toState string) (WorkSession, error) {
+	if err := validateID("work_session_id", id); err != nil {
+		return WorkSession{}, invalidInput(err.Error())
+	}
 	var out WorkSession
 	err := s.withLock(ctx, func() error {
 		sess, err := readJSON[WorkSession](s.workSessionPath(id))
@@ -899,6 +937,9 @@ func (s *Store) TransitionWorkSession(ctx context.Context, id, toState string) (
 
 // PatchWorkSession updates mutable descriptive fields without changing state.
 func (s *Store) PatchWorkSession(ctx context.Context, id string, displayName *string, agentProfileIDs *[]string, policy map[string]any) (WorkSession, error) {
+	if err := validateID("work_session_id", id); err != nil {
+		return WorkSession{}, invalidInput(err.Error())
+	}
 	var out WorkSession
 	err := s.withLock(ctx, func() error {
 		sess, err := readJSON[WorkSession](s.workSessionPath(id))

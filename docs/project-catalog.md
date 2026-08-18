@@ -32,6 +32,12 @@ This is **isolated** from any `project-interop` config directory.
 
 Catalog tools and `project://` resources are on the main `/mcp` endpoint (enabled by default).
 
+### Writes / exposure
+
+- `project_catalog.writes_enabled` defaults to **on** (`null`/`omitted` ⇒ true) for local development.
+- Catalog mutation tools (`project_create`, `project_update`, `project_patch`, `project_delete`) and work-model mutations share that main `/mcp` surface with **no built-in bearer token**.
+- If Switchboard is reachable beyond loopback, either set `"project_catalog": { "writes_enabled": false }` or put `/mcp` behind an external auth layer. Do not expose unauthenticated catalog writes on the public internet.
+
 ### Tools
 
 - `project_list` / `project_search`

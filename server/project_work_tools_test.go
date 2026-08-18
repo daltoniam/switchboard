@@ -91,3 +91,123 @@ func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, tr.IsError, "%v", tr.StructuredContent)
 }
+
+func TestProjectWorkModel_DefaultProfileSeededViaStore(t *testing.T) {
+	root := t.TempDir()
+	store := awm.NewStore(root)
+	_, err := store.EnsureDefaultWorkProfile(context.Background())
+	require.NoError(t, err)
+
+	reg := newMockRegistry()
+	services := &mcp.Services{
+		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
+		Registry: reg,
+	}
+	s := New(services, WithProjectWorkModel(store))
+	httpSrv := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{MCP: s.StatelessHandler()}))
+	t.Cleanup(httpSrv.Close)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "default-profile-test", Version: "0"}, nil)
+	session, err := client.Connect(context.Background(), &mcpsdk.StreamableClientTransport{
+		Endpoint:   httpSrv.URL + "/mcp",
+		HTTPClient: httpSrv.Client(),
+	}, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Close() })
+
+	got, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name:      "project_work_profile_get",
+		Arguments: map[string]any{"id": "default"},
+	})
+	require.NoError(t, err)
+	require.False(t, got.IsError, "%v", got.StructuredContent)
+}
+
+func TestProjectWorkModel_DeleteReferencedProfileStableError(t *testing.T) {
+	root := t.TempDir()
+	store := awm.NewStore(root)
+	ctx := context.Background()
+	_, err := store.PutWorkProfile(ctx, awm.WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = store.PutProject(ctx, awm.Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	_, err = store.CreateWorkSession(ctx, awm.WorkSession{
+		Version: "1", WorkSessionID: "ws", ProjectID: "p", WorkProfileID: "wp", State: awm.StateOpen,
+	})
+	require.NoError(t, err)
+
+	reg := newMockRegistry()
+	services := &mcp.Services{
+		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
+		Registry: reg,
+	}
+	s := New(services, WithProjectWorkModel(store))
+	httpSrv := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{MCP: s.StatelessHandler()}))
+	t.Cleanup(httpSrv.Close)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "ref-test", Version: "0"}, nil)
+	session, err := client.Connect(context.Background(), &mcpsdk.StreamableClientTransport{
+		Endpoint:   httpSrv.URL + "/mcp",
+		HTTPClient: httpSrv.Client(),
+	}, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Close() })
+
+	del, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name:      "project_work_profile_delete",
+		Arguments: map[string]any{"id": "wp"},
+	})
+	require.NoError(t, err)
+	require.True(t, del.IsError)
+	// Structured error must expose stable code.
+	sc, _ := del.StructuredContent.(map[string]any)
+	require.NotNil(t, sc)
+	errBody, _ := sc["error"].(map[string]any)
+	require.NotNil(t, errBody)
+	assert.Equal(t, awm.CodeReferenced, errBody["code"])
+}
+
+func TestProjectWorkModel_RejectFabricatedSnapshot(t *testing.T) {
+	root := t.TempDir()
+	store := awm.NewStore(root)
+	ctx := context.Background()
+	_, err := store.EnsureDefaultWorkProfile(ctx)
+	require.NoError(t, err)
+	_, err = store.PutProject(ctx, awm.Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+
+	reg := newMockRegistry()
+	services := &mcp.Services{
+		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
+		Registry: reg,
+	}
+	s := New(services, WithProjectWorkModel(store))
+	httpSrv := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{MCP: s.StatelessHandler()}))
+	t.Cleanup(httpSrv.Close)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "snap-test", Version: "0"}, nil)
+	session, err := client.Connect(context.Background(), &mcpsdk.StreamableClientTransport{
+		Endpoint:   httpSrv.URL + "/mcp",
+		HTTPClient: httpSrv.Client(),
+	}, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Close() })
+
+	ws, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project_work_session_create",
+		Arguments: map[string]any{
+			"version": "1", "work_session_id": "ws-bad",
+			"project_id": "p", "work_profile_id": "default",
+			"project_revision":    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"project_snapshot_id": "sha256:abc",
+			"state":               "proposed",
+		},
+	})
+	require.NoError(t, err)
+	require.True(t, ws.IsError, "fabricated snapshot must fail")
+	sc, _ := ws.StructuredContent.(map[string]any)
+	require.NotNil(t, sc)
+	errBody, _ := sc["error"].(map[string]any)
+	require.NotNil(t, errBody)
+	assert.Equal(t, awm.CodeInvalidReference, errBody["code"])
+}

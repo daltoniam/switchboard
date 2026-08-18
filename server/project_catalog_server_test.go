@@ -120,6 +120,34 @@ func TestProjectCatalog_UpdateAndConflict(t *testing.T) {
 	require.True(t, conflict.IsError)
 }
 
+func TestProjectCatalog_UpdateWithFullDefinition(t *testing.T) {
+	// Full definition bodies always include name; update must strip matching name.
+	httpSrv, store := newCatalogTestServer(t, true)
+	created, err := store.Create(context.Background(), project.CreateRequest{
+		Definition: project.Definition{Version: "1", Name: "acme", Description: "one"},
+	})
+	require.NoError(t, err)
+	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
+	ok, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project_update",
+		Arguments: map[string]any{
+			"projectId":              "acme",
+			"expectedSourceRevision": string(created.SourceRevision),
+			"definition": map[string]any{
+				"version":     "1",
+				"name":        "acme",
+				"description": "via-definition",
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, ok.IsError, "%v", ok.StructuredContent)
+
+	got, err := store.Get(context.Background(), "acme")
+	require.NoError(t, err)
+	assert.Equal(t, "via-definition", got.Definition.Description)
+}
+
 func TestProjectCatalog_WritesDisabled(t *testing.T) {
 	httpSrv, _ := newCatalogTestServer(t, false)
 	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")

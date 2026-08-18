@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/url"
 
 	"github.com/daltoniam/switchboard/awm"
@@ -295,8 +296,11 @@ func (s *ProjectCatalogServer) toolUpdate(ctx context.Context, _ *mcpsdk.CallToo
 		patch = in.Patch
 	case in.Definition != nil:
 		// Full definition replacement via merge-patch of provided fields.
-		// Strip immutable name if present to avoid name-change rejection when equal.
-		patch = in.Definition
+		// Strip immutable name when it matches projectId (or is empty); real renames still fail.
+		patch = maps.Clone(in.Definition)
+		if name, _ := patch["name"].(string); name == in.ProjectID || name == "" {
+			delete(patch, "name")
+		}
 	default:
 		return domainAnyError(&project.Error{Code: project.CodeInvalidDefinition, Message: "patch or definition is required"})
 	}
