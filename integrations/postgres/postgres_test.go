@@ -19,6 +19,11 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, "postgres", i.Name())
 }
 
+func TestPostgresDriverRegistered(t *testing.T) {
+	assert.Contains(t, sql.Drivers(), "pgx")
+	assert.NotContains(t, sql.Drivers(), "postgres")
+}
+
 func TestConfigure_ConnectionString(t *testing.T) {
 	p := &postgres{conns: make(map[string]*pgConn)}
 	err := p.Configure(context.Background(), mcp.Credentials{"connection_string": "host=localhost port=5432 user=test dbname=testdb sslmode=disable"})
