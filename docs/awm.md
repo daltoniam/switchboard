@@ -1,62 +1,49 @@
 # Project work model (AWM subset)
 
-Switchboard holds a **minimal Agent Work Model subset** nested under the **project** tool namespace so multiple tools can share projects and work episodes.
+Switchboard implements a **minimal Agent Work Model** subset in the internal `awm` package so projects, work profiles, work sessions, and agent profiles share one store tree.
 
 Canonical vocabulary: `~/work/projects/agent-work-model/model/terms/`.
 
-## Terms
+## Terms in package `awm`
 
-| AWM term | Switchboard tools | Notes |
+| AWM term | Type | Tools |
 |---|---|---|
-| **Project** | `project.list` / `get` / `create` / … | Durable id + description |
-| **WorkProfile** | `project.work_profile.*` | Session blueprint (“session profile”) |
-| **WorkSession** | `project.work_session.*` | Bounded episode — not an MCP transport session |
-| **AgentProfile** | `project.agent_profile.*` | Eligible agent kind, not a running process |
+| **Project** | `awm.Project` | `project.list` / `get` / `create` / `update` / `delete` (catalog surface) |
+| **WorkProfile** | `awm.WorkProfile` | `project.work_profile.*` |
+| **WorkSession** | `awm.WorkSession` | `project.work_session.*` |
+| **AgentProfile** | `awm.AgentProfile` | `project.agent_profile.*` |
 
-## Storage
+`project.*` catalog tools and `awm.Store` project APIs share `~/.config/switchboard/projects/*.project.json`.
 
-Under the Switchboard config root (default `~/.config/switchboard`):
+## Storage (Switchboard config root only)
 
 ```text
 ~/.config/switchboard/
-  projects/<project_id>.project.json
+  projects/<project_id>.project.json    # Project (awm + catalog)
   awm/
     work_profiles/<work_profile_id>.json
     agent_profiles/<agent_profile_id>.json
     work_sessions/<work_session_id>.json
 ```
 
-Isolated from `project-interop`.
+Never under `project-interop`.
 
-## Tools (main `/mcp`)
+## Project schema
 
-### Project (existing)
+```json
+{ "version": "1", "name": "switchboard", "description": "optional" }
+```
 
-- `project.list` / `project.search`
-- `project.get` / `project.resolve`
-- `project.validate` / `project.create` / `project.update` / `project.delete`
+`project_id` is the filename stem / `name` field. Extra unknown JSON fields are tolerated on read for legacy files.
 
-### WorkProfile
+## WorkSession
 
-- `project.work_profile.list` / `get` / `put` / `delete`
-
-### AgentProfile
-
-- `project.agent_profile.list` / `get` / `put` / `delete`
-
-### WorkSession
-
-- `project.work_session.list` (`state`, `project_id` filters)
-- `project.work_session.get`
-- `project.work_session.create`
-- `project.work_session.transition` — `proposed` → `open` → `paused`/`closed`/`aborted`
-- `project.work_session.patch`
-- `project.work_session.delete`
+May reference `project_id` (must exist), `project_revision`, `work_profile_id`, `agent_profile_ids`.  
+Lifecycle: `proposed` → `open` → `paused` / `closed` / `aborted`.
 
 ## Invariants
 
-- WorkSession ≠ MCP connection or host chat
-- WorkProfile ≠ live WorkSession
-- AgentProfile ≠ AgentInstance / AgentRun
-- No credentials in these records
-- Project catalog remains project authority; sessions only reference `project_id` / revision
+- WorkSession ≠ MCP connection or host chat  
+- WorkProfile ≠ live WorkSession  
+- AgentProfile ≠ running instance  
+- No credentials in these records  

@@ -1,5 +1,5 @@
 // Package awm implements a minimal Agent Work Model subset for Switchboard:
-// WorkProfile (session blueprint), WorkSession, and AgentProfile.
+// Project, WorkProfile (session blueprint), WorkSession, and AgentProfile.
 //
 // Source vocabulary: Agent Work Model (project-catalog / profile-catalog /
 // work-session-coordinator roles). Unqualified "session" is avoided in field
@@ -13,6 +13,18 @@ import (
 )
 
 var idRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+
+// Project is a durable named collaboration scope (AWM Project).
+// Catalog identity is project_id (name) plus optional description.
+// Tools remain optional for project-scoped gateway policy when projected.
+type Project struct {
+	Version     string         `json:"version"`
+	ProjectID   string         `json:"project_id"`
+	Name        string         `json:"name,omitempty"` // alias of project_id when present
+	DisplayName string         `json:"display_name,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Policy      map[string]any `json:"policy,omitempty"`
+}
 
 // WorkProfile is a reusable blueprint for a kind of WorkSession (AWM WorkProfile).
 // Also referred to informally as a "session profile" in product language.
@@ -76,10 +88,30 @@ func validateID(kind, id string) error {
 	return nil
 }
 
+// Validate checks Project required fields.
+func (p *Project) Validate() error {
+	if p.Version != "1" {
+		return fmt.Errorf(`unsupported version %q (must be "1")`, p.Version)
+	}
+	id := p.ProjectID
+	if id == "" {
+		id = p.Name
+	}
+	if err := validateID("project_id", id); err != nil {
+		return err
+	}
+	// Normalize dual id fields.
+	p.ProjectID = id
+	if p.Name == "" {
+		p.Name = id
+	}
+	return nil
+}
+
 // Validate checks WorkProfile required fields.
 func (p *WorkProfile) Validate() error {
 	if p.Version != "1" {
-		return fmt.Errorf("unsupported version %q (must be \"1\")", p.Version)
+		return fmt.Errorf(`unsupported version %q (must be "1")`, p.Version)
 	}
 	return validateID("work_profile_id", p.WorkProfileID)
 }
@@ -87,7 +119,7 @@ func (p *WorkProfile) Validate() error {
 // Validate checks AgentProfile required fields.
 func (p *AgentProfile) Validate() error {
 	if p.Version != "1" {
-		return fmt.Errorf("unsupported version %q (must be \"1\")", p.Version)
+		return fmt.Errorf(`unsupported version %q (must be "1")`, p.Version)
 	}
 	return validateID("agent_profile_id", p.AgentProfileID)
 }
@@ -95,7 +127,7 @@ func (p *AgentProfile) Validate() error {
 // Validate checks WorkSession required fields and lifecycle state.
 func (s *WorkSession) Validate() error {
 	if s.Version != "1" {
-		return fmt.Errorf("unsupported version %q (must be \"1\")", s.Version)
+		return fmt.Errorf(`unsupported version %q (must be "1")`, s.Version)
 	}
 	if err := validateID("work_session_id", s.WorkSessionID); err != nil {
 		return err

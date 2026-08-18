@@ -55,3 +55,5 @@ Browse projects at `/projects` (list + detail).
 ## Related
 
 - Work profiles, work sessions, agent profiles (nested `project.*` tools): [awm.md](awm.md)
+
+Projects are also modeled as `awm.Project` in the internal AWM package and share this on-disk path with work profiles/sessions (see [awm.md](awm.md)).

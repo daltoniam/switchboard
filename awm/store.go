@@ -17,24 +17,35 @@ import (
 // Store is a filesystem-backed AWM catalog under a Switchboard config root.
 // Layout:
 //
+//	<root>/projects/<id>.project.json   (Project — preferred legacy-compatible path)
+//	<root>/awm/projects/<id>.json       (optional alternate)
 //	<root>/awm/work_profiles/<id>.json
 //	<root>/awm/agent_profiles/<id>.json
 //	<root>/awm/work_sessions/<id>.json
 //
 // Root should be ~/.config/switchboard (never project-interop).
 type Store struct {
-	root string
-	mu   sync.Mutex
+	configRoot string // Switchboard config root
+	root       string // <configRoot>/awm
+	mu         sync.Mutex
 }
 
-// NewStore creates an AWM store under configRoot/awm.
+// NewStore creates an AWM store under configRoot (projects + awm/ subtree).
 func NewStore(configRoot string) *Store {
-	return &Store{root: filepath.Join(configRoot, "awm")}
+	return &Store{
+		configRoot: configRoot,
+		root:       filepath.Join(configRoot, "awm"),
+	}
 }
 
-// Root returns the awm directory path.
+// Root returns the awm subdirectory path.
 func (s *Store) Root() string { return s.root }
 
+// ConfigRoot returns the Switchboard config root (parent of awm/).
+func (s *Store) ConfigRoot() string { return s.configRoot }
+
+func (s *Store) projectsDir() string      { return filepath.Join(s.configRoot, "projects") }
+func (s *Store) awmProjectsDir() string   { return filepath.Join(s.root, "projects") }
 func (s *Store) workProfilesDir() string  { return filepath.Join(s.root, "work_profiles") }
 func (s *Store) agentProfilesDir() string { return filepath.Join(s.root, "agent_profiles") }
 func (s *Store) workSessionsDir() string  { return filepath.Join(s.root, "work_sessions") }
@@ -126,6 +137,130 @@ func listJSONIDs(dir, suffix string) ([]string, error) {
 	}
 	sort.Strings(ids)
 	return ids, nil
+}
+
+// --- Project ---
+
+func (s *Store) projectPath(id string) string {
+	// Prefer top-level projects/ for compatibility with the existing catalog UI.
+	return filepath.Join(s.projectsDir(), id+".project.json")
+}
+
+func (s *Store) projectAltPath(id string) string {
+	return filepath.Join(s.awmProjectsDir(), id+".json")
+}
+
+// normalizeProject fills dual id fields from file contents.
+func normalizeProject(p Project) Project {
+	if p.Version == "" {
+		p.Version = "1"
+	}
+	if p.ProjectID == "" {
+		p.ProjectID = p.Name
+	}
+	if p.Name == "" {
+		p.Name = p.ProjectID
+	}
+	if p.DisplayName == "" {
+		p.DisplayName = p.Name
+	}
+	return p
+}
+
+// PutProject creates or replaces a Project definition.
+func (s *Store) PutProject(ctx context.Context, p Project) (Project, error) {
+	p = normalizeProject(p)
+	if err := p.Validate(); err != nil {
+		return Project{}, err
+	}
+	err := s.withLock(ctx, func() error {
+		return atomicWriteJSON(s.projectPath(p.ProjectID), p)
+	})
+	return p, err
+}
+
+// GetProject loads a project by id from projects/ or awm/projects/.
+func (s *Store) GetProject(ctx context.Context, id string) (Project, error) {
+	if err := ctx.Err(); err != nil {
+		return Project{}, err
+	}
+	if err := validateID("project_id", id); err != nil {
+		return Project{}, err
+	}
+	return s.lookupProjectUnlocked(id)
+}
+
+// ListProjects returns all projects sorted by id.
+func (s *Store) ListProjects(ctx context.Context) ([]Project, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	seen := map[string]Project{}
+	// Preferred directory.
+	ids, _ := listProjectFileIDs(s.projectsDir(), ".project.json")
+	for _, id := range ids {
+		p, err := s.GetProject(ctx, id)
+		if err == nil {
+			seen[id] = p
+		}
+	}
+	// Alternate directory fills gaps only.
+	alts, _ := listJSONIDs(s.awmProjectsDir(), ".json")
+	for _, id := range alts {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		p, err := s.GetProject(ctx, id)
+		if err == nil {
+			seen[id] = p
+		}
+	}
+	out := make([]Project, 0, len(seen))
+	for _, p := range seen {
+		out = append(out, p)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ProjectID < out[j].ProjectID })
+	return out, nil
+}
+
+func listProjectFileIDs(dir, suffix string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var ids []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), suffix) {
+			continue
+		}
+		ids = append(ids, strings.TrimSuffix(e.Name(), suffix))
+	}
+	sort.Strings(ids)
+	return ids, nil
+}
+
+// DeleteProject removes a project definition.
+func (s *Store) DeleteProject(ctx context.Context, id string) error {
+	if err := validateID("project_id", id); err != nil {
+		return err
+	}
+	return s.withLock(ctx, func() error {
+		removed := false
+		for _, path := range []string{s.projectPath(id), s.projectAltPath(id)} {
+			if err := os.Remove(path); err == nil {
+				removed = true
+			} else if !os.IsNotExist(err) {
+				return err
+			}
+		}
+		if !removed {
+			return fmt.Errorf("project %q not found", id)
+		}
+		return nil
+	})
 }
 
 // --- WorkProfile ---
@@ -284,6 +419,54 @@ func (s *Store) workSessionPath(id string) string {
 	return filepath.Join(s.workSessionsDir(), id+".json")
 }
 
+// lookupProjectUnlocked reads a project without taking the store lock.
+func (s *Store) lookupProjectUnlocked(id string) (Project, error) {
+	for _, path := range []string{s.projectPath(id), s.projectAltPath(id)} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var p Project
+		if err := json.Unmarshal(data, &p); err == nil {
+			if p.ProjectID == "" {
+				p.ProjectID = p.Name
+			}
+			if p.Name == "" {
+				p.Name = p.ProjectID
+			}
+			if p.Version == "" {
+				p.Version = "1"
+			}
+			if p.ProjectID == id || p.Name == id {
+				return normalizeProject(p), nil
+			}
+		}
+		var raw map[string]any
+		if json.Unmarshal(data, &raw) != nil {
+			continue
+		}
+		name, _ := raw["name"].(string)
+		pid, _ := raw["project_id"].(string)
+		if pid == "" {
+			pid = name
+		}
+		if pid != "" && pid != id && name != id {
+			continue
+		}
+		if pid == "" {
+			pid = id
+		}
+		desc, _ := raw["description"].(string)
+		dn, _ := raw["display_name"].(string)
+		ver, _ := raw["version"].(string)
+		if ver == "" {
+			ver = "1"
+		}
+		return normalizeProject(Project{Version: ver, ProjectID: pid, Name: name, DisplayName: dn, Description: desc}), nil
+	}
+	return Project{}, fmt.Errorf("project %q not found", id)
+}
+
 // CreateWorkSession creates a new work session in proposed or open state.
 func (s *Store) CreateWorkSession(ctx context.Context, sess WorkSession) (WorkSession, error) {
 	if sess.Version == "" {
@@ -305,7 +488,12 @@ func (s *Store) CreateWorkSession(ctx context.Context, sess WorkSession) (WorkSe
 		if _, err := os.Stat(path); err == nil {
 			return fmt.Errorf("work session %q already exists", sess.WorkSessionID)
 		}
-		// Optional referential checks (best-effort; missing profiles fail closed).
+		// Referential checks (missing targets fail closed).
+		if sess.ProjectID != "" {
+			if _, err := s.lookupProjectUnlocked(sess.ProjectID); err != nil {
+				return fmt.Errorf("project_id %q not found", sess.ProjectID)
+			}
+		}
 		if sess.WorkProfileID != "" {
 			if _, err := readJSON[WorkProfile](s.workProfilePath(sess.WorkProfileID)); err != nil {
 				return fmt.Errorf("work_profile_id %q not found", sess.WorkProfileID)

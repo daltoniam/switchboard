@@ -62,6 +62,9 @@ func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, ap.IsError, "%v", ap.StructuredContent)
 
+	_, err = store.PutProject(context.Background(), awm.Project{Version: "1", ProjectID: "switchboard", Description: "sb"})
+	require.NoError(t, err)
+
 	ws, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
 		Name: "project.work_session.create",
 		Arguments: map[string]any{

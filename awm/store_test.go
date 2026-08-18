@@ -56,6 +56,8 @@ func TestWorkSessionLifecycle(t *testing.T) {
 	_, err = s.PutAgentProfile(ctx, AgentProfile{Version: "1", AgentProfileID: "triage"})
 	require.NoError(t, err)
 
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "switchboard", Description: "sb"})
+	require.NoError(t, err)
 	sess, err := s.CreateWorkSession(ctx, WorkSession{
 		Version: "1", WorkSessionID: "ws-1", DisplayName: "Outage",
 		ProjectID: "switchboard", ProjectRevision: "sha256:abc",
@@ -94,6 +96,7 @@ func TestWorkSession_RejectsMissingProfile(t *testing.T) {
 func TestStore_LivesUnderSwitchboardRoot(t *testing.T) {
 	root := t.TempDir()
 	s := NewStore(root)
+	assert.Equal(t, root, s.ConfigRoot())
 	assert.Equal(t, filepath.Join(root, "awm"), s.Root())
 	assert.NotContains(t, s.Root(), "project-interop")
 	_, err := s.PutAgentProfile(context.Background(), AgentProfile{Version: "1", AgentProfileID: "a"})
@@ -106,4 +109,49 @@ func TestCanTransition(t *testing.T) {
 	assert.True(t, CanTransition(StateProposed, StateOpen))
 	assert.True(t, CanTransition(StateOpen, StateClosed))
 	assert.False(t, CanTransition(StateClosed, StateOpen))
+}
+
+func TestProjectCRUD_AndLegacyFile(t *testing.T) {
+	root := t.TempDir()
+	s := NewStore(root)
+	ctx := context.Background()
+
+	// Legacy-shaped file under projects/
+	projDir := filepath.Join(root, "projects")
+	require.NoError(t, os.MkdirAll(projDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(projDir, "legacy.project.json"), []byte(`{"version":"1","name":"legacy","description":"from disk"}`), 0o600))
+
+	got, err := s.GetProject(ctx, "legacy")
+	require.NoError(t, err)
+	assert.Equal(t, "legacy", got.ProjectID)
+	assert.Equal(t, "from disk", got.Description)
+
+	p, err := s.PutProject(ctx, Project{Version: "1", ProjectID: "newproj", Description: "created"})
+	require.NoError(t, err)
+	assert.Equal(t, "newproj", p.Name)
+
+	list, err := s.ListProjects(ctx)
+	require.NoError(t, err)
+	ids := map[string]bool{}
+	for _, x := range list {
+		ids[x.ProjectID] = true
+	}
+	assert.True(t, ids["legacy"])
+	assert.True(t, ids["newproj"])
+
+	// Work session requires project when project_id set
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-p", ProjectID: "missing", State: StateOpen,
+	})
+	require.Error(t, err)
+
+	_, err = s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	sess, err := s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-p", ProjectID: "newproj", WorkProfileID: "wp", State: StateOpen,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "newproj", sess.ProjectID)
+
+	require.NoError(t, s.DeleteProject(ctx, "newproj"))
 }
