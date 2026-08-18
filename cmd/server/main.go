@@ -393,10 +393,10 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		serverOpts = append(serverOpts, server.WithProjectCatalog(catalogSrv))
 		log.Printf("Project Catalog on /mcp (writes_enabled=%v)", mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog))
 	}
-	// AWM profiles/sessions live under the same Switchboard config root as projects.
-	awmStore := awm.NewStore(projectStore.ConfigDir())
-	serverOpts = append(serverOpts, server.WithAWM(awmStore))
-	log.Printf("AWM store: %s", awmStore.Root())
+	// Work profiles/sessions/agent profiles live under the Switchboard config root.
+	workStore := awm.NewStore(projectStore.ConfigDir())
+	serverOpts = append(serverOpts, server.WithProjectWorkModel(workStore))
+	log.Printf("Project work-model store: %s", workStore.Root())
 	srv := server.New(services, serverOpts...)
 
 	if stdioMode {

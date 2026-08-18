@@ -1,56 +1,62 @@
-# Agent Work Model (minimal) in Switchboard
+# Project work model (AWM subset)
 
-Switchboard holds a **minimal subset** of the [Agent Work Model](https://github.com/) vocabulary so multiple tools can share projects and work episodes.
+Switchboard holds a **minimal Agent Work Model subset** nested under the **project** tool namespace so multiple tools can share projects and work episodes.
 
-Canonical AWM source (reviewed): `~/work/projects/agent-work-model/model/terms/`.
+Canonical vocabulary: `~/work/projects/agent-work-model/model/terms/`.
 
-## Terms implemented
+## Terms
 
-| AWM term | Switchboard role | Notes |
+| AWM term | Switchboard tools | Notes |
 |---|---|---|
-| **Project** | Existing Project Catalog (`project.*`) | Durable id + description under `~/.config/switchboard/projects/` |
-| **WorkProfile** | `awm.work_profile.*` | Session **blueprint** (product alias: “session profile”) |
-| **WorkSession** | `awm.work_session.*` | Bounded work episode — **not** an MCP transport session |
-| **AgentProfile** | `awm.agent_profile.*` | Eligible agent **kind**, not a running process |
-
-Not implemented yet: AgentRun, ResourceBinding, Workspace, Task, Artifact, HostConversation, Principal.
+| **Project** | `project.list` / `get` / `create` / … | Durable id + description |
+| **WorkProfile** | `project.work_profile.*` | Session blueprint (“session profile”) |
+| **WorkSession** | `project.work_session.*` | Bounded episode — not an MCP transport session |
+| **AgentProfile** | `project.agent_profile.*` | Eligible agent kind, not a running process |
 
 ## Storage
 
-All AWM records live under the Switchboard config root (default `~/.config/switchboard`):
+Under the Switchboard config root (default `~/.config/switchboard`):
 
 ```text
-~/.config/switchboard/awm/
-  work_profiles/<work_profile_id>.json
-  agent_profiles/<agent_profile_id>.json
-  work_sessions/<work_session_id>.json
+~/.config/switchboard/
+  projects/<project_id>.project.json
+  awm/
+    work_profiles/<work_profile_id>.json
+    agent_profiles/<agent_profile_id>.json
+    work_sessions/<work_session_id>.json
 ```
 
-Never under `~/.config/project-interop`.
+Isolated from `project-interop`.
 
-## MCP tools (main `/mcp`)
+## Tools (main `/mcp`)
 
-### WorkProfile (session blueprint)
+### Project (existing)
 
-- `awm.work_profile.list` / `get` / `put` / `delete`
+- `project.list` / `project.search`
+- `project.get` / `project.resolve`
+- `project.validate` / `project.create` / `project.update` / `project.delete`
+
+### WorkProfile
+
+- `project.work_profile.list` / `get` / `put` / `delete`
 
 ### AgentProfile
 
-- `awm.agent_profile.list` / `get` / `put` / `delete`
+- `project.agent_profile.list` / `get` / `put` / `delete`
 
 ### WorkSession
 
-- `awm.work_session.list` (optional `state`, `project_id`)
-- `awm.work_session.get`
-- `awm.work_session.create` — may set `project_id`, `project_revision`, `work_profile_id`, `agent_profile_ids`
-- `awm.work_session.transition` — `proposed` → `open` → `paused`/`closed`/`aborted`
-- `awm.work_session.patch` — display name / agent profiles / policy (non-terminal only)
-- `awm.work_session.delete`
+- `project.work_session.list` (`state`, `project_id` filters)
+- `project.work_session.get`
+- `project.work_session.create`
+- `project.work_session.transition` — `proposed` → `open` → `paused`/`closed`/`aborted`
+- `project.work_session.patch`
+- `project.work_session.delete`
 
-## Invariants honored
+## Invariants
 
-- WorkSession is not an MCP connection or host chat thread
-- WorkProfile is not a live WorkSession
-- AgentProfile is not an AgentInstance or AgentRun
-- No credentials in portable fields
-- Project catalog remains the project authority; sessions only reference `project_id` / revision
+- WorkSession ≠ MCP connection or host chat
+- WorkProfile ≠ live WorkSession
+- AgentProfile ≠ AgentInstance / AgentRun
+- No credentials in these records
+- Project catalog remains project authority; sessions only reference `project_id` / revision

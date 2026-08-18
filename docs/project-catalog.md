@@ -54,4 +54,4 @@ Browse projects at `/projects` (list + detail).
 
 ## Related
 
-- Agent Work Model subset (WorkProfile / WorkSession / AgentProfile): [awm.md](awm.md)
+- Work profiles, work sessions, agent profiles (nested `project.*` tools): [awm.md](awm.md)

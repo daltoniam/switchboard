@@ -86,7 +86,7 @@ type Server struct {
 	discoverAll       bool
 	extraInstructions string // appended to the base MCP instructions
 	projectCatalog    *ProjectCatalogServer
-	awmStore          *awm.Store
+	projectWorkStore  *awm.Store
 }
 
 // baseInstructions is the default guidance sent to clients in the MCP
@@ -140,10 +140,10 @@ func WithProjectCatalog(cat *ProjectCatalogServer) Option {
 	return func(s *Server) { s.projectCatalog = cat }
 }
 
-// WithAWM attaches minimal Agent Work Model tools (WorkProfile, WorkSession,
-// AgentProfile) backed by a filesystem store under the Switchboard config root.
-func WithAWM(store *awm.Store) Option {
-	return func(s *Server) { s.awmStore = store }
+// WithProjectWorkModel attaches project.work_profile / project.work_session /
+// project.agent_profile tools backed by a filesystem store under the Switchboard config root.
+func WithProjectWorkModel(store *awm.Store) Option {
+	return func(s *Server) { s.projectWorkStore = store }
 }
 
 // staticMCPCapabilities advertises a stable tool list. Crush 0.89 / MCP
@@ -205,8 +205,8 @@ func New(services *mcp.Services, opts ...Option) *Server {
 	if s.projectCatalog != nil {
 		s.projectCatalog.AttachTo(s.mcpServer)
 	}
-	if s.awmStore != nil {
-		AttachAWM(s.mcpServer, s.awmStore)
+	if s.projectWorkStore != nil {
+		AttachProjectWorkModel(s.mcpServer, s.projectWorkStore)
 	}
 	return s
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAWM_ToolsOnMainMCP(t *testing.T) {
+func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 	root := t.TempDir()
 	store := awm.NewStore(root)
 	reg := newMockRegistry()
@@ -20,11 +20,11 @@ func TestAWM_ToolsOnMainMCP(t *testing.T) {
 		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
 		Registry: reg,
 	}
-	s := New(services, WithAWM(store))
+	s := New(services, WithProjectWorkModel(store))
 	httpSrv := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{MCP: s.StatelessHandler()}))
 	t.Cleanup(httpSrv.Close)
 
-	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "awm-test", Version: "0"}, nil)
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "project-work-test", Version: "0"}, nil)
 	session, err := client.Connect(context.Background(), &mcpsdk.StreamableClientTransport{
 		Endpoint:   httpSrv.URL + "/mcp",
 		HTTPClient: httpSrv.Client(),
@@ -39,13 +39,13 @@ func TestAWM_ToolsOnMainMCP(t *testing.T) {
 		names[tl.Name] = true
 	}
 	for _, n := range []string{
-		"awm.work_profile.put", "awm.work_session.create", "awm.agent_profile.list",
+		"project.work_profile.put", "project.work_session.create", "project.agent_profile.list",
 	} {
 		assert.True(t, names[n], "missing %s", n)
 	}
 
 	put, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "awm.work_profile.put",
+		Name: "project.work_profile.put",
 		Arguments: map[string]any{
 			"version": "1", "work_profile_id": "review", "display_name": "Review",
 		},
@@ -54,7 +54,7 @@ func TestAWM_ToolsOnMainMCP(t *testing.T) {
 	require.False(t, put.IsError, "%v", put.StructuredContent)
 
 	ap, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "awm.agent_profile.put",
+		Name: "project.agent_profile.put",
 		Arguments: map[string]any{
 			"version": "1", "agent_profile_id": "reviewer", "display_name": "Reviewer",
 		},
@@ -63,7 +63,7 @@ func TestAWM_ToolsOnMainMCP(t *testing.T) {
 	require.False(t, ap.IsError, "%v", ap.StructuredContent)
 
 	ws, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "awm.work_session.create",
+		Name: "project.work_session.create",
 		Arguments: map[string]any{
 			"version": "1", "work_session_id": "ws-1", "display_name": "PR review",
 			"project_id": "switchboard", "work_profile_id": "review",
@@ -82,7 +82,7 @@ func TestAWM_ToolsOnMainMCP(t *testing.T) {
 	}
 
 	tr, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name:      "awm.work_session.transition",
+		Name:      "project.work_session.transition",
 		Arguments: map[string]any{"id": "ws-1", "state": "open"},
 	})
 	require.NoError(t, err)

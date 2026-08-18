@@ -8,93 +8,94 @@ import (
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// AttachAWM registers minimal Agent Work Model tools on the main MCP server.
-func AttachAWM(mcpSrv *mcpsdk.Server, store *awm.Store) {
+// AttachProjectWorkModel registers WorkProfile, WorkSession, and AgentProfile tools
+// under the project.* namespace on the main MCP server.
+func AttachProjectWorkModel(mcpSrv *mcpsdk.Server, store *awm.Store) {
 	if mcpSrv == nil || store == nil {
 		return
 	}
-	h := &awmHandlers{store: store}
+	h := &projectWorkHandlers{store: store}
 
 	destructive := true
 	notDestructive := false
 	closed := false
 
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_profile.list",
+		Name:        "project.work_profile.list",
 		Description: "List WorkProfile blueprints (session blueprints / session profiles). Start here to discover reusable work episode templates.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.listWorkProfiles)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_profile.get",
+		Name:        "project.work_profile.get",
 		Description: "Get a WorkProfile by work_profile_id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.getWorkProfile)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_profile.put",
+		Name:        "project.work_profile.put",
 		Description: "Create or replace a WorkProfile (session blueprint).",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, OpenWorldHint: &closed},
 	}, h.putWorkProfile)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_profile.delete",
+		Name:        "project.work_profile.delete",
 		Description: "Delete a WorkProfile by id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed},
 	}, h.deleteWorkProfile)
 
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.agent_profile.list",
+		Name:        "project.agent_profile.list",
 		Description: "List AgentProfile kinds (eligible agent types, not running instances).",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.listAgentProfiles)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.agent_profile.get",
+		Name:        "project.agent_profile.get",
 		Description: "Get an AgentProfile by agent_profile_id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.getAgentProfile)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.agent_profile.put",
+		Name:        "project.agent_profile.put",
 		Description: "Create or replace an AgentProfile.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, OpenWorldHint: &closed},
 	}, h.putAgentProfile)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.agent_profile.delete",
+		Name:        "project.agent_profile.delete",
 		Description: "Delete an AgentProfile by id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed},
 	}, h.deleteAgentProfile)
 
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_session.list",
+		Name:        "project.work_session.list",
 		Description: "List WorkSessions (bounded work episodes). Optional filters: state, project_id. Not MCP transport sessions.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.listWorkSessions)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_session.get",
+		Name:        "project.work_session.get",
 		Description: "Get a WorkSession by work_session_id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.getWorkSession)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_session.create",
+		Name:        "project.work_session.create",
 		Description: "Create a WorkSession. May reference project_id, project_revision, work_profile_id, agent_profile_ids.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, OpenWorldHint: &closed},
 	}, h.createWorkSession)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_session.transition",
+		Name:        "project.work_session.transition",
 		Description: "Transition a WorkSession lifecycle state (proposed|open|paused|closed|aborted).",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed},
 	}, h.transitionWorkSession)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_session.patch",
+		Name:        "project.work_session.patch",
 		Description: "Patch mutable WorkSession fields (display_name, agent_profile_ids, policy). Cannot patch terminal sessions.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, OpenWorldHint: &closed},
 	}, h.patchWorkSession)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "awm.work_session.delete",
+		Name:        "project.work_session.delete",
 		Description: "Delete a WorkSession record. Does not delete projects or profiles.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed},
 	}, h.deleteWorkSession)
 
 }
 
-type awmHandlers struct {
+type projectWorkHandlers struct {
 	store *awm.Store
 }
 
@@ -132,11 +133,11 @@ type patchSessionIn struct {
 	Policy          map[string]any `json:"policy,omitempty"`
 }
 
-func awmOK(v any) (*mcpsdk.CallToolResult, any, error) {
+func projectWorkOK(v any) (*mcpsdk.CallToolResult, any, error) {
 	return nil, v, nil
 }
 
-func awmErr(err error) (*mcpsdk.CallToolResult, any, error) {
+func projectWorkErr(err error) (*mcpsdk.CallToolResult, any, error) {
 	msg := err.Error()
 	return &mcpsdk.CallToolResult{
 		IsError: true,
@@ -147,94 +148,94 @@ func awmErr(err error) (*mcpsdk.CallToolResult, any, error) {
 	}, nil, nil
 }
 
-func (h *awmHandlers) listWorkProfiles(ctx context.Context, _ *mcpsdk.CallToolRequest, _ struct{}) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) listWorkProfiles(ctx context.Context, _ *mcpsdk.CallToolRequest, _ struct{}) (*mcpsdk.CallToolResult, any, error) {
 	list, err := h.store.ListWorkProfiles(ctx)
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
 	if list == nil {
 		list = []awm.WorkProfile{}
 	}
-	return awmOK(map[string]any{"work_profiles": list})
+	return projectWorkOK(map[string]any{"work_profiles": list})
 }
 
-func (h *awmHandlers) getWorkProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) getWorkProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
 	p, err := h.store.GetWorkProfile(ctx, strings.TrimSpace(in.ID))
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(p)
+	return projectWorkOK(p)
 }
 
-func (h *awmHandlers) putWorkProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in awm.WorkProfile) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) putWorkProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in awm.WorkProfile) (*mcpsdk.CallToolResult, any, error) {
 	p, err := h.store.PutWorkProfile(ctx, in)
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(p)
+	return projectWorkOK(p)
 }
 
-func (h *awmHandlers) deleteWorkProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) deleteWorkProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
 	if err := h.store.DeleteWorkProfile(ctx, strings.TrimSpace(in.ID)); err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(map[string]any{"id": in.ID, "deleted": true})
+	return projectWorkOK(map[string]any{"id": in.ID, "deleted": true})
 }
 
-func (h *awmHandlers) listAgentProfiles(ctx context.Context, _ *mcpsdk.CallToolRequest, _ struct{}) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) listAgentProfiles(ctx context.Context, _ *mcpsdk.CallToolRequest, _ struct{}) (*mcpsdk.CallToolResult, any, error) {
 	list, err := h.store.ListAgentProfiles(ctx)
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
 	if list == nil {
 		list = []awm.AgentProfile{}
 	}
-	return awmOK(map[string]any{"agent_profiles": list})
+	return projectWorkOK(map[string]any{"agent_profiles": list})
 }
 
-func (h *awmHandlers) getAgentProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) getAgentProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
 	p, err := h.store.GetAgentProfile(ctx, strings.TrimSpace(in.ID))
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(p)
+	return projectWorkOK(p)
 }
 
-func (h *awmHandlers) putAgentProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in awm.AgentProfile) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) putAgentProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in awm.AgentProfile) (*mcpsdk.CallToolResult, any, error) {
 	p, err := h.store.PutAgentProfile(ctx, in)
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(p)
+	return projectWorkOK(p)
 }
 
-func (h *awmHandlers) deleteAgentProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) deleteAgentProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
 	if err := h.store.DeleteAgentProfile(ctx, strings.TrimSpace(in.ID)); err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(map[string]any{"id": in.ID, "deleted": true})
+	return projectWorkOK(map[string]any{"id": in.ID, "deleted": true})
 }
 
-func (h *awmHandlers) listWorkSessions(ctx context.Context, _ *mcpsdk.CallToolRequest, in stateFilterIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) listWorkSessions(ctx context.Context, _ *mcpsdk.CallToolRequest, in stateFilterIn) (*mcpsdk.CallToolResult, any, error) {
 	list, err := h.store.ListWorkSessions(ctx, strings.TrimSpace(in.State), strings.TrimSpace(in.ProjectID))
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
 	if list == nil {
 		list = []awm.WorkSession{}
 	}
-	return awmOK(map[string]any{"work_sessions": list})
+	return projectWorkOK(map[string]any{"work_sessions": list})
 }
 
-func (h *awmHandlers) getWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) getWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
 	s, err := h.store.GetWorkSession(ctx, strings.TrimSpace(in.ID))
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(s)
+	return projectWorkOK(s)
 }
 
-func (h *awmHandlers) createWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in createSessionIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) createWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in createSessionIn) (*mcpsdk.CallToolResult, any, error) {
 	s, err := h.store.CreateWorkSession(ctx, awm.WorkSession{
 		Version:           in.Version,
 		WorkSessionID:     in.WorkSessionID,
@@ -248,30 +249,30 @@ func (h *awmHandlers) createWorkSession(ctx context.Context, _ *mcpsdk.CallToolR
 		Policy:            in.Policy,
 	})
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(s)
+	return projectWorkOK(s)
 }
 
-func (h *awmHandlers) transitionWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in transitionIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) transitionWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in transitionIn) (*mcpsdk.CallToolResult, any, error) {
 	s, err := h.store.TransitionWorkSession(ctx, strings.TrimSpace(in.ID), strings.TrimSpace(in.State))
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(s)
+	return projectWorkOK(s)
 }
 
-func (h *awmHandlers) patchWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in patchSessionIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) patchWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in patchSessionIn) (*mcpsdk.CallToolResult, any, error) {
 	s, err := h.store.PatchWorkSession(ctx, strings.TrimSpace(in.ID), in.DisplayName, in.AgentProfileIDs, in.Policy)
 	if err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(s)
+	return projectWorkOK(s)
 }
 
-func (h *awmHandlers) deleteWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
+func (h *projectWorkHandlers) deleteWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
 	if err := h.store.DeleteWorkSession(ctx, strings.TrimSpace(in.ID)); err != nil {
-		return awmErr(err)
+		return projectWorkErr(err)
 	}
-	return awmOK(map[string]any{"id": in.ID, "deleted": true})
+	return projectWorkOK(map[string]any{"id": in.ID, "deleted": true})
 }
