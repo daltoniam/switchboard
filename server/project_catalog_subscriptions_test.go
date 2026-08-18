@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,19 +20,7 @@ func TestProjectCatalog_ListChangedOnCreate(t *testing.T) {
 	cat := NewProjectCatalogServer(store, store, store, store, ProjectCatalogOptions{
 		WritesEnabled: true,
 	})
-	// Bridge bus events to SDK list-changed by adding/removing a marker resource.
-	go func() {
-		ch := bus.Subscribe(8)
-		for range ch {
-			uri := fmt.Sprintf("project://registry/catalog#gen-%d", time.Now().UnixNano())
-			cat.mcp.AddResource(&mcpsdk.Resource{
-				URI:      uri,
-				Name:     "catalog-gen",
-				MIMEType: "application/json",
-			}, cat.handleReadResource)
-			cat.mcp.RemoveResources(uri)
-		}
-	}()
+	cat.StartEventBridge(bus)
 
 	httpSrv := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{ProjectCatalog: cat.Handler()}))
 	t.Cleanup(httpSrv.Close)

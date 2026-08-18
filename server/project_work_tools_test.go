@@ -20,7 +20,7 @@ func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
 		Registry: reg,
 	}
-	s := New(services, WithProjectWorkModel(store))
+	s := New(services, WithProjectWorkModel(store, true))
 	httpSrv := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{MCP: s.StatelessHandler()}))
 	t.Cleanup(httpSrv.Close)
 
@@ -103,7 +103,7 @@ func TestProjectWorkModel_DefaultProfileSeededViaStore(t *testing.T) {
 		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
 		Registry: reg,
 	}
-	s := New(services, WithProjectWorkModel(store))
+	s := New(services, WithProjectWorkModel(store, true))
 	httpSrv := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{MCP: s.StatelessHandler()}))
 	t.Cleanup(httpSrv.Close)
 
@@ -141,7 +141,7 @@ func TestProjectWorkModel_DeleteReferencedProfileStableError(t *testing.T) {
 		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
 		Registry: reg,
 	}
-	s := New(services, WithProjectWorkModel(store))
+	s := New(services, WithProjectWorkModel(store, true))
 	httpSrv := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{MCP: s.StatelessHandler()}))
 	t.Cleanup(httpSrv.Close)
 
@@ -181,7 +181,7 @@ func TestProjectWorkModel_RejectFabricatedSnapshot(t *testing.T) {
 		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
 		Registry: reg,
 	}
-	s := New(services, WithProjectWorkModel(store))
+	s := New(services, WithProjectWorkModel(store, true))
 	httpSrv := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{MCP: s.StatelessHandler()}))
 	t.Cleanup(httpSrv.Close)
 

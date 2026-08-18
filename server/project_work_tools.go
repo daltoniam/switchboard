@@ -10,11 +10,12 @@ import (
 
 // AttachProjectWorkModel registers WorkProfile, WorkSession, and AgentProfile tools
 // under the project_* namespace on the main MCP server.
-func AttachProjectWorkModel(mcpSrv *mcpsdk.Server, store *awm.Store) {
+// writesEnabled gates mutation tools with the same project_catalog.writes_enabled flag.
+func AttachProjectWorkModel(mcpSrv *mcpsdk.Server, store *awm.Store, writesEnabled bool) {
 	if mcpSrv == nil || store == nil {
 		return
 	}
-	h := &projectWorkHandlers{store: store}
+	h := &projectWorkHandlers{store: store, writesEnabled: writesEnabled}
 
 	destructive := true
 	notDestructive := false
@@ -96,7 +97,15 @@ func AttachProjectWorkModel(mcpSrv *mcpsdk.Server, store *awm.Store) {
 }
 
 type projectWorkHandlers struct {
-	store *awm.Store
+	store         *awm.Store
+	writesEnabled bool
+}
+
+func (h *projectWorkHandlers) writeDisabled() (*mcpsdk.CallToolResult, any, error) {
+	return projectWorkErr(&awm.Error{
+		Code:    awm.CodeInvalidInput,
+		Message: "write_disabled: project_catalog.writes_enabled is false",
+	})
 }
 
 type idIn struct {
@@ -186,6 +195,9 @@ func (h *projectWorkHandlers) getWorkProfile(ctx context.Context, _ *mcpsdk.Call
 }
 
 func (h *projectWorkHandlers) putWorkProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in awm.WorkProfile) (*mcpsdk.CallToolResult, any, error) {
+	if !h.writesEnabled {
+		return h.writeDisabled()
+	}
 	p, err := h.store.PutWorkProfile(ctx, in)
 	if err != nil {
 		return projectWorkErr(err)
@@ -194,6 +206,9 @@ func (h *projectWorkHandlers) putWorkProfile(ctx context.Context, _ *mcpsdk.Call
 }
 
 func (h *projectWorkHandlers) deleteWorkProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
+	if !h.writesEnabled {
+		return h.writeDisabled()
+	}
 	if err := h.store.DeleteWorkProfile(ctx, strings.TrimSpace(in.ID)); err != nil {
 		return projectWorkErr(err)
 	}
@@ -220,6 +235,9 @@ func (h *projectWorkHandlers) getAgentProfile(ctx context.Context, _ *mcpsdk.Cal
 }
 
 func (h *projectWorkHandlers) putAgentProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in awm.AgentProfile) (*mcpsdk.CallToolResult, any, error) {
+	if !h.writesEnabled {
+		return h.writeDisabled()
+	}
 	p, err := h.store.PutAgentProfile(ctx, in)
 	if err != nil {
 		return projectWorkErr(err)
@@ -228,6 +246,9 @@ func (h *projectWorkHandlers) putAgentProfile(ctx context.Context, _ *mcpsdk.Cal
 }
 
 func (h *projectWorkHandlers) deleteAgentProfile(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
+	if !h.writesEnabled {
+		return h.writeDisabled()
+	}
 	if err := h.store.DeleteAgentProfile(ctx, strings.TrimSpace(in.ID)); err != nil {
 		return projectWorkErr(err)
 	}
@@ -254,6 +275,9 @@ func (h *projectWorkHandlers) getWorkSession(ctx context.Context, _ *mcpsdk.Call
 }
 
 func (h *projectWorkHandlers) createWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in createSessionIn) (*mcpsdk.CallToolResult, any, error) {
+	if !h.writesEnabled {
+		return h.writeDisabled()
+	}
 	s, err := h.store.CreateWorkSession(ctx, awm.WorkSession{
 		Version:           in.Version,
 		WorkSessionID:     in.WorkSessionID,
@@ -273,6 +297,9 @@ func (h *projectWorkHandlers) createWorkSession(ctx context.Context, _ *mcpsdk.C
 }
 
 func (h *projectWorkHandlers) transitionWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in transitionIn) (*mcpsdk.CallToolResult, any, error) {
+	if !h.writesEnabled {
+		return h.writeDisabled()
+	}
 	s, err := h.store.TransitionWorkSession(ctx, strings.TrimSpace(in.ID), strings.TrimSpace(in.State))
 	if err != nil {
 		return projectWorkErr(err)
@@ -281,6 +308,9 @@ func (h *projectWorkHandlers) transitionWorkSession(ctx context.Context, _ *mcps
 }
 
 func (h *projectWorkHandlers) patchWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in patchSessionIn) (*mcpsdk.CallToolResult, any, error) {
+	if !h.writesEnabled {
+		return h.writeDisabled()
+	}
 	s, err := h.store.PatchWorkSession(ctx, strings.TrimSpace(in.ID), in.DisplayName, in.AgentProfileIDs, in.Policy)
 	if err != nil {
 		return projectWorkErr(err)
@@ -289,6 +319,9 @@ func (h *projectWorkHandlers) patchWorkSession(ctx context.Context, _ *mcpsdk.Ca
 }
 
 func (h *projectWorkHandlers) deleteWorkSession(ctx context.Context, _ *mcpsdk.CallToolRequest, in idIn) (*mcpsdk.CallToolResult, any, error) {
+	if !h.writesEnabled {
+		return h.writeDisabled()
+	}
 	if err := h.store.DeleteWorkSession(ctx, strings.TrimSpace(in.ID)); err != nil {
 		return projectWorkErr(err)
 	}

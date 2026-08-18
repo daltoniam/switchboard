@@ -87,6 +87,7 @@ type Server struct {
 	extraInstructions string // appended to the base MCP instructions
 	projectCatalog    *ProjectCatalogServer
 	projectWorkStore  *awm.Store
+	projectWorkWrites bool
 }
 
 // baseInstructions is the default guidance sent to clients in the MCP
@@ -142,8 +143,13 @@ func WithProjectCatalog(cat *ProjectCatalogServer) Option {
 
 // WithProjectWorkModel attaches project_work_profile / project_work_session /
 // project_agent_profile tools backed by a filesystem store under the Switchboard config root.
-func WithProjectWorkModel(store *awm.Store) Option {
-	return func(s *Server) { s.projectWorkStore = store }
+// writesEnabled should match project_catalog.writes_enabled so work-model mutations
+// share the same safety switch as catalog create/update/delete.
+func WithProjectWorkModel(store *awm.Store, writesEnabled bool) Option {
+	return func(s *Server) {
+		s.projectWorkStore = store
+		s.projectWorkWrites = writesEnabled
+	}
 }
 
 // staticMCPCapabilities advertises a stable tool list. Crush 0.89 / MCP
@@ -206,7 +212,7 @@ func New(services *mcp.Services, opts ...Option) *Server {
 		s.projectCatalog.AttachTo(s.mcpServer)
 	}
 	if s.projectWorkStore != nil {
-		AttachProjectWorkModel(s.mcpServer, s.projectWorkStore)
+		AttachProjectWorkModel(s.mcpServer, s.projectWorkStore, s.projectWorkWrites)
 	}
 	return s
 }

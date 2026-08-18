@@ -562,15 +562,43 @@ func (s *Store) DeleteAgentProfile(ctx context.Context, id string) error {
 		return err
 	}
 	return s.withLock(ctx, func() error {
+		if ref := s.firstSessionReferencingAgentUnlocked(id); ref != "" {
+			return &Error{
+				Code:          CodeReferenced,
+				Message:       "agent profile is referenced by a retained work session",
+				EntityKind:    "agent_profile",
+				EntityID:      id,
+				WorkSessionID: ref,
+			}
+		}
 		path := s.agentProfilePath(id)
 		if err := os.Remove(path); err != nil {
 			if os.IsNotExist(err) {
-				return fmt.Errorf("agent profile %q not found", id)
+				return notFound("agent_profile", id)
 			}
 			return err
 		}
 		return nil
 	})
+}
+
+func (s *Store) firstSessionReferencingAgentUnlocked(agentID string) string {
+	ids, err := listJSONIDs(s.workSessionsDir(), ".json")
+	if err != nil {
+		return ""
+	}
+	for _, id := range ids {
+		sess, err := readJSON[WorkSession](s.workSessionPath(id))
+		if err != nil {
+			continue
+		}
+		for _, ap := range sess.AgentProfileIDs {
+			if ap == agentID {
+				return sess.WorkSessionID
+			}
+		}
+	}
+	return ""
 }
 
 // --- WorkSession ---

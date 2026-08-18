@@ -3,10 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/daltoniam/switchboard/project"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -32,6 +35,10 @@ type ProjectCatalogServer struct {
 	mcp        *mcpsdk.Server
 	standalone *mcpsdk.Server
 	workGuard  ProjectDeleteGuard
+
+	resourceMu   sync.Mutex
+	knownResURIs map[string]struct{} // dynamic project/diagnostics URIs last advertised
+	bridgeStop   chan struct{}
 }
 
 // SetWorkGuard attaches referential integrity checks for Project deletion.
@@ -99,6 +106,7 @@ func (s *ProjectCatalogServer) reconcileResources(ctx context.Context) {
 	if err != nil {
 		return
 	}
+	want := make(map[string]struct{})
 	s.mcp.AddResource(&mcpsdk.Resource{
 		URI:      catalogResourceURI,
 		Name:     "catalog",
@@ -106,6 +114,7 @@ func (s *ProjectCatalogServer) reconcileResources(ctx context.Context) {
 	}, s.handleReadResource)
 	for _, p := range page.Projects {
 		uri := projectResourceURI(p.ProjectID)
+		want[uri] = struct{}{}
 		s.mcp.AddResource(&mcpsdk.Resource{
 			URI:      uri,
 			Name:     string(p.ProjectID),
@@ -114,12 +123,70 @@ func (s *ProjectCatalogServer) reconcileResources(ctx context.Context) {
 	}
 	for _, p := range page.InvalidProjects {
 		uri := diagnosticsResourceURI(p.ProjectID)
+		want[uri] = struct{}{}
 		s.mcp.AddResource(&mcpsdk.Resource{
 			URI:      uri,
 			Name:     string(p.ProjectID) + "-diagnostics",
 			MIMEType: "application/json",
 		}, s.handleReadResource)
 	}
+
+	s.resourceMu.Lock()
+	defer s.resourceMu.Unlock()
+	var stale []string
+	for uri := range s.knownResURIs {
+		if _, ok := want[uri]; !ok {
+			stale = append(stale, uri)
+		}
+	}
+	if len(stale) > 0 {
+		s.mcp.RemoveResources(stale...)
+	}
+	s.knownResURIs = want
+}
+
+// StartEventBridge watches the catalog EventBus and nudges resources/list_changed
+// so subscribed clients observe create/update/delete without restart.
+func (s *ProjectCatalogServer) StartEventBridge(bus *project.EventBus) {
+	if s == nil || bus == nil {
+		return
+	}
+	if s.bridgeStop != nil {
+		close(s.bridgeStop)
+	}
+	s.bridgeStop = make(chan struct{})
+	stop := s.bridgeStop
+	ch := bus.Subscribe(16)
+	go func() {
+		defer bus.Unsubscribe(ch)
+		for {
+			select {
+			case <-stop:
+				return
+			case _, ok := <-ch:
+				if !ok {
+					return
+				}
+				s.nudgeListChanged()
+			}
+		}
+	}()
+}
+
+func (s *ProjectCatalogServer) nudgeListChanged() {
+	if s == nil || s.mcp == nil {
+		return
+	}
+	// SDK emits resources/list_changed when the resource set mutates.
+	uri := fmt.Sprintf("project://registry/catalog#gen-%d", time.Now().UnixNano())
+	s.mcp.AddResource(&mcpsdk.Resource{
+		URI:      uri,
+		Name:     "catalog-gen",
+		MIMEType: "application/json",
+	}, s.handleReadResource)
+	s.mcp.RemoveResources(uri)
+	// Keep advertised set aligned with disk after mutations.
+	s.reconcileResources(context.Background())
 }
 
 func (s *ProjectCatalogServer) cacheMiddleware(next mcpsdk.MethodHandler) mcpsdk.MethodHandler {

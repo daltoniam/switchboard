@@ -288,3 +288,22 @@ func TestTransitionAndPatch_RejectInvalidID(t *testing.T) {
 	_, err = s.PatchWorkSession(ctx, bad, nil, nil, nil)
 	require.Error(t, err)
 }
+
+func TestDeleteAgentProfile_Referenced(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutAgentProfile(ctx, AgentProfile{Version: "1", AgentProfileID: "ag"})
+	require.NoError(t, err)
+	_, err = s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws", ProjectID: "p", WorkProfileID: "wp",
+		AgentProfileIDs: []string{"ag"}, State: StateOpen,
+	})
+	require.NoError(t, err)
+	err = s.DeleteAgentProfile(ctx, "ag")
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeReferenced))
+}

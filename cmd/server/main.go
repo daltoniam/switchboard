@@ -244,7 +244,6 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	if err := projectStore.Load(); err != nil {
 		log.Fatalf("Failed to load project catalog: %v", err)
 	}
-	projectStore.SetEventBus(project.NewEventBus())
 	if names := projectStore.Names(); len(names) > 0 {
 		log.Printf("Loaded %d project(s): %v", len(names), names)
 	}
@@ -392,16 +391,20 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	if _, err := workStore.EnsureDefaultWorkProfile(ctx); err != nil {
 		log.Printf("WARN: ensure default work profile: %v", err)
 	}
-	serverOpts = append(serverOpts, server.WithProjectWorkModel(workStore))
-	log.Printf("Project work-model store: %s", workStore.Root())
+	catalogWrites := mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog)
+	serverOpts = append(serverOpts, server.WithProjectWorkModel(workStore, catalogWrites))
+	log.Printf("Project work-model store: %s (writes_enabled=%v)", workStore.Root(), catalogWrites)
 
 	if mcp.ProjectCatalogEnabled(cfg.ProjectCatalog) {
+		bus := project.NewEventBus()
+		projectStore.SetEventBus(bus)
 		catalogSrv := server.NewProjectCatalogServer(projectStore, projectStore, projectStore, projectStore, server.ProjectCatalogOptions{
-			WritesEnabled: mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog),
+			WritesEnabled: catalogWrites,
 		})
 		catalogSrv.SetWorkGuard(workStore)
+		catalogSrv.StartEventBridge(bus)
 		serverOpts = append(serverOpts, server.WithProjectCatalog(catalogSrv))
-		log.Printf("Project Catalog on /mcp (writes_enabled=%v)", mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog))
+		log.Printf("Project Catalog on /mcp (writes_enabled=%v)", catalogWrites)
 	}
 	srv := server.New(services, serverOpts...)
 
