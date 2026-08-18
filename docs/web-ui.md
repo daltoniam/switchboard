@@ -6,6 +6,13 @@
   - `GET /` — Dashboard with integration health status
   - `GET /projects` — Project Catalog browser (search + list)
   - `GET /projects/{id}` — Project definition detail, sources, context
+  - `GET /work` — Work hub (work profiles, agent profiles, work sessions)
+  - `GET /work/profiles` — Work profile list
+  - `GET /work/profiles/{id}` — Work profile detail
+  - `GET /work/agents` — Agent profile list
+  - `GET /work/agents/{id}` — Agent profile detail
+  - `GET /work/sessions` — Work session list (`state`, `project_id` query filters)
+  - `GET /work/sessions/{id}` — Work session detail
   - `GET /integrations` — Integration list
   - `GET /integrations/{name}` — Integration detail + credential form
   - `POST /integrations/{name}` — Save integration credentials

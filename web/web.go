@@ -13,6 +13,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/awm"
 	"github.com/daltoniam/switchboard/googleoauth"
 	"github.com/daltoniam/switchboard/integrations/gcal"
 	"github.com/daltoniam/switchboard/integrations/gchat"
@@ -46,6 +47,7 @@ type WebServer struct {
 	marketplace    *marketplace.Manager
 	wasmLoader     pluginLoader
 	catalog        project.Catalog
+	awmStore       *awm.Store
 	onConfigChange func()
 	configMu       sync.Mutex
 }
@@ -205,6 +207,14 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /projects", w.handleProjectsList)
 	mux.HandleFunc("GET /projects/{id}", w.handleProjectDetail)
+
+	mux.HandleFunc("GET /work", w.handleWorkHub)
+	mux.HandleFunc("GET /work/profiles", w.handleWorkProfilesList)
+	mux.HandleFunc("GET /work/profiles/{id}", w.handleWorkProfileDetail)
+	mux.HandleFunc("GET /work/agents", w.handleAgentProfilesList)
+	mux.HandleFunc("GET /work/agents/{id}", w.handleAgentProfileDetail)
+	mux.HandleFunc("GET /work/sessions", w.handleWorkSessionsList)
+	mux.HandleFunc("GET /work/sessions/{id}", w.handleWorkSessionDetail)
 
 	mux.HandleFunc("GET /settings", w.handleSettings)
 	mux.HandleFunc("POST /settings", w.handleSettingsSave)

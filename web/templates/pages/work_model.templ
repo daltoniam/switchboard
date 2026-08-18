@@ -1,0 +1,486 @@
+package pages
+
+import (
+	"fmt"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/daltoniam/switchboard/awm"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"github.com/daltoniam/switchboard/web/templates/components"
+)
+
+func workHref(kind, id string) string {
+	return fmt.Sprintf("/work/%s/%s", kind, url.PathEscape(id))
+}
+
+func stateBadge(state string) string {
+	switch state {
+	case awm.StateOpen:
+		return "green"
+	case awm.StatePaused, awm.StateProposed:
+		return "yellow"
+	case awm.StateClosed:
+		return "muted"
+	case awm.StateAborted:
+		return "red"
+	default:
+		return "muted"
+	}
+}
+
+func formatTime(t time.Time) string {
+	if t.IsZero() {
+		return "—"
+	}
+	return t.Local().Format("2006-01-02 15:04")
+}
+
+func joinCSV(items []string) string {
+	if len(items) == 0 {
+		return "—"
+	}
+	return strings.Join(items, ", ")
+}
+
+// --- Work hub ---
+
+type WorkHubData struct {
+	WorkProfiles  []awm.WorkProfile
+	AgentProfiles []awm.AgentProfile
+	WorkSessions  []awm.WorkSession
+	StateFilter   string
+	ProjectFilter string
+}
+
+templ WorkHub(page layouts.PageData, data WorkHubData) {
+	@layouts.Base(page) {
+		<p class="section-title" style="margin-bottom: 0.25rem; letter-spacing: 0.04em;">Project work model</p>
+		<h1 class="page-title" style="margin-bottom: 0.35rem;">Work</h1>
+		<p style="color: var(--text-secondary); font-size: 0.875rem; max-width: 42rem; margin-bottom: 1.5rem;">
+			Browse work profiles (session blueprints), agent profiles, and work sessions.
+			These are not MCP transport sessions.
+		</p>
+
+		<div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a class="btn btn-outline btn-sm" href="/work/profiles">Work profiles ({ fmt.Sprintf("%d", len(data.WorkProfiles)) })</a>
+			<a class="btn btn-outline btn-sm" href="/work/agents">Agent profiles ({ fmt.Sprintf("%d", len(data.AgentProfiles)) })</a>
+			<a class="btn btn-outline btn-sm" href="/work/sessions">Work sessions ({ fmt.Sprintf("%d", len(data.WorkSessions)) })</a>
+			<a class="btn btn-outline btn-sm" href="/projects">Projects</a>
+		</div>
+
+		<section class="metrics-section">
+			<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+				<h2 class="section-title" style="margin-bottom: 0.75rem;">Open &amp; recent sessions</h2>
+				<form method="GET" action="/work" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+					<select name="state" class="form-input" style="width: auto;" aria-label="Filter by state">
+						<option value="">All states</option>
+						for _, st := range []string{"proposed", "open", "paused", "closed", "aborted"} {
+							if data.StateFilter == st {
+								<option value={ st } selected>{ st }</option>
+							} else {
+								<option value={ st }>{ st }</option>
+							}
+						}
+					</select>
+					<input type="text" name="project_id" value={ data.ProjectFilter } placeholder="project_id" class="form-input" style="width: 10rem;" aria-label="Filter by project"/>
+					<button type="submit" class="btn btn-outline btn-sm">Filter</button>
+				</form>
+			</div>
+			if len(data.WorkSessions) == 0 {
+				<div class="card" style="padding: 1.25rem;">
+					<p style="color: var(--text-secondary); margin: 0;">No work sessions match this view.</p>
+				</div>
+			} else {
+				@workSessionsTable(data.WorkSessions)
+			}
+		</section>
+
+		<section class="metrics-section" style="margin-top: 1.75rem;">
+			<h2 class="section-title">Work profiles</h2>
+			if len(data.WorkProfiles) == 0 {
+				<p style="color: var(--text-muted); font-size: 0.875rem;">No work profiles yet.</p>
+			} else {
+				@workProfilesTable(data.WorkProfiles)
+			}
+		</section>
+
+		<section class="metrics-section" style="margin-top: 1.75rem;">
+			<h2 class="section-title">Agent profiles</h2>
+			if len(data.AgentProfiles) == 0 {
+				<p style="color: var(--text-muted); font-size: 0.875rem;">No agent profiles yet.</p>
+			} else {
+				@agentProfilesTable(data.AgentProfiles)
+			}
+		</section>
+	}
+}
+
+// --- Work profiles ---
+
+type WorkProfilesListData struct {
+	Profiles []awm.WorkProfile
+}
+
+templ WorkProfilesList(page layouts.PageData, data WorkProfilesListData) {
+	@layouts.Base(page) {
+		<p style="margin-bottom: 0.75rem;">
+			<a href="/work" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work</a>
+		</p>
+		<h1 class="page-title">Work profiles</h1>
+		<p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.25rem;">
+			Reusable blueprints for work sessions (session profiles).
+		</p>
+		if len(data.Profiles) == 0 {
+			<div class="card" style="padding: 1.25rem;">
+				<p style="color: var(--text-secondary); margin: 0;">No work profiles. Create one with <code style="font-family: var(--font-mono);">project.work_profile.put</code>.</p>
+			</div>
+		} else {
+			@workProfilesTable(data.Profiles)
+		}
+	}
+}
+
+templ workProfilesTable(profiles []awm.WorkProfile) {
+	<div class="table-wrap">
+		<table class="metrics-table">
+			<thead>
+				<tr>
+					<th>Profile</th>
+					<th>Projects</th>
+					<th>Description</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, p := range profiles {
+					<tr>
+						<td>
+							<a href={ templ.SafeURL(workHref("profiles", p.WorkProfileID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
+								if p.DisplayName != "" {
+									{ p.DisplayName }
+								} else {
+									{ p.WorkProfileID }
+								}
+							</a>
+							<div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">{ p.WorkProfileID }</div>
+						</td>
+						<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary);">{ joinCSV(p.ProjectIDs) }</td>
+						<td style="color: var(--text-secondary); max-width: 24rem;">
+							if p.Description != "" {
+								{ p.Description }
+							} else {
+								<span style="color: var(--text-muted);">—</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+type WorkProfileDetailData struct {
+	Profile  awm.WorkProfile
+	NotFound bool
+	ID       string
+	JSON     string
+}
+
+templ WorkProfileDetail(page layouts.PageData, data WorkProfileDetailData) {
+	@layouts.Base(page) {
+		<p style="margin-bottom: 0.75rem;">
+			<a href="/work/profiles" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work profiles</a>
+		</p>
+		if data.NotFound {
+			<div class="card" style="padding: 1.5rem;">
+				<h1 class="page-title">Work profile not found</h1>
+				<p style="color: var(--text-secondary);">No profile for <code style="font-family: var(--font-mono);">{ data.ID }</code>.</p>
+			</div>
+		} else {
+			<p class="section-title" style="margin-bottom: 0.25rem;">Work profile</p>
+			<h1 class="page-title" style="margin-bottom: 0.35rem;">
+				if data.Profile.DisplayName != "" {
+					{ data.Profile.DisplayName }
+				} else {
+					{ data.Profile.WorkProfileID }
+				}
+			</h1>
+			if data.Profile.Description != "" {
+				<p style="color: var(--text-secondary); margin-bottom: 1rem;">{ data.Profile.Description }</p>
+			}
+			@kvCard("Identity", [][2]string{
+				{"ID", data.Profile.WorkProfileID},
+				{"Projects", joinCSV(data.Profile.ProjectIDs)},
+				{"Intended resources", joinCSV(data.Profile.IntendedResources)},
+			})
+			@jsonCard(data.JSON)
+		}
+	}
+}
+
+// --- Agent profiles ---
+
+type AgentProfilesListData struct {
+	Profiles []awm.AgentProfile
+}
+
+templ AgentProfilesList(page layouts.PageData, data AgentProfilesListData) {
+	@layouts.Base(page) {
+		<p style="margin-bottom: 0.75rem;">
+			<a href="/work" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work</a>
+		</p>
+		<h1 class="page-title">Agent profiles</h1>
+		<p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.25rem;">
+			Eligible agent kinds (not running instances).
+		</p>
+		if len(data.Profiles) == 0 {
+			<div class="card" style="padding: 1.25rem;">
+				<p style="color: var(--text-secondary); margin: 0;">No agent profiles. Create one with <code style="font-family: var(--font-mono);">project.agent_profile.put</code>.</p>
+			</div>
+		} else {
+			@agentProfilesTable(data.Profiles)
+		}
+	}
+}
+
+templ agentProfilesTable(profiles []awm.AgentProfile) {
+	<div class="table-wrap">
+		<table class="metrics-table">
+			<thead>
+				<tr>
+					<th>Profile</th>
+					<th>Capabilities</th>
+					<th>Description</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, p := range profiles {
+					<tr>
+						<td>
+							<a href={ templ.SafeURL(workHref("agents", p.AgentProfileID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
+								if p.DisplayName != "" {
+									{ p.DisplayName }
+								} else {
+									{ p.AgentProfileID }
+								}
+							</a>
+							<div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">{ p.AgentProfileID }</div>
+						</td>
+						<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary);">{ joinCSV(p.Capabilities) }</td>
+						<td style="color: var(--text-secondary); max-width: 24rem;">
+							if p.Description != "" {
+								{ p.Description }
+							} else {
+								<span style="color: var(--text-muted);">—</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+type AgentProfileDetailData struct {
+	Profile  awm.AgentProfile
+	NotFound bool
+	ID       string
+	JSON     string
+}
+
+templ AgentProfileDetail(page layouts.PageData, data AgentProfileDetailData) {
+	@layouts.Base(page) {
+		<p style="margin-bottom: 0.75rem;">
+			<a href="/work/agents" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Agent profiles</a>
+		</p>
+		if data.NotFound {
+			<div class="card" style="padding: 1.5rem;">
+				<h1 class="page-title">Agent profile not found</h1>
+				<p style="color: var(--text-secondary);">No profile for <code style="font-family: var(--font-mono);">{ data.ID }</code>.</p>
+			</div>
+		} else {
+			<p class="section-title" style="margin-bottom: 0.25rem;">Agent profile</p>
+			<h1 class="page-title" style="margin-bottom: 0.35rem;">
+				if data.Profile.DisplayName != "" {
+					{ data.Profile.DisplayName }
+				} else {
+					{ data.Profile.AgentProfileID }
+				}
+			</h1>
+			if data.Profile.Description != "" {
+				<p style="color: var(--text-secondary); margin-bottom: 1rem;">{ data.Profile.Description }</p>
+			}
+			@kvCard("Identity", [][2]string{
+				{"ID", data.Profile.AgentProfileID},
+				{"Capabilities", joinCSV(data.Profile.Capabilities)},
+			})
+			@jsonCard(data.JSON)
+		}
+	}
+}
+
+// --- Work sessions ---
+
+type WorkSessionsListData struct {
+	Sessions      []awm.WorkSession
+	StateFilter   string
+	ProjectFilter string
+}
+
+templ WorkSessionsList(page layouts.PageData, data WorkSessionsListData) {
+	@layouts.Base(page) {
+		<p style="margin-bottom: 0.75rem;">
+			<a href="/work" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work</a>
+		</p>
+		<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+			<div>
+				<h1 class="page-title" style="margin-bottom: 0.25rem;">Work sessions</h1>
+				<p style="color: var(--text-secondary); font-size: 0.875rem;">Bounded work episodes (not MCP connections).</p>
+			</div>
+			<form method="GET" action="/work/sessions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+				<select name="state" class="form-input" style="width: auto;" aria-label="Filter by state">
+					<option value="">All states</option>
+					for _, st := range []string{"proposed", "open", "paused", "closed", "aborted"} {
+						if data.StateFilter == st {
+							<option value={ st } selected>{ st }</option>
+						} else {
+							<option value={ st }>{ st }</option>
+						}
+					}
+				</select>
+				<input type="text" name="project_id" value={ data.ProjectFilter } placeholder="project_id" class="form-input" style="width: 10rem;" aria-label="Filter by project"/>
+				<button type="submit" class="btn btn-outline btn-sm">Filter</button>
+			</form>
+		</div>
+		if len(data.Sessions) == 0 {
+			<div class="card" style="padding: 1.25rem;">
+				<p style="color: var(--text-secondary); margin: 0;">No work sessions match. Create with <code style="font-family: var(--font-mono);">project.work_session.create</code>.</p>
+			</div>
+		} else {
+			@workSessionsTable(data.Sessions)
+		}
+	}
+}
+
+templ workSessionsTable(sessions []awm.WorkSession) {
+	<div class="table-wrap">
+		<table class="metrics-table">
+			<thead>
+				<tr>
+					<th>Session</th>
+					<th>State</th>
+					<th>Project</th>
+					<th>Profile</th>
+					<th>Updated</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, s := range sessions {
+					<tr>
+						<td>
+							<a href={ templ.SafeURL(workHref("sessions", s.WorkSessionID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
+								if s.DisplayName != "" {
+									{ s.DisplayName }
+								} else {
+									{ s.WorkSessionID }
+								}
+							</a>
+							<div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">{ s.WorkSessionID }</div>
+						</td>
+						<td>
+							@components.Badge(s.State, stateBadge(s.State))
+						</td>
+						<td style="font-family: var(--font-mono); font-size: 0.75rem;">
+							if s.ProjectID != "" {
+								<a href={ templ.SafeURL("/projects/" + url.PathEscape(s.ProjectID)) } style="color: var(--text-secondary); text-decoration: none;">{ s.ProjectID }</a>
+							} else {
+								<span style="color: var(--text-muted);">—</span>
+							}
+						</td>
+						<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary);">
+							if s.WorkProfileID != "" {
+								<a href={ templ.SafeURL(workHref("profiles", s.WorkProfileID)) } style="color: var(--text-secondary); text-decoration: none;">{ s.WorkProfileID }</a>
+							} else {
+								<span style="color: var(--text-muted);">—</span>
+							}
+						</td>
+						<td style="color: var(--text-muted); font-size: 0.8125rem;">{ formatTime(s.UpdatedAt) }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+type WorkSessionDetailData struct {
+	Session  awm.WorkSession
+	NotFound bool
+	ID       string
+	JSON     string
+}
+
+templ WorkSessionDetail(page layouts.PageData, data WorkSessionDetailData) {
+	@layouts.Base(page) {
+		<p style="margin-bottom: 0.75rem;">
+			<a href="/work/sessions" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work sessions</a>
+		</p>
+		if data.NotFound {
+			<div class="card" style="padding: 1.5rem;">
+				<h1 class="page-title">Work session not found</h1>
+				<p style="color: var(--text-secondary);">No session for <code style="font-family: var(--font-mono);">{ data.ID }</code>.</p>
+			</div>
+		} else {
+			<p class="section-title" style="margin-bottom: 0.25rem;">Work session</p>
+			<div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+				<h1 class="page-title" style="margin-bottom: 0;">
+					if data.Session.DisplayName != "" {
+						{ data.Session.DisplayName }
+					} else {
+						{ data.Session.WorkSessionID }
+					}
+				</h1>
+				@components.Badge(data.Session.State, stateBadge(data.Session.State))
+			</div>
+			@kvCard("Identity", [][2]string{
+				{"ID", data.Session.WorkSessionID},
+				{"Project", data.Session.ProjectID},
+				{"Project revision", data.Session.ProjectRevision},
+				{"Work profile", data.Session.WorkProfileID},
+				{"Agent profiles", joinCSV(data.Session.AgentProfileIDs)},
+				{"Created", formatTime(data.Session.CreatedAt)},
+				{"Updated", formatTime(data.Session.UpdatedAt)},
+			})
+			@jsonCard(data.JSON)
+		}
+	}
+}
+
+templ kvCard(title string, rows [][2]string) {
+	<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+		<div class="section-title" style="margin-bottom: 0.75rem;">{ title }</div>
+		<div class="table-wrap">
+			<table class="metrics-table">
+				<tbody>
+					for _, row := range rows {
+						if row[1] != "" {
+							<tr>
+								<td style="color: var(--text-muted); width: 11rem;">{ row[0] }</td>
+								<td style="font-family: var(--font-mono); font-size: 0.8125rem; word-break: break-all;">{ row[1] }</td>
+							</tr>
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
+templ jsonCard(raw string) {
+	if raw != "" {
+		<div class="card" style="padding: 1rem 1.25rem;">
+			<div class="section-title" style="margin-bottom: 0.75rem;">JSON</div>
+			<pre style="margin: 0; overflow-x: auto; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word;">{ raw }</pre>
+		</div>
+	}
+}

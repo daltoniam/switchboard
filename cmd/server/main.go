@@ -494,6 +494,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	ws := web.New(services, port, mp, wasmLoader,
 		web.WithConfigChangeHook(srv.RefreshSearchIndex),
 		web.WithProjectCatalog(projectStore),
+		web.WithAWMStore(workStore),
 	)
 	mux.Handle("/", ws.Handler())
 
