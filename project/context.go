@@ -98,9 +98,7 @@ func assembleFromResources(def *Definition, overrideRoot string) []ContextEntry 
 				continue
 			}
 			rel := res.Path
-			if res.Repo != "" {
-				rel = res.Path
-			} else {
+			if res.Repo == "" {
 				rel = path
 			}
 			entries = append(entries, ContextEntry{
@@ -128,6 +126,7 @@ func assembleFromResources(def *Definition, overrideRoot string) []ContextEntry 
 }
 
 func resolveFileResource(def *Definition, res Resource, overrideRoot string) (absPath, source string, ok bool) {
+	//nolint:nestif // primary-repo override vs named repo resolution
 	if res.Repo != "" {
 		root := overrideRoot
 		if root == "" {
@@ -336,8 +335,6 @@ func matchDoubleStar(pattern, name string) bool {
 		}
 		// advance rest past prefix match length approximately
 		rest = trimPrefixMatch(prefix, rest)
-	} else {
-		// leading **
 	}
 	for i := 1; i < len(parts)-1; i++ {
 		mid := strings.Trim(parts[i], "/")
@@ -356,9 +353,7 @@ func matchDoubleStar(pattern, name string) bool {
 		return true
 	}
 	// suffix may contain globs
-	if strings.HasPrefix(suffix, "/") {
-		suffix = suffix[1:]
-	}
+	suffix = strings.TrimPrefix(suffix, "/")
 	return matchSuffixGlob(suffix, rest)
 }
 
@@ -516,6 +511,7 @@ func ReadContextFile(def *Definition, configDir, path string) (string, error) {
 	}
 
 	// Try matching a file resource by relative path or absolute.
+	//nolint:nestif // walks file and files resources
 	if def.Resources != nil {
 		for _, res := range def.Resources {
 			if res.Type != ResourceTypeFile {

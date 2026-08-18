@@ -12,7 +12,7 @@ The source of truth is JSON files:
 
 In-memory indexes and watchers accelerate reads and notifications. They never replace the files.
 
-`config_root` defaults to `$XDG_CONFIG_HOME/switchboard` (or `~/.config/switchboard`). It is intentionally isolated from any `project-interop` path.
+`config_root` defaults to `$XDG_CONFIG_HOME/switchboard` (or `~/.config/switchboard`). It is intentionally isolated from any `switchboard` path.
 
 ## Definition shape
 

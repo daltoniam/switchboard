@@ -39,14 +39,6 @@ func (d *Definition) UnmarshalJSON(data []byte) error {
 
 func (d Definition) MarshalJSON() ([]byte, error) {
 	type definitionAlias Definition
-	// Ensure resources marshals as {} not null when empty but non-nil,
-	// and omit when nil only if we want — schema requires resources, so
-	// always emit a map (empty object when empty).
-	if d.Resources == nil {
-		// Keep nil as omitted via omitempty? Schema requires it on write
-		// paths; leave as-is so empty creates can still round-trip after
-		// Validate rejects nil.
-	}
 	known, err := json.Marshal(definitionAlias(d))
 	if err != nil {
 		return nil, err

@@ -3,6 +3,8 @@ package pages
 import (
 	"fmt"
 	"net/url"
+	"sort"
+	"strings"
 
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
@@ -44,6 +46,83 @@ func diagBadge(n int) string {
 	return "yellow"
 }
 
+func resourceCounts(def project.Definition) string {
+	var repos, files, sets int
+	for _, r := range def.Resources {
+		switch r.Type {
+		case project.ResourceTypeRepo:
+			repos++
+		case project.ResourceTypeFile:
+			files++
+		case project.ResourceTypeFiles:
+			sets++
+		}
+	}
+	parts := make([]string, 0, 3)
+	if repos > 0 {
+		if repos == 1 {
+			parts = append(parts, "1 repo")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d repos", repos))
+		}
+	}
+	if files > 0 {
+		if files == 1 {
+			parts = append(parts, "1 file")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d files", files))
+		}
+	}
+	if sets > 0 {
+		if sets == 1 {
+			parts = append(parts, "1 file set")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d file sets", sets))
+		}
+	}
+	if len(parts) == 0 {
+		return "no resources"
+	}
+	return strings.Join(parts, " · ")
+}
+
+func resourceSummaryLine(id string, r project.Resource) string {
+	switch r.Type {
+	case project.ResourceTypeRepo:
+		s := r.Path
+		if r.Branch != "" {
+			s += " @" + r.Branch
+		}
+		return s
+	case project.ResourceTypeFile:
+		if r.Repo != "" {
+			return r.Repo + ":" + r.Path
+		}
+		return r.Path
+	case project.ResourceTypeFiles:
+		inc := strings.Join(r.Include, ", ")
+		if r.Repo != "" {
+			return r.Repo + ": " + inc
+		}
+		if r.Root != "" {
+			return r.Root + ": " + inc
+		}
+		return inc
+	default:
+		return r.Type
+	}
+}
+
+func sortedResourceIDs(m map[string]project.Resource) []string {
+	ids := make([]string, 0, len(m))
+	for id := range m {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+
 templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 	@layouts.Base(page) {
 		<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
@@ -51,7 +130,7 @@ templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 				<p class="section-title" style="margin-bottom: 0.25rem; letter-spacing: 0.04em;">Project Catalog</p>
 				<h1 class="page-title" style="margin-bottom: 0.25rem;">Projects</h1>
 				<p style="color: var(--text-secondary); font-size: 0.875rem; max-width: 40rem;">
-					Browse local project definitions. Files under the catalog root remain the source of truth.
+					Browse Switchboard projects and their resources (repos, files, globs). Catalog files live under ~/.config/switchboard.
 				</p>
 			</div>
 			<div style="display: flex; gap: 0.75rem; color: var(--text-muted); font-size: 0.8125rem; font-family: var(--font-mono);">
@@ -133,8 +212,8 @@ templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 						<thead>
 							<tr>
 								<th>Project</th>
-								<th>Branch</th>
-								<th>Repo</th>
+								<th>Resources</th>
+								<th>Primary repo</th>
 								<th>Status</th>
 								<th>Revision</th>
 							</tr>
@@ -148,11 +227,15 @@ templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 										</a>
 										<div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">{ string(p.ProjectID) }</div>
 									</td>
-									<td style="color: var(--text-secondary);">
-										if p.Branch != "" {
-											{ p.Branch }
+									<td style="color: var(--text-secondary); font-size: 0.8125rem;">
+										if p.Repo != "" {
+											if p.Branch != "" {
+												<span>1 repo · { p.Branch }</span>
+											} else {
+												<span>1 repo</span>
+											}
 										} else {
-											<span style="color: var(--text-muted);">—</span>
+											<span style="color: var(--text-muted);">resources</span>
 										}
 									</td>
 									<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={ p.Repo }>
@@ -246,32 +329,54 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 			<div style="margin-bottom: 1.25rem;">
 				<p class="section-title" style="margin-bottom: 0.25rem;">Project</p>
 				<h1 class="page-title" style="margin-bottom: 0.35rem;">{ data.Snapshot.Definition.Name }</h1>
+				if data.Snapshot.Definition.Description != "" {
+					<p style="color: var(--text-secondary); max-width: 42rem; margin: 0.35rem 0 0.5rem 0;">{ data.Snapshot.Definition.Description }</p>
+				}
 				<div style="display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; color: var(--text-secondary); font-size: 0.8125rem;">
 					<span style="font-family: var(--font-mono); color: var(--text-muted);">{ string(data.Snapshot.ProjectID) }</span>
-					if data.Snapshot.Definition.PrimaryBranch() != "" {
-						<span>branch <strong style="color: var(--text); font-weight: 500;">{ data.Snapshot.Definition.PrimaryBranch() }</strong></span>
-					}
+					<span>{ resourceCounts(data.Snapshot.Definition) }</span>
 					@components.Badge(diagLabel(len(data.Snapshot.Diagnostics)), diagBadge(len(data.Snapshot.Diagnostics)))
 				</div>
 			</div>
 
+			if len(data.Snapshot.Definition.Resources) > 0 {
+				<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+					<div class="section-title" style="margin-bottom: 0.75rem;">Resources</div>
+					<div class="table-wrap">
+						<table class="metrics-table">
+							<thead>
+								<tr>
+									<th>ID</th>
+									<th>Type</th>
+									<th>Location</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, rid := range sortedResourceIDs(data.Snapshot.Definition.Resources) {
+									<tr>
+										<td style="font-weight: 500;">{ rid }</td>
+										<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary);">{ data.Snapshot.Definition.Resources[rid].Type }</td>
+										<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); word-break: break-all;">
+											{ resourceSummaryLine(rid, data.Snapshot.Definition.Resources[rid]) }
+											if data.Snapshot.Definition.Resources[rid].Description != "" {
+												<div style="font-family: inherit; color: var(--text-muted); margin-top: 0.2rem;">{ data.Snapshot.Definition.Resources[rid].Description }</div>
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			}
+
 			<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
-				<div class="section-title" style="margin-bottom: 0.75rem;">Identity</div>
+				<div class="section-title" style="margin-bottom: 0.75rem;">Revisions</div>
 				<div class="table-wrap">
 					<table class="metrics-table">
 						<tbody>
 							<tr>
-								<td style="color: var(--text-muted); width: 9rem;">Repo</td>
-								<td style="font-family: var(--font-mono); font-size: 0.8125rem;">
-									if data.Snapshot.Definition.PrimaryRepo() != "" {
-										{ data.Snapshot.Definition.PrimaryRepo() }
-									} else {
-										<span style="color: var(--text-muted);">—</span>
-									}
-								</td>
-							</tr>
-							<tr>
-								<td style="color: var(--text-muted);">Revision</td>
+								<td style="color: var(--text-muted); width: 9rem;">Revision</td>
 								<td style="font-family: var(--font-mono); font-size: 0.75rem; word-break: break-all;">{ string(data.Snapshot.Revision) }</td>
 							</tr>
 							<tr>
