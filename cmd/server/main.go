@@ -386,17 +386,23 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 			server.NewFileSessionStore(server.DefaultSessionDir(), server.DefaultSessionTTL),
 		))
 	}
+	// Work profiles/sessions/agent profiles live under the Switchboard config root.
+	workStore := awm.NewStore(projectStore.ConfigDir())
+	workStore.SetCatalog(projectStore)
+	if _, err := workStore.EnsureDefaultWorkProfile(ctx); err != nil {
+		log.Printf("WARN: ensure default work profile: %v", err)
+	}
+	serverOpts = append(serverOpts, server.WithProjectWorkModel(workStore))
+	log.Printf("Project work-model store: %s", workStore.Root())
+
 	if mcp.ProjectCatalogEnabled(cfg.ProjectCatalog) {
 		catalogSrv := server.NewProjectCatalogServer(projectStore, projectStore, projectStore, projectStore, server.ProjectCatalogOptions{
 			WritesEnabled: mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog),
 		})
+		catalogSrv.SetWorkGuard(workStore)
 		serverOpts = append(serverOpts, server.WithProjectCatalog(catalogSrv))
 		log.Printf("Project Catalog on /mcp (writes_enabled=%v)", mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog))
 	}
-	// Work profiles/sessions/agent profiles live under the Switchboard config root.
-	workStore := awm.NewStore(projectStore.ConfigDir())
-	serverOpts = append(serverOpts, server.WithProjectWorkModel(workStore))
-	log.Printf("Project work-model store: %s", workStore.Root())
 	srv := server.New(services, serverOpts...)
 
 	if stdioMode {

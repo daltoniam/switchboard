@@ -138,12 +138,30 @@ func projectWorkOK(v any) (*mcpsdk.CallToolResult, any, error) {
 }
 
 func projectWorkErr(err error) (*mcpsdk.CallToolResult, any, error) {
+	body := map[string]any{"message": err.Error()}
+	if e, ok := awm.AsError(err); ok {
+		body = map[string]any{
+			"code":            e.Code,
+			"message":         e.Message,
+			"entity_kind":     e.EntityKind,
+			"entity_id":       e.EntityID,
+			"project_id":      e.ProjectID,
+			"work_profile_id": e.WorkProfileID,
+			"work_session_id": e.WorkSessionID,
+		}
+		if e.Expected != "" {
+			body["expected"] = e.Expected
+		}
+		if e.Current != "" {
+			body["current"] = e.Current
+		}
+	}
 	msg := err.Error()
 	return &mcpsdk.CallToolResult{
 		IsError: true,
 		Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: msg}},
 		StructuredContent: map[string]any{
-			"error": map[string]any{"message": msg},
+			"error": body,
 		},
 	}, nil, nil
 }

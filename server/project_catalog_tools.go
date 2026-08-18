@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/url"
 
+	"github.com/daltoniam/switchboard/awm"
 	"github.com/daltoniam/switchboard/project"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -317,6 +318,18 @@ func (s *ProjectCatalogServer) toolUpdate(ctx context.Context, _ *mcpsdk.CallToo
 func (s *ProjectCatalogServer) toolDelete(ctx context.Context, _ *mcpsdk.CallToolRequest, in deleteIn) (*mcpsdk.CallToolResult, any, error) {
 	if !s.cfg.writesEnabled {
 		return writeDisabled()
+	}
+	if s.workGuard != nil {
+		if err := s.workGuard.AssertProjectDeletable(ctx, in.ProjectID); err != nil {
+			if e, ok := awm.AsError(err); ok {
+				return domainAnyError(&project.Error{
+					Code:      project.CodeInvalidDefinition,
+					Message:   e.Message + " (work_session_id=" + e.WorkSessionID + ")",
+					ProjectID: project.ProjectID(in.ProjectID),
+				})
+			}
+			return domainAnyError(err)
+		}
 	}
 	err := s.writer.Delete(ctx, project.DeleteRequest{
 		ProjectID:                 project.ProjectID(in.ProjectID),

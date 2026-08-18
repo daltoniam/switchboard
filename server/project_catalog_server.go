@@ -17,6 +17,11 @@ const (
 	catalogRevisionTTLMs = 3_600_000
 )
 
+// ProjectDeleteGuard rejects Project deletion while retained WorkSessions reference it.
+type ProjectDeleteGuard interface {
+	AssertProjectDeletable(ctx context.Context, projectID string) error
+}
+
 // ProjectCatalogServer exposes the dedicated /project-catalog/mcp surface.
 type ProjectCatalogServer struct {
 	catalog    project.Catalog
@@ -26,6 +31,12 @@ type ProjectCatalogServer struct {
 	cfg        projectCatalogRuntime
 	mcp        *mcpsdk.Server
 	standalone *mcpsdk.Server
+	workGuard  ProjectDeleteGuard
+}
+
+// SetWorkGuard attaches referential integrity checks for Project deletion.
+func (s *ProjectCatalogServer) SetWorkGuard(g ProjectDeleteGuard) {
+	s.workGuard = g
 }
 
 type projectCatalogRuntime struct {

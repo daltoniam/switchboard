@@ -14,6 +14,8 @@ import (
 func TestWorkProfileCRUD(t *testing.T) {
 	s := NewStore(t.TempDir())
 	ctx := context.Background()
+	_, err := s.PutProject(ctx, Project{Version: "1", ProjectID: "switchboard"})
+	require.NoError(t, err)
 	p, err := s.PutWorkProfile(ctx, WorkProfile{
 		Version: "1", WorkProfileID: "code-review", DisplayName: "Code review",
 		ProjectIDs: []string{"switchboard"},
@@ -60,7 +62,7 @@ func TestWorkSessionLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	sess, err := s.CreateWorkSession(ctx, WorkSession{
 		Version: "1", WorkSessionID: "ws-1", DisplayName: "Outage",
-		ProjectID: "switchboard", ProjectRevision: "sha256:abc",
+		ProjectID:     "switchboard",
 		WorkProfileID: "incident", AgentProfileIDs: []string{"triage"},
 		State: StateProposed,
 	})
@@ -73,6 +75,7 @@ func TestWorkSessionLifecycle(t *testing.T) {
 
 	_, err = s.TransitionWorkSession(ctx, "ws-1", StateProposed)
 	assert.Error(t, err)
+	assert.True(t, IsCode(err, CodeInvalidTransition))
 
 	closed, err := s.TransitionWorkSession(ctx, "ws-1", StateClosed)
 	require.NoError(t, err)
@@ -90,7 +93,123 @@ func TestWorkSession_RejectsMissingProfile(t *testing.T) {
 		Version: "1", WorkSessionID: "ws-x", WorkProfileID: "missing", State: StateOpen,
 	})
 	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "not found"))
+	assert.True(t, IsCode(err, CodeInvalidReference) || strings.Contains(err.Error(), "not found"))
+}
+
+func TestEnsureDefaultWorkProfile_Idempotent(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	p1, err := s.EnsureDefaultWorkProfile(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, DefaultWorkProfileID, p1.WorkProfileID)
+	assert.Equal(t, "default", p1.DisplayName)
+
+	// Customize display name; reseeding must not overwrite.
+	p1.DisplayName = "Default (custom)"
+	_, err = s.PutWorkProfile(ctx, p1)
+	require.NoError(t, err)
+
+	p2, err := s.EnsureDefaultWorkProfile(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "Default (custom)", p2.DisplayName)
+}
+
+func TestWorkSession_RejectsIneligibleProfile(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutProject(ctx, Project{Version: "1", ProjectID: "alpha"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "beta"})
+	require.NoError(t, err)
+	_, err = s.PutWorkProfile(ctx, WorkProfile{
+		Version: "1", WorkProfileID: "alpha-only", ProjectIDs: []string{"alpha"},
+	})
+	require.NoError(t, err)
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-bad", ProjectID: "beta", WorkProfileID: "alpha-only", State: StateProposed,
+	})
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeInvalidReference))
+}
+
+func TestDeleteWorkProfile_Referenced(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws", ProjectID: "p", WorkProfileID: "wp", State: StateOpen,
+	})
+	require.NoError(t, err)
+	err = s.DeleteWorkProfile(ctx, "wp")
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeReferenced))
+}
+
+func TestDeleteProject_Referenced(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws", ProjectID: "p", WorkProfileID: "wp", State: StateOpen,
+	})
+	require.NoError(t, err)
+	err = s.DeleteProject(ctx, "p")
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeReferenced))
+}
+
+func TestWorkSession_IdempotentCreate(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	first, err := s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws", ProjectID: "p", WorkProfileID: "wp", State: StateProposed,
+	})
+	require.NoError(t, err)
+	second, err := s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws", ProjectID: "p", WorkProfileID: "wp", State: StateProposed,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, first.WorkSessionID, second.WorkSessionID)
+}
+
+func TestPolicyNarrowing(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{
+		Version: "1", WorkProfileID: "wp",
+		DefaultPolicy: map[string]any{"network": false, "write": true},
+	})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	// Broadening network false→true must fail.
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-bad", ProjectID: "p", WorkProfileID: "wp",
+		State: StateProposed, Policy: map[string]any{"network": true},
+	})
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodePolicyBroadening))
+	// Narrowing write true→false is ok.
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-ok", ProjectID: "p", WorkProfileID: "wp",
+		State: StateProposed, Policy: map[string]any{"write": false},
+	})
+	require.NoError(t, err)
+}
+
+func TestSnapshotIDForRevision(t *testing.T) {
+	id := SnapshotIDForRevision("p", "sha256:"+strings.Repeat("a", 64))
+	assert.Contains(t, id, "project://registry/projects/p/revisions/sha256:")
 }
 
 func TestStore_LivesUnderSwitchboardRoot(t *testing.T) {
@@ -153,5 +272,8 @@ func TestProjectCRUD_AndLegacyFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "newproj", sess.ProjectID)
 
+	// Referenced project cannot be deleted until the session is removed.
+	require.Error(t, s.DeleteProject(ctx, "newproj"))
+	require.NoError(t, s.DeleteWorkSession(ctx, "ws-p"))
 	require.NoError(t, s.DeleteProject(ctx, "newproj"))
 }

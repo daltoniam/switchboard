@@ -40,6 +40,8 @@ func seedProjectWork(t *testing.T, catalog *project.Store, work *awm.Store) {
 		Description: "Review PRs", ProjectIDs: []string{"switchboard"},
 	})
 	require.NoError(t, err)
+	_, err = work.PutProject(ctx, awm.Project{Version: "1", ProjectID: "other", Description: "other"})
+	require.NoError(t, err)
 	_, err = work.PutWorkProfile(ctx, awm.WorkProfile{
 		Version: "1", WorkProfileID: "other.default", DisplayName: "other",
 		ProjectIDs: []string{"other"},
