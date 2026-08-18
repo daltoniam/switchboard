@@ -17,6 +17,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/awm"
 	"github.com/daltoniam/switchboard/compact"
 	"github.com/daltoniam/switchboard/script"
 	"github.com/daltoniam/switchboard/version"
@@ -85,6 +86,7 @@ type Server struct {
 	discoverAll       bool
 	extraInstructions string // appended to the base MCP instructions
 	projectCatalog    *ProjectCatalogServer
+	awmStore          *awm.Store
 }
 
 // baseInstructions is the default guidance sent to clients in the MCP
@@ -136,6 +138,12 @@ func WithExtraInstructions(text string) Option {
 // /mcp server. When nil, catalog surface is omitted.
 func WithProjectCatalog(cat *ProjectCatalogServer) Option {
 	return func(s *Server) { s.projectCatalog = cat }
+}
+
+// WithAWM attaches minimal Agent Work Model tools (WorkProfile, WorkSession,
+// AgentProfile) backed by a filesystem store under the Switchboard config root.
+func WithAWM(store *awm.Store) Option {
+	return func(s *Server) { s.awmStore = store }
 }
 
 // staticMCPCapabilities advertises a stable tool list. Crush 0.89 / MCP
@@ -196,6 +204,9 @@ func New(services *mcp.Services, opts ...Option) *Server {
 	s.registerTools()
 	if s.projectCatalog != nil {
 		s.projectCatalog.AttachTo(s.mcpServer)
+	}
+	if s.awmStore != nil {
+		AttachAWM(s.mcpServer, s.awmStore)
 	}
 	return s
 }

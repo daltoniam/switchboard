@@ -14,6 +14,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/awm"
 	"github.com/daltoniam/switchboard/browser"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
@@ -392,6 +393,10 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		serverOpts = append(serverOpts, server.WithProjectCatalog(catalogSrv))
 		log.Printf("Project Catalog on /mcp (writes_enabled=%v)", mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog))
 	}
+	// AWM profiles/sessions live under the same Switchboard config root as projects.
+	awmStore := awm.NewStore(projectStore.ConfigDir())
+	serverOpts = append(serverOpts, server.WithAWM(awmStore))
+	log.Printf("AWM store: %s", awmStore.Root())
 	srv := server.New(services, serverOpts...)
 
 	if stdioMode {

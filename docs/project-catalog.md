@@ -51,3 +51,7 @@ Catalog tools and `project://` resources are on the main `/mcp` endpoint (enable
 ## Web UI
 
 Browse projects at `/projects` (list + detail).
+
+## Related
+
+- Agent Work Model subset (WorkProfile / WorkSession / AgentProfile): [awm.md](awm.md)
