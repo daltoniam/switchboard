@@ -20,6 +20,7 @@ const (
 	CodeInternal          = "internal_error"
 	CodeLockTimeout       = "lock_timeout"
 	CodeMissingDefault    = "missing_default_profile"
+	CodeWriteDisabled     = "write_disabled"
 )
 
 // Error is a typed AWM catalog error with stable Code and relevant IDs.

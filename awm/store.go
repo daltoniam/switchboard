@@ -1033,6 +1033,9 @@ func (s *Store) PatchWorkSession(ctx context.Context, id string, displayName *st
 		}
 		if agentProfileIDs != nil {
 			for _, ap := range *agentProfileIDs {
+				if err := validateID("agent_profile_id", ap); err != nil {
+					return invalidInput(err.Error())
+				}
 				if _, err := readJSON[AgentProfile](s.agentProfilePath(ap)); err != nil {
 					return invalidRef("agent_profile_id", ap, "agent_profile_id not found")
 				}

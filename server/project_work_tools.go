@@ -103,8 +103,8 @@ type projectWorkHandlers struct {
 
 func (h *projectWorkHandlers) writeDisabled() (*mcpsdk.CallToolResult, any, error) {
 	return projectWorkErr(&awm.Error{
-		Code:    awm.CodeInvalidInput,
-		Message: "write_disabled: project_catalog.writes_enabled is false",
+		Code:    awm.CodeWriteDisabled,
+		Message: "canonical writes are disabled (project_catalog.writes_enabled is false)",
 	})
 }
 

@@ -75,6 +75,10 @@ func (w *WebServer) loadProjectWork(ctx context.Context, projectID, stateFilter 
 }
 
 func workProfileTouchesProject(p awm.WorkProfile, projectID string) bool {
+	// Empty project_ids means globally applicable (matches validateSessionProfile / docs).
+	if len(p.ProjectIDs) == 0 {
+		return true
+	}
 	if slices.Contains(p.ProjectIDs, projectID) {
 		return true
 	}

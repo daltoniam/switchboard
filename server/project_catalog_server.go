@@ -106,7 +106,7 @@ func (s *ProjectCatalogServer) reconcileMiddleware(next mcpsdk.MethodHandler) mc
 }
 
 func (s *ProjectCatalogServer) reconcileResources(ctx context.Context) {
-	page, err := s.catalog.List(ctx, "")
+	projects, invalid, err := s.listAllCatalog(ctx)
 	if err != nil {
 		return
 	}
@@ -116,7 +116,7 @@ func (s *ProjectCatalogServer) reconcileResources(ctx context.Context) {
 		Name:     "catalog",
 		MIMEType: "application/json",
 	}, s.handleReadResource)
-	for _, p := range page.Projects {
+	for _, p := range projects {
 		uri := projectResourceURI(p.ProjectID)
 		want[uri] = struct{}{}
 		s.mcp.AddResource(&mcpsdk.Resource{
@@ -125,7 +125,7 @@ func (s *ProjectCatalogServer) reconcileResources(ctx context.Context) {
 			MIMEType: "application/json",
 		}, s.handleReadResource)
 	}
-	for _, p := range page.InvalidProjects {
+	for _, p := range invalid {
 		uri := diagnosticsResourceURI(p.ProjectID)
 		want[uri] = struct{}{}
 		s.mcp.AddResource(&mcpsdk.Resource{
@@ -147,6 +147,28 @@ func (s *ProjectCatalogServer) reconcileResources(ctx context.Context) {
 		s.mcp.RemoveResources(stale...)
 	}
 	s.knownResURIs = want
+}
+
+// listAllCatalog walks List cursors so reconcile/catalog reads see the full set.
+func (s *ProjectCatalogServer) listAllCatalog(ctx context.Context) ([]project.ProjectSummary, []project.InvalidProjectSummary, error) {
+	var (
+		projects []project.ProjectSummary
+		invalid  []project.InvalidProjectSummary
+		cursor   string
+	)
+	for {
+		page, err := s.catalog.List(ctx, cursor)
+		if err != nil {
+			return nil, nil, err
+		}
+		projects = append(projects, page.Projects...)
+		invalid = append(invalid, page.InvalidProjects...)
+		if page.NextCursor == "" || page.NextCursor == cursor {
+			break
+		}
+		cursor = page.NextCursor
+	}
+	return projects, invalid, nil
 }
 
 // StartEventBridge watches the catalog EventBus and nudges resources/list_changed
@@ -267,13 +289,13 @@ func (s *ProjectCatalogServer) handleReadResource(ctx context.Context, req *mcps
 	}
 	switch parsed.kind {
 	case "catalog":
-		page, err := s.catalog.List(ctx, "")
+		projects, invalid, err := s.listAllCatalog(ctx)
 		if err != nil {
 			return nil, err
 		}
 		body, err := json.Marshal(map[string]any{
-			"projects":        nonNil(page.Projects),
-			"invalidProjects": nonNil(page.InvalidProjects),
+			"projects":        nonNil(projects),
+			"invalidProjects": nonNil(invalid),
 		})
 		if err != nil {
 			return nil, err
