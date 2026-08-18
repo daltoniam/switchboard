@@ -184,12 +184,20 @@ templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 }
 
 type ProjectDetailData struct {
-	Snapshot project.Snapshot
-	Invalid  *project.InvalidProjectSummary
-	NotFound bool
-	ProjectID string
-	Context   []project.ContextEntry
-	JSON      string
+	Snapshot           project.Snapshot
+	Invalid            *project.InvalidProjectSummary
+	NotFound           bool
+	ProjectID          string
+	Context            []project.ContextEntry
+	JSON               string
+	WorkProfileCount   int
+	AgentProfileCount  int
+	WorkSessionCount   int
+	HasWorkModel       bool
+}
+
+func projectDetailWorkHref(id string) string {
+	return "/projects/" + url.PathEscape(id) + "/work"
 }
 
 templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
@@ -248,6 +256,29 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 					@components.Badge(diagLabel(len(data.Snapshot.Diagnostics)), diagBadge(len(data.Snapshot.Diagnostics)))
 				</div>
 			</div>
+
+			if data.HasWorkModel {
+				<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
+					<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+						<div class="section-title" style="margin-bottom: 0;">Work</div>
+						<a class="btn btn-outline btn-sm" href={ templ.SafeURL(projectDetailWorkHref(data.ProjectID)) }>Open work hub</a>
+					</div>
+					<p style="color: var(--text-secondary); font-size: 0.875rem; margin: 0 0 0.85rem 0;">
+						Work profiles, agent profiles, and work sessions for this project.
+					</p>
+					<div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+						<a class="btn btn-outline btn-sm" href={ templ.SafeURL(projectDetailWorkHref(data.ProjectID) + "/profiles") }>
+							Work profiles ({ fmt.Sprintf("%d", data.WorkProfileCount) })
+						</a>
+						<a class="btn btn-outline btn-sm" href={ templ.SafeURL(projectDetailWorkHref(data.ProjectID) + "/agents") }>
+							Agent profiles ({ fmt.Sprintf("%d", data.AgentProfileCount) })
+						</a>
+						<a class="btn btn-outline btn-sm" href={ templ.SafeURL(projectDetailWorkHref(data.ProjectID) + "/sessions") }>
+							Work sessions ({ fmt.Sprintf("%d", data.WorkSessionCount) })
+						</a>
+					</div>
+				</div>
+			}
 
 			<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
 				<div class="section-title" style="margin-bottom: 0.75rem;">Revisions</div>

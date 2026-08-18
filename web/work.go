@@ -1,74 +1,163 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/daltoniam/switchboard/awm"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 )
 
-// WithAWMStore injects the work-model store for Work / profiles / sessions UI.
+// WithAWMStore injects the work-model store for project-scoped Work UI.
 func WithAWMStore(store *awm.Store) Option {
 	return func(w *WebServer) { w.awmStore = store }
 }
 
-func (w *WebServer) handleWorkHub(rw http.ResponseWriter, r *http.Request) {
-	page := w.pageData(r, "Work", "/work")
-	data := pages.WorkHubData{
-		StateFilter:   strings.TrimSpace(r.URL.Query().Get("state")),
-		ProjectFilter: strings.TrimSpace(r.URL.Query().Get("project_id")),
+func (w *WebServer) projectPathID(r *http.Request) (string, bool) {
+	id, err := url.PathUnescape(r.PathValue("id"))
+	if err != nil || strings.TrimSpace(id) == "" {
+		return "", false
+	}
+	return id, true
+}
+
+func (w *WebServer) loadProjectWork(ctx context.Context, projectID, stateFilter string) (pages.ProjectWorkData, error) {
+	data := pages.ProjectWorkData{
+		ProjectID:     projectID,
+		StateFilter:   stateFilter,
+		WorkProfiles:  []awm.WorkProfile{},
+		AgentProfiles: []awm.AgentProfile{},
+		WorkSessions:  []awm.WorkSession{},
 	}
 	if w.awmStore == nil {
-		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = pages.WorkHub(page, data).Render(r.Context(), rw)
-		return
+		return data, nil
 	}
-	ctx := r.Context()
-	data.WorkProfiles, _ = w.awmStore.ListWorkProfiles(ctx)
-	data.AgentProfiles, _ = w.awmStore.ListAgentProfiles(ctx)
-	data.WorkSessions, _ = w.awmStore.ListWorkSessions(ctx, data.StateFilter, data.ProjectFilter)
-	if data.WorkProfiles == nil {
-		data.WorkProfiles = []awm.WorkProfile{}
+	profiles, err := w.awmStore.ListWorkProfiles(ctx)
+	if err != nil {
+		return data, err
 	}
-	if data.AgentProfiles == nil {
-		data.AgentProfiles = []awm.AgentProfile{}
-	}
-	if data.WorkSessions == nil {
-		data.WorkSessions = []awm.WorkSession{}
-	}
-	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = pages.WorkHub(page, data).Render(ctx, rw)
-}
-
-func (w *WebServer) handleWorkProfilesList(rw http.ResponseWriter, r *http.Request) {
-	page := w.pageData(r, "Work profiles", "/work")
-	data := pages.WorkProfilesListData{Profiles: []awm.WorkProfile{}}
-	if w.awmStore != nil {
-		list, err := w.awmStore.ListWorkProfiles(r.Context())
-		if err != nil {
-			page.FlashError = err.Error()
-		} else if list != nil {
-			data.Profiles = list
+	for _, p := range profiles {
+		if workProfileTouchesProject(p, projectID) {
+			data.WorkProfiles = append(data.WorkProfiles, p)
 		}
 	}
-	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = pages.WorkProfilesList(page, data).Render(r.Context(), rw)
+	sessions, err := w.awmStore.ListWorkSessions(ctx, stateFilter, projectID)
+	if err != nil {
+		return data, err
+	}
+	if sessions != nil {
+		data.WorkSessions = sessions
+	}
+	agentIDs := map[string]struct{}{}
+	for _, s := range data.WorkSessions {
+		for _, id := range s.AgentProfileIDs {
+			agentIDs[id] = struct{}{}
+		}
+	}
+	agents, err := w.awmStore.ListAgentProfiles(ctx)
+	if err != nil {
+		return data, err
+	}
+	for _, a := range agents {
+		if _, ok := agentIDs[a.AgentProfileID]; ok {
+			data.AgentProfiles = append(data.AgentProfiles, a)
+			continue
+		}
+		if agentProfileTouchesProject(a, projectID) {
+			data.AgentProfiles = append(data.AgentProfiles, a)
+		}
+	}
+	return data, nil
 }
 
-func (w *WebServer) handleWorkProfileDetail(rw http.ResponseWriter, r *http.Request) {
-	id, err := url.PathUnescape(r.PathValue("id"))
-	if err != nil || id == "" {
+func workProfileTouchesProject(p awm.WorkProfile, projectID string) bool {
+	if slices.Contains(p.ProjectIDs, projectID) {
+		return true
+	}
+	// Common convention: "<project_id>.default"
+	if strings.HasPrefix(p.WorkProfileID, projectID+".") {
+		return true
+	}
+	return false
+}
+
+func agentProfileTouchesProject(a awm.AgentProfile, projectID string) bool {
+	// Convention: "<project_id>...." id prefix, or intended via policy later.
+	if strings.HasPrefix(a.AgentProfileID, projectID+".") {
+		return true
+	}
+	if a.Constraints != nil {
+		if raw, ok := a.Constraints["project_ids"]; ok {
+			switch v := raw.(type) {
+			case []string:
+				return slices.Contains(v, projectID)
+			case []any:
+				for _, item := range v {
+					if s, ok := item.(string); ok && s == projectID {
+						return true
+					}
+				}
+			}
+		}
+		if pid, ok := a.Constraints["project_id"].(string); ok && pid == projectID {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *WebServer) handleProjectWorkHub(rw http.ResponseWriter, r *http.Request) {
+	projectID, ok := w.projectPathID(r)
+	if !ok {
 		http.NotFound(rw, r)
 		return
 	}
-	page := w.pageData(r, id, "/work")
-	data := pages.WorkProfileDetailData{ID: id, NotFound: true}
+	page := w.pageData(r, projectID+" work", "/projects")
+	data, err := w.loadProjectWork(r.Context(), projectID, strings.TrimSpace(r.URL.Query().Get("state")))
+	if err != nil {
+		page.FlashError = err.Error()
+	}
+	page.Title = projectID + " · Work"
+	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = pages.ProjectWorkHub(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleProjectWorkProfilesList(rw http.ResponseWriter, r *http.Request) {
+	projectID, ok := w.projectPathID(r)
+	if !ok {
+		http.NotFound(rw, r)
+		return
+	}
+	page := w.pageData(r, "Work profiles", "/projects")
+	data, err := w.loadProjectWork(r.Context(), projectID, "")
+	if err != nil {
+		page.FlashError = err.Error()
+	}
+	list := pages.WorkProfilesListData{ProjectID: projectID, Profiles: data.WorkProfiles}
+	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = pages.WorkProfilesList(page, list).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleProjectWorkProfileDetail(rw http.ResponseWriter, r *http.Request) {
+	projectID, ok := w.projectPathID(r)
+	if !ok {
+		http.NotFound(rw, r)
+		return
+	}
+	profileID, err := url.PathUnescape(r.PathValue("profileID"))
+	if err != nil || profileID == "" {
+		http.NotFound(rw, r)
+		return
+	}
+	page := w.pageData(r, profileID, "/projects")
+	data := pages.WorkProfileDetailData{ProjectID: projectID, ID: profileID, NotFound: true}
 	if w.awmStore != nil {
-		p, err := w.awmStore.GetWorkProfile(r.Context(), id)
-		if err == nil {
+		p, err := w.awmStore.GetWorkProfile(r.Context(), profileID)
+		if err == nil && workProfileTouchesProject(p, projectID) {
 			data.NotFound = false
 			data.Profile = p
 			page.Title = firstNonEmpty(p.DisplayName, p.WorkProfileID)
@@ -79,72 +168,108 @@ func (w *WebServer) handleWorkProfileDetail(rw http.ResponseWriter, r *http.Requ
 	_ = pages.WorkProfileDetail(page, data).Render(r.Context(), rw)
 }
 
-func (w *WebServer) handleAgentProfilesList(rw http.ResponseWriter, r *http.Request) {
-	page := w.pageData(r, "Agent profiles", "/work")
-	data := pages.AgentProfilesListData{Profiles: []awm.AgentProfile{}}
-	if w.awmStore != nil {
-		list, err := w.awmStore.ListAgentProfiles(r.Context())
-		if err != nil {
-			page.FlashError = err.Error()
-		} else if list != nil {
-			data.Profiles = list
-		}
-	}
-	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = pages.AgentProfilesList(page, data).Render(r.Context(), rw)
-}
-
-func (w *WebServer) handleAgentProfileDetail(rw http.ResponseWriter, r *http.Request) {
-	id, err := url.PathUnescape(r.PathValue("id"))
-	if err != nil || id == "" {
+func (w *WebServer) handleProjectAgentProfilesList(rw http.ResponseWriter, r *http.Request) {
+	projectID, ok := w.projectPathID(r)
+	if !ok {
 		http.NotFound(rw, r)
 		return
 	}
-	page := w.pageData(r, id, "/work")
-	data := pages.AgentProfileDetailData{ID: id, NotFound: true}
-	if w.awmStore != nil {
-		p, err := w.awmStore.GetAgentProfile(r.Context(), id)
-		if err == nil {
-			data.NotFound = false
-			data.Profile = p
-			page.Title = firstNonEmpty(p.DisplayName, p.AgentProfileID)
-			data.JSON = mustJSON(p)
-		}
+	page := w.pageData(r, "Agent profiles", "/projects")
+	data, err := w.loadProjectWork(r.Context(), projectID, "")
+	if err != nil {
+		page.FlashError = err.Error()
+	}
+	list := pages.AgentProfilesListData{
+		ProjectID: projectID,
+		Profiles:  data.AgentProfiles,
+	}
+	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = pages.AgentProfilesList(page, list).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleProjectAgentProfileDetail(rw http.ResponseWriter, r *http.Request) {
+	projectID, ok := w.projectPathID(r)
+	if !ok {
+		http.NotFound(rw, r)
+		return
+	}
+	agentID, err := url.PathUnescape(r.PathValue("agentID"))
+	if err != nil || agentID == "" {
+		http.NotFound(rw, r)
+		return
+	}
+	page := w.pageData(r, agentID, "/projects")
+	data := pages.AgentProfileDetailData{ProjectID: projectID, ID: agentID, NotFound: true}
+	if p, ok := w.lookupProjectAgent(r.Context(), projectID, agentID); ok {
+		data.NotFound = false
+		data.Profile = p
+		page.Title = firstNonEmpty(p.DisplayName, p.AgentProfileID)
+		data.JSON = mustJSON(p)
 	}
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = pages.AgentProfileDetail(page, data).Render(r.Context(), rw)
 }
 
-func (w *WebServer) handleWorkSessionsList(rw http.ResponseWriter, r *http.Request) {
-	page := w.pageData(r, "Work sessions", "/work")
-	data := pages.WorkSessionsListData{
-		Sessions:      []awm.WorkSession{},
-		StateFilter:   strings.TrimSpace(r.URL.Query().Get("state")),
-		ProjectFilter: strings.TrimSpace(r.URL.Query().Get("project_id")),
+func (w *WebServer) lookupProjectAgent(ctx context.Context, projectID, agentID string) (awm.AgentProfile, bool) {
+	if w.awmStore == nil {
+		return awm.AgentProfile{}, false
 	}
-	if w.awmStore != nil {
-		list, err := w.awmStore.ListWorkSessions(r.Context(), data.StateFilter, data.ProjectFilter)
-		if err != nil {
-			page.FlashError = err.Error()
-		} else if list != nil {
-			data.Sessions = list
+	p, err := w.awmStore.GetAgentProfile(ctx, agentID)
+	if err != nil {
+		return awm.AgentProfile{}, false
+	}
+	if agentProfileTouchesProject(p, projectID) {
+		return p, true
+	}
+	sessions, err := w.awmStore.ListWorkSessions(ctx, "", projectID)
+	if err != nil {
+		return awm.AgentProfile{}, false
+	}
+	for _, s := range sessions {
+		if slices.Contains(s.AgentProfileIDs, agentID) {
+			return p, true
 		}
 	}
-	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = pages.WorkSessionsList(page, data).Render(r.Context(), rw)
+	return awm.AgentProfile{}, false
 }
 
-func (w *WebServer) handleWorkSessionDetail(rw http.ResponseWriter, r *http.Request) {
-	id, err := url.PathUnescape(r.PathValue("id"))
-	if err != nil || id == "" {
+func (w *WebServer) handleProjectWorkSessionsList(rw http.ResponseWriter, r *http.Request) {
+	projectID, ok := w.projectPathID(r)
+	if !ok {
 		http.NotFound(rw, r)
 		return
 	}
-	page := w.pageData(r, id, "/work")
-	data := pages.WorkSessionDetailData{ID: id, NotFound: true}
+	state := strings.TrimSpace(r.URL.Query().Get("state"))
+	page := w.pageData(r, "Work sessions", "/projects")
+	data, err := w.loadProjectWork(r.Context(), projectID, state)
+	if err != nil {
+		page.FlashError = err.Error()
+	}
+	list := pages.WorkSessionsListData{
+		ProjectID:   projectID,
+		Sessions:    data.WorkSessions,
+		StateFilter: state,
+	}
+	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = pages.WorkSessionsList(page, list).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleProjectWorkSessionDetail(rw http.ResponseWriter, r *http.Request) {
+	projectID, ok := w.projectPathID(r)
+	if !ok {
+		http.NotFound(rw, r)
+		return
+	}
+	sessionID, err := url.PathUnescape(r.PathValue("sessionID"))
+	if err != nil || sessionID == "" {
+		http.NotFound(rw, r)
+		return
+	}
+	page := w.pageData(r, sessionID, "/projects")
+	data := pages.WorkSessionDetailData{ProjectID: projectID, ID: sessionID, NotFound: true}
 	if w.awmStore != nil {
-		s, err := w.awmStore.GetWorkSession(r.Context(), id)
-		if err == nil {
+		s, err := w.awmStore.GetWorkSession(r.Context(), sessionID)
+		if err == nil && (s.ProjectID == "" || s.ProjectID == projectID) {
 			data.NotFound = false
 			data.Session = s
 			page.Title = firstNonEmpty(s.DisplayName, s.WorkSessionID)

@@ -112,6 +112,15 @@ func (w *WebServer) handleProjectDetail(rw http.ResponseWriter, r *http.Request)
 	} else {
 		data.JSON = string(raw)
 	}
+	if w.awmStore != nil {
+		data.HasWorkModel = true
+		work, err := w.loadProjectWork(r.Context(), id, "")
+		if err == nil {
+			data.WorkProfileCount = len(work.WorkProfiles)
+			data.AgentProfileCount = len(work.AgentProfiles)
+			data.WorkSessionCount = len(work.WorkSessions)
+		}
+	}
 
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = pages.ProjectDetail(page, data).Render(r.Context(), rw)

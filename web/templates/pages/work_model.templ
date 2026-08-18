@@ -11,8 +11,16 @@ import (
 	"github.com/daltoniam/switchboard/web/templates/components"
 )
 
-func workHref(kind, id string) string {
-	return fmt.Sprintf("/work/%s/%s", kind, url.PathEscape(id))
+func projectHref(projectID string) string {
+	return "/projects/" + url.PathEscape(projectID)
+}
+
+func projectWorkHref(projectID string) string {
+	return projectHref(projectID) + "/work"
+}
+
+func workHref(projectID, kind, id string) string {
+	return fmt.Sprintf("%s/%s/%s", projectWorkHref(projectID), kind, url.PathEscape(id))
 }
 
 func stateBadge(state string) string {
@@ -44,36 +52,44 @@ func joinCSV(items []string) string {
 	return strings.Join(items, ", ")
 }
 
-// --- Work hub ---
-
-type WorkHubData struct {
+// ProjectWorkData is the project-scoped work hub payload.
+type ProjectWorkData struct {
+	ProjectID     string
 	WorkProfiles  []awm.WorkProfile
 	AgentProfiles []awm.AgentProfile
 	WorkSessions  []awm.WorkSession
 	StateFilter   string
-	ProjectFilter string
 }
 
-templ WorkHub(page layouts.PageData, data WorkHubData) {
+templ ProjectWorkHub(page layouts.PageData, data ProjectWorkData) {
 	@layouts.Base(page) {
+		<p style="margin-bottom: 0.75rem;">
+			<a href={ templ.SafeURL(projectHref(data.ProjectID)) } style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← { data.ProjectID }</a>
+		</p>
 		<p class="section-title" style="margin-bottom: 0.25rem; letter-spacing: 0.04em;">Project work model</p>
 		<h1 class="page-title" style="margin-bottom: 0.35rem;">Work</h1>
 		<p style="color: var(--text-secondary); font-size: 0.875rem; max-width: 42rem; margin-bottom: 1.5rem;">
-			Browse work profiles (session blueprints), agent profiles, and work sessions.
+			Work profiles, agent profiles, and work sessions for
+			<code style="font-family: var(--font-mono);">{ data.ProjectID }</code>.
 			These are not MCP transport sessions.
 		</p>
 
 		<div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem;">
-			<a class="btn btn-outline btn-sm" href="/work/profiles">Work profiles ({ fmt.Sprintf("%d", len(data.WorkProfiles)) })</a>
-			<a class="btn btn-outline btn-sm" href="/work/agents">Agent profiles ({ fmt.Sprintf("%d", len(data.AgentProfiles)) })</a>
-			<a class="btn btn-outline btn-sm" href="/work/sessions">Work sessions ({ fmt.Sprintf("%d", len(data.WorkSessions)) })</a>
-			<a class="btn btn-outline btn-sm" href="/projects">Projects</a>
+			<a class="btn btn-outline btn-sm" href={ templ.SafeURL(projectWorkHref(data.ProjectID) + "/profiles") }>
+				Work profiles ({ fmt.Sprintf("%d", len(data.WorkProfiles)) })
+			</a>
+			<a class="btn btn-outline btn-sm" href={ templ.SafeURL(projectWorkHref(data.ProjectID) + "/agents") }>
+				Agent profiles ({ fmt.Sprintf("%d", len(data.AgentProfiles)) })
+			</a>
+			<a class="btn btn-outline btn-sm" href={ templ.SafeURL(projectWorkHref(data.ProjectID) + "/sessions") }>
+				Work sessions ({ fmt.Sprintf("%d", len(data.WorkSessions)) })
+			</a>
 		</div>
 
 		<section class="metrics-section">
 			<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-				<h2 class="section-title" style="margin-bottom: 0.75rem;">Open &amp; recent sessions</h2>
-				<form method="GET" action="/work" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+				<h2 class="section-title" style="margin-bottom: 0.75rem;">Sessions</h2>
+				<form method="GET" action={ templ.SafeURL(projectWorkHref(data.ProjectID)) } style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
 					<select name="state" class="form-input" style="width: auto;" aria-label="Filter by state">
 						<option value="">All states</option>
 						for _, st := range []string{"proposed", "open", "paused", "closed", "aborted"} {
@@ -84,65 +100,63 @@ templ WorkHub(page layouts.PageData, data WorkHubData) {
 							}
 						}
 					</select>
-					<input type="text" name="project_id" value={ data.ProjectFilter } placeholder="project_id" class="form-input" style="width: 10rem;" aria-label="Filter by project"/>
 					<button type="submit" class="btn btn-outline btn-sm">Filter</button>
 				</form>
 			</div>
 			if len(data.WorkSessions) == 0 {
 				<div class="card" style="padding: 1.25rem;">
-					<p style="color: var(--text-secondary); margin: 0;">No work sessions match this view.</p>
+					<p style="color: var(--text-secondary); margin: 0;">No work sessions for this project.</p>
 				</div>
 			} else {
-				@workSessionsTable(data.WorkSessions)
+				@workSessionsTable(data.ProjectID, data.WorkSessions)
 			}
 		</section>
 
 		<section class="metrics-section" style="margin-top: 1.75rem;">
 			<h2 class="section-title">Work profiles</h2>
 			if len(data.WorkProfiles) == 0 {
-				<p style="color: var(--text-muted); font-size: 0.875rem;">No work profiles yet.</p>
+				<p style="color: var(--text-muted); font-size: 0.875rem;">No work profiles linked to this project.</p>
 			} else {
-				@workProfilesTable(data.WorkProfiles)
+				@workProfilesTable(data.ProjectID, data.WorkProfiles)
 			}
 		</section>
 
 		<section class="metrics-section" style="margin-top: 1.75rem;">
 			<h2 class="section-title">Agent profiles</h2>
 			if len(data.AgentProfiles) == 0 {
-				<p style="color: var(--text-muted); font-size: 0.875rem;">No agent profiles yet.</p>
+				<p style="color: var(--text-muted); font-size: 0.875rem;">No agent profiles linked to this project.</p>
 			} else {
-				@agentProfilesTable(data.AgentProfiles)
+				@agentProfilesTable(data.ProjectID, data.AgentProfiles)
 			}
 		</section>
 	}
 }
 
-// --- Work profiles ---
-
 type WorkProfilesListData struct {
-	Profiles []awm.WorkProfile
+	ProjectID string
+	Profiles  []awm.WorkProfile
 }
 
 templ WorkProfilesList(page layouts.PageData, data WorkProfilesListData) {
 	@layouts.Base(page) {
 		<p style="margin-bottom: 0.75rem;">
-			<a href="/work" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work</a>
+			<a href={ templ.SafeURL(projectWorkHref(data.ProjectID)) } style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work</a>
 		</p>
 		<h1 class="page-title">Work profiles</h1>
 		<p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.25rem;">
-			Reusable blueprints for work sessions (session profiles).
+			Session blueprints for <code style="font-family: var(--font-mono);">{ data.ProjectID }</code>.
 		</p>
 		if len(data.Profiles) == 0 {
 			<div class="card" style="padding: 1.25rem;">
 				<p style="color: var(--text-secondary); margin: 0;">No work profiles. Create one with <code style="font-family: var(--font-mono);">project.work_profile.put</code>.</p>
 			</div>
 		} else {
-			@workProfilesTable(data.Profiles)
+			@workProfilesTable(data.ProjectID, data.Profiles)
 		}
 	}
 }
 
-templ workProfilesTable(profiles []awm.WorkProfile) {
+templ workProfilesTable(projectID string, profiles []awm.WorkProfile) {
 	<div class="table-wrap">
 		<table class="metrics-table">
 			<thead>
@@ -156,7 +170,7 @@ templ workProfilesTable(profiles []awm.WorkProfile) {
 				for _, p := range profiles {
 					<tr>
 						<td>
-							<a href={ templ.SafeURL(workHref("profiles", p.WorkProfileID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
+							<a href={ templ.SafeURL(workHref(projectID, "profiles", p.WorkProfileID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
 								if p.DisplayName != "" {
 									{ p.DisplayName }
 								} else {
@@ -181,21 +195,22 @@ templ workProfilesTable(profiles []awm.WorkProfile) {
 }
 
 type WorkProfileDetailData struct {
-	Profile  awm.WorkProfile
-	NotFound bool
-	ID       string
-	JSON     string
+	ProjectID string
+	Profile   awm.WorkProfile
+	NotFound  bool
+	ID        string
+	JSON      string
 }
 
 templ WorkProfileDetail(page layouts.PageData, data WorkProfileDetailData) {
 	@layouts.Base(page) {
 		<p style="margin-bottom: 0.75rem;">
-			<a href="/work/profiles" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work profiles</a>
+			<a href={ templ.SafeURL(projectWorkHref(data.ProjectID) + "/profiles") } style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work profiles</a>
 		</p>
 		if data.NotFound {
 			<div class="card" style="padding: 1.5rem;">
 				<h1 class="page-title">Work profile not found</h1>
-				<p style="color: var(--text-secondary);">No profile for <code style="font-family: var(--font-mono);">{ data.ID }</code>.</p>
+				<p style="color: var(--text-secondary);">No profile for <code style="font-family: var(--font-mono);">{ data.ID }</code> on this project.</p>
 			</div>
 		} else {
 			<p class="section-title" style="margin-bottom: 0.25rem;">Work profile</p>
@@ -219,32 +234,32 @@ templ WorkProfileDetail(page layouts.PageData, data WorkProfileDetailData) {
 	}
 }
 
-// --- Agent profiles ---
-
 type AgentProfilesListData struct {
-	Profiles []awm.AgentProfile
+	ProjectID string
+	Profiles  []awm.AgentProfile
 }
 
 templ AgentProfilesList(page layouts.PageData, data AgentProfilesListData) {
 	@layouts.Base(page) {
 		<p style="margin-bottom: 0.75rem;">
-			<a href="/work" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work</a>
+			<a href={ templ.SafeURL(projectWorkHref(data.ProjectID)) } style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work</a>
 		</p>
 		<h1 class="page-title">Agent profiles</h1>
 		<p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.25rem;">
-			Eligible agent kinds (not running instances).
+			Agent kinds linked to <code style="font-family: var(--font-mono);">{ data.ProjectID }</code>
+			(via session use, id prefix, or constraints.project_id[s]).
 		</p>
 		if len(data.Profiles) == 0 {
 			<div class="card" style="padding: 1.25rem;">
-				<p style="color: var(--text-secondary); margin: 0;">No agent profiles. Create one with <code style="font-family: var(--font-mono);">project.agent_profile.put</code>.</p>
+				<p style="color: var(--text-secondary); margin: 0;">No agent profiles for this project. Create one with <code style="font-family: var(--font-mono);">project.agent_profile.put</code>.</p>
 			</div>
 		} else {
-			@agentProfilesTable(data.Profiles)
+			@agentProfilesTable(data.ProjectID, data.Profiles)
 		}
 	}
 }
 
-templ agentProfilesTable(profiles []awm.AgentProfile) {
+templ agentProfilesTable(projectID string, profiles []awm.AgentProfile) {
 	<div class="table-wrap">
 		<table class="metrics-table">
 			<thead>
@@ -258,7 +273,7 @@ templ agentProfilesTable(profiles []awm.AgentProfile) {
 				for _, p := range profiles {
 					<tr>
 						<td>
-							<a href={ templ.SafeURL(workHref("agents", p.AgentProfileID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
+							<a href={ templ.SafeURL(workHref(projectID, "agents", p.AgentProfileID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
 								if p.DisplayName != "" {
 									{ p.DisplayName }
 								} else {
@@ -283,16 +298,17 @@ templ agentProfilesTable(profiles []awm.AgentProfile) {
 }
 
 type AgentProfileDetailData struct {
-	Profile  awm.AgentProfile
-	NotFound bool
-	ID       string
-	JSON     string
+	ProjectID string
+	Profile   awm.AgentProfile
+	NotFound  bool
+	ID        string
+	JSON      string
 }
 
 templ AgentProfileDetail(page layouts.PageData, data AgentProfileDetailData) {
 	@layouts.Base(page) {
 		<p style="margin-bottom: 0.75rem;">
-			<a href="/work/agents" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Agent profiles</a>
+			<a href={ templ.SafeURL(projectWorkHref(data.ProjectID) + "/agents") } style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Agent profiles</a>
 		</p>
 		if data.NotFound {
 			<div class="card" style="padding: 1.5rem;">
@@ -320,25 +336,25 @@ templ AgentProfileDetail(page layouts.PageData, data AgentProfileDetailData) {
 	}
 }
 
-// --- Work sessions ---
-
 type WorkSessionsListData struct {
-	Sessions      []awm.WorkSession
-	StateFilter   string
-	ProjectFilter string
+	ProjectID   string
+	Sessions    []awm.WorkSession
+	StateFilter string
 }
 
 templ WorkSessionsList(page layouts.PageData, data WorkSessionsListData) {
 	@layouts.Base(page) {
 		<p style="margin-bottom: 0.75rem;">
-			<a href="/work" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work</a>
+			<a href={ templ.SafeURL(projectWorkHref(data.ProjectID)) } style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work</a>
 		</p>
 		<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
 			<div>
 				<h1 class="page-title" style="margin-bottom: 0.25rem;">Work sessions</h1>
-				<p style="color: var(--text-secondary); font-size: 0.875rem;">Bounded work episodes (not MCP connections).</p>
+				<p style="color: var(--text-secondary); font-size: 0.875rem;">
+					Bounded work episodes for <code style="font-family: var(--font-mono);">{ data.ProjectID }</code>.
+				</p>
 			</div>
-			<form method="GET" action="/work/sessions" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+			<form method="GET" action={ templ.SafeURL(projectWorkHref(data.ProjectID) + "/sessions") } style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
 				<select name="state" class="form-input" style="width: auto;" aria-label="Filter by state">
 					<option value="">All states</option>
 					for _, st := range []string{"proposed", "open", "paused", "closed", "aborted"} {
@@ -349,7 +365,6 @@ templ WorkSessionsList(page layouts.PageData, data WorkSessionsListData) {
 						}
 					}
 				</select>
-				<input type="text" name="project_id" value={ data.ProjectFilter } placeholder="project_id" class="form-input" style="width: 10rem;" aria-label="Filter by project"/>
 				<button type="submit" class="btn btn-outline btn-sm">Filter</button>
 			</form>
 		</div>
@@ -358,19 +373,18 @@ templ WorkSessionsList(page layouts.PageData, data WorkSessionsListData) {
 				<p style="color: var(--text-secondary); margin: 0;">No work sessions match. Create with <code style="font-family: var(--font-mono);">project.work_session.create</code>.</p>
 			</div>
 		} else {
-			@workSessionsTable(data.Sessions)
+			@workSessionsTable(data.ProjectID, data.Sessions)
 		}
 	}
 }
 
-templ workSessionsTable(sessions []awm.WorkSession) {
+templ workSessionsTable(projectID string, sessions []awm.WorkSession) {
 	<div class="table-wrap">
 		<table class="metrics-table">
 			<thead>
 				<tr>
 					<th>Session</th>
 					<th>State</th>
-					<th>Project</th>
 					<th>Profile</th>
 					<th>Updated</th>
 				</tr>
@@ -379,7 +393,7 @@ templ workSessionsTable(sessions []awm.WorkSession) {
 				for _, s := range sessions {
 					<tr>
 						<td>
-							<a href={ templ.SafeURL(workHref("sessions", s.WorkSessionID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
+							<a href={ templ.SafeURL(workHref(projectID, "sessions", s.WorkSessionID)) } style="color: var(--text); font-weight: 500; text-decoration: none;">
 								if s.DisplayName != "" {
 									{ s.DisplayName }
 								} else {
@@ -391,16 +405,9 @@ templ workSessionsTable(sessions []awm.WorkSession) {
 						<td>
 							@components.Badge(s.State, stateBadge(s.State))
 						</td>
-						<td style="font-family: var(--font-mono); font-size: 0.75rem;">
-							if s.ProjectID != "" {
-								<a href={ templ.SafeURL("/projects/" + url.PathEscape(s.ProjectID)) } style="color: var(--text-secondary); text-decoration: none;">{ s.ProjectID }</a>
-							} else {
-								<span style="color: var(--text-muted);">—</span>
-							}
-						</td>
 						<td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary);">
 							if s.WorkProfileID != "" {
-								<a href={ templ.SafeURL(workHref("profiles", s.WorkProfileID)) } style="color: var(--text-secondary); text-decoration: none;">{ s.WorkProfileID }</a>
+								<a href={ templ.SafeURL(workHref(projectID, "profiles", s.WorkProfileID)) } style="color: var(--text-secondary); text-decoration: none;">{ s.WorkProfileID }</a>
 							} else {
 								<span style="color: var(--text-muted);">—</span>
 							}
@@ -414,21 +421,22 @@ templ workSessionsTable(sessions []awm.WorkSession) {
 }
 
 type WorkSessionDetailData struct {
-	Session  awm.WorkSession
-	NotFound bool
-	ID       string
-	JSON     string
+	ProjectID string
+	Session   awm.WorkSession
+	NotFound  bool
+	ID        string
+	JSON      string
 }
 
 templ WorkSessionDetail(page layouts.PageData, data WorkSessionDetailData) {
 	@layouts.Base(page) {
 		<p style="margin-bottom: 0.75rem;">
-			<a href="/work/sessions" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work sessions</a>
+			<a href={ templ.SafeURL(projectWorkHref(data.ProjectID) + "/sessions") } style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Work sessions</a>
 		</p>
 		if data.NotFound {
 			<div class="card" style="padding: 1.5rem;">
 				<h1 class="page-title">Work session not found</h1>
-				<p style="color: var(--text-secondary);">No session for <code style="font-family: var(--font-mono);">{ data.ID }</code>.</p>
+				<p style="color: var(--text-secondary);">No session for <code style="font-family: var(--font-mono);">{ data.ID }</code> on this project.</p>
 			</div>
 		} else {
 			<p class="section-title" style="margin-bottom: 0.25rem;">Work session</p>

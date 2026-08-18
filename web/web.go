@@ -207,14 +207,13 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /projects", w.handleProjectsList)
 	mux.HandleFunc("GET /projects/{id}", w.handleProjectDetail)
-
-	mux.HandleFunc("GET /work", w.handleWorkHub)
-	mux.HandleFunc("GET /work/profiles", w.handleWorkProfilesList)
-	mux.HandleFunc("GET /work/profiles/{id}", w.handleWorkProfileDetail)
-	mux.HandleFunc("GET /work/agents", w.handleAgentProfilesList)
-	mux.HandleFunc("GET /work/agents/{id}", w.handleAgentProfileDetail)
-	mux.HandleFunc("GET /work/sessions", w.handleWorkSessionsList)
-	mux.HandleFunc("GET /work/sessions/{id}", w.handleWorkSessionDetail)
+	mux.HandleFunc("GET /projects/{id}/work", w.handleProjectWorkHub)
+	mux.HandleFunc("GET /projects/{id}/work/profiles", w.handleProjectWorkProfilesList)
+	mux.HandleFunc("GET /projects/{id}/work/profiles/{profileID}", w.handleProjectWorkProfileDetail)
+	mux.HandleFunc("GET /projects/{id}/work/agents", w.handleProjectAgentProfilesList)
+	mux.HandleFunc("GET /projects/{id}/work/agents/{agentID}", w.handleProjectAgentProfileDetail)
+	mux.HandleFunc("GET /projects/{id}/work/sessions", w.handleProjectWorkSessionsList)
+	mux.HandleFunc("GET /projects/{id}/work/sessions/{sessionID}", w.handleProjectWorkSessionDetail)
 
 	mux.HandleFunc("GET /settings", w.handleSettings)
 	mux.HandleFunc("POST /settings", w.handleSettingsSave)
