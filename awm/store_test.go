@@ -2,6 +2,7 @@ package awm
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -313,4 +314,26 @@ func TestGetAgentProfile_NotFoundTyped(t *testing.T) {
 	_, err := s.GetAgentProfile(context.Background(), "missing")
 	require.Error(t, err)
 	assert.True(t, IsCode(err, CodeNotFound), "%v", err)
+}
+
+func TestPutProject_PreservesAdditionalFields(t *testing.T) {
+	root := t.TempDir()
+	s := NewStore(root)
+	ctx := context.Background()
+	path := filepath.Join(root, "projects", "p.project.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	require.NoError(t, os.WriteFile(path, []byte(`{
+		"version":"1","name":"p","description":"old",
+		"resources":{"main":{"type":"repo","path":"/tmp/x"}},
+		"tools":{"github":{"allow":["*"]}}
+	}`), 0o600))
+	_, err := s.PutProject(ctx, Project{Version: "1", ProjectID: "p", Description: "new"})
+	require.NoError(t, err)
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var doc map[string]any
+	require.NoError(t, json.Unmarshal(raw, &doc))
+	assert.Equal(t, "new", doc["description"])
+	assert.NotNil(t, doc["resources"])
+	assert.NotNil(t, doc["tools"])
 }

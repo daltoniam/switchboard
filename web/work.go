@@ -78,16 +78,16 @@ func workProfileTouchesProject(p awm.WorkProfile, projectID string) bool {
 	if slices.Contains(p.ProjectIDs, projectID) {
 		return true
 	}
-	// Common convention: "<project_id>.default"
-	if strings.HasPrefix(p.WorkProfileID, projectID+".") {
+	// Exact default-profile convention only (avoid "switch" matching "switchboard.*").
+	if p.WorkProfileID == projectID+".default" {
 		return true
 	}
 	return false
 }
 
 func agentProfileTouchesProject(a awm.AgentProfile, projectID string) bool {
-	// Convention: "<project_id>...." id prefix, or intended via policy later.
-	if strings.HasPrefix(a.AgentProfileID, projectID+".") {
+	// Exact default-agent convention only (avoid prefix false positives).
+	if a.AgentProfileID == projectID+".default" {
 		return true
 	}
 	if a.Constraints != nil {

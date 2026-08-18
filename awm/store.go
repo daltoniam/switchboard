@@ -121,12 +121,25 @@ func (s *Store) withCatalogLock(ctx context.Context, fn func() error) error {
 	return s.withFlock(ctx, s.catalogLockPath(), "catalog lock timeout", fn)
 }
 
+// withCatalogFlockOnly takes the shared catalog flock without re-acquiring s.mu.
+// Call only while already holding s.mu (e.g. DeleteProject under withLock).
+func (s *Store) withCatalogFlockOnly(ctx context.Context, fn func() error) error {
+	if err := os.MkdirAll(s.configRoot, 0700); err != nil {
+		return err
+	}
+	return s.tryFlock(ctx, s.catalogLockPath(), "catalog lock timeout", fn)
+}
+
 func (s *Store) withFlock(ctx context.Context, path, timeoutMsg string, fn func() error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.tryFlock(ctx, path, timeoutMsg, fn)
+}
+
+func (s *Store) tryFlock(ctx context.Context, path, timeoutMsg string, fn func() error) error {
 	fl := flock.New(path)
 	deadline := time.Now().Add(10 * time.Second)
 	if dl, ok := ctx.Deadline(); ok && dl.Before(deadline) {
@@ -145,7 +158,7 @@ func (s *Store) withFlock(ctx context.Context, path, timeoutMsg string, fn func(
 			return fn()
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("%s", timeoutMsg)
+			return &Error{Code: CodeLockTimeout, Message: timeoutMsg}
 		}
 		select {
 		case <-ctx.Done():
@@ -246,7 +259,9 @@ func (s *Store) PutProject(ctx context.Context, p Project) (Project, error) {
 		path := s.projectPath(p.ProjectID)
 		doc := map[string]any{}
 		if raw, err := os.ReadFile(path); err == nil {
-			_ = json.Unmarshal(raw, &doc)
+			if err := json.Unmarshal(raw, &doc); err != nil {
+				return fmt.Errorf("project %q on-disk JSON is unreadable: %w", p.ProjectID, err)
+			}
 		} else if !os.IsNotExist(err) {
 			return err
 		}
@@ -268,7 +283,7 @@ func (s *Store) GetProject(ctx context.Context, id string) (Project, error) {
 		return Project{}, err
 	}
 	if err := validateID("project_id", id); err != nil {
-		return Project{}, err
+		return Project{}, invalidInput(err.Error())
 	}
 	return s.lookupProjectUnlocked(id)
 }
@@ -330,9 +345,9 @@ func (s *Store) DeleteProject(ctx context.Context, id string) error {
 	if err := validateID("project_id", id); err != nil {
 		return invalidInput(err.Error())
 	}
-	// Reference check needs the AWM session tree; project file removal uses the
-	// shared catalog lock so it cannot race project.Store deletes.
-	if err := s.withLock(ctx, func() error {
+	// Hold AWM lock for the whole check+remove window so CreateWorkSession cannot
+	// attach after the ref check. Catalog flock nests inside for shared-file safety.
+	return s.withLock(ctx, func() error {
 		ref, err := s.firstSessionReferencingProjectUnlocked(id)
 		if err != nil {
 			return err
@@ -347,23 +362,22 @@ func (s *Store) DeleteProject(ctx context.Context, id string) error {
 				WorkSessionID: ref,
 			}
 		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return s.withCatalogLock(ctx, func() error {
-		removed := false
-		for _, path := range []string{s.projectPath(id), s.projectAltPath(id)} {
-			if err := os.Remove(path); err == nil {
-				removed = true
-			} else if !os.IsNotExist(err) {
-				return err
+		// Nested catalog lock: s.mu is already held; withCatalogLock would deadlock
+		// if it re-took s.mu. Use flock-only on the catalog path.
+		return s.withCatalogFlockOnly(ctx, func() error {
+			removed := false
+			for _, path := range []string{s.projectPath(id), s.projectAltPath(id)} {
+				if err := os.Remove(path); err == nil {
+					removed = true
+				} else if !os.IsNotExist(err) {
+					return err
+				}
 			}
-		}
-		if !removed {
-			return notFound("project", id)
-		}
-		return nil
+			if !removed {
+				return notFound("project", id)
+			}
+			return nil
+		})
 	})
 }
 
@@ -486,7 +500,10 @@ func (s *Store) firstSessionReferencingProfileUnlocked(profileID string) (string
 	for _, id := range ids {
 		sess, err := readJSON[WorkSession](s.workSessionPath(id))
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
 		}
 		if sess.WorkProfileID == profileID {
 			return sess.WorkSessionID, nil
@@ -503,7 +520,10 @@ func (s *Store) firstSessionReferencingProjectUnlocked(projectID string) (string
 	for _, id := range ids {
 		sess, err := readJSON[WorkSession](s.workSessionPath(id))
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
 		}
 		if sess.ProjectID == projectID {
 			return sess.WorkSessionID, nil
@@ -608,7 +628,10 @@ func (s *Store) firstSessionReferencingAgentUnlocked(agentID string) (string, er
 	for _, id := range ids {
 		sess, err := readJSON[WorkSession](s.workSessionPath(id))
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
 		}
 		for _, ap := range sess.AgentProfileIDs {
 			if ap == agentID {
@@ -670,7 +693,7 @@ func (s *Store) lookupProjectUnlocked(id string) (Project, error) {
 		}
 		return normalizeProject(Project{Version: ver, ProjectID: pid, Name: name, DisplayName: dn, Description: desc}), nil
 	}
-	return Project{}, fmt.Errorf("project %q not found", id)
+	return Project{}, notFound("project", id)
 }
 
 // CreateWorkSession creates a new work session in proposed or open state.
