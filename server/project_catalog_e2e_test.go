@@ -13,7 +13,7 @@ func TestProjectCatalog_E2ECreateReadDelete(t *testing.T) {
 	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
 
 	created, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.create",
+		Name: "project_create",
 		Arguments: map[string]any{
 			"definition": map[string]any{"version": "1", "name": "lifecycle", "resources": map[string]any{}},
 		},
@@ -29,7 +29,7 @@ func TestProjectCatalog_E2ECreateReadDelete(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.delete",
+		Name: "project_delete",
 		Arguments: map[string]any{
 			"projectId":              "lifecycle",
 			"expectedSourceRevision": string(got.SourceRevision),

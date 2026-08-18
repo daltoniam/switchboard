@@ -8,12 +8,12 @@ Canonical vocabulary: `~/work/projects/agent-work-model/model/terms/`.
 
 | AWM term | Type | Tools |
 |---|---|---|
-| **Project** | `awm.Project` | `project.list` / `get` / `create` / `update` / `delete` (catalog surface) |
-| **WorkProfile** | `awm.WorkProfile` | `project.work_profile.*` |
-| **WorkSession** | `awm.WorkSession` | `project.work_session.*` |
-| **AgentProfile** | `awm.AgentProfile` | `project.agent_profile.*` |
+| **Project** | `awm.Project` | `project_list` / `project_get` / `project_create` / `project_update` / `project_delete` (catalog surface) |
+| **WorkProfile** | `awm.WorkProfile` | `project_work_profile_*` |
+| **WorkSession** | `awm.WorkSession` | `project_work_session_*` |
+| **AgentProfile** | `awm.AgentProfile` | `project_agent_profile_*` |
 
-`project.*` catalog tools and `awm.Store` project APIs share `~/.config/switchboard/projects/*.project.json`.
+`project_*` catalog tools and `awm.Store` project APIs share `~/.config/switchboard/projects/*.project.json`.
 
 ## Storage (Switchboard config root only)
 

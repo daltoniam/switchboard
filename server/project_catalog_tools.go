@@ -113,50 +113,50 @@ func (s *ProjectCatalogServer) registerTools() {
 
 	// Clean names from update.md.
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.list",
+		Name:        "project_list",
 		Description: "List or search Project Catalog summaries. Start here to discover local projects.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.toolSearch)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.get",
+		Name:        "project_get",
 		Description: "Get a project envelope (definition + summary) by id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.toolGet)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.create",
+		Name:        "project_create",
 		Description: "Create a user-level project definition (resources map schema).",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
 	}, s.toolCreate)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.update",
+		Name:        "project_update",
 		Description: "Update a user-level project definition with optimistic concurrency (merge-patch or full definition).",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
 	}, s.toolUpdate)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.delete",
+		Name:        "project_delete",
 		Description: "Delete a user-level project definition. Does not cascade to repo, context, or revisions.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
 	}, s.toolDelete)
 
 	// Transition aliases for existing Crush MCP clients / tests.
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.search",
-		Description: "Alias of project.list. Search Project Catalog summaries.",
+		Name:        "project_search",
+		Description: "Alias of project_list. Search Project Catalog summaries.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.toolSearch)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.resolve",
+		Name:        "project_resolve",
 		Description: "Resolve a project by id and/or explicit file:// rootUri.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.toolResolve)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.validate",
+		Name:        "project_validate",
 		Description: "Validate a candidate project definition (resources schema + semantic repo refs) without writing.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, s.toolValidate)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
-		Name:        "project.patch",
-		Description: "Alias of project.update. Patch a user-level project definition with optimistic concurrency.",
+		Name:        "project_patch",
+		Description: "Alias of project_update. Patch a user-level project definition with optimistic concurrency.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, IdempotentHint: false, OpenWorldHint: &closedWorld},
 	}, s.toolPatch)
 }

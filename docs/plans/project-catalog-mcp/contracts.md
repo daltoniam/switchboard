@@ -157,7 +157,7 @@ It contains no invocation-specific root, sources, diagnostics, or timestamps. Re
 
 ## Worktree association
 
-For `project.resolve` with only `rootUri`:
+For `project_resolve` with only `rootUri`:
 
 1. Require a canonical absolute `file://` URI naming an existing directory.
 2. Run bounded `git -C <root> rev-parse --path-format=absolute --git-common-dir` and canonicalize the result.
@@ -183,12 +183,12 @@ When both ID and root are supplied, the common-directory identity must match. Th
 
 All tools are always listed when the authenticated catalog endpoint is enabled. Write calls return `write_disabled` unless explicitly enabled. Each tool `outputSchema` is `oneOf` its success object and `{error: ToolError}`; expected domain failures set `IsError=true` and return the error alternative in `structuredContent`, while protocol/input-schema failures remain JSON-RPC errors.
 
-- `project.search` input `{query?: string, cursor?: string}`; output `{projects: ProjectSummary[], nextCursor?: string}`.
-- `project.resolve` input `{projectId?: string, rootUri?: string}` with at least one required; output `ResolveResult`.
-- `project.validate` input `{definition: object, rootUri?: string}`; output `{valid: boolean, diagnostics: Diagnostic[]}`. The MCP handler must retain `definition` as lossless `json.RawMessage`/generic JSON and pass it to `CatalogValidator.ValidateJSON`; do not decode to typed `Definition` first. The outer arguments schema requires only that `definition` is a JSON object, while all project-schema/type/version/name/nested-field failures become successful validation output (`valid=false`) rather than JSON-RPC invalid params. Malformed JSON at the transport level remains a protocol parse/params error. If `rootUri` is present it must be an existing canonical absolute `file://` directory and is used only as the base for resolving relative `repo`, `launch.promptFile`, and context paths in the candidate; the root's `.project.json` is **not** merged, no registered-project/Git identity match is required, and validation performs no writes. Context references are checked for containment/type/existence and reported as diagnostics.
-- `project.create` input `{definition: object}`; output `{project: ProjectSummary}`.
-- `project.patch` input `{projectId: string, expectedSourceRevision: string, patch: object}`; output `{project: ProjectSummary}`. It operates only on valid user definitions; malformed sources return `invalid_definition` and must be recovered by `project.delete` with `expectedRawSourceRevision`, followed by normal `project.create`.
-- `project.delete` input `{projectId: string, expectedSourceRevision?: string, expectedRawSourceRevision?: string}` with exactly one CAS token; output `{projectId: string, deleted: true}`. Valid sources require `expectedSourceRevision`; malformed sources require `expectedRawSourceRevision`. Recovery of a malformed source is explicit delete-by-raw-CAS followed by normal create; patch never operates on malformed JSON.
+- `project_search` input `{query?: string, cursor?: string}`; output `{projects: ProjectSummary[], nextCursor?: string}`.
+- `project_resolve` input `{projectId?: string, rootUri?: string}` with at least one required; output `ResolveResult`.
+- `project_validate` input `{definition: object, rootUri?: string}`; output `{valid: boolean, diagnostics: Diagnostic[]}`. The MCP handler must retain `definition` as lossless `json.RawMessage`/generic JSON and pass it to `CatalogValidator.ValidateJSON`; do not decode to typed `Definition` first. The outer arguments schema requires only that `definition` is a JSON object, while all project-schema/type/version/name/nested-field failures become successful validation output (`valid=false`) rather than JSON-RPC invalid params. Malformed JSON at the transport level remains a protocol parse/params error. If `rootUri` is present it must be an existing canonical absolute `file://` directory and is used only as the base for resolving relative `repo`, `launch.promptFile`, and context paths in the candidate; the root's `.project.json` is **not** merged, no registered-project/Git identity match is required, and validation performs no writes. Context references are checked for containment/type/existence and reported as diagnostics.
+- `project_create` input `{definition: object}`; output `{project: ProjectSummary}`.
+- `project_patch` input `{projectId: string, expectedSourceRevision: string, patch: object}`; output `{project: ProjectSummary}`. It operates only on valid user definitions; malformed sources return `invalid_definition` and must be recovered by `project_delete` with `expectedRawSourceRevision`, followed by normal `project_create`.
+- `project_delete` input `{projectId: string, expectedSourceRevision?: string, expectedRawSourceRevision?: string}` with exactly one CAS token; output `{projectId: string, deleted: true}`. Valid sources require `expectedSourceRevision`; malformed sources require `expectedRawSourceRevision`. Recovery of a malformed source is explicit delete-by-raw-CAS followed by normal create; patch never operates on malformed JSON.
 
 ## Tool error shape
 

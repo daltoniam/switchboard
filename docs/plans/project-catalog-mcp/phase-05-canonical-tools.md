@@ -9,49 +9,49 @@ Add a small canonical tool surface to the dedicated Project Catalog endpoint. Re
 #### Scenario: Search projects with deterministic pagination
 
 - **Given** several projects visible to the caller
-- **When** `project.search` receives a case-insensitive query and optional cursor
+- **When** `project_search` receives a case-insensitive query and optional cursor
 - **Then** it returns deterministic compact summaries and resource links
 - **And** cursor replay continues the same query/order without duplication.
 
 #### Scenario: Resolve by ID and explicit root
 
 - **Given** a worktree-specific overlay
-- **When** `project.resolve` is called with `projectId` and `rootUri`
+- **When** `project_resolve` is called with `projectId` and `rootUri`
 - **Then** it returns the effective project ID, revision, resource URIs, root, provenance, and diagnostics
 - **And** no connection state or MCP Roots call is required.
 
 #### Scenario: Resolve by root only
 
 - **Given** a root inside exactly one registered project
-- **When** `project.resolve` receives only `rootUri`
+- **When** `project_resolve` receives only `rootUri`
 - **Then** it resolves that project
 - **And** equal/ambiguous candidates return a structured `ambiguous_project` error.
 
 #### Scenario: Validate without mutation
 
 - **Given** an invalid candidate definition
-- **When** `project.validate` is called
+- **When** `project_validate` is called
 - **Then** it returns value-free structured diagnostics
 - **And** neither user files nor revision files are created.
 
 #### Scenario: Administration is disabled by default
 
 - **Given** the dedicated Catalog endpoint is running with no explicit write enablement
-- **When** a caller lists and calls `project.create`, `project.patch`, or `project.delete`
+- **When** a caller lists and calls `project_create`, `project_patch`, or `project_delete`
 - **Then** the tools remain listed with stable schemas but each call returns structured `write_disabled`
 - **And** read tools/resources continue to work.
 
 #### Scenario: Guarded patch succeeds once
 
 - **Given** write administration is enabled and current source revision is S1
-- **When** `project.patch` supplies S1 and a valid RFC 7396 patch
+- **When** `project_patch` supplies S1 and a valid RFC 7396 patch
 - **Then** it returns a new source revision and effective revision and a resource link
 - **And** repeating the same request with S1 returns `revision_conflict` without another write.
 
 #### Scenario: Delete has no runtime cascade
 
 - **Given** a user definition, repo-local overlay, context files, and revision history
-- **When** authenticated `project.delete` succeeds with writes explicitly enabled and the current source revision
+- **When** authenticated `project_delete` succeeds with writes explicitly enabled and the current source revision
 - **Then** only the user-level file is removed
 - **And** context, repo-local file, and immutable revisions remain.
 
@@ -69,7 +69,7 @@ Add a small canonical tool surface to the dedicated Project Catalog endpoint. Re
 
 - Create `server/project_catalog_tools.go`:
   - Define typed input/output structs and register tools with generic `mcpsdk.AddTool` so schemas and `structuredContent` are generated/validated.
-  - Use exact names: `project.search`, `project.resolve`, `project.validate`, `project.create`, `project.patch`, `project.delete`.
+  - Use exact names: `project_search`, `project_resolve`, `project_validate`, `project_create`, `project_patch`, `project_delete`.
   - Return resource links in `content` where the SDK permits while preserving typed output.
   - Advertise each output as `oneOf` the frozen success schema and `{error: ToolError}`; test that typed/generic SDK registration does not overwrite this union and that both success and `IsError=true` structured failures validate.
 - Create `server/project_catalog_tools_test.go` with schema, annotation, success, error, and no-write validation tests.
@@ -81,12 +81,12 @@ Add a small canonical tool surface to the dedicated Project Catalog endpoint. Re
 
 ### Exact tool contracts
 
-- `project.search`: `{query?: string, cursor?: string}` → `{projects: ProjectSummary[], nextCursor?: string}`.
-- `project.resolve`: require at least one of `{projectId, rootUri}` and use the Git-common-directory algorithm in `contracts.md`. No `profile` or model-supplied role exists in this release.
-- `project.validate`: `{definition: object, rootUri?: string}` → `{valid: boolean, diagnostics: Diagnostic[]}`.
-- `project.create`: `{definition: object}` → snapshot summary/resource links. The definition name is the project ID.
-- `project.patch`: `{projectId, expectedSourceRevision, patch}` → new snapshot summary/resource links. Reject patching `name`.
-- `project.delete`: `{projectId, expectedSourceRevision?, expectedRawSourceRevision?}` with exactly one token → `{projectId, deleted: true}`. Valid sources use source CAS; malformed-source recovery uses raw-byte CAS and can then recreate normally.
+- `project_search`: `{query?: string, cursor?: string}` → `{projects: ProjectSummary[], nextCursor?: string}`.
+- `project_resolve`: require at least one of `{projectId, rootUri}` and use the Git-common-directory algorithm in `contracts.md`. No `profile` or model-supplied role exists in this release.
+- `project_validate`: `{definition: object, rootUri?: string}` → `{valid: boolean, diagnostics: Diagnostic[]}`.
+- `project_create`: `{definition: object}` → snapshot summary/resource links. The definition name is the project ID.
+- `project_patch`: `{projectId, expectedSourceRevision, patch}` → new snapshot summary/resource links. Reject patching `name`.
+- `project_delete`: `{projectId, expectedSourceRevision?, expectedRawSourceRevision?}` with exactly one token → `{projectId, deleted: true}`. Valid sources use source CAS; malformed-source recovery uses raw-byte CAS and can then recreate normally.
 
 Use typed domain error output with stable codes. Input schema/type errors remain MCP invalid-params errors; expected domain failures are tool results with `IsError=true`, machine-readable structured error, and concise text for the model.
 
@@ -114,7 +114,7 @@ Annotations are hints only; authorization must be enforced in handlers.
 2. Restart the authenticated test server with typed `project_catalog.writes_enabled=true`; separately prove missing/invalid tokens are rejected from both direct loopback and local-proxy-style requests despite forged forwarding headers.
 3. Call all six tools using official Go MCP client methods, not private handlers.
 4. Assert both success and structured `IsError=true` alternatives decode against each advertised `oneOf` output schema and resource links can be followed through `resources/read`.
-5. Race two `project.patch` calls with the same expected source revision; one succeeds and one conflicts.
+5. Race two `project_patch` calls with the same expected source revision; one succeeds and one conflicts.
 6. Call validate before/after and compare filesystem tree hashes to prove no mutation.
 7. Delete and prove context/repo-local/revision files remain.
 8. Run:
@@ -132,7 +132,7 @@ go test -race ./project ./server ./config ./cmd/server -count=1
 - Check validate cannot reach `Create`, `Patch`, revision persistence, or a shared mutable map.
 - Inspect conflict tests for a real simultaneous race and final file validation.
 - Ensure tool errors carry stable codes and do not emit raw file contents, secrets, or stack traces.
-- Confirm `project.resolve` receives explicit root input and never reads app/MCP session state.
+- Confirm `project_resolve` receives explicit root input and never reads app/MCP session state.
 - Verify no MCP Tasks or runtime-session handles are introduced for bounded CRUD.
 
 ## Completion Gate

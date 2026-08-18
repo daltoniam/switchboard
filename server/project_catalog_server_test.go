@@ -37,7 +37,7 @@ func TestProjectCatalog_CreateListGet(t *testing.T) {
 	httpSrv, _ := newCatalogTestServer(t, true)
 	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
 	created, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.create",
+		Name: "project_create",
 		Arguments: map[string]any{
 			"definition": map[string]any{"version": "1", "name": "acme", "description": "A project"},
 		},
@@ -46,13 +46,13 @@ func TestProjectCatalog_CreateListGet(t *testing.T) {
 	require.False(t, created.IsError, "%v", created.StructuredContent)
 
 	listed, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.list", Arguments: map[string]any{},
+		Name: "project_list", Arguments: map[string]any{},
 	})
 	require.NoError(t, err)
 	require.False(t, listed.IsError)
 
 	got, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.get", Arguments: map[string]any{"projectId": "acme"},
+		Name: "project_get", Arguments: map[string]any{"projectId": "acme"},
 	})
 	require.NoError(t, err)
 	require.False(t, got.IsError)
@@ -68,7 +68,7 @@ func TestProjectCatalog_UpdateAndConflict(t *testing.T) {
 	require.NoError(t, err)
 	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
 	ok, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.update",
+		Name: "project_update",
 		Arguments: map[string]any{
 			"projectId": "acme", "expectedSourceRevision": string(created.SourceRevision),
 			"patch": map[string]any{"description": "two"},
@@ -78,7 +78,7 @@ func TestProjectCatalog_UpdateAndConflict(t *testing.T) {
 	require.False(t, ok.IsError, "%v", ok.StructuredContent)
 
 	conflict, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.update",
+		Name: "project_update",
 		Arguments: map[string]any{
 			"projectId": "acme", "expectedSourceRevision": string(created.SourceRevision),
 			"patch": map[string]any{"description": "stale"},
@@ -92,7 +92,7 @@ func TestProjectCatalog_WritesDisabled(t *testing.T) {
 	httpSrv, _ := newCatalogTestServer(t, false)
 	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
 	res, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name:      "project.create",
+		Name:      "project_create",
 		Arguments: map[string]any{"definition": map[string]any{"version": "1", "name": "nope"}},
 	})
 	require.NoError(t, err)

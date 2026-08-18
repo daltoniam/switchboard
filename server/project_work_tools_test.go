@@ -39,13 +39,13 @@ func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 		names[tl.Name] = true
 	}
 	for _, n := range []string{
-		"project.work_profile.put", "project.work_session.create", "project.agent_profile.list",
+		"project_work_profile_put", "project_work_session_create", "project_agent_profile_list",
 	} {
 		assert.True(t, names[n], "missing %s", n)
 	}
 
 	put, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.work_profile.put",
+		Name: "project_work_profile_put",
 		Arguments: map[string]any{
 			"version": "1", "work_profile_id": "review", "display_name": "Review",
 		},
@@ -54,7 +54,7 @@ func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 	require.False(t, put.IsError, "%v", put.StructuredContent)
 
 	ap, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.agent_profile.put",
+		Name: "project_agent_profile_put",
 		Arguments: map[string]any{
 			"version": "1", "agent_profile_id": "reviewer", "display_name": "Reviewer",
 		},
@@ -66,7 +66,7 @@ func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 	require.NoError(t, err)
 
 	ws, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.work_session.create",
+		Name: "project_work_session_create",
 		Arguments: map[string]any{
 			"version": "1", "work_session_id": "ws-1", "display_name": "PR review",
 			"project_id": "switchboard", "work_profile_id": "review",
@@ -85,7 +85,7 @@ func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 	}
 
 	tr, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name:      "project.work_session.transition",
+		Name:      "project_work_session_transition",
 		Arguments: map[string]any{"id": "ws-1", "state": "open"},
 	})
 	require.NoError(t, err)

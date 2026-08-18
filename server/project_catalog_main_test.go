@@ -42,9 +42,9 @@ func TestProjectCatalog_OnMainMCPEndpoint(t *testing.T) {
 	}
 	for _, n := range []string{
 		"search", "execute",
-		"project.list", "project.get", "project.create", "project.update", "project.delete",
+		"project_list", "project_get", "project_create", "project_update", "project_delete",
 		// transition aliases
-		"project.search", "project.resolve", "project.patch",
+		"project_search", "project_resolve", "project_patch",
 	} {
 		assert.True(t, names[n], "missing tool %s", n)
 	}
@@ -67,7 +67,7 @@ func TestProjectCatalog_OnMainMCPEndpoint(t *testing.T) {
 	t.Cleanup(func() { _ = session.Close() })
 
 	created, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
-		Name: "project.create",
+		Name: "project_create",
 		Arguments: map[string]any{
 			"definition": map[string]any{
 				"version": "1",

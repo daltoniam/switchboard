@@ -140,8 +140,8 @@ func WithProjectCatalog(cat *ProjectCatalogServer) Option {
 	return func(s *Server) { s.projectCatalog = cat }
 }
 
-// WithProjectWorkModel attaches project.work_profile / project.work_session /
-// project.agent_profile tools backed by a filesystem store under the Switchboard config root.
+// WithProjectWorkModel attaches project_work_profile / project_work_session /
+// project_agent_profile tools backed by a filesystem store under the Switchboard config root.
 func WithProjectWorkModel(store *awm.Store) Option {
 	return func(s *Server) { s.projectWorkStore = store }
 }

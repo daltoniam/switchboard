@@ -149,7 +149,7 @@ func ProjectsList(page layouts.PageData, data ProjectsListData) templ.Component 
 				return templ_7745c5c3_Err
 			}
 			if len(data.Projects) == 0 && len(data.InvalidProjects) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"card\" style=\"padding: 1.5rem;\"><p style=\"color: var(--text-secondary); margin: 0 0 0.5rem 0;\">No projects match this view.</p><p style=\"color: var(--text-muted); font-size: 0.8125rem; margin: 0;\">Create one with <code style=\"font-family: var(--font-mono);\">project.create</code> on <code style=\"font-family: var(--font-mono);\">/mcp</code>, or add a <code style=\"font-family: var(--font-mono);\">*.project.json</code> under the catalog projects directory.</p></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"card\" style=\"padding: 1.5rem;\"><p style=\"color: var(--text-secondary); margin: 0 0 0.5rem 0;\">No projects match this view.</p><p style=\"color: var(--text-muted); font-size: 0.8125rem; margin: 0;\">Create one with <code style=\"font-family: var(--font-mono);\">project_create</code> on <code style=\"font-family: var(--font-mono);\">/mcp</code>, or add a <code style=\"font-family: var(--font-mono);\">*.project.json</code> under the catalog projects directory.</p></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -558,7 +558,7 @@ func ProjectDetail(page layouts.PageData, data ProjectDetailData) templ.Componen
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</div><div class=\"card\" style=\"padding: 1rem 1.25rem;\"><div class=\"section-title\" style=\"margin-bottom: 0.5rem;\">Recovery</div><p style=\"color: var(--text-secondary); font-size: 0.875rem; margin: 0;\">Delete with <code style=\"font-family: var(--font-mono);\">expectedRawSourceRevision</code> then recreate via <code style=\"font-family: var(--font-mono);\">project.create</code>. Raw CAS: <code style=\"font-family: var(--font-mono); font-size: 0.75rem;\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</div><div class=\"card\" style=\"padding: 1rem 1.25rem;\"><div class=\"section-title\" style=\"margin-bottom: 0.5rem;\">Recovery</div><p style=\"color: var(--text-secondary); font-size: 0.875rem; margin: 0;\">Delete with <code style=\"font-family: var(--font-mono);\">expectedRawSourceRevision</code> then recreate via <code style=\"font-family: var(--font-mono);\">project_create</code>. Raw CAS: <code style=\"font-family: var(--font-mono); font-size: 0.75rem;\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

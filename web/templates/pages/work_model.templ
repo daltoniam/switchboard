@@ -148,7 +148,7 @@ templ WorkProfilesList(page layouts.PageData, data WorkProfilesListData) {
 		</p>
 		if len(data.Profiles) == 0 {
 			<div class="card" style="padding: 1.25rem;">
-				<p style="color: var(--text-secondary); margin: 0;">No work profiles. Create one with <code style="font-family: var(--font-mono);">project.work_profile.put</code>.</p>
+				<p style="color: var(--text-secondary); margin: 0;">No work profiles. Create one with <code style="font-family: var(--font-mono);">project_work_profile_put</code>.</p>
 			</div>
 		} else {
 			@workProfilesTable(data.ProjectID, data.Profiles)
@@ -251,7 +251,7 @@ templ AgentProfilesList(page layouts.PageData, data AgentProfilesListData) {
 		</p>
 		if len(data.Profiles) == 0 {
 			<div class="card" style="padding: 1.25rem;">
-				<p style="color: var(--text-secondary); margin: 0;">No agent profiles for this project. Create one with <code style="font-family: var(--font-mono);">project.agent_profile.put</code>.</p>
+				<p style="color: var(--text-secondary); margin: 0;">No agent profiles for this project. Create one with <code style="font-family: var(--font-mono);">project_agent_profile_put</code>.</p>
 			</div>
 		} else {
 			@agentProfilesTable(data.ProjectID, data.Profiles)
@@ -370,7 +370,7 @@ templ WorkSessionsList(page layouts.PageData, data WorkSessionsListData) {
 		</div>
 		if len(data.Sessions) == 0 {
 			<div class="card" style="padding: 1.25rem;">
-				<p style="color: var(--text-secondary); margin: 0;">No work sessions match. Create with <code style="font-family: var(--font-mono);">project.work_session.create</code>.</p>
+				<p style="color: var(--text-secondary); margin: 0;">No work sessions match. Create with <code style="font-family: var(--font-mono);">project_work_session_create</code>.</p>
 			</div>
 		} else {
 			@workSessionsTable(data.ProjectID, data.Sessions)

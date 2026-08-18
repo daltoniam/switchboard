@@ -9,7 +9,7 @@ import (
 )
 
 // AttachProjectWorkModel registers WorkProfile, WorkSession, and AgentProfile tools
-// under the project.* namespace on the main MCP server.
+// under the project_* namespace on the main MCP server.
 func AttachProjectWorkModel(mcpSrv *mcpsdk.Server, store *awm.Store) {
 	if mcpSrv == nil || store == nil {
 		return
@@ -21,74 +21,74 @@ func AttachProjectWorkModel(mcpSrv *mcpsdk.Server, store *awm.Store) {
 	closed := false
 
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_profile.list",
+		Name:        "project_work_profile_list",
 		Description: "List WorkProfile blueprints (session blueprints / session profiles). Start here to discover reusable work episode templates.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.listWorkProfiles)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_profile.get",
+		Name:        "project_work_profile_get",
 		Description: "Get a WorkProfile by work_profile_id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.getWorkProfile)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_profile.put",
+		Name:        "project_work_profile_put",
 		Description: "Create or replace a WorkProfile (session blueprint).",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, OpenWorldHint: &closed},
 	}, h.putWorkProfile)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_profile.delete",
+		Name:        "project_work_profile_delete",
 		Description: "Delete a WorkProfile by id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed},
 	}, h.deleteWorkProfile)
 
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.agent_profile.list",
+		Name:        "project_agent_profile_list",
 		Description: "List AgentProfile kinds (eligible agent types, not running instances).",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.listAgentProfiles)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.agent_profile.get",
+		Name:        "project_agent_profile_get",
 		Description: "Get an AgentProfile by agent_profile_id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.getAgentProfile)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.agent_profile.put",
+		Name:        "project_agent_profile_put",
 		Description: "Create or replace an AgentProfile.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, OpenWorldHint: &closed},
 	}, h.putAgentProfile)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.agent_profile.delete",
+		Name:        "project_agent_profile_delete",
 		Description: "Delete an AgentProfile by id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed},
 	}, h.deleteAgentProfile)
 
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_session.list",
+		Name:        "project_work_session_list",
 		Description: "List WorkSessions (bounded work episodes). Optional filters: state, project_id. Not MCP transport sessions.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.listWorkSessions)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_session.get",
+		Name:        "project_work_session_get",
 		Description: "Get a WorkSession by work_session_id.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
 	}, h.getWorkSession)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_session.create",
+		Name:        "project_work_session_create",
 		Description: "Create a WorkSession. May reference project_id, project_revision, work_profile_id, agent_profile_ids.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, OpenWorldHint: &closed},
 	}, h.createWorkSession)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_session.transition",
+		Name:        "project_work_session_transition",
 		Description: "Transition a WorkSession lifecycle state (proposed|open|paused|closed|aborted).",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed},
 	}, h.transitionWorkSession)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_session.patch",
+		Name:        "project_work_session_patch",
 		Description: "Patch mutable WorkSession fields (display_name, agent_profile_ids, policy). Cannot patch terminal sessions.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, OpenWorldHint: &closed},
 	}, h.patchWorkSession)
 	mcpsdk.AddTool(mcpSrv, &mcpsdk.Tool{
-		Name:        "project.work_session.delete",
+		Name:        "project_work_session_delete",
 		Description: "Delete a WorkSession record. Does not delete projects or profiles.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed},
 	}, h.deleteWorkSession)

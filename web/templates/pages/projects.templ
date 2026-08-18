@@ -84,7 +84,7 @@ templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 			<div class="card" style="padding: 1.5rem;">
 				<p style="color: var(--text-secondary); margin: 0 0 0.5rem 0;">No projects match this view.</p>
 				<p style="color: var(--text-muted); font-size: 0.8125rem; margin: 0;">
-					Create one with <code style="font-family: var(--font-mono);">project.create</code> on <code style="font-family: var(--font-mono);">/mcp</code>,
+					Create one with <code style="font-family: var(--font-mono);">project_create</code> on <code style="font-family: var(--font-mono);">/mcp</code>,
 					or add a <code style="font-family: var(--font-mono);">*.project.json</code> under the catalog projects directory.
 				</p>
 			</div>
@@ -240,7 +240,7 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 				<div class="section-title" style="margin-bottom: 0.5rem;">Recovery</div>
 				<p style="color: var(--text-secondary); font-size: 0.875rem; margin: 0;">
 					Delete with <code style="font-family: var(--font-mono);">expectedRawSourceRevision</code>
-					then recreate via <code style="font-family: var(--font-mono);">project.create</code>.
+					then recreate via <code style="font-family: var(--font-mono);">project_create</code>.
 					Raw CAS: <code style="font-family: var(--font-mono); font-size: 0.75rem;">{ string(data.Invalid.RawSourceRevision) }</code>
 				</p>
 			</div>

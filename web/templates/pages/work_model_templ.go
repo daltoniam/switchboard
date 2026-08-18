@@ -429,7 +429,7 @@ func WorkProfilesList(page layouts.PageData, data WorkProfilesListData) templ.Co
 				return templ_7745c5c3_Err
 			}
 			if len(data.Profiles) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<div class=\"card\" style=\"padding: 1.25rem;\"><p style=\"color: var(--text-secondary); margin: 0;\">No work profiles. Create one with <code style=\"font-family: var(--font-mono);\">project.work_profile.put</code>.</p></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<div class=\"card\" style=\"padding: 1.25rem;\"><p style=\"color: var(--text-secondary); margin: 0;\">No work profiles. Create one with <code style=\"font-family: var(--font-mono);\">project_work_profile_put</code>.</p></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -797,7 +797,7 @@ func AgentProfilesList(page layouts.PageData, data AgentProfilesListData) templ.
 				return templ_7745c5c3_Err
 			}
 			if len(data.Profiles) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<div class=\"card\" style=\"padding: 1.25rem;\"><p style=\"color: var(--text-secondary); margin: 0;\">No agent profiles for this project. Create one with <code style=\"font-family: var(--font-mono);\">project.agent_profile.put</code>.</p></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<div class=\"card\" style=\"padding: 1.25rem;\"><p style=\"color: var(--text-secondary); margin: 0;\">No agent profiles for this project. Create one with <code style=\"font-family: var(--font-mono);\">project_agent_profile_put</code>.</p></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1247,7 +1247,7 @@ func WorkSessionsList(page layouts.PageData, data WorkSessionsListData) templ.Co
 				return templ_7745c5c3_Err
 			}
 			if len(data.Sessions) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<div class=\"card\" style=\"padding: 1.25rem;\"><p style=\"color: var(--text-secondary); margin: 0;\">No work sessions match. Create with <code style=\"font-family: var(--font-mono);\">project.work_session.create</code>.</p></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<div class=\"card\" style=\"padding: 1.25rem;\"><p style=\"color: var(--text-secondary); margin: 0;\">No work sessions match. Create with <code style=\"font-family: var(--font-mono);\">project_work_session_create</code>.</p></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

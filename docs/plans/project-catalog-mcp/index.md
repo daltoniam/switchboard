@@ -66,7 +66,7 @@ Evidence at the selected base:
 2. **Filesystem remains authoritative:** in-memory indexes and watchers may accelerate reads or notifications but may not become the source of truth.
 3. **Stateless MCP:** no current project, revision, role, or root may be inferred from an MCP transport connection or `Mcp-Session-Id`.
 4. **Frozen contracts:** JSON shapes, errors, access policy, worktree identity, root-specific context URIs, compatibility projections, and cross-process locking are normative in [`contracts.md`](./contracts.md).
-5. **Explicit context:** `project.resolve` accepts `projectId` and/or an explicit `rootUri`. Roots are not added as a new dependency because MCP Roots is deprecated in 2026-07-28.
+5. **Explicit context:** `project_resolve` accepts `projectId` and/or an explicit `rootUri`. Roots are not added as a new dependency because MCP Roots is deprecated in 2026-07-28.
 6. **Revision semantics:** `revision = "sha256:" + lowercase hex(SHA-256(canonical effective definition JSON))`. Immutable revision resources return only the effective definition envelope; invocation-specific root/provenance remains in the resolve result.
 7. **Write ownership:** canonical create/patch/delete mutate only `$configRoot/projects/<name>.project.json`. Repo-local `.project.json`, context, and revision snapshots are never changed or deleted by those operations.
 8. **Optimistic concurrency:** canonical patch/delete require `expectedSourceRevision`; mismatch returns a structured `revision_conflict` tool error without writing.
@@ -98,8 +98,8 @@ Evidence at the selected base:
 
 ### Canonical tools
 
-- Read-only: `project.search`, `project.resolve`, `project.validate`
-- Administrative: `project.create`, `project.patch`, `project.delete`
+- Read-only: `project_search`, `project_resolve`, `project_validate`
+- Administrative: `project_create`, `project_patch`, `project_delete`
 
 Canonical administration tools remain listed but return `write_disabled` by default; mutations are enabled only by independent top-level `project_catalog.writes_enabled=true`. The existing ordinary ProjectInterop integration remains separately governable by integration enablement and `ToolGlobs`.
 
@@ -122,7 +122,7 @@ Canonical administration tools remain listed but return `write_disabled` by defa
 |---|---|
 | Shared catalog core | 2, 3 |
 | Resources-first MCP representation | 4 |
-| `project.search`, `project.resolve`, `project.validate` | 5 |
+| `project_search`, `project_resolve`, `project_validate` | 5 |
 | Administrative tools and optimistic writes | 2, 5 |
 | Revisions, provenance, diagnostics | 2 |
 | Explicit workspace/worktree root | 2, 5 |

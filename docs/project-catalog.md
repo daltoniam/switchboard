@@ -34,12 +34,12 @@ Catalog tools and `project://` resources are on the main `/mcp` endpoint (enable
 
 ### Tools
 
-- `project.list` / `project.search`
-- `project.get` / `project.resolve`
-- `project.validate`
-- `project.create`
-- `project.update` / `project.patch`
-- `project.delete`
+- `project_list` / `project_search`
+- `project_get` / `project_resolve`
+- `project_validate`
+- `project_create`
+- `project_update` / `project_patch`
+- `project_delete`
 
 ### Resources
 
@@ -54,6 +54,6 @@ Browse projects at `/projects` (list + detail).
 
 ## Related
 
-- Work profiles, work sessions, agent profiles (nested `project.*` tools): [awm.md](awm.md)
+- Work profiles, work sessions, agent profiles (nested `project_*` tools): [awm.md](awm.md)
 
 Projects are also modeled as `awm.Project` in the internal AWM package and share this on-disk path with work profiles/sessions (see [awm.md](awm.md)).
