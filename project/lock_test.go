@@ -12,7 +12,7 @@ import (
 )
 
 func TestLock_Cancel(t *testing.T) {
-	store := newTestCatalog(t)
+	store := NewStore(t.TempDir())
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	err := store.withLock(ctx, func() error { return nil })
@@ -21,12 +21,10 @@ func TestLock_Cancel(t *testing.T) {
 }
 
 func TestCatalog_ConcurrentPatchOneWinner(t *testing.T) {
-	store := newTestCatalog(t)
-	created, err := store.Create(context.Background(), CreateRequest{Definition: testDef("acme")})
+	store := NewStore(t.TempDir())
+	created, err := store.Create(context.Background(), CreateRequest{Definition: Definition{Version: "1", Name: "acme", Description: "one"}})
 	require.NoError(t, err)
-
-	var okCount atomic.Int32
-	var conflictCount atomic.Int32
+	var okCount, conflictCount atomic.Int32
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		wg.Add(1)

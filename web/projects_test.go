@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -13,43 +12,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func testWeb(t *testing.T, store *project.Store) *WebServer {
+	t.Helper()
+	services := &mcp.Services{Config: newMockConfigService(map[string]*mcp.IntegrationConfig{}), Registry: newMockRegistry()}
+	return New(services, 0, nil, nil, WithProjectCatalog(store))
+}
+
 func TestProjectsList_RendersCatalog(t *testing.T) {
 	store := project.NewStore(t.TempDir())
 	require.NoError(t, store.Load())
 	_, err := store.Create(context.Background(), project.CreateRequest{
-		Definition: project.Definition{Version: "1", Name: "browse-me", Resources: map[string]project.Resource{"main": {Type: project.ResourceTypeRepo, Path: "/tmp/browse", Branch: "main"}}},
+		Definition: project.Definition{Version: "1", Name: "browse-me", Description: "hi"},
 	})
 	require.NoError(t, err)
-
-	services := &mcp.Services{Config: newMockConfigService(map[string]*mcp.IntegrationConfig{}), Registry: newMockRegistry()}
-	ws := New(services, 0, nil, nil, WithProjectCatalog(store))
-	req := httptest.NewRequest(http.MethodGet, "/projects", nil)
+	ws := testWeb(t, store)
 	rr := httptest.NewRecorder()
-	ws.Handler().ServeHTTP(rr, req)
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/projects", nil))
 	require.Equal(t, http.StatusOK, rr.Code)
 	body := rr.Body.String()
 	assert.Contains(t, body, "browse-me")
-	assert.Contains(t, body, "/projects/browse-me")
-	assert.Contains(t, body, "Projects")
+	assert.Contains(t, body, "hi")
 }
 
 func TestProjectsList_SearchQuery(t *testing.T) {
 	store := project.NewStore(t.TempDir())
 	require.NoError(t, store.Load())
-	_, err := store.Create(context.Background(), project.CreateRequest{
-		Definition: project.Definition{Version: "1", Name: "alpha", Resources: map[string]project.Resource{}},
-	})
+	_, err := store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{Version: "1", Name: "alpha"}})
 	require.NoError(t, err)
-	_, err = store.Create(context.Background(), project.CreateRequest{
-		Definition: project.Definition{Version: "1", Name: "beta", Resources: map[string]project.Resource{}},
-	})
+	_, err = store.Create(context.Background(), project.CreateRequest{Definition: project.Definition{Version: "1", Name: "beta"}})
 	require.NoError(t, err)
-
-	services := &mcp.Services{Config: newMockConfigService(map[string]*mcp.IntegrationConfig{}), Registry: newMockRegistry()}
-	ws := New(services, 0, nil, nil, WithProjectCatalog(store))
-	req := httptest.NewRequest(http.MethodGet, "/projects?q=alp", nil)
+	ws := testWeb(t, store)
 	rr := httptest.NewRecorder()
-	ws.Handler().ServeHTTP(rr, req)
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/projects?q=alp", nil))
 	require.Equal(t, http.StatusOK, rr.Code)
 	body := rr.Body.String()
 	assert.Contains(t, body, "alpha")
@@ -60,31 +54,25 @@ func TestProjectDetail_RendersDefinition(t *testing.T) {
 	store := project.NewStore(t.TempDir())
 	require.NoError(t, store.Load())
 	_, err := store.Create(context.Background(), project.CreateRequest{
-		Definition: project.Definition{Version: "1", Name: "detail-me", Resources: map[string]project.Resource{"main": {Type: project.ResourceTypeRepo, Path: "/tmp/detail", Branch: "dev"}}},
+		Definition: project.Definition{Version: "1", Name: "detail-me", Description: "desc"},
 	})
 	require.NoError(t, err)
-
-	services := &mcp.Services{Config: newMockConfigService(map[string]*mcp.IntegrationConfig{}), Registry: newMockRegistry()}
-	ws := New(services, 0, nil, nil, WithProjectCatalog(store))
-	req := httptest.NewRequest(http.MethodGet, "/projects/detail-me", nil)
+	ws := testWeb(t, store)
 	rr := httptest.NewRecorder()
-	ws.Handler().ServeHTTP(rr, req)
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/projects/detail-me", nil))
 	require.Equal(t, http.StatusOK, rr.Code)
 	body := rr.Body.String()
 	assert.Contains(t, body, "detail-me")
-	assert.Contains(t, body, "dev")
+	assert.Contains(t, body, "desc")
 	assert.Contains(t, body, "sha256:")
-	assert.True(t, strings.Contains(body, `"version"`) || strings.Contains(body, "version"))
 }
 
 func TestProjectDetail_NotFound(t *testing.T) {
 	store := project.NewStore(t.TempDir())
 	require.NoError(t, store.Load())
-	services := &mcp.Services{Config: newMockConfigService(map[string]*mcp.IntegrationConfig{}), Registry: newMockRegistry()}
-	ws := New(services, 0, nil, nil, WithProjectCatalog(store))
-	req := httptest.NewRequest(http.MethodGet, "/projects/missing", nil)
+	ws := testWeb(t, store)
 	rr := httptest.NewRecorder()
-	ws.Handler().ServeHTTP(rr, req)
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/projects/missing", nil))
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "not found")
 }

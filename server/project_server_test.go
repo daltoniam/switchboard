@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -95,7 +93,7 @@ func projectToolRequest(name string, args map[string]any) *mcpsdk.CallToolReques
 }
 
 func TestProjectRouter_StaticToolListCapability(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "test-project", Resources: map[string]project.Resource{}}
+	def := &project.Definition{Version: "1", Name: "test-project"}
 	router, _ := setupProjectRouter(t, def, &mockIntegration{
 		name:    "github",
 		healthy: true,
@@ -122,7 +120,7 @@ func TestProjectRouter_StaticToolListCapability(t *testing.T) {
 }
 
 func TestProjectRouter_GetOrCreate(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "test-project", Resources: map[string]project.Resource{}}
+	def := &project.Definition{Version: "1", Name: "test-project"}
 	mi := &mockIntegration{
 		name:    "github",
 		healthy: true,
@@ -143,7 +141,7 @@ func TestProjectRouter_GetOrCreate(t *testing.T) {
 }
 
 func TestProjectRouter_GetOrCreate_NotFound(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "test-project", Resources: map[string]project.Resource{}}
+	def := &project.Definition{Version: "1", Name: "test-project"}
 	router, _ := setupProjectRouter(t, def)
 
 	_, err := router.getOrCreate("nonexistent")
@@ -307,7 +305,7 @@ func TestProjectRouter_ExecutePerIntegrationCap(t *testing.T) {
 	// The project router's execute handler and server.handleExecute both call
 	// responseLimitFor. These subtests pin the project router path so a future
 	// refactor can't silently regress the per-integration cap behavior there.
-	def := &project.Definition{Version: "1", Name: "cap-test", Resources: map[string]project.Resource{}}
+	def := &project.Definition{Version: "1", Name: "cap-test"}
 
 	buildIntegration := func(payload string) *mockIntegrationWithCap {
 		return &mockIntegrationWithCap{
@@ -364,7 +362,7 @@ func TestProjectRouter_ExecutePerIntegrationCap(t *testing.T) {
 func TestProjectRouter_ExecutePerToolCap(t *testing.T) {
 	// Pins the project router's tool-aware responseLimitFor lookup so a future
 	// refactor can't silently drop the per-tool override branch.
-	def := &project.Definition{Version: "1", Name: "per-tool-cap-test", Resources: map[string]project.Resource{}}
+	def := &project.Definition{Version: "1", Name: "per-tool-cap-test"}
 
 	buildIntegration := func(toolName mcp.ToolName, payload string) *mockProjectIntegrationWithPerToolCap {
 		_ = toolName // Reserved for future per-tool variations; keeps the call sites self-documenting.
@@ -431,74 +429,20 @@ func (m *mockProjectIntegrationWithPerToolCap) MaxResponseBytesForTool(name mcp.
 }
 
 func TestProjectRouter_ContextManifest(t *testing.T) {
-	dir := t.TempDir()
-	repoDir := filepath.Join(dir, "repo")
-	require.NoError(t, os.MkdirAll(repoDir, 0700))
-	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "AGENTS.md"), []byte("instructions"), 0600))
-
-	configDir := filepath.Join(dir, "config")
-	contextDir := filepath.Join(configDir, "context", "ctx-test")
-	require.NoError(t, os.MkdirAll(contextDir, 0700))
-	require.NoError(t, os.WriteFile(filepath.Join(contextDir, "sprint.md"), []byte("goals"), 0600))
-
-	def := &project.Definition{
-		Version: "1",
-		Name:    "ctx-test",
-		Resources: map[string]project.Resource{
-			"main":   {Type: project.ResourceTypeRepo, Path: repoDir},
-			"agents": {Type: project.ResourceTypeFile, Repo: "main", Path: "AGENTS.md"},
-			"sprint": {Type: project.ResourceTypeFile, Path: filepath.Join(configDir, "context", "ctx-test", "sprint.md")},
-		},
-	}
-
-	store := project.NewStore(configDir)
-	require.NoError(t, store.CreateDefinition(def))
-
-	services := &mcp.Services{
-		Config:   newMockConfigService(nil),
-		Registry: newMockRegistry(),
-	}
-	router := NewProjectRouter(services, store, "switchboard", SearchIndex{})
-
+	def := &project.Definition{Version: "1", Name: "ctx-test"}
+	router, _ := setupProjectRouter(t, def)
 	handler := router.makeContextHandler(def)
-
-	t.Run("manifest with no args", func(t *testing.T) {
-		result, err := handler(context.Background(), projectToolRequest("project_context", map[string]any{}))
-		require.NoError(t, err)
-		require.False(t, result.IsError)
-
-		tc := result.Content[0].(*mcpsdk.TextContent)
-		var entries []project.ContextEntry
-		require.NoError(t, json.Unmarshal([]byte(tc.Text), &entries))
-		assert.Len(t, entries, 2)
-	})
-
-	t.Run("fetch specific file", func(t *testing.T) {
-		result, err := handler(context.Background(), projectToolRequest("project_context", map[string]any{
-			"path": "AGENTS.md",
-		}))
-		require.NoError(t, err)
-
-		tc := result.Content[0].(*mcpsdk.TextContent)
-		assert.Equal(t, "instructions", tc.Text)
-	})
-
-	t.Run("query filter", func(t *testing.T) {
-		result, err := handler(context.Background(), projectToolRequest("project_context", map[string]any{
-			"query": "sprint",
-		}))
-		require.NoError(t, err)
-
-		tc := result.Content[0].(*mcpsdk.TextContent)
-		var entries []project.ContextEntry
-		require.NoError(t, json.Unmarshal([]byte(tc.Text), &entries))
-		assert.Len(t, entries, 1)
-		assert.Contains(t, entries[0].Path, "sprint.md")
-	})
+	result, err := handler(context.Background(), projectToolRequest("project_context", map[string]any{}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	var entries []project.ContextEntry
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &entries))
+	assert.Empty(t, entries)
 }
 
 func TestProjectRouter_NoCrossProjectAdminTools(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "p1", Resources: map[string]project.Resource{"main": {Type: project.ResourceTypeRepo, Path: "~/work/p1"}}}
+	def := &project.Definition{Version: "1", Name: "p1"}
 	router, _ := setupProjectRouter(t, def)
 	srv, err := router.getOrCreate("p1")
 	require.NoError(t, err)
@@ -527,7 +471,7 @@ func TestProjectRouter_NoCrossProjectAdminTools(t *testing.T) {
 }
 
 func TestProjectRouter_ProjectGet(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "myproj", Resources: map[string]project.Resource{"main": {Type: project.ResourceTypeRepo, Path: "~/work/myproj"}}}
+	def := &project.Definition{Version: "1", Name: "myproj"}
 	router, _ := setupProjectRouter(t, def)
 
 	handler := router.makeProjectGetHandler(def)
@@ -541,7 +485,7 @@ func TestProjectRouter_ProjectGet(t *testing.T) {
 }
 
 func TestProjectRouter_FreshSnapshotAfterDelete(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "deletable", Resources: map[string]project.Resource{}}
+	def := &project.Definition{Version: "1", Name: "deletable"}
 	router, store := setupProjectRouter(t, def)
 	_, err := router.getOrCreate("deletable")
 	require.NoError(t, err)
@@ -608,7 +552,7 @@ func TestProjectRouter_ProjectDefaults(t *testing.T) {
 }
 
 func TestProjectRouter_GlobalToolGlobsBoundSearch(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "scoped", Resources: map[string]project.Resource{}}
+	def := &project.Definition{Version: "1", Name: "scoped"}
 	mi := &mockIntegration{
 		name:    "github",
 		healthy: true,
@@ -630,7 +574,7 @@ func TestProjectRouter_GlobalToolGlobsBoundSearch(t *testing.T) {
 }
 
 func TestProjectRouter_Handler(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "handler-test", Resources: map[string]project.Resource{}}
+	def := &project.Definition{Version: "1", Name: "handler-test"}
 	router, _ := setupProjectRouter(t, def)
 	handler := router.Handler()
 	assert.NotNil(t, handler)

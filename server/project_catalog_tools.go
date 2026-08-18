@@ -46,7 +46,6 @@ type getOut struct {
 	Sources        []project.Source       `json:"sources"`
 	Diagnostics    []project.Diagnostic   `json:"diagnostics"`
 	URI            string                 `json:"uri"`
-	ResourcesURI   string                 `json:"resourcesUri"`
 }
 
 type resolveIn struct {
@@ -55,14 +54,12 @@ type resolveIn struct {
 }
 
 type resolveOut struct {
-	ProjectID          project.ProjectID    `json:"projectId"`
-	Revision           project.Revision     `json:"revision"`
-	DefinitionURI      string               `json:"definitionUri"`
-	RootURI            string               `json:"rootUri,omitempty"`
-	ContextManifestURI string               `json:"contextManifestUri"`
-	ResourcesURI       string               `json:"resourcesUri"`
-	Sources            []project.Source     `json:"sources"`
-	Diagnostics        []project.Diagnostic `json:"diagnostics"`
+	ProjectID     project.ProjectID    `json:"projectId"`
+	Revision      project.Revision     `json:"revision"`
+	DefinitionURI string               `json:"definitionUri"`
+	RootURI       string               `json:"rootUri,omitempty"`
+	Sources       []project.Source     `json:"sources"`
+	Diagnostics   []project.Diagnostic `json:"diagnostics"`
 }
 
 type validateIn struct {
@@ -189,7 +186,6 @@ func (s *ProjectCatalogServer) toolGet(ctx context.Context, _ *mcpsdk.CallToolRe
 		Sources:        nonNil(snap.Sources),
 		Diagnostics:    nonNil(snap.Diagnostics),
 		URI:            projectResourceURI(snap.ProjectID),
-		ResourcesURI:   projectResourcesURI(snap.ProjectID),
 	}, nil
 }
 
@@ -202,14 +198,12 @@ func (s *ProjectCatalogServer) toolResolve(ctx context.Context, _ *mcpsdk.CallTo
 		return domainToolError[resolveOut](err)
 	}
 	return nil, resolveOut{
-		ProjectID:          snap.ProjectID,
-		Revision:           snap.Revision,
-		DefinitionURI:      projectResourceURI(snap.ProjectID),
-		RootURI:            snap.RootURI,
-		ContextManifestURI: contextManifestURI(snap.ProjectID, snap.RootURI),
-		ResourcesURI:       projectResourcesURI(snap.ProjectID),
-		Sources:            nonNil(snap.Sources),
-		Diagnostics:        nonNil(snap.Diagnostics),
+		ProjectID:     snap.ProjectID,
+		Revision:      snap.Revision,
+		DefinitionURI: definitionResourceURI(snap.ProjectID),
+		RootURI:       snap.RootURI,
+		Sources:       nonNil(snap.Sources),
+		Diagnostics:   nonNil(snap.Diagnostics),
 	}, nil
 }
 
@@ -246,16 +240,11 @@ func (s *ProjectCatalogServer) toolCreate(ctx context.Context, _ *mcpsdk.CallToo
 	}
 	raw, err := json.Marshal(in.Definition)
 	if err != nil {
-		return domainAnyError(&project.Error{Code: project.CodeInvalidDefinition, Message: "definition must be a JSON object"})
+		return typedDomainError[createOut](projectToolError{Code: project.CodeInvalidDefinition, Message: "definition must be a JSON object"})
 	}
 	var def project.Definition
 	if err := json.Unmarshal(raw, &def); err != nil {
 		return domainAnyError(&project.Error{Code: project.CodeInvalidDefinition, Message: "definition must be a JSON object"})
-	}
-	if def.Resources == nil {
-		// Normalize omitted resources to empty map so create of bare name works
-		// for transition tests; domain Validate will still accept empty.
-		def.Resources = map[string]project.Resource{}
 	}
 	snap, err := s.writer.Create(ctx, project.CreateRequest{Definition: def})
 	if err != nil {
@@ -338,12 +327,10 @@ func summaryFromSnap(snap project.Snapshot) project.ProjectSummary {
 	return project.ProjectSummary{
 		ProjectID:       snap.ProjectID,
 		Title:           snap.Definition.Name,
-		Repo:            snap.Definition.PrimaryRepo(),
-		Branch:          snap.Definition.PrimaryBranch(),
+		Description:     snap.Definition.Description,
 		Revision:        snap.Revision,
 		SourceRevision:  snap.SourceRevision,
-		DefinitionURI:   projectResourceURI(snap.ProjectID),
-		ContextURI:      projectResourcesURI(snap.ProjectID),
+		DefinitionURI:   definitionResourceURI(snap.ProjectID),
 		DiagnosticCount: len(snap.Diagnostics),
 	}
 }

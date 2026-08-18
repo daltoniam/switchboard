@@ -62,9 +62,6 @@ func definitionURI(id ProjectID) string {
 }
 
 // contextURI points at the project's resources collection (multi-resource model).
-func contextURI(id ProjectID) string {
-	return fmt.Sprintf("project://registry/projects/%s/resources", url.PathEscape(string(id)))
-}
 
 func diagnosticsURI(id ProjectID) string {
 	return fmt.Sprintf("project://registry/projects/%s/diagnostics", url.PathEscape(string(id)))

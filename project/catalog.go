@@ -47,12 +47,10 @@ type Diagnostic struct {
 type ProjectSummary struct {
 	ProjectID       ProjectID `json:"projectId"`
 	Title           string    `json:"title"`
-	Repo            string    `json:"repo,omitempty"`
-	Branch          string    `json:"branch,omitempty"`
+	Description     string    `json:"description,omitempty"`
 	Revision        Revision  `json:"revision"`
 	SourceRevision  Revision  `json:"sourceRevision"`
 	DefinitionURI   string    `json:"definitionUri"`
-	ContextURI      string    `json:"contextUri"`
 	DiagnosticCount int       `json:"diagnosticCount"`
 }
 

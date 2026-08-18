@@ -135,7 +135,6 @@ func (s *Store) readUserRecord(id ProjectID, path string) *catalogRecord {
 		return rec
 	}
 	user := cloneDefinition(&def)
-	user.SetBaseDir(filepath.Dir(path))
 	rec.user = user
 	if user.Name == "" {
 		rec.invalid = true
@@ -249,9 +248,6 @@ func hasError(diags []Diagnostic) bool {
 
 func (s *Store) mergeEffective(user *Definition, root, userPath string) (*Definition, []Source, []Diagnostic) {
 	effective := cloneDefinition(user)
-	if effective != nil {
-		effective.SetBaseDir(filepath.Dir(userPath))
-	}
 	sources := []Source{{
 		Kind:       "user",
 		URI:        fileURI(userPath),
@@ -284,7 +280,6 @@ func (s *Store) mergeEffective(user *Definition, root, userPath string) (*Defini
 		})
 		return effective, sources, diags
 	}
-	overlay.SetBaseDir(overlayRoot)
 	if overlay.Name != "" && overlay.Name != user.Name {
 		diags = append(diags, Diagnostic{
 			Severity:  "error",
@@ -304,9 +299,6 @@ func (s *Store) mergeEffective(user *Definition, root, userPath string) (*Defini
 			SourceURI: fileURI(overlayPath),
 		})
 		return effective, sources, diags
-	}
-	if merged != nil {
-		merged.SetBaseDir(filepath.Dir(userPath))
 	}
 	effective = merged
 	sources = append(sources, Source{
@@ -356,12 +348,10 @@ func (s *Store) summaryFromRecord(rec *catalogRecord) (ProjectSummary, InvalidPr
 	return ProjectSummary{
 		ProjectID:       rec.id,
 		Title:           rec.effective.Name,
-		Repo:            rec.effective.PrimaryRepo(),
-		Branch:          rec.effective.PrimaryBranch(),
+		Description:     rec.effective.Description,
 		Revision:        rec.revision,
 		SourceRevision:  rec.sourceRevision,
 		DefinitionURI:   definitionURI(rec.id),
-		ContextURI:      contextURI(rec.id),
 		DiagnosticCount: len(rec.diagnostics),
 	}, InvalidProjectSummary{}, true
 }
@@ -427,7 +417,7 @@ func (s *Store) pageFrom(kind, query, cursor string) (Page, error) {
 		}
 		rec := s.index[id]
 		if q != "" && !strings.Contains(strings.ToLower(string(id)), q) && (rec.effective == nil || !strings.Contains(strings.ToLower(rec.effective.TitleOrName()), q)) {
-			if rec.effective == nil || !strings.Contains(strings.ToLower(rec.effective.PrimaryRepo()), q) {
+			if rec.effective == nil || !strings.Contains(strings.ToLower(rec.effective.Description), q) {
 				continue
 			}
 		}

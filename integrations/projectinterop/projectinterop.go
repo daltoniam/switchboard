@@ -121,23 +121,9 @@ func createProject(_ context.Context, p *projectInterop, args map[string]any) (*
 		return errResult(err)
 	}
 	definition := &project.Definition{
-		Version:   "1",
-		Name:      name,
-		Resources: map[string]project.Resource{},
-	}
-	if repo := argString(args, "repo"); repo != "" {
-		definition.Resources["main"] = project.Resource{
-			Type:   project.ResourceTypeRepo,
-			Path:   repo,
-			Branch: argString(args, "branch"),
-		}
-	} else if branch := argString(args, "branch"); branch != "" {
-		// Branch without repo: store as additional for round-trip of legacy tool args.
-		definition.Resources["main"] = project.Resource{
-			Type:   project.ResourceTypeRepo,
-			Path:   ".",
-			Branch: branch,
-		}
+		Version:     "1",
+		Name:        name,
+		Description: argString(args, "description"),
 	}
 	if err := p.store.CreateDefinition(definition); err != nil {
 		return errResult(err)

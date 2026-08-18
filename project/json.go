@@ -7,11 +7,8 @@ var definitionFields = map[string]struct{}{
 	"version":     {},
 	"name":        {},
 	"description": {},
-	"resources":   {},
-	"launch":      {},
 	"tools":       {},
 	"agents":      {},
-	"extensions":  {},
 }
 
 func (d *Definition) UnmarshalJSON(data []byte) error {
@@ -48,7 +45,6 @@ func (d Definition) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	delete(fields, "Additional")
-	delete(fields, "baseDir")
 	for name, value := range d.Additional {
 		if _, ok := definitionFields[name]; !ok {
 			fields[name] = value
