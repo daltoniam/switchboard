@@ -38,14 +38,16 @@ type getIn struct {
 }
 
 type getOut struct {
-	ProjectID      project.ProjectID      `json:"projectId"`
-	Revision       project.Revision       `json:"revision"`
-	SourceRevision project.Revision       `json:"sourceRevision"`
-	Definition     project.Definition     `json:"definition"`
-	Summary        project.ProjectSummary `json:"summary"`
-	Sources        []project.Source       `json:"sources"`
-	Diagnostics    []project.Diagnostic   `json:"diagnostics"`
-	URI            string                 `json:"uri"`
+	ProjectID      project.ProjectID `json:"projectId"`
+	Revision       project.Revision  `json:"revision"`
+	SourceRevision project.Revision  `json:"sourceRevision"`
+	// Definition is an open object so Additional fields (e.g. resources)
+	// survive MCP outputSchema validation (additionalProperties:false on structs).
+	Definition  map[string]any         `json:"definition"`
+	Summary     project.ProjectSummary `json:"summary"`
+	Sources     []project.Source       `json:"sources"`
+	Diagnostics []project.Diagnostic   `json:"diagnostics"`
+	URI         string                 `json:"uri"`
 }
 
 type resolveIn struct {
@@ -177,11 +179,15 @@ func (s *ProjectCatalogServer) toolGet(ctx context.Context, _ *mcpsdk.CallToolRe
 	if err != nil {
 		return domainToolError[getOut](err)
 	}
+	defMap, err := definitionAsMap(snap.Definition)
+	if err != nil {
+		return domainToolError[getOut](err)
+	}
 	return nil, getOut{
 		ProjectID:      snap.ProjectID,
 		Revision:       snap.Revision,
 		SourceRevision: snap.SourceRevision,
-		Definition:     snap.Definition,
+		Definition:     defMap,
 		Summary:        summaryFromSnap(snap),
 		Sources:        nonNil(snap.Sources),
 		Diagnostics:    nonNil(snap.Diagnostics),
@@ -333,6 +339,23 @@ func summaryFromSnap(snap project.Snapshot) project.ProjectSummary {
 		DefinitionURI:   definitionResourceURI(snap.ProjectID),
 		DiagnosticCount: len(snap.Diagnostics),
 	}
+}
+
+// definitionAsMap marshals a Definition (including Additional fields like
+// resources) into a plain map for MCP tool output.
+func definitionAsMap(def project.Definition) (map[string]any, error) {
+	raw, err := json.Marshal(def)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = map[string]any{}
+	}
+	return out, nil
 }
 
 func writeDisabled() (*mcpsdk.CallToolResult, any, error) {

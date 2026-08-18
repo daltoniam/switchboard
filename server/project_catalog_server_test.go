@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/daltoniam/switchboard/project"
@@ -58,6 +60,36 @@ func TestProjectCatalog_CreateListGet(t *testing.T) {
 	require.False(t, got.IsError)
 	raw, _ := json.Marshal(got.StructuredContent)
 	assert.Contains(t, string(raw), "A project")
+}
+
+func TestProjectCatalog_GetPreservesResources(t *testing.T) {
+	// Live catalog files often carry a resources map in Additional.
+	// project_get must not fail MCP outputSchema validation on those fields.
+	httpSrv, store := newCatalogTestServer(t, true)
+	dir := store.ConfigDir()
+	path := filepath.Join(dir, "projects", "with-resources.project.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	require.NoError(t, os.WriteFile(path, []byte(`{
+		"version": "1",
+		"name": "with-resources",
+		"description": "has resources",
+		"resources": {
+			"main": {"type": "repo", "path": "/tmp/x", "branch": "main"}
+		}
+	}`), 0o600))
+	require.NoError(t, store.Load())
+
+	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
+	got, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project_get", Arguments: map[string]any{"projectId": "with-resources"},
+	})
+	require.NoError(t, err)
+	require.False(t, got.IsError, "%v", got.StructuredContent)
+	raw, err := json.Marshal(got.StructuredContent)
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), `"resources"`)
+	assert.Contains(t, string(raw), "with-resources")
+	assert.Contains(t, string(raw), "/tmp/x")
 }
 
 func TestProjectCatalog_UpdateAndConflict(t *testing.T) {
