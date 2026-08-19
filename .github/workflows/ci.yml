@@ -88,3 +88,16 @@ jobs:
       - name: Check Rust guest SDK compiles
         working-directory: wasm/guest-rust
         run: cargo check --target wasm32-unknown-unknown
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose lifecycle tests
+        run: bash scripts/compose-dev_test.sh
+
+      - name: Compose contract check
+        run: bash scripts/compose-dev.sh check
+        env:
+          STACKLANE_INSTANCE: ci

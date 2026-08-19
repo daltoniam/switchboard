@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "check": { "command": "make compose-check" },
+    "up": { "command": "make compose-up" },
+    "down": { "command": "make compose-down" },
+    "status": { "command": "make compose-status" },
+    "endpoints": { "command": "make compose-endpoints" },
+    "logs": { "command": "make compose-logs" },
+    "test": { "command": "make test" },
+    "ci": { "command": "make ci" }
+  }
+}

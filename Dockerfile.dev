@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1.7
+# Switchboard DEV image — Air hot-reload, source bind-mounted at runtime.
+# Pins match go.mod (Go 1.26.6). Do not use for production (see Dockerfile).
+
+ARG GO_VERSION=1.26.6
+# air-verse/air is MIT. Pin >=1.62: older 1.61.x overwrote .air.toml with flag defaults.
+ARG AIR_VERSION=v1.67.4
+
+FROM golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
+
+ARG AIR_VERSION
+ENV CGO_ENABLED=0 \
+    GO111MODULE=on \
+    GOPATH=/go \
+    GOCACHE=/go-cache \
+    GOMODCACHE=/go/pkg/mod \
+    HOME=/root \
+    PATH=/go/bin:/usr/local/go/bin:$PATH
+
+# curl is used by the compose healthcheck against /api/health.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && go install github.com/air-verse/air@${AIR_VERSION} \
+ && air -v \
+ && mkdir -p /tmp/air /go-cache /root/.config/switchboard /src/tmp
+
+WORKDIR /src
+
+# Air as PID1 so SIGTERM reaches the watcher directly.
+# Compose bind-mounts source over /src; binary/tmp live on a named volume.
+CMD ["air", "-c", ".air.toml"]
