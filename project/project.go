@@ -218,12 +218,30 @@ func jsonMergePatch(base, patch map[string]any) map[string]any {
 // Store manages project definitions in the user-level store.
 // The JSON files under configDir/projects remain the source of truth;
 // in-memory maps are a rebuilt index, never authority.
+// DeleteGuard rejects Project deletion while retained dependents still reference it.
+// Used by both canonical delete and DeleteCompatibility so dual writers share one rule.
+// WithExclusive + Unlocked assert keep the check and remove race-free against session create.
+type DeleteGuard interface {
+	AssertProjectDeletable(ctx context.Context, projectID string) error
+	AssertProjectDeletableUnlocked(projectID string) error
+	WithExclusive(ctx context.Context, fn func() error) error
+}
+
 type Store struct {
 	configDir string
 	mu        sync.RWMutex
 	projects  map[string]*Definition
 	index     map[ProjectID]*catalogRecord
 	bus       *EventBus
+	delGuard  DeleteGuard
+}
+
+// SetDeleteGuard attaches a referential-integrity check used by Delete and
+// DeleteCompatibility (e.g. AWM work-session references).
+func (s *Store) SetDeleteGuard(g DeleteGuard) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.delGuard = g
 }
 
 var (

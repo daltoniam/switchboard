@@ -41,7 +41,7 @@ Catalog tools and `project://` resources are on the main `/mcp` endpoint (enable
 ### Tools
 
 - `project_list` / `project_search`
-- `project_get` / `project_resolve`
+- `project_get` / `project_resolve` (resolve may materialize a content-addressed revision archive under `revisions/`)
 - `project_validate`
 - `project_create`
 - `project_update` / `project_patch`

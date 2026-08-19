@@ -150,8 +150,9 @@ func (s *ProjectCatalogServer) registerTools() {
 	}, s.toolSearch)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
 		Name:        "project_resolve",
-		Description: "Resolve a project by id and/or explicit file:// rootUri.",
-		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
+		Description: "Resolve a project by id and/or explicit file:// rootUri. May materialize an immutable revision archive under revisions/ (content-addressed, idempotent).",
+		// Not ReadOnlyHint: resolve archives the effective definition for pin stability.
+		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, IdempotentHint: true, OpenWorldHint: &closedWorld},
 	}, s.toolResolve)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
 		Name:        "project_validate",
@@ -323,27 +324,12 @@ func (s *ProjectCatalogServer) toolDelete(ctx context.Context, _ *mcpsdk.CallToo
 	if !s.cfg.writesEnabled {
 		return writeDisabled()
 	}
-	delReq := project.DeleteRequest{
+	// Integrity (AWM exclusive lock + ref check) lives on project.Store via SetDeleteGuard.
+	err := s.writer.Delete(ctx, project.DeleteRequest{
 		ProjectID:                 project.ProjectID(in.ProjectID),
 		ExpectedSourceRevision:    project.Revision(in.ExpectedSourceRevision),
 		ExpectedRawSourceRevision: project.Revision(in.ExpectedRawSourceRevision),
-	}
-	// Hold the AWM lock across the reference check and catalog delete so a
-	// concurrent work_session_create cannot attach to this project mid-delete.
-	run := func() error {
-		if s.workGuard != nil {
-			if err := s.workGuard.AssertProjectDeletableUnlocked(in.ProjectID); err != nil {
-				return err
-			}
-		}
-		return s.writer.Delete(ctx, delReq)
-	}
-	var err error
-	if s.workGuard != nil {
-		err = s.workGuard.WithExclusive(ctx, run)
-	} else {
-		err = run()
-	}
+	})
 	if err != nil {
 		if e, ok := awm.AsError(err); ok {
 			code := project.CodeInternalError

@@ -788,6 +788,19 @@ func sessionsCompatible(existing, want WorkSession) bool {
 	if want.ProjectSnapshotID != "" && existing.ProjectSnapshotID != want.ProjectSnapshotID {
 		return false
 	}
+	if want.State != "" && existing.State != want.State {
+		return false
+	}
+	if want.AgentProfileIDs != nil {
+		if len(existing.AgentProfileIDs) != len(want.AgentProfileIDs) {
+			return false
+		}
+		for i := range want.AgentProfileIDs {
+			if existing.AgentProfileIDs[i] != want.AgentProfileIDs[i] {
+				return false
+			}
+		}
+	}
 	return true
 }
 

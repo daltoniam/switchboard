@@ -474,15 +474,22 @@ func (s *Store) Get(ctx context.Context, id ProjectID) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.rebuildIndex(); err != nil {
+		s.mu.Unlock()
 		return Snapshot{}, err
 	}
 	rec := s.index[id]
 	if rec == nil {
+		s.mu.Unlock()
 		return Snapshot{}, errorWithProject(CodeProjectNotFound, "project not found", id)
 	}
-	return s.snapshotFromRecord(rec, "")
+	snap, err := s.snapshotFromRecord(rec, "")
+	// Archive the live effective definition so session pins resolve without a prior Resolve.
+	if err == nil && rec.effective != nil {
+		_ = s.archiveRevision(id, snap.Revision, rec.effective)
+	}
+	s.mu.Unlock()
+	return snap, err
 }
 
 func (s *Store) GetRevision(ctx context.Context, id ProjectID, rev Revision) (RevisionSnapshot, error) {
@@ -626,6 +633,9 @@ func (s *Store) Resolve(ctx context.Context, req ResolveRequest) (Snapshot, erro
 	if err != nil {
 		return Snapshot{}, &Error{Code: CodeInternalError, Message: err.Error(), ProjectID: id}
 	}
+	// Materialize the revision archive so pins from Get/session create resolve.
+	// Resolve remains observational for definition content; the archive is CAS
+	// content-addressed and idempotent (no-op when already present).
 	if err := s.archiveRevision(id, rev, effective); err != nil {
 		return Snapshot{}, err
 	}
@@ -745,46 +755,57 @@ func (s *Store) Patch(ctx context.Context, req PatchRequest) (Snapshot, error) {
 }
 
 func (s *Store) Delete(ctx context.Context, req DeleteRequest) error {
-	return s.withLock(ctx, func() error {
-		if err := s.rebuildIndex(); err != nil {
-			return err
-		}
-		rec := s.index[req.ProjectID]
-		if rec == nil {
-			return errorWithProject(CodeProjectNotFound, "project not found", req.ProjectID)
-		}
-		hasSrc := req.ExpectedSourceRevision != ""
-		hasRaw := req.ExpectedRawSourceRevision != ""
-		if hasSrc == hasRaw {
-			return &Error{Code: CodeInvalidDefinition, Message: "exactly one CAS token is required", ProjectID: req.ProjectID}
-		}
-		if rec.invalid {
-			if !hasRaw || rec.rawSourceRevision != req.ExpectedRawSourceRevision {
+	body := func() error {
+		return s.withLock(ctx, func() error {
+			if err := s.rebuildIndex(); err != nil {
+				return err
+			}
+			rec := s.index[req.ProjectID]
+			if rec == nil {
+				return errorWithProject(CodeProjectNotFound, "project not found", req.ProjectID)
+			}
+			hasSrc := req.ExpectedSourceRevision != ""
+			hasRaw := req.ExpectedRawSourceRevision != ""
+			if hasSrc == hasRaw {
+				return &Error{Code: CodeInvalidDefinition, Message: "exactly one CAS token is required", ProjectID: req.ProjectID}
+			}
+			if rec.invalid {
+				if !hasRaw || rec.rawSourceRevision != req.ExpectedRawSourceRevision {
+					return &Error{
+						Code:                   CodeRevisionConflict,
+						Message:                "project revision changed",
+						ProjectID:              req.ProjectID,
+						ExpectedSourceRevision: req.ExpectedRawSourceRevision,
+						CurrentSourceRevision:  rec.rawSourceRevision,
+					}
+				}
+			} else if rec.sourceRevision != req.ExpectedSourceRevision {
 				return &Error{
 					Code:                   CodeRevisionConflict,
 					Message:                "project revision changed",
 					ProjectID:              req.ProjectID,
-					ExpectedSourceRevision: req.ExpectedRawSourceRevision,
-					CurrentSourceRevision:  rec.rawSourceRevision,
+					ExpectedSourceRevision: req.ExpectedSourceRevision,
+					CurrentSourceRevision:  rec.sourceRevision,
 				}
 			}
-		} else if rec.sourceRevision != req.ExpectedSourceRevision {
-			return &Error{
-				Code:                   CodeRevisionConflict,
-				Message:                "project revision changed",
-				ProjectID:              req.ProjectID,
-				ExpectedSourceRevision: req.ExpectedSourceRevision,
-				CurrentSourceRevision:  rec.sourceRevision,
+			if err := os.Remove(rec.path); err != nil && !os.IsNotExist(err) {
+				return &Error{Code: CodeInternalError, Message: err.Error(), ProjectID: req.ProjectID}
 			}
-		}
-		if err := os.Remove(rec.path); err != nil && !os.IsNotExist(err) {
-			return &Error{Code: CodeInternalError, Message: err.Error(), ProjectID: req.ProjectID}
-		}
-		delete(s.index, req.ProjectID)
-		delete(s.projects, string(req.ProjectID))
-		s.emit(Event{Kind: EventProjectRemoved, ProjectID: req.ProjectID})
-		return nil
-	})
+			delete(s.index, req.ProjectID)
+			delete(s.projects, string(req.ProjectID))
+			s.emit(Event{Kind: EventProjectRemoved, ProjectID: req.ProjectID})
+			return nil
+		})
+	}
+	if s.delGuard != nil {
+		return s.delGuard.WithExclusive(ctx, func() error {
+			if err := s.delGuard.AssertProjectDeletableUnlocked(string(req.ProjectID)); err != nil {
+				return err
+			}
+			return body()
+		})
+	}
+	return body()
 }
 
 func (s *Store) CreateCompatibility(ctx context.Context, req CreateRequest) (PersistedUserDefinition, Snapshot, error) {
@@ -822,22 +843,34 @@ func (s *Store) PatchCompatibility(ctx context.Context, id ProjectID, patch json
 }
 
 func (s *Store) DeleteCompatibility(ctx context.Context, id ProjectID) error {
-	return s.withLock(ctx, func() error {
-		if err := s.rebuildIndex(); err != nil {
-			return err
-		}
-		rec := s.index[id]
-		if rec == nil {
-			return errorWithProject(CodeProjectNotFound, "project not found", id)
-		}
-		if err := os.Remove(rec.path); err != nil && !os.IsNotExist(err) {
-			return &Error{Code: CodeInternalError, Message: err.Error(), ProjectID: id}
-		}
-		delete(s.index, id)
-		delete(s.projects, string(id))
-		s.emit(Event{Kind: EventProjectRemoved, ProjectID: id})
-		return nil
-	})
+	// Same integrity rule as canonical Delete / project_delete.
+	body := func() error {
+		return s.withLock(ctx, func() error {
+			if err := s.rebuildIndex(); err != nil {
+				return err
+			}
+			rec := s.index[id]
+			if rec == nil {
+				return errorWithProject(CodeProjectNotFound, "project not found", id)
+			}
+			if err := os.Remove(rec.path); err != nil && !os.IsNotExist(err) {
+				return &Error{Code: CodeInternalError, Message: err.Error(), ProjectID: id}
+			}
+			delete(s.index, id)
+			delete(s.projects, string(id))
+			s.emit(Event{Kind: EventProjectRemoved, ProjectID: id})
+			return nil
+		})
+	}
+	if s.delGuard != nil {
+		return s.delGuard.WithExclusive(ctx, func() error {
+			if err := s.delGuard.AssertProjectDeletableUnlocked(string(id)); err != nil {
+				return err
+			}
+			return body()
+		})
+	}
+	return body()
 }
 
 func (s *Store) caseCollidingPath(id ProjectID) string {

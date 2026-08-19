@@ -394,6 +394,8 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	catalogWrites := mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog)
 	serverOpts = append(serverOpts, server.WithProjectWorkModel(workStore, catalogWrites))
 	log.Printf("Project work-model store: %s (writes_enabled=%v)", workStore.Root(), catalogWrites)
+	// Shared integrity rule for canonical delete and projectinterop DeleteCompatibility.
+	projectStore.SetDeleteGuard(workStore)
 
 	if mcp.ProjectCatalogEnabled(cfg.ProjectCatalog) {
 		bus := project.NewEventBus()
