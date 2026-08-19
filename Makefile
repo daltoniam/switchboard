@@ -1,4 +1,4 @@
-.PHONY: build generate test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test
+.PHONY: build generate proto proto-check test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test
 
 BIN        := dist/switchboard
 INSTALL_DIR := $(HOME)/.local/bin
@@ -16,8 +16,14 @@ build: ## Build the binary
 	@mkdir -p dist
 	go build -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/server
 
-generate: ## Generate templ templates
+generate: proto ## Generate protobuf bindings and templ templates
 	go generate .
+
+proto: ## Generate AWM gRPC protobuf bindings
+	buf generate
+
+proto-check: ## Lint the AWM protobuf API
+	buf lint
 
 clean: ## Remove build artifacts
 	rm -rf dist/ coverage.out
@@ -51,7 +57,7 @@ fmt: ## Format Go source files
 	gofmt -w .
 
 gosec: ## Run security scanner
-	go tool gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...
+	go tool gosec -exclude-dir=gen -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...
 
 govulncheck: ## Run vulnerability checker
 	go tool govulncheck ./...
@@ -60,7 +66,7 @@ security: gosec govulncheck ## Run all security checks
 
 ## CI
 
-ci: build vet test-race lint security ## Run all CI checks locally
+ci: proto-check build vet test-race lint security ## Run all CI checks locally
 
 ## Install & Deploy
 

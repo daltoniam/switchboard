@@ -13,14 +13,22 @@ import (
 
 var nameRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
-// Definition is a Switchboard project catalog entry.
-// Public catalog schema is name (id) + optional description only.
-// Tools/Agents remain optional for project-scoped gateway policy.
+// PolicyDocument is the closed project policy shape implemented by
+// Switchboard. Keys name capabilities; values indicate whether each
+// capability is allowed.
+type PolicyDocument map[string]bool
+
+// Definition is a Switchboard project catalog entry. The AWM projection is
+// version, name, display name, description, and boolean capability policy.
+// Tools, Agents, and Additional remain compatibility-only fields for existing
+// project-scoped gateway definitions and are not writable through AWM gRPC.
 type Definition struct {
 	Schema      string                     `json:"$schema,omitempty"`
 	Version     string                     `json:"version"`
 	Name        string                     `json:"name"`
+	DisplayName string                     `json:"display_name,omitempty"`
 	Description string                     `json:"description,omitempty"`
+	Policy      PolicyDocument             `json:"policy,omitempty"`
 	Tools       map[string]*ScopeRule      `json:"tools,omitempty"`
 	Agents      *AgentsConfig              `json:"agents,omitempty"`
 	Additional  map[string]json.RawMessage `json:"-"`
@@ -67,6 +75,11 @@ func (d *Definition) Validate() error {
 	if !nameRE.MatchString(d.Name) {
 		return fmt.Errorf("name %q does not match pattern ^[a-zA-Z0-9][a-zA-Z0-9._-]*$", d.Name)
 	}
+	for capability := range d.Policy {
+		if strings.TrimSpace(capability) == "" {
+			return fmt.Errorf("policy capability names must not be empty")
+		}
+	}
 	return nil
 }
 
@@ -100,8 +113,14 @@ func Merge(base, overlay *Definition) (*Definition, error) {
 	if overlay.Schema != "" {
 		result.Schema = overlay.Schema
 	}
+	if overlay.DisplayName != "" {
+		result.DisplayName = overlay.DisplayName
+	}
 	if overlay.Description != "" {
 		result.Description = overlay.Description
+	}
+	if overlay.Policy != nil {
+		result.Policy = clonePolicy(overlay.Policy)
 	}
 	if overlay.Version != "" {
 		result.Version = overlay.Version
@@ -110,6 +129,17 @@ func Merge(base, overlay *Definition) (*Definition, error) {
 	result.Agents = mergeAgents(base.Agents, overlay.Agents)
 	result.Additional = mergeAdditional(base.Additional, overlay.Additional)
 	return result, nil
+}
+
+func clonePolicy(in PolicyDocument) PolicyDocument {
+	if in == nil {
+		return nil
+	}
+	out := make(PolicyDocument, len(in))
+	for capability, allowed := range in {
+		out[capability] = allowed
+	}
+	return out
 }
 
 func mergeAdditional(base, overlay map[string]json.RawMessage) map[string]json.RawMessage {
@@ -247,7 +277,9 @@ func (s *Store) SetDeleteGuard(g DeleteGuard) {
 var (
 	_ Catalog             = (*Store)(nil)
 	_ CatalogValidator    = (*Store)(nil)
+	_ DefinitionValidator = (*Store)(nil)
 	_ CatalogWriter       = (*Store)(nil)
+	_ CatalogReplacer     = (*Store)(nil)
 	_ CompatibilityWriter = (*Store)(nil)
 )
 

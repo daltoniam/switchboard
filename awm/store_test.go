@@ -189,7 +189,7 @@ func TestPolicyNarrowing(t *testing.T) {
 	ctx := context.Background()
 	_, err := s.PutWorkProfile(ctx, WorkProfile{
 		Version: "1", WorkProfileID: "wp",
-		DefaultPolicy: map[string]any{"network": false, "write": true},
+		DefaultPolicy: PolicyDocument{"network": false, "write": true},
 	})
 	require.NoError(t, err)
 	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
@@ -197,14 +197,14 @@ func TestPolicyNarrowing(t *testing.T) {
 	// Broadening network false→true must fail.
 	_, err = s.CreateWorkSession(ctx, WorkSession{
 		Version: "1", WorkSessionID: "ws-bad", ProjectID: "p", WorkProfileID: "wp",
-		State: StateProposed, Policy: map[string]any{"network": true},
+		State: StateProposed, Policy: PolicyDocument{"network": true},
 	})
 	require.Error(t, err)
 	assert.True(t, IsCode(err, CodePolicyBroadening))
 	// Narrowing write true→false is ok.
 	_, err = s.CreateWorkSession(ctx, WorkSession{
 		Version: "1", WorkSessionID: "ws-ok", ProjectID: "p", WorkProfileID: "wp",
-		State: StateProposed, Policy: map[string]any{"write": false},
+		State: StateProposed, Policy: PolicyDocument{"write": false},
 	})
 	require.NoError(t, err)
 }
@@ -328,15 +328,177 @@ func TestPutProject_PreservesAdditionalFields(t *testing.T) {
 		"resources":{"main":{"type":"repo","path":"/tmp/x"}},
 		"tools":{"github":{"allow":["*"]}}
 	}`), 0o600))
-	_, err := s.PutProject(ctx, Project{Version: "1", ProjectID: "p", Description: "new"})
+	_, err := s.PutProject(ctx, Project{
+		Version: "1", ProjectID: "p", DisplayName: "Project P", Description: "new",
+		Policy: PolicyDocument{"network": false},
+	})
 	require.NoError(t, err)
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err)
 	var doc map[string]any
 	require.NoError(t, json.Unmarshal(raw, &doc))
 	assert.Equal(t, "new", doc["description"])
+	assert.Equal(t, "Project P", doc["display_name"])
+	assert.Equal(t, false, doc["policy"].(map[string]any)["network"])
 	assert.NotNil(t, doc["resources"])
 	assert.NotNil(t, doc["tools"])
+}
+
+func TestPutResource_RejectsInvalidShape(t *testing.T) {
+	tests := []struct {
+		name     string
+		resource Resource
+	}{
+		{"relative uri", Resource{Version: "1", ResourceID: "r", URI: "/tmp/r", Kind: "repo"}},
+		{"credential uri", Resource{Version: "1", ResourceID: "r", URI: "https://user:secret@example.com/r", Kind: "repo"}},
+		{"missing kind", Resource{Version: "1", ResourceID: "r", URI: "file:///tmp/r"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewStore(t.TempDir()).PutResource(context.Background(), tt.resource)
+			require.Error(t, err)
+			assert.True(t, IsCode(err, CodeInvalidInput), "%v", err)
+		})
+	}
+}
+
+func TestResourceBinding_LifecycleAndReferentialIntegrity(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutResource(ctx, Resource{
+		Version: "1", ResourceID: "repo.local", URI: "file:///work/repo", Kind: "git-repository",
+	})
+	require.NoError(t, err)
+	resources, err := s.ListResources(ctx)
+	require.NoError(t, err)
+	require.Len(t, resources, 1)
+	assert.Equal(t, "repo.local", resources[0].ResourceID)
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws", State: StateOpen,
+		Policy: PolicyDocument{"filesystem.write": false},
+	})
+	require.NoError(t, err)
+
+	_, err = s.CreateResourceBinding(ctx, ResourceBinding{
+		Version: "1", ResourceBindingID: "binding", WorkSessionID: "ws", ResourceID: "repo.local",
+		ResolvedLocator: "file:///work/repo", State: BindingStateProposed,
+		Grant: PolicyDocument{"filesystem.write": true},
+	})
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodePolicyBroadening), "%v", err)
+
+	created, err := s.CreateResourceBinding(ctx, ResourceBinding{
+		Version: "1", ResourceBindingID: "binding", WorkSessionID: "ws", ResourceID: "repo.local",
+		ResolvedLocator: "file:///work/repo", State: BindingStateProposed,
+		Grant: PolicyDocument{"filesystem.write": false},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, BindingStateProposed, created.State)
+	idempotent, err := s.CreateResourceBinding(ctx, created)
+	require.NoError(t, err)
+	assert.Equal(t, created.ResourceBindingID, idempotent.ResourceBindingID)
+	conflicting := created
+	conflicting.Grant = PolicyDocument{"filesystem.write": true}
+	_, err = s.CreateResourceBinding(ctx, conflicting)
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeAlreadyExists), "%v", err)
+
+	listed, err := s.ListResourceBindings(ctx, BindingStateProposed, "ws", "repo.local")
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	got, err := s.GetResourceBinding(ctx, "binding")
+	require.NoError(t, err)
+	assert.Equal(t, "file:///work/repo", got.ResolvedLocator)
+
+	bound, err := s.TransitionResourceBinding(ctx, "binding", BindingStateBound)
+	require.NoError(t, err)
+	assert.Equal(t, BindingStateBound, bound.State)
+
+	locator := "file:///work/repo/worktree"
+	patched, err := s.PatchResourceBinding(ctx, "binding", &locator, PolicyDocument{"filesystem.write": false})
+	require.NoError(t, err)
+	assert.Equal(t, locator, patched.ResolvedLocator)
+
+	err = s.DeleteResource(ctx, "repo.local")
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeReferenced), "%v", err)
+	err = s.DeleteWorkSession(ctx, "ws")
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeReferenced), "%v", err)
+
+	revoked, err := s.TransitionResourceBinding(ctx, "binding", BindingStateRevoked)
+	require.NoError(t, err)
+	assert.Equal(t, BindingStateRevoked, revoked.State)
+	require.NoError(t, s.DeleteResourceBinding(ctx, "binding"))
+	require.NoError(t, s.DeleteResource(ctx, "repo.local"))
+	require.NoError(t, s.DeleteWorkSession(ctx, "ws"))
+}
+
+func TestCreateResourceBinding_RejectsInvalidReferences(t *testing.T) {
+	tests := []struct {
+		name    string
+		prepare func(*testing.T, *Store)
+		binding ResourceBinding
+		code    string
+	}{
+		{
+			name: "missing session",
+			prepare: func(t *testing.T, s *Store) {
+				_, err := s.PutResource(context.Background(), Resource{Version: "1", ResourceID: "r", URI: "file:///r", Kind: "repo"})
+				require.NoError(t, err)
+			},
+			binding: ResourceBinding{Version: "1", ResourceBindingID: "b", WorkSessionID: "missing", ResourceID: "r", State: BindingStateProposed},
+			code:    CodeInvalidReference,
+		},
+		{
+			name: "missing resource",
+			prepare: func(t *testing.T, s *Store) {
+				_, err := s.CreateWorkSession(context.Background(), WorkSession{Version: "1", WorkSessionID: "ws", State: StateOpen})
+				require.NoError(t, err)
+			},
+			binding: ResourceBinding{Version: "1", ResourceBindingID: "b", WorkSessionID: "ws", ResourceID: "missing", State: BindingStateProposed},
+			code:    CodeInvalidReference,
+		},
+		{
+			name: "bound without locator",
+			prepare: func(t *testing.T, s *Store) {
+				_, err := s.PutResource(context.Background(), Resource{Version: "1", ResourceID: "r", URI: "file:///r", Kind: "repo"})
+				require.NoError(t, err)
+				_, err = s.CreateWorkSession(context.Background(), WorkSession{Version: "1", WorkSessionID: "ws", State: StateOpen})
+				require.NoError(t, err)
+			},
+			binding: ResourceBinding{Version: "1", ResourceBindingID: "b", WorkSessionID: "ws", ResourceID: "r", State: BindingStateBound},
+			code:    CodeInvalidInput,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewStore(t.TempDir())
+			tt.prepare(t, s)
+			_, err := s.CreateResourceBinding(context.Background(), tt.binding)
+			require.Error(t, err)
+			assert.True(t, IsCode(err, tt.code), "%v", err)
+		})
+	}
+}
+
+func TestCanTransitionResourceBinding(t *testing.T) {
+	tests := []struct {
+		from, to string
+		want     bool
+	}{
+		{BindingStateProposed, BindingStateBound, true},
+		{BindingStateProposed, BindingStateRevoked, true},
+		{BindingStateBound, BindingStateRevoked, true},
+		{BindingStateBound, BindingStateProposed, false},
+		{BindingStateRevoked, BindingStateBound, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.from+"_to_"+tt.to, func(t *testing.T) {
+			assert.Equal(t, tt.want, CanTransitionResourceBinding(tt.from, tt.to))
+		})
+	}
 }
 
 func TestCreateWorkSession_RejectsDeletedProjectEvenWithRevisionPin(t *testing.T) {

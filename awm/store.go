@@ -31,6 +31,8 @@ type ProjectCatalog interface {
 //
 //	<root>/projects/<id>.project.json   (Project — preferred legacy-compatible path)
 //	<root>/awm/projects/<id>.json       (optional alternate)
+//	<root>/awm/resources/<id>.json
+//	<root>/awm/resource_bindings/<id>.json
 //	<root>/awm/work_profiles/<id>.json
 //	<root>/awm/agent_profiles/<id>.json
 //	<root>/awm/work_sessions/<id>.json
@@ -83,7 +85,7 @@ func (s *Store) EnsureDefaultWorkProfile(ctx context.Context) (WorkProfile, erro
 		DisplayName:       DefaultWorkProfileID,
 		Description:       "Default WorkSession blueprint",
 		IntendedResources: []string{},
-		DefaultPolicy:     map[string]any{},
+		DefaultPolicy:     PolicyDocument{},
 	})
 }
 
@@ -93,12 +95,14 @@ func (s *Store) Root() string { return s.root }
 // ConfigRoot returns the Switchboard config root (parent of awm/).
 func (s *Store) ConfigRoot() string { return s.configRoot }
 
-func (s *Store) projectsDir() string      { return filepath.Join(s.configRoot, "projects") }
-func (s *Store) awmProjectsDir() string   { return filepath.Join(s.root, "projects") }
-func (s *Store) workProfilesDir() string  { return filepath.Join(s.root, "work_profiles") }
-func (s *Store) agentProfilesDir() string { return filepath.Join(s.root, "agent_profiles") }
-func (s *Store) workSessionsDir() string  { return filepath.Join(s.root, "work_sessions") }
-func (s *Store) lockPath() string         { return filepath.Join(s.root, ".awm.lock") }
+func (s *Store) projectsDir() string         { return filepath.Join(s.configRoot, "projects") }
+func (s *Store) awmProjectsDir() string      { return filepath.Join(s.root, "projects") }
+func (s *Store) resourcesDir() string        { return filepath.Join(s.root, "resources") }
+func (s *Store) resourceBindingsDir() string { return filepath.Join(s.root, "resource_bindings") }
+func (s *Store) workProfilesDir() string     { return filepath.Join(s.root, "work_profiles") }
+func (s *Store) agentProfilesDir() string    { return filepath.Join(s.root, "agent_profiles") }
+func (s *Store) workSessionsDir() string     { return filepath.Join(s.root, "work_sessions") }
+func (s *Store) lockPath() string            { return filepath.Join(s.root, ".awm.lock") }
 
 // catalogLockPath is shared with project.Store (.catalog.lock) so AWM project
 // writes cannot interleave with catalog create/update/delete on the same files.
@@ -267,6 +271,16 @@ func (s *Store) PutProject(ctx context.Context, p Project) (Project, error) {
 		}
 		doc["version"] = p.Version
 		doc["name"] = p.ProjectID
+		if p.DisplayName != "" && p.DisplayName != p.ProjectID {
+			doc["display_name"] = p.DisplayName
+		} else {
+			delete(doc, "display_name")
+		}
+		if len(p.Policy) > 0 {
+			doc["policy"] = p.Policy
+		} else {
+			delete(doc, "policy")
+		}
 		if p.Description != "" {
 			doc["description"] = p.Description
 		} else {
@@ -385,6 +399,114 @@ func (s *Store) DeleteProject(ctx context.Context, id string) error {
 			return nil
 		})
 	})
+}
+
+// --- Resource ---
+
+func (s *Store) resourcePath(id string) string {
+	return filepath.Join(s.resourcesDir(), id+".json")
+}
+
+func (s *Store) PutResource(ctx context.Context, resource Resource) (Resource, error) {
+	if resource.Version == "" {
+		resource.Version = "1"
+	}
+	resource.ResourceID = strings.TrimSpace(resource.ResourceID)
+	resource.URI = strings.TrimSpace(resource.URI)
+	resource.Kind = strings.TrimSpace(resource.Kind)
+	if err := resource.Validate(); err != nil {
+		return Resource{}, invalidInput(err.Error())
+	}
+	err := s.withLock(ctx, func() error {
+		return atomicWriteJSON(s.resourcePath(resource.ResourceID), resource)
+	})
+	return resource, err
+}
+
+func (s *Store) GetResource(ctx context.Context, id string) (Resource, error) {
+	if err := ctx.Err(); err != nil {
+		return Resource{}, err
+	}
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_id", id); err != nil {
+		return Resource{}, invalidInput(err.Error())
+	}
+	resource, err := readJSON[Resource](s.resourcePath(id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Resource{}, notFound("resource", id)
+		}
+		return Resource{}, err
+	}
+	return resource, nil
+}
+
+func (s *Store) ListResources(ctx context.Context) ([]Resource, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	ids, err := listJSONIDs(s.resourcesDir(), ".json")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Resource, 0, len(ids))
+	for _, id := range ids {
+		resource, err := s.GetResource(ctx, id)
+		if err == nil {
+			out = append(out, resource)
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) DeleteResource(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_id", id); err != nil {
+		return invalidInput(err.Error())
+	}
+	return s.withLock(ctx, func() error {
+		if _, err := os.Stat(s.resourcePath(id)); err != nil {
+			if os.IsNotExist(err) {
+				return notFound("resource", id)
+			}
+			return err
+		}
+		bindingID, err := s.firstBindingReferencingResourceUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if bindingID != "" {
+			return &Error{
+				Code:              CodeReferenced,
+				Message:           "resource is referenced by a retained resource binding",
+				EntityKind:        "resource",
+				EntityID:          id,
+				ResourceID:        id,
+				ResourceBindingID: bindingID,
+			}
+		}
+		return os.Remove(s.resourcePath(id))
+	})
+}
+
+func (s *Store) firstBindingReferencingResourceUnlocked(resourceID string) (string, error) {
+	ids, err := listJSONIDs(s.resourceBindingsDir(), ".json")
+	if err != nil {
+		return "", err
+	}
+	for _, id := range ids {
+		binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
+		}
+		if binding.ResourceID == resourceID {
+			return binding.ResourceBindingID, nil
+		}
+	}
+	return "", nil
 }
 
 // --- WorkProfile ---
@@ -905,7 +1027,7 @@ func (s *Store) validateSessionPolicy(sess WorkSession) error {
 	if len(sess.Policy) == 0 {
 		return nil
 	}
-	var parents []map[string]any
+	var parents []PolicyDocument
 	if sess.WorkProfileID != "" {
 		if p, err := readJSON[WorkProfile](s.workProfilePath(sess.WorkProfileID)); err == nil && len(p.DefaultPolicy) > 0 {
 			parents = append(parents, p.DefaultPolicy)
@@ -924,32 +1046,319 @@ func (s *Store) validateSessionPolicy(sess WorkSession) error {
 	return nil
 }
 
-func policyNarrows(parent, child map[string]any) error {
-	for k, pv := range parent {
-		cv, ok := child[k]
+func policyNarrows(parent, child PolicyDocument) error {
+	for capability, parentAllowed := range parent {
+		childAllowed, ok := child[capability]
 		if !ok {
-			// Omitting a parent key is narrowing (not asserting the permission).
+			// Omitting a parent capability is narrowing (not asserting it).
 			continue
 		}
-		// Boolean: child may only be false when parent is true (narrow), equal ok.
-		if pb, ok := pv.(bool); ok {
-			cb, ok := cv.(bool)
-			if !ok {
-				return &Error{Code: CodePolicyBroadening, Message: "policy type mismatch for key " + k, EntityKind: "policy", EntityID: k}
+		if childAllowed && !parentAllowed {
+			return &Error{
+				Code:       CodePolicyBroadening,
+				Message:    "policy broadens parent at capability " + capability,
+				EntityKind: "policy",
+				EntityID:   capability,
 			}
-			if cb && !pb {
-				return &Error{Code: CodePolicyBroadening, Message: "policy broadens parent at key " + k, EntityKind: "policy", EntityID: k}
-			}
-			continue
-		}
-		// Other scalars must match exactly (cannot broaden by changing).
-		pb, _ := json.Marshal(pv)
-		cb, _ := json.Marshal(cv)
-		if string(pb) != string(cb) {
-			return &Error{Code: CodePolicyBroadening, Message: "policy differs from parent at key " + k, EntityKind: "policy", EntityID: k}
 		}
 	}
 	return nil
+}
+
+// --- ResourceBinding ---
+
+func (s *Store) resourceBindingPath(id string) string {
+	return filepath.Join(s.resourceBindingsDir(), id+".json")
+}
+
+func (s *Store) CreateResourceBinding(ctx context.Context, binding ResourceBinding) (ResourceBinding, error) {
+	if binding.Version == "" {
+		binding.Version = "1"
+	}
+	if binding.State == "" {
+		binding.State = BindingStateProposed
+	}
+	binding.ResourceBindingID = strings.TrimSpace(binding.ResourceBindingID)
+	binding.WorkSessionID = strings.TrimSpace(binding.WorkSessionID)
+	binding.ResourceID = strings.TrimSpace(binding.ResourceID)
+	binding.ResolvedLocator = strings.TrimSpace(binding.ResolvedLocator)
+	now := time.Now().UTC()
+	if binding.CreatedAt.IsZero() {
+		binding.CreatedAt = now
+	}
+	binding.UpdatedAt = now
+	if err := binding.Validate(); err != nil {
+		return ResourceBinding{}, invalidInput(err.Error())
+	}
+
+	var out ResourceBinding
+	err := s.withLock(ctx, func() error {
+		path := s.resourceBindingPath(binding.ResourceBindingID)
+		if existing, err := readJSON[ResourceBinding](path); err == nil {
+			if resourceBindingsCompatible(existing, binding) {
+				out = existing
+				return nil
+			}
+			return alreadyExists("resource_binding", binding.ResourceBindingID)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		session, err := readJSON[WorkSession](s.workSessionPath(binding.WorkSessionID))
+		if err != nil {
+			if os.IsNotExist(err) {
+				return invalidRef("work_session_id", binding.WorkSessionID, "work_session_id not found")
+			}
+			return err
+		}
+		if session.State == StateClosed || session.State == StateAborted {
+			return &Error{
+				Code:          CodeInvalidTransition,
+				Message:       "cannot bind a resource to a terminal work session",
+				EntityKind:    "work_session",
+				EntityID:      session.WorkSessionID,
+				WorkSessionID: session.WorkSessionID,
+				Current:       session.State,
+			}
+		}
+		if _, err := readJSON[Resource](s.resourcePath(binding.ResourceID)); err != nil {
+			if os.IsNotExist(err) {
+				return invalidRef("resource_id", binding.ResourceID, "resource_id not found")
+			}
+			return err
+		}
+		if err := s.validateBindingPolicyUnlocked(session, binding.Grant); err != nil {
+			return err
+		}
+		if err := atomicWriteJSON(path, binding); err != nil {
+			return err
+		}
+		out = binding
+		return nil
+	})
+	return out, err
+}
+
+func resourceBindingsCompatible(existing, want ResourceBinding) bool {
+	return existing.ResourceBindingID == want.ResourceBindingID &&
+		existing.WorkSessionID == want.WorkSessionID &&
+		existing.ResourceID == want.ResourceID &&
+		existing.State == want.State &&
+		existing.ResolvedLocator == want.ResolvedLocator &&
+		policyDocumentsEqual(existing.Grant, want.Grant)
+}
+
+func policyDocumentsEqual(a, b PolicyDocument) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for capability, allowed := range a {
+		if other, ok := b[capability]; !ok || other != allowed {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Store) validateBindingPolicyUnlocked(session WorkSession, grant PolicyDocument) error {
+	if len(grant) == 0 {
+		return nil
+	}
+	if len(session.Policy) > 0 {
+		if err := policyNarrows(session.Policy, grant); err != nil {
+			return err
+		}
+	}
+	if session.ProjectID != "" {
+		projectRecord, err := s.lookupProjectUnlocked(session.ProjectID)
+		if err != nil {
+			return invalidRef("project_id", session.ProjectID, "project_id not found")
+		}
+		if len(projectRecord.Policy) > 0 {
+			if err := policyNarrows(projectRecord.Policy, grant); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Store) GetResourceBinding(ctx context.Context, id string) (ResourceBinding, error) {
+	if err := ctx.Err(); err != nil {
+		return ResourceBinding{}, err
+	}
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_binding_id", id); err != nil {
+		return ResourceBinding{}, invalidInput(err.Error())
+	}
+	binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ResourceBinding{}, notFound("resource_binding", id)
+		}
+		return ResourceBinding{}, err
+	}
+	return binding, nil
+}
+
+func (s *Store) ListResourceBindings(ctx context.Context, state, workSessionID, resourceID string) ([]ResourceBinding, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	state = strings.TrimSpace(state)
+	if state != "" && state != BindingStateProposed && state != BindingStateBound && state != BindingStateRevoked {
+		return nil, invalidInput("unsupported resource binding state " + state)
+	}
+	ids, err := listJSONIDs(s.resourceBindingsDir(), ".json")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ResourceBinding, 0, len(ids))
+	for _, id := range ids {
+		binding, err := s.GetResourceBinding(ctx, id)
+		if err != nil {
+			continue
+		}
+		if state != "" && binding.State != state {
+			continue
+		}
+		if workSessionID != "" && binding.WorkSessionID != workSessionID {
+			continue
+		}
+		if resourceID != "" && binding.ResourceID != resourceID {
+			continue
+		}
+		out = append(out, binding)
+	}
+	return out, nil
+}
+
+func (s *Store) TransitionResourceBinding(ctx context.Context, id, toState string) (ResourceBinding, error) {
+	id = strings.TrimSpace(id)
+	toState = strings.TrimSpace(toState)
+	if err := validateID("resource_binding_id", id); err != nil {
+		return ResourceBinding{}, invalidInput(err.Error())
+	}
+	var out ResourceBinding
+	err := s.withLock(ctx, func() error {
+		binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				return notFound("resource_binding", id)
+			}
+			return err
+		}
+		if !CanTransitionResourceBinding(binding.State, toState) {
+			return &Error{
+				Code:              CodeInvalidTransition,
+				Message:           fmt.Sprintf("cannot transition resource binding from %q to %q", binding.State, toState),
+				EntityKind:        "resource_binding",
+				EntityID:          id,
+				ResourceBindingID: id,
+				Expected:          toState,
+				Current:           binding.State,
+			}
+		}
+		binding.State = toState
+		binding.UpdatedAt = time.Now().UTC()
+		if err := binding.Validate(); err != nil {
+			return invalidInput(err.Error())
+		}
+		if err := atomicWriteJSON(s.resourceBindingPath(id), binding); err != nil {
+			return err
+		}
+		out = binding
+		return nil
+	})
+	return out, err
+}
+
+func (s *Store) PatchResourceBinding(ctx context.Context, id string, resolvedLocator *string, grant PolicyDocument) (ResourceBinding, error) {
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_binding_id", id); err != nil {
+		return ResourceBinding{}, invalidInput(err.Error())
+	}
+	var out ResourceBinding
+	err := s.withLock(ctx, func() error {
+		binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				return notFound("resource_binding", id)
+			}
+			return err
+		}
+		if binding.State == BindingStateRevoked {
+			return &Error{
+				Code:              CodeInvalidTransition,
+				Message:           "cannot patch a revoked resource binding",
+				EntityKind:        "resource_binding",
+				EntityID:          id,
+				ResourceBindingID: id,
+				Current:           binding.State,
+			}
+		}
+		if resolvedLocator != nil {
+			binding.ResolvedLocator = strings.TrimSpace(*resolvedLocator)
+		}
+		if grant != nil {
+			session, err := readJSON[WorkSession](s.workSessionPath(binding.WorkSessionID))
+			if err != nil {
+				if os.IsNotExist(err) {
+					return invalidRef("work_session_id", binding.WorkSessionID, "work_session_id not found")
+				}
+				return err
+			}
+			if err := s.validateBindingPolicyUnlocked(session, grant); err != nil {
+				return err
+			}
+			binding.Grant = grant
+		}
+		binding.UpdatedAt = time.Now().UTC()
+		if err := binding.Validate(); err != nil {
+			return invalidInput(err.Error())
+		}
+		if err := atomicWriteJSON(s.resourceBindingPath(id), binding); err != nil {
+			return err
+		}
+		out = binding
+		return nil
+	})
+	return out, err
+}
+
+func (s *Store) DeleteResourceBinding(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_binding_id", id); err != nil {
+		return invalidInput(err.Error())
+	}
+	return s.withLock(ctx, func() error {
+		if err := os.Remove(s.resourceBindingPath(id)); err != nil {
+			if os.IsNotExist(err) {
+				return notFound("resource_binding", id)
+			}
+			return err
+		}
+		return nil
+	})
+}
+
+func (s *Store) firstBindingReferencingSessionUnlocked(workSessionID string) (string, error) {
+	ids, err := listJSONIDs(s.resourceBindingsDir(), ".json")
+	if err != nil {
+		return "", err
+	}
+	for _, id := range ids {
+		binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
+		}
+		if binding.WorkSessionID == workSessionID {
+			return binding.ResourceBindingID, nil
+		}
+	}
+	return "", nil
 }
 
 // GetWorkSession loads a work session by id.
@@ -1040,7 +1449,7 @@ func (s *Store) TransitionWorkSession(ctx context.Context, id, toState string) (
 }
 
 // PatchWorkSession updates mutable descriptive fields without changing state.
-func (s *Store) PatchWorkSession(ctx context.Context, id string, displayName *string, agentProfileIDs *[]string, policy map[string]any) (WorkSession, error) {
+func (s *Store) PatchWorkSession(ctx context.Context, id string, displayName *string, agentProfileIDs *[]string, policy PolicyDocument) (WorkSession, error) {
 	if err := validateID("work_session_id", id); err != nil {
 		return WorkSession{}, invalidInput(err.Error())
 	}
@@ -1102,6 +1511,20 @@ func (s *Store) DeleteWorkSession(ctx context.Context, id string) error {
 		return invalidInput(err.Error())
 	}
 	return s.withLock(ctx, func() error {
+		bindingID, err := s.firstBindingReferencingSessionUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if bindingID != "" {
+			return &Error{
+				Code:              CodeReferenced,
+				Message:           "work session is referenced by a retained resource binding",
+				EntityKind:        "work_session",
+				EntityID:          id,
+				WorkSessionID:     id,
+				ResourceBindingID: bindingID,
+			}
+		}
 		if err := os.Remove(s.workSessionPath(id)); err != nil {
 			if os.IsNotExist(err) {
 				return notFound("work_session", id)

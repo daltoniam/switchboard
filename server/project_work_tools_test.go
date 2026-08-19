@@ -40,6 +40,7 @@ func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 	}
 	for _, n := range []string{
 		"project_work_profile_put", "project_work_session_create", "project_agent_profile_list",
+		"project_resource_put", "project_resource_binding_create", "project_resource_binding_transition",
 	} {
 		assert.True(t, names[n], "missing %s", n)
 	}
@@ -90,6 +91,25 @@ func TestProjectWorkModel_ToolsOnMainMCP(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, tr.IsError, "%v", tr.StructuredContent)
+
+	resource, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project_resource_put",
+		Arguments: map[string]any{
+			"version": "1", "resource_id": "repo", "uri": "file:///work/repo", "kind": "git-repository",
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, resource.IsError, "%v", resource.StructuredContent)
+
+	binding, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project_resource_binding_create",
+		Arguments: map[string]any{
+			"version": "1", "resource_binding_id": "binding", "work_session_id": "ws-1",
+			"resource_id": "repo", "resolved_locator": "file:///work/repo", "state": "proposed",
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, binding.IsError, "%v", binding.StructuredContent)
 }
 
 func TestProjectWorkModel_DefaultProfileSeededViaStore(t *testing.T) {

@@ -142,7 +142,8 @@ func WithProjectCatalog(cat *ProjectCatalogServer) Option {
 }
 
 // WithProjectWorkModel attaches project_work_profile / project_work_session /
-// project_agent_profile tools backed by a filesystem store under the Switchboard config root.
+// project_agent_profile / project_resource / project_resource_binding tools
+// backed by a filesystem store under the Switchboard config root.
 // writesEnabled should match project_catalog.writes_enabled so work-model mutations
 // share the same safety switch as catalog create/update/delete.
 func WithProjectWorkModel(store *awm.Store, writesEnabled bool) Option {

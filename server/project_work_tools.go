@@ -8,8 +8,8 @@ import (
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// AttachProjectWorkModel registers WorkProfile, WorkSession, and AgentProfile tools
-// under the project_* namespace on the main MCP server.
+// AttachProjectWorkModel registers Resource, ResourceBinding, WorkProfile,
+// WorkSession, and AgentProfile tools under the project_* namespace on the main MCP server.
 // writesEnabled gates mutation tools with the same project_catalog.writes_enabled flag.
 func AttachProjectWorkModel(mcpSrv *mcpsdk.Server, store *awm.Store, writesEnabled bool) {
 	if mcpSrv == nil || store == nil {
@@ -94,6 +94,7 @@ func AttachProjectWorkModel(mcpSrv *mcpsdk.Server, store *awm.Store, writesEnabl
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed},
 	}, h.deleteWorkSession)
 
+	attachProjectResources(mcpSrv, h)
 }
 
 type projectWorkHandlers struct {
@@ -123,23 +124,23 @@ type transitionIn struct {
 }
 
 type createSessionIn struct {
-	Version           string         `json:"version"`
-	WorkSessionID     string         `json:"work_session_id"`
-	DisplayName       string         `json:"display_name,omitempty"`
-	ProjectID         string         `json:"project_id,omitempty"`
-	ProjectSnapshotID string         `json:"project_snapshot_id,omitempty"`
-	ProjectRevision   string         `json:"project_revision,omitempty"`
-	WorkProfileID     string         `json:"work_profile_id,omitempty"`
-	AgentProfileIDs   []string       `json:"agent_profile_ids,omitempty"`
-	State             string         `json:"state,omitempty"`
-	Policy            map[string]any `json:"policy,omitempty"`
+	Version           string             `json:"version"`
+	WorkSessionID     string             `json:"work_session_id"`
+	DisplayName       string             `json:"display_name,omitempty"`
+	ProjectID         string             `json:"project_id,omitempty"`
+	ProjectSnapshotID string             `json:"project_snapshot_id,omitempty"`
+	ProjectRevision   string             `json:"project_revision,omitempty"`
+	WorkProfileID     string             `json:"work_profile_id,omitempty"`
+	AgentProfileIDs   []string           `json:"agent_profile_ids,omitempty"`
+	State             string             `json:"state,omitempty"`
+	Policy            awm.PolicyDocument `json:"policy,omitempty"`
 }
 
 type patchSessionIn struct {
-	ID              string         `json:"id"`
-	DisplayName     *string        `json:"display_name,omitempty"`
-	AgentProfileIDs *[]string      `json:"agent_profile_ids,omitempty"`
-	Policy          map[string]any `json:"policy,omitempty"`
+	ID              string             `json:"id"`
+	DisplayName     *string            `json:"display_name,omitempty"`
+	AgentProfileIDs *[]string          `json:"agent_profile_ids,omitempty"`
+	Policy          awm.PolicyDocument `json:"policy,omitempty"`
 }
 
 func projectWorkOK(v any) (*mcpsdk.CallToolResult, any, error) {
@@ -150,13 +151,15 @@ func projectWorkErr(err error) (*mcpsdk.CallToolResult, any, error) {
 	body := map[string]any{"message": err.Error()}
 	if e, ok := awm.AsError(err); ok {
 		body = map[string]any{
-			"code":            e.Code,
-			"message":         e.Message,
-			"entity_kind":     e.EntityKind,
-			"entity_id":       e.EntityID,
-			"project_id":      e.ProjectID,
-			"work_profile_id": e.WorkProfileID,
-			"work_session_id": e.WorkSessionID,
+			"code":                e.Code,
+			"message":             e.Message,
+			"entity_kind":         e.EntityKind,
+			"entity_id":           e.EntityID,
+			"project_id":          e.ProjectID,
+			"work_profile_id":     e.WorkProfileID,
+			"work_session_id":     e.WorkSessionID,
+			"resource_id":         e.ResourceID,
+			"resource_binding_id": e.ResourceBindingID,
 		}
 		if e.Expected != "" {
 			body["expected"] = e.Expected

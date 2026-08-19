@@ -25,13 +25,15 @@ const (
 
 // Error is a typed AWM catalog error with stable Code and relevant IDs.
 type Error struct {
-	Code          string
-	Message       string
-	EntityKind    string
-	EntityID      string
-	ProjectID     string
-	WorkProfileID string
-	WorkSessionID string
+	Code              string
+	Message           string
+	EntityKind        string
+	EntityID          string
+	ProjectID         string
+	WorkProfileID     string
+	WorkSessionID     string
+	ResourceID        string
+	ResourceBindingID string
 	// Extra carries CAS / revision diagnostics when relevant.
 	Expected string
 	Current  string

@@ -668,7 +668,7 @@ func (s *Store) Resolve(ctx context.Context, req ResolveRequest) (Snapshot, erro
 	}, nil
 }
 
-func (s *Store) ValidateJSON(_ context.Context, raw json.RawMessage, root *url.URL) []Diagnostic {
+func (s *Store) ValidateJSON(ctx context.Context, raw json.RawMessage, root *url.URL) []Diagnostic {
 	var def Definition
 	if err := json.Unmarshal(raw, &def); err != nil {
 		return []Diagnostic{{
@@ -677,6 +677,13 @@ func (s *Store) ValidateJSON(_ context.Context, raw json.RawMessage, root *url.U
 			Message:  "definition must be a JSON object",
 		}}
 	}
+	return s.ValidateDefinition(ctx, def, root)
+}
+
+// ValidateDefinition validates an already-decoded project definition. Typed
+// transports call this method directly so validation does not require JSON
+// serialization at the adapter boundary.
+func (s *Store) ValidateDefinition(_ context.Context, def Definition, root *url.URL) []Diagnostic {
 	if err := def.Validate(); err != nil {
 		return []Diagnostic{{
 			Severity: "error",
@@ -754,6 +761,96 @@ func (s *Store) Patch(ctx context.Context, req PatchRequest) (Snapshot, error) {
 		}
 		if patched.Name != rec.user.Name {
 			return &Error{Code: CodeInvalidDefinition, Message: "patches may not change name", ProjectID: req.ProjectID, PathHint: "/name"}
+		}
+		oldRev := rec.revision
+		created, err := s.persistUserLocked(req.ProjectID, patched, rec)
+		if err != nil {
+			return err
+		}
+		snap = created
+		s.emit(Event{Kind: EventDefinitionChanged, ProjectID: req.ProjectID, OldRevision: oldRev, NewRevision: created.Revision})
+		return nil
+	})
+	return snap, err
+}
+
+// Replace atomically replaces a valid user definition using the same CAS token
+// as Patch, without routing the typed value through JSON merge patching.
+func (s *Store) Replace(ctx context.Context, req ReplaceRequest) (Snapshot, error) {
+	var snap Snapshot
+	err := s.withLock(ctx, func() error {
+		if err := s.rebuildIndex(); err != nil {
+			return err
+		}
+		rec := s.index[req.ProjectID]
+		if rec == nil {
+			return errorWithProject(CodeProjectNotFound, "project not found", req.ProjectID)
+		}
+		if rec.invalid || rec.user == nil {
+			return &Error{Code: CodeInvalidDefinition, Message: "malformed sources cannot be replaced", ProjectID: req.ProjectID, Diagnostics: cloneDiagnostics(rec.diagnostics)}
+		}
+		if rec.sourceRevision != req.ExpectedSourceRevision {
+			return &Error{
+				Code:                   CodeRevisionConflict,
+				Message:                "project revision changed",
+				ProjectID:              req.ProjectID,
+				ExpectedSourceRevision: req.ExpectedSourceRevision,
+				CurrentSourceRevision:  rec.sourceRevision,
+			}
+		}
+		if req.Definition.Name != string(req.ProjectID) || req.Definition.Name != rec.user.Name {
+			return &Error{Code: CodeInvalidDefinition, Message: "replacement name must match project id", ProjectID: req.ProjectID, PathHint: "/name"}
+		}
+		// gRPC exposes a closed Project projection. Preserve compatibility-only
+		// fields already on disk while replacing every field in that projection.
+		replacement := cloneDefinition(rec.user)
+		replacement.Version = req.Definition.Version
+		replacement.Name = req.Definition.Name
+		replacement.DisplayName = req.Definition.DisplayName
+		replacement.Description = req.Definition.Description
+		replacement.Policy = clonePolicy(req.Definition.Policy)
+		if err := replacement.Validate(); err != nil {
+			return &Error{Code: CodeInvalidDefinition, Message: valueFreeValidationMessage(err), ProjectID: req.ProjectID}
+		}
+		oldRev := rec.revision
+		created, err := s.persistUserLocked(req.ProjectID, replacement, rec)
+		if err != nil {
+			return err
+		}
+		snap = created
+		s.emit(Event{Kind: EventDefinitionChanged, ProjectID: req.ProjectID, OldRevision: oldRev, NewRevision: created.Revision})
+		return nil
+	})
+	return snap, err
+}
+
+// PatchDefinition applies the closed typed patch without converting it to an
+// RFC 7396 JSON document. Compatibility-only fields remain untouched.
+func (s *Store) PatchDefinition(ctx context.Context, req TypedPatchRequest) (Snapshot, error) {
+	var snap Snapshot
+	err := s.withLock(ctx, func() error {
+		if err := s.rebuildIndex(); err != nil {
+			return err
+		}
+		rec := s.index[req.ProjectID]
+		if rec == nil {
+			return errorWithProject(CodeProjectNotFound, "project not found", req.ProjectID)
+		}
+		if rec.invalid || rec.user == nil {
+			return &Error{Code: CodeInvalidDefinition, Message: "malformed sources cannot be patched", ProjectID: req.ProjectID, Diagnostics: cloneDiagnostics(rec.diagnostics)}
+		}
+		if rec.sourceRevision != req.ExpectedSourceRevision {
+			return &Error{
+				Code:                   CodeRevisionConflict,
+				Message:                "project revision changed",
+				ProjectID:              req.ProjectID,
+				ExpectedSourceRevision: req.ExpectedSourceRevision,
+				CurrentSourceRevision:  rec.sourceRevision,
+			}
+		}
+		patched := cloneDefinition(rec.user)
+		if req.Patch.Description != nil {
+			patched.Description = *req.Patch.Description
 		}
 		oldRev := rec.revision
 		created, err := s.persistUserLocked(req.ProjectID, patched, rec)

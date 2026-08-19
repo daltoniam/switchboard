@@ -15,6 +15,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/awm"
+	"github.com/daltoniam/switchboard/awmgrpc"
 	"github.com/daltoniam/switchboard/browser"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
@@ -78,6 +79,8 @@ import (
 	"github.com/daltoniam/switchboard/version"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -509,13 +512,25 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	)
 	mux.Handle("/", ws.Handler())
 
+	// Native gRPC shares the HTTP port over h2c and uses the exact same
+	// catalog/work stores as MCP. No generic JSON dispatch exists on this path.
+	grpcServer := grpc.NewServer()
+	awmgrpc.Register(grpcServer, projectStore, projectStore, projectStore, workStore, awmgrpc.Options{
+		CatalogEnabled: mcp.ProjectCatalogEnabled(cfg.ProjectCatalog),
+		WritesEnabled:  catalogWrites,
+	})
+	reflection.Register(grpcServer)
+	defer grpcServer.Stop()
+	protocolHandler := awmgrpc.MultiplexHTTPAndGRPC(grpcServer, mux)
+
 	addr := fmt.Sprintf(":%d", port)
 	fmt.Fprintf(os.Stderr, "Switchboard %s on http://localhost:%d\n", version.String(), port)
 	fmt.Fprintf(os.Stderr, "  Web UI:  http://localhost:%d/\n", port)
 	fmt.Fprintf(os.Stderr, "  MCP:     http://localhost:%d/mcp\n", port)
 	fmt.Fprintf(os.Stderr, "  Project: http://localhost:%d/mcp/{project}\n", port)
+	fmt.Fprintf(os.Stderr, "  AWM gRPC (h2c): localhost:%d\n", port)
 
-	httpServer := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	httpServer := &http.Server{Addr: addr, Handler: protocolHandler, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		<-ctx.Done()
 		_ = httpServer.Close()

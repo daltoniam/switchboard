@@ -94,24 +94,7 @@ func agentProfileTouchesProject(a awm.AgentProfile, projectID string) bool {
 	if a.AgentProfileID == projectID+".default" {
 		return true
 	}
-	if a.Constraints != nil {
-		if raw, ok := a.Constraints["project_ids"]; ok {
-			switch v := raw.(type) {
-			case []string:
-				return slices.Contains(v, projectID)
-			case []any:
-				for _, item := range v {
-					if s, ok := item.(string); ok && s == projectID {
-						return true
-					}
-				}
-			}
-		}
-		if pid, ok := a.Constraints["project_id"].(string); ok && pid == projectID {
-			return true
-		}
-	}
-	return false
+	return a.Constraints != nil && a.Constraints.AllowsProject(projectID)
 }
 
 func (w *WebServer) handleProjectWorkHub(rw http.ResponseWriter, r *http.Request) {

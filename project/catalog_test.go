@@ -106,6 +106,39 @@ func TestGet_ArchivesLiveRevision(t *testing.T) {
 	require.NotEmpty(t, page.Projects)
 }
 
+func TestCatalog_TypedReplaceAndPatchPreserveCompatibilityFields(t *testing.T) {
+	store := newTestCatalog(t)
+	ctx := context.Background()
+	created, err := store.Create(ctx, CreateRequest{Definition: Definition{
+		Version: "1", Name: "typed", Description: "before",
+		Additional: map[string]json.RawMessage{"resources": json.RawMessage(`{"main":{"type":"repo"}}`)},
+	}})
+	require.NoError(t, err)
+
+	replaced, err := store.Replace(ctx, ReplaceRequest{
+		ProjectID: "typed", ExpectedSourceRevision: created.SourceRevision,
+		Definition: Definition{Version: "1", Name: "typed", Description: "replaced"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "replaced", replaced.Definition.Description)
+	assert.JSONEq(t, `{"main":{"type":"repo"}}`, string(replaced.Definition.Additional["resources"]))
+
+	empty := ""
+	patched, err := store.PatchDefinition(ctx, TypedPatchRequest{
+		ProjectID: "typed", ExpectedSourceRevision: replaced.SourceRevision,
+		Patch: DefinitionPatch{Description: &empty},
+	})
+	require.NoError(t, err)
+	assert.Empty(t, patched.Definition.Description)
+	assert.JSONEq(t, `{"main":{"type":"repo"}}`, string(patched.Definition.Additional["resources"]))
+
+	_, err = store.Replace(ctx, ReplaceRequest{
+		ProjectID: "typed", ExpectedSourceRevision: created.SourceRevision,
+		Definition: Definition{Version: "1", Name: "typed"},
+	})
+	assert.True(t, IsCode(err, CodeRevisionConflict))
+}
+
 func TestList_InvalidProjectsOnlyOnFirstPage(t *testing.T) {
 	store := newTestCatalog(t)
 	ctx := context.Background()

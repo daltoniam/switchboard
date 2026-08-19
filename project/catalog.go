@@ -122,6 +122,26 @@ type PatchRequest struct {
 	Patch                  json.RawMessage
 }
 
+// ReplaceRequest replaces a user definition through a typed transport while
+// retaining the same optimistic concurrency contract as PatchRequest.
+type ReplaceRequest struct {
+	ProjectID              ProjectID
+	ExpectedSourceRevision Revision
+	Definition             Definition
+}
+
+// DefinitionPatch is the closed, typed patch supported by the AWM gRPC API.
+type DefinitionPatch struct {
+	Description *string
+}
+
+// TypedPatchRequest applies a closed typed patch with optimistic concurrency.
+type TypedPatchRequest struct {
+	ProjectID              ProjectID
+	ExpectedSourceRevision Revision
+	Patch                  DefinitionPatch
+}
+
 // DeleteRequest removes a user-level file using exactly one CAS token.
 type DeleteRequest struct {
 	ProjectID                 ProjectID
@@ -145,9 +165,17 @@ type Catalog interface {
 	Resolve(context.Context, ResolveRequest) (Snapshot, error)
 }
 
-// CatalogValidator validates a candidate definition without mutation.
+// CatalogValidator validates a candidate JSON definition without mutation.
+// It is retained for transports such as MCP that intentionally accept an
+// untyped candidate object for diagnostic purposes.
 type CatalogValidator interface {
 	ValidateJSON(context.Context, json.RawMessage, *url.URL) []Diagnostic
+}
+
+// DefinitionValidator validates an already-decoded definition. Strongly typed
+// transports use this port to avoid a marshal/unmarshal cycle at the boundary.
+type DefinitionValidator interface {
+	ValidateDefinition(context.Context, Definition, *url.URL) []Diagnostic
 }
 
 // CatalogWriter is the canonical write port. Mutations always require CAS.
@@ -155,6 +183,12 @@ type CatalogWriter interface {
 	Create(context.Context, CreateRequest) (Snapshot, error)
 	Patch(context.Context, PatchRequest) (Snapshot, error)
 	Delete(context.Context, DeleteRequest) error
+}
+
+// CatalogReplacer is the typed full-definition update port used by gRPC.
+type CatalogReplacer interface {
+	Replace(context.Context, ReplaceRequest) (Snapshot, error)
+	PatchDefinition(context.Context, TypedPatchRequest) (Snapshot, error)
 }
 
 // CompatibilityWriter preserves last-write-wins projectinterop behavior.

@@ -10,7 +10,9 @@ func cloneDefinition(def *Definition) *Definition {
 		Schema:      def.Schema,
 		Version:     def.Version,
 		Name:        def.Name,
+		DisplayName: def.DisplayName,
 		Description: def.Description,
+		Policy:      clonePolicy(def.Policy),
 	}
 	out.Tools = cloneTools(def.Tools)
 	out.Agents = cloneAgents(def.Agents)

@@ -95,6 +95,12 @@ List and search responses are compact by default. When the LLM identifies a spec
 Project Catalog tools (`project.*`) and `project://` resources are on the main
 `/mcp` endpoint by default. See [docs/project-catalog.md](docs/project-catalog.md).
 
+Compiled tools can use the strongly typed [AWM gRPC API](docs/awm-grpc.md)
+over h2c on the same port. Its generated services mirror the Project Catalog
+and AWM MCP operations without generic JSON arguments or results. The typed
+surface includes Projects, Resources, ResourceBindings, WorkProfiles,
+AgentProfiles, and WorkSessions.
+
 ```bash
 # Run (default — HTTP server with MCP + web UI on port 3847)
 switchboard
