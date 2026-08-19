@@ -344,6 +344,19 @@ func TestPutProject_PreservesAdditionalFields(t *testing.T) {
 	assert.NotNil(t, doc["tools"])
 }
 
+func TestPutProject_PreservesKnownResourceIDs(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutProject(ctx, Project{
+		Version: "1", ProjectID: "obs", Description: "observed",
+		KnownResourceIDs: []string{"repo", "worktree-root"},
+	})
+	require.NoError(t, err)
+	got, err := s.GetProject(ctx, "obs")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo", "worktree-root"}, got.KnownResourceIDs)
+}
+
 func TestPutResource_RejectsInvalidShape(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -286,6 +286,11 @@ func (s *Store) PutProject(ctx context.Context, p Project) (Project, error) {
 		} else {
 			delete(doc, "description")
 		}
+		if len(p.KnownResourceIDs) > 0 {
+			doc["known_resource_ids"] = p.KnownResourceIDs
+		} else {
+			delete(doc, "known_resource_ids")
+		}
 		return atomicWriteJSON(path, doc)
 	})
 	return p, err
@@ -423,6 +428,27 @@ func (s *Store) PutResource(ctx context.Context, resource Resource) (Resource, e
 	return resource, err
 }
 
+// ResourceExists reports whether a Resource currently exists. It is the
+// presence port used by the Project catalog; it does not make the catalog a
+// second Resource authority.
+func (s *Store) ResourceExists(ctx context.Context, id string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_id", id); err != nil {
+		return false, invalidInput(err.Error())
+	}
+	_, err := os.Stat(s.resourcePath(id))
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
 func (s *Store) GetResource(ctx context.Context, id string) (Resource, error) {
 	if err := ctx.Err(); err != nil {
 		return Resource{}, err
@@ -485,6 +511,8 @@ func (s *Store) DeleteResource(ctx context.Context, id string) error {
 				ResourceBindingID: bindingID,
 			}
 		}
+		// Projects may still list this ID in known_resource_ids. That relation is
+		// observation, not ownership, and is not an atomic foreign key.
 		return os.Remove(s.resourcePath(id))
 	})
 }
@@ -822,9 +850,35 @@ func (s *Store) lookupProjectUnlocked(id string) (Project, error) {
 		if ver == "" {
 			ver = "1"
 		}
-		return normalizeProject(Project{Version: ver, ProjectID: pid, Name: name, DisplayName: dn, Description: desc}), nil
+		return normalizeProject(Project{
+			Version: ver, ProjectID: pid, Name: name, DisplayName: dn, Description: desc,
+			KnownResourceIDs: knownResourceIDsFromRaw(raw),
+		}), nil
 	}
 	return Project{}, notFound("project", id)
+}
+
+func knownResourceIDsFromRaw(raw map[string]any) []string {
+	value, ok := raw["known_resource_ids"]
+	if !ok {
+		return nil
+	}
+	switch typed := value.(type) {
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			id, ok := item.(string)
+			if !ok {
+				continue
+			}
+			out = append(out, id)
+		}
+		return out
+	case []string:
+		return append([]string(nil), typed...)
+	default:
+		return nil
+	}
 }
 
 // CreateWorkSession creates a new work session in proposed or open state.

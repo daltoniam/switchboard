@@ -280,6 +280,54 @@ func TestGRPC_WorkModelCRUDHandlers(t *testing.T) {
 	assert.True(t, deleted.Deleted)
 }
 
+func TestGRPC_ProjectKnownResourceIDsRoundTrip(t *testing.T) {
+	projects, _, _, _ := newTestClient(t, true)
+	ctx := context.Background()
+
+	created, err := projects.CreateProject(ctx, &awmv1.CreateProjectRequest{Definition: &awmv1.ProjectDefinition{
+		Version: "1", Name: "obs", Description: "observed",
+		KnownResourceIds: []string{"repo", "worktree-root"},
+	}})
+	require.NoError(t, err)
+
+	got, err := projects.GetProject(ctx, &awmv1.GetProjectRequest{ProjectId: "obs"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo", "worktree-root"}, got.Definition.KnownResourceIds)
+
+	listed, err := projects.ListProjects(ctx, &awmv1.ListProjectsRequest{})
+	require.NoError(t, err)
+	require.Len(t, listed.Projects, 1)
+
+	revision, err := projects.GetProjectRevision(ctx, &awmv1.GetProjectRevisionRequest{
+		ProjectId: "obs", Revision: created.Project.Revision,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo", "worktree-root"}, revision.Definition.KnownResourceIds)
+
+	updated, err := projects.UpdateProject(ctx, &awmv1.UpdateProjectRequest{
+		ProjectId: "obs", ExpectedSourceRevision: created.Project.SourceRevision,
+		Definition: &awmv1.ProjectDefinition{
+			Version: "1", Name: "obs", Description: "updated", KnownResourceIds: []string{"repo"},
+		},
+	})
+	require.NoError(t, err)
+
+	got, err = projects.GetProject(ctx, &awmv1.GetProjectRequest{ProjectId: "obs"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo"}, got.Definition.KnownResourceIds)
+
+	empty := ""
+	_, err = projects.PatchProject(ctx, &awmv1.PatchProjectRequest{
+		ProjectId: "obs", ExpectedSourceRevision: updated.Project.SourceRevision,
+		Patch: &awmv1.ProjectPatch{Description: &empty},
+	})
+	require.NoError(t, err)
+	got, err = projects.GetProject(ctx, &awmv1.GetProjectRequest{ProjectId: "obs"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo"}, got.Definition.KnownResourceIds)
+	assert.Empty(t, got.Definition.Description)
+}
+
 func TestGRPC_WriteDisabledReturnsTypedStatusDetail(t *testing.T) {
 	projects, _, _, _ := newTestClient(t, false)
 	_, err := projects.CreateProject(context.Background(), &awmv1.CreateProjectRequest{Definition: &awmv1.ProjectDefinition{Version: "1", Name: "p"}})

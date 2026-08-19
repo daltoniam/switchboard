@@ -106,6 +106,146 @@ func TestGet_ArchivesLiveRevision(t *testing.T) {
 	require.NotEmpty(t, page.Projects)
 }
 
+func TestCatalog_KnownResourceIDsRoundTripAndCAS(t *testing.T) {
+	store := newTestCatalog(t)
+	ctx := context.Background()
+	created, err := store.Create(ctx, CreateRequest{Definition: Definition{
+		Version: "1", Name: "obs", Description: "before",
+		KnownResourceIDs: []string{"repo", "worktree-root"},
+		Additional:       map[string]json.RawMessage{"legacy": json.RawMessage(`{"keep":true}`)},
+	}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo", "worktree-root"}, created.Definition.KnownResourceIDs)
+
+	got, err := store.Get(ctx, "obs")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo", "worktree-root"}, got.Definition.KnownResourceIDs)
+
+	listed, err := store.List(ctx, "")
+	require.NoError(t, err)
+	require.Len(t, listed.Projects, 1)
+
+	replaced, err := store.Replace(ctx, ReplaceRequest{
+		ProjectID: "obs", ExpectedSourceRevision: created.SourceRevision,
+		Definition: Definition{Version: "1", Name: "obs", Description: "replaced", KnownResourceIDs: []string{"repo"}},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo"}, replaced.Definition.KnownResourceIDs)
+	assert.JSONEq(t, `{"keep":true}`, string(replaced.Definition.Additional["legacy"]))
+
+	_, err = store.Replace(ctx, ReplaceRequest{
+		ProjectID: "obs", ExpectedSourceRevision: created.SourceRevision,
+		Definition: Definition{Version: "1", Name: "obs", KnownResourceIDs: []string{"stale"}},
+	})
+	assert.True(t, IsCode(err, CodeRevisionConflict))
+
+	rev, err := store.GetRevision(ctx, "obs", replaced.Revision)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo"}, rev.Definition.KnownResourceIDs)
+
+	empty := ""
+	patched, err := store.PatchDefinition(ctx, TypedPatchRequest{
+		ProjectID: "obs", ExpectedSourceRevision: replaced.SourceRevision,
+		Patch: DefinitionPatch{Description: &empty},
+	})
+	require.NoError(t, err)
+	assert.Empty(t, patched.Definition.Description)
+	assert.Equal(t, []string{"repo"}, patched.Definition.KnownResourceIDs)
+
+	cleared, err := store.Patch(ctx, PatchRequest{
+		ProjectID: "obs", ExpectedSourceRevision: patched.SourceRevision,
+		Patch: json.RawMessage(`{"known_resource_ids":[]}`),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, cleared.Definition.KnownResourceIDs)
+}
+
+func TestCatalog_KnownResourceIDsRejectMalformed(t *testing.T) {
+	store := newTestCatalog(t)
+	ctx := context.Background()
+	tests := []struct {
+		name string
+		ids  []string
+	}{
+		{name: "empty id", ids: []string{""}},
+		{name: "bad pattern", ids: []string{"-bad"}},
+		{name: "duplicate", ids: []string{"repo", "repo"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := store.Create(ctx, CreateRequest{Definition: Definition{
+				Version: "1", Name: "bad-" + tt.name, KnownResourceIDs: tt.ids,
+			}})
+			require.Error(t, err)
+			assert.True(t, IsCode(err, CodeInvalidDefinition), "%v", err)
+		})
+	}
+}
+
+func TestCatalog_KnownResourceIDsSurviveResourceDelete(t *testing.T) {
+	root := t.TempDir()
+	store := NewStore(root)
+	require.NoError(t, store.Load())
+	work := awmPresence{root: root}
+	store.SetResourcePresence(work)
+	ctx := context.Background()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "awm", "resources"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "awm", "resources", "repo.json"), []byte(`{"version":"1","resource_id":"repo","uri":"file:///tmp/r","kind":"git-repository"}`), 0o600))
+
+	created, err := store.Create(ctx, CreateRequest{Definition: Definition{
+		Version: "1", Name: "obs", KnownResourceIDs: []string{"repo"},
+	}})
+	require.NoError(t, err)
+	require.NoError(t, os.Remove(filepath.Join(root, "awm", "resources", "repo.json")))
+
+	got, err := store.Get(ctx, "obs")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo"}, got.Definition.KnownResourceIDs)
+	rev, err := store.GetRevision(ctx, "obs", created.Revision)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo"}, rev.Definition.KnownResourceIDs)
+}
+
+type awmPresence struct{ root string }
+
+func (p awmPresence) ResourceExists(_ context.Context, id string) (bool, error) {
+	_, err := os.Stat(filepath.Join(p.root, "awm", "resources", id+".json"))
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func TestCatalog_KnownResourceIDsPresenceIsAdvisory(t *testing.T) {
+	store := newTestCatalog(t)
+	ctx := context.Background()
+	store.SetResourcePresence(resourcePresenceFunc(func(_ context.Context, id string) (bool, error) {
+		return id == "repo", nil
+	}))
+
+	_, err := store.Create(ctx, CreateRequest{Definition: Definition{
+		Version: "1", Name: "missing-ref", KnownResourceIDs: []string{"missing"},
+	}})
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeInvalidReference), "%v", err)
+
+	created, err := store.Create(ctx, CreateRequest{Definition: Definition{
+		Version: "1", Name: "ok-ref", KnownResourceIDs: []string{"repo"},
+	}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo"}, created.Definition.KnownResourceIDs)
+}
+
+type resourcePresenceFunc func(context.Context, string) (bool, error)
+
+func (f resourcePresenceFunc) ResourceExists(ctx context.Context, id string) (bool, error) {
+	return f(ctx, id)
+}
+
 func TestCatalog_TypedReplaceAndPatchPreserveCompatibilityFields(t *testing.T) {
 	store := newTestCatalog(t)
 	ctx := context.Background()

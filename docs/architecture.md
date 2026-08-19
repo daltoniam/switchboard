@@ -6,6 +6,8 @@
 mcp.go                       Domain types + port interfaces (the hexagonal core)
 compact.go                   Field compaction engine — CompactAny/CompactJSON, ColumnarizeAny/ColumnarizeJSON, ParseCompactSpecs
 cmd/server/main.go           Composition root — wires adapters into Services, starts server + daemon subcommand
+awmgrpc/                     Native AWM gRPC (loopback h2c + optional UDS, health, typed services)
+rust/switchboard-awm/        Consumable tonic client crate for switchboard.awm.v1
 server/server.go             MCP server — exposes search/execute tools, routes to integrations, applies field compaction
 config/config.go             ConfigService adapter — JSON file at ~/.config/switchboard/config.json
 registry/registry.go         Registry adapter — thread-safe integration lookup

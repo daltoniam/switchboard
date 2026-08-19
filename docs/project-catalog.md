@@ -10,13 +10,15 @@ It is **not** a work session, workspace, AgentRun runtime, or task queue.
 {
   "version": "1",
   "name": "switchboard",
-  "description": "Switchboard and related work"
+  "description": "Switchboard and related work",
+  "known_resource_ids": ["awesometree.switchboard.repo"]
 }
 ```
 
 - `version` must be `"1"`
 - `name` is the project id (filename stem): `^[A-Za-z0-9][A-Za-z0-9._-]*$`
 - `description` is optional human text
+- `known_resource_ids` is the typed AWM observation of Resource IDs (optional)
 
 ## Filesystem authority
 
@@ -36,6 +38,8 @@ Catalog tools and `project://` resources are on the main `/mcp` endpoint (enable
 
 - `project_catalog.writes_enabled` defaults to **on** (`null`/`omitted` ⇒ true) for local development.
 - Catalog mutation tools (`project_create`, `project_update`, `project_patch`, `project_delete`) **and** work-model mutations (`project_work_*`, `project_resource_*`, and `project_resource_binding_*`) share `writes_enabled` and the main `/mcp` surface with **no built-in bearer token**.
+- TCP listening defaults to loopback (`127.0.0.1`). Use `--listen-host` only when you intentionally want another bind address.
+- `--grpc-socket` serves native AWM gRPC only. It does not expose `/mcp` or the web UI.
 - If Switchboard is reachable beyond loopback, either set `"project_catalog": { "writes_enabled": false }` or put `/mcp` behind an external auth layer. Do not expose unauthenticated catalog writes on the public internet.
 
 ### Tools

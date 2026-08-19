@@ -49,14 +49,16 @@ func (c *AgentConstraints) AllowsProject(projectID string) bool {
 
 // Project is a durable named collaboration scope (AWM Project).
 // Catalog identity is project_id (name) plus optional description.
+// KnownResourceIDs is the typed Project.known_resources observation.
 // Tools remain optional for project-scoped gateway policy when projected.
 type Project struct {
-	Version     string         `json:"version"`
-	ProjectID   string         `json:"project_id"`
-	Name        string         `json:"name,omitempty"` // alias of project_id when present
-	DisplayName string         `json:"display_name,omitempty"`
-	Description string         `json:"description,omitempty"`
-	Policy      PolicyDocument `json:"policy,omitempty"`
+	Version          string         `json:"version"`
+	ProjectID        string         `json:"project_id"`
+	Name             string         `json:"name,omitempty"` // alias of project_id when present
+	DisplayName      string         `json:"display_name,omitempty"`
+	Description      string         `json:"description,omitempty"`
+	Policy           PolicyDocument `json:"policy,omitempty"`
+	KnownResourceIDs []string       `json:"known_resource_ids,omitempty"`
 }
 
 // Resource is an independently addressable thing relevant to work. Its native
@@ -190,6 +192,18 @@ func (p *Project) Validate() error {
 	p.ProjectID = id
 	if p.Name == "" {
 		p.Name = id
+	}
+	seen := make(map[string]struct{}, len(p.KnownResourceIDs))
+	for i, resourceID := range p.KnownResourceIDs {
+		resourceID = strings.TrimSpace(resourceID)
+		if err := validateID("known_resource_id", resourceID); err != nil {
+			return err
+		}
+		if _, dup := seen[resourceID]; dup {
+			return fmt.Errorf("duplicate known_resource_ids entry %q", resourceID)
+		}
+		seen[resourceID] = struct{}{}
+		p.KnownResourceIDs[i] = resourceID
 	}
 	return nil
 }

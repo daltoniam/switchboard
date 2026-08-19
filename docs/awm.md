@@ -35,10 +35,28 @@ Never under `project-interop`.
 ## Project schema
 
 ```json
-{ "version": "1", "name": "switchboard", "description": "optional" }
+{
+  "version": "1",
+  "name": "switchboard",
+  "description": "optional",
+  "known_resource_ids": ["awesometree.switchboard.repo"]
+}
 ```
 
-`project_id` is the filename stem / `name` field. Extra unknown JSON fields are tolerated on read for legacy files.
+`project_id` is the filename stem / `name` field. `known_resource_ids` is the
+typed AWM `Project.known_resources` observation: a list of Resource IDs, not
+ownership and not an ID naming convention. Extra unknown JSON fields are
+tolerated on read for legacy files.
+
+### Known-resource consistency
+
+The Project catalog and Resource store remain separate authorities. Writes
+validate ID shape immediately. When a Resource presence port is attached
+(production composition does this), create/update/replace also reject IDs that
+do not currently exist (`invalid_reference`). That check is **not** an atomic
+foreign key: a later Resource delete does not rewrite Project snapshots, and a
+concurrent delete can still leave a dangling observation. Immutable revisions
+preserve the IDs that were recorded at pin time.
 
 ## Default WorkProfile
 

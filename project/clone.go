@@ -7,12 +7,13 @@ func cloneDefinition(def *Definition) *Definition {
 		return nil
 	}
 	out := &Definition{
-		Schema:      def.Schema,
-		Version:     def.Version,
-		Name:        def.Name,
-		DisplayName: def.DisplayName,
-		Description: def.Description,
-		Policy:      clonePolicy(def.Policy),
+		Schema:           def.Schema,
+		Version:          def.Version,
+		Name:             def.Name,
+		DisplayName:      def.DisplayName,
+		Description:      def.Description,
+		Policy:           clonePolicy(def.Policy),
+		KnownResourceIDs: cloneKnownResourceIDs(def.KnownResourceIDs),
 	}
 	out.Tools = cloneTools(def.Tools)
 	out.Agents = cloneAgents(def.Agents)
@@ -63,6 +64,15 @@ func cloneRole(r *RoleDefinition) *RoleDefinition {
 			RepoIncludes: append([]string(nil), r.ContextOverrides.RepoIncludes...),
 		}
 	}
+	return out
+}
+
+func cloneKnownResourceIDs(in []string) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, len(in))
+	copy(out, in)
 	return out
 }
 

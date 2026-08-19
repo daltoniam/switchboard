@@ -19,19 +19,21 @@ var nameRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 type PolicyDocument map[string]bool
 
 // Definition is a Switchboard project catalog entry. The AWM projection is
-// version, name, display name, description, and boolean capability policy.
+// version, name, display name, description, boolean capability policy, and
+// known_resource_ids (the typed Project.known_resources observation).
 // Tools, Agents, and Additional remain compatibility-only fields for existing
 // project-scoped gateway definitions and are not writable through AWM gRPC.
 type Definition struct {
-	Schema      string                     `json:"$schema,omitempty"`
-	Version     string                     `json:"version"`
-	Name        string                     `json:"name"`
-	DisplayName string                     `json:"display_name,omitempty"`
-	Description string                     `json:"description,omitempty"`
-	Policy      PolicyDocument             `json:"policy,omitempty"`
-	Tools       map[string]*ScopeRule      `json:"tools,omitempty"`
-	Agents      *AgentsConfig              `json:"agents,omitempty"`
-	Additional  map[string]json.RawMessage `json:"-"`
+	Schema           string                     `json:"$schema,omitempty"`
+	Version          string                     `json:"version"`
+	Name             string                     `json:"name"`
+	DisplayName      string                     `json:"display_name,omitempty"`
+	Description      string                     `json:"description,omitempty"`
+	Policy           PolicyDocument             `json:"policy,omitempty"`
+	KnownResourceIDs []string                   `json:"known_resource_ids,omitempty"`
+	Tools            map[string]*ScopeRule      `json:"tools,omitempty"`
+	Agents           *AgentsConfig              `json:"agents,omitempty"`
+	Additional       map[string]json.RawMessage `json:"-"`
 }
 
 // ScopeRule defines allow/deny/defaults for a single MCP server.
@@ -80,6 +82,31 @@ func (d *Definition) Validate() error {
 			return fmt.Errorf("policy capability names must not be empty")
 		}
 	}
+	seen := make(map[string]struct{}, len(d.KnownResourceIDs))
+	for i, id := range d.KnownResourceIDs {
+		id = strings.TrimSpace(id)
+		if err := validateKnownResourceID(id); err != nil {
+			return err
+		}
+		if _, dup := seen[id]; dup {
+			return fmt.Errorf("duplicate known_resource_ids entry %q", id)
+		}
+		seen[id] = struct{}{}
+		d.KnownResourceIDs[i] = id
+	}
+	return nil
+}
+
+func validateKnownResourceID(id string) error {
+	if id == "" {
+		return fmt.Errorf("known_resource_ids entries must not be empty")
+	}
+	if len(id) > 128 {
+		return fmt.Errorf("known_resource_ids entry exceeds 128 characters")
+	}
+	if !nameRE.MatchString(id) {
+		return fmt.Errorf("known_resource_ids entry %q does not match pattern ^[a-zA-Z0-9][a-zA-Z0-9._-]*$", id)
+	}
 	return nil
 }
 
@@ -121,6 +148,9 @@ func Merge(base, overlay *Definition) (*Definition, error) {
 	}
 	if overlay.Policy != nil {
 		result.Policy = clonePolicy(overlay.Policy)
+	}
+	if overlay.KnownResourceIDs != nil {
+		result.KnownResourceIDs = cloneKnownResourceIDs(overlay.KnownResourceIDs)
 	}
 	if overlay.Version != "" {
 		result.Version = overlay.Version
@@ -264,6 +294,7 @@ type Store struct {
 	index     map[ProjectID]*catalogRecord
 	bus       *EventBus
 	delGuard  DeleteGuard
+	resources ResourcePresence
 }
 
 // SetDeleteGuard attaches a referential-integrity check used by Delete and
@@ -272,6 +303,15 @@ func (s *Store) SetDeleteGuard(g DeleteGuard) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.delGuard = g
+}
+
+// SetResourcePresence attaches the Resource store used to check that
+// known_resource_ids currently exist. Presence is advisory at write time and
+// is not an atomic foreign key across the two stores.
+func (s *Store) SetResourcePresence(p ResourcePresence) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.resources = p
 }
 
 var (

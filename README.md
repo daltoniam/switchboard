@@ -96,17 +96,24 @@ Project Catalog tools (`project.*`) and `project://` resources are on the main
 `/mcp` endpoint by default. See [docs/project-catalog.md](docs/project-catalog.md).
 
 Compiled tools can use the strongly typed [AWM gRPC API](docs/awm-grpc.md)
-over h2c on the same port. Its generated services mirror the Project Catalog
-and AWM MCP operations without generic JSON arguments or results. The typed
-surface includes Projects, Resources, ResourceBindings, WorkProfiles,
-AgentProfiles, and WorkSessions.
+over loopback h2c (default `127.0.0.1:3847`) or an optional Unix-domain socket.
+Its generated services mirror the Project Catalog and AWM MCP operations
+without generic JSON arguments or results. The typed surface includes
+Projects, Resources, ResourceBindings, WorkProfiles, AgentProfiles, and
+WorkSessions. A Rust client crate lives in [`rust/switchboard-awm`](rust/switchboard-awm).
 
 ```bash
-# Run (default — HTTP server with MCP + web UI on port 3847)
+# Run (default — HTTP/MCP + native AWM gRPC on 127.0.0.1:3847)
 switchboard
 
-# Custom port
+# Custom port, still loopback
 switchboard --port 8080
+
+# Opt in to a non-loopback TCP bind (also exposes HTTP/MCP)
+switchboard --listen-host 0.0.0.0 --port 3847
+
+# Native AWM gRPC only on a Unix socket (HTTP/MCP stay on TCP)
+switchboard --grpc-socket /tmp/switchboard-awm.sock
 
 # Stdio mode (for Cursor/Claude Desktop)
 switchboard --stdio

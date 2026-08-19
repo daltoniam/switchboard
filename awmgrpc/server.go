@@ -16,6 +16,9 @@ import (
 	"github.com/daltoniam/switchboard/project"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -71,6 +74,45 @@ func Register(
 	awmv1.RegisterWorkSessionServiceServer(registrar, s)
 	awmv1.RegisterResourceServiceServer(registrar, s)
 	awmv1.RegisterResourceBindingServiceServer(registrar, s)
+}
+
+// NewServer constructs the native AWM gRPC server with standard health
+// reporting and reflection. Callers that need a custom *grpc.Server should
+// use Register plus RegisterHealth.
+func NewServer(
+	catalog project.Catalog,
+	writer project.CatalogWriter,
+	validator project.DefinitionValidator,
+	work *awm.Store,
+	opts Options,
+) *grpc.Server {
+	srv := grpc.NewServer()
+	Register(srv, catalog, writer, validator, work, opts)
+	RegisterHealth(srv, opts)
+	reflection.Register(srv)
+	return srv
+}
+
+// RegisterHealth attaches grpc.health.v1.Health and marks implemented AWM
+// services SERVING. ProjectCatalogService is NOT_SERVING when the catalog
+// surface is disabled so readiness checks stay honest.
+func RegisterHealth(registrar grpc.ServiceRegistrar, opts Options) {
+	hsvc := health.NewServer()
+	hsvc.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	setHealth := func(name string, serving bool) {
+		status := grpc_health_v1.HealthCheckResponse_SERVING
+		if !serving {
+			status = grpc_health_v1.HealthCheckResponse_NOT_SERVING
+		}
+		hsvc.SetServingStatus(name, status)
+	}
+	setHealth(awmv1.ProjectCatalogService_ServiceDesc.ServiceName, opts.CatalogEnabled)
+	setHealth(awmv1.WorkProfileService_ServiceDesc.ServiceName, true)
+	setHealth(awmv1.AgentProfileService_ServiceDesc.ServiceName, true)
+	setHealth(awmv1.WorkSessionService_ServiceDesc.ServiceName, true)
+	setHealth(awmv1.ResourceService_ServiceDesc.ServiceName, true)
+	setHealth(awmv1.ResourceBindingService_ServiceDesc.ServiceName, true)
+	grpc_health_v1.RegisterHealthServer(registrar, hsvc)
 }
 
 func (s *service) requireWork() error {
@@ -956,7 +998,7 @@ func definitionFromProto(in *awmv1.ProjectDefinition) (project.Definition, error
 	}
 	return project.Definition{
 		Version: in.Version, Name: strings.TrimSpace(in.Name), DisplayName: in.DisplayName,
-		Description: in.Description, Policy: policy,
+		Description: in.Description, Policy: policy, KnownResourceIDs: append([]string(nil), in.KnownResourceIds...),
 	}, nil
 }
 
@@ -964,6 +1006,7 @@ func definitionToProto(in project.Definition) *awmv1.ProjectDefinition {
 	return &awmv1.ProjectDefinition{
 		Version: in.Version, Name: in.Name, DisplayName: in.DisplayName,
 		Description: in.Description, Policy: policyToProto(in.Policy),
+		KnownResourceIds: append([]string(nil), in.KnownResourceIDs...),
 	}
 }
 
@@ -1132,6 +1175,8 @@ func projectRPCError(in *project.Error) error {
 		code, detailCode = codes.AlreadyExists, awmv1.ErrorCode_ERROR_CODE_ALREADY_EXISTS
 	case project.CodeInvalidDefinition:
 		code, detailCode = codes.InvalidArgument, awmv1.ErrorCode_ERROR_CODE_INVALID_DEFINITION
+	case project.CodeInvalidReference:
+		code, detailCode = codes.InvalidArgument, awmv1.ErrorCode_ERROR_CODE_INVALID_REFERENCE
 	case project.CodeRevisionConflict:
 		code, detailCode = codes.Aborted, awmv1.ErrorCode_ERROR_CODE_REVISION_CONFLICT
 	case project.CodeAmbiguousProject:

@@ -1,0 +1,36 @@
+[package]
+name = "switchboard-awm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Tonic client bindings for Switchboard AWM gRPC (switchboard.awm.v1)"
+license = "Elastic-2.0"
+repository = "https://github.com/daltoniam/switchboard"
+homepage = "https://github.com/daltoniam/switchboard"
+documentation = "https://docs.rs/switchboard-awm"
+readme = "README.md"
+keywords = ["grpc", "tonic", "switchboard", "awm"]
+categories = ["api-bindings", "network-programming"]
+include = ["src/**/*", "build.rs", "README.md", "LICENSE", "proto/awm.proto"]
+
+[dependencies]
+prost = "0.13"
+prost-types = "0.13"
+tonic = "0.13"
+tokio = { version = "1", features = ["net"] }
+
+[target.'cfg(unix)'.dependencies]
+http = "1"
+hyper-util = { version = "0.1", features = ["tokio"] }
+tower = { version = "0.5", features = ["util"] }
+
+[build-dependencies]
+protoc-bin-vendored = "3"
+tonic-build = "0.13"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+
+[[example]]
+name = "list_projects"
+path = "examples/list_projects.rs"

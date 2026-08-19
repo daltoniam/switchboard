@@ -155,6 +155,13 @@ type PersistedUserDefinition struct {
 	Bytes      []byte
 }
 
+// ResourcePresence answers whether an independently stored Resource currently
+// exists. The Resource store remains the sole authority for Resource records;
+// the catalog only observes IDs through this port.
+type ResourcePresence interface {
+	ResourceExists(ctx context.Context, resourceID string) (bool, error)
+}
+
 // Catalog is the transport-neutral read port.
 type Catalog interface {
 	List(context.Context, string) (Page, error)

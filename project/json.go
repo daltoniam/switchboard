@@ -3,14 +3,15 @@ package project
 import "encoding/json"
 
 var definitionFields = map[string]struct{}{
-	"$schema":      {},
-	"version":      {},
-	"name":         {},
-	"display_name": {},
-	"description":  {},
-	"policy":       {},
-	"tools":        {},
-	"agents":       {},
+	"$schema":            {},
+	"version":            {},
+	"name":               {},
+	"display_name":       {},
+	"description":        {},
+	"policy":             {},
+	"known_resource_ids": {},
+	"tools":              {},
+	"agents":             {},
 }
 
 func (d *Definition) UnmarshalJSON(data []byte) error {

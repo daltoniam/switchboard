@@ -19,10 +19,14 @@ func TestDefinition_Validate(t *testing.T) {
 	}{
 		{name: "valid", def: Definition{Version: "1", Name: "my-project"}},
 		{name: "with description", def: Definition{Version: "1", Name: "my-project", Description: "hello"}},
+		{name: "known resources", def: Definition{Version: "1", Name: "my-project", KnownResourceIDs: []string{"repo", "worktree-root"}}},
 		{name: "empty version", def: Definition{Version: "", Name: "my-project"}, wantErr: true},
 		{name: "bad version", def: Definition{Version: "2", Name: "my-project"}, wantErr: true},
 		{name: "empty name", def: Definition{Version: "1", Name: ""}, wantErr: true},
 		{name: "bad name", def: Definition{Version: "1", Name: "-bad"}, wantErr: true},
+		{name: "empty known resource id", def: Definition{Version: "1", Name: "my-project", KnownResourceIDs: []string{"repo", ""}}, wantErr: true},
+		{name: "malformed known resource id", def: Definition{Version: "1", Name: "my-project", KnownResourceIDs: []string{"-bad"}}, wantErr: true},
+		{name: "duplicate known resource id", def: Definition{Version: "1", Name: "my-project", KnownResourceIDs: []string{"repo", "repo"}}, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

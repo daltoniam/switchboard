@@ -24,6 +24,12 @@ func TestProtoContract_HasTypedMCPParityWithoutDynamicPayloads(t *testing.T) {
 		assert.NotContains(t, proto, banned)
 	}
 
+	assert.Contains(t, proto, "repeated string known_resource_ids")
+
+	crateProto, err := os.ReadFile("../rust/switchboard-awm/proto/awm.proto")
+	require.NoError(t, err)
+	assert.Equal(t, raw, crateProto, "rust crate proto must match the canonical proto")
+
 	for _, rpc := range []string{
 		"ListProjects", "SearchProjects", "GetProject", "ResolveProject",
 		"ValidateProject", "CreateProject", "UpdateProject", "PatchProject", "DeleteProject",

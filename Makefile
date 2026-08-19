@@ -1,4 +1,4 @@
-.PHONY: build generate proto proto-check test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test
+.PHONY: build generate proto proto-check test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm
 
 BIN        := dist/switchboard
 INSTALL_DIR := $(HOME)/.local/bin
@@ -36,6 +36,9 @@ wasm-build: ## Build WASM modules (requires Rust with wasm32-wasip1 target)
 
 wasm-test: wasm-build ## Build WASM modules and run WASM tests
 	go test -v ./wasm/
+
+rust-awm: ## Test the consumable switchboard-awm Rust client crate
+	cargo test --manifest-path rust/switchboard-awm/Cargo.toml
 
 ## Test
 

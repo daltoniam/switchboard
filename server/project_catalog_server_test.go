@@ -148,6 +148,51 @@ func TestProjectCatalog_UpdateWithFullDefinition(t *testing.T) {
 	assert.Equal(t, "via-definition", got.Definition.Description)
 }
 
+func TestProjectCatalog_KnownResourceIDsRoundTrip(t *testing.T) {
+	httpSrv, store := newCatalogTestServer(t, true)
+	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")
+	created, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project_create",
+		Arguments: map[string]any{
+			"definition": map[string]any{
+				"version": "1", "name": "obs", "description": "observed",
+				"known_resource_ids": []string{"repo", "worktree-root"},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, created.IsError, "%v", created.StructuredContent)
+
+	got, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project_get", Arguments: map[string]any{"projectId": "obs"},
+	})
+	require.NoError(t, err)
+	require.False(t, got.IsError, "%v", got.StructuredContent)
+	raw, _ := json.Marshal(got.StructuredContent)
+	assert.Contains(t, string(raw), "known_resource_ids")
+	assert.Contains(t, string(raw), "worktree-root")
+
+	snap, err := store.Get(context.Background(), "obs")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo", "worktree-root"}, snap.Definition.KnownResourceIDs)
+
+	updated, err := client.CallTool(context.Background(), &mcpsdk.CallToolParams{
+		Name: "project_update",
+		Arguments: map[string]any{
+			"projectId":              "obs",
+			"expectedSourceRevision": string(snap.SourceRevision),
+			"definition": map[string]any{
+				"version": "1", "name": "obs", "known_resource_ids": []string{"repo"},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, updated.IsError, "%v", updated.StructuredContent)
+	snap, err = store.Get(context.Background(), "obs")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"repo"}, snap.Definition.KnownResourceIDs)
+}
+
 func TestProjectCatalog_WritesDisabled(t *testing.T) {
 	httpSrv, _ := newCatalogTestServer(t, false)
 	client := newCatalogClient(t, httpSrv.URL+"/project-catalog/mcp")

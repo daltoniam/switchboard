@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -80,7 +81,6 @@ import (
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -90,7 +90,9 @@ func main() {
 	}
 
 	stdioMode := flag.Bool("stdio", false, "Run MCP server over stdio transport (default is HTTP)")
-	port := flag.Int("port", 3847, "Port for the HTTP server")
+	port := flag.Int("port", 3847, "Port for the HTTP/MCP server and shared h2c gRPC listener")
+	listenHost := flag.String("listen-host", "127.0.0.1", "TCP listen host for HTTP/MCP and shared h2c gRPC (default loopback; set 0.0.0.0 to expose)")
+	grpcSocket := flag.String("grpc-socket", "", "Optional Unix-domain socket for native AWM gRPC only (does not serve HTTP/MCP)")
 	discoverAll := flag.Bool("discover-all", false, "Search returns tools from all registered integrations, not just enabled ones")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
@@ -100,7 +102,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	runServer(*stdioMode, *port, *discoverAll)
+	runServer(*stdioMode, *port, *listenHost, *grpcSocket, *discoverAll)
 }
 
 func handleDaemon(args []string) {
@@ -206,7 +208,7 @@ Options:
 	}
 }
 
-func runServer(stdioMode bool, port int, discoverAll bool) {
+func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discoverAll bool) {
 	cfgMgr, err := config.NewManager()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -391,6 +393,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	// Work profiles/sessions/agent profiles live under the Switchboard config root.
 	workStore := awm.NewStore(projectStore.ConfigDir())
 	workStore.SetCatalog(projectStore)
+	projectStore.SetResourcePresence(workStore)
 	if _, err := workStore.EnsureDefaultWorkProfile(ctx); err != nil {
 		log.Printf("WARN: ensure default work profile: %v", err)
 	}
@@ -514,26 +517,50 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 
 	// Native gRPC shares the HTTP port over h2c and uses the exact same
 	// catalog/work stores as MCP. No generic JSON dispatch exists on this path.
-	grpcServer := grpc.NewServer()
-	awmgrpc.Register(grpcServer, projectStore, projectStore, projectStore, workStore, awmgrpc.Options{
+	grpcOpts := awmgrpc.Options{
 		CatalogEnabled: mcp.ProjectCatalogEnabled(cfg.ProjectCatalog),
 		WritesEnabled:  catalogWrites,
-	})
-	reflection.Register(grpcServer)
-	defer grpcServer.Stop()
+	}
+	grpcServer := awmgrpc.NewServer(projectStore, projectStore, projectStore, workStore, grpcOpts)
+	defer grpcServer.GracefulStop()
 	protocolHandler := awmgrpc.MultiplexHTTPAndGRPC(grpcServer, mux)
 
-	addr := fmt.Sprintf(":%d", port)
-	fmt.Fprintf(os.Stderr, "Switchboard %s on http://localhost:%d\n", version.String(), port)
-	fmt.Fprintf(os.Stderr, "  Web UI:  http://localhost:%d/\n", port)
-	fmt.Fprintf(os.Stderr, "  MCP:     http://localhost:%d/mcp\n", port)
-	fmt.Fprintf(os.Stderr, "  Project: http://localhost:%d/mcp/{project}\n", port)
-	fmt.Fprintf(os.Stderr, "  AWM gRPC (h2c): localhost:%d\n", port)
+	addr, err := awmgrpc.TCPListenAddr(listenHost, port)
+	if err != nil {
+		log.Fatalf("Invalid listen address: %v", err)
+	}
+	displayHost := listenHost
+	if displayHost == "" {
+		displayHost = "127.0.0.1"
+	}
+	fmt.Fprintf(os.Stderr, "Switchboard %s on http://%s:%d\n", version.String(), displayHost, port)
+	fmt.Fprintf(os.Stderr, "  Web UI:  http://%s:%d/\n", displayHost, port)
+	fmt.Fprintf(os.Stderr, "  MCP:     http://%s:%d/mcp\n", displayHost, port)
+	fmt.Fprintf(os.Stderr, "  Project: http://%s:%d/mcp/{project}\n", displayHost, port)
+	fmt.Fprintf(os.Stderr, "  AWM gRPC (h2c): %s\n", addr)
+
+	var udsListener net.Listener
+	if grpcSocket != "" {
+		uds, err := awmgrpc.ListenUnix(grpcSocket)
+		if err != nil {
+			log.Fatalf("AWM gRPC unix socket: %v", err)
+		}
+		udsListener = uds
+		fmt.Fprintf(os.Stderr, "  AWM gRPC (UDS): unix://%s (native gRPC only; HTTP/MCP stay on TCP)\n", grpcSocket)
+		go func() {
+			if err := grpcServer.Serve(uds); err != nil && err != grpc.ErrServerStopped {
+				log.Printf("AWM gRPC unix socket error: %v", err)
+			}
+		}()
+	}
 
 	httpServer := &http.Server{Addr: addr, Handler: protocolHandler, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		<-ctx.Done()
 		_ = httpServer.Close()
+		if udsListener != nil {
+			_ = udsListener.Close()
+		}
 	}()
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

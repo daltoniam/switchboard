@@ -22,6 +22,9 @@ const (
 	// CodeReferenced is returned when a Project cannot be deleted because a
 	// retained WorkSession still pins it.
 	CodeReferenced = "referenced"
+	// CodeInvalidReference is returned when a typed relation points at an
+	// unknown or unreadable Resource. This is not an atomic foreign key.
+	CodeInvalidReference = "invalid_reference"
 )
 
 // Error is a typed catalog error. Adapters must not string-match messages.

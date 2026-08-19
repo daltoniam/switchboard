@@ -88,3 +88,7 @@ jobs:
       - name: Check Rust guest SDK compiles
         working-directory: wasm/guest-rust
         run: cargo check --target wasm32-unknown-unknown
+
+      - name: Test AWM protobuf client crate
+        working-directory: rust/switchboard-awm
+        run: cargo test

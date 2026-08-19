@@ -3,3 +3,5 @@ coverage.out
 *.local.md
 tmp/
 /switchboard
+rust/switchboard-awm/target/
+rust/switchboard-awm/Cargo.lock

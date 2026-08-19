@@ -809,6 +809,7 @@ func (s *Store) Replace(ctx context.Context, req ReplaceRequest) (Snapshot, erro
 		replacement.DisplayName = req.Definition.DisplayName
 		replacement.Description = req.Definition.Description
 		replacement.Policy = clonePolicy(req.Definition.Policy)
+		replacement.KnownResourceIDs = cloneKnownResourceIDs(req.Definition.KnownResourceIDs)
 		if err := replacement.Validate(); err != nil {
 			return &Error{Code: CodeInvalidDefinition, Message: valueFreeValidationMessage(err), ProjectID: req.ProjectID}
 		}
@@ -1007,6 +1008,9 @@ func (s *Store) persistUserLocked(id ProjectID, user *Definition, prev *catalogR
 	if err := user.Validate(); err != nil {
 		return Snapshot{}, &Error{Code: CodeInvalidDefinition, Message: valueFreeValidationMessage(err), ProjectID: id}
 	}
+	if err := s.assertKnownResourcesLocked(id, user); err != nil {
+		return Snapshot{}, err
+	}
 	effective, _, diags := s.mergeEffective(user, "", filepath.Join(s.projectsDir(), projectFileName(id)))
 	if hasError(diags) {
 		return Snapshot{}, &Error{Code: CodeInvalidDefinition, Message: "project definition is invalid", ProjectID: id, Diagnostics: diags}
@@ -1088,6 +1092,27 @@ func applyUserPatch(userBytes, patch json.RawMessage) (*Definition, error) {
 		return nil, &Error{Code: CodeInvalidDefinition, Message: valueFreeValidationMessage(err)}
 	}
 	return &def, nil
+}
+
+func (s *Store) assertKnownResourcesLocked(id ProjectID, user *Definition) error {
+	if s.resources == nil || user == nil || len(user.KnownResourceIDs) == 0 {
+		return nil
+	}
+	for _, resourceID := range user.KnownResourceIDs {
+		exists, err := s.resources.ResourceExists(context.Background(), resourceID)
+		if err != nil {
+			return &Error{Code: CodeInternalError, Message: err.Error(), ProjectID: id, PathHint: "/known_resource_ids"}
+		}
+		if !exists {
+			return &Error{
+				Code:      CodeInvalidReference,
+				Message:   "known_resource_ids entry does not exist",
+				ProjectID: id,
+				PathHint:  "/known_resource_ids",
+			}
+		}
+	}
+	return nil
 }
 
 func atomicWriteFile(path string, data []byte, mode fs.FileMode) error {
