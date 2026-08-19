@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,4 +66,44 @@ func TestGetRevision_RejectsInvalidProjectID(t *testing.T) {
 	_, err := store.GetRevision(context.Background(), ProjectID(".."), Revision("sha256:"+strings.Repeat("a", 64)))
 	require.Error(t, err)
 	assert.True(t, IsCode(err, CodeInvalidDefinition) || IsCode(err, CodeProjectNotFound))
+}
+
+func TestList_InvalidProjectsOnlyOnFirstPage(t *testing.T) {
+	store := newTestCatalog(t)
+	ctx := context.Background()
+	// Seed past page size with valid projects, plus a couple of invalid sources.
+	for i := 0; i < pageSizeDefault+5; i++ {
+		name := fmt.Sprintf("valid-%03d", i)
+		_, err := store.Create(ctx, CreateRequest{Definition: Definition{Version: "1", Name: name}})
+		require.NoError(t, err)
+	}
+	proj := filepath.Join(store.ConfigDir(), "projects")
+	require.NoError(t, os.WriteFile(filepath.Join(proj, "zzz-bad.project.json"), []byte(`{not json`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(proj, "aaa-bad.project.json"), []byte(`{"version":"9","name":"aaa-bad"}`), 0600))
+	require.NoError(t, store.Load())
+
+	first, err := store.List(ctx, "")
+	require.NoError(t, err)
+	require.NotEmpty(t, first.NextCursor)
+	require.NotEmpty(t, first.InvalidProjects, "invalids should appear on first page")
+	invalidIDs := map[string]int{}
+	for _, inv := range first.InvalidProjects {
+		invalidIDs[string(inv.ProjectID)]++
+	}
+
+	// Walk remaining pages; invalids must not reappear.
+	cursor := first.NextCursor
+	for cursor != "" {
+		page, err := store.List(ctx, cursor)
+		require.NoError(t, err)
+		assert.Empty(t, page.InvalidProjects, "invalids must only ride the first page")
+		if page.NextCursor == "" || page.NextCursor == cursor {
+			break
+		}
+		cursor = page.NextCursor
+	}
+	assert.GreaterOrEqual(t, invalidIDs["zzz-bad"]+invalidIDs["aaa-bad"], 1)
+	for id, n := range invalidIDs {
+		assert.Equal(t, 1, n, "invalid id %s duplicated", id)
+	}
 }

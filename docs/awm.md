@@ -90,6 +90,7 @@ Work-model tool errors expose stable codes in structured content:
 | `missing_default_profile` | Exact-ID `default` profile absent |
 | `unavailable` | Dependency failure |
 | `lock_timeout` | Filesystem lock |
+| `write_disabled` | Mutations refused because `project_catalog.writes_enabled` is false |
 
 ## Invariants
 

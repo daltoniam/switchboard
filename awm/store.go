@@ -746,15 +746,11 @@ func (s *Store) CreateWorkSession(ctx context.Context, sess WorkSession) (WorkSe
 			return err
 		}
 		// Referential checks (missing targets fail closed).
+		// Live project file is required even when a revision archive pin exists —
+		// archives outlive deletes and must not authorize new sessions.
 		if sess.ProjectID != "" {
 			if _, err := s.lookupProjectUnlocked(sess.ProjectID); err != nil {
-				if s.catalog == nil {
-					return invalidRef("project_id", sess.ProjectID, "project_id not found")
-				}
-				// Catalog already validated the pin; allow if pin fields set.
-				if sess.ProjectRevision == "" {
-					return invalidRef("project_id", sess.ProjectID, "project_id not found")
-				}
+				return invalidRef("project_id", sess.ProjectID, "project_id not found")
 			}
 		}
 		if sess.WorkProfileID != "" {

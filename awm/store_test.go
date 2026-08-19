@@ -3,6 +3,7 @@ package awm
 import (
 	"context"
 	"encoding/json"
+	"github.com/daltoniam/switchboard/project"
 	"os"
 	"path/filepath"
 	"strings"
@@ -336,4 +337,29 @@ func TestPutProject_PreservesAdditionalFields(t *testing.T) {
 	assert.Equal(t, "new", doc["description"])
 	assert.NotNil(t, doc["resources"])
 	assert.NotNil(t, doc["tools"])
+}
+
+func TestCreateWorkSession_RejectsDeletedProjectEvenWithRevisionPin(t *testing.T) {
+	root := t.TempDir()
+	cat := project.NewStore(root)
+	require.NoError(t, cat.Load())
+	ctx := context.Background()
+	snap, err := cat.Create(ctx, project.CreateRequest{Definition: project.Definition{Version: "1", Name: "gone"}})
+	require.NoError(t, err)
+	s := NewStore(root)
+	s.SetCatalog(cat)
+	_, err = s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	// Delete project (no sessions yet).
+	require.NoError(t, cat.Delete(ctx, project.DeleteRequest{
+		ProjectID: "gone", ExpectedSourceRevision: snap.SourceRevision,
+	}))
+	// Revision archive may still exist; new sessions must still fail.
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-orphan",
+		ProjectID: "gone", ProjectRevision: string(snap.Revision),
+		WorkProfileID: "wp", State: StateOpen,
+	})
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeInvalidReference) || IsCode(err, CodeNotFound), "%v", err)
 }
