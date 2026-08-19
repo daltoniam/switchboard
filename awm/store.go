@@ -826,36 +826,53 @@ func (s *Store) resolveSessionPin(ctx context.Context, sess *WorkSession) error 
 		}
 		return nil
 	}
-	pid := project.ProjectID(sess.ProjectID)
-	var rev project.Revision
-	if sess.ProjectRevision != "" {
-		parsed, err := project.ParseRevision(project.Revision(sess.ProjectRevision))
-		if err != nil {
-			return invalidRef("project_revision", sess.ProjectRevision, "invalid project_revision")
-		}
-		revSnap, err := s.catalog.GetRevision(ctx, pid, parsed)
-		if err != nil {
-			return invalidRef("project_revision", sess.ProjectRevision, "project revision archive not found")
-		}
-		rev = revSnap.Revision
-	} else {
-		live, err := s.catalog.Get(ctx, pid)
-		if err != nil {
-			return invalidRef("project_id", sess.ProjectID, "project_id not found")
-		}
-		rev = live.Revision
+	rev, err := s.lookupSessionRevision(ctx, sess)
+	if err != nil {
+		return err
 	}
 	sess.ProjectRevision = string(rev)
 	expectedSnap := SnapshotIDForRevision(sess.ProjectID, sess.ProjectRevision)
-	if sess.ProjectSnapshotID == "" {
+	if sess.ProjectSnapshotID == "" || sess.ProjectSnapshotID == expectedSnap || sess.ProjectSnapshotID == sess.ProjectRevision {
 		sess.ProjectSnapshotID = expectedSnap
-	} else if sess.ProjectSnapshotID != expectedSnap && sess.ProjectSnapshotID != sess.ProjectRevision {
-		return invalidRef("project_snapshot_id", sess.ProjectSnapshotID, "project_snapshot_id does not match project revision")
-	} else {
-		// Normalize to canonical form.
-		sess.ProjectSnapshotID = expectedSnap
+		return nil
 	}
-	return nil
+	return invalidRef("project_snapshot_id", sess.ProjectSnapshotID, "project_snapshot_id does not match project revision")
+}
+
+// lookupSessionRevision resolves the pin revision from archive or live catalog.
+// Missing targets become invalid_reference; other catalog errors pass through.
+func (s *Store) lookupSessionRevision(ctx context.Context, sess *WorkSession) (project.Revision, error) {
+	pid := project.ProjectID(sess.ProjectID)
+	if sess.ProjectRevision != "" {
+		return s.revisionFromArchive(ctx, pid, sess.ProjectRevision)
+	}
+	return s.revisionFromLive(ctx, pid, sess.ProjectID)
+}
+
+func (s *Store) revisionFromArchive(ctx context.Context, pid project.ProjectID, revStr string) (project.Revision, error) {
+	parsed, err := project.ParseRevision(project.Revision(revStr))
+	if err != nil {
+		return "", invalidRef("project_revision", revStr, "invalid project_revision")
+	}
+	revSnap, err := s.catalog.GetRevision(ctx, pid, parsed)
+	if err != nil {
+		if project.IsCode(err, project.CodeProjectNotFound) {
+			return "", invalidRef("project_revision", revStr, "project revision archive not found")
+		}
+		return "", err
+	}
+	return revSnap.Revision, nil
+}
+
+func (s *Store) revisionFromLive(ctx context.Context, pid project.ProjectID, projectID string) (project.Revision, error) {
+	live, err := s.catalog.Get(ctx, pid)
+	if err != nil {
+		if project.IsCode(err, project.CodeProjectNotFound) {
+			return "", invalidRef("project_id", projectID, "project_id not found")
+		}
+		return "", err
+	}
+	return live.Revision, nil
 }
 
 func (s *Store) validateSessionProfile(ctx context.Context, sess WorkSession) error {

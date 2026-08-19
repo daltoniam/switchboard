@@ -484,14 +484,20 @@ func (s *Store) Get(ctx context.Context, id ProjectID) (Snapshot, error) {
 		return Snapshot{}, errorWithProject(CodeProjectNotFound, "project not found", id)
 	}
 	snap, err := s.snapshotFromRecord(rec, "")
-	// Archive the live effective definition so session pins resolve without a prior Resolve.
+	var effective *Definition
+	var rev Revision
 	if err == nil && rec.effective != nil {
-		if aerr := s.archiveRevision(id, snap.Revision, rec.effective); aerr != nil {
-			s.mu.Unlock()
+		effective = cloneDefinition(rec.effective)
+		rev = snap.Revision
+	}
+	s.mu.Unlock()
+	// Archive outside the catalog mutex (same shape as Resolve) so get does not
+	// serialize the whole store behind mkdir+write.
+	if err == nil && effective != nil {
+		if aerr := s.archiveRevision(id, rev, effective); aerr != nil {
 			return Snapshot{}, aerr
 		}
 	}
-	s.mu.Unlock()
 	return snap, err
 }
 
@@ -515,7 +521,10 @@ func (s *Store) GetRevision(ctx context.Context, id ProjectID, rev Revision) (Re
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return RevisionSnapshot{}, errorWithProject(CodeProjectNotFound, "revision not found", id)
+		if os.IsNotExist(err) {
+			return RevisionSnapshot{}, errorWithProject(CodeProjectNotFound, "revision not found", id)
+		}
+		return RevisionSnapshot{}, &Error{Code: CodeInternalError, Message: err.Error(), ProjectID: id}
 	}
 	var env revisionEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {

@@ -363,3 +363,33 @@ func TestCreateWorkSession_RejectsDeletedProjectEvenWithRevisionPin(t *testing.T
 	require.Error(t, err)
 	assert.True(t, IsCode(err, CodeInvalidReference) || IsCode(err, CodeNotFound), "%v", err)
 }
+
+func TestCreateWorkSession_PinReadFailureIsNotMissingProject(t *testing.T) {
+	root := t.TempDir()
+	cat := project.NewStore(root)
+	require.NoError(t, cat.Load())
+	ctx := context.Background()
+	snap, err := cat.Create(ctx, project.CreateRequest{Definition: project.Definition{Version: "1", Name: "p"}})
+	require.NoError(t, err)
+
+	path := filepath.Join(root, "revisions", "p", snap.Revision.DigestHex()+".json")
+	require.FileExists(t, path)
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	s := NewStore(root)
+	s.SetCatalog(cat)
+	_, err = s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-io",
+		ProjectID: "p", ProjectRevision: string(snap.Revision),
+		WorkProfileID: "wp", State: StateOpen,
+	})
+	require.Error(t, err)
+	// Must not collapse archive I/O into invalid_reference / "not found".
+	assert.False(t, IsCode(err, CodeInvalidReference), "%v", err)
+	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
+	assert.True(t, project.IsCode(err, project.CodeInternalError), "%v", err)
+}

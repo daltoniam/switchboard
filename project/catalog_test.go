@@ -68,6 +68,44 @@ func TestGetRevision_RejectsInvalidProjectID(t *testing.T) {
 	assert.True(t, IsCode(err, CodeInvalidDefinition) || IsCode(err, CodeProjectNotFound))
 }
 
+func TestGetRevision_ReadFailureIsInternalNotNotFound(t *testing.T) {
+	store := newTestCatalog(t)
+	ctx := context.Background()
+	snap, err := store.Create(ctx, CreateRequest{Definition: Definition{Version: "1", Name: "pin"}})
+	require.NoError(t, err)
+
+	path := filepath.Join(store.ConfigDir(), "revisions", "pin", snap.Revision.DigestHex()+".json")
+	require.FileExists(t, path)
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	_, err = store.GetRevision(ctx, "pin", snap.Revision)
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeInternalError), "got %v", err)
+	assert.False(t, IsCode(err, CodeProjectNotFound), "I/O must not look like missing pin")
+}
+
+func TestGet_ArchivesLiveRevision(t *testing.T) {
+	store := newTestCatalog(t)
+	ctx := context.Background()
+	// Seed via external file so Create/Resolve do not pre-archive.
+	proj := filepath.Join(store.ConfigDir(), "projects")
+	require.NoError(t, os.MkdirAll(proj, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(proj, "live.project.json"), []byte(`{"version":"1","name":"live","description":"d"}`), 0o600))
+	require.NoError(t, store.Load())
+
+	got, err := store.Get(ctx, "live")
+	require.NoError(t, err)
+	require.NotEmpty(t, got.Revision)
+	path := filepath.Join(store.ConfigDir(), "revisions", "live", got.Revision.DigestHex()+".json")
+	require.FileExists(t, path)
+
+	// Concurrent list must still succeed (Get no longer holds mu across archive I/O).
+	page, err := store.List(ctx, "")
+	require.NoError(t, err)
+	require.NotEmpty(t, page.Projects)
+}
+
 func TestList_InvalidProjectsOnlyOnFirstPage(t *testing.T) {
 	store := newTestCatalog(t)
 	ctx := context.Background()
