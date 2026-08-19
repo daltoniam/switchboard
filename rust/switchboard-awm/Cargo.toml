@@ -11,7 +11,14 @@ documentation = "https://docs.rs/switchboard-awm"
 readme = "README.md"
 keywords = ["grpc", "tonic", "switchboard", "awm"]
 categories = ["api-bindings", "network-programming"]
-include = ["src/**/*", "build.rs", "README.md", "LICENSE", "proto/awm.proto"]
+include = [
+    "src/**/*",
+    "build.rs",
+    "README.md",
+    "LICENSE",
+    "proto/awm.proto",
+    "examples/**/*",
+]
 
 [dependencies]
 prost = "0.13"

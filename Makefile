@@ -37,8 +37,9 @@ wasm-build: ## Build WASM modules (requires Rust with wasm32-wasip1 target)
 wasm-test: wasm-build ## Build WASM modules and run WASM tests
 	go test -v ./wasm/
 
-rust-awm: ## Test the consumable switchboard-awm Rust client crate
+rust-awm: ## Test and package-verify the consumable switchboard-awm Rust client crate
 	cargo test --manifest-path rust/switchboard-awm/Cargo.toml
+	rust/switchboard-awm/scripts/package-verify.sh
 
 ## Test
 

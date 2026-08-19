@@ -42,3 +42,8 @@ cargo run -p switchboard-awm --example list_projects -- unix:/tmp/switchboard-aw
 `build.rs` compiles `proto/awm.proto`, which is copied from the canonical
 `api/switchboard/awm/v1/awm.proto`. CI and `TestProtoContract` fail if the two
 files diverge. Set `SWITCHBOARD_AWM_PROTO` only when building outside this tree.
+
+The published crate includes `LICENSE` (complete Elastic License 2.0 text),
+`proto/awm.proto`, and `examples/list_projects.rs`. CI verifies those files by
+running `cargo package` without `--no-verify` and rebuilding from the extracted
+artifact.

@@ -92,3 +92,7 @@ jobs:
       - name: Test AWM protobuf client crate
         working-directory: rust/switchboard-awm
         run: cargo test
+
+      - name: Verify packaged AWM crate artifact
+        working-directory: rust/switchboard-awm
+        run: ./scripts/package-verify.sh
