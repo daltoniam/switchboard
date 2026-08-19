@@ -123,8 +123,9 @@ func (s *ProjectCatalogServer) registerTools() {
 	}, s.toolSearch)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
 		Name:        "project_get",
-		Description: "Get a project envelope (definition + summary) by id.",
-		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true},
+		Description: "Get a project envelope (definition + summary) by id. May materialize an immutable revision archive under revisions/ (content-addressed, idempotent).",
+		// Not ReadOnlyHint: get archives the live effective definition for pin stability (same as resolve).
+		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive, IdempotentHint: true, OpenWorldHint: &closedWorld},
 	}, s.toolGet)
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
 		Name:        "project_create",

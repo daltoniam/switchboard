@@ -659,7 +659,10 @@ func (s *Store) lookupProjectUnlocked(id string) (Project, error) {
 	for _, path := range []string{s.projectPath(id), s.projectAltPath(id)} {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return Project{}, err
 		}
 		var p Project
 		if err := json.Unmarshal(data, &p); err == nil {

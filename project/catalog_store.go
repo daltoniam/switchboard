@@ -486,7 +486,10 @@ func (s *Store) Get(ctx context.Context, id ProjectID) (Snapshot, error) {
 	snap, err := s.snapshotFromRecord(rec, "")
 	// Archive the live effective definition so session pins resolve without a prior Resolve.
 	if err == nil && rec.effective != nil {
-		_ = s.archiveRevision(id, snap.Revision, rec.effective)
+		if aerr := s.archiveRevision(id, snap.Revision, rec.effective); aerr != nil {
+			s.mu.Unlock()
+			return Snapshot{}, aerr
+		}
 	}
 	s.mu.Unlock()
 	return snap, err
@@ -536,6 +539,7 @@ func (s *Store) Diagnostics(ctx context.Context, id ProjectID, root *url.URL) (D
 	}
 	rec := s.index[id]
 	if rec == nil {
+		s.mu.Unlock()
 		return DiagnosticsEnvelope{}, errorWithProject(CodeProjectNotFound, "project not found", id)
 	}
 	if root == nil {
