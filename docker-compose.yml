@@ -1,3 +1,6 @@
+# Production/released image stack (host fallback). Fixed host port is intentional
+# for the published image, not for multi-worktree DEV. Use docker-compose.dev.yml
+# via scripts/compose-dev.sh for Stacklane-compatible local development.
 services:
   switchboard:
     image: ghcr.io/daltoniam/switchboard:latest
