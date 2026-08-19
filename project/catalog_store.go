@@ -436,7 +436,11 @@ func (s *Store) pageFrom(kind, query, cursor string) (Page, error) {
 	} else {
 		page.Projects = remaining
 	}
-	page.InvalidProjects = invalid
+	// Invalids only on the first page so multi-page consumers (and listAllCatalog)
+	// do not duplicate them on every cursor hop.
+	if after == "" {
+		page.InvalidProjects = invalid
+	}
 	return page, nil
 }
 

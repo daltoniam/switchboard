@@ -295,7 +295,10 @@ func (s *Store) ListProjects(ctx context.Context) ([]Project, error) {
 	}
 	seen := map[string]Project{}
 	// Preferred directory.
-	ids, _ := listProjectFileIDs(s.projectsDir(), ".project.json")
+	ids, err := listProjectFileIDs(s.projectsDir(), ".project.json")
+	if err != nil {
+		return nil, err
+	}
 	for _, id := range ids {
 		p, err := s.GetProject(ctx, id)
 		if err == nil {
@@ -303,7 +306,10 @@ func (s *Store) ListProjects(ctx context.Context) ([]Project, error) {
 		}
 	}
 	// Alternate directory fills gaps only.
-	alts, _ := listJSONIDs(s.awmProjectsDir(), ".json")
+	alts, err := listJSONIDs(s.awmProjectsDir(), ".json")
+	if err != nil {
+		return nil, err
+	}
 	for _, id := range alts {
 		if _, ok := seen[id]; ok {
 			continue
