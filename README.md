@@ -121,6 +121,9 @@ switchboard --stdio
 # Check version
 switchboard --version
 
+# Debug logging (search/execute requests, compaction savings)
+switchboard --verbose
+
 # Open config UI
 open http://localhost:3847
 ```

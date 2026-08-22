@@ -76,8 +76,8 @@ ci: proto-check build vet test-race lint security ## Run all CI checks locally
 
 install: build ## Build, install to ~/.local/bin, and set up systemd user service
 	@mkdir -p $(INSTALL_DIR)
-	cp $(BIN) $(INSTALL_BIN)
-	$(INSTALL_BIN) daemon install
+	install -m 0755 $(BIN) $(INSTALL_BIN)
+	$(INSTALL_BIN) daemon install --verbose
 	$(INSTALL_BIN) daemon start
 	@sleep 1
 	@systemctl --user is-active switchboard.service >/dev/null 2>&1 && \
@@ -95,7 +95,8 @@ deploy: build ## Build, install to ~/.local/bin, and restart the daemon (require
 		echo "Error: switchboard did not stop. Check: systemctl --user status switchboard"; \
 		exit 1; \
 	fi
-	cp $(BIN) $(INSTALL_BIN)
+	install -m 0755 $(BIN) $(INSTALL_BIN)
+	$(INSTALL_BIN) daemon install --verbose
 	systemctl --user start switchboard
 	@sleep 1
 	@if systemctl --user is-active switchboard.service >/dev/null 2>&1; then \

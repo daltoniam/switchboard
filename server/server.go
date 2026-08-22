@@ -529,6 +529,7 @@ func computeCatalogBytes(tools []toolWithIntegration) int64 {
 }
 
 func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+	start := time.Now()
 	if s.services.Metrics != nil {
 		s.services.Metrics.RecordSearch()
 	}
@@ -540,6 +541,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	}
 	if req.Params.Arguments != nil {
 		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+			slog.Debug("search", "duration", time.Since(start), "err", err)
 			return errorResult("invalid arguments: " + err.Error()), nil
 		}
 	}
@@ -654,6 +656,14 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		Tools:            page,
 	})
 	if err != nil {
+		slog.Debug("search",
+			"query", args.Query,
+			"integration", args.Integration,
+			"limit", limit,
+			"offset", offset,
+			"duration", time.Since(start),
+			"err", err,
+		)
 		return errorResult("marshal search response: " + err.Error()), nil
 	}
 
@@ -669,6 +679,17 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		avoided := catalogBytes - int64(len(columnarized))
 		s.services.Metrics.RecordCatalogAvoidance(avoided)
 	}
+
+	slog.Debug("search",
+		"query", args.Query,
+		"integration", args.Integration,
+		"limit", limit,
+		"offset", offset,
+		"total", total,
+		"returned", len(page),
+		"bytes", len(columnarized),
+		"duration", time.Since(start),
+	)
 
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
@@ -780,26 +801,34 @@ func extractSharedParameters(tools []searchToolInfo) map[string]string {
 }
 
 func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+	start := time.Now()
 	var args struct {
 		ToolName  mcp.ToolName   `json:"tool_name"`
 		Arguments map[string]any `json:"arguments"`
 		Script    string         `json:"script"`
 	}
 	if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+		slog.Debug("execute", "duration", time.Since(start), "err", err)
 		return errorResult("invalid arguments: " + err.Error()), nil
 	}
 
 	if args.Script != "" {
-		return s.handleScriptExecute(ctx, args.Script)
+		result, err := s.handleScriptExecute(ctx, args.Script)
+		logExecute(start, "script", result, err)
+		return result, err
 	}
 
 	if args.ToolName == "" {
-		return errorResult("either tool_name or script is required"), nil
+		result := errorResult("either tool_name or script is required")
+		logExecute(start, "", result, nil)
+		return result, nil
 	}
 	if args.ToolName == "search" || args.ToolName == "execute" || args.ToolName == "session" || args.ToolName == "history" || args.ToolName == "pin" {
-		return errorResult(fmt.Sprintf(
+		result := errorResult(fmt.Sprintf(
 			"tool %q is a meta-tool — use it directly as an MCP tool call, not through execute",
-			args.ToolName)), nil
+			args.ToolName))
+		logExecute(start, args.ToolName, result, nil)
+		return result, nil
 	}
 	if args.Arguments == nil {
 		args.Arguments = map[string]any{}
@@ -813,7 +842,9 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	if err != nil {
 		sess.AddBreadcrumb(args.ToolName, args.Arguments, err.Error(), true)
 		_ = s.sessionStore.Save(sess)
-		return errorResult(err.Error()), nil
+		out := errorResult(err.Error())
+		logExecute(start, args.ToolName, out, err)
+		return out, nil
 	}
 	var handle string
 	if !result.IsError {
@@ -822,10 +853,12 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	sess.AddBreadcrumb(args.ToolName, args.Arguments, result.Data, result.IsError)
 	_ = s.sessionStore.Save(sess)
 	if result.IsError {
-		return &mcpsdk.CallToolResult{
+		out := &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
 			IsError: true,
-		}, nil
+		}
+		logExecute(start, args.ToolName, out, nil)
+		return out, nil
 	}
 	applyResultProcessing(integration, args.ToolName, compact.ParseViewArgs(args.Arguments), result, s.services.Metrics)
 	limit := responseLimitFor(integration, args.ToolName)
@@ -833,26 +866,58 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		if s.services.Metrics != nil {
 			s.services.Metrics.RecordTruncation()
 		}
-		return errorResult(fmt.Sprintf(
+		out := errorResult(fmt.Sprintf(
 			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
 			limit/1024,
 			len(result.Data)/1024,
-		)), nil
+		))
+		logExecute(start, args.ToolName, out, nil)
+		return out, nil
 	}
 	text := result.Data
+	var out *mcpsdk.CallToolResult
 	if handle != "" {
-		return &mcpsdk.CallToolResult{
+		out = &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{
 				&mcpsdk.TextContent{Text: text},
 				&mcpsdk.TextContent{Text: "pinned as " + handle},
 			},
-		}, nil
+		}
+	} else {
+		out = &mcpsdk.CallToolResult{
+			Content: []mcpsdk.Content{
+				&mcpsdk.TextContent{Text: text},
+			},
+		}
 	}
-	return &mcpsdk.CallToolResult{
-		Content: []mcpsdk.Content{
-			&mcpsdk.TextContent{Text: text},
-		},
-	}, nil
+	logExecute(start, args.ToolName, out, nil)
+	return out, nil
+}
+
+func logExecute(start time.Time, tool mcp.ToolName, result *mcpsdk.CallToolResult, err error) {
+	attrs := []any{
+		"tool", tool,
+		"duration", time.Since(start),
+	}
+	if err != nil {
+		attrs = append(attrs, "err", err, "is_error", true)
+	} else if result != nil {
+		attrs = append(attrs, "is_error", result.IsError, "bytes", resultBytes(result))
+	}
+	slog.Debug("execute", attrs...)
+}
+
+func resultBytes(result *mcpsdk.CallToolResult) int {
+	if result == nil {
+		return 0
+	}
+	n := 0
+	for _, c := range result.Content {
+		if tc, ok := c.(*mcpsdk.TextContent); ok {
+			n += len(tc.Text)
+		}
+	}
+	return n
 }
 
 const maxScriptRetries = 10

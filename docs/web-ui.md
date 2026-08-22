@@ -51,12 +51,13 @@
 
 # Daemon management
 ./switchboard daemon install              # Install as launchd (macOS) or systemd (Linux) service
+./switchboard daemon install --verbose    # Persist debug logging in the installed service
 ./switchboard daemon uninstall            # Remove the system service
 ./switchboard daemon start                # Start the daemon (uses service if installed, else detached process)
 ./switchboard daemon start --port 9999    # Start on a custom port
 ./switchboard daemon stop                 # Stop the daemon
 ./switchboard daemon status               # Show daemon status + health
-./switchboard daemon logs                 # Print log file path
+./switchboard daemon logs                 # Print how to follow logs (journalctl on systemd)
 
 # Release (local snapshot for testing)
 goreleaser release --snapshot --clean
@@ -85,5 +86,7 @@ make deploy
 journalctl --user -u switchboard -f
 systemctl --user status switchboard
 ```
+
+`make install` / `make deploy` enable `--verbose` and send stdout/stderr to journald. Search and execute requests then appear as `DEBUG` lines (`msg=search`, `msg=execute`). Fallback/launchd installs still write `~/.config/switchboard/switchboard.log`.
 
 The systemd unit file is written to `~/.config/systemd/user/switchboard.service` and points at `~/.local/bin/switchboard`. The service restarts on failure automatically.

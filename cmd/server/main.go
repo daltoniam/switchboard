@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -94,6 +95,7 @@ func main() {
 	listenHost := flag.String("listen-host", "127.0.0.1", "TCP listen host for HTTP/MCP and shared h2c gRPC (default loopback; set 0.0.0.0 to expose)")
 	grpcSocket := flag.String("grpc-socket", "", "Optional Unix-domain socket for native AWM gRPC only (does not serve HTTP/MCP)")
 	discoverAll := flag.Bool("discover-all", false, "Search returns tools from all registered integrations, not just enabled ones")
+	verbose := flag.Bool("verbose", false, "Enable debug logging (compaction savings, request processing)")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
@@ -102,46 +104,35 @@ func main() {
 		os.Exit(0)
 	}
 
+	configureLogging(*verbose)
 	runServer(*stdioMode, *port, *listenHost, *grpcSocket, *discoverAll)
 }
 
+func configureLogging(verbose bool) {
+	level := slog.LevelInfo
+	if verbose {
+		level = slog.LevelDebug
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
+	if verbose {
+		slog.Debug("verbose logging enabled")
+	}
+}
+
 func handleDaemon(args []string) {
-	fs := flag.NewFlagSet("daemon", flag.ExitOnError)
-	port := fs.Int("port", 3847, "Port for the HTTP server")
-	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, `Usage: switchboard daemon <command> [options]
-
-Commands:
-  install     Install as a system service (launchd on macOS, systemd on Linux)
-  uninstall   Remove the system service
-  start       Start the daemon
-  stop        Stop the daemon
-  status      Show daemon status
-  logs        Show log file path
-
-Options:
-`)
-		fs.PrintDefaults()
-	}
-
-	if len(args) == 0 {
-		fs.Usage()
+	opts, err := parseDaemonArgs(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	_ = fs.Parse(args)
-	remaining := fs.Args()
-
-	if len(remaining) == 0 {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	cmd := remaining[0]
+	port := opts.port
+	verbose := opts.verbose
+	cmd := opts.cmd
 
 	switch cmd {
 	case "install":
-		if err := daemon.Install(*port); err != nil {
+		if err := daemon.Install(port, verbose); err != nil {
 			log.Fatalf("Install failed: %v", err)
 		}
 		fmt.Println("Service installed. Run 'switchboard daemon start' to start.")
@@ -150,18 +141,18 @@ Options:
 			log.Fatalf("Uninstall failed: %v", err)
 		}
 	case "start":
-		status, _ := daemon.GetStatus(*port)
+		status, _ := daemon.GetStatus(port)
 		if status != nil && status.Running {
 			fmt.Printf("Switchboard is already running (PID %d)\n", status.PID)
 			os.Exit(0)
 		}
-		if err := daemon.Start(*port); err != nil {
+		if err := daemon.Start(port, verbose); err != nil {
 			log.Fatalf("Start failed: %v", err)
 		}
 		time.Sleep(time.Second)
-		status, _ = daemon.GetStatus(*port)
+		status, _ = daemon.GetStatus(port)
 		if status != nil && status.Running {
-			fmt.Printf("Switchboard started (PID %d) on port %d\n", status.PID, *port)
+			fmt.Printf("Switchboard started (PID %d) on port %d\n", status.PID, port)
 			if status.Healthy {
 				fmt.Println("Health check: OK")
 			}
@@ -175,7 +166,7 @@ Options:
 		}
 		fmt.Println("Switchboard stopped")
 	case "status":
-		status, err := daemon.GetStatus(*port)
+		status, err := daemon.GetStatus(port)
 		if err != nil {
 			log.Fatalf("Status check failed: %v", err)
 		}
@@ -188,14 +179,18 @@ Options:
 		}
 		fmt.Printf("Switchboard is running (PID %d)\n", status.PID)
 		if status.Healthy {
-			fmt.Printf("Health: OK (port %d)\n", *port)
+			fmt.Printf("Health: OK (port %d)\n", port)
 		} else {
-			fmt.Printf("Health: NOT OK (port %d)\n", *port)
+			fmt.Printf("Health: NOT OK (port %d)\n", port)
 		}
 		if daemon.IsServiceInstalled() {
 			fmt.Println("Service: installed")
 		}
 	case "logs":
+		if daemon.IsSystemdInstalled() {
+			fmt.Println("journalctl --user -u switchboard -f")
+			return
+		}
 		logPath, err := daemon.LogPath()
 		if err != nil {
 			log.Fatalf("Failed to get log path: %v", err)
@@ -203,9 +198,54 @@ Options:
 		fmt.Println(logPath)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown daemon command: %s\n", cmd)
-		fs.Usage()
 		os.Exit(1)
 	}
+}
+
+type daemonOpts struct {
+	cmd     string
+	port    int
+	verbose bool
+}
+
+func parseDaemonArgs(args []string) (daemonOpts, error) {
+	fs := flag.NewFlagSet("daemon", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	port := fs.Int("port", 3847, "Port for the HTTP server")
+	verbose := fs.Bool("verbose", false, "Enable debug logging in the installed/started daemon")
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, `Usage: switchboard daemon <command> [options]
+
+Commands:
+  install     Install as a system service (launchd on macOS, systemd on Linux)
+  uninstall   Remove the system service
+  start       Start the daemon
+  stop        Stop the daemon
+  status      Show daemon status
+  logs        Show how to follow daemon logs
+
+Options:
+`)
+		fs.PrintDefaults()
+	}
+
+	if err := fs.Parse(args); err != nil {
+		return daemonOpts{}, err
+	}
+	remaining := fs.Args()
+	if len(remaining) == 0 {
+		fs.Usage()
+		return daemonOpts{}, fmt.Errorf("daemon command required")
+	}
+
+	cmd := remaining[0]
+	if len(remaining) > 1 {
+		if err := fs.Parse(remaining[1:]); err != nil {
+			return daemonOpts{}, err
+		}
+	}
+
+	return daemonOpts{cmd: cmd, port: *port, verbose: *verbose}, nil
 }
 
 func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discoverAll bool) {

@@ -7,9 +7,11 @@ Wants=network-online.target
 Type=simple
 # TCP defaults to 127.0.0.1. Add --listen-host 0.0.0.0 to expose HTTP/MCP.
 # Optional native-gRPC-only socket: --grpc-socket /run/switchboard/awm.sock
-ExecStart=/usr/bin/switchboard --port 3847
+ExecStart=/usr/bin/switchboard --port 3847 --verbose
 Restart=on-failure
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=SWITCHBOARD_DAEMON=1
 

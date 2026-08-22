@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -15,6 +16,44 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestParseDaemonArgs_VerboseAfterCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		want    daemonOpts
+		wantErr bool
+	}{
+		{name: "install verbose after command", args: []string{"install", "--verbose"}, want: daemonOpts{cmd: "install", port: 3847, verbose: true}},
+		{name: "verbose before command", args: []string{"--verbose", "install"}, want: daemonOpts{cmd: "install", port: 3847, verbose: true}},
+		{name: "custom port after command", args: []string{"start", "--port", "9999"}, want: daemonOpts{cmd: "start", port: 9999}},
+		{name: "defaults", args: []string{"status"}, want: daemonOpts{cmd: "status", port: 3847}},
+		{name: "missing command", args: []string{"--verbose"}, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := parseDaemonArgs(test.args)
+			if test.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+func TestConfigureLogging_VerboseEnablesDebug(t *testing.T) {
+	orig := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(orig) })
+
+	configureLogging(false)
+	assert.False(t, slog.Default().Handler().Enabled(context.Background(), slog.LevelDebug))
+	assert.True(t, slog.Default().Handler().Enabled(context.Background(), slog.LevelInfo))
+
+	configureLogging(true)
+	assert.True(t, slog.Default().Handler().Enabled(context.Background(), slog.LevelDebug))
+}
 
 func TestBuildHTTPMux_ProductionRoutesUseStatelessMCP(t *testing.T) {
 	mux := server.BuildHTTPMux(server.HTTPMuxConfig{

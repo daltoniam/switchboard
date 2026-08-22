@@ -18,7 +18,7 @@ func TestInstallLaunchd_GeneratesPlist(t *testing.T) {
 	}
 	t.Cleanup(func() { launchdPlistPathFunc = origFunc })
 
-	err := InstallLaunchd(3847)
+	err := InstallLaunchd(3847, false)
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(filepath.Join(tmp, "com.daltoniam.switchboard.plist"))
@@ -29,9 +29,26 @@ func TestInstallLaunchd_GeneratesPlist(t *testing.T) {
 	assert.Contains(t, content, launchdLabel)
 	assert.Contains(t, content, "<string>--port</string>")
 	assert.Contains(t, content, "<string>3847</string>")
+	assert.NotContains(t, content, "<string>--verbose</string>")
 	assert.Contains(t, content, "<key>RunAtLoad</key>")
 	assert.Contains(t, content, "<key>KeepAlive</key>")
 	assert.Contains(t, content, logFileName)
+}
+
+func TestInstallLaunchd_VerboseAddsFlag(t *testing.T) {
+	tmp := t.TempDir()
+	origFunc := launchdPlistPathFunc
+	launchdPlistPathFunc = func() (string, error) {
+		return filepath.Join(tmp, "com.daltoniam.switchboard.plist"), nil
+	}
+	t.Cleanup(func() { launchdPlistPathFunc = origFunc })
+
+	err := InstallLaunchd(3847, true)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(tmp, "com.daltoniam.switchboard.plist"))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "<string>--verbose</string>")
 }
 
 func TestUninstallLaunchd_RemovesPlist(t *testing.T) {
@@ -76,7 +93,7 @@ func TestLaunchdPlistTemplate_CustomPort(t *testing.T) {
 	}
 	t.Cleanup(func() { launchdPlistPathFunc = origFunc })
 
-	err := InstallLaunchd(9999)
+	err := InstallLaunchd(9999, false)
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(filepath.Join(tmp, "com.daltoniam.switchboard.plist"))
@@ -88,7 +105,7 @@ func TestLaunchdPlistTemplate_CustomPort(t *testing.T) {
 }
 
 func TestBuildPlist_XMLEscapesSpecialChars(t *testing.T) {
-	content := buildPlist("com.test", "/path/with <angle> & ampersand", 3847, "/log/path")
+	content := buildPlist("com.test", "/path/with <angle> & ampersand", 3847, "/log/path", false)
 	assert.Contains(t, content, "/path/with &lt;angle&gt; &amp; ampersand")
 	assert.NotContains(t, content, "/path/with <angle>")
 }
