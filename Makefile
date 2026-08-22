@@ -1,4 +1,4 @@
-.PHONY: build generate proto proto-check test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm
+.PHONY: build generate proto proto-check test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm compose-check compose-up compose-status compose-endpoints compose-logs compose-down compose-destroy
 
 BIN        := dist/switchboard
 INSTALL_DIR := $(HOME)/.local/bin
@@ -45,9 +45,11 @@ rust-awm: ## Test and package-verify the consumable switchboard-awm Rust client 
 
 test: ## Run tests
 	go test ./...
+	bash scripts/compose-dev_test.sh
 
 test-race: ## Run tests with race detector
 	go test -race -coverprofile=coverage.out ./...
+	bash scripts/compose-dev_test.sh
 
 ## Analysis
 
@@ -71,6 +73,29 @@ security: gosec govulncheck ## Run all security checks
 ## CI
 
 ci: proto-check build vet test-race lint security ## Run all CI checks locally
+
+## Stacklane compose (dev)
+
+compose-check: ## Fail-closed Stacklane compose contract check
+	bash scripts/compose-dev.sh check
+
+compose-up: ## check + build + start DEV compose stack
+	bash scripts/compose-dev.sh up
+
+compose-status: ## Compose ps + FQDN / loopback endpoints
+	bash scripts/compose-dev.sh status
+
+compose-endpoints: ## Print Stacklane FQDNs + direct loopback URLs
+	bash scripts/compose-dev.sh endpoints
+
+compose-logs: ## Follow compose logs (Ctrl-C leaves the stack running)
+	bash scripts/compose-dev.sh logs
+
+compose-down: ## Stop compose stack (volumes preserved)
+	bash scripts/compose-dev.sh down
+
+compose-destroy: ## Remove compose stack AND volumes (CONFIRM=switchboard-<instance>-destroy)
+	bash scripts/compose-dev.sh destroy
 
 ## Install & Deploy
 

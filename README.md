@@ -307,6 +307,16 @@ Then run with live-reload:
 air
 ```
 
+Host `air` / `make build` remain the non-Docker path. For a worktree-isolated
+Docker Compose DEV stack (ephemeral loopback publish + optional Stacklane
+FQDNs, no provider tokens required) see [docs/dev-compose.md](docs/dev-compose.md):
+
+```bash
+make compose-up
+make compose-status
+make compose-down
+```
+
 ## License
 
 Switchboard is source-available under the [Elastic License 2.0](LICENSE).
