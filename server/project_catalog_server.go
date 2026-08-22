@@ -314,7 +314,7 @@ func (s *ProjectCatalogServer) handleReadResource(ctx context.Context, req *mcps
 		}
 		env, err := s.catalog.Diagnostics(ctx, parsed.projectID, root)
 		if err != nil {
-			return nil, resourceNotFound(req.Params.URI)
+			return nil, catalogReadError(req.Params.URI, err)
 		}
 		if env.Diagnostics == nil {
 			env.Diagnostics = []project.Diagnostic{}
@@ -327,7 +327,7 @@ func (s *ProjectCatalogServer) handleReadResource(ctx context.Context, req *mcps
 	case "revision":
 		rev, err := s.catalog.GetRevision(ctx, parsed.projectID, parsed.revision)
 		if err != nil {
-			return nil, resourceNotFound(req.Params.URI)
+			return nil, catalogReadError(req.Params.URI, err)
 		}
 		body, err := json.Marshal(map[string]any{
 			"projectId":  rev.ProjectID,
@@ -346,7 +346,7 @@ func (s *ProjectCatalogServer) handleReadResource(ctx context.Context, req *mcps
 func (s *ProjectCatalogServer) readProjectEnvelope(ctx context.Context, uri string, id project.ProjectID) (*mcpsdk.ReadResourceResult, error) {
 	snap, err := s.catalog.Get(ctx, id)
 	if err != nil {
-		return nil, resourceNotFound(uri)
+		return nil, catalogReadError(uri, err)
 	}
 	body, err := json.Marshal(map[string]any{
 		"projectId":      snap.ProjectID,
@@ -375,6 +375,13 @@ func jsonResource(uri string, body []byte) *mcpsdk.ReadResourceResult {
 
 func resourceNotFound(uri string) error {
 	return mcpsdk.ResourceNotFoundError(uri)
+}
+
+func catalogReadError(uri string, err error) error {
+	if project.IsCode(err, project.CodeProjectNotFound) {
+		return resourceNotFound(uri)
+	}
+	return err
 }
 
 func nonNil[T any](in []T) []T {

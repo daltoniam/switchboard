@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -204,6 +205,50 @@ func TestProjectCatalog_WritesDisabled(t *testing.T) {
 	require.True(t, res.IsError)
 	raw, _ := json.Marshal(res.StructuredContent)
 	assert.Contains(t, string(raw), "write_disabled")
+}
+
+func TestReadProjectEnvelope_InternalErrorIsNotNotFound(t *testing.T) {
+	internal := &project.Error{Code: project.CodeInternalError, Message: "archive write failed"}
+	s := NewProjectCatalogServer(errCatalog{err: internal}, nil, nil, nil, ProjectCatalogOptions{})
+	uri := "project://registry/projects/p"
+	_, err := s.readProjectEnvelope(context.Background(), uri, "p")
+	require.Error(t, err)
+	assert.True(t, project.IsCode(err, project.CodeInternalError), "%v", err)
+	assert.NotEqual(t, resourceNotFound(uri).Error(), err.Error())
+}
+
+func TestHandleReadResource_InternalErrorIsNotNotFound(t *testing.T) {
+	internal := &project.Error{Code: project.CodeInternalError, Message: "revision unreadable"}
+	s := NewProjectCatalogServer(errCatalog{err: internal}, nil, nil, nil, ProjectCatalogOptions{})
+	uri := "project://registry/projects/p/revisions/sha256:" + "aa"
+	_, err := s.handleReadResource(context.Background(), &mcpsdk.ReadResourceRequest{
+		Params: &mcpsdk.ReadResourceParams{URI: uri},
+	})
+	require.Error(t, err)
+	assert.True(t, project.IsCode(err, project.CodeInternalError), "%v", err)
+}
+
+type errCatalog struct {
+	err error
+}
+
+func (e errCatalog) List(context.Context, string) (project.Page, error) {
+	return project.Page{}, e.err
+}
+func (e errCatalog) Search(context.Context, project.SearchRequest) (project.Page, error) {
+	return project.Page{}, e.err
+}
+func (e errCatalog) Get(context.Context, project.ProjectID) (project.Snapshot, error) {
+	return project.Snapshot{}, e.err
+}
+func (e errCatalog) GetRevision(context.Context, project.ProjectID, project.Revision) (project.RevisionSnapshot, error) {
+	return project.RevisionSnapshot{}, e.err
+}
+func (e errCatalog) Diagnostics(context.Context, project.ProjectID, *url.URL) (project.DiagnosticsEnvelope, error) {
+	return project.DiagnosticsEnvelope{}, e.err
+}
+func (e errCatalog) Resolve(context.Context, project.ResolveRequest) (project.Snapshot, error) {
+	return project.Snapshot{}, e.err
 }
 
 func newCatalogClient(t *testing.T, endpoint string) *mcpsdk.ClientSession {

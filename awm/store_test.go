@@ -568,3 +568,92 @@ func TestCreateWorkSession_PinReadFailureIsNotMissingProject(t *testing.T) {
 	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
 	assert.True(t, project.IsCode(err, project.CodeInternalError), "%v", err)
 }
+
+func TestPutWorkProfile_CatalogGetFailureIsNotMissingProject(t *testing.T) {
+	s := NewStore(t.TempDir())
+	s.SetCatalog(errCatalog{err: &project.Error{Code: project.CodeInternalError, Message: "catalog get failed"}})
+	_, err := s.PutWorkProfile(context.Background(), WorkProfile{
+		Version: "1", WorkProfileID: "wp", ProjectIDs: []string{"p"},
+	})
+	require.Error(t, err)
+	assert.False(t, IsCode(err, CodeInvalidReference), "%v", err)
+	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
+	assert.True(t, project.IsCode(err, project.CodeInternalError), "%v", err)
+}
+
+type errCatalog struct {
+	err error
+}
+
+func (e errCatalog) Get(context.Context, project.ProjectID) (project.Snapshot, error) {
+	return project.Snapshot{}, e.err
+}
+
+func (e errCatalog) GetRevision(context.Context, project.ProjectID, project.Revision) (project.RevisionSnapshot, error) {
+	return project.RevisionSnapshot{}, e.err
+}
+
+func TestCreateWorkSession_LiveProjectReadFailureIsNotMissing(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+
+	path := s.projectPath("p")
+	require.FileExists(t, path)
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-io-live",
+		ProjectID: "p", WorkProfileID: "wp", State: StateOpen,
+	})
+	require.Error(t, err)
+	assert.False(t, IsCode(err, CodeInvalidReference), "%v", err)
+	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
+}
+
+func TestCreateWorkSession_ProfileReadFailureIsNotMissing(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+
+	path := s.workProfilePath("wp")
+	require.FileExists(t, path)
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-io-profile",
+		ProjectID: "p", WorkProfileID: "wp", State: StateOpen,
+	})
+	require.Error(t, err)
+	assert.False(t, IsCode(err, CodeInvalidReference), "%v", err)
+	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
+}
+
+func TestCreateWorkSession_PolicyMismatchConflicts(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws", ProjectID: "p", WorkProfileID: "wp",
+		State: StateProposed, Policy: PolicyDocument{"write": false},
+	})
+	require.NoError(t, err)
+
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws", ProjectID: "p", WorkProfileID: "wp",
+		State: StateProposed, Policy: PolicyDocument{"network": false},
+	})
+	require.Error(t, err)
+	assert.True(t, IsCode(err, CodeAlreadyExists), "%v", err)
+}

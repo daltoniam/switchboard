@@ -565,18 +565,32 @@ func (s *Store) validateProfileProjectIDs(ctx context.Context, p WorkProfile) er
 		if err := validateID("project_id", pid); err != nil {
 			return invalidInput(err.Error())
 		}
-		if _, err := s.lookupProjectUnlocked(pid); err != nil {
-			// Prefer catalog when available.
-			if s.catalog != nil {
-				if _, cerr := s.catalog.Get(ctx, project.ProjectID(pid)); cerr != nil {
-					return invalidRef("project_id", pid, "project_id not found")
-				}
-				continue
-			}
-			return invalidRef("project_id", pid, "project_id not found")
+		_, err := s.lookupProjectUnlocked(pid)
+		if err == nil {
+			continue
+		}
+		if err := s.confirmCatalogProject(ctx, pid, err); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (s *Store) confirmCatalogProject(ctx context.Context, pid string, lookupErr error) error {
+	if s.catalog == nil {
+		if IsCode(lookupErr, CodeNotFound) {
+			return invalidRef("project_id", pid, "project_id not found")
+		}
+		return lookupErr
+	}
+	_, err := s.catalog.Get(ctx, project.ProjectID(pid))
+	if err == nil {
+		return nil
+	}
+	if project.IsCode(err, project.CodeProjectNotFound) {
+		return invalidRef("project_id", pid, "project_id not found")
+	}
+	return err
 }
 
 // GetWorkProfile loads a work profile by id.
@@ -929,17 +943,26 @@ func (s *Store) CreateWorkSession(ctx context.Context, sess WorkSession) (WorkSe
 		// archives outlive deletes and must not authorize new sessions.
 		if sess.ProjectID != "" {
 			if _, err := s.lookupProjectUnlocked(sess.ProjectID); err != nil {
-				return invalidRef("project_id", sess.ProjectID, "project_id not found")
+				if IsCode(err, CodeNotFound) {
+					return invalidRef("project_id", sess.ProjectID, "project_id not found")
+				}
+				return err
 			}
 		}
 		if sess.WorkProfileID != "" {
 			if _, err := readJSON[WorkProfile](s.workProfilePath(sess.WorkProfileID)); err != nil {
-				return invalidRef("work_profile_id", sess.WorkProfileID, "work_profile_id not found")
+				if os.IsNotExist(err) {
+					return invalidRef("work_profile_id", sess.WorkProfileID, "work_profile_id not found")
+				}
+				return err
 			}
 		}
 		for _, id := range sess.AgentProfileIDs {
 			if _, err := readJSON[AgentProfile](s.agentProfilePath(id)); err != nil {
-				return invalidRef("agent_profile_id", id, "agent_profile_id not found")
+				if os.IsNotExist(err) {
+					return invalidRef("agent_profile_id", id, "agent_profile_id not found")
+				}
+				return err
 			}
 		}
 		if err := atomicWriteJSON(path, sess); err != nil {
@@ -979,6 +1002,12 @@ func sessionsCompatible(existing, want WorkSession) bool {
 				return false
 			}
 		}
+	}
+	if want.DisplayName != "" && existing.DisplayName != want.DisplayName {
+		return false
+	}
+	if want.Policy != nil && !policyDocumentsEqual(existing.Policy, want.Policy) {
+		return false
 	}
 	return true
 }
@@ -1057,7 +1086,10 @@ func (s *Store) validateSessionProfile(ctx context.Context, sess WorkSession) er
 	}
 	p, err := s.GetWorkProfile(ctx, sess.WorkProfileID)
 	if err != nil {
-		return invalidRef("work_profile_id", sess.WorkProfileID, "work_profile_id not found")
+		if IsCode(err, CodeNotFound) {
+			return invalidRef("work_profile_id", sess.WorkProfileID, "work_profile_id not found")
+		}
+		return err
 	}
 	if len(p.ProjectIDs) == 0 {
 		return nil // globally applicable
