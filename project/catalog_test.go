@@ -220,6 +220,24 @@ func (p awmPresence) ResourceExists(_ context.Context, id string) (bool, error) 
 	return false, err
 }
 
+func TestCatalog_CreatePassesRequestContextToResourcePresence(t *testing.T) {
+	type ctxKey struct{}
+	store := newTestCatalog(t)
+	var got context.Context
+	store.SetResourcePresence(resourcePresenceFunc(func(ctx context.Context, id string) (bool, error) {
+		got = ctx
+		return id == "repo", nil
+	}))
+
+	ctx := context.WithValue(context.Background(), ctxKey{}, "create")
+	_, err := store.Create(ctx, CreateRequest{Definition: Definition{
+		Version: "1", Name: "ctx-ref", KnownResourceIDs: []string{"repo"},
+	}})
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "create", got.Value(ctxKey{}))
+}
+
 func TestCatalog_KnownResourceIDsPresenceIsAdvisory(t *testing.T) {
 	store := newTestCatalog(t)
 	ctx := context.Background()

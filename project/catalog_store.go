@@ -722,7 +722,7 @@ func (s *Store) Create(ctx context.Context, req CreateRequest) (Snapshot, error)
 		if colliding := s.caseCollidingPath(id); colliding != "" {
 			return errorWithProject(CodeProjectAlreadyExists, "project already exists", id)
 		}
-		created, err := s.persistUserLocked(id, def, nil)
+		created, err := s.persistUserLocked(ctx, id, def, nil)
 		if err != nil {
 			return err
 		}
@@ -763,7 +763,7 @@ func (s *Store) Patch(ctx context.Context, req PatchRequest) (Snapshot, error) {
 			return &Error{Code: CodeInvalidDefinition, Message: "patches may not change name", ProjectID: req.ProjectID, PathHint: "/name"}
 		}
 		oldRev := rec.revision
-		created, err := s.persistUserLocked(req.ProjectID, patched, rec)
+		created, err := s.persistUserLocked(ctx, req.ProjectID, patched, rec)
 		if err != nil {
 			return err
 		}
@@ -814,7 +814,7 @@ func (s *Store) Replace(ctx context.Context, req ReplaceRequest) (Snapshot, erro
 			return &Error{Code: CodeInvalidDefinition, Message: valueFreeValidationMessage(err), ProjectID: req.ProjectID}
 		}
 		oldRev := rec.revision
-		created, err := s.persistUserLocked(req.ProjectID, replacement, rec)
+		created, err := s.persistUserLocked(ctx, req.ProjectID, replacement, rec)
 		if err != nil {
 			return err
 		}
@@ -854,7 +854,7 @@ func (s *Store) PatchDefinition(ctx context.Context, req TypedPatchRequest) (Sna
 			patched.Description = *req.Patch.Description
 		}
 		oldRev := rec.revision
-		created, err := s.persistUserLocked(req.ProjectID, patched, rec)
+		created, err := s.persistUserLocked(ctx, req.ProjectID, patched, rec)
 		if err != nil {
 			return err
 		}
@@ -942,7 +942,7 @@ func (s *Store) PatchCompatibility(ctx context.Context, id ProjectID, patch json
 			return err
 		}
 		oldRev := rec.revision
-		created, err := s.persistUserLocked(id, patched, rec)
+		created, err := s.persistUserLocked(ctx, id, patched, rec)
 		if err != nil {
 			return err
 		}
@@ -1004,11 +1004,11 @@ type revisionEnvelope struct {
 	Definition Definition `json:"definition"`
 }
 
-func (s *Store) persistUserLocked(id ProjectID, user *Definition, prev *catalogRecord) (Snapshot, error) {
+func (s *Store) persistUserLocked(ctx context.Context, id ProjectID, user *Definition, prev *catalogRecord) (Snapshot, error) {
 	if err := user.Validate(); err != nil {
 		return Snapshot{}, &Error{Code: CodeInvalidDefinition, Message: valueFreeValidationMessage(err), ProjectID: id}
 	}
-	if err := s.assertKnownResourcesLocked(id, user); err != nil {
+	if err := s.assertKnownResourcesLocked(ctx, id, user); err != nil {
 		return Snapshot{}, err
 	}
 	effective, _, diags := s.mergeEffective(user, "", filepath.Join(s.projectsDir(), projectFileName(id)))
@@ -1094,12 +1094,12 @@ func applyUserPatch(userBytes, patch json.RawMessage) (*Definition, error) {
 	return &def, nil
 }
 
-func (s *Store) assertKnownResourcesLocked(id ProjectID, user *Definition) error {
+func (s *Store) assertKnownResourcesLocked(ctx context.Context, id ProjectID, user *Definition) error {
 	if s.resources == nil || user == nil || len(user.KnownResourceIDs) == 0 {
 		return nil
 	}
 	for _, resourceID := range user.KnownResourceIDs {
-		exists, err := s.resources.ResourceExists(context.Background(), resourceID)
+		exists, err := s.resources.ResourceExists(ctx, resourceID)
 		if err != nil {
 			return &Error{Code: CodeInternalError, Message: err.Error(), ProjectID: id, PathHint: "/known_resource_ids"}
 		}
