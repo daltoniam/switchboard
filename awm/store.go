@@ -320,9 +320,13 @@ func (s *Store) ListProjects(ctx context.Context) ([]Project, error) {
 	}
 	for _, id := range ids {
 		p, err := s.GetProject(ctx, id)
-		if err == nil {
-			seen[id] = p
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
 		}
+		seen[id] = p
 	}
 	// Alternate directory fills gaps only.
 	alts, err := listJSONIDs(s.awmProjectsDir(), ".json")
@@ -334,9 +338,13 @@ func (s *Store) ListProjects(ctx context.Context) ([]Project, error) {
 			continue
 		}
 		p, err := s.GetProject(ctx, id)
-		if err == nil {
-			seen[id] = p
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
 		}
+		seen[id] = p
 	}
 	out := make([]Project, 0, len(seen))
 	for _, p := range seen {
@@ -478,9 +486,13 @@ func (s *Store) ListResources(ctx context.Context) ([]Resource, error) {
 	out := make([]Resource, 0, len(ids))
 	for _, id := range ids {
 		resource, err := s.GetResource(ctx, id)
-		if err == nil {
-			out = append(out, resource)
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
 		}
+		out = append(out, resource)
 	}
 	return out, nil
 }
@@ -624,7 +636,10 @@ func (s *Store) ListWorkProfiles(ctx context.Context) ([]WorkProfile, error) {
 	for _, id := range ids {
 		p, err := s.GetWorkProfile(ctx, id)
 		if err != nil {
-			continue
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
 		}
 		out = append(out, p)
 	}
@@ -753,7 +768,10 @@ func (s *Store) ListAgentProfiles(ctx context.Context) ([]AgentProfile, error) {
 	for _, id := range ids {
 		p, err := s.GetAgentProfile(ctx, id)
 		if err != nil {
-			continue
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
 		}
 		out = append(out, p)
 	}
@@ -1315,7 +1333,10 @@ func (s *Store) ListResourceBindings(ctx context.Context, state, workSessionID, 
 	for _, id := range ids {
 		binding, err := s.GetResourceBinding(ctx, id)
 		if err != nil {
-			continue
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
 		}
 		if state != "" && binding.State != state {
 			continue
@@ -1491,7 +1512,10 @@ func (s *Store) ListWorkSessions(ctx context.Context, state, projectID string) (
 	for _, id := range ids {
 		sess, err := s.GetWorkSession(ctx, id)
 		if err != nil {
-			continue
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
 		}
 		if state != "" && sess.State != state {
 			continue

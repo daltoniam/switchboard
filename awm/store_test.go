@@ -693,6 +693,30 @@ func TestPatchWorkSession_AgentReadFailureIsNotMissing(t *testing.T) {
 	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
 }
 
+func TestListHelpers_ReadFailureIsNotDropped(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-list-io",
+		ProjectID: "p", WorkProfileID: "wp", State: StateOpen,
+	})
+	require.NoError(t, err)
+
+	path := s.workSessionPath("ws-list-io")
+	require.FileExists(t, path)
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	_, err = s.ListWorkSessions(ctx, "", "")
+	require.Error(t, err)
+	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
+	assert.False(t, IsCode(err, CodeInvalidReference), "%v", err)
+}
+
 func TestCreateWorkSession_RevalidatesPolicyUnderLock(t *testing.T) {
 	s := NewStore(t.TempDir())
 	ctx := context.Background()
