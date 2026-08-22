@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -687,6 +688,80 @@ func TestPatchWorkSession_AgentReadFailureIsNotMissing(t *testing.T) {
 
 	ids := []string{"agent"}
 	_, err = s.PatchWorkSession(ctx, created.WorkSessionID, nil, &ids, nil)
+	require.Error(t, err)
+	assert.False(t, IsCode(err, CodeInvalidReference), "%v", err)
+	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
+}
+
+func TestCreateWorkSession_RevalidatesPolicyUnderLock(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{
+		Version: "1", WorkProfileID: "wp",
+		DefaultPolicy: PolicyDocument{"write": true},
+	})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+
+	started := make(chan struct{})
+	done := make(chan error, 1)
+	err = s.withLock(ctx, func() error {
+		go func() {
+			close(started)
+			_, createErr := s.CreateWorkSession(ctx, WorkSession{
+				Version: "1", WorkSessionID: "ws-toctou",
+				ProjectID: "p", WorkProfileID: "wp", State: StateProposed,
+				Policy: PolicyDocument{"write": true},
+			})
+			done <- createErr
+		}()
+		<-started
+		// Let create finish the pre-lock policy check and block on the store lock.
+		time.Sleep(50 * time.Millisecond)
+		return atomicWriteJSON(s.workProfilePath("wp"), WorkProfile{
+			Version: "1", WorkProfileID: "wp",
+			DefaultPolicy: PolicyDocument{"write": false},
+		})
+	})
+	require.NoError(t, err)
+
+	createErr := <-done
+	require.Error(t, createErr)
+	assert.True(t, IsCode(createErr, CodePolicyBroadening), "%v", createErr)
+}
+
+func TestValidateBindingPolicy_ProjectReadFailureIsNotMissing(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{
+		Version: "1", ProjectID: "p",
+		Policy: PolicyDocument{"write": false},
+	})
+	require.NoError(t, err)
+	_, err = s.PutResource(ctx, Resource{
+		Version: "1", ResourceID: "repo.local", URI: "file:///work/repo", Kind: "git-repository",
+	})
+	require.NoError(t, err)
+	_, err = s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-bind-io",
+		ProjectID: "p", WorkProfileID: "wp", State: StateOpen,
+	})
+	require.NoError(t, err)
+
+	path := s.projectPath("p")
+	require.FileExists(t, path)
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	_, err = s.CreateResourceBinding(ctx, ResourceBinding{
+		Version: "1", ResourceBindingID: "binding-io",
+		WorkSessionID: "ws-bind-io", ResourceID: "repo.local",
+		State: BindingStateProposed,
+		Grant: PolicyDocument{"write": false},
+	})
 	require.Error(t, err)
 	assert.False(t, IsCode(err, CodeInvalidReference), "%v", err)
 	assert.False(t, IsCode(err, CodeNotFound), "%v", err)

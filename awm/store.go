@@ -922,9 +922,6 @@ func (s *Store) CreateWorkSession(ctx context.Context, sess WorkSession) (WorkSe
 	if err := s.validateSessionProfile(ctx, sess); err != nil {
 		return WorkSession{}, err
 	}
-	if err := s.validateSessionPolicy(sess); err != nil {
-		return WorkSession{}, err
-	}
 
 	var out WorkSession
 	err := s.withLock(ctx, func() error {
@@ -964,6 +961,9 @@ func (s *Store) CreateWorkSession(ctx context.Context, sess WorkSession) (WorkSe
 				}
 				return err
 			}
+		}
+		if err := s.validateSessionPolicy(sess); err != nil {
+			return err
 		}
 		if err := atomicWriteJSON(path, sess); err != nil {
 			return err
@@ -1267,7 +1267,10 @@ func (s *Store) validateBindingPolicyUnlocked(session WorkSession, grant PolicyD
 	if session.ProjectID != "" {
 		projectRecord, err := s.lookupProjectUnlocked(session.ProjectID)
 		if err != nil {
-			return invalidRef("project_id", session.ProjectID, "project_id not found")
+			if IsCode(err, CodeNotFound) {
+				return invalidRef("project_id", session.ProjectID, "project_id not found")
+			}
+			return err
 		}
 		if len(projectRecord.Policy) > 0 {
 			if err := policyNarrows(projectRecord.Policy, grant); err != nil {
