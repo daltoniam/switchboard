@@ -1115,12 +1115,22 @@ func (s *Store) validateSessionPolicy(sess WorkSession) error {
 	}
 	var parents []PolicyDocument
 	if sess.WorkProfileID != "" {
-		if p, err := readJSON[WorkProfile](s.workProfilePath(sess.WorkProfileID)); err == nil && len(p.DefaultPolicy) > 0 {
+		p, err := readJSON[WorkProfile](s.workProfilePath(sess.WorkProfileID))
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+		} else if len(p.DefaultPolicy) > 0 {
 			parents = append(parents, p.DefaultPolicy)
 		}
 	}
 	if sess.ProjectID != "" {
-		if p, err := s.lookupProjectUnlocked(sess.ProjectID); err == nil && len(p.Policy) > 0 {
+		p, err := s.lookupProjectUnlocked(sess.ProjectID)
+		if err != nil {
+			if !IsCode(err, CodeNotFound) {
+				return err
+			}
+		} else if len(p.Policy) > 0 {
 			parents = append(parents, p.Policy)
 		}
 	}
@@ -1567,7 +1577,10 @@ func (s *Store) PatchWorkSession(ctx context.Context, id string, displayName *st
 					return invalidInput(err.Error())
 				}
 				if _, err := readJSON[AgentProfile](s.agentProfilePath(ap)); err != nil {
-					return invalidRef("agent_profile_id", ap, "agent_profile_id not found")
+					if os.IsNotExist(err) {
+						return invalidRef("agent_profile_id", ap, "agent_profile_id not found")
+					}
+					return err
 				}
 			}
 			sess.AgentProfileIDs = append([]string(nil), (*agentProfileIDs)...)

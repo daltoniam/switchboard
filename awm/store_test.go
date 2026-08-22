@@ -637,6 +637,61 @@ func TestCreateWorkSession_ProfileReadFailureIsNotMissing(t *testing.T) {
 	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
 }
 
+func TestValidateSessionPolicy_ProfileReadFailureIsNotIgnored(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{
+		Version: "1", WorkProfileID: "wp",
+		DefaultPolicy: PolicyDocument{"write": false},
+	})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	created, err := s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-policy-io",
+		ProjectID: "p", WorkProfileID: "wp", State: StateOpen,
+	})
+	require.NoError(t, err)
+
+	path := s.workProfilePath("wp")
+	require.FileExists(t, path)
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	_, err = s.PatchWorkSession(ctx, created.WorkSessionID, nil, nil, PolicyDocument{"write": true})
+	require.Error(t, err)
+	assert.False(t, IsCode(err, CodePolicyBroadening), "%v", err)
+	assert.False(t, IsCode(err, CodeInvalidReference), "%v", err)
+	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
+}
+
+func TestPatchWorkSession_AgentReadFailureIsNotMissing(t *testing.T) {
+	s := NewStore(t.TempDir())
+	ctx := context.Background()
+	_, err := s.PutWorkProfile(ctx, WorkProfile{Version: "1", WorkProfileID: "wp"})
+	require.NoError(t, err)
+	_, err = s.PutProject(ctx, Project{Version: "1", ProjectID: "p"})
+	require.NoError(t, err)
+	_, err = s.PutAgentProfile(ctx, AgentProfile{Version: "1", AgentProfileID: "agent"})
+	require.NoError(t, err)
+	created, err := s.CreateWorkSession(ctx, WorkSession{
+		Version: "1", WorkSessionID: "ws-agent-io",
+		ProjectID: "p", WorkProfileID: "wp", State: StateOpen,
+	})
+	require.NoError(t, err)
+
+	path := s.agentProfilePath("agent")
+	require.FileExists(t, path)
+	require.NoError(t, os.Chmod(path, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+
+	ids := []string{"agent"}
+	_, err = s.PatchWorkSession(ctx, created.WorkSessionID, nil, &ids, nil)
+	require.Error(t, err)
+	assert.False(t, IsCode(err, CodeInvalidReference), "%v", err)
+	assert.False(t, IsCode(err, CodeNotFound), "%v", err)
+}
+
 func TestCreateWorkSession_PolicyMismatchConflicts(t *testing.T) {
 	s := NewStore(t.TempDir())
 	ctx := context.Background()
