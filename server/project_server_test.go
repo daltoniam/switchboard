@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +19,7 @@ func setupProjectRouter(t *testing.T, def *project.Definition, integrations ...*
 	t.Helper()
 	dir := t.TempDir()
 	store := project.NewStore(dir)
-	require.NoError(t, store.Create(def))
+	require.NoError(t, store.CreateDefinition(def))
 
 	reg := newMockRegistry()
 	cfgIntegrations := make(map[string]*mcp.IntegrationConfig)
@@ -61,7 +59,7 @@ func setupProjectRouterWithIntegration(t *testing.T, def *project.Definition, i 
 	t.Helper()
 	dir := t.TempDir()
 	store := project.NewStore(dir)
-	require.NoError(t, store.Create(def))
+	require.NoError(t, store.CreateDefinition(def))
 
 	reg := newMockRegistry()
 	reg.Register(i)
@@ -138,7 +136,8 @@ func TestProjectRouter_GetOrCreate(t *testing.T) {
 
 	srv2, err := router.getOrCreate("test-project")
 	require.NoError(t, err)
-	assert.Same(t, srv, srv2)
+	require.NotNil(t, srv2)
+	assert.Equal(t, srv.def.Name, srv2.def.Name)
 }
 
 func TestProjectRouter_GetOrCreate_NotFound(t *testing.T) {
@@ -430,92 +429,49 @@ func (m *mockProjectIntegrationWithPerToolCap) MaxResponseBytesForTool(name mcp.
 }
 
 func TestProjectRouter_ContextManifest(t *testing.T) {
-	dir := t.TempDir()
-	repoDir := filepath.Join(dir, "repo")
-	require.NoError(t, os.MkdirAll(repoDir, 0700))
-	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "AGENTS.md"), []byte("instructions"), 0600))
-
-	configDir := filepath.Join(dir, "config")
-	contextDir := filepath.Join(configDir, "context", "ctx-test")
-	require.NoError(t, os.MkdirAll(contextDir, 0700))
-	require.NoError(t, os.WriteFile(filepath.Join(contextDir, "sprint.md"), []byte("goals"), 0600))
-
-	def := &project.Definition{
-		Version: "1",
-		Name:    "ctx-test",
-		Repo:    repoDir,
-		Context: &project.ContextConfig{
-			Files:        []string{"sprint.md"},
-			RepoIncludes: []string{"AGENTS.md"},
-		},
-	}
-
-	store := project.NewStore(configDir)
-	require.NoError(t, store.Create(def))
-
-	services := &mcp.Services{
-		Config:   newMockConfigService(nil),
-		Registry: newMockRegistry(),
-	}
-	router := NewProjectRouter(services, store, "switchboard", SearchIndex{})
-
+	def := &project.Definition{Version: "1", Name: "ctx-test"}
+	router, _ := setupProjectRouter(t, def)
 	handler := router.makeContextHandler(def)
-
-	t.Run("manifest with no args", func(t *testing.T) {
-		result, err := handler(context.Background(), projectToolRequest("project_context", map[string]any{}))
-		require.NoError(t, err)
-		require.False(t, result.IsError)
-
-		tc := result.Content[0].(*mcpsdk.TextContent)
-		var entries []project.ContextEntry
-		require.NoError(t, json.Unmarshal([]byte(tc.Text), &entries))
-		assert.Len(t, entries, 2)
-	})
-
-	t.Run("fetch specific file", func(t *testing.T) {
-		result, err := handler(context.Background(), projectToolRequest("project_context", map[string]any{
-			"path": "AGENTS.md",
-		}))
-		require.NoError(t, err)
-
-		tc := result.Content[0].(*mcpsdk.TextContent)
-		assert.Equal(t, "instructions", tc.Text)
-	})
-
-	t.Run("query filter", func(t *testing.T) {
-		result, err := handler(context.Background(), projectToolRequest("project_context", map[string]any{
-			"query": "sprint",
-		}))
-		require.NoError(t, err)
-
-		tc := result.Content[0].(*mcpsdk.TextContent)
-		var entries []project.ContextEntry
-		require.NoError(t, json.Unmarshal([]byte(tc.Text), &entries))
-		assert.Len(t, entries, 1)
-		assert.Equal(t, "sprint.md", entries[0].Path)
-	})
+	result, err := handler(context.Background(), projectToolRequest("project_context", map[string]any{}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	var entries []project.ContextEntry
+	require.NoError(t, json.Unmarshal([]byte(tc.Text), &entries))
+	assert.Empty(t, entries)
 }
 
-func TestProjectRouter_ProjectList(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "p1", Repo: "~/work/p1"}
-	router, store := setupProjectRouter(t, def)
-
-	def2 := &project.Definition{Version: "1", Name: "p2"}
-	require.NoError(t, store.Create(def2))
-
-	result, err := router.handleProjectList(context.Background(), projectToolRequest("project_list", nil))
+func TestProjectRouter_NoCrossProjectAdminTools(t *testing.T) {
+	def := &project.Definition{Version: "1", Name: "p1"}
+	router, _ := setupProjectRouter(t, def)
+	srv, err := router.getOrCreate("p1")
 	require.NoError(t, err)
 
-	tc := result.Content[0].(*mcpsdk.TextContent)
-	var list []struct {
-		Name string `json:"name"`
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ss, err := srv.mcpSrv.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err)
+	defer ss.Close() //nolint:errcheck
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "t", Version: "0"}, nil)
+	cs, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer cs.Close() //nolint:errcheck
+	tools, err := cs.ListTools(ctx, nil)
+	require.NoError(t, err)
+	names := map[string]bool{}
+	for _, tool := range tools.Tools {
+		names[tool.Name] = true
 	}
-	require.NoError(t, json.Unmarshal([]byte(tc.Text), &list))
-	assert.Len(t, list, 2)
+	assert.False(t, names["project_create"])
+	assert.False(t, names["project_update"])
+	assert.False(t, names["project_delete"])
+	assert.False(t, names["project_list"])
+	assert.True(t, names["project_get"])
 }
 
 func TestProjectRouter_ProjectGet(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "myproj", Repo: "~/work/myproj"}
+	def := &project.Definition{Version: "1", Name: "myproj"}
 	router, _ := setupProjectRouter(t, def)
 
 	handler := router.makeProjectGetHandler(def)
@@ -528,59 +484,14 @@ func TestProjectRouter_ProjectGet(t *testing.T) {
 	assert.Equal(t, "myproj", got.Name)
 }
 
-func TestProjectRouter_ProjectCreate(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "existing"}
-	router, _ := setupProjectRouter(t, def)
-
-	result, err := router.handleProjectCreate(context.Background(), projectToolRequest("project_create", map[string]any{
-		"name": "new-project",
-		"repo": "~/work/new",
-	}))
-	require.NoError(t, err)
-	require.False(t, result.IsError)
-
-	got, ok := router.store.Get("new-project")
-	require.True(t, ok)
-	assert.Equal(t, "~/work/new", got.Repo)
-}
-
-func TestProjectRouter_ProjectCreateDuplicate(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "existing"}
-	router, _ := setupProjectRouter(t, def)
-
-	result, err := router.handleProjectCreate(context.Background(), projectToolRequest("project_create", map[string]any{
-		"name": "existing",
-	}))
-	require.NoError(t, err)
-	assert.True(t, result.IsError)
-}
-
-func TestProjectRouter_ProjectUpdate(t *testing.T) {
-	def := &project.Definition{Version: "1", Name: "updatable"}
-	router, _ := setupProjectRouter(t, def)
-
-	handler := router.makeProjectUpdateHandler(def)
-	result, err := handler(context.Background(), projectToolRequest("project_update", map[string]any{
-		"patch": map[string]any{"branch": "develop"},
-	}))
-	require.NoError(t, err)
-	require.False(t, result.IsError)
-
-	got, _ := router.store.Get("updatable")
-	assert.Equal(t, "develop", got.Branch)
-}
-
-func TestProjectRouter_ProjectDelete(t *testing.T) {
+func TestProjectRouter_FreshSnapshotAfterDelete(t *testing.T) {
 	def := &project.Definition{Version: "1", Name: "deletable"}
-	router, _ := setupProjectRouter(t, def)
-
-	handler := router.makeProjectDeleteHandler(def)
-	result, err := handler(context.Background(), projectToolRequest("project_delete", map[string]any{}))
+	router, store := setupProjectRouter(t, def)
+	_, err := router.getOrCreate("deletable")
 	require.NoError(t, err)
-	require.False(t, result.IsError)
-
-	_, ok := router.store.Get("deletable")
-	assert.False(t, ok)
+	require.NoError(t, store.DeleteDefinition("deletable"))
+	_, err = router.getOrCreate("deletable")
+	assert.ErrorContains(t, err, "not found")
 }
 
 func TestProjectRouter_ProjectTools(t *testing.T) {
@@ -638,6 +549,28 @@ func TestProjectRouter_ProjectDefaults(t *testing.T) {
 	var defaults map[string]any
 	require.NoError(t, json.Unmarshal([]byte(tc.Text), &defaults))
 	assert.Equal(t, "myorg", defaults["owner"])
+}
+
+func TestProjectRouter_GlobalToolGlobsBoundSearch(t *testing.T) {
+	def := &project.Definition{Version: "1", Name: "scoped"}
+	mi := &mockIntegration{
+		name:    "github",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: mcp.ToolName("github_list_issues"), Description: "List issues"},
+			{Name: mcp.ToolName("github_delete_repo"), Description: "Delete repo"},
+		},
+	}
+	router, _ := setupProjectRouter(t, def, mi)
+	router.services.Config = newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"github": {Enabled: true, ToolGlobs: []string{"github_list_*"}},
+	})
+	handler := router.makeSearchHandler(nil)
+	result, err := handler(context.Background(), projectToolRequest("search", map[string]any{}))
+	require.NoError(t, err)
+	tc := result.Content[0].(*mcpsdk.TextContent)
+	assert.Contains(t, tc.Text, "github_list_issues")
+	assert.NotContains(t, tc.Text, "github_delete_repo")
 }
 
 func TestProjectRouter_Handler(t *testing.T) {

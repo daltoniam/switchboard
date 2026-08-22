@@ -6,6 +6,8 @@
 mcp.go                       Domain types + port interfaces (the hexagonal core)
 compact.go                   Field compaction engine — CompactAny/CompactJSON, ColumnarizeAny/ColumnarizeJSON, ParseCompactSpecs
 cmd/server/main.go           Composition root — wires adapters into Services, starts server + daemon subcommand
+awmgrpc/                     Native AWM gRPC (loopback h2c + optional UDS, health, typed services)
+rust/switchboard-awm/        Consumable tonic client crate for switchboard.awm.v1
 server/server.go             MCP server — exposes search/execute tools, routes to integrations, applies field compaction
 config/config.go             ConfigService adapter — JSON file at ~/.config/switchboard/config.json
 registry/registry.go         Registry adapter — thread-safe integration lookup
@@ -294,6 +296,16 @@ type Registry interface {
 }
 ```
 
+## MCP protocol versions and sessions
+
+Switchboard speaks MCP over Streamable HTTP at `/mcp`.
+
+- **Modern clients (2026-07-28)** use `server/discover` plus per-request `_meta` / `Mcp-Protocol-Version`. Production mounts `Server.StatelessHandler()` through `server.BuildHTTPMux`, so no `Mcp-Session-Id` is required or minted. Tool availability does not depend on a prior initialize handshake.
+- **Legacy clients** still complete the initialize / initialized sequence on the same endpoint. The SDK's stateless compatibility path handles that during the migration window.
+- **Switchboard app sessions** (`X-Switchboard-Session-Id`, with `Mcp-Session-Id` only as a documented legacy fallback) key history, pins, and context. They never select a project and are not advertised as MCP transport sessions.
+- MCP Roots and Tasks are not used. Project workspace identity is an explicit `rootUri` on Project Catalog operations.
+- Project Catalog tools and `project://` resources are on the main `/mcp` endpoint (enabled by default). See [docs/project-catalog.md](project-catalog.md).
+
 ## Services Struct (DI Container)
 
 ```go
@@ -304,6 +316,8 @@ type Services struct {
 ```
 
 Constructed in `cmd/server/main.go` and passed to both `server.New()` and `web.New()`.
+
+The composition root also constructs **one** filesystem Project Catalog (`project.NewStore`) and injects that same object into `projectinterop.NewWithCatalog` and `server.NewProjectRouter`. The JSON files under the catalog root remain authoritative; adapters do not own a second store.
 
 ## Adding a New Integration
 

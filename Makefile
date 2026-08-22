@@ -1,4 +1,4 @@
-.PHONY: build generate test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test compose-check compose-up compose-status compose-endpoints compose-logs compose-down compose-destroy
+.PHONY: build generate proto proto-check test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm compose-check compose-up compose-status compose-endpoints compose-logs compose-down compose-destroy
 
 BIN        := dist/switchboard
 INSTALL_DIR := $(HOME)/.local/bin
@@ -16,8 +16,14 @@ build: ## Build the binary
 	@mkdir -p dist
 	go build -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/server
 
-generate: ## Generate templ templates
+generate: proto ## Generate protobuf bindings and templ templates
 	go generate .
+
+proto: ## Generate AWM gRPC protobuf bindings
+	buf generate
+
+proto-check: ## Lint the AWM protobuf API
+	buf lint
 
 clean: ## Remove build artifacts
 	rm -rf dist/ coverage.out
@@ -30,6 +36,10 @@ wasm-build: ## Build WASM modules (requires Rust with wasm32-wasip1 target)
 
 wasm-test: wasm-build ## Build WASM modules and run WASM tests
 	go test -v ./wasm/
+
+rust-awm: ## Test and package-verify the consumable switchboard-awm Rust client crate
+	cargo test --manifest-path rust/switchboard-awm/Cargo.toml
+	rust/switchboard-awm/scripts/package-verify.sh
 
 ## Test
 
@@ -53,7 +63,7 @@ fmt: ## Format Go source files
 	gofmt -w .
 
 gosec: ## Run security scanner
-	go tool gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...
+	go tool gosec -exclude-dir=gen -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...
 
 govulncheck: ## Run vulnerability checker
 	go tool govulncheck ./...
@@ -62,7 +72,7 @@ security: gosec govulncheck ## Run all security checks
 
 ## CI
 
-ci: build vet test-race lint security ## Run all CI checks locally
+ci: proto-check build vet test-race lint security ## Run all CI checks locally
 
 ## Stacklane compose (dev)
 
@@ -91,8 +101,8 @@ compose-destroy: ## Remove compose stack AND volumes (CONFIRM=switchboard-<insta
 
 install: build ## Build, install to ~/.local/bin, and set up systemd user service
 	@mkdir -p $(INSTALL_DIR)
-	cp $(BIN) $(INSTALL_BIN)
-	$(INSTALL_BIN) daemon install
+	install -m 0755 $(BIN) $(INSTALL_BIN)
+	$(INSTALL_BIN) daemon install --verbose
 	$(INSTALL_BIN) daemon start
 	@sleep 1
 	@systemctl --user is-active switchboard.service >/dev/null 2>&1 && \
@@ -110,7 +120,8 @@ deploy: build ## Build, install to ~/.local/bin, and restart the daemon (require
 		echo "Error: switchboard did not stop. Check: systemctl --user status switchboard"; \
 		exit 1; \
 	fi
-	cp $(BIN) $(INSTALL_BIN)
+	install -m 0755 $(BIN) $(INSTALL_BIN)
+	$(INSTALL_BIN) daemon install --verbose
 	systemctl --user start switchboard
 	@sleep 1
 	@if systemctl --user is-active switchboard.service >/dev/null 2>&1; then \

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/awm"
 	"github.com/daltoniam/switchboard/compact"
 	"github.com/daltoniam/switchboard/script"
 	"github.com/daltoniam/switchboard/version"
@@ -84,6 +85,9 @@ type Server struct {
 	catalogBytes      int64                 // byte size of full tool catalog (for savings accounting)
 	discoverAll       bool
 	extraInstructions string // appended to the base MCP instructions
+	projectCatalog    *ProjectCatalogServer
+	projectWorkStore  *awm.Store
+	projectWorkWrites bool
 }
 
 // baseInstructions is the default guidance sent to clients in the MCP
@@ -131,15 +135,36 @@ func WithExtraInstructions(text string) Option {
 	return func(s *Server) { s.extraInstructions = strings.TrimSpace(text) }
 }
 
+// WithProjectCatalog attaches Project Catalog tools and resources to the main
+// /mcp server. When nil, catalog surface is omitted.
+func WithProjectCatalog(cat *ProjectCatalogServer) Option {
+	return func(s *Server) { s.projectCatalog = cat }
+}
+
+// WithProjectWorkModel attaches project_work_profile / project_work_session /
+// project_agent_profile / project_resource / project_resource_binding tools
+// backed by a filesystem store under the Switchboard config root.
+// writesEnabled should match project_catalog.writes_enabled so work-model mutations
+// share the same safety switch as catalog create/update/delete.
+func WithProjectWorkModel(store *awm.Store, writesEnabled bool) Option {
+	return func(s *Server) {
+		s.projectWorkStore = store
+		s.projectWorkWrites = writesEnabled
+	}
+}
+
 // staticMCPCapabilities advertises a stable tool list. Crush 0.89 / MCP
 // SDK 1.7 opens a long-lived subscriptions/listen stream whenever
 // tools.listChanged is true. Switchboard serves MCP from request-scoped
 // servers (especially hosted mcpd StatelessHandler), so that stream has
 // nowhere to live and the client tears down tools/list with it.
 func staticMCPCapabilities() *mcpsdk.ServerCapabilities {
+	// Non-nil Capabilities overrides the SDK default {"logging":{}}. Logging
+	// is deprecated in 2026-07-28 and must not be advertised on modern
+	// server/discover. Tools.listChanged stays false so clients do not open
+	// a long-lived subscriptions/listen stream for a static tool list.
 	return &mcpsdk.ServerCapabilities{
-		Logging: &mcpsdk.LoggingCapabilities{},
-		Tools:   &mcpsdk.ToolCapabilities{ListChanged: false},
+		Tools: &mcpsdk.ToolCapabilities{ListChanged: false},
 	}
 }
 
@@ -163,20 +188,33 @@ func New(services *mcp.Services, opts ...Option) *Server {
 	if s.extraInstructions != "" {
 		instructions += " " + s.extraInstructions
 	}
+	caps := staticMCPCapabilities()
+	serverOpts := &mcpsdk.ServerOptions{
+		Instructions: instructions,
+		Capabilities: caps,
+	}
+	if s.projectCatalog != nil {
+		caps.Resources = &mcpsdk.ResourceCapabilities{ListChanged: true, Subscribe: true}
+		serverOpts.SubscribeHandler = func(context.Context, *mcpsdk.SubscribeRequest) error { return nil }
+		serverOpts.UnsubscribeHandler = func(context.Context, *mcpsdk.UnsubscribeRequest) error { return nil }
+	}
 	s.mcpServer = mcpsdk.NewServer(
 		&mcpsdk.Implementation{
 			Name:    "switchboard",
 			Version: version.String(),
 		},
-		&mcpsdk.ServerOptions{
-			Instructions: instructions,
-			Capabilities: staticMCPCapabilities(),
-		},
+		serverOpts,
 	)
 
 	s.scriptEngine = script.New(&toolExecutor{server: s})
 
 	s.registerTools()
+	if s.projectCatalog != nil {
+		s.projectCatalog.AttachTo(s.mcpServer)
+	}
+	if s.projectWorkStore != nil {
+		AttachProjectWorkModel(s.mcpServer, s.projectWorkStore, s.projectWorkWrites)
+	}
 	return s
 }
 
@@ -491,6 +529,7 @@ func computeCatalogBytes(tools []toolWithIntegration) int64 {
 }
 
 func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+	start := time.Now()
 	if s.services.Metrics != nil {
 		s.services.Metrics.RecordSearch()
 	}
@@ -502,6 +541,7 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 	}
 	if req.Params.Arguments != nil {
 		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+			slog.Debug("search", "duration", time.Since(start), "err", err)
 			return errorResult("invalid arguments: " + err.Error()), nil
 		}
 	}
@@ -616,6 +656,14 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		Tools:            page,
 	})
 	if err != nil {
+		slog.Debug("search",
+			"query", args.Query,
+			"integration", args.Integration,
+			"limit", limit,
+			"offset", offset,
+			"duration", time.Since(start),
+			"err", err,
+		)
 		return errorResult("marshal search response: " + err.Error()), nil
 	}
 
@@ -631,6 +679,17 @@ func (s *Server) handleSearch(ctx context.Context, req *mcpsdk.CallToolRequest) 
 		avoided := catalogBytes - int64(len(columnarized))
 		s.services.Metrics.RecordCatalogAvoidance(avoided)
 	}
+
+	slog.Debug("search",
+		"query", args.Query,
+		"integration", args.Integration,
+		"limit", limit,
+		"offset", offset,
+		"total", total,
+		"returned", len(page),
+		"bytes", len(columnarized),
+		"duration", time.Since(start),
+	)
 
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{
@@ -742,26 +801,34 @@ func extractSharedParameters(tools []searchToolInfo) map[string]string {
 }
 
 func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+	start := time.Now()
 	var args struct {
 		ToolName  mcp.ToolName   `json:"tool_name"`
 		Arguments map[string]any `json:"arguments"`
 		Script    string         `json:"script"`
 	}
 	if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+		slog.Debug("execute", "duration", time.Since(start), "err", err)
 		return errorResult("invalid arguments: " + err.Error()), nil
 	}
 
 	if args.Script != "" {
-		return s.handleScriptExecute(ctx, args.Script)
+		result, err := s.handleScriptExecute(ctx, args.Script)
+		logExecute(start, "script", result, err)
+		return result, err
 	}
 
 	if args.ToolName == "" {
-		return errorResult("either tool_name or script is required"), nil
+		result := errorResult("either tool_name or script is required")
+		logExecute(start, "", result, nil)
+		return result, nil
 	}
 	if args.ToolName == "search" || args.ToolName == "execute" || args.ToolName == "session" || args.ToolName == "history" || args.ToolName == "pin" {
-		return errorResult(fmt.Sprintf(
+		result := errorResult(fmt.Sprintf(
 			"tool %q is a meta-tool — use it directly as an MCP tool call, not through execute",
-			args.ToolName)), nil
+			args.ToolName))
+		logExecute(start, args.ToolName, result, nil)
+		return result, nil
 	}
 	if args.Arguments == nil {
 		args.Arguments = map[string]any{}
@@ -775,7 +842,9 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	if err != nil {
 		sess.AddBreadcrumb(args.ToolName, args.Arguments, err.Error(), true)
 		_ = s.sessionStore.Save(sess)
-		return errorResult(err.Error()), nil
+		out := errorResult(err.Error())
+		logExecute(start, args.ToolName, out, err)
+		return out, nil
 	}
 	var handle string
 	if !result.IsError {
@@ -784,10 +853,12 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	sess.AddBreadcrumb(args.ToolName, args.Arguments, result.Data, result.IsError)
 	_ = s.sessionStore.Save(sess)
 	if result.IsError {
-		return &mcpsdk.CallToolResult{
+		out := &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
 			IsError: true,
-		}, nil
+		}
+		logExecute(start, args.ToolName, out, nil)
+		return out, nil
 	}
 	applyResultProcessing(integration, args.ToolName, compact.ParseViewArgs(args.Arguments), result, s.services.Metrics)
 	limit := responseLimitFor(integration, args.ToolName)
@@ -795,26 +866,58 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		if s.services.Metrics != nil {
 			s.services.Metrics.RecordTruncation()
 		}
-		return errorResult(fmt.Sprintf(
+		out := errorResult(fmt.Sprintf(
 			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
 			limit/1024,
 			len(result.Data)/1024,
-		)), nil
+		))
+		logExecute(start, args.ToolName, out, nil)
+		return out, nil
 	}
 	text := result.Data
+	var out *mcpsdk.CallToolResult
 	if handle != "" {
-		return &mcpsdk.CallToolResult{
+		out = &mcpsdk.CallToolResult{
 			Content: []mcpsdk.Content{
 				&mcpsdk.TextContent{Text: text},
 				&mcpsdk.TextContent{Text: "pinned as " + handle},
 			},
-		}, nil
+		}
+	} else {
+		out = &mcpsdk.CallToolResult{
+			Content: []mcpsdk.Content{
+				&mcpsdk.TextContent{Text: text},
+			},
+		}
 	}
-	return &mcpsdk.CallToolResult{
-		Content: []mcpsdk.Content{
-			&mcpsdk.TextContent{Text: text},
-		},
-	}, nil
+	logExecute(start, args.ToolName, out, nil)
+	return out, nil
+}
+
+func logExecute(start time.Time, tool mcp.ToolName, result *mcpsdk.CallToolResult, err error) {
+	attrs := []any{
+		"tool", tool,
+		"duration", time.Since(start),
+	}
+	if err != nil {
+		attrs = append(attrs, "err", err, "is_error", true)
+	} else if result != nil {
+		attrs = append(attrs, "is_error", result.IsError, "bytes", resultBytes(result))
+	}
+	slog.Debug("execute", attrs...)
+}
+
+func resultBytes(result *mcpsdk.CallToolResult) int {
+	if result == nil {
+		return 0
+	}
+	n := 0
+	for _, c := range result.Content {
+		if tc, ok := c.(*mcpsdk.TextContent); ok {
+			n += len(tc.Text)
+		}
+	}
+	return n
 }
 
 const maxScriptRetries = 10
@@ -1517,7 +1620,11 @@ func (te *toolExecutor) ExecuteRendered(ctx context.Context, toolName mcp.ToolNa
 	return result, nil
 }
 
-// Handler returns an http.Handler that serves MCP over streamable HTTP transport.
+// Handler returns an http.Handler that serves MCP over streamable HTTP transport
+// in the SDK's stateful compatibility mode. Production HTTP must use
+// [Server.StatelessHandler] via [BuildHTTPMux] so modern 2026-07-28 clients
+// can discover and call tools without an MCP transport session.
+//
 // App session ids (pin/context/history) are resolved via X-Switchboard-Session-Id
 // when present; see AppSessionMiddleware and resolveAppSessionID.
 func (s *Server) Handler() http.Handler {
@@ -1545,8 +1652,9 @@ func (s *Server) StatelessHandler() http.Handler {
 			return s.mcpServer
 		},
 		&mcpsdk.StreamableHTTPOptions{
-			Stateless: true,
-			Logger:    slog.Default(),
+			Stateless:    true,
+			JSONResponse: true,
+			Logger:       slog.Default(),
 		},
 	))
 }

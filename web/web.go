@@ -13,6 +13,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/awm"
 	"github.com/daltoniam/switchboard/googleoauth"
 	"github.com/daltoniam/switchboard/integrations/gcal"
 	"github.com/daltoniam/switchboard/integrations/gchat"
@@ -31,6 +32,7 @@ import (
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/marketplace"
+	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/remotemcp"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
@@ -44,6 +46,8 @@ type WebServer struct {
 	health         *healthCache
 	marketplace    *marketplace.Manager
 	wasmLoader     pluginLoader
+	catalog        project.Catalog
+	awmStore       *awm.Store
 	onConfigChange func()
 	configMu       sync.Mutex
 }
@@ -200,6 +204,16 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
 	mux.HandleFunc("GET /api/metrics", w.handleMetricsAPI)
+
+	mux.HandleFunc("GET /projects", w.handleProjectsList)
+	mux.HandleFunc("GET /projects/{id}", w.handleProjectDetail)
+	mux.HandleFunc("GET /projects/{id}/work", w.handleProjectWorkHub)
+	mux.HandleFunc("GET /projects/{id}/work/profiles", w.handleProjectWorkProfilesList)
+	mux.HandleFunc("GET /projects/{id}/work/profiles/{profileID}", w.handleProjectWorkProfileDetail)
+	mux.HandleFunc("GET /projects/{id}/work/agents", w.handleProjectAgentProfilesList)
+	mux.HandleFunc("GET /projects/{id}/work/agents/{agentID}", w.handleProjectAgentProfileDetail)
+	mux.HandleFunc("GET /projects/{id}/work/sessions", w.handleProjectWorkSessionsList)
+	mux.HandleFunc("GET /projects/{id}/work/sessions/{sessionID}", w.handleProjectWorkSessionDetail)
 
 	mux.HandleFunc("GET /settings", w.handleSettings)
 	mux.HandleFunc("POST /settings", w.handleSettingsSave)

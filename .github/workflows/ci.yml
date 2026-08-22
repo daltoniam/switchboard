@@ -71,7 +71,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run gosec
-        run: go tool gosec -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...
+        run: go tool gosec -exclude-dir=gen -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...
 
       - name: Run govulncheck
         run: go tool govulncheck ./...
@@ -88,6 +88,14 @@ jobs:
       - name: Check Rust guest SDK compiles
         working-directory: wasm/guest-rust
         run: cargo check --target wasm32-unknown-unknown
+
+      - name: Test AWM protobuf client crate
+        working-directory: rust/switchboard-awm
+        run: cargo test
+
+      - name: Verify packaged AWM crate artifact
+        working-directory: rust/switchboard-awm
+        run: ./scripts/package-verify.sh
 
   compose:
     runs-on: ubuntu-latest
