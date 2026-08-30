@@ -85,6 +85,7 @@ type Server struct {
 	catalogBytes      int64                 // byte size of full tool catalog (for savings accounting)
 	discoverAll       bool
 	extraInstructions string // appended to the base MCP instructions
+	features          []func(*mcpsdk.Server)
 	projectCatalog    *ProjectCatalogServer
 	projectWorkStore  *awm.Store
 	projectWorkWrites bool
@@ -135,6 +136,18 @@ func WithExtraInstructions(text string) Option {
 	return func(s *Server) { s.extraInstructions = strings.TrimSpace(text) }
 }
 
+// WithMCPFeatures registers additional MCP prompts or resources on the
+// underlying SDK server after the built-in tools are in place. Hosted
+// deployments use this to expose org-scoped skills as prompts/resources
+// without changing Switchboard's search/execute tool surface.
+func WithMCPFeatures(register func(*mcpsdk.Server)) Option {
+	return func(s *Server) {
+		if register != nil {
+			s.features = append(s.features, register)
+		}
+	}
+}
+
 // WithProjectCatalog attaches Project Catalog tools and resources to the main
 // /mcp server. When nil, catalog surface is omitted.
 func WithProjectCatalog(cat *ProjectCatalogServer) Option {
@@ -153,18 +166,24 @@ func WithProjectWorkModel(store *awm.Store, writesEnabled bool) Option {
 	}
 }
 
-// staticMCPCapabilities advertises a stable tool list. Crush 0.89 / MCP
-// SDK 1.7 opens a long-lived subscriptions/listen stream whenever
-// tools.listChanged is true. Switchboard serves MCP from request-scoped
-// servers (especially hosted mcpd StatelessHandler), so that stream has
-// nowhere to live and the client tears down tools/list with it.
+// staticMCPCapabilities advertises a stable tool/prompt/resource list.
+// Crush 0.89 / MCP SDK 1.7 opens a long-lived subscriptions/listen stream
+// whenever any *.listChanged flag is true. Switchboard serves MCP from
+// request-scoped servers (especially hosted mcpd StatelessHandler), so that
+// stream has nowhere to live and the client tears down tools/list with it.
+// Prompts and resources must be pinned too: hosted skills register them via
+// WithMCPFeatures, and a nil Prompts/Resources field lets the SDK infer
+// listChanged=true. Project catalog can still override Resources after this
+// default when subscriptions are actually supported.
 func staticMCPCapabilities() *mcpsdk.ServerCapabilities {
 	// Non-nil Capabilities overrides the SDK default {"logging":{}}. Logging
 	// is deprecated in 2026-07-28 and must not be advertised on modern
-	// server/discover. Tools.listChanged stays false so clients do not open
-	// a long-lived subscriptions/listen stream for a static tool list.
+	// server/discover. listChanged stays false so clients do not open a
+	// long-lived subscriptions/listen stream for a static list.
 	return &mcpsdk.ServerCapabilities{
-		Tools: &mcpsdk.ToolCapabilities{ListChanged: false},
+		Tools:     &mcpsdk.ToolCapabilities{ListChanged: false},
+		Prompts:   &mcpsdk.PromptCapabilities{ListChanged: false},
+		Resources: &mcpsdk.ResourceCapabilities{ListChanged: false},
 	}
 }
 
@@ -209,6 +228,9 @@ func New(services *mcp.Services, opts ...Option) *Server {
 	s.scriptEngine = script.New(&toolExecutor{server: s})
 
 	s.registerTools()
+	for _, register := range s.features {
+		register(s.mcpServer)
+	}
 	if s.projectCatalog != nil {
 		s.projectCatalog.AttachTo(s.mcpServer)
 	}

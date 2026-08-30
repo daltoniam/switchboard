@@ -144,6 +144,27 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, s.services)
 }
 
+func TestWithMCPFeaturesRegistersPrompt(t *testing.T) {
+	reg := newMockRegistry()
+	services := &mcp.Services{
+		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
+		Registry: reg,
+	}
+	srv := New(services, WithMCPFeatures(func(s *mcpsdk.Server) {
+		s.AddPrompt(&mcpsdk.Prompt{Name: "skill_review", Description: "review"}, func(_ context.Context, _ *mcpsdk.GetPromptRequest) (*mcpsdk.GetPromptResult, error) {
+			return &mcpsdk.GetPromptResult{
+				Description: "review",
+				Messages: []*mcpsdk.PromptMessage{{
+					Role:    "user",
+					Content: &mcpsdk.TextContent{Text: "review this"},
+				}},
+			}, nil
+		})
+	}))
+	require.NotNil(t, srv)
+	require.NotNil(t, srv.mcpServer)
+}
+
 func TestMatches(t *testing.T) {
 	tool := mcp.ToolDefinition{
 		Name:        mcp.ToolName("github_list_issues"),
@@ -3832,10 +3853,72 @@ func TestStaticMCPCapabilities_DisableListChanged(t *testing.T) {
 	caps := cs.InitializeResult().Capabilities
 	require.NotNil(t, caps.Tools, "tools capability must still be advertised")
 	assert.False(t, caps.Tools.ListChanged, "listChanged must be false so Crush 0.89 does not open subscriptions/listen")
+	if caps.Prompts != nil {
+		assert.False(t, caps.Prompts.ListChanged)
+	}
+	if caps.Resources != nil {
+		assert.False(t, caps.Resources.ListChanged)
+	}
 
 	tools, err := cs.ListTools(ctx, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, tools.Tools)
+}
+
+func TestStaticMCPCapabilities_SkillsDoNotAdvertiseListChanged(t *testing.T) {
+	reg := newMockRegistry()
+	services := &mcp.Services{
+		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
+		Registry: reg,
+	}
+	srv := New(services, WithMCPFeatures(func(s *mcpsdk.Server) {
+		s.AddPrompt(&mcpsdk.Prompt{Name: "skill_review", Description: "review"}, func(_ context.Context, _ *mcpsdk.GetPromptRequest) (*mcpsdk.GetPromptResult, error) {
+			return &mcpsdk.GetPromptResult{
+				Description: "review",
+				Messages: []*mcpsdk.PromptMessage{{
+					Role:    "user",
+					Content: &mcpsdk.TextContent{Text: "review this"},
+				}},
+			}, nil
+		})
+		s.AddResource(&mcpsdk.Resource{
+			Name: "review",
+			URI:  "switchboard-skill://review",
+		}, func(_ context.Context, req *mcpsdk.ReadResourceRequest) (*mcpsdk.ReadResourceResult, error) {
+			return &mcpsdk.ReadResourceResult{
+				Contents: []*mcpsdk.ResourceContents{{URI: req.Params.URI, MIMEType: "text/markdown", Text: "review this"}},
+			}, nil
+		})
+	}))
+
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ss, err := srv.mcpServer.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err)
+	defer ss.Close() //nolint:errcheck
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "crush", Version: "0.89.0"}, &mcpsdk.ClientOptions{
+		ToolListChangedHandler:     func(context.Context, *mcpsdk.ToolListChangedRequest) {},
+		PromptListChangedHandler:   func(context.Context, *mcpsdk.PromptListChangedRequest) {},
+		ResourceListChangedHandler: func(context.Context, *mcpsdk.ResourceListChangedRequest) {},
+	})
+	cs, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer cs.Close() //nolint:errcheck
+
+	caps := cs.InitializeResult().Capabilities
+	require.NotNil(t, caps.Prompts)
+	assert.False(t, caps.Prompts.ListChanged, "prompt listChanged must stay false after WithMCPFeatures registers skills")
+	require.NotNil(t, caps.Resources)
+	assert.False(t, caps.Resources.ListChanged, "resource listChanged must stay false after WithMCPFeatures registers skills")
+	require.NotNil(t, caps.Tools)
+	assert.False(t, caps.Tools.ListChanged)
+
+	prompts, err := cs.ListPrompts(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, prompts.Prompts, 1)
 }
 
 func TestStatelessHandler_Crush089ListTools(t *testing.T) {
