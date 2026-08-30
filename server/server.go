@@ -144,15 +144,20 @@ func WithMCPFeatures(register func(*mcpsdk.Server)) Option {
 	}
 }
 
-// staticMCPCapabilities advertises a stable tool list. Crush 0.89 / MCP
-// SDK 1.7 opens a long-lived subscriptions/listen stream whenever
-// tools.listChanged is true. Switchboard serves MCP from request-scoped
-// servers (especially hosted mcpd StatelessHandler), so that stream has
-// nowhere to live and the client tears down tools/list with it.
+// staticMCPCapabilities advertises a stable tool/prompt/resource list.
+// Crush 0.89 / MCP SDK 1.7 opens a long-lived subscriptions/listen stream
+// whenever any *.listChanged flag is true. Switchboard serves MCP from
+// request-scoped servers (especially hosted mcpd StatelessHandler), so that
+// stream has nowhere to live and the client tears down tools/list with it.
+// Prompts and resources must be pinned too: hosted skills register them via
+// WithMCPFeatures, and a nil Prompts/Resources field lets the SDK infer
+// listChanged=true.
 func staticMCPCapabilities() *mcpsdk.ServerCapabilities {
 	return &mcpsdk.ServerCapabilities{
-		Logging: &mcpsdk.LoggingCapabilities{},
-		Tools:   &mcpsdk.ToolCapabilities{ListChanged: false},
+		Logging:   &mcpsdk.LoggingCapabilities{},
+		Tools:     &mcpsdk.ToolCapabilities{ListChanged: false},
+		Prompts:   &mcpsdk.PromptCapabilities{ListChanged: false},
+		Resources: &mcpsdk.ResourceCapabilities{ListChanged: false},
 	}
 }
 
