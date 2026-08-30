@@ -12,7 +12,8 @@ import (
 )
 
 type projectInterop struct {
-	store *project.Store
+	store    *project.Store
+	injected bool
 }
 
 type handlerFunc func(context.Context, *projectInterop, map[string]any) (*mcp.ToolResult, error)
@@ -33,9 +34,18 @@ func New() mcp.Integration {
 	return &projectInterop{}
 }
 
+// NewWithCatalog constructs ProjectInterop over an already-loaded catalog.
+// Configure will not allocate a second store.
+func NewWithCatalog(store *project.Store) mcp.Integration {
+	return &projectInterop{store: store, injected: true}
+}
+
 func (p *projectInterop) Name() string { return "projectinterop" }
 
 func (p *projectInterop) Configure(_ context.Context, creds mcp.Credentials) error {
+	if p.injected && p.store != nil {
+		return nil
+	}
 	root := strings.TrimSpace(creds["config_root"])
 	if root == "" {
 		root = project.DefaultConfigDir()
@@ -83,8 +93,8 @@ func listProjects(_ context.Context, p *projectInterop, _ map[string]any) (*mcp.
 	for _, definition := range all {
 		projects = append(projects, summary{
 			Name:   definition.Name,
-			Repo:   definition.Repo,
-			Branch: definition.Branch,
+			Repo:   definition.PrimaryRepo(),
+			Branch: definition.PrimaryBranch(),
 		})
 	}
 	slices.SortFunc(projects, func(a, b summary) int {
@@ -98,7 +108,7 @@ func getProject(_ context.Context, p *projectInterop, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	definition, ok := p.store.Get(name)
+	definition, ok := p.store.Definition(name)
 	if !ok {
 		return errResult(fmt.Errorf("project %q not found", name))
 	}
@@ -111,12 +121,11 @@ func createProject(_ context.Context, p *projectInterop, args map[string]any) (*
 		return errResult(err)
 	}
 	definition := &project.Definition{
-		Version: "1",
-		Name:    name,
-		Repo:    argString(args, "repo"),
-		Branch:  argString(args, "branch"),
+		Version:     "1",
+		Name:        name,
+		Description: argString(args, "description"),
 	}
-	if err := p.store.Create(definition); err != nil {
+	if err := p.store.CreateDefinition(definition); err != nil {
 		return errResult(err)
 	}
 	return jsonResult(definition)
@@ -147,7 +156,7 @@ func deleteProject(_ context.Context, p *projectInterop, args map[string]any) (*
 	if err != nil {
 		return errResult(err)
 	}
-	if err := p.store.Delete(name); err != nil {
+	if err := p.store.DeleteDefinition(name); err != nil {
 		return errResult(err)
 	}
 	return rawResult(fmt.Sprintf("project %q deleted", name))
@@ -158,7 +167,7 @@ func getContext(_ context.Context, p *projectInterop, args map[string]any) (*mcp
 	if err != nil {
 		return errResult(err)
 	}
-	definition, ok := p.store.Get(name)
+	definition, ok := p.store.Definition(name)
 	if !ok {
 		return errResult(fmt.Errorf("project %q not found", name))
 	}

@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +16,8 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/awm"
+	"github.com/daltoniam/switchboard/awmgrpc"
 	"github.com/daltoniam/switchboard/browser"
 	"github.com/daltoniam/switchboard/config"
 	"github.com/daltoniam/switchboard/daemon"
@@ -77,6 +81,7 @@ import (
 	"github.com/daltoniam/switchboard/version"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -86,8 +91,11 @@ func main() {
 	}
 
 	stdioMode := flag.Bool("stdio", false, "Run MCP server over stdio transport (default is HTTP)")
-	port := flag.Int("port", 3847, "Port for the HTTP server")
+	port := flag.Int("port", 3847, "Port for the HTTP/MCP server and shared h2c gRPC listener")
+	listenHost := flag.String("listen-host", "127.0.0.1", "TCP listen host for HTTP/MCP and shared h2c gRPC (default loopback; set 0.0.0.0 to expose)")
+	grpcSocket := flag.String("grpc-socket", "", "Optional Unix-domain socket for native AWM gRPC only (does not serve HTTP/MCP)")
 	discoverAll := flag.Bool("discover-all", false, "Search returns tools from all registered integrations, not just enabled ones")
+	verbose := flag.Bool("verbose", false, "Enable debug logging (compaction savings, request processing)")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 
@@ -96,46 +104,35 @@ func main() {
 		os.Exit(0)
 	}
 
-	runServer(*stdioMode, *port, *discoverAll)
+	configureLogging(*verbose)
+	runServer(*stdioMode, *port, *listenHost, *grpcSocket, *discoverAll)
+}
+
+func configureLogging(verbose bool) {
+	level := slog.LevelInfo
+	if verbose {
+		level = slog.LevelDebug
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
+	if verbose {
+		slog.Debug("verbose logging enabled")
+	}
 }
 
 func handleDaemon(args []string) {
-	fs := flag.NewFlagSet("daemon", flag.ExitOnError)
-	port := fs.Int("port", 3847, "Port for the HTTP server")
-	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, `Usage: switchboard daemon <command> [options]
-
-Commands:
-  install     Install as a system service (launchd on macOS, systemd on Linux)
-  uninstall   Remove the system service
-  start       Start the daemon
-  stop        Stop the daemon
-  status      Show daemon status
-  logs        Show log file path
-
-Options:
-`)
-		fs.PrintDefaults()
-	}
-
-	if len(args) == 0 {
-		fs.Usage()
+	opts, err := parseDaemonArgs(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	_ = fs.Parse(args)
-	remaining := fs.Args()
-
-	if len(remaining) == 0 {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	cmd := remaining[0]
+	port := opts.port
+	verbose := opts.verbose
+	cmd := opts.cmd
 
 	switch cmd {
 	case "install":
-		if err := daemon.Install(*port); err != nil {
+		if err := daemon.Install(port, verbose); err != nil {
 			log.Fatalf("Install failed: %v", err)
 		}
 		fmt.Println("Service installed. Run 'switchboard daemon start' to start.")
@@ -144,18 +141,18 @@ Options:
 			log.Fatalf("Uninstall failed: %v", err)
 		}
 	case "start":
-		status, _ := daemon.GetStatus(*port)
+		status, _ := daemon.GetStatus(port)
 		if status != nil && status.Running {
 			fmt.Printf("Switchboard is already running (PID %d)\n", status.PID)
 			os.Exit(0)
 		}
-		if err := daemon.Start(*port); err != nil {
+		if err := daemon.Start(port, verbose); err != nil {
 			log.Fatalf("Start failed: %v", err)
 		}
 		time.Sleep(time.Second)
-		status, _ = daemon.GetStatus(*port)
+		status, _ = daemon.GetStatus(port)
 		if status != nil && status.Running {
-			fmt.Printf("Switchboard started (PID %d) on port %d\n", status.PID, *port)
+			fmt.Printf("Switchboard started (PID %d) on port %d\n", status.PID, port)
 			if status.Healthy {
 				fmt.Println("Health check: OK")
 			}
@@ -169,7 +166,7 @@ Options:
 		}
 		fmt.Println("Switchboard stopped")
 	case "status":
-		status, err := daemon.GetStatus(*port)
+		status, err := daemon.GetStatus(port)
 		if err != nil {
 			log.Fatalf("Status check failed: %v", err)
 		}
@@ -182,14 +179,18 @@ Options:
 		}
 		fmt.Printf("Switchboard is running (PID %d)\n", status.PID)
 		if status.Healthy {
-			fmt.Printf("Health: OK (port %d)\n", *port)
+			fmt.Printf("Health: OK (port %d)\n", port)
 		} else {
-			fmt.Printf("Health: NOT OK (port %d)\n", *port)
+			fmt.Printf("Health: NOT OK (port %d)\n", port)
 		}
 		if daemon.IsServiceInstalled() {
 			fmt.Println("Service: installed")
 		}
 	case "logs":
+		if daemon.IsSystemdInstalled() {
+			fmt.Println("journalctl --user -u switchboard -f")
+			return
+		}
 		logPath, err := daemon.LogPath()
 		if err != nil {
 			log.Fatalf("Failed to get log path: %v", err)
@@ -197,12 +198,57 @@ Options:
 		fmt.Println(logPath)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown daemon command: %s\n", cmd)
-		fs.Usage()
 		os.Exit(1)
 	}
 }
 
-func runServer(stdioMode bool, port int, discoverAll bool) {
+type daemonOpts struct {
+	cmd     string
+	port    int
+	verbose bool
+}
+
+func parseDaemonArgs(args []string) (daemonOpts, error) {
+	fs := flag.NewFlagSet("daemon", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	port := fs.Int("port", 3847, "Port for the HTTP server")
+	verbose := fs.Bool("verbose", false, "Enable debug logging in the installed/started daemon")
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, `Usage: switchboard daemon <command> [options]
+
+Commands:
+  install     Install as a system service (launchd on macOS, systemd on Linux)
+  uninstall   Remove the system service
+  start       Start the daemon
+  stop        Stop the daemon
+  status      Show daemon status
+  logs        Show how to follow daemon logs
+
+Options:
+`)
+		fs.PrintDefaults()
+	}
+
+	if err := fs.Parse(args); err != nil {
+		return daemonOpts{}, err
+	}
+	remaining := fs.Args()
+	if len(remaining) == 0 {
+		fs.Usage()
+		return daemonOpts{}, fmt.Errorf("daemon command required")
+	}
+
+	cmd := remaining[0]
+	if len(remaining) > 1 {
+		if err := fs.Parse(remaining[1:]); err != nil {
+			return daemonOpts{}, err
+		}
+	}
+
+	return daemonOpts{cmd: cmd, port: *port, verbose: *verbose}, nil
+}
+
+func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discoverAll bool) {
 	cfgMgr, err := config.NewManager()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -234,6 +280,19 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	gpeopleIntegration := gpeople.New()
 	gmeetIntegration := gmeet.New()
 	amazonIntegration := amazon.New()
+
+	// One process-wide filesystem catalog. ProjectInterop and the
+	// project-scoped router receive this same object; neither allocates
+	// another store.
+	projectIntegrationConfig, _ := cfgMgr.GetIntegration("projectinterop")
+	projectStore := project.NewStore(projectConfigRoot(projectIntegrationConfig))
+	if err := projectStore.Load(); err != nil {
+		log.Fatalf("Failed to load project catalog: %v", err)
+	}
+	if names := projectStore.Names(); len(names) > 0 {
+		log.Printf("Loaded %d project(s): %v", len(names), names)
+	}
+
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
 		github.New(),
@@ -250,7 +309,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		elasticsearch.New(),
 		pganalyze.New(),
 		rwx.New(),
-		projectinterop.New(),
+		projectinterop.NewWithCatalog(projectStore),
 		ramp.New(),
 		ynab.New(),
 		stripe.New(),
@@ -307,6 +366,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	go func() { _ = projectStore.Watch(ctx) }()
 
 	// Periodic metrics flush. Flush is a no-op when not dirty, so this
 	// produces zero disk traffic during idle periods.
@@ -370,6 +430,30 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 			server.NewFileSessionStore(server.DefaultSessionDir(), server.DefaultSessionTTL),
 		))
 	}
+	// Work profiles/sessions/agent profiles live under the Switchboard config root.
+	workStore := awm.NewStore(projectStore.ConfigDir())
+	workStore.SetCatalog(projectStore)
+	projectStore.SetResourcePresence(workStore)
+	if _, err := workStore.EnsureDefaultWorkProfile(ctx); err != nil {
+		log.Printf("WARN: ensure default work profile: %v", err)
+	}
+	catalogWrites := mcp.ProjectCatalogWritesEnabled(cfg.ProjectCatalog)
+	serverOpts = append(serverOpts, server.WithProjectWorkModel(workStore, catalogWrites))
+	log.Printf("Project work-model store: %s (writes_enabled=%v)", workStore.Root(), catalogWrites)
+	// Shared integrity rule for canonical delete and projectinterop DeleteCompatibility.
+	projectStore.SetDeleteGuard(workStore)
+
+	if mcp.ProjectCatalogEnabled(cfg.ProjectCatalog) {
+		bus := project.NewEventBus()
+		projectStore.SetEventBus(bus)
+		catalogSrv := server.NewProjectCatalogServer(projectStore, projectStore, projectStore, projectStore, server.ProjectCatalogOptions{
+			WritesEnabled: catalogWrites,
+		})
+		catalogSrv.SetWorkGuard(workStore)
+		catalogSrv.StartEventBridge(bus)
+		serverOpts = append(serverOpts, server.WithProjectCatalog(catalogSrv))
+		log.Printf("Project Catalog on /mcp (writes_enabled=%v)", catalogWrites)
+	}
 	srv := server.New(services, serverOpts...)
 
 	if stdioMode {
@@ -386,21 +470,12 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		defer func() { _ = daemon.RemovePID() }()
 	}
 
-	projectIntegrationConfig, _ := cfgMgr.GetIntegration("projectinterop")
-	projectStore := project.NewStore(projectConfigRoot(projectIntegrationConfig))
-	if err := projectStore.Load(); err != nil {
-		log.Printf("WARN: failed to load project definitions: %v", err)
-	}
-	if names := projectStore.Names(); len(names) > 0 {
-		log.Printf("Loaded %d project(s): %v", len(names), names)
-	}
-
 	projectRouter := server.NewProjectRouter(services, projectStore, "", srv.SearchIndex())
 
-	mux := http.NewServeMux()
-
-	mux.Handle("/mcp", srv.Handler())
-	mux.Handle("/mcp/{project}", projectRouter.Handler())
+	mux := server.BuildHTTPMux(server.HTTPMuxConfig{
+		MCP:     srv.StatelessHandler(),
+		Project: projectRouter.Handler(),
+	})
 
 	// Initialize plugin marketplace.
 	var mpCfg marketplace.Config
@@ -473,19 +548,59 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	cancelAutoUpdate := mp.StartAutoUpdateLoop(ctx)
 	defer cancelAutoUpdate()
 
-	ws := web.New(services, port, mp, wasmLoader, web.WithConfigChangeHook(srv.RefreshSearchIndex))
+	ws := web.New(services, port, mp, wasmLoader,
+		web.WithConfigChangeHook(srv.RefreshSearchIndex),
+		web.WithProjectCatalog(projectStore),
+		web.WithAWMStore(workStore),
+	)
 	mux.Handle("/", ws.Handler())
 
-	addr := fmt.Sprintf(":%d", port)
-	fmt.Fprintf(os.Stderr, "Switchboard %s on http://localhost:%d\n", version.String(), port)
-	fmt.Fprintf(os.Stderr, "  Web UI:  http://localhost:%d/\n", port)
-	fmt.Fprintf(os.Stderr, "  MCP:     http://localhost:%d/mcp\n", port)
-	fmt.Fprintf(os.Stderr, "  Project: http://localhost:%d/mcp/{project}\n", port)
+	// Native gRPC shares the HTTP port over h2c and uses the exact same
+	// catalog/work stores as MCP. No generic JSON dispatch exists on this path.
+	grpcOpts := awmgrpc.Options{
+		CatalogEnabled: mcp.ProjectCatalogEnabled(cfg.ProjectCatalog),
+		WritesEnabled:  catalogWrites,
+	}
+	grpcServer := awmgrpc.NewServer(projectStore, projectStore, projectStore, workStore, grpcOpts)
+	defer grpcServer.GracefulStop()
+	protocolHandler := awmgrpc.MultiplexHTTPAndGRPC(grpcServer, mux)
 
-	httpServer := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	addr, err := awmgrpc.TCPListenAddr(listenHost, port)
+	if err != nil {
+		log.Fatalf("Invalid listen address: %v", err)
+	}
+	displayHost := listenHost
+	if displayHost == "" {
+		displayHost = "127.0.0.1"
+	}
+	fmt.Fprintf(os.Stderr, "Switchboard %s on http://%s:%d\n", version.String(), displayHost, port)
+	fmt.Fprintf(os.Stderr, "  Web UI:  http://%s:%d/\n", displayHost, port)
+	fmt.Fprintf(os.Stderr, "  MCP:     http://%s:%d/mcp\n", displayHost, port)
+	fmt.Fprintf(os.Stderr, "  Project: http://%s:%d/mcp/{project}\n", displayHost, port)
+	fmt.Fprintf(os.Stderr, "  AWM gRPC (h2c): %s\n", addr)
+
+	var udsListener net.Listener
+	if grpcSocket != "" {
+		uds, err := awmgrpc.ListenUnix(grpcSocket)
+		if err != nil {
+			log.Fatalf("AWM gRPC unix socket: %v", err)
+		}
+		udsListener = uds
+		fmt.Fprintf(os.Stderr, "  AWM gRPC (UDS): unix://%s (native gRPC only; HTTP/MCP stay on TCP)\n", grpcSocket)
+		go func() {
+			if err := grpcServer.Serve(uds); err != nil && err != grpc.ErrServerStopped {
+				log.Printf("AWM gRPC unix socket error: %v", err)
+			}
+		}()
+	}
+
+	httpServer := &http.Server{Addr: addr, Handler: protocolHandler, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		<-ctx.Done()
 		_ = httpServer.Close()
+		if udsListener != nil {
+			_ = udsListener.Close()
+		}
 	}()
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {

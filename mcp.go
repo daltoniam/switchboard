@@ -204,6 +204,42 @@ type Config struct {
 	// DollarsPerMTokInput is the price per million input tokens used to
 	// compute the dollar estimate. Zero falls back to DefaultInputDollarsPerMTok.
 	DollarsPerMTokInput float64 `json:"dollars_per_mtok_input,omitempty"`
+
+	// ProjectCatalog configures Project Catalog tools and resources on the
+	// main /mcp endpoint. Omitted or empty defaults to enabled with writes on.
+	ProjectCatalog ProjectCatalogConfig `json:"project_catalog,omitempty"`
+}
+
+// ProjectCatalogConfig controls catalog tools/resources on the main MCP server.
+// Nil Enabled means default-on (true). Nil WritesEnabled means default-on (true)
+// for local/dev convenience; network-exposed deployments must set
+// writes_enabled=false or put /mcp behind an external auth layer.
+type ProjectCatalogConfig struct {
+	Enabled       *bool `json:"enabled,omitempty"`
+	WritesEnabled *bool `json:"writes_enabled,omitempty"`
+}
+
+// ProjectCatalogEnabled reports whether catalog tools/resources are on (default true).
+func ProjectCatalogEnabled(cfg ProjectCatalogConfig) bool {
+	if cfg.Enabled == nil {
+		return true
+	}
+	return *cfg.Enabled
+}
+
+// ProjectCatalogWritesEnabled reports whether canonical writes are on (default true).
+// When true on a reachable /mcp endpoint, create/update/delete are unauthenticated
+// unless an external proxy authenticates callers.
+func ProjectCatalogWritesEnabled(cfg ProjectCatalogConfig) bool {
+	if cfg.WritesEnabled == nil {
+		return true
+	}
+	return *cfg.WritesEnabled
+}
+
+// ValidateProjectCatalogConfig is retained for call-site compatibility.
+func ValidateProjectCatalogConfig(cfg ProjectCatalogConfig) error {
+	return nil
 }
 
 // ToolDefinition describes an API operation an integration exposes.

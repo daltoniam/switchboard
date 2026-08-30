@@ -21,7 +21,7 @@ func TestInstallSystemd_GeneratesUnit(t *testing.T) {
 	execCommand = fakeExecCommand
 	t.Cleanup(func() { execCommand = origExecCommand })
 
-	err := InstallSystemd(3847)
+	err := InstallSystemd(3847, false)
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(filepath.Join(tmp, systemdUnitName))
@@ -31,10 +31,59 @@ func TestInstallSystemd_GeneratesUnit(t *testing.T) {
 	assert.Contains(t, content, "[Unit]")
 	assert.Contains(t, content, "Description=Switchboard MCP Server")
 	assert.Contains(t, content, "--port 3847")
+	assert.NotContains(t, content, "--verbose")
 	assert.Contains(t, content, "Restart=on-failure")
 	assert.Contains(t, content, "[Install]")
 	assert.Contains(t, content, "WantedBy=default.target")
-	assert.Contains(t, content, logFileName)
+	assert.Contains(t, content, "StandardOutput=journal")
+	assert.Contains(t, content, "StandardError=journal")
+	assert.NotContains(t, content, "StandardOutput=append:")
+	assert.NotContains(t, content, logFileName)
+}
+
+func TestInstallSystemd_LogsToJournal(t *testing.T) {
+	tmp := t.TempDir()
+	origFunc := systemdUnitPathFunc
+	systemdUnitPathFunc = func() (string, error) {
+		return filepath.Join(tmp, systemdUnitName), nil
+	}
+	t.Cleanup(func() { systemdUnitPathFunc = origFunc })
+
+	origExecCommand := execCommand
+	execCommand = fakeExecCommand
+	t.Cleanup(func() { execCommand = origExecCommand })
+
+	err := InstallSystemd(3847, true)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(tmp, systemdUnitName))
+	require.NoError(t, err)
+
+	content := string(data)
+	assert.Contains(t, content, "--verbose")
+	assert.Contains(t, content, "StandardOutput=journal")
+	assert.Contains(t, content, "StandardError=journal")
+	assert.NotContains(t, content, "append:")
+}
+
+func TestInstallSystemd_VerboseAddsFlag(t *testing.T) {
+	tmp := t.TempDir()
+	origFunc := systemdUnitPathFunc
+	systemdUnitPathFunc = func() (string, error) {
+		return filepath.Join(tmp, systemdUnitName), nil
+	}
+	t.Cleanup(func() { systemdUnitPathFunc = origFunc })
+
+	origExecCommand := execCommand
+	execCommand = fakeExecCommand
+	t.Cleanup(func() { execCommand = origExecCommand })
+
+	err := InstallSystemd(3847, true)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(tmp, systemdUnitName))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "--verbose")
 }
 
 func TestUninstallSystemd_RemovesUnit(t *testing.T) {
@@ -87,7 +136,7 @@ func TestSystemdUnitTemplate_CustomPort(t *testing.T) {
 	execCommand = fakeExecCommand
 	t.Cleanup(func() { execCommand = origExecCommand })
 
-	err := InstallSystemd(8080)
+	err := InstallSystemd(8080, false)
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(filepath.Join(tmp, systemdUnitName))

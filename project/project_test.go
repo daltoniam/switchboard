@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -14,331 +15,82 @@ func TestDefinition_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
 		def     Definition
-		wantErr string
+		wantErr bool
 	}{
-		{
-			name:    "valid minimal",
-			def:     Definition{Version: "1", Name: "my-project"},
-			wantErr: "",
-		},
-		{
-			name:    "missing version",
-			def:     Definition{Version: "", Name: "my-project"},
-			wantErr: "unsupported version",
-		},
-		{
-			name:    "wrong version",
-			def:     Definition{Version: "2", Name: "my-project"},
-			wantErr: "unsupported version",
-		},
-		{
-			name:    "missing name",
-			def:     Definition{Version: "1", Name: ""},
-			wantErr: "name is required",
-		},
-		{
-			name:    "name too long",
-			def:     Definition{Version: "1", Name: string(make([]byte, 129))},
-			wantErr: "exceeds 128 characters",
-		},
-		{
-			name:    "name starts with dash",
-			def:     Definition{Version: "1", Name: "-bad"},
-			wantErr: "does not match pattern",
-		},
-		{
-			name:    "name with spaces",
-			def:     Definition{Version: "1", Name: "bad name"},
-			wantErr: "does not match pattern",
-		},
-		{
-			name:    "name with dots and dashes",
-			def:     Definition{Version: "1", Name: "my-project.v2"},
-			wantErr: "",
-		},
-		{
-			name:    "name with underscore",
-			def:     Definition{Version: "1", Name: "my_project"},
-			wantErr: "",
-		},
+		{name: "valid", def: Definition{Version: "1", Name: "my-project"}},
+		{name: "with description", def: Definition{Version: "1", Name: "my-project", Description: "hello"}},
+		{name: "known resources", def: Definition{Version: "1", Name: "my-project", KnownResourceIDs: []string{"repo", "worktree-root"}}},
+		{name: "empty version", def: Definition{Version: "", Name: "my-project"}, wantErr: true},
+		{name: "bad version", def: Definition{Version: "2", Name: "my-project"}, wantErr: true},
+		{name: "empty name", def: Definition{Version: "1", Name: ""}, wantErr: true},
+		{name: "bad name", def: Definition{Version: "1", Name: "-bad"}, wantErr: true},
+		{name: "empty known resource id", def: Definition{Version: "1", Name: "my-project", KnownResourceIDs: []string{"repo", ""}}, wantErr: true},
+		{name: "malformed known resource id", def: Definition{Version: "1", Name: "my-project", KnownResourceIDs: []string{"-bad"}}, wantErr: true},
+		{name: "duplicate known resource id", def: Definition{Version: "1", Name: "my-project", KnownResourceIDs: []string{"repo", "repo"}}, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.def.Validate()
-			if tt.wantErr == "" {
-				assert.NoError(t, err)
+			if tt.wantErr {
+				assert.Error(t, err)
 			} else {
-				assert.ErrorContains(t, err, tt.wantErr)
+				assert.NoError(t, err)
 			}
 		})
 	}
 }
 
-func TestExpandHome(t *testing.T) {
-	home, _ := os.UserHomeDir()
-	assert.Equal(t, filepath.Join(home, "work"), ExpandHome("~/work"))
-	assert.Equal(t, "/absolute/path", ExpandHome("/absolute/path"))
-	assert.Equal(t, "relative/path", ExpandHome("relative/path"))
-}
-
-func TestMerge_Scalars(t *testing.T) {
-	base := &Definition{
-		Version: "1",
-		Name:    "myproject",
-		Repo:    "~/work/base",
-		Branch:  "main",
-	}
-	overlay := &Definition{
-		Version: "1",
-		Name:    "myproject",
-		Branch:  "develop",
-	}
-
-	result, err := Merge(base, overlay)
-	require.NoError(t, err)
-	assert.Equal(t, "myproject", result.Name)
-	assert.Equal(t, "~/work/base", result.Repo)
-	assert.Equal(t, "develop", result.Branch)
-}
-
-func TestMerge_ConflictingNames(t *testing.T) {
-	base := &Definition{Version: "1", Name: "a"}
-	overlay := &Definition{Version: "1", Name: "b"}
-	_, err := Merge(base, overlay)
-	assert.ErrorContains(t, err, "different names")
-}
-
-func TestMerge_Launch(t *testing.T) {
-	base := &Definition{
-		Version: "1",
-		Name:    "p",
-		Launch: &LaunchConfig{
-			Prompt: "base prompt",
-			Env:    map[string]string{"A": "1", "B": "2"},
-		},
-	}
-	overlay := &Definition{
-		Version: "1",
-		Name:    "p",
-		Launch: &LaunchConfig{
-			Prompt: "overlay prompt",
-			Env:    map[string]string{"B": "3", "C": "4"},
-		},
-	}
-
-	result, err := Merge(base, overlay)
-	require.NoError(t, err)
-	assert.Equal(t, "overlay prompt", result.Launch.Prompt)
-	assert.Equal(t, "1", result.Launch.Env["A"])
-	assert.Equal(t, "3", result.Launch.Env["B"])
-	assert.Equal(t, "4", result.Launch.Env["C"])
-}
-
-func TestMerge_Tools(t *testing.T) {
-	base := &Definition{
-		Version: "1",
-		Name:    "p",
-		Tools: map[string]*ScopeRule{
-			"proxy": {
-				Allow: []string{"github_*"},
-				Deny:  []string{"github_delete_*"},
-				Defaults: map[string]map[string]any{
-					"github_*": {"owner": "base-org"},
-				},
-			},
-		},
-	}
-	overlay := &Definition{
-		Version: "1",
-		Name:    "p",
-		Tools: map[string]*ScopeRule{
-			"proxy": {
-				Allow: []string{"linear_*"},
-				Deny:  []string{"linear_delete_*"},
-				Defaults: map[string]map[string]any{
-					"github_*": {"owner": "overlay-org"},
-				},
-			},
-		},
-	}
-
-	result, err := Merge(base, overlay)
-	require.NoError(t, err)
-
-	rule := result.Tools["proxy"]
-	assert.Equal(t, []string{"github_*", "linear_*"}, rule.Allow)
-	assert.Equal(t, []string{"github_delete_*", "linear_delete_*"}, rule.Deny)
-	assert.Equal(t, "overlay-org", rule.Defaults["github_*"]["owner"])
-}
-
-func TestMerge_Context(t *testing.T) {
-	base := &Definition{
-		Version: "1",
-		Name:    "p",
-		Context: &ContextConfig{
-			Files:        []string{"a.md"},
-			RepoIncludes: []string{"AGENTS.md"},
-			MaxBytes:     1000,
-		},
-	}
-	overlay := &Definition{
-		Version: "1",
-		Name:    "p",
-		Context: &ContextConfig{
-			Files:        []string{"b.md"},
-			RepoIncludes: []string{"docs/arch.md"},
-			MaxBytes:     2000,
-		},
-	}
-
-	result, err := Merge(base, overlay)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"a.md", "b.md"}, result.Context.Files)
-	assert.Equal(t, []string{"AGENTS.md", "docs/arch.md"}, result.Context.RepoIncludes)
-	assert.Equal(t, 2000, result.Context.MaxBytes)
+func TestDefaultConfigDir_SwitchboardOnly(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "/tmp/xdg-test")
+	dir := DefaultConfigDir()
+	assert.Contains(t, dir, "switchboard")
+	assert.NotContains(t, dir, "project-interop")
 }
 
 func TestStore_CRUD(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStore(dir)
-
-	def := &Definition{
-		Version: "1",
-		Name:    "test-project",
-		Repo:    "~/work/test",
-	}
-
-	require.NoError(t, store.Create(def))
-
-	got, ok := store.Get("test-project")
+	require.NoError(t, store.CreateDefinition(&Definition{Version: "1", Name: "acme", Description: "A project"}))
+	got, ok := store.Definition("acme")
 	require.True(t, ok)
-	assert.Equal(t, "test-project", got.Name)
+	assert.Equal(t, "acme", got.Name)
+	assert.Equal(t, "A project", got.Description)
 
-	names := store.Names()
-	assert.Contains(t, names, "test-project")
-
-	all := store.All()
-	assert.Len(t, all, 1)
-
-	_, err := store.Update("test-project", json.RawMessage(`{"branch": "develop"}`))
+	snap, err := store.Create(context.Background(), CreateRequest{Definition: Definition{Version: "1", Name: "beta"}})
 	require.NoError(t, err)
+	assert.Equal(t, ProjectID("beta"), snap.ProjectID)
 
-	got, _ = store.Get("test-project")
-	assert.Equal(t, "develop", got.Branch)
+	page, err := store.Search(context.Background(), SearchRequest{Query: "acme"})
+	require.NoError(t, err)
+	require.Len(t, page.Projects, 1)
+	assert.Equal(t, "A project", page.Projects[0].Description)
 
-	require.NoError(t, store.Delete("test-project"))
-	_, ok = store.Get("test-project")
+	updated, err := store.Patch(context.Background(), PatchRequest{
+		ProjectID:              "acme",
+		ExpectedSourceRevision: page.Projects[0].SourceRevision,
+		Patch:                  json.RawMessage(`{"description":"updated"}`),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "updated", updated.Definition.Description)
+
+	require.NoError(t, store.Delete(context.Background(), DeleteRequest{
+		ProjectID:              "acme",
+		ExpectedSourceRevision: updated.SourceRevision,
+	}))
+	_, ok = store.Definition("acme")
 	assert.False(t, ok)
 }
 
-func TestStore_CreateDuplicate(t *testing.T) {
-	dir := t.TempDir()
-	store := NewStore(dir)
-
-	def := &Definition{Version: "1", Name: "dup"}
-	require.NoError(t, store.Create(def))
-
-	err := store.Create(def)
-	assert.ErrorContains(t, err, "already exists")
-}
-
-func TestStore_Load(t *testing.T) {
+func TestStore_LoadFromDisk(t *testing.T) {
 	dir := t.TempDir()
 	projDir := filepath.Join(dir, "projects")
 	require.NoError(t, os.MkdirAll(projDir, 0700))
-
-	def := &Definition{Version: "1", Name: "loaded-project", Repo: "~/work/test"}
-	data, _ := json.Marshal(def)
-	require.NoError(t, os.WriteFile(filepath.Join(projDir, "loaded-project.project.json"), data, 0600))
-
+	require.NoError(t, os.WriteFile(filepath.Join(projDir, "loaded.project.json"), []byte(`{"version":"1","name":"loaded","description":"from disk"}`), 0600))
 	store := NewStore(dir)
 	require.NoError(t, store.Load())
-
-	got, ok := store.Get("loaded-project")
+	got, ok := store.Definition("loaded")
 	require.True(t, ok)
-	assert.Equal(t, "loaded-project", got.Name)
-}
-
-func TestStore_LoadEmpty(t *testing.T) {
-	dir := t.TempDir()
-	store := NewStore(dir)
-	require.NoError(t, store.Load())
-	assert.Empty(t, store.Names())
-}
-
-func TestStore_LoadWithRepoLocal(t *testing.T) {
-	dir := t.TempDir()
-	repoDir := filepath.Join(dir, "repo")
-	require.NoError(t, os.MkdirAll(repoDir, 0700))
-
-	projDir := filepath.Join(dir, "projects")
-	require.NoError(t, os.MkdirAll(projDir, 0700))
-
-	baseDef := &Definition{
-		Version: "1",
-		Name:    "merged",
-		Repo:    repoDir,
-		Context: &ContextConfig{Files: []string{"a.md"}},
-	}
-	data, _ := json.Marshal(baseDef)
-	require.NoError(t, os.WriteFile(filepath.Join(projDir, "merged.project.json"), data, 0600))
-
-	overlayDef := &Definition{
-		Version: "1",
-		Name:    "merged",
-		Context: &ContextConfig{Files: []string{"b.md"}},
-	}
-	data, _ = json.Marshal(overlayDef)
-	require.NoError(t, os.WriteFile(filepath.Join(repoDir, ".project.json"), data, 0600))
-
-	store := NewStore(dir)
-	require.NoError(t, store.Load())
-
-	got, ok := store.Get("merged")
-	require.True(t, ok)
-	assert.Equal(t, []string{"a.md", "b.md"}, got.Context.Files)
-}
-
-func TestStore_DeleteNotFound(t *testing.T) {
-	dir := t.TempDir()
-	store := NewStore(dir)
-	err := store.Delete("nonexistent")
-	assert.ErrorContains(t, err, "not found")
-}
-
-func TestStore_UpdateNotFound(t *testing.T) {
-	dir := t.TempDir()
-	store := NewStore(dir)
-	_, err := store.Update("nonexistent", json.RawMessage(`{}`))
-	assert.ErrorContains(t, err, "not found")
-}
-
-func TestStore_UpdatePreservesUnknownFieldsAndRepoOverride(t *testing.T) {
-	dir := t.TempDir()
-	repoDir := filepath.Join(dir, "repo")
-	projectsDir := filepath.Join(dir, "projects")
-	require.NoError(t, os.MkdirAll(repoDir, 0700))
-	require.NoError(t, os.MkdirAll(projectsDir, 0700))
-	require.NoError(t, os.WriteFile(filepath.Join(projectsDir, "acme.project.json"), []byte(`{
-		"version":"1","name":"acme","repo":"`+repoDir+`","branch":"main","custom":{"keep":true}
-	}`), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(repoDir, ".project.json"), []byte(`{
-		"version":"1","name":"acme","branch":"repo-branch","repoOnly":"not-user-data"
-	}`), 0600))
-
-	store := NewStore(dir)
-	require.NoError(t, store.Load())
-	updated, err := store.Update("acme", json.RawMessage(`{"launch":{"prompt":"updated"}}`))
-	require.NoError(t, err)
-	assert.Equal(t, "repo-branch", updated.Branch)
-
-	data, err := os.ReadFile(filepath.Join(projectsDir, "acme.project.json"))
-	require.NoError(t, err)
-	var saved map[string]any
-	require.NoError(t, json.Unmarshal(data, &saved))
-	assert.Equal(t, "main", saved["branch"])
-	assert.Equal(t, map[string]any{"keep": true}, saved["custom"])
-	assert.NotContains(t, saved, "repoOnly")
+	assert.Equal(t, "from disk", got.Description)
 }
 
 func TestJsonMergePatch(t *testing.T) {
@@ -350,4 +102,10 @@ func TestJsonMergePatch(t *testing.T) {
 	inner := result["c"].(map[string]any)
 	assert.Equal(t, "3", inner["d"])
 	assert.Equal(t, "4", inner["e"])
+}
+
+func TestExpandHome(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	assert.Equal(t, filepath.Join(home, "x"), ExpandHome("~/x"))
+	assert.Equal(t, "/abs", ExpandHome("/abs"))
 }

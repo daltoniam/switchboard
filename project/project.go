@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,26 +13,27 @@ import (
 
 var nameRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
-// Definition represents a project-interop project definition (.project.json).
-type Definition struct {
-	Schema     string                     `json:"$schema,omitempty"`
-	Version    string                     `json:"version"`
-	Name       string                     `json:"name"`
-	Repo       string                     `json:"repo,omitempty"`
-	Branch     string                     `json:"branch,omitempty"`
-	Launch     *LaunchConfig              `json:"launch,omitempty"`
-	Tools      map[string]*ScopeRule      `json:"tools,omitempty"`
-	Context    *ContextConfig             `json:"context,omitempty"`
-	Agents     *AgentsConfig              `json:"agents,omitempty"`
-	Extensions map[string]any             `json:"extensions,omitempty"`
-	Additional map[string]json.RawMessage `json:"-"`
-}
+// PolicyDocument is the closed project policy shape implemented by
+// Switchboard. Keys name capabilities; values indicate whether each
+// capability is allowed.
+type PolicyDocument map[string]bool
 
-// LaunchConfig controls how agents are bootstrapped.
-type LaunchConfig struct {
-	Prompt     string            `json:"prompt,omitempty"`
-	PromptFile string            `json:"promptFile,omitempty"`
-	Env        map[string]string `json:"env,omitempty"`
+// Definition is a Switchboard project catalog entry. The AWM projection is
+// version, name, display name, description, boolean capability policy, and
+// known_resource_ids (the typed Project.known_resources observation).
+// Tools, Agents, and Additional remain compatibility-only fields for existing
+// project-scoped gateway definitions and are not writable through AWM gRPC.
+type Definition struct {
+	Schema           string                     `json:"$schema,omitempty"`
+	Version          string                     `json:"version"`
+	Name             string                     `json:"name"`
+	DisplayName      string                     `json:"display_name,omitempty"`
+	Description      string                     `json:"description,omitempty"`
+	Policy           PolicyDocument             `json:"policy,omitempty"`
+	KnownResourceIDs []string                   `json:"known_resource_ids,omitempty"`
+	Tools            map[string]*ScopeRule      `json:"tools,omitempty"`
+	Agents           *AgentsConfig              `json:"agents,omitempty"`
+	Additional       map[string]json.RawMessage `json:"-"`
 }
 
 // ScopeRule defines allow/deny/defaults for a single MCP server.
@@ -41,7 +43,7 @@ type ScopeRule struct {
 	Defaults map[string]map[string]any `json:"defaults,omitempty"`
 }
 
-// ContextConfig specifies context files and assembly limits.
+// ContextConfig is retained for role context overrides.
 type ContextConfig struct {
 	Files        []string `json:"files,omitempty"`
 	RepoIncludes []string `json:"repoIncludes,omitempty"`
@@ -61,7 +63,7 @@ type RoleDefinition struct {
 	ContextOverrides *ContextConfig        `json:"contextOverrides,omitempty"`
 }
 
-// Validate checks that the definition has required fields and valid values.
+// Validate checks required catalog fields.
 func (d *Definition) Validate() error {
 	if d.Version != "1" {
 		return fmt.Errorf("unsupported version %q (must be \"1\")", d.Version)
@@ -75,6 +77,36 @@ func (d *Definition) Validate() error {
 	if !nameRE.MatchString(d.Name) {
 		return fmt.Errorf("name %q does not match pattern ^[a-zA-Z0-9][a-zA-Z0-9._-]*$", d.Name)
 	}
+	for capability := range d.Policy {
+		if strings.TrimSpace(capability) == "" {
+			return fmt.Errorf("policy capability names must not be empty")
+		}
+	}
+	seen := make(map[string]struct{}, len(d.KnownResourceIDs))
+	for i, id := range d.KnownResourceIDs {
+		id = strings.TrimSpace(id)
+		if err := validateKnownResourceID(id); err != nil {
+			return err
+		}
+		if _, dup := seen[id]; dup {
+			return fmt.Errorf("duplicate known_resource_ids entry %q", id)
+		}
+		seen[id] = struct{}{}
+		d.KnownResourceIDs[i] = id
+	}
+	return nil
+}
+
+func validateKnownResourceID(id string) error {
+	if id == "" {
+		return fmt.Errorf("known_resource_ids entries must not be empty")
+	}
+	if len(id) > 128 {
+		return fmt.Errorf("known_resource_ids entry exceeds 128 characters")
+	}
+	if !nameRE.MatchString(id) {
+		return fmt.Errorf("known_resource_ids entry %q does not match pattern ^[a-zA-Z0-9][a-zA-Z0-9._-]*$", id)
+	}
 	return nil
 }
 
@@ -87,81 +119,81 @@ func ExpandHome(path string) string {
 	return path
 }
 
-// ResolvedRepo returns the absolute path to the project repository.
-func (d *Definition) ResolvedRepo() string {
-	if d.Repo == "" {
-		return ""
-	}
-	return ExpandHome(d.Repo)
-}
+// ResolvedRepo returns empty; projects no longer bind a primary repository path.
+func (d *Definition) ResolvedRepo() string { return "" }
 
-// Merge merges a higher-precedence definition onto a base, returning a new Definition.
-// The base is the user-level definition; overlay is the repo-local override.
+// PrimaryRepo returns empty under the id+description schema.
+func (d *Definition) PrimaryRepo() string { return "" }
+
+// PrimaryBranch returns empty under the id+description schema.
+func (d *Definition) PrimaryBranch() string { return "" }
+
+// Merge merges a higher-precedence definition onto a base.
 func Merge(base, overlay *Definition) (*Definition, error) {
 	if base.Name != "" && overlay.Name != "" && base.Name != overlay.Name {
 		return nil, fmt.Errorf("cannot merge projects with different names: %q vs %q", base.Name, overlay.Name)
 	}
-
-	result := &Definition{}
-
-	data, _ := json.Marshal(base)
-	_ = json.Unmarshal(data, result)
-
+	result := cloneDefinition(base)
+	if result == nil {
+		result = &Definition{}
+	}
 	if overlay.Schema != "" {
 		result.Schema = overlay.Schema
 	}
-	if overlay.Repo != "" {
-		result.Repo = overlay.Repo
+	if overlay.DisplayName != "" {
+		result.DisplayName = overlay.DisplayName
 	}
-	if overlay.Branch != "" {
-		result.Branch = overlay.Branch
+	if overlay.Description != "" {
+		result.Description = overlay.Description
 	}
-
-	result.Launch = mergeLaunch(base.Launch, overlay.Launch)
+	if overlay.Policy != nil {
+		result.Policy = clonePolicy(overlay.Policy)
+	}
+	if overlay.KnownResourceIDs != nil {
+		result.KnownResourceIDs = cloneKnownResourceIDs(overlay.KnownResourceIDs)
+	}
+	if overlay.Version != "" {
+		result.Version = overlay.Version
+	}
 	result.Tools = mergeTools(base.Tools, overlay.Tools)
-	result.Context = mergeContext(base.Context, overlay.Context)
 	result.Agents = mergeAgents(base.Agents, overlay.Agents)
-	result.Extensions = mergeExtensions(base.Extensions, overlay.Extensions)
-
+	result.Additional = mergeAdditional(base.Additional, overlay.Additional)
 	return result, nil
 }
 
-func mergeLaunch(base, overlay *LaunchConfig) *LaunchConfig {
+func clonePolicy(in PolicyDocument) PolicyDocument {
+	if in == nil {
+		return nil
+	}
+	out := make(PolicyDocument, len(in))
+	for capability, allowed := range in {
+		out[capability] = allowed
+	}
+	return out
+}
+
+func mergeAdditional(base, overlay map[string]json.RawMessage) map[string]json.RawMessage {
 	if overlay == nil {
-		return base
+		return cloneAdditional(base)
 	}
 	if base == nil {
-		return overlay
+		return cloneAdditional(overlay)
 	}
-	result := &LaunchConfig{}
-	if overlay.Prompt != "" {
-		result.Prompt = overlay.Prompt
-	} else {
-		result.Prompt = base.Prompt
-	}
-	if overlay.PromptFile != "" {
-		result.PromptFile = overlay.PromptFile
-	} else {
-		result.PromptFile = base.PromptFile
-	}
-	result.Env = make(map[string]string)
-	for k, v := range base.Env {
-		result.Env[k] = v
-	}
-	for k, v := range overlay.Env {
-		result.Env[k] = v
+	result := cloneAdditional(base)
+	for k, v := range overlay {
+		result[k] = append(json.RawMessage(nil), v...)
 	}
 	return result
 }
 
 func mergeTools(base, overlay map[string]*ScopeRule) map[string]*ScopeRule {
 	if overlay == nil {
-		return base
+		return cloneTools(base)
 	}
 	if base == nil {
-		return overlay
+		return cloneTools(overlay)
 	}
-	result := make(map[string]*ScopeRule)
+	result := make(map[string]*ScopeRule, len(base)+len(overlay))
 	for k, v := range base {
 		result[k] = copyScopeRule(v)
 	}
@@ -186,11 +218,14 @@ func mergeTools(base, overlay map[string]*ScopeRule) map[string]*ScopeRule {
 }
 
 func copyScopeRule(r *ScopeRule) *ScopeRule {
+	if r == nil {
+		return nil
+	}
 	c := &ScopeRule{}
 	c.Allow = append(c.Allow, r.Allow...)
 	c.Deny = append(c.Deny, r.Deny...)
 	if r.Defaults != nil {
-		c.Defaults = make(map[string]map[string]any)
+		c.Defaults = make(map[string]map[string]any, len(r.Defaults))
 		for k, v := range r.Defaults {
 			c.Defaults[k] = v
 		}
@@ -198,36 +233,14 @@ func copyScopeRule(r *ScopeRule) *ScopeRule {
 	return c
 }
 
-func mergeContext(base, overlay *ContextConfig) *ContextConfig {
-	if overlay == nil {
-		return base
-	}
-	if base == nil {
-		return overlay
-	}
-	result := &ContextConfig{}
-	result.Files = append(result.Files, base.Files...)
-	result.Files = append(result.Files, overlay.Files...)
-	result.RepoIncludes = append(result.RepoIncludes, base.RepoIncludes...)
-	result.RepoIncludes = append(result.RepoIncludes, overlay.RepoIncludes...)
-	if overlay.MaxBytes > 0 {
-		result.MaxBytes = overlay.MaxBytes
-	} else {
-		result.MaxBytes = base.MaxBytes
-	}
-	return result
-}
-
 func mergeAgents(base, overlay *AgentsConfig) *AgentsConfig {
 	if overlay == nil {
-		return base
+		return cloneAgents(base)
 	}
 	if base == nil {
-		return overlay
+		return cloneAgents(overlay)
 	}
-	result := &AgentsConfig{
-		MaxConcurrent: base.MaxConcurrent,
-	}
+	result := &AgentsConfig{MaxConcurrent: base.MaxConcurrent}
 	if overlay.MaxConcurrent > 0 {
 		result.MaxConcurrent = overlay.MaxConcurrent
 	}
@@ -241,244 +254,6 @@ func mergeAgents(base, overlay *AgentsConfig) *AgentsConfig {
 	return result
 }
 
-func mergeExtensions(base, overlay map[string]any) map[string]any {
-	if overlay == nil {
-		return base
-	}
-	if base == nil {
-		return overlay
-	}
-	result := make(map[string]any)
-	for k, v := range base {
-		result[k] = v
-	}
-	for k, v := range overlay {
-		result[k] = v
-	}
-	return result
-}
-
-// Store manages project definitions in the user-level store.
-type Store struct {
-	configDir string
-	mu        sync.RWMutex
-	projects  map[string]*Definition
-}
-
-// NewStore creates a store rooted at the project-interop config directory.
-func NewStore(configDir string) *Store {
-	return &Store{
-		configDir: configDir,
-		projects:  make(map[string]*Definition),
-	}
-}
-
-// DefaultConfigDir returns the default project-interop config directory.
-func DefaultConfigDir() string {
-	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
-		return filepath.Join(dir, "project-interop")
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "project-interop")
-}
-
-// Load discovers and loads all project definitions from the user-level store.
-// For each project with a repo path, it also attempts to merge a repo-local .project.json.
-func (s *Store) Load() error {
-	dir := filepath.Join(s.configDir, "projects")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("reading projects dir: %w", err)
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for _, e := range entries {
-		if !strings.HasSuffix(e.Name(), ".project.json") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
-		if err != nil {
-			continue
-		}
-		var def Definition
-		if err := json.Unmarshal(data, &def); err != nil {
-			continue
-		}
-		if err := def.Validate(); err != nil {
-			continue
-		}
-
-		merged, err := s.mergeRepoLocal(&def)
-		if err == nil && merged != nil {
-			s.projects[merged.Name] = merged
-		} else {
-			s.projects[def.Name] = &def
-		}
-	}
-	return nil
-}
-
-func (s *Store) mergeRepoLocal(base *Definition) (*Definition, error) {
-	repoRoot := base.ResolvedRepo()
-	if repoRoot == "" {
-		return nil, nil
-	}
-	repoLocalPath := filepath.Join(repoRoot, ".project.json")
-	data, err := os.ReadFile(repoLocalPath)
-	if err != nil {
-		return nil, nil
-	}
-	var overlay Definition
-	if err := json.Unmarshal(data, &overlay); err != nil {
-		return nil, err
-	}
-	return Merge(base, &overlay)
-}
-
-// Get returns a project definition by name.
-func (s *Store) Get(name string) (*Definition, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	d, ok := s.projects[name]
-	return d, ok
-}
-
-// All returns all loaded project definitions.
-func (s *Store) All() map[string]*Definition {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	result := make(map[string]*Definition, len(s.projects))
-	for k, v := range s.projects {
-		result[k] = v
-	}
-	return result
-}
-
-// Names returns all project names.
-func (s *Store) Names() []string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	names := make([]string, 0, len(s.projects))
-	for k := range s.projects {
-		names = append(names, k)
-	}
-	return names
-}
-
-// Create writes a new project definition to the user-level store.
-func (s *Store) Create(def *Definition) error {
-	if err := def.Validate(); err != nil {
-		return fmt.Errorf("invalid project definition: %w", err)
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.projects[def.Name]; exists {
-		return fmt.Errorf("project %q already exists", def.Name)
-	}
-
-	if err := s.writeToDisk(def); err != nil {
-		return err
-	}
-	s.projects[def.Name] = def
-	return nil
-}
-
-// Update applies a JSON merge patch to the user-level store file.
-func (s *Store) Update(name string, patch json.RawMessage) (*Definition, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, ok := s.projects[name]; !ok {
-		return nil, fmt.Errorf("project %q not found", name)
-	}
-
-	path := filepath.Join(s.configDir, "projects", name+".project.json")
-	base, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read project definition: %w", err)
-	}
-
-	var baseMap map[string]any
-	if err := json.Unmarshal(base, &baseMap); err != nil {
-		return nil, fmt.Errorf("parse project definition: %w", err)
-	}
-
-	var patchMap map[string]any
-	if err := json.Unmarshal(patch, &patchMap); err != nil {
-		return nil, fmt.Errorf("invalid patch: %w", err)
-	}
-
-	merged := jsonMergePatch(baseMap, patchMap)
-	result, err := json.Marshal(merged)
-	if err != nil {
-		return nil, err
-	}
-
-	var def Definition
-	if err := json.Unmarshal(result, &def); err != nil {
-		return nil, err
-	}
-	if err := def.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid project definition after patch: %w", err)
-	}
-
-	if err := s.writeToDisk(&def); err != nil {
-		return nil, err
-	}
-	mergedDef, err := s.mergeRepoLocal(&def)
-	if err != nil {
-		return nil, err
-	}
-	if mergedDef != nil {
-		s.projects[name] = mergedDef
-		return mergedDef, nil
-	}
-	s.projects[name] = &def
-	return &def, nil
-}
-
-// Delete removes a project definition from the user-level store.
-func (s *Store) Delete(name string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, ok := s.projects[name]; !ok {
-		return fmt.Errorf("project %q not found", name)
-	}
-
-	path := filepath.Join(s.configDir, "projects", name+".project.json")
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	delete(s.projects, name)
-	return nil
-}
-
-func (s *Store) writeToDisk(def *Definition) error {
-	dir := filepath.Join(s.configDir, "projects")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(def, "", "  ")
-	if err != nil {
-		return err
-	}
-	path := filepath.Join(dir, def.Name+".project.json")
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
-}
-
-// jsonMergePatch implements RFC 7396 JSON Merge Patch.
 func jsonMergePatch(base, patch map[string]any) map[string]any {
 	result := make(map[string]any)
 	for k, v := range base {
@@ -498,6 +273,153 @@ func jsonMergePatch(base, patch map[string]any) map[string]any {
 		result[k] = v
 	}
 	return result
+}
+
+// Store manages project definitions in the user-level store.
+// The JSON files under configDir/projects remain the source of truth;
+// in-memory maps are a rebuilt index, never authority.
+// DeleteGuard rejects Project deletion while retained dependents still reference it.
+// Used by both canonical delete and DeleteCompatibility so dual writers share one rule.
+// WithExclusive + Unlocked assert keep the check and remove race-free against session create.
+type DeleteGuard interface {
+	AssertProjectDeletable(ctx context.Context, projectID string) error
+	AssertProjectDeletableUnlocked(projectID string) error
+	WithExclusive(ctx context.Context, fn func() error) error
+}
+
+type Store struct {
+	configDir string
+	mu        sync.RWMutex
+	projects  map[string]*Definition
+	index     map[ProjectID]*catalogRecord
+	bus       *EventBus
+	delGuard  DeleteGuard
+	resources ResourcePresence
+}
+
+// SetDeleteGuard attaches a referential-integrity check used by Delete and
+// DeleteCompatibility (e.g. AWM work-session references).
+func (s *Store) SetDeleteGuard(g DeleteGuard) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.delGuard = g
+}
+
+// SetResourcePresence attaches the Resource store used to check that
+// known_resource_ids currently exist. Presence is advisory at write time and
+// is not an atomic foreign key across the two stores.
+func (s *Store) SetResourcePresence(p ResourcePresence) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.resources = p
+}
+
+var (
+	_ Catalog             = (*Store)(nil)
+	_ CatalogValidator    = (*Store)(nil)
+	_ DefinitionValidator = (*Store)(nil)
+	_ CatalogWriter       = (*Store)(nil)
+	_ CatalogReplacer     = (*Store)(nil)
+	_ CompatibilityWriter = (*Store)(nil)
+)
+
+// NewStore creates a store rooted at the Switchboard project catalog config directory.
+func NewStore(configDir string) *Store {
+	return &Store{
+		configDir: configDir,
+		projects:  make(map[string]*Definition),
+		index:     make(map[ProjectID]*catalogRecord),
+	}
+}
+
+// DefaultConfigDir returns the default Switchboard project catalog directory.
+// It is always under "switchboard" (never "project-interop").
+func DefaultConfigDir() string {
+	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
+		return filepath.Join(dir, "switchboard")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "switchboard")
+}
+
+// Load discovers and loads all project definitions from the user-level store.
+// For each project with a primary repo path, it also attempts to merge a repo-local .project.json.
+func (s *Store) Load() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.rebuildIndex()
+}
+
+func (s *Store) Definition(name string) (*Definition, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_ = s.rebuildIndex()
+	d, ok := s.projects[name]
+	return cloneDefinition(d), ok
+}
+
+// All returns all loaded project definitions.
+func (s *Store) All() map[string]*Definition {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_ = s.rebuildIndex()
+	result := make(map[string]*Definition, len(s.projects))
+	for k, v := range s.projects {
+		result[k] = cloneDefinition(v)
+	}
+	return result
+}
+
+// Names returns all project names.
+func (s *Store) Names() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_ = s.rebuildIndex()
+	names := make([]string, 0, len(s.projects))
+	for k := range s.projects {
+		names = append(names, k)
+	}
+	return names
+}
+
+// CreateDefinition writes a new project definition to the user-level store.
+// Compatibility adapters should prefer CreateCompatibility.
+func (s *Store) CreateDefinition(def *Definition) error {
+	if def == nil {
+		return fmt.Errorf("invalid project definition: name is required")
+	}
+	_, _, err := s.CreateCompatibility(context.Background(), CreateRequest{Definition: *def})
+	if err != nil {
+		if IsCode(err, CodeProjectAlreadyExists) {
+			return fmt.Errorf("project %q already exists", def.Name)
+		}
+		if e, ok := AsError(err); ok && e.Code == CodeInvalidDefinition {
+			return fmt.Errorf("invalid project definition: %s", e.Message)
+		}
+		return err
+	}
+	return nil
+}
+
+// Update applies a JSON merge patch to the user-level store file.
+func (s *Store) Update(name string, patch json.RawMessage) (*Definition, error) {
+	snap, err := s.PatchCompatibility(context.Background(), ProjectID(name), patch)
+	if err != nil {
+		if IsCode(err, CodeProjectNotFound) {
+			return nil, fmt.Errorf("project %q not found", name)
+		}
+		return nil, err
+	}
+	return cloneDefinition(&snap.Definition), nil
+}
+
+// DeleteDefinition removes a project definition from the user-level store.
+func (s *Store) DeleteDefinition(name string) error {
+	err := s.DeleteCompatibility(context.Background(), ProjectID(name))
+	if IsCode(err, CodeProjectNotFound) {
+		return fmt.Errorf("project %q not found", name)
+	}
+	return err
 }
 
 // ConfigDir returns the store's config directory root.

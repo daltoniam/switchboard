@@ -59,6 +59,26 @@ func TestLoad_ParsesExistingFile(t *testing.T) {
 	assert.Equal(t, "abc", m.cfg.Integrations["github"].Credentials["token"])
 }
 
+func TestProjectCatalogConfig_DefaultEnabled(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+	assert.True(t, mcp.ProjectCatalogEnabled(m.cfg.ProjectCatalog))
+	assert.True(t, mcp.ProjectCatalogWritesEnabled(m.cfg.ProjectCatalog))
+}
+
+func TestProjectCatalogConfig_ExplicitDisable(t *testing.T) {
+	m, path := newTestManager(t)
+	off := false
+	cfg := &mcp.Config{ProjectCatalog: mcp.ProjectCatalogConfig{Enabled: &off, WritesEnabled: &off}}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
+	require.NoError(t, os.WriteFile(path, data, 0600))
+	require.NoError(t, m.Load())
+	assert.False(t, mcp.ProjectCatalogEnabled(m.cfg.ProjectCatalog))
+	assert.False(t, mcp.ProjectCatalogWritesEnabled(m.cfg.ProjectCatalog))
+}
+
 func TestLoad_BackfillsMissingIntegrations(t *testing.T) {
 	m, path := newTestManager(t)
 

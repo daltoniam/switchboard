@@ -17,11 +17,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart={{ .ExePath }} --port {{ .Port }}
+ExecStart={{ .ExePath }} --port {{ .Port }}{{ if .Verbose }} --verbose{{ end }}
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:{{ .LogPath }}
-StandardError=append:{{ .LogPath }}
+StandardOutput=journal
+StandardError=journal
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=SWITCHBOARD_DAEMON=1
 
@@ -32,7 +32,7 @@ WantedBy=default.target
 type systemdData struct {
 	ExePath string
 	Port    int
-	LogPath string
+	Verbose bool
 }
 
 var systemdUnitPathFunc = defaultSystemdUnitPath
@@ -55,13 +55,8 @@ func defaultSystemdUnitPath() (string, error) {
 	return filepath.Join(home, ".config", "systemd", "user", systemdUnitName), nil
 }
 
-func InstallSystemd(port int) error {
+func InstallSystemd(port int, verbose bool) error {
 	exe, err := ExePath()
-	if err != nil {
-		return err
-	}
-
-	logPath, err := LogPath()
 	if err != nil {
 		return err
 	}
@@ -79,7 +74,7 @@ func InstallSystemd(port int) error {
 	data := systemdData{
 		ExePath: exe,
 		Port:    port,
-		LogPath: logPath,
+		Verbose: verbose,
 	}
 
 	tmpl, err := template.New("unit").Parse(systemdUnitTemplate)

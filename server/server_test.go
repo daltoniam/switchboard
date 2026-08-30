@@ -1,9 +1,11 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -883,6 +885,87 @@ func TestSmoke_SearchResponseShape(t *testing.T) {
 	assert.Equal(t, 3, searchToolCount(t, resp))
 	assert.Contains(t, resp.Summary, "15")
 	assert.Contains(t, resp.ScriptHint, "script")
+}
+
+func captureSlog(t *testing.T, level slog.Level) *bytes.Buffer {
+	t.Helper()
+	buf := &bytes.Buffer{}
+	orig := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: level})))
+	t.Cleanup(func() { slog.SetDefault(orig) })
+	return buf
+}
+
+func TestHandleSearch_LogsDebug(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "echo",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: mcp.ToolName("echo_ping"), Description: "ping the server"},
+		},
+	}
+	s := setupTestServer(mi)
+	logs := captureSlog(t, slog.LevelDebug)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"query":       "ping",
+		"integration": "echo",
+		"limit":       5,
+	}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	out := logs.String()
+	assert.Contains(t, out, "msg=search")
+	assert.Contains(t, out, "query=ping")
+	assert.Contains(t, out, "integration=echo")
+	assert.Contains(t, out, "total=1")
+	assert.Contains(t, out, "duration=")
+}
+
+func TestHandleExecute_LogsDebugWithoutArgs(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: mcp.ToolName("testint_get_item"), Description: "Get an item"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `{"id":"123"}`}, nil
+		},
+	}
+	s := setupTestServer(mi)
+	logs := captureSlog(t, slog.LevelDebug)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_get_item", map[string]any{
+		"token": "super-secret-credential",
+	}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	out := logs.String()
+	assert.Contains(t, out, "msg=execute")
+	assert.Contains(t, out, "tool=testint_get_item")
+	assert.Contains(t, out, "duration=")
+	assert.Contains(t, out, "bytes=")
+	assert.NotContains(t, out, "super-secret-credential")
+}
+
+func TestHandleExecute_LogsErrorWithoutArgs(t *testing.T) {
+	s := setupTestServer()
+	logs := captureSlog(t, slog.LevelDebug)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("missing_tool", map[string]any{
+		"token": "super-secret-credential",
+	}))
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+
+	out := logs.String()
+	assert.Contains(t, out, "msg=execute")
+	assert.Contains(t, out, "tool=missing_tool")
+	assert.Contains(t, out, "is_error=true")
+	assert.NotContains(t, out, "super-secret-credential")
 }
 
 // --- markdown integration mock ---

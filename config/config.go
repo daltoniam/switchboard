@@ -488,6 +488,9 @@ func (m *manager) Load() error {
 			return fmt.Errorf("config: integration %q: %w", name, err)
 		}
 	}
+	if err := mcp.ValidateProjectCatalogConfig(m.cfg.ProjectCatalog); err != nil {
+		return err
+	}
 	m.applyEnvOverrides()
 	return nil
 }
@@ -499,6 +502,7 @@ func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 	cfg.SessionStore = file.SessionStore
 	cfg.ShowDollarEstimate = file.ShowDollarEstimate
 	cfg.DollarsPerMTokInput = file.DollarsPerMTokInput
+	cfg.ProjectCatalog = file.ProjectCatalog
 	if file.Integrations == nil {
 		return cfg
 	}
@@ -628,6 +632,9 @@ func (m *manager) Update(cfg *mcp.Config) error {
 		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
 			return fmt.Errorf("integration %q: %w", name, err)
 		}
+	}
+	if err := mcp.ValidateProjectCatalogConfig(cfg.ProjectCatalog); err != nil {
+		return err
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
