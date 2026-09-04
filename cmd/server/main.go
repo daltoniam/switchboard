@@ -55,11 +55,13 @@ import (
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	"github.com/daltoniam/switchboard/integrations/ollama"
+	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
 	"github.com/daltoniam/switchboard/integrations/projectinterop"
 	"github.com/daltoniam/switchboard/integrations/ramp"
+	"github.com/daltoniam/switchboard/integrations/recoll"
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/salesforce"
 	"github.com/daltoniam/switchboard/integrations/sentry"
@@ -302,6 +304,8 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		slackInt.New(),
 		slackmcp.New(),
 		metabase.New(),
+		paperless.New(),
+		recoll.New(),
 		awsInt.New(),
 		posthog.New(),
 		postgres.New(),

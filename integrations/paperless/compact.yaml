@@ -1,0 +1,56 @@
+# Switchboard compaction specs for the Paperless-ngx integration.
+version: 1
+tools:
+  paperless_list_documents:
+    spec:
+      - count
+      - next
+      - previous
+      - results[].id
+      - results[].title
+      - results[].created
+      - results[].added
+      - results[].modified
+      - results[].correspondent
+      - results[].document_type
+      - results[].tags
+      - results[].archive_serial_number
+  paperless_search_documents:
+    spec:
+      - count
+      - next
+      - previous
+      - results[].id
+      - results[].title
+      - results[].created
+      - results[].added
+      - results[].modified
+      - results[].correspondent
+      - results[].document_type
+      - results[].tags
+      - results[].archive_serial_number
+  paperless_get_document:
+    spec:
+      - id
+      - title
+      - content
+      - created
+      - added
+      - modified
+      - correspondent
+      - document_type
+      - storage_path
+      - tags
+      - custom_fields
+      - archive_serial_number
+      - original_file_name
+  paperless_list_tags:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].color", "results[].document_count"]
+  paperless_list_correspondents:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].document_count"]
+  paperless_list_document_types:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].document_count"]
+  paperless_list_storage_paths:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].path", "results[].document_count"]
+  paperless_list_custom_fields:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].data_type"]
