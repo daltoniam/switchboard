@@ -43,6 +43,13 @@ var envMapping = map[string]map[string]string{
 		"api_key": "METABASE_API_KEY",
 		"url":     "METABASE_URL",
 	},
+	"paperless": {
+		"token": "PAPERLESS_TOKEN",
+		"url":   "PAPERLESS_URL",
+	},
+	"recoll": {
+		"base_url": "RECOLL_URL",
+	},
 	"aws": {
 		"access_key_id":     "AWS_ACCESS_KEY_ID",
 		"secret_access_key": "AWS_SECRET_ACCESS_KEY",
@@ -269,6 +276,14 @@ func defaultConfig() *mcp.Config {
 			"metabase": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "url": ""},
+			},
+			"paperless": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"token": "", "url": ""},
+			},
+			"recoll": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": ""},
 			},
 			"aws": {
 				Enabled:     false,

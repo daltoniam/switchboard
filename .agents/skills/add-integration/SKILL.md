@@ -6,7 +6,7 @@ description: >
   Not for modifying existing integrations or fixing bugs in current adapters.
 metadata:
   author: switchboard
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Add Integration
@@ -177,7 +177,37 @@ Every adapter must have these test categories (see existing `*_test.go` files):
 Follow `AGENTS.md > Adding a New Integration` steps 6-7 (register + config defaults), then verify:
 
 1. `go build ./...` && `go test ./...` && `go vet ./...` && `go tool golangci-lint run`
-2. Smoke test: start server, call `search` for new integration tools, `execute` one
+2. Run the isolated live smoke test below.
+
+### Isolated Live Smoke Test
+
+Never run a development Switchboard against the host configuration or default port. Use a dedicated temporary home directory and a non-standard port (`13847` below). This keeps the host Switchboard, its credentials, and its project catalog untouched.
+
+Start the development server in one terminal:
+
+```bash
+sandbox="$(mktemp -d)"
+export SWITCHBOARD_DEV_HOME="$sandbox/switchboard-home"
+HOME="$SWITCHBOARD_DEV_HOME" go run ./cmd/server --port 13847
+```
+
+Configure only the test credentials needed for the new integration in `$SWITCHBOARD_DEV_HOME/.config/switchboard/config.json`, using the development Web UI at `http://127.0.0.1:13847/` if appropriate. Do not copy the host Switchboard config into this directory.
+
+In a second terminal, give the test agent its own config root. Copy the existing Crush configuration only to retain its provider setup, then add an MCP entry pointing to the development server. The copy is isolated: the generated `crushrc` changes only the sandboxed configuration.
+
+```bash
+host_crush_config="${XDG_CONFIG_HOME:-$HOME/.config}/crush"
+export CRUSH_DEV_CONFIG="$sandbox/crush-config"
+mkdir -p "$CRUSH_DEV_CONFIG"
+cp -a "$host_crush_config" "$CRUSH_DEV_CONFIG/crush"
+cat >> "$CRUSH_DEV_CONFIG/crush/crushrc" <<'EOF'
+mcp add switchboard-dev --type http --url http://127.0.0.1:13847/mcp
+EOF
+XDG_CONFIG_HOME="$CRUSH_DEV_CONFIG" crush --cwd "$PWD" run \
+  "Use the switchboard-dev MCP only. Search for the new integration's tools, then execute a safe read-only tool and report the result."
+```
+
+The agent must first discover the tool with `search`, then call it with `execute`. Confirm the response represents real data and that the new tool is returned by search. Remove the sandbox after testing: `rm -rf "$sandbox"`.
 
 ## 6. Field Compaction
 

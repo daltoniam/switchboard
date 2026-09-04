@@ -206,6 +206,9 @@ Environment variables override credential values but do not change the durable e
 | Slack MCP (official hosted) | multi-identity `access_token` | configure via `identities` in JSON (see below) |
 | Metabase | `api_key` | `METABASE_API_KEY` |
 | Metabase | `url` | `METABASE_URL` |
+| Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
+| Paperless-ngx | `url` | `PAPERLESS_URL` |
+| Recoll WebUI | `base_url` | `RECOLL_URL` |
 | AWS | `access_key_id` | `AWS_ACCESS_KEY_ID` |
 | AWS | `secret_access_key` | `AWS_SECRET_ACCESS_KEY` |
 | AWS | `session_token` | `AWS_SESSION_TOKEN` |
@@ -260,6 +263,8 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
+| Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |
+| Recoll WebUI | Base URL | Set `RECOLL_URL` to the Recoll WebUI root (for example `http://localhost:8080`) or enter it in the web UI |
 | PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |
 | Vercel | Personal Access Token | Set `VERCEL_API_TOKEN` env var or enter in web UI |
 | Postgres | Connection String | Set `DATABASE_URL` env var or enter in web UI |
