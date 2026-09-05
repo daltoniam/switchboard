@@ -5,14 +5,17 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
@@ -31,6 +34,14 @@ var (
 	_ mcp.PlaceholderHints           = (*paperless)(nil)
 )
 
+const (
+	paperlessHTTPTimeout       = 30 * time.Second
+	paperlessResponseSizeLimit = 2 * 1024 * 1024
+	paperlessDownloadSizeLimit = 1024 * 1024
+	defaultOCRTextLimit        = 10_000
+	maxOCRTextLimit            = 20_000
+)
+
 type paperless struct {
 	token   string
 	baseURL string
@@ -39,7 +50,7 @@ type paperless struct {
 
 // New creates a Paperless-ngx integration.
 func New() mcp.Integration {
-	return &paperless{client: &http.Client{}}
+	return &paperless{client: &http.Client{Timeout: paperlessHTTPTimeout}}
 }
 
 func (p *paperless) Name() string { return "paperless" }
@@ -59,7 +70,27 @@ func (p *paperless) Configure(_ context.Context, creds mcp.Credentials) error {
 	if p.baseURL == "" {
 		return fmt.Errorf("paperless: url is required")
 	}
+	parsed, err := url.ParseRequestURI(p.baseURL)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return fmt.Errorf("paperless: invalid url")
+	}
+	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
+		return fmt.Errorf("paperless: url must use https unless the host is loopback")
+	}
+	if p.client == nil {
+		p.client = &http.Client{Timeout: paperlessHTTPTimeout}
+	} else if p.client.Timeout == 0 {
+		p.client.Timeout = paperlessHTTPTimeout
+	}
 	return nil
+}
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func (p *paperless) Healthy(ctx context.Context) bool {
@@ -94,39 +125,47 @@ func (p *paperless) doRequest(ctx context.Context, method, path string, body any
 		}
 		reader = bytes.NewReader(data)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, p.baseURL+path, reader)
-	if err != nil {
-		return nil, fmt.Errorf("create Paperless request: %w", err)
-	}
-	req.Header.Set("Authorization", "Token "+p.token)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("make Paperless request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read Paperless response: %w", err)
-	}
-	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError {
-		retryErr := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("paperless API error (%d): %s", resp.StatusCode, data)}
-		retryErr.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
-		return nil, retryErr
-	}
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("paperless API error (%d): %s", resp.StatusCode, data)
-	}
-	if resp.StatusCode == http.StatusNoContent || len(data) == 0 {
-		return []byte(`{"status":"success"}`), nil
-	}
-	return data, nil
+	data, _, err := p.doRequestWithLimit(ctx, method, path, reader, "application/json", paperlessResponseSizeLimit)
+	return data, err
 }
 
 func (p *paperless) get(ctx context.Context, path string) ([]byte, error) {
 	return p.doRequest(ctx, http.MethodGet, path, nil)
+}
+
+func (p *paperless) doRequestWithLimit(ctx context.Context, method, path string, body io.Reader, contentType string, limit int) ([]byte, http.Header, error) {
+	req, err := http.NewRequestWithContext(ctx, method, p.baseURL+path, body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create Paperless request: %w", err)
+	}
+	req.Header.Set("Authorization", "Token "+p.token)
+	if body != nil {
+		req.Header.Set("Content-Type", contentType)
+	}
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("make Paperless request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, err := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
+	if err != nil {
+		return nil, nil, fmt.Errorf("read Paperless response: %w", err)
+	}
+	if len(data) > limit {
+		return nil, nil, fmt.Errorf("paperless response exceeds %d bytes", limit)
+	}
+	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError {
+		retryErr := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("paperless API error (%d): %s", resp.StatusCode, data)}
+		retryErr.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, nil, retryErr
+	}
+	if resp.StatusCode >= http.StatusBadRequest {
+		return nil, nil, fmt.Errorf("paperless API error (%d): %s", resp.StatusCode, data)
+	}
+	if resp.StatusCode == http.StatusNoContent || len(data) == 0 {
+		return []byte(`{"status":"success"}`), resp.Header, nil
+	}
+	return data, resp.Header, nil
 }
 
 func listDocuments(ctx context.Context, p *paperless, args map[string]any) (*mcp.ToolResult, error) {
@@ -141,7 +180,7 @@ func listDocuments(ctx context.Context, p *paperless, args map[string]any) (*mcp
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return withoutOCRContentFromDocumentList(data)
 }
 
 func searchDocuments(ctx context.Context, p *paperless, args map[string]any) (*mcp.ToolResult, error) {
@@ -160,7 +199,7 @@ func searchDocuments(ctx context.Context, p *paperless, args map[string]any) (*m
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return withoutOCRContentFromDocumentList(data)
 }
 
 func createDocument(ctx context.Context, p *paperless, args map[string]any) (*mcp.ToolResult, error) {
@@ -201,33 +240,8 @@ func createDocument(ctx context.Context, p *paperless, args map[string]any) (*mc
 }
 
 func (p *paperless) doMultipartRequest(ctx context.Context, path string, body io.Reader, contentType string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+path, body)
-	if err != nil {
-		return nil, fmt.Errorf("create Paperless request: %w", err)
-	}
-	req.Header.Set("Authorization", "Token "+p.token)
-	req.Header.Set("Content-Type", contentType)
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("make Paperless request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read Paperless response: %w", err)
-	}
-	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError {
-		retryErr := &mcp.RetryableError{StatusCode: resp.StatusCode, Err: fmt.Errorf("paperless API error (%d): %s", resp.StatusCode, data)}
-		retryErr.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
-		return nil, retryErr
-	}
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("paperless API error (%d): %s", resp.StatusCode, data)
-	}
-	if resp.StatusCode == http.StatusNoContent || len(data) == 0 {
-		return []byte(`{"status":"success"}`), nil
-	}
-	return data, nil
+	data, _, err := p.doRequestWithLimit(ctx, http.MethodPost, path, body, contentType, paperlessResponseSizeLimit)
+	return data, err
 }
 
 func getDocument(ctx context.Context, p *paperless, args map[string]any) (*mcp.ToolResult, error) {
@@ -239,7 +253,103 @@ func getDocument(ctx context.Context, p *paperless, args map[string]any) (*mcp.T
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return withoutOCRContent(data)
+}
+
+func getDocumentOCRText(ctx context.Context, p *paperless, args map[string]any) (*mcp.ToolResult, error) {
+	id, err := documentID(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	offset, limit, err := ocrTextPageArgs(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+
+	data, err := p.get(ctx, fmt.Sprintf("/api/documents/%d/", id))
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	var document struct {
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(data, &document); err != nil {
+		return mcp.ErrResult(fmt.Errorf("decode Paperless document content: %w", err))
+	}
+
+	totalChars := len([]rune(document.Content))
+	if offset > totalChars {
+		offset = totalChars
+	}
+	content := []rune(document.Content)
+	end := offset + min(limit, totalChars-offset)
+	result := map[string]any{
+		"document_id": id,
+		"offset":      offset,
+		"limit":       limit,
+		"total_chars": totalChars,
+		"content":     string(content[offset:end]),
+		"has_more":    end < totalChars,
+	}
+	if end < totalChars {
+		result["next_offset"] = end
+	}
+	return mcp.JSONResult(result)
+}
+
+func withoutOCRContent(data []byte) (*mcp.ToolResult, error) {
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(data, &document); err != nil {
+		return mcp.ErrResult(fmt.Errorf("decode Paperless document: %w", err))
+	}
+	delete(document, "content")
+	return mcp.JSONResult(document)
+}
+
+func withoutOCRContentFromDocumentList(data []byte) (*mcp.ToolResult, error) {
+	var response map[string]json.RawMessage
+	if err := json.Unmarshal(data, &response); err != nil {
+		return mcp.ErrResult(fmt.Errorf("decode Paperless document list: %w", err))
+	}
+	var documents []map[string]json.RawMessage
+	if err := json.Unmarshal(response["results"], &documents); err != nil {
+		return mcp.ErrResult(fmt.Errorf("decode Paperless document results: %w", err))
+	}
+	for _, document := range documents {
+		delete(document, "content")
+	}
+	results, err := json.Marshal(documents)
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("encode Paperless document results: %w", err))
+	}
+	response["results"] = results
+	return mcp.JSONResult(response)
+}
+
+func ocrTextPageArgs(args map[string]any) (offset, limit int, err error) {
+	if value, ok := args["offset"]; ok {
+		offset, err = mcp.ArgInt(map[string]any{"offset": value}, "offset")
+		if err != nil {
+			return 0, 0, err
+		}
+		if offset < 0 {
+			return 0, 0, fmt.Errorf("offset must be non-negative")
+		}
+	}
+	limit = defaultOCRTextLimit
+	if value, ok := args["limit"]; ok {
+		limit, err = mcp.ArgInt(map[string]any{"limit": value}, "limit")
+		if err != nil {
+			return 0, 0, err
+		}
+		if limit <= 0 {
+			return 0, 0, fmt.Errorf("limit must be positive")
+		}
+	}
+	if limit > maxOCRTextLimit {
+		return 0, 0, fmt.Errorf("limit must not exceed %d", maxOCRTextLimit)
+	}
+	return offset, limit, nil
 }
 
 func updateDocument(ctx context.Context, p *paperless, args map[string]any) (*mcp.ToolResult, error) {
@@ -280,11 +390,15 @@ func downloadDocument(ctx context.Context, p *paperless, args map[string]any) (*
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, err := p.get(ctx, fmt.Sprintf("/api/documents/%d/download/", id))
+	data, header, err := p.doRequestWithLimit(ctx, http.MethodGet, fmt.Sprintf("/api/documents/%d/download/", id), nil, "", paperlessDownloadSizeLimit)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return &mcp.ToolResult{Data: string(data)}, nil
+	return mcp.JSONResult(map[string]any{
+		"content_type":   header.Get("Content-Type"),
+		"bytes":          len(data),
+		"content_base64": base64.StdEncoding.EncodeToString(data),
+	})
 }
 
 func listMetadata(path string) handlerFunc {

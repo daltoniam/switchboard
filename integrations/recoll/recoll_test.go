@@ -77,6 +77,20 @@ func TestExecute_UnknownTool(t *testing.T) {
 	assert.Contains(t, result.Data, "unknown tool")
 }
 
+func TestSearchRejectsBlankQuery(t *testing.T) {
+	requests := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests++
+	}))
+	t.Cleanup(ts.Close)
+
+	result, err := configuredRecoll(t, ts.URL).Execute(context.Background(), "recoll_search", map[string]any{"query": " \t\n "})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "query is required")
+	assert.Zero(t, requests)
+}
+
 func TestSearch_RoundTrip(t *testing.T) {
 	var gotQuery map[string][]string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -106,6 +120,16 @@ func TestSearch_RoundTrip(t *testing.T) {
 			{"path":"/documents/notes.txt","mime_type":"text/plain"}
 		]
 	}`, result.Data)
+}
+
+func TestParseSearchResultsFallsBackToResultLength(t *testing.T) {
+	result, err := parseSearchResults([]byte(`<html><body>
+		<div class="result"><div class="path">/documents/one.txt</div></div>
+		<div class="result"><div class="path">/documents/two.txt</div></div>
+	</body></html>`), "notes")
+	require.NoError(t, err)
+	assert.Equal(t, 2, result.Count)
+	assert.Len(t, result.Results, 2)
 }
 
 func TestDoRequest(t *testing.T) {
