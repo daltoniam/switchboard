@@ -35,6 +35,9 @@ func search(ctx context.Context, r *recoll, args map[string]any) (*mcp.ToolResul
 	if err := reader.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if strings.TrimSpace(query) == "" {
+		return mcp.ErrResult(fmt.Errorf("query is required"))
+	}
 
 	data, err := r.get(ctx, "/?"+url.Values{"q": {query}}.Encode())
 	if err != nil {
@@ -86,6 +89,9 @@ func parseSearchResults(data []byte, query string) (searchResponse, error) {
 			}
 		}
 	})
+	if response.Count == 0 {
+		response.Count = len(response.Results)
+	}
 	return response, nil
 }
 
