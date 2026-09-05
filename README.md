@@ -1,8 +1,46 @@
 # Switchboard
 
-A unified MCP server written in Go that aggregates multiple integrations
-(GitHub, Datadog, Linear, Sentry, Slack, Metabase) behind a single MCP endpoint,
-with a web UI for easy configuration.
+A source-available MCP gateway that connects any MCP client to 36+ tools
+behind one endpoint. Run it locally with a built-in web UI, or use
+[Switchboard Hosted](https://app.switchboard-mcp.com) when you need teams,
+policies, and managed infrastructure.
+
+Switchboard sits under Cursor, Claude Code, Codex, and any other MCP client.
+Your agent searches for a capability and executes it. Compaction strips unused
+fields before responses reach the model, typically cutting token usage by
+about 90%.
+
+![Local Switchboard dashboard with connected integrations, token savings, and activity](docs/images/ui-dashboard.webp)
+
+*The local dashboard tracks connected tools and how much LLM context Switchboard kept off the wire.*
+
+![Local Switchboard integrations page with Google Workspace, connected services, and available adapters](docs/images/ui-integrations.webp)
+
+*Connect GitHub, Datadog, Linear, Slack, Google Workspace, and 30+ more from the local UI.*
+
+## Local or Hosted
+
+| | Local (this repo) | [Switchboard Hosted](https://app.switchboard-mcp.com) |
+|---|---|---|
+| Best for | Individuals and self-hosting | Teams and companies |
+| Cost | Free | Free for solo use, then flat monthly plans |
+| Data | Credentials stay on your machine | Encrypted vault, managed runtime |
+| Extra | Web UI, compaction, Wasm plugins | Orgs, SSO, policies, audit logs, dedicated runtimes |
+
+- **[Try Switchboard Hosted free](https://app.switchboard-mcp.com)** — no credit card required
+- **[Product and pricing](https://switchboard-mcp.com)** — same open MCP surface either way
+
+You can inspect every line that touches credentials, self-host this core, or
+move off Hosted later without rewriting MCP clients.
+
+## Features
+
+- **One MCP endpoint** for GitHub, Datadog, Linear, Slack, Google Workspace, AWS, and 30+ more
+- **Local web UI** to connect integrations, check health, and watch token savings
+- **Search + execute** so agents discover tools instead of loading every schema
+- **~90% fewer tokens** via compaction, columnar reshape, and markdown rendering
+- **Any MCP client, any model** — Cursor, Claude Code, Codex, Windsurf, and others
+- **Bring your own integrations** with the Go `mcp.Integration` interface or Wasm plugins
 
 ## Installation
 
@@ -60,28 +98,6 @@ go install github.com/daltoniam/switchboard/cmd/server@latest
 Pre-built binaries for macOS, Linux, and Windows (amd64/arm64) are available on
 the [GitHub Releases](https://github.com/daltoniam/switchboard/releases) page.
 
-## Architecture
-
-```
-┌─────────────┐     stdio / SSE      ┌──────────────────────┐
-│  AI Client   │ ◄──────────────────► │  Unified MCP Server   │
-│ (Cursor, etc)│                      │                       │
-└─────────────┘                      │  ┌─────────────────┐  │
-                                     │  │  Tool Router     │  │
-       ┌──────────────────┐          │  └────────┬────────┘  │
-       │  Web UI (3847)   │◄─ HTTP ─►│           │           │
-       │  config/creds    │          │  ┌────────▼────────┐  │
-       └──────────────────┘          │  │  Adapters        │  │
-                                     │  │  ├─ GitHub       │  │
-                                     │  │  ├─ Datadog      │  │
-                                     │  │  ├─ Linear       │  │
-                                     │  │  ├─ Sentry       │  │
-                                     │  │  ├─ Slack        │  │
-                                     │  │  └─ Metabase     │  │
-                                     │  └─────────────────┘  │
-                                     └──────────────────────┘
-```
-
 ## Context Optimization
 
 API responses are large. A single GitHub issue carries ~100 fields (nested users, permissions, node IDs, avatar URLs) when an LLM needs ~10 to decide what to do next. Multiply by 30 issues per page and a list call can consume 150KB of context for information the model will never use.
@@ -126,6 +142,27 @@ switchboard --verbose
 
 # Open config UI
 open http://localhost:3847
+```
+
+## Architecture
+
+```
+┌─────────────┐     stdio / SSE      ┌──────────────────────┐
+│  AI Client   │ ◄──────────────────► │  Unified MCP Server   │
+│ (Cursor, etc)│                      │                       │
+└─────────────┘                      │  ┌─────────────────┐  │
+                                     │  │  Tool Router     │  │
+       ┌──────────────────┐          │  └────────┬────────┘  │
+       │  Web UI (3847)   │◄─ HTTP ─►│           │           │
+       │  config/creds    │          │  ┌────────▼────────┐  │
+       └──────────────────┘          │  │  Adapters        │  │
+                                     │  │  ├─ GitHub       │  │
+                                     │  │  ├─ Datadog      │  │
+                                     │  │  ├─ Linear       │  │
+                                     │  │  ├─ Slack        │  │
+                                     │  │  └─ 36+ more     │  │
+                                     │  └─────────────────┘  │
+                                     └──────────────────────┘
 ```
 
 ## Configuration
