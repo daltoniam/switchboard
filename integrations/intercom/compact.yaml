@@ -277,3 +277,11 @@ tools:
         spec:
             - data[].id
             - data[].name
+    intercom_list_ticket_types:
+        spec:
+            - data[].id
+            - data[].name
+            - data[].description
+            - data[].category
+            - data[].archived
+            - data[].icon

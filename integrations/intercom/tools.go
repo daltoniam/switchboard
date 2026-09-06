@@ -163,7 +163,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"ticket_id"},
 	},
 	{
-		Name: mcp.ToolName("intercom_create_ticket"), Description: "Create an Intercom ticket for a contact. Requires a ticket type from the workspace.",
+		Name: mcp.ToolName("intercom_create_ticket"), Description: "Create an Intercom ticket for a contact. Use after list_ticket_types to get ticket_type_id.",
 		Parameters: map[string]string{
 			"ticket_type_id":    "Ticket type ID",
 			"contact_id":        "Intercom contact ID to attach (used when contacts is omitted)",
@@ -239,6 +239,10 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: mcp.ToolName("intercom_list_tags"), Description: "List Intercom tags used to label conversations and contacts",
+		Parameters: map[string]string{},
+	},
+	{
+		Name: mcp.ToolName("intercom_list_ticket_types"), Description: "List Intercom ticket types used when creating helpdesk tickets. Use before create_ticket to get ticket_type_id.",
 		Parameters: map[string]string{},
 	},
 }

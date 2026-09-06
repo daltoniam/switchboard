@@ -205,4 +205,5 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("intercom_list_teams"):           listTeams,
 	mcp.ToolName("intercom_get_team"):             getTeam,
 	mcp.ToolName("intercom_list_tags"):            listTags,
+	mcp.ToolName("intercom_list_ticket_types"):    listTicketTypes,
 }

@@ -244,6 +244,18 @@ func TestReplyConversation_MissingUserID(t *testing.T) {
 	assert.Contains(t, result.Data, "intercom_user_id is required")
 }
 
+func TestReplyConversation_InvalidType(t *testing.T) {
+	c := &intercom{accessToken: "tok", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := c.Execute(context.Background(), "intercom_reply_conversation", map[string]any{
+		"conversation_id": "c1",
+		"body":            "hello",
+		"type":            "note",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, `type must be admin or user, got "note"`)
+}
+
 func TestCloseConversation(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/conversations/c1/parts", r.URL.Path)
@@ -482,6 +494,38 @@ func TestCreateTicket_MissingContact(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "provide contact_id or contacts")
+}
+
+func TestSearchTickets_StateFilter(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/tickets/search", r.URL.Path)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		query := body["query"].(map[string]any)
+		assert.Equal(t, "state", query["field"])
+		assert.Equal(t, "submitted", query["value"])
+		_, _ = w.Write([]byte(`{"tickets":[{"id":"t1"}]}`))
+	}))
+	defer ts.Close()
+
+	c := &intercom{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := c.Execute(context.Background(), "intercom_search_tickets", map[string]any{"state": "submitted"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestListTicketTypes(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/ticket_types", r.URL.Path)
+		_, _ = w.Write([]byte(`{"data":[{"id":"tt1","name":"Bug"}]}`))
+	}))
+	defer ts.Close()
+
+	c := &intercom{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := c.Execute(context.Background(), "intercom_list_ticket_types", map[string]any{})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, "Bug")
 }
 
 func TestListConversations(t *testing.T) {

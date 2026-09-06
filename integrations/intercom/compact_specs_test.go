@@ -60,6 +60,7 @@ func TestFieldCompactionSpecs_ShapeParity(t *testing.T) {
 		"intercom_list_teams":           `{"type":"team.list","teams":[{"id":"t1","name":"Support","admin_ids":["a1"]}]}`,
 		"intercom_get_team":             `{"id":"t1","name":"Support","admin_ids":["a1"]}`,
 		"intercom_list_tags":            `{"type":"list","data":[{"id":"tag1","name":"billing"}]}`,
+		"intercom_list_ticket_types":    `{"type":"list","data":[{"id":"tt1","name":"Bug","description":"product bugs","category":"Customer","archived":false,"icon":"🐞"}]}`,
 	}
 
 	for toolName, payload := range handlerOutputs {

@@ -437,7 +437,7 @@ func searchTickets(ctx context.Context, c *intercom, args map[string]any) (*mcp.
 		}
 		query = q
 	} else if state != "" {
-		query = equalityQuery("ticket_state", state)
+		query = equalityQuery("state", state)
 	} else {
 		query = equalityQuery("open", true)
 	}
@@ -669,17 +669,29 @@ func listTags(ctx context.Context, c *intercom, _ map[string]any) (*mcp.ToolResu
 	return mcp.RawResult(data)
 }
 
+func listTicketTypes(ctx context.Context, c *intercom, _ map[string]any) (*mcp.ToolResult, error) {
+	data, err := c.get(ctx, "/ticket_types")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.RawResult(data)
+}
+
 func applyReplyActor(payload map[string]any, replyType, adminID, userID string) error {
-	if replyType == "admin" {
+	switch replyType {
+	case "admin":
 		if adminID == "" {
 			return fmt.Errorf("admin_id is required when type is admin")
 		}
 		payload["admin_id"] = adminID
 		return nil
+	case "user":
+		if userID == "" {
+			return fmt.Errorf("intercom_user_id is required when type is user")
+		}
+		payload["intercom_user_id"] = userID
+		return nil
+	default:
+		return fmt.Errorf("type must be admin or user, got %q", replyType)
 	}
-	if userID == "" {
-		return fmt.Errorf("intercom_user_id is required when type is user")
-	}
-	payload["intercom_user_id"] = userID
-	return nil
 }
