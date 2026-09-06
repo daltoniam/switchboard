@@ -21,7 +21,7 @@ func searchTickets(ctx context.Context, z *zendesk, args map[string]any) (*mcp.T
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	if !strings.Contains(query, "type:") {
+	if !hasTypeFilter(query) {
 		query = "type:ticket " + query
 	}
 	params := map[string]string{
@@ -433,14 +433,9 @@ func ticketPayload(args map[string]any, requireComment bool) (map[string]any, er
 	status := r.Str("status")
 	priority := r.Str("priority")
 	typ := r.Str("type")
-	requesterID := r.Str("requester_id")
 	requesterEmail := r.Str("requester_email")
 	requesterName := r.Str("requester_name")
-	assigneeID := r.Str("assignee_id")
-	groupID := r.Str("group_id")
-	orgID := r.Str("organization_id")
 	tags := r.Str("tags")
-	customFieldsRaw := r.Str("custom_fields")
 	publicStr := r.Str("public")
 	if err := r.Err(); err != nil {
 		return nil, err
@@ -469,8 +464,10 @@ func ticketPayload(args map[string]any, requireComment bool) (map[string]any, er
 	if typ != "" {
 		ticket["type"] = typ
 	}
-	if requesterID != "" {
-		ticket["requester_id"] = requesterID
+	if id, ok, err := optionalIntID(args, "requester_id"); err != nil {
+		return nil, err
+	} else if ok {
+		ticket["requester_id"] = id
 	} else if requesterEmail != "" || requesterName != "" {
 		req := map[string]any{}
 		if requesterEmail != "" {
@@ -481,27 +478,33 @@ func ticketPayload(args map[string]any, requireComment bool) (map[string]any, er
 		}
 		ticket["requester"] = req
 	}
-	if _, ok := args["assignee_id"]; ok {
-		if assigneeID == "" {
-			ticket["assignee_id"] = nil
+	if _, present := args["assignee_id"]; present {
+		id, ok, err := optionalIntID(args, "assignee_id")
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			ticket["assignee_id"] = id
 		} else {
-			ticket["assignee_id"] = assigneeID
+			ticket["assignee_id"] = nil
 		}
 	}
-	if groupID != "" {
-		ticket["group_id"] = groupID
+	if id, ok, err := optionalIntID(args, "group_id"); err != nil {
+		return nil, err
+	} else if ok {
+		ticket["group_id"] = id
 	}
-	if orgID != "" {
-		ticket["organization_id"] = orgID
+	if id, ok, err := optionalIntID(args, "organization_id"); err != nil {
+		return nil, err
+	} else if ok {
+		ticket["organization_id"] = id
 	}
 	if tags != "" {
 		ticket["tags"] = splitCSV(tags)
 	}
-	if customFieldsRaw != "" {
-		var fields any
-		if err := json.Unmarshal([]byte(customFieldsRaw), &fields); err != nil {
-			return nil, fmt.Errorf("invalid custom_fields JSON: %w", err)
-		}
+	if fields, err := parseCustomFields(args["custom_fields"]); err != nil {
+		return nil, err
+	} else if fields != nil {
 		ticket["custom_fields"] = fields
 	}
 	return ticket, nil
@@ -513,7 +516,6 @@ func userPayload(args map[string]any) (map[string]any, error) {
 	email := r.Str("email")
 	role := r.Str("role")
 	phone := r.Str("phone")
-	orgID := r.Str("organization_id")
 	tags := r.Str("tags")
 	verified := r.Str("verified")
 	if err := r.Err(); err != nil {
@@ -532,8 +534,10 @@ func userPayload(args map[string]any) (map[string]any, error) {
 	if phone != "" {
 		user["phone"] = phone
 	}
-	if orgID != "" {
-		user["organization_id"] = orgID
+	if id, ok, err := optionalIntID(args, "organization_id"); err != nil {
+		return nil, err
+	} else if ok {
+		user["organization_id"] = id
 	}
 	if tags != "" {
 		user["tags"] = splitCSV(tags)
@@ -542,6 +546,72 @@ func userPayload(args map[string]any) (map[string]any, error) {
 		user["verified"] = verified == "true"
 	}
 	return user, nil
+}
+
+func hasTypeFilter(query string) bool {
+	for _, tok := range strings.Fields(query) {
+		if strings.HasPrefix(strings.ToLower(tok), "type:") {
+			return true
+		}
+	}
+	return false
+}
+
+func optionalIntID(args map[string]any, key string) (int64, bool, error) {
+	raw, ok := args[key]
+	if !ok || raw == nil {
+		return 0, false, nil
+	}
+	switch v := raw.(type) {
+	case string:
+		if strings.TrimSpace(v) == "" {
+			return 0, false, nil
+		}
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, false, fmt.Errorf("parameter %q: cannot convert string %q to int: %w", key, v, err)
+		}
+		return n, true, nil
+	case float64:
+		return int64(v), true, nil
+	case int:
+		return int64(v), true, nil
+	case int64:
+		return v, true, nil
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return 0, false, fmt.Errorf("parameter %q: cannot convert json.Number %q to int: %w", key, v.String(), err)
+		}
+		return n, true, nil
+	default:
+		n, err := mcp.ArgInt64(args, key)
+		if err != nil {
+			return 0, false, err
+		}
+		return n, true, nil
+	}
+}
+
+func parseCustomFields(raw any) (any, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	switch v := raw.(type) {
+	case string:
+		if strings.TrimSpace(v) == "" {
+			return nil, nil
+		}
+		var fields any
+		if err := json.Unmarshal([]byte(v), &fields); err != nil {
+			return nil, fmt.Errorf("invalid custom_fields JSON: %w", err)
+		}
+		return fields, nil
+	case []any, map[string]any:
+		return v, nil
+	default:
+		return nil, fmt.Errorf("parameter %q: cannot convert %T to custom_fields", "custom_fields", v)
+	}
 }
 
 func splitCSV(s string) []string {

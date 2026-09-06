@@ -211,6 +211,51 @@ func TestDoRequest_204NoContent(t *testing.T) {
 	assert.Contains(t, string(data), "success")
 }
 
+func TestSearchTickets_DoesNotTreatPrototypeAsTypeFilter(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "type:ticket prototype: broken login", r.URL.Query().Get("query"))
+		_, _ = w.Write([]byte(`{"results":[],"count":0}`))
+	}))
+	defer ts.Close()
+
+	z := &zendesk{email: "a@b.com", apiToken: "t", client: ts.Client(), baseURL: ts.URL}
+	result, err := z.Execute(context.Background(), "zendesk_search_tickets", map[string]any{
+		"query": "prototype: broken login",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestCreateTicket_NumericIDsAndNativeCustomFields(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		ticket := body["ticket"].(map[string]any)
+		assert.Equal(t, float64(10), ticket["requester_id"])
+		assert.Equal(t, float64(20), ticket["assignee_id"])
+		assert.Equal(t, float64(30), ticket["group_id"])
+		fields := ticket["custom_fields"].([]any)
+		require.Len(t, fields, 1)
+		field := fields[0].(map[string]any)
+		assert.Equal(t, float64(100), field["id"])
+		assert.Equal(t, "web", field["value"])
+		_, _ = w.Write([]byte(`{"ticket":{"id":9}}`))
+	}))
+	defer ts.Close()
+
+	z := &zendesk{email: "a@b.com", apiToken: "t", client: ts.Client(), baseURL: ts.URL}
+	result, err := z.Execute(context.Background(), "zendesk_create_ticket", map[string]any{
+		"subject":       "Cannot login",
+		"comment":       "Password reset failed",
+		"requester_id":  10,
+		"assignee_id":   "20",
+		"group_id":      float64(30),
+		"custom_fields": []any{map[string]any{"id": 100, "value": "web"}},
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestSearchTickets(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/search.json", r.URL.Path)
