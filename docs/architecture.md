@@ -111,6 +111,18 @@ integrations/
     insights.go              Insights (trends, funnels) CRUD handlers
     persons.go               Persons, groups, property management handlers
     extras.go                Annotations, dashboards, actions, events, experiments, surveys handlers
+  microsoft365/
+    microsoft365.go          Microsoft 365 Graph adapter (core, dispatch, OAuth refresh)
+    compact.yaml             Field compaction specs (~20 read tools)
+    tools.go                 Microsoft 365 tool definitions (~35 tools)
+    mail.go                  Outlook mail list/get/send/draft/reply handlers
+    calendar.go              Outlook calendar and event handlers
+    files.go                 OneDrive/SharePoint drive item handlers
+    teams.go                 Teams, channels, chats, and messages handlers
+    todo.go                  Microsoft To Do list and task handlers
+    users.go                 Signed-in user, directory users, people search
+    oauth.go                 Azure AD / Entra ID OAuth2 PKCE
+    markdown.go              Outlook message markdown rendering
   postgres/
     postgres.go              PostgreSQL integration adapter (core, dispatch, sql.DB helpers)
     tools.go                 PostgreSQL tool definitions (~25 tools)

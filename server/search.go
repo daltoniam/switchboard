@@ -132,7 +132,7 @@ var synonymGroups = [][]string{
 	{"dashboard", "dashboards", "board"},
 	{"credential", "secret", "key", "token"},
 	{"member", "user", "participant"},
-	{"email", "mail", "gmail"},
+	{"email", "mail", "gmail", "outlook"},
 	{"break", "fail", "crash", "down"},
 	{"metric", "metrics"},
 	{"table", "tables"},

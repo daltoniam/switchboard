@@ -181,6 +181,14 @@ var envMapping = map[string]map[string]string{
 		"access_token": "RAMP_ACCESS_TOKEN",
 		"base_url":     "RAMP_BASE_URL",
 	},
+	"microsoft365": {
+		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
+		"refresh_token": "MICROSOFT365_REFRESH_TOKEN",
+		"client_id":     "MICROSOFT365_CLIENT_ID",
+		"client_secret": "MICROSOFT365_CLIENT_SECRET",
+		"tenant_id":     "MICROSOFT365_TENANT_ID",
+		"base_url":      "MICROSOFT365_BASE_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -359,6 +367,13 @@ func defaultConfig() *mcp.Config {
 			"ramp": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"microsoft365": {
+				Enabled: false,
+				Credentials: mcp.Credentials{
+					"access_token": "", "refresh_token": "", mcp.CredKeyClientID: "", mcp.CredKeyClientSecret: "",
+					"tenant_id": "", "base_url": "", mcp.CredKeyTokenSource: "",
+				},
 			},
 			"jira": {
 				Enabled:     false,

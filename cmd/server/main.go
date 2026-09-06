@@ -47,6 +47,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
+	"github.com/daltoniam/switchboard/integrations/microsoft365"
 	"github.com/daltoniam/switchboard/integrations/netsuite"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
@@ -231,6 +232,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	gchatIntegration := gchat.New()
 	gpeopleIntegration := gpeople.New()
 	gmeetIntegration := gmeet.New()
+	microsoft365Integration := microsoft365.New()
 	amazonIntegration := amazon.New()
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
@@ -263,6 +265,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 		gchatIntegration,
 		gpeopleIntegration,
 		gmeetIntegration,
+		microsoft365Integration,
 		jira.New(),
 		confluence.New(),
 		notionInt.New(),
@@ -355,6 +358,7 @@ func runServer(stdioMode bool, port int, discoverAll bool) {
 	gchat.SetConfigService(gchatIntegration, cfgMgr)
 	gpeople.SetConfigService(gpeopleIntegration, cfgMgr)
 	gmeet.SetConfigService(gmeetIntegration, cfgMgr)
+	microsoft365.SetConfigService(microsoft365Integration, cfgMgr)
 	amazon.SetBrowserService(amazonIntegration, browserSvc)
 
 	var serverOpts []server.Option
