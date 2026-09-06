@@ -1,0 +1,6 @@
+.git
+tmp
+dist
+coverage.out
+wasm/guest-rust/target
+**/.DS_Store

@@ -73,11 +73,53 @@ const (
 	CredKeyTokenSource  = "token_source"
 )
 
+// IntegrationIdentity holds credentials and optional non-secret metadata for one
+// named identity within an integration (e.g. a Slack user/workspace pair).
+type IntegrationIdentity struct {
+	Credentials Credentials       `json:"credentials"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
+}
+
 // IntegrationConfig stores the enabled state and credentials for a single integration.
 type IntegrationConfig struct {
-	Enabled     bool        `json:"enabled"`
-	Credentials Credentials `json:"credentials"`
-	ToolGlobs   []string    `json:"tool_globs,omitempty"`
+	Enabled     bool                           `json:"enabled"`
+	Credentials Credentials                    `json:"credentials"`
+	ToolGlobs   []string                       `json:"tool_globs,omitempty"`
+	Identities  map[string]IntegrationIdentity `json:"identities,omitempty"`
+}
+
+// HasUsableCredentials reports whether the config has any non-empty usable
+// credential value at the integration level or in any named identity.
+// OAuth infrastructure keys (client_id, client_secret, token_source) alone
+// do not count as usable credentials.
+func (ic *IntegrationConfig) HasUsableCredentials() bool {
+	if ic == nil {
+		return false
+	}
+	if hasUsableCredentialValues(ic.Credentials) {
+		return true
+	}
+	for _, id := range ic.Identities {
+		if hasUsableCredentialValues(id.Credentials) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasUsableCredentialValues(creds Credentials) bool {
+	for k, v := range creds {
+		if v == "" {
+			continue
+		}
+		switch k {
+		case CredKeyClientID, CredKeyClientSecret, CredKeyTokenSource:
+			continue
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 // ToolAllowed reports whether toolName is permitted by the integration's tool glob
@@ -162,6 +204,42 @@ type Config struct {
 	// DollarsPerMTokInput is the price per million input tokens used to
 	// compute the dollar estimate. Zero falls back to DefaultInputDollarsPerMTok.
 	DollarsPerMTokInput float64 `json:"dollars_per_mtok_input,omitempty"`
+
+	// ProjectCatalog configures Project Catalog tools and resources on the
+	// main /mcp endpoint. Omitted or empty defaults to enabled with writes on.
+	ProjectCatalog ProjectCatalogConfig `json:"project_catalog,omitempty"`
+}
+
+// ProjectCatalogConfig controls catalog tools/resources on the main MCP server.
+// Nil Enabled means default-on (true). Nil WritesEnabled means default-on (true)
+// for local/dev convenience; network-exposed deployments must set
+// writes_enabled=false or put /mcp behind an external auth layer.
+type ProjectCatalogConfig struct {
+	Enabled       *bool `json:"enabled,omitempty"`
+	WritesEnabled *bool `json:"writes_enabled,omitempty"`
+}
+
+// ProjectCatalogEnabled reports whether catalog tools/resources are on (default true).
+func ProjectCatalogEnabled(cfg ProjectCatalogConfig) bool {
+	if cfg.Enabled == nil {
+		return true
+	}
+	return *cfg.Enabled
+}
+
+// ProjectCatalogWritesEnabled reports whether canonical writes are on (default true).
+// When true on a reachable /mcp endpoint, create/update/delete are unauthenticated
+// unless an external proxy authenticates callers.
+func ProjectCatalogWritesEnabled(cfg ProjectCatalogConfig) bool {
+	if cfg.WritesEnabled == nil {
+		return true
+	}
+	return *cfg.WritesEnabled
+}
+
+// ValidateProjectCatalogConfig is retained for call-site compatibility.
+func ValidateProjectCatalogConfig(cfg ProjectCatalogConfig) error {
+	return nil
 }
 
 // ToolDefinition describes an API operation an integration exposes.
@@ -173,10 +251,17 @@ type ToolDefinition struct {
 	Required    []string          `json:"required,omitempty"`
 }
 
+type MediaContent struct {
+	Data     []byte `json:"data"`
+	MIMEType string `json:"mime_type"`
+	Name     string `json:"name,omitempty"`
+}
+
 // ToolResult is the output of executing a tool.
 type ToolResult struct {
-	Data    string `json:"data,omitempty"`
-	IsError bool   `json:"is_error,omitempty"`
+	Data    string         `json:"data,omitempty"`
+	Media   []MediaContent `json:"media,omitempty"`
+	IsError bool           `json:"is_error,omitempty"`
 
 	// IntermediateBytes is populated only by the script engine and is the
 	// sum of every api.call() raw response size accumulated while running
@@ -200,6 +285,17 @@ func JSONResult(v any) (*ToolResult, error) {
 // Passing nil is equivalent to passing an empty slice — returns an empty, non-error result.
 func RawResult(data []byte) (*ToolResult, error) {
 	return &ToolResult{Data: string(data)}, nil
+}
+
+func MediaResult(metadata string, data []byte, mimeType, name string) (*ToolResult, error) {
+	return &ToolResult{
+		Data: metadata,
+		Media: []MediaContent{{
+			Data:     data,
+			MIMEType: mimeType,
+			Name:     name,
+		}},
+	}, nil
 }
 
 // ErrResult converts an error to a ToolResult.
@@ -242,6 +338,41 @@ type Integration interface {
 
 	// Healthy returns true if the integration can reach its upstream API.
 	Healthy(ctx context.Context) bool
+}
+
+// MultiIdentityIntegration is an optional interface for integrations that
+// support multiple named credential identities (e.g. one Slack user token per
+// workspace). Existing single-identity adapters remain source-compatible.
+type MultiIdentityIntegration interface {
+	ConfigureIdentities(ctx context.Context, identities map[string]IntegrationIdentity) error
+}
+
+// IdentityConfigHints describes the editable fields for named identities in
+// generic configuration surfaces. Credential values are always treated as
+// secrets; metadata values are safe to render as plain text.
+type IdentityConfigHints interface {
+	IdentityCredentialKeys() []string
+	IdentityMetadataKeys() []string
+}
+
+// ConfigureIntegration applies integration-level credentials via Configure,
+// then ConfigureIdentities when the adapter implements MultiIdentityIntegration.
+func ConfigureIntegration(ctx context.Context, integration Integration, ic *IntegrationConfig) error {
+	if integration == nil {
+		return errors.New("integration is nil")
+	}
+	if ic == nil {
+		ic = &IntegrationConfig{}
+	}
+	if err := integration.Configure(ctx, ic.Credentials); err != nil {
+		return err
+	}
+	if multi, ok := integration.(MultiIdentityIntegration); ok {
+		if err := multi.ConfigureIdentities(ctx, ic.Identities); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // FieldCompactionIntegration is an optional interface that integrations can implement

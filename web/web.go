@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/awm"
 	"github.com/daltoniam/switchboard/googleoauth"
 	"github.com/daltoniam/switchboard/integrations/gcal"
 	"github.com/daltoniam/switchboard/integrations/gchat"
@@ -29,6 +33,7 @@ import (
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/marketplace"
+	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/remotemcp"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
@@ -42,7 +47,10 @@ type WebServer struct {
 	health         *healthCache
 	marketplace    *marketplace.Manager
 	wasmLoader     pluginLoader
+	catalog        project.Catalog
+	awmStore       *awm.Store
 	onConfigChange func()
+	configMu       sync.Mutex
 }
 
 type Option func(*WebServer)
@@ -79,6 +87,8 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations", w.handleIntegrationsList)
 	mux.HandleFunc("GET /integrations/{name}", w.handleIntegrationDetail)
 	mux.HandleFunc("POST /integrations/{name}", w.handleIntegrationSave)
+	mux.HandleFunc("POST /integrations/{name}/identities", w.handleIntegrationIdentitySave)
+	mux.HandleFunc("POST /integrations/{name}/identities/{identity}/delete", w.handleIntegrationIdentityDelete)
 
 	mux.HandleFunc("GET /integrations/slack/setup", w.handleSlackSetup)
 	mux.HandleFunc("GET /api/slack/list-workspaces", w.handleSlackListWorkspaces)
@@ -201,6 +211,16 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/health", w.handleHealthAPI)
 	mux.HandleFunc("POST /api/health/refresh", w.handleHealthRefresh)
 	mux.HandleFunc("GET /api/metrics", w.handleMetricsAPI)
+
+	mux.HandleFunc("GET /projects", w.handleProjectsList)
+	mux.HandleFunc("GET /projects/{id}", w.handleProjectDetail)
+	mux.HandleFunc("GET /projects/{id}/work", w.handleProjectWorkHub)
+	mux.HandleFunc("GET /projects/{id}/work/profiles", w.handleProjectWorkProfilesList)
+	mux.HandleFunc("GET /projects/{id}/work/profiles/{profileID}", w.handleProjectWorkProfileDetail)
+	mux.HandleFunc("GET /projects/{id}/work/agents", w.handleProjectAgentProfilesList)
+	mux.HandleFunc("GET /projects/{id}/work/agents/{agentID}", w.handleProjectAgentProfileDetail)
+	mux.HandleFunc("GET /projects/{id}/work/sessions", w.handleProjectWorkSessionsList)
+	mux.HandleFunc("GET /projects/{id}/work/sessions/{sessionID}", w.handleProjectWorkSessionDetail)
 
 	mux.HandleFunc("GET /settings", w.handleSettings)
 	mux.HandleFunc("POST /settings", w.handleSettingsSave)
@@ -393,7 +413,7 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 
 	var healthy bool
 	if exists && enabled {
-		if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+		if err := mcp.ConfigureIntegration(r.Context(), integration, ic); err == nil {
 			healthy = integration.Healthy(r.Context())
 		}
 	}
@@ -427,6 +447,25 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	supportsIdentities := false
+	var identityCredentialKeys []string
+	var identityMetadataKeys []string
+	var identities []pages.IdentityView
+	if _, ok := integration.(mcp.MultiIdentityIntegration); ok {
+		if hints, ok := integration.(mcp.IdentityConfigHints); ok {
+			supportsIdentities = true
+			identityCredentialKeys = sortedUnique(hints.IdentityCredentialKeys())
+			identityMetadataKeys = sortedUnique(hints.IdentityMetadataKeys())
+			if exists {
+				identities, identityCredentialKeys, identityMetadataKeys = buildIdentityViews(
+					ic.Identities,
+					identityCredentialKeys,
+					identityMetadataKeys,
+				)
+			}
+		}
+	}
+
 	var tools []pages.ToolInfo
 	for _, t := range integration.Tools() {
 		tools = append(tools, pages.ToolInfo{
@@ -437,20 +476,27 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 
 	page := w.pageData(r, integration.Name(), "/integrations")
 	data := pages.IntegrationDetailData{
-		Name:          name,
-		Enabled:       enabled,
-		Healthy:       healthy,
-		Credentials:   pages.SortedCredentials(creds),
-		PlainTextKeys: plainTextKeys,
-		Placeholders:  placeholders,
-		OptionalKeys:  optionalKeys,
-		Tools:         tools,
+		Name:                   name,
+		Enabled:                enabled,
+		Healthy:                healthy,
+		Credentials:            pages.SortedCredentials(creds),
+		PlainTextKeys:          plainTextKeys,
+		Placeholders:           placeholders,
+		OptionalKeys:           optionalKeys,
+		SupportsIdentities:     supportsIdentities,
+		IdentityCredentialKeys: identityCredentialKeys,
+		IdentityMetadataKeys:   identityMetadataKeys,
+		Identities:             identities,
+		Tools:                  tools,
 	}
 
 	pages.IntegrationDetail(page, data).Render(r.Context(), rw)
 }
 
 func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Request) {
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
+
 	name := r.PathValue("name")
 
 	_, ok := w.services.Registry.Get(name)
@@ -481,6 +527,7 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 	}
 	if existingIC, ok := w.services.Config.GetIntegration(name); ok {
 		ic.ToolGlobs = existingIC.ToolGlobs
+		ic.Identities = existingIC.Identities
 	}
 
 	if err := w.services.Config.SetIntegration(name, ic); err != nil {
@@ -500,6 +547,240 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 	http.Redirect(rw, r, redirect+"?success=Configuration+saved", http.StatusSeeOther)
 }
 
+func sortedUnique(values []string) []string {
+	set := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if value != "" {
+			set[value] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(set))
+	for value := range set {
+		result = append(result, value)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func buildIdentityViews(
+	identities map[string]mcp.IntegrationIdentity,
+	credentialKeys []string,
+	metadataKeys []string,
+) ([]pages.IdentityView, []string, []string) {
+	allCredentialKeys := append([]string(nil), credentialKeys...)
+	allMetadataKeys := append([]string(nil), metadataKeys...)
+	for _, identity := range identities {
+		for key := range identity.Credentials {
+			allCredentialKeys = append(allCredentialKeys, key)
+		}
+		for key := range identity.Metadata {
+			allMetadataKeys = append(allMetadataKeys, key)
+		}
+	}
+	allCredentialKeys = sortedUnique(allCredentialKeys)
+	allMetadataKeys = sortedUnique(allMetadataKeys)
+
+	ids := make([]string, 0, len(identities))
+	for id := range identities {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	views := make([]pages.IdentityView, 0, len(ids))
+	for _, id := range ids {
+		identity := identities[id]
+		view := pages.IdentityView{
+			ID:    id,
+			Label: identity.Metadata["label"],
+		}
+		for _, key := range allCredentialKeys {
+			view.Credentials = append(view.Credentials, pages.IdentityCredentialField{
+				Key:        key,
+				Configured: identity.Credentials[key] != "",
+			})
+		}
+		for _, key := range allMetadataKeys {
+			view.Metadata = append(view.Metadata, pages.CredentialField{Key: key, Value: identity.Metadata[key]})
+		}
+		views = append(views, view)
+	}
+	return views, allCredentialKeys, allMetadataKeys
+}
+
+func cloneIntegrationConfig(source *mcp.IntegrationConfig) *mcp.IntegrationConfig {
+	clone := &mcp.IntegrationConfig{
+		Credentials: mcp.Credentials{},
+		Identities:  map[string]mcp.IntegrationIdentity{},
+	}
+	if source == nil {
+		return clone
+	}
+	clone.Enabled = source.Enabled
+	clone.ToolGlobs = append([]string(nil), source.ToolGlobs...)
+	for key, value := range source.Credentials {
+		clone.Credentials[key] = value
+	}
+	for id, identity := range source.Identities {
+		identityCopy := mcp.IntegrationIdentity{
+			Credentials: mcp.Credentials{},
+			Metadata:    map[string]string{},
+		}
+		for key, value := range identity.Credentials {
+			identityCopy.Credentials[key] = value
+		}
+		for key, value := range identity.Metadata {
+			identityCopy.Metadata[key] = value
+		}
+		clone.Identities[id] = identityCopy
+	}
+	return clone
+}
+
+func validIdentityID(id string) bool {
+	if len(id) == 0 || len(id) > 64 {
+		return false
+	}
+	for i, char := range id {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') {
+			continue
+		}
+		if i > 0 && (char == '-' || char == '_' || char == '.') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func identityConfigTarget(
+	w *WebServer,
+	name string,
+) (mcp.Integration, mcp.IdentityConfigHints, *mcp.IntegrationConfig, error) {
+	integration, ok := w.services.Registry.Get(name)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("integration not found: %s", name)
+	}
+	if _, ok := integration.(mcp.MultiIdentityIntegration); !ok {
+		return nil, nil, nil, fmt.Errorf("integration %s does not support named identities", name)
+	}
+	hints, ok := integration.(mcp.IdentityConfigHints)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("integration %s does not expose identity configuration fields", name)
+	}
+	existing, _ := w.services.Config.GetIntegration(name)
+	return integration, hints, cloneIntegrationConfig(existing), nil
+}
+
+func redirectIdentityResult(rw http.ResponseWriter, r *http.Request, name, kind, message string) {
+	location := "/integrations/" + name + "?" + kind + "=" + url.QueryEscape(message)
+	http.Redirect(rw, r, location, http.StatusSeeOther)
+}
+
+func (w *WebServer) handleIntegrationIdentitySave(rw http.ResponseWriter, r *http.Request) {
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
+
+	name := r.PathValue("name")
+	integration, hints, ic, err := identityConfigTarget(w, name)
+	if err != nil {
+		redirectIdentityResult(rw, r, name, "error", err.Error())
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		redirectIdentityResult(rw, r, name, "error", "Invalid identity form data")
+		return
+	}
+	id := strings.TrimSpace(r.FormValue("identity_id"))
+	if !validIdentityID(id) {
+		redirectIdentityResult(rw, r, name, "error", "Identity ID must use 1-64 letters, numbers, dots, underscores, or hyphens")
+		return
+	}
+
+	identity := ic.Identities[id]
+	if identity.Credentials == nil {
+		identity.Credentials = mcp.Credentials{}
+	}
+	if identity.Metadata == nil {
+		identity.Metadata = map[string]string{}
+	}
+	credentialKeys := append(hints.IdentityCredentialKeys(), mapKeys(identity.Credentials)...)
+	for _, key := range sortedUnique(credentialKeys) {
+		if value := r.FormValue("identity_cred_" + key); value != "" {
+			identity.Credentials[key] = value
+		}
+	}
+	metadataKeys := append(hints.IdentityMetadataKeys(), mapKeys(identity.Metadata)...)
+	for _, key := range sortedUnique(metadataKeys) {
+		formKey := "identity_meta_" + key
+		if !r.Form.Has(formKey) {
+			continue
+		}
+		if value := strings.TrimSpace(r.FormValue(formKey)); value != "" {
+			identity.Metadata[key] = value
+		} else {
+			delete(identity.Metadata, key)
+		}
+	}
+	ic.Identities[id] = identity
+
+	previous, _ := w.services.Config.GetIntegration(name)
+	previous = cloneIntegrationConfig(previous)
+	if err := mcp.ConfigureIntegration(r.Context(), integration, ic); err != nil {
+		redirectIdentityResult(rw, r, name, "error", "Identity validation failed: "+err.Error())
+		return
+	}
+	if err := w.services.Config.SetIntegration(name, ic); err != nil {
+		_ = mcp.ConfigureIntegration(r.Context(), integration, previous)
+		redirectIdentityResult(rw, r, name, "error", "Failed to save identity: "+err.Error())
+		return
+	}
+	w.notifyConfigChanged()
+	redirectIdentityResult(rw, r, name, "success", "Identity saved")
+}
+
+func (w *WebServer) handleIntegrationIdentityDelete(rw http.ResponseWriter, r *http.Request) {
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
+
+	name := r.PathValue("name")
+	id := r.PathValue("identity")
+	integration, _, ic, err := identityConfigTarget(w, name)
+	if err != nil {
+		redirectIdentityResult(rw, r, name, "error", err.Error())
+		return
+	}
+	if !validIdentityID(id) {
+		redirectIdentityResult(rw, r, name, "error", "Invalid identity ID")
+		return
+	}
+	if _, exists := ic.Identities[id]; !exists {
+		redirectIdentityResult(rw, r, name, "error", "Identity not found")
+		return
+	}
+	delete(ic.Identities, id)
+	previous, _ := w.services.Config.GetIntegration(name)
+	previous = cloneIntegrationConfig(previous)
+	if err := mcp.ConfigureIntegration(r.Context(), integration, ic); err != nil {
+		redirectIdentityResult(rw, r, name, "error", "Identity removal failed: "+err.Error())
+		return
+	}
+	if err := w.services.Config.SetIntegration(name, ic); err != nil {
+		_ = mcp.ConfigureIntegration(r.Context(), integration, previous)
+		redirectIdentityResult(rw, r, name, "error", "Failed to delete identity: "+err.Error())
+		return
+	}
+	w.notifyConfigChanged()
+	redirectIdentityResult(rw, r, name, "success", "Identity deleted")
+}
+
+func mapKeys(values map[string]string) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 // handleUpdateCredentials is a JSON API for hot-reloading integration credentials
 // without restarting Switchboard. The agent supervisor calls this when a token
 // is refreshed (e.g. GitHub App installation token rotation).
@@ -508,6 +789,9 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 //	Body: {"token": "ghp_...", "other_key": "..."}
 //	Response: 200 {"ok": true} or 4xx/5xx {"error": "..."}
 func (w *WebServer) handleUpdateCredentials(rw http.ResponseWriter, r *http.Request) {
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
+
 	name := r.PathValue("name")
 
 	integration, ok := w.services.Registry.Get(name)
@@ -525,6 +809,8 @@ func (w *WebServer) handleUpdateCredentials(rw http.ResponseWriter, r *http.Requ
 	// Merge with existing credentials so callers can send partial updates
 	// (e.g. only the rotated token, keeping client_id etc.).
 	ic, exists := w.services.Config.GetIntegration(name)
+	previous := cloneIntegrationConfig(ic)
+	var identities map[string]mcp.IntegrationIdentity
 	if exists {
 		merged := mcp.Credentials{}
 		for k, v := range ic.Credentials {
@@ -534,20 +820,27 @@ func (w *WebServer) handleUpdateCredentials(rw http.ResponseWriter, r *http.Requ
 			merged[k] = v
 		}
 		creds = merged
+		identities = ic.Identities
 	}
 
-	if err := integration.Configure(r.Context(), creds); err != nil {
+	if err := mcp.ConfigureIntegration(r.Context(), integration, &mcp.IntegrationConfig{
+		Credentials: creds,
+		Identities:  identities,
+	}); err != nil {
 		writeJSON(rw, http.StatusInternalServerError, map[string]string{"error": "configure failed: " + err.Error()})
 		return
 	}
 
-	// Persist so the config file stays in sync.
-	if ic == nil {
-		ic = &mcp.IntegrationConfig{}
+	// Persist so the config file stays in sync without mutating the live
+	// config object until the write succeeds.
+	next := cloneIntegrationConfig(ic)
+	if next == nil {
+		next = &mcp.IntegrationConfig{}
 	}
-	ic.Enabled = true
-	ic.Credentials = creds
-	if err := w.services.Config.SetIntegration(name, ic); err != nil {
+	next.Enabled = true
+	next.Credentials = creds
+	if err := w.services.Config.SetIntegration(name, next); err != nil {
+		_ = mcp.ConfigureIntegration(r.Context(), integration, previous)
 		writeJSON(rw, http.StatusInternalServerError, map[string]string{"error": "save failed: " + err.Error()})
 		return
 	}

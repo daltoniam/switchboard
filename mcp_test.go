@@ -1,6 +1,8 @@
 package mcp
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -358,4 +360,156 @@ func TestIsRetryable_DistinguishesRetryableFromPermanentErrors(t *testing.T) {
 			assert.Equal(t, tt.retryable, IsRetryable(tt.err))
 		})
 	}
+}
+
+func TestIntegrationIdentity_JSONRoundTrip(t *testing.T) {
+	ic := &IntegrationConfig{
+		Enabled:     true,
+		Credentials: Credentials{"base_url": "https://mcp.example.com"},
+		Identities: map[string]IntegrationIdentity{
+			"work": {
+				Credentials: Credentials{"access_token": "xoxp-work"},
+				Metadata:    map[string]string{"label": "Work", "team": "T1"},
+			},
+			"personal": {
+				Credentials: Credentials{"access_token": "xoxp-personal"},
+				Metadata:    map[string]string{"label": "Personal"},
+			},
+		},
+	}
+
+	data, err := json.Marshal(ic)
+	require.NoError(t, err)
+
+	var decoded IntegrationConfig
+	require.NoError(t, json.Unmarshal(data, &decoded))
+
+	assert.True(t, decoded.Enabled)
+	assert.Equal(t, "https://mcp.example.com", decoded.Credentials["base_url"])
+	require.Len(t, decoded.Identities, 2)
+	assert.Equal(t, "xoxp-work", decoded.Identities["work"].Credentials["access_token"])
+	assert.Equal(t, "Work", decoded.Identities["work"].Metadata["label"])
+	assert.Equal(t, "T1", decoded.Identities["work"].Metadata["team"])
+	assert.Equal(t, "xoxp-personal", decoded.Identities["personal"].Credentials["access_token"])
+	assert.Equal(t, "Personal", decoded.Identities["personal"].Metadata["label"])
+}
+
+func TestIntegrationConfig_HasUsableCredentials_WithIdentities(t *testing.T) {
+	ic := &IntegrationConfig{
+		Enabled:     false,
+		Credentials: Credentials{},
+		Identities: map[string]IntegrationIdentity{
+			"work": {Credentials: Credentials{"access_token": "tok"}},
+		},
+	}
+	assert.True(t, ic.HasUsableCredentials())
+
+	empty := &IntegrationConfig{Credentials: Credentials{}}
+	assert.False(t, empty.HasUsableCredentials())
+
+	oauthOnly := &IntegrationConfig{Credentials: Credentials{CredKeyClientID: "cid"}}
+	assert.False(t, oauthOnly.HasUsableCredentials())
+
+	topLevel := &IntegrationConfig{Credentials: Credentials{"token": "t"}}
+	assert.True(t, topLevel.HasUsableCredentials())
+}
+
+type multiIdentityMock struct {
+	name            string
+	lastCreds       Credentials
+	lastIdentities  map[string]IntegrationIdentity
+	configureErr    error
+	identitiesErr   error
+	configureCalls  int
+	identitiesCalls int
+}
+
+func (m *multiIdentityMock) Name() string { return m.name }
+func (m *multiIdentityMock) Configure(_ context.Context, creds Credentials) error {
+	m.configureCalls++
+	m.lastCreds = creds
+	return m.configureErr
+}
+func (m *multiIdentityMock) ConfigureIdentities(_ context.Context, identities map[string]IntegrationIdentity) error {
+	m.identitiesCalls++
+	m.lastIdentities = identities
+	return m.identitiesErr
+}
+func (m *multiIdentityMock) Tools() []ToolDefinition { return nil }
+func (m *multiIdentityMock) Execute(context.Context, ToolName, map[string]any) (*ToolResult, error) {
+	return &ToolResult{Data: "ok"}, nil
+}
+func (m *multiIdentityMock) Healthy(context.Context) bool { return true }
+
+func TestConfigureIntegration_CallsConfigureThenIdentities(t *testing.T) {
+	m := &multiIdentityMock{name: "multi"}
+	ic := &IntegrationConfig{
+		Credentials: Credentials{"base_url": "https://example.com"},
+		Identities: map[string]IntegrationIdentity{
+			"a": {Credentials: Credentials{"access_token": "t1"}},
+		},
+	}
+	err := ConfigureIntegration(context.Background(), m, ic)
+	require.NoError(t, err)
+	assert.Equal(t, 1, m.configureCalls)
+	assert.Equal(t, 1, m.identitiesCalls)
+	assert.Equal(t, "https://example.com", m.lastCreds["base_url"])
+	assert.Equal(t, "t1", m.lastIdentities["a"].Credentials["access_token"])
+}
+
+type singleIdentityMock struct {
+	lastCreds      Credentials
+	configureCalls int
+}
+
+func (m *singleIdentityMock) Name() string { return "single" }
+func (m *singleIdentityMock) Configure(_ context.Context, creds Credentials) error {
+	m.configureCalls++
+	m.lastCreds = creds
+	return nil
+}
+func (m *singleIdentityMock) Tools() []ToolDefinition { return nil }
+func (m *singleIdentityMock) Execute(context.Context, ToolName, map[string]any) (*ToolResult, error) {
+	return &ToolResult{Data: "ok"}, nil
+}
+func (m *singleIdentityMock) Healthy(context.Context) bool { return true }
+
+func TestConfigureIntegration_SkipsIdentitiesWhenNotImplemented(t *testing.T) {
+	m := &singleIdentityMock{}
+	ic := &IntegrationConfig{
+		Credentials: Credentials{"k": "v"},
+		Identities: map[string]IntegrationIdentity{
+			"a": {Credentials: Credentials{"access_token": "t"}},
+		},
+	}
+	require.NoError(t, ConfigureIntegration(context.Background(), m, ic))
+	assert.Equal(t, 1, m.configureCalls)
+	assert.Equal(t, "v", m.lastCreds["k"])
+}
+
+func TestConfigureIntegration_AlwaysCallsConfigureIdentitiesWhenImplemented(t *testing.T) {
+	m := &multiIdentityMock{name: "multi"}
+	ic := &IntegrationConfig{Credentials: Credentials{"k": "v"}}
+	require.NoError(t, ConfigureIntegration(context.Background(), m, ic))
+	assert.Equal(t, 1, m.configureCalls)
+	assert.Equal(t, 1, m.identitiesCalls)
+	assert.Nil(t, m.lastIdentities)
+}
+
+func TestConfigureIntegration_PropagatesConfigureError(t *testing.T) {
+	m := &multiIdentityMock{name: "multi", configureErr: fmt.Errorf("bad creds")}
+	err := ConfigureIntegration(context.Background(), m, &IntegrationConfig{Credentials: Credentials{"k": "v"}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bad creds")
+	assert.Equal(t, 0, m.identitiesCalls)
+}
+
+func TestConfigureIntegration_PropagatesIdentitiesError(t *testing.T) {
+	m := &multiIdentityMock{name: "multi", identitiesErr: fmt.Errorf("bad id")}
+	err := ConfigureIntegration(context.Background(), m, &IntegrationConfig{
+		Credentials: Credentials{},
+		Identities:  map[string]IntegrationIdentity{"a": {Credentials: Credentials{"access_token": "t"}}},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bad id")
 }

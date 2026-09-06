@@ -1,10 +1,43 @@
+# Air config for host `air` and Stacklane compose (air-verse/air v1.67.x schema).
+# Binary/tmp live under ./tmp (compose mounts a named volume at /src/tmp).
+
 root = "."
 tmp_dir = "tmp"
 
 [build]
-  entrypoint = "./tmp/main"
-  cmd = "templ generate && go build -o ./tmp/main ./cmd/server"
-  include_ext = ["go", "templ"]
-  exclude_dir = ["tmp", "dist", "node_modules", ".git"]
-  exclude_regex = ["_test\\.go$", "_templ\\.go$"]
+  args_bin = []
+  bin = "./tmp/switchboard"
+  # -buildvcs=false: bind-mounted .git is owned by the host UID; container git
+  # rejects it as "dubious ownership", which otherwise aborts VCS stamping.
+  # go tool templ is declared in go.mod (works on host and in Dockerfile.dev).
+  cmd = "go tool templ generate && go build -buildvcs=false -o ./tmp/switchboard ./cmd/server"
   delay = 1000
+  exclude_dir = ["tmp", "dist", "node_modules", ".git", "wasm/guest-rust/target"]
+  exclude_regex = ["_test\\.go$", "_templ\\.go$"]
+  exclude_unchanged = false
+  follow_symlink = false
+  include_ext = ["go", "templ"]
+  kill_delay = "2s"
+  log = "build-errors.log"
+  poll = false
+  rerun = false
+  send_interrupt = true
+  stop_on_error = false
+
+[color]
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  silent = false
+  time = false
+
+[misc]
+  clean_on_exit = false
+
+[screen]
+  clear_on_rebuild = false
+  keep_scroll = true

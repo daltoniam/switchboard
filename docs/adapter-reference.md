@@ -59,12 +59,14 @@ perPage := r.OptInt("per_page", 10)
 
 ### Dispatch Map Test Parity
 
-Every adapter **must** have two tests enforcing bidirectional parity between `Tools()` definitions and the `dispatch` map:
+Every adapter with a static `dispatch` map **must** have two tests enforcing bidirectional parity between `Tools()` definitions and the `dispatch` map:
 
 - `TestDispatchMap_AllToolsCovered` — every tool returned by `Tools()` has a handler in `dispatch`
 - `TestDispatchMap_NoOrphanHandlers` — every key in `dispatch` has a corresponding `ToolDefinition`
 
 When adding a new tool: add both the `ToolDefinition` in `tools.go` **and** the handler entry in the `dispatch` map. Tests will fail if either is missing.
+
+Dynamic adapters without a static dispatch map (e.g. `slackmcp`) must instead prove routing parity with tests that every tool returned by `Tools()` is executable through the dynamic path.
 
 ### Error Handling
 - Integration errors: return `&mcp.ToolResult{Data: err.Error(), IsError: true}, nil`
@@ -83,6 +85,7 @@ Each adapter uses either a typed SDK or raw HTTP. Auth varies:
   - Chrome extraction: LevelDB (`xoxc-*`) + encrypted SQLite cookies (`xoxd-*`, AES-128-CBC via Keychain)
   - Background refresh every 4h (`refresh.go`). Mutex-protected client (`s.getClient()`)
   - OAuth v2 flow (`oauth.go`) for web UI setup
+- **Slack MCP (`slackmcp`)**: separate multi-identity proxy to Slack's **official hosted** Streamable HTTP MCP (`https://mcp.slack.com`, client appends `/mcp`). One `remotemcp` client per named identity; each identity requires a user OAuth `access_token` (not bot `xoxb-`). Dynamically unions scope-dependent upstream tools as `slackmcp_*`, injects required `identity_id` on every proxied tool, and exposes discovery tool `slackmcp_list_available_identites`. No static dispatch map — routing parity covered by dynamic execute tests.
 - **AWS**: `aws-sdk-go-v2` official typed SDK. Auth via static credentials or default credential chain. Region defaults to `us-east-1`. Each service gets typed client via `<service>.NewFromConfig(cfg)`. Import aliased as `awsInt`
 - **Notion**: Hand-rolled v3 internal API over `net/http`. Auth via `Cookie: token_v2=<token>` (session cookie starting with `v03:`). Base URL `https://www.notion.so`. All endpoints are POST to `/api/v3/<endpoint>`. No version header. HTTP client: 30s timeout, redirect blocking (prevents token leaking on 3xx), 512KB response cap (largest real responses ~230KB, keeps worst-case at ~125K tokens). 24 tools covering databases, data sources, pages, blocks, search, users, comments + 2 convenience tools (`getPageContent` single-call page tree, `createPageWithContent` atomic transaction). `spaceID` and `userID` resolved at `Configure()` time via `getSpaces`.
   - **Reads**: `loadCachedPageChunkV2` (blocks, pages, databases, data sources, comments, children, page content), `syncRecordValuesMain` with pointer format (users), `queryCollection` with source+reducer format (data source queries), `getSpaces` (user list), `search` (hybrid search). `getRecordValues` NOT used — broken by shard isolation.

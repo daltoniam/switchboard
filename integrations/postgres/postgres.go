@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
@@ -171,7 +171,7 @@ func openConn(ctx context.Context, alias string, creds mcp.Credentials) (*pgConn
 		return nil, err
 	}
 
-	db, err := sql.Open("postgres", connStr)
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("postgres: failed to open connection: %w", err)
 	}

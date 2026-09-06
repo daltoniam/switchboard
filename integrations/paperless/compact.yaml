@@ -1,0 +1,61 @@
+# Switchboard compaction specs for the Paperless-ngx integration.
+version: 1
+tools:
+  paperless_list_documents:
+    spec: [count, next, previous, "results[].id", "results[].title", "results[].created", "results[].added", "results[].modified", "results[].correspondent", "results[].document_type", "results[].tags", "results[].archive_serial_number"]
+  paperless_search_documents:
+    spec: [count, next, previous, "results[].id", "results[].title", "results[].created", "results[].added", "results[].modified", "results[].correspondent", "results[].document_type", "results[].tags", "results[].archive_serial_number"]
+  paperless_get_document:
+    spec: [id, title, created, added, modified, correspondent, document_type, storage_path, tags, custom_fields, archive_serial_number, original_file_name]
+  paperless_get_document_ocr_text:
+    spec: [document_id, offset, limit, total_chars, content, has_more, next_offset]
+  paperless_list_tags:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].color", "results[].document_count"]
+  paperless_get_tag:
+    spec: [id, name, color, text_color, document_count, matching_algorithm, match]
+  paperless_list_correspondents:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].document_count"]
+  paperless_get_correspondent:
+    spec: [id, name, document_count, matching_algorithm, match]
+  paperless_list_document_types:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].document_count"]
+  paperless_get_document_type:
+    spec: [id, name, document_count, matching_algorithm, match]
+  paperless_list_storage_paths:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].path", "results[].document_count"]
+  paperless_get_storage_path:
+    spec: [id, name, path, document_count, matching_algorithm, match]
+  paperless_list_custom_fields:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].data_type"]
+  paperless_get_custom_field:
+    spec: [id, name, data_type, extra_data]
+  paperless_list_saved_views:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].filter_rules", "results[].sort_field", "results[].sort_reverse"]
+  paperless_get_saved_view:
+    spec: [id, name, filter_rules, sort_field, sort_reverse]
+  paperless_list_workflows:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].order", "results[].enabled", "results[].triggers[].id", "results[].triggers[].type", "results[].triggers[].filter_filename", "results[].actions[].id", "results[].actions[].type", "results[].actions[].assign_tags"]
+  paperless_get_workflow:
+    spec: [id, name, order, enabled, "triggers[].id", "triggers[].type", "triggers[].filter_filename", "actions[].id", "actions[].type", "actions[].assign_tags"]
+  paperless_list_mail_rules:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].order", "results[].account", "results[].enabled"]
+  paperless_get_mail_rule:
+    spec: [id, name, order, account, enabled]
+  paperless_list_users:
+    spec: [count, next, previous, "results[].id", "results[].username", "results[].first_name", "results[].last_name", "results[].email", "results[].is_staff", "results[].is_superuser", "results[].groups"]
+  paperless_get_user:
+    spec: [id, username, first_name, last_name, email, is_staff, is_superuser, groups]
+  paperless_list_groups:
+    spec: [count, next, previous, "results[].id", "results[].name", "results[].permissions", "results[].user_set"]
+  paperless_get_group:
+    spec: [id, name, permissions, user_set]
+  paperless_list_tasks:
+    spec: [count, next, previous, "results[].id", "results[].task_id", "results[].task_type", "results[].status", "results[].date_created", "results[].date_started", "results[].date_done"]
+  paperless_get_task:
+    spec: [id, task_id, task_type, status, date_created, date_started, date_done]
+  paperless_get_task_summary:
+    spec: ["[].task_type", "[].total_count", "[].pending_count", "[].success_count", "[].failure_count", "[].last_run", "[].last_success", "[].last_failure"]
+  paperless_get_task_status_counts:
+    spec: [all, needs_attention, in_progress, completed]
+  paperless_list_active_tasks:
+    spec: ["[].id", "[].task_id", "[].task_type", "[].status", "[].date_created"]

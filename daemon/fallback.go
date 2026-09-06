@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func StartFallback(port int) error {
+func StartFallback(port int, verbose bool) error {
 	exe, err := ExePath()
 	if err != nil {
 		return err
@@ -30,7 +30,11 @@ func StartFallback(port int) error {
 		return fmt.Errorf("open log file: %w", err)
 	}
 
-	cmd := exec.Command(exe, "--port", fmt.Sprintf("%d", port)) // #nosec G204
+	args := []string{"--port", fmt.Sprintf("%d", port)}
+	if verbose {
+		args = append(args, "--verbose")
+	}
+	cmd := exec.Command(exe, args...) // #nosec G204
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.Env = append(os.Environ(), "SWITCHBOARD_DAEMON=1")
@@ -58,12 +62,12 @@ func StartFallback(port int) error {
 	return nil
 }
 
-func Install(port int) error {
+func Install(port int, verbose bool) error {
 	switch runtime.GOOS {
 	case "darwin":
-		return InstallLaunchd(port)
+		return InstallLaunchd(port, verbose)
 	case "linux":
-		return InstallSystemd(port)
+		return InstallSystemd(port, verbose)
 	default:
 		return fmt.Errorf("service install is not supported on %s — use 'switchboard daemon start' instead", runtime.GOOS)
 	}
@@ -80,20 +84,20 @@ func Uninstall() error {
 	}
 }
 
-func Start(port int) error {
+func Start(port int, verbose bool) error {
 	switch runtime.GOOS {
 	case "darwin":
 		if IsLaunchdInstalled() {
 			return StartLaunchd()
 		}
-		return StartFallback(port)
+		return StartFallback(port, verbose)
 	case "linux":
 		if IsSystemdInstalled() {
 			return StartSystemd()
 		}
-		return StartFallback(port)
+		return StartFallback(port, verbose)
 	default:
-		return StartFallback(port)
+		return StartFallback(port, verbose)
 	}
 }
 

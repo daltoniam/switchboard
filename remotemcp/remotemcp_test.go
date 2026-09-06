@@ -65,6 +65,33 @@ func TestConfigure_SameToken_NoReset(t *testing.T) {
 	assert.Len(t, r.cachedTools, 1)
 }
 
+func TestClose_NilSessionIdempotent(t *testing.T) {
+	r := &remote{name: "test", serverURL: "https://example.com", token: "tok"}
+	require.NoError(t, r.Close())
+	require.NoError(t, r.Close())
+	assert.Nil(t, r.session)
+	assert.Nil(t, r.client)
+	assert.False(t, r.toolsFetched)
+	assert.Nil(t, r.cachedTools)
+}
+
+func TestClose_ResetsSessionState(t *testing.T) {
+	r := &remote{
+		name:         "test",
+		serverURL:    "https://example.com",
+		token:        "tok",
+		toolsFetched: true,
+		cachedTools:  []mcp.ToolDefinition{{Name: mcp.ToolName("test_foo")}},
+	}
+	// session stays nil (no live connect); Close must still clear cached state.
+	require.NoError(t, r.Close())
+	assert.Nil(t, r.session)
+	assert.Nil(t, r.client)
+	assert.False(t, r.toolsFetched)
+	assert.Nil(t, r.cachedTools)
+	require.NoError(t, r.Close()) // idempotent
+}
+
 func TestBearerTransport(t *testing.T) {
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
