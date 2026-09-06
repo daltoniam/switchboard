@@ -33,7 +33,10 @@ func listTable(ctx context.Context, s *servicenow, table string, args map[string
 	if err := validTable(table); err != nil {
 		return mcp.ErrResult(err)
 	}
-	params := listQueryParams(args, defaultFields)
+	params, err := listQueryParams(args, defaultFields)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := s.get(ctx, "/api/now/table/%s%s", url.PathEscape(table), queryEncode(params))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -327,6 +330,9 @@ func updateRecord(ctx context.Context, s *servicenow, args map[string]any) (*mcp
 	body, err := parseDataJSON(dataStr)
 	if err != nil {
 		return mcp.ErrResult(err)
+	}
+	if len(body) == 0 {
+		return mcp.ErrResult(fmt.Errorf("provide at least one field to update"))
 	}
 	data, err := s.patch(ctx, fmt.Sprintf("/api/now/table/%s/%s", url.PathEscape(table), url.PathEscape(sysID)), body)
 	if err != nil {

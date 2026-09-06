@@ -209,6 +209,16 @@ func TestDoRequest_204NoContent(t *testing.T) {
 	assert.Contains(t, string(data), "success")
 }
 
+func TestListIncidents_InvalidOffset(t *testing.T) {
+	s := &servicenow{accessToken: "t", client: &http.Client{}, instanceURL: "http://localhost"}
+	result, err := s.Execute(context.Background(), "servicenow_list_incidents", map[string]any{
+		"offset": "abc",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "offset")
+}
+
 func TestListIncidents(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/now/table/incident", r.URL.Path)
@@ -399,6 +409,18 @@ func TestListCIs_CustomTable(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	assert.Contains(t, result.Data, "web-1")
+}
+
+func TestUpdateRecord_RequiresFields(t *testing.T) {
+	s := &servicenow{accessToken: "t", client: &http.Client{}, instanceURL: "http://localhost"}
+	result, err := s.Execute(context.Background(), "servicenow_update_record", map[string]any{
+		"table":  "incident",
+		"sys_id": "abc",
+		"data":   `{}`,
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "at least one field")
 }
 
 func TestCreateRecord(t *testing.T) {

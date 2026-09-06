@@ -215,14 +215,16 @@ func queryEncode(params map[string]string) string {
 	return "?" + vals.Encode()
 }
 
-func listQueryParams(args map[string]any, defaultFields string) map[string]string {
+func listQueryParams(args map[string]any, defaultFields string) (map[string]string, error) {
 	r := mcp.NewArgs(args)
 	query := r.Str("query")
 	fields := r.Str("fields")
 	displayValue := r.Str("display_value")
 	limit := r.OptInt("limit", 25)
 	offset := r.Int("offset")
-	_ = r.Err()
+	if err := r.Err(); err != nil {
+		return nil, err
+	}
 
 	if fields == "" {
 		fields = defaultFields
@@ -240,7 +242,7 @@ func listQueryParams(args map[string]any, defaultFields string) map[string]strin
 	if offset > 0 {
 		params["sysparm_offset"] = fmt.Sprintf("%d", offset)
 	}
-	return params
+	return params, nil
 }
 
 var dispatch = map[mcp.ToolName]handlerFunc{

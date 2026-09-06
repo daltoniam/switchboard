@@ -224,6 +224,12 @@ tools:
             - result[].short_description
             - result[].state
             - result[].sys_updated_on
+    servicenow_get_record:
+        max_bytes: 100000
+        spec: []
+    servicenow_aggregate:
+        max_bytes: 50000
+        spec: []
     servicenow_list_comments:
         spec:
             - result[].sys_id

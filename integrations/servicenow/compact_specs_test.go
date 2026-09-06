@@ -46,6 +46,16 @@ func TestFieldCompactionSpec_ReturnsFalseForMutationTool(t *testing.T) {
 	assert.False(t, ok, "mutation tools should not have compaction specs")
 }
 
+func TestFieldCompactionSpec_GenericGetHasMaxBytes(t *testing.T) {
+	s := &servicenow{}
+	n, ok := s.MaxBytes("servicenow_get_record")
+	require.True(t, ok, "servicenow_get_record should cap response size")
+	assert.Equal(t, 100000, n)
+	n, ok = s.MaxBytes("servicenow_aggregate")
+	require.True(t, ok, "servicenow_aggregate should cap response size")
+	assert.Equal(t, 50000, n)
+}
+
 func TestFieldCompactionSpecs_ShapeParity(t *testing.T) {
 	handlerOutputs := map[string]string{
 		"servicenow_list_incidents":          `{"result":[{"sys_id":"1","number":"INC0010001","short_description":"VPN down","state":"2","priority":"1","urgency":"1","impact":"2","assigned_to":"Alice","assignment_group":"Network","caller_id":"Bob","category":"network","sys_updated_on":"2026-01-01 00:00:00","sys_created_on":"2026-01-01 00:00:00"}]}`,

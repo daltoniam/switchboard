@@ -292,7 +292,7 @@ func recordToMarkdown(kind string, rec renderedRecord) markdown.Markdown {
 	}
 	if rec.Description != "" {
 		b.BlankLine()
-		b.Raw(rec.Description + "\n")
+		b.WriteMarkdown(markdown.FromHTML(rec.Description))
 	}
 	return b.Build()
 }
