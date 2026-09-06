@@ -1,9 +1,9 @@
 # Switchboard
 
-A source-available MCP gateway that connects any MCP client to 36+ tools
+A source-available MCP gateway that connects any MCP client to your tools
 behind one endpoint. Run it locally with a built-in web UI, or use
-[Switchboard Hosted](https://app.switchboard-mcp.com) when you need teams,
-policies, and managed infrastructure.
+[Switchboard Hosted](https://app.switchboard-mcp.com) for a private-data
+tunnel and other team features.
 
 Switchboard sits under Cursor, Claude Code, Codex, and any other MCP client.
 Your agent searches for a capability and executes it. Compaction strips unused
@@ -16,26 +16,21 @@ about 90%.
 
 ![Local Switchboard integrations page with Google Workspace, connected services, and available adapters](docs/images/ui-integrations.webp)
 
-*Connect GitHub, Datadog, Linear, Slack, Google Workspace, and 30+ more from the local UI.*
+*Connect GitHub, Datadog, Linear, Slack, Google Workspace, and more from the local UI.*
 
-## Local or Hosted
+## Switchboard Hosted
 
-| | Local (this repo) | [Switchboard Hosted](https://app.switchboard-mcp.com) |
-|---|---|---|
-| Best for | Individuals and self-hosting | Teams and companies |
-| Cost | Free | Free for solo use, then flat monthly plans |
-| Data | Credentials stay on your machine | Encrypted vault, managed runtime |
-| Extra | Web UI, compaction, Wasm plugins | Orgs, SSO, policies, audit logs, dedicated runtimes |
+Need agents to reach Postgres or Kubernetes behind a firewall? [Switchboard
+Hosted](https://app.switchboard-mcp.com) adds a private-data tunnel, plus
+organizations, SSO, policies, audit logs, and dedicated runtimes. Same MCP
+clients and integrations as this repo.
 
 - **[Try Switchboard Hosted free](https://app.switchboard-mcp.com)** — no credit card required
-- **[Product and pricing](https://switchboard-mcp.com)** — same open MCP surface either way
-
-You can inspect every line that touches credentials, self-host this core, or
-move off Hosted later without rewriting MCP clients.
+- **[Product and pricing](https://switchboard-mcp.com)**
 
 ## Features
 
-- **One MCP endpoint** for GitHub, Datadog, Linear, Slack, Google Workspace, AWS, and 30+ more
+- **One MCP endpoint** for GitHub, Datadog, Linear, Slack, Google Workspace, AWS, and more
 - **Local web UI** to connect integrations, check health, and watch token savings
 - **Search + execute** so agents discover tools instead of loading every schema
 - **~90% fewer tokens** via compaction, columnar reshape, and markdown rendering
@@ -160,7 +155,7 @@ open http://localhost:3847
                                      │  │  ├─ Datadog      │  │
                                      │  │  ├─ Linear       │  │
                                      │  │  ├─ Slack        │  │
-                                     │  │  └─ 36+ more     │  │
+                                     │  │  └─ more         │  │
                                      │  └─────────────────┘  │
                                      └──────────────────────┘
 ```
