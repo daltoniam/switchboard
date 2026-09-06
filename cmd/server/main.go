@@ -69,6 +69,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/salesforce"
 	"github.com/daltoniam/switchboard/integrations/sentry"
+	"github.com/daltoniam/switchboard/integrations/servicenow"
 	signozInt "github.com/daltoniam/switchboard/integrations/signoz"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/integrations/slackmcp"
@@ -348,6 +349,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),
+		servicenow.New(),
 		netsuite.New(),
 		cloudflare.New(),
 		digitalocean.New(),

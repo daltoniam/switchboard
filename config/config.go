@@ -100,6 +100,12 @@ var envMapping = map[string]map[string]string{
 		"instance_url": "SALESFORCE_INSTANCE_URL",
 		"api_version":  "SALESFORCE_API_VERSION",
 	},
+	"servicenow": {
+		"instance_url": "SERVICENOW_INSTANCE_URL",
+		"username":     "SERVICENOW_USERNAME",
+		"password":     "SERVICENOW_PASSWORD",
+		"access_token": "SERVICENOW_ACCESS_TOKEN",
+	},
 	"netsuite": {
 		"account_id":      "NETSUITE_ACCOUNT_ID",
 		"consumer_key":    "NETSUITE_CONSUMER_KEY",
@@ -454,6 +460,10 @@ func defaultConfig() *mcp.Config {
 			"salesforce": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "instance_url": "", "api_version": ""},
+			},
+			"servicenow": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"instance_url": "", "username": "", "password": "", "access_token": ""},
 			},
 			"netsuite": {
 				Enabled:     false,
