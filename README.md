@@ -183,6 +183,8 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Gong | `access_key` | `GONG_ACCESS_KEY` |
 | Gong | `access_key_secret` | `GONG_ACCESS_KEY_SECRET` |
 | Gong | `base_url` | `GONG_BASE_URL` (optional — default `https://api.gong.io`) |
+| Okta | `api_token` | `OKTA_API_TOKEN` |
+| Okta | `org_url` | `OKTA_ORG_URL` (e.g. `https://your-org.okta.com`) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
 | Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
 | NetSuite | `account_id` | `NETSUITE_ACCOUNT_ID` |

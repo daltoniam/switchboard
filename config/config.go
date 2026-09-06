@@ -181,6 +181,10 @@ var envMapping = map[string]map[string]string{
 		"access_token": "RAMP_ACCESS_TOKEN",
 		"base_url":     "RAMP_BASE_URL",
 	},
+	"okta": {
+		"api_token": "OKTA_API_TOKEN",
+		"org_url":   "OKTA_ORG_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -359,6 +363,10 @@ func defaultConfig() *mcp.Config {
 			"ramp": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"okta": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "org_url": ""},
 			},
 			"jira": {
 				Enabled:     false,

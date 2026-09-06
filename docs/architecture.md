@@ -173,6 +173,11 @@ integrations/
     networking.go            Domains, DNS records, load balancers, firewalls, VPCs, volumes handlers
     extras.go                Account, apps, regions, sizes, images, SSH keys, snapshots,
                              projects, billing, CDN, certificates, registry, tags handlers
+  okta/
+    okta.go                  Okta identity adapter (core, dispatch, SSWS HTTP helpers, FieldCompactionIntegration)
+    compact.yaml             Field compaction specs (~16 list/get tools)
+    tools.go                 Okta tool definitions (~34 tools)
+    handlers.go              Users, groups, apps, policies, logs, org handlers
   gcp/
     gcp.go                   GCP integration adapter (core, dispatch, typed SDK clients, helpers)
     tools.go                 GCP tool definitions (~55 tools)
