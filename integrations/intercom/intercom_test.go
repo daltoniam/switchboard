@@ -232,6 +232,18 @@ func TestReplyConversation_MissingAdminID(t *testing.T) {
 	assert.Contains(t, result.Data, "admin_id is required")
 }
 
+func TestReplyConversation_MissingUserID(t *testing.T) {
+	c := &intercom{accessToken: "tok", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := c.Execute(context.Background(), "intercom_reply_conversation", map[string]any{
+		"conversation_id": "c1",
+		"body":            "hello",
+		"type":            "user",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "intercom_user_id is required")
+}
+
 func TestCloseConversation(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/conversations/c1/parts", r.URL.Path)
@@ -358,6 +370,26 @@ func TestUpdateTicket_OpenFalse(t *testing.T) {
 	require.False(t, result.IsError)
 }
 
+func TestUpdateTicket_AssigneeID(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "991", body["assignee_id"])
+		_, hasAssignment := body["assignment"]
+		assert.False(t, hasAssignment)
+		_, _ = w.Write([]byte(`{"id":"t1"}`))
+	}))
+	defer ts.Close()
+
+	c := &intercom{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := c.Execute(context.Background(), "intercom_update_ticket", map[string]any{
+		"ticket_id":         "t1",
+		"admin_assignee_id": "991",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestHealthy(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/me", r.URL.Path)
@@ -423,18 +455,33 @@ func TestCreateTicket(t *testing.T) {
 		assert.Equal(t, "tt1", body["ticket_type_id"])
 		contacts := body["contacts"].([]any)
 		assert.Equal(t, "u1", contacts[0].(map[string]any)["id"])
+		assignment := body["assignment"].(map[string]any)
+		assert.Equal(t, "991", assignment["admin_assignee_id"])
+		_, hasTeam := assignment["team_assignee_id"]
+		assert.False(t, hasTeam)
 		_, _ = w.Write([]byte(`{"id":"t1"}`))
 	}))
 	defer ts.Close()
 
 	c := &intercom{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
 	result, err := c.Execute(context.Background(), "intercom_create_ticket", map[string]any{
-		"ticket_type_id": "tt1",
-		"contact_id":     "u1",
-		"title":          "Help",
+		"ticket_type_id":    "tt1",
+		"contact_id":        "u1",
+		"title":             "Help",
+		"admin_assignee_id": "991",
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
+}
+
+func TestCreateTicket_MissingContact(t *testing.T) {
+	c := &intercom{accessToken: "tok", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := c.Execute(context.Background(), "intercom_create_ticket", map[string]any{
+		"ticket_type_id": "tt1",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "provide contact_id or contacts")
 }
 
 func TestListConversations(t *testing.T) {

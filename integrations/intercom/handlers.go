@@ -152,13 +152,8 @@ func replyConversation(ctx context.Context, c *intercom, args map[string]any) (*
 		"type":         replyType,
 		"body":         body,
 	}
-	if replyType == "admin" {
-		if adminID == "" {
-			return mcp.ErrResult(fmt.Errorf("admin_id is required when type is admin"))
-		}
-		payload["admin_id"] = adminID
-	} else if userID != "" {
-		payload["intercom_user_id"] = userID
+	if err := applyReplyActor(payload, replyType, adminID, userID); err != nil {
+		return mcp.ErrResult(err)
 	}
 	if len(attachments) > 0 {
 		payload["attachment_urls"] = attachments
@@ -488,15 +483,23 @@ func createTicket(ctx context.Context, c *intercom, args map[string]any) (*mcp.T
 	} else if contactID != "" {
 		payload["contacts"] = []any{map[string]any{"id": contactID}}
 	}
+	if _, ok := payload["contacts"]; !ok {
+		return mcp.ErrResult(fmt.Errorf("provide contact_id or contacts"))
+	}
 	if title != "" {
 		payload["ticket_attributes"] = map[string]any{"_default_title_": title, "_default_description_": description}
 	} else if description != "" {
 		payload["ticket_attributes"] = map[string]any{"_default_description_": description}
 	}
+	assignment := map[string]any{}
 	if adminAssignee != "" {
-		payload["assignment"] = map[string]any{"admin_assignee_id": adminAssignee, "team_assignee_id": teamAssignee}
-	} else if teamAssignee != "" {
-		payload["assignment"] = map[string]any{"team_assignee_id": teamAssignee}
+		assignment["admin_assignee_id"] = adminAssignee
+	}
+	if teamAssignee != "" {
+		assignment["team_assignee_id"] = teamAssignee
+	}
+	if len(assignment) > 0 {
+		payload["assignment"] = assignment
 	}
 	data, err := c.post(ctx, "/tickets", payload)
 	if err != nil {
@@ -508,6 +511,7 @@ func createTicket(ctx context.Context, c *intercom, args map[string]any) (*mcp.T
 func updateTicket(ctx context.Context, c *intercom, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	id := r.Str("ticket_id")
+	assigneeID := r.Str("assignee_id")
 	adminAssignee := r.Str("admin_assignee_id")
 	teamAssignee := r.Str("team_assignee_id")
 	attrsRaw := r.Str("ticket_attributes")
@@ -522,10 +526,15 @@ func updateTicket(ctx context.Context, c *intercom, args map[string]any) (*mcp.T
 		}
 		payload["open"] = open
 	}
-	if adminAssignee != "" {
-		payload["assignment"] = map[string]any{"admin_assignee_id": adminAssignee, "team_assignee_id": teamAssignee}
-	} else if teamAssignee != "" {
-		payload["assignment"] = map[string]any{"team_assignee_id": teamAssignee}
+	if assigneeID == "" {
+		if adminAssignee != "" {
+			assigneeID = adminAssignee
+		} else {
+			assigneeID = teamAssignee
+		}
+	}
+	if assigneeID != "" {
+		payload["assignee_id"] = assigneeID
 	}
 	if attrsRaw != "" {
 		attrs, err := parseJSONObject(attrsRaw)
@@ -563,13 +572,8 @@ func replyTicket(ctx context.Context, c *intercom, args map[string]any) (*mcp.To
 		"type":         replyType,
 		"body":         body,
 	}
-	if replyType == "admin" {
-		if adminID == "" {
-			return mcp.ErrResult(fmt.Errorf("admin_id is required when type is admin"))
-		}
-		payload["admin_id"] = adminID
-	} else if userID != "" {
-		payload["intercom_user_id"] = userID
+	if err := applyReplyActor(payload, replyType, adminID, userID); err != nil {
+		return mcp.ErrResult(err)
 	}
 	data, err := c.post(ctx, "/tickets/"+url.PathEscape(id)+"/reply", payload)
 	if err != nil {
@@ -663,4 +667,19 @@ func listTags(ctx context.Context, c *intercom, _ map[string]any) (*mcp.ToolResu
 		return mcp.ErrResult(err)
 	}
 	return mcp.RawResult(data)
+}
+
+func applyReplyActor(payload map[string]any, replyType, adminID, userID string) error {
+	if replyType == "admin" {
+		if adminID == "" {
+			return fmt.Errorf("admin_id is required when type is admin")
+		}
+		payload["admin_id"] = adminID
+		return nil
+	}
+	if userID == "" {
+		return fmt.Errorf("intercom_user_id is required when type is user")
+	}
+	payload["intercom_user_id"] = userID
+	return nil
 }

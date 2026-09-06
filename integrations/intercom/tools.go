@@ -180,8 +180,9 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"ticket_id":         "Intercom ticket ID",
 			"open":              "true to open, false to close",
-			"admin_assignee_id": "Admin ID to assign",
-			"team_assignee_id":  "Team ID to assign",
+			"assignee_id":       "Admin or team ID to assign (or 0 to unassign). Preferred over admin_assignee_id/team_assignee_id.",
+			"admin_assignee_id": "Admin ID to assign (used when assignee_id is omitted)",
+			"team_assignee_id":  "Team ID to assign (used when assignee_id and admin_assignee_id are omitted)",
 			"ticket_attributes": "JSON object of ticket attributes",
 		},
 		Required: []string{"ticket_id"},
