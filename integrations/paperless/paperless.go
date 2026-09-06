@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -38,6 +39,7 @@ const (
 	paperlessHTTPTimeout       = 30 * time.Second
 	paperlessResponseSizeLimit = 2 * 1024 * 1024
 	paperlessDownloadSizeLimit = 1024 * 1024
+	paperlessImageSizeLimit    = 5 * 1024 * 1024
 	defaultOCRTextLimit        = 10_000
 	maxOCRTextLimit            = 20_000
 )
@@ -254,6 +256,49 @@ func getDocument(ctx context.Context, p *paperless, args map[string]any) (*mcp.T
 		return mcp.ErrResult(err)
 	}
 	return withoutOCRContent(data)
+}
+
+func getDocumentThumbnail(ctx context.Context, p *paperless, args map[string]any) (*mcp.ToolResult, error) {
+	return getDocumentImage(ctx, p, args, "thumb")
+}
+
+func getDocumentPreview(ctx context.Context, p *paperless, args map[string]any) (*mcp.ToolResult, error) {
+	return getDocumentImage(ctx, p, args, "preview")
+}
+
+func getDocumentImage(ctx context.Context, p *paperless, args map[string]any, variant string) (*mcp.ToolResult, error) {
+	id, err := documentID(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	data, header, err := p.doRequestWithLimit(ctx, http.MethodGet, fmt.Sprintf("/api/documents/%d/%s/", id, variant), nil, "", paperlessImageSizeLimit)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	contentType, _, err := mime.ParseMediaType(header.Get("Content-Type"))
+	if err != nil || (!strings.HasPrefix(contentType, "image/") && contentType != "application/pdf") {
+		return mcp.ErrResult(fmt.Errorf("paperless %s returned unsupported content type %q", variant, header.Get("Content-Type")))
+	}
+	if variant == "thumb" && !strings.HasPrefix(contentType, "image/") {
+		return mcp.ErrResult(fmt.Errorf("paperless thumbnail returned %q, not an image", header.Get("Content-Type")))
+	}
+	metadata, err := json.Marshal(map[string]any{
+		"document_id":  id,
+		"content_type": contentType,
+		"bytes":        len(data),
+	})
+	if err != nil {
+		return mcp.ErrResult(fmt.Errorf("encode Paperless image metadata: %w", err))
+	}
+	nameExtension := ".pdf"
+	if contentType != "application/pdf" {
+		extensions, _ := mime.ExtensionsByType(contentType)
+		nameExtension = ""
+		if len(extensions) > 0 {
+			nameExtension = extensions[0]
+		}
+	}
+	return mcp.MediaResult(string(metadata), data, contentType, fmt.Sprintf("paperless-document-%d%s", id, nameExtension))
 }
 
 func getDocumentOCRText(ctx context.Context, p *paperless, args map[string]any) (*mcp.ToolResult, error) {

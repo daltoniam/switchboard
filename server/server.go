@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -896,22 +897,26 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 		logExecute(start, args.ToolName, out, nil)
 		return out, nil
 	}
-	text := result.Data
-	var out *mcpsdk.CallToolResult
-	if handle != "" {
-		out = &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: text},
-				&mcpsdk.TextContent{Text: "pinned as " + handle},
-			},
+	content := []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}}
+	for _, media := range result.Media {
+		if strings.HasPrefix(media.MIMEType, "image/") {
+			content = append(content, &mcpsdk.ImageContent{Data: media.Data, MIMEType: media.MIMEType})
+			continue
 		}
-	} else {
-		out = &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: text},
-			},
+		name := media.Name
+		if name == "" {
+			name = "content"
 		}
+		content = append(content, &mcpsdk.EmbeddedResource{Resource: &mcpsdk.ResourceContents{
+			URI:      (&url.URL{Scheme: "file", Path: "/" + name}).String(),
+			MIMEType: media.MIMEType,
+			Blob:     media.Data,
+		}})
 	}
+	if handle != "" {
+		content = append(content, &mcpsdk.TextContent{Text: "pinned as " + handle})
+	}
+	out := &mcpsdk.CallToolResult{Content: content}
 	logExecute(start, args.ToolName, out, nil)
 	return out, nil
 }
@@ -935,8 +940,15 @@ func resultBytes(result *mcpsdk.CallToolResult) int {
 	}
 	n := 0
 	for _, c := range result.Content {
-		if tc, ok := c.(*mcpsdk.TextContent); ok {
-			n += len(tc.Text)
+		switch content := c.(type) {
+		case *mcpsdk.TextContent:
+			n += len(content.Text)
+		case *mcpsdk.ImageContent:
+			n += len(content.Data)
+		case *mcpsdk.EmbeddedResource:
+			if content.Resource != nil {
+				n += len(content.Resource.Blob) + len(content.Resource.Text)
+			}
 		}
 	}
 	return n
