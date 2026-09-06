@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -884,36 +885,57 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	}
 	applyResultProcessing(integration, args.ToolName, compact.ParseViewArgs(args.Arguments), result, s.services.Metrics)
 	limit := responseLimitFor(integration, args.ToolName)
-	if len(result.Data) > limit {
+	resultSize := toolResultBytes(result)
+	if resultSize > limit {
 		if s.services.Metrics != nil {
 			s.services.Metrics.RecordTruncation()
 		}
 		out := errorResult(fmt.Sprintf(
 			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
 			limit/1024,
-			len(result.Data)/1024,
+			resultSize/1024,
 		))
 		logExecute(start, args.ToolName, out, nil)
 		return out, nil
 	}
-	text := result.Data
-	var out *mcpsdk.CallToolResult
+	content := toolResultContent(result)
 	if handle != "" {
-		out = &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: text},
-				&mcpsdk.TextContent{Text: "pinned as " + handle},
-			},
-		}
-	} else {
-		out = &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{
-				&mcpsdk.TextContent{Text: text},
-			},
-		}
+		content = append(content, &mcpsdk.TextContent{Text: "pinned as " + handle})
 	}
+	out := &mcpsdk.CallToolResult{Content: content}
 	logExecute(start, args.ToolName, out, nil)
 	return out, nil
+}
+
+func toolResultBytes(result *mcp.ToolResult) int {
+	if result == nil {
+		return 0
+	}
+	size := len(result.Data)
+	for _, media := range result.Media {
+		size += len(media.Data)
+	}
+	return size
+}
+
+func toolResultContent(result *mcp.ToolResult) []mcpsdk.Content {
+	content := []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}}
+	for _, media := range result.Media {
+		if strings.HasPrefix(media.MIMEType, "image/") {
+			content = append(content, &mcpsdk.ImageContent{Data: media.Data, MIMEType: media.MIMEType})
+			continue
+		}
+		name := media.Name
+		if name == "" {
+			name = "content"
+		}
+		content = append(content, &mcpsdk.EmbeddedResource{Resource: &mcpsdk.ResourceContents{
+			URI:      (&url.URL{Scheme: "file", Path: "/" + name}).String(),
+			MIMEType: media.MIMEType,
+			Blob:     media.Data,
+		}})
+	}
+	return content
 }
 
 func logExecute(start time.Time, tool mcp.ToolName, result *mcpsdk.CallToolResult, err error) {
@@ -935,8 +957,15 @@ func resultBytes(result *mcpsdk.CallToolResult) int {
 	}
 	n := 0
 	for _, c := range result.Content {
-		if tc, ok := c.(*mcpsdk.TextContent); ok {
-			n += len(tc.Text)
+		switch content := c.(type) {
+		case *mcpsdk.TextContent:
+			n += len(content.Text)
+		case *mcpsdk.ImageContent:
+			n += len(content.Data)
+		case *mcpsdk.EmbeddedResource:
+			if content.Resource != nil {
+				n += len(content.Resource.Blob) + len(content.Resource.Text)
+			}
 		}
 	}
 	return n

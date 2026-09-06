@@ -251,10 +251,17 @@ type ToolDefinition struct {
 	Required    []string          `json:"required,omitempty"`
 }
 
+type MediaContent struct {
+	Data     []byte `json:"data"`
+	MIMEType string `json:"mime_type"`
+	Name     string `json:"name,omitempty"`
+}
+
 // ToolResult is the output of executing a tool.
 type ToolResult struct {
-	Data    string `json:"data,omitempty"`
-	IsError bool   `json:"is_error,omitempty"`
+	Data    string         `json:"data,omitempty"`
+	Media   []MediaContent `json:"media,omitempty"`
+	IsError bool           `json:"is_error,omitempty"`
 
 	// IntermediateBytes is populated only by the script engine and is the
 	// sum of every api.call() raw response size accumulated while running
@@ -278,6 +285,17 @@ func JSONResult(v any) (*ToolResult, error) {
 // Passing nil is equivalent to passing an empty slice — returns an empty, non-error result.
 func RawResult(data []byte) (*ToolResult, error) {
 	return &ToolResult{Data: string(data)}, nil
+}
+
+func MediaResult(metadata string, data []byte, mimeType, name string) (*ToolResult, error) {
+	return &ToolResult{
+		Data: metadata,
+		Media: []MediaContent{{
+			Data:     data,
+			MIMEType: mimeType,
+			Name:     name,
+		}},
+	}, nil
 }
 
 // ErrResult converts an error to a ToolResult.

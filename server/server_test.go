@@ -968,6 +968,71 @@ func TestHandleExecute_LogsErrorWithoutArgs(t *testing.T) {
 	assert.NotContains(t, out, "super-secret-credential")
 }
 
+func TestHandleExecute_ReturnsNativeImageContent(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "vision",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "vision_get_image", Description: "Get an image"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return mcp.MediaResult(`{"document_id":7}`, []byte("image"), "image/webp", "document-7.webp")
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("vision_get_image", nil))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	require.Len(t, result.Content, 3)
+	assert.Equal(t, `{"document_id":7}`, result.Content[0].(*mcpsdk.TextContent).Text)
+	image := result.Content[1].(*mcpsdk.ImageContent)
+	assert.Equal(t, []byte("image"), image.Data)
+	assert.Equal(t, "image/webp", image.MIMEType)
+	assert.Contains(t, result.Content[2].(*mcpsdk.TextContent).Text, "pinned as $1")
+}
+
+func TestHandleExecute_ReturnsPDFAsEmbeddedResource(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "vision",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "vision_get_pdf", Description: "Get a PDF"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return mcp.MediaResult(`{"document_id":7}`, []byte("pdf"), "application/pdf", "document-7.pdf")
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("vision_get_pdf", nil))
+	require.NoError(t, err)
+	require.Len(t, result.Content, 3)
+	resource := result.Content[1].(*mcpsdk.EmbeddedResource)
+	assert.Equal(t, "file:///document-7.pdf", resource.Resource.URI)
+	assert.Equal(t, "application/pdf", resource.Resource.MIMEType)
+	assert.Equal(t, []byte("pdf"), resource.Resource.Blob)
+}
+
+func TestHandleExecute_RejectsOversizedMedia(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "vision",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "vision_get_image", Description: "Get an image"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return mcp.MediaResult(`{"document_id":7}`, make([]byte, defaultMaxResponseBytes), "image/webp", "document-7.webp")
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("vision_get_image", nil))
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Content[0].(*mcpsdk.TextContent).Text, "Response exceeded")
+}
+
 // --- markdown integration mock ---
 
 type mockMarkdownIntegration struct {

@@ -264,6 +264,85 @@ func TestDownloadDocumentReturnsBinaryEnvelope(t *testing.T) {
 	assert.JSONEq(t, `{"content_type":"application/pdf; charset=binary","bytes":3,"content_base64":"AP8Q"}`, result.Data)
 }
 
+func TestGetDocumentThumbnailReturnsNativeImage(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/api/documents/7/thumb/", r.URL.Path)
+		w.Header().Set("Content-Type", "image/webp")
+		_, _ = w.Write([]byte("image"))
+	}))
+	t.Cleanup(ts.Close)
+
+	p := &paperless{token: "token", baseURL: ts.URL, client: ts.Client()}
+	result, err := p.Execute(context.Background(), "paperless_get_document_thumbnail", map[string]any{"document_id": 7})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"document_id":7,"content_type":"image/webp","bytes":5}`, result.Data)
+	require.Len(t, result.Media, 1)
+	assert.Equal(t, []byte("image"), result.Media[0].Data)
+	assert.Equal(t, "image/webp", result.Media[0].MIMEType)
+	assert.Equal(t, "paperless-document-7.webp", result.Media[0].Name)
+}
+
+func TestGetDocumentPreviewReturnsImageOrPDF(t *testing.T) {
+	contentType := "image/png"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/documents/7/preview/", r.URL.Path)
+		w.Header().Set("Content-Type", contentType)
+		_, _ = w.Write([]byte("preview"))
+	}))
+	t.Cleanup(ts.Close)
+
+	p := &paperless{token: "token", baseURL: ts.URL, client: ts.Client()}
+	result, err := p.Execute(context.Background(), "paperless_get_document_preview", map[string]any{"document_id": 7})
+	require.NoError(t, err)
+	require.Len(t, result.Media, 1)
+	assert.Equal(t, "image/png", result.Media[0].MIMEType)
+
+	contentType = "application/pdf"
+	result, err = p.Execute(context.Background(), "paperless_get_document_preview", map[string]any{"document_id": 7})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	require.Len(t, result.Media, 1)
+	assert.Equal(t, "application/pdf", result.Media[0].MIMEType)
+	assert.Equal(t, "paperless-document-7.pdf", result.Media[0].Name)
+}
+
+func TestGetDocumentPreviewUsesPredictableJPEGExtension(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/jpeg")
+		_, _ = w.Write([]byte("jpeg"))
+	}))
+	t.Cleanup(ts.Close)
+
+	p := &paperless{token: "token", baseURL: ts.URL, client: ts.Client()}
+	result, err := p.Execute(context.Background(), "paperless_get_document_preview", map[string]any{"document_id": 7})
+	require.NoError(t, err)
+	require.Len(t, result.Media, 1)
+	assert.Equal(t, "paperless-document-7.jpg", result.Media[0].Name)
+}
+
+func TestDocumentVisionResponseLimits(t *testing.T) {
+	p := New().(*paperless)
+	for _, tool := range []mcp.ToolName{"paperless_get_document_thumbnail", "paperless_get_document_preview"} {
+		limit, ok := p.MaxResponseBytesForTool(tool)
+		assert.True(t, ok)
+		assert.Equal(t, paperlessImageSizeLimit, limit)
+	}
+	_, ok := p.MaxResponseBytesForTool("paperless_get_document")
+	assert.False(t, ok)
+}
+
+func TestDocumentVisionToolDescriptions(t *testing.T) {
+	definitions := make(map[mcp.ToolName]mcp.ToolDefinition)
+	for _, tool := range New().Tools() {
+		definitions[tool.Name] = tool
+	}
+	assert.Contains(t, definitions["paperless_get_document_thumbnail"].Description, "Start here")
+	assert.Contains(t, definitions["paperless_get_document_thumbnail"].Description, "PDF")
+	assert.Contains(t, definitions["paperless_get_document_preview"].Description, "image")
+	assert.Contains(t, definitions["paperless_get_document_ocr_text"].Description, "thumbnail")
+}
+
 func TestPaperlessResponseSizeLimits(t *testing.T) {
 	body := strings.Repeat("x", 2*1024*1024+1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
