@@ -170,9 +170,9 @@ func TestSearchContacts(t *testing.T) {
 		body, _ := io.ReadAll(r.Body)
 		var payload map[string]any
 		require.NoError(t, json.Unmarshal(body, &payload))
-		groups, ok := payload["filterGroups"].([]any)
-		require.True(t, ok)
-		assert.NotEmpty(t, groups)
+		assert.Equal(t, "ada@example.com", payload["query"])
+		_, hasGroups := payload["filterGroups"]
+		assert.False(t, hasGroups)
 		_, _ = w.Write([]byte(`{"total":1,"results":[{"id":"1","properties":{"email":"ada@example.com"}}]}`))
 	}))
 	defer ts.Close()
@@ -422,15 +422,24 @@ func TestListProperties(t *testing.T) {
 	assert.Contains(t, result.Data, "email")
 }
 
-func TestSearchObjects_QueryUnsupported(t *testing.T) {
-	h := &hubspot{accessToken: "tok", client: &http.Client{}, baseURL: "http://localhost"}
+func TestSearchObjects_PassesQuery(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/crm/v3/objects/notes/search", r.URL.Path)
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal(body, &payload))
+		assert.Equal(t, "pricing", payload["query"])
+		_, _ = w.Write([]byte(`{"total":0,"results":[]}`))
+	}))
+	defer ts.Close()
+
+	h := &hubspot{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
 	result, err := h.Execute(context.Background(), "hubspot_search_objects", map[string]any{
-		"object_type": "custom_thing",
-		"query":       "acme",
+		"object_type": "notes",
+		"query":       "pricing",
 	})
 	require.NoError(t, err)
-	assert.True(t, result.IsError)
-	assert.Contains(t, result.Data, "query is not supported")
+	require.False(t, result.IsError)
 }
 
 func TestGetCompany(t *testing.T) {

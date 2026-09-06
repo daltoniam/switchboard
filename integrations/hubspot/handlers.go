@@ -72,6 +72,9 @@ func buildSearchBody(args map[string]any, objectType string) (map[string]any, er
 		}
 		body["sorts"] = sorts
 	}
+	if query != "" {
+		body["query"] = query
+	}
 	filterGroups, err := parseJSONValue(filterGroupsRaw, "filter_groups")
 	if err != nil {
 		return nil, err
@@ -86,36 +89,8 @@ func buildSearchBody(args map[string]any, objectType string) (map[string]any, er
 	}
 	if filters != nil {
 		body["filterGroups"] = []any{map[string]any{"filters": filters}}
-		return body, nil
-	}
-	if query != "" {
-		groups, err := queryFilterGroups(objectType, query)
-		if err != nil {
-			return nil, err
-		}
-		body["filterGroups"] = groups
 	}
 	return body, nil
-}
-
-func queryFilterGroups(objectType, query string) ([]any, error) {
-	props := searchProperties[objectType]
-	if len(props) == 0 {
-		return nil, fmt.Errorf("query is not supported for object_type %q; use filters or filter_groups", objectType)
-	}
-	groups := make([]any, 0, len(props))
-	for _, prop := range props {
-		groups = append(groups, map[string]any{
-			"filters": []any{
-				map[string]any{
-					"propertyName": prop,
-					"operator":     "CONTAINS_TOKEN",
-					"value":        query,
-				},
-			},
-		})
-	}
-	return groups, nil
 }
 
 func splitCSV(s string) []string {

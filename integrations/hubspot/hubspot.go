@@ -220,18 +220,6 @@ var defaultProperties = map[string]string{
 	"emails":    "hs_email_subject,hs_email_text,hs_email_direction,hs_timestamp,hubspot_owner_id",
 }
 
-var searchProperties = map[string][]string{
-	"contacts":  {"email", "firstname", "lastname", "phone", "company"},
-	"companies": {"name", "domain", "website", "phone"},
-	"deals":     {"dealname", "description"},
-	"tickets":   {"subject", "content"},
-	"notes":     {"hs_note_body"},
-	"tasks":     {"hs_task_subject", "hs_task_body"},
-	"meetings":  {"hs_meeting_title", "hs_meeting_body"},
-	"calls":     {"hs_call_title", "hs_call_body"},
-	"emails":    {"hs_email_subject", "hs_email_text"},
-}
-
 func listQuery(args map[string]any, objectType string) (map[string]string, error) {
 	r := mcp.NewArgs(args)
 	after := r.Str("after")
