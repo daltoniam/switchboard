@@ -321,6 +321,17 @@ func TestGetDocumentPreviewUsesPredictableJPEGExtension(t *testing.T) {
 	assert.Equal(t, "paperless-document-7.jpg", result.Media[0].Name)
 }
 
+func TestDocumentVisionResponseLimits(t *testing.T) {
+	p := New().(*paperless)
+	for _, tool := range []mcp.ToolName{"paperless_get_document_thumbnail", "paperless_get_document_preview"} {
+		limit, ok := p.MaxResponseBytesForTool(tool)
+		assert.True(t, ok)
+		assert.Equal(t, paperlessImageSizeLimit, limit)
+	}
+	_, ok := p.MaxResponseBytesForTool("paperless_get_document")
+	assert.False(t, ok)
+}
+
 func TestDocumentVisionToolDescriptions(t *testing.T) {
 	definitions := make(map[mcp.ToolName]mcp.ToolDefinition)
 	for _, tool := range New().Tools() {

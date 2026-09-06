@@ -29,10 +29,11 @@ var compactResult = compact.MustLoadWithOverlay("paperless", compactYAML, compac
 var fieldCompactionSpecs = compactResult.Specs
 
 var (
-	_ mcp.Integration                = (*paperless)(nil)
-	_ mcp.FieldCompactionIntegration = (*paperless)(nil)
-	_ mcp.PlainTextCredentials       = (*paperless)(nil)
-	_ mcp.PlaceholderHints           = (*paperless)(nil)
+	_ mcp.Integration                        = (*paperless)(nil)
+	_ mcp.FieldCompactionIntegration         = (*paperless)(nil)
+	_ mcp.PerToolMaxResponseBytesIntegration = (*paperless)(nil)
+	_ mcp.PlainTextCredentials               = (*paperless)(nil)
+	_ mcp.PlaceholderHints                   = (*paperless)(nil)
 )
 
 const (
@@ -108,6 +109,14 @@ func (p *paperless) Tools() []mcp.ToolDefinition { return tools }
 func (p *paperless) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 	fields, ok := fieldCompactionSpecs[toolName]
 	return fields, ok
+}
+
+func (p *paperless) MaxResponseBytesForTool(toolName mcp.ToolName) (int, bool) {
+	switch toolName {
+	case "paperless_get_document_thumbnail", "paperless_get_document_preview":
+		return paperlessImageSizeLimit, true
+	}
+	return 0, false
 }
 
 func (p *paperless) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
