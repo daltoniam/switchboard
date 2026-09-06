@@ -31,7 +31,12 @@ func xmlEscape(s string) string {
 	return buf.String()
 }
 
-func buildPlist(label, exePath string, port int, logPath string) string {
+func buildPlist(label, exePath string, port int, logPath string, verbose bool) string {
+	verboseArg := ""
+	if verbose {
+		verboseArg = `
+        <string>--verbose</string>`
+	}
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -42,7 +47,7 @@ func buildPlist(label, exePath string, port int, logPath string) string {
     <array>
         <string>%s</string>
         <string>--port</string>
-        <string>%d</string>
+        <string>%d</string>%s
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -61,10 +66,10 @@ func buildPlist(label, exePath string, port int, logPath string) string {
     </dict>
 </dict>
 </plist>
-`, xmlEscape(label), xmlEscape(exePath), port, xmlEscape(logPath), xmlEscape(logPath))
+`, xmlEscape(label), xmlEscape(exePath), port, verboseArg, xmlEscape(logPath), xmlEscape(logPath))
 }
 
-func InstallLaunchd(port int) error {
+func InstallLaunchd(port int, verbose bool) error {
 	exe, err := ExePath()
 	if err != nil {
 		return err
@@ -85,7 +90,7 @@ func InstallLaunchd(port int) error {
 		return fmt.Errorf("create LaunchAgents dir: %w", err)
 	}
 
-	content := buildPlist(launchdLabel, exe, port, logPath)
+	content := buildPlist(launchdLabel, exe, port, logPath, verbose)
 
 	if err := os.WriteFile(plistPath, []byte(content), 0600); err != nil {
 		return fmt.Errorf("write plist file: %w", err)

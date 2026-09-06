@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"sync"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -74,10 +75,50 @@ func (l *Loader) LoadPlugin(ctx context.Context, path string, nameOverride strin
 			break
 		}
 	}
-	if hasNonEmpty {
+	// Disabled plugins are loaded for discovery/configuration but must not be
+	// validated until the user explicitly enables them. This allows partial
+	// credentials to be staged without startup rewriting or load failure.
+	if hasExisting && existing.Enabled && hasNonEmpty {
 		if err := mod.Configure(ctx, mergedCreds); err != nil {
 			mod.Close(ctx) //nolint:errcheck
 			return fmt.Errorf("configure WASM module %q: %w", path, err)
+		}
+	}
+
+	ic := &mcp.IntegrationConfig{
+		Enabled:     false,
+		Credentials: mergedCreds,
+	}
+	if hasExisting {
+		ic.Enabled = existing.Enabled
+		ic.ToolGlobs = append([]string(nil), existing.ToolGlobs...)
+		if existing.Identities != nil {
+			ic.Identities = make(map[string]mcp.IntegrationIdentity, len(existing.Identities))
+		}
+		for id, identity := range existing.Identities {
+			identityCopy := mcp.IntegrationIdentity{}
+			if identity.Credentials != nil {
+				identityCopy.Credentials = mcp.Credentials{}
+			}
+			for key, value := range identity.Credentials {
+				identityCopy.Credentials[key] = value
+			}
+			if identity.Metadata != nil {
+				identityCopy.Metadata = map[string]string{}
+			}
+			for key, value := range identity.Metadata {
+				identityCopy.Metadata[key] = value
+			}
+			ic.Identities[id] = identityCopy
+		}
+	}
+	// Persist only when a new plugin needs a config entry or its declared
+	// credential schema changed. Startup loading must never rewrite unrelated
+	// config state or silently enable a plugin.
+	if !hasExisting || !reflect.DeepEqual(existing, ic) {
+		if err := l.cfgMgr.SetIntegration(mod.Name(), ic); err != nil {
+			mod.Close(ctx) //nolint:errcheck
+			return fmt.Errorf("persist WASM module %q configuration: %w", path, err)
 		}
 	}
 
@@ -93,15 +134,6 @@ func (l *Loader) LoadPlugin(ctx context.Context, path string, nameOverride strin
 		mod.Close(ctx) //nolint:errcheck
 		return fmt.Errorf("register WASM module %q: %w", path, err)
 	}
-
-	ic := &mcp.IntegrationConfig{
-		Enabled:     true,
-		Credentials: mergedCreds,
-	}
-	if hasExisting {
-		ic.ToolGlobs = existing.ToolGlobs
-	}
-	_ = l.cfgMgr.SetIntegration(mod.Name(), ic)
 
 	l.mu.Lock()
 	l.modules[mod.Name()] = mod

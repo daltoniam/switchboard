@@ -126,6 +126,21 @@ func (r *remote) disconnect() {
 	}
 }
 
+// Close closes any active session and clears session/client/tool cache.
+// It is safe and idempotent; concurrent Configure/Tools/Execute serialize on r.mu.
+func (r *remote) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.session != nil {
+		_ = r.session.Close()
+		r.session = nil
+	}
+	r.client = nil
+	r.toolsFetched = false
+	r.cachedTools = nil
+	return nil
+}
+
 func (r *remote) Healthy(ctx context.Context) bool {
 	session, err := r.connect(ctx)
 	if err != nil {

@@ -11,12 +11,15 @@
 | Target | Command | Make shortcut |
 |--------|---------|---------------|
 | Build | `go build -o switchboard ./cmd/server` | `make build` |
-| Test | `go test ./...` | `make test` |
-| Test + race | `go test -race -coverprofile=coverage.out ./...` | `make test-race` |
+| Test | `go test ./...` + compose lifecycle tests | `make test` |
+| Test + race | `go test -race -coverprofile=coverage.out ./...` + compose lifecycle tests | `make test-race` |
 | Vet | `go vet ./...` | `make vet` |
 | Lint | `go tool golangci-lint run` | `make lint` |
 | Format | `gofmt -w .` | `make fmt` |
 | **All CI checks** | build + vet + test-race + lint + security | **`make ci`** |
+| Compose check | `bash scripts/compose-dev.sh check` | `make compose-check` |
+| Compose up | `bash scripts/compose-dev.sh up` | `make compose-up` |
+| Compose down | `bash scripts/compose-dev.sh down` | `make compose-down` |
 
 ## Requirements Before Completing Code Changes
 
@@ -77,6 +80,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | [docs/markdown-rendering.md](docs/markdown-rendering.md) | Adding markdown rendering to an integration (decision framework, shared utilities, implementation checklist) |
 | [docs/web-ui.md](docs/web-ui.md) | Modifying the web config UI |
 | [docs/google-setup.md](docs/google-setup.md) | Unified Google Workspace OAuth setup (BYO client, token fan-out) |
+| [docs/dev-compose.md](docs/dev-compose.md) | Stacklane-compatible Docker Compose DEV stack (worktree isolation) |
 
 ## Skills
 

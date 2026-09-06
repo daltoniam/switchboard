@@ -1,0 +1,5 @@
+# Recoll WebUI search result projections.
+version: 1
+tools:
+  recoll_search:
+    spec: [query, count, 'results[].path', 'results[].mime_type']

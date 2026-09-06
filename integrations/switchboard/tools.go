@@ -25,11 +25,12 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name: "switchboard_configure_integration",
 		Description: "Configure an integration by setting credentials and enabling or disabling it. " +
-			"Credentials are merged with existing values — send only the keys you want to update. " +
+			"Credentials and named identities are merged with existing values — send only the keys you want to update. " +
 			"Set enabled=false to disable an integration without removing its credentials.",
 		Parameters: map[string]string{
 			"name":        "Integration name (e.g. \"github\", \"datadog\").",
 			"credentials": "JSON object of credential key-value pairs to set (merged with existing).",
+			"identities":  "JSON object keyed by identity ID. Each value may contain credentials and non-secret metadata objects; both are merged with existing identity values.",
 			"enabled":     "Whether to enable the integration after configuring (default: true).",
 		},
 		Required: []string{"name"},

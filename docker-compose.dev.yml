@@ -1,0 +1,56 @@
+# Switchboard Stacklane-compatible local DEV stack.
+# Lifecycle: scripts/compose-dev.sh (always pass -p switchboard-<instance>).
+# Publish ONLY 127.0.0.1::<containerPort> (ephemeral host port). Never 0.0.0.0 / fixed host ports.
+#
+# No provider tokens required — the web UI starts with integrations disabled.
+# Optional host tokens are NOT interpolated here so rendered config stays secret-free.
+# Compose project name is set only via `docker compose -p` (never hardcoded here).
+#
+# Production/released image stack remains docker-compose.yml (host fallback).
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    working_dir: /src
+    # Air as PID1 (image CMD); no shell wrapper swallowing signals.
+    command: ["air", "-c", ".air.toml"]
+    environment:
+      STACKLANE_INSTANCE: ${STACKLANE_INSTANCE:?set by scripts/compose-dev.sh}
+      HOME: /root
+      # Bind all container interfaces; host publish remains loopback ephemeral.
+      # Caches stay inside named volumes (GOPATH/GOCACHE).
+      GOPATH: /go
+      GOCACHE: /go-cache
+      GOMODCACHE: /go/pkg/mod
+    volumes:
+      # Entire repo source RW for Air rebuilds.
+      - .:/src
+      - switchboard_go_mod_cache:/go/pkg/mod
+      - switchboard_go_build_cache:/go-cache
+      # Air binary + build-errors.log (not on the host bind-mounted tracked tree).
+      - switchboard_air_tmp:/src/tmp
+      # Fresh config dir — UI persists here; no host secrets are mounted.
+      - switchboard_config:/root/.config/switchboard
+    ports:
+      - "127.0.0.1::3847"
+    labels:
+      stacklane.enable: "true"
+      stacklane.project: "switchboard"
+      stacklane.instance: ${STACKLANE_INSTANCE:?set by scripts/compose-dev.sh}
+      stacklane.endpoint: "app"
+      stacklane.port: "3847"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3847/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 180s
+    restart: unless-stopped
+
+volumes:
+  switchboard_go_mod_cache:
+  switchboard_go_build_cache:
+  switchboard_air_tmp:
+  switchboard_config:

@@ -85,6 +85,16 @@ func (f *fakeIntegration) Execute(_ context.Context, toolName mcp.ToolName, _ ma
 }
 func (f *fakeIntegration) Healthy(_ context.Context) bool { return f.healthy }
 
+type fakeMultiIdentityIntegration struct {
+	fakeIntegration
+	identities map[string]mcp.IntegrationIdentity
+}
+
+func (f *fakeMultiIdentityIntegration) ConfigureIdentities(_ context.Context, identities map[string]mcp.IntegrationIdentity) error {
+	f.identities = identities
+	return nil
+}
+
 // --- test helpers ---
 
 func newTestServices(fakeIntegrations ...*fakeIntegration) *mcp.Services {
@@ -354,6 +364,76 @@ func TestConfigureIntegration_DoesNotMutateOriginalCredentials(t *testing.T) {
 	_, hasExtra := origIC.Credentials["extra"]
 	assert.False(t, hasExtra,
 		"original credentials map should not have new keys")
+}
+
+func TestConfigureIntegration_ConfiguresAndPersistsNamedIdentities(t *testing.T) {
+	fake := &fakeMultiIdentityIntegration{fakeIntegration: fakeIntegration{name: "multi", healthy: true}}
+	reg := registry.New()
+	require.NoError(t, reg.Register(fake))
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"multi": {
+			Enabled:     false,
+			Credentials: mcp.Credentials{"base_url": ""},
+			ToolGlobs:   []string{"multi_*"},
+		},
+	})
+	s := newTestIntegration(&mcp.Services{Config: cfgService, Registry: reg, Metrics: mcp.NewMetrics()})
+
+	res, err := configureIntegration(context.Background(), s, map[string]any{
+		"name": "multi",
+		"identities": map[string]any{
+			"test-agent-aleks": map[string]any{
+				"credentials": map[string]any{"access_token": "user-token"},
+				"metadata":    map[string]any{"app_id": "A123", "label": "Test Agent Aleks"},
+			},
+		},
+		"enabled": true,
+	})
+	require.NoError(t, err)
+	require.False(t, res.IsError, res.Data)
+
+	configured, ok := fake.identities["test-agent-aleks"]
+	require.True(t, ok)
+	assert.Equal(t, "user-token", configured.Credentials["access_token"])
+	assert.Equal(t, "A123", configured.Metadata["app_id"])
+
+	ic, ok := cfgService.GetIntegration("multi")
+	require.True(t, ok)
+	assert.Equal(t, "user-token", ic.Identities["test-agent-aleks"].Credentials["access_token"])
+	assert.Equal(t, "Test Agent Aleks", ic.Identities["test-agent-aleks"].Metadata["label"])
+	assert.Equal(t, []string{"multi_*"}, ic.ToolGlobs)
+}
+
+func TestConfigureIntegration_CredentialUpdatePreservesNamedIdentities(t *testing.T) {
+	fake := &fakeMultiIdentityIntegration{fakeIntegration: fakeIntegration{name: "multi", healthy: true}}
+	reg := registry.New()
+	require.NoError(t, reg.Register(fake))
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"multi": {
+			Enabled:     true,
+			Credentials: mcp.Credentials{"base_url": "https://old.example"},
+			Identities: map[string]mcp.IntegrationIdentity{
+				"work": {
+					Credentials: mcp.Credentials{"access_token": "existing-token"},
+					Metadata:    map[string]string{"label": "Work"},
+				},
+			},
+		},
+	})
+	s := newTestIntegration(&mcp.Services{Config: cfgService, Registry: reg, Metrics: mcp.NewMetrics()})
+
+	res, err := configureIntegration(context.Background(), s, map[string]any{
+		"name":        "multi",
+		"credentials": map[string]any{"base_url": "https://new.example"},
+	})
+	require.NoError(t, err)
+	require.False(t, res.IsError, res.Data)
+
+	ic, ok := cfgService.GetIntegration("multi")
+	require.True(t, ok)
+	assert.Equal(t, "https://new.example", ic.Credentials["base_url"])
+	assert.Equal(t, "existing-token", ic.Identities["work"].Credentials["access_token"])
+	assert.Equal(t, "Work", ic.Identities["work"].Metadata["label"])
 }
 
 func TestCheckHealth_SingleIntegration(t *testing.T) {
