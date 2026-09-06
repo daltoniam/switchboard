@@ -233,7 +233,12 @@ func TestCreateUser(t *testing.T) {
 
 	o := &okta{apiToken: "t", client: ts.Client(), baseURL: ts.URL + "/api/v1"}
 	result, err := o.Execute(context.Background(), "okta_create_user", map[string]any{
-		"profile":  `{"firstName":"Jane","lastName":"Doe","email":"jane@acme.com","login":"jane@acme.com"}`,
+		"profile": map[string]any{
+			"firstName": "Jane",
+			"lastName":  "Doe",
+			"email":     "jane@acme.com",
+			"login":     "jane@acme.com",
+		},
 		"activate": "true",
 	})
 	require.NoError(t, err)
@@ -258,6 +263,14 @@ func TestActivateUser(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	assert.Contains(t, result.Data, "activationUrl")
+}
+
+func TestAddGroupMember_MissingIDs(t *testing.T) {
+	o := &okta{apiToken: "t", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := o.Execute(context.Background(), "okta_add_group_member", map[string]any{"group_id": "", "user_id": "00u1"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "group_id is required")
 }
 
 func TestAddGroupMember(t *testing.T) {

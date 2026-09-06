@@ -2,7 +2,6 @@ package okta
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -47,25 +46,23 @@ func getUser(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResult
 
 func createUser(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
-	profileRaw := r.Str("profile")
 	activate := r.Str("activate")
-	groupIDsRaw := r.Str("group_ids")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	if err := requireID("profile", profileRaw); err != nil {
-		return mcp.ErrResult(err)
-	}
-	profile, err := parseJSONObject(profileRaw)
+	profile, err := parseObject(args["profile"], "profile")
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
+	if len(profile) == 0 {
+		return mcp.ErrResult(fmt.Errorf("profile is required"))
+	}
 	body := map[string]any{"profile": profile}
-	if groupIDsRaw != "" {
-		var ids []any
-		if err := json.Unmarshal([]byte(groupIDsRaw), &ids); err != nil {
-			return mcp.ErrResult(fmt.Errorf("invalid JSON array for group_ids: %w", err))
-		}
+	ids, err := parseArray(args["group_ids"], "group_ids")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	if len(ids) > 0 {
 		body["groupIds"] = ids
 	}
 	if activate == "" {
@@ -81,13 +78,18 @@ func createUser(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolRes
 func updateUser(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	id := r.Str("user_id")
-	profileRaw := r.Str("profile")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	profile, err := parseJSONObject(profileRaw)
+	if err := requireID("user_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
+	profile, err := parseObject(args["profile"], "profile")
 	if err != nil {
 		return mcp.ErrResult(err)
+	}
+	if len(profile) == 0 {
+		return mcp.ErrResult(fmt.Errorf("profile is required"))
 	}
 	data, err := o.post(ctx, "/users/"+url.PathEscape(id), map[string]any{"profile": profile})
 	if err != nil {
@@ -146,6 +148,9 @@ func resetPassword(ctx context.Context, o *okta, args map[string]any) (*mcp.Tool
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("user_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	if sendEmail == "" {
 		sendEmail = "true"
 	}
@@ -161,6 +166,9 @@ func expirePassword(ctx context.Context, o *okta, args map[string]any) (*mcp.Too
 	id := r.Str("user_id")
 	temp := r.Str("temp_password")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireID("user_id", id); err != nil {
 		return mcp.ErrResult(err)
 	}
 	action := "expire_password"
@@ -182,6 +190,9 @@ func listUserGroups(ctx context.Context, o *okta, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("user_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.getList(ctx, "/users/%s/groups%s", url.PathEscape(id), queryEncode(map[string]string{"after": after, "limit": limit}))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -193,6 +204,9 @@ func listUserFactors(ctx context.Context, o *okta, args map[string]any) (*mcp.To
 	r := mcp.NewArgs(args)
 	id := r.Str("user_id")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireID("user_id", id); err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := o.getList(ctx, "/users/%s/factors", url.PathEscape(id))
@@ -227,6 +241,9 @@ func getGroup(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResul
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("group_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.get(ctx, "/groups/%s", url.PathEscape(id))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -239,6 +256,9 @@ func createGroup(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolRe
 	name := r.Str("name")
 	description := r.Str("description")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireID("name", name); err != nil {
 		return mcp.ErrResult(err)
 	}
 	body := map[string]any{"profile": map[string]any{"name": name, "description": description}}
@@ -257,6 +277,9 @@ func updateGroup(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolRe
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireIDs(map[string]string{"group_id": id, "name": name}); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := map[string]any{"profile": map[string]any{"name": name, "description": description}}
 	data, err := o.put(ctx, "/groups/"+url.PathEscape(id), body)
 	if err != nil {
@@ -269,6 +292,9 @@ func deleteGroup(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolRe
 	r := mcp.NewArgs(args)
 	id := r.Str("group_id")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireID("group_id", id); err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := o.del(ctx, "/groups/%s", url.PathEscape(id))
@@ -286,6 +312,9 @@ func listGroupMembers(ctx context.Context, o *okta, args map[string]any) (*mcp.T
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("group_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.getList(ctx, "/groups/%s/users%s", url.PathEscape(id), queryEncode(map[string]string{"after": after, "limit": limit}))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -300,6 +329,9 @@ func addGroupMember(ctx context.Context, o *okta, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireIDs(map[string]string{"group_id": groupID, "user_id": userID}); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.put(ctx, fmt.Sprintf("/groups/%s/users/%s", url.PathEscape(groupID), url.PathEscape(userID)), nil)
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -312,6 +344,9 @@ func removeGroupMember(ctx context.Context, o *okta, args map[string]any) (*mcp.
 	groupID := r.Str("group_id")
 	userID := r.Str("user_id")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireIDs(map[string]string{"group_id": groupID, "user_id": userID}); err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := o.del(ctx, "/groups/%s/users/%s", url.PathEscape(groupID), url.PathEscape(userID))
@@ -345,6 +380,9 @@ func getApp(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResult,
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("app_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.get(ctx, "/apps/%s", url.PathEscape(id))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -360,6 +398,9 @@ func listAppUsers(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolR
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("app_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.getList(ctx, "/apps/%s/users%s", url.PathEscape(id), queryEncode(map[string]string{"after": after, "limit": limit}))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -371,16 +412,18 @@ func assignAppUser(ctx context.Context, o *okta, args map[string]any) (*mcp.Tool
 	r := mcp.NewArgs(args)
 	appID := r.Str("app_id")
 	userID := r.Str("user_id")
-	profileRaw := r.Str("profile")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireIDs(map[string]string{"app_id": appID, "user_id": userID}); err != nil {
+		return mcp.ErrResult(err)
+	}
 	body := map[string]any{"id": userID, "scope": "USER"}
-	if profileRaw != "" {
-		profile, err := parseJSONObject(profileRaw)
-		if err != nil {
-			return mcp.ErrResult(err)
-		}
+	profile, err := parseObject(args["profile"], "profile")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	if len(profile) > 0 {
 		body["profile"] = profile
 	}
 	data, err := o.post(ctx, "/apps/"+url.PathEscape(appID)+"/users", body)
@@ -395,6 +438,9 @@ func unassignAppUser(ctx context.Context, o *okta, args map[string]any) (*mcp.To
 	appID := r.Str("app_id")
 	userID := r.Str("user_id")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireIDs(map[string]string{"app_id": appID, "user_id": userID}); err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := o.del(ctx, "/apps/%s/users/%s", url.PathEscape(appID), url.PathEscape(userID))
@@ -412,6 +458,9 @@ func listAppGroups(ctx context.Context, o *okta, args map[string]any) (*mcp.Tool
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("app_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.getList(ctx, "/apps/%s/groups%s", url.PathEscape(id), queryEncode(map[string]string{"after": after, "limit": limit}))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -424,6 +473,9 @@ func assignAppGroup(ctx context.Context, o *okta, args map[string]any) (*mcp.Too
 	appID := r.Str("app_id")
 	groupID := r.Str("group_id")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireIDs(map[string]string{"app_id": appID, "group_id": groupID}); err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := o.put(ctx, fmt.Sprintf("/apps/%s/groups/%s", url.PathEscape(appID), url.PathEscape(groupID)), map[string]any{})
@@ -440,6 +492,9 @@ func unassignAppGroup(ctx context.Context, o *okta, args map[string]any) (*mcp.T
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireIDs(map[string]string{"app_id": appID, "group_id": groupID}); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.del(ctx, "/apps/%s/groups/%s", url.PathEscape(appID), url.PathEscape(groupID))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -451,6 +506,9 @@ func listPolicies(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolR
 	r := mcp.NewArgs(args)
 	policyType := r.Str("type")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireID("type", policyType); err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := o.getList(ctx, "/policies%s", queryEncode(map[string]string{"type": policyType}))
@@ -466,6 +524,9 @@ func getPolicy(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResu
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("policy_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.get(ctx, "/policies/%s", url.PathEscape(id))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -477,6 +538,9 @@ func listPolicyRules(ctx context.Context, o *okta, args map[string]any) (*mcp.To
 	r := mcp.NewArgs(args)
 	id := r.Str("policy_id")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireID("policy_id", id); err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := o.getList(ctx, "/policies/%s/rules", url.PathEscape(id))

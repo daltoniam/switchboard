@@ -249,15 +249,55 @@ func requireID(name, value string) error {
 	return nil
 }
 
-func parseJSONObject(raw string) (map[string]any, error) {
-	if raw == "" {
-		return map[string]any{}, nil
+func requireIDs(ids map[string]string) error {
+	for name, value := range ids {
+		if err := requireID(name, value); err != nil {
+			return err
+		}
 	}
-	var out map[string]any
-	if err := json.Unmarshal([]byte(raw), &out); err != nil {
-		return nil, fmt.Errorf("invalid JSON object: %w", err)
+	return nil
+}
+
+func parseObject(v any, fieldName string) (map[string]any, error) {
+	if v == nil {
+		return nil, nil
 	}
-	return out, nil
+	switch x := v.(type) {
+	case string:
+		if strings.TrimSpace(x) == "" {
+			return nil, nil
+		}
+		var m map[string]any
+		if err := json.Unmarshal([]byte(x), &m); err != nil {
+			return nil, fmt.Errorf("%s: invalid JSON object: %w", fieldName, err)
+		}
+		return m, nil
+	case map[string]any:
+		return x, nil
+	default:
+		return nil, fmt.Errorf("%s: expected JSON object or string, got %T", fieldName, v)
+	}
+}
+
+func parseArray(v any, fieldName string) ([]any, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch x := v.(type) {
+	case string:
+		if strings.TrimSpace(x) == "" {
+			return nil, nil
+		}
+		var out []any
+		if err := json.Unmarshal([]byte(x), &out); err != nil {
+			return nil, fmt.Errorf("%s: invalid JSON array: %w", fieldName, err)
+		}
+		return out, nil
+	case []any:
+		return x, nil
+	default:
+		return nil, fmt.Errorf("%s: expected JSON array or string, got %T", fieldName, v)
+	}
 }
 
 type handlerFunc func(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResult, error)
