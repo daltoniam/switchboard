@@ -16,7 +16,7 @@ func listUsers(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResu
 	filter := r.Str("filter")
 	search := r.Str("search")
 	after := r.Str("after")
-	limit := limitParam(r, 20)
+	limit := limitParam(r, 20, 200)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -35,6 +35,9 @@ func getUser(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResult
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("user_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	data, err := o.get(ctx, "/users/%s", url.PathEscape(id))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -48,6 +51,9 @@ func createUser(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolRes
 	activate := r.Str("activate")
 	groupIDsRaw := r.Str("group_ids")
 	if err := r.Err(); err != nil {
+		return mcp.ErrResult(err)
+	}
+	if err := requireID("profile", profileRaw); err != nil {
 		return mcp.ErrResult(err)
 	}
 	profile, err := parseJSONObject(profileRaw)
@@ -117,6 +123,9 @@ func userLifecycle(ctx context.Context, o *okta, args map[string]any, action str
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	if err := requireID("user_id", id); err != nil {
+		return mcp.ErrResult(err)
+	}
 	params := map[string]string{}
 	if sendEmail != "" {
 		params["sendEmail"] = sendEmail
@@ -169,7 +178,7 @@ func listUserGroups(ctx context.Context, o *okta, args map[string]any) (*mcp.Too
 	r := mcp.NewArgs(args)
 	id := r.Str("user_id")
 	after := r.Str("after")
-	limit := limitParam(r, 20)
+	limit := limitParam(r, 20, 200)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -199,7 +208,7 @@ func listGroups(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolRes
 	filter := r.Str("filter")
 	search := r.Str("search")
 	after := r.Str("after")
-	limit := limitParam(r, 20)
+	limit := limitParam(r, 20, 200)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -273,7 +282,7 @@ func listGroupMembers(ctx context.Context, o *okta, args map[string]any) (*mcp.T
 	r := mcp.NewArgs(args)
 	id := r.Str("group_id")
 	after := r.Str("after")
-	limit := limitParam(r, 20)
+	limit := limitParam(r, 20, 200)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -317,7 +326,7 @@ func listApps(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResul
 	q := r.Str("q")
 	filter := r.Str("filter")
 	after := r.Str("after")
-	limit := limitParam(r, 20)
+	limit := limitParam(r, 20, 200)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -347,7 +356,7 @@ func listAppUsers(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolR
 	r := mcp.NewArgs(args)
 	id := r.Str("app_id")
 	after := r.Str("after")
-	limit := limitParam(r, 20)
+	limit := limitParam(r, 20, 200)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -399,7 +408,7 @@ func listAppGroups(ctx context.Context, o *okta, args map[string]any) (*mcp.Tool
 	r := mcp.NewArgs(args)
 	id := r.Str("app_id")
 	after := r.Str("after")
-	limit := limitParam(r, 20)
+	limit := limitParam(r, 20, 200)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -484,7 +493,7 @@ func listLogs(ctx context.Context, o *okta, args map[string]any) (*mcp.ToolResul
 	filter := r.Str("filter")
 	q := r.Str("q")
 	after := r.Str("after")
-	limit := limitParam(r, 20)
+	limit := limitParam(r, 20, 1000)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}

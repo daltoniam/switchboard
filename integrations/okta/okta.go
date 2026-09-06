@@ -234,12 +234,19 @@ func queryEncode(params map[string]string) string {
 	return "?" + vals.Encode()
 }
 
-func limitParam(r *mcp.Args, def int) string {
+func limitParam(r *mcp.Args, def, max int) string {
 	n := r.OptInt("limit", def)
-	if n > 200 {
-		n = 200
+	if n > max {
+		n = max
 	}
 	return fmt.Sprintf("%d", n)
+}
+
+func requireID(name, value string) error {
+	if value == "" {
+		return fmt.Errorf("%s is required", name)
+	}
+	return nil
 }
 
 func parseJSONObject(raw string) (map[string]any, error) {

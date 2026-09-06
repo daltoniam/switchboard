@@ -196,6 +196,14 @@ func TestListUsers_WrapsItemsAndCursor(t *testing.T) {
 	assert.Contains(t, result.Data, `"next_after":"00unext"`)
 }
 
+func TestGetUser_MissingID(t *testing.T) {
+	o := &okta{apiToken: "t", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := o.Execute(context.Background(), "okta_get_user", map[string]any{})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "user_id is required")
+}
+
 func TestGetUser(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/users/jane@acme.com", r.URL.Path)
@@ -268,6 +276,19 @@ func TestAddGroupMember(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	assert.Contains(t, result.Data, "success")
+}
+
+func TestListLogs_CapsLimit(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "1000", r.URL.Query().Get("limit"))
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer ts.Close()
+
+	o := &okta{apiToken: "t", client: ts.Client(), baseURL: ts.URL + "/api/v1"}
+	result, err := o.Execute(context.Background(), "okta_list_logs", map[string]any{"limit": 5000})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
 }
 
 func TestListLogs(t *testing.T) {
