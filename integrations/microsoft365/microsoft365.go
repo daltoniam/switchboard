@@ -356,10 +356,25 @@ func nextOrGet(ctx context.Context, m *m365, args map[string]any, buildPath func
 }
 
 func allowedNextLink(next, baseURL string) bool {
-	if strings.HasPrefix(next, baseURL) {
-		return true
+	u, err := url.Parse(next)
+	if err != nil || u.Hostname() == "" {
+		return false
 	}
-	return strings.HasPrefix(next, "https://graph.microsoft.com/")
+	host := strings.ToLower(u.Hostname())
+	if u.Scheme == "https" {
+		switch host {
+		case "graph.microsoft.com", "graph.microsoft.us", "graph.microsoft.de", "microsoftgraph.chinacloudapi.cn":
+			return true
+		}
+	}
+	base, err := url.Parse(baseURL)
+	if err != nil || base.Hostname() == "" {
+		return false
+	}
+	if !strings.EqualFold(base.Hostname(), host) {
+		return false
+	}
+	return u.Scheme == "https" || u.Scheme == base.Scheme
 }
 
 func unwrapGraph(data json.RawMessage) json.RawMessage {

@@ -17,16 +17,34 @@ func driveRoot(userID, driveID string) string {
 	return userPath(userID) + "/drive"
 }
 
+func encodeDrivePath(path string) string {
+	path = strings.Trim(path, "/")
+	if path == "" {
+		return ""
+	}
+	parts := strings.Split(path, "/")
+	for i, p := range parts {
+		parts[i] = url.PathEscape(p)
+	}
+	return strings.Join(parts, "/")
+}
+
 func driveItemPath(userID, driveID, itemID, path string) (string, error) {
 	root := driveRoot(userID, driveID)
 	if itemID != "" {
 		return root + "/items/" + url.PathEscape(itemID), nil
 	}
 	if path != "" {
-		path = strings.TrimPrefix(path, "/")
-		return root + "/root:/" + path, nil
+		return root + "/root:/" + encodeDrivePath(path), nil
 	}
 	return root + "/root", nil
+}
+
+func driveRelation(item, rel string) string {
+	if strings.Contains(item, "/root:/") && !strings.HasSuffix(item, ":") {
+		return item + ":/" + rel
+	}
+	return item + "/" + rel
 }
 
 func listDriveItems(ctx context.Context, m *m365, args map[string]any) (*mcp.ToolResult, error) {
@@ -44,7 +62,7 @@ func listDriveItems(ctx context.Context, m *m365, args map[string]any) (*mcp.Too
 		if err != nil {
 			return "", nil, err
 		}
-		return item + "/children" + queryEncode(params), nil, nil
+		return driveRelation(item, "children") + queryEncode(params), nil, nil
 	})
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -83,7 +101,8 @@ func searchDrive(ctx context.Context, m *m365, args map[string]any) (*mcp.ToolRe
 		if err := r.Err(); err != nil {
 			return "", nil, err
 		}
-		return driveRoot(userID, driveID) + "/root/search(q='" + url.PathEscape(q) + "')" + queryEncode(params), nil, nil
+		q = strings.ReplaceAll(q, "'", "''")
+		return driveRoot(userID, driveID) + "/root/search(q='" + q + "')" + queryEncode(params), nil, nil
 	})
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -108,7 +127,7 @@ func downloadDriveItem(ctx context.Context, m *m365, args map[string]any) (*mcp.
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	data, ct, err := m.getRaw(ctx, item+"/content")
+	data, ct, err := m.getRaw(ctx, driveRelation(item, "content"))
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -166,7 +185,7 @@ func createFolder(ctx context.Context, m *m365, args map[string]any) (*mcp.ToolR
 		"folder":                            map[string]any{},
 		"@microsoft.graph.conflictBehavior": "rename",
 	}
-	data, err := m.post(ctx, parent+"/children", body)
+	data, err := m.post(ctx, driveRelation(parent, "children"), body)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -209,6 +228,7 @@ func uploadDriveItem(ctx context.Context, m *m365, args map[string]any) (*mcp.To
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
+	name = encodeDrivePath(name)
 	uploadPath := parent + ":/" + name + ":/content"
 	if itemID == "" && path == "" {
 		uploadPath = driveRoot(userID, driveID) + "/root:/" + name + ":/content"

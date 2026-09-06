@@ -1,6 +1,7 @@
 package microsoft365
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -40,7 +41,7 @@ func TestStartM365OAuth_MissingClientID(t *testing.T) {
 
 func TestHandleM365Callback_NoActiveFlow(t *testing.T) {
 	resetOAuthState()
-	err := HandleM365Callback("code", "state")
+	err := HandleM365Callback(context.Background(), "code", "state")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no OAuth flow")
 }
@@ -50,7 +51,7 @@ func TestHandleM365Callback_InvalidState(t *testing.T) {
 	_, err := StartM365OAuth("client-id", "secret", "http://localhost/callback", "common")
 	require.NoError(t, err)
 
-	err = HandleM365Callback("code", "wrong-state")
+	err = HandleM365Callback(context.Background(), "code", "wrong-state")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "CSRF")
 
@@ -82,7 +83,7 @@ func TestHandleM365Callback_TokenExchange(t *testing.T) {
 	require.NotNil(t, s)
 	s.tokenURL = ts.URL
 
-	err = HandleM365Callback("auth-code", s.state)
+	err = HandleM365Callback(context.Background(), "auth-code", s.state)
 	require.NoError(t, err)
 
 	result := PollM365OAuth()

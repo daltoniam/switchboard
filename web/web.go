@@ -3886,7 +3886,7 @@ func (w *WebServer) handleMicrosoft365OAuthCallback(rw http.ResponseWriter, r *h
 		return
 	}
 
-	if err := microsoft365.HandleM365Callback(code, state); err != nil {
+	if err := microsoft365.HandleM365Callback(r.Context(), code, state); err != nil {
 		http.Redirect(rw, r, "/integrations/microsoft365/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
 		return
 	}

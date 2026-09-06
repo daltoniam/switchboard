@@ -231,6 +231,12 @@ func TestListMessages_RejectsForeignNextLink(t *testing.T) {
 	assert.Contains(t, result.Data, "next_link must be a Microsoft Graph URL")
 }
 
+func TestAllowedNextLink_RejectsHostPrefixSpoof(t *testing.T) {
+	assert.False(t, allowedNextLink("https://graph.microsoft.us.evil.com/v1.0/me", "https://graph.microsoft.us"))
+	assert.True(t, allowedNextLink("https://graph.microsoft.us/v1.0/me/messages", "https://graph.microsoft.us/v1.0"))
+	assert.True(t, allowedNextLink("https://graph.microsoft.com/v1.0/me/messages", defaultBaseURL))
+}
+
 func TestSendMail(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
@@ -294,16 +300,46 @@ func TestListEvents_CalendarView(t *testing.T) {
 func TestSearchDrive(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Contains(t, r.URL.Path, "/me/drive/root/search")
+		assert.Contains(t, r.URL.RawQuery+" "+r.URL.RequestURI(), "O''Reilly")
 		_, _ = w.Write([]byte(`{"value":[{"id":"f1","name":"budget.xlsx"}]}`))
 	}))
 	defer ts.Close()
 
 	result, err := configured(ts).Execute(context.Background(), "microsoft365_search_drive", map[string]any{
-		"q": "budget",
+		"q": "O'Reilly",
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	assert.Contains(t, result.Data, "budget.xlsx")
+}
+
+func TestListDriveItems_PathUsesColon(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/me/drive/root:/Documents/Reports:/children", r.URL.EscapedPath())
+		_, _ = w.Write([]byte(`{"value":[{"id":"f1","name":"notes.txt"}]}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_list_drive_items", map[string]any{
+		"path": "Documents/Reports",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, "notes.txt")
+}
+
+func TestListDriveItems_EncodesPathSegments(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/me/drive/root:/My%20Documents/Q1%20report:/children", r.URL.EscapedPath())
+		_, _ = w.Write([]byte(`{"value":[]}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_list_drive_items", map[string]any{
+		"path": "My Documents/Q1 report",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
 }
 
 func TestDownloadDriveItem_Text(t *testing.T) {
@@ -321,6 +357,22 @@ func TestDownloadDriveItem_Text(t *testing.T) {
 	require.False(t, result.IsError)
 	assert.Contains(t, result.Data, "hello file")
 	assert.NotContains(t, result.Data, "content_base64")
+}
+
+func TestDownloadDriveItem_PathUsesColon(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/me/drive/root:/Notes.txt:/content", r.URL.EscapedPath())
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("path file"))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_download_drive_item", map[string]any{
+		"path": "Notes.txt",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, "path file")
 }
 
 func TestSendChannelMessage(t *testing.T) {

@@ -125,7 +125,10 @@ func getActiveOAuth() *OAuthState {
 	return s
 }
 
-func HandleM365Callback(code, state string) error {
+func HandleM365Callback(ctx context.Context, code, state string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	oauthState := getActiveOAuth()
 	if oauthState == nil {
 		return fmt.Errorf("no OAuth flow in progress")
@@ -152,11 +155,11 @@ func HandleM365Callback(code, state string) error {
 	tokenURL := oauthState.tokenURL
 	oauthState.mu.Unlock()
 
-	return exchangeToken(oauthState, tokenURL, data, clientID, clientSecret)
+	return exchangeToken(ctx, oauthState, tokenURL, data, clientID, clientSecret)
 }
 
-func exchangeToken(oauthState *OAuthState, tokenURL string, data url.Values, clientID, clientSecret string) error {
-	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(data.Encode()))
+func exchangeToken(ctx context.Context, oauthState *OAuthState, tokenURL string, data url.Values, clientID, clientSecret string) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		oauthState.mu.Lock()
 		oauthState.err = fmt.Sprintf("Failed to create token request: %v", err)
