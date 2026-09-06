@@ -885,18 +885,40 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 	}
 	applyResultProcessing(integration, args.ToolName, compact.ParseViewArgs(args.Arguments), result, s.services.Metrics)
 	limit := responseLimitFor(integration, args.ToolName)
-	if len(result.Data) > limit {
+	resultSize := toolResultBytes(result)
+	if resultSize > limit {
 		if s.services.Metrics != nil {
 			s.services.Metrics.RecordTruncation()
 		}
 		out := errorResult(fmt.Sprintf(
 			"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
 			limit/1024,
-			len(result.Data)/1024,
+			resultSize/1024,
 		))
 		logExecute(start, args.ToolName, out, nil)
 		return out, nil
 	}
+	content := toolResultContent(result)
+	if handle != "" {
+		content = append(content, &mcpsdk.TextContent{Text: "pinned as " + handle})
+	}
+	out := &mcpsdk.CallToolResult{Content: content}
+	logExecute(start, args.ToolName, out, nil)
+	return out, nil
+}
+
+func toolResultBytes(result *mcp.ToolResult) int {
+	if result == nil {
+		return 0
+	}
+	size := len(result.Data)
+	for _, media := range result.Media {
+		size += len(media.Data)
+	}
+	return size
+}
+
+func toolResultContent(result *mcp.ToolResult) []mcpsdk.Content {
 	content := []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}}
 	for _, media := range result.Media {
 		if strings.HasPrefix(media.MIMEType, "image/") {
@@ -913,12 +935,7 @@ func (s *Server) handleExecute(ctx context.Context, req *mcpsdk.CallToolRequest)
 			Blob:     media.Data,
 		}})
 	}
-	if handle != "" {
-		content = append(content, &mcpsdk.TextContent{Text: "pinned as " + handle})
-	}
-	out := &mcpsdk.CallToolResult{Content: content}
-	logExecute(start, args.ToolName, out, nil)
-	return out, nil
+	return content
 }
 
 func logExecute(start time.Time, tool mcp.ToolName, result *mcpsdk.CallToolResult, err error) {

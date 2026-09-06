@@ -1014,6 +1014,25 @@ func TestHandleExecute_ReturnsPDFAsEmbeddedResource(t *testing.T) {
 	assert.Equal(t, []byte("pdf"), resource.Resource.Blob)
 }
 
+func TestHandleExecute_RejectsOversizedMedia(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "vision",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "vision_get_image", Description: "Get an image"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return mcp.MediaResult(`{"document_id":7}`, make([]byte, defaultMaxResponseBytes), "image/webp", "document-7.webp")
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("vision_get_image", nil))
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Content[0].(*mcpsdk.TextContent).Text, "Response exceeded")
+}
+
 // --- markdown integration mock ---
 
 type mockMarkdownIntegration struct {

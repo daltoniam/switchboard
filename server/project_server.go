@@ -326,19 +326,20 @@ func (pr *ProjectRouter) makeExecuteHandler(def *project.Definition, scopeRule *
 		applyResultProcessing(integration, tool, compact.ParseViewArgs(args.Arguments), result, pr.services.Metrics)
 		if !result.IsError {
 			limit := responseLimitFor(integration, tool)
-			if len(result.Data) > limit {
+			resultSize := toolResultBytes(result)
+			if resultSize > limit {
 				if pr.services.Metrics != nil {
 					pr.services.Metrics.RecordTruncation()
 				}
 				return errorResult(fmt.Sprintf(
 					"Response exceeded %dKB (actual: %dKB). Use more specific filters, lower limit/per_page, or fetch individual items.",
-					limit/1024, len(result.Data)/1024,
+					limit/1024, resultSize/1024,
 				)), nil
 			}
 		}
 
 		return &mcpsdk.CallToolResult{
-			Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}},
+			Content: toolResultContent(result),
 			IsError: result.IsError,
 		}, nil
 	}

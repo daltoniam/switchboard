@@ -269,6 +269,33 @@ func TestProjectRouter_ExecuteAgentOverridesDefaults(t *testing.T) {
 	assert.Equal(t, "override-org", capturedArgs["owner"])
 }
 
+func TestProjectRouter_ExecuteReturnsNativeMedia(t *testing.T) {
+	def := &project.Definition{Version: "1", Name: "media-test"}
+	mi := &mockIntegration{
+		name:    "vision",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "vision_get_image", Description: "Get an image"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return mcp.MediaResult(`{"document_id":7}`, []byte("image"), "image/webp", "document-7.webp")
+		},
+	}
+	router, _ := setupProjectRouter(t, def, mi)
+	handler := router.makeExecuteHandler(def, nil)
+
+	result, err := handler(context.Background(), projectToolRequest("execute", map[string]any{
+		"tool_name": "vision_get_image",
+	}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	require.Len(t, result.Content, 2)
+	assert.Equal(t, `{"document_id":7}`, result.Content[0].(*mcpsdk.TextContent).Text)
+	image := result.Content[1].(*mcpsdk.ImageContent)
+	assert.Equal(t, []byte("image"), image.Data)
+	assert.Equal(t, "image/webp", image.MIMEType)
+}
+
 func TestProjectRouter_ExecuteDenied(t *testing.T) {
 	def := &project.Definition{
 		Version: "1",

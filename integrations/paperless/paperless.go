@@ -290,14 +290,13 @@ func getDocumentImage(ctx context.Context, p *paperless, args map[string]any, va
 	if err != nil {
 		return mcp.ErrResult(fmt.Errorf("encode Paperless image metadata: %w", err))
 	}
-	nameExtension := ".pdf"
-	if contentType != "application/pdf" {
-		extensions, _ := mime.ExtensionsByType(contentType)
-		nameExtension = ""
-		if len(extensions) > 0 {
-			nameExtension = extensions[0]
-		}
-	}
+	nameExtension := map[string]string{
+		"application/pdf": ".pdf",
+		"image/gif":       ".gif",
+		"image/jpeg":      ".jpg",
+		"image/png":       ".png",
+		"image/webp":      ".webp",
+	}[contentType]
 	return mcp.MediaResult(string(metadata), data, contentType, fmt.Sprintf("paperless-document-%d%s", id, nameExtension))
 }
 

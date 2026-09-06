@@ -307,6 +307,20 @@ func TestGetDocumentPreviewReturnsImageOrPDF(t *testing.T) {
 	assert.Equal(t, "paperless-document-7.pdf", result.Media[0].Name)
 }
 
+func TestGetDocumentPreviewUsesPredictableJPEGExtension(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/jpeg")
+		_, _ = w.Write([]byte("jpeg"))
+	}))
+	t.Cleanup(ts.Close)
+
+	p := &paperless{token: "token", baseURL: ts.URL, client: ts.Client()}
+	result, err := p.Execute(context.Background(), "paperless_get_document_preview", map[string]any{"document_id": 7})
+	require.NoError(t, err)
+	require.Len(t, result.Media, 1)
+	assert.Equal(t, "paperless-document-7.jpg", result.Media[0].Name)
+}
+
 func TestDocumentVisionToolDescriptions(t *testing.T) {
 	definitions := make(map[mcp.ToolName]mcp.ToolDefinition)
 	for _, tool := range New().Tools() {
