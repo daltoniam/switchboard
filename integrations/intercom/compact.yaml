@@ -1,0 +1,279 @@
+# Switchboard compaction specs for the intercom integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    intercom_search_conversations:
+        spec:
+            - conversations[].id
+            - conversations[].title
+            - conversations[].state
+            - conversations[].open
+            - conversations[].read
+            - conversations[].priority
+            - conversations[].created_at
+            - conversations[].updated_at
+            - conversations[].waiting_since
+            - conversations[].snoozed_until
+            - conversations[].admin_assignee_id
+            - conversations[].team_assignee_id
+            - conversations[].source.subject
+            - conversations[].source.type
+            - conversations[].source.author.name
+            - conversations[].source.author.email
+            - conversations[].contacts
+            - conversations[].tags
+            - pages.next.starting_after
+            - pages.page
+            - pages.per_page
+            - pages.total_pages
+            - total_count
+    intercom_list_conversations:
+        spec:
+            - conversations[].id
+            - conversations[].title
+            - conversations[].state
+            - conversations[].open
+            - conversations[].read
+            - conversations[].priority
+            - conversations[].created_at
+            - conversations[].updated_at
+            - conversations[].waiting_since
+            - conversations[].snoozed_until
+            - conversations[].admin_assignee_id
+            - conversations[].team_assignee_id
+            - conversations[].source.subject
+            - conversations[].source.type
+            - conversations[].source.author.name
+            - conversations[].source.author.email
+            - conversations[].contacts
+            - conversations[].tags
+            - pages.next.starting_after
+            - pages.page
+            - pages.per_page
+            - pages.total_pages
+            - total_count
+    intercom_get_conversation:
+        max_bytes: 200000
+        spec:
+            - id
+            - title
+            - state
+            - open
+            - read
+            - priority
+            - created_at
+            - updated_at
+            - waiting_since
+            - snoozed_until
+            - admin_assignee_id
+            - team_assignee_id
+            - source.subject
+            - source.type
+            - source.body
+            - source.author.id
+            - source.author.name
+            - source.author.email
+            - source.author.type
+            - contacts
+            - tags
+            - conversation_parts.conversation_parts[].id
+            - conversation_parts.conversation_parts[].part_type
+            - conversation_parts.conversation_parts[].body
+            - conversation_parts.conversation_parts[].created_at
+            - conversation_parts.conversation_parts[].author.id
+            - conversation_parts.conversation_parts[].author.name
+            - conversation_parts.conversation_parts[].author.email
+            - conversation_parts.conversation_parts[].author.type
+    intercom_search_contacts:
+        spec:
+            - data[].id
+            - data[].role
+            - data[].email
+            - data[].name
+            - data[].phone
+            - data[].external_id
+            - data[].created_at
+            - data[].updated_at
+            - data[].last_seen_at
+            - data[].unsubscribed_from_emails
+            - pages.next.starting_after
+            - pages.page
+            - pages.per_page
+            - pages.total_pages
+            - total_count
+    intercom_list_contacts:
+        spec:
+            - data[].id
+            - data[].role
+            - data[].email
+            - data[].name
+            - data[].phone
+            - data[].external_id
+            - data[].created_at
+            - data[].updated_at
+            - data[].last_seen_at
+            - data[].unsubscribed_from_emails
+            - pages.next.starting_after
+            - pages.page
+            - pages.per_page
+            - pages.total_pages
+            - total_count
+    intercom_get_contact:
+        spec:
+            - id
+            - role
+            - email
+            - name
+            - phone
+            - external_id
+            - created_at
+            - updated_at
+            - last_seen_at
+            - signed_up_at
+            - unsubscribed_from_emails
+            - custom_attributes
+            - companies.data
+    intercom_list_companies:
+        spec:
+            - data[].id
+            - data[].name
+            - data[].company_id
+            - data[].plan
+            - data[].size
+            - data[].website
+            - data[].industry
+            - data[].monthly_spend
+            - data[].created_at
+            - data[].updated_at
+            - pages.next
+            - pages.page
+            - pages.per_page
+            - pages.total_pages
+            - total_count
+    intercom_get_company:
+        spec:
+            - id
+            - name
+            - company_id
+            - plan
+            - size
+            - website
+            - industry
+            - monthly_spend
+            - created_at
+            - updated_at
+            - custom_attributes
+            - user_count
+    intercom_search_tickets:
+        spec:
+            - tickets[].id
+            - tickets[].ticket_id
+            - tickets[].ticket_state
+            - tickets[].open
+            - tickets[].created_at
+            - tickets[].updated_at
+            - tickets[].admin_assignee_id
+            - tickets[].team_assignee_id
+            - tickets[].ticket_type
+            - tickets[].ticket_attributes
+            - tickets[].contacts
+            - pages.next.starting_after
+            - pages.page
+            - pages.per_page
+            - pages.total_pages
+            - total_count
+    intercom_get_ticket:
+        spec:
+            - id
+            - ticket_id
+            - ticket_state
+            - open
+            - created_at
+            - updated_at
+            - admin_assignee_id
+            - team_assignee_id
+            - ticket_type
+            - ticket_attributes
+            - contacts
+            - ticket_parts
+    intercom_search_articles:
+        spec:
+            - data.articles[].id
+            - data.articles[].title
+            - data.articles[].description
+            - data.articles[].state
+            - data.articles[].url
+            - data.articles[].author_id
+            - data.articles[].created_at
+            - data.articles[].updated_at
+            - data.highlights
+            - total_count
+            - pages.next.starting_after
+            - pages.page
+            - pages.per_page
+    intercom_list_articles:
+        spec:
+            - data[].id
+            - data[].title
+            - data[].description
+            - data[].state
+            - data[].url
+            - data[].author_id
+            - data[].created_at
+            - data[].updated_at
+            - pages.next.starting_after
+            - pages.page
+            - pages.per_page
+            - pages.total_pages
+            - total_count
+    intercom_get_article:
+        max_bytes: 200000
+        spec:
+            - id
+            - title
+            - description
+            - body
+            - state
+            - url
+            - author_id
+            - created_at
+            - updated_at
+            - parent_id
+            - parent_type
+    intercom_list_admins:
+        spec:
+            - admins[].id
+            - admins[].name
+            - admins[].email
+            - admins[].away_mode_enabled
+            - admins[].has_inbox_seat
+            - admins[].team_ids
+    intercom_get_me:
+        spec:
+            - id
+            - name
+            - email
+            - type
+            - away_mode_enabled
+            - has_inbox_seat
+            - team_ids
+            - app.id_code
+            - app.name
+    intercom_list_teams:
+        spec:
+            - teams[].id
+            - teams[].name
+            - teams[].admin_ids
+    intercom_get_team:
+        spec:
+            - id
+            - name
+            - admin_ids
+    intercom_list_tags:
+        spec:
+            - data[].id
+            - data[].name
