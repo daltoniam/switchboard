@@ -130,7 +130,7 @@ func (o *okta) doRequestWithLink(ctx context.Context, method, path string, body 
 	}
 	req.Header.Set("Authorization", "SSWS "+o.apiToken)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "switchboard-okta/1.0")
+	req.Header.Set("User-Agent", "Switchboard-Okta/1.0")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	} else if method == http.MethodPost || method == http.MethodPut {

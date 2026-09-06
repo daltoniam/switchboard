@@ -121,6 +121,7 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 func TestDoRequest_SSWSAuth(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "SSWS tok", r.Header.Get("Authorization"))
+		assert.Equal(t, "Switchboard-Okta/1.0", r.Header.Get("User-Agent"))
 		assert.Equal(t, "/api/v1/org", r.URL.Path)
 		_, _ = w.Write([]byte(`{"id":"org1","subdomain":"acme"}`))
 	}))
