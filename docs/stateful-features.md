@@ -81,9 +81,12 @@ if sess := s.sessionFromCtx(ctx); sess != nil {
 ```
 
 #### Transport Binding
-- **HTTP**: Enable stateful mode on `StreamableHTTPHandler` (remove `Stateless: true`). Use `Mcp-Session-Id` header from go-sdk. Map SDK session ID → our `Session`.
-- **Stdio**: Single implicit session (keyed by a constant ID like `"stdio"`). Created on first request, lives for process lifetime.
-- **ProjectRouter**: Session context merges *after* project defaults, so project defaults take precedence over session context but explicit args override both.
+App sessions are **independent of the MCP transport session**. go-sdk 1.7+ Stateless mode no longer honors `Mcp-Session-Id`, so Switchboard keys pin/context/history itself:
+
+- **HTTP**: Keep `Stateless: true` (required for multi-replica). Clients send `X-Switchboard-Session-Id` (UUID per conversation). Fallback order: app header → `Mcp-Session-Id` (legacy) → `"default"`.
+- **Stdio**: Single implicit session (keyed by `"default"` / process lifetime). Optional: set id via context for tests.
+- **Multi-replica (hosted)**: plug a shared `SessionStore` (Redis) via `WithSessionStore`; OSS local binary keeps in-memory.
+- **ProjectRouter**: same app-session resolution; session context merges *after* project defaults.
 
 #### Implementation Steps
 1. [ ] Create `server/session.go` — `Session`, `SessionStore` with TTL-based expiry (background goroutine or lazy eviction)

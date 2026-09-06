@@ -1,0 +1,1709 @@
+package awm
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/daltoniam/switchboard/project"
+	"github.com/gofrs/flock"
+)
+
+// DefaultWorkProfileID is the exact work_profile_id preselected by clients
+// when callers omit a profile choice.
+const DefaultWorkProfileID = "default"
+
+// ProjectCatalog is the subset of the project catalog used to pin immutable
+// Project revisions/snapshots into WorkSessions.
+type ProjectCatalog interface {
+	Get(ctx context.Context, id project.ProjectID) (project.Snapshot, error)
+	GetRevision(ctx context.Context, id project.ProjectID, rev project.Revision) (project.RevisionSnapshot, error)
+}
+
+// Store is a filesystem-backed AWM catalog under a Switchboard config root.
+// Layout:
+//
+//	<root>/projects/<id>.project.json   (Project — preferred legacy-compatible path)
+//	<root>/awm/projects/<id>.json       (optional alternate)
+//	<root>/awm/resources/<id>.json
+//	<root>/awm/resource_bindings/<id>.json
+//	<root>/awm/work_profiles/<id>.json
+//	<root>/awm/agent_profiles/<id>.json
+//	<root>/awm/work_sessions/<id>.json
+//
+// Root should be ~/.config/switchboard (never project-interop).
+type Store struct {
+	configRoot string // Switchboard config root
+	root       string // <configRoot>/awm
+	catalog    ProjectCatalog
+	mu         sync.Mutex
+}
+
+// NewStore creates an AWM store under configRoot (projects + awm/ subtree).
+func NewStore(configRoot string) *Store {
+	return &Store{
+		configRoot: configRoot,
+		root:       filepath.Join(configRoot, "awm"),
+	}
+}
+
+// SetCatalog attaches the authoritative project catalog used for revision
+// archive lookups and ProjectSnapshot pinning. Optional for pure unit tests
+// that only exercise profile CRUD without project-bound sessions.
+func (s *Store) SetCatalog(c ProjectCatalog) {
+	s.catalog = c
+}
+
+// SnapshotIDForRevision returns the deterministic project_snapshot_id for a
+// pinned Project revision (canonical revision resource URI).
+func SnapshotIDForRevision(projectID, revision string) string {
+	return fmt.Sprintf("project://registry/projects/%s/revisions/%s", projectID, revision)
+}
+
+// EnsureDefaultWorkProfile seeds work_profile_id "default" if absent.
+// It never overwrites an operator-modified existing default record.
+func (s *Store) EnsureDefaultWorkProfile(ctx context.Context) (WorkProfile, error) {
+	existing, err := s.GetWorkProfile(ctx, DefaultWorkProfileID)
+	if err == nil {
+		return existing, nil
+	}
+	if !IsCode(err, CodeNotFound) {
+		// Tolerate legacy string errors during transition.
+		if !strings.Contains(err.Error(), "not found") {
+			return WorkProfile{}, err
+		}
+	}
+	return s.PutWorkProfile(ctx, WorkProfile{
+		Version:           "1",
+		WorkProfileID:     DefaultWorkProfileID,
+		DisplayName:       DefaultWorkProfileID,
+		Description:       "Default WorkSession blueprint",
+		IntendedResources: []string{},
+		DefaultPolicy:     PolicyDocument{},
+	})
+}
+
+// Root returns the awm subdirectory path.
+func (s *Store) Root() string { return s.root }
+
+// ConfigRoot returns the Switchboard config root (parent of awm/).
+func (s *Store) ConfigRoot() string { return s.configRoot }
+
+func (s *Store) projectsDir() string         { return filepath.Join(s.configRoot, "projects") }
+func (s *Store) awmProjectsDir() string      { return filepath.Join(s.root, "projects") }
+func (s *Store) resourcesDir() string        { return filepath.Join(s.root, "resources") }
+func (s *Store) resourceBindingsDir() string { return filepath.Join(s.root, "resource_bindings") }
+func (s *Store) workProfilesDir() string     { return filepath.Join(s.root, "work_profiles") }
+func (s *Store) agentProfilesDir() string    { return filepath.Join(s.root, "agent_profiles") }
+func (s *Store) workSessionsDir() string     { return filepath.Join(s.root, "work_sessions") }
+func (s *Store) lockPath() string            { return filepath.Join(s.root, ".awm.lock") }
+
+// catalogLockPath is shared with project.Store (.catalog.lock) so AWM project
+// writes cannot interleave with catalog create/update/delete on the same files.
+func (s *Store) catalogLockPath() string {
+	return filepath.Join(s.configRoot, ".catalog.lock")
+}
+
+func (s *Store) withLock(ctx context.Context, fn func() error) error {
+	if err := os.MkdirAll(s.root, 0700); err != nil {
+		return err
+	}
+	return s.withFlock(ctx, s.lockPath(), "awm lock timeout", fn)
+}
+
+// withCatalogLock serializes writes to projects/*.project.json with project.Store.
+func (s *Store) withCatalogLock(ctx context.Context, fn func() error) error {
+	if err := os.MkdirAll(s.configRoot, 0700); err != nil {
+		return err
+	}
+	return s.withFlock(ctx, s.catalogLockPath(), "catalog lock timeout", fn)
+}
+
+// withCatalogFlockOnly takes the shared catalog flock without re-acquiring s.mu.
+// Call only while already holding s.mu (e.g. DeleteProject under withLock).
+func (s *Store) withCatalogFlockOnly(ctx context.Context, fn func() error) error {
+	if err := os.MkdirAll(s.configRoot, 0700); err != nil {
+		return err
+	}
+	return s.tryFlock(ctx, s.catalogLockPath(), "catalog lock timeout", fn)
+}
+
+func (s *Store) withFlock(ctx context.Context, path, timeoutMsg string, fn func() error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.tryFlock(ctx, path, timeoutMsg, fn)
+}
+
+func (s *Store) tryFlock(ctx context.Context, path, timeoutMsg string, fn func() error) error {
+	fl := flock.New(path)
+	deadline := time.Now().Add(10 * time.Second)
+	if dl, ok := ctx.Deadline(); ok && dl.Before(deadline) {
+		deadline = dl
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		locked, err := fl.TryLock()
+		if err != nil {
+			return err
+		}
+		if locked {
+			defer func() { _ = fl.Unlock() }()
+			return fn()
+		}
+		if time.Now().After(deadline) {
+			return &Error{Code: CodeLockTimeout, Message: timeoutMsg}
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+}
+
+func atomicWriteJSON(path string, v any) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+func readJSON[T any](path string) (T, error) {
+	var zero T
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return zero, err
+	}
+	var v T
+	if err := json.Unmarshal(data, &v); err != nil {
+		return zero, err
+	}
+	return v, nil
+}
+
+func listJSONIDs(dir, suffix string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var ids []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), suffix) {
+			continue
+		}
+		ids = append(ids, strings.TrimSuffix(e.Name(), suffix))
+	}
+	sort.Strings(ids)
+	return ids, nil
+}
+
+// --- Project ---
+
+func (s *Store) projectPath(id string) string {
+	// Prefer top-level projects/ for compatibility with the existing catalog UI.
+	return filepath.Join(s.projectsDir(), id+".project.json")
+}
+
+func (s *Store) projectAltPath(id string) string {
+	return filepath.Join(s.awmProjectsDir(), id+".json")
+}
+
+// normalizeProject fills dual id fields from file contents.
+func normalizeProject(p Project) Project {
+	if p.Version == "" {
+		p.Version = "1"
+	}
+	if p.ProjectID == "" {
+		p.ProjectID = p.Name
+	}
+	if p.Name == "" {
+		p.Name = p.ProjectID
+	}
+	if p.DisplayName == "" {
+		p.DisplayName = p.Name
+	}
+	return p
+}
+
+// PutProject creates or replaces a Project definition using the catalog file
+// schema under the shared .catalog.lock so it cannot race project.Store writers.
+// Existing extra fields (tools, agents, resources/Additional) are preserved.
+func (s *Store) PutProject(ctx context.Context, p Project) (Project, error) {
+	p = normalizeProject(p)
+	if err := p.Validate(); err != nil {
+		return Project{}, invalidInput(err.Error())
+	}
+	err := s.withCatalogLock(ctx, func() error {
+		path := s.projectPath(p.ProjectID)
+		doc := map[string]any{}
+		if raw, err := os.ReadFile(path); err == nil {
+			if err := json.Unmarshal(raw, &doc); err != nil {
+				return fmt.Errorf("project %q on-disk JSON is unreadable: %w", p.ProjectID, err)
+			}
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		doc["version"] = p.Version
+		doc["name"] = p.ProjectID
+		if p.DisplayName != "" && p.DisplayName != p.ProjectID {
+			doc["display_name"] = p.DisplayName
+		} else {
+			delete(doc, "display_name")
+		}
+		if len(p.Policy) > 0 {
+			doc["policy"] = p.Policy
+		} else {
+			delete(doc, "policy")
+		}
+		if p.Description != "" {
+			doc["description"] = p.Description
+		} else {
+			delete(doc, "description")
+		}
+		if len(p.KnownResourceIDs) > 0 {
+			doc["known_resource_ids"] = p.KnownResourceIDs
+		} else {
+			delete(doc, "known_resource_ids")
+		}
+		return atomicWriteJSON(path, doc)
+	})
+	return p, err
+}
+
+// GetProject loads a project by id from projects/ or awm/projects/.
+func (s *Store) GetProject(ctx context.Context, id string) (Project, error) {
+	if err := ctx.Err(); err != nil {
+		return Project{}, err
+	}
+	if err := validateID("project_id", id); err != nil {
+		return Project{}, invalidInput(err.Error())
+	}
+	return s.lookupProjectUnlocked(id)
+}
+
+// ListProjects returns all projects sorted by id.
+func (s *Store) ListProjects(ctx context.Context) ([]Project, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	seen := map[string]Project{}
+	// Preferred directory.
+	ids, err := listProjectFileIDs(s.projectsDir(), ".project.json")
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range ids {
+		p, err := s.GetProject(ctx, id)
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		seen[id] = p
+	}
+	// Alternate directory fills gaps only.
+	alts, err := listJSONIDs(s.awmProjectsDir(), ".json")
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range alts {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		p, err := s.GetProject(ctx, id)
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		seen[id] = p
+	}
+	out := make([]Project, 0, len(seen))
+	for _, p := range seen {
+		out = append(out, p)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ProjectID < out[j].ProjectID })
+	return out, nil
+}
+
+func listProjectFileIDs(dir, suffix string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var ids []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), suffix) {
+			continue
+		}
+		ids = append(ids, strings.TrimSuffix(e.Name(), suffix))
+	}
+	sort.Strings(ids)
+	return ids, nil
+}
+
+// DeleteProject removes a project definition.
+func (s *Store) DeleteProject(ctx context.Context, id string) error {
+	if err := validateID("project_id", id); err != nil {
+		return invalidInput(err.Error())
+	}
+	// Hold AWM lock for the whole check+remove window so CreateWorkSession cannot
+	// attach after the ref check. Catalog flock nests inside for shared-file safety.
+	return s.withLock(ctx, func() error {
+		ref, err := s.firstSessionReferencingProjectUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if ref != "" {
+			return &Error{
+				Code:          CodeReferenced,
+				Message:       "project is referenced by a retained work session",
+				EntityKind:    "project",
+				EntityID:      id,
+				ProjectID:     id,
+				WorkSessionID: ref,
+			}
+		}
+		// Nested catalog lock: s.mu is already held; withCatalogLock would deadlock
+		// if it re-took s.mu. Use flock-only on the catalog path.
+		return s.withCatalogFlockOnly(ctx, func() error {
+			removed := false
+			for _, path := range []string{s.projectPath(id), s.projectAltPath(id)} {
+				if err := os.Remove(path); err == nil {
+					removed = true
+				} else if !os.IsNotExist(err) {
+					return err
+				}
+			}
+			if !removed {
+				return notFound("project", id)
+			}
+			return nil
+		})
+	})
+}
+
+// --- Resource ---
+
+func (s *Store) resourcePath(id string) string {
+	return filepath.Join(s.resourcesDir(), id+".json")
+}
+
+func (s *Store) PutResource(ctx context.Context, resource Resource) (Resource, error) {
+	if resource.Version == "" {
+		resource.Version = "1"
+	}
+	resource.ResourceID = strings.TrimSpace(resource.ResourceID)
+	resource.URI = strings.TrimSpace(resource.URI)
+	resource.Kind = strings.TrimSpace(resource.Kind)
+	if err := resource.Validate(); err != nil {
+		return Resource{}, invalidInput(err.Error())
+	}
+	err := s.withLock(ctx, func() error {
+		return atomicWriteJSON(s.resourcePath(resource.ResourceID), resource)
+	})
+	return resource, err
+}
+
+// ResourceExists reports whether a Resource currently exists. It is the
+// presence port used by the Project catalog; it does not make the catalog a
+// second Resource authority.
+func (s *Store) ResourceExists(ctx context.Context, id string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_id", id); err != nil {
+		return false, invalidInput(err.Error())
+	}
+	_, err := os.Stat(s.resourcePath(id))
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func (s *Store) GetResource(ctx context.Context, id string) (Resource, error) {
+	if err := ctx.Err(); err != nil {
+		return Resource{}, err
+	}
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_id", id); err != nil {
+		return Resource{}, invalidInput(err.Error())
+	}
+	resource, err := readJSON[Resource](s.resourcePath(id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Resource{}, notFound("resource", id)
+		}
+		return Resource{}, err
+	}
+	return resource, nil
+}
+
+func (s *Store) ListResources(ctx context.Context) ([]Resource, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	ids, err := listJSONIDs(s.resourcesDir(), ".json")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Resource, 0, len(ids))
+	for _, id := range ids {
+		resource, err := s.GetResource(ctx, id)
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		out = append(out, resource)
+	}
+	return out, nil
+}
+
+func (s *Store) DeleteResource(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_id", id); err != nil {
+		return invalidInput(err.Error())
+	}
+	return s.withLock(ctx, func() error {
+		if _, err := os.Stat(s.resourcePath(id)); err != nil {
+			if os.IsNotExist(err) {
+				return notFound("resource", id)
+			}
+			return err
+		}
+		bindingID, err := s.firstBindingReferencingResourceUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if bindingID != "" {
+			return &Error{
+				Code:              CodeReferenced,
+				Message:           "resource is referenced by a retained resource binding",
+				EntityKind:        "resource",
+				EntityID:          id,
+				ResourceID:        id,
+				ResourceBindingID: bindingID,
+			}
+		}
+		// Projects may still list this ID in known_resource_ids. That relation is
+		// observation, not ownership, and is not an atomic foreign key.
+		return os.Remove(s.resourcePath(id))
+	})
+}
+
+func (s *Store) firstBindingReferencingResourceUnlocked(resourceID string) (string, error) {
+	ids, err := listJSONIDs(s.resourceBindingsDir(), ".json")
+	if err != nil {
+		return "", err
+	}
+	for _, id := range ids {
+		binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
+		}
+		if binding.ResourceID == resourceID {
+			return binding.ResourceBindingID, nil
+		}
+	}
+	return "", nil
+}
+
+// --- WorkProfile ---
+
+func (s *Store) workProfilePath(id string) string {
+	return filepath.Join(s.workProfilesDir(), id+".json")
+}
+
+// PutWorkProfile creates or replaces a work profile.
+func (s *Store) PutWorkProfile(ctx context.Context, p WorkProfile) (WorkProfile, error) {
+	if p.Version == "" {
+		p.Version = "1"
+	}
+	if err := p.Validate(); err != nil {
+		return WorkProfile{}, invalidInput(err.Error())
+	}
+	if err := s.validateProfileProjectIDs(ctx, p); err != nil {
+		return WorkProfile{}, err
+	}
+	err := s.withLock(ctx, func() error {
+		return atomicWriteJSON(s.workProfilePath(p.WorkProfileID), p)
+	})
+	return p, err
+}
+
+func (s *Store) validateProfileProjectIDs(ctx context.Context, p WorkProfile) error {
+	for _, pid := range p.ProjectIDs {
+		if err := validateID("project_id", pid); err != nil {
+			return invalidInput(err.Error())
+		}
+		_, err := s.lookupProjectUnlocked(pid)
+		if err == nil {
+			continue
+		}
+		if err := s.confirmCatalogProject(ctx, pid, err); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) confirmCatalogProject(ctx context.Context, pid string, lookupErr error) error {
+	if s.catalog == nil {
+		if IsCode(lookupErr, CodeNotFound) {
+			return invalidRef("project_id", pid, "project_id not found")
+		}
+		return lookupErr
+	}
+	_, err := s.catalog.Get(ctx, project.ProjectID(pid))
+	if err == nil {
+		return nil
+	}
+	if project.IsCode(err, project.CodeProjectNotFound) {
+		return invalidRef("project_id", pid, "project_id not found")
+	}
+	return err
+}
+
+// GetWorkProfile loads a work profile by id.
+func (s *Store) GetWorkProfile(ctx context.Context, id string) (WorkProfile, error) {
+	if err := ctx.Err(); err != nil {
+		return WorkProfile{}, err
+	}
+	if err := validateID("work_profile_id", id); err != nil {
+		return WorkProfile{}, invalidInput(err.Error())
+	}
+	p, err := readJSON[WorkProfile](s.workProfilePath(id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return WorkProfile{}, notFound("work_profile", id)
+		}
+		return WorkProfile{}, err
+	}
+	return p, nil
+}
+
+// ListWorkProfiles returns all work profiles sorted by id.
+func (s *Store) ListWorkProfiles(ctx context.Context) ([]WorkProfile, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	ids, err := listJSONIDs(s.workProfilesDir(), ".json")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]WorkProfile, 0, len(ids))
+	for _, id := range ids {
+		p, err := s.GetWorkProfile(ctx, id)
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// DeleteWorkProfile removes a work profile when no retained WorkSession references it.
+func (s *Store) DeleteWorkProfile(ctx context.Context, id string) error {
+	if err := validateID("work_profile_id", id); err != nil {
+		return invalidInput(err.Error())
+	}
+	return s.withLock(ctx, func() error {
+		path := s.workProfilePath(id)
+		if _, err := os.Stat(path); err != nil {
+			if os.IsNotExist(err) {
+				return notFound("work_profile", id)
+			}
+			return err
+		}
+		ref, err := s.firstSessionReferencingProfileUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if ref != "" {
+			return &Error{
+				Code:          CodeReferenced,
+				Message:       "work profile is referenced by a retained work session",
+				EntityKind:    "work_profile",
+				EntityID:      id,
+				WorkProfileID: id,
+				WorkSessionID: ref,
+			}
+		}
+		return os.Remove(path)
+	})
+}
+
+func (s *Store) firstSessionReferencingProfileUnlocked(profileID string) (string, error) {
+	ids, err := listJSONIDs(s.workSessionsDir(), ".json")
+	if err != nil {
+		return "", err
+	}
+	for _, id := range ids {
+		sess, err := readJSON[WorkSession](s.workSessionPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
+		}
+		if sess.WorkProfileID == profileID {
+			return sess.WorkSessionID, nil
+		}
+	}
+	return "", nil
+}
+
+func (s *Store) firstSessionReferencingProjectUnlocked(projectID string) (string, error) {
+	ids, err := listJSONIDs(s.workSessionsDir(), ".json")
+	if err != nil {
+		return "", err
+	}
+	for _, id := range ids {
+		sess, err := readJSON[WorkSession](s.workSessionPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
+		}
+		if sess.ProjectID == projectID {
+			return sess.WorkSessionID, nil
+		}
+	}
+	return "", nil
+}
+
+// --- AgentProfile ---
+
+func (s *Store) agentProfilePath(id string) string {
+	return filepath.Join(s.agentProfilesDir(), id+".json")
+}
+
+// PutAgentProfile creates or replaces an agent profile.
+func (s *Store) PutAgentProfile(ctx context.Context, p AgentProfile) (AgentProfile, error) {
+	if p.Version == "" {
+		p.Version = "1"
+	}
+	if err := p.Validate(); err != nil {
+		return AgentProfile{}, invalidInput(err.Error())
+	}
+	err := s.withLock(ctx, func() error {
+		return atomicWriteJSON(s.agentProfilePath(p.AgentProfileID), p)
+	})
+	return p, err
+}
+
+// GetAgentProfile loads an agent profile by id.
+func (s *Store) GetAgentProfile(ctx context.Context, id string) (AgentProfile, error) {
+	if err := ctx.Err(); err != nil {
+		return AgentProfile{}, err
+	}
+	if err := validateID("agent_profile_id", id); err != nil {
+		return AgentProfile{}, invalidInput(err.Error())
+	}
+	p, err := readJSON[AgentProfile](s.agentProfilePath(id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return AgentProfile{}, notFound("agent_profile", id)
+		}
+		return AgentProfile{}, err
+	}
+	return p, nil
+}
+
+// ListAgentProfiles returns all agent profiles sorted by id.
+func (s *Store) ListAgentProfiles(ctx context.Context) ([]AgentProfile, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	ids, err := listJSONIDs(s.agentProfilesDir(), ".json")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AgentProfile, 0, len(ids))
+	for _, id := range ids {
+		p, err := s.GetAgentProfile(ctx, id)
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// DeleteAgentProfile removes an agent profile.
+func (s *Store) DeleteAgentProfile(ctx context.Context, id string) error {
+	if err := validateID("agent_profile_id", id); err != nil {
+		return invalidInput(err.Error())
+	}
+	return s.withLock(ctx, func() error {
+		ref, err := s.firstSessionReferencingAgentUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if ref != "" {
+			return &Error{
+				Code:          CodeReferenced,
+				Message:       "agent profile is referenced by a retained work session",
+				EntityKind:    "agent_profile",
+				EntityID:      id,
+				WorkSessionID: ref,
+			}
+		}
+		path := s.agentProfilePath(id)
+		if err := os.Remove(path); err != nil {
+			if os.IsNotExist(err) {
+				return notFound("agent_profile", id)
+			}
+			return err
+		}
+		return nil
+	})
+}
+
+func (s *Store) firstSessionReferencingAgentUnlocked(agentID string) (string, error) {
+	ids, err := listJSONIDs(s.workSessionsDir(), ".json")
+	if err != nil {
+		return "", err
+	}
+	for _, id := range ids {
+		sess, err := readJSON[WorkSession](s.workSessionPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
+		}
+		for _, ap := range sess.AgentProfileIDs {
+			if ap == agentID {
+				return sess.WorkSessionID, nil
+			}
+		}
+	}
+	return "", nil
+}
+
+// --- WorkSession ---
+
+func (s *Store) workSessionPath(id string) string {
+	return filepath.Join(s.workSessionsDir(), id+".json")
+}
+
+// lookupProjectUnlocked reads a project without taking the store lock.
+func (s *Store) lookupProjectUnlocked(id string) (Project, error) {
+	for _, path := range []string{s.projectPath(id), s.projectAltPath(id)} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return Project{}, err
+		}
+		var p Project
+		if err := json.Unmarshal(data, &p); err == nil {
+			if p.ProjectID == "" {
+				p.ProjectID = p.Name
+			}
+			if p.Name == "" {
+				p.Name = p.ProjectID
+			}
+			if p.Version == "" {
+				p.Version = "1"
+			}
+			if p.ProjectID == id || p.Name == id {
+				return normalizeProject(p), nil
+			}
+		}
+		var raw map[string]any
+		if json.Unmarshal(data, &raw) != nil {
+			continue
+		}
+		name, _ := raw["name"].(string)
+		pid, _ := raw["project_id"].(string)
+		if pid == "" {
+			pid = name
+		}
+		if pid != "" && pid != id && name != id {
+			continue
+		}
+		if pid == "" {
+			pid = id
+		}
+		desc, _ := raw["description"].(string)
+		dn, _ := raw["display_name"].(string)
+		ver, _ := raw["version"].(string)
+		if ver == "" {
+			ver = "1"
+		}
+		return normalizeProject(Project{
+			Version: ver, ProjectID: pid, Name: name, DisplayName: dn, Description: desc,
+			KnownResourceIDs: knownResourceIDsFromRaw(raw),
+		}), nil
+	}
+	return Project{}, notFound("project", id)
+}
+
+func knownResourceIDsFromRaw(raw map[string]any) []string {
+	value, ok := raw["known_resource_ids"]
+	if !ok {
+		return nil
+	}
+	switch typed := value.(type) {
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			id, ok := item.(string)
+			if !ok {
+				continue
+			}
+			out = append(out, id)
+		}
+		return out
+	case []string:
+		return append([]string(nil), typed...)
+	default:
+		return nil
+	}
+}
+
+// CreateWorkSession creates a new work session in proposed or open state.
+// Project-bound sessions pin one exact immutable Project revision/snapshot.
+// Idempotent: repeating create with the same work_session_id and matching
+// fields returns the existing record; mismatched fields yield conflict.
+func (s *Store) CreateWorkSession(ctx context.Context, sess WorkSession) (WorkSession, error) {
+	if sess.Version == "" {
+		sess.Version = "1"
+	}
+	if sess.State == "" {
+		sess.State = StateProposed
+	}
+	now := time.Now().UTC()
+	if sess.CreatedAt.IsZero() {
+		sess.CreatedAt = now
+	}
+	sess.UpdatedAt = now
+	if err := sess.Validate(); err != nil {
+		return WorkSession{}, invalidInput(err.Error())
+	}
+
+	// Resolve profile eligibility and pin outside the lock where catalog I/O is needed.
+	if err := s.resolveSessionPin(ctx, &sess); err != nil {
+		return WorkSession{}, err
+	}
+	if err := s.validateSessionProfile(ctx, sess); err != nil {
+		return WorkSession{}, err
+	}
+
+	var out WorkSession
+	err := s.withLock(ctx, func() error {
+		path := s.workSessionPath(sess.WorkSessionID)
+		if existing, err := readJSON[WorkSession](path); err == nil {
+			if sessionsCompatible(existing, sess) {
+				out = existing
+				return nil
+			}
+			return alreadyExists("work_session", sess.WorkSessionID)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		// Referential checks (missing targets fail closed).
+		// Live project file is required even when a revision archive pin exists —
+		// archives outlive deletes and must not authorize new sessions.
+		if sess.ProjectID != "" {
+			if _, err := s.lookupProjectUnlocked(sess.ProjectID); err != nil {
+				if IsCode(err, CodeNotFound) {
+					return invalidRef("project_id", sess.ProjectID, "project_id not found")
+				}
+				return err
+			}
+		}
+		if sess.WorkProfileID != "" {
+			if _, err := readJSON[WorkProfile](s.workProfilePath(sess.WorkProfileID)); err != nil {
+				if os.IsNotExist(err) {
+					return invalidRef("work_profile_id", sess.WorkProfileID, "work_profile_id not found")
+				}
+				return err
+			}
+		}
+		for _, id := range sess.AgentProfileIDs {
+			if _, err := readJSON[AgentProfile](s.agentProfilePath(id)); err != nil {
+				if os.IsNotExist(err) {
+					return invalidRef("agent_profile_id", id, "agent_profile_id not found")
+				}
+				return err
+			}
+		}
+		if err := s.validateSessionPolicy(sess); err != nil {
+			return err
+		}
+		if err := atomicWriteJSON(path, sess); err != nil {
+			return err
+		}
+		out = sess
+		return nil
+	})
+	return out, err
+}
+
+func sessionsCompatible(existing, want WorkSession) bool {
+	if existing.WorkSessionID != want.WorkSessionID {
+		return false
+	}
+	if want.ProjectID != "" && existing.ProjectID != want.ProjectID {
+		return false
+	}
+	if want.WorkProfileID != "" && existing.WorkProfileID != want.WorkProfileID {
+		return false
+	}
+	if want.ProjectRevision != "" && existing.ProjectRevision != want.ProjectRevision {
+		return false
+	}
+	if want.ProjectSnapshotID != "" && existing.ProjectSnapshotID != want.ProjectSnapshotID {
+		return false
+	}
+	if want.State != "" && existing.State != want.State {
+		return false
+	}
+	if want.AgentProfileIDs != nil {
+		if len(existing.AgentProfileIDs) != len(want.AgentProfileIDs) {
+			return false
+		}
+		for i := range want.AgentProfileIDs {
+			if existing.AgentProfileIDs[i] != want.AgentProfileIDs[i] {
+				return false
+			}
+		}
+	}
+	if want.DisplayName != "" && existing.DisplayName != want.DisplayName {
+		return false
+	}
+	if want.Policy != nil && !policyDocumentsEqual(existing.Policy, want.Policy) {
+		return false
+	}
+	return true
+}
+
+// resolveSessionPin validates/fills project_revision and project_snapshot_id
+// for project-bound sessions against the real revision archive when available.
+func (s *Store) resolveSessionPin(ctx context.Context, sess *WorkSession) error {
+	if sess.ProjectID == "" {
+		if sess.ProjectRevision != "" || sess.ProjectSnapshotID != "" {
+			return invalidInput("project_revision/project_snapshot_id require project_id")
+		}
+		return nil
+	}
+	if s.catalog == nil {
+		// Without a catalog, still require consistency of provided pin fields.
+		if sess.ProjectRevision != "" && sess.ProjectSnapshotID != "" {
+			expected := SnapshotIDForRevision(sess.ProjectID, sess.ProjectRevision)
+			if sess.ProjectSnapshotID != expected && sess.ProjectSnapshotID != sess.ProjectRevision {
+				return invalidRef("project_snapshot_id", sess.ProjectSnapshotID, "project_snapshot_id does not match project_id+project_revision")
+			}
+		}
+		return nil
+	}
+	rev, err := s.lookupSessionRevision(ctx, sess)
+	if err != nil {
+		return err
+	}
+	sess.ProjectRevision = string(rev)
+	expectedSnap := SnapshotIDForRevision(sess.ProjectID, sess.ProjectRevision)
+	if sess.ProjectSnapshotID == "" || sess.ProjectSnapshotID == expectedSnap || sess.ProjectSnapshotID == sess.ProjectRevision {
+		sess.ProjectSnapshotID = expectedSnap
+		return nil
+	}
+	return invalidRef("project_snapshot_id", sess.ProjectSnapshotID, "project_snapshot_id does not match project revision")
+}
+
+// lookupSessionRevision resolves the pin revision from archive or live catalog.
+// Missing targets become invalid_reference; other catalog errors pass through.
+func (s *Store) lookupSessionRevision(ctx context.Context, sess *WorkSession) (project.Revision, error) {
+	pid := project.ProjectID(sess.ProjectID)
+	if sess.ProjectRevision != "" {
+		return s.revisionFromArchive(ctx, pid, sess.ProjectRevision)
+	}
+	return s.revisionFromLive(ctx, pid, sess.ProjectID)
+}
+
+func (s *Store) revisionFromArchive(ctx context.Context, pid project.ProjectID, revStr string) (project.Revision, error) {
+	parsed, err := project.ParseRevision(project.Revision(revStr))
+	if err != nil {
+		return "", invalidRef("project_revision", revStr, "invalid project_revision")
+	}
+	revSnap, err := s.catalog.GetRevision(ctx, pid, parsed)
+	if err != nil {
+		if project.IsCode(err, project.CodeProjectNotFound) {
+			return "", invalidRef("project_revision", revStr, "project revision archive not found")
+		}
+		return "", err
+	}
+	return revSnap.Revision, nil
+}
+
+func (s *Store) revisionFromLive(ctx context.Context, pid project.ProjectID, projectID string) (project.Revision, error) {
+	live, err := s.catalog.Get(ctx, pid)
+	if err != nil {
+		if project.IsCode(err, project.CodeProjectNotFound) {
+			return "", invalidRef("project_id", projectID, "project_id not found")
+		}
+		return "", err
+	}
+	return live.Revision, nil
+}
+
+func (s *Store) validateSessionProfile(ctx context.Context, sess WorkSession) error {
+	if sess.WorkProfileID == "" {
+		return nil
+	}
+	p, err := s.GetWorkProfile(ctx, sess.WorkProfileID)
+	if err != nil {
+		if IsCode(err, CodeNotFound) {
+			return invalidRef("work_profile_id", sess.WorkProfileID, "work_profile_id not found")
+		}
+		return err
+	}
+	if len(p.ProjectIDs) == 0 {
+		return nil // globally applicable
+	}
+	if sess.ProjectID == "" {
+		return invalidRef("work_profile_id", sess.WorkProfileID, "work profile requires a project_id")
+	}
+	for _, id := range p.ProjectIDs {
+		if id == sess.ProjectID {
+			return nil
+		}
+	}
+	return invalidRef("work_profile_id", sess.WorkProfileID, "work profile is not associated with project")
+}
+
+// validateSessionPolicy ensures WorkSession policy only narrows profile/project policy.
+// Empty session policy is always allowed. Non-empty keys present in parent policies
+// must equal the parent value (no broadening). Keys absent from parents are allowed
+// as further restrictions only when parent has no conflicting key.
+func (s *Store) validateSessionPolicy(sess WorkSession) error {
+	if len(sess.Policy) == 0 {
+		return nil
+	}
+	var parents []PolicyDocument
+	if sess.WorkProfileID != "" {
+		p, err := readJSON[WorkProfile](s.workProfilePath(sess.WorkProfileID))
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+		} else if len(p.DefaultPolicy) > 0 {
+			parents = append(parents, p.DefaultPolicy)
+		}
+	}
+	if sess.ProjectID != "" {
+		p, err := s.lookupProjectUnlocked(sess.ProjectID)
+		if err != nil {
+			if !IsCode(err, CodeNotFound) {
+				return err
+			}
+		} else if len(p.Policy) > 0 {
+			parents = append(parents, p.Policy)
+		}
+	}
+	for _, parent := range parents {
+		if err := policyNarrows(parent, sess.Policy); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func policyNarrows(parent, child PolicyDocument) error {
+	for capability, parentAllowed := range parent {
+		childAllowed, ok := child[capability]
+		if !ok {
+			// Omitting a parent capability is narrowing (not asserting it).
+			continue
+		}
+		if childAllowed && !parentAllowed {
+			return &Error{
+				Code:       CodePolicyBroadening,
+				Message:    "policy broadens parent at capability " + capability,
+				EntityKind: "policy",
+				EntityID:   capability,
+			}
+		}
+	}
+	return nil
+}
+
+// --- ResourceBinding ---
+
+func (s *Store) resourceBindingPath(id string) string {
+	return filepath.Join(s.resourceBindingsDir(), id+".json")
+}
+
+func (s *Store) CreateResourceBinding(ctx context.Context, binding ResourceBinding) (ResourceBinding, error) {
+	if binding.Version == "" {
+		binding.Version = "1"
+	}
+	if binding.State == "" {
+		binding.State = BindingStateProposed
+	}
+	binding.ResourceBindingID = strings.TrimSpace(binding.ResourceBindingID)
+	binding.WorkSessionID = strings.TrimSpace(binding.WorkSessionID)
+	binding.ResourceID = strings.TrimSpace(binding.ResourceID)
+	binding.ResolvedLocator = strings.TrimSpace(binding.ResolvedLocator)
+	now := time.Now().UTC()
+	if binding.CreatedAt.IsZero() {
+		binding.CreatedAt = now
+	}
+	binding.UpdatedAt = now
+	if err := binding.Validate(); err != nil {
+		return ResourceBinding{}, invalidInput(err.Error())
+	}
+
+	var out ResourceBinding
+	err := s.withLock(ctx, func() error {
+		path := s.resourceBindingPath(binding.ResourceBindingID)
+		if existing, err := readJSON[ResourceBinding](path); err == nil {
+			if resourceBindingsCompatible(existing, binding) {
+				out = existing
+				return nil
+			}
+			return alreadyExists("resource_binding", binding.ResourceBindingID)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		session, err := readJSON[WorkSession](s.workSessionPath(binding.WorkSessionID))
+		if err != nil {
+			if os.IsNotExist(err) {
+				return invalidRef("work_session_id", binding.WorkSessionID, "work_session_id not found")
+			}
+			return err
+		}
+		if session.State == StateClosed || session.State == StateAborted {
+			return &Error{
+				Code:          CodeInvalidTransition,
+				Message:       "cannot bind a resource to a terminal work session",
+				EntityKind:    "work_session",
+				EntityID:      session.WorkSessionID,
+				WorkSessionID: session.WorkSessionID,
+				Current:       session.State,
+			}
+		}
+		if _, err := readJSON[Resource](s.resourcePath(binding.ResourceID)); err != nil {
+			if os.IsNotExist(err) {
+				return invalidRef("resource_id", binding.ResourceID, "resource_id not found")
+			}
+			return err
+		}
+		if err := s.validateBindingPolicyUnlocked(session, binding.Grant); err != nil {
+			return err
+		}
+		if err := atomicWriteJSON(path, binding); err != nil {
+			return err
+		}
+		out = binding
+		return nil
+	})
+	return out, err
+}
+
+func resourceBindingsCompatible(existing, want ResourceBinding) bool {
+	return existing.ResourceBindingID == want.ResourceBindingID &&
+		existing.WorkSessionID == want.WorkSessionID &&
+		existing.ResourceID == want.ResourceID &&
+		existing.State == want.State &&
+		existing.ResolvedLocator == want.ResolvedLocator &&
+		policyDocumentsEqual(existing.Grant, want.Grant)
+}
+
+func policyDocumentsEqual(a, b PolicyDocument) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for capability, allowed := range a {
+		if other, ok := b[capability]; !ok || other != allowed {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Store) validateBindingPolicyUnlocked(session WorkSession, grant PolicyDocument) error {
+	if len(grant) == 0 {
+		return nil
+	}
+	if len(session.Policy) > 0 {
+		if err := policyNarrows(session.Policy, grant); err != nil {
+			return err
+		}
+	}
+	if session.ProjectID != "" {
+		projectRecord, err := s.lookupProjectUnlocked(session.ProjectID)
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				return invalidRef("project_id", session.ProjectID, "project_id not found")
+			}
+			return err
+		}
+		if len(projectRecord.Policy) > 0 {
+			if err := policyNarrows(projectRecord.Policy, grant); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Store) GetResourceBinding(ctx context.Context, id string) (ResourceBinding, error) {
+	if err := ctx.Err(); err != nil {
+		return ResourceBinding{}, err
+	}
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_binding_id", id); err != nil {
+		return ResourceBinding{}, invalidInput(err.Error())
+	}
+	binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ResourceBinding{}, notFound("resource_binding", id)
+		}
+		return ResourceBinding{}, err
+	}
+	return binding, nil
+}
+
+func (s *Store) ListResourceBindings(ctx context.Context, state, workSessionID, resourceID string) ([]ResourceBinding, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	state = strings.TrimSpace(state)
+	if state != "" && state != BindingStateProposed && state != BindingStateBound && state != BindingStateRevoked {
+		return nil, invalidInput("unsupported resource binding state " + state)
+	}
+	ids, err := listJSONIDs(s.resourceBindingsDir(), ".json")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ResourceBinding, 0, len(ids))
+	for _, id := range ids {
+		binding, err := s.GetResourceBinding(ctx, id)
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		if state != "" && binding.State != state {
+			continue
+		}
+		if workSessionID != "" && binding.WorkSessionID != workSessionID {
+			continue
+		}
+		if resourceID != "" && binding.ResourceID != resourceID {
+			continue
+		}
+		out = append(out, binding)
+	}
+	return out, nil
+}
+
+func (s *Store) TransitionResourceBinding(ctx context.Context, id, toState string) (ResourceBinding, error) {
+	id = strings.TrimSpace(id)
+	toState = strings.TrimSpace(toState)
+	if err := validateID("resource_binding_id", id); err != nil {
+		return ResourceBinding{}, invalidInput(err.Error())
+	}
+	var out ResourceBinding
+	err := s.withLock(ctx, func() error {
+		binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				return notFound("resource_binding", id)
+			}
+			return err
+		}
+		if !CanTransitionResourceBinding(binding.State, toState) {
+			return &Error{
+				Code:              CodeInvalidTransition,
+				Message:           fmt.Sprintf("cannot transition resource binding from %q to %q", binding.State, toState),
+				EntityKind:        "resource_binding",
+				EntityID:          id,
+				ResourceBindingID: id,
+				Expected:          toState,
+				Current:           binding.State,
+			}
+		}
+		binding.State = toState
+		binding.UpdatedAt = time.Now().UTC()
+		if err := binding.Validate(); err != nil {
+			return invalidInput(err.Error())
+		}
+		if err := atomicWriteJSON(s.resourceBindingPath(id), binding); err != nil {
+			return err
+		}
+		out = binding
+		return nil
+	})
+	return out, err
+}
+
+func (s *Store) PatchResourceBinding(ctx context.Context, id string, resolvedLocator *string, grant PolicyDocument) (ResourceBinding, error) {
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_binding_id", id); err != nil {
+		return ResourceBinding{}, invalidInput(err.Error())
+	}
+	var out ResourceBinding
+	err := s.withLock(ctx, func() error {
+		binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				return notFound("resource_binding", id)
+			}
+			return err
+		}
+		if binding.State == BindingStateRevoked {
+			return &Error{
+				Code:              CodeInvalidTransition,
+				Message:           "cannot patch a revoked resource binding",
+				EntityKind:        "resource_binding",
+				EntityID:          id,
+				ResourceBindingID: id,
+				Current:           binding.State,
+			}
+		}
+		if resolvedLocator != nil {
+			binding.ResolvedLocator = strings.TrimSpace(*resolvedLocator)
+		}
+		if grant != nil {
+			session, err := readJSON[WorkSession](s.workSessionPath(binding.WorkSessionID))
+			if err != nil {
+				if os.IsNotExist(err) {
+					return invalidRef("work_session_id", binding.WorkSessionID, "work_session_id not found")
+				}
+				return err
+			}
+			if err := s.validateBindingPolicyUnlocked(session, grant); err != nil {
+				return err
+			}
+			binding.Grant = grant
+		}
+		binding.UpdatedAt = time.Now().UTC()
+		if err := binding.Validate(); err != nil {
+			return invalidInput(err.Error())
+		}
+		if err := atomicWriteJSON(s.resourceBindingPath(id), binding); err != nil {
+			return err
+		}
+		out = binding
+		return nil
+	})
+	return out, err
+}
+
+func (s *Store) DeleteResourceBinding(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	if err := validateID("resource_binding_id", id); err != nil {
+		return invalidInput(err.Error())
+	}
+	return s.withLock(ctx, func() error {
+		if err := os.Remove(s.resourceBindingPath(id)); err != nil {
+			if os.IsNotExist(err) {
+				return notFound("resource_binding", id)
+			}
+			return err
+		}
+		return nil
+	})
+}
+
+func (s *Store) firstBindingReferencingSessionUnlocked(workSessionID string) (string, error) {
+	ids, err := listJSONIDs(s.resourceBindingsDir(), ".json")
+	if err != nil {
+		return "", err
+	}
+	for _, id := range ids {
+		binding, err := readJSON[ResourceBinding](s.resourceBindingPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return "", err
+		}
+		if binding.WorkSessionID == workSessionID {
+			return binding.ResourceBindingID, nil
+		}
+	}
+	return "", nil
+}
+
+// GetWorkSession loads a work session by id.
+func (s *Store) GetWorkSession(ctx context.Context, id string) (WorkSession, error) {
+	if err := ctx.Err(); err != nil {
+		return WorkSession{}, err
+	}
+	if err := validateID("work_session_id", id); err != nil {
+		return WorkSession{}, invalidInput(err.Error())
+	}
+	sess, err := readJSON[WorkSession](s.workSessionPath(id))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return WorkSession{}, notFound("work_session", id)
+		}
+		return WorkSession{}, err
+	}
+	return sess, nil
+}
+
+// ListWorkSessions returns sessions, optionally filtered by state and/or project.
+func (s *Store) ListWorkSessions(ctx context.Context, state, projectID string) ([]WorkSession, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	ids, err := listJSONIDs(s.workSessionsDir(), ".json")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]WorkSession, 0, len(ids))
+	for _, id := range ids {
+		sess, err := s.GetWorkSession(ctx, id)
+		if err != nil {
+			if IsCode(err, CodeNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		if state != "" && sess.State != state {
+			continue
+		}
+		if projectID != "" && sess.ProjectID != projectID {
+			continue
+		}
+		out = append(out, sess)
+	}
+	return out, nil
+}
+
+// TransitionWorkSession moves a session to a new lifecycle state.
+func (s *Store) TransitionWorkSession(ctx context.Context, id, toState string) (WorkSession, error) {
+	if err := validateID("work_session_id", id); err != nil {
+		return WorkSession{}, invalidInput(err.Error())
+	}
+	var out WorkSession
+	err := s.withLock(ctx, func() error {
+		sess, err := readJSON[WorkSession](s.workSessionPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				return notFound("work_session", id)
+			}
+			return err
+		}
+		if !CanTransition(sess.State, toState) {
+			return &Error{
+				Code:          CodeInvalidTransition,
+				Message:       fmt.Sprintf("cannot transition work session from %q to %q", sess.State, toState),
+				EntityKind:    "work_session",
+				EntityID:      id,
+				WorkSessionID: id,
+				Expected:      toState,
+				Current:       sess.State,
+			}
+		}
+		sess.State = toState
+		sess.UpdatedAt = time.Now().UTC()
+		if toState == StateClosed || toState == StateAborted {
+			now := sess.UpdatedAt
+			sess.ClosedAt = &now
+		}
+		if err := sess.Validate(); err != nil {
+			return invalidInput(err.Error())
+		}
+		if err := atomicWriteJSON(s.workSessionPath(id), sess); err != nil {
+			return err
+		}
+		out = sess
+		return nil
+	})
+	return out, err
+}
+
+// PatchWorkSession updates mutable descriptive fields without changing state.
+func (s *Store) PatchWorkSession(ctx context.Context, id string, displayName *string, agentProfileIDs *[]string, policy PolicyDocument) (WorkSession, error) {
+	if err := validateID("work_session_id", id); err != nil {
+		return WorkSession{}, invalidInput(err.Error())
+	}
+	var out WorkSession
+	err := s.withLock(ctx, func() error {
+		sess, err := readJSON[WorkSession](s.workSessionPath(id))
+		if err != nil {
+			if os.IsNotExist(err) {
+				return notFound("work_session", id)
+			}
+			return err
+		}
+		if sess.State == StateClosed || sess.State == StateAborted {
+			return &Error{
+				Code:          CodeInvalidTransition,
+				Message:       fmt.Sprintf("cannot patch work session in terminal state %q", sess.State),
+				EntityKind:    "work_session",
+				EntityID:      id,
+				WorkSessionID: id,
+				Current:       sess.State,
+			}
+		}
+		if displayName != nil {
+			sess.DisplayName = *displayName
+		}
+		if agentProfileIDs != nil {
+			for _, ap := range *agentProfileIDs {
+				if err := validateID("agent_profile_id", ap); err != nil {
+					return invalidInput(err.Error())
+				}
+				if _, err := readJSON[AgentProfile](s.agentProfilePath(ap)); err != nil {
+					if os.IsNotExist(err) {
+						return invalidRef("agent_profile_id", ap, "agent_profile_id not found")
+					}
+					return err
+				}
+			}
+			sess.AgentProfileIDs = append([]string(nil), (*agentProfileIDs)...)
+		}
+		if policy != nil {
+			sess.Policy = policy
+			if err := s.validateSessionPolicy(sess); err != nil {
+				return err
+			}
+		}
+		sess.UpdatedAt = time.Now().UTC()
+		if err := sess.Validate(); err != nil {
+			return invalidInput(err.Error())
+		}
+		if err := atomicWriteJSON(s.workSessionPath(id), sess); err != nil {
+			return err
+		}
+		out = sess
+		return nil
+	})
+	return out, err
+}
+
+// DeleteWorkSession removes a session record (does not cascade to projects).
+func (s *Store) DeleteWorkSession(ctx context.Context, id string) error {
+	if err := validateID("work_session_id", id); err != nil {
+		return invalidInput(err.Error())
+	}
+	return s.withLock(ctx, func() error {
+		bindingID, err := s.firstBindingReferencingSessionUnlocked(id)
+		if err != nil {
+			return err
+		}
+		if bindingID != "" {
+			return &Error{
+				Code:              CodeReferenced,
+				Message:           "work session is referenced by a retained resource binding",
+				EntityKind:        "work_session",
+				EntityID:          id,
+				WorkSessionID:     id,
+				ResourceBindingID: bindingID,
+			}
+		}
+		if err := os.Remove(s.workSessionPath(id)); err != nil {
+			if os.IsNotExist(err) {
+				return notFound("work_session", id)
+			}
+			return err
+		}
+		return nil
+	})
+}
+
+// AssertProjectDeletable returns an error when a retained WorkSession still
+// references the project. Call before catalog Project delete.
+func (s *Store) AssertProjectDeletable(ctx context.Context, projectID string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := validateID("project_id", projectID); err != nil {
+		return invalidInput(err.Error())
+	}
+	return s.withLock(ctx, func() error {
+		return s.assertProjectDeletableUnlocked(projectID)
+	})
+}
+
+// WithExclusive runs fn while holding the AWM store lock. Use when a catalog
+// delete must not race concurrent work_session_create against the same project.
+func (s *Store) WithExclusive(ctx context.Context, fn func() error) error {
+	return s.withLock(ctx, fn)
+}
+
+// AssertProjectDeletableUnlocked is the lock-free form of AssertProjectDeletable.
+// Caller must already hold the AWM store lock (see WithExclusive).
+func (s *Store) AssertProjectDeletableUnlocked(projectID string) error {
+	if err := validateID("project_id", projectID); err != nil {
+		return invalidInput(err.Error())
+	}
+	return s.assertProjectDeletableUnlocked(projectID)
+}
+
+func (s *Store) assertProjectDeletableUnlocked(projectID string) error {
+	ref, err := s.firstSessionReferencingProjectUnlocked(projectID)
+	if err != nil {
+		return err
+	}
+	if ref != "" {
+		return &Error{
+			Code:          CodeReferenced,
+			Message:       "project is referenced by a retained work session",
+			EntityKind:    "project",
+			EntityID:      projectID,
+			ProjectID:     projectID,
+			WorkSessionID: ref,
+		}
+	}
+	return nil
+}

@@ -3,6 +3,7 @@ package switchboard
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"sort"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -223,11 +224,16 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 	existing, exists := s.services.Config.GetIntegration(name)
 	ic := &mcp.IntegrationConfig{
 		Credentials: mcp.Credentials{},
+		Identities:  map[string]mcp.IntegrationIdentity{},
 	}
 	if exists && existing != nil {
 		ic.Enabled = existing.Enabled
+		ic.ToolGlobs = append([]string(nil), existing.ToolGlobs...)
 		for k, v := range existing.Credentials {
 			ic.Credentials[k] = v
+		}
+		for id, identity := range existing.Identities {
+			ic.Identities[id] = copyIntegrationIdentity(identity)
 		}
 	}
 
@@ -242,6 +248,12 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 		}
 	}
 
+	if identitiesRaw, ok := args["identities"]; ok {
+		if err := mergeIntegrationIdentities(ic.Identities, identitiesRaw); err != nil {
+			return mcp.ErrResult(err)
+		}
+	}
+
 	// Set enabled (default true).
 	enabled := true
 	if v, ok := args["enabled"]; ok {
@@ -253,7 +265,7 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 
 	// Attempt to configure the integration to validate credentials.
 	if enabled {
-		if err := a.Configure(ctx, ic.Credentials); err != nil {
+		if err := mcp.ConfigureIntegration(ctx, a, ic); err != nil {
 			return &mcp.ToolResult{
 				Data:    "configure failed: " + err.Error(),
 				IsError: true,
@@ -278,6 +290,66 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 		"integration": name,
 		"state":       status,
 	})
+}
+
+func copyIntegrationIdentity(identity mcp.IntegrationIdentity) mcp.IntegrationIdentity {
+	copy := mcp.IntegrationIdentity{
+		Credentials: mcp.Credentials{},
+		Metadata:    map[string]string{},
+	}
+	for key, value := range identity.Credentials {
+		copy.Credentials[key] = value
+	}
+	for key, value := range identity.Metadata {
+		copy.Metadata[key] = value
+	}
+	return copy
+}
+
+// mergeIntegrationIdentities merges credentials and metadata independently so
+// callers can rotate one token or label without replacing the whole identity.
+func mergeIntegrationIdentities(dest map[string]mcp.IntegrationIdentity, raw any) error {
+	identities, ok := raw.(map[string]any)
+	if !ok {
+		return fmt.Errorf("parameter %q: expected object, got %T", "identities", raw)
+	}
+	for id, value := range identities {
+		if id == "" {
+			return fmt.Errorf("identity id cannot be empty")
+		}
+		fields, ok := value.(map[string]any)
+		if !ok {
+			return fmt.Errorf("identity %q: expected object, got %T", id, value)
+		}
+		identity := copyIntegrationIdentity(dest[id])
+		if err := mergeIdentityStringField(identity.Credentials, fields, "credentials", id); err != nil {
+			return err
+		}
+		if err := mergeIdentityStringField(identity.Metadata, fields, "metadata", id); err != nil {
+			return err
+		}
+		dest[id] = identity
+	}
+	return nil
+}
+
+func mergeIdentityStringField(dest map[string]string, fields map[string]any, field, identityID string) error {
+	raw, exists := fields[field]
+	if !exists {
+		return nil
+	}
+	values, ok := raw.(map[string]any)
+	if !ok {
+		return fmt.Errorf("identity %q %s: expected object, got %T", identityID, field, raw)
+	}
+	for key, value := range values {
+		text, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("identity %q %s %q: expected string, got %T", identityID, field, key, value)
+		}
+		dest[key] = text
+	}
+	return nil
 }
 
 // checkHealth checks connectivity for one or all enabled integrations.

@@ -45,3 +45,46 @@ func TestIntegrationDetail_OmitsToolsSectionWhenEmpty(t *testing.T) {
 	out := renderIntegrationDetail(t, data)
 	assert.NotContains(t, out, "Available Tools")
 }
+
+func TestIntegrationDetail_RendersIdentityEditorWithoutSecrets(t *testing.T) {
+	data := IntegrationDetailData{
+		Name:               "slackmcp",
+		SupportsIdentities: true,
+		IdentityCredentialKeys: []string{
+			"access_token",
+		},
+		IdentityMetadataKeys: []string{"label", "app_id"},
+		Identities: []IdentityView{
+			{
+				ID:    "work",
+				Label: "Work Slack",
+				Credentials: []IdentityCredentialField{
+					{Key: "access_token", Configured: true},
+				},
+				Metadata: []CredentialField{
+					{Key: "label", Value: "Work Slack"},
+					{Key: "app_id", Value: "A123"},
+				},
+			},
+		},
+	}
+
+	out := renderIntegrationDetail(t, data)
+	assert.Contains(t, out, "Named identities")
+	assert.Contains(t, out, "Work Slack")
+	assert.Contains(t, out, "work")
+	assert.Contains(t, out, "Configured — leave blank to keep")
+	assert.Contains(t, out, "identity_cred_access_token")
+	assert.Contains(t, out, "identity_meta_label")
+	assert.Contains(t, out, `id="identity-work-meta-label"`)
+	assert.Contains(t, out, `id="identity-new-meta-label"`)
+	assert.NotContains(t, out, `id="identity_meta_label"`)
+	assert.Contains(t, out, "Add identity")
+	assert.NotContains(t, out, "secret-token-value")
+}
+
+func TestIntegrationDetail_OmitsIdentityEditorWhenUnsupported(t *testing.T) {
+	out := renderIntegrationDetail(t, IntegrationDetailData{Name: "github"})
+	assert.NotContains(t, out, "Named identities")
+	assert.NotContains(t, out, "Add identity")
+}

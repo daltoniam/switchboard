@@ -92,18 +92,37 @@ List and search responses are compact by default. When the LLM identifies a spec
 
 ## Quick Start
 
+Project Catalog tools (`project.*`) and `project://` resources are on the main
+`/mcp` endpoint by default. See [docs/project-catalog.md](docs/project-catalog.md).
+
+Compiled tools can use the strongly typed [AWM gRPC API](docs/awm-grpc.md)
+over loopback h2c (default `127.0.0.1:3847`) or an optional Unix-domain socket.
+Its generated services mirror the Project Catalog and AWM MCP operations
+without generic JSON arguments or results. The typed surface includes
+Projects, Resources, ResourceBindings, WorkProfiles, AgentProfiles, and
+WorkSessions. A Rust client crate lives in [`rust/switchboard-awm`](rust/switchboard-awm).
+
 ```bash
-# Run (default — HTTP server with MCP + web UI on port 3847)
+# Run (default — HTTP/MCP + native AWM gRPC on 127.0.0.1:3847)
 switchboard
 
-# Custom port
+# Custom port, still loopback
 switchboard --port 8080
+
+# Opt in to a non-loopback TCP bind (also exposes HTTP/MCP)
+switchboard --listen-host 0.0.0.0 --port 3847
+
+# Native AWM gRPC only on a Unix socket (HTTP/MCP stay on TCP)
+switchboard --grpc-socket /tmp/switchboard-awm.sock
 
 # Stdio mode (for Cursor/Claude Desktop)
 switchboard --stdio
 
 # Check version
 switchboard --version
+
+# Debug logging (search/execute requests, compaction savings)
+switchboard --verbose
 
 # Open config UI
 open http://localhost:3847
@@ -134,11 +153,44 @@ convenience layer over this file — you can also edit it by hand.
 }
 ```
 
+### Slack official hosted MCP (`slackmcp`)
+
+Separate from the native `slack` session-token adapter. Proxies Slack's hosted MCP at `https://mcp.slack.com` (optional `credentials.base_url` override; Switchboard appends `/mcp`).
+
+Each named identity needs a **user OAuth access token** (`access_token`, typically `xoxp-...`). An app/bot may host the agent, but **`xoxb-` bot tokens cannot authenticate** Slack's hosted MCP endpoint.
+
+```json
+{
+  "integrations": {
+    "slackmcp": {
+      "enabled": true,
+      "credentials": {
+        "base_url": ""
+      },
+      "identities": {
+        "work": {
+          "credentials": { "access_token": "xoxp-..." },
+          "metadata": { "label": "Work", "team": "T0123WORK" }
+        },
+        "personal": {
+          "credentials": { "access_token": "xoxp-..." },
+          "metadata": { "label": "Personal", "team": "T0456HOME" }
+        }
+      }
+    }
+  }
+}
+```
+
+- Start with `slackmcp_list_available_identites` (spelling is intentional) — returns identity IDs, metadata, and non-secret tool capability info (never tokens).
+- Every other `slackmcp_*` tool requires `identity_id` selecting which configured identity to use.
+- Upstream tools named `slack_*` are exposed once as `slackmcp_*` (not `slackmcp_slack_*`).
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
 
-Any integration with credentials provided via env vars will auto-enable without needing to toggle it in the web UI.
+Environment variables override credential values but do not change the durable enabled state. Enable the integration explicitly in config or the web UI; transient startup failures never rewrite that choice.
 
 | Integration | Credential | Env Var |
 |---|---|---|
@@ -151,8 +203,12 @@ Any integration with credentials provided via env vars will auto-enable without 
 | Sentry | `organization` | `SENTRY_ORG` (optional — auto-detected from API) |
 | Slack | `token` | `SLACK_TOKEN` |
 | Slack | `cookie` | `SLACK_COOKIE` |
+| Slack MCP (official hosted) | multi-identity `access_token` | configure via `identities` in JSON (see below) |
 | Metabase | `api_key` | `METABASE_API_KEY` |
 | Metabase | `url` | `METABASE_URL` |
+| Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
+| Paperless-ngx | `url` | `PAPERLESS_URL` |
+| Recoll WebUI | `base_url` | `RECOLL_URL` |
 | AWS | `access_key_id` | `AWS_ACCESS_KEY_ID` |
 | AWS | `secret_access_key` | `AWS_SECRET_ACCESS_KEY` |
 | AWS | `session_token` | `AWS_SESSION_TOKEN` |
@@ -208,9 +264,12 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
+| Slack MCP (official hosted) | User OAuth access tokens per identity | Edit `~/.config/switchboard/config.json` `slackmcp.identities` (see below). Bot `xoxb-` tokens are **not** accepted by Slack's hosted MCP endpoint. |
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
+| Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |
+| Recoll WebUI | Base URL | Set `RECOLL_URL` to the Recoll WebUI root (for example `http://localhost:8080`) or enter it in the web UI |
 | PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |
 | Vercel | Personal Access Token | Set `VERCEL_API_TOKEN` env var or enter in web UI |
 | Postgres | Connection String | Set `DATABASE_URL` env var or enter in web UI |
@@ -256,6 +315,16 @@ Then run with live-reload:
 
 ```bash
 air
+```
+
+Host `air` / `make build` remain the non-Docker path. For a worktree-isolated
+Docker Compose DEV stack (ephemeral loopback publish + optional Stacklane
+FQDNs, no provider tokens required) see [docs/dev-compose.md](docs/dev-compose.md):
+
+```bash
+make compose-up
+make compose-status
+make compose-down
 ```
 
 ## License

@@ -1,9 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +21,8 @@ import (
 // --- test helpers ---
 
 type mockConfigService struct {
-	cfg *mcp.Config
+	cfg                 *mcp.Config
+	setIntegrationCalls int
 }
 
 func newMockConfigService(integrations map[string]*mcp.IntegrationConfig) *mockConfigService {
@@ -34,6 +38,7 @@ func (m *mockConfigService) GetIntegration(name string) (*mcp.IntegrationConfig,
 	return ic, ok
 }
 func (m *mockConfigService) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
+	m.setIntegrationCalls++
 	m.cfg.Integrations[name] = ic
 	return nil
 }
@@ -137,6 +142,27 @@ func TestNew(t *testing.T) {
 	require.NotNil(t, s)
 	assert.NotNil(t, s.mcpServer)
 	assert.NotNil(t, s.services)
+}
+
+func TestWithMCPFeaturesRegistersPrompt(t *testing.T) {
+	reg := newMockRegistry()
+	services := &mcp.Services{
+		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
+		Registry: reg,
+	}
+	srv := New(services, WithMCPFeatures(func(s *mcpsdk.Server) {
+		s.AddPrompt(&mcpsdk.Prompt{Name: "skill_review", Description: "review"}, func(_ context.Context, _ *mcpsdk.GetPromptRequest) (*mcpsdk.GetPromptResult, error) {
+			return &mcpsdk.GetPromptResult{
+				Description: "review",
+				Messages: []*mcpsdk.PromptMessage{{
+					Role:    "user",
+					Content: &mcpsdk.TextContent{Text: "review this"},
+				}},
+			}, nil
+		})
+	}))
+	require.NotNil(t, srv)
+	require.NotNil(t, srv.mcpServer)
 }
 
 func TestMatches(t *testing.T) {
@@ -258,7 +284,7 @@ func TestConfigureIntegrations_SkipsFailedConfigure(t *testing.T) {
 	require.NotNil(t, s)
 }
 
-func TestConfigureIntegrations_DisablesPreviouslyEnabledOnFailure(t *testing.T) {
+func TestConfigureIntegrations_PreservesEnabledConfigOnFailure(t *testing.T) {
 	mi := &mockIntegration{
 		name:      "failint",
 		configErr: fmt.Errorf("connection timeout"),
@@ -277,8 +303,9 @@ func TestConfigureIntegrations_DisablesPreviouslyEnabledOnFailure(t *testing.T) 
 
 	ic, ok := cfgService.GetIntegration("failint")
 	require.True(t, ok)
-	assert.False(t, ic.Enabled, "integration should be disabled after Configure failure")
-	assert.Empty(t, cfgService.EnabledIntegrations())
+	assert.True(t, ic.Enabled, "startup failure must preserve the user's enabled state")
+	assert.Equal(t, []string{"failint"}, cfgService.EnabledIntegrations())
+	assert.Zero(t, cfgService.setIntegrationCalls, "startup failure must not persist a destructive config rewrite")
 }
 
 func TestHandleSearch_Integration(t *testing.T) {
@@ -858,6 +885,152 @@ func TestSmoke_SearchResponseShape(t *testing.T) {
 	assert.Equal(t, 3, searchToolCount(t, resp))
 	assert.Contains(t, resp.Summary, "15")
 	assert.Contains(t, resp.ScriptHint, "script")
+}
+
+func captureSlog(t *testing.T, level slog.Level) *bytes.Buffer {
+	t.Helper()
+	buf := &bytes.Buffer{}
+	orig := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: level})))
+	t.Cleanup(func() { slog.SetDefault(orig) })
+	return buf
+}
+
+func TestHandleSearch_LogsDebug(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "echo",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: mcp.ToolName("echo_ping"), Description: "ping the server"},
+		},
+	}
+	s := setupTestServer(mi)
+	logs := captureSlog(t, slog.LevelDebug)
+
+	result, err := s.handleSearch(context.Background(), searchRequest(map[string]any{
+		"query":       "ping",
+		"integration": "echo",
+		"limit":       5,
+	}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	out := logs.String()
+	assert.Contains(t, out, "msg=search")
+	assert.Contains(t, out, "query=ping")
+	assert.Contains(t, out, "integration=echo")
+	assert.Contains(t, out, "total=1")
+	assert.Contains(t, out, "duration=")
+}
+
+func TestHandleExecute_LogsDebugWithoutArgs(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "testint",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: mcp.ToolName("testint_get_item"), Description: "Get an item"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return &mcp.ToolResult{Data: `{"id":"123"}`}, nil
+		},
+	}
+	s := setupTestServer(mi)
+	logs := captureSlog(t, slog.LevelDebug)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("testint_get_item", map[string]any{
+		"token": "super-secret-credential",
+	}))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+
+	out := logs.String()
+	assert.Contains(t, out, "msg=execute")
+	assert.Contains(t, out, "tool=testint_get_item")
+	assert.Contains(t, out, "duration=")
+	assert.Contains(t, out, "bytes=")
+	assert.NotContains(t, out, "super-secret-credential")
+}
+
+func TestHandleExecute_LogsErrorWithoutArgs(t *testing.T) {
+	s := setupTestServer()
+	logs := captureSlog(t, slog.LevelDebug)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("missing_tool", map[string]any{
+		"token": "super-secret-credential",
+	}))
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+
+	out := logs.String()
+	assert.Contains(t, out, "msg=execute")
+	assert.Contains(t, out, "tool=missing_tool")
+	assert.Contains(t, out, "is_error=true")
+	assert.NotContains(t, out, "super-secret-credential")
+}
+
+func TestHandleExecute_ReturnsNativeImageContent(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "vision",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "vision_get_image", Description: "Get an image"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return mcp.MediaResult(`{"document_id":7}`, []byte("image"), "image/webp", "document-7.webp")
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("vision_get_image", nil))
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	require.Len(t, result.Content, 3)
+	assert.Equal(t, `{"document_id":7}`, result.Content[0].(*mcpsdk.TextContent).Text)
+	image := result.Content[1].(*mcpsdk.ImageContent)
+	assert.Equal(t, []byte("image"), image.Data)
+	assert.Equal(t, "image/webp", image.MIMEType)
+	assert.Contains(t, result.Content[2].(*mcpsdk.TextContent).Text, "pinned as $1")
+}
+
+func TestHandleExecute_ReturnsPDFAsEmbeddedResource(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "vision",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "vision_get_pdf", Description: "Get a PDF"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return mcp.MediaResult(`{"document_id":7}`, []byte("pdf"), "application/pdf", "document-7.pdf")
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("vision_get_pdf", nil))
+	require.NoError(t, err)
+	require.Len(t, result.Content, 3)
+	resource := result.Content[1].(*mcpsdk.EmbeddedResource)
+	assert.Equal(t, "file:///document-7.pdf", resource.Resource.URI)
+	assert.Equal(t, "application/pdf", resource.Resource.MIMEType)
+	assert.Equal(t, []byte("pdf"), resource.Resource.Blob)
+}
+
+func TestHandleExecute_RejectsOversizedMedia(t *testing.T) {
+	mi := &mockIntegration{
+		name:    "vision",
+		healthy: true,
+		tools: []mcp.ToolDefinition{
+			{Name: "vision_get_image", Description: "Get an image"},
+		},
+		execFn: func(_ context.Context, _ mcp.ToolName, _ map[string]any) (*mcp.ToolResult, error) {
+			return mcp.MediaResult(`{"document_id":7}`, make([]byte, defaultMaxResponseBytes), "image/webp", "document-7.webp")
+		},
+	}
+	s := setupTestServer(mi)
+
+	result, err := s.handleExecute(context.Background(), executeRequest("vision_get_image", nil))
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Content[0].(*mcpsdk.TextContent).Text, "Response exceeded")
 }
 
 // --- markdown integration mock ---
@@ -3724,6 +3897,126 @@ func mustMarshal(v any) json.RawMessage {
 	return data
 }
 
+func TestStaticMCPCapabilities_DisableListChanged(t *testing.T) {
+	s := setupTestServer()
+
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ss, err := s.mcpServer.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err)
+	defer ss.Close() //nolint:errcheck
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "crush", Version: "0.89.0"}, &mcpsdk.ClientOptions{
+		ToolListChangedHandler: func(context.Context, *mcpsdk.ToolListChangedRequest) {},
+	})
+	cs, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer cs.Close() //nolint:errcheck
+
+	caps := cs.InitializeResult().Capabilities
+	require.NotNil(t, caps.Tools, "tools capability must still be advertised")
+	assert.False(t, caps.Tools.ListChanged, "listChanged must be false so Crush 0.89 does not open subscriptions/listen")
+	if caps.Prompts != nil {
+		assert.False(t, caps.Prompts.ListChanged)
+	}
+	if caps.Resources != nil {
+		assert.False(t, caps.Resources.ListChanged)
+	}
+
+	tools, err := cs.ListTools(ctx, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, tools.Tools)
+}
+
+func TestStaticMCPCapabilities_SkillsDoNotAdvertiseListChanged(t *testing.T) {
+	reg := newMockRegistry()
+	services := &mcp.Services{
+		Config:   newMockConfigService(map[string]*mcp.IntegrationConfig{}),
+		Registry: reg,
+	}
+	srv := New(services, WithMCPFeatures(func(s *mcpsdk.Server) {
+		s.AddPrompt(&mcpsdk.Prompt{Name: "skill_review", Description: "review"}, func(_ context.Context, _ *mcpsdk.GetPromptRequest) (*mcpsdk.GetPromptResult, error) {
+			return &mcpsdk.GetPromptResult{
+				Description: "review",
+				Messages: []*mcpsdk.PromptMessage{{
+					Role:    "user",
+					Content: &mcpsdk.TextContent{Text: "review this"},
+				}},
+			}, nil
+		})
+		s.AddResource(&mcpsdk.Resource{
+			Name: "review",
+			URI:  "switchboard-skill://review",
+		}, func(_ context.Context, req *mcpsdk.ReadResourceRequest) (*mcpsdk.ReadResourceResult, error) {
+			return &mcpsdk.ReadResourceResult{
+				Contents: []*mcpsdk.ResourceContents{{URI: req.Params.URI, MIMEType: "text/markdown", Text: "review this"}},
+			}, nil
+		})
+	}))
+
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ss, err := srv.mcpServer.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err)
+	defer ss.Close() //nolint:errcheck
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "crush", Version: "0.89.0"}, &mcpsdk.ClientOptions{
+		ToolListChangedHandler:     func(context.Context, *mcpsdk.ToolListChangedRequest) {},
+		PromptListChangedHandler:   func(context.Context, *mcpsdk.PromptListChangedRequest) {},
+		ResourceListChangedHandler: func(context.Context, *mcpsdk.ResourceListChangedRequest) {},
+	})
+	cs, err := client.Connect(ctx, clientTransport, nil)
+	require.NoError(t, err)
+	defer cs.Close() //nolint:errcheck
+
+	caps := cs.InitializeResult().Capabilities
+	require.NotNil(t, caps.Prompts)
+	assert.False(t, caps.Prompts.ListChanged, "prompt listChanged must stay false after WithMCPFeatures registers skills")
+	require.NotNil(t, caps.Resources)
+	assert.False(t, caps.Resources.ListChanged, "resource listChanged must stay false after WithMCPFeatures registers skills")
+	require.NotNil(t, caps.Tools)
+	assert.False(t, caps.Tools.ListChanged)
+
+	prompts, err := cs.ListPrompts(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, prompts.Prompts, 1)
+}
+
+func TestStatelessHandler_Crush089ListTools(t *testing.T) {
+	s := setupTestServer()
+	ts := httptest.NewServer(s.StatelessHandler())
+	t.Cleanup(ts.Close)
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "crush", Version: "0.89.0"}, &mcpsdk.ClientOptions{
+		ToolListChangedHandler: func(context.Context, *mcpsdk.ToolListChangedRequest) {},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cs, err := client.Connect(ctx, &mcpsdk.StreamableClientTransport{Endpoint: ts.URL}, nil)
+	require.NoError(t, err)
+	defer cs.Close() //nolint:errcheck
+
+	require.False(t, cs.InitializeResult().Capabilities.Tools.ListChanged)
+
+	tools, err := cs.ListTools(ctx, nil)
+	require.NoError(t, err)
+	var hasSearch, hasExecute bool
+	for _, tool := range tools.Tools {
+		switch tool.Name {
+		case "search":
+			hasSearch = true
+		case "execute":
+			hasExecute = true
+		}
+	}
+	assert.True(t, hasSearch && hasExecute, "expected search and execute after Crush-style connect")
+}
+
 func TestWithExtraInstructions(t *testing.T) {
 	extra := "This org has private-resource tunnels; pass agent_id to target one."
 
@@ -3766,4 +4059,97 @@ func TestWithExtraInstructions(t *testing.T) {
 			}
 		})
 	}
+}
+
+type multiIdentityMockIntegration struct {
+	name            string
+	tools           []mcp.ToolDefinition
+	healthy         bool
+	configErr       error
+	identitiesErr   error
+	lastCreds       mcp.Credentials
+	lastIdentities  map[string]mcp.IntegrationIdentity
+	configureCalls  int
+	identitiesCalls int
+}
+
+func (m *multiIdentityMockIntegration) Name() string { return m.name }
+func (m *multiIdentityMockIntegration) Configure(_ context.Context, creds mcp.Credentials) error {
+	m.configureCalls++
+	m.lastCreds = creds
+	return m.configErr
+}
+func (m *multiIdentityMockIntegration) ConfigureIdentities(_ context.Context, identities map[string]mcp.IntegrationIdentity) error {
+	m.identitiesCalls++
+	m.lastIdentities = identities
+	return m.identitiesErr
+}
+func (m *multiIdentityMockIntegration) Tools() []mcp.ToolDefinition { return m.tools }
+func (m *multiIdentityMockIntegration) Execute(context.Context, mcp.ToolName, map[string]any) (*mcp.ToolResult, error) {
+	return &mcp.ToolResult{Data: "ok"}, nil
+}
+func (m *multiIdentityMockIntegration) Healthy(context.Context) bool { return m.healthy }
+
+func TestConfigureIntegrations_ConfiguresIdentitiesOnlyCredentials(t *testing.T) {
+	mi := &multiIdentityMockIntegration{
+		name:    "multi",
+		healthy: true,
+		tools:   []mcp.ToolDefinition{{Name: mcp.ToolName("multi_list")}},
+	}
+	reg := newMockRegistry()
+	require.NoError(t, reg.Register(mi))
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"multi": {
+			Enabled:     true,
+			Credentials: mcp.Credentials{},
+			Identities: map[string]mcp.IntegrationIdentity{
+				"work": {Credentials: mcp.Credentials{"access_token": "tok-work"}},
+			},
+		},
+	})
+	services := &mcp.Services{Config: cfgService, Registry: reg}
+	s := New(services)
+	require.NotNil(t, s)
+
+	assert.Equal(t, 1, mi.configureCalls)
+	assert.Equal(t, 1, mi.identitiesCalls)
+	assert.Equal(t, "tok-work", mi.lastIdentities["work"].Credentials["access_token"])
+
+	ic, ok := cfgService.GetIntegration("multi")
+	require.True(t, ok)
+	assert.True(t, ic.Enabled, "enabled multi-identity integration should remain enabled")
+	assert.Zero(t, cfgService.setIntegrationCalls, "startup configuration must not rewrite durable config")
+}
+
+func TestConfigureIntegrations_SkipsDisabledWithCredentials(t *testing.T) {
+	mi := &multiIdentityMockIntegration{name: "multi", healthy: true}
+	reg := newMockRegistry()
+	require.NoError(t, reg.Register(mi))
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"multi": {
+			Enabled: false,
+			Identities: map[string]mcp.IntegrationIdentity{
+				"work": {Credentials: mcp.Credentials{"access_token": "tok-work"}},
+			},
+		},
+	})
+
+	_ = New(&mcp.Services{Config: cfgService, Registry: reg})
+
+	assert.Zero(t, mi.configureCalls)
+	assert.Zero(t, mi.identitiesCalls)
+	assert.False(t, cfgService.cfg.Integrations["multi"].Enabled)
+	assert.Zero(t, cfgService.setIntegrationCalls)
+}
+
+func TestConfigureIntegrations_SkipsDisabledWithoutCredentialsOrIdentities(t *testing.T) {
+	mi := &multiIdentityMockIntegration{name: "multi", healthy: true}
+	reg := newMockRegistry()
+	require.NoError(t, reg.Register(mi))
+	cfgService := newMockConfigService(map[string]*mcp.IntegrationConfig{
+		"multi": {Enabled: false, Credentials: mcp.Credentials{}},
+	})
+	_ = New(&mcp.Services{Config: cfgService, Registry: reg})
+	assert.Equal(t, 0, mi.configureCalls)
+	assert.Equal(t, 0, mi.identitiesCalls)
 }
