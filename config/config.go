@@ -184,6 +184,10 @@ var envMapping = map[string]map[string]string{
 		"access_key_secret": "GONG_ACCESS_KEY_SECRET",
 		"base_url":          "GONG_BASE_URL",
 	},
+	"hubspot": {
+		"access_token": "HUBSPOT_ACCESS_TOKEN",
+		"base_url":     "HUBSPOT_BASE_URL",
+	},
 	"ramp": {
 		"access_token": "RAMP_ACCESS_TOKEN",
 		"base_url":     "RAMP_BASE_URL",
@@ -384,6 +388,10 @@ func defaultConfig() *mcp.Config {
 			"gong": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_key": "", "access_key_secret": "", "base_url": ""},
+			},
+			"hubspot": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
 			},
 			"ramp": {
 				Enabled:     false,
