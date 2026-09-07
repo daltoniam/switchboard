@@ -48,6 +48,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
 	"github.com/daltoniam/switchboard/integrations/hubspot"
+	"github.com/daltoniam/switchboard/integrations/intercom"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/linear"
@@ -56,6 +57,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/netsuite"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
+	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
 	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -78,6 +80,7 @@ import (
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/integrations/ynab"
+	"github.com/daltoniam/switchboard/integrations/zendesk"
 	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
@@ -323,7 +326,9 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		amazonIntegration,
 		gmailIntegration,
 		gong.New(),
+		zendesk.New(),
 		hubspot.New(),
+		intercom.New(),
 		gcalIntegration,
 		gdriveIntegration,
 		gdocsIntegration,
@@ -338,6 +343,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		jira.New(),
 		confluence.New(),
 		notionInt.New(),
+		okta.New(),
 		ollama.New(),
 		gcpInt.New(),
 		suno.New(),

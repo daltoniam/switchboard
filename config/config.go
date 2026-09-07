@@ -188,9 +188,24 @@ var envMapping = map[string]map[string]string{
 		"access_token": "HUBSPOT_ACCESS_TOKEN",
 		"base_url":     "HUBSPOT_BASE_URL",
 	},
+	"intercom": {
+		"access_token": "INTERCOM_ACCESS_TOKEN",
+		"base_url":     "INTERCOM_BASE_URL",
+	},
 	"ramp": {
 		"access_token": "RAMP_ACCESS_TOKEN",
 		"base_url":     "RAMP_BASE_URL",
+	},
+	"zendesk": {
+		"subdomain":    "ZENDESK_SUBDOMAIN",
+		"email":        "ZENDESK_EMAIL",
+		"api_token":    "ZENDESK_API_TOKEN",
+		"access_token": "ZENDESK_ACCESS_TOKEN",
+		"base_url":     "ZENDESK_BASE_URL",
+	},
+	"okta": {
+		"api_token": "OKTA_API_TOKEN",
+		"org_url":   "OKTA_ORG_URL",
 	},
 	"microsoft365": {
 		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
@@ -393,9 +408,21 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
 			},
+			"intercom": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
 			"ramp": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"zendesk": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"subdomain": "", "email": "", "api_token": "", "access_token": "", "base_url": ""},
+			},
+			"okta": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "org_url": ""},
 			},
 			"microsoft365": {
 				Enabled: false,

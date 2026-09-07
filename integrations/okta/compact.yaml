@@ -1,0 +1,183 @@
+# Switchboard compaction specs for the okta integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    okta_list_users:
+        spec:
+            - items[].id
+            - items[].status
+            - items[].created
+            - items[].activated
+            - items[].lastLogin
+            - items[].lastUpdated
+            - items[].profile.login
+            - items[].profile.email
+            - items[].profile.firstName
+            - items[].profile.lastName
+            - items[].profile.displayName
+            - items[].profile.department
+            - items[].profile.title
+            - next_after
+    okta_get_user:
+        spec:
+            - id
+            - status
+            - created
+            - activated
+            - statusChanged
+            - lastLogin
+            - lastUpdated
+            - profile.login
+            - profile.email
+            - profile.firstName
+            - profile.lastName
+            - profile.displayName
+            - profile.secondEmail
+            - profile.mobilePhone
+            - profile.department
+            - profile.title
+            - credentials.provider.type
+            - credentials.provider.name
+    okta_list_user_groups:
+        spec:
+            - items[].id
+            - items[].type
+            - items[].profile.name
+            - items[].profile.description
+            - next_after
+    okta_list_user_factors:
+        spec:
+            - items[].id
+            - items[].factorType
+            - items[].provider
+            - items[].status
+            - items[].created
+            - items[].lastUpdated
+            - items[].profile.phoneNumber
+            - items[].profile.credentialId
+    okta_list_groups:
+        spec:
+            - items[].id
+            - items[].type
+            - items[].created
+            - items[].lastUpdated
+            - items[].lastMembershipUpdated
+            - items[].profile.name
+            - items[].profile.description
+            - next_after
+    okta_get_group:
+        spec:
+            - id
+            - type
+            - created
+            - lastUpdated
+            - lastMembershipUpdated
+            - profile.name
+            - profile.description
+    okta_list_group_members:
+        spec:
+            - items[].id
+            - items[].status
+            - items[].profile.login
+            - items[].profile.email
+            - items[].profile.firstName
+            - items[].profile.lastName
+            - next_after
+    okta_list_apps:
+        spec:
+            - items[].id
+            - items[].name
+            - items[].label
+            - items[].status
+            - items[].signOnMode
+            - items[].created
+            - items[].lastUpdated
+            - next_after
+    okta_get_app:
+        spec:
+            - id
+            - name
+            - label
+            - status
+            - signOnMode
+            - created
+            - lastUpdated
+            - features
+            - visibility.hide.iOS
+            - visibility.hide.web
+    okta_list_app_users:
+        spec:
+            - items[].id
+            - items[].status
+            - items[].created
+            - items[].lastUpdated
+            - items[].scope
+            - items[].credentials.userName
+            - next_after
+    okta_list_app_groups:
+        spec:
+            - items[].id
+            - items[].priority
+            - items[].lastUpdated
+            - next_after
+    okta_list_policies:
+        spec:
+            - items[].id
+            - items[].name
+            - items[].type
+            - items[].status
+            - items[].created
+            - items[].lastUpdated
+            - items[].description
+            - items[].priority
+            - items[].system
+    okta_get_policy:
+        spec:
+            - id
+            - name
+            - type
+            - status
+            - created
+            - lastUpdated
+            - description
+            - priority
+            - system
+    okta_list_policy_rules:
+        spec:
+            - items[].id
+            - items[].name
+            - items[].type
+            - items[].status
+            - items[].created
+            - items[].lastUpdated
+            - items[].priority
+            - items[].system
+    okta_list_logs:
+        spec:
+            - items[].uuid
+            - items[].published
+            - items[].eventType
+            - items[].displayMessage
+            - items[].severity
+            - items[].outcome.result
+            - items[].outcome.reason
+            - items[].actor.id
+            - items[].actor.type
+            - items[].actor.alternateId
+            - items[].actor.displayName
+            - items[].client.ipAddress
+            - items[].target
+            - next_after
+    okta_get_org:
+        spec:
+            - id
+            - subdomain
+            - companyName
+            - status
+            - created
+            - website
+            - endUserSupportHelpURL

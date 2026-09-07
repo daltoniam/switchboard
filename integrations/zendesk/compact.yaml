@@ -1,0 +1,278 @@
+# Switchboard compaction specs for the zendesk integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    zendesk_search_tickets:
+        spec:
+            - results[].id
+            - results[].subject
+            - results[].status
+            - results[].priority
+            - results[].type
+            - results[].requester_id
+            - results[].assignee_id
+            - results[].group_id
+            - results[].organization_id
+            - results[].tags
+            - results[].created_at
+            - results[].updated_at
+            - results[].url
+            - count
+            - next_page
+            - previous_page
+    zendesk_list_tickets:
+        spec:
+            - tickets[].id
+            - tickets[].subject
+            - tickets[].status
+            - tickets[].priority
+            - tickets[].type
+            - tickets[].requester_id
+            - tickets[].assignee_id
+            - tickets[].group_id
+            - tickets[].organization_id
+            - tickets[].tags
+            - tickets[].created_at
+            - tickets[].updated_at
+            - tickets[].url
+            - meta.has_more
+            - meta.after_cursor
+            - meta.before_cursor
+            - links.next
+    zendesk_get_ticket:
+        spec:
+            - ticket.id
+            - ticket.subject
+            - ticket.description
+            - ticket.status
+            - ticket.priority
+            - ticket.type
+            - ticket.requester_id
+            - ticket.assignee_id
+            - ticket.submitter_id
+            - ticket.group_id
+            - ticket.organization_id
+            - ticket.tags
+            - ticket.created_at
+            - ticket.updated_at
+            - ticket.due_at
+            - ticket.url
+            - ticket.custom_fields
+            - users[].id
+            - users[].name
+            - users[].email
+            - groups[].id
+            - groups[].name
+    zendesk_list_ticket_comments:
+        max_bytes: 200000
+        spec:
+            - comments[].id
+            - comments[].author_id
+            - comments[].body
+            - comments[].public
+            - comments[].created_at
+            - comments[].attachments[].file_name
+            - comments[].attachments[].content_url
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
+    zendesk_list_ticket_audits:
+        spec:
+            - audits[].id
+            - audits[].ticket_id
+            - audits[].author_id
+            - audits[].created_at
+            - audits[].events[].id
+            - audits[].events[].type
+            - audits[].events[].field_name
+            - audits[].events[].value
+            - audits[].events[].previous_value
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
+    zendesk_search:
+        spec:
+            - results[].id
+            - results[].result_type
+            - results[].name
+            - results[].email
+            - results[].subject
+            - results[].status
+            - results[].priority
+            - results[].role
+            - results[].created_at
+            - results[].updated_at
+            - results[].url
+            - count
+            - next_page
+            - previous_page
+    zendesk_list_users:
+        spec:
+            - users[].id
+            - users[].name
+            - users[].email
+            - users[].role
+            - users[].active
+            - users[].organization_id
+            - users[].default_group_id
+            - users[].created_at
+            - users[].updated_at
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
+    zendesk_get_user:
+        spec:
+            - user.id
+            - user.name
+            - user.email
+            - user.role
+            - user.active
+            - user.verified
+            - user.organization_id
+            - user.default_group_id
+            - user.phone
+            - user.tags
+            - user.created_at
+            - user.updated_at
+            - user.url
+    zendesk_get_current_user:
+        spec:
+            - user.id
+            - user.name
+            - user.email
+            - user.role
+            - user.active
+            - user.organization_id
+            - user.default_group_id
+            - user.url
+    zendesk_list_organizations:
+        spec:
+            - organizations[].id
+            - organizations[].name
+            - organizations[].domain_names
+            - organizations[].details
+            - organizations[].created_at
+            - organizations[].updated_at
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
+    zendesk_get_organization:
+        spec:
+            - organization.id
+            - organization.name
+            - organization.domain_names
+            - organization.details
+            - organization.notes
+            - organization.tags
+            - organization.created_at
+            - organization.updated_at
+            - organization.url
+    zendesk_list_groups:
+        spec:
+            - groups[].id
+            - groups[].name
+            - groups[].description
+            - groups[].default
+            - groups[].deleted
+            - groups[].created_at
+            - groups[].updated_at
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
+    zendesk_get_group:
+        spec:
+            - group.id
+            - group.name
+            - group.description
+            - group.default
+            - group.deleted
+            - group.created_at
+            - group.updated_at
+            - group.url
+    zendesk_list_views:
+        spec:
+            - views[].id
+            - views[].title
+            - views[].active
+            - views[].position
+            - views[].created_at
+            - views[].updated_at
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
+    zendesk_list_view_tickets:
+        spec:
+            - tickets[].id
+            - tickets[].subject
+            - tickets[].status
+            - tickets[].priority
+            - tickets[].type
+            - tickets[].requester_id
+            - tickets[].assignee_id
+            - tickets[].group_id
+            - tickets[].tags
+            - tickets[].created_at
+            - tickets[].updated_at
+            - tickets[].url
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
+    zendesk_list_macros:
+        spec:
+            - macros[].id
+            - macros[].title
+            - macros[].active
+            - macros[].description
+            - macros[].created_at
+            - macros[].updated_at
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
+    zendesk_search_articles:
+        spec:
+            - results[].id
+            - results[].title
+            - results[].snippet
+            - results[].locale
+            - results[].html_url
+            - results[].created_at
+            - results[].updated_at
+            - count
+            - next_page
+            - previous_page
+    zendesk_get_article:
+        spec:
+            - article.id
+            - article.title
+            - article.body
+            - article.locale
+            - article.author_id
+            - article.section_id
+            - article.draft
+            - article.html_url
+            - article.created_at
+            - article.updated_at
+    zendesk_list_tags:
+        spec:
+            - tags[].name
+            - tags[].count
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
+    zendesk_list_satisfaction_ratings:
+        spec:
+            - satisfaction_ratings[].id
+            - satisfaction_ratings[].score
+            - satisfaction_ratings[].comment
+            - satisfaction_ratings[].ticket_id
+            - satisfaction_ratings[].assignee_id
+            - satisfaction_ratings[].requester_id
+            - satisfaction_ratings[].created_at
+            - satisfaction_ratings[].updated_at
+            - meta.has_more
+            - meta.after_cursor
+            - links.next
