@@ -231,6 +231,7 @@ Environment variables override credential values but do not change the durable e
 | Datadog | `app_key` | `DD_APP_KEY` |
 | Datadog | `site` | `DD_SITE` |
 | Linear | `api_key` | `LINEAR_API_KEY` |
+| Intercom | `access_token` | `INTERCOM_ACCESS_TOKEN` |
 | Sentry | `auth_token` | `SENTRY_AUTH_TOKEN` |
 | Sentry | `organization` | `SENTRY_ORG` (optional — auto-detected from API) |
 | Slack | `token` | `SLACK_TOKEN` |
