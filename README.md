@@ -278,6 +278,10 @@ Environment variables override credential values but do not change the durable e
 | Zendesk | `base_url` | `ZENDESK_BASE_URL` (optional — default `https://{subdomain}.zendesk.com/api/v2`) |
 | HubSpot | `access_token` | `HUBSPOT_ACCESS_TOKEN` |
 | HubSpot | `base_url` | `HUBSPOT_BASE_URL` (optional — default `https://api.hubapi.com`) |
+| Intercom | `access_token` | `INTERCOM_ACCESS_TOKEN` |
+| Intercom | `base_url` | `INTERCOM_BASE_URL` (optional — default `https://api.intercom.io`; EU `https://api.eu.intercom.io`, AU `https://api.au.intercom.io`) |
+| Okta | `api_token` | `OKTA_API_TOKEN` |
+| Okta | `org_url` | `OKTA_ORG_URL` (e.g. `https://your-org.okta.com`) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
 | Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
 | NetSuite | `account_id` | `NETSUITE_ACCOUNT_ID` |

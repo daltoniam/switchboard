@@ -48,6 +48,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
 	"github.com/daltoniam/switchboard/integrations/hubspot"
+	"github.com/daltoniam/switchboard/integrations/intercom"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/linear"
@@ -55,6 +56,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/netsuite"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
+	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
 	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -324,6 +326,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		gong.New(),
 		zendesk.New(),
 		hubspot.New(),
+		intercom.New(),
 		gcalIntegration,
 		gdriveIntegration,
 		gdocsIntegration,
@@ -337,6 +340,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		jira.New(),
 		confluence.New(),
 		notionInt.New(),
+		okta.New(),
 		ollama.New(),
 		gcpInt.New(),
 		suno.New(),

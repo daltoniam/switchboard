@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 57)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "slackmcp", "metabase", "paperless", "recoll", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot"} {
+	assert.Len(t, m.cfg.Integrations, 59)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "slackmcp", "metabase", "paperless", "recoll", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "okta"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 57)
+	assert.Len(t, cfg.Integrations, 59)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 57)
+	assert.Len(t, cfg.Integrations, 59)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,7 +273,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 57)
+	assert.Len(t, cfg.Integrations, 59)
 
 	expected := map[string][]string{
 		"github":         {"token", "client_id", "token_source"},
@@ -298,8 +298,10 @@ func TestDefaultConfig(t *testing.T) {
 		"ynab":           {"api_key"},
 		"gong":           {"access_key", "access_key_secret", "base_url"},
 		"hubspot":        {"access_token", "base_url"},
+		"intercom":       {"access_token", "base_url"},
 		"ramp":           {"access_token", "base_url"},
 		"zendesk":        {"subdomain", "email", "api_token", "access_token", "base_url"},
+		"okta":           {"api_token", "org_url"},
 		"gcp":            {"project_id", "credentials_json"},
 		"confluence":     {"email", "api_token", "domain"},
 		"elasticsearch":  {"base_url", "api_key", "username", "password"},
@@ -572,6 +574,8 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "GONG_ACCESS_KEY_SECRET", m["gong"]["access_key_secret"])
 	assert.Equal(t, "HUBSPOT_ACCESS_TOKEN", m["hubspot"]["access_token"])
 	assert.Equal(t, "HUBSPOT_BASE_URL", m["hubspot"]["base_url"])
+	assert.Equal(t, "INTERCOM_ACCESS_TOKEN", m["intercom"]["access_token"])
+	assert.Equal(t, "INTERCOM_BASE_URL", m["intercom"]["base_url"])
 	assert.Equal(t, "RAMP_ACCESS_TOKEN", m["ramp"]["access_token"])
 	assert.Equal(t, "RAMP_BASE_URL", m["ramp"]["base_url"])
 	assert.Equal(t, "ZENDESK_SUBDOMAIN", m["zendesk"]["subdomain"])
@@ -579,6 +583,8 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "ZENDESK_API_TOKEN", m["zendesk"]["api_token"])
 	assert.Equal(t, "ZENDESK_ACCESS_TOKEN", m["zendesk"]["access_token"])
 	assert.Equal(t, "ZENDESK_BASE_URL", m["zendesk"]["base_url"])
+	assert.Equal(t, "OKTA_API_TOKEN", m["okta"]["api_token"])
+	assert.Equal(t, "OKTA_ORG_URL", m["okta"]["org_url"])
 	assert.Equal(t, "NETSUITE_ACCOUNT_ID", m["netsuite"]["account_id"])
 	assert.Equal(t, "NETSUITE_ACCESS_TOKEN", m["netsuite"]["access_token"])
 	assert.Equal(t, "KUBECONFIG_CONTENT", m["kubernetes"]["kubeconfig"])
@@ -599,9 +605,9 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_TEAM_ID", m["vercel"]["team_id"])
 	assert.Equal(t, "VERCEL_TEAM_SLUG", m["vercel"]["team_slug"])
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
-	// 35 base integrations + 11 Google Workspace services sharing the
+	// 37 base integrations + 11 Google Workspace services sharing the
 	// GOOGLE_OAUTH_CLIENT_ID/SECRET env vars.
-	assert.Len(t, m, 46)
+	assert.Len(t, m, 48)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
