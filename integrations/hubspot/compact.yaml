@@ -1,0 +1,175 @@
+# Switchboard compaction specs for the hubspot integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    hubspot_search_contacts:
+        spec:
+            - total
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - paging.next.after
+    hubspot_list_contacts:
+        spec:
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - results[].associations
+            - paging.next.after
+    hubspot_get_contact:
+        spec:
+            - id
+            - properties
+            - createdAt
+            - updatedAt
+            - archived
+            - associations
+    hubspot_search_companies:
+        spec:
+            - total
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - paging.next.after
+    hubspot_list_companies:
+        spec:
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - results[].associations
+            - paging.next.after
+    hubspot_get_company:
+        spec:
+            - id
+            - properties
+            - createdAt
+            - updatedAt
+            - archived
+            - associations
+    hubspot_search_deals:
+        spec:
+            - total
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - paging.next.after
+    hubspot_list_deals:
+        spec:
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - results[].associations
+            - paging.next.after
+    hubspot_get_deal:
+        spec:
+            - id
+            - properties
+            - createdAt
+            - updatedAt
+            - archived
+            - associations
+    hubspot_search_tickets:
+        spec:
+            - total
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - paging.next.after
+    hubspot_list_tickets:
+        spec:
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - results[].associations
+            - paging.next.after
+    hubspot_get_ticket:
+        spec:
+            - id
+            - properties
+            - createdAt
+            - updatedAt
+            - archived
+            - associations
+    hubspot_search_objects:
+        spec:
+            - total
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - paging.next.after
+    hubspot_list_objects:
+        spec:
+            - results[].id
+            - results[].properties
+            - results[].createdAt
+            - results[].updatedAt
+            - results[].archived
+            - results[].associations
+            - paging.next.after
+    hubspot_get_object:
+        spec:
+            - id
+            - properties
+            - createdAt
+            - updatedAt
+            - archived
+            - associations
+    hubspot_list_associations:
+        spec:
+            - results[].id
+            - results[].type
+            - paging.next.after
+    hubspot_list_owners:
+        spec:
+            - results[].id
+            - results[].email
+            - results[].firstName
+            - results[].lastName
+            - results[].userId
+            - results[].archived
+            - results[].teams
+            - paging.next.after
+    hubspot_list_pipelines:
+        spec:
+            - results[].id
+            - results[].label
+            - results[].displayOrder
+            - results[].archived
+            - results[].stages[].id
+            - results[].stages[].label
+            - results[].stages[].displayOrder
+            - results[].stages[].metadata
+    hubspot_list_properties:
+        spec:
+            - results[].name
+            - results[].label
+            - results[].type
+            - results[].fieldType
+            - results[].groupName
+            - results[].hidden
+            - results[].archived
+            - results[].hasUniqueValue
+            - results[].options[].label
+            - results[].options[].value

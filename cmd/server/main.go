@@ -47,6 +47,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
+	"github.com/daltoniam/switchboard/integrations/hubspot"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/linear"
@@ -321,6 +322,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		amazonIntegration,
 		gmailIntegration,
 		gong.New(),
+		hubspot.New(),
 		gcalIntegration,
 		gdriveIntegration,
 		gdocsIntegration,
