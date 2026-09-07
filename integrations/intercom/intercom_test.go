@@ -346,6 +346,16 @@ func TestCreateContact(t *testing.T) {
 	assert.Contains(t, result.Data, "u1")
 }
 
+func TestCreateContact_MissingIdentifier(t *testing.T) {
+	c := &intercom{accessToken: "tok", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := c.Execute(context.Background(), "intercom_create_contact", map[string]any{
+		"name": "Ada",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "provide email or external_id")
+}
+
 func TestSearchArticles(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)

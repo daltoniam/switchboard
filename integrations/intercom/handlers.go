@@ -356,8 +356,8 @@ func createContact(ctx context.Context, c *intercom, args map[string]any) (*mcp.
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	if len(payload) == 0 {
-		return mcp.ErrResult(fmt.Errorf("provide at least one of email, external_id, or name"))
+	if payload["email"] == nil && payload["external_id"] == nil {
+		return mcp.ErrResult(fmt.Errorf("provide email or external_id"))
 	}
 	data, err := c.post(ctx, "/contacts", payload)
 	if err != nil {

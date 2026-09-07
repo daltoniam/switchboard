@@ -163,17 +163,17 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"ticket_id"},
 	},
 	{
-		Name: mcp.ToolName("intercom_create_ticket"), Description: "Create an Intercom ticket for a contact. Use after list_ticket_types to get ticket_type_id.",
+		Name: mcp.ToolName("intercom_create_ticket"), Description: "Create an Intercom ticket for a contact. Use after list_ticket_types to get ticket_type_id. Provide contact_id, or contacts as an alternate.",
 		Parameters: map[string]string{
 			"ticket_type_id":    "Ticket type ID",
 			"contact_id":        "Intercom contact ID to attach (used when contacts is omitted)",
-			"contacts":          `JSON array of contacts (e.g. [{"id":"abc"}])`,
+			"contacts":          `JSON array of contacts (e.g. [{"id":"abc"}]). Alternate to contact_id.`,
 			"title":             "Ticket title",
 			"description":       "Ticket description",
 			"admin_assignee_id": "Admin ID to assign",
 			"team_assignee_id":  "Team ID to assign",
 		},
-		Required: []string{"ticket_type_id"},
+		Required: []string{"ticket_type_id", "contact_id"},
 	},
 	{
 		Name: mcp.ToolName("intercom_update_ticket"), Description: "Update an Intercom ticket state or assignment. Use after get_ticket.",
