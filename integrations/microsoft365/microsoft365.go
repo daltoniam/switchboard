@@ -320,12 +320,41 @@ func userPath(userID string) string {
 	return "/users/" + url.PathEscape(userID)
 }
 
+func quoteGraphSearch(q string) string {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return ""
+	}
+	if len(q) >= 2 && q[0] == '"' && q[len(q)-1] == '"' {
+		return q
+	}
+	q = strings.ReplaceAll(q, `\`, `\\`)
+	q = strings.ReplaceAll(q, `"`, `\"`)
+	return `"` + q + `"`
+}
+
+func directorySearch(q string) string {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return ""
+	}
+	upper := strings.ToUpper(q)
+	if strings.Contains(upper, " OR ") || strings.Contains(upper, " AND ") {
+		return q
+	}
+	if strings.Contains(q, ":") {
+		return quoteGraphSearch(q)
+	}
+	escaped := strings.ReplaceAll(strings.ReplaceAll(q, `\`, `\\`), `"`, `\"`)
+	return `"displayName:` + escaped + `" OR "mail:` + escaped + `"`
+}
+
 func graphListParams(r *mcp.Args) map[string]string {
 	top := fmt.Sprintf("%d", r.OptInt("top", defaultPageSize))
 	params := map[string]string{
 		"$filter":  r.Str("filter"),
 		"$select":  r.Str("select"),
-		"$search":  r.Str("search"),
+		"$search":  quoteGraphSearch(r.Str("search")),
 		"$orderby": r.Str("orderby"),
 		"$top":     top,
 	}

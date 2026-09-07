@@ -14,7 +14,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"filter":    "OData $filter (e.g. startswith(displayName,'Ada'))",
 			"select":    "OData $select fields",
-			"search":    "OData $search across displayName and mail (requires ConsistencyLevel)",
+			"search":    `OData $search clause(s), e.g. "displayName:Ada" OR "mail:Ada". A bare name is rewritten to those clauses. Requires ConsistencyLevel and User.Read.All.`,
 			"top":       "Page size (default 25, max 999)",
 			"next_link": "Full @odata.nextLink URL from a previous page",
 		},
@@ -33,7 +33,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"user_id":   "User ID or UPN (defaults to me)",
 			"folder_id": "Mail folder ID. Omit to list the whole mailbox (Inbox, Sent, Deleted, and others). Use list_mail_folders first.",
-			"search":    "KQL search (e.g. from:ada@contoso.com subject:budget)",
+			"search":    `KQL search; Graph quotes this automatically (e.g. from:ada@contoso.com subject:budget)`,
 			"filter":    "OData $filter (e.g. isRead eq false)",
 			"select":    "OData $select fields",
 			"orderby":   "OData $orderby (default receivedDateTime desc)",

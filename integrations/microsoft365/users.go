@@ -23,12 +23,14 @@ func getMe(ctx context.Context, m *m365, args map[string]any) (*mcp.ToolResult, 
 func listUsers(ctx context.Context, m *m365, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := nextOrGet(ctx, m, args, func() (string, map[string]string, error) {
 		r := mcp.NewArgs(args)
+		search := r.Str("search")
 		params := graphListParams(r)
 		if err := r.Err(); err != nil {
 			return "", nil, err
 		}
 		headers := map[string]string{}
-		if params["$search"] != "" {
+		if search != "" {
+			params["$search"] = directorySearch(search)
 			headers["ConsistencyLevel"] = "eventual"
 			params["$count"] = "true"
 		}
@@ -49,7 +51,7 @@ func searchPeople(ctx context.Context, m *m365, args map[string]any) (*mcp.ToolR
 			return "", nil, err
 		}
 		if q != "" {
-			params["$search"] = q
+			params["$search"] = quoteGraphSearch(q)
 		}
 		return "/me/people" + queryEncode(params), nil, nil
 	})

@@ -27,6 +27,7 @@ func TestStartM365OAuth_Success(t *testing.T) {
 	assert.Contains(t, result.AuthorizeURL, "login.microsoftonline.com/common")
 	assert.Contains(t, result.AuthorizeURL, "User.Read.All")
 	assert.Contains(t, msDefaultScope, "User.Read.All")
+	assert.Contains(t, msDefaultScope, "Files.ReadWrite.All")
 
 	s := getActiveOAuth()
 	require.NotNil(t, s)

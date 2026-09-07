@@ -189,7 +189,7 @@ func TestGetMe(t *testing.T) {
 func TestListMessages(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/me/messages", r.URL.Path)
-		assert.Equal(t, "from:ada", r.URL.Query().Get("$search"))
+		assert.Equal(t, `"from:ada"`, r.URL.Query().Get("$search"))
 		assert.Equal(t, "25", r.URL.Query().Get("$top"))
 		_, _ = w.Write([]byte(`{"value":[{"id":"m1","subject":"Hello"}],"@odata.nextLink":"https://graph.microsoft.com/v1.0/me/messages?$skiptoken=abc"}`))
 	}))
@@ -515,6 +515,28 @@ func TestListUsers_SearchHeader(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
+}
+
+func TestListUsers_RewritesBareSearch(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, `"displayName:Ada" OR "mail:Ada"`, r.URL.Query().Get("$search"))
+		assert.Equal(t, "eventual", r.Header.Get("ConsistencyLevel"))
+		_, _ = w.Write([]byte(`{"value":[{"id":"u1"}]}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_list_users", map[string]any{
+		"search": "Ada",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestQuoteGraphSearch(t *testing.T) {
+	assert.Equal(t, "", quoteGraphSearch("  "))
+	assert.Equal(t, `"from:ada"`, quoteGraphSearch("from:ada"))
+	assert.Equal(t, `"already"`, quoteGraphSearch(`"already"`))
+	assert.Equal(t, `"say \"hi\""`, quoteGraphSearch(`say "hi"`))
 }
 
 func TestPlaceholdersAndOptionalKeys(t *testing.T) {

@@ -75,7 +75,7 @@ templ Microsoft365Setup(page layouts.PageData, data Microsoft365SetupData) {
 				<a href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" style="color: var(--accent);">Microsoft Entra admin center</a>.
 				Add a Web redirect URI of
 				<code style="font-size: 0.8rem; background: var(--bg); padding: 0.15em 0.4em; border-radius: 3px;">{ data.RedirectURI }</code>
-				and grant delegated Graph permissions for Mail, Calendars, Files, Teams, Tasks, People.Read, User.Read, and User.Read.All (directory list; often needs admin consent). ChannelMessage.Read.All / ChannelMessage.Send may also require admin consent.
+				and grant delegated Graph permissions for Mail, Calendars, Files.ReadWrite.All (OneDrive and SharePoint), Teams, Tasks, People.Read, User.Read, and User.Read.All (directory list; often needs admin consent). ChannelMessage.Read.All / ChannelMessage.Send may also require admin consent.
 			</p>
 			<form method="POST" action="/api/microsoft365/save-oauth-credentials">
 				@components.FormGroup("Application (client) ID", "client_id", "text", data.ClientID, "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
