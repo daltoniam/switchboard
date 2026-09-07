@@ -342,6 +342,65 @@ func TestListDriveItems_EncodesPathSegments(t *testing.T) {
 	require.False(t, result.IsError)
 }
 
+func TestUploadDriveItem_Root(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPut, r.Method)
+		assert.Equal(t, "/me/drive/root:/notes.txt:/content", r.URL.EscapedPath())
+		_, _ = w.Write([]byte(`{"id":"f1","name":"notes.txt"}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_upload_drive_item", map[string]any{
+		"name":    "notes.txt",
+		"content": "hello",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, "notes.txt")
+}
+
+func TestUploadDriveItem_ItemParent(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/me/drive/items/folder1:/notes.txt:/content", r.URL.EscapedPath())
+		_, _ = w.Write([]byte(`{"id":"f2","name":"notes.txt"}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_upload_drive_item", map[string]any{
+		"item_id": "folder1",
+		"name":    "notes.txt",
+		"content": "hello",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, "f2")
+}
+
+func TestUploadDriveItem_PathParent(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/me/drive/root:/Documents/Reports/notes.txt:/content", r.URL.EscapedPath())
+		_, _ = w.Write([]byte(`{"id":"f3","name":"notes.txt"}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_upload_drive_item", map[string]any{
+		"path":    "Documents/Reports",
+		"name":    "notes.txt",
+		"content": "hello",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, "f3")
+}
+
+func TestDownloadDriveItem_RequiresTarget(t *testing.T) {
+	m := &m365{accessToken: "t", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := m.Execute(context.Background(), "microsoft365_download_drive_item", nil)
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	assert.Contains(t, result.Data, "item_id or path")
+}
+
 func TestDownloadDriveItem_Text(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/me/drive/items/f1/content", r.URL.Path)

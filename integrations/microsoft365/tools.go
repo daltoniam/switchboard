@@ -33,7 +33,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("microsoft365_list_messages"), Description: "List Outlook email messages in a mailbox. Search and find mail using KQL $search or OData $filter.",
 		Parameters: map[string]string{
 			"user_id":   "User ID or UPN (defaults to me)",
-			"folder_id": "Mail folder ID (defaults to inbox). Use list_mail_folders first.",
+			"folder_id": "Mail folder ID. Omit to list the whole mailbox (Inbox, Sent, Deleted, and others). Use list_mail_folders first.",
 			"search":    "KQL search (e.g. from:ada@contoso.com subject:budget)",
 			"filter":    "OData $filter (e.g. isRead eq false)",
 			"select":    "OData $select fields",

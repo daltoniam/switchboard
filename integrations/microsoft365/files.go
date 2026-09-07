@@ -47,6 +47,13 @@ func driveRelation(item, rel string) string {
 	return item + "/" + rel
 }
 
+func uploadContentPath(parent, name string) string {
+	if strings.Contains(parent, "/root:/") && !strings.HasSuffix(parent, ":") {
+		return parent + "/" + name + ":/content"
+	}
+	return parent + ":/" + name + ":/content"
+}
+
 func listDriveItems(ctx context.Context, m *m365, args map[string]any) (*mcp.ToolResult, error) {
 	data, err := nextOrGet(ctx, m, args, func() (string, map[string]string, error) {
 		r := mcp.NewArgs(args)
@@ -119,6 +126,9 @@ func downloadDriveItem(ctx context.Context, m *m365, args map[string]any) (*mcp.
 	maxBytes := r.OptInt("max_bytes", defaultDownloadBy)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
+	}
+	if itemID == "" && path == "" {
+		return mcp.ErrResult(fmt.Errorf("provide item_id or path"))
 	}
 	if maxBytes > maxDownloadBytes {
 		maxBytes = maxDownloadBytes
@@ -228,12 +238,7 @@ func uploadDriveItem(ctx context.Context, m *m365, args map[string]any) (*mcp.To
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	name = encodeDrivePath(name)
-	uploadPath := parent + ":/" + name + ":/content"
-	if itemID == "" && path == "" {
-		uploadPath = driveRoot(userID, driveID) + "/root:/" + name + ":/content"
-	}
-	data, err := m.put(ctx, uploadPath, payload, contentType)
+	data, err := m.put(ctx, uploadContentPath(parent, encodeDrivePath(name)), payload, contentType)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
