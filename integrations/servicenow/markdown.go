@@ -2,8 +2,6 @@ package servicenow
 
 import (
 	"encoding/json"
-	"html"
-	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/markdown"
@@ -116,27 +114,6 @@ func field(m map[string]any, keys ...string) string {
 		}
 	}
 	return ""
-}
-
-func stripHTML(s string) string {
-	s = strings.ReplaceAll(s, "<br />", "\n")
-	s = strings.ReplaceAll(s, "<br/>", "\n")
-	s = strings.ReplaceAll(s, "<br>", "\n")
-	s = strings.ReplaceAll(s, "</p>", "\n\n")
-	s = strings.ReplaceAll(s, "</div>", "\n")
-	var b strings.Builder
-	inTag := false
-	for _, r := range s {
-		switch {
-		case r == '<':
-			inTag = true
-		case r == '>':
-			inTag = false
-		case !inTag:
-			b.WriteRune(r)
-		}
-	}
-	return strings.TrimSpace(html.UnescapeString(b.String()))
 }
 
 func renderIncidentMD(data []byte) (markdown.Markdown, bool) {
@@ -252,7 +229,7 @@ func renderCommentsMD(data []byte) (markdown.Markdown, bool) {
 			Author:  field(m, "sys_created_by"),
 			Created: field(m, "sys_created_on"),
 			Element: field(m, "element"),
-			Body:    stripHTML(field(m, "value")),
+			Body:    string(markdown.FromHTML(field(m, "value"))),
 		})
 	}
 	return commentsToMarkdown(comments), true

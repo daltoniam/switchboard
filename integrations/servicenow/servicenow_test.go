@@ -411,6 +411,17 @@ func TestListCIs_CustomTable(t *testing.T) {
 	assert.Contains(t, result.Data, "web-1")
 }
 
+func TestCreateRecord_RequiresFields(t *testing.T) {
+	s := &servicenow{accessToken: "t", client: &http.Client{}, instanceURL: "http://localhost"}
+	result, err := s.Execute(context.Background(), "servicenow_create_record", map[string]any{
+		"table": "incident",
+		"data":  `{}`,
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "at least one field")
+}
+
 func TestUpdateRecord_RequiresFields(t *testing.T) {
 	s := &servicenow{accessToken: "t", client: &http.Client{}, instanceURL: "http://localhost"}
 	result, err := s.Execute(context.Background(), "servicenow_update_record", map[string]any{

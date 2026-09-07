@@ -89,3 +89,11 @@ func TestRenderCommentsMD(t *testing.T) {
 	assert.Contains(t, string(md), "alice")
 	assert.Contains(t, string(md), "looking into it")
 }
+
+func TestRenderCommentsMD_HTMLBody(t *testing.T) {
+	payload := []byte(`{"result":[{"sys_created_by":"alice","sys_created_on":"2026-01-01","element":"work_notes","value":"<p>looking into it</p>"}]}`)
+	md, ok := renderCommentsMD(payload)
+	require.True(t, ok)
+	assert.Contains(t, string(md), "looking into it")
+	assert.NotContains(t, string(md), "<p>")
+}

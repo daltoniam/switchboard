@@ -309,6 +309,9 @@ func createRecord(ctx context.Context, s *servicenow, args map[string]any) (*mcp
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
+	if len(body) == 0 {
+		return mcp.ErrResult(fmt.Errorf("provide at least one field to create"))
+	}
 	data, err := s.post(ctx, "/api/now/table/"+url.PathEscape(table), body)
 	if err != nil {
 		return mcp.ErrResult(err)
