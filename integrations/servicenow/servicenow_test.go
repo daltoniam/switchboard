@@ -276,6 +276,16 @@ func TestCreateIncident(t *testing.T) {
 	assert.Contains(t, result.Data, "INC0010099")
 }
 
+func TestCreateIncident_RequiresFields(t *testing.T) {
+	s := &servicenow{accessToken: "t", client: &http.Client{}, instanceURL: "http://localhost"}
+	result, err := s.Execute(context.Background(), "servicenow_create_incident", map[string]any{
+		"short_description": "",
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "at least one field")
+}
+
 func TestUpdateIncident(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPatch, r.Method)

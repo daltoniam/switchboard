@@ -134,6 +134,9 @@ func createIncident(ctx context.Context, s *servicenow, args map[string]any) (*m
 	mergeField(body, "category", category)
 	mergeField(body, "subcategory", subcategory)
 	mergeField(body, "cmdb_ci", cmdbCI)
+	if len(body) == 0 {
+		return mcp.ErrResult(fmt.Errorf("provide at least one field to create"))
+	}
 	data, err := s.post(ctx, "/api/now/table/incident", body)
 	if err != nil {
 		return mcp.ErrResult(err)
