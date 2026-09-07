@@ -1,8 +1,41 @@
 # Switchboard
 
-A unified MCP server written in Go that aggregates multiple integrations
-(GitHub, Datadog, Linear, Sentry, Slack, Metabase) behind a single MCP endpoint,
-with a web UI for easy configuration.
+A source-available MCP gateway that connects any MCP client to your tools
+behind one endpoint. Run it locally with a built-in web UI, or use
+[Switchboard Hosted](https://app.switchboard-mcp.com) for a private-data
+tunnel and other team features.
+
+Switchboard sits under Cursor, Claude Code, Codex, and any other MCP client.
+Your agent searches for a capability and executes it. Compaction strips unused
+fields before responses reach the model, typically cutting token usage by
+about 90%.
+
+![Local Switchboard dashboard with connected integrations, token savings, and activity](docs/images/ui-dashboard.webp)
+
+*The local dashboard tracks connected tools and how much LLM context Switchboard kept off the wire.*
+
+![Local Switchboard integrations page with Google Workspace, connected services, and available adapters](docs/images/ui-integrations.webp)
+
+*Connect GitHub, Datadog, Linear, Slack, Google Workspace, and more from the local UI.*
+
+## Switchboard Hosted
+
+Need agents to reach Postgres or Kubernetes behind a firewall? [Switchboard
+Hosted](https://app.switchboard-mcp.com) adds a private-data tunnel, plus
+organizations, SSO, policies, audit logs, and dedicated runtimes. Same MCP
+clients and integrations as this repo.
+
+- **[Try Switchboard Hosted free](https://app.switchboard-mcp.com)** — no credit card required
+- **[Product and pricing](https://switchboard-mcp.com)**
+
+## Features
+
+- **One MCP endpoint** for GitHub, Datadog, Linear, Slack, Google Workspace, AWS, and more
+- **Local web UI** to connect integrations, check health, and watch token savings
+- **Search + execute** so agents discover tools instead of loading every schema
+- **~90% fewer tokens** via compaction, columnar reshape, and markdown rendering
+- **Any MCP client, any model** — Cursor, Claude Code, Codex, Windsurf, and others
+- **Bring your own integrations** with the Go `mcp.Integration` interface or Wasm plugins
 
 ## Installation
 
@@ -60,28 +93,6 @@ go install github.com/daltoniam/switchboard/cmd/server@latest
 Pre-built binaries for macOS, Linux, and Windows (amd64/arm64) are available on
 the [GitHub Releases](https://github.com/daltoniam/switchboard/releases) page.
 
-## Architecture
-
-```
-┌─────────────┐     stdio / SSE      ┌──────────────────────┐
-│  AI Client   │ ◄──────────────────► │  Unified MCP Server   │
-│ (Cursor, etc)│                      │                       │
-└─────────────┘                      │  ┌─────────────────┐  │
-                                     │  │  Tool Router     │  │
-       ┌──────────────────┐          │  └────────┬────────┘  │
-       │  Web UI (3847)   │◄─ HTTP ─►│           │           │
-       │  config/creds    │          │  ┌────────▼────────┐  │
-       └──────────────────┘          │  │  Adapters        │  │
-                                     │  │  ├─ GitHub       │  │
-                                     │  │  ├─ Datadog      │  │
-                                     │  │  ├─ Linear       │  │
-                                     │  │  ├─ Sentry       │  │
-                                     │  │  ├─ Slack        │  │
-                                     │  │  └─ Metabase     │  │
-                                     │  └─────────────────┘  │
-                                     └──────────────────────┘
-```
-
 ## Context Optimization
 
 API responses are large. A single GitHub issue carries ~100 fields (nested users, permissions, node IDs, avatar URLs) when an LLM needs ~10 to decide what to do next. Multiply by 30 issues per page and a list call can consume 150KB of context for information the model will never use.
@@ -126,6 +137,27 @@ switchboard --verbose
 
 # Open config UI
 open http://localhost:3847
+```
+
+## Architecture
+
+```
+┌─────────────┐     stdio / SSE      ┌──────────────────────┐
+│  AI Client   │ ◄──────────────────► │  Unified MCP Server   │
+│ (Cursor, etc)│                      │                       │
+└─────────────┘                      │  ┌─────────────────┐  │
+                                     │  │  Tool Router     │  │
+       ┌──────────────────┐          │  └────────┬────────┘  │
+       │  Web UI (3847)   │◄─ HTTP ─►│           │           │
+       │  config/creds    │          │  ┌────────▼────────┐  │
+       └──────────────────┘          │  │  Adapters        │  │
+                                     │  │  ├─ GitHub       │  │
+                                     │  │  ├─ Datadog      │  │
+                                     │  │  ├─ Linear       │  │
+                                     │  │  ├─ Slack        │  │
+                                     │  │  └─ more         │  │
+                                     │  └─────────────────┘  │
+                                     └──────────────────────┘
 ```
 
 ## Configuration
@@ -244,6 +276,8 @@ Environment variables override credential values but do not change the durable e
 | Zendesk | `api_token` | `ZENDESK_API_TOKEN` |
 | Zendesk | `access_token` | `ZENDESK_ACCESS_TOKEN` (OAuth; alternative to email + api_token) |
 | Zendesk | `base_url` | `ZENDESK_BASE_URL` (optional — default `https://{subdomain}.zendesk.com/api/v2`) |
+| HubSpot | `access_token` | `HUBSPOT_ACCESS_TOKEN` |
+| HubSpot | `base_url` | `HUBSPOT_BASE_URL` (optional — default `https://api.hubapi.com`) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
 | Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
 | NetSuite | `account_id` | `NETSUITE_ACCOUNT_ID` |
