@@ -79,6 +79,7 @@ import (
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/integrations/ynab"
+	"github.com/daltoniam/switchboard/integrations/zendesk"
 	"github.com/daltoniam/switchboard/marketplace"
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
@@ -323,6 +324,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		amazonIntegration,
 		gmailIntegration,
 		gong.New(),
+		zendesk.New(),
 		hubspot.New(),
 		intercom.New(),
 		gcalIntegration,
