@@ -284,6 +284,10 @@ Environment variables override credential values but do not change the durable e
 | Okta | `org_url` | `OKTA_ORG_URL` (e.g. `https://your-org.okta.com`) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
 | Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
+| ServiceNow | `instance_url` | `SERVICENOW_INSTANCE_URL` (e.g. `https://dev12345.service-now.com`) |
+| ServiceNow | `username` | `SERVICENOW_USERNAME` (basic auth; alternative to access_token) |
+| ServiceNow | `password` | `SERVICENOW_PASSWORD` (basic auth; alternative to access_token) |
+| ServiceNow | `access_token` | `SERVICENOW_ACCESS_TOKEN` (OAuth bearer; alternative to username/password) |
 | NetSuite | `account_id` | `NETSUITE_ACCOUNT_ID` |
 | NetSuite | `access_token` | `NETSUITE_ACCESS_TOKEN` (OAuth 2.0; alternative to TBA) |
 | NetSuite | `consumer_key` | `NETSUITE_CONSUMER_KEY` (TBA) |

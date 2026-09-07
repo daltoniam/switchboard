@@ -1,0 +1,250 @@
+# Switchboard compaction specs for the servicenow integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    servicenow_list_incidents:
+        spec:
+            - result[].sys_id
+            - result[].number
+            - result[].short_description
+            - result[].state
+            - result[].priority
+            - result[].urgency
+            - result[].impact
+            - result[].assigned_to
+            - result[].assignment_group
+            - result[].caller_id
+            - result[].category
+            - result[].sys_updated_on
+            - result[].sys_created_on
+    servicenow_get_incident:
+        spec:
+            - result.sys_id
+            - result.number
+            - result.short_description
+            - result.description
+            - result.state
+            - result.priority
+            - result.urgency
+            - result.impact
+            - result.assigned_to
+            - result.assignment_group
+            - result.caller_id
+            - result.category
+            - result.subcategory
+            - result.cmdb_ci
+            - result.close_code
+            - result.close_notes
+            - result.opened_at
+            - result.resolved_at
+            - result.closed_at
+            - result.sys_updated_on
+            - result.sys_created_on
+    servicenow_list_problems:
+        spec:
+            - result[].sys_id
+            - result[].number
+            - result[].short_description
+            - result[].state
+            - result[].priority
+            - result[].assigned_to
+            - result[].assignment_group
+            - result[].sys_updated_on
+            - result[].sys_created_on
+    servicenow_get_problem:
+        spec:
+            - result.sys_id
+            - result.number
+            - result.short_description
+            - result.description
+            - result.state
+            - result.priority
+            - result.assigned_to
+            - result.assignment_group
+            - result.workaround
+            - result.cause_notes
+            - result.fix_notes
+            - result.sys_updated_on
+            - result.sys_created_on
+    servicenow_list_change_requests:
+        spec:
+            - result[].sys_id
+            - result[].number
+            - result[].short_description
+            - result[].state
+            - result[].priority
+            - result[].type
+            - result[].assigned_to
+            - result[].assignment_group
+            - result[].start_date
+            - result[].end_date
+            - result[].sys_updated_on
+    servicenow_get_change_request:
+        spec:
+            - result.sys_id
+            - result.number
+            - result.short_description
+            - result.description
+            - result.state
+            - result.priority
+            - result.type
+            - result.assigned_to
+            - result.assignment_group
+            - result.start_date
+            - result.end_date
+            - result.justification
+            - result.implementation_plan
+            - result.backout_plan
+            - result.test_plan
+            - result.risk
+            - result.impact
+            - result.sys_updated_on
+    servicenow_list_catalog_requests:
+        spec:
+            - result[].sys_id
+            - result[].number
+            - result[].short_description
+            - result[].request_state
+            - result[].stage
+            - result[].priority
+            - result[].requested_for
+            - result[].assignment_group
+            - result[].sys_updated_on
+    servicenow_get_catalog_request:
+        spec:
+            - result.sys_id
+            - result.number
+            - result.short_description
+            - result.description
+            - result.request_state
+            - result.stage
+            - result.priority
+            - result.requested_for
+            - result.assignment_group
+            - result.special_instructions
+            - result.sys_updated_on
+    servicenow_list_knowledge_articles:
+        spec:
+            - result[].sys_id
+            - result[].number
+            - result[].short_description
+            - result[].workflow_state
+            - result[].kb_knowledge_base
+            - result[].category
+            - result[].sys_view_count
+            - result[].published
+            - result[].sys_updated_on
+    servicenow_get_knowledge_article:
+        max_bytes: 200000
+        spec:
+            - result.sys_id
+            - result.number
+            - result.short_description
+            - result.workflow_state
+            - result.kb_knowledge_base
+            - result.category
+            - result.text
+            - result.wiki
+            - result.author
+            - result.published
+            - result.valid_to
+            - result.sys_view_count
+            - result.sys_updated_on
+    servicenow_list_users:
+        spec:
+            - result[].sys_id
+            - result[].user_name
+            - result[].name
+            - result[].email
+            - result[].title
+            - result[].department
+            - result[].active
+            - result[].sys_updated_on
+    servicenow_get_user:
+        spec:
+            - result.sys_id
+            - result.user_name
+            - result.name
+            - result.email
+            - result.title
+            - result.department
+            - result.active
+            - result.phone
+            - result.mobile_phone
+            - result.manager
+            - result.location
+            - result.company
+            - result.sys_updated_on
+    servicenow_list_groups:
+        spec:
+            - result[].sys_id
+            - result[].name
+            - result[].description
+            - result[].email
+            - result[].manager
+            - result[].active
+            - result[].sys_updated_on
+    servicenow_list_cis:
+        spec:
+            - result[].sys_id
+            - result[].name
+            - result[].sys_class_name
+            - result[].operational_status
+            - result[].install_status
+            - result[].assigned_to
+            - result[].support_group
+            - result[].sys_updated_on
+    servicenow_get_ci:
+        spec:
+            - result.sys_id
+            - result.name
+            - result.sys_class_name
+            - result.operational_status
+            - result.install_status
+            - result.assigned_to
+            - result.support_group
+            - result.short_description
+            - result.ip_address
+            - result.fqdn
+            - result.serial_number
+            - result.manufacturer
+            - result.model_id
+            - result.location
+            - result.owned_by
+            - result.sys_updated_on
+    servicenow_list_records:
+        spec:
+            - result[].sys_id
+            - result[].number
+            - result[].name
+            - result[].short_description
+            - result[].state
+            - result[].sys_updated_on
+    servicenow_get_record:
+        max_bytes: 100000
+        spec: []
+    servicenow_aggregate:
+        max_bytes: 50000
+        spec: []
+    servicenow_list_comments:
+        spec:
+            - result[].sys_id
+            - result[].element
+            - result[].element_id
+            - result[].value
+            - result[].sys_created_on
+            - result[].sys_created_by
+    servicenow_list_attachments:
+        spec:
+            - result[].sys_id
+            - result[].file_name
+            - result[].content_type
+            - result[].size_bytes
+            - result[].table_name
+            - result[].table_sys_id
+            - result[].sys_created_on
+            - result[].sys_created_by
