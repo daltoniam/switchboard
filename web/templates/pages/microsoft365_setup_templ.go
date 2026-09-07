@@ -189,7 +189,7 @@ func Microsoft365Setup(page layouts.PageData, data Microsoft365SetupData) templ.
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</code> and grant delegated Graph permissions for Mail, Calendars, Files, Teams, Tasks, and User.Read.</p><form method=\"POST\" action=\"/api/microsoft365/save-oauth-credentials\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</code> and grant delegated Graph permissions for Mail, Calendars, Files, Teams, Tasks, People.Read, User.Read, and User.Read.All (directory list; often needs admin consent). ChannelMessage.Read.All / ChannelMessage.Send may also require admin consent.</p><form method=\"POST\" action=\"/api/microsoft365/save-oauth-credentials\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

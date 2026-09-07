@@ -10,13 +10,12 @@ var tools = []mcp.ToolDefinition{
 		},
 	},
 	{
-		Name: mcp.ToolName("microsoft365_list_users"), Description: "List Microsoft Entra ID directory users and coworkers in the organization",
+		Name: mcp.ToolName("microsoft365_list_users"), Description: "List Microsoft Entra ID directory users. Needs User.Read.All (admin consent). Prefer search_people for coworker lookup with People.Read.",
 		Parameters: map[string]string{
 			"filter":    "OData $filter (e.g. startswith(displayName,'Ada'))",
 			"select":    "OData $select fields",
 			"search":    "OData $search across displayName and mail (requires ConsistencyLevel)",
 			"top":       "Page size (default 25, max 999)",
-			"skiptoken": "Pagination token from @odata.nextLink",
 			"next_link": "Full @odata.nextLink URL from a previous page",
 		},
 	},
@@ -39,7 +38,6 @@ var tools = []mcp.ToolDefinition{
 			"select":    "OData $select fields",
 			"orderby":   "OData $orderby (default receivedDateTime desc)",
 			"top":       "Page size (default 25)",
-			"skiptoken": "Pagination token",
 			"next_link": "Full @odata.nextLink URL from a previous page",
 		},
 	},

@@ -18,7 +18,7 @@ import (
 const (
 	msAuthorizeURL = "https://login.microsoftonline.com/%s/oauth2/v2.0/authorize"
 	msTokenURL     = "https://login.microsoftonline.com/%s/oauth2/v2.0/token"
-	msDefaultScope = "openid profile offline_access User.Read User.ReadBasic.All Mail.ReadWrite Mail.Send Calendars.ReadWrite Files.ReadWrite Team.ReadBasic.All Channel.ReadBasic.All ChannelMessage.Read.All ChannelMessage.Send Chat.ReadWrite Tasks.ReadWrite People.Read"
+	msDefaultScope = "openid profile offline_access User.Read User.ReadBasic.All User.Read.All Mail.ReadWrite Mail.Send Calendars.ReadWrite Files.ReadWrite Team.ReadBasic.All Channel.ReadBasic.All ChannelMessage.Read.All ChannelMessage.Send Chat.ReadWrite Tasks.ReadWrite People.Read"
 )
 
 type OAuthState struct {

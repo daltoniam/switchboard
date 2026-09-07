@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -391,6 +392,37 @@ func TestUploadDriveItem_PathParent(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	assert.Contains(t, result.Data, "f3")
+}
+
+func TestUploadDriveItem_RejectsOver4MB(t *testing.T) {
+	m := &m365{accessToken: "t", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := m.Execute(context.Background(), "microsoft365_upload_drive_item", map[string]any{
+		"name":    "big.bin",
+		"content": strings.Repeat("a", maxSimpleUpload+1),
+	})
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	assert.Contains(t, result.Data, "4 MB")
+}
+
+func TestGraphListParams_OmitsSkipToken(t *testing.T) {
+	r := mcp.NewArgs(map[string]any{"filter": "isRead eq false", "skiptoken": "abc", "skip": "10"})
+	params := graphListParams(r)
+	require.NoError(t, r.Err())
+	assert.Equal(t, "isRead eq false", params["$filter"])
+	_, hasSkip := params["$skip"]
+	assert.False(t, hasSkip)
+	_, hasSkipToken := params["$skiptoken"]
+	assert.False(t, hasSkipToken)
+}
+
+func TestTools_NoSkipTokenParams(t *testing.T) {
+	for _, tool := range New().Tools() {
+		_, hasSkip := tool.Parameters["skip"]
+		assert.False(t, hasSkip, "%s should not expose skip", tool.Name)
+		_, hasSkipToken := tool.Parameters["skiptoken"]
+		assert.False(t, hasSkipToken, "%s should not expose skiptoken", tool.Name)
+	}
 }
 
 func TestDownloadDriveItem_RequiresTarget(t *testing.T) {

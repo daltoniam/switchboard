@@ -234,6 +234,9 @@ func uploadDriveItem(ctx context.Context, m *m365, args map[string]any) (*mcp.To
 			contentType = "text/plain"
 		}
 	}
+	if len(payload) > maxSimpleUpload {
+		return mcp.ErrResult(fmt.Errorf("content is %d bytes; simple upload supports up to 4 MB", len(payload)))
+	}
 	parent, err := driveItemPath(userID, driveID, itemID, path)
 	if err != nil {
 		return mcp.ErrResult(err)

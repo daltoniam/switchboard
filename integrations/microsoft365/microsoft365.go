@@ -43,6 +43,7 @@ const (
 	defaultPageSize   = 25
 	maxDownloadBytes  = 10_000_000
 	defaultDownloadBy = 5_000_000
+	maxSimpleUpload   = 4 * 1024 * 1024
 )
 
 var (
@@ -322,13 +323,11 @@ func userPath(userID string) string {
 func graphListParams(r *mcp.Args) map[string]string {
 	top := fmt.Sprintf("%d", r.OptInt("top", defaultPageSize))
 	params := map[string]string{
-		"$filter":    r.Str("filter"),
-		"$select":    r.Str("select"),
-		"$search":    r.Str("search"),
-		"$orderby":   r.Str("orderby"),
-		"$top":       top,
-		"$skip":      r.Str("skip"),
-		"$skiptoken": r.Str("skiptoken"),
+		"$filter":  r.Str("filter"),
+		"$select":  r.Str("select"),
+		"$search":  r.Str("search"),
+		"$orderby": r.Str("orderby"),
+		"$top":     top,
 	}
 	return params
 }

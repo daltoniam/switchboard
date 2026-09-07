@@ -3907,7 +3907,10 @@ func (w *WebServer) handleMicrosoft365OAuthCallback(rw http.ResponseWriter, r *h
 		ic.Credentials["refresh_token"] = result.RefreshToken
 	}
 	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
-	_ = w.services.Config.SetIntegration("microsoft365", ic)
+	if err := w.applyMicrosoft365Config(r.Context(), ic); err != nil {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
 
 	http.Redirect(rw, r, "/integrations/microsoft365/setup?result=Connected+to+Microsoft+365+via+OAuth", http.StatusSeeOther)
 }
@@ -3931,9 +3934,31 @@ func (w *WebServer) handleMicrosoft365SaveToken(rw http.ResponseWriter, r *http.
 	ic.Enabled = true
 	ic.Credentials["access_token"] = accessToken
 	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
-	_ = w.services.Config.SetIntegration("microsoft365", ic)
+	if err := w.applyMicrosoft365Config(r.Context(), ic); err != nil {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
 
 	http.Redirect(rw, r, "/integrations/microsoft365/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) applyMicrosoft365Config(ctx context.Context, ic *mcp.IntegrationConfig) error {
+	integration, ok := w.services.Registry.Get("microsoft365")
+	previous, _ := w.services.Config.GetIntegration("microsoft365")
+	previous = cloneIntegrationConfig(previous)
+	if ok {
+		if err := mcp.ConfigureIntegration(ctx, integration, ic); err != nil {
+			return fmt.Errorf("configure microsoft365: %w", err)
+		}
+	}
+	if err := w.services.Config.SetIntegration("microsoft365", ic); err != nil {
+		if ok {
+			_ = mcp.ConfigureIntegration(ctx, integration, previous)
+		}
+		return err
+	}
+	w.notifyConfigChanged()
+	return nil
 }
 
 func (w *WebServer) handleMicrosoft365SaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
