@@ -142,8 +142,8 @@ func addTicketComment(ctx context.Context, z *zendesk, args map[string]any) (*mc
 	id := r.Str("ticket_id")
 	body := r.Str("body")
 	public := true
-	if v := r.Str("public"); v != "" {
-		public = v != "false"
+	if _, ok := args["public"]; ok {
+		public = r.Bool("public")
 	}
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
@@ -435,8 +435,11 @@ func ticketPayload(args map[string]any, requireComment bool) (map[string]any, er
 	typ := r.Str("type")
 	requesterEmail := r.Str("requester_email")
 	requesterName := r.Str("requester_name")
-	tags := r.Str("tags")
-	publicStr := r.Str("public")
+	tags := r.StrSlice("tags")
+	public := true
+	if _, ok := args["public"]; ok {
+		public = r.Bool("public")
+	}
 	if err := r.Err(); err != nil {
 		return nil, err
 	}
@@ -449,10 +452,6 @@ func ticketPayload(args map[string]any, requireComment bool) (map[string]any, er
 		ticket["subject"] = subject
 	}
 	if comment != "" {
-		public := true
-		if publicStr != "" {
-			public = publicStr != "false"
-		}
 		ticket["comment"] = map[string]any{"body": comment, "public": public}
 	}
 	if status != "" {
@@ -499,8 +498,8 @@ func ticketPayload(args map[string]any, requireComment bool) (map[string]any, er
 	} else if ok {
 		ticket["organization_id"] = id
 	}
-	if tags != "" {
-		ticket["tags"] = splitCSV(tags)
+	if len(tags) > 0 {
+		ticket["tags"] = tags
 	}
 	if fields, err := parseCustomFields(args["custom_fields"]); err != nil {
 		return nil, err
@@ -516,8 +515,11 @@ func userPayload(args map[string]any) (map[string]any, error) {
 	email := r.Str("email")
 	role := r.Str("role")
 	phone := r.Str("phone")
-	tags := r.Str("tags")
-	verified := r.Str("verified")
+	tags := r.StrSlice("tags")
+	verified := false
+	if _, ok := args["verified"]; ok {
+		verified = r.Bool("verified")
+	}
 	if err := r.Err(); err != nil {
 		return nil, err
 	}
@@ -539,11 +541,11 @@ func userPayload(args map[string]any) (map[string]any, error) {
 	} else if ok {
 		user["organization_id"] = id
 	}
-	if tags != "" {
-		user["tags"] = splitCSV(tags)
+	if len(tags) > 0 {
+		user["tags"] = tags
 	}
-	if verified != "" {
-		user["verified"] = verified == "true"
+	if _, ok := args["verified"]; ok {
+		user["verified"] = verified
 	}
 	return user, nil
 }
@@ -612,16 +614,4 @@ func parseCustomFields(raw any) (any, error) {
 	default:
 		return nil, fmt.Errorf("parameter %q: cannot convert %T to custom_fields", "custom_fields", v)
 	}
-}
-
-func splitCSV(s string) []string {
-	parts := strings.Split(s, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
 }

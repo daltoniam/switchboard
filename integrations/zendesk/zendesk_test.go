@@ -339,7 +339,30 @@ func TestAddTicketComment(t *testing.T) {
 	result, err := z.Execute(context.Background(), "zendesk_add_ticket_comment", map[string]any{
 		"ticket_id": "7",
 		"body":      "Looking into this",
-		"public":    "false",
+		"public":    "FALSE",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestCreateTicket_TagsSliceAndPublicFalse(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		ticket := body["ticket"].(map[string]any)
+		comment := ticket["comment"].(map[string]any)
+		assert.Equal(t, false, comment["public"])
+		assert.Equal(t, []any{"auth", "vip"}, ticket["tags"])
+		_, _ = w.Write([]byte(`{"ticket":{"id":9}}`))
+	}))
+	defer ts.Close()
+
+	z := &zendesk{email: "a@b.com", apiToken: "t", client: ts.Client(), baseURL: ts.URL}
+	result, err := z.Execute(context.Background(), "zendesk_create_ticket", map[string]any{
+		"subject": "Cannot login",
+		"comment": "Password reset failed",
+		"public":  "False",
+		"tags":    []any{"auth", "vip"},
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
