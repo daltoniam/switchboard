@@ -371,6 +371,9 @@ func nextOrGet(ctx context.Context, m *m365, args map[string]any, buildPath func
 		if !allowedNextLink(next, m.baseURL) {
 			return nil, fmt.Errorf("next_link must be a Microsoft Graph URL")
 		}
+		if needsEventualConsistency(next) {
+			return m.getWithHeaders(ctx, next, map[string]string{"ConsistencyLevel": "eventual"})
+		}
 		return m.get(ctx, next)
 	}
 	path, headers, err := buildPath()
@@ -381,6 +384,15 @@ func nextOrGet(ctx context.Context, m *m365, args map[string]any, buildPath func
 		return m.getWithHeaders(ctx, path, headers)
 	}
 	return m.get(ctx, path)
+}
+
+func needsEventualConsistency(next string) bool {
+	u, err := url.Parse(next)
+	if err != nil {
+		return false
+	}
+	q := u.Query()
+	return q.Get("$search") != "" || q.Get("$count") != ""
 }
 
 func allowedNextLink(next, baseURL string) bool {

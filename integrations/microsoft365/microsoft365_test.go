@@ -502,6 +502,25 @@ func TestCreateTodoTask(t *testing.T) {
 	assert.Contains(t, result.Data, "task1")
 }
 
+func TestListUsers_NextLinkKeepsConsistencyLevel(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/users", r.URL.Path)
+		assert.Equal(t, "page2", r.URL.Query().Get("$skiptoken"))
+		assert.Equal(t, `"displayName:Ada"`, r.URL.Query().Get("$search"))
+		assert.Equal(t, "eventual", r.Header.Get("ConsistencyLevel"))
+		_, _ = w.Write([]byte(`{"value":[{"id":"u2"}]}`))
+	}))
+	defer ts.Close()
+
+	next := ts.URL + `/users?$search="displayName:Ada"&$skiptoken=page2`
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_list_users", map[string]any{
+		"next_link": next,
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, "u2")
+}
+
 func TestListUsers_SearchHeader(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "eventual", r.Header.Get("ConsistencyLevel"))
