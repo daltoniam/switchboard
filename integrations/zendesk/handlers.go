@@ -498,7 +498,10 @@ func ticketPayload(args map[string]any, requireComment bool) (map[string]any, er
 	} else if ok {
 		ticket["organization_id"] = id
 	}
-	if len(tags) > 0 {
+	if _, present := args["tags"]; present {
+		if tags == nil {
+			tags = []string{}
+		}
 		ticket["tags"] = tags
 	}
 	if fields, err := parseCustomFields(args["custom_fields"]); err != nil {
@@ -541,7 +544,10 @@ func userPayload(args map[string]any) (map[string]any, error) {
 	} else if ok {
 		user["organization_id"] = id
 	}
-	if len(tags) > 0 {
+	if _, present := args["tags"]; present {
+		if tags == nil {
+			tags = []string{}
+		}
 		user["tags"] = tags
 	}
 	if _, ok := args["verified"]; ok {

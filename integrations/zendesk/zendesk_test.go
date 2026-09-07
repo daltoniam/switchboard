@@ -368,6 +368,28 @@ func TestCreateTicket_TagsSliceAndPublicFalse(t *testing.T) {
 	require.False(t, result.IsError)
 }
 
+func TestUpdateTicket_ClearsEmptyTags(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPut, r.Method)
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		ticket := body["ticket"].(map[string]any)
+		tags, ok := ticket["tags"].([]any)
+		require.True(t, ok)
+		assert.Empty(t, tags)
+		_, _ = w.Write([]byte(`{"ticket":{"id":7}}`))
+	}))
+	defer ts.Close()
+
+	z := &zendesk{email: "a@b.com", apiToken: "t", client: ts.Client(), baseURL: ts.URL}
+	result, err := z.Execute(context.Background(), "zendesk_update_ticket", map[string]any{
+		"ticket_id": "7",
+		"tags":      []any{},
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestListTickets_CursorPagination(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/tickets.json", r.URL.Path)
