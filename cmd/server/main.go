@@ -56,6 +56,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/netsuite"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
+	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
 	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -337,6 +338,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		jira.New(),
 		confluence.New(),
 		notionInt.New(),
+		okta.New(),
 		ollama.New(),
 		gcpInt.New(),
 		suno.New(),
