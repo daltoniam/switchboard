@@ -287,7 +287,9 @@ func recordToMarkdown(kind string, rec renderedRecord) markdown.Markdown {
 	}
 	for _, kv := range rec.Extra {
 		if kv[1] != "" {
-			b.Raw("**" + kv[0] + ":** " + kv[1] + "\n")
+			b.Raw("**" + kv[0] + ":** ")
+			b.WriteMarkdown(markdown.FromHTML(kv[1]))
+			b.Raw("\n")
 		}
 	}
 	if rec.Description != "" {

@@ -51,10 +51,11 @@ func TestRenderIncidentMD(t *testing.T) {
 }
 
 func TestRenderIncidentMD_HTMLDescription(t *testing.T) {
-	payload := []byte(`{"result":{"sys_id":"1","number":"INC0010001","short_description":"VPN down","description":"<p>Users cannot connect</p>"}}`)
+	payload := []byte(`{"result":{"sys_id":"1","number":"INC0010001","short_description":"VPN down","description":"<p>Users cannot connect</p>","close_notes":"<p>Restarted the gateway</p>"}}`)
 	md, ok := renderIncidentMD(payload)
 	require.True(t, ok)
 	assert.Contains(t, string(md), "Users cannot connect")
+	assert.Contains(t, string(md), "Restarted the gateway")
 	assert.NotContains(t, string(md), "<p>")
 }
 
