@@ -291,6 +291,12 @@ Environment variables override credential values but do not change the durable e
 | NetSuite | `token_id` | `NETSUITE_TOKEN_ID` (TBA) |
 | NetSuite | `token_secret` | `NETSUITE_TOKEN_SECRET` (TBA) |
 | NetSuite | `base_url` | `NETSUITE_BASE_URL` (optional — default `https://{account}.suitetalk.api.netsuite.com`) |
+| Microsoft 365 | `access_token` | `MICROSOFT365_ACCESS_TOKEN` |
+| Microsoft 365 | `refresh_token` | `MICROSOFT365_REFRESH_TOKEN` (optional — enables auto-refresh) |
+| Microsoft 365 | `client_id` | `MICROSOFT365_CLIENT_ID` |
+| Microsoft 365 | `client_secret` | `MICROSOFT365_CLIENT_SECRET` |
+| Microsoft 365 | `tenant_id` | `MICROSOFT365_TENANT_ID` (optional — default `common`) |
+| Microsoft 365 | `base_url` | `MICROSOFT365_BASE_URL` (optional — default `https://graph.microsoft.com/v1.0`) |
 
 ### OAuth Setup
 
@@ -310,6 +316,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Recoll WebUI | Base URL | Set `RECOLL_URL` to the Recoll WebUI root (for example `http://localhost:8080`) or enter it in the web UI |
 | PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |
 | Vercel | Personal Access Token | Set `VERCEL_API_TOKEN` env var or enter in web UI |
+| Microsoft 365 | OAuth (PKCE) | Web UI → Microsoft 365 → Setup, or set `MICROSOFT365_ACCESS_TOKEN` |
 | Postgres | Connection String | Set `DATABASE_URL` env var or enter in web UI |
 
 ## Adding to Cursor / Claude Desktop

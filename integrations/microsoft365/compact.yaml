@@ -1,0 +1,209 @@
+# Switchboard compaction specs for the microsoft365 integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    microsoft365_get_me:
+        spec:
+            - id
+            - displayName
+            - givenName
+            - surname
+            - mail
+            - userPrincipalName
+            - jobTitle
+            - officeLocation
+            - mobilePhone
+            - businessPhones
+    microsoft365_list_users:
+        spec:
+            - value[].id
+            - value[].displayName
+            - value[].mail
+            - value[].userPrincipalName
+            - value[].jobTitle
+            - next_link
+    microsoft365_search_people:
+        spec:
+            - value[].id
+            - value[].displayName
+            - value[].scoredEmailAddresses
+            - value[].jobTitle
+            - value[].companyName
+            - next_link
+    microsoft365_list_messages:
+        spec:
+            - value[].id
+            - value[].subject
+            - value[].from.emailAddress.address
+            - value[].from.emailAddress.name
+            - value[].receivedDateTime
+            - value[].isRead
+            - value[].hasAttachments
+            - value[].conversationId
+            - value[].bodyPreview
+            - next_link
+    microsoft365_get_message:
+        spec:
+            - id
+            - subject
+            - from.emailAddress
+            - toRecipients[].emailAddress
+            - ccRecipients[].emailAddress
+            - receivedDateTime
+            - sentDateTime
+            - isRead
+            - hasAttachments
+            - conversationId
+            - webLink
+            - body.contentType
+            - body.content
+            - bodyPreview
+    microsoft365_list_mail_folders:
+        spec:
+            - value[].id
+            - value[].displayName
+            - value[].parentFolderId
+            - value[].totalItemCount
+            - value[].unreadItemCount
+            - next_link
+    microsoft365_list_calendars:
+        spec:
+            - value[].id
+            - value[].name
+            - value[].isDefaultCalendar
+            - value[].canEdit
+            - value[].owner.address
+            - next_link
+    microsoft365_list_events:
+        spec:
+            - value[].id
+            - value[].subject
+            - value[].start.dateTime
+            - value[].start.timeZone
+            - value[].end.dateTime
+            - value[].end.timeZone
+            - value[].location.displayName
+            - value[].organizer.emailAddress.address
+            - value[].isOnlineMeeting
+            - value[].onlineMeeting.joinUrl
+            - value[].webLink
+            - next_link
+    microsoft365_get_event:
+        spec:
+            - id
+            - subject
+            - bodyPreview
+            - start.dateTime
+            - start.timeZone
+            - end.dateTime
+            - end.timeZone
+            - location.displayName
+            - attendees[].emailAddress
+            - attendees[].status.response
+            - organizer.emailAddress
+            - isOnlineMeeting
+            - onlineMeeting.joinUrl
+            - webLink
+            - showAs
+            - importance
+    microsoft365_list_drive_items:
+        spec:
+            - value[].id
+            - value[].name
+            - value[].size
+            - value[].webUrl
+            - value[].lastModifiedDateTime
+            - value[].file.mimeType
+            - value[].folder.childCount
+            - value[].parentReference.path
+            - next_link
+    microsoft365_get_drive_item:
+        spec:
+            - id
+            - name
+            - size
+            - webUrl
+            - createdDateTime
+            - lastModifiedDateTime
+            - file.mimeType
+            - folder.childCount
+            - parentReference
+            - createdBy.user.displayName
+            - lastModifiedBy.user.displayName
+    microsoft365_search_drive:
+        spec:
+            - value[].id
+            - value[].name
+            - value[].size
+            - value[].webUrl
+            - value[].lastModifiedDateTime
+            - value[].file.mimeType
+            - value[].folder.childCount
+            - next_link
+    microsoft365_download_drive_item:
+        spec:
+            - content_type
+            - bytes
+            - truncated
+            - content
+            - content_base64
+    microsoft365_list_teams:
+        spec:
+            - value[].id
+            - value[].displayName
+            - value[].description
+            - value[].isArchived
+            - next_link
+    microsoft365_list_channels:
+        spec:
+            - value[].id
+            - value[].displayName
+            - value[].description
+            - value[].membershipType
+            - value[].webUrl
+            - next_link
+    microsoft365_list_channel_messages:
+        spec:
+            - value[].id
+            - value[].createdDateTime
+            - value[].from.user.displayName
+            - value[].body.content
+            - value[].webUrl
+            - next_link
+    microsoft365_list_chats:
+        spec:
+            - value[].id
+            - value[].topic
+            - value[].chatType
+            - value[].createdDateTime
+            - value[].lastUpdatedDateTime
+            - next_link
+    microsoft365_list_chat_messages:
+        spec:
+            - value[].id
+            - value[].createdDateTime
+            - value[].from.user.displayName
+            - value[].body.content
+            - next_link
+    microsoft365_list_todo_lists:
+        spec:
+            - value[].id
+            - value[].displayName
+            - value[].isOwner
+            - value[].isShared
+            - value[].wellknownListName
+            - next_link
+    microsoft365_list_todo_tasks:
+        spec:
+            - value[].id
+            - value[].title
+            - value[].status
+            - value[].importance
+            - value[].dueDateTime.dateTime
+            - value[].completedDateTime.dateTime
+            - value[].createdDateTime
+            - next_link

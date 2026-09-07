@@ -27,6 +27,7 @@
   - `GET /integrations/notion/setup` — Notion token_v2 entry (browser snippet extraction, manual entry)
   - `GET /integrations/postgres/setup` — Postgres default plus additional aliased connections
   - `GET /integrations/clickhouse/setup` — ClickHouse default plus additional aliased cluster connections
+  - `GET /integrations/microsoft365/setup` — Microsoft 365 OAuth (Azure AD / Entra ID PKCE) plus manual access token entry
 - All setup pages save credentials to both the integration config and any external token files
 - Integrations implementing `MultiIdentityIntegration` + `IdentityConfigHints` render a generic named-identity editor. Identity credentials and metadata persist under `integrations.<name>.identities` in the standard config file.
 

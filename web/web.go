@@ -28,6 +28,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
+	"github.com/daltoniam/switchboard/integrations/microsoft365"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
@@ -195,6 +196,12 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/x/oauth/callback", w.handleXOAuthCallback)
 	mux.HandleFunc("POST /api/x/save-token", w.handleXSaveToken)
 	mux.HandleFunc("POST /api/x/save-oauth-credentials", w.handleXSaveOAuthCredentials)
+
+	mux.HandleFunc("GET /integrations/microsoft365/setup", w.handleMicrosoft365Setup)
+	mux.HandleFunc("POST /api/microsoft365/oauth/start", w.handleMicrosoft365OAuthStart)
+	mux.HandleFunc("GET /api/microsoft365/oauth/callback", w.handleMicrosoft365OAuthCallback)
+	mux.HandleFunc("POST /api/microsoft365/save-token", w.handleMicrosoft365SaveToken)
+	mux.HandleFunc("POST /api/microsoft365/save-oauth-credentials", w.handleMicrosoft365SaveOAuthCredentials)
 
 	mux.HandleFunc("GET /integrations/postgres/setup", w.handlePostgresSetup)
 	mux.HandleFunc("GET /integrations/clickhouse/setup", w.handleClickHouseSetup)
@@ -365,25 +372,26 @@ var googleWorkspaceServices = func() map[string]bool {
 }()
 
 var setupIntegrations = map[string]bool{
-	"slack":      true,
-	"github":     true,
-	"linear":     true,
-	"sentry":     true,
-	"gmail":      true,
-	"gcal":       true,
-	"gdrive":     true,
-	"gdocs":      true,
-	"gsheets":    true,
-	"gslides":    true,
-	"gforms":     true,
-	"gtasks":     true,
-	"gchat":      true,
-	"gpeople":    true,
-	"gmeet":      true,
-	"notion":     true,
-	"x":          true,
-	"postgres":   true,
-	"clickhouse": true,
+	"slack":        true,
+	"github":       true,
+	"linear":       true,
+	"sentry":       true,
+	"gmail":        true,
+	"gcal":         true,
+	"gdrive":       true,
+	"gdocs":        true,
+	"gsheets":      true,
+	"gslides":      true,
+	"gforms":       true,
+	"gtasks":       true,
+	"gchat":        true,
+	"gpeople":      true,
+	"gmeet":        true,
+	"notion":       true,
+	"x":            true,
+	"microsoft365": true,
+	"postgres":     true,
+	"clickhouse":   true,
 }
 
 func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Request) {
@@ -3784,4 +3792,199 @@ func (w *WebServer) handleXSaveOAuthCredentials(rw http.ResponseWriter, r *http.
 	_ = w.services.Config.SetIntegration("x", ic)
 
 	http.Redirect(rw, r, "/integrations/x/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+X.", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleMicrosoft365Setup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("microsoft365")
+	hasToken := exists && ic.Credentials["access_token"] != ""
+	hasOAuth := exists && ic.Credentials[mcp.CredKeyClientID] != "" && ic.Credentials[mcp.CredKeyClientSecret] != ""
+	clientID := ""
+	tenantID := ""
+	if exists {
+		clientID = ic.Credentials[mcp.CredKeyClientID]
+		tenantID = ic.Credentials["tenant_id"]
+	}
+
+	var healthy bool
+	if hasToken {
+		integration, ok := w.services.Registry.Get("microsoft365")
+		if ok {
+			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+				healthy = integration.Healthy(r.Context())
+			}
+		}
+	}
+
+	tokenSource := ""
+	if exists && ic.Credentials[mcp.CredKeyTokenSource] != "" {
+		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/microsoft365/oauth/callback", w.port)
+
+	var tools []pages.ToolInfo
+	if integration, ok := w.services.Registry.Get("microsoft365"); ok {
+		for _, t := range integration.Tools() {
+			tools = append(tools, pages.ToolInfo{
+				Name:        string(t.Name),
+				Description: t.Description,
+			})
+		}
+	}
+
+	page := w.pageData(r, "Microsoft 365 Setup", "/integrations")
+	data := pages.Microsoft365SetupData{
+		HasToken:    hasToken,
+		Healthy:     healthy,
+		TokenSource: tokenSource,
+		HasOAuth:    hasOAuth,
+		ClientID:    clientID,
+		TenantID:    tenantID,
+		RedirectURI: redirectURI,
+		Tools:       tools,
+	}
+
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+
+	pages.Microsoft365Setup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleMicrosoft365OAuthStart(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+
+	ic, exists := w.services.Config.GetIntegration("microsoft365")
+	if !exists || ic.Credentials[mcp.CredKeyClientID] == "" || ic.Credentials[mcp.CredKeyClientSecret] == "" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Microsoft 365 OAuth client_id/client_secret not configured"})
+		return
+	}
+
+	redirectURI := fmt.Sprintf("http://localhost:%d/api/microsoft365/oauth/callback", w.port)
+	result, err := microsoft365.StartM365OAuth(ic.Credentials[mcp.CredKeyClientID], ic.Credentials[mcp.CredKeyClientSecret], redirectURI, ic.Credentials["tenant_id"])
+	if err != nil {
+		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(rw).Encode(result)
+}
+
+func (w *WebServer) handleMicrosoft365OAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+
+	if code == "" {
+		errMsg := r.URL.Query().Get("error")
+		if errMsg == "" {
+			errMsg = "No authorization code received"
+		}
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	if err := microsoft365.HandleM365Callback(r.Context(), code, state); err != nil {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	result := microsoft365.PollM365OAuth()
+	if result.Status != "complete" || result.AccessToken == "" {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error=Failed+to+get+access+token", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("microsoft365")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = result.AccessToken
+	if result.RefreshToken != "" {
+		ic.Credentials["refresh_token"] = result.RefreshToken
+	}
+	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	if err := w.applyMicrosoft365Config(r.Context(), ic); err != nil {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(rw, r, "/integrations/microsoft365/setup?result=Connected+to+Microsoft+365+via+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleMicrosoft365SaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	accessToken := strings.TrimSpace(r.FormValue("access_token"))
+	if accessToken == "" {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error=Access+token+is+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("microsoft365")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["access_token"] = accessToken
+	ic.Credentials[mcp.CredKeyTokenSource] = "manual"
+	if err := w.applyMicrosoft365Config(r.Context(), ic); err != nil {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(rw, r, "/integrations/microsoft365/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) applyMicrosoft365Config(ctx context.Context, ic *mcp.IntegrationConfig) error {
+	integration, ok := w.services.Registry.Get("microsoft365")
+	previous, _ := w.services.Config.GetIntegration("microsoft365")
+	previous = cloneIntegrationConfig(previous)
+	if ok {
+		if err := mcp.ConfigureIntegration(ctx, integration, ic); err != nil {
+			return fmt.Errorf("configure microsoft365: %w", err)
+		}
+	}
+	if err := w.services.Config.SetIntegration("microsoft365", ic); err != nil {
+		if ok {
+			_ = mcp.ConfigureIntegration(ctx, integration, previous)
+		}
+		return err
+	}
+	w.notifyConfigChanged()
+	return nil
+}
+
+func (w *WebServer) handleMicrosoft365SaveOAuthCredentials(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	clientID := strings.TrimSpace(r.FormValue("client_id"))
+	clientSecret := strings.TrimSpace(r.FormValue("client_secret"))
+	tenantID := strings.TrimSpace(r.FormValue("tenant_id"))
+	if clientID == "" || clientSecret == "" {
+		http.Redirect(rw, r, "/integrations/microsoft365/setup?error=Client+ID+and+Client+Secret+are+required", http.StatusSeeOther)
+		return
+	}
+
+	ic, _ := w.services.Config.GetIntegration("microsoft365")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials[mcp.CredKeyClientID] = clientID
+	ic.Credentials[mcp.CredKeyClientSecret] = clientSecret
+	if tenantID != "" {
+		ic.Credentials["tenant_id"] = tenantID
+	}
+	_ = w.services.Config.SetIntegration("microsoft365", ic)
+
+	http.Redirect(rw, r, "/integrations/microsoft365/setup?result=OAuth+credentials+saved.+You+can+now+sign+in+with+Microsoft.", http.StatusSeeOther)
 }
