@@ -17,12 +17,12 @@ func listMessages(ctx context.Context, m *m365, args map[string]any) (*mcp.ToolR
 		if err := r.Err(); err != nil {
 			return "", nil, err
 		}
-		if params["$orderby"] == "" && params["$search"] == "" {
-			params["$orderby"] = "receivedDateTime desc"
-		}
 		headers := map[string]string{}
 		if params["$search"] != "" {
+			delete(params, "$orderby")
 			headers["ConsistencyLevel"] = "eventual"
+		} else if params["$orderby"] == "" {
+			params["$orderby"] = "receivedDateTime desc"
 		}
 		base := userPath(userID)
 		if folderID != "" {

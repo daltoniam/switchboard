@@ -202,7 +202,10 @@ func (m *m365) doRequestInner(ctx context.Context, method, fullURL string, body 
 	if resp.StatusCode >= 400 {
 		return nil, contentType, fmt.Errorf("microsoft365 API error (%d): %s", resp.StatusCode, string(data))
 	}
-	if resp.StatusCode == 202 || resp.StatusCode == 204 || len(data) == 0 {
+	if resp.StatusCode == 202 || resp.StatusCode == 204 {
+		return json.RawMessage(`{"status":"success"}`), contentType, nil
+	}
+	if len(data) == 0 && strings.Contains(strings.ToLower(contentType), "json") {
 		return json.RawMessage(`{"status":"success"}`), contentType, nil
 	}
 	return json.RawMessage(data), contentType, nil

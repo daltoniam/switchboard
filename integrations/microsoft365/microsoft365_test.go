@@ -205,6 +205,22 @@ func TestListMessages(t *testing.T) {
 	assert.NotContains(t, result.Data, `@odata.nextLink`)
 }
 
+func TestListMessages_DropsOrderbyWithSearch(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, `"from:ada"`, r.URL.Query().Get("$search"))
+		assert.Empty(t, r.URL.Query().Get("$orderby"))
+		_, _ = w.Write([]byte(`{"value":[]}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_list_messages", map[string]any{
+		"search":  "from:ada",
+		"orderby": "receivedDateTime desc",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestListMessages_NextLink(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/me/messages", r.URL.Path)
@@ -448,6 +464,24 @@ func TestDownloadDriveItem_Text(t *testing.T) {
 	require.False(t, result.IsError)
 	assert.Contains(t, result.Data, "hello file")
 	assert.NotContains(t, result.Data, "content_base64")
+}
+
+func TestDownloadDriveItem_EmptyBody(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/me/drive/items/f1/content", r.URL.Path)
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(200)
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "microsoft365_download_drive_item", map[string]any{
+		"item_id": "f1",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.NotContains(t, result.Data, `"status":"success"`)
+	assert.Contains(t, result.Data, `"content":""`)
+	assert.Contains(t, result.Data, `"bytes":0`)
 }
 
 func TestDownloadDriveItem_PathUsesColon(t *testing.T) {
