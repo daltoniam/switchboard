@@ -1557,6 +1557,7 @@ func (w *WebServer) handleClickHouseSetup(rw http.ResponseWriter, r *http.Reques
 
 type remoteOAuthProfile struct {
 	CallbackPath       string
+	ResourcePath       string
 	Options            remotemcp.OAuthOptions
 	CredentialKey      string
 	ClearCredentialKey string
@@ -1571,6 +1572,7 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 	},
 	"figma": {
 		CallbackPath:  "/callback",
+		ResourcePath:  "/mcp",
 		Options:       remotemcp.OAuthOptions{Scope: "mcp:connect", ClientName: "Codex"},
 		CredentialKey: "mcp_access_token",
 	},
@@ -1606,8 +1608,8 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 			CredentialKey: "mcp_access_token",
 		}
 	}
-	if name == "figma" {
-		profile.Options.Resource = serverURL + "/mcp"
+	if profile.ResourcePath != "" {
+		profile.Options.Resource = serverURL + profile.ResourcePath
 	}
 	redirectURI := fmt.Sprintf("http://localhost:%d%s", w.port, profile.CallbackPath)
 	authorizeURL, err := remotemcp.StartOAuth(name, serverURL, redirectURI, profile.Options)
