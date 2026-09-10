@@ -185,6 +185,32 @@ convenience layer over this file — you can also edit it by hand.
 }
 ```
 
+### Forgejo (`forgejo`)
+
+Connect a Forgejo instance with a personal access token (PAT). Both `base_url` and
+`token` are required. Use the instance URL, including any deployment subpath
+(for example `https://git.example.com/forgejo`), not the `/api/v1` endpoint.
+
+```json
+{
+  "integrations": {
+    "forgejo": {
+      "enabled": true,
+      "credentials": {
+        "base_url": "https://git.example.com/forgejo",
+        "token": "your-personal-access-token"
+      }
+    }
+  }
+}
+```
+
+Forgejo is disabled by default; enable it explicitly in config or the web UI.
+You can supply credentials via `FORGEJO_BASE_URL` and `FORGEJO_TOKEN` instead.
+Tools cover repositories, the authenticated user and organizations, issues and
+comments, pull requests (including diffs, files, reviews, and merge), branches,
+commits, content, releases, and labels.
+
 ### Slack official hosted MCP (`slackmcp`)
 
 Separate from the native `slack` session-token adapter. Proxies Slack's hosted MCP at `https://mcp.slack.com` (optional `credentials.base_url` override; Switchboard appends `/mcp`).
@@ -227,6 +253,8 @@ Environment variables override credential values but do not change the durable e
 | Integration | Credential | Env Var |
 |---|---|---|
 | GitHub | `token` | `GITHUB_TOKEN` |
+| Forgejo | `base_url` | `FORGEJO_BASE_URL` (required — instance URL including any deployment subpath) |
+| Forgejo | `token` | `FORGEJO_TOKEN` (required — personal access token) |
 | Datadog | `api_key` | `DD_API_KEY` |
 | Datadog | `app_key` | `DD_APP_KEY` |
 | Datadog | `site` | `DD_SITE` |
@@ -309,6 +337,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Integration | Auth Method | Setup |
 |---|---|---|
 | GitHub | OAuth Device Flow | Web UI → GitHub → Setup, or set `GITHUB_TOKEN` |
+| Forgejo | Personal Access Token | Set `FORGEJO_BASE_URL` and `FORGEJO_TOKEN` or enter them in the web UI; enable explicitly |
 | Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |

@@ -32,6 +32,7 @@ integrations/
     search.go                Search (code, issues, users, commits) handlers
     extras.go                Gists, activity, code/secret/dependabot scanning, copilot handlers
     oauth.go                 GitHub Device Flow OAuth (device code grant, polling, token exchange)
+  forgejo/                   Forgejo typed SDK adapter — repositories, issues, pull requests, and repository metadata
   datadog/
     datadog.go               Datadog integration adapter (core, dispatch, SDK client, helpers)
     tools.go                 Datadog tool definitions (~60 tools)
@@ -229,7 +230,7 @@ Defines domain types and port interfaces. Adapters satisfy interfaces. Dependenc
 ```mermaid
 graph BT
     subgraph "Adapters"
-        GH["integrations/github/"] & DD["integrations/datadog/"] & LN["integrations/linear/"]
+        GH["integrations/github/"] & FJ["integrations/forgejo/"] & DD["integrations/datadog/"] & LN["integrations/linear/"]
         SN["integrations/sentry/"] & SL["integrations/slack/"] & MB["integrations/metabase/"]
         NT["integrations/notion/"] & PG["integrations/postgres/"] & CH["integrations/clickhouse/"]
         PA["integrations/pganalyze/"] & RW["integrations/rwx/"] & GM["integrations/gmail/"]
@@ -237,7 +238,7 @@ graph BT
         CF["config/"] & RG["registry/"]
     end
 
-    GH & DD & LN & SN & SL & MB & NT & PG & CH -->|implements\nIntegration| Core
+    GH & FJ & DD & LN & SN & SL & MB & NT & PG & CH -->|implements\nIntegration| Core
     PA & RW & GM & HA & YN -->|implements\nIntegration| Core
     CF -->|implements\nConfigService| Core
     RG -->|implements\nRegistry| Core
@@ -255,7 +256,7 @@ graph BT
 - DI container: `Services` struct
 
 **Adapters** (each implements a port interface):
-- `integrations/github/`, `integrations/datadog/`, `integrations/linear/`, `integrations/sentry/`, `integrations/slack/`, `integrations/metabase/`, `integrations/notion/`, `integrations/aws/`, `integrations/posthog/`, `integrations/postgres/`, `integrations/clickhouse/`, `integrations/pganalyze/`, `integrations/rwx/`, `integrations/gmail/`, `integrations/homeassistant/`, `integrations/ynab/`, `gcp/` → `Integration`
+- `integrations/github/`, `integrations/forgejo/`, `integrations/datadog/`, `integrations/linear/`, `integrations/sentry/`, `integrations/slack/`, `integrations/metabase/`, `integrations/notion/`, `integrations/aws/`, `integrations/posthog/`, `integrations/postgres/`, `integrations/clickhouse/`, `integrations/pganalyze/`, `integrations/rwx/`, `integrations/gmail/`, `integrations/homeassistant/`, `integrations/ynab/`, `gcp/` → `Integration`
 - `config/` → `ConfigService`
 - `registry/` → `Registry`
 - `server/` → MCP server (consumes `Services`)

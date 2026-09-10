@@ -1,0 +1,359 @@
+version: 1
+tools:
+  forgejo_list_user_repos:
+    spec: &repo
+      - id
+      - name
+      - full_name
+      - owner.id
+      - owner.login
+      - description
+      - private
+      - fork
+      - archived
+      - empty
+      - default_branch
+      - html_url
+      - open_issues_count
+      - open_pr_counter
+      - updated_at
+  forgejo_search_repos:
+    spec: *repo
+  forgejo_get_repo:
+    spec:
+      - id
+      - name
+      - full_name
+      - owner.id
+      - owner.login
+      - description
+      - private
+      - fork
+      - archived
+      - empty
+      - default_branch
+      - html_url
+      - clone_url
+      - ssh_url
+      - permissions.admin
+      - permissions.push
+      - permissions.pull
+      - website
+      - open_issues_count
+      - open_pr_counter
+      - has_issues
+      - has_pull_requests
+      - default_merge_style
+      - allow_merge_commits
+      - allow_rebase
+      - allow_rebase_explicit
+      - allow_squash_merge
+      - created_at
+      - updated_at
+  forgejo_list_org_repos:
+    spec: *repo
+  forgejo_list_user_orgs:
+    spec:
+      - id
+      - username
+      - full_name
+      - description
+      - website
+      - location
+      - visibility
+  forgejo_get_current_user:
+    spec:
+      - id
+      - login
+      - full_name
+      - email
+      - html_url
+      - description
+      - is_admin
+      - active
+  forgejo_list_branches:
+    spec: &branch
+      - name
+      - commit.id
+      - commit.message
+      - commit.timestamp
+      - protected
+      - required_approvals
+      - enable_status_check
+      - status_check_contexts
+      - user_can_push
+      - user_can_merge
+  forgejo_get_branch:
+    spec: *branch
+  forgejo_list_commits:
+    spec:
+      - sha
+      - html_url
+      - commit.message
+      - commit.author.name
+      - commit.author.date
+      - commit.committer.name
+      - commit.committer.date
+      - author.id
+      - author.login
+      - parents[].sha
+  forgejo_get_commit:
+    spec:
+      - sha
+      - html_url
+      - commit.message
+      - commit.author.name
+      - commit.author.date
+      - commit.committer.name
+      - commit.committer.date
+      - author.id
+      - author.login
+      - parents[].sha
+      - files[].filename
+      - stats.total
+      - stats.additions
+      - stats.deletions
+  forgejo_get_file_contents:
+    max_bytes: 1048576
+    spec:
+      - name
+      - path
+      - sha
+      - type
+      - size
+      - encoding
+      - content
+      - target
+      - submodule_git_url
+      - html_url
+      - download_url
+  forgejo_list_directory:
+    spec:
+      - name
+      - path
+      - sha
+      - type
+      - size
+      - target
+      - submodule_git_url
+      - html_url
+  forgejo_list_releases:
+    spec:
+      - id
+      - tag_name
+      - target_commitish
+      - name
+      - draft
+      - prerelease
+      - html_url
+      - author.id
+      - author.login
+      - published_at
+      - assets[].id
+      - assets[].name
+      - assets[].size
+      - assets[].browser_download_url
+  forgejo_get_release:
+    spec:
+      - id
+      - tag_name
+      - target_commitish
+      - name
+      - body
+      - draft
+      - prerelease
+      - html_url
+      - tarball_url
+      - zipball_url
+      - author.id
+      - author.login
+      - created_at
+      - published_at
+      - assets[].id
+      - assets[].name
+      - assets[].size
+      - assets[].browser_download_url
+  forgejo_list_labels:
+    spec:
+      - id
+      - name
+      - color
+      - description
+  forgejo_list_issues:
+    spec:
+      - id
+      - number
+      - title
+      - state
+      - ref
+      - user.id
+      - user.login
+      - original_author
+      - labels[].id
+      - labels[].name
+      - assignees[].id
+      - assignees[].login
+      - milestone.id
+      - milestone.title
+      - comments
+      - is_locked
+      - html_url
+      - created_at
+      - updated_at
+      - closed_at
+      - due_date
+      - repository.id
+      - repository.name
+      - repository.owner
+      - repository.full_name
+  forgejo_get_issue:
+    spec:
+      - id
+      - number
+      - title
+      - body
+      - state
+      - ref
+      - user.id
+      - user.login
+      - original_author
+      - labels[].id
+      - labels[].name
+      - assignees[].id
+      - assignees[].login
+      - milestone.id
+      - milestone.title
+      - comments
+      - is_locked
+      - html_url
+      - created_at
+      - updated_at
+      - closed_at
+      - due_date
+      - repository.id
+      - repository.name
+      - repository.owner
+      - repository.full_name
+  forgejo_list_issue_comments:
+    spec:
+      - id
+      - body
+      - user.id
+      - user.login
+      - original_author
+      - html_url
+      - issue_url
+      - created_at
+      - updated_at
+  forgejo_list_pulls:
+    spec:
+      - id
+      - number
+      - title
+      - state
+      - user.id
+      - user.login
+      - labels[].id
+      - labels[].name
+      - assignee.id
+      - assignee.login
+      - assignees[].id
+      - assignees[].login
+      - milestone.id
+      - milestone.title
+      - mergeable
+      - merged
+      - comments
+      - is_locked
+      - html_url
+      - head.label
+      - head.ref
+      - head.sha
+      - head.repo.id
+      - head.repo.full_name
+      - head.repo.owner.id
+      - head.repo.owner.login
+      - base.label
+      - base.ref
+      - base.sha
+      - base.repo.id
+      - base.repo.full_name
+      - base.repo.owner.id
+      - base.repo.owner.login
+      - created_at
+      - updated_at
+      - closed_at
+      - merged_at
+  forgejo_get_pull:
+    spec:
+      - id
+      - number
+      - title
+      - body
+      - state
+      - user.id
+      - user.login
+      - labels[].id
+      - labels[].name
+      - assignee.id
+      - assignee.login
+      - assignees[].id
+      - assignees[].login
+      - milestone.id
+      - milestone.title
+      - mergeable
+      - merged
+      - merge_commit_sha
+      - merge_base
+      - allow_maintainer_edit
+      - comments
+      - is_locked
+      - html_url
+      - head.label
+      - head.ref
+      - head.sha
+      - head.repo.id
+      - head.repo.full_name
+      - head.repo.owner.id
+      - head.repo.owner.login
+      - base.label
+      - base.ref
+      - base.sha
+      - base.repo.id
+      - base.repo.full_name
+      - base.repo.owner.id
+      - base.repo.owner.login
+      - created_at
+      - updated_at
+      - closed_at
+      - merged_at
+  forgejo_get_pull_diff:
+    max_bytes: 1048576
+    spec:
+      - diff
+  forgejo_list_pull_files:
+    spec:
+      - filename
+      - previous_filename
+      - status
+      - additions
+      - deletions
+      - changes
+      - html_url
+  forgejo_list_pull_reviews:
+    spec:
+      - id
+      - user.id
+      - user.login
+      - team.id
+      - team.name
+      - state
+      - body
+      - commit_id
+      - stale
+      - official
+      - dismissed
+      - comments_count
+      - submitted_at
+      - html_url
+      - pull_request_url
