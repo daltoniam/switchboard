@@ -309,10 +309,12 @@ func TestClientTimeoutAndFreshContexts(t *testing.T) {
 	second, err := core.client(context.Background())
 	require.NoError(t, err)
 	require.NotSame(t, first, second)
+	_, _, err = first.GetMyUserInfo()
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 	result, err := f.Execute(context.Background(), "forgejo_get_current_user", nil)
 	require.NoError(t, err)
 	require.True(t, result.IsError)
-	require.Contains(t, result.Data, "Client.Timeout")
+	require.Regexp(t, `context deadline exceeded|Client\.Timeout exceeded`, result.Data)
 }
 
 func TestUpstreamResponseCeiling(t *testing.T) {
