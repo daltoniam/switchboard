@@ -4,15 +4,20 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
+	"sync"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
 	"github.com/daltoniam/switchboard/remotemcp"
 )
 
-const integrationName = "likec4excalidraw"
+const (
+	integrationName         = "likec4excalidraw"
+	screenshotResponseLimit = 5 * 1024 * 1024
+)
 
 //go:embed compact.yaml
 var compactYAML []byte
@@ -22,15 +27,17 @@ var fieldCompactionSpecs = compactResult.Specs
 var maxBytesByTool = compactResult.MaxBytes
 
 var (
-	_ mcp.Integration                = (*integration)(nil)
-	_ mcp.FieldCompactionIntegration = (*integration)(nil)
-	_ mcp.ToolMaxBytesIntegration    = (*integration)(nil)
-	_ mcp.PlainTextCredentials       = (*integration)(nil)
-	_ mcp.OptionalCredentials        = (*integration)(nil)
-	_ mcp.PlaceholderHints           = (*integration)(nil)
+	_ mcp.Integration                        = (*integration)(nil)
+	_ mcp.FieldCompactionIntegration         = (*integration)(nil)
+	_ mcp.ToolMaxBytesIntegration            = (*integration)(nil)
+	_ mcp.PerToolMaxResponseBytesIntegration = (*integration)(nil)
+	_ mcp.PlainTextCredentials               = (*integration)(nil)
+	_ mcp.OptionalCredentials                = (*integration)(nil)
+	_ mcp.PlaceholderHints                   = (*integration)(nil)
 )
 
 type integration struct {
+	mu     sync.RWMutex
 	remote mcp.Integration
 }
 
@@ -53,9 +60,12 @@ func (i *integration) Configure(ctx context.Context, credentials mcp.Credentials
 	if baseURL == "" {
 		return fmt.Errorf("likec4excalidraw: base_url is required")
 	}
-	parsed, err := url.Parse(baseURL)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+	parsed, err := url.ParseRequestURI(baseURL)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
 		return fmt.Errorf("likec4excalidraw: invalid base_url")
+	}
+	if parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()) {
+		return fmt.Errorf("likec4excalidraw: base_url must use https unless the host is loopback")
 	}
 	parsed.Path = strings.TrimSuffix(strings.TrimRight(parsed.Path, "/"), "/mcp")
 	parsed.RawQuery = ""
@@ -64,12 +74,25 @@ func (i *integration) Configure(ctx context.Context, credentials mcp.Credentials
 	if err := remote.Configure(ctx, mcp.Credentials{"access_token": strings.TrimSpace(credentials["mcp_token"])}); err != nil {
 		return err
 	}
-	closeRemote(i.remote)
+	i.mu.Lock()
+	previous := i.remote
 	i.remote = remote
+	i.mu.Unlock()
+	closeRemote(previous)
 	return nil
 }
 
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 func (i *integration) Healthy(ctx context.Context) bool {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	return i.remote != nil && i.remote.Healthy(ctx)
 }
 
@@ -81,6 +104,8 @@ func (i *integration) Execute(ctx context.Context, toolName mcp.ToolName, args m
 	if _, ok := supportedTools[toolName]; !ok {
 		return mcp.ErrResult(fmt.Errorf("unknown tool: %s", toolName))
 	}
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	if i.remote == nil {
 		return mcp.ErrResult(fmt.Errorf("likec4excalidraw: integration is not configured"))
 	}
@@ -97,9 +122,19 @@ func (i *integration) MaxBytes(toolName mcp.ToolName) (int, bool) {
 	return maxBytes, ok
 }
 
+func (i *integration) MaxResponseBytesForTool(toolName mcp.ToolName) (int, bool) {
+	if toolName == "likec4excalidraw_get_canvas_screenshot" {
+		return screenshotResponseLimit, true
+	}
+	return 0, false
+}
+
 func (i *integration) Close() error {
-	closeRemote(i.remote)
+	i.mu.Lock()
+	remote := i.remote
 	i.remote = nil
+	i.mu.Unlock()
+	closeRemote(remote)
 	return nil
 }
 

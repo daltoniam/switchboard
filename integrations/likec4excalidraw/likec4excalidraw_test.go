@@ -63,6 +63,9 @@ func TestConfigure(t *testing.T) {
 		{name: "trailing MCP path", credentials: mcp.Credentials{"base_url": "http://127.0.0.1:4242/mcp"}},
 		{name: "missing base URL", credentials: mcp.Credentials{}, wantError: "base_url is required"},
 		{name: "invalid base URL", credentials: mcp.Credentials{"base_url": "://bad"}, wantError: "invalid base_url"},
+		{name: "unsupported scheme", credentials: mcp.Credentials{"base_url": "ftp://127.0.0.1:4242"}, wantError: "invalid base_url"},
+		{name: "insecure remote URL", credentials: mcp.Credentials{"base_url": "http://likec4.example.com"}, wantError: "must use https unless the host is loopback"},
+		{name: "secure remote URL", credentials: mcp.Credentials{"base_url": "https://likec4.example.com"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -156,6 +159,15 @@ func TestRemoteExecutionWithTokenAndImage(t *testing.T) {
 	require.Len(t, result.Media, 1)
 	assert.Equal(t, []byte("png"), result.Media[0].Data)
 	assert.Equal(t, "image/png", result.Media[0].MIMEType)
+}
+
+func TestMaxResponseBytesForScreenshot(t *testing.T) {
+	integration := New().(*integration)
+	limit, ok := integration.MaxResponseBytesForTool("likec4excalidraw_get_canvas_screenshot")
+	require.True(t, ok)
+	assert.Equal(t, screenshotResponseLimit, limit)
+	_, ok = integration.MaxResponseBytesForTool("likec4excalidraw_get_architecture")
+	assert.False(t, ok)
 }
 
 func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
