@@ -34,6 +34,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
 	"github.com/daltoniam/switchboard/integrations/figma"
 	flyInt "github.com/daltoniam/switchboard/integrations/fly"
+	"github.com/daltoniam/switchboard/integrations/forgejo"
 	"github.com/daltoniam/switchboard/integrations/gcal"
 	"github.com/daltoniam/switchboard/integrations/gchat"
 	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
@@ -307,6 +308,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	reg := registry.New()
 	for _, i := range []mcp.Integration{
 		github.New(),
+		forgejo.New(),
 		datadog.New(),
 		linear.New("https://mcp.linear.app"),
 		sentry.New(),

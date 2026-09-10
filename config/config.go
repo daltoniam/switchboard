@@ -22,6 +22,10 @@ var envMapping = map[string]map[string]string{
 	"github": {
 		"token": "GITHUB_TOKEN",
 	},
+	"forgejo": {
+		"base_url": "FORGEJO_BASE_URL",
+		"token":    "FORGEJO_TOKEN",
+	},
 	"datadog": {
 		"api_key": "DD_API_KEY",
 		"app_key": "DD_APP_KEY",
@@ -292,6 +296,10 @@ func defaultConfig() *mcp.Config {
 			"github": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
+			},
+			"forgejo": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": ""},
 			},
 			"datadog": {
 				Enabled:     false,

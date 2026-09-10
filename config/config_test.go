@@ -32,10 +32,10 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 63)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "metabase", "paperless", "recoll", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "okta", "microsoft365"} {
+	assert.Len(t, m.cfg.Integrations, 64)
+	for _, name := range []string{"github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "metabase", "paperless", "recoll", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "okta", "microsoft365"} {
 		ic, ok := m.cfg.Integrations[name]
-		assert.True(t, ok, "missing default integration: %s", name)
+		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
 	}
 }
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 63)
+	assert.Len(t, cfg.Integrations, 64)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 63)
+	assert.Len(t, cfg.Integrations, 64)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,10 +273,11 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 63)
+	assert.Len(t, cfg.Integrations, 64)
 
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
+		"forgejo":          {"base_url", "token"},
 		"datadog":          {"api_key", "app_key"},
 		"linear":           {"api_key", "mcp_access_token", "token_source"},
 		"sentry":           {"auth_token", "organization", "client_id", "token_source"},
@@ -332,6 +333,13 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestDefaultConfig_Forgejo(t *testing.T) {
+	ic, ok := defaultConfig().Integrations["forgejo"]
+	require.True(t, ok, "missing default integration: forgejo")
+	assert.False(t, ic.Enabled)
+	assert.Equal(t, mcp.Credentials{"base_url": "", "token": ""}, ic.Credentials)
+}
+
 func TestSave_FilePermissions(t *testing.T) {
 	m, path := newTestManager(t)
 	m.cfg = defaultConfig()
@@ -351,6 +359,11 @@ func TestDefaultCredentialKeys(t *testing.T) {
 
 	keys := m.DefaultCredentialKeys("pganalyze")
 	assert.ElementsMatch(t, []string{"api_key", "base_url"}, keys)
+}
+
+func TestDefaultCredentialKeys_Forgejo(t *testing.T) {
+	m, _ := newTestManager(t)
+	assert.ElementsMatch(t, []string{"base_url", "token"}, m.DefaultCredentialKeys("forgejo"))
 }
 
 func TestDefaultCredentialKeys_Unknown(t *testing.T) {
@@ -382,6 +395,88 @@ func TestEnvOverrides_OverridesEmptyCredentials(t *testing.T) {
 	assert.Equal(t, "gh_env_token", m.cfg.Integrations["github"].Credentials["token"])
 	assert.Equal(t, "dd_env_key", m.cfg.Integrations["datadog"].Credentials["api_key"])
 	assert.Equal(t, "dd_env_app", m.cfg.Integrations["datadog"].Credentials["app_key"])
+}
+
+func TestEnvOverrides_Forgejo(t *testing.T) {
+	tests := []struct {
+		name     string
+		stored   *mcp.IntegrationConfig
+		env      map[string]string
+		expected mcp.Credentials
+	}{
+		{
+			name:     "backfills existing config",
+			expected: mcp.Credentials{"base_url": "", "token": ""},
+		},
+		{
+			name: "environment credentials remain disabled",
+			env: map[string]string{
+				"FORGEJO_BASE_URL": "https://git.example.com/forgejo/",
+				"FORGEJO_TOKEN":    "env-token",
+			},
+			expected: mcp.Credentials{"base_url": "https://git.example.com/forgejo/", "token": "env-token"},
+		},
+		{
+			name: "environment overrides stored credentials",
+			stored: &mcp.IntegrationConfig{
+				Enabled:     true,
+				Credentials: mcp.Credentials{"base_url": "https://old.example.com", "token": "disk-token"},
+			},
+			env: map[string]string{
+				"FORGEJO_BASE_URL": "https://git.example.com/forgejo/",
+				"FORGEJO_TOKEN":    "env-token",
+			},
+			expected: mcp.Credentials{"base_url": "https://git.example.com/forgejo/", "token": "env-token"},
+		},
+		{
+			name: "empty environment preserves stored credentials",
+			stored: &mcp.IntegrationConfig{
+				Enabled:     true,
+				Credentials: mcp.Credentials{"base_url": "https://git.example.com/forgejo/", "token": "disk-token"},
+			},
+			env:      map[string]string{"FORGEJO_BASE_URL": "", "FORGEJO_TOKEN": ""},
+			expected: mcp.Credentials{"base_url": "https://git.example.com/forgejo/", "token": "disk-token"},
+		},
+		{
+			name: "token override preserves deployment subpath",
+			stored: &mcp.IntegrationConfig{
+				Credentials: mcp.Credentials{"base_url": "https://git.example.com/forgejo/", "token": "disk-token"},
+			},
+			env:      map[string]string{"FORGEJO_TOKEN": "env-token"},
+			expected: mcp.Credentials{"base_url": "https://git.example.com/forgejo/", "token": "env-token"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, path := newTestManager(t)
+			cfg := &mcp.Config{Integrations: map[string]*mcp.IntegrationConfig{}}
+			if tt.stored != nil {
+				cfg.Integrations["forgejo"] = tt.stored
+			}
+			data, err := json.Marshal(cfg)
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(path, data, 0600))
+			m.envLookup = func(key string) string { return tt.env[key] }
+			require.NoError(t, m.Load())
+
+			ic, ok := m.GetIntegration("forgejo")
+			require.True(t, ok, "missing integration: forgejo")
+			assert.Equal(t, tt.stored != nil && tt.stored.Enabled, ic.Enabled)
+			assert.Equal(t, tt.expected, ic.Credentials)
+
+			require.NoError(t, m.Save())
+			onDisk := &manager{filePath: path, envLookup: noEnv}
+			require.NoError(t, onDisk.Load())
+			persisted, ok := onDisk.GetIntegration("forgejo")
+			require.True(t, ok)
+			if tt.stored != nil {
+				assert.Equal(t, tt.stored, persisted)
+			} else {
+				assert.False(t, persisted.Enabled)
+				assert.Equal(t, mcp.Credentials{"base_url": "", "token": ""}, persisted.Credentials)
+			}
+		})
+	}
 }
 
 func TestEnvOverrides_GoogleSharedClientFansOut(t *testing.T) {
@@ -555,6 +650,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	require.NotNil(t, m)
 
 	assert.Equal(t, "GITHUB_TOKEN", m["github"]["token"])
+	assert.Equal(t, map[string]string{"base_url": "FORGEJO_BASE_URL", "token": "FORGEJO_TOKEN"}, m["forgejo"])
 	assert.Equal(t, "DD_API_KEY", m["datadog"]["api_key"])
 	assert.Equal(t, "DATABASE_URL", m["postgres"]["connection_string"])
 	assert.Equal(t, "RWX_ACCESS_TOKEN", m["rwx"]["access_token"])
@@ -624,9 +720,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_BASE_URL", m["likec4excalidraw"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
-	// 41 base integrations + 11 Google Workspace services sharing the
-	// GOOGLE_OAUTH_CLIENT_ID/SECRET env vars.
-	assert.Len(t, m, 52)
+	assert.Len(t, m, 53)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
