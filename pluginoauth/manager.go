@@ -7,6 +7,8 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"io"
 	"maps"
 	"net/http"
 	"net/url"
@@ -44,24 +46,25 @@ type authorization struct {
 }
 
 type Manager struct {
-	mu       sync.Mutex
-	name     string
-	store    Store
-	client   *http.Client
-	now      func() time.Time
-	creds    mcp.Credentials
-	metadata *metadata
-	pending  *authorization
-	dirty    bool
-	verified bool
-	blocked  bool
-	updates  mcp.Credentials
-	previous mcp.Credentials
-	baseline mcp.Credentials
+	mu         sync.Mutex
+	name       string
+	store      Store
+	client     *http.Client
+	randReader io.Reader
+	now        func() time.Time
+	creds      mcp.Credentials
+	metadata   *metadata
+	pending    *authorization
+	dirty      bool
+	verified   bool
+	blocked    bool
+	updates    mcp.Credentials
+	previous   mcp.Credentials
+	baseline   mcp.Credentials
 }
 
 func New(name string, store Store) *Manager {
-	return &Manager{name: name, store: store, now: time.Now, client: &http.Client{
+	return &Manager{name: name, store: store, now: time.Now, randReader: rand.Reader, client: &http.Client{
 		Timeout:       15 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}}
@@ -169,7 +172,14 @@ func (m *Manager) Start(ctx context.Context, creds mcp.Credentials, redirect, br
 		return "", err
 	}
 	creds = maps.Clone(creds)
-	state, verifier := randomValue(), randomValue()
+	state, err := randomValue(m.randReader)
+	if err != nil {
+		return "", fmt.Errorf("oauth: generate state: %w", err)
+	}
+	verifier, err := randomValue(m.randReader)
+	if err != nil {
+		return "", fmt.Errorf("oauth: generate PKCE verifier: %w", err)
+	}
 	hash := sha256.Sum256([]byte(verifier))
 	u, _ = url.Parse(md.AuthorizationEndpoint)
 	q := u.Query()
@@ -206,10 +216,12 @@ func (m *Manager) Start(ctx context.Context, creds mcp.Credentials, redirect, br
 	return u.String(), nil
 }
 
-func randomValue() string {
+func randomValue(reader io.Reader) (string, error) {
 	value := make([]byte, 32)
-	_, _ = rand.Read(value)
-	return base64.RawURLEncoding.EncodeToString(value)
+	if _, err := io.ReadFull(reader, value); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(value), nil
 }
 
 func (m *Manager) Callback(ctx context.Context, code, state, browser, issuer string) error {

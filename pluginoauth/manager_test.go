@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -130,6 +132,59 @@ func start(t *testing.T, m *Manager, p *provider) url.Values {
 	assert.Contains(t, q.Get("scope"), "offline_access")
 	assert.Empty(t, q.Get("code_verifier"))
 	return q
+}
+
+func TestRandomValue(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		reader  io.Reader
+		wantErr error
+	}{
+		{name: "full read", reader: strings.NewReader(strings.Repeat("x", 32))},
+		{name: "short reads", reader: iotest.OneByteReader(strings.NewReader(strings.Repeat("x", 32)))},
+		{name: "empty reader", reader: strings.NewReader(""), wantErr: io.EOF},
+		{name: "truncated reader", reader: strings.NewReader("x"), wantErr: io.ErrUnexpectedEOF},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			value, err := randomValue(tt.reader)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Empty(t, value)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, base64.RawURLEncoding.EncodeToString([]byte(strings.Repeat("x", 32))), value)
+		})
+	}
+}
+
+func TestStartRandomFailureDoesNotIssueState(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		bytes int
+	}{
+		{name: "state"},
+		{name: "partial state", bytes: 16},
+		{name: "verifier", bytes: 32},
+		{name: "partial verifier", bytes: 48},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			m, p, store := setupManager(t)
+			before := maps.Clone(store.ic.Credentials)
+			entropyErr := errors.New("entropy unavailable")
+			m.randReader = io.MultiReader(strings.NewReader(strings.Repeat("x", tt.bytes)), iotest.ErrReader(entropyErr))
+			raw, err := m.Start(t.Context(), p.credentials(), "http://127.0.0.1:3847/api/integrations/primer/oauth/callback", "browser")
+			require.ErrorIs(t, err, entropyErr)
+			assert.Empty(t, raw)
+			assert.Nil(t, m.pending)
+			assert.Nil(t, m.creds)
+			assert.Zero(t, store.saves)
+			assert.Equal(t, before, store.ic.Credentials)
+			assert.False(t, store.ic.Enabled)
+			assert.ErrorIs(t, m.Callback(t.Context(), "code", "", "browser", p.server.URL), ErrState)
+			assert.Zero(t, p.tokens)
+		})
+	}
 }
 
 func TestAuthorizationCode(t *testing.T) {

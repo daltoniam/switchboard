@@ -2,8 +2,10 @@ package web
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
@@ -43,15 +45,16 @@ import (
 
 // WebServer serves the configuration web UI using templ templates.
 type WebServer struct {
-	services       *mcp.Services
-	port           int
-	health         *healthCache
-	marketplace    *marketplace.Manager
-	wasmLoader     pluginLoader
-	catalog        project.Catalog
-	awmStore       *awm.Store
-	onConfigChange func()
-	configMu       sync.Mutex
+	services        *mcp.Services
+	port            int
+	health          *healthCache
+	marketplace     *marketplace.Manager
+	wasmLoader      pluginLoader
+	catalog         project.Catalog
+	awmStore        *awm.Store
+	onConfigChange  func()
+	configMu        sync.Mutex
+	oauthRandReader io.Reader
 }
 
 type Option func(*WebServer)
@@ -63,10 +66,11 @@ func WithConfigChangeHook(fn func()) Option {
 // New returns a WebServer that provides a browser-based config UI.
 func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.Loader, opts ...Option) *WebServer {
 	ws := &WebServer{
-		services:    services,
-		port:        port,
-		health:      newHealthCache(services),
-		marketplace: mp,
+		services:        services,
+		port:            port,
+		health:          newHealthCache(services),
+		marketplace:     mp,
+		oauthRandReader: rand.Reader,
 	}
 	if wl != nil {
 		ws.wasmLoader = wl
@@ -841,7 +845,9 @@ func (w *WebServer) handleUpdateCredentials(rw http.ResponseWriter, r *http.Requ
 	}
 
 	if oauth {
-		if err := w.editPluginCredentials(r, name, creds, true); err != nil {
+		ic, _ := w.services.Config.GetIntegration(name)
+		enabled := ic != nil && ic.Enabled
+		if err := w.editPluginCredentials(r, name, creds, enabled); err != nil {
 			writeJSON(rw, http.StatusInternalServerError, map[string]string{"error": "OAuth credential update failed"})
 			return
 		}

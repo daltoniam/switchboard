@@ -3,12 +3,16 @@ package web
 import (
 	"context"
 	"errors"
+	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/pluginoauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,6 +38,15 @@ func (i *oauthIntegration) CompleteOAuth(_ context.Context, code, state, browser
 	i.code, i.state, i.browser, i.issuer = code, state, browser, issuer
 	i.calls++
 	return i.err
+}
+
+type oauthCredentialEditor struct {
+	*oauthIntegration
+	manager *pluginoauth.Manager
+}
+
+func (i *oauthCredentialEditor) EditCredentials(ctx context.Context, updates mcp.Credentials, enabled bool) error {
+	return i.manager.EditCredentials(ctx, updates, enabled)
 }
 
 func pluginOAuthWeb(t *testing.T) (*WebServer, *oauthIntegration, *mockConfigService) {
@@ -67,7 +80,13 @@ func TestPluginOAuthStart(t *testing.T) {
 			assert.JSONEq(t, `{"authorize_url":"https://issuer.example/authorize?state=random"}`, rr.Body.String())
 			assert.Equal(t, "http://127.0.0.1:3847/api/integrations/primer/oauth/callback", i.redirect)
 			assert.Equal(t, "https://issuer.example", i.lastCreds["oauth_issuer"])
+			wantClient := "saved-client"
+			if strings.Contains(body, "new-client") {
+				wantClient = "new-client"
+			}
+			assert.Equal(t, wantClient, i.lastCreds["oauth_client_id"])
 			assert.Equal(t, "saved-client", cfg.cfg.Integrations["primer"].Credentials["oauth_client_id"])
+			assert.False(t, cfg.cfg.Integrations["primer"].Enabled)
 			cookies := rr.Result().Cookies()
 			require.Len(t, cookies, 1)
 			cookie := cookies[0]
@@ -79,6 +98,78 @@ func TestPluginOAuthStart(t *testing.T) {
 			assert.NotEmpty(t, cookie.Value)
 			assert.NotContains(t, rr.Body.String(), "native-only")
 			assert.Equal(t, "no-store", rr.Header().Get("Cache-Control"))
+		})
+	}
+}
+
+func TestPluginOAuthStartFailureDoesNotIssueCookie(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		bytes      int
+		startFails bool
+	}{
+		{name: "entropy failure"},
+		{name: "partial entropy", bytes: 16},
+		{name: "authorization failure", bytes: 32, startFails: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			w, i, cfg := pluginOAuthWeb(t)
+			before := maps.Clone(cfg.cfg.Integrations["primer"].Credentials)
+			w.oauthRandReader = io.MultiReader(strings.NewReader(strings.Repeat("x", tt.bytes)), iotest.ErrReader(errors.New("secret-entropy-error")))
+			if tt.startFails {
+				i.err = errors.New("secret-start-error")
+			}
+			rr := httptest.NewRecorder()
+			w.Handler().ServeHTTP(rr, localOAuthRequest(http.MethodPost, "/api/integrations/primer/oauth/start", "{}"))
+			assert.GreaterOrEqual(t, rr.Code, 400)
+			assert.Empty(t, rr.Result().Cookies())
+			assert.NotContains(t, rr.Body.String(), "authorize_url")
+			assert.NotContains(t, rr.Body.String(), "secret-")
+			assert.Equal(t, before, cfg.cfg.Integrations["primer"].Credentials)
+			assert.False(t, cfg.cfg.Integrations["primer"].Enabled)
+			if tt.startFails {
+				assert.Equal(t, 1, i.calls)
+			} else {
+				assert.Zero(t, i.calls)
+				assert.Empty(t, i.browser)
+			}
+		})
+	}
+}
+
+func TestPluginOAuthCredentialPUTPreservesEnabled(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		oauth       bool
+		editor      bool
+		enabled     bool
+		wantEnabled bool
+	}{
+		{name: "disabled OAuth", oauth: true},
+		{name: "enabled OAuth", oauth: true, enabled: true, wantEnabled: true},
+		{name: "disabled OAuth editor", oauth: true, editor: true},
+		{name: "enabled OAuth editor", oauth: true, editor: true, enabled: true, wantEnabled: true},
+		{name: "disabled ordinary", wantEnabled: true},
+		{name: "enabled ordinary", enabled: true, wantEnabled: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			w, i, cfg := pluginOAuthWeb(t)
+			if tt.editor {
+				require.NoError(t, w.services.Registry.Register(&oauthCredentialEditor{oauthIntegration: i, manager: pluginoauth.New("primer", cfg)}))
+			}
+			name := "testint"
+			if tt.oauth {
+				name = "primer"
+			}
+			cfg.cfg.Integrations[name].Enabled = tt.enabled
+			rr := httptest.NewRecorder()
+			w.Handler().ServeHTTP(rr, localOAuthRequest(http.MethodPut, "/api/integrations/"+name+"/credentials", `{"base_url":"https://edited.example"}`))
+			require.Equal(t, http.StatusOK, rr.Code)
+			assert.Equal(t, tt.wantEnabled, cfg.cfg.Integrations[name].Enabled)
+			assert.Equal(t, "https://edited.example", cfg.cfg.Integrations[name].Credentials["base_url"])
+			if tt.oauth {
+				assert.Equal(t, "native-only", cfg.cfg.Integrations[name].Credentials["oauth_refresh_token"])
+			}
 		})
 	}
 }
@@ -125,7 +216,7 @@ func TestPluginOAuthStartRejectsUnsafeRequests(t *testing.T) {
 func TestPluginOAuthCallback(t *testing.T) {
 	for _, name := range []string{"success", "provider-error", "missing-cookie", "missing-state", "duplicate-code", "denied"} {
 		t.Run(name, func(t *testing.T) {
-			w, i, _ := pluginOAuthWeb(t)
+			w, i, cfg := pluginOAuthWeb(t)
 			if name == "provider-error" {
 				i.err = errors.New("secret-token-error")
 			}
@@ -152,6 +243,7 @@ func TestPluginOAuthCallback(t *testing.T) {
 				assert.Equal(t, "secret-code", i.code)
 				assert.Equal(t, "secret-state", i.state)
 				assert.Equal(t, "https://issuer.example", i.issuer)
+				assert.False(t, cfg.cfg.Integrations["primer"].Enabled)
 			} else if name == "denied" {
 				assert.Empty(t, i.code)
 			} else if name != "provider-error" {
@@ -178,11 +270,17 @@ func TestPluginOAuthDetailHidesTokensAndOffersConnect(t *testing.T) {
 	ic.Credentials["oauth_access_token"] = "access-secret"
 	ic.Credentials["oauth_token_key"] = "tasks_api_key"
 	ic.Credentials["tasks_api_key"] = "legacy-token-secret"
+	ic.Credentials["oauth_expires_at"] = "2030-01-01T00:00:00Z"
+	ic.Credentials["oauth_settings_binding"] = "binding-secret"
+	ic.Credentials["oauth_client_secret"] = "client-secret"
 	rr := httptest.NewRecorder()
 	w.Handler().ServeHTTP(rr, localOAuthRequest(http.MethodGet, "/integrations/primer", ""))
 	require.Equal(t, http.StatusOK, rr.Code)
 	for _, secret := range []string{"native-only", "access-secret", "legacy-token-secret"} {
 		assert.NotContains(t, rr.Body.String(), secret)
+	}
+	for _, key := range []string{"oauth_access_token", "oauth_refresh_token", "oauth_expires_at", "oauth_settings_binding", "oauth_client_secret", "tasks_api_key"} {
+		assert.NotContains(t, rr.Body.String(), `name="cred_`+key+`"`)
 	}
 	assert.Contains(t, rr.Body.String(), "Connect OAuth")
 }

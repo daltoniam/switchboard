@@ -169,32 +169,32 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 				return templ_7745c5c3_Err
 			}
 			if data.ConnectOAuth {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"card\"><button type=\"button\" class=\"btn\" data-oauth-start=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"card\"><button type=\"button\" class=\"btn\" form=\"integration-configuration\" data-oauth-start=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs("/api/integrations/" + data.Name + "/oauth/start")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 114, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 114, Col: 139}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" onclick=\"connectPluginOAuth(this)\">Connect OAuth</button><p>Open this page using 127.0.0.1. OAuth tokens stay managed by Switchboard; connecting does not enable the integration.</p></div><script>\n\t\t\t\tasync function connectPluginOAuth(button) {\n\t\t\t\t\tbutton.disabled = true;\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst response = await fetch(button.dataset.oauthStart, {method: \"POST\", credentials: \"same-origin\"});\n\t\t\t\t\t\tif (!response.ok) throw new Error(\"OAuth start failed. Check configuration and use the 127.0.0.1 address.\");\n\t\t\t\t\t\tconst data = await response.json();\n\t\t\t\t\t\twindow.location.assign(data.authorize_url);\n\t\t\t\t\t} catch (error) {\n\t\t\t\t\t\talert(error.message);\n\t\t\t\t\t\tbutton.disabled = false;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" onclick=\"connectPluginOAuth(this)\">Connect OAuth</button><p>Open this page using 127.0.0.1. OAuth tokens stay managed by Switchboard; connecting does not enable the integration.</p></div><script>\n\t\t\t\tasync function connectPluginOAuth(button) {\n\t\t\t\t\tbutton.disabled = true;\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst credentials = {};\n\t\t\t\t\t\tfor (const input of button.form.querySelectorAll('input[name^=\"cred_\"]')) {\n\t\t\t\t\t\t\tcredentials[input.name.slice(5)] = input.value;\n\t\t\t\t\t\t}\n\t\t\t\t\t\tconst response = await fetch(button.dataset.oauthStart, {\n\t\t\t\t\t\t\tmethod: \"POST\",\n\t\t\t\t\t\t\tcredentials: \"same-origin\",\n\t\t\t\t\t\t\theaders: {\"Content-Type\": \"application/json\"},\n\t\t\t\t\t\t\tbody: JSON.stringify({credentials})\n\t\t\t\t\t\t});\n\t\t\t\t\t\tif (!response.ok) throw new Error(\"OAuth start failed. Check configuration and use the 127.0.0.1 address.\");\n\t\t\t\t\t\tconst data = await response.json();\n\t\t\t\t\t\twindow.location.assign(data.authorize_url);\n\t\t\t\t\t} catch (error) {\n\t\t\t\t\t\talert(error.message);\n\t\t\t\t\t\tbutton.disabled = false;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " <form method=\"POST\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " <form id=\"integration-configuration\" method=\"POST\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 templ.SafeURL
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/integrations/" + data.Name))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 132, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 141, Col: 105}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -248,7 +248,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 						var templ_7745c5c3_Var6 string
 						templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(identityTitle(identity))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 163, Col: 62}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 172, Col: 62}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 						if templ_7745c5c3_Err != nil {
@@ -261,7 +261,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 						var templ_7745c5c3_Var7 string
 						templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(identity.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 164, Col: 49}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 173, Col: 49}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 						if templ_7745c5c3_Err != nil {
@@ -274,7 +274,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 						var templ_7745c5c3_Var8 templ.SafeURL
 						templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/integrations/" + data.Name + "/identities/" + url.PathEscape(identity.ID) + "/delete"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 166, Col: 140}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 175, Col: 140}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 						if templ_7745c5c3_Err != nil {
@@ -287,7 +287,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 						var templ_7745c5c3_Var9 templ.SafeURL
 						templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/integrations/" + data.Name + "/identities"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 170, Col: 96}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 179, Col: 96}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 						if templ_7745c5c3_Err != nil {
@@ -300,7 +300,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 						var templ_7745c5c3_Var10 string
 						templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(identity.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 171, Col: 68}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 180, Col: 68}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 						if templ_7745c5c3_Err != nil {
@@ -318,7 +318,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var11 string
 							templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs("identity-" + identity.ID + "-cred-" + field.Key)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 175, Col: 73}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 184, Col: 73}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 							if templ_7745c5c3_Err != nil {
@@ -331,7 +331,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var12 string
 							templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(identityFieldLabel(field.Key))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 175, Col: 107}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 184, Col: 107}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 							if templ_7745c5c3_Err != nil {
@@ -344,7 +344,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var13 string
 							templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs("identity-" + identity.ID + "-cred-" + field.Key)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 176, Col: 91}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 185, Col: 91}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 							if templ_7745c5c3_Err != nil {
@@ -357,7 +357,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var14 string
 							templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs("identity_cred_" + field.Key)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 176, Col: 145}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 185, Col: 145}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 							if templ_7745c5c3_Err != nil {
@@ -370,7 +370,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var15 string
 							templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(identityCredentialPlaceholder(field))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 176, Col: 207}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 185, Col: 207}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 							if templ_7745c5c3_Err != nil {
@@ -399,7 +399,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var16 string
 							templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs("identity-" + identity.ID + "-meta-" + field.Key)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 184, Col: 92}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 193, Col: 92}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 							if templ_7745c5c3_Err != nil {
@@ -412,7 +412,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var17 string
 							templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(identityFieldLabel(field.Key))
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 184, Col: 126}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 193, Col: 126}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 							if templ_7745c5c3_Err != nil {
@@ -425,7 +425,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var18 string
 							templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs("identity_meta_" + field.Key)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 185, Col: 85}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 194, Col: 85}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 							if templ_7745c5c3_Err != nil {
@@ -438,7 +438,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var19 string
 							templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs("identity-" + identity.ID + "-meta-" + field.Key)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 185, Col: 141}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 194, Col: 141}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 							if templ_7745c5c3_Err != nil {
@@ -451,7 +451,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var20 string
 							templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(field.Value)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 185, Col: 163}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 194, Col: 163}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 							if templ_7745c5c3_Err != nil {
@@ -464,7 +464,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 							var templ_7745c5c3_Var21 string
 							templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs("Enter " + field.Key)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 185, Col: 200}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 194, Col: 200}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 							if templ_7745c5c3_Err != nil {
@@ -497,7 +497,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 				var templ_7745c5c3_Var22 templ.SafeURL
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/integrations/" + data.Name + "/identities"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 206, Col: 93}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 215, Col: 93}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -537,7 +537,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 					var templ_7745c5c3_Var23 string
 					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs("identity-new-meta-" + key)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 220, Col: 67}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 229, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 					if templ_7745c5c3_Err != nil {
@@ -550,7 +550,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(identityFieldLabel(key))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 220, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 229, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 					if templ_7745c5c3_Err != nil {
@@ -563,7 +563,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs("identity_meta_" + key)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 221, Col: 76}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 230, Col: 76}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 					if templ_7745c5c3_Err != nil {
@@ -576,7 +576,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs("identity-new-meta-" + key)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 221, Col: 110}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 230, Col: 110}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -589,7 +589,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 					var templ_7745c5c3_Var27 string
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs("Enter " + key)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 221, Col: 150}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 230, Col: 150}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
@@ -617,7 +617,7 @@ func IntegrationDetail(page layouts.PageData, data IntegrationDetailData) templ.
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(len(data.Tools)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 234, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/integration.templ`, Line: 243, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {

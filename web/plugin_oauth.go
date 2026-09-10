@@ -1,7 +1,6 @@
 package web
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -79,7 +78,10 @@ func (w *WebServer) handlePluginOAuthStart(rw http.ResponseWriter, r *http.Reque
 		return
 	}
 	secret := make([]byte, 32)
-	_, _ = rand.Read(secret)
+	if _, err := io.ReadFull(w.oauthRandReader, secret); err != nil {
+		http.Error(rw, "OAuth session creation failed; retry connecting", http.StatusInternalServerError)
+		return
+	}
 	browser := base64.RawURLEncoding.EncodeToString(secret)
 	callback := "/api/integrations/" + name + "/oauth/callback"
 	redirect := fmt.Sprintf("http://127.0.0.1:%d%s", w.port, callback)

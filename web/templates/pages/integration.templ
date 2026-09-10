@@ -111,14 +111,23 @@ templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
 		</div>
 		if data.ConnectOAuth {
 			<div class="card">
-				<button type="button" class="btn" data-oauth-start={ "/api/integrations/" + data.Name + "/oauth/start" } onclick="connectPluginOAuth(this)">Connect OAuth</button>
+				<button type="button" class="btn" form="integration-configuration" data-oauth-start={ "/api/integrations/" + data.Name + "/oauth/start" } onclick="connectPluginOAuth(this)">Connect OAuth</button>
 				<p>Open this page using 127.0.0.1. OAuth tokens stay managed by Switchboard; connecting does not enable the integration.</p>
 			</div>
 			<script>
 				async function connectPluginOAuth(button) {
 					button.disabled = true;
 					try {
-						const response = await fetch(button.dataset.oauthStart, {method: "POST", credentials: "same-origin"});
+						const credentials = {};
+						for (const input of button.form.querySelectorAll('input[name^="cred_"]')) {
+							credentials[input.name.slice(5)] = input.value;
+						}
+						const response = await fetch(button.dataset.oauthStart, {
+							method: "POST",
+							credentials: "same-origin",
+							headers: {"Content-Type": "application/json"},
+							body: JSON.stringify({credentials})
+						});
 						if (!response.ok) throw new Error("OAuth start failed. Check configuration and use the 127.0.0.1 address.");
 						const data = await response.json();
 						window.location.assign(data.authorize_url);
@@ -129,7 +138,7 @@ templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
 				}
 			</script>
 		}
-		<form method="POST" action={ templ.SafeURL("/integrations/" + data.Name) }>
+		<form id="integration-configuration" method="POST" action={ templ.SafeURL("/integrations/" + data.Name) }>
 			<div class="card">
 				<div class="card-header">
 					<div class="card-title">Configuration</div>
