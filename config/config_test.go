@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 62)
-	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "slackmcp", "figma", "metabase", "paperless", "recoll", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "okta", "microsoft365"} {
+	assert.Len(t, m.cfg.Integrations, 63)
+	for _, name := range []string{"github", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "metabase", "paperless", "recoll", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "okta", "microsoft365"} {
 		ic, ok := m.cfg.Integrations[name]
 		assert.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 62)
+	assert.Len(t, cfg.Integrations, 63)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 62)
+	assert.Len(t, cfg.Integrations, 63)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,51 +273,52 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 62)
+	assert.Len(t, cfg.Integrations, 63)
 
 	expected := map[string][]string{
-		"github":         {"token", "client_id", "token_source"},
-		"datadog":        {"api_key", "app_key"},
-		"linear":         {"api_key", "mcp_access_token", "token_source"},
-		"sentry":         {"auth_token", "organization", "client_id", "token_source"},
-		"slack":          {"token", "cookie", "token_source"},
-		"slackmcp":       {"base_url"},
-		"figma":          {"mcp_access_token", "base_url", "token_source"},
-		"metabase":       {"api_key", "url"},
-		"paperless":      {"token", "url"},
-		"recoll":         {"base_url"},
-		"aws":            {"access_key_id", "secret_access_key", "session_token", "region"},
-		"posthog":        {"api_key", "project_id", "base_url"},
-		"postgres":       {"connection_string", "host", "user", "read_only"},
-		"clickhouse":     {"host", "port", "username", "password", "database", "secure", "skip_verify", "connections"},
-		"pganalyze":      {"api_key", "base_url"},
-		"rwx":            {"access_token", "org"},
-		"projectinterop": {"config_root"},
-		"gmail":          {"access_token", "refresh_token", "client_id", "client_secret", "base_url", "token_source"},
-		"notion":         {"token_v2"},
-		"ollama":         {"base_url", "api_key"},
-		"ynab":           {"api_key"},
-		"gong":           {"access_key", "access_key_secret", "base_url"},
-		"hubspot":        {"access_token", "base_url"},
-		"intercom":       {"access_token", "base_url"},
-		"ramp":           {"access_token", "base_url"},
-		"zendesk":        {"subdomain", "email", "api_token", "access_token", "base_url"},
-		"okta":           {"api_token", "org_url"},
-		"microsoft365":   {"access_token", "refresh_token", "client_id", "client_secret", "tenant_id", "base_url", "token_source"},
-		"gcp":            {"project_id", "credentials_json"},
-		"confluence":     {"email", "api_token", "domain"},
-		"elasticsearch":  {"base_url", "api_key", "username", "password"},
-		"salesforce":     {"access_token", "instance_url", "api_version"},
-		"servicenow":     {"instance_url", "username", "password", "access_token"},
-		"netsuite":       {"account_id", "consumer_key", "consumer_secret", "token_id", "token_secret", "access_token", "base_url"},
-		"cloudflare":     {"api_token", "account_id"},
-		"digitalocean":   {"api_token"},
-		"fly":            {"api_token", "base_url"},
-		"kubernetes":     {"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster", "clusters", "allow_mutations"},
-		"vercel":         {"api_token", "team_id", "team_slug", "base_url"},
-		"web":            {},
-		"signoz":         {"api_key", "base_url", "skip_verify"},
-		"nomad":          {"address", "token"},
+		"github":           {"token", "client_id", "token_source"},
+		"datadog":          {"api_key", "app_key"},
+		"linear":           {"api_key", "mcp_access_token", "token_source"},
+		"sentry":           {"auth_token", "organization", "client_id", "token_source"},
+		"slack":            {"token", "cookie", "token_source"},
+		"slackmcp":         {"base_url"},
+		"likec4excalidraw": {"base_url", "mcp_token"},
+		"figma":            {"mcp_access_token", "base_url", "token_source"},
+		"metabase":         {"api_key", "url"},
+		"paperless":        {"token", "url"},
+		"recoll":           {"base_url"},
+		"aws":              {"access_key_id", "secret_access_key", "session_token", "region"},
+		"posthog":          {"api_key", "project_id", "base_url"},
+		"postgres":         {"connection_string", "host", "user", "read_only"},
+		"clickhouse":       {"host", "port", "username", "password", "database", "secure", "skip_verify", "connections"},
+		"pganalyze":        {"api_key", "base_url"},
+		"rwx":              {"access_token", "org"},
+		"projectinterop":   {"config_root"},
+		"gmail":            {"access_token", "refresh_token", "client_id", "client_secret", "base_url", "token_source"},
+		"notion":           {"token_v2"},
+		"ollama":           {"base_url", "api_key"},
+		"ynab":             {"api_key"},
+		"gong":             {"access_key", "access_key_secret", "base_url"},
+		"hubspot":          {"access_token", "base_url"},
+		"intercom":         {"access_token", "base_url"},
+		"ramp":             {"access_token", "base_url"},
+		"zendesk":          {"subdomain", "email", "api_token", "access_token", "base_url"},
+		"okta":             {"api_token", "org_url"},
+		"microsoft365":     {"access_token", "refresh_token", "client_id", "client_secret", "tenant_id", "base_url", "token_source"},
+		"gcp":              {"project_id", "credentials_json"},
+		"confluence":       {"email", "api_token", "domain"},
+		"elasticsearch":    {"base_url", "api_key", "username", "password"},
+		"salesforce":       {"access_token", "instance_url", "api_version"},
+		"servicenow":       {"instance_url", "username", "password", "access_token"},
+		"netsuite":         {"account_id", "consumer_key", "consumer_secret", "token_id", "token_secret", "access_token", "base_url"},
+		"cloudflare":       {"api_token", "account_id"},
+		"digitalocean":     {"api_token"},
+		"fly":              {"api_token", "base_url"},
+		"kubernetes":       {"kubeconfig", "kubeconfig_path", "context", "namespace", "api_server", "token", "ca_cert", "insecure_skip_tls_verify", "in_cluster", "clusters", "allow_mutations"},
+		"vercel":           {"api_token", "team_id", "team_slug", "base_url"},
+		"web":              {},
+		"signoz":           {"api_key", "base_url", "skip_verify"},
+		"nomad":            {"address", "token"},
 	}
 
 	for name, keys := range expected {
@@ -455,35 +456,37 @@ func TestEnvOverrides_AllIntegrations(t *testing.T) {
 	m, _ := newTestManager(t)
 
 	envVars := map[string]string{
-		"GITHUB_TOKEN":          "gh_tok",
-		"DD_API_KEY":            "dd_api",
-		"DD_APP_KEY":            "dd_app",
-		"DD_SITE":               "datadoghq.eu",
-		"LINEAR_API_KEY":        "lin_key",
-		"SENTRY_AUTH_TOKEN":     "sentry_tok",
-		"SENTRY_ORG":            "my-org",
-		"SLACK_TOKEN":           "xoxc-tok",
-		"SLACK_COOKIE":          "xoxd-cookie",
-		"METABASE_API_KEY":      "mb_key",
-		"METABASE_URL":          "https://mb.example.com",
-		"AWS_ACCESS_KEY_ID":     "AKIA123",
-		"AWS_SECRET_ACCESS_KEY": "secret123",
-		"AWS_SESSION_TOKEN":     "sess123",
-		"AWS_REGION":            "eu-west-1",
-		"POSTHOG_API_KEY":       "phx_key",
-		"POSTHOG_PROJECT_ID":    "12345",
-		"POSTHOG_URL":           "https://eu.posthog.com",
-		"DATABASE_URL":          "postgres://user:pass@host:5432/db",
-		"PGHOST":                "db.example.com",
-		"PGPORT":                "5433",
-		"PGUSER":                "admin",
-		"PGPASSWORD":            "secret",
-		"PGDATABASE":            "mydb",
-		"PGSSLMODE":             "require",
-		"VERCEL_API_TOKEN":      "vc_token",
-		"VERCEL_TEAM_ID":        "team_123",
-		"VERCEL_TEAM_SLUG":      "acme",
-		"VERCEL_BASE_URL":       "https://api.vercel.test",
+		"GITHUB_TOKEN":                "gh_tok",
+		"DD_API_KEY":                  "dd_api",
+		"DD_APP_KEY":                  "dd_app",
+		"DD_SITE":                     "datadoghq.eu",
+		"LINEAR_API_KEY":              "lin_key",
+		"SENTRY_AUTH_TOKEN":           "sentry_tok",
+		"SENTRY_ORG":                  "my-org",
+		"SLACK_TOKEN":                 "xoxc-tok",
+		"SLACK_COOKIE":                "xoxd-cookie",
+		"METABASE_API_KEY":            "mb_key",
+		"METABASE_URL":                "https://mb.example.com",
+		"AWS_ACCESS_KEY_ID":           "AKIA123",
+		"AWS_SECRET_ACCESS_KEY":       "secret123",
+		"AWS_SESSION_TOKEN":           "sess123",
+		"AWS_REGION":                  "eu-west-1",
+		"POSTHOG_API_KEY":             "phx_key",
+		"POSTHOG_PROJECT_ID":          "12345",
+		"POSTHOG_URL":                 "https://eu.posthog.com",
+		"DATABASE_URL":                "postgres://user:pass@host:5432/db",
+		"PGHOST":                      "db.example.com",
+		"PGPORT":                      "5433",
+		"PGUSER":                      "admin",
+		"PGPASSWORD":                  "secret",
+		"PGDATABASE":                  "mydb",
+		"PGSSLMODE":                   "require",
+		"VERCEL_API_TOKEN":            "vc_token",
+		"VERCEL_TEAM_ID":              "team_123",
+		"VERCEL_TEAM_SLUG":            "acme",
+		"VERCEL_BASE_URL":             "https://api.vercel.test",
+		"LIKEC4_EXCALIDRAW_BASE_URL":  "http://127.0.0.1:4242",
+		"LIKEC4_EXCALIDRAW_MCP_TOKEN": "likec4-secret",
 	}
 
 	m.envLookup = func(key string) string {
@@ -522,6 +525,8 @@ func TestEnvOverrides_AllIntegrations(t *testing.T) {
 	assert.Equal(t, "team_123", m.cfg.Integrations["vercel"].Credentials["team_id"])
 	assert.Equal(t, "acme", m.cfg.Integrations["vercel"].Credentials["team_slug"])
 	assert.Equal(t, "https://api.vercel.test", m.cfg.Integrations["vercel"].Credentials["base_url"])
+	assert.Equal(t, "http://127.0.0.1:4242", m.cfg.Integrations["likec4excalidraw"].Credentials["base_url"])
+	assert.Equal(t, "likec4-secret", m.cfg.Integrations["likec4excalidraw"].Credentials["mcp_token"])
 }
 
 func TestEnvOverrides_DoesNotPersistToFile(t *testing.T) {
@@ -617,9 +622,11 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_TEAM_ID", m["vercel"]["team_id"])
 	assert.Equal(t, "VERCEL_TEAM_SLUG", m["vercel"]["team_slug"])
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
-	// 40 base integrations + 11 Google Workspace services sharing the
+	assert.Equal(t, "LIKEC4_EXCALIDRAW_BASE_URL", m["likec4excalidraw"]["base_url"])
+	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
+	// 41 base integrations + 11 Google Workspace services sharing the
 	// GOOGLE_OAUTH_CLIENT_ID/SECRET env vars.
-	assert.Len(t, m, 51)
+	assert.Len(t, m, 52)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])

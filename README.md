@@ -218,6 +218,26 @@ Each named identity needs a **user OAuth access token** (`access_token`, typical
 - Every other `slackmcp_*` tool requires `identity_id` selecting which configured identity to use.
 - Upstream tools named `slack_*` are exposed once as `slackmcp_*` (not `slackmcp_slack_*`).
 
+### LikeC4 Excalidraw (`likec4excalidraw`)
+
+Proxies the project-aware Streamable HTTP MCP server exposed by `likec4-excalidraw`. Start the editor for the architecture directory first, then configure its printed base URL without `/mcp`. The token is optional and only applies when the editor server was embedded with `mcpToken` enabled.
+
+```json
+{
+  "integrations": {
+    "likec4excalidraw": {
+      "enabled": true,
+      "credentials": {
+        "base_url": "http://127.0.0.1:4242",
+        "mcp_token": ""
+      }
+    }
+  }
+}
+```
+
+Keep tokenless servers bound to localhost. The integration exposes architecture and scene inspection, diagnostics, DSL validation, PNG canvas screenshots, and element, relationship, and view mutations.
+
 ### Figma and FigJam (`figma`)
 
 Proxies Figma's official hosted MCP server and exposes the focused FigJam planning workflow: `figma_get_figjam`, `figma_use_figma`, `figma_generate_diagram`, `figma_create_new_file`, `figma_upload_assets`, `figma_get_screenshot`, and `figma_whoami`. The adapter automatically supplies the `figma-use-figjam` skill when calling `figma_use_figma`, so created sections, stickies, connectors, shapes, tables, and code blocks remain native and editable.
@@ -242,6 +262,8 @@ Environment variables override credential values but do not change the durable e
 | Slack | `token` | `SLACK_TOKEN` |
 | Slack | `cookie` | `SLACK_COOKIE` |
 | Slack MCP (official hosted) | multi-identity `access_token` | configure via `identities` in JSON (see below) |
+| LikeC4 Excalidraw | `base_url` | `LIKEC4_EXCALIDRAW_BASE_URL` |
+| LikeC4 Excalidraw | `mcp_token` | `LIKEC4_EXCALIDRAW_MCP_TOKEN` (optional) |
 | Figma MCP | `mcp_access_token` | `FIGMA_MCP_ACCESS_TOKEN` |
 | Figma MCP | `base_url` | `FIGMA_MCP_BASE_URL` (optional, default `https://mcp.figma.com`) |
 | Metabase | `api_key` | `METABASE_API_KEY` |
@@ -322,6 +344,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
 | Slack MCP (official hosted) | User OAuth access tokens per identity | Edit `~/.config/switchboard/config.json` `slackmcp.identities` (see below). Bot `xoxb-` tokens are **not** accepted by Slack's hosted MCP endpoint. |
+| LikeC4 Excalidraw | Local Streamable HTTP MCP | Start `likec4-excalidraw`, then set `LIKEC4_EXCALIDRAW_BASE_URL` or enter the printed URL in the web UI; bearer token is optional. |
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |

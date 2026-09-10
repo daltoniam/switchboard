@@ -1,0 +1,60 @@
+# LikeC4 Excalidraw response compaction specs.
+version: 1
+tools:
+  likec4excalidraw_get_architecture:
+    spec:
+      - specification.elementKinds
+      - specification.relationshipKinds
+      - specification.tags
+      - elements[].fqn
+      - elements[].kind
+      - elements[].title
+      - elements[].description
+      - elements[].technology
+      - elements[].parent
+      - elements[].tags
+      - relationships[].id
+      - relationships[].source
+      - relationships[].target
+      - relationships[].kind
+      - relationships[].title
+      - relationships[].technology
+      - relationships[].tags
+      - views[].id
+      - views[].title
+      - views[].includes
+      - diagnostics[].severity
+      - diagnostics[].message
+      - diagnostics[].source
+  likec4excalidraw_get_scene:
+    spec:
+      - version
+      - activeViewId
+      - elements[].id
+      - elements[].type
+      - elements[].x
+      - elements[].y
+      - elements[].width
+      - elements[].height
+      - elements[].frameId
+      - elements[].isDeleted
+      - elements[].customData.likec4.version
+      - elements[].customData.likec4.role
+      - elements[].customData.likec4.fqn
+      - elements[].customData.likec4.kind
+      - elements[].customData.likec4.relationId
+      - elements[].customData.likec4.viewId
+      - elements[].customData.likec4.source
+      - elements[].customData.likec4.target
+      - elements[].customData.likec4.title
+  likec4excalidraw_get_diagnostics:
+    spec:
+      - severity
+      - message
+      - source
+  likec4excalidraw_validate:
+    spec:
+      - diagnostics[].severity
+      - diagnostics[].message
+      - diagnostics[].source
+      - dsl
