@@ -22,12 +22,13 @@ type remote struct {
 	name      string
 	serverURL string
 
-	mu           sync.RWMutex
-	token        string
-	session      *mcpsdk.ClientSession
-	client       *mcpsdk.Client
-	cachedTools  []mcp.ToolDefinition
-	toolsFetched bool
+	mu            sync.RWMutex
+	token         string
+	session       *mcpsdk.ClientSession
+	client        *mcpsdk.Client
+	cachedTools   []mcp.ToolDefinition
+	toolsFetched  bool
+	optionalToken bool
 }
 
 // New creates a remote MCP integration that proxies to the given server URL.
@@ -38,6 +39,14 @@ func New(name, serverURL string) mcp.Integration {
 	}
 }
 
+func NewOptionalToken(name, serverURL string) mcp.Integration {
+	return &remote{
+		name:          name,
+		serverURL:     serverURL,
+		optionalToken: true,
+	}
+}
+
 func (r *remote) Name() string { return r.name }
 
 func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
@@ -45,7 +54,7 @@ func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 	defer r.mu.Unlock()
 
 	token := creds["access_token"]
-	if token == "" {
+	if token == "" && !r.optionalToken {
 		return fmt.Errorf("%s: access_token is required", r.name)
 	}
 
@@ -98,12 +107,13 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 		Version: version.String(),
 	}, nil)
 
+	httpClient := &http.Client{Timeout: defaultTimeout}
+	if r.token != "" {
+		httpClient.Transport = &bearerTransport{token: r.token}
+	}
 	transport := &mcpsdk.StreamableClientTransport{
-		Endpoint: r.serverURL + "/mcp",
-		HTTPClient: &http.Client{
-			Transport: &bearerTransport{token: r.token},
-			Timeout:   defaultTimeout,
-		},
+		Endpoint:             r.serverURL + "/mcp",
+		HTTPClient:           httpClient,
 		DisableStandaloneSSE: true,
 	}
 
@@ -193,6 +203,9 @@ func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 	}
 
 	remoteName := strings.TrimPrefix(string(toolName), r.name+"_")
+	if args == nil {
+		args = map[string]any{}
+	}
 
 	result, err := session.CallTool(ctx, &mcpsdk.CallToolParams{
 		Name:      remoteName,
@@ -287,11 +300,25 @@ func convertResult(result *mcpsdk.CallToolResult) *mcp.ToolResult {
 	}
 
 	var parts []string
-	for _, c := range result.Content {
-		if tc, ok := c.(*mcpsdk.TextContent); ok {
-			parts = append(parts, tc.Text)
-		} else {
-			data, err := json.Marshal(c)
+	var media []mcp.MediaContent
+	for _, content := range result.Content {
+		switch item := content.(type) {
+		case *mcpsdk.TextContent:
+			parts = append(parts, item.Text)
+		case *mcpsdk.ImageContent:
+			media = append(media, mcp.MediaContent{Data: item.Data, MIMEType: item.MIMEType})
+		case *mcpsdk.EmbeddedResource:
+			if item.Resource == nil {
+				continue
+			}
+			if item.Resource.Text != "" {
+				parts = append(parts, item.Resource.Text)
+			}
+			if len(item.Resource.Blob) > 0 {
+				media = append(media, mcp.MediaContent{Data: item.Resource.Blob, MIMEType: item.Resource.MIMEType, Name: item.Resource.URI})
+			}
+		default:
+			data, err := json.Marshal(content)
 			if err == nil {
 				parts = append(parts, string(data))
 			}
@@ -300,6 +327,7 @@ func convertResult(result *mcpsdk.CallToolResult) *mcp.ToolResult {
 
 	return &mcp.ToolResult{
 		Data:    strings.Join(parts, "\n"),
+		Media:   media,
 		IsError: result.IsError,
 	}
 }

@@ -51,6 +51,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/intercom"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
+	"github.com/daltoniam/switchboard/integrations/likec4excalidraw"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/microsoft365"
@@ -310,6 +311,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		sentry.New(),
 		slackInt.New(),
 		slackmcp.New(),
+		likec4excalidraw.New(),
 		metabase.New(),
 		paperless.New(),
 		recoll.New(),

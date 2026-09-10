@@ -1,0 +1,39 @@
+# LikeC4 Excalidraw response compaction specs.
+version: 1
+tools:
+  likec4excalidraw_get_architecture:
+    spec:
+      - specification.elementKinds
+      - specification.relationshipKinds
+      - specification.tags
+      - elements[].fqn
+      - elements[].kind
+      - elements[].title
+      - elements[].description
+      - elements[].technology
+      - elements[].parent
+      - elements[].tags
+      - relationships[].id
+      - relationships[].source
+      - relationships[].target
+      - relationships[].kind
+      - relationships[].title
+      - relationships[].technology
+      - relationships[].tags
+      - views[].id
+      - views[].title
+      - views[].includes
+      - diagnostics[].severity
+      - diagnostics[].message
+      - diagnostics[].source
+  likec4excalidraw_get_diagnostics:
+    spec:
+      - "[].severity"
+      - "[].message"
+      - "[].source"
+  likec4excalidraw_validate:
+    spec:
+      - diagnostics[].severity
+      - diagnostics[].message
+      - diagnostics[].source
+      - dsl

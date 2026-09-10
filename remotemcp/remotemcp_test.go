@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -152,6 +153,44 @@ func TestConvertResult_Nil(t *testing.T) {
 	result := convertResult(nil)
 	assert.True(t, result.IsError)
 	assert.Equal(t, "no result", result.Data)
+}
+
+func TestConvertResult_TextAndImage(t *testing.T) {
+	result := convertResult(&mcpsdk.CallToolResult{Content: []mcpsdk.Content{
+		&mcpsdk.ImageContent{Data: []byte("png"), MIMEType: "image/png"},
+		&mcpsdk.TextContent{Text: `{"width":10,"height":5}`},
+	}})
+
+	assert.JSONEq(t, `{"width":10,"height":5}`, result.Data)
+	require.Len(t, result.Media, 1)
+	assert.Equal(t, []byte("png"), result.Media[0].Data)
+	assert.Equal(t, "image/png", result.Media[0].MIMEType)
+}
+
+func TestConfigure_OptionalToken(t *testing.T) {
+	r := NewOptionalToken("test", "https://example.com").(*remote)
+	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{}))
+	assert.Empty(t, r.token)
+}
+
+func TestExecute_NilArgumentsSendsObject(t *testing.T) {
+	var gotArgs map[string]any
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "1"}, nil)
+	mcpsdk.AddTool(server, &mcpsdk.Tool{Name: "empty"}, func(_ context.Context, req *mcpsdk.CallToolRequest, _ struct{}) (*mcpsdk.CallToolResult, any, error) {
+		gotArgs = map[string]any{}
+		require.NoError(t, json.Unmarshal(req.Params.Arguments, &gotArgs))
+		return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "ok"}}}, nil, nil
+	})
+	stream := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true})
+	testServer := httptest.NewServer(stream)
+	defer testServer.Close()
+
+	integration := NewOptionalToken("test", testServer.URL)
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{}))
+	result, err := integration.Execute(context.Background(), "test_empty", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.NotNil(t, gotArgs)
 }
 
 func TestToMap_Direct(t *testing.T) {
