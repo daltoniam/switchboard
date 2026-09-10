@@ -88,6 +88,9 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations", w.handleIntegrationsList)
 	mux.HandleFunc("GET /integrations/{name}", w.handleIntegrationDetail)
 	mux.HandleFunc("POST /integrations/{name}", w.handleIntegrationSave)
+	mux.HandleFunc("POST /api/integrations/{name}/oauth/start", w.handlePluginOAuthStart)
+	mux.HandleFunc("GET /api/integrations/{name}/oauth/start", w.handlePluginOAuthStart)
+	mux.HandleFunc("GET /api/integrations/{name}/oauth/callback", w.handlePluginOAuthCallback)
 	mux.HandleFunc("POST /integrations/{name}/identities", w.handleIntegrationIdentitySave)
 	mux.HandleFunc("POST /integrations/{name}/identities/{identity}/delete", w.handleIntegrationIdentityDelete)
 
@@ -478,6 +481,16 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 		})
 	}
 
+	_, supportsOAuth := integration.(mcp.OAuthIntegration)
+	connectOAuth := supportsOAuth && creds["oauth_issuer"] != ""
+	if supportsOAuth {
+		for key := range creds {
+			if managedOAuthCredential(key, creds) {
+				delete(creds, key)
+			}
+		}
+	}
+
 	page := w.pageData(r, integration.Name(), "/integrations")
 	data := pages.IntegrationDetailData{
 		Name:                   name,
@@ -488,6 +501,7 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 		Placeholders:           placeholders,
 		OptionalKeys:           optionalKeys,
 		SupportsIdentities:     supportsIdentities,
+		ConnectOAuth:           connectOAuth,
 		IdentityCredentialKeys: identityCredentialKeys,
 		IdentityMetadataKeys:   identityMetadataKeys,
 		Identities:             identities,
@@ -509,6 +523,11 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	_, oauth := w.oauthIntegration(name)
+	if oauth && !w.localOAuthRequest(r, true) {
+		http.Error(rw, "Local same-origin request required", http.StatusForbidden)
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(rw, r, "/integrations/"+name+"?error=Invalid+form+data", http.StatusSeeOther)
 		return
@@ -534,7 +553,13 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 		ic.Identities = existingIC.Identities
 	}
 
-	if err := w.services.Config.SetIntegration(name, ic); err != nil {
+	var err error
+	if oauth {
+		err = w.editPluginCredentials(r, name, creds, enabled)
+	} else {
+		err = w.services.Config.SetIntegration(name, ic)
+	}
+	if err != nil {
 		redirect := "/integrations/" + name
 		if setupIntegrations[name] {
 			redirect += "/setup"
@@ -804,9 +829,24 @@ func (w *WebServer) handleUpdateCredentials(rw http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	_, oauth := w.oauthIntegration(name)
+	if oauth && !w.localOAuthRequest(r, true) {
+		http.Error(rw, "Local same-origin request required", http.StatusForbidden)
+		return
+	}
 	var creds mcp.Credentials
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
 		writeJSON(rw, http.StatusBadRequest, map[string]string{"error": "invalid JSON: " + err.Error()})
+		return
+	}
+
+	if oauth {
+		if err := w.editPluginCredentials(r, name, creds, true); err != nil {
+			writeJSON(rw, http.StatusInternalServerError, map[string]string{"error": "OAuth credential update failed"})
+			return
+		}
+		w.notifyConfigChanged()
+		writeJSON(rw, http.StatusOK, map[string]string{"ok": "true"})
 		return
 	}
 
@@ -3697,11 +3737,12 @@ func (w *WebServer) handleSettingsSave(rw http.ResponseWriter, r *http.Request) 
 			dollarsPerMTok = v
 		}
 	}
-	cfg := w.services.Config.Get()
-	cfg.SessionStore = sessionStore
-	cfg.ShowDollarEstimate = showDollar
-	cfg.DollarsPerMTokInput = dollarsPerMTok
-	if err := w.services.Config.Update(cfg); err != nil {
+	if err := mcp.UpdateConfig(w.services.Config, func(cfg *mcp.Config) error {
+		cfg.SessionStore = sessionStore
+		cfg.ShowDollarEstimate = showDollar
+		cfg.DollarsPerMTokInput = dollarsPerMTok
+		return nil
+	}); err != nil {
 		http.Redirect(rw, r, "/settings?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
 		return
 	}

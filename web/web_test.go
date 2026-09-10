@@ -350,7 +350,8 @@ func TestPluginLoadPath_LoadError(t *testing.T) {
 	handler := ws.Handler()
 
 	form := strings.NewReader("path=/nonexistent/path/plugin.wasm")
-	req := httptest.NewRequest("POST", "/plugins/load-path", form)
+	req := httptest.NewRequest("POST", "http://127.0.0.1:3847/plugins/load-path", form)
+	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -365,7 +366,8 @@ func TestPluginLoadPath_EmptyPath(t *testing.T) {
 	handler := ws.Handler()
 
 	form := strings.NewReader("path=")
-	req := httptest.NewRequest("POST", "/plugins/load-path", form)
+	req := httptest.NewRequest("POST", "http://127.0.0.1:3847/plugins/load-path", form)
+	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -379,7 +381,8 @@ func TestPluginLoadPath_NilLoader(t *testing.T) {
 	handler := ws.Handler()
 
 	form := strings.NewReader("path=/tmp/plugin.wasm")
-	req := httptest.NewRequest("POST", "/plugins/load-path", form)
+	req := httptest.NewRequest("POST", "http://127.0.0.1:3847/plugins/load-path", form)
+	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -394,7 +397,8 @@ func TestPluginLoadPath_InvalidExtension(t *testing.T) {
 	handler := ws.Handler()
 
 	form := strings.NewReader("path=/etc/passwd")
-	req := httptest.NewRequest("POST", "/plugins/load-path", form)
+	req := httptest.NewRequest("POST", "http://127.0.0.1:3847/plugins/load-path", form)
+	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -426,7 +430,8 @@ func uploadPlugin(t *testing.T, name string, body []byte) *http.Request {
 	require.NoError(t, err)
 	require.NoError(t, writer.Close())
 
-	req := httptest.NewRequest("POST", "/plugins/upload", &buf)
+	req := httptest.NewRequest("POST", "http://127.0.0.1:3847/plugins/upload", &buf)
+	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	return req
 }

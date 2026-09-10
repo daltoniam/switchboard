@@ -554,9 +554,10 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 				LatestVersion: ip.LatestVersion,
 			})
 		}
-		cfgNow := cfgMgr.Get()
-		cfgNow.Marketplace = mc
-		return cfgMgr.Update(cfgNow)
+		return mcp.UpdateConfig(cfgMgr, func(cfg *mcp.Config) error {
+			cfg.Marketplace = mc
+			return nil
+		})
 	}, marketplace.WithTokenFunc(marketplace.GitHubTokenFunc(func() string {
 		ic, ok := cfgMgr.GetIntegration("github")
 		if !ok || ic == nil {

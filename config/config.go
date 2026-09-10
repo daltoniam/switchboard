@@ -686,7 +686,7 @@ func (m *manager) saveLocked() error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(m.filePath, data, 0600); err != nil {
+	if err := atomicWriteConfig(m.filePath, data); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
 	return nil
@@ -719,6 +719,22 @@ func (m *manager) durableConfigFromRuntime(cfg *mcp.Config) *mcp.Config {
 }
 
 func (m *manager) Update(cfg *mcp.Config) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.updateLocked(cloneConfig(cfg))
+}
+
+func (m *manager) UpdateConfig(update func(*mcp.Config) error) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cfg := cloneConfig(m.cfg)
+	if err := update(cfg); err != nil {
+		return err
+	}
+	return m.updateLocked(cloneConfig(cfg))
+}
+
+func (m *manager) updateLocked(cfg *mcp.Config) error {
 	for name, ic := range cfg.Integrations {
 		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
 			return fmt.Errorf("integration %q: %w", name, err)
@@ -727,8 +743,6 @@ func (m *manager) Update(cfg *mcp.Config) error {
 	if err := mcp.ValidateProjectCatalogConfig(cfg.ProjectCatalog); err != nil {
 		return err
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	previousRuntime := m.cfg
 	previousPersisted := m.persisted
 	m.cfg = cfg
@@ -749,11 +763,28 @@ func (m *manager) GetIntegration(name string) (*mcp.IntegrationConfig, bool) {
 }
 
 func (m *manager) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.setIntegrationLocked(name, ic)
+}
+
+func (m *manager) UpdateIntegration(name string, update func(*mcp.IntegrationConfig) error) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ic := cloneIntegrationConfig(m.cfg.Integrations[name])
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	if err := update(ic); err != nil {
+		return err
+	}
+	return m.setIntegrationLocked(name, ic)
+}
+
+func (m *manager) setIntegrationLocked(name string, ic *mcp.IntegrationConfig) error {
 	if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
 		return fmt.Errorf("integration %q: %w", name, err)
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	previous, existed := m.cfg.Integrations[name]
 	if m.persisted == nil {
 		m.persisted = cloneConfig(m.cfg)
@@ -768,7 +799,7 @@ func (m *manager) SetIntegration(name string, ic *mcp.IntegrationConfig) error {
 			durable.Credentials[credentialKey] = previousPersisted.Credentials[credentialKey]
 		}
 	}
-	m.cfg.Integrations[name] = ic
+	m.cfg.Integrations[name] = cloneIntegrationConfig(ic)
 	m.persisted.Integrations[name] = durable
 	if err := m.saveLocked(); err != nil {
 		if existed {

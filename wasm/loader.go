@@ -57,6 +57,20 @@ func (l *Loader) LoadPlugin(ctx context.Context, path string, nameOverride strin
 		mod.SetName(nameOverride)
 	}
 
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	name := mod.Name()
+	if old, ok := l.modules[name]; ok {
+		if err := old.Close(ctx); err != nil {
+			_ = mod.Close(ctx)
+			return fmt.Errorf("close previous WASM module: %w", err)
+		}
+		l.reg.Unregister(name)
+		delete(l.modules, name)
+	}
+
+	mod.SetConfigService(l.cfgMgr)
+
 	mergedCreds := mcp.Credentials{}
 	for _, key := range mod.CredentialKeys() {
 		mergedCreds[key] = ""
@@ -116,49 +130,52 @@ func (l *Loader) LoadPlugin(ctx context.Context, path string, nameOverride strin
 	// credential schema changed. Startup loading must never rewrite unrelated
 	// config state or silently enable a plugin.
 	if !hasExisting || !reflect.DeepEqual(existing, ic) {
-		if err := l.cfgMgr.SetIntegration(mod.Name(), ic); err != nil {
+		if err := l.mergeCredentialSchema(mod.Name(), mod.CredentialKeys(), ic); err != nil {
 			mod.Close(ctx) //nolint:errcheck
 			return fmt.Errorf("persist WASM module %q configuration: %w", path, err)
 		}
 	}
-
-	l.mu.Lock()
-	if old, ok := l.modules[mod.Name()]; ok {
-		l.reg.Unregister(mod.Name())
-		old.Close(ctx) //nolint:errcheck
-		delete(l.modules, mod.Name())
-	}
-	l.mu.Unlock()
 
 	if err := l.reg.Register(mod); err != nil {
 		mod.Close(ctx) //nolint:errcheck
 		return fmt.Errorf("register WASM module %q: %w", path, err)
 	}
 
-	l.mu.Lock()
 	l.modules[mod.Name()] = mod
-	l.mu.Unlock()
 
 	log.Printf("Live-loaded WASM integration %q from %s", mod.Name(), path)
 	return nil
 }
 
+func (l *Loader) mergeCredentialSchema(name string, keys []string, fallback *mcp.IntegrationConfig) error {
+	if updater, ok := l.cfgMgr.(mcp.IntegrationConfigUpdater); ok {
+		return updater.UpdateIntegration(name, func(ic *mcp.IntegrationConfig) error {
+			if ic.Credentials == nil {
+				ic.Credentials = mcp.Credentials{}
+			}
+			for _, key := range keys {
+				if _, exists := ic.Credentials[key]; !exists {
+					ic.Credentials[key] = ""
+				}
+			}
+			return nil
+		})
+	}
+	return l.cfgMgr.SetIntegration(name, fallback)
+}
+
 // UnloadPlugin removes a WASM module from the registry and closes it.
 func (l *Loader) UnloadPlugin(ctx context.Context, name string) error {
 	l.mu.Lock()
-	mod, ok := l.modules[name]
-	if ok {
+	defer l.mu.Unlock()
+	if mod, ok := l.modules[name]; ok {
+		if err := mod.Close(ctx); err != nil {
+			return err
+		}
 		delete(l.modules, name)
 	}
-	l.mu.Unlock()
-
-	if !ok {
-		l.reg.Unregister(name)
-		return nil
-	}
-
 	l.reg.Unregister(name)
-	return mod.Close(ctx)
+	return nil
 }
 
 // Runtime returns the underlying wazero Runtime.

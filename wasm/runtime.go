@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/pluginoauth"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -104,8 +105,11 @@ func (r *Runtime) Close(ctx context.Context) error {
 // touch m.mod or m.fn*. closed is set by Close so racing callers return
 // ErrModuleClosed instead of dereferencing a freed memory instance.
 type Module struct {
-	callMu sync.Mutex
-	closed atomic.Bool
+	callMu   sync.Mutex
+	closed   atomic.Bool
+	cfgMgr   mcp.ConfigService
+	oauth    *pluginoauth.Manager
+	oauthErr error
 
 	mod          api.Module
 	nameOverride string
@@ -210,13 +214,16 @@ func (m *Module) CompactSpec(toolName mcp.ToolName) ([]mcp.CompactField, bool) {
 // nil-returning interface methods, an empty result) without touching the
 // underlying wazero module.
 func (m *Module) Close(ctx context.Context) error {
-	// Set the flag before acquiring the lock so in-flight callers fail fast
-	// when they re-check it. The lock then waits for any active Call to
-	// complete before we hand the module to wazero for teardown.
-	if !m.closed.CompareAndSwap(false, true) {
-		return nil
-	}
 	m.callMu.Lock()
 	defer m.callMu.Unlock()
+	if m.closed.Load() {
+		return nil
+	}
+	if m.oauth != nil {
+		if err := m.oauth.Flush(ctx); err != nil {
+			return err
+		}
+	}
+	m.closed.Store(true)
 	return m.mod.Close(ctx)
 }

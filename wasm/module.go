@@ -7,6 +7,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/marketplace"
+	"github.com/daltoniam/switchboard/pluginoauth"
 )
 
 var _ mcp.FieldCompactionIntegration = (*Module)(nil)
@@ -49,11 +50,7 @@ func (m *Module) Name() string {
 
 // Configure implements mcp.Integration.
 func (m *Module) Configure(ctx context.Context, creds mcp.Credentials) error {
-	credsJSON, err := json.Marshal(creds)
-	if err != nil {
-		return fmt.Errorf("wasm: marshal credentials: %w", err)
-	}
-
+	name := m.Name()
 	if m.closed.Load() {
 		return ErrModuleClosed
 	}
@@ -63,6 +60,28 @@ func (m *Module) Configure(ctx context.Context, creds mcp.Credentials) error {
 		return ErrModuleClosed
 	}
 
+	if pluginoauth.Configured(creds) {
+		if m.oauth == nil {
+			m.oauth = pluginoauth.New(name, m.cfgMgr)
+		}
+		m.oauthErr = m.oauth.Load(creds)
+		return m.oauthErr
+	}
+	if m.oauth != nil && m.oauth.Active() {
+		if err := m.oauth.Flush(ctx); err != nil {
+			return err
+		}
+		m.oauth = nil
+	}
+	m.oauthErr = nil
+	return m.configureGuest(ctx, creds)
+}
+
+func (m *Module) configureGuest(ctx context.Context, creds mcp.Credentials) error {
+	credsJSON, err := json.Marshal(creds)
+	if err != nil {
+		return fmt.Errorf("wasm: marshal credentials: %w", err)
+	}
 	ptr, size, err := writeToGuest(ctx, m.mod, credsJSON)
 	if err != nil {
 		return fmt.Errorf("wasm: write credentials: %w", err)
@@ -149,6 +168,10 @@ func (m *Module) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 		return &mcp.ToolResult{Data: ErrModuleClosed.Error(), IsError: true}, nil
 	}
 
+	if err := m.prepareOAuth(ctx); err != nil {
+		return mcp.ErrResult(err)
+	}
+
 	ptr, size, err := writeToGuest(ctx, m.mod, reqJSON)
 	if err != nil {
 		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
@@ -185,6 +208,9 @@ func (m *Module) Healthy(ctx context.Context) bool {
 	m.callMu.Lock()
 	defer m.callMu.Unlock()
 	if m.closed.Load() {
+		return false
+	}
+	if err := m.prepareOAuth(ctx); err != nil {
 		return false
 	}
 	results, err := m.fnHealthy.Call(ctx)

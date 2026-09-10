@@ -84,6 +84,9 @@ func (w *WebServer) handlePluginMarketplace(rw http.ResponseWriter, r *http.Requ
 }
 
 func (w *WebServer) handlePluginInstall(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if w.marketplace == nil {
 		http.Redirect(rw, r, "/plugins?error=Marketplace+not+configured", http.StatusSeeOther)
 		return
@@ -115,6 +118,9 @@ func (w *WebServer) handlePluginInstall(rw http.ResponseWriter, r *http.Request)
 }
 
 func (w *WebServer) handlePluginInstallURL(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if w.marketplace == nil {
 		http.Redirect(rw, r, "/plugins?error=Marketplace+not+configured", http.StatusSeeOther)
 		return
@@ -146,6 +152,9 @@ func (w *WebServer) handlePluginInstallURL(rw http.ResponseWriter, r *http.Reque
 }
 
 func (w *WebServer) handlePluginUpload(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if w.marketplace == nil {
 		http.Redirect(rw, r, "/plugins?error=Marketplace+not+configured", http.StatusSeeOther)
 		return
@@ -184,6 +193,9 @@ func (w *WebServer) handlePluginUpload(rw http.ResponseWriter, r *http.Request) 
 }
 
 func (w *WebServer) handlePluginUninstall(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if w.marketplace == nil {
 		http.Redirect(rw, r, "/plugins?error=Marketplace+not+configured", http.StatusSeeOther)
 		return
@@ -195,17 +207,23 @@ func (w *WebServer) handlePluginUninstall(rw http.ResponseWriter, r *http.Reques
 
 	name := strings.TrimSpace(r.FormValue("name"))
 
-	w.liveUnloadPlugin(r.Context(), name)
+	if err := w.liveUnloadPlugin(r.Context(), name); err != nil {
+		http.Redirect(rw, r, "/plugins?error=Uninstall+failed:+"+urlEncode(err.Error()), http.StatusSeeOther)
+		return
+	}
 
 	if err := w.marketplace.UninstallPlugin(name); err != nil {
 		http.Redirect(rw, r, "/plugins?error=Uninstall+failed:+"+urlEncode(err.Error()), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uninstalled+%s.", name), http.StatusSeeOther)
+	http.Redirect(rw, r, fmt.Sprintf("/plugins?success=Uninstalled+%s.", urlEncode(name)), http.StatusSeeOther)
 }
 
 func (w *WebServer) handlePluginUpdate(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if w.marketplace == nil {
 		http.Redirect(rw, r, "/plugins?error=Marketplace+not+configured", http.StatusSeeOther)
 		return
@@ -237,6 +255,9 @@ func (w *WebServer) handlePluginUpdate(rw http.ResponseWriter, r *http.Request) 
 }
 
 func (w *WebServer) handlePluginCheckUpdates(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if w.marketplace == nil {
 		http.Redirect(rw, r, "/plugins?error=Marketplace+not+configured", http.StatusSeeOther)
 		return
@@ -262,6 +283,9 @@ func (w *WebServer) handlePluginCheckUpdates(rw http.ResponseWriter, r *http.Req
 }
 
 func (w *WebServer) handlePluginAutoUpdate(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if w.marketplace == nil {
 		http.Redirect(rw, r, "/plugins?error=Marketplace+not+configured", http.StatusSeeOther)
 		return
@@ -285,6 +309,9 @@ func (w *WebServer) handlePluginAutoUpdate(rw http.ResponseWriter, r *http.Reque
 }
 
 func (w *WebServer) handlePluginAddManifest(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if w.marketplace == nil {
 		http.Redirect(rw, r, "/plugins?error=Marketplace+not+configured", http.StatusSeeOther)
 		return
@@ -315,6 +342,9 @@ func (w *WebServer) handlePluginAddManifest(rw http.ResponseWriter, r *http.Requ
 }
 
 func (w *WebServer) handlePluginRemoveManifest(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if w.marketplace == nil {
 		http.Redirect(rw, r, "/plugins?error=Marketplace+not+configured", http.StatusSeeOther)
 		return
@@ -344,16 +374,21 @@ func (w *WebServer) liveLoadPlugin(ctx context.Context, path, nameOverride strin
 	return nil
 }
 
-func (w *WebServer) liveUnloadPlugin(ctx context.Context, name string) {
+func (w *WebServer) liveUnloadPlugin(ctx context.Context, name string) error {
 	if w.wasmLoader == nil {
-		return
+		return nil
 	}
 	if err := w.wasmLoader.UnloadPlugin(ctx, name); err != nil {
 		log.Printf("WARN: live-unload plugin %q failed: %v", name, err)
+		return err
 	}
+	return nil
 }
 
 func (w *WebServer) handlePluginLoadPath(rw http.ResponseWriter, r *http.Request) {
+	if !w.allowMarketplaceMutation(rw, r) {
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(rw, r, "/plugins?error=Invalid+form+data", http.StatusSeeOther)
 		return
@@ -379,6 +414,14 @@ func (w *WebServer) handlePluginLoadPath(rw http.ResponseWriter, r *http.Request
 		return
 	}
 	http.Redirect(rw, r, "/plugins?success=Plugin+loaded+from+local+path.", http.StatusSeeOther)
+}
+
+func (w *WebServer) allowMarketplaceMutation(rw http.ResponseWriter, r *http.Request) bool {
+	if !w.localRequest(r, true, true) {
+		http.Error(rw, "Local same-origin request required", http.StatusForbidden)
+		return false
+	}
+	return true
 }
 
 func urlEncode(s string) string {

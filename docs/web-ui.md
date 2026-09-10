@@ -18,6 +18,7 @@
   - `POST /integrations/{name}` — Save integration credentials
   - `POST /integrations/{name}/identities` — Add or update a named identity (secret fields stay write-only)
   - `POST /integrations/{name}/identities/{identity}/delete` — Remove a named identity
+- Native WASM OAuth: `POST /api/integrations/{name}/oauth/start` and `GET /api/integrations/{name}/oauth/callback`; see [plugin-oauth.md](plugin-oauth.md) for public-client PKCE setup and native refresh.
 - **OAuth/Setup pages** (guided credential flows):
   - `GET /integrations/github/setup` — GitHub Device Flow OAuth
   - `GET /integrations/linear/setup` — Linear OAuth (PKCE)

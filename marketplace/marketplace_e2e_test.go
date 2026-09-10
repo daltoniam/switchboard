@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -148,8 +149,10 @@ func webServer(t *testing.T, mp *marketplace.Manager) *httptest.Server {
 	reg := registry.New()
 	cfgSvc := newStubConfigService()
 	services := &mcp.Services{Config: cfgSvc, Registry: reg}
-	ws := web.New(services, 0, mp, nil)
-	srv := httptest.NewServer(ws.Handler())
+	srv := httptest.NewUnstartedServer(nil)
+	ws := web.New(services, srv.Listener.Addr().(*net.TCPAddr).Port, mp, nil)
+	srv.Config.Handler = ws.Handler()
+	srv.Start()
 	t.Cleanup(srv.Close)
 	return srv
 }

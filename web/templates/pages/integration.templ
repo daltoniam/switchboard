@@ -42,6 +42,7 @@ type IntegrationDetailData struct {
 	PlainTextKeys          map[string]bool
 	Placeholders           map[string]string
 	OptionalKeys           map[string]bool
+	ConnectOAuth           bool
 	SupportsIdentities     bool
 	IdentityCredentialKeys []string
 	IdentityMetadataKeys   []string
@@ -108,6 +109,26 @@ templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
 			<h1 class="page-title" style="margin-bottom: 0; text-transform: capitalize;">{ data.Name }</h1>
 			@components.Badge(healthLabel(data.Enabled, data.Healthy), healthBadge(data.Enabled, data.Healthy))
 		</div>
+		if data.ConnectOAuth {
+			<div class="card">
+				<button type="button" class="btn" data-oauth-start={ "/api/integrations/" + data.Name + "/oauth/start" } onclick="connectPluginOAuth(this)">Connect OAuth</button>
+				<p>Open this page using 127.0.0.1. OAuth tokens stay managed by Switchboard; connecting does not enable the integration.</p>
+			</div>
+			<script>
+				async function connectPluginOAuth(button) {
+					button.disabled = true;
+					try {
+						const response = await fetch(button.dataset.oauthStart, {method: "POST", credentials: "same-origin"});
+						if (!response.ok) throw new Error("OAuth start failed. Check configuration and use the 127.0.0.1 address.");
+						const data = await response.json();
+						window.location.assign(data.authorize_url);
+					} catch (error) {
+						alert(error.message);
+						button.disabled = false;
+					}
+				}
+			</script>
+		}
 		<form method="POST" action={ templ.SafeURL("/integrations/" + data.Name) }>
 			<div class="card">
 				<div class="card-header">
