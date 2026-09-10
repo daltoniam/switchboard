@@ -1,0 +1,92 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+type FigmaSetupData struct {
+	HasToken    bool
+	Healthy     bool
+	FlashResult string
+	FlashError  string
+}
+
+templ FigmaSetup(page layouts.PageData, data FigmaSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Figma and FigJam Setup</h1>
+			if data.Healthy {
+				@components.Badge("Connected", "green")
+			} else if data.HasToken {
+				@components.Badge("Connection Error", "red")
+			} else {
+				@components.Badge("Not Connected", "muted")
+			}
+		</div>
+		if data.FlashResult != "" {
+			<div class="flash flash-success">{ data.FlashResult }</div>
+		}
+		if data.FlashError != "" {
+			<div class="flash flash-error">{ data.FlashError }</div>
+		}
+		<div class="card">
+			<div class="card-header">
+				<div class="card-title">Sign in with Figma</div>
+				if data.Healthy {
+					@components.Badge("Connected", "green")
+				}
+			</div>
+			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+				Authorize Figma's hosted MCP server to read FigJam whiteboards, create editable diagrams, and add or update native board content.
+			</p>
+			<div id="oauth-container">
+				<button type="button" class="btn btn-green" id="oauth-start-btn" onclick="startRemoteMCPOAuth()">
+					if data.Healthy {
+						Re-authorize
+					} else {
+						Sign in with Figma →
+					}
+				</button>
+			</div>
+			<div id="oauth-error" style="display: none;">
+				<div class="flash flash-error" id="oauth-error-msg"></div>
+				<button type="button" class="btn btn-outline" onclick="resetOAuth()" style="margin-top: 0.5rem;">Try Again</button>
+			</div>
+		</div>
+		<script>
+			function startRemoteMCPOAuth() {
+				var btn = document.getElementById('oauth-start-btn');
+				btn.disabled = true;
+				btn.textContent = 'Starting...';
+				fetch('/api/remote/figma/oauth/start', { method: 'POST' })
+					.then(function(r) { return r.json(); })
+					.then(function(data) {
+						if (data.error) {
+							showOAuthError(data.error);
+							return;
+						}
+						window.location.href = data.authorize_url;
+					})
+					.catch(function(err) {
+						showOAuthError('Failed to start OAuth flow: ' + err.message);
+					});
+			}
+
+			function showOAuthError(msg) {
+				document.getElementById('oauth-container').style.display = 'none';
+				document.getElementById('oauth-error').style.display = 'block';
+				document.getElementById('oauth-error-msg').textContent = msg;
+			}
+
+			function resetOAuth() {
+				document.getElementById('oauth-error').style.display = 'none';
+				document.getElementById('oauth-container').style.display = 'block';
+				var btn = document.getElementById('oauth-start-btn');
+				btn.disabled = false;
+				btn.textContent = 'Sign in with Figma \u2192';
+			}
+		</script>
+	}
+}

@@ -75,6 +75,9 @@ integrations/
   slackmcp/
     slackmcp.go              Official hosted Slack MCP multi-identity proxy (remotemcp per identity, identity_id routing)
     slackmcp_test.go         Streamable HTTP MCP fixture tests (bearer routing, union, schema injection)
+  figma/
+    figma.go                 Official hosted Figma MCP proxy filtered to FigJam planning tools
+    figma_test.go            FigJam tool filtering, skill injection, and routing tests
   metabase/
     metabase.go              Metabase integration adapter (core, dispatch, HTTP helpers)
     tools.go                 Metabase tool definitions (~22 tools)

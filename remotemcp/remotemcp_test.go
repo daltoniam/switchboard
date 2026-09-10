@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -154,6 +156,44 @@ func TestConvertResult_Nil(t *testing.T) {
 	assert.Equal(t, "no result", result.Data)
 }
 
+func TestConvertResult_TextAndImage(t *testing.T) {
+	result := convertResult(&mcpsdk.CallToolResult{Content: []mcpsdk.Content{
+		&mcpsdk.ImageContent{Data: []byte("png"), MIMEType: "image/png"},
+		&mcpsdk.TextContent{Text: `{"width":10,"height":5}`},
+	}})
+
+	assert.JSONEq(t, `{"width":10,"height":5}`, result.Data)
+	require.Len(t, result.Media, 1)
+	assert.Equal(t, []byte("png"), result.Media[0].Data)
+	assert.Equal(t, "image/png", result.Media[0].MIMEType)
+}
+
+func TestConfigure_OptionalToken(t *testing.T) {
+	r := NewOptionalToken("test", "https://example.com").(*remote)
+	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{}))
+	assert.Empty(t, r.token)
+}
+
+func TestExecute_NilArgumentsSendsObject(t *testing.T) {
+	var gotArgs map[string]any
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "1"}, nil)
+	mcpsdk.AddTool(server, &mcpsdk.Tool{Name: "empty"}, func(_ context.Context, req *mcpsdk.CallToolRequest, _ struct{}) (*mcpsdk.CallToolResult, any, error) {
+		gotArgs = map[string]any{}
+		require.NoError(t, json.Unmarshal(req.Params.Arguments, &gotArgs))
+		return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "ok"}}}, nil, nil
+	})
+	stream := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true})
+	testServer := httptest.NewServer(stream)
+	defer testServer.Close()
+
+	integration := NewOptionalToken("test", testServer.URL)
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{}))
+	result, err := integration.Execute(context.Background(), "test_empty", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.NotNil(t, gotArgs)
+}
+
 func TestToMap_Direct(t *testing.T) {
 	m := map[string]any{"foo": "bar"}
 	result, ok := toMap(m)
@@ -258,7 +298,9 @@ func TestOAuth_DiscoverSuccess(t *testing.T) {
 }
 
 func TestOAuth_RegisterClient(t *testing.T) {
+	var registration map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&registration))
 		w.WriteHeader(201)
 		json.NewEncoder(w).Encode(map[string]string{
 			"client_id": "test-client-id",
@@ -266,10 +308,12 @@ func TestOAuth_RegisterClient(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	clientID, clientSecret, err := registerClient(srv.URL, "http://localhost:3847/callback")
+	clientID, clientSecret, err := registerClient(srv.URL, "http://localhost:3847/callback", "Codex")
 	assert.NoError(t, err)
 	assert.Equal(t, "test-client-id", clientID)
 	assert.Empty(t, clientSecret)
+	assert.Equal(t, "Codex", registration["client_name"])
+	assert.Equal(t, "native", registration["application_type"])
 }
 
 func TestOAuth_RegisterClient_Failure(t *testing.T) {
@@ -282,6 +326,45 @@ func TestOAuth_RegisterClient_Failure(t *testing.T) {
 	_, _, err := registerClient(srv.URL, "http://localhost:3847/callback")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "registration failed")
+}
+
+func TestOAuth_StartUsesRequestedScopeAndResource(t *testing.T) {
+	var registrationRedirect string
+	var registrationClientName string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			json.NewEncoder(w).Encode(map[string]any{
+				"authorization_endpoint": "http://" + r.Host + "/authorize",
+				"token_endpoint":         "http://" + r.Host + "/token",
+				"registration_endpoint":  "http://" + r.Host + "/register",
+			})
+		case "/register":
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			redirects := body["redirect_uris"].([]any)
+			registrationRedirect = redirects[0].(string)
+			registrationClientName = body["client_name"].(string)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]string{"client_id": "figma-client"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	authorizeURL, err := StartOAuth("figma-test", srv.URL, "http://localhost/callback", OAuthOptions{
+		Scope:      "mcp:connect",
+		ClientName: "Codex",
+		Resource:   srv.URL + "/mcp",
+	})
+	require.NoError(t, err)
+	parsed, err := url.Parse(authorizeURL)
+	require.NoError(t, err)
+	assert.Equal(t, "mcp:connect", parsed.Query().Get("scope"))
+	assert.Equal(t, srv.URL+"/mcp", parsed.Query().Get("resource"))
+	assert.Equal(t, "http://localhost/callback", registrationRedirect)
+	assert.Equal(t, "Codex", registrationClientName)
 }
 
 func TestOAuth_HandleCallback_NoFlow(t *testing.T) {

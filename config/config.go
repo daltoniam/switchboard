@@ -43,6 +43,10 @@ var envMapping = map[string]map[string]string{
 		"cookie":  "SLACK_COOKIE",
 		"team_id": "SLACK_TEAM_ID",
 	},
+	"likec4excalidraw": {
+		"base_url":  "LIKEC4_EXCALIDRAW_BASE_URL",
+		"mcp_token": "LIKEC4_EXCALIDRAW_MCP_TOKEN",
+	},
 	"metabase": {
 		"api_key": "METABASE_API_KEY",
 		"url":     "METABASE_URL",
@@ -225,6 +229,10 @@ var envMapping = map[string]map[string]string{
 		"tenant_id":     "MICROSOFT365_TENANT_ID",
 		"base_url":      "MICROSOFT365_BASE_URL",
 	},
+	"figma": {
+		"mcp_access_token": "FIGMA_MCP_ACCESS_TOKEN",
+		"base_url":         "FIGMA_MCP_BASE_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -313,6 +321,14 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": ""},
 				Identities:  map[string]mcp.IntegrationIdentity{},
+			},
+			"likec4excalidraw": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "mcp_token": ""},
+			},
+			"figma": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
 			"metabase": {
 				Enabled:     false,

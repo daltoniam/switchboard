@@ -32,6 +32,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
+	"github.com/daltoniam/switchboard/integrations/figma"
 	flyInt "github.com/daltoniam/switchboard/integrations/fly"
 	"github.com/daltoniam/switchboard/integrations/forgejo"
 	"github.com/daltoniam/switchboard/integrations/gcal"
@@ -52,6 +53,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/intercom"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
+	"github.com/daltoniam/switchboard/integrations/likec4excalidraw"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/microsoft365"
@@ -312,6 +314,8 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		sentry.New(),
 		slackInt.New(),
 		slackmcp.New(),
+		likec4excalidraw.New(),
+		figma.New(),
 		metabase.New(),
 		paperless.New(),
 		recoll.New(),
