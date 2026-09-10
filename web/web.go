@@ -1555,6 +1555,27 @@ func (w *WebServer) handleClickHouseSetup(rw http.ResponseWriter, r *http.Reques
 	pages.ClickHouseSetup(page, data).Render(r.Context(), rw)
 }
 
+type remoteOAuthProfile struct {
+	CallbackPath       string
+	Options            remotemcp.OAuthOptions
+	CredentialKey      string
+	ClearCredentialKey string
+}
+
+var remoteOAuthProfiles = map[string]remoteOAuthProfile{
+	"linear": {
+		CallbackPath:       "/api/remote/linear/oauth/callback",
+		Options:            remotemcp.OAuthOptions{Scope: "read,write"},
+		CredentialKey:      "mcp_access_token",
+		ClearCredentialKey: "api_key",
+	},
+	"figma": {
+		CallbackPath:  "/callback",
+		Options:       remotemcp.OAuthOptions{Scope: "mcp:connect", ClientName: "Codex"},
+		CredentialKey: "mcp_access_token",
+	},
+}
+
 func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	name := r.PathValue("name")
@@ -1577,13 +1598,19 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 		return
 	}
 
-	redirectURI := fmt.Sprintf("http://localhost:%d/api/remote/%s/oauth/callback", w.port, name)
-	scope := "read,write"
-	if name == "figma" {
-		redirectURI = fmt.Sprintf("http://localhost:%d/callback", w.port)
-		scope = "mcp:connect"
+	profile, ok := remoteOAuthProfiles[name]
+	if !ok {
+		profile = remoteOAuthProfile{
+			CallbackPath:  "/api/remote/" + name + "/oauth/callback",
+			Options:       remotemcp.OAuthOptions{Scope: "read,write"},
+			CredentialKey: "mcp_access_token",
+		}
 	}
-	authorizeURL, err := remotemcp.StartOAuth(name, serverURL, redirectURI, scope)
+	if name == "figma" {
+		profile.Options.Resource = serverURL + "/mcp"
+	}
+	redirectURI := fmt.Sprintf("http://localhost:%d%s", w.port, profile.CallbackPath)
+	authorizeURL, err := remotemcp.StartOAuth(name, serverURL, redirectURI, profile.Options)
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
 		return
@@ -1632,10 +1659,14 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 	if ic == nil {
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
+	profile, ok := remoteOAuthProfiles[name]
+	if !ok {
+		profile = remoteOAuthProfile{CredentialKey: "mcp_access_token"}
+	}
 	ic.Enabled = true
-	ic.Credentials["mcp_access_token"] = token
-	if name == "linear" {
-		ic.Credentials["api_key"] = ""
+	ic.Credentials[profile.CredentialKey] = token
+	if profile.ClearCredentialKey != "" {
+		ic.Credentials[profile.ClearCredentialKey] = ""
 	}
 	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
 	_ = w.services.Config.SetIntegration(name, ic)

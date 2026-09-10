@@ -1171,6 +1171,20 @@ func TestFigmaSetup_RendersOAuthFlow(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "/api/remote/figma/oauth/start")
 }
 
+func TestRemoteOAuthProfiles(t *testing.T) {
+	figmaProfile, ok := remoteOAuthProfiles["figma"]
+	require.True(t, ok)
+	assert.Equal(t, "/callback", figmaProfile.CallbackPath)
+	assert.Equal(t, "mcp:connect", figmaProfile.Options.Scope)
+	assert.Equal(t, "Codex", figmaProfile.Options.ClientName)
+	assert.Equal(t, "mcp_access_token", figmaProfile.CredentialKey)
+
+	linearProfile, ok := remoteOAuthProfiles["linear"]
+	require.True(t, ok)
+	assert.Equal(t, "/api/remote/linear/oauth/callback", linearProfile.CallbackPath)
+	assert.Equal(t, "api_key", linearProfile.ClearCredentialKey)
+}
+
 func TestFigmaOAuthCallback_UsesRootCallbackRoute(t *testing.T) {
 	ws, _, _ := setupTestWeb()
 	req := httptest.NewRequest("GET", "/callback?error=access_denied", nil)

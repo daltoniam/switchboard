@@ -33,6 +33,13 @@ type OAuthState struct {
 	done         bool
 }
 
+// OAuthOptions configures provider-specific OAuth requirements.
+type OAuthOptions struct {
+	Scope      string
+	ClientName string
+	Resource   string
+}
+
 type oauthServerMeta struct {
 	Issuer                string   `json:"issuer"`
 	AuthorizationEndpoint string   `json:"authorization_endpoint"`
@@ -123,7 +130,7 @@ func registerClient(registerURL, redirectURI string, clientNames ...string) (cli
 
 // StartOAuth begins the MCP OAuth flow for a remote server.
 // It discovers the OAuth endpoints, registers a dynamic client, and returns the authorize URL.
-func StartOAuth(name, serverURL, redirectURI string, scopes ...string) (string, error) {
+func StartOAuth(name, serverURL, redirectURI string, options ...OAuthOptions) (string, error) {
 	meta, err := discoverOAuth(serverURL)
 	if err != nil {
 		return "", err
@@ -133,11 +140,17 @@ func StartOAuth(name, serverURL, redirectURI string, scopes ...string) (string, 
 		return "", fmt.Errorf("remote server does not support dynamic client registration")
 	}
 
-	clientName := "Switchboard"
-	if len(scopes) > 0 && strings.TrimSpace(scopes[0]) == "mcp:connect" {
-		clientName = "Codex"
+	config := OAuthOptions{Scope: "read,write", ClientName: "Switchboard"}
+	if len(options) > 0 {
+		if value := strings.TrimSpace(options[0].Scope); value != "" {
+			config.Scope = value
+		}
+		if value := strings.TrimSpace(options[0].ClientName); value != "" {
+			config.ClientName = value
+		}
+		config.Resource = strings.TrimSpace(options[0].Resource)
 	}
-	clientID, clientSecret, err := registerClient(meta.RegistrationEndpoint, redirectURI, clientName)
+	clientID, clientSecret, err := registerClient(meta.RegistrationEndpoint, redirectURI, config.ClientName)
 	if err != nil {
 		return "", err
 	}
@@ -146,23 +159,17 @@ func StartOAuth(name, serverURL, redirectURI string, scopes ...string) (string, 
 	verifier := randomString(64)
 	challenge := pkceChallenge(verifier)
 
-	scope := "read,write"
-	if len(scopes) > 0 && strings.TrimSpace(scopes[0]) != "" {
-		scope = strings.TrimSpace(scopes[0])
-	}
 	params := url.Values{
 		"client_id":             {clientID},
 		"redirect_uri":          {redirectURI},
 		"response_type":         {"code"},
-		"scope":                 {scope},
+		"scope":                 {config.Scope},
 		"state":                 {state},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
 	}
-	resource := ""
-	if scope == "mcp:connect" {
-		resource = serverURL + "/mcp"
-		params.Set("resource", resource)
+	if config.Resource != "" {
+		params.Set("resource", config.Resource)
 	}
 
 	authorizeURL := meta.AuthorizationEndpoint + "?" + params.Encode()
@@ -174,7 +181,7 @@ func StartOAuth(name, serverURL, redirectURI string, scopes ...string) (string, 
 		redirectURI:  redirectURI,
 		state:        state,
 		codeVerifier: verifier,
-		resource:     resource,
+		resource:     config.Resource,
 	}
 
 	activeRemoteOAuth.mu.Lock()

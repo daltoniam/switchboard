@@ -291,6 +291,7 @@ func TestOAuth_RegisterClient_Failure(t *testing.T) {
 
 func TestOAuth_StartUsesRequestedScopeAndResource(t *testing.T) {
 	var registrationRedirect string
+	var registrationClientName string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/.well-known/oauth-authorization-server":
@@ -304,6 +305,7 @@ func TestOAuth_StartUsesRequestedScopeAndResource(t *testing.T) {
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 			redirects := body["redirect_uris"].([]any)
 			registrationRedirect = redirects[0].(string)
+			registrationClientName = body["client_name"].(string)
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(map[string]string{"client_id": "figma-client"})
 		default:
@@ -312,13 +314,18 @@ func TestOAuth_StartUsesRequestedScopeAndResource(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	authorizeURL, err := StartOAuth("figma-test", srv.URL, "http://localhost/callback", "mcp:connect")
+	authorizeURL, err := StartOAuth("figma-test", srv.URL, "http://localhost/callback", OAuthOptions{
+		Scope:      "mcp:connect",
+		ClientName: "Codex",
+		Resource:   srv.URL + "/mcp",
+	})
 	require.NoError(t, err)
 	parsed, err := url.Parse(authorizeURL)
 	require.NoError(t, err)
 	assert.Equal(t, "mcp:connect", parsed.Query().Get("scope"))
 	assert.Equal(t, srv.URL+"/mcp", parsed.Query().Get("resource"))
 	assert.Equal(t, "http://localhost/callback", registrationRedirect)
+	assert.Equal(t, "Codex", registrationClientName)
 }
 
 func TestOAuth_HandleCallback_NoFlow(t *testing.T) {

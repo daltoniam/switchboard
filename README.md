@@ -222,7 +222,7 @@ Each named identity needs a **user OAuth access token** (`access_token`, typical
 
 Proxies Figma's official hosted MCP server and exposes the focused FigJam planning workflow: `figma_get_figjam`, `figma_use_figma`, `figma_generate_diagram`, `figma_create_new_file`, `figma_upload_assets`, `figma_get_screenshot`, and `figma_whoami`. The adapter automatically supplies the `figma-use-figjam` skill when calling `figma_use_figma`, so created sections, stickies, connectors, shapes, tables, and code blocks remain native and editable.
 
-Use the web UI at `http://localhost:3847/integrations/figma/setup` to authorize with Figma OAuth. Figma currently limits its hosted MCP server to approved MCP clients and eligible paid-plan seats.
+Use the web UI at `http://localhost:3847/integrations/figma/setup` to authorize with Figma OAuth. Figma currently limits its hosted MCP server to approved MCP clients and eligible paid-plan seats. Figma rejects dynamic registration under Switchboard's own client name, so this beta compatibility path registers with Figma's approved `Codex` client profile while the MCP session still identifies itself as Switchboard. This may stop working as Figma changes enforcement; catalog approval for Switchboard is the durable solution.
 
 ### Environment Variables
 
