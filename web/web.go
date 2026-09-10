@@ -15,6 +15,7 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/awm"
 	"github.com/daltoniam/switchboard/googleoauth"
+	"github.com/daltoniam/switchboard/integrations/figma"
 	"github.com/daltoniam/switchboard/integrations/gcal"
 	"github.com/daltoniam/switchboard/integrations/gchat"
 	"github.com/daltoniam/switchboard/integrations/gdocs"
@@ -104,10 +105,12 @@ func (w *WebServer) Handler() http.Handler {
 
 	mux.HandleFunc("GET /integrations/linear/setup", w.handleLinearSetup)
 	mux.HandleFunc("POST /api/linear/save-token", w.handleLinearSaveToken)
+	mux.HandleFunc("GET /integrations/figma/setup", w.handleFigmaSetup)
 
 	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
 	mux.HandleFunc("GET /api/remote/{name}/oauth/callback", w.handleRemoteMCPOAuthCallback)
 	mux.HandleFunc("GET /api/remote/{name}/oauth/poll", w.handleRemoteMCPOAuthPoll)
+	mux.HandleFunc("GET /callback", w.handleFigmaOAuthCallback)
 
 	mux.HandleFunc("GET /integrations/sentry/setup", w.handleSentrySetup)
 	mux.HandleFunc("POST /api/sentry/oauth/start", w.handleSentryOAuthStart)
@@ -375,6 +378,7 @@ var setupIntegrations = map[string]bool{
 	"slack":        true,
 	"github":       true,
 	"linear":       true,
+	"figma":        true,
 	"sentry":       true,
 	"gmail":        true,
 	"gcal":         true,
@@ -1164,6 +1168,31 @@ func (w *WebServer) handleLinearSaveToken(rw http.ResponseWriter, r *http.Reques
 	http.Redirect(rw, r, "/integrations/linear/setup?result=API+key+saved+successfully", http.StatusSeeOther)
 }
 
+func (w *WebServer) handleFigmaSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("figma")
+	hasToken := exists && ic.Credentials["mcp_access_token"] != ""
+	integration, ok := w.services.Registry.Get("figma")
+
+	var healthy bool
+	if hasToken && ok {
+		if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			healthy = integration.Healthy(ctx)
+			cancel()
+		}
+	}
+
+	data := pages.FigmaSetupData{HasToken: hasToken, Healthy: healthy}
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+	page := w.pageData(r, "Figma and FigJam Setup", "/integrations")
+	pages.FigmaSetup(page, data).Render(r.Context(), rw)
+}
+
 func (w *WebServer) handleSentrySetup(rw http.ResponseWriter, r *http.Request) {
 	ic, exists := w.services.Config.GetIntegration("sentry")
 	hasToken := exists && ic.Credentials["auth_token"] != ""
@@ -1526,6 +1555,29 @@ func (w *WebServer) handleClickHouseSetup(rw http.ResponseWriter, r *http.Reques
 	pages.ClickHouseSetup(page, data).Render(r.Context(), rw)
 }
 
+type remoteOAuthProfile struct {
+	CallbackPath       string
+	ResourcePath       string
+	Options            remotemcp.OAuthOptions
+	CredentialKey      string
+	ClearCredentialKey string
+}
+
+var remoteOAuthProfiles = map[string]remoteOAuthProfile{
+	"linear": {
+		CallbackPath:       "/api/remote/linear/oauth/callback",
+		Options:            remotemcp.OAuthOptions{Scope: "read,write"},
+		CredentialKey:      "mcp_access_token",
+		ClearCredentialKey: "api_key",
+	},
+	"figma": {
+		CallbackPath:  "/callback",
+		ResourcePath:  "/mcp",
+		Options:       remotemcp.OAuthOptions{Scope: "mcp:connect", ClientName: "Codex"},
+		CredentialKey: "mcp_access_token",
+	},
+}
+
 func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	name := r.PathValue("name")
@@ -1541,18 +1593,37 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 		serverURL = linearInt.MCPServerURL(integration)
 	}
 	if serverURL == "" {
+		serverURL = figma.MCPServerURL(integration)
+	}
+	if serverURL == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})
 		return
 	}
 
-	redirectURI := fmt.Sprintf("http://localhost:%d/api/remote/%s/oauth/callback", w.port, name)
-	authorizeURL, err := remotemcp.StartOAuth(name, serverURL, redirectURI)
+	profile, ok := remoteOAuthProfiles[name]
+	if !ok {
+		profile = remoteOAuthProfile{
+			CallbackPath:  "/api/remote/" + name + "/oauth/callback",
+			Options:       remotemcp.OAuthOptions{Scope: "read,write"},
+			CredentialKey: "mcp_access_token",
+		}
+	}
+	if profile.ResourcePath != "" {
+		profile.Options.Resource = serverURL + profile.ResourcePath
+	}
+	redirectURI := fmt.Sprintf("http://localhost:%d%s", w.port, profile.CallbackPath)
+	authorizeURL, err := remotemcp.StartOAuth(name, serverURL, redirectURI, profile.Options)
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
 	json.NewEncoder(rw).Encode(map[string]string{"authorize_url": authorizeURL})
+}
+
+func (w *WebServer) handleFigmaOAuthCallback(rw http.ResponseWriter, r *http.Request) {
+	r.SetPathValue("name", "figma")
+	w.handleRemoteMCPOAuthCallback(rw, r)
 }
 
 func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http.Request) {
@@ -1590,9 +1661,15 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 	if ic == nil {
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
+	profile, ok := remoteOAuthProfiles[name]
+	if !ok {
+		profile = remoteOAuthProfile{CredentialKey: "mcp_access_token"}
+	}
 	ic.Enabled = true
-	ic.Credentials["mcp_access_token"] = token
-	ic.Credentials["api_key"] = ""
+	ic.Credentials[profile.CredentialKey] = token
+	if profile.ClearCredentialKey != "" {
+		ic.Credentials[profile.ClearCredentialKey] = ""
+	}
 	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
 	_ = w.services.Config.SetIntegration(name, ic)
 

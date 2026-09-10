@@ -238,6 +238,12 @@ Proxies the project-aware Streamable HTTP MCP server exposed by `likec4-excalidr
 
 Keep tokenless servers bound to localhost. The integration exposes architecture and scene inspection, diagnostics, DSL validation, PNG canvas screenshots, and element, relationship, and view mutations.
 
+### Figma and FigJam (`figma`)
+
+Proxies Figma's official hosted MCP server and exposes the focused FigJam planning workflow: `figma_get_figjam`, `figma_use_figma`, `figma_generate_diagram`, `figma_create_new_file`, `figma_upload_assets`, `figma_get_screenshot`, and `figma_whoami`. The adapter automatically supplies the `figma-use-figjam` skill when calling `figma_use_figma`, so created sections, stickies, connectors, shapes, tables, and code blocks remain native and editable.
+
+Use the web UI at `http://localhost:3847/integrations/figma/setup` to authorize with Figma OAuth. Figma currently limits its hosted MCP server to approved MCP clients and eligible paid-plan seats. Figma rejects dynamic registration under Switchboard's own client name, so this beta compatibility path registers with Figma's approved `Codex` client profile while the MCP session still identifies itself as Switchboard. This may stop working as Figma changes enforcement; catalog approval for Switchboard is the durable solution.
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
@@ -258,6 +264,8 @@ Environment variables override credential values but do not change the durable e
 | Slack MCP (official hosted) | multi-identity `access_token` | configure via `identities` in JSON (see below) |
 | LikeC4 Excalidraw | `base_url` | `LIKEC4_EXCALIDRAW_BASE_URL` |
 | LikeC4 Excalidraw | `mcp_token` | `LIKEC4_EXCALIDRAW_MCP_TOKEN` (optional) |
+| Figma MCP | `mcp_access_token` | `FIGMA_MCP_ACCESS_TOKEN` |
+| Figma MCP | `base_url` | `FIGMA_MCP_BASE_URL` (optional, default `https://mcp.figma.com`) |
 | Metabase | `api_key` | `METABASE_API_KEY` |
 | Metabase | `url` | `METABASE_URL` |
 | Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
@@ -332,6 +340,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 |---|---|---|
 | GitHub | OAuth Device Flow | Web UI → GitHub → Setup, or set `GITHUB_TOKEN` |
 | Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
+| Figma and FigJam | Hosted MCP OAuth (PKCE) | Web UI → Figma → Setup, or set `FIGMA_MCP_ACCESS_TOKEN` |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
 | Slack MCP (official hosted) | User OAuth access tokens per identity | Edit `~/.config/switchboard/config.json` `slackmcp.identities` (see below). Bot `xoxb-` tokens are **not** accepted by Slack's hosted MCP endpoint. |
