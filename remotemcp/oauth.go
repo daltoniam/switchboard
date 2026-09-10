@@ -27,9 +27,17 @@ type OAuthState struct {
 	redirectURI  string
 	state        string
 	codeVerifier string
+	resource     string
 	token        string
 	err          string
 	done         bool
+}
+
+// OAuthOptions configures provider-specific OAuth requirements.
+type OAuthOptions struct {
+	Scope      string
+	ClientName string
+	Resource   string
 }
 
 type oauthServerMeta struct {
@@ -78,13 +86,18 @@ func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
 	return &meta, nil
 }
 
-func registerClient(registerURL, redirectURI string) (clientID, clientSecret string, err error) {
+func registerClient(registerURL, redirectURI string, clientNames ...string) (clientID, clientSecret string, err error) {
+	clientName := "Switchboard"
+	if len(clientNames) > 0 && strings.TrimSpace(clientNames[0]) != "" {
+		clientName = strings.TrimSpace(clientNames[0])
+	}
 	body, _ := json.Marshal(map[string]any{
-		"client_name":                "Switchboard",
+		"client_name":                clientName,
 		"redirect_uris":              []string{redirectURI},
 		"grant_types":                []string{"authorization_code", "refresh_token"},
 		"response_types":             []string{"code"},
 		"token_endpoint_auth_method": "none",
+		"application_type":           "native",
 	})
 
 	resp, err := http.Post(registerURL, "application/json", bytes.NewReader(body)) // #nosec G107 -- URL from OAuth metadata discovery
@@ -117,7 +130,7 @@ func registerClient(registerURL, redirectURI string) (clientID, clientSecret str
 
 // StartOAuth begins the MCP OAuth flow for a remote server.
 // It discovers the OAuth endpoints, registers a dynamic client, and returns the authorize URL.
-func StartOAuth(name, serverURL, redirectURI string) (string, error) {
+func StartOAuth(name, serverURL, redirectURI string, options ...OAuthOptions) (string, error) {
 	meta, err := discoverOAuth(serverURL)
 	if err != nil {
 		return "", err
@@ -127,7 +140,17 @@ func StartOAuth(name, serverURL, redirectURI string) (string, error) {
 		return "", fmt.Errorf("remote server does not support dynamic client registration")
 	}
 
-	clientID, clientSecret, err := registerClient(meta.RegistrationEndpoint, redirectURI)
+	config := OAuthOptions{Scope: "read,write", ClientName: "Switchboard"}
+	if len(options) > 0 {
+		if value := strings.TrimSpace(options[0].Scope); value != "" {
+			config.Scope = value
+		}
+		if value := strings.TrimSpace(options[0].ClientName); value != "" {
+			config.ClientName = value
+		}
+		config.Resource = strings.TrimSpace(options[0].Resource)
+	}
+	clientID, clientSecret, err := registerClient(meta.RegistrationEndpoint, redirectURI, config.ClientName)
 	if err != nil {
 		return "", err
 	}
@@ -140,10 +163,13 @@ func StartOAuth(name, serverURL, redirectURI string) (string, error) {
 		"client_id":             {clientID},
 		"redirect_uri":          {redirectURI},
 		"response_type":         {"code"},
-		"scope":                 {"read,write"},
+		"scope":                 {config.Scope},
 		"state":                 {state},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
+	}
+	if config.Resource != "" {
+		params.Set("resource", config.Resource)
 	}
 
 	authorizeURL := meta.AuthorizationEndpoint + "?" + params.Encode()
@@ -155,6 +181,7 @@ func StartOAuth(name, serverURL, redirectURI string) (string, error) {
 		redirectURI:  redirectURI,
 		state:        state,
 		codeVerifier: verifier,
+		resource:     config.Resource,
 	}
 
 	activeRemoteOAuth.mu.Lock()
@@ -199,6 +226,9 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 	}
 	if os.clientSecret != "" {
 		data.Set("client_secret", os.clientSecret)
+	}
+	if os.resource != "" {
+		data.Set("resource", os.resource)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

@@ -14,6 +14,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/googleoauth"
+	"github.com/daltoniam/switchboard/integrations/figma"
 	"github.com/daltoniam/switchboard/marketplace"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web/templates/pages"
@@ -1152,4 +1153,46 @@ func TestIntegrationDetail_DoesNotRenderIdentitySecretValues(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Work Slack")
 	assert.Contains(t, rr.Body.String(), "Configured — leave blank to keep")
 	assert.NotContains(t, rr.Body.String(), "never-render-this-secret")
+}
+
+func TestFigmaSetup_RendersOAuthFlow(t *testing.T) {
+	ws, reg, cfgService := setupTestWeb()
+	reg.integrations["figma"] = figma.New()
+	cfgService.cfg.Integrations["figma"] = &mcp.IntegrationConfig{
+		Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": ""},
+	}
+
+	req := httptest.NewRequest("GET", "/integrations/figma/setup", nil)
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Figma and FigJam Setup")
+	assert.Contains(t, rr.Body.String(), "/api/remote/figma/oauth/start")
+}
+
+func TestRemoteOAuthProfiles(t *testing.T) {
+	figmaProfile, ok := remoteOAuthProfiles["figma"]
+	require.True(t, ok)
+	assert.Equal(t, "/callback", figmaProfile.CallbackPath)
+	assert.Equal(t, "mcp:connect", figmaProfile.Options.Scope)
+	assert.Equal(t, "Codex", figmaProfile.Options.ClientName)
+	assert.Equal(t, "/mcp", figmaProfile.ResourcePath)
+	assert.Equal(t, "mcp_access_token", figmaProfile.CredentialKey)
+
+	linearProfile, ok := remoteOAuthProfiles["linear"]
+	require.True(t, ok)
+	assert.Equal(t, "/api/remote/linear/oauth/callback", linearProfile.CallbackPath)
+	assert.Equal(t, "api_key", linearProfile.ClearCredentialKey)
+}
+
+func TestFigmaOAuthCallback_UsesRootCallbackRoute(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	req := httptest.NewRequest("GET", "/callback?error=access_denied", nil)
+	rr := httptest.NewRecorder()
+
+	ws.Handler().ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "/integrations/figma/setup")
 }
