@@ -32,6 +32,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
+	"github.com/daltoniam/switchboard/integrations/figma"
 	flyInt "github.com/daltoniam/switchboard/integrations/fly"
 	"github.com/daltoniam/switchboard/integrations/gcal"
 	"github.com/daltoniam/switchboard/integrations/gchat"
@@ -310,6 +311,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		sentry.New(),
 		slackInt.New(),
 		slackmcp.New(),
+		figma.New(),
 		metabase.New(),
 		paperless.New(),
 		recoll.New(),
