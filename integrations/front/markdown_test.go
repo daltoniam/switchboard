@@ -36,6 +36,28 @@ func TestRenderMarkdown_Messages_FromRecipient(t *testing.T) {
 	assert.NotContains(t, string(md), "unknown")
 }
 
+func TestRenderMarkdown_Comments(t *testing.T) {
+	f := &front{}
+	data := `{"_results":[{"id":"com_1","body":"looks good","posted_at":1663597223,"is_pinned":true,"author":{"email":"sam@example.com","username":"sam","first_name":"Sam","last_name":"Support"}}]}`
+
+	md, ok := f.RenderMarkdown("front_list_conversation_comments", []byte(data))
+	require.True(t, ok)
+	assert.Contains(t, string(md), "# Comments (1)")
+	assert.Contains(t, string(md), "looks good")
+	assert.Contains(t, string(md), "Sam Support <sam@example.com>")
+	assert.Contains(t, string(md), "pinned")
+	assert.NotContains(t, string(md), "Next page_token:")
+}
+
+func TestRenderMarkdown_Comments_NextPage(t *testing.T) {
+	f := &front{}
+	data := `{"_pagination":{"next":"https://api2.frontapp.com/conversations/cnv_1/comments?page_token=n1"},"_results":[{"id":"com_1","body":"note","posted_at":1663597223,"author":{"email":"sam@example.com"}}]}`
+
+	md, ok := f.RenderMarkdown("front_list_conversation_comments", []byte(data))
+	require.True(t, ok)
+	assert.Contains(t, string(md), "Next page_token: https://api2.frontapp.com/conversations/cnv_1/comments?page_token=n1")
+}
+
 func TestRenderMarkdown_Messages_NextPage(t *testing.T) {
 	f := &front{}
 	data := `{"_pagination":{"next":"https://api2.frontapp.com/conversations/cnv_1/messages?page_token=n1"},"_results":[{"id":"msg_1","type":"email","is_inbound":true,"created_at":1663597223,"text":"I need help","author":{"email":"ada@example.com"}}]}`
@@ -73,6 +95,7 @@ func TestRenderMarkdown_ToolsCovered(t *testing.T) {
 
 	markdownTools := []mcp.ToolName{
 		"front_list_conversation_messages",
+		"front_list_conversation_comments",
 	}
 	for _, name := range markdownTools {
 		assert.True(t, toolNames[name], "RenderMarkdown handles %q but it's not in Tools()", name)

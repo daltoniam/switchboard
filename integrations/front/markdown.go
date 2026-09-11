@@ -23,6 +23,7 @@ type renderedMessage struct {
 
 var markdownRenderers = map[mcp.ToolName]func([]byte) (markdown.Markdown, bool){
 	"front_list_conversation_messages": renderMessagesMD,
+	"front_list_conversation_comments": renderCommentsMD,
 }
 
 func (f *front) RenderMarkdown(toolName mcp.ToolName, data []byte) (markdown.Markdown, bool) {
@@ -84,6 +85,82 @@ func renderMessagesMD(data []byte) (markdown.Markdown, bool) {
 		})
 	}
 	return messagesToMarkdown(msgs, raw.Pagination.Next), true
+}
+
+type renderedComment struct {
+	Author string
+	Posted string
+	Pinned bool
+	Body   markdown.Markdown
+}
+
+type rawCommentListResponse struct {
+	Results    []rawComment `json:"_results"`
+	Pagination struct {
+		Next string `json:"next"`
+	} `json:"_pagination"`
+}
+
+type rawComment struct {
+	ID       string `json:"id"`
+	Body     string `json:"body"`
+	PostedAt any    `json:"posted_at"`
+	IsPinned bool   `json:"is_pinned"`
+	Author   struct {
+		Email     string `json:"email"`
+		Username  string `json:"username"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+	} `json:"author"`
+}
+
+func renderCommentsMD(data []byte) (markdown.Markdown, bool) {
+	var raw rawCommentListResponse
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return "", false
+	}
+	comments := make([]renderedComment, 0, len(raw.Results))
+	for _, c := range raw.Results {
+		comments = append(comments, renderedComment{
+			Author: personLabel(c.Author.FirstName, c.Author.LastName, c.Author.Username, c.Author.Email),
+			Posted: unixString(c.PostedAt),
+			Pinned: c.IsPinned,
+			Body:   markdown.Markdown(c.Body),
+		})
+	}
+	return commentsToMarkdown(comments, raw.Pagination.Next), true
+}
+
+func commentsToMarkdown(comments []renderedComment, next string) markdown.Markdown {
+	b := markdown.NewBuilder()
+	b.Heading(1, fmt.Sprintf("Comments (%d)", len(comments)))
+	if len(comments) == 0 {
+		b.BlankLine()
+		b.Raw("No comments.\n")
+		appendNextPage(b, next)
+		return b.Build()
+	}
+	b.BlankLine()
+	for _, c := range comments {
+		author := c.Author
+		if author == "" {
+			author = "unknown"
+		}
+		context := "internal note"
+		if c.Pinned {
+			context = "pinned, " + context
+		}
+		if c.Posted != "" {
+			context += ", " + c.Posted
+		}
+		body := strings.TrimRight(string(c.Body), "\n")
+		if body == "" {
+			body = "(empty)"
+		}
+		b.CommentAttribution(author, context, body)
+	}
+	appendNextPage(b, next)
+	return b.Build()
 }
 
 func messagesToMarkdown(msgs []renderedMessage, next string) markdown.Markdown {
