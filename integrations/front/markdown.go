@@ -186,6 +186,9 @@ func messagesToMarkdown(msgs []renderedMessage, next string) markdown.Markdown {
 		if m.Type != "" {
 			context = m.Type + ", " + dir
 		}
+		if m.Subject != "" {
+			context += ", " + m.Subject
+		}
 		if m.CreatedAt != "" {
 			context += ", " + m.CreatedAt
 		}

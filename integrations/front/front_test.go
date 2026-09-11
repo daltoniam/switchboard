@@ -327,10 +327,10 @@ func TestCreateMessage_RequiresRecipient(t *testing.T) {
 	assert.Contains(t, result.Data, "provide to, cc, or bcc")
 }
 
-func TestNormalizePageToken(t *testing.T) {
-	assert.Equal(t, "", normalizePageToken(""))
-	assert.Equal(t, "tok_1", normalizePageToken("tok_1"))
-	assert.Equal(t, "n1", normalizePageToken("https://api2.frontapp.com/conversations/search/x?page_token=n1&limit=25"))
+func TestPageParamsFromNext(t *testing.T) {
+	assert.Nil(t, pageParamsFromNext(""))
+	assert.Equal(t, map[string]string{"page_token": "tok_1"}, pageParamsFromNext("tok_1"))
+	assert.Equal(t, map[string]string{"page_token": "n1", "limit": "100"}, pageParamsFromNext("https://api2.frontapp.com/conversations/search/x?page_token=n1&limit=100"))
 }
 
 func TestSearchConversations_PageTokenFromNextURL(t *testing.T) {
@@ -368,13 +368,14 @@ func TestListTeammates_PageTokenFromNextURL(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/teammates", r.URL.Path)
 		assert.Equal(t, "n3", r.URL.Query().Get("page_token"))
+		assert.Equal(t, "100", r.URL.Query().Get("limit"))
 		_, _ = w.Write([]byte(`{"_results":[]}`))
 	}))
 	defer ts.Close()
 
 	f := &front{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
 	result, err := f.Execute(context.Background(), "front_list_teammates", map[string]any{
-		"page_token": "https://api2.frontapp.com/teammates?page_token=n3",
+		"page_token": "https://api2.frontapp.com/teammates?page_token=n3&limit=100",
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)

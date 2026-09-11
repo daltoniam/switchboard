@@ -14,29 +14,47 @@ func resourcePath(id string) string {
 	return strings.ReplaceAll(id, "/", "%2F")
 }
 
-func normalizePageToken(raw string) string {
+func pageParamsFromNext(raw string) map[string]string {
 	if raw == "" {
-		return ""
+		return nil
 	}
-	if u, err := url.Parse(raw); err == nil && u.Scheme != "" {
-		if tok := u.Query().Get("page_token"); tok != "" {
-			return tok
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" {
+		return map[string]string{"page_token": raw}
+	}
+	out := map[string]string{}
+	for k, vs := range u.Query() {
+		if len(vs) > 0 && vs[0] != "" {
+			out[k] = vs[0]
 		}
 	}
-	return raw
+	return out
+}
+
+func clampLimit(limit int) int {
+	if limit > 100 {
+		return 100
+	}
+	if limit < 1 {
+		return 25
+	}
+	return limit
 }
 
 func listQuery(args map[string]any, extra map[string]string) map[string]string {
 	r := mcp.NewArgs(args)
-	limit := r.OptInt("limit", 25)
-	pageToken := normalizePageToken(r.Str("page_token"))
+	limit := r.OptInt("limit", 0)
+	pageToken := r.Str("page_token")
 	_ = r.Err()
-	if limit > 100 {
-		limit = 100
+	params := pageParamsFromNext(pageToken)
+	if params == nil {
+		params = map[string]string{}
 	}
-	params := map[string]string{
-		"limit":      strconv.Itoa(limit),
-		"page_token": pageToken,
+	if _, ok := args["limit"]; ok || params["limit"] == "" {
+		if limit == 0 {
+			limit = 25
+		}
+		params["limit"] = strconv.Itoa(clampLimit(limit))
 	}
 	for k, v := range extra {
 		params[k] = v
@@ -62,18 +80,10 @@ func csvSlice(raw string) []string {
 func searchConversations(ctx context.Context, f *front, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	query := r.Str("query")
-	limit := r.OptInt("limit", 25)
-	pageToken := normalizePageToken(r.Str("page_token"))
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	if limit > 100 {
-		limit = 100
-	}
-	params := map[string]string{
-		"limit":      strconv.Itoa(limit),
-		"page_token": pageToken,
-	}
+	params := listQuery(args, nil)
 	data, err := f.get(ctx, "/conversations/search/%s%s", url.PathEscape(query), queryEncode(params))
 	if err != nil {
 		return mcp.ErrResult(err)
@@ -84,18 +94,15 @@ func searchConversations(ctx context.Context, f *front, args map[string]any) (*m
 func listConversations(ctx context.Context, f *front, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	statuses := r.Str("statuses")
-	limit := r.OptInt("limit", 25)
-	pageToken := normalizePageToken(r.Str("page_token"))
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	if limit > 100 {
-		limit = 100
-	}
+	params := listQuery(args, nil)
 	vals := url.Values{}
-	vals.Set("limit", strconv.Itoa(limit))
-	if pageToken != "" {
-		vals.Set("page_token", pageToken)
+	for k, v := range params {
+		if v != "" {
+			vals.Set(k, v)
+		}
 	}
 	for _, status := range csvSlice(statuses) {
 		vals.Add("q[statuses]", status)

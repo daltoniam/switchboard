@@ -23,6 +23,7 @@ func TestRenderMarkdown_Messages(t *testing.T) {
 	assert.Contains(t, string(md), "# Messages (1)")
 	assert.Contains(t, string(md), "I need help")
 	assert.Contains(t, string(md), "Ada Lovelace <ada@example.com>")
+	assert.Contains(t, string(md), "Help")
 	assert.NotContains(t, string(md), "Next page_token:")
 }
 
