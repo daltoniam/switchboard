@@ -35,6 +35,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/figma"
 	flyInt "github.com/daltoniam/switchboard/integrations/fly"
 	"github.com/daltoniam/switchboard/integrations/forgejo"
+	"github.com/daltoniam/switchboard/integrations/front"
 	"github.com/daltoniam/switchboard/integrations/gcal"
 	"github.com/daltoniam/switchboard/integrations/gchat"
 	gcpInt "github.com/daltoniam/switchboard/integrations/gcp"
@@ -336,6 +337,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		zendesk.New(),
 		hubspot.New(),
 		intercom.New(),
+		front.New(),
 		gcalIntegration,
 		gdriveIntegration,
 		gdocsIntegration,

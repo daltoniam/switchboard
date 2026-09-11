@@ -206,6 +206,10 @@ var envMapping = map[string]map[string]string{
 		"access_token": "INTERCOM_ACCESS_TOKEN",
 		"base_url":     "INTERCOM_BASE_URL",
 	},
+	"front": {
+		"access_token": "FRONT_ACCESS_TOKEN",
+		"base_url":     "FRONT_BASE_URL",
+	},
 	"ramp": {
 		"access_token": "RAMP_ACCESS_TOKEN",
 		"base_url":     "RAMP_BASE_URL",
@@ -439,6 +443,10 @@ func defaultConfig() *mcp.Config {
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
 			},
 			"intercom": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"front": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
 			},
