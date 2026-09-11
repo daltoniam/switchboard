@@ -33,14 +33,16 @@ jobs:
 
       - name: Start Crush review check
         id: check
+        continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           payload=$(jq -n \
             --arg name "Crush PR Review" \
             --arg sha "${{ github.event.workflow_run.head_sha }}" \
             --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{name: $name, head_sha: $sha, status: "in_progress", started_at: $started}')
+            --arg url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{name: $name, head_sha: $sha, status: "in_progress", started_at: $started, details_url: $url}')
           CHECK_ID=$(gh api repos/${{ github.repository }}/check-runs \
             --method POST \
             --input - \
@@ -86,7 +88,7 @@ jobs:
       - name: Complete Crush review check
         if: always() && steps.check.outputs.id != ''
         env:
-          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ job.status }}" = "success" ]; then
             conclusion=success
