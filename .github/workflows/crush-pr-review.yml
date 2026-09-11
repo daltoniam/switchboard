@@ -5,9 +5,13 @@ on:
     workflows: ["CI"]
     types: [completed]
 
+# workflow_run jobs report against the default branch, so they never appear
+# on the PR. Post a check run on the PR head SHA so gh pr checks / required
+# status checks can wait on Crush review.
 permissions:
   contents: read
   pull-requests: write
+  checks: write
 
 jobs:
   crush-review:
@@ -26,6 +30,22 @@ jobs:
         run: |
           PR_NUMBER=$(gh api repos/${{ github.repository }}/commits/${{ github.event.workflow_run.head_sha }}/pulls --jq '.[0].number')
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Start Crush review check
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+        run: |
+          payload=$(jq -n \
+            --arg name "Crush PR Review" \
+            --arg sha "${{ github.event.workflow_run.head_sha }}" \
+            --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{name: $name, head_sha: $sha, status: "in_progress", started_at: $started}')
+          CHECK_ID=$(gh api repos/${{ github.repository }}/check-runs \
+            --method POST \
+            --input - \
+            --jq '.id' <<<"$payload")
+          echo "id=$CHECK_ID" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,3 +82,32 @@ jobs:
           CI has already passed for this PR. Do not rerun build, test, lint, go mod tidy, golangci-lint, or the full CI matrix. Inspect existing CI/status checks and focus on code review of the diff.
           Use the pr-review skill to do a full code review, then use the pr-comments skill to post your findings as inline comments on the PR.
           The repo is already checked out locally. Use gh CLI for all GitHub API interactions."
+
+      - name: Complete Crush review check
+        if: always() && steps.check.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            conclusion=success
+            title="Crush PR Review passed"
+            summary="Crush posted its review on the pull request."
+          else
+            conclusion=failure
+            title="Crush PR Review failed"
+            summary="Crush review job did not complete successfully."
+          fi
+          payload=$(jq -n \
+            --arg conclusion "$conclusion" \
+            --arg title "$title" \
+            --arg summary "$summary" \
+            --arg completed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{
+              status: "completed",
+              conclusion: $conclusion,
+              completed_at: $completed,
+              output: {title: $title, summary: $summary}
+            }')
+          gh api repos/${{ github.repository }}/check-runs/${{ steps.check.outputs.id }} \
+            --method PATCH \
+            --input - <<<"$payload"
