@@ -1,0 +1,179 @@
+# Switchboard compaction specs for the front integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    front_search_conversations:
+        spec:
+            - _results[].id
+            - _results[].type
+            - _results[].subject
+            - _results[].status
+            - _results[].status_id
+            - _results[].status_category
+            - _results[].ticket_ids
+            - _results[].assignee.id
+            - _results[].assignee.email
+            - _results[].assignee.username
+            - _results[].recipient.handle
+            - _results[].recipient.name
+            - _results[].tags[].id
+            - _results[].tags[].name
+            - _results[].created_at
+            - _results[].is_private
+            - _pagination.next
+            - _total
+    front_list_conversations:
+        spec:
+            - _results[].id
+            - _results[].type
+            - _results[].subject
+            - _results[].status
+            - _results[].status_id
+            - _results[].status_category
+            - _results[].ticket_ids
+            - _results[].assignee.id
+            - _results[].assignee.email
+            - _results[].assignee.username
+            - _results[].recipient.handle
+            - _results[].recipient.name
+            - _results[].tags[].id
+            - _results[].tags[].name
+            - _results[].created_at
+            - _results[].is_private
+            - _pagination.next
+    front_get_conversation:
+        spec:
+            - id
+            - type
+            - subject
+            - status
+            - status_id
+            - status_category
+            - ticket_ids
+            - assignee.id
+            - assignee.email
+            - assignee.username
+            - assignee.first_name
+            - assignee.last_name
+            - recipient.handle
+            - recipient.name
+            - recipient.role
+            - tags[].id
+            - tags[].name
+            - created_at
+            - is_private
+            - scheduled_reminders
+    front_list_conversation_messages:
+        max_bytes: 200000
+        spec:
+            - _results[].id
+            - _results[].type
+            - _results[].is_inbound
+            - _results[].created_at
+            - _results[].subject
+            - _results[].blurb
+            - _results[].text
+            - _results[].author.id
+            - _results[].author.email
+            - _results[].author.username
+            - _results[].recipients[].handle
+            - _results[].recipients[].role
+            - _results[].attachments[].id
+            - _results[].attachments[].filename
+            - _pagination.next
+    front_list_conversation_comments:
+        spec:
+            - _results[].id
+            - _results[].body
+            - _results[].posted_at
+            - _results[].is_pinned
+            - _results[].author.id
+            - _results[].author.email
+            - _results[].author.username
+            - _pagination.next
+    front_list_inboxes:
+        spec:
+            - _results[].id
+            - _results[].name
+            - _results[].is_private
+            - _results[].address
+            - _results[].send_as
+            - _results[].type
+            - _pagination.next
+    front_list_teammates:
+        spec:
+            - _results[].id
+            - _results[].email
+            - _results[].username
+            - _results[].first_name
+            - _results[].last_name
+            - _results[].is_admin
+            - _results[].is_available
+            - _results[].is_blocked
+            - _results[].type
+            - _pagination.next
+    front_list_tags:
+        spec:
+            - _results[].id
+            - _results[].name
+            - _results[].description
+            - _results[].highlight
+            - _results[].is_private
+            - _results[].is_visible_in_conversation_lists
+            - _pagination.next
+    front_list_channels:
+        spec:
+            - _results[].id
+            - _results[].name
+            - _results[].address
+            - _results[].type
+            - _results[].send_as
+            - _results[].is_private
+            - _pagination.next
+    front_list_contacts:
+        spec:
+            - _results[].id
+            - _results[].name
+            - _results[].description
+            - _results[].handles[].handle
+            - _results[].handles[].source
+            - _results[].is_private
+            - _pagination.next
+    front_search_contacts:
+        spec:
+            - id
+            - name
+            - description
+            - handles[].handle
+            - handles[].source
+            - is_private
+            - account_names
+    front_get_contact:
+        spec:
+            - id
+            - name
+            - description
+            - handles[].handle
+            - handles[].source
+            - is_private
+            - account_names
+            - links
+    front_list_accounts:
+        spec:
+            - _results[].id
+            - _results[].name
+            - _results[].description
+            - _results[].domains
+            - _results[].external_id
+            - _pagination.next
+    front_get_account:
+        spec:
+            - id
+            - name
+            - description
+            - domains
+            - external_id
