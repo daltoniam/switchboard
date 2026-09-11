@@ -28,6 +28,16 @@ func TestRenderMarkdown_Messages(t *testing.T) {
 	assert.Contains(t, string(md), "# Messages (1)")
 	assert.Contains(t, string(md), "I need help")
 	assert.Contains(t, string(md), "Ada Lovelace <ada@example.com>")
+	assert.NotContains(t, string(md), "Next page_token:")
+}
+
+func TestRenderMarkdown_Messages_NextPage(t *testing.T) {
+	f := &front{}
+	data := `{"_pagination":{"next":"https://api2.frontapp.com/conversations/cnv_1/messages?page_token=n1"},"_results":[{"id":"msg_1","type":"email","is_inbound":true,"created_at":1663597223,"text":"I need help","author":{"email":"ada@example.com"}}]}`
+
+	md, ok := f.RenderMarkdown("front_list_conversation_messages", []byte(data))
+	require.True(t, ok)
+	assert.Contains(t, string(md), "Next page_token: https://api2.frontapp.com/conversations/cnv_1/messages?page_token=n1")
 }
 
 func TestRenderMarkdown_UnknownTool(t *testing.T) {

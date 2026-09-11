@@ -60,7 +60,10 @@ type rawConversationResponse struct {
 }
 
 type rawMessageListResponse struct {
-	Results []rawMessage `json:"_results"`
+	Results    []rawMessage `json:"_results"`
+	Pagination struct {
+		Next string `json:"next"`
+	} `json:"_pagination"`
 }
 
 type rawMessage struct {
@@ -116,7 +119,7 @@ func renderMessagesMD(data []byte) (markdown.Markdown, bool) {
 			Body:      markdown.Markdown(body),
 		})
 	}
-	return messagesToMarkdown(msgs), true
+	return messagesToMarkdown(msgs, raw.Pagination.Next), true
 }
 
 func conversationToMarkdown(conv renderedConversation) markdown.Markdown {
@@ -146,12 +149,13 @@ func conversationToMarkdown(conv renderedConversation) markdown.Markdown {
 	return b.Build()
 }
 
-func messagesToMarkdown(msgs []renderedMessage) markdown.Markdown {
+func messagesToMarkdown(msgs []renderedMessage, next string) markdown.Markdown {
 	b := markdown.NewBuilder()
 	b.Heading(1, fmt.Sprintf("Messages (%d)", len(msgs)))
 	if len(msgs) == 0 {
 		b.BlankLine()
 		b.Raw("No messages.\n")
+		appendNextPage(b, next)
 		return b.Build()
 	}
 	b.BlankLine()
@@ -177,7 +181,16 @@ func messagesToMarkdown(msgs []renderedMessage) markdown.Markdown {
 		}
 		b.CommentAttribution(author, context, body)
 	}
+	appendNextPage(b, next)
 	return b.Build()
+}
+
+func appendNextPage(b *markdown.Builder, next string) {
+	if next == "" {
+		return
+	}
+	b.BlankLine()
+	b.Raw("Next page_token: " + next + "\n")
 }
 
 func personLabel(first, last, username, email string) string {
