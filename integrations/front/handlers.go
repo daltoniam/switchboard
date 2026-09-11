@@ -14,10 +14,22 @@ func resourcePath(id string) string {
 	return strings.ReplaceAll(id, "/", "%2F")
 }
 
+func normalizePageToken(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	if u, err := url.Parse(raw); err == nil && u.Scheme != "" {
+		if tok := u.Query().Get("page_token"); tok != "" {
+			return tok
+		}
+	}
+	return raw
+}
+
 func listQuery(args map[string]any, extra map[string]string) map[string]string {
 	r := mcp.NewArgs(args)
 	limit := r.OptInt("limit", 25)
-	pageToken := r.Str("page_token")
+	pageToken := normalizePageToken(r.Str("page_token"))
 	_ = r.Err()
 	if limit > 100 {
 		limit = 100
@@ -51,7 +63,7 @@ func searchConversations(ctx context.Context, f *front, args map[string]any) (*m
 	r := mcp.NewArgs(args)
 	query := r.Str("query")
 	limit := r.OptInt("limit", 25)
-	pageToken := r.Str("page_token")
+	pageToken := normalizePageToken(r.Str("page_token"))
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -73,7 +85,7 @@ func listConversations(ctx context.Context, f *front, args map[string]any) (*mcp
 	r := mcp.NewArgs(args)
 	statuses := r.Str("statuses")
 	limit := r.OptInt("limit", 25)
-	pageToken := r.Str("page_token")
+	pageToken := normalizePageToken(r.Str("page_token"))
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -305,7 +317,7 @@ func getAccount(ctx context.Context, f *front, args map[string]any) (*mcp.ToolRe
 	return mcp.RawResult(data)
 }
 
-func outboundPayload(r *mcp.Args) (map[string]any, error) {
+func outboundPayload(r *mcp.Args, defaultArchive bool) (map[string]any, error) {
 	to := r.Str("to")
 	cc := r.Str("cc")
 	bcc := r.Str("bcc")
@@ -339,14 +351,14 @@ func outboundPayload(r *mcp.Args) (map[string]any, error) {
 	}
 	options := map[string]any{}
 	if archive != "" {
-		options["archive"] = archive == "true"
+		options["archive"] = archive == "true" || archive == "1"
+	} else {
+		options["archive"] = defaultArchive
 	}
 	if tags := csvSlice(tagIDs); tags != nil {
 		options["tag_ids"] = tags
 	}
-	if len(options) > 0 {
-		payload["options"] = options
-	}
+	payload["options"] = options
 	return payload, nil
 }
 
@@ -356,7 +368,7 @@ func createMessage(ctx context.Context, f *front, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	payload, err := outboundPayload(r)
+	payload, err := outboundPayload(r, true)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -381,7 +393,7 @@ func replyConversation(ctx context.Context, f *front, args map[string]any) (*mcp
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	payload, err := outboundPayload(r)
+	payload, err := outboundPayload(r, false)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

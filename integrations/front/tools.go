@@ -8,7 +8,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"query":      "Front search query (e.g. 'lost shipment', 'is:open is:unassigned', 'to:user@example.com', 'inbox:inb_41w25'). Text searches subject and body; filters use name:value.",
 			"limit":      "Results per page (default 25, max 100)",
-			"page_token": "Pagination cursor from _pagination.next",
+			"page_token": "Bare page_token or the full _pagination.next URL",
 		},
 		Required: []string{"query"},
 	},
@@ -17,7 +17,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"statuses":   "Comma-separated conversation statuses: assigned, unassigned, archived, trashed",
 			"limit":      "Results per page (default 25, max 100)",
-			"page_token": "Pagination cursor from _pagination.next",
+			"page_token": "Bare page_token or the full _pagination.next URL",
 		},
 	},
 	{
@@ -30,7 +30,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"conversation_id": "Front conversation ID",
 			"limit":           "Results per page (default 25, max 100)",
-			"page_token":      "Pagination cursor from _pagination.next",
+			"page_token":      "Bare page_token or the full _pagination.next URL",
 		},
 		Required: []string{"conversation_id"},
 	},
@@ -39,7 +39,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"conversation_id": "Front conversation ID",
 			"limit":           "Results per page (default 25, max 100)",
-			"page_token":      "Pagination cursor from _pagination.next",
+			"page_token":      "Bare page_token or the full _pagination.next URL",
 		},
 		Required: []string{"conversation_id"},
 	},
@@ -77,35 +77,35 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("front_list_inboxes"), Description: "List Front shared and personal inboxes used to route conversations. Use to resolve inbox IDs for search filters and conversation moves.",
 		Parameters: map[string]string{
 			"limit":      "Results per page (default 25, max 100)",
-			"page_token": "Pagination cursor from _pagination.next",
+			"page_token": "Bare page_token or the full _pagination.next URL",
 		},
 	},
 	{
 		Name: mcp.ToolName("front_list_teammates"), Description: "List Front teammates, agents, and inbox users. Use to find assignee_id or author_id for assignment, comments, and sending.",
 		Parameters: map[string]string{
 			"limit":      "Results per page (default 25, max 100)",
-			"page_token": "Pagination cursor from _pagination.next",
+			"page_token": "Bare page_token or the full _pagination.next URL",
 		},
 	},
 	{
 		Name: mcp.ToolName("front_list_tags"), Description: "List Front tags and labels used to classify conversations. Use before search_conversations with tag: or update_conversation tag_ids.",
 		Parameters: map[string]string{
 			"limit":      "Results per page (default 25, max 100)",
-			"page_token": "Pagination cursor from _pagination.next",
+			"page_token": "Bare page_token or the full _pagination.next URL",
 		},
 	},
 	{
 		Name: mcp.ToolName("front_list_channels"), Description: "List Front channels (email, SMS, chat, custom) used to send messages. Use before create_message or create_draft to get channel_id.",
 		Parameters: map[string]string{
 			"limit":      "Results per page (default 25, max 100)",
-			"page_token": "Pagination cursor from _pagination.next",
+			"page_token": "Bare page_token or the full _pagination.next URL",
 		},
 	},
 	{
 		Name: mcp.ToolName("front_list_contacts"), Description: "List Front contacts and customer records. Prefer search_contacts when looking up a specific email or handle.",
 		Parameters: map[string]string{
 			"limit":      "Results per page (default 25, max 100)",
-			"page_token": "Pagination cursor from _pagination.next",
+			"page_token": "Bare page_token or the full _pagination.next URL",
 		},
 	},
 	{
@@ -124,7 +124,7 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("front_list_accounts"), Description: "List Front accounts and customer companies linked to contacts.",
 		Parameters: map[string]string{
 			"limit":      "Results per page (default 25, max 100)",
-			"page_token": "Pagination cursor from _pagination.next",
+			"page_token": "Bare page_token or the full _pagination.next URL",
 		},
 	},
 	{
@@ -143,7 +143,7 @@ var tools = []mcp.ToolDefinition{
 			"body":        "Message body",
 			"author_id":   "Optional teammate ID sending on behalf of",
 			"sender_name": "Optional sender display name",
-			"archive":     "Archive the conversation after sending (default true)",
+			"archive":     "Archive the conversation after sending (default true). Set false to leave it open.",
 			"tag_ids":     "Comma-separated tag IDs to add",
 		},
 		Required: []string{"channel_id", "body"},
@@ -159,7 +159,7 @@ var tools = []mcp.ToolDefinition{
 			"subject":         "Email subject",
 			"body":            "Reply body",
 			"author_id":       "Optional teammate ID sending on behalf of",
-			"archive":         "Archive the conversation after sending (true/false)",
+			"archive":         "Archive the conversation after sending (default false so the thread stays open)",
 		},
 		Required: []string{"conversation_id", "body"},
 	},

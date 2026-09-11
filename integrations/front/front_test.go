@@ -289,6 +289,59 @@ func TestCreateMessage_RequiresRecipient(t *testing.T) {
 	assert.Contains(t, result.Data, "provide to, cc, or bcc")
 }
 
+func TestNormalizePageToken(t *testing.T) {
+	assert.Equal(t, "", normalizePageToken(""))
+	assert.Equal(t, "tok_1", normalizePageToken("tok_1"))
+	assert.Equal(t, "n1", normalizePageToken("https://api2.frontapp.com/conversations/search/x?page_token=n1&limit=25"))
+}
+
+func TestSearchConversations_PageTokenFromNextURL(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "n1", r.URL.Query().Get("page_token"))
+		_, _ = w.Write([]byte(`{"_results":[]}`))
+	}))
+	defer ts.Close()
+
+	f := &front{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := f.Execute(context.Background(), "front_search_conversations", map[string]any{
+		"query":      "is:open",
+		"page_token": "https://api2.frontapp.com/conversations/search/is:open?page_token=n1",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestListConversations_PageTokenFromNextURL(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "n2", r.URL.Query().Get("page_token"))
+		_, _ = w.Write([]byte(`{"_results":[]}`))
+	}))
+	defer ts.Close()
+
+	f := &front{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := f.Execute(context.Background(), "front_list_conversations", map[string]any{
+		"page_token": "https://api2.frontapp.com/conversations?page_token=n2",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestListTeammates_PageTokenFromNextURL(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/teammates", r.URL.Path)
+		assert.Equal(t, "n3", r.URL.Query().Get("page_token"))
+		_, _ = w.Write([]byte(`{"_results":[]}`))
+	}))
+	defer ts.Close()
+
+	f := &front{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := f.Execute(context.Background(), "front_list_teammates", map[string]any{
+		"page_token": "https://api2.frontapp.com/teammates?page_token=n3",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestCreateMessage(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
@@ -297,6 +350,8 @@ func TestCreateMessage(t *testing.T) {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		assert.Equal(t, []any{"ada@example.com"}, body["to"])
 		assert.Equal(t, "hello", body["body"])
+		opts, _ := body["options"].(map[string]any)
+		assert.Equal(t, true, opts["archive"])
 		w.WriteHeader(202)
 		_, _ = w.Write([]byte(`{"status":"accepted","message_uid":"abc"}`))
 	}))
@@ -316,6 +371,10 @@ func TestCreateMessage(t *testing.T) {
 func TestReplyConversation(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/conversations/cnv_1/messages", r.URL.Path)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		opts, _ := body["options"].(map[string]any)
+		assert.Equal(t, false, opts["archive"])
 		_, _ = w.Write([]byte(`{"status":"accepted"}`))
 	}))
 	defer ts.Close()
@@ -324,6 +383,26 @@ func TestReplyConversation(t *testing.T) {
 	result, err := f.Execute(context.Background(), "front_reply_conversation", map[string]any{
 		"conversation_id": "cnv_1",
 		"body":            "thanks",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestReplyConversation_ArchiveTrue(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		opts, _ := body["options"].(map[string]any)
+		assert.Equal(t, true, opts["archive"])
+		_, _ = w.Write([]byte(`{"status":"accepted"}`))
+	}))
+	defer ts.Close()
+
+	f := &front{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := f.Execute(context.Background(), "front_reply_conversation", map[string]any{
+		"conversation_id": "cnv_1",
+		"body":            "thanks",
+		"archive":         "true",
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
