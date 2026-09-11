@@ -317,7 +317,7 @@ func getAccount(ctx context.Context, f *front, args map[string]any) (*mcp.ToolRe
 	return mcp.RawResult(data)
 }
 
-func outboundPayload(r *mcp.Args, defaultArchive bool) (map[string]any, error) {
+func outboundPayload(r *mcp.Args, args map[string]any, defaultArchive bool) (map[string]any, error) {
 	to := r.Str("to")
 	cc := r.Str("cc")
 	bcc := r.Str("bcc")
@@ -325,7 +325,7 @@ func outboundPayload(r *mcp.Args, defaultArchive bool) (map[string]any, error) {
 	body := r.Str("body")
 	authorID := r.Str("author_id")
 	senderName := r.Str("sender_name")
-	archive := r.Str("archive")
+	archive := r.Bool("archive")
 	tagIDs := r.Str("tag_ids")
 	if err := r.Err(); err != nil {
 		return nil, err
@@ -350,8 +350,8 @@ func outboundPayload(r *mcp.Args, defaultArchive bool) (map[string]any, error) {
 		payload["sender_name"] = senderName
 	}
 	options := map[string]any{}
-	if archive != "" {
-		options["archive"] = archive == "true" || archive == "1"
+	if _, ok := args["archive"]; ok {
+		options["archive"] = archive
 	} else {
 		options["archive"] = defaultArchive
 	}
@@ -368,7 +368,7 @@ func createMessage(ctx context.Context, f *front, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	payload, err := outboundPayload(r, true)
+	payload, err := outboundPayload(r, args, true)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -393,7 +393,7 @@ func replyConversation(ctx context.Context, f *front, args map[string]any) (*mcp
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	payload, err := outboundPayload(r, false)
+	payload, err := outboundPayload(r, args, false)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

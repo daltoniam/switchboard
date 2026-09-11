@@ -426,6 +426,28 @@ func TestReplyConversation(t *testing.T) {
 	require.False(t, result.IsError)
 }
 
+func TestCreateMessage_ArchiveFalse(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		opts, _ := body["options"].(map[string]any)
+		assert.Equal(t, false, opts["archive"])
+		w.WriteHeader(202)
+		_, _ = w.Write([]byte(`{"status":"accepted"}`))
+	}))
+	defer ts.Close()
+
+	f := &front{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := f.Execute(context.Background(), "front_create_message", map[string]any{
+		"channel_id": "cha_1",
+		"to":         "ada@example.com",
+		"body":       "hello",
+		"archive":    "FALSE",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestReplyConversation_ArchiveTrue(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
@@ -440,7 +462,7 @@ func TestReplyConversation_ArchiveTrue(t *testing.T) {
 	result, err := f.Execute(context.Background(), "front_reply_conversation", map[string]any{
 		"conversation_id": "cnv_1",
 		"body":            "thanks",
-		"archive":         "true",
+		"archive":         true,
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
