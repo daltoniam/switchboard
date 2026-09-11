@@ -340,6 +340,11 @@ type Integration interface {
 	Healthy(ctx context.Context) bool
 }
 
+type OAuthIntegration interface {
+	StartOAuth(ctx context.Context, creds Credentials, redirectURI, browser string) (string, error)
+	CompleteOAuth(ctx context.Context, code, state, browser, issuer string) error
+}
+
 // MultiIdentityIntegration is an optional interface for integrations that
 // support multiple named credential identities (e.g. one Slack user token per
 // workspace). Existing single-identity adapters remain source-compatible.
@@ -500,6 +505,26 @@ type OptionalCredentials interface {
 // credential state cannot be inferred from non-empty config values alone.
 type CredentialDetector interface {
 	HasCredentials(creds Credentials) bool
+}
+
+type ConfigUpdater interface {
+	UpdateConfig(update func(*Config) error) error
+}
+
+func UpdateConfig(store ConfigService, update func(*Config) error) error {
+	updater, ok := store.(ConfigUpdater)
+	if !ok {
+		return fmt.Errorf("config service does not support atomic updates")
+	}
+	return updater.UpdateConfig(update)
+}
+
+type IntegrationConfigUpdater interface {
+	UpdateIntegration(name string, update func(*IntegrationConfig) error) error
+}
+
+type CredentialEditor interface {
+	EditCredentials(ctx context.Context, credentials Credentials, enabled bool) error
 }
 
 // ConfigService manages loading and saving configuration.

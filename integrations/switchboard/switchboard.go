@@ -238,11 +238,13 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 	}
 
 	// Merge credentials if provided.
+	updates := mcp.Credentials{}
 	if credsRaw, ok := args["credentials"]; ok {
 		if credsMap, ok := credsRaw.(map[string]any); ok {
 			for k, v := range credsMap {
 				if vs, ok := v.(string); ok {
 					ic.Credentials[k] = vs
+					updates[k] = vs
 				}
 			}
 		}
@@ -264,7 +266,8 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 	ic.Enabled = enabled
 
 	// Attempt to configure the integration to validate credentials.
-	if enabled {
+	editor, editable := a.(mcp.CredentialEditor)
+	if enabled && !editable {
 		if err := mcp.ConfigureIntegration(ctx, a, ic); err != nil {
 			return &mcp.ToolResult{
 				Data:    "configure failed: " + err.Error(),
@@ -273,7 +276,17 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 		}
 	}
 
-	if err := s.services.Config.SetIntegration(name, ic); err != nil {
+	if editable {
+		err = editor.EditCredentials(ctx, updates, enabled)
+		if err == nil {
+			if identities, ok := args["identities"]; ok {
+				err = updateIntegrationIdentities(s.services.Config, name, identities)
+			}
+		}
+	} else {
+		err = s.services.Config.SetIntegration(name, ic)
+	}
+	if err != nil {
 		return &mcp.ToolResult{
 			Data:    "save config failed: " + err.Error(),
 			IsError: true,
@@ -289,6 +302,19 @@ func configureIntegration(ctx context.Context, s *switchboardInt, args map[strin
 		"status":      "ok",
 		"integration": name,
 		"state":       status,
+	})
+}
+
+func updateIntegrationIdentities(store mcp.ConfigService, name string, identities any) error {
+	updater, ok := store.(mcp.IntegrationConfigUpdater)
+	if !ok {
+		return fmt.Errorf("config service does not support atomic identity updates")
+	}
+	return updater.UpdateIntegration(name, func(ic *mcp.IntegrationConfig) error {
+		if ic.Identities == nil {
+			ic.Identities = map[string]mcp.IntegrationIdentity{}
+		}
+		return mergeIntegrationIdentities(ic.Identities, identities)
 	})
 }
 
