@@ -39,15 +39,22 @@ type rawMessageListResponse struct {
 	} `json:"_pagination"`
 }
 
+type rawRecipient struct {
+	Name   string `json:"name"`
+	Handle string `json:"handle"`
+	Role   string `json:"role"`
+}
+
 type rawMessage struct {
-	ID        string `json:"id"`
-	Type      string `json:"type"`
-	IsInbound bool   `json:"is_inbound"`
-	CreatedAt any    `json:"created_at"`
-	Subject   string `json:"subject"`
-	Text      string `json:"text"`
-	Body      string `json:"body"`
-	Author    struct {
+	ID         string         `json:"id"`
+	Type       string         `json:"type"`
+	IsInbound  bool           `json:"is_inbound"`
+	CreatedAt  any            `json:"created_at"`
+	Subject    string         `json:"subject"`
+	Text       string         `json:"text"`
+	Body       string         `json:"body"`
+	Recipients []rawRecipient `json:"recipients"`
+	Author     struct {
 		Email     string `json:"email"`
 		Username  string `json:"username"`
 		FirstName string `json:"first_name"`
@@ -71,7 +78,7 @@ func renderMessagesMD(data []byte) (markdown.Markdown, bool) {
 			Type:      m.Type,
 			Inbound:   m.IsInbound,
 			CreatedAt: unixString(m.CreatedAt),
-			Author:    personLabel(m.Author.FirstName, m.Author.LastName, m.Author.Username, m.Author.Email),
+			Author:    messageAuthor(m),
 			Subject:   m.Subject,
 			Body:      markdown.Markdown(body),
 		})
@@ -121,6 +128,21 @@ func appendNextPage(b *markdown.Builder, next string) {
 	}
 	b.BlankLine()
 	b.Raw("Next page_token: " + next + "\n")
+}
+
+func messageAuthor(m rawMessage) string {
+	author := personLabel(m.Author.FirstName, m.Author.LastName, m.Author.Username, m.Author.Email)
+	if author != "" {
+		return author
+	}
+	for _, r := range m.Recipients {
+		if r.Role == "from" {
+			if label := personLabel(r.Name, "", "", r.Handle); label != "" {
+				return label
+			}
+		}
+	}
+	return ""
 }
 
 func personLabel(first, last, username, email string) string {

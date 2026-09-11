@@ -26,6 +26,16 @@ func TestRenderMarkdown_Messages(t *testing.T) {
 	assert.NotContains(t, string(md), "Next page_token:")
 }
 
+func TestRenderMarkdown_Messages_FromRecipient(t *testing.T) {
+	f := &front{}
+	data := `{"_results":[{"id":"msg_1","type":"email","is_inbound":true,"created_at":1663597223,"text":"I need help","author":null,"recipients":[{"name":"Ada","handle":"ada@example.com","role":"from"},{"handle":"support@acme.com","role":"to"}]}]}`
+
+	md, ok := f.RenderMarkdown("front_list_conversation_messages", []byte(data))
+	require.True(t, ok)
+	assert.Contains(t, string(md), "Ada <ada@example.com>")
+	assert.NotContains(t, string(md), "unknown")
+}
+
 func TestRenderMarkdown_Messages_NextPage(t *testing.T) {
 	f := &front{}
 	data := `{"_pagination":{"next":"https://api2.frontapp.com/conversations/cnv_1/messages?page_token=n1"},"_results":[{"id":"msg_1","type":"email","is_inbound":true,"created_at":1663597223,"text":"I need help","author":{"email":"ada@example.com"}}]}`
