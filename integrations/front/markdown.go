@@ -11,15 +11,6 @@ import (
 	"github.com/daltoniam/switchboard/markdown"
 )
 
-type renderedConversation struct {
-	ID        string
-	Subject   string
-	Status    string
-	Assignee  string
-	Recipient string
-	Created   string
-}
-
 type renderedMessage struct {
 	ID        string
 	Type      string
@@ -31,7 +22,6 @@ type renderedMessage struct {
 }
 
 var markdownRenderers = map[mcp.ToolName]func([]byte) (markdown.Markdown, bool){
-	"front_get_conversation":           renderConversationMD,
 	"front_list_conversation_messages": renderMessagesMD,
 }
 
@@ -40,23 +30,6 @@ func (f *front) RenderMarkdown(toolName mcp.ToolName, data []byte) (markdown.Mar
 		return fn(data)
 	}
 	return "", false
-}
-
-type rawConversationResponse struct {
-	ID       string `json:"id"`
-	Subject  string `json:"subject"`
-	Status   string `json:"status"`
-	Created  any    `json:"created_at"`
-	Assignee struct {
-		Email     string `json:"email"`
-		Username  string `json:"username"`
-		FirstName string `json:"first_name"`
-		LastName  string `json:"last_name"`
-	} `json:"assignee"`
-	Recipient struct {
-		Name   string `json:"name"`
-		Handle string `json:"handle"`
-	} `json:"recipient"`
 }
 
 type rawMessageListResponse struct {
@@ -82,22 +55,6 @@ type rawMessage struct {
 	} `json:"author"`
 }
 
-func renderConversationMD(data []byte) (markdown.Markdown, bool) {
-	var raw rawConversationResponse
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return "", false
-	}
-	conv := renderedConversation{
-		ID:        raw.ID,
-		Subject:   raw.Subject,
-		Status:    raw.Status,
-		Assignee:  personLabel(raw.Assignee.FirstName, raw.Assignee.LastName, raw.Assignee.Username, raw.Assignee.Email),
-		Recipient: personLabel("", "", raw.Recipient.Name, raw.Recipient.Handle),
-		Created:   unixString(raw.Created),
-	}
-	return conversationToMarkdown(conv), true
-}
-
 func renderMessagesMD(data []byte) (markdown.Markdown, bool) {
 	var raw rawMessageListResponse
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -120,33 +77,6 @@ func renderMessagesMD(data []byte) (markdown.Markdown, bool) {
 		})
 	}
 	return messagesToMarkdown(msgs, raw.Pagination.Next), true
-}
-
-func conversationToMarkdown(conv renderedConversation) markdown.Markdown {
-	b := markdown.NewBuilder()
-	b.Metadata("front", "conversation_id", conv.ID, "status", conv.Status)
-	title := conv.Subject
-	if title == "" {
-		title = "Conversation " + conv.ID
-	}
-	b.Heading(1, title)
-	attrs := []string{}
-	if conv.Status != "" {
-		attrs = append(attrs, "Status: "+conv.Status)
-	}
-	if conv.Recipient != "" {
-		attrs = append(attrs, "Recipient: "+conv.Recipient)
-	}
-	if conv.Assignee != "" {
-		attrs = append(attrs, "Assignee: "+conv.Assignee)
-	}
-	if conv.Created != "" {
-		attrs = append(attrs, "Created: "+conv.Created)
-	}
-	if len(attrs) > 0 {
-		b.Attribution(attrs...)
-	}
-	return b.Build()
 }
 
 func messagesToMarkdown(msgs []renderedMessage, next string) markdown.Markdown {

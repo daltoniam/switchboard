@@ -8,15 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRenderMarkdown_Conversation(t *testing.T) {
+func TestRenderMarkdown_ConversationStaysJSON(t *testing.T) {
 	f := &front{}
-	data := `{"id":"cnv_1","subject":"Billing help","status":"unassigned","created_at":1663597223,"assignee":{"email":"sam@example.com","username":"sam","first_name":"Sam","last_name":"Support"},"recipient":{"name":"Ada","handle":"ada@example.com"}}`
-
-	md, ok := f.RenderMarkdown("front_get_conversation", []byte(data))
-	require.True(t, ok)
-	assert.Contains(t, string(md), "<!-- front:conversation_id=cnv_1 status=unassigned -->")
-	assert.Contains(t, string(md), "# Billing help")
-	assert.Contains(t, string(md), "Ada <ada@example.com>")
+	_, ok := f.RenderMarkdown("front_get_conversation", []byte(`{"id":"cnv_1","subject":"Billing help"}`))
+	assert.False(t, ok)
 }
 
 func TestRenderMarkdown_Messages(t *testing.T) {
@@ -48,7 +43,7 @@ func TestRenderMarkdown_UnknownTool(t *testing.T) {
 
 func TestRenderMarkdown_InvalidJSON(t *testing.T) {
 	f := &front{}
-	_, ok := f.RenderMarkdown("front_get_conversation", []byte(`not json`))
+	_, ok := f.RenderMarkdown("front_list_conversation_messages", []byte(`not json`))
 	assert.False(t, ok)
 }
 
@@ -67,7 +62,6 @@ func TestRenderMarkdown_ToolsCovered(t *testing.T) {
 	}
 
 	markdownTools := []mcp.ToolName{
-		"front_get_conversation",
 		"front_list_conversation_messages",
 	}
 	for _, name := range markdownTools {

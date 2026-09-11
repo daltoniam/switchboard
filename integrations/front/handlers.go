@@ -157,7 +157,7 @@ func addComment(ctx context.Context, f *front, args map[string]any) (*mcp.ToolRe
 	id := r.Str("conversation_id")
 	body := r.Str("body")
 	authorID := r.Str("author_id")
-	pinned := r.Str("is_pinned")
+	pinned := r.Bool("is_pinned")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -165,8 +165,8 @@ func addComment(ctx context.Context, f *front, args map[string]any) (*mcp.ToolRe
 	if authorID != "" {
 		payload["author_id"] = authorID
 	}
-	if pinned != "" {
-		payload["is_pinned"] = pinned == "true"
+	if _, ok := args["is_pinned"]; ok {
+		payload["is_pinned"] = pinned
 	}
 	data, err := f.post(ctx, "/conversations/"+resourcePath(id)+"/comments", payload)
 	if err != nil {

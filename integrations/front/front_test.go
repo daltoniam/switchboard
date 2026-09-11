@@ -227,6 +227,44 @@ func TestAddComment(t *testing.T) {
 	assert.Contains(t, result.Data, "com_1")
 }
 
+func TestAddComment_PinnedBool(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, true, body["is_pinned"])
+		_, _ = w.Write([]byte(`{"id":"com_2"}`))
+	}))
+	defer ts.Close()
+
+	f := &front{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := f.Execute(context.Background(), "front_add_comment", map[string]any{
+		"conversation_id": "cnv_1",
+		"body":            "pin this",
+		"is_pinned":       true,
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestAddComment_PinnedOne(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, true, body["is_pinned"])
+		_, _ = w.Write([]byte(`{"id":"com_3"}`))
+	}))
+	defer ts.Close()
+
+	f := &front{accessToken: "tok", client: ts.Client(), baseURL: ts.URL}
+	result, err := f.Execute(context.Background(), "front_add_comment", map[string]any{
+		"conversation_id": "cnv_1",
+		"body":            "pin this",
+		"is_pinned":       "1",
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestAssignConversation_Unassign(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPatch, r.Method)
