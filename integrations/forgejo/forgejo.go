@@ -473,7 +473,7 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	"forgejo_list_pull_reviews":    sdkHandler(listPullReviews),
 	"forgejo_create_pull_review":   sdkHandler(createPullReview),
 	"forgejo_merge_pull":           sdkHandler(mergePull),
-	"forgejo_list_action_runs":     sdkHandler(listActionRuns),
+	"forgejo_list_action_runs":     listActionRuns,
 	"forgejo_get_action_run":       sdkHandler(getActionRun),
 	"forgejo_list_action_jobs":     listActionJobs,
 	"forgejo_get_action_job_logs":  getActionJobLogs,

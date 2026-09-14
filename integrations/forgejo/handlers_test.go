@@ -269,7 +269,7 @@ func TestOptionalFiltersAndAlternateRoutes(t *testing.T) {
 		{"forgejo_list_issues", map[string]any{"owner": "alice", "repo": "demo", "state": "all", "labels": []string{"bug", "help wanted"}, "query": "fix & test"}, "/repos/alice/demo/issues", "limit=30&page=1&type=issues&state=all&labels=bug%2Chelp+wanted&q=fix+%26+test", "[]"},
 		{"forgejo_list_pulls", map[string]any{"owner": "alice", "repo": "demo", "state": "closed", "sort": "recentupdate"}, "/repos/alice/demo/pulls", "limit=30&page=1&state=closed&sort=recentupdate", "[]"},
 		{"forgejo_list_commits", map[string]any{"owner": "alice", "repo": "demo"}, "/repos/alice/demo/commits", "limit=30&page=1&files=false&stat=false&verification=false", "[]"},
-		{"forgejo_list_action_runs", map[string]any{"owner": "alice", "repo": "demo", "status": "failure", "event": "push", "head_sha": "abc", "run_number": 7}, "/repos/alice/demo/actions/runs", "limit=30&page=1&event=push&status=failure&run_number=7&head_sha=abc", `{"total_count":0,"workflow_runs":[]}`},
+		{"forgejo_list_action_runs", map[string]any{"owner": "alice", "repo": "demo", "status": "failure", "event": "push", "head_sha": "abc", "run_number": 7, "workflow_id": "ci.yaml", "ref": "refs/heads/main"}, "/repos/alice/demo/actions/runs", "limit=30&page=1&event=push&status=failure&run_number=7&head_sha=abc&workflow_id=ci.yaml&ref=refs%2Fheads%2Fmain", `{"total_count":0,"workflow_runs":[]}`},
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.name)+tt.query, func(t *testing.T) {
@@ -616,12 +616,12 @@ func TestDiscoveredPathsAndBranchesRoundTrip(t *testing.T) {
 }
 
 func TestActionRunFiltersAndJobLogs(t *testing.T) {
-	t.Run("workflow and ref filter locally", func(t *testing.T) {
+	t.Run("workflow and ref filter server-side", func(t *testing.T) {
 		f, _ := configured(t, func(w http.ResponseWriter, r *http.Request) {
 			require.Equal(t, "/forge/api/v1/repos/alice/demo/actions/runs", r.URL.Path)
-			require.Empty(t, r.URL.Query().Get("workflow_id"))
-			require.Empty(t, r.URL.Query().Get("ref"))
-			fmt.Fprint(w, `{"total_count":2,"workflow_runs":[{"id":1,"workflow_id":"ci.yaml","prettyref":"refs/heads/main"},{"id":2,"workflow_id":"release.yaml","prettyref":"refs/heads/main"}]}`)
+			require.Equal(t, "ci.yaml", r.URL.Query().Get("workflow_id"))
+			require.Equal(t, "refs/heads/main", r.URL.Query().Get("ref"))
+			fmt.Fprint(w, `{"total_count":1,"workflow_runs":[{"id":1,"workflow_id":"ci.yaml","prettyref":"main"}]}`)
 		})
 		result, err := f.Execute(context.Background(), "forgejo_list_action_runs", map[string]any{"owner": "alice", "repo": "demo", "workflow_id": "ci.yaml", "ref": "refs/heads/main"})
 		require.NoError(t, err)

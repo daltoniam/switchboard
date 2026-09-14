@@ -29,44 +29,43 @@ type actionRunJob struct {
 	Status  string   `json:"status"`
 }
 
-func listActionRuns(c *sdk.Client, args map[string]any) (*mcp.ToolResult, error) {
+func listActionRuns(ctx context.Context, f *forgejo, _ *sdk.Client, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	owner, repo := r.Str("owner"), r.Str("repo")
-	opts := sdk.ListActionRunsOption{
-		ListOptions: pagination(r),
-		Event:       r.Str("event"),
-		Status:      r.Str("status"),
-		RunNumber:   r.Int64("run_number"),
-		HeadSHA:     r.Str("head_sha"),
-	}
+	opts := pagination(r)
+	event, status, runNumber, headSHA := r.Str("event"), r.Str("status"), r.Int64("run_number"), r.Str("head_sha")
 	workflowID, ref := r.Str("workflow_id"), r.Str("ref")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	runs, resp, err := c.ListRepoActionRuns(owner, repo, opts)
+	query := url.Values{
+		"page":  {strconv.Itoa(opts.Page)},
+		"limit": {strconv.Itoa(opts.PageSize)},
+	}
+	if event != "" {
+		query.Set("event", event)
+	}
+	if status != "" {
+		query.Set("status", status)
+	}
+	if runNumber > 0 {
+		query.Set("run_number", strconv.FormatInt(runNumber, 10))
+	}
+	if headSHA != "" {
+		query.Set("head_sha", headSHA)
+	}
+	if workflowID != "" {
+		query.Set("workflow_id", workflowID)
+	}
+	if ref != "" {
+		query.Set("ref", ref)
+	}
+	var runs sdk.ListActionRunsResponse
+	resp, err := f.apiJSON(ctx, http.MethodGet, fmt.Sprintf("/repos/%s/%s/actions/runs?%s", owner, repo, query.Encode()), &runs)
 	if err != nil || (resp != nil && resp.Response != nil && resp.StatusCode >= 300) {
 		return finish(nil, resp, err)
 	}
-	if runs == nil {
-		return finish([]*sdk.ActionRun{}, resp, nil)
-	}
 	filtered := runs.WorkflowRuns
-	if workflowID != "" || ref != "" {
-		next := make([]*sdk.ActionRun, 0, len(filtered))
-		for _, run := range filtered {
-			if run == nil {
-				continue
-			}
-			if workflowID != "" && run.WorkflowID != workflowID {
-				continue
-			}
-			if ref != "" && run.PrettyRef != ref {
-				continue
-			}
-			next = append(next, run)
-		}
-		filtered = next
-	}
 	if filtered == nil {
 		filtered = []*sdk.ActionRun{}
 	}
