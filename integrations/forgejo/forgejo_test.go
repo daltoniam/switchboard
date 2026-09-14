@@ -206,7 +206,7 @@ func TestContexts(t *testing.T) {
 }
 
 func TestDispatchMap_AllToolsCovered(t *testing.T) {
-	require.Len(t, New().Tools(), 30)
+	require.Len(t, New().Tools(), 34)
 	seen := map[mcp.ToolName]bool{}
 	for _, tool := range New().Tools() {
 		require.False(t, seen[tool.Name], tool.Name)
@@ -234,7 +234,7 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 func TestResponseSizeCaps(t *testing.T) {
 	f, ok := New().(mcp.PerToolMaxResponseBytesIntegration)
 	require.True(t, ok)
-	for _, tool := range []mcp.ToolName{"forgejo_get_pull_diff", "forgejo_get_file_contents"} {
+	for _, tool := range []mcp.ToolName{"forgejo_get_pull_diff", "forgejo_get_file_contents", "forgejo_get_action_job_logs"} {
 		size, ok := f.MaxResponseBytesForTool(tool)
 		require.True(t, ok)
 		require.Equal(t, 1024*1024, size)

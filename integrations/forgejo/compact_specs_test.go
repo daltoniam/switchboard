@@ -39,7 +39,7 @@ func compactor(t *testing.T) mcp.FieldCompactionIntegration {
 func TestFieldCompactionSpecs_StrictLoad(t *testing.T) {
 	loaded, raw := compactConfig(t)
 	require.Equal(t, 1, raw.Version)
-	require.Len(t, loaded.Specs, 23)
+	require.Len(t, loaded.Specs, 27)
 	require.Empty(t, loaded.Views)
 	f := compactor(t)
 	for name, fields := range loaded.Specs {
@@ -104,13 +104,13 @@ func TestFieldCompactionSpecs_UnknownAndMaxBytes(t *testing.T) {
 	require.Nil(t, fields)
 	caps, ok := New().(mcp.ToolMaxBytesIntegration)
 	require.True(t, ok)
-	for _, name := range []mcp.ToolName{"forgejo_get_file_contents", "forgejo_get_pull_diff", "forgejo_get_issue", "forgejo_create_issue", "forgejo_unknown"} {
+	for _, name := range []mcp.ToolName{"forgejo_get_file_contents", "forgejo_get_pull_diff", "forgejo_get_action_job_logs", "forgejo_get_issue", "forgejo_create_issue", "forgejo_unknown"} {
 		t.Run(string(name), func(t *testing.T) {
 			limit, found := caps.MaxBytes(name)
 			want, exists := loaded.MaxBytes[name]
 			require.Equal(t, exists, found)
 			require.Equal(t, want, limit)
-			if name == "forgejo_get_file_contents" || name == "forgejo_get_pull_diff" {
+			if name == "forgejo_get_file_contents" || name == "forgejo_get_pull_diff" || name == "forgejo_get_action_job_logs" {
 				require.True(t, found)
 				require.Equal(t, 1024*1024, limit)
 			} else {
@@ -157,6 +157,9 @@ func compactFixtures() []compactFixture {
 		{[]mcp.ToolName{"forgejo_get_pull_diff"}, map[string]string{"diff": "diff --git a/a b/a\n+hello\n"}, `{"diff":"diff --git a/a b/a\n+hello\n"}`, nil},
 		{[]mcp.ToolName{"forgejo_list_pull_files"}, &sdk.ChangedFile{Filename: "new.go", PreviousFilename: "old.go", Status: "renamed", Additions: 2, Deletions: 1, Changes: 3}, `{"filename":"new.go","previous_filename":"old.go","status":"renamed","additions":2,"deletions":1,"changes":3}`, []string{"contents_url", "raw_url"}},
 		{[]mcp.ToolName{"forgejo_list_pull_reviews"}, &sdk.PullReview{ID: 14, Reviewer: user, ReviewerTeam: &sdk.Team{ID: 15, Name: "maintainers"}, State: sdk.ReviewStateType("REQUEST_CHANGES"), Body: "Needs tests", CommitID: "abc", Stale: true, Official: true, CodeCommentsCount: 2, Submitted: stamp}, `{"id":14,"user":{"id":7,"login":"alice"},"team":{"id":15,"name":"maintainers"},"state":"REQUEST_CHANGES","body":"Needs tests","commit_id":"abc","stale":true,"official":true,"dismissed":false,"comments_count":2,"submitted_at":"2026-01-02T03:04:05Z"}`, nil},
+		{[]mcp.ToolName{"forgejo_list_action_runs", "forgejo_get_action_run"}, &sdk.ActionRun{ID: 42, RunNumber: 7, WorkflowID: "ci.yaml", Title: "CI", Status: "failure", Event: "push", CommitSHA: "abc", PrettyRef: "refs/heads/main", HTMLURL: "https://forge.test/alice/demo/actions/runs/42", TriggerUser: user, Created: stamp, Started: stamp, Stopped: stamp, Updated: stamp, NeedApproval: true, IsForkPullRequest: true}, `{"id":42,"index_in_repo":7,"workflow_id":"ci.yaml","title":"CI","status":"failure","event":"push","commit_sha":"abc","prettyref":"refs/heads/main","html_url":"https://forge.test/alice/demo/actions/runs/42","trigger_user":{"id":7,"login":"alice"},"need_approval":true,"is_fork_pull_request":true}`, []string{"event_payload", "approved_by"}},
+		{[]mcp.ToolName{"forgejo_list_action_jobs"}, &actionRunJob{ID: 9, RunID: 42, Attempt: 1, Handle: "job-9", Name: "test", Status: "failure", TaskID: 11, Needs: []string{"setup"}, RunsOn: []string{"ubuntu-latest"}}, `{"id":9,"run_id":42,"attempt":1,"handle":"job-9","name":"test","status":"failure","task_id":11,"needs":["setup"],"runs_on":["ubuntu-latest"]}`, []string{"owner_id", "repo_id"}},
+		{[]mcp.ToolName{"forgejo_get_action_job_logs"}, map[string]string{"logs": "error: test failed\n"}, `{"logs":"error: test failed\n"}`, nil},
 	}
 }
 
@@ -186,6 +189,12 @@ func TestFieldCompactionSpecs_HandlerShapes(t *testing.T) {
 				}
 				if name == "forgejo_get_pull_diff" {
 					upstream = fixture.value.(map[string]string)["diff"]
+				}
+				if name == "forgejo_get_action_job_logs" {
+					upstream = fixture.value.(map[string]string)["logs"]
+				}
+				if name == "forgejo_list_action_runs" {
+					upstream = `{"total_count":1,"workflow_runs":` + upstream + `}`
 				}
 				adapter, _ := configured(t, func(w http.ResponseWriter, r *http.Request) {
 					require.Equal(t, http.MethodGet, r.Method)

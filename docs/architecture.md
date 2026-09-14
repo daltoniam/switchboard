@@ -32,7 +32,7 @@ integrations/
     search.go                Search (code, issues, users, commits) handlers
     extras.go                Gists, activity, code/secret/dependabot scanning, copilot handlers
     oauth.go                 GitHub Device Flow OAuth (device code grant, polling, token exchange)
-  forgejo/                   Forgejo typed SDK adapter — repositories, issues, pull requests, and repository metadata
+  forgejo/                   Forgejo typed SDK adapter — repositories, issues, pull requests, and Forgejo 16+ Actions runs/jobs/logs
   datadog/
     datadog.go               Datadog integration adapter (core, dispatch, SDK client, helpers)
     tools.go                 Datadog tool definitions (~60 tools)

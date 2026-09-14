@@ -150,4 +150,24 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "number": "Positive repository-local PR number, not global ID", "merge_method": "Merge style: merge (default), rebase, rebase-merge, squash, fast-forward-only", "sha": "Optional expected head commit SHA", "commit_title": "Optional merge commit title", "commit_message": "Optional merge commit message", "delete_branch_after_merge": "Optional boolean; delete source branch after merge (default false)"},
 		Required:   []string{"owner", "repo", "number"},
 	},
+	{
+		Name: "forgejo_list_action_runs", Description: "List Forgejo Actions CI/CD workflow runs for a repository. Start here for pipeline status, failed builds, and recent jobs; use run id with get_action_run, list_action_jobs, and get_action_job_logs. Requires Forgejo 16+.",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "status": "Optional status: unknown, waiting, running, success, failure, cancelled, skipped, blocked", "event": "Optional trigger event such as push, pull_request, or workflow_dispatch", "workflow_id": "Optional workflow filename such as ci.yaml", "head_sha": "Optional commit SHA", "ref": "Optional Git ref such as refs/heads/main", "run_number": "Optional positive repository-local run number (index_in_repo)", "page": "Page number, positive integer (default 1)", "per_page": "Results per page, integer 1-50 (default 30)"},
+		Required:   []string{"owner", "repo"},
+	},
+	{
+		Name: "forgejo_get_action_run", Description: "Get one Forgejo Actions CI/CD workflow run, including status, event, commit, and timestamps. Use after list_action_runs with run id, then list_action_jobs. Requires Forgejo 16+.",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "run_id": "Positive Forgejo Actions run id from list_action_runs, not run_number"},
+		Required:   []string{"owner", "repo", "run_id"},
+	},
+	{
+		Name: "forgejo_list_action_jobs", Description: "List jobs for one Forgejo Actions CI/CD workflow run. Use after get_action_run; job id is required by get_action_job_logs. Jobs are not paginated. Requires Forgejo 16+.",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "run_id": "Positive Forgejo Actions run id from list_action_runs"},
+		Required:   []string{"owner", "repo", "run_id"},
+	},
+	{
+		Name: "forgejo_get_action_job_logs", Description: "Read plaintext logs for one Forgejo Actions CI/CD job. Use after list_action_jobs with job id; omit attempt for the latest attempt. Response budget is 1 MiB. Requires Forgejo 16+.",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "job_id": "Positive Forgejo Actions job id from list_action_jobs", "attempt": "Optional positive 1-based job attempt matching list_action_jobs attempt"},
+		Required:   []string{"owner", "repo", "job_id"},
+	},
 }
