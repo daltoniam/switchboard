@@ -52,8 +52,8 @@ func TestHandleSearch_ForgejoDiscovery(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	catalog := parseSearchResponse(t, result)
-	require.Equal(t, 30, catalog.Total)
-	assert.Equal(t, 30, searchToolCount(t, catalog))
+	require.Equal(t, 34, catalog.Total)
+	assert.Equal(t, 34, searchToolCount(t, catalog))
 	assert.False(t, catalog.HasMore)
 	var toolNames []string
 	for _, tool := range forgejo.New().Tools() {
@@ -91,6 +91,14 @@ func TestHandleSearch_ForgejoDiscovery(t *testing.T) {
 		{
 			name: "list existing pull reviews", query: "list pull reviews", integration: "forgejo", top: 3,
 			wantAny: []string{"forgejo_list_pull_reviews"},
+		},
+		{
+			name: "actions runs", query: "Forgejo CI run", top: 5,
+			wantAny: []string{"forgejo_list_action_runs"},
+		},
+		{
+			name: "actions jobs", query: "Forgejo job logs", integration: "forgejo", top: 3,
+			wantAny: []string{"forgejo_get_action_job_logs", "forgejo_list_action_jobs"},
 		},
 	}
 	for _, tt := range tests {
@@ -136,10 +144,10 @@ func TestHandleSearch_ForgejoVisibility(t *testing.T) {
 		discoverAll bool
 		wantTotal   int
 	}{
-		{name: "enabled", enabled: true, wantTotal: 30},
+		{name: "enabled", enabled: true, wantTotal: 34},
 		{name: "disabled"},
-		{name: "enabled discover all", enabled: true, discoverAll: true, wantTotal: 30},
-		{name: "disabled discover all", discoverAll: true, wantTotal: 30},
+		{name: "enabled discover all", enabled: true, discoverAll: true, wantTotal: 34},
+		{name: "disabled discover all", discoverAll: true, wantTotal: 34},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

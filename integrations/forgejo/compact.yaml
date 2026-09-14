@@ -357,3 +357,39 @@ tools:
       - submitted_at
       - html_url
       - pull_request_url
+  forgejo_list_action_runs:
+    spec: &action_run
+      - id
+      - index_in_repo
+      - workflow_id
+      - title
+      - status
+      - event
+      - commit_sha
+      - prettyref
+      - html_url
+      - trigger_user.id
+      - trigger_user.login
+      - created
+      - started
+      - stopped
+      - updated
+      - need_approval
+      - is_fork_pull_request
+  forgejo_get_action_run:
+    spec: *action_run
+  forgejo_list_action_jobs:
+    spec:
+      - id
+      - run_id
+      - attempt
+      - handle
+      - name
+      - status
+      - task_id
+      - needs
+      - runs_on
+  forgejo_get_action_job_logs:
+    max_bytes: 1048576
+    spec:
+      - logs

@@ -142,7 +142,7 @@ func (f *forgejo) Tools() []mcp.ToolDefinition { return tools }
 
 func (f *forgejo) MaxResponseBytesForTool(name mcp.ToolName) (int, bool) {
 	switch name {
-	case "forgejo_get_pull_diff", "forgejo_get_file_contents":
+	case "forgejo_get_pull_diff", "forgejo_get_file_contents", "forgejo_get_action_job_logs":
 		return 1024 * 1024, true
 	default:
 		return 0, false
@@ -161,7 +161,7 @@ func (f *forgejo) Execute(ctx context.Context, name mcp.ToolName, args map[strin
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	result, err := handler(c, args)
+	result, err := handler(ctx, f, c, args)
 	if !readOnly(name) {
 		if err != nil {
 			return mcp.ErrResult(fmt.Errorf("forgejo: mutation outcome uncertain; automatic retry disabled, verify the remote state before retrying: %v", err))
@@ -182,7 +182,9 @@ func readOnly(name mcp.ToolName) bool {
 		"forgejo_list_releases", "forgejo_get_release", "forgejo_list_labels",
 		"forgejo_list_issues", "forgejo_get_issue", "forgejo_list_issue_comments",
 		"forgejo_list_pulls", "forgejo_get_pull", "forgejo_get_pull_diff",
-		"forgejo_list_pull_files", "forgejo_list_pull_reviews":
+		"forgejo_list_pull_files", "forgejo_list_pull_reviews",
+		"forgejo_list_action_runs", "forgejo_get_action_run",
+		"forgejo_list_action_jobs", "forgejo_get_action_job_logs":
 		return true
 	default:
 		return false
@@ -246,7 +248,7 @@ func validateArgs(name mcp.ToolName, args map[string]any) error {
 
 func validateValue(name mcp.ToolName, key string, value any) error {
 	switch key {
-	case "page", "per_page", "number", "release_id", "milestone":
+	case "page", "per_page", "number", "release_id", "milestone", "run_id", "job_id", "run_number", "attempt":
 		if err := validateInteger(value); err != nil {
 			return err
 		}
@@ -279,12 +281,12 @@ func validateValue(name mcp.ToolName, key string, value any) error {
 	switch key {
 	case "owner", "repo", "org", "username":
 		return validatePath(s, false)
-	case "path", "branch", "ref", "sha", "head", "base":
+	case "path", "branch", "ref", "sha", "head", "base", "head_sha", "workflow_id":
 		if s == "" && (key == "path" && (name == "forgejo_list_directory" || name == "forgejo_list_commits") || key == "ref") {
 			return nil
 		}
 		return validatePath(s, true)
-	case "title", "query", "event", "state", "merge_method", "sort", "order":
+	case "title", "query", "event", "state", "merge_method", "sort", "order", "status":
 		if strings.TrimSpace(s) == "" {
 			return fmt.Errorf("must not be empty")
 		}
@@ -301,7 +303,12 @@ func validateValue(name mcp.ToolName, key string, value any) error {
 			allowed = append(allowed, "all")
 		}
 	case "event":
+		if name == "forgejo_list_action_runs" {
+			break
+		}
 		allowed = []string{"APPROVED", "COMMENT", "REQUEST_CHANGES"}
+	case "status":
+		allowed = actionRunStatuses
 	case "merge_method":
 		allowed = []string{"merge", "rebase", "rebase-merge", "squash", "fast-forward-only"}
 	case "order":
@@ -427,37 +434,47 @@ func pagination(r *mcp.Args) sdk.ListOptions {
 	return sdk.ListOptions{Page: r.OptInt("page", 1), PageSize: r.OptInt("per_page", 30)}
 }
 
-type handlerFunc func(*sdk.Client, map[string]any) (*mcp.ToolResult, error)
+type handlerFunc func(context.Context, *forgejo, *sdk.Client, map[string]any) (*mcp.ToolResult, error)
+
+func sdkHandler(fn func(*sdk.Client, map[string]any) (*mcp.ToolResult, error)) handlerFunc {
+	return func(_ context.Context, _ *forgejo, c *sdk.Client, args map[string]any) (*mcp.ToolResult, error) {
+		return fn(c, args)
+	}
+}
 
 var dispatch = map[mcp.ToolName]handlerFunc{
-	"forgejo_list_user_repos":      listUserRepos,
-	"forgejo_search_repos":         searchRepos,
-	"forgejo_get_repo":             getRepo,
-	"forgejo_list_org_repos":       listOrgRepos,
-	"forgejo_list_user_orgs":       listUserOrgs,
-	"forgejo_get_current_user":     getCurrentUser,
-	"forgejo_list_branches":        listBranches,
-	"forgejo_get_branch":           getBranch,
-	"forgejo_list_commits":         listCommits,
-	"forgejo_get_commit":           getCommit,
-	"forgejo_get_file_contents":    getFileContents,
-	"forgejo_list_directory":       listDirectory,
-	"forgejo_list_releases":        listReleases,
-	"forgejo_get_release":          getRelease,
-	"forgejo_list_labels":          listLabels,
-	"forgejo_list_issues":          listIssues,
-	"forgejo_get_issue":            getIssue,
-	"forgejo_create_issue":         createIssue,
-	"forgejo_update_issue":         updateIssue,
-	"forgejo_list_issue_comments":  listIssueComments,
-	"forgejo_create_issue_comment": createIssueComment,
-	"forgejo_list_pulls":           listPulls,
-	"forgejo_get_pull":             getPull,
-	"forgejo_create_pull":          createPull,
-	"forgejo_update_pull":          updatePull,
-	"forgejo_get_pull_diff":        getPullDiff,
-	"forgejo_list_pull_files":      listPullFiles,
-	"forgejo_list_pull_reviews":    listPullReviews,
-	"forgejo_create_pull_review":   createPullReview,
-	"forgejo_merge_pull":           mergePull,
+	"forgejo_list_user_repos":      sdkHandler(listUserRepos),
+	"forgejo_search_repos":         sdkHandler(searchRepos),
+	"forgejo_get_repo":             sdkHandler(getRepo),
+	"forgejo_list_org_repos":       sdkHandler(listOrgRepos),
+	"forgejo_list_user_orgs":       sdkHandler(listUserOrgs),
+	"forgejo_get_current_user":     sdkHandler(getCurrentUser),
+	"forgejo_list_branches":        sdkHandler(listBranches),
+	"forgejo_get_branch":           sdkHandler(getBranch),
+	"forgejo_list_commits":         sdkHandler(listCommits),
+	"forgejo_get_commit":           sdkHandler(getCommit),
+	"forgejo_get_file_contents":    sdkHandler(getFileContents),
+	"forgejo_list_directory":       sdkHandler(listDirectory),
+	"forgejo_list_releases":        sdkHandler(listReleases),
+	"forgejo_get_release":          sdkHandler(getRelease),
+	"forgejo_list_labels":          sdkHandler(listLabels),
+	"forgejo_list_issues":          sdkHandler(listIssues),
+	"forgejo_get_issue":            sdkHandler(getIssue),
+	"forgejo_create_issue":         sdkHandler(createIssue),
+	"forgejo_update_issue":         sdkHandler(updateIssue),
+	"forgejo_list_issue_comments":  sdkHandler(listIssueComments),
+	"forgejo_create_issue_comment": sdkHandler(createIssueComment),
+	"forgejo_list_pulls":           sdkHandler(listPulls),
+	"forgejo_get_pull":             sdkHandler(getPull),
+	"forgejo_create_pull":          sdkHandler(createPull),
+	"forgejo_update_pull":          sdkHandler(updatePull),
+	"forgejo_get_pull_diff":        sdkHandler(getPullDiff),
+	"forgejo_list_pull_files":      sdkHandler(listPullFiles),
+	"forgejo_list_pull_reviews":    sdkHandler(listPullReviews),
+	"forgejo_create_pull_review":   sdkHandler(createPullReview),
+	"forgejo_merge_pull":           sdkHandler(mergePull),
+	"forgejo_list_action_runs":     sdkHandler(listActionRuns),
+	"forgejo_get_action_run":       sdkHandler(getActionRun),
+	"forgejo_list_action_jobs":     listActionJobs,
+	"forgejo_get_action_job_logs":  getActionJobLogs,
 }

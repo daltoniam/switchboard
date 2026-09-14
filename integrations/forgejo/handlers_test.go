@@ -64,12 +64,16 @@ func toolCases() []toolCase {
 		{"forgejo_list_pull_reviews", with(map[string]any{"number": 12}), "GET", "/repos/alice/demo/pulls/12/reviews", "limit=30&page=1", nil, `[{"id":1,"state":"APPROVED"}]`},
 		{"forgejo_create_pull_review", with(map[string]any{"number": 12, "event": "APPROVED", "body": "LGTM", "commit_id": "abc"}), "POST", "/repos/alice/demo/pulls/12/reviews", "", map[string]any{"event": "APPROVED", "body": "LGTM", "commit_id": "abc"}, `{"id":1,"state":"APPROVED"}`},
 		{"forgejo_merge_pull", with(map[string]any{"number": 12, "merge_method": "squash", "sha": "abc", "delete_branch_after_merge": false}), "POST", "/repos/alice/demo/pulls/12/merge", "", map[string]any{"Do": "squash", "head_commit_id": "abc", "delete_branch_after_merge": false, "force_merge": false}, `{}`},
+		{"forgejo_list_action_runs", repo, "GET", "/repos/alice/demo/actions/runs", "limit=30&page=1", nil, `{"total_count":1,"workflow_runs":[{"id":42,"title":"CI","status":"failure","workflow_id":"ci.yaml","index_in_repo":7,"event":"push","commit_sha":"abc","prettyref":"refs/heads/main"}]}`},
+		{"forgejo_get_action_run", with(map[string]any{"run_id": 42}), "GET", "/repos/alice/demo/actions/runs/42", "", nil, `{"id":42,"title":"CI","status":"failure","workflow_id":"ci.yaml","index_in_repo":7}`},
+		{"forgejo_list_action_jobs", with(map[string]any{"run_id": 42}), "GET", "/repos/alice/demo/actions/runs/42/jobs", "", nil, `[{"id":9,"run_id":42,"attempt":1,"name":"test","status":"failure","task_id":11,"needs":["setup"],"runs_on":["ubuntu-latest"]}]`},
+		{"forgejo_get_action_job_logs", with(map[string]any{"job_id": 9}), "GET", "/repos/alice/demo/actions/jobs/9/logs", "", nil, "error: test failed\n"},
 	}
 }
 
 func TestAllToolsHTTP(t *testing.T) {
 	cases := toolCases()
-	require.Len(t, cases, 30)
+	require.Len(t, cases, 34)
 	for _, tt := range cases {
 		t.Run(string(tt.name), func(t *testing.T) {
 			var calls atomic.Int32
@@ -99,6 +103,12 @@ func TestAllToolsHTTP(t *testing.T) {
 			require.EqualValues(t, 1, calls.Load())
 			if tt.name == "forgejo_get_pull_diff" {
 				require.JSONEq(t, `{"diff":"diff --git a/a b/a\n+hello\n"}`, result.Data)
+			}
+			if tt.name == "forgejo_get_action_job_logs" {
+				require.JSONEq(t, `{"logs":"error: test failed\n"}`, result.Data)
+			}
+			if tt.name == "forgejo_list_action_runs" {
+				require.True(t, strings.HasPrefix(result.Data, "["), result.Data)
 			}
 			if tt.name == "forgejo_merge_pull" {
 				require.JSONEq(t, `{"merged":true}`, result.Data)
@@ -217,6 +227,10 @@ func TestMalformedValues(t *testing.T) {
 		{"forgejo_create_pull_review", "event", []any{"PENDING", "APPROVE", "REQUEST_REVIEW", ""}},
 		{"forgejo_merge_pull", "merge_method", []any{"manually-merged", "force", ""}},
 		{"forgejo_merge_pull", "force_merge", []any{true}},
+		{"forgejo_list_action_runs", "status", []any{"in_progress", "completed", ""}},
+		{"forgejo_get_action_run", "run_id", []any{0, -1, 1.5}},
+		{"forgejo_get_action_job_logs", "job_id", []any{0, -1}},
+		{"forgejo_get_action_job_logs", "attempt", []any{0, -1}},
 	}
 	var calls atomic.Int32
 	f, _ := configured(t, func(w http.ResponseWriter, r *http.Request) { calls.Add(1); fmt.Fprint(w, `{}`) })
@@ -255,6 +269,7 @@ func TestOptionalFiltersAndAlternateRoutes(t *testing.T) {
 		{"forgejo_list_issues", map[string]any{"owner": "alice", "repo": "demo", "state": "all", "labels": []string{"bug", "help wanted"}, "query": "fix & test"}, "/repos/alice/demo/issues", "limit=30&page=1&type=issues&state=all&labels=bug%2Chelp+wanted&q=fix+%26+test", "[]"},
 		{"forgejo_list_pulls", map[string]any{"owner": "alice", "repo": "demo", "state": "closed", "sort": "recentupdate"}, "/repos/alice/demo/pulls", "limit=30&page=1&state=closed&sort=recentupdate", "[]"},
 		{"forgejo_list_commits", map[string]any{"owner": "alice", "repo": "demo"}, "/repos/alice/demo/commits", "limit=30&page=1&files=false&stat=false&verification=false", "[]"},
+		{"forgejo_list_action_runs", map[string]any{"owner": "alice", "repo": "demo", "status": "failure", "event": "push", "head_sha": "abc", "run_number": 7}, "/repos/alice/demo/actions/runs", "limit=30&page=1&event=push&status=failure&run_number=7&head_sha=abc", `{"total_count":0,"workflow_runs":[]}`},
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.name)+tt.query, func(t *testing.T) {
@@ -486,6 +501,10 @@ func TestPaginationExceptionDescriptions(t *testing.T) {
 		case "forgejo_list_commits":
 			require.Contains(t, tool.Description, "server-controlled")
 			require.Contains(t, tool.Parameters["per_page"], "path")
+		case "forgejo_list_action_jobs":
+			require.NotContains(t, tool.Parameters, "page")
+			require.NotContains(t, tool.Parameters, "per_page")
+			require.Contains(t, tool.Description, "not paginated")
 		}
 	}
 }
@@ -594,6 +613,46 @@ func TestDiscoveredPathsAndBranchesRoundTrip(t *testing.T) {
 			require.EqualValues(t, 4, calls.Load())
 		})
 	}
+}
+
+func TestActionRunFiltersAndJobLogs(t *testing.T) {
+	t.Run("workflow and ref filter locally", func(t *testing.T) {
+		f, _ := configured(t, func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, "/forge/api/v1/repos/alice/demo/actions/runs", r.URL.Path)
+			require.Empty(t, r.URL.Query().Get("workflow_id"))
+			require.Empty(t, r.URL.Query().Get("ref"))
+			fmt.Fprint(w, `{"total_count":2,"workflow_runs":[{"id":1,"workflow_id":"ci.yaml","prettyref":"refs/heads/main"},{"id":2,"workflow_id":"release.yaml","prettyref":"refs/heads/main"}]}`)
+		})
+		result, err := f.Execute(context.Background(), "forgejo_list_action_runs", map[string]any{"owner": "alice", "repo": "demo", "workflow_id": "ci.yaml", "ref": "refs/heads/main"})
+		require.NoError(t, err)
+		require.False(t, result.IsError, result.Data)
+		var runs []map[string]any
+		require.NoError(t, json.Unmarshal([]byte(result.Data), &runs))
+		require.Len(t, runs, 1)
+		require.EqualValues(t, 1, runs[0]["id"])
+		require.Equal(t, "ci.yaml", runs[0]["workflow_id"])
+	})
+	t.Run("job logs attempt query", func(t *testing.T) {
+		f, _ := configured(t, func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, "/forge/api/v1/repos/alice/demo/actions/jobs/9/logs", r.URL.Path)
+			require.Equal(t, "2", r.URL.Query().Get("attempt"))
+			require.Equal(t, "text/plain", r.Header.Get("Accept"))
+			fmt.Fprint(w, "retry log")
+		})
+		result, err := f.Execute(context.Background(), "forgejo_get_action_job_logs", map[string]any{"owner": "alice", "repo": "demo", "job_id": 9, "attempt": 2})
+		require.NoError(t, err)
+		require.False(t, result.IsError, result.Data)
+		require.JSONEq(t, `{"logs":"retry log"}`, result.Data)
+	})
+	t.Run("jobs reject pagination", func(t *testing.T) {
+		var calls atomic.Int32
+		f, _ := configured(t, func(w http.ResponseWriter, r *http.Request) { calls.Add(1); fmt.Fprint(w, `[]`) })
+		result, err := f.Execute(context.Background(), "forgejo_list_action_jobs", map[string]any{"owner": "alice", "repo": "demo", "run_id": 42, "page": 1})
+		require.NoError(t, err)
+		require.True(t, result.IsError)
+		require.Contains(t, result.Data, "unknown parameter")
+		require.Zero(t, calls.Load())
+	})
 }
 
 func TestSearchNullResponseDoesNotPanic(t *testing.T) {
