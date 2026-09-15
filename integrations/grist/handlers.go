@@ -60,6 +60,9 @@ func listLimit(args map[string]any) (int, error) {
 	if _, ok := args["limit"]; !ok {
 		return defaultLimit, nil
 	}
+	if limit < 0 {
+		return defaultLimit, nil
+	}
 	if limit == 0 {
 		if !unlimited {
 			return 0, fmt.Errorf("limit 0 fetches the whole table; pass unlimited=true to confirm")
@@ -140,7 +143,26 @@ func recordIDsArg(args map[string]any) ([]int, error) {
 	}
 	switch v := v.(type) {
 	case string:
-		return parseIntIDs(v)
+		s := strings.TrimSpace(v)
+		if strings.HasPrefix(s, "[") {
+			var items []any
+			if err := json.Unmarshal([]byte(s), &items); err != nil {
+				return nil, fmt.Errorf("invalid JSON for record_ids: %w", err)
+			}
+			out := make([]int, 0, len(items))
+			for i, item := range items {
+				n, err := intFromAny(item)
+				if err != nil {
+					return nil, fmt.Errorf("record_ids[%d]: %w", i, err)
+				}
+				out = append(out, n)
+			}
+			if len(out) == 0 {
+				return nil, fmt.Errorf("record_ids is required")
+			}
+			return out, nil
+		}
+		return parseIntIDs(s)
 	case []any:
 		out := make([]int, 0, len(v))
 		for i, item := range v {
