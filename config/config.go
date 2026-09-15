@@ -210,6 +210,10 @@ var envMapping = map[string]map[string]string{
 		"access_token": "FRONT_ACCESS_TOKEN",
 		"base_url":     "FRONT_BASE_URL",
 	},
+	"grist": {
+		"api_key":  "GRIST_API_KEY",
+		"base_url": "GRIST_HOST",
+	},
 	"ramp": {
 		"access_token": "RAMP_ACCESS_TOKEN",
 		"base_url":     "RAMP_BASE_URL",
@@ -449,6 +453,10 @@ func defaultConfig() *mcp.Config {
 			"front": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"grist": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "base_url": ""},
 			},
 			"ramp": {
 				Enabled:     false,

@@ -85,6 +85,11 @@ integrations/
     queries.go               Native SQL query execution, card CRUD handlers
     dashboards.go            Dashboard CRUD, add-card-to-dashboard handlers
     collections.go           Collection CRUD, search handlers
+  grist/
+    grist.go                 Grist spreadsheet adapter (core, dispatch, HTTP helpers)
+    compact.yaml             Field compaction specs (read tools)
+    tools.go                 Grist tool definitions (~30 tools)
+    handlers.go              Orgs, workspaces, docs, tables, columns, records, SQL, webhooks, attachments
   notion/
     notion.go                Notion v3 integration adapter (core, dispatch, HTTP helpers)
     tools.go                 Notion tool definitions (~24 tools)
