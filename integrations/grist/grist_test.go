@@ -262,6 +262,41 @@ func TestListRecords_DefaultLimit(t *testing.T) {
 	assert.NotContains(t, result.Data, `"records"`)
 }
 
+func TestListRecords_NativeFilter(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, `{"Status":["Open"]}`, r.URL.Query().Get("filter"))
+		_, _ = w.Write([]byte(`{"records":[{"id":1,"fields":{"Name":"Ada"}}]}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "grist_list_records", map[string]any{
+		"doc_id":   "doc1",
+		"table_id": "People",
+		"filter":   map[string]any{"Status": []any{"Open"}},
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestDeleteRecords_NativeIDs(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var ids []int
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&ids))
+		assert.Equal(t, []int{1, 2, 3}, ids)
+		w.WriteHeader(200)
+		_, _ = w.Write(nil)
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "grist_delete_records", map[string]any{
+		"doc_id":     "doc1",
+		"table_id":   "People",
+		"record_ids": []any{1, 2, 3},
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestAddRecords_NativeArray(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any

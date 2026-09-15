@@ -92,6 +92,100 @@ func parseIntIDs(raw string) ([]int, error) {
 	return out, nil
 }
 
+func filterQuery(args map[string]any) (string, error) {
+	v, ok, err := optionalJSONArg(args, "filter")
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", nil
+	}
+	if s, isStr := v.(string); isStr {
+		return s, nil
+	}
+	data, err := json.Marshal(v)
+	if err != nil {
+		return "", fmt.Errorf("invalid JSON for filter: %w", err)
+	}
+	return string(data), nil
+}
+
+func intFromAny(v any) (int, error) {
+	switch n := v.(type) {
+	case int:
+		return n, nil
+	case int32:
+		return int(n), nil
+	case int64:
+		return int(n), nil
+	case float64:
+		return int(n), nil
+	case json.Number:
+		i, err := n.Int64()
+		if err != nil {
+			return 0, err
+		}
+		return int(i), nil
+	case string:
+		return strconv.Atoi(n)
+	default:
+		return 0, fmt.Errorf("cannot convert %T to int", v)
+	}
+}
+
+func recordIDsArg(args map[string]any) ([]int, error) {
+	v, ok := args["record_ids"]
+	if !ok || v == nil {
+		return nil, fmt.Errorf("record_ids is required")
+	}
+	switch v := v.(type) {
+	case string:
+		return parseIntIDs(v)
+	case []any:
+		out := make([]int, 0, len(v))
+		for i, item := range v {
+			n, err := intFromAny(item)
+			if err != nil {
+				return nil, fmt.Errorf("record_ids[%d]: %w", i, err)
+			}
+			out = append(out, n)
+		}
+		if len(out) == 0 {
+			return nil, fmt.Errorf("record_ids is required")
+		}
+		return out, nil
+	case []int:
+		if len(v) == 0 {
+			return nil, fmt.Errorf("record_ids is required")
+		}
+		return v, nil
+	default:
+		parsed, err := anyJSONArg(args, "record_ids")
+		if err != nil {
+			return nil, err
+		}
+		if s, isStr := parsed.(string); isStr {
+			return parseIntIDs(s)
+		}
+		items, ok := parsed.([]any)
+		if !ok {
+			return nil, fmt.Errorf("record_ids must be a CSV string or array of ids")
+		}
+		out := make([]int, 0, len(items))
+		for i, item := range items {
+			n, err := intFromAny(item)
+			if err != nil {
+				return nil, fmt.Errorf("record_ids[%d]: %w", i, err)
+			}
+			out = append(out, n)
+		}
+		if len(out) == 0 {
+			return nil, fmt.Errorf("record_ids is required")
+		}
+		return out, nil
+	}
+}
+
 func listOrgs(ctx context.Context, g *grist, _ map[string]any) (*mcp.ToolResult, error) {
 	data, err := g.get(ctx, "/api/orgs")
 	if err != nil {
@@ -467,7 +561,6 @@ func listRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolR
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
 	tableID := r.Str("table_id")
-	filter := r.Str("filter")
 	sort := r.Str("sort")
 	cellFormat := r.Str("cell_format")
 	hidden := r.Bool("hidden")
@@ -481,6 +574,10 @@ func listRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolR
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}
 	limit, err := listLimit(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	filter, err := filterQuery(args)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -612,7 +709,6 @@ func deleteRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.Too
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
 	tableID := r.Str("table_id")
-	recordIDs := r.Str("record_ids")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -622,7 +718,7 @@ func deleteRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.Too
 	if tableID == "" {
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}
-	ids, err := parseIntIDs(recordIDs)
+	ids, err := recordIDsArg(args)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -724,7 +820,6 @@ func deleteWebhook(ctx context.Context, g *grist, args map[string]any) (*mcp.Too
 func listAttachments(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
-	filter := r.Str("filter")
 	sort := r.Str("sort")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
@@ -733,6 +828,10 @@ func listAttachments(ctx context.Context, g *grist, args map[string]any) (*mcp.T
 		return mcp.ErrResult(fmt.Errorf("doc_id is required"))
 	}
 	limit, err := listLimit(args)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	filter, err := filterQuery(args)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
