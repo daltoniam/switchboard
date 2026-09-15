@@ -262,6 +262,65 @@ func TestListRecords_DefaultLimit(t *testing.T) {
 	assert.NotContains(t, result.Data, `"records"`)
 }
 
+func TestAddRecords_NativeArray(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		records, ok := body["records"].([]any)
+		require.True(t, ok)
+		require.Len(t, records, 1)
+		_, _ = w.Write([]byte(`{"records":[{"id":8}]}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "grist_add_records", map[string]any{
+		"doc_id":   "doc1",
+		"table_id": "People",
+		"records":  []any{map[string]any{"fields": map[string]any{"Name": "Ada"}}},
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Contains(t, result.Data, `"id":8`)
+}
+
+func TestListRecords_RejectsZeroWithoutUnlimited(t *testing.T) {
+	g := &grist{apiKey: "key", client: &http.Client{}, baseURL: "http://localhost"}
+	result, err := g.Execute(context.Background(), "grist_list_records", map[string]any{
+		"doc_id": "doc1", "table_id": "People", "limit": 0,
+	})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "unlimited")
+}
+
+func TestListRecords_ZeroWithUnlimited(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "0", r.URL.Query().Get("limit"))
+		_, _ = w.Write([]byte(`{"records":[{"id":1,"fields":{"Name":"Ada"}}]}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "grist_list_records", map[string]any{
+		"doc_id": "doc1", "table_id": "People", "limit": 0, "unlimited": true,
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
+func TestListRecords_ClampsHugeLimit(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "500", r.URL.Query().Get("limit"))
+		_, _ = w.Write([]byte(`{"records":[{"id":1,"fields":{"Name":"Ada"}}]}`))
+	}))
+	defer ts.Close()
+
+	result, err := configured(ts).Execute(context.Background(), "grist_list_records", map[string]any{
+		"doc_id": "doc1", "table_id": "People", "limit": 5000,
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+}
+
 func TestAddRecords(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)

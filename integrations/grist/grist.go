@@ -33,6 +33,7 @@ const (
 	maxResponseSize = 10 * 1024 * 1024
 	defaultBaseURL  = "https://docs.getgrist.com"
 	defaultLimit    = 50
+	maxLimit        = 500
 )
 
 var (

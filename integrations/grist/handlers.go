@@ -15,14 +15,61 @@ func pathEscape(id string) string {
 	return url.PathEscape(id)
 }
 
-func jsonArg(raw string, dest any, name string) error {
-	if raw == "" {
-		return fmt.Errorf("%s is required", name)
+func anyJSONArg(args map[string]any, key string) (any, error) {
+	v, ok := args[key]
+	if !ok || v == nil {
+		return nil, fmt.Errorf("%s is required", key)
 	}
-	if err := json.Unmarshal([]byte(raw), dest); err != nil {
-		return fmt.Errorf("invalid JSON for %s: %w", name, err)
+	switch v := v.(type) {
+	case string:
+		if v == "" {
+			return nil, fmt.Errorf("%s is required", key)
+		}
+		var out any
+		if err := json.Unmarshal([]byte(v), &out); err != nil {
+			return nil, fmt.Errorf("invalid JSON for %s: %w", key, err)
+		}
+		return out, nil
+	default:
+		return v, nil
 	}
-	return nil
+}
+
+func optionalJSONArg(args map[string]any, key string) (any, bool, error) {
+	v, ok := args[key]
+	if !ok || v == nil {
+		return nil, false, nil
+	}
+	if s, isStr := v.(string); isStr && s == "" {
+		return nil, false, nil
+	}
+	out, err := anyJSONArg(args, key)
+	if err != nil {
+		return nil, false, err
+	}
+	return out, true, nil
+}
+
+func listLimit(args map[string]any) (int, error) {
+	r := mcp.NewArgs(args)
+	limit := r.Int("limit")
+	unlimited := r.Bool("unlimited")
+	if err := r.Err(); err != nil {
+		return 0, err
+	}
+	if _, ok := args["limit"]; !ok {
+		return defaultLimit, nil
+	}
+	if limit == 0 {
+		if !unlimited {
+			return 0, fmt.Errorf("limit 0 fetches the whole table; pass unlimited=true to confirm")
+		}
+		return 0, nil
+	}
+	if limit > maxLimit && !unlimited {
+		return maxLimit, nil
+	}
+	return limit, nil
 }
 
 func parseIntIDs(raw string) ([]int, error) {
@@ -282,15 +329,14 @@ func listTables(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolRe
 func createTables(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
-	tablesRaw := r.Str("tables")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 	if docID == "" {
 		return mcp.ErrResult(fmt.Errorf("doc_id is required"))
 	}
-	var tables any
-	if err := jsonArg(tablesRaw, &tables, "tables"); err != nil {
+	tables, err := anyJSONArg(args, "tables")
+	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := g.post(ctx, "/api/docs/"+pathEscape(docID)+"/tables", map[string]any{"tables": tables})
@@ -303,15 +349,14 @@ func createTables(ctx context.Context, g *grist, args map[string]any) (*mcp.Tool
 func updateTables(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
-	tablesRaw := r.Str("tables")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 	if docID == "" {
 		return mcp.ErrResult(fmt.Errorf("doc_id is required"))
 	}
-	var tables any
-	if err := jsonArg(tablesRaw, &tables, "tables"); err != nil {
+	tables, err := anyJSONArg(args, "tables")
+	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := g.patch(ctx, "/api/docs/"+pathEscape(docID)+"/tables", map[string]any{"tables": tables})
@@ -350,7 +395,6 @@ func addColumns(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolRe
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
 	tableID := r.Str("table_id")
-	columnsRaw := r.Str("columns")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -360,8 +404,8 @@ func addColumns(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolRe
 	if tableID == "" {
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}
-	var columns any
-	if err := jsonArg(columnsRaw, &columns, "columns"); err != nil {
+	columns, err := anyJSONArg(args, "columns")
+	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := g.post(ctx, fmt.Sprintf("/api/docs/%s/tables/%s/columns", pathEscape(docID), pathEscape(tableID)), map[string]any{"columns": columns})
@@ -375,7 +419,6 @@ func updateColumns(ctx context.Context, g *grist, args map[string]any) (*mcp.Too
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
 	tableID := r.Str("table_id")
-	columnsRaw := r.Str("columns")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -385,8 +428,8 @@ func updateColumns(ctx context.Context, g *grist, args map[string]any) (*mcp.Too
 	if tableID == "" {
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}
-	var columns any
-	if err := jsonArg(columnsRaw, &columns, "columns"); err != nil {
+	columns, err := anyJSONArg(args, "columns")
+	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := g.patch(ctx, fmt.Sprintf("/api/docs/%s/tables/%s/columns", pathEscape(docID), pathEscape(tableID)), map[string]any{"columns": columns})
@@ -428,7 +471,6 @@ func listRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolR
 	sort := r.Str("sort")
 	cellFormat := r.Str("cell_format")
 	hidden := r.Bool("hidden")
-	limit := r.Int("limit")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -438,8 +480,9 @@ func listRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolR
 	if tableID == "" {
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}
-	if _, ok := args["limit"]; !ok {
-		limit = defaultLimit
+	limit, err := listLimit(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
 	params := map[string]string{}
 	if filter != "" {
@@ -466,7 +509,6 @@ func addRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolRe
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
 	tableID := r.Str("table_id")
-	recordsRaw := r.Str("records")
 	noparse := r.Bool("noparse")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
@@ -477,8 +519,8 @@ func addRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolRe
 	if tableID == "" {
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}
-	var records any
-	if err := jsonArg(recordsRaw, &records, "records"); err != nil {
+	records, err := anyJSONArg(args, "records")
+	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	q := ""
@@ -496,7 +538,6 @@ func updateRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.Too
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
 	tableID := r.Str("table_id")
-	recordsRaw := r.Str("records")
 	noparse := r.Bool("noparse")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
@@ -507,8 +548,8 @@ func updateRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.Too
 	if tableID == "" {
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}
-	var records any
-	if err := jsonArg(recordsRaw, &records, "records"); err != nil {
+	records, err := anyJSONArg(args, "records")
+	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	q := ""
@@ -526,7 +567,6 @@ func upsertRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.Too
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
 	tableID := r.Str("table_id")
-	recordsRaw := r.Str("records")
 	onmany := r.Str("onmany")
 	noadd := r.Bool("noadd")
 	noupdate := r.Bool("noupdate")
@@ -541,8 +581,8 @@ func upsertRecords(ctx context.Context, g *grist, args map[string]any) (*mcp.Too
 	if tableID == "" {
 		return mcp.ErrResult(fmt.Errorf("table_id is required"))
 	}
-	var records any
-	if err := jsonArg(recordsRaw, &records, "records"); err != nil {
+	records, err := anyJSONArg(args, "records")
+	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	params := map[string]string{}
@@ -597,7 +637,6 @@ func querySQL(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolResu
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
 	sql := r.Str("sql")
-	argsRaw := r.Str("args")
 	timeout := r.Int("timeout")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
@@ -609,11 +648,11 @@ func querySQL(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolResu
 		return mcp.ErrResult(fmt.Errorf("sql is required"))
 	}
 	body := map[string]any{"sql": sql}
-	if argsRaw != "" {
-		var sqlArgs any
-		if err := jsonArg(argsRaw, &sqlArgs, "args"); err != nil {
-			return mcp.ErrResult(err)
-		}
+	sqlArgs, ok, err := optionalJSONArg(args, "args")
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	if ok {
 		body["args"] = sqlArgs
 	}
 	if timeout > 0 {
@@ -645,15 +684,14 @@ func listWebhooks(ctx context.Context, g *grist, args map[string]any) (*mcp.Tool
 func createWebhooks(ctx context.Context, g *grist, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	docID := r.Str("doc_id")
-	webhooksRaw := r.Str("webhooks")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 	if docID == "" {
 		return mcp.ErrResult(fmt.Errorf("doc_id is required"))
 	}
-	var webhooks any
-	if err := jsonArg(webhooksRaw, &webhooks, "webhooks"); err != nil {
+	webhooks, err := anyJSONArg(args, "webhooks")
+	if err != nil {
 		return mcp.ErrResult(err)
 	}
 	data, err := g.post(ctx, "/api/docs/"+pathEscape(docID)+"/webhooks", map[string]any{"webhooks": webhooks})
@@ -688,15 +726,15 @@ func listAttachments(ctx context.Context, g *grist, args map[string]any) (*mcp.T
 	docID := r.Str("doc_id")
 	filter := r.Str("filter")
 	sort := r.Str("sort")
-	limit := r.Int("limit")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 	if docID == "" {
 		return mcp.ErrResult(fmt.Errorf("doc_id is required"))
 	}
-	if _, ok := args["limit"]; !ok {
-		limit = defaultLimit
+	limit, err := listLimit(args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
 	params := map[string]string{"limit": strconv.Itoa(limit)}
 	if filter != "" {
