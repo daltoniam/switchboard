@@ -47,6 +47,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gmeet"
 	"github.com/daltoniam/switchboard/integrations/gong"
 	"github.com/daltoniam/switchboard/integrations/gpeople"
+	"github.com/daltoniam/switchboard/integrations/grist"
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
@@ -338,6 +339,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		hubspot.New(),
 		intercom.New(),
 		front.New(),
+		grist.New(),
 		gcalIntegration,
 		gdriveIntegration,
 		gdocsIntegration,

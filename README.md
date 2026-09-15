@@ -340,6 +340,8 @@ Environment variables override credential values but do not change the durable e
 | Intercom | `base_url` | `INTERCOM_BASE_URL` (optional — default `https://api.intercom.io`; EU `https://api.eu.intercom.io`, AU `https://api.au.intercom.io`) |
 | Front | `access_token` | `FRONT_ACCESS_TOKEN` (API token or OAuth access token) |
 | Front | `base_url` | `FRONT_BASE_URL` (optional — default `https://api2.frontapp.com`) |
+| Grist | `api_key` | `GRIST_API_KEY` (API key from Profile → API) |
+| Grist | `base_url` | `GRIST_HOST` (optional — default `https://docs.getgrist.com`; team sites `https://{team}.getgrist.com`; self-hosted origin) |
 | Okta | `api_token` | `OKTA_API_TOKEN` |
 | Okta | `org_url` | `OKTA_ORG_URL` (e.g. `https://your-org.okta.com`) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |

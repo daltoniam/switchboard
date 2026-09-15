@@ -1,0 +1,142 @@
+# Switchboard compaction specs for the grist integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# grist.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    grist_list_orgs:
+        spec:
+            - id
+            - name
+            - domain
+            - createdAt
+            - updatedAt
+            - owner.id
+            - owner.name
+            - owner.email
+            - access
+    grist_get_org:
+        spec:
+            - id
+            - name
+            - domain
+            - createdAt
+            - updatedAt
+            - owner.id
+            - owner.name
+            - owner.email
+            - access
+    grist_list_workspaces:
+        spec:
+            - id
+            - name
+            - createdAt
+            - updatedAt
+            - access
+            - docs[].id
+            - docs[].name
+            - docs[].isPinned
+            - docs[].urlId
+            - docs[].access
+            - docs[].updatedAt
+    grist_get_workspace:
+        spec:
+            - id
+            - name
+            - createdAt
+            - updatedAt
+            - access
+            - org.id
+            - org.name
+            - org.domain
+            - docs[].id
+            - docs[].name
+            - docs[].isPinned
+            - docs[].urlId
+            - docs[].access
+            - docs[].updatedAt
+    grist_get_doc:
+        spec:
+            - id
+            - name
+            - createdAt
+            - updatedAt
+            - isPinned
+            - urlId
+            - access
+            - workspace.id
+            - workspace.name
+            - workspace.org.id
+            - workspace.org.name
+            - workspace.org.domain
+    grist_list_tables:
+        spec:
+            - id
+            - fields.tableRef
+            - fields.onDemand
+            - columns[].id
+            - columns[].fields.label
+            - columns[].fields.type
+            - columns[].fields.isFormula
+            - columns[].fields.formula
+            - columns[].fields.colRef
+    grist_list_columns:
+        spec:
+            - id
+            - fields.label
+            - fields.type
+            - fields.isFormula
+            - fields.formula
+            - fields.colRef
+            - fields.parentId
+            - fields.widgetOptions
+    grist_list_records:
+        max_bytes: 200000
+        spec:
+            - id
+            - fields.*
+    grist_query_sql:
+        max_bytes: 200000
+        spec:
+            - id
+            - fields.*
+    grist_list_webhooks:
+        spec:
+            - id
+            - fields.name
+            - fields.url
+            - fields.enabled
+            - fields.eventTypes
+            - fields.tableId
+            - fields.isReadyColumn
+            - usage.numWaiting
+            - usage.status
+            - usage.lastSuccessTime
+            - usage.lastFailureTime
+            - usage.lastHttpStatus
+    grist_list_attachments:
+        spec:
+            - id
+            - fields.fileName
+            - fields.fileSize
+            - fields.timeUploaded
+            - fields.imageHeight
+            - fields.imageWidth
+    grist_get_attachment:
+        spec:
+            - fileName
+            - fileSize
+            - timeUploaded
+            - imageHeight
+            - imageWidth

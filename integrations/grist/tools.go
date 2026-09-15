@@ -1,0 +1,310 @@
+package grist
+
+import mcp "github.com/daltoniam/switchboard"
+
+var tools = []mcp.ToolDefinition{
+	{
+		Name: mcp.ToolName("grist_list_orgs"), Description: "List Grist team sites and personal organizations the API key can access. Start here for Grist spreadsheet, workbook, table, and relational-document discovery.",
+	},
+	{
+		Name:        mcp.ToolName("grist_get_org"),
+		Description: "Get a Grist organization or team site, including name, domain, and owner. Use after list_orgs.",
+		Parameters:  map[string]string{"org_id": "Organization id or domain (from list_orgs)"},
+		Required:    []string{"org_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_list_workspaces"),
+		Description: "List Grist workspaces and the spreadsheets/workbooks inside an organization. Use after list_orgs to find document ids.",
+		Parameters:  map[string]string{"org_id": "Organization id or domain"},
+		Required:    []string{"org_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_get_workspace"),
+		Description: "Get a Grist workspace and the documents it contains. Use after list_workspaces.",
+		Parameters:  map[string]string{"workspace_id": "Workspace id"},
+		Required:    []string{"workspace_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_create_workspace"),
+		Description: "Create a Grist workspace in an organization. Use after list_orgs.",
+		Parameters: map[string]string{
+			"org_id": "Organization id or domain",
+			"name":   "Workspace name",
+		},
+		Required: []string{"org_id", "name"},
+	},
+	{
+		Name:        mcp.ToolName("grist_delete_workspace"),
+		Description: "Permanently delete a Grist workspace and its documents. Use after get_workspace.",
+		Parameters:  map[string]string{"workspace_id": "Workspace id"},
+		Required:    []string{"workspace_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_get_doc"),
+		Description: "Get Grist document/workbook metadata including name, access, pin state, and parent workspace. Use after list_workspaces. For tables and rows, use list_tables and list_records.",
+		Parameters:  map[string]string{"doc_id": "Document id from list_workspaces"},
+		Required:    []string{"doc_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_create_doc"),
+		Description: "Create an empty Grist spreadsheet/workbook in a workspace. Use after list_workspaces. Returns the new document id.",
+		Parameters: map[string]string{
+			"workspace_id": "Workspace id",
+			"name":         "Document name",
+		},
+		Required: []string{"workspace_id", "name"},
+	},
+	{
+		Name:        mcp.ToolName("grist_update_doc"),
+		Description: "Rename a Grist document/workbook or update its metadata. Use after get_doc.",
+		Parameters: map[string]string{
+			"doc_id": "Document id",
+			"name":   "New document name",
+		},
+		Required: []string{"doc_id", "name"},
+	},
+	{
+		Name:        mcp.ToolName("grist_move_doc"),
+		Description: "Move a Grist document/workbook to another workspace. Use after get_doc and list_workspaces.",
+		Parameters: map[string]string{
+			"doc_id":       "Document id",
+			"workspace_id": "Destination workspace id",
+		},
+		Required: []string{"doc_id", "workspace_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_copy_doc"),
+		Description: "Copy a Grist document/workbook into a workspace. Use after get_doc. Set as_template true to copy structure without row data.",
+		Parameters: map[string]string{
+			"doc_id":       "Source document id",
+			"workspace_id": "Destination workspace id",
+			"name":         "Name for the copy",
+			"as_template":  "true to copy structure only, without data",
+		},
+		Required: []string{"doc_id", "workspace_id", "name"},
+	},
+	{
+		Name:        mcp.ToolName("grist_delete_doc"),
+		Description: "Permanently delete a Grist document/workbook. Use after get_doc.",
+		Parameters:  map[string]string{"doc_id": "Document id"},
+		Required:    []string{"doc_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_list_tables"),
+		Description: "List tables in a Grist document/workbook. Use after get_doc to discover table ids for records, columns, and SQL.",
+		Parameters: map[string]string{
+			"doc_id": "Document id",
+			"expand": "Set true to include each table's columns",
+		},
+		Required: []string{"doc_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_create_tables"),
+		Description: "Add tables to a Grist document, optionally with columns. Use after list_tables. tables is a JSON array of {id, columns}.",
+		Parameters: map[string]string{
+			"doc_id": "Document id",
+			"tables": `JSON array of tables, e.g. [{"id":"People","columns":[{"id":"Name","fields":{"type":"Text"}}]}]`,
+		},
+		Required: []string{"doc_id", "tables"},
+	},
+	{
+		Name:        mcp.ToolName("grist_update_tables"),
+		Description: "Rename Grist tables or set on-demand loading. Use after list_tables. tables is a JSON array of {id, fields}.",
+		Parameters: map[string]string{
+			"doc_id": "Document id",
+			"tables": `JSON array of table updates, e.g. [{"id":"People","fields":{"tableId":"Contacts"}}]`,
+		},
+		Required: []string{"doc_id", "tables"},
+	},
+	{
+		Name:        mcp.ToolName("grist_list_columns"),
+		Description: "List columns and field types in a Grist table. Use after list_tables before reading or writing records.",
+		Parameters: map[string]string{
+			"doc_id":   "Document id",
+			"table_id": "Table id (e.g. People)",
+			"hidden":   "true to include hidden columns such as manualSort",
+		},
+		Required: []string{"doc_id", "table_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_add_columns"),
+		Description: "Add columns to a Grist table. Use after list_columns. columns is a JSON array of {id, fields:{type,label,formula,...}}.",
+		Parameters: map[string]string{
+			"doc_id":   "Document id",
+			"table_id": "Table id",
+			"columns":  `JSON array of columns, e.g. [{"id":"Age","fields":{"type":"Int","label":"Age"}}]`,
+		},
+		Required: []string{"doc_id", "table_id", "columns"},
+	},
+	{
+		Name:        mcp.ToolName("grist_update_columns"),
+		Description: "Modify Grist column types, labels, or formulas. Use after list_columns. columns is a JSON array of {id, fields}.",
+		Parameters: map[string]string{
+			"doc_id":   "Document id",
+			"table_id": "Table id",
+			"columns":  `JSON array of column updates, e.g. [{"id":"Age","fields":{"label":"Years"}}]`,
+		},
+		Required: []string{"doc_id", "table_id", "columns"},
+	},
+	{
+		Name:        mcp.ToolName("grist_delete_column"),
+		Description: "Delete a column from a Grist table. Use after list_columns.",
+		Parameters: map[string]string{
+			"doc_id":   "Document id",
+			"table_id": "Table id",
+			"col_id":   "Column id to delete",
+		},
+		Required: []string{"doc_id", "table_id", "col_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_list_records"),
+		Description: "Fetch rows/records from a Grist table with optional filter, sort, and limit. Use after list_tables and list_columns. Filter is exact-match JSON {column:[values]}. Prefer query_sql for joins or comparisons.",
+		Parameters: map[string]string{
+			"doc_id":      "Document id",
+			"table_id":    "Table id",
+			"filter":      `JSON object of column to allowed values, e.g. {"Status":["Open","New"]}`,
+			"sort":        "Sort spec, e.g. Name,-Age or Name:naturalSort;emptyLast",
+			"limit":       "Max rows (default 50, max 500). 0 fetches the whole table and requires unlimited=true.",
+			"unlimited":   "true to allow limit 0 or a limit above 500",
+			"hidden":      "true to include hidden columns such as manualSort",
+			"cell_format": "normal (default) or typed",
+		},
+		Required: []string{"doc_id", "table_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_add_records"),
+		Description: "Insert rows into a Grist table. Use after list_columns. records is a JSON array of {fields:{Col:value}}.",
+		Parameters: map[string]string{
+			"doc_id":   "Document id",
+			"table_id": "Table id",
+			"records":  `JSON array of records, e.g. [{"fields":{"Name":"Ada","Age":36}}]`,
+			"noparse":  "true to store strings as-is without parsing dates or numbers",
+		},
+		Required: []string{"doc_id", "table_id", "records"},
+	},
+	{
+		Name:        mcp.ToolName("grist_update_records"),
+		Description: "Update existing Grist rows by id. Use after list_records. records is a JSON array of {id, fields}.",
+		Parameters: map[string]string{
+			"doc_id":   "Document id",
+			"table_id": "Table id",
+			"records":  `JSON array of records, e.g. [{"id":1,"fields":{"Age":37}}]`,
+			"noparse":  "true to store strings as-is without parsing dates or numbers",
+		},
+		Required: []string{"doc_id", "table_id", "records"},
+	},
+	{
+		Name:        mcp.ToolName("grist_upsert_records"),
+		Description: "Add or update Grist rows by matching require fields. Use after list_columns. records is a JSON array of {require, fields}.",
+		Parameters: map[string]string{
+			"doc_id":              "Document id",
+			"table_id":            "Table id",
+			"records":             `JSON array, e.g. [{"require":{"Email":"a@b.com"},"fields":{"Age":37}}]`,
+			"onmany":              "If multiple rows match require: first (default), none, or all",
+			"noadd":               "true to forbid inserting unmatched rows",
+			"noupdate":            "true to forbid updating matched rows",
+			"allow_empty_require": "true to allow empty require (matches every row)",
+			"noparse":             "true to store strings as-is without parsing dates or numbers",
+		},
+		Required: []string{"doc_id", "table_id", "records"},
+	},
+	{
+		Name:        mcp.ToolName("grist_delete_records"),
+		Description: "Delete Grist rows by numeric record id. Use after list_records.",
+		Parameters: map[string]string{
+			"doc_id":     "Document id",
+			"table_id":   "Table id",
+			"record_ids": "Comma-separated row ids, e.g. 1,2,3",
+		},
+		Required: []string{"doc_id", "table_id", "record_ids"},
+	},
+	{
+		Name:        mcp.ToolName("grist_query_sql"),
+		Description: "Run a read-only SQL SELECT against a Grist document's SQLite database. Use after list_tables for filters, joins, aggregates, and comparisons that list_records cannot express. Single SELECT only.",
+		Parameters: map[string]string{
+			"doc_id":  "Document id",
+			"sql":     "SELECT statement with no trailing semicolon. ? placeholders allowed.",
+			"args":    "JSON array of bound parameters matching ? placeholders",
+			"timeout": "Timeout in milliseconds (default 1000, cannot exceed server default)",
+		},
+		Required: []string{"doc_id", "sql"},
+	},
+	{
+		Name:        mcp.ToolName("grist_list_webhooks"),
+		Description: "List Grist webhooks and delivery status for a document. Use after get_doc.",
+		Parameters:  map[string]string{"doc_id": "Document id"},
+		Required:    []string{"doc_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_create_webhooks"),
+		Description: "Create Grist webhooks that POST when table rows are added or updated. Use after list_tables. webhooks is a JSON array of {fields:{url,eventTypes,tableId,...}}.",
+		Parameters: map[string]string{
+			"doc_id":   "Document id",
+			"webhooks": `JSON array, e.g. [{"fields":{"url":"https://example.com/hook","eventTypes":["add","update"],"tableId":"People","enabled":true}}]`,
+		},
+		Required: []string{"doc_id", "webhooks"},
+	},
+	{
+		Name:        mcp.ToolName("grist_delete_webhook"),
+		Description: "Delete a Grist webhook. Use after list_webhooks.",
+		Parameters: map[string]string{
+			"doc_id":     "Document id",
+			"webhook_id": "Webhook id",
+		},
+		Required: []string{"doc_id", "webhook_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_list_attachments"),
+		Description: "List file attachments stored in a Grist document. Use after get_doc.",
+		Parameters: map[string]string{
+			"doc_id":    "Document id",
+			"limit":     "Max attachments (default 50, max 500). 0 fetches all and requires unlimited=true.",
+			"unlimited": "true to allow limit 0 or a limit above 500",
+			"sort":      "Sort spec, e.g. -timeUploaded",
+			"filter":    "JSON object of column to allowed values",
+		},
+		Required: []string{"doc_id"},
+	},
+	{
+		Name:        mcp.ToolName("grist_get_attachment"),
+		Description: "Get metadata for a Grist attachment (file name, size, upload time). Use after list_attachments.",
+		Parameters: map[string]string{
+			"doc_id":        "Document id",
+			"attachment_id": "Attachment row id",
+		},
+		Required: []string{"doc_id", "attachment_id"},
+	},
+}
+
+var dispatch = map[mcp.ToolName]handlerFunc{
+	mcp.ToolName("grist_list_orgs"):        listOrgs,
+	mcp.ToolName("grist_get_org"):          getOrg,
+	mcp.ToolName("grist_list_workspaces"):  listWorkspaces,
+	mcp.ToolName("grist_get_workspace"):    getWorkspace,
+	mcp.ToolName("grist_create_workspace"): createWorkspace,
+	mcp.ToolName("grist_delete_workspace"): deleteWorkspace,
+	mcp.ToolName("grist_get_doc"):          getDoc,
+	mcp.ToolName("grist_create_doc"):       createDoc,
+	mcp.ToolName("grist_update_doc"):       updateDoc,
+	mcp.ToolName("grist_move_doc"):         moveDoc,
+	mcp.ToolName("grist_copy_doc"):         copyDoc,
+	mcp.ToolName("grist_delete_doc"):       deleteDoc,
+	mcp.ToolName("grist_list_tables"):      listTables,
+	mcp.ToolName("grist_create_tables"):    createTables,
+	mcp.ToolName("grist_update_tables"):    updateTables,
+	mcp.ToolName("grist_list_columns"):     listColumns,
+	mcp.ToolName("grist_add_columns"):      addColumns,
+	mcp.ToolName("grist_update_columns"):   updateColumns,
+	mcp.ToolName("grist_delete_column"):    deleteColumn,
+	mcp.ToolName("grist_list_records"):     listRecords,
+	mcp.ToolName("grist_add_records"):      addRecords,
+	mcp.ToolName("grist_update_records"):   updateRecords,
+	mcp.ToolName("grist_upsert_records"):   upsertRecords,
+	mcp.ToolName("grist_delete_records"):   deleteRecords,
+	mcp.ToolName("grist_query_sql"):        querySQL,
+	mcp.ToolName("grist_list_webhooks"):    listWebhooks,
+	mcp.ToolName("grist_create_webhooks"):  createWebhooks,
+	mcp.ToolName("grist_delete_webhook"):   deleteWebhook,
+	mcp.ToolName("grist_list_attachments"): listAttachments,
+	mcp.ToolName("grist_get_attachment"):   getAttachment,
+}
