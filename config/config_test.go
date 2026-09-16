@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 66)
-	for _, name := range []string{"github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "metabase", "paperless", "recoll", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365"} {
+	assert.Len(t, m.cfg.Integrations, 67)
+	for _, name := range []string{"github", "forgejo", "gitlab", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "metabase", "paperless", "recoll", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 66)
+	assert.Len(t, cfg.Integrations, 67)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 66)
+	assert.Len(t, cfg.Integrations, 67)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,11 +273,12 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 66)
+	assert.Len(t, cfg.Integrations, 67)
 
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
 		"forgejo":          {"base_url", "token"},
+		"gitlab":           {"mcp_access_token", "token", "base_url", "token_source"},
 		"datadog":          {"api_key", "app_key"},
 		"linear":           {"api_key", "mcp_access_token", "token_source"},
 		"sentry":           {"auth_token", "organization", "client_id", "token_source"},
@@ -702,6 +703,9 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "MICROSOFT365_TENANT_ID", m["microsoft365"]["tenant_id"])
 	assert.Equal(t, "FIGMA_MCP_ACCESS_TOKEN", m["figma"]["mcp_access_token"])
 	assert.Equal(t, "FIGMA_MCP_BASE_URL", m["figma"]["base_url"])
+	assert.Equal(t, "GITLAB_MCP_ACCESS_TOKEN", m["gitlab"]["mcp_access_token"])
+	assert.Equal(t, "GITLAB_TOKEN", m["gitlab"]["token"])
+	assert.Equal(t, "GITLAB_BASE_URL", m["gitlab"]["base_url"])
 	assert.Equal(t, "SERVICENOW_INSTANCE_URL", m["servicenow"]["instance_url"])
 	assert.Equal(t, "SERVICENOW_USERNAME", m["servicenow"]["username"])
 	assert.Equal(t, "SERVICENOW_PASSWORD", m["servicenow"]["password"])
@@ -726,7 +730,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_BASE_URL", m["likec4excalidraw"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
-	assert.Len(t, m, 55)
+	assert.Len(t, m, 56)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
