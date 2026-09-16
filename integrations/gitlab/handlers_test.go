@@ -35,7 +35,7 @@ func TestHandlers_HTTPRouting(t *testing.T) {
 		t.Run(string(tc.tool), func(t *testing.T) {
 			g, s := configured(t, func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, tc.method, r.Method)
-				require.Equal(t, tc.path, r.URL.Path)
+				require.Equal(t, tc.path, r.URL.EscapedPath())
 				if tc.body != "" {
 					data, err := io.ReadAll(r.Body)
 					require.NoError(t, err)
@@ -68,6 +68,16 @@ func TestCreateNote_MutationErrorSurface(t *testing.T) {
 	require.Contains(t, strings.ToLower(res.Data), "403")
 }
 
+func TestHandlers_ProjectPathEncoding(t *testing.T) {
+	g, _ := configured(t, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/v4/projects/gitlab-org%2Fgitlab", r.URL.EscapedPath())
+		fmt.Fprint(w, `{"id":1}`)
+	})
+	res, err := g.Execute(context.Background(), "gitlab_get_project", map[string]any{"project_id": "gitlab-org/gitlab"})
+	require.NoError(t, err)
+	require.False(t, res.IsError, res.Data)
+}
+
 func TestListProjects_QueryMembership(t *testing.T) {
 	var q string
 	g, _ := configured(t, func(w http.ResponseWriter, r *http.Request) {
@@ -77,4 +87,15 @@ func TestListProjects_QueryMembership(t *testing.T) {
 	_, err := g.Execute(context.Background(), "gitlab_list_projects", nil)
 	require.NoError(t, err)
 	require.Contains(t, q, "membership=true")
+}
+
+func TestListProjects_MembershipStringFalse(t *testing.T) {
+	var q string
+	g, _ := configured(t, func(w http.ResponseWriter, r *http.Request) {
+		q = r.URL.RawQuery
+		fmt.Fprint(w, `[]`)
+	})
+	_, err := g.Execute(context.Background(), "gitlab_list_projects", map[string]any{"membership": "false"})
+	require.NoError(t, err)
+	require.NotContains(t, q, "membership=")
 }

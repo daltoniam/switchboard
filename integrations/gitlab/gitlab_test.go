@@ -81,5 +81,13 @@ func TestHealthyAndGetUser(t *testing.T) {
 
 func TestEncodeProjectID(t *testing.T) {
 	assert.Equal(t, "gitlab-org%2Fgitlab", encodeProjectID("gitlab-org/gitlab"))
+	assert.Equal(t, "gitlab-org%2Fgitlab", encodeProjectID("gitlab-org%2Fgitlab"))
 	assert.Equal(t, "123", encodeProjectID("123"))
+}
+
+func TestAPIURL_ProjectPathNotDoubleEncoded(t *testing.T) {
+	g := &gitlab{baseURL: "https://gitlab.example.com"}
+	got := g.apiURL("/projects/"+encodeProjectID("gitlab-org/gitlab"), nil)
+	assert.Contains(t, got, "/projects/gitlab-org%2Fgitlab")
+	assert.NotContains(t, got, "%252F")
 }
