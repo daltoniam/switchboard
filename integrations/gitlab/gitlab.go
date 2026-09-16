@@ -88,8 +88,8 @@ func (g *gitlab) apiURL(path string, query url.Values) string {
 	}
 	prefix := strings.TrimSuffix(inst.Path, "/")
 	apiPath := prefix + apiV4Path + path
-	inst.Path = apiPath
-	if strings.Contains(path, "%2F") {
+	inst.Path = strings.ReplaceAll(apiPath, "%2F", "/")
+	if strings.Contains(apiPath, "%2F") {
 		inst.RawPath = apiPath
 	}
 	inst.RawQuery = query.Encode()
@@ -192,9 +192,18 @@ func encodeProjectID(id string) string {
 		return id
 	}
 	if strings.Contains(id, "%") {
-		return id
+		unescaped, err := url.PathUnescape(id)
+		if err != nil {
+			return url.PathEscape(id)
+		}
+		id = unescaped
 	}
-	return strings.ReplaceAll(id, "/", "%2F")
+	return url.PathEscape(id)
+}
+
+// NormalizeInstanceURL validates and canonicalizes a GitLab instance root URL.
+func NormalizeInstanceURL(raw string) (string, error) {
+	return normalizeInstanceURL(raw)
 }
 
 func pagination(r *mcp.Args) (page, perPage int) {

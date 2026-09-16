@@ -17,8 +17,12 @@ func handleListProjects(ctx context.Context, g *gitlab, args map[string]any) (*m
 	q := paginationQuery(r)
 	q.Set("membership", "true")
 	if args != nil {
-		if v, ok := args["membership"]; ok {
-			if b, ok := v.(bool); ok && !b {
+		if _, ok := args["membership"]; ok {
+			membership, err := mcp.ArgBool(args, "membership")
+			if err != nil {
+				return mcp.ErrResult(err)
+			}
+			if !membership {
 				q.Del("membership")
 			}
 		}

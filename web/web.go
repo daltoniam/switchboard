@@ -24,6 +24,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gdrive"
 	"github.com/daltoniam/switchboard/integrations/gforms"
 	ghInt "github.com/daltoniam/switchboard/integrations/github"
+	"github.com/daltoniam/switchboard/integrations/gitlab"
 	"github.com/daltoniam/switchboard/integrations/gmail"
 	"github.com/daltoniam/switchboard/integrations/gmeet"
 	"github.com/daltoniam/switchboard/integrations/gpeople"
@@ -1306,14 +1307,16 @@ func (w *WebServer) handleGitLabSaveSettings(rw http.ResponseWriter, r *http.Req
 		return
 	}
 	baseURL := strings.TrimSpace(r.FormValue("base_url"))
-	if baseURL == "" {
-		baseURL = "https://gitlab.com"
+	normalized, err := gitlab.NormalizeInstanceURL(baseURL)
+	if err != nil {
+		http.Redirect(rw, r, "/integrations/gitlab/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
 	}
 	ic, _ := w.services.Config.GetIntegration("gitlab")
 	if ic == nil {
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
-	ic.Credentials["base_url"] = baseURL
+	ic.Credentials["base_url"] = normalized
 	_ = w.services.Config.SetIntegration("gitlab", ic)
 	http.Redirect(rw, r, "/integrations/gitlab/setup?result=Instance+URL+saved", http.StatusSeeOther)
 }
