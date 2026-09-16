@@ -98,6 +98,9 @@ func TestJobTrace_ByteLimits(t *testing.T) {
 	_, ok := g.MaxBytes("gitlab_get_job_trace")
 	assert.False(t, ok, "job trace should not use compact max_bytes; transport cap only")
 
+	_, ok = g.CompactSpec("gitlab_get_job_trace")
+	assert.False(t, ok, "job trace returns plain text like github_get_pull_diff")
+
 	limit, ok := g.MaxResponseBytesForTool("gitlab_get_job_trace")
 	assert.True(t, ok)
 	assert.Equal(t, 1024*1024, limit)

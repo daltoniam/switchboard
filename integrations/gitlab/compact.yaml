@@ -129,6 +129,3 @@ tools:
       - failure_reason
       - started_at
       - finished_at
-  gitlab_get_job_trace:
-    spec:
-      - trace
