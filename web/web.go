@@ -24,7 +24,6 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gdrive"
 	"github.com/daltoniam/switchboard/integrations/gforms"
 	ghInt "github.com/daltoniam/switchboard/integrations/github"
-	"github.com/daltoniam/switchboard/integrations/gitlab"
 	"github.com/daltoniam/switchboard/integrations/gmail"
 	"github.com/daltoniam/switchboard/integrations/gmeet"
 	"github.com/daltoniam/switchboard/integrations/gpeople"
@@ -1248,19 +1247,14 @@ func (w *WebServer) handleGitLabSetup(rw http.ResponseWriter, r *http.Request) {
 	ic, exists := w.services.Config.GetIntegration("gitlab")
 	baseURL := "https://gitlab.com"
 	hasToken := false
-	tokenSource := ""
 	if exists {
 		if v := strings.TrimSpace(ic.Credentials["base_url"]); v != "" {
 			baseURL = v
 		}
-		hasToken = ic.Credentials["mcp_access_token"] != "" || ic.Credentials["token"] != ""
-		tokenSource = ic.Credentials[mcp.CredKeyTokenSource]
+		hasToken = ic.Credentials["token"] != ""
 	}
 
 	integration, ok := w.services.Registry.Get("gitlab")
-	if ok {
-		gitlab.ApplyBaseURL(integration, baseURL)
-	}
 
 	var healthy bool
 	if hasToken && ok {
@@ -1272,10 +1266,9 @@ func (w *WebServer) handleGitLabSetup(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	data := pages.GitLabSetupData{
-		HasToken:    hasToken,
-		Healthy:     healthy,
-		BaseURL:     baseURL,
-		TokenSource: tokenSource,
+		HasToken: hasToken,
+		Healthy:  healthy,
+		BaseURL:  baseURL,
 	}
 	if flash := r.URL.Query().Get("result"); flash != "" {
 		data.FlashResult = flash
@@ -1292,9 +1285,9 @@ func (w *WebServer) handleGitLabSaveToken(rw http.ResponseWriter, r *http.Reques
 		http.Redirect(rw, r, "/integrations/gitlab/setup?error=Invalid+form+data", http.StatusSeeOther)
 		return
 	}
-	token := strings.TrimSpace(r.FormValue("mcp_access_token"))
+	token := strings.TrimSpace(r.FormValue("token"))
 	if token == "" {
-		http.Redirect(rw, r, "/integrations/gitlab/setup?error=Access+token+is+required", http.StatusSeeOther)
+		http.Redirect(rw, r, "/integrations/gitlab/setup?error=Token+is+required", http.StatusSeeOther)
 		return
 	}
 	ic, _ := w.services.Config.GetIntegration("gitlab")
@@ -1302,9 +1295,7 @@ func (w *WebServer) handleGitLabSaveToken(rw http.ResponseWriter, r *http.Reques
 		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
 	}
 	ic.Enabled = true
-	ic.Credentials["mcp_access_token"] = token
-	ic.Credentials["token"] = ""
-	ic.Credentials[mcp.CredKeyTokenSource] = "pat"
+	ic.Credentials["token"] = token
 	_ = w.services.Config.SetIntegration("gitlab", ic)
 	http.Redirect(rw, r, "/integrations/gitlab/setup?result=Token+saved+successfully", http.StatusSeeOther)
 }
@@ -1710,12 +1701,6 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 		Options:       remotemcp.OAuthOptions{Scope: "mcp:connect", ClientName: "Codex"},
 		CredentialKey: "mcp_access_token",
 	},
-	"gitlab": {
-		ResourcePath:       "/api/v4/mcp",
-		Options:            remotemcp.OAuthOptions{Scope: "mcp"},
-		CredentialKey:      "mcp_access_token",
-		ClearCredentialKey: "token",
-	},
 }
 
 func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
@@ -1728,22 +1713,12 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if name == "gitlab" {
-		ic, _ := w.services.Config.GetIntegration("gitlab")
-		if ic != nil {
-			gitlab.ApplyBaseURL(integration, ic.Credentials["base_url"])
-		}
-	}
-
 	serverURL := remotemcp.ServerURL(integration)
 	if serverURL == "" {
 		serverURL = linearInt.MCPServerURL(integration)
 	}
 	if serverURL == "" {
 		serverURL = figma.MCPServerURL(integration)
-	}
-	if serverURL == "" {
-		serverURL = gitlab.MCPServerURL(integration)
 	}
 	if serverURL == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})

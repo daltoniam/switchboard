@@ -211,28 +211,6 @@ Tools cover repositories, the authenticated user and organizations, issues and
 comments, pull requests (including diffs, files, reviews, and merge), branches,
 commits, content, releases, and labels.
 
-### GitLab official MCP (`gitlab`)
-
-Phase 1 proxies GitLab's **official** MCP server at `https://<host>/api/v4/mcp` (GitLab.com or self-managed). Tools are discovered dynamically from upstream (`gitlab_list_merge_requests`, `gitlab_save_note`, `gitlab_get_job`, and the rest of the official catalog). Response compaction is applied on common MR/CI read paths.
-
-Use the web UI at `http://localhost:3847/integrations/gitlab/setup` for OAuth (`mcp` scope) or paste a personal access token. Set `base_url` to your instance root (default `https://gitlab.com`). Phase 2 (native PAT + REST for MCP-disabled self-hosted) is not included in this adapter yet.
-
-```json
-{
-  "integrations": {
-    "gitlab": {
-      "enabled": true,
-      "credentials": {
-        "base_url": "https://gitlab.com",
-        "mcp_access_token": "your-token-or-oauth-access-token"
-      }
-    }
-  }
-}
-```
-
-Environment variables: `GITLAB_BASE_URL`, `GITLAB_MCP_ACCESS_TOKEN`, or `GITLAB_TOKEN` (alias).
-
 ### Slack official hosted MCP (`slackmcp`)
 
 Separate from the native `slack` session-token adapter. Proxies Slack's hosted MCP at `https://mcp.slack.com` (optional `credentials.base_url` override; Switchboard appends `/mcp`).
@@ -303,9 +281,6 @@ Environment variables override credential values but do not change the durable e
 | GitHub | `token` | `GITHUB_TOKEN` |
 | Forgejo | `base_url` | `FORGEJO_BASE_URL` (required — instance URL including any deployment subpath) |
 | Forgejo | `token` | `FORGEJO_TOKEN` (required — personal access token) |
-| GitLab MCP | `base_url` | `GITLAB_BASE_URL` (optional, default `https://gitlab.com`) |
-| GitLab MCP | `mcp_access_token` | `GITLAB_MCP_ACCESS_TOKEN` |
-| GitLab MCP | `token` | `GITLAB_TOKEN` (alias for `mcp_access_token`) |
 | Datadog | `api_key` | `DD_API_KEY` |
 | Datadog | `app_key` | `DD_APP_KEY` |
 | Datadog | `site` | `DD_SITE` |

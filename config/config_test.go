@@ -278,7 +278,7 @@ func TestDefaultConfig(t *testing.T) {
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
 		"forgejo":          {"base_url", "token"},
-		"gitlab":           {"mcp_access_token", "token", "base_url", "token_source"},
+		"gitlab":           {"base_url", "token"},
 		"datadog":          {"api_key", "app_key"},
 		"linear":           {"api_key", "mcp_access_token", "token_source"},
 		"sentry":           {"auth_token", "organization", "client_id", "token_source"},
@@ -703,7 +703,6 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "MICROSOFT365_TENANT_ID", m["microsoft365"]["tenant_id"])
 	assert.Equal(t, "FIGMA_MCP_ACCESS_TOKEN", m["figma"]["mcp_access_token"])
 	assert.Equal(t, "FIGMA_MCP_BASE_URL", m["figma"]["base_url"])
-	assert.Equal(t, "GITLAB_MCP_ACCESS_TOKEN", m["gitlab"]["mcp_access_token"])
 	assert.Equal(t, "GITLAB_TOKEN", m["gitlab"]["token"])
 	assert.Equal(t, "GITLAB_BASE_URL", m["gitlab"]["base_url"])
 	assert.Equal(t, "SERVICENOW_INSTANCE_URL", m["servicenow"]["instance_url"])

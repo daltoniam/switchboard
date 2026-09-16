@@ -6,12 +6,11 @@ import (
 )
 
 type GitLabSetupData struct {
-	HasToken     bool
-	Healthy      bool
-	BaseURL      string
-	TokenSource  string
-	FlashResult  string
-	FlashError   string
+	HasToken    bool
+	Healthy     bool
+	BaseURL     string
+	FlashResult string
+	FlashError  string
 }
 
 templ GitLabSetup(page layouts.PageData, data GitLabSetupData) {
@@ -35,10 +34,10 @@ templ GitLabSetup(page layouts.PageData, data GitLabSetupData) {
 		}
 		<div class="card">
 			<div class="card-header">
-				<div class="card-title">Instance URL</div>
+				<div class="card-title">GitLab instance</div>
 			</div>
 			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
-				GitLab.com by default. For self-managed GitLab, set your instance root URL (for example <code>https://gitlab.example.com</code>). Switchboard connects to the official MCP at <code>/api/v4/mcp</code> on that host.
+				Default is GitLab.com. For self-managed GitLab, set your instance URL (for example <code>https://gitlab.example.com</code>). The adapter calls the REST API at <code>/api/v4</code>.
 			</p>
 			<form method="POST" action="/api/gitlab/save-settings">
 				@components.FormGroup("Base URL", "base_url", "text", data.BaseURL, "https://gitlab.com")
@@ -47,75 +46,18 @@ templ GitLabSetup(page layouts.PageData, data GitLabSetupData) {
 		</div>
 		<div class="card">
 			<div class="card-header">
-				<div class="card-title">Option 1: Sign in with GitLab (Recommended)</div>
-				if data.Healthy && data.TokenSource == "oauth" {
+				<div class="card-title">Personal access token</div>
+				if data.HasToken && data.Healthy {
 					@components.Badge("Connected", "green")
 				}
 			</div>
 			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
-				Authorize Switchboard via GitLab MCP OAuth (dynamic client registration, <code>mcp</code> scope). Requires MCP enabled on your GitLab instance.
-			</p>
-			<div id="oauth-container">
-				<button type="button" class="btn btn-green" id="oauth-start-btn" onclick="startRemoteMCPOAuth()">
-					if data.Healthy && data.TokenSource == "oauth" {
-						Re-authorize with GitLab
-					} else {
-						Sign in with GitLab →
-					}
-				</button>
-			</div>
-			<div id="oauth-error" style="display: none;">
-				<div class="flash flash-error" id="oauth-error-msg"></div>
-				<button type="button" class="btn btn-outline" onclick="resetOAuth()" style="margin-top: 0.5rem;">Try Again</button>
-			</div>
-		</div>
-		<div class="card">
-			<div class="card-header">
-				<div class="card-title">Option 2: Personal Access Token</div>
-				if data.HasToken && data.Healthy && data.TokenSource != "oauth" {
-					@components.Badge("Connected", "green")
-				}
-			</div>
-			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
-				Create a personal access token with API scope (and MCP access where required by your GitLab version) and paste it below. Phase 2 will add a native REST fallback for MCP-disabled instances.
+				Create a personal access token with <code>api</code> scope (and <code>read_api</code> where required) and paste it below.
 			</p>
 			<form method="POST" action="/api/gitlab/save-token">
-				@components.FormGroup("Access token", "mcp_access_token", "password", "", "glpat-...")
+				@components.FormGroup("Token", "token", "password", "", "glpat-...")
 				<button type="submit" class="btn">Save token</button>
 			</form>
 		</div>
-		<script>
-			function startRemoteMCPOAuth() {
-				var btn = document.getElementById('oauth-start-btn');
-				btn.disabled = true;
-				btn.textContent = 'Starting...';
-				fetch('/api/remote/gitlab/oauth/start', { method: 'POST' })
-					.then(function(r) { return r.json(); })
-					.then(function(data) {
-						if (data.error) {
-							showOAuthError(data.error);
-							return;
-						}
-						window.location.href = data.authorize_url;
-					})
-					.catch(function(err) {
-						showOAuthError('Failed to start OAuth flow: ' + err.message);
-					});
-			}
-
-			function showOAuthError(msg) {
-				document.getElementById('oauth-container').style.display = 'none';
-				document.getElementById('oauth-error').style.display = 'block';
-				document.getElementById('oauth-error-msg').textContent = msg;
-			}
-
-			function resetOAuth() {
-				document.getElementById('oauth-container').style.display = 'block';
-				document.getElementById('oauth-error').style.display = 'none';
-				var btn = document.getElementById('oauth-start-btn');
-				btn.disabled = false;
-				btn.textContent = 'Sign in with GitLab →';
-			}
-		</script>
 	}
 }

@@ -17,35 +17,19 @@ func TestFieldCompactionSpecs_AllParse(t *testing.T) {
 	assert.Equal(t, len(specFile.Tools), len(fieldCompactionSpecs))
 }
 
+func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
+	for name := range fieldCompactionSpecs {
+		_, ok := dispatch[name]
+		require.True(t, ok, "orphan compact spec %s", name)
+	}
+}
+
 func TestFieldCompactionSpecs_ShapeParity(t *testing.T) {
-	tests := []struct {
-		name     string
-		toolName mcp.ToolName
-		payload  string
-		want     string
-	}{
-		{
-			name:     "list_merge_requests",
-			toolName: "gitlab_list_merge_requests",
-			payload:  `{"merge_requests":[{"iid":1,"title":"Fix login","state":"opened","web_url":"https://gitlab.com/mr/1","author":{"username":"alice","name":"Alice"},"noise":"drop"}]}`,
-			want:     "Fix login",
-		},
-		{
-			name:     "get_job",
-			toolName: "gitlab_get_job",
-			payload:  `{"id":88,"name":"rspec","status":"failed","trace":"ERROR: failed","extra":"drop"}`,
-			want:     "ERROR: failed",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			fields, ok := fieldCompactionSpecs[test.toolName]
-			require.True(t, ok)
-			compacted, err := mcp.CompactJSON([]byte(test.payload), fields)
-			require.NoError(t, err)
-			assert.Contains(t, string(compacted), test.want)
-			assert.NotContains(t, string(compacted), "noise")
-			assert.NotContains(t, string(compacted), "extra")
-		})
-	}
+	fields, ok := fieldCompactionSpecs["gitlab_list_merge_requests"]
+	require.True(t, ok)
+	payload := `[{"iid":1,"title":"Fix","state":"opened","web_url":"https://gitlab.com/mr/1","author":{"username":"alice"},"noise":"drop"}]`
+	compacted, err := mcp.CompactJSON([]byte(payload), fields)
+	require.NoError(t, err)
+	assert.Contains(t, string(compacted), "Fix")
+	assert.NotContains(t, string(compacted), "noise")
 }
