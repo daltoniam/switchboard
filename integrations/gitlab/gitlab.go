@@ -218,11 +218,7 @@ func normalizeInstanceURL(raw string) (string, error) {
 	if err != nil || u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
 		return "", fmt.Errorf("gitlab: base_url must be an HTTP(S) GitLab instance URL without credentials")
 	}
-	path := strings.TrimRight(u.Path, "/")
-	if strings.HasSuffix(path, apiV4Path) {
-		path = strings.TrimSuffix(path, apiV4Path)
-	}
-	u.Path = path
+	u.Path = strings.TrimSuffix(strings.TrimRight(u.Path, "/"), apiV4Path)
 	u.RawQuery = ""
 	u.Fragment = ""
 	return strings.TrimRight(u.String(), "/"), nil
