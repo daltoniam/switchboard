@@ -9,6 +9,8 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 )
 
+// MaxResponseBytesForTool raises the cap for gitlab_get_job_trace, which returns
+// raw log text (not JSON) and needs headroom comparable to github_get_pull_diff.
 func (g *gitlab) MaxResponseBytesForTool(name mcp.ToolName) (int, bool) {
 	if name == "gitlab_get_job_trace" {
 		return 1024 * 1024, true
@@ -59,5 +61,5 @@ func handleGetJobTrace(ctx context.Context, g *gitlab, args map[string]any) (*mc
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.JSONResult(map[string]string{"trace": trace})
+	return &mcp.ToolResult{Data: trace}, nil
 }
