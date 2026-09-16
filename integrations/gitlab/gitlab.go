@@ -130,12 +130,8 @@ func (g *gitlab) doJSON(ctx context.Context, method, path string, query url.Valu
 	if err != nil {
 		return nil, resp.StatusCode, err
 	}
-	if resp.StatusCode >= 400 {
-		msg := strings.TrimSpace(string(data))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return nil, resp.StatusCode, fmt.Errorf("gitlab: HTTP %d: %s", resp.StatusCode, msg)
+	if err := httpStatusError(resp.StatusCode, data); err != nil {
+		return nil, resp.StatusCode, err
 	}
 	if resp.StatusCode == http.StatusNoContent || len(data) == 0 {
 		return json.RawMessage("null"), resp.StatusCode, nil
@@ -165,14 +161,21 @@ func (g *gitlab) doText(ctx context.Context, path string, query url.Values, maxB
 	if err != nil {
 		return "", resp.StatusCode, err
 	}
-	if resp.StatusCode >= 400 {
-		msg := strings.TrimSpace(string(data))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return "", resp.StatusCode, fmt.Errorf("gitlab: HTTP %d: %s", resp.StatusCode, msg)
+	if err := httpStatusError(resp.StatusCode, data); err != nil {
+		return "", resp.StatusCode, err
 	}
 	return string(data), resp.StatusCode, nil
+}
+
+func httpStatusError(status int, data []byte) error {
+	if status < 300 {
+		return nil
+	}
+	msg := strings.TrimSpace(string(data))
+	if msg == "" {
+		msg = http.StatusText(status)
+	}
+	return fmt.Errorf("gitlab: HTTP %d: %s", status, msg)
 }
 
 func jsonResult(raw json.RawMessage, err error) (*mcp.ToolResult, error) {

@@ -40,10 +40,10 @@ func handleListPipelineJobs(ctx context.Context, g *gitlab, args map[string]any)
 	r := mcp.NewArgs(args)
 	projectID := encodeProjectID(r.Str("project_id"))
 	pipelineID := r.Int("pipeline_id")
+	q := paginationQuery(r)
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	q := paginationQuery(r)
 	path := fmt.Sprintf("/projects/%s/pipelines/%d/jobs", projectID, pipelineID)
 	raw, _, err := g.doJSON(ctx, http.MethodGet, path, q, nil)
 	return jsonResult(raw, err)
