@@ -279,6 +279,11 @@ var envMapping = map[string]map[string]string{
 		"mcp_access_token": "NOTION_MCP_ACCESS_TOKEN",
 		"base_url":         "NOTION_MCP_BASE_URL",
 	},
+	"gitlab": {
+		"mcp_access_token": "GITLAB_MCP_ACCESS_TOKEN",
+		"token":            "GITLAB_TOKEN",
+		"base_url":         "GITLAB_BASE_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -346,6 +351,15 @@ func defaultConfig() *mcp.Config {
 			"forgejo": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "token": ""},
+			},
+			"gitlab": {
+				Enabled: false,
+				Credentials: mcp.Credentials{
+					"mcp_access_token":     "",
+					"token":                "",
+					"base_url":             "",
+					mcp.CredKeyTokenSource: "",
+				},
 			},
 			"datadog": {
 				Enabled:     false,

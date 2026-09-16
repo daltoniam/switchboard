@@ -1,0 +1,113 @@
+# GitLab official MCP proxy — compaction for high-traffic read tools (Phase 1).
+version: 1
+tools:
+  gitlab_list_merge_requests:
+    spec:
+      - merge_requests[].iid
+      - merge_requests[].title
+      - merge_requests[].state
+      - merge_requests[].web_url
+      - merge_requests[].reference
+      - merge_requests[].author.username
+      - merge_requests[].author.name
+      - merge_requests[].assignees[].username
+      - merge_requests[].reviewers[].username
+      - merge_requests[].labels[].name
+      - merge_requests[].created_at
+      - merge_requests[].updated_at
+      - merge_requests[].merged_at
+      - merge_requests[].draft
+      - merge_requests[].has_conflicts
+      - nodes[].iid
+      - nodes[].title
+      - nodes[].state
+      - nodes[].webUrl
+      - nodes[].web_url
+      - nodes[].author.username
+      - pageInfo.hasNextPage
+      - pageInfo.endCursor
+  gitlab_get_merge_request:
+    spec:
+      - iid
+      - title
+      - description
+      - state
+      - web_url
+      - webUrl
+      - reference
+      - source_branch
+      - target_branch
+      - author.username
+      - author.name
+      - assignees[].username
+      - reviewers[].username
+      - labels[].name
+      - draft
+      - has_conflicts
+      - merge_status
+      - detailed_merge_status
+      - sha
+      - diff_refs.base_sha
+      - diff_refs.head_sha
+      - diff_refs.start_sha
+      - created_at
+      - updated_at
+      - merged_at
+  gitlab_save_note:
+    spec:
+      - id
+      - body
+      - author.username
+      - author.name
+      - created_at
+      - updated_at
+      - system
+      - internal
+      - noteable_id
+      - noteable_type
+      - resolvable
+      - discussion_id
+  gitlab_get_job:
+    max_bytes: 262144
+    spec:
+      - id
+      - name
+      - status
+      - stage
+      - ref
+      - pipeline.id
+      - pipeline.status
+      - web_url
+      - duration
+      - queued_duration
+      - failure_reason
+      - finished_at
+      - started_at
+      - log
+      - trace
+      - trace_size
+      - byte_offset
+      - has_more_log
+  gitlab_list_pipelines:
+    spec:
+      - pipelines[].id
+      - pipelines[].iid
+      - pipelines[].status
+      - pipelines[].ref
+      - pipelines[].sha
+      - pipelines[].web_url
+      - pipelines[].created_at
+      - pipelines[].updated_at
+      - pipelines[].source
+  gitlab_get_pipeline_jobs:
+    spec:
+      - jobs[].id
+      - jobs[].name
+      - jobs[].status
+      - jobs[].stage
+      - jobs[].ref
+      - jobs[].web_url
+      - jobs[].duration
+      - jobs[].failure_reason
+      - jobs[].started_at
+      - jobs[].finished_at
