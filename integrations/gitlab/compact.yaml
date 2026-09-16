@@ -130,6 +130,5 @@ tools:
       - started_at
       - finished_at
   gitlab_get_job_trace:
-    max_bytes: 262144
     spec:
       - trace

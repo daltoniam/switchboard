@@ -91,3 +91,14 @@ func TestAPIURL_ProjectPathNotDoubleEncoded(t *testing.T) {
 	assert.Contains(t, got, "/projects/gitlab-org%2Fgitlab")
 	assert.NotContains(t, got, "%252F")
 }
+
+func TestJobTrace_ByteLimits(t *testing.T) {
+	g := New().(*gitlab)
+
+	_, ok := g.MaxBytes("gitlab_get_job_trace")
+	assert.False(t, ok, "job trace should not use compact max_bytes; transport cap only")
+
+	limit, ok := g.MaxResponseBytesForTool("gitlab_get_job_trace")
+	assert.True(t, ok)
+	assert.Equal(t, 1024*1024, limit)
+}
