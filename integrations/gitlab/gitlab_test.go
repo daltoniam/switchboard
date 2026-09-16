@@ -66,6 +66,34 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 	}
 }
 
+func TestDoJSON_RedirectIsError(t *testing.T) {
+	for _, code := range []int{http.StatusMovedPermanently, http.StatusFound} {
+		t.Run(http.StatusText(code), func(t *testing.T) {
+			g, _ := configured(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(code)
+			})
+			res, err := g.Execute(context.Background(), "gitlab_get_current_user", nil)
+			require.NoError(t, err)
+			require.True(t, res.IsError)
+			assert.Contains(t, res.Data, fmt.Sprintf("HTTP %d", code))
+			assert.NotContains(t, res.Data, "null")
+		})
+	}
+}
+
+func TestDoText_RedirectIsError(t *testing.T) {
+	g, _ := configured(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusFound)
+	})
+	res, err := g.Execute(context.Background(), "gitlab_get_job_trace", map[string]any{
+		"project_id": "1",
+		"job_id":     1,
+	})
+	require.NoError(t, err)
+	require.True(t, res.IsError)
+	assert.Contains(t, res.Data, "HTTP 302")
+}
+
 func TestHealthyAndGetUser(t *testing.T) {
 	g, _ := configured(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v4/user", r.URL.Path)
