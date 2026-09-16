@@ -70,10 +70,10 @@ func TestCreateNote_MutationErrorSurface(t *testing.T) {
 
 func TestHandlers_ProjectPathEncoding(t *testing.T) {
 	g, _ := configured(t, func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/api/v4/projects/gitlab-org%2Fgitlab", r.URL.EscapedPath())
+		require.Equal(t, "/api/v4/projects/group%2Frepo", r.URL.EscapedPath())
 		fmt.Fprint(w, `{"id":1}`)
 	})
-	res, err := g.Execute(context.Background(), "gitlab_get_project", map[string]any{"project_id": "gitlab-org/gitlab"})
+	res, err := g.Execute(context.Background(), "gitlab_get_project", map[string]any{"project_id": "group/repo"})
 	require.NoError(t, err)
 	require.False(t, res.IsError, res.Data)
 }
