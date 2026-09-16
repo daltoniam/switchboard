@@ -280,9 +280,8 @@ var envMapping = map[string]map[string]string{
 		"base_url":         "NOTION_MCP_BASE_URL",
 	},
 	"gitlab": {
-		"mcp_access_token": "GITLAB_MCP_ACCESS_TOKEN",
-		"token":            "GITLAB_TOKEN",
-		"base_url":         "GITLAB_BASE_URL",
+		"base_url": "GITLAB_BASE_URL",
+		"token":    "GITLAB_TOKEN",
 	},
 }
 
@@ -353,13 +352,8 @@ func defaultConfig() *mcp.Config {
 				Credentials: mcp.Credentials{"base_url": "", "token": ""},
 			},
 			"gitlab": {
-				Enabled: false,
-				Credentials: mcp.Credentials{
-					"mcp_access_token":     "",
-					"token":                "",
-					"base_url":             "",
-					mcp.CredKeyTokenSource: "",
-				},
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": ""},
 			},
 			"datadog": {
 				Enabled:     false,

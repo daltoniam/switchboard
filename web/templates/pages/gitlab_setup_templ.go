@@ -17,7 +17,6 @@ type GitLabSetupData struct {
 	HasToken    bool
 	Healthy     bool
 	BaseURL     string
-	TokenSource string
 	FlashResult string
 	FlashError  string
 }
@@ -87,7 +86,7 @@ func GitLabSetup(page layouts.PageData, data GitLabSetupData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashResult)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/gitlab_setup.templ`, Line: 31, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/gitlab_setup.templ`, Line: 30, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -110,7 +109,7 @@ func GitLabSetup(page layouts.PageData, data GitLabSetupData) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashError)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/gitlab_setup.templ`, Line: 34, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/gitlab_setup.templ`, Line: 33, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -121,7 +120,7 @@ func GitLabSetup(page layouts.PageData, data GitLabSetupData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " <div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">Instance URL</div></div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">GitLab.com by default. For self-managed GitLab, set your instance root URL (for example <code>https://gitlab.example.com</code>). Switchboard connects to the official MCP at <code>/api/v4/mcp</code> on that host.</p><form method=\"POST\" action=\"/api/gitlab/save-settings\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " <div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">GitLab instance</div></div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Default is GitLab.com. For self-managed GitLab, set your instance URL (for example <code>https://gitlab.example.com</code>). The adapter calls the REST API at <code>/api/v4</code>.</p><form method=\"POST\" action=\"/api/gitlab/save-settings\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -129,50 +128,25 @@ func GitLabSetup(page layouts.PageData, data GitLabSetupData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<button type=\"submit\" class=\"btn btn-outline\">Save instance URL</button></form></div><div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">Option 1: Sign in with GitLab (Recommended)</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<button type=\"submit\" class=\"btn btn-outline\">Save instance URL</button></form></div><div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">Personal access token</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.Healthy && data.TokenSource == "oauth" {
+			if data.HasToken && data.Healthy {
 				templ_7745c5c3_Err = components.Badge("Connected", "green").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Authorize Switchboard via GitLab MCP OAuth (dynamic client registration, <code>mcp</code> scope). Requires MCP enabled on your GitLab instance.</p><div id=\"oauth-container\"><button type=\"button\" class=\"btn btn-green\" id=\"oauth-start-btn\" onclick=\"startRemoteMCPOAuth()\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Create a personal access token with <code>api</code> scope (and <code>read_api</code> where required) and paste it below.</p><form method=\"POST\" action=\"/api/gitlab/save-token\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.Healthy && data.TokenSource == "oauth" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "Re-authorize with GitLab")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "Sign in with GitLab →")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</button></div><div id=\"oauth-error\" style=\"display: none;\"><div class=\"flash flash-error\" id=\"oauth-error-msg\"></div><button type=\"button\" class=\"btn btn-outline\" onclick=\"resetOAuth()\" style=\"margin-top: 0.5rem;\">Try Again</button></div></div><div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">Option 2: Personal Access Token</div>")
+			templ_7745c5c3_Err = components.FormGroup("Token", "token", "password", "", "glpat-...").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if data.HasToken && data.Healthy && data.TokenSource != "oauth" {
-				templ_7745c5c3_Err = components.Badge("Connected", "green").Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Create a personal access token with API scope (and MCP access where required by your GitLab version) and paste it below. Phase 2 will add a native REST fallback for MCP-disabled instances.</p><form method=\"POST\" action=\"/api/gitlab/save-token\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = components.FormGroup("Access token", "mcp_access_token", "password", "", "glpat-...").Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<button type=\"submit\" class=\"btn\">Save token</button></form></div><script>\n\t\t\tfunction startRemoteMCPOAuth() {\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tbtn.disabled = true;\n\t\t\t\tbtn.textContent = 'Starting...';\n\t\t\t\tfetch('/api/remote/gitlab/oauth/start', { method: 'POST' })\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(data) {\n\t\t\t\t\t\tif (data.error) {\n\t\t\t\t\t\t\tshowOAuthError(data.error);\n\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t}\n\t\t\t\t\t\twindow.location.href = data.authorize_url;\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function(err) {\n\t\t\t\t\t\tshowOAuthError('Failed to start OAuth flow: ' + err.message);\n\t\t\t\t\t});\n\t\t\t}\n\n\t\t\tfunction showOAuthError(msg) {\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-error-msg').textContent = msg;\n\t\t\t}\n\n\t\t\tfunction resetOAuth() {\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'none';\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tbtn.disabled = false;\n\t\t\t\tbtn.textContent = 'Sign in with GitLab →';\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<button type=\"submit\" class=\"btn\">Save token</button></form></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

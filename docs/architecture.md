@@ -79,9 +79,10 @@ integrations/
     figma.go                 Official hosted Figma MCP proxy filtered to FigJam planning tools
     figma_test.go            FigJam tool filtering, skill injection, and routing tests
   gitlab/
-    gitlab.go                Official GitLab MCP proxy (/api/v4/mcp; OAuth or PAT)
-    compact.yaml             Compaction for MR/CI read tools
-    gitlab_test.go           URL normalization, enrichment, remotemcp fixture tests
+    gitlab.go                GitLab REST API v4 adapter (base_url + PAT)
+    tools.go                 MR, issue, project, and CI tool definitions
+    compact.yaml             Compaction for read tools
+    gitlab_test.go           Configure, dispatch parity, and HTTP fixture tests
   metabase/
     metabase.go              Metabase integration adapter (core, dispatch, HTTP helpers)
     tools.go                 Metabase tool definitions (~22 tools)
