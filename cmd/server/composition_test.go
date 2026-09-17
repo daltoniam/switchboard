@@ -77,7 +77,7 @@ func TestProductionGRPC_UnixSocketDoesNotServeHTTP(t *testing.T) {
 		CatalogEnabled: true,
 		WritesEnabled:  true,
 	})
-	path := filepath.Join(t.TempDir(), "awm.sock")
+	path := filepath.Join(os.TempDir(), "sb-awm.sock")
 	ln, err := awmgrpc.ListenUnix(path)
 	require.NoError(t, err)
 	go func() { _ = grpcServer.Serve(ln) }()
