@@ -1,0 +1,63 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+type GitLabSetupData struct {
+	HasToken    bool
+	Healthy     bool
+	BaseURL     string
+	FlashResult string
+	FlashError  string
+}
+
+templ GitLabSetup(page layouts.PageData, data GitLabSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">GitLab Setup</h1>
+			if data.Healthy {
+				@components.Badge("Connected", "green")
+			} else if data.HasToken {
+				@components.Badge("Connection Error", "red")
+			} else {
+				@components.Badge("Not Connected", "muted")
+			}
+		</div>
+		if data.FlashResult != "" {
+			<div class="flash flash-success">{ data.FlashResult }</div>
+		}
+		if data.FlashError != "" {
+			<div class="flash flash-error">{ data.FlashError }</div>
+		}
+		<div class="card">
+			<div class="card-header">
+				<div class="card-title">GitLab instance</div>
+			</div>
+			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+				Default is GitLab.com. For self-managed GitLab, set your instance URL (for example <code>https://gitlab.example.com</code>). The adapter calls the REST API at <code>/api/v4</code>.
+			</p>
+			<form method="POST" action="/api/gitlab/save-settings">
+				@components.FormGroup("Base URL", "base_url", "text", data.BaseURL, "https://gitlab.com")
+				<button type="submit" class="btn btn-outline">Save instance URL</button>
+			</form>
+		</div>
+		<div class="card">
+			<div class="card-header">
+				<div class="card-title">Personal access token</div>
+				if data.HasToken && data.Healthy {
+					@components.Badge("Connected", "green")
+				}
+			</div>
+			<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+				Create a personal access token with <code>api</code> scope (and <code>read_api</code> where required) and paste it below.
+			</p>
+			<form method="POST" action="/api/gitlab/save-token">
+				@components.FormGroup("Token", "token", "password", "", "glpat-...")
+				<button type="submit" class="btn">Save token</button>
+			</form>
+		</div>
+	}
+}

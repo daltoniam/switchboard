@@ -24,6 +24,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gdrive"
 	"github.com/daltoniam/switchboard/integrations/gforms"
 	ghInt "github.com/daltoniam/switchboard/integrations/github"
+	"github.com/daltoniam/switchboard/integrations/gitlab"
 	"github.com/daltoniam/switchboard/integrations/gmail"
 	"github.com/daltoniam/switchboard/integrations/gmeet"
 	"github.com/daltoniam/switchboard/integrations/gpeople"
@@ -114,6 +115,9 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations/linear/setup", w.handleLinearSetup)
 	mux.HandleFunc("POST /api/linear/save-token", w.handleLinearSaveToken)
 	mux.HandleFunc("GET /integrations/figma/setup", w.handleFigmaSetup)
+	mux.HandleFunc("GET /integrations/gitlab/setup", w.handleGitLabSetup)
+	mux.HandleFunc("POST /api/gitlab/save-token", w.handleGitLabSaveToken)
+	mux.HandleFunc("POST /api/gitlab/save-settings", w.handleGitLabSaveSettings)
 	mux.HandleFunc("GET /integrations/notion-mcp/setup", w.handleNotionMCPSetup)
 
 	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
@@ -388,6 +392,7 @@ var setupIntegrations = map[string]bool{
 	"github":       true,
 	"linear":       true,
 	"figma":        true,
+	"gitlab":       true,
 	"notion-mcp":   true,
 	"sentry":       true,
 	"gmail":        true,
@@ -1240,6 +1245,83 @@ func (w *WebServer) handleFigmaSetup(rw http.ResponseWriter, r *http.Request) {
 	}
 	page := w.pageData(r, "Figma and FigJam Setup", "/integrations")
 	pages.FigmaSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGitLabSetup(rw http.ResponseWriter, r *http.Request) {
+	ic, exists := w.services.Config.GetIntegration("gitlab")
+	baseURL := "https://gitlab.com"
+	hasToken := false
+	if exists {
+		if v := strings.TrimSpace(ic.Credentials["base_url"]); v != "" {
+			baseURL = v
+		}
+		hasToken = ic.Credentials["token"] != ""
+	}
+
+	integration, ok := w.services.Registry.Get("gitlab")
+
+	var healthy bool
+	if hasToken && ok {
+		if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			healthy = integration.Healthy(ctx)
+			cancel()
+		}
+	}
+
+	data := pages.GitLabSetupData{
+		HasToken: hasToken,
+		Healthy:  healthy,
+		BaseURL:  baseURL,
+	}
+	if flash := r.URL.Query().Get("result"); flash != "" {
+		data.FlashResult = flash
+	}
+	if flash := r.URL.Query().Get("error"); flash != "" {
+		data.FlashError = flash
+	}
+	page := w.pageData(r, "GitLab Setup", "/integrations")
+	pages.GitLabSetup(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) handleGitLabSaveToken(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gitlab/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+	token := strings.TrimSpace(r.FormValue("token"))
+	if token == "" {
+		http.Redirect(rw, r, "/integrations/gitlab/setup?error=Token+is+required", http.StatusSeeOther)
+		return
+	}
+	ic, _ := w.services.Config.GetIntegration("gitlab")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Enabled = true
+	ic.Credentials["token"] = token
+	_ = w.services.Config.SetIntegration("gitlab", ic)
+	http.Redirect(rw, r, "/integrations/gitlab/setup?result=Token+saved+successfully", http.StatusSeeOther)
+}
+
+func (w *WebServer) handleGitLabSaveSettings(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/gitlab/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+	baseURL := strings.TrimSpace(r.FormValue("base_url"))
+	normalized, err := gitlab.NormalizeInstanceURL(baseURL)
+	if err != nil {
+		http.Redirect(rw, r, "/integrations/gitlab/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		return
+	}
+	ic, _ := w.services.Config.GetIntegration("gitlab")
+	if ic == nil {
+		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	}
+	ic.Credentials["base_url"] = normalized
+	_ = w.services.Config.SetIntegration("gitlab", ic)
+	http.Redirect(rw, r, "/integrations/gitlab/setup?result=Instance+URL+saved", http.StatusSeeOther)
 }
 
 func (w *WebServer) handleSentrySetup(rw http.ResponseWriter, r *http.Request) {

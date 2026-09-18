@@ -43,6 +43,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gdrive"
 	"github.com/daltoniam/switchboard/integrations/gforms"
 	"github.com/daltoniam/switchboard/integrations/github"
+	"github.com/daltoniam/switchboard/integrations/gitlab"
 	"github.com/daltoniam/switchboard/integrations/gmail"
 	"github.com/daltoniam/switchboard/integrations/gmeet"
 	"github.com/daltoniam/switchboard/integrations/gong"
@@ -312,6 +313,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	for _, i := range []mcp.Integration{
 		github.New(),
 		forgejo.New(),
+		gitlab.New(),
 		datadog.New(),
 		linear.New("https://mcp.linear.app"),
 		sentry.New(),

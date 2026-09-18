@@ -241,6 +241,10 @@ var envMapping = map[string]map[string]string{
 		"mcp_access_token": "FIGMA_MCP_ACCESS_TOKEN",
 		"base_url":         "FIGMA_MCP_BASE_URL",
 	},
+	"gitlab": {
+		"base_url": "GITLAB_BASE_URL",
+		"token":    "GITLAB_TOKEN",
+	},
 	"notion-mcp": {
 		"mcp_access_token": "NOTION_MCP_ACCESS_TOKEN",
 		"base_url":         "NOTION_MCP_BASE_URL",
@@ -310,6 +314,10 @@ func defaultConfig() *mcp.Config {
 				Credentials: mcp.Credentials{"token": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
 			},
 			"forgejo": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": ""},
+			},
+			"gitlab": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "token": ""},
 			},
