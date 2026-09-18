@@ -95,6 +95,9 @@ integrations/
     compact.yaml             Field compaction specs (read tools)
     tools.go                 Grist tool definitions (~30 tools)
     handlers.go              Orgs, workspaces, docs, tables, columns, records, SQL, webhooks, attachments
+  notionmcp/
+    notionmcp.go             Independent notion-mcp hosted proxy (dynamic tools, remotemcp OAuth)
+    notionmcp_test.go        Remote protocol, credential isolation, and dynamic routing tests
   notion/
     notion.go                Notion v3 integration adapter (core, dispatch, HTTP helpers)
     tools.go                 Notion tool definitions (~24 tools)

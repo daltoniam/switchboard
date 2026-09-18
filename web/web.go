@@ -33,6 +33,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gtasks"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/microsoft365"
+	"github.com/daltoniam/switchboard/integrations/notionmcp"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
@@ -117,6 +118,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations/gitlab/setup", w.handleGitLabSetup)
 	mux.HandleFunc("POST /api/gitlab/save-token", w.handleGitLabSaveToken)
 	mux.HandleFunc("POST /api/gitlab/save-settings", w.handleGitLabSaveSettings)
+	mux.HandleFunc("GET /integrations/notion-mcp/setup", w.handleNotionMCPSetup)
 
 	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
 	mux.HandleFunc("GET /api/remote/{name}/oauth/callback", w.handleRemoteMCPOAuthCallback)
@@ -391,6 +393,7 @@ var setupIntegrations = map[string]bool{
 	"linear":       true,
 	"figma":        true,
 	"gitlab":       true,
+	"notion-mcp":   true,
 	"sentry":       true,
 	"gmail":        true,
 	"gcal":         true,
@@ -1704,6 +1707,12 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 		Options:       remotemcp.OAuthOptions{Scope: "mcp:connect", ClientName: "Codex"},
 		CredentialKey: "mcp_access_token",
 	},
+	"notion-mcp": {
+		CallbackPath:  "/api/remote/notion-mcp/oauth/callback",
+		ResourcePath:  "/mcp",
+		Options:       remotemcp.OAuthOptions{Scope: "default"},
+		CredentialKey: "mcp_access_token",
+	},
 }
 
 func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
@@ -1722,6 +1731,9 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 	}
 	if serverURL == "" {
 		serverURL = figma.MCPServerURL(integration)
+	}
+	if serverURL == "" {
+		serverURL = notionmcp.MCPServerURL(integration)
 	}
 	if serverURL == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})
@@ -1761,17 +1773,17 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 
 	setupPath := "/integrations/" + name + "/setup"
 
-	if code == "" {
+	if code == "" || r.URL.Query().Has("error") {
 		errMsg := r.URL.Query().Get("error")
 		if errMsg == "" {
 			errMsg = "No authorization code received"
 		}
-		http.Redirect(rw, r, setupPath+"?error="+strings.ReplaceAll(errMsg, " ", "+"), http.StatusSeeOther)
+		http.Redirect(rw, r, setupPath+"?error="+url.QueryEscape(errMsg), http.StatusSeeOther)
 		return
 	}
 
 	if err := remotemcp.HandleOAuthCallback(name, code, state); err != nil {
-		http.Redirect(rw, r, setupPath+"?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
+		http.Redirect(rw, r, setupPath+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
 
@@ -1781,27 +1793,49 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 		if errStr != "" {
 			msg = errStr
 		}
-		http.Redirect(rw, r, setupPath+"?error="+strings.ReplaceAll(msg, " ", "+"), http.StatusSeeOther)
+		http.Redirect(rw, r, setupPath+"?error="+url.QueryEscape(msg), http.StatusSeeOther)
 		return
 	}
 
-	ic, _ := w.services.Config.GetIntegration(name)
-	if ic == nil {
-		ic = &mcp.IntegrationConfig{Credentials: mcp.Credentials{}}
+	if err := w.saveRemoteMCPOAuth(r.Context(), name, token); err != nil {
+		http.Redirect(rw, r, setupPath+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
 	}
+
+	w.notifyConfigChanged()
+	http.Redirect(rw, r, setupPath+"?result=Connected+via+MCP+OAuth", http.StatusSeeOther)
+}
+
+func (w *WebServer) saveRemoteMCPOAuth(ctx context.Context, name, token string) error {
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
+
+	integration, ok := w.services.Registry.Get(name)
+	if !ok {
+		return fmt.Errorf("unknown integration: %s", name)
+	}
+	previous, _ := w.services.Config.GetIntegration(name)
+	next := cloneIntegrationConfig(previous)
 	profile, ok := remoteOAuthProfiles[name]
 	if !ok {
 		profile = remoteOAuthProfile{CredentialKey: "mcp_access_token"}
 	}
-	ic.Enabled = true
-	ic.Credentials[profile.CredentialKey] = token
+	next.Enabled = true
+	next.Credentials[profile.CredentialKey] = token
 	if profile.ClearCredentialKey != "" {
-		ic.Credentials[profile.ClearCredentialKey] = ""
+		next.Credentials[profile.ClearCredentialKey] = ""
 	}
-	ic.Credentials[mcp.CredKeyTokenSource] = "oauth"
-	_ = w.services.Config.SetIntegration(name, ic)
-
-	http.Redirect(rw, r, setupPath+"?result=Connected+via+MCP+OAuth", http.StatusSeeOther)
+	next.Credentials[mcp.CredKeyTokenSource] = "oauth"
+	if err := w.services.Config.SetIntegration(name, next); err != nil {
+		return fmt.Errorf("failed to save OAuth credentials: %w", err)
+	}
+	w.health.mu.Lock()
+	delete(w.health.entries, name)
+	w.health.mu.Unlock()
+	if err := mcp.ConfigureIntegration(ctx, integration, next); err != nil {
+		return fmt.Errorf("credentials saved, but failed to configure integration: %w", err)
+	}
+	return nil
 }
 
 func (w *WebServer) handleRemoteMCPOAuthPoll(rw http.ResponseWriter, r *http.Request) {

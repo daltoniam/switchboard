@@ -270,6 +270,14 @@ Proxies Figma's official hosted MCP server and exposes the focused FigJam planni
 
 Use the web UI at `http://localhost:3847/integrations/figma/setup` to authorize with Figma OAuth. Figma currently limits its hosted MCP server to approved MCP clients and eligible paid-plan seats. Figma rejects dynamic registration under Switchboard's own client name, so this beta compatibility path registers with Figma's approved `Codex` client profile while the MCP session still identifies itself as Switchboard. This may stop working as Figma changes enforcement; catalog approval for Switchboard is the durable solution.
 
+### Notion MCP (`notion-mcp`)
+
+Connects to Notion's official hosted Streamable HTTP endpoint at `https://mcp.notion.com/mcp` through the shared `remotemcp` adapter. This is independent of the existing `notion` integration: its tools, credentials, and setup remain unchanged, and both integrations can be enabled together.
+
+Open `/integrations/notion-mcp/setup` in the web UI and select **Sign in with Notion**. OAuth uses dynamic client registration, PKCE, the `default` scope, and resource binding to the MCP endpoint. Successful authorization saves credentials only under `notion-mcp`, enables that integration, and refreshes tool discovery without restarting Switchboard.
+
+Tools are discovered from Notion after authorization and namespaced as `notion-mcp_<upstream-tool-name>`. Start with `search` filtered to `integration: "notion-mcp"`; use the returned names with `execute` rather than the existing `notion_*` tools. The catalog and content permissions depend on the authorized workspace. Re-authorize in setup if the token expires or is revoked; the shared remote OAuth flow currently stores access tokens only and does not refresh them automatically.
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
@@ -294,6 +302,8 @@ Environment variables override credential values but do not change the durable e
 | LikeC4 Excalidraw | `mcp_token` | `LIKEC4_EXCALIDRAW_MCP_TOKEN` (optional) |
 | Figma MCP | `mcp_access_token` | `FIGMA_MCP_ACCESS_TOKEN` |
 | Figma MCP | `base_url` | `FIGMA_MCP_BASE_URL` (optional, default `https://mcp.figma.com`) |
+| Notion MCP | `mcp_access_token` | `NOTION_MCP_ACCESS_TOKEN` |
+| Notion MCP | `base_url` | `NOTION_MCP_BASE_URL` (optional, default `https://mcp.notion.com`; a trailing `/mcp` is accepted) |
 | Metabase | `api_key` | `METABASE_API_KEY` |
 | Metabase | `url` | `METABASE_URL` |
 | Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
@@ -374,6 +384,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Forgejo | Personal Access Token | Set `FORGEJO_BASE_URL` and `FORGEJO_TOKEN` or enter them in the web UI; enable explicitly |
 | Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
 | Figma and FigJam | Hosted MCP OAuth (PKCE) | Web UI → Figma → Setup, or set `FIGMA_MCP_ACCESS_TOKEN` |
+| Notion MCP (`notion-mcp`) | Hosted MCP OAuth (PKCE) | Web UI → notion-mcp → Setup, or set `NOTION_MCP_ACCESS_TOKEN` and enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
 | Slack MCP (official hosted) | User OAuth access tokens per identity | Edit `~/.config/switchboard/config.json` `slackmcp.identities` (see below). Bot `xoxb-` tokens are **not** accepted by Slack's hosted MCP endpoint. |
