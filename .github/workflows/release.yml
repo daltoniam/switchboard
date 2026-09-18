@@ -12,7 +12,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,6 +21,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
 
       - uses: docker/setup-buildx-action@v3
 
@@ -33,6 +34,6 @@ jobs:
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --clean --timeout 25m --parallelism 2
+          args: release --clean --timeout 40m --parallelism 2
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
