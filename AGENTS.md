@@ -92,3 +92,4 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | `search-benchmark` | Cross-model search quality benchmark after scoring changes |
 | `pr-review` | Reviewing a pull request |
 | `pr-comments` | Submitting inline PR review comments |
+| `pr-shepherd` | Opening or shepherding a `daltoniam/switchboard` PR until `make ci`, remote CI, and Crush review comments are clean |
