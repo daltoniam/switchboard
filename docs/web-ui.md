@@ -23,6 +23,7 @@
   - `GET /integrations/github/setup` — GitHub Device Flow OAuth
   - `GET /integrations/linear/setup` — Linear OAuth (PKCE)
   - `GET /integrations/figma/setup` — Figma hosted MCP OAuth (PKCE) for FigJam workflows
+  - `GET /integrations/notion-mcp/setup`: independent Notion hosted MCP OAuth (PKCE). Uses `/api/remote/notion-mcp/oauth/start` and `/api/remote/notion-mcp/oauth/callback`; successful sign-in enables `notion-mcp` and refreshes discovery without changing the existing Notion integration.
   - `GET /integrations/sentry/setup` — Sentry Device Flow OAuth
   - `GET /integrations/google/setup` — Unified Google Workspace setup (one OAuth client, one sign-in, fans tokens out to all selected Google services). See [google-setup.md](google-setup.md). The 11 per-service pages (`/integrations/gmail/setup`, `/integrations/gcal/setup`, etc.) remain but link back to this unified page.
   - `GET /integrations/slack/setup` — Slack token extraction (Chrome auto-extract, manual browser snippet, direct entry)
