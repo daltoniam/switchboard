@@ -241,6 +241,10 @@ var envMapping = map[string]map[string]string{
 		"mcp_access_token": "FIGMA_MCP_ACCESS_TOKEN",
 		"base_url":         "FIGMA_MCP_BASE_URL",
 	},
+	"notion-mcp": {
+		"mcp_access_token": "NOTION_MCP_ACCESS_TOKEN",
+		"base_url":         "NOTION_MCP_BASE_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -335,6 +339,10 @@ func defaultConfig() *mcp.Config {
 				Credentials: mcp.Credentials{"base_url": "", "mcp_token": ""},
 			},
 			"figma": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"notion-mcp": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},

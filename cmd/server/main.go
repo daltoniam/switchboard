@@ -62,6 +62,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/netsuite"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
+	"github.com/daltoniam/switchboard/integrations/notionmcp"
 	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
 	"github.com/daltoniam/switchboard/integrations/paperless"
@@ -318,6 +319,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		slackmcp.New(),
 		likec4excalidraw.New(),
 		figma.New(),
+		notionmcp.New(),
 		metabase.New(),
 		paperless.New(),
 		recoll.New(),
