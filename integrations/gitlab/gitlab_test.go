@@ -115,9 +115,36 @@ func TestEncodeProjectID(t *testing.T) {
 
 func TestAPIURL_ProjectPathNotDoubleEncoded(t *testing.T) {
 	g := &gitlab{baseURL: "https://gitlab.example.com"}
-	got := g.apiURL("/projects/"+encodeProjectID("gitlab-org/gitlab"), nil)
-	assert.Contains(t, got, "/projects/gitlab-org%2Fgitlab")
-	assert.NotContains(t, got, "%252F")
+	cases := []struct {
+		projectID string
+		wantSub   string
+		badSubs   []string
+	}{
+		{
+			projectID: "gitlab-org/gitlab",
+			wantSub:   "/projects/gitlab-org%2Fgitlab",
+			badSubs:   []string{"%252F"},
+		},
+		{
+			projectID: "group/repo with space",
+			wantSub:   "/projects/group%2Frepo%20with%20space",
+			badSubs:   []string{"%2520", "%252F"},
+		},
+		{
+			projectID: "group/über",
+			wantSub:   "/projects/group%2F%C3%BCber",
+			badSubs:   []string{"%25C3", "%252F"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.projectID, func(t *testing.T) {
+			got := g.apiURL("/projects/"+encodeProjectID(tc.projectID), nil)
+			assert.Contains(t, got, tc.wantSub)
+			for _, bad := range tc.badSubs {
+				assert.NotContains(t, got, bad)
+			}
+		})
+	}
 }
 
 func TestJobTrace_ByteLimits(t *testing.T) {
