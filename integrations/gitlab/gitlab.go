@@ -88,8 +88,12 @@ func (g *gitlab) apiURL(path string, query url.Values) string {
 	}
 	prefix := strings.TrimSuffix(inst.Path, "/")
 	apiPath := prefix + apiV4Path + path
-	inst.Path = strings.ReplaceAll(apiPath, "%2F", "/")
-	if strings.Contains(apiPath, "%2F") {
+	unescaped, err := url.PathUnescape(apiPath)
+	if err != nil {
+		unescaped = strings.ReplaceAll(apiPath, "%2F", "/")
+	}
+	inst.Path = unescaped
+	if unescaped != apiPath {
 		inst.RawPath = apiPath
 	}
 	inst.RawQuery = query.Encode()
