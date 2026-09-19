@@ -1,14 +1,10 @@
 # Switchboard
 
 A source-available MCP gateway that connects any MCP client to your tools
-behind one endpoint. Run it locally with a built-in web UI, or use
-[Switchboard Hosted](https://app.switchboard-mcp.com) for a private-data
-tunnel and other team features.
-
-Switchboard sits under Cursor, Claude Code, Codex, and any other MCP client.
-Your agent searches for a capability and executes it. Compaction strips unused
-fields before responses reach the model, typically cutting token usage by
-about 90%.
+behind one endpoint. Run it locally with a built-in web UI: your agent searches
+for a capability and executes it, and compaction strips unused fields before
+responses reach the model — typically cutting token usage by about 90%.
+Works with Cursor, Claude Code, Codex, Windsurf, and any other MCP client.
 
 ![Local Switchboard dashboard with connected integrations, token savings, and activity](docs/images/ui-dashboard.webp)
 
@@ -18,12 +14,17 @@ about 90%.
 
 *Connect GitHub, Datadog, Linear, Slack, Google Workspace, and more from the local UI.*
 
-## Switchboard Hosted
+## When you might want Switchboard Hosted
 
-Need agents to reach Postgres or Kubernetes behind a firewall? [Switchboard
-Hosted](https://app.switchboard-mcp.com) adds a private-data tunnel, plus
-organizations, SSO, policies, audit logs, and dedicated runtimes. Same MCP
-clients and integrations as this repo.
+Self-hosting this repo is free and complete for local development and solo use —
+same integrations, web UI, search + execute, and compaction as you get from
+the install paths below.
+
+[Switchboard Hosted](https://app.switchboard-mcp.com) is there if you need more:
+a **private-data tunnel** (Postgres, Kubernetes, and other services behind a
+firewall), plus **organizations**, **SSO**, **policies**, **audit logs**, and
+**dedicated runtimes** for teams. Same MCP clients and integrations; you do not
+need Hosted to use Switchboard day to day.
 
 - **[Try Switchboard Hosted free](https://app.switchboard-mcp.com)** — no credit card required
 - **[Product and pricing](https://switchboard-mcp.com)**
