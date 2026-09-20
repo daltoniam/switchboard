@@ -65,6 +65,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/notionmcp"
 	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
+	"github.com/daltoniam/switchboard/integrations/pagerduty"
 	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
@@ -358,6 +359,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		notionInt.New(),
 		okta.New(),
 		ollama.New(),
+		pagerduty.New(),
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),
