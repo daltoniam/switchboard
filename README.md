@@ -22,9 +22,11 @@ the install paths below.
 
 [Switchboard Hosted](https://app.switchboard-mcp.com) is there if you need more:
 a **private-data tunnel** (Postgres, Kubernetes, and other services behind a
-firewall), plus **organizations**, **SSO**, **policies**, **audit logs**, and
-**dedicated runtimes** for teams. Same MCP clients and integrations; you do not
-need Hosted to use Switchboard day to day.
+firewall), **one-click OAuth** to connect integrations (sign in instead of
+pasting API keys — a Hosted convenience for teams), **organizations**, **SSO**,
+**policies**,
+**audit logs**, and **dedicated runtimes** for teams. Same MCP clients and
+integrations; you do not need Hosted to use Switchboard day to day.
 
 - **[Try Switchboard Hosted free](https://app.switchboard-mcp.com)** — no credit card required
 - **[Product and pricing](https://switchboard-mcp.com)**
