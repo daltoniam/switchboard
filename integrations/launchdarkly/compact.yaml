@@ -6,7 +6,10 @@
 #
 # Flag environment configs are keyed by environment key (dynamic map), so
 # list_flags and get_flag keep the whole environments object; callers narrow
-# it with environment_key. SDK keys, mobile keys, salts, and _links are dropped.
+# it with environment_key. The engine cannot reach nested keys under that
+# map, so handlers strip salt/sel/_site from each environment before the
+# document reaches compaction (see scrubEnvironments in handlers.go).
+# Environment SDK/mobile keys and _links are dropped here.
 
 version: 1
 tools:

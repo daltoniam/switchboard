@@ -2,11 +2,61 @@ package launchdarkly
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 
 	mcp "github.com/daltoniam/switchboard"
 )
+
+// environmentSecretFields are per-environment flag config keys that carry
+// LaunchDarkly hashing secrets or UI-only noise. Compaction cannot reach
+// them (environments is a dynamic-key map), so handlers strip them before
+// the document leaves the adapter.
+var environmentSecretFields = []string{"salt", "sel", "_site"}
+
+func scrubEnvironments(flag map[string]any) {
+	envs, ok := flag["environments"].(map[string]any)
+	if !ok {
+		return
+	}
+	for _, cfg := range envs {
+		cfgMap, ok := cfg.(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, field := range environmentSecretFields {
+			delete(cfgMap, field)
+		}
+	}
+}
+
+// scrubFlagDocument parses a flag or flag-list payload once and removes
+// environment secrets from every flag it contains.
+func scrubFlagDocument(data []byte) (map[string]any, error) {
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("launchdarkly: decode flag response: %w", err)
+	}
+	if items, ok := doc["items"].([]any); ok {
+		for _, item := range items {
+			if flag, ok := item.(map[string]any); ok {
+				scrubEnvironments(flag)
+			}
+		}
+		return doc, nil
+	}
+	scrubEnvironments(doc)
+	return doc, nil
+}
+
+func scrubbedFlagResult(data []byte) (*mcp.ToolResult, error) {
+	doc, err := scrubFlagDocument(data)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(doc)
+}
 
 func requireKey(name, value string) error {
 	if value == "" {
@@ -84,7 +134,7 @@ func listFlags(ctx context.Context, l *launchdarkly, args map[string]any) (*mcp.
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return scrubbedFlagResult(data)
 }
 
 func getFlag(ctx context.Context, l *launchdarkly, args map[string]any) (*mcp.ToolResult, error) {
@@ -111,7 +161,7 @@ func getFlag(ctx context.Context, l *launchdarkly, args map[string]any) (*mcp.To
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	return scrubbedFlagResult(data)
 }
 
 func listFlagStatuses(ctx context.Context, l *launchdarkly, args map[string]any) (*mcp.ToolResult, error) {
@@ -172,5 +222,27 @@ func toggleFlag(ctx context.Context, l *launchdarkly, args map[string]any) (*mcp
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	doc, err := scrubFlagDocument(data)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(toggleConfirmation(doc, envKey))
+}
+
+// toggleConfirmation reduces the full flag document returned by a semantic
+// patch to the fields that confirm the toggle took effect in one environment.
+func toggleConfirmation(doc map[string]any, envKey string) map[string]any {
+	out := map[string]any{
+		"key":             doc["key"],
+		"environment_key": envKey,
+		"status":          "updated",
+	}
+	envs, _ := doc["environments"].(map[string]any)
+	cfg, _ := envs[envKey].(map[string]any)
+	for _, field := range []string{"on", "version", "lastModified"} {
+		if v, ok := cfg[field]; ok {
+			out[field] = v
+		}
+	}
+	return out
 }

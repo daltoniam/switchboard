@@ -412,7 +412,7 @@ func TestToggleFlag(t *testing.T) {
 				instructions := body["instructions"].([]any)
 				require.Len(t, instructions, 1)
 				assert.Equal(t, tt.wantKind, instructions[0].(map[string]any)["kind"])
-				_, _ = w.Write([]byte(`{"key":"dark-mode","environments":{"production":{"on":true}}}`))
+				_, _ = w.Write([]byte(`{"key":"dark-mode","environments":{"production":{"on":true,"version":4,"lastModified":1700000002000,"salt":"SECRET","sel":"SECRET2"}}}`))
 			}))
 			defer ts.Close()
 
@@ -426,9 +426,73 @@ func TestToggleFlag(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.False(t, result.IsError)
-			assert.Contains(t, result.Data, "dark-mode")
+			var confirmation map[string]any
+			require.NoError(t, json.Unmarshal([]byte(result.Data), &confirmation))
+			assert.Equal(t, "dark-mode", confirmation["key"])
+			assert.Equal(t, "production", confirmation["environment_key"])
+			assert.Equal(t, true, confirmation["on"])
+			assert.Equal(t, float64(4), confirmation["version"])
+			assert.Equal(t, float64(1700000002000), confirmation["lastModified"])
+			assert.NotContains(t, result.Data, "SECRET")
 		})
 	}
+}
+
+func TestToggleFlag_MissingEnvironmentInResponse(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"key":"dark-mode","environments":{"staging":{"on":false,"salt":"SECRET"}}}`))
+	}))
+	defer ts.Close()
+
+	l := configured(ts)
+	result, err := l.Execute(context.Background(), "launchdarkly_toggle_flag", map[string]any{
+		"project_key":     "my-proj",
+		"flag_key":        "dark-mode",
+		"environment_key": "production",
+		"on":              true,
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	var confirmation map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &confirmation))
+	assert.Equal(t, "dark-mode", confirmation["key"])
+	assert.Equal(t, "production", confirmation["environment_key"])
+	_, hasOn := confirmation["on"]
+	assert.False(t, hasOn, "on must not be fabricated when the environment is absent from the response")
+	assert.NotContains(t, result.Data, "SECRET")
+}
+
+func TestListFlags_ScrubsEnvironmentSecrets(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"items":[{"key":"dark-mode","environments":{"production":{"on":true,"version":3,"salt":"SECRET","sel":"SECRET2","_site":{"href":"/ui"}}}}],"totalCount":1}`))
+	}))
+	defer ts.Close()
+
+	l := configured(ts)
+	result, err := l.Execute(context.Background(), "launchdarkly_list_flags", map[string]any{"project_key": "my-proj"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.NotContains(t, result.Data, "SECRET")
+	assert.NotContains(t, result.Data, "_site")
+	assert.Contains(t, result.Data, `"on":true`)
+	assert.Contains(t, result.Data, `"version":3`)
+	assert.Contains(t, result.Data, `"totalCount":1`)
+}
+
+func TestGetFlag_ScrubsEnvironmentSecrets(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"key":"dark-mode","environments":{"production":{"on":true,"version":3,"salt":"SECRET","sel":"SECRET2","_site":{"href":"/ui"}},"staging":{"on":false,"salt":"SECRET3"}}}`))
+	}))
+	defer ts.Close()
+
+	l := configured(ts)
+	result, err := l.Execute(context.Background(), "launchdarkly_get_flag", map[string]any{"project_key": "my-proj", "flag_key": "dark-mode"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.NotContains(t, result.Data, "SECRET")
+	assert.NotContains(t, result.Data, "_site")
+	assert.Contains(t, result.Data, `"on":true`)
+	assert.Contains(t, result.Data, `"staging"`)
 }
 
 func TestToggleFlag_OmitsEmptyComment(t *testing.T) {

@@ -1,6 +1,7 @@
 package launchdarkly
 
 import (
+	"encoding/json"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -98,6 +99,38 @@ func TestFieldCompactionSpecs_ListFlagsKeepsEnvironmentState(t *testing.T) {
 	assert.Contains(t, string(compacted), `"on":true`)
 	assert.Contains(t, string(compacted), `"production"`)
 	assert.NotContains(t, string(compacted), "noise")
+}
+
+func TestFieldCompactionSpecs_ScrubbedFlagPipelineDropsEnvironmentSecrets(t *testing.T) {
+	tests := []struct {
+		name    string
+		tool    string
+		payload string
+	}{
+		{
+			name:    "list_flags",
+			tool:    "launchdarkly_list_flags",
+			payload: `{"items":[{"key":"dark-mode","environments":{"production":{"on":true,"salt":"SECRET","sel":"SECRET2","version":3,"_site":{"href":"/ui"}}}}],"totalCount":1}`,
+		},
+		{
+			name:    "get_flag",
+			tool:    "launchdarkly_get_flag",
+			payload: `{"key":"dark-mode","environments":{"production":{"on":true,"salt":"SECRET","sel":"SECRET2","version":3,"_site":{"href":"/ui"}}}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc, err := scrubFlagDocument([]byte(tt.payload))
+			require.NoError(t, err)
+			compacted := mcp.CompactAny(doc, fieldCompactionSpecs[mcp.ToolName(tt.tool)])
+			out, err := json.Marshal(compacted)
+			require.NoError(t, err)
+			assert.NotContains(t, string(out), "SECRET")
+			assert.NotContains(t, string(out), "_site")
+			assert.Contains(t, string(out), `"on":true`)
+			assert.Contains(t, string(out), `"version":3`)
+		})
+	}
 }
 
 func TestFieldCompactionSpecs_FlagStatusesKeepParentLink(t *testing.T) {

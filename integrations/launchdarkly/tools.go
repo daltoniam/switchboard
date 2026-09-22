@@ -58,7 +58,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        mcp.ToolName("launchdarkly_toggle_flag"),
-		Description: "Turn a LaunchDarkly feature flag on or off (enable, disable, kill switch) in exactly one environment via semantic patch. Explicit single-flag mutation; does not edit targeting rules. Requires project_key, flag_key, environment_key, and on. Use after get_flag to confirm the current state.",
+		Description: "Turn a LaunchDarkly feature flag on or off (enable, disable, kill switch) in exactly one environment via semantic patch. Explicit single-flag mutation; does not edit targeting rules. Requires project_key, flag_key, environment_key, and on. Returns a small confirmation (key, environment_key, on, version). Use after get_flag to confirm the current state.",
 		Parameters: map[string]string{
 			"project_key":     "LaunchDarkly project key",
 			"flag_key":        "Feature flag key",
