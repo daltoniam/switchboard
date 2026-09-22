@@ -58,6 +58,31 @@ func scrubbedFlagResult(data []byte) (*mcp.ToolResult, error) {
 	return mcp.JSONResult(doc)
 }
 
+// environmentListSecretFields are environment record keys that carry SDK
+// credentials. Scripts bypass server compaction, so the handler strips them
+// before the document leaves the adapter.
+var environmentListSecretFields = []string{"apiKey", "mobileKey", "_links"}
+
+// scrubEnvironmentList parses an environment-list payload once and removes
+// SDK and mobile keys from every environment record.
+func scrubEnvironmentList(data []byte) (map[string]any, error) {
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("launchdarkly: decode environment response: %w", err)
+	}
+	items, _ := doc["items"].([]any)
+	for _, item := range items {
+		env, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, field := range environmentListSecretFields {
+			delete(env, field)
+		}
+	}
+	return doc, nil
+}
+
 func requireKey(name, value string) error {
 	if value == "" {
 		return fmt.Errorf("%s is required", name)
@@ -107,7 +132,11 @@ func listEnvironments(ctx context.Context, l *launchdarkly, args map[string]any)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	doc, err := scrubEnvironmentList(data)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	return mcp.JSONResult(doc)
 }
 
 func listFlags(ctx context.Context, l *launchdarkly, args map[string]any) (*mcp.ToolResult, error) {

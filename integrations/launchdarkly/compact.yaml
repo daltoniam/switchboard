@@ -9,7 +9,8 @@
 # it with environment_key. The engine cannot reach nested keys under that
 # map, so handlers strip salt/sel/_site from each environment before the
 # document reaches compaction (see scrubEnvironments in handlers.go).
-# Environment SDK/mobile keys and _links are dropped here.
+# list_environments likewise strips apiKey/mobileKey/_links in the handler
+# so script callers (which bypass compaction) never see SDK credentials.
 
 version: 1
 tools:

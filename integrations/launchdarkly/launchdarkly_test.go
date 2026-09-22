@@ -261,6 +261,25 @@ func TestListEnvironments_MissingProjectKey(t *testing.T) {
 	assert.Contains(t, result.Data, "project_key")
 }
 
+func TestListEnvironments_ScrubsSDKKeys(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"items":[{"_id":"e1","key":"production","name":"Production","critical":true,"apiKey":"sdk-11111111-2222-3333-4444-555555555555","mobileKey":"mob-11111111-2222-3333-4444-555555555555","_links":{"self":{"href":"/api/v2/projects/p/environments/production"}}}],"totalCount":1}`))
+	}))
+	defer ts.Close()
+
+	l := configured(ts)
+	result, err := l.Execute(context.Background(), "launchdarkly_list_environments", map[string]any{"project_key": "my-proj"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.NotContains(t, result.Data, "sdk-")
+	assert.NotContains(t, result.Data, "mob-")
+	assert.NotContains(t, result.Data, "apiKey")
+	assert.NotContains(t, result.Data, "mobileKey")
+	assert.Contains(t, result.Data, `"key":"production"`)
+	assert.Contains(t, result.Data, `"critical":true`)
+	assert.Contains(t, result.Data, `"totalCount":1`)
+}
+
 func TestListFlags_Defaults(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v2/flags/my-proj", r.URL.Path)
