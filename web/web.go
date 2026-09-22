@@ -31,6 +31,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
+	metabaseInt "github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/microsoft365"
 	"github.com/daltoniam/switchboard/integrations/notionmcp"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
@@ -115,6 +116,8 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/linear/save-token", w.handleLinearSaveToken)
 	mux.HandleFunc("GET /integrations/figma/setup", w.handleFigmaSetup)
 	mux.HandleFunc("GET /integrations/notion-mcp/setup", w.handleNotionMCPSetup)
+	mux.HandleFunc("GET /integrations/metabase/setup", w.handleMetabaseSetup)
+	mux.HandleFunc("POST /api/metabase/save-credentials", w.handleMetabaseSaveCredentials)
 
 	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
 	mux.HandleFunc("GET /api/remote/{name}/oauth/callback", w.handleRemoteMCPOAuthCallback)
@@ -271,7 +274,7 @@ func (w *WebServer) integrationSummaries(_ context.Context) []pages.IntegrationS
 	for _, a := range w.services.Registry.All() {
 		ic, exists := w.services.Config.GetIntegration(a.Name())
 		enabled := exists && ic.Enabled
-		isRemote := exists && ic.Credentials["mcp_access_token"] != "" && linearInt.MCPServerURL(a) != ""
+		isRemote := exists && ic.Credentials["mcp_access_token"] != "" && (linearInt.MCPServerURL(a) != "" || metabaseInt.IsRemoteMCP(a))
 
 		var healthy bool
 		var lastCheck time.Time
@@ -389,6 +392,7 @@ var setupIntegrations = map[string]bool{
 	"linear":       true,
 	"figma":        true,
 	"notion-mcp":   true,
+	"metabase":     true,
 	"sentry":       true,
 	"gmail":        true,
 	"gcal":         true,
@@ -1610,6 +1614,9 @@ type remoteOAuthProfile struct {
 	Options            remotemcp.OAuthOptions
 	CredentialKey      string
 	ClearCredentialKey string
+	// PersistRefresh also stores mcp_refresh_token and mcp_client_id so the
+	// adapter can renew short-lived access tokens after a restart.
+	PersistRefresh bool
 }
 
 var remoteOAuthProfiles = map[string]remoteOAuthProfile{
@@ -1630,6 +1637,15 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 		ResourcePath:  "/mcp",
 		Options:       remotemcp.OAuthOptions{Scope: "default"},
 		CredentialKey: "mcp_access_token",
+	},
+	"metabase": {
+		CallbackPath: "/api/remote/metabase/oauth/callback",
+		ResourcePath: metabaseInt.MCPEndpointPath,
+		// Every v2 scope: Metabase pre-ticks the read/query baseline and lets the
+		// user opt into writes, raw SQL, and alerts on its consent screen.
+		Options:        remotemcp.OAuthOptions{Scope: "agent:content:read agent:content:write agent:query:run agent:sql:run agent:delivery:write agent:resource:read"},
+		CredentialKey:  "mcp_access_token",
+		PersistRefresh: true,
 	},
 }
 
@@ -1652,6 +1668,13 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 	}
 	if serverURL == "" {
 		serverURL = notionmcp.MCPServerURL(integration)
+	}
+	if serverURL == "" {
+		serverURL = metabaseInt.MCPServerURL(integration)
+	}
+	if serverURL == "" && name == "metabase" {
+		json.NewEncoder(rw).Encode(map[string]string{"error": "Save the Metabase URL before signing in"})
+		return
 	}
 	if serverURL == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})
@@ -1705,8 +1728,8 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 		return
 	}
 
-	status, token, errStr := remotemcp.PollOAuth(name)
-	if status != "complete" || token == "" {
+	status, tokens, errStr := remotemcp.PollOAuthTokens(name)
+	if status != "complete" || tokens.AccessToken == "" {
 		msg := "Failed to get access token"
 		if errStr != "" {
 			msg = errStr
@@ -1715,7 +1738,7 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 		return
 	}
 
-	if err := w.saveRemoteMCPOAuth(r.Context(), name, token); err != nil {
+	if err := w.saveRemoteMCPOAuth(r.Context(), name, tokens); err != nil {
 		http.Redirect(rw, r, setupPath+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
@@ -1724,7 +1747,7 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 	http.Redirect(rw, r, setupPath+"?result=Connected+via+MCP+OAuth", http.StatusSeeOther)
 }
 
-func (w *WebServer) saveRemoteMCPOAuth(ctx context.Context, name, token string) error {
+func (w *WebServer) saveRemoteMCPOAuth(ctx context.Context, name string, tokens remotemcp.TokenSet) error {
 	w.configMu.Lock()
 	defer w.configMu.Unlock()
 
@@ -1739,9 +1762,13 @@ func (w *WebServer) saveRemoteMCPOAuth(ctx context.Context, name, token string) 
 		profile = remoteOAuthProfile{CredentialKey: "mcp_access_token"}
 	}
 	next.Enabled = true
-	next.Credentials[profile.CredentialKey] = token
+	next.Credentials[profile.CredentialKey] = tokens.AccessToken
 	if profile.ClearCredentialKey != "" {
 		next.Credentials[profile.ClearCredentialKey] = ""
+	}
+	if profile.PersistRefresh {
+		next.Credentials["mcp_refresh_token"] = tokens.RefreshToken
+		next.Credentials["mcp_client_id"] = tokens.ClientID
 	}
 	next.Credentials[mcp.CredKeyTokenSource] = "oauth"
 	if err := w.services.Config.SetIntegration(name, next); err != nil {
