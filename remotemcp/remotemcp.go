@@ -53,7 +53,7 @@ type remote struct {
 	rejectedRefreshErr   error
 }
 
-var _ auth.OAuthHandler = (*remote)(nil)
+var _ auth.OAuthHandler = (*sessionAuth)(nil)
 
 // New creates a remote MCP integration that proxies to the given server URL.
 func New(name, serverURL string) mcp.Integration {
@@ -115,32 +115,47 @@ func closeSession(session *mcpsdk.ClientSession) {
 	}
 }
 
-// TokenSource implements auth.OAuthHandler; a nil source leaves requests unauthenticated.
-func (r *remote) TokenSource(context.Context) (oauth2.TokenSource, error) {
+// sessionAuth binds one MCP session to the access token it was opened with, so a
+// stale session closed after a token rotation still signs its DELETE with the old
+// token. A refresh moves the session onto the remote's current token.
+type sessionAuth struct {
+	r     *remote
+	mu    sync.Mutex
+	token string
+}
+
+func (r *remote) newSessionAuth() *sessionAuth {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	if r.token == "" {
+	return &sessionAuth{r: r, token: r.token}
+}
+
+func (s *sessionAuth) TokenSource(context.Context) (oauth2.TokenSource, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.token == "" {
 		return nil, nil
 	}
-	return currentTokenSource{r}, nil
+	return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: s.token, TokenType: "Bearer"}), nil
 }
 
-type currentTokenSource struct{ r *remote }
-
-func (s currentTokenSource) Token() (*oauth2.Token, error) {
-	s.r.mu.RLock()
-	defer s.r.mu.RUnlock()
-	return &oauth2.Token{AccessToken: s.r.token, TokenType: "Bearer"}, nil
-}
-
-// Authorize implements auth.OAuthHandler: the SDK calls it on 401/403 and retries when it returns nil.
-func (r *remote) Authorize(ctx context.Context, req *http.Request, resp *http.Response) error {
+// Authorize runs on 401/403; returning nil makes the SDK retry the request.
+func (s *sessionAuth) Authorize(ctx context.Context, req *http.Request, resp *http.Response) error {
 	if resp.StatusCode != http.StatusUnauthorized {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
-		return fmt.Errorf("%s: authorization failed (%d %s): %s", r.name, resp.StatusCode, http.StatusText(resp.StatusCode), strings.TrimSpace(string(body)))
+		return fmt.Errorf("%s: authorization failed (%d %s): %s", s.r.name, resp.StatusCode, http.StatusText(resp.StatusCode), strings.TrimSpace(string(body)))
 	}
 	rejected := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
-	return r.refreshAccessToken(ctx, rejected)
+	if err := s.r.refreshAccessToken(ctx, rejected); err != nil {
+		return err
+	}
+	s.r.mu.RLock()
+	current := s.r.token
+	s.r.mu.RUnlock()
+	s.mu.Lock()
+	s.token = current
+	s.mu.Unlock()
+	return nil
 }
 
 func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
@@ -173,7 +188,7 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 	transport := &mcpsdk.StreamableClientTransport{
 		Endpoint:             r.serverURL + r.endpointPath,
 		HTTPClient:           &http.Client{Timeout: defaultTimeout},
-		OAuthHandler:         r,
+		OAuthHandler:         r.newSessionAuth(),
 		DisableStandaloneSSE: true,
 	}
 

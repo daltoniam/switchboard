@@ -119,18 +119,20 @@ func TestConfigure_ReadsRefreshCredentials(t *testing.T) {
 	assert.Equal(t, "sec", r.clientSecret)
 }
 
-func TestTokenSource(t *testing.T) {
+func TestSessionAuth_TokenSource(t *testing.T) {
 	r := New("test", "https://example.com").(*remote)
-	source, err := r.TokenSource(t.Context())
+	source, err := r.newSessionAuth().TokenSource(t.Context())
 	require.NoError(t, err)
 	assert.Nil(t, source, "no token configured means no Authorization header")
 
 	require.NoError(t, r.Configure(t.Context(), mcp.Credentials{"access_token": "tok"}))
-	source, err = r.TokenSource(t.Context())
+	bound := r.newSessionAuth()
+	require.NoError(t, r.Configure(t.Context(), mcp.Credentials{"access_token": "rotated"}))
+	source, err = bound.TokenSource(t.Context())
 	require.NoError(t, err)
 	token, err := source.Token()
 	require.NoError(t, err)
-	assert.Equal(t, "tok", token.AccessToken)
+	assert.Equal(t, "tok", token.AccessToken, "a session keeps the token it was opened with")
 }
 
 func TestAuthorize_Refresh(t *testing.T) {
