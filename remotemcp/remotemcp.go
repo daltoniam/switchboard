@@ -11,39 +11,72 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/version"
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"golang.org/x/oauth2"
 )
 
 const (
-	defaultTimeout = 30 * time.Second
+	defaultTimeout      = 30 * time.Second
+	defaultEndpointPath = "/mcp"
 )
 
-type remote struct {
-	name      string
-	serverURL string
-
-	mu            sync.RWMutex
-	token         string
-	session       *mcpsdk.ClientSession
-	client        *mcpsdk.Client
-	cachedTools   []mcp.ToolDefinition
-	toolsFetched  bool
-	optionalToken bool
+// Options tunes how a remote MCP integration reaches and authenticates with its server.
+type Options struct {
+	// EndpointPath is appended to the server URL to form the MCP endpoint; defaults to "/mcp".
+	EndpointPath string
+	// OptionalToken allows Configure to succeed without an access_token.
+	OptionalToken bool
+	// OnTokenRefresh receives every rotated token set so the caller can persist it.
+	OnTokenRefresh func(TokenSet)
 }
+
+type remote struct {
+	name         string
+	serverURL    string
+	endpointPath string
+
+	mu             sync.RWMutex
+	token          string
+	refreshToken   string
+	clientID       string
+	clientSecret   string
+	session        *mcpsdk.ClientSession
+	client         *mcpsdk.Client
+	cachedTools    []mcp.ToolDefinition
+	toolsFetched   bool
+	optionalToken  bool
+	onTokenRefresh func(TokenSet)
+	refreshMu      sync.Mutex
+	connectMu      sync.Mutex
+	// A refresh token the issuer rejected is never replayed; Configure clears it.
+	rejectedRefreshToken string
+	rejectedRefreshErr   error
+}
+
+var _ auth.OAuthHandler = (*remote)(nil)
 
 // New creates a remote MCP integration that proxies to the given server URL.
 func New(name, serverURL string) mcp.Integration {
-	return &remote{
-		name:      name,
-		serverURL: serverURL,
-	}
+	return NewWithOptions(name, serverURL, Options{})
 }
 
 func NewOptionalToken(name, serverURL string) mcp.Integration {
+	return NewWithOptions(name, serverURL, Options{OptionalToken: true})
+}
+
+// NewWithOptions creates a remote MCP integration with a custom endpoint path and refresh hook.
+func NewWithOptions(name, serverURL string, opts Options) mcp.Integration {
+	endpointPath := strings.TrimSpace(opts.EndpointPath)
+	if endpointPath == "" {
+		endpointPath = defaultEndpointPath
+	}
 	return &remote{
-		name:          name,
-		serverURL:     serverURL,
-		optionalToken: true,
+		name:           name,
+		serverURL:      serverURL,
+		endpointPath:   endpointPath,
+		optionalToken:  opts.OptionalToken,
+		onTokenRefresh: opts.OnTokenRefresh,
 	}
 }
 
@@ -67,23 +100,39 @@ func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 		r.toolsFetched = false
 		r.cachedTools = nil
 	}
+	r.refreshToken = creds["refresh_token"]
+	r.clientID = creds["client_id"]
+	r.clientSecret = creds["client_secret"]
+	r.rejectedRefreshToken = ""
+	r.rejectedRefreshErr = nil
 	return nil
 }
 
-// bearerTransport injects an Authorization header into every request.
-type bearerTransport struct {
-	token string
-	base  http.RoundTripper
+// TokenSource implements auth.OAuthHandler; a nil source leaves requests unauthenticated.
+func (r *remote) TokenSource(context.Context) (oauth2.TokenSource, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.token == "" {
+		return nil, nil
+	}
+	return currentTokenSource{r}, nil
 }
 
-func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	r := req.Clone(req.Context())
-	r.Header.Set("Authorization", "Bearer "+t.token)
-	base := t.base
-	if base == nil {
-		base = http.DefaultTransport
+type currentTokenSource struct{ r *remote }
+
+func (s currentTokenSource) Token() (*oauth2.Token, error) {
+	s.r.mu.RLock()
+	defer s.r.mu.RUnlock()
+	return &oauth2.Token{AccessToken: s.r.token, TokenType: "Bearer"}, nil
+}
+
+// Authorize implements auth.OAuthHandler: the SDK calls it on 401/403 and retries when it returns nil.
+func (r *remote) Authorize(ctx context.Context, req *http.Request, resp *http.Response) error {
+	if resp.StatusCode != http.StatusUnauthorized {
+		return fmt.Errorf("%s: authorization failed (%d %s)", r.name, resp.StatusCode, http.StatusText(resp.StatusCode))
 	}
-	return base.RoundTrip(r)
+	rejected := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	return r.refreshAccessToken(ctx, rejected)
 }
 
 func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
@@ -95,25 +144,28 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 	}
 	r.mu.RUnlock()
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	// The SDK handshake calls back into TokenSource/Authorize, which take r.mu,
+	// so connects serialize on connectMu and never hold r.mu across Connect.
+	r.connectMu.Lock()
+	defer r.connectMu.Unlock()
 
+	r.mu.RLock()
 	if r.session != nil {
-		return r.session, nil
+		sess := r.session
+		r.mu.RUnlock()
+		return sess, nil
 	}
+	r.mu.RUnlock()
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{
 		Name:    "switchboard",
 		Version: version.String(),
 	}, nil)
 
-	httpClient := &http.Client{Timeout: defaultTimeout}
-	if r.token != "" {
-		httpClient.Transport = &bearerTransport{token: r.token}
-	}
 	transport := &mcpsdk.StreamableClientTransport{
-		Endpoint:             r.serverURL + "/mcp",
-		HTTPClient:           httpClient,
+		Endpoint:             r.serverURL + r.endpointPath,
+		HTTPClient:           &http.Client{Timeout: defaultTimeout},
+		OAuthHandler:         r,
 		DisableStandaloneSSE: true,
 	}
 
@@ -122,8 +174,10 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 		return nil, fmt.Errorf("connect to %s: %w", r.serverURL, err)
 	}
 
+	r.mu.Lock()
 	r.client = client
 	r.session = session
+	r.mu.Unlock()
 	return session, nil
 }
 

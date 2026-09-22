@@ -94,21 +94,6 @@ func TestClose_ResetsSessionState(t *testing.T) {
 	require.NoError(t, r.Close()) // idempotent
 }
 
-func TestBearerTransport(t *testing.T) {
-	var gotAuth string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	bt := &bearerTransport{token: "mytoken"}
-	client := &http.Client{Transport: bt}
-	_, err := client.Get(srv.URL)
-	assert.NoError(t, err)
-	assert.Equal(t, "Bearer mytoken", gotAuth)
-}
-
 func TestConvertTools(t *testing.T) {
 	schema := map[string]any{
 		"type": "object",
