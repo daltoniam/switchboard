@@ -85,7 +85,9 @@ func (m *metabase) Configure(ctx context.Context, creds mcp.Credentials) error {
 	m.useRemote = useRemote
 	if !useRemote {
 		m.baseURL = baseURL
-		return nil
+		previous := m.remote
+		m.remote = nil
+		return closeRemote(previous)
 	}
 	remote, err := m.remoteFor(baseURL)
 	if err != nil {

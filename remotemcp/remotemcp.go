@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -19,15 +20,13 @@ import (
 const (
 	defaultTimeout      = 30 * time.Second
 	defaultEndpointPath = "/mcp"
+	maxErrorBodyBytes   = 4 << 10
 )
 
 // Options tunes how a remote MCP integration reaches and authenticates with its server.
 type Options struct {
-	// EndpointPath is appended to the server URL to form the MCP endpoint; defaults to "/mcp".
-	EndpointPath string
-	// OptionalToken allows Configure to succeed without an access_token.
-	OptionalToken bool
-	// OnTokenRefresh receives every rotated token set so the caller can persist it.
+	EndpointPath   string
+	OptionalToken  bool
 	OnTokenRefresh func(TokenSet)
 }
 
@@ -83,19 +82,16 @@ func NewWithOptions(name, serverURL string, opts Options) mcp.Integration {
 func (r *remote) Name() string { return r.name }
 
 func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	token := creds["access_token"]
 	if token == "" && !r.optionalToken {
 		return fmt.Errorf("%s: access_token is required", r.name)
 	}
 
+	r.mu.Lock()
+	var stale *mcpsdk.ClientSession
 	if token != r.token {
-		if r.session != nil {
-			_ = r.session.Close()
-			r.session = nil
-		}
+		stale = r.session
+		r.session = nil
 		r.token = token
 		r.toolsFetched = false
 		r.cachedTools = nil
@@ -105,7 +101,18 @@ func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 	r.clientSecret = creds["client_secret"]
 	r.rejectedRefreshToken = ""
 	r.rejectedRefreshErr = nil
+	r.mu.Unlock()
+
+	closeSession(stale)
 	return nil
+}
+
+// closeSession runs outside r.mu: closing a stateful session sends a DELETE whose
+// headers come from TokenSource, which takes r.mu.
+func closeSession(session *mcpsdk.ClientSession) {
+	if session != nil {
+		_ = session.Close()
+	}
 }
 
 // TokenSource implements auth.OAuthHandler; a nil source leaves requests unauthenticated.
@@ -129,7 +136,8 @@ func (s currentTokenSource) Token() (*oauth2.Token, error) {
 // Authorize implements auth.OAuthHandler: the SDK calls it on 401/403 and retries when it returns nil.
 func (r *remote) Authorize(ctx context.Context, req *http.Request, resp *http.Response) error {
 	if resp.StatusCode != http.StatusUnauthorized {
-		return fmt.Errorf("%s: authorization failed (%d %s)", r.name, resp.StatusCode, http.StatusText(resp.StatusCode))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
+		return fmt.Errorf("%s: authorization failed (%d %s): %s", r.name, resp.StatusCode, http.StatusText(resp.StatusCode), strings.TrimSpace(string(body)))
 	}
 	rejected := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 	return r.refreshAccessToken(ctx, rejected)
@@ -183,25 +191,23 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 
 func (r *remote) disconnect() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.session != nil {
-		_ = r.session.Close()
-		r.session = nil
-	}
+	stale := r.session
+	r.session = nil
+	r.mu.Unlock()
+	closeSession(stale)
 }
 
 // Close closes any active session and clears session/client/tool cache.
 // It is safe and idempotent; concurrent Configure/Tools/Execute serialize on r.mu.
 func (r *remote) Close() error {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.session != nil {
-		_ = r.session.Close()
-		r.session = nil
-	}
+	stale := r.session
+	r.session = nil
 	r.client = nil
 	r.toolsFetched = false
 	r.cachedTools = nil
+	r.mu.Unlock()
+	closeSession(stale)
 	return nil
 }
 

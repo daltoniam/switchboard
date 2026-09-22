@@ -78,7 +78,7 @@ func MCPServerEnabled(ctx context.Context, client *http.Client, baseURL string) 
 }
 
 func (m *metabase) remoteFor(baseURL string) (mcp.Integration, error) {
-	if m.remote != nil && m.baseURL == baseURL {
+	if m.remote != nil && remotemcp.ServerURL(m.remote) == baseURL {
 		return m.remote, nil
 	}
 	previous := m.remote

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"sync"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -26,6 +27,10 @@ type refreshFixture struct {
 }
 
 func newRefreshFixture(t *testing.T, endpointPath string) *refreshFixture {
+	return newRefreshFixtureWith(t, endpointPath, true)
+}
+
+func newRefreshFixtureWith(t *testing.T, endpointPath string, stateless bool) *refreshFixture {
 	t.Helper()
 	f := &refreshFixture{validToken: "access-1", rejectStatus: http.StatusUnauthorized, refreshStatus: http.StatusOK}
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "fixture", Version: "1"}, nil)
@@ -35,13 +40,16 @@ func newRefreshFixture(t *testing.T, endpointPath string) *refreshFixture {
 		f.mu.Unlock()
 		return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: `{"ok":true}`}}}, nil
 	})
-	handler := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true})
+	handler := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: stateless})
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server", func(w http.ResponseWriter, _ *http.Request) {
 		writeTestJSON(w, http.StatusOK, map[string]any{
 			"issuer": f.server.URL, "authorization_endpoint": f.server.URL + "/oauth/authorize",
 			"token_endpoint": f.server.URL + "/oauth/token", "registration_endpoint": f.server.URL + "/oauth/register",
 		})
+	})
+	mux.HandleFunc("GET /forbidden-body", func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "MCP server is not enabled.", http.StatusForbidden)
 	})
 	mux.HandleFunc("POST /oauth/register", func(w http.ResponseWriter, _ *http.Request) {
 		writeTestJSON(w, http.StatusCreated, map[string]string{"client_id": "client-1"})
@@ -156,11 +164,11 @@ func TestAuthorize_Refresh(t *testing.T) {
 			wantToken:      "stale",
 		},
 		{
-			name:           "403 is not refreshed",
+			name:           "403 is not refreshed and surfaces the body",
 			creds:          mcp.Credentials{"access_token": "stale", "refresh_token": "refresh-1", "client_id": "client-1"},
 			rejectStatus:   http.StatusForbidden,
 			refreshStatus:  http.StatusOK,
-			wantErrContain: "403",
+			wantErrContain: "403 Forbidden): unauthorized",
 			wantToken:      "stale",
 			wantRefreshTok: "refresh-1",
 		},
@@ -243,4 +251,70 @@ func TestOAuthFlow_PollOAuthTokens(t *testing.T) {
 	_, tokens, errStr = PollOAuthTokens("nonexistent")
 	assert.Equal(t, TokenSet{}, tokens)
 	assert.NotEmpty(t, errStr)
+}
+
+func TestStatefulSession_CloseDoesNotDeadlock(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		act  func(t *testing.T, r *remote)
+	}{
+		{name: "Close", act: func(t *testing.T, r *remote) { require.NoError(t, r.Close()) }},
+		{name: "disconnect", act: func(_ *testing.T, r *remote) { r.disconnect() }},
+		{name: "Configure with new token", act: func(t *testing.T, r *remote) {
+			require.NoError(t, r.Configure(t.Context(), mcp.Credentials{"access_token": "access-2"}))
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newRefreshFixtureWith(t, "/mcp", false)
+			r := New("stateful", f.server.URL).(*remote)
+			require.NoError(t, r.Configure(t.Context(), mcp.Credentials{"access_token": "access-1"}))
+			require.True(t, r.Healthy(t.Context()))
+			r.mu.RLock()
+			require.NotNil(t, r.session)
+			r.mu.RUnlock()
+
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				tc.act(t, r)
+			}()
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatal("closing a stateful session deadlocked")
+			}
+			r.mu.RLock()
+			assert.Nil(t, r.session)
+			r.mu.RUnlock()
+		})
+	}
+}
+
+func TestStatefulSession_ExecuteErrorReconnects(t *testing.T) {
+	f := newRefreshFixtureWith(t, "/mcp", false)
+	r := New("stateful", f.server.URL).(*remote)
+	require.NoError(t, r.Configure(t.Context(), mcp.Credentials{"access_token": "access-1"}))
+	require.True(t, r.Healthy(t.Context()))
+
+	f.mu.Lock()
+	f.validToken = "rotated-elsewhere"
+	f.mu.Unlock()
+	done := make(chan *mcp.ToolResult, 1)
+	go func() {
+		result, _ := r.Execute(t.Context(), "stateful_search", nil)
+		done <- result
+	}()
+	select {
+	case result := <-done:
+		assert.True(t, result.IsError)
+	case <-time.After(10 * time.Second):
+		t.Fatal("Execute error path deadlocked on disconnect")
+	}
+
+	f.mu.Lock()
+	f.validToken = "access-1"
+	f.mu.Unlock()
+	result, err := r.Execute(t.Context(), "stateful_search", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, result.Data)
 }

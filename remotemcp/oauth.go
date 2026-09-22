@@ -77,8 +77,14 @@ func pkceChallenge(verifier string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
-	resp, err := http.Get(serverURL + "/.well-known/oauth-authorization-server")
+func discoverOAuth(ctx context.Context, serverURL string) (*oauthServerMeta, error) {
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serverURL+"/.well-known/oauth-authorization-server", nil)
+	if err != nil {
+		return nil, fmt.Errorf("discover oauth: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("discover oauth: %w", err)
 	}
@@ -140,7 +146,7 @@ func registerClient(registerURL, redirectURI string, clientNames ...string) (cli
 // StartOAuth begins the MCP OAuth flow for a remote server.
 // It discovers the OAuth endpoints, registers a dynamic client, and returns the authorize URL.
 func StartOAuth(name, serverURL, redirectURI string, options ...OAuthOptions) (string, error) {
-	meta, err := discoverOAuth(serverURL)
+	meta, err := discoverOAuth(context.Background(), serverURL)
 	if err != nil {
 		return "", err
 	}
@@ -219,7 +225,7 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 		return fmt.Errorf("%s", os.err)
 	}
 
-	meta, err := discoverOAuth(os.serverURL)
+	meta, err := discoverOAuth(context.Background(), os.serverURL)
 	if err != nil {
 		os.err = err.Error()
 		os.done = true
@@ -320,6 +326,9 @@ func (r *remote) refreshAccessToken(ctx context.Context, rejected string) error 
 	if current.AccessToken != rejected && current.AccessToken != "" {
 		return nil
 	}
+	if current.AccessToken == "" {
+		return fmt.Errorf("%s: the server requires authorization but no access token is configured", r.name)
+	}
 	if current.RefreshToken == "" {
 		return fmt.Errorf("%s: access token rejected and no refresh token is stored; reconnect via the web UI", r.name)
 	}
@@ -327,7 +336,7 @@ func (r *remote) refreshAccessToken(ctx context.Context, rejected string) error 
 		return rejectedErr
 	}
 
-	meta, err := discoverOAuth(r.serverURL)
+	meta, err := discoverOAuth(ctx, r.serverURL)
 	if err != nil {
 		return fmt.Errorf("%s: refresh: %w", r.name, err)
 	}
@@ -354,7 +363,7 @@ func (r *remote) refreshAccessToken(ctx context.Context, rejected string) error 
 		return fmt.Errorf("%s: refresh: read token response: %w", r.name, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		err := fmt.Errorf("%s: refresh: token endpoint returned %d: %s; reconnect via the web UI", r.name, resp.StatusCode, string(body))
+		err := fmt.Errorf("%s: refresh: token endpoint returned %d: %s; reconnect via the web UI", r.name, resp.StatusCode, truncate(body, maxErrorBodyBytes))
 		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnauthorized {
 			r.mu.Lock()
 			r.rejectedRefreshToken = current.RefreshToken
@@ -418,4 +427,11 @@ func ServerURL(i mcp.Integration) string {
 		return r.serverURL
 	}
 	return ""
+}
+
+func truncate(body []byte, limit int) string {
+	if len(body) <= limit {
+		return string(body)
+	}
+	return string(body[:limit]) + "..."
 }

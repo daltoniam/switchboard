@@ -116,6 +116,21 @@ func TestMetabaseSetup(t *testing.T) {
 	}
 }
 
+func TestMetabaseSaveCredentials_URLOnlyAgainstRealAdapter(t *testing.T) {
+	ws, reg, cfg := setupTestWeb()
+	reg.integrations["metabase"] = metabase.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/metabase/save-credentials", strings.NewReader(url.Values{"url": {"https://mb.example.com"}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Equal(t, "/integrations/metabase/setup?result=Metabase+URL+saved", rr.Header().Get("Location"))
+	saved, ok := cfg.GetIntegration("metabase")
+	require.True(t, ok)
+	assert.Equal(t, "https://mb.example.com", saved.Credentials["url"])
+	assert.False(t, saved.Enabled)
+}
+
 func TestMetabaseSetupFlashes(t *testing.T) {
 	ws, reg, _ := setupTestWeb()
 	reg.integrations["metabase"] = &mockIntegration{name: "metabase"}
@@ -153,8 +168,8 @@ func TestMetabaseSaveCredentials(t *testing.T) {
 		},
 		{
 			name:      "api key enables and selects api_key source",
-			initial:   &mcp.IntegrationConfig{Credentials: mcp.Credentials{"url": "https://old", "mcp_access_token": "oauth-token", "mcp_refresh_token": "r", "mcp_client_id": "c", mcp.CredKeyTokenSource: "oauth"}, ToolGlobs: []string{"metabase_*"}},
-			form:      url.Values{"url": {"https://mb.example.com"}, "api_key": {" mb_key "}},
+			initial:   &mcp.IntegrationConfig{Credentials: mcp.Credentials{"url": "https://mb.example.com", "mcp_access_token": "oauth-token", "mcp_refresh_token": "r", "mcp_client_id": "c", mcp.CredKeyTokenSource: "oauth"}, ToolGlobs: []string{"metabase_*"}},
+			form:      url.Values{"url": {"https://mb.example.com/"}, "api_key": {" mb_key "}},
 			wantQuery: "result=API+key+saved",
 			wantCreds: mcp.Credentials{"url": "https://mb.example.com", "api_key": "mb_key", "mcp_access_token": "oauth-token", "mcp_refresh_token": "r", "mcp_client_id": "c", mcp.CredKeyTokenSource: "api_key"},
 			wantOn:    true,
@@ -165,6 +180,22 @@ func TestMetabaseSaveCredentials(t *testing.T) {
 			form:      url.Values{"url": {"https://new.example.com"}},
 			wantQuery: "result=Metabase+URL+saved",
 			wantCreds: mcp.Credentials{"url": "https://new.example.com", "api_key": "mb_key", mcp.CredKeyTokenSource: "api_key"},
+			wantOn:    true,
+		},
+		{
+			name:      "url change discards oauth tokens issued by the old host",
+			initial:   &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"url": "https://old", "api_key": "mb_key", "mcp_access_token": "t", "mcp_refresh_token": "r", "mcp_client_id": "c", mcp.CredKeyTokenSource: "oauth"}},
+			form:      url.Values{"url": {"https://new.example.com"}},
+			wantQuery: "result=Metabase+URL+saved%3B+sign+in+again+to+use+OAuth+with+the+new+instance",
+			wantCreds: mcp.Credentials{"url": "https://new.example.com", "api_key": "mb_key", "mcp_access_token": "", "mcp_refresh_token": "", "mcp_client_id": "", mcp.CredKeyTokenSource: "api_key"},
+			wantOn:    true,
+		},
+		{
+			name:      "url change without api key leaves nothing usable",
+			initial:   &mcp.IntegrationConfig{Enabled: true, Credentials: mcp.Credentials{"url": "https://old", "mcp_access_token": "t", "mcp_refresh_token": "r", "mcp_client_id": "c", mcp.CredKeyTokenSource: "oauth"}},
+			form:      url.Values{"url": {"https://new.example.com"}},
+			wantQuery: "result=Metabase+URL+saved%3B+sign+in+again+to+use+OAuth+with+the+new+instance",
+			wantCreds: mcp.Credentials{"url": "https://new.example.com", "mcp_access_token": "", "mcp_refresh_token": "", "mcp_client_id": "", mcp.CredKeyTokenSource: ""},
 			wantOn:    true,
 		},
 	} {

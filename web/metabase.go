@@ -77,20 +77,31 @@ func (w *WebServer) handleMetabaseSaveCredentials(rw http.ResponseWriter, r *htt
 	w.configMu.Lock()
 	previous, _ := w.services.Config.GetIntegration("metabase")
 	next := cloneIntegrationConfig(previous)
-	next.Credentials["url"] = baseURL
 	result := "Metabase URL saved"
+	// OAuth tokens belong to the host that issued them; a new URL invalidates them.
+	if next.Credentials["url"] != baseURL && next.Credentials["mcp_access_token"] != "" {
+		for _, key := range []string{"mcp_access_token", "mcp_refresh_token", "mcp_client_id"} {
+			next.Credentials[key] = ""
+		}
+		next.Credentials[mcp.CredKeyTokenSource] = ""
+		result = "Metabase URL saved; sign in again to use OAuth with the new instance"
+	}
+	next.Credentials["url"] = baseURL
 	if apiKey != "" {
 		next.Credentials["api_key"] = apiKey
-		next.Credentials[mcp.CredKeyTokenSource] = "api_key"
 		next.Enabled = true
 		result = "API key saved"
+	}
+	if apiKey != "" || (next.Credentials["api_key"] != "" && next.Credentials["mcp_access_token"] == "") {
+		next.Credentials[mcp.CredKeyTokenSource] = "api_key"
 	}
 	err := w.services.Config.SetIntegration("metabase", next)
 	if err == nil {
 		w.health.mu.Lock()
 		delete(w.health.entries, "metabase")
 		w.health.mu.Unlock()
-		if integration, ok := w.services.Registry.Get("metabase"); ok && next.HasUsableCredentials() {
+		configurable := next.Credentials["api_key"] != "" || next.Credentials["mcp_access_token"] != ""
+		if integration, ok := w.services.Registry.Get("metabase"); ok && configurable {
 			err = mcp.ConfigureIntegration(r.Context(), integration, next)
 		}
 	}

@@ -255,7 +255,7 @@ func TestOAuth_PollNoFlow(t *testing.T) {
 }
 
 func TestOAuth_DiscoverBadURL(t *testing.T) {
-	_, err := discoverOAuth("https://invalid.example.com")
+	_, err := discoverOAuth(context.Background(), "https://invalid.example.com")
 	assert.Error(t, err)
 }
 
@@ -274,7 +274,7 @@ func TestOAuth_DiscoverSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	meta, err := discoverOAuth(srv.URL)
+	meta, err := discoverOAuth(context.Background(), srv.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "https://example.com", meta.Issuer)
 	assert.Equal(t, "https://example.com/authorize", meta.AuthorizationEndpoint)

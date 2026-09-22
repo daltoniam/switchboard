@@ -98,6 +98,8 @@ func (c *fixtureConfig) SetWasmModules([]mcp.WasmModuleConfig) error { return ni
 func (c *fixtureConfig) EnabledIntegrations() []string               { return nil }
 func (c *fixtureConfig) DefaultCredentialKeys(string) []string       { return nil }
 func (c *fixtureConfig) GetIntegration(string) (*mcp.IntegrationConfig, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.ic, c.ic != nil
 }
 func (c *fixtureConfig) SetIntegration(_ string, ic *mcp.IntegrationConfig) error {
@@ -238,6 +240,27 @@ func TestConfigure_SwitchingURLReplacesRemote(t *testing.T) {
 	defer first.mu.Unlock()
 	defer second.mu.Unlock()
 	assert.Equal(t, second.server.URL, MCPServerURL(i))
+}
+
+func TestConfigure_RESTURLChangeThenOAuthUsesNewHost(t *testing.T) {
+	first := newHostedMCPFixture(t)
+	second := newHostedMCPFixture(t)
+	i := New()
+	t.Cleanup(func() { _ = i.(io.Closer).Close() })
+	require.NoError(t, i.Configure(t.Context(), mcp.Credentials{"url": first.server.URL, "mcp_access_token": "access-1"}))
+	require.True(t, i.Healthy(t.Context()))
+	require.NoError(t, i.Configure(t.Context(), mcp.Credentials{"url": second.server.URL, "api_key": "mb_key", mcp.CredKeyTokenSource: "api_key"}))
+	assert.False(t, IsRemoteMCP(i))
+	require.NoError(t, i.Configure(t.Context(), mcp.Credentials{"url": second.server.URL, "mcp_access_token": "access-1"}))
+	result, err := i.Execute(t.Context(), "metabase_search", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, result.Data)
+	first.mu.Lock()
+	second.mu.Lock()
+	defer first.mu.Unlock()
+	defer second.mu.Unlock()
+	assert.Equal(t, 0, first.toolCalls, "tokens minted by the new host must never reach the old one")
+	assert.Equal(t, 1, second.toolCalls)
 }
 
 func TestClose_ThenExecuteReportsNotConfigured(t *testing.T) {
