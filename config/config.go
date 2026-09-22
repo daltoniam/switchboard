@@ -229,6 +229,11 @@ var envMapping = map[string]map[string]string{
 		"api_token": "OKTA_API_TOKEN",
 		"org_url":   "OKTA_ORG_URL",
 	},
+	"pagerduty": {
+		"api_token":  "PAGERDUTY_API_TOKEN",
+		"from_email": "PAGERDUTY_FROM_EMAIL",
+		"base_url":   "PAGERDUTY_BASE_URL",
+	},
 	"microsoft365": {
 		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
 		"refresh_token": "MICROSOFT365_REFRESH_TOKEN",
@@ -477,6 +482,10 @@ func defaultConfig() *mcp.Config {
 			"okta": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "org_url": ""},
+			},
+			"pagerduty": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_token": "", "from_email": "", "base_url": ""},
 			},
 			"microsoft365": {
 				Enabled: false,

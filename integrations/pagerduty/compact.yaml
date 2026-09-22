@@ -1,0 +1,67 @@
+# Switchboard compaction specs for the pagerduty integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+  pagerduty_list_incidents:
+    spec:
+      - incidents[].id
+      - incidents[].incident_number
+      - incidents[].title
+      - incidents[].status
+      - incidents[].urgency
+      - incidents[].created_at
+      - incidents[].updated_at
+      - incidents[].html_url
+      - incidents[].service.id
+      - incidents[].service.summary
+      - incidents[].assignments[].assignee.id
+      - incidents[].assignments[].assignee.summary
+      - limit
+      - offset
+      - more
+  pagerduty_get_incident:
+    spec:
+      - incident.id
+      - incident.incident_number
+      - incident.title
+      - incident.status
+      - incident.urgency
+      - incident.created_at
+      - incident.updated_at
+      - incident.html_url
+      - incident.description
+      - incident.service.id
+      - incident.service.summary
+      - incident.assignments[].assignee.id
+      - incident.assignments[].assignee.summary
+      - incident.escalation_policy.id
+      - incident.escalation_policy.summary
+  pagerduty_list_oncalls:
+    spec:
+      - oncalls[].escalation_level
+      - oncalls[].start
+      - oncalls[].end
+      - oncalls[].user.id
+      - oncalls[].user.summary
+      - oncalls[].user.html_url
+      - oncalls[].schedule.id
+      - oncalls[].schedule.summary
+      - oncalls[].escalation_policy.id
+      - oncalls[].escalation_policy.summary
+      - limit
+      - offset
+      - more
+  pagerduty_list_services:
+    spec:
+      - services[].id
+      - services[].name
+      - services[].summary
+      - services[].status
+      - services[].html_url
+      - limit
+      - offset
+      - more

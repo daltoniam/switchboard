@@ -354,6 +354,9 @@ Environment variables override credential values but do not change the durable e
 | Grist | `base_url` | `GRIST_HOST` (optional — default `https://docs.getgrist.com`; team sites `https://{team}.getgrist.com`; self-hosted origin) |
 | Okta | `api_token` | `OKTA_API_TOKEN` |
 | Okta | `org_url` | `OKTA_ORG_URL` (e.g. `https://your-org.okta.com`) |
+| PagerDuty | `api_token` | `PAGERDUTY_API_TOKEN` (REST API user or account token) |
+| PagerDuty | `from_email` | `PAGERDUTY_FROM_EMAIL` (optional default From header for notes/ack/resolve) |
+| PagerDuty | `base_url` | `PAGERDUTY_BASE_URL` (optional — default `https://api.pagerduty.com`) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
 | Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
 | ServiceNow | `instance_url` | `SERVICENOW_INSTANCE_URL` (e.g. `https://dev12345.service-now.com`) |
