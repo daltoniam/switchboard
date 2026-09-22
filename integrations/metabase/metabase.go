@@ -77,7 +77,7 @@ func (m *metabase) Configure(ctx context.Context, creds mcp.Credentials) error {
 	if apiKey == "" && token == "" {
 		return fmt.Errorf("metabase: api_key or mcp_access_token is required")
 	}
-	useRemote := token != "" && !(creds[mcp.CredKeyTokenSource] == "api_key" && apiKey != "")
+	useRemote := token != "" && (creds[mcp.CredKeyTokenSource] != "api_key" || apiKey == "")
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
