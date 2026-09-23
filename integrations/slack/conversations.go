@@ -2,6 +2,7 @@ package slack
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -39,6 +40,10 @@ func listConversations(ctx context.Context, s *slackIntegration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
+	stuck := cursor != "" && nextCursor == cursor
+	if stuck {
+		nextCursor = ""
+	}
 	type ch struct {
 		ID         string `json:"id"`
 		Name       string `json:"name"`
@@ -60,7 +65,11 @@ func listConversations(ctx context.Context, s *slackIntegration, args map[string
 		}
 		out = append(out, ch{ID: c.ID, Name: c.Name, Type: t, NumMembers: c.NumMembers, Topic: c.Topic.Value, Purpose: c.Purpose.Value, IsArchived: c.IsArchived})
 	}
-	return mcp.JSONResult(map[string]any{"count": len(out), "conversations": out, "next_cursor": nextCursor})
+	result := map[string]any{"count": len(out), "conversations": out, "next_cursor": nextCursor}
+	if stuck {
+		result["warning"] = "Slack repeated the pagination cursor; stop paging, try types: public_channel alone, and check slack_token_status for missing read scopes or stale credentials"
+	}
+	return mcp.JSONResult(result)
 }
 
 func getConversationInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
@@ -103,7 +112,7 @@ func conversationsHistory(ctx context.Context, s *slackIntegration, args map[str
 	}
 	resp, err := client.GetConversationHistoryContext(ctx, params)
 	if err != nil {
-		return errResult(err)
+		return readErrorResult(err)
 	}
 	type msg struct {
 		TS         string `json:"ts"`
@@ -119,6 +128,13 @@ func conversationsHistory(ctx context.Context, s *slackIntegration, args map[str
 	return mcp.JSONResult(map[string]any{"channel": channelID, "count": len(msgs), "has_more": resp.HasMore, "messages": msgs, "next_cursor": resp.ResponseMetaData.NextCursor})
 }
 
+func readErrorResult(err error) (*mcp.ToolResult, error) {
+	if err.Error() == "channel_not_found" {
+		return mcp.ErrResult(fmt.Errorf("%w: verify the channel ID and workspace; missing channels:history, groups:history, im:history, or mpim:history scope, channel membership, or a stale browser d cookie may prevent reads. Check slack_token_status and re-authorize or refresh credentials", err))
+	}
+	return errResult(err)
+}
+
 func getThread(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
@@ -132,7 +148,7 @@ func getThread(ctx context.Context, s *slackIntegration, args map[string]any) (*
 	}
 	msgs, _, _, err := client.GetConversationRepliesContext(ctx, &slack.GetConversationRepliesParameters{ChannelID: channelID, Timestamp: threadTS})
 	if err != nil {
-		return errResult(err)
+		return readErrorResult(err)
 	}
 	type reply struct {
 		TS       string `json:"ts"`

@@ -44,6 +44,31 @@ func TestFieldCompactionSpec_ReturnsFieldsForListTool(t *testing.T) {
 	assert.NotEmpty(t, fields)
 }
 
+func TestFieldCompactionSpecs_PreservePaginationAndScopes(t *testing.T) {
+	for _, tc := range []struct {
+		tool, payload, field string
+	}{
+		{"slack_list_conversations", `{"count":1,"next_cursor":"","warning":"cursor repeated"}`, "warning"},
+		{"slack_conversations_history", `{"count":1,"has_more":true,"next_cursor":"page-two"}`, "next_cursor"},
+		{"slack_token_status", `{"workspaces":[{"granted_scopes":["channels:history"],"scopes_available":true}]}`, "workspaces"},
+	} {
+		t.Run(tc.tool, func(t *testing.T) {
+			result, err := mcp.CompactJSON([]byte(tc.payload), fieldCompactionSpecs[mcp.ToolName(tc.tool)])
+			require.NoError(t, err)
+			assert.Contains(t, string(result), tc.field)
+			switch tc.tool {
+			case "slack_list_conversations":
+				assert.Contains(t, string(result), "next_cursor")
+			case "slack_token_status":
+				assert.Contains(t, string(result), "granted_scopes")
+				assert.Contains(t, string(result), "scopes_available")
+			case "slack_conversations_history":
+				assert.Contains(t, string(result), "has_more")
+			}
+		})
+	}
+}
+
 func TestFieldCompactionSpec_ReturnsFalseForMutationTool(t *testing.T) {
 	s := &slackIntegration{}
 	_, ok := s.CompactSpec("slack_send_message")

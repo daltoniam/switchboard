@@ -97,6 +97,7 @@ tools:
             - conversations[].is_archived
             - count
             - next_cursor
+            - warning
     slack_list_emoji:
         spec:
             - count

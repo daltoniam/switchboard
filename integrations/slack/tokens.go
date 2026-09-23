@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -729,22 +731,61 @@ func copyFile(src, dst string) error {
 
 // --- token management tool handlers ---
 
-func tokenStatus(_ context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
+func probeGrantedScopes(ctx context.Context, ws *workspace, client *http.Client, endpoint string) ([]string, bool) {
+	form := url.Values{"token": {ws.Token}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, false
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, false
+	}
+	var body struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&body); err != nil || !body.OK {
+		return nil, false
+	}
+	header := resp.Header.Get("X-Oauth-Scopes")
+	if header == "" {
+		return nil, false
+	}
+	scopes := strings.Split(header, ",")
+	for i := range scopes {
+		scopes[i] = strings.TrimSpace(scopes[i])
+	}
+	return scopes, true
+}
+
+func tokenStatus(ctx context.Context, s *slackIntegration, _ map[string]any) (*mcp.ToolResult, error) {
+	return tokenStatusWithEndpoint(ctx, s, "https://slack.com/api/auth.test")
+}
+
+func tokenStatusWithEndpoint(ctx context.Context, s *slackIntegration, endpoint string) (*mcp.ToolResult, error) {
 	workspaces := s.store.allWorkspaces()
 	defaultID := s.store.defaultID()
 
 	type wsStatus struct {
-		TeamID    string  `json:"team_id"`
-		TeamName  string  `json:"team_name"`
-		Status    string  `json:"status"`
-		TokenType string  `json:"token_type"`
-		AgeHours  float64 `json:"age_hours"`
-		Source    string  `json:"source"`
-		IsDefault bool    `json:"is_default"`
+		TeamID          string   `json:"team_id"`
+		TeamName        string   `json:"team_name"`
+		Status          string   `json:"status"`
+		TokenType       string   `json:"token_type"`
+		AgeHours        float64  `json:"age_hours"`
+		Source          string   `json:"source"`
+		IsDefault       bool     `json:"is_default"`
+		GrantedScopes   []string `json:"granted_scopes,omitempty"`
+		ScopesAvailable bool     `json:"scopes_available"`
 	}
 
-	var statuses []wsStatus
-	for _, ws := range workspaces {
+	statuses := make([]wsStatus, len(workspaces))
+	var probes sync.WaitGroup
+	for index, ws := range workspaces {
 		ageHours := 0.0
 		if !ws.UpdatedAt.IsZero() {
 			ageHours = math.Round(time.Since(ws.UpdatedAt).Hours()*10) / 10
@@ -768,7 +809,7 @@ func tokenStatus(_ context.Context, s *slackIntegration, args map[string]any) (*
 			}
 		}
 
-		statuses = append(statuses, wsStatus{
+		statuses[index] = wsStatus{
 			TeamID:    ws.TeamID,
 			TeamName:  ws.TeamName,
 			Status:    status,
@@ -776,8 +817,17 @@ func tokenStatus(_ context.Context, s *slackIntegration, args map[string]any) (*
 			AgeHours:  ageHours,
 			Source:    ws.Source,
 			IsDefault: ws.TeamID == defaultID,
-		})
+		}
+		if ws.Token != "" {
+			probes.Add(1)
+			go func() {
+				defer probes.Done()
+				client := &http.Client{Timeout: 5 * time.Second, Transport: &cookieTransport{cookie: ws.Cookie, inner: http.DefaultTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+				statuses[index].GrantedScopes, statuses[index].ScopesAvailable = probeGrantedScopes(ctx, ws, client, endpoint)
+			}()
+		}
 	}
+	probes.Wait()
 
 	refreshInfo := map[string]any{
 		"enabled":         true,

@@ -8,7 +8,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Token Management ---
 	{
 		Name:        mcp.ToolName("slack_token_status"),
-		Description: "Check token health for all workspaces: type (OAuth vs browser session), age, auto-refresh status, and source.",
+		Description: "Check token health for all workspaces: type, age, source, auto-refresh status, and granted OAuth scopes when Slack exposes them. scopes_available=false means scopes could not be verified, not that none were granted.",
 		Parameters:  map[string]string{},
 	},
 	{
@@ -27,7 +27,7 @@ var tools = []mcp.ToolDefinition{
 	// --- Conversations ---
 	{
 		Name:        mcp.ToolName("slack_list_conversations"),
-		Description: "Start here to discover channels. List channels and DMs in the workspace. Filter by type (public_channel, private_channel, im, mpim). Returns channel IDs needed by most other Slack tools.",
+		Description: "Start here to discover channels. List channels and DMs in the workspace. Filter by type (public_channel, private_channel, im, mpim). OAuth tokens need channels:read, groups:read, im:read, or mpim:read for the requested types. Returns channel IDs needed by most other Slack tools.",
 		Parameters: map[string]string{
 			"types":            "Comma-separated types: public_channel, private_channel, im, mpim (default: public_channel,private_channel)",
 			"limit":            "Max results per page (default 100, max 1000)",
@@ -47,7 +47,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        mcp.ToolName("slack_conversations_history"),
-		Description: "Start here to read channel messages. Returns messages in reverse chronological order. Requires channel ID (C...), not channel name. Use list_conversations to find IDs.",
+		Description: "Start here to read channel messages. Returns messages in reverse chronological order. Requires channel ID (C...), not channel name. Use list_conversations to find IDs. OAuth tokens need channels:history, groups:history, im:history, or mpim:history for the channel type; browser sessions need a valid d cookie.",
 		Parameters: map[string]string{
 			"channel_id": "Channel or DM ID",
 			"limit":      "Number of messages to fetch (default 50, max 100)",
