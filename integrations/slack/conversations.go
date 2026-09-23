@@ -2,6 +2,7 @@ package slack
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -38,6 +39,9 @@ func listConversations(ctx context.Context, s *slackIntegration, args map[string
 	channels, nextCursor, err := client.GetConversationsContext(ctx, params)
 	if err != nil {
 		return errResult(err)
+	}
+	if cursor != "" && nextCursor == cursor {
+		return mcp.ErrResult(fmt.Errorf("slack conversations.list repeated the pagination cursor; stop paging, try types: public_channel alone, and check slack_token_status for missing read scopes or stale credentials"))
 	}
 	type ch struct {
 		ID         string `json:"id"`
@@ -103,7 +107,7 @@ func conversationsHistory(ctx context.Context, s *slackIntegration, args map[str
 	}
 	resp, err := client.GetConversationHistoryContext(ctx, params)
 	if err != nil {
-		return errResult(err)
+		return readErrorResult(err)
 	}
 	type msg struct {
 		TS         string `json:"ts"`
@@ -119,6 +123,13 @@ func conversationsHistory(ctx context.Context, s *slackIntegration, args map[str
 	return mcp.JSONResult(map[string]any{"channel": channelID, "count": len(msgs), "has_more": resp.HasMore, "messages": msgs, "next_cursor": resp.ResponseMetaData.NextCursor})
 }
 
+func readErrorResult(err error) (*mcp.ToolResult, error) {
+	if err.Error() == "channel_not_found" {
+		return mcp.ErrResult(fmt.Errorf("%w: verify the channel ID and workspace; missing channels:history, groups:history, im:history, or mpim:history scope, channel membership, or a stale browser d cookie may prevent reads. Check slack_token_status and re-authorize or refresh credentials", err))
+	}
+	return errResult(err)
+}
+
 func getThread(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
 	client, err := s.getClientForArgs(args)
 	if err != nil {
@@ -132,7 +143,7 @@ func getThread(ctx context.Context, s *slackIntegration, args map[string]any) (*
 	}
 	msgs, _, _, err := client.GetConversationRepliesContext(ctx, &slack.GetConversationRepliesParameters{ChannelID: channelID, Timestamp: threadTS})
 	if err != nil {
-		return errResult(err)
+		return readErrorResult(err)
 	}
 	type reply struct {
 		TS       string `json:"ts"`
