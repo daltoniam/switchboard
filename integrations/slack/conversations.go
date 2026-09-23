@@ -40,8 +40,9 @@ func listConversations(ctx context.Context, s *slackIntegration, args map[string
 	if err != nil {
 		return errResult(err)
 	}
-	if cursor != "" && nextCursor == cursor {
-		return mcp.ErrResult(fmt.Errorf("slack conversations.list repeated the pagination cursor; stop paging, try types: public_channel alone, and check slack_token_status for missing read scopes or stale credentials"))
+	stuck := cursor != "" && nextCursor == cursor
+	if stuck {
+		nextCursor = ""
 	}
 	type ch struct {
 		ID         string `json:"id"`
@@ -64,7 +65,11 @@ func listConversations(ctx context.Context, s *slackIntegration, args map[string
 		}
 		out = append(out, ch{ID: c.ID, Name: c.Name, Type: t, NumMembers: c.NumMembers, Topic: c.Topic.Value, Purpose: c.Purpose.Value, IsArchived: c.IsArchived})
 	}
-	return mcp.JSONResult(map[string]any{"count": len(out), "conversations": out, "next_cursor": nextCursor})
+	result := map[string]any{"count": len(out), "conversations": out, "next_cursor": nextCursor}
+	if stuck {
+		result["warning"] = "Slack repeated the pagination cursor; stop paging, try types: public_channel alone, and check slack_token_status for missing read scopes or stale credentials"
+	}
+	return mcp.JSONResult(result)
 }
 
 func getConversationInfo(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {

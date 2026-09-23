@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
@@ -54,9 +55,14 @@ func TestListConversations_RepeatedCursor(t *testing.T) {
 	defer server.Close()
 	result, err := listConversations(t.Context(), testConversationsClient(server), map[string]any{"cursor": "same"})
 	require.NoError(t, err)
-	require.True(t, result.IsError)
-	assert.Contains(t, result.Data, "slack_token_status")
-	assert.Contains(t, result.Data, "public_channel")
+	require.False(t, result.IsError)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &body))
+	assert.Equal(t, "", body["next_cursor"])
+	assert.EqualValues(t, 1, body["count"])
+	assert.Equal(t, "C1", body["conversations"].([]any)[0].(map[string]any)["id"])
+	assert.Contains(t, body["warning"], "slack_token_status")
+	assert.Contains(t, body["warning"], "public_channel")
 }
 
 func TestProbeGrantedScopes(t *testing.T) {
@@ -87,6 +93,34 @@ func TestProbeGrantedScopes(t *testing.T) {
 				assert.Empty(t, scopes)
 			}
 		})
+	}
+}
+
+func TestTokenStatus_ProbeBudget(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+	store := &tokenStore{workspaces: map[string]*workspace{
+		"T1": {TeamID: "T1", Token: "xoxb-one"},
+		"T2": {TeamID: "T2", Token: "xoxb-two"},
+		"T3": {TeamID: "T3", Token: "xoxb-three"},
+	}}
+	start := time.Now()
+	result, err := tokenStatusWithEndpoint(t.Context(), &slackIntegration{store: store}, server.URL+"/auth.test")
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	assert.Less(t, time.Since(start), 4*time.Second)
+	var body struct {
+		Workspaces []struct {
+			ScopesAvailable bool `json:"scopes_available"`
+		} `json:"workspaces"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &body))
+	require.Len(t, body.Workspaces, 3)
+	for _, ws := range body.Workspaces {
+		assert.False(t, ws.ScopesAvailable)
 	}
 }
 

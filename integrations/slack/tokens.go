@@ -763,7 +763,11 @@ func probeGrantedScopes(ctx context.Context, ws *workspace, client *http.Client,
 	return scopes, true
 }
 
-func tokenStatus(ctx context.Context, s *slackIntegration, args map[string]any) (*mcp.ToolResult, error) {
+func tokenStatus(ctx context.Context, s *slackIntegration, _ map[string]any) (*mcp.ToolResult, error) {
+	return tokenStatusWithEndpoint(ctx, s, "https://slack.com/api/auth.test")
+}
+
+func tokenStatusWithEndpoint(ctx context.Context, s *slackIntegration, endpoint string) (*mcp.ToolResult, error) {
 	workspaces := s.store.allWorkspaces()
 	defaultID := s.store.defaultID()
 
@@ -779,8 +783,9 @@ func tokenStatus(ctx context.Context, s *slackIntegration, args map[string]any) 
 		ScopesAvailable bool     `json:"scopes_available"`
 	}
 
-	var statuses []wsStatus
-	for _, ws := range workspaces {
+	statuses := make([]wsStatus, len(workspaces))
+	var probes sync.WaitGroup
+	for index, ws := range workspaces {
 		ageHours := 0.0
 		if !ws.UpdatedAt.IsZero() {
 			ageHours = math.Round(time.Since(ws.UpdatedAt).Hours()*10) / 10
@@ -804,24 +809,25 @@ func tokenStatus(ctx context.Context, s *slackIntegration, args map[string]any) 
 			}
 		}
 
-		var scopes []string
-		var available bool
-		if ws.Token != "" {
-			client := &http.Client{Timeout: 5 * time.Second, Transport: &cookieTransport{cookie: ws.Cookie, inner: http.DefaultTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-			scopes, available = probeGrantedScopes(ctx, ws, client, "https://slack.com/api/auth.test")
+		statuses[index] = wsStatus{
+			TeamID:    ws.TeamID,
+			TeamName:  ws.TeamName,
+			Status:    status,
+			TokenType: tokenType,
+			AgeHours:  ageHours,
+			Source:    ws.Source,
+			IsDefault: ws.TeamID == defaultID,
 		}
-		statuses = append(statuses, wsStatus{
-			TeamID:          ws.TeamID,
-			TeamName:        ws.TeamName,
-			Status:          status,
-			TokenType:       tokenType,
-			AgeHours:        ageHours,
-			Source:          ws.Source,
-			IsDefault:       ws.TeamID == defaultID,
-			GrantedScopes:   scopes,
-			ScopesAvailable: available,
-		})
+		if ws.Token != "" {
+			probes.Add(1)
+			go func() {
+				defer probes.Done()
+				client := &http.Client{Timeout: 5 * time.Second, Transport: &cookieTransport{cookie: ws.Cookie, inner: http.DefaultTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+				statuses[index].GrantedScopes, statuses[index].ScopesAvailable = probeGrantedScopes(ctx, ws, client, endpoint)
+			}()
+		}
 	}
+	probes.Wait()
 
 	refreshInfo := map[string]any{
 		"enabled":         true,
