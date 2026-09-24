@@ -175,6 +175,7 @@ func TestTokenRefreshOnUnauthorized(t *testing.T) {
 		}
 		if r.Header.Get("Authorization") == "Bearer jwt-1" {
 			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"detail":"expired"}`))
 			return
 		}
 		assert.Equal(t, "Bearer jwt-2", r.Header.Get("Authorization"))

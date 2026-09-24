@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -31,6 +32,13 @@ var (
 	_ mcp.PlainTextCredentials       = (*airflow)(nil)
 	_ mcp.PlaceholderHints           = (*airflow)(nil)
 )
+
+type apiError struct {
+	statusCode int
+	status     string
+}
+
+func (e *apiError) Error() string { return "airflow API " + e.status }
 
 type airflow struct {
 	baseURL  string
@@ -154,7 +162,8 @@ func (a *airflow) request(ctx context.Context, method, path string, body any) ([
 		return nil, err
 	}
 	data, err := a.send(ctx, method, path, payload, token)
-	if err != nil && strings.Contains(err.Error(), "401 Unauthorized") && a.username != "" && a.password != "" {
+	var statusErr *apiError
+	if errors.As(err, &statusErr) && statusErr.statusCode == http.StatusUnauthorized && a.username != "" && a.password != "" {
 		a.mu.Lock()
 		if a.token == token {
 			a.token = ""
@@ -193,7 +202,7 @@ func (a *airflow) send(ctx context.Context, method, path string, payload []byte,
 		return nil, fmt.Errorf("airflow: response exceeds 2 MiB")
 	}
 	if resp.StatusCode >= 400 {
-		apiErr := fmt.Errorf("airflow API %s", resp.Status)
+		apiErr := &apiError{statusCode: resp.StatusCode, status: resp.Status}
 		if resp.StatusCode == 429 || resp.StatusCode >= 500 {
 			return nil, &mcp.RetryableError{StatusCode: resp.StatusCode, RetryAfter: mcp.ParseRetryAfter(resp.Header.Get("Retry-After")), Err: apiErr}
 		}

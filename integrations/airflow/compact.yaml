@@ -6,9 +6,9 @@ tools:
       - dags[].dag_display_name
       - dags[].description
       - dags[].is_paused
-      - dags[].is_active
-      - dags[].next_dagrun
-      - dags[].next_dagrun_create_after
+      - dags[].is_stale
+      - dags[].next_dagrun_logical_date
+      - dags[].next_dagrun_run_after
       - dags[].tags[].name
       - total_entries
   airflow_get_dag:
@@ -17,10 +17,10 @@ tools:
       - dag_display_name
       - description
       - is_paused
-      - is_active
+      - is_stale
       - timetable_summary
-      - next_dagrun
-      - next_dagrun_create_after
+      - next_dagrun_logical_date
+      - next_dagrun_run_after
       - tags[].name
   airflow_list_dag_runs:
     spec:
