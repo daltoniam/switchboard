@@ -1,0 +1,71 @@
+# Switchboard compaction specs for the launchdarkly integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+#
+# Flag environment configs are keyed by environment key (dynamic map), so
+# list_flags and get_flag keep the whole environments object; callers narrow
+# it with environment_key. The engine cannot reach nested keys under that
+# map, so handlers strip salt/sel/_site from each environment before the
+# document reaches compaction (see scrubEnvironments in handlers.go).
+# list_environments likewise strips apiKey/mobileKey/_links in the handler
+# so script callers (which bypass compaction) never see SDK credentials.
+
+version: 1
+tools:
+  launchdarkly_list_projects:
+    spec:
+      - items[]._id
+      - items[].key
+      - items[].name
+      - items[].tags
+      - totalCount
+  launchdarkly_list_environments:
+    spec:
+      - items[]._id
+      - items[].key
+      - items[].name
+      - items[].color
+      - items[].critical
+      - items[].tags
+      - totalCount
+  launchdarkly_list_flags:
+    spec:
+      - items[].key
+      - items[].name
+      - items[].kind
+      - items[].description
+      - items[].creationDate
+      - items[].tags
+      - items[].archived
+      - items[].temporary
+      - items[]._maintainer.email
+      - items[].environments
+      - totalCount
+  launchdarkly_get_flag:
+    spec:
+      - key
+      - name
+      - kind
+      - description
+      - creationDate
+      - tags
+      - archived
+      - temporary
+      - clientSideAvailability.usingEnvironmentId
+      - clientSideAvailability.usingMobileKey
+      - _maintainer.email
+      - _maintainer.firstName
+      - _maintainer.lastName
+      - variations[]._id
+      - variations[].value
+      - variations[].name
+      - variations[].description
+      - environments.*
+  launchdarkly_list_flag_statuses:
+    spec:
+      - items[].name
+      - items[].lastRequested
+      - items[].default
+      - items[]._links.parent.href

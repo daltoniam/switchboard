@@ -234,6 +234,10 @@ var envMapping = map[string]map[string]string{
 		"from_email": "PAGERDUTY_FROM_EMAIL",
 		"base_url":   "PAGERDUTY_BASE_URL",
 	},
+	"launchdarkly": {
+		"access_token": "LAUNCHDARKLY_ACCESS_TOKEN",
+		"base_url":     "LAUNCHDARKLY_BASE_URL",
+	},
 	"microsoft365": {
 		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
 		"refresh_token": "MICROSOFT365_REFRESH_TOKEN",
@@ -486,6 +490,10 @@ func defaultConfig() *mcp.Config {
 			"pagerduty": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "from_email": "", "base_url": ""},
+			},
+			"launchdarkly": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
 			},
 			"microsoft365": {
 				Enabled: false,
