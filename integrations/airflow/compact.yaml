@@ -1,0 +1,56 @@
+version: 1
+tools:
+  airflow_list_dags:
+    spec:
+      - dags[].dag_id
+      - dags[].dag_display_name
+      - dags[].description
+      - dags[].is_paused
+      - dags[].is_stale
+      - dags[].next_dagrun_logical_date
+      - dags[].next_dagrun_run_after
+      - dags[].tags[].name
+      - total_entries
+  airflow_get_dag:
+    spec:
+      - dag_id
+      - dag_display_name
+      - description
+      - is_paused
+      - is_stale
+      - timetable_summary
+      - next_dagrun_logical_date
+      - next_dagrun_run_after
+      - tags[].name
+  airflow_list_dag_runs:
+    spec:
+      - dag_runs[].dag_id
+      - dag_runs[].dag_run_id
+      - dag_runs[].state
+      - dag_runs[].run_type
+      - dag_runs[].logical_date
+      - dag_runs[].start_date
+      - dag_runs[].end_date
+      - dag_runs[].note
+      - total_entries
+  airflow_get_dag_run:
+    spec:
+      - dag_id
+      - dag_run_id
+      - state
+      - run_type
+      - logical_date
+      - start_date
+      - end_date
+      - note
+  airflow_list_task_instances:
+    spec:
+      - task_instances[].dag_id
+      - task_instances[].dag_run_id
+      - task_instances[].task_id
+      - task_instances[].state
+      - task_instances[].try_number
+      - task_instances[].start_date
+      - task_instances[].end_date
+      - task_instances[].duration
+      - total_entries
