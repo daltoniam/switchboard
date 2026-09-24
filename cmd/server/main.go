@@ -23,6 +23,7 @@ import (
 	"github.com/daltoniam/switchboard/daemon"
 	acpInt "github.com/daltoniam/switchboard/integrations/acp"
 	agentsInt "github.com/daltoniam/switchboard/integrations/agents"
+	"github.com/daltoniam/switchboard/integrations/airflow"
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/botidentity"
@@ -324,6 +325,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		notionmcp.New(),
 		metabase.New(),
 		paperless.New(),
+		airflow.New(),
 		recoll.New(),
 		awsInt.New(),
 		posthog.New(),
