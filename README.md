@@ -304,8 +304,9 @@ Environment variables override credential values but do not change the durable e
 | Figma MCP | `base_url` | `FIGMA_MCP_BASE_URL` (optional, default `https://mcp.figma.com`) |
 | Notion MCP | `mcp_access_token` | `NOTION_MCP_ACCESS_TOKEN` |
 | Notion MCP | `base_url` | `NOTION_MCP_BASE_URL` (optional, default `https://mcp.notion.com`; a trailing `/mcp` is accepted) |
-| Metabase | `api_key` | `METABASE_API_KEY` |
-| Metabase | `url` | `METABASE_URL` |
+| Metabase | `url` | `METABASE_URL` (required in both modes) |
+| Metabase | `api_key` | `METABASE_API_KEY` (REST fallback) |
+| Metabase | `mcp_access_token`, `mcp_refresh_token`, `mcp_client_id` | set by **Sign in with Metabase** in the web UI (hosted MCP OAuth); `token_source` picks the mode when both are present |
 | Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
 | Paperless-ngx | `url` | `PAPERLESS_URL` |
 | Recoll WebUI | `base_url` | `RECOLL_URL` |
@@ -394,7 +395,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | LikeC4 Excalidraw | Local Streamable HTTP MCP | Start `likec4-excalidraw`, then set `LIKEC4_EXCALIDRAW_BASE_URL` or enter the printed URL in the web UI; bearer token is optional. |
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
-| Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
+| Metabase | OAuth (hosted MCP) or API Key | Web UI → Metabase → Setup: save the site URL, then **Sign in with Metabase** (requires the instance's Admin > AI > MCP "MCP server" toggle) or paste an API key; env vars `METABASE_URL` + `METABASE_API_KEY` also work |
 | Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |
 | Recoll WebUI | Base URL | Set `RECOLL_URL` to the Recoll WebUI root (for example `http://localhost:8080`) or enter it in the web UI |
 | PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |

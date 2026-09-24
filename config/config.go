@@ -353,7 +353,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"metabase": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"api_key": "", "url": ""},
+				Credentials: mcp.Credentials{"api_key": "", "url": "", "mcp_access_token": "", "mcp_refresh_token": "", "mcp_client_id": "", mcp.CredKeyTokenSource: ""},
 			},
 			"paperless": {
 				Enabled:     false,
