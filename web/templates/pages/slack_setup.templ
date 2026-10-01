@@ -7,6 +7,7 @@ import (
 )
 
 type SlackSetupData struct {
+	Enabled        bool
 	HasToken       bool
 	HasCookie      bool
 	TokenStatus    string
@@ -67,6 +68,15 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 		if data.FlashError != "" {
 			<div class="flash flash-error">{ data.FlashError }</div>
 		}
+		<form method="POST" action="/api/slack/set-enabled">
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Enabled</div>
+					@components.Toggle("enabled", data.Enabled)
+				</div>
+				<button type="submit" class="btn">Save</button>
+			</div>
+		</form>
 		if data.HasToken {
 			<div class="card">
 				<div class="card-header">

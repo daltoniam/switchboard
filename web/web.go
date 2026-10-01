@@ -104,6 +104,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/slack/extract-browser", w.handleSlackExtractBrowser)
 	mux.HandleFunc("POST /api/slack/save-tokens", w.handleSlackSaveTokens)
 	mux.HandleFunc("POST /api/slack/set-default", w.handleSlackSetDefault)
+	mux.HandleFunc("POST /api/slack/set-enabled", w.handleSlackSetEnabled)
 
 	mux.HandleFunc("GET /integrations/github/setup", w.handleGitHubSetup)
 	mux.HandleFunc("POST /api/github/oauth/start", w.handleGitHubOAuthStart)
@@ -956,6 +957,7 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 
 	page := w.pageData(r, "Slack Setup", "/integrations")
 	data := pages.SlackSetupData{
+		Enabled:        exists && ic.Enabled,
 		HasToken:       info.HasToken,
 		HasCookie:      info.HasCookie,
 		TokenStatus:    tokenStatus,
@@ -1443,6 +1445,51 @@ func (w *WebServer) handleSlackSetDefault(rw http.ResponseWriter, r *http.Reques
 	http.Redirect(rw, r, "/integrations/slack/setup?result=Default+workspace+updated", http.StatusSeeOther)
 }
 
+// handleSlackSetEnabled flips only the enabled flag. The Slack setup page has
+// no cred_* fields, so the generic integration save would wipe credentials.
+func (w *WebServer) handleSlackSetEnabled(rw http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	w.configMu.Lock()
+	ic, _ := w.services.Config.GetIntegration("slack")
+	ic = cloneIntegrationConfig(ic)
+	ic.Enabled = r.FormValue("enabled") == "true"
+	err := w.services.Config.SetIntegration("slack", ic)
+	w.configMu.Unlock()
+	if err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error=Failed+to+save:+"+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	applyErr := w.applySlackToRunning(r.Context())
+	w.notifyConfigChanged()
+	if applyErr != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+url.QueryEscape("Saved, but Slack did not start: "+applyErr.Error()), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(rw, r, "/integrations/slack/setup?result=Configuration+saved", http.StatusSeeOther)
+}
+
+// applySlackToRunning pushes the saved Slack config into the registered
+// integration. Rebuilding the search index alone leaves the running client on
+// its old credentials and its cookie refresh running after a disable.
+func (w *WebServer) applySlackToRunning(ctx context.Context) error {
+	integration, ok := w.services.Registry.Get("slack")
+	if !ok {
+		return nil
+	}
+	ic, _ := w.services.Config.GetIntegration("slack")
+	if ic == nil || !ic.Enabled {
+		if s, ok := integration.(interface{ Stop() }); ok {
+			s.Stop()
+		}
+		return nil
+	}
+	return mcp.ConfigureIntegration(ctx, integration, cloneIntegrationConfig(ic))
+}
 func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {
 	ic, exists := w.services.Config.GetIntegration("notion")
 	hasToken := exists && ic.Credentials["token_v2"] != ""
