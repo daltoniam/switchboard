@@ -92,16 +92,19 @@ func searchIssues(ctx context.Context, l *linear, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
+	vars := map[string]any{
+		"term":  query,
+		"first": mcp.OptInt(args, "first", 50),
+	}
+	if after != "" {
+		vars["after"] = after
+	}
 	data, err := l.gql(ctx, fmt.Sprintf(`query($term: String!, $first: Int, $after: String) {
 		searchIssues(term: $term, first: $first, after: $after) {
 			nodes { %s }
 			pageInfo { hasNextPage endCursor }
 		}
-	}`, issueFields), map[string]any{
-		"term":  query,
-		"first": mcp.OptInt(args, "first", 50),
-		"after": after,
-	})
+	}`, issueFields), vars)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

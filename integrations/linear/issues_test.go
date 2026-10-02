@@ -696,3 +696,39 @@ func TestUpdateIssue_StateResolvesFromIssueTeam(t *testing.T) {
 	assert.Equal(t, "state-uuid", capturedInput["stateId"])
 	assert.NotContains(t, capturedInput, "teamId")
 }
+
+func TestSearchIssues_PaginationCursor(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      map[string]any
+		wantAfter bool
+		after     string
+	}{
+		{name: "omits empty cursor", args: map[string]any{"query": "snowflake"}, wantAfter: false},
+		{name: "omits explicit empty cursor", args: map[string]any{"query": "snowflake", "after": ""}, wantAfter: false},
+		{name: "forwards cursor", args: map[string]any{"query": "snowflake", "after": "cursor-1"}, wantAfter: true, after: "cursor-1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var captured map[string]any
+			l, ts := newTestLinear(gqlHandler(func(_ string, vars map[string]any) any {
+				captured = vars
+				return map[string]any{"searchIssues": map[string]any{"nodes": []any{}}}
+			}))
+			defer ts.Close()
+			origURL := graphqlURL
+			setGraphqlURL(ts.URL)
+			defer setGraphqlURL(origURL)
+
+			result, err := searchIssues(context.Background(), l, tc.args)
+			require.NoError(t, err)
+			assert.False(t, result.IsError)
+			assert.Equal(t, "snowflake", captured["term"])
+			if tc.wantAfter {
+				assert.Equal(t, tc.after, captured["after"])
+			} else {
+				assert.NotContains(t, captured, "after")
+			}
+		})
+	}
+}
