@@ -165,6 +165,28 @@ func TestErrorBodyDoesNotExposeRunConfig(t *testing.T) {
 	assert.NotContains(t, result.Data, "private-secret")
 }
 
+func TestTriggerSuccessDoesNotEchoRunConfig(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"dag_id":"nightly","dag_run_id":"manual__1","state":"queued","conf":{"password":"private-secret"}}`))
+	}))
+	t.Cleanup(server.Close)
+	a := New().(*airflow)
+	require.NoError(t, a.Configure(context.Background(), mcp.Credentials{"base_url": server.URL, "access_token": "token"}))
+	result, err := a.Execute(context.Background(), "airflow_trigger_dag", map[string]any{"dag_id": "nightly", "conf": map[string]any{"password": "private-secret"}})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, result.Data, "manual__1")
+	assert.Contains(t, result.Data, "queued")
+	assert.NotContains(t, result.Data, "private-secret")
+	assert.NotContains(t, result.Data, `"conf"`)
+}
+
+func TestOptionalKeys(t *testing.T) {
+	keys := New().(mcp.OptionalCredentials).OptionalKeys()
+	assert.ElementsMatch(t, []string{"username", "password", "access_token"}, keys)
+	assert.NotContains(t, keys, "base_url")
+}
+
 func TestTokenRefreshOnUnauthorized(t *testing.T) {
 	var exchanges atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

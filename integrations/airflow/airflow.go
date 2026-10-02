@@ -31,6 +31,7 @@ var (
 	_ mcp.FieldCompactionIntegration = (*airflow)(nil)
 	_ mcp.PlainTextCredentials       = (*airflow)(nil)
 	_ mcp.PlaceholderHints           = (*airflow)(nil)
+	_ mcp.OptionalCredentials        = (*airflow)(nil)
 )
 
 type apiError struct {
@@ -58,6 +59,8 @@ func New() mcp.Integration {
 func (a *airflow) Name() string { return "airflow" }
 
 func (a *airflow) PlainTextKeys() []string { return []string{"base_url", "username"} }
+
+func (a *airflow) OptionalKeys() []string { return []string{"username", "password", "access_token"} }
 
 func (a *airflow) Placeholders() map[string]string {
 	return map[string]string{
@@ -322,5 +325,10 @@ func trigger(ctx context.Context, a *airflow, args map[string]any) (*mcp.ToolRes
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	return mcp.RawResult(data)
+	var run map[string]any
+	if err := json.Unmarshal(data, &run); err != nil {
+		return mcp.ErrResult(fmt.Errorf("airflow: decode trigger response: %w", err))
+	}
+	delete(run, "conf")
+	return mcp.JSONResult(run)
 }

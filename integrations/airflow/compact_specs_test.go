@@ -19,7 +19,7 @@ func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
 	}
 	for _, tool := range New().Tools() {
 		_, exists := fieldCompactionSpecs[tool.Name]
-		assert.Equal(t, tool.Name != "airflow_trigger_dag", exists, "%s", tool.Name)
+		assert.True(t, exists, "%s", tool.Name)
 	}
 }
 
@@ -29,10 +29,11 @@ func TestFieldCompactionSpecs_Shape(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"airflow_list_dags", `{"dags":[{"dag_id":"nightly","is_paused":false,"is_stale":true,"next_dagrun_logical_date":"2026-09-25","next_dagrun_run_after":"2026-09-26","secrets":"drop"}],"total_entries":1}`, "nightly"},
-		{"airflow_get_dag", `{"dag_id":"nightly","is_stale":true,"next_dagrun_logical_date":"2026-09-25","next_dagrun_run_after":"2026-09-26","secrets":"drop"}`, "nightly"},
+		{"airflow_list_dags", `{"dags":[{"dag_id":"nightly","is_paused":false,"is_stale":true,"scheduling_state":"draining","next_dagrun_logical_date":"2026-09-25","next_dagrun_run_after":"2026-09-26","secrets":"drop"}],"total_entries":1}`, "nightly"},
+		{"airflow_get_dag", `{"dag_id":"nightly","is_stale":true,"scheduling_state":"draining","next_dagrun_logical_date":"2026-09-25","next_dagrun_run_after":"2026-09-26","secrets":"drop"}`, "nightly"},
 		{"airflow_list_dag_runs", `{"dag_runs":[{"dag_id":"nightly","dag_run_id":"manual__1","state":"failed","conf":{"key":"secret"}}],"total_entries":1}`, "failed"},
 		{"airflow_get_dag_run", `{"dag_id":"nightly","dag_run_id":"manual__1","state":"success","conf":{"key":"secret"}}`, "success"},
+		{"airflow_trigger_dag", `{"dag_id":"nightly","dag_run_id":"manual__1","state":"queued","conf":{"key":"secret"}}`, "queued"},
 		{"airflow_list_task_instances", `{"task_instances":[{"task_id":"extract","state":"failed","operator":"secret"}],"total_entries":1}`, "extract"},
 	} {
 		t.Run(string(tt.tool), func(t *testing.T) {
@@ -43,6 +44,7 @@ func TestFieldCompactionSpecs_Shape(t *testing.T) {
 			assert.Contains(t, string(out), tt.want)
 			if tt.tool == "airflow_list_dags" || tt.tool == "airflow_get_dag" {
 				assert.Contains(t, string(out), `"is_stale":true`)
+				assert.Contains(t, string(out), `"scheduling_state":"draining"`)
 				assert.Contains(t, string(out), "2026-09-25")
 				assert.Contains(t, string(out), "2026-09-26")
 			}

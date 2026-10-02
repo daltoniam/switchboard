@@ -7,6 +7,7 @@ tools:
       - dags[].description
       - dags[].is_paused
       - dags[].is_stale
+      - dags[].scheduling_state
       - dags[].next_dagrun_logical_date
       - dags[].next_dagrun_run_after
       - dags[].tags[].name
@@ -18,6 +19,7 @@ tools:
       - description
       - is_paused
       - is_stale
+      - scheduling_state
       - timetable_summary
       - next_dagrun_logical_date
       - next_dagrun_run_after
@@ -43,6 +45,15 @@ tools:
       - start_date
       - end_date
       - note
+  airflow_trigger_dag:
+    spec:
+      - dag_id
+      - dag_run_id
+      - state
+      - run_type
+      - logical_date
+      - queued_at
+      - run_after
   airflow_list_task_instances:
     spec:
       - task_instances[].dag_id
