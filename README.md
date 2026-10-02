@@ -20,13 +20,25 @@ Self-hosting this repo is free and complete for local development and solo use �
 same integrations, web UI, search + execute, and compaction as you get from
 the install paths below.
 
-[Switchboard Hosted](https://app.switchboard-mcp.com) is there if you need more:
-a **private-data tunnel** (Postgres, Kubernetes, and other services behind a
-firewall), **one-click OAuth** to connect integrations (sign in instead of
-pasting API keys — a Hosted convenience for teams), **organizations**, **SSO**,
-**policies**,
-**audit logs**, and **dedicated runtimes** for teams. Same MCP clients and
-integrations; you do not need Hosted to use Switchboard day to day.
+[Switchboard Hosted](https://app.switchboard-mcp.com) is optional when you need
+team-scale access or infrastructure that a laptop-bound gateway cannot provide.
+Two capabilities drive most teams to Hosted:
+
+- **Private-data tunnel** — agents reach Postgres, Kubernetes, and other services
+  behind your firewall without exposing those systems to the public internet or
+  opening ad-hoc network paths for every MCP session.
+- **Managed OAuth** — connect GitHub, Google Workspace, and other integrations
+  through Switchboard's shared OAuth clients: sign in without registering your
+  own provider OAuth app, and reconnect at org scale when tokens rotate. Local
+  self-host already supports OAuth for many integrations via the setup flows
+  later in this README; Hosted is for teams that want managed clients instead of
+  BYO app registration.
+
+Hosted also adds **organizations and groups**, **SSO**, **policies**, **audit
+logs**, and **dedicated runtimes** — membership and shared connections across a
+company, corporate identity, guardrails on what agents can run, an audit trail of
+gateway activity, and managed gateway infrastructure. Same MCP clients and
+integrations either way; you do not need Hosted to use Switchboard day to day.
 
 - **[Try Switchboard Hosted free](https://app.switchboard-mcp.com)** — no credit card required
 - **[Product and pricing](https://switchboard-mcp.com)**
