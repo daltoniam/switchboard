@@ -55,6 +55,12 @@ var envMapping = map[string]map[string]string{
 		"token": "PAPERLESS_TOKEN",
 		"url":   "PAPERLESS_URL",
 	},
+	"airflow": {
+		"base_url":     "AIRFLOW_BASE_URL",
+		"username":     "AIRFLOW_USERNAME",
+		"password":     "AIRFLOW_PASSWORD",
+		"access_token": "AIRFLOW_ACCESS_TOKEN",
+	},
 	"recoll": {
 		"base_url": "RECOLL_URL",
 	},
@@ -362,6 +368,10 @@ func defaultConfig() *mcp.Config {
 			"paperless": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "url": ""},
+			},
+			"airflow": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "access_token": ""},
 			},
 			"recoll": {
 				Enabled:     false,
