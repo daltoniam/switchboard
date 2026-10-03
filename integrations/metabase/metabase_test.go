@@ -29,7 +29,7 @@ func TestConfigure_MissingAPIKey(t *testing.T) {
 	i := New()
 	err := i.Configure(context.Background(), mcp.Credentials{"api_key": "", "url": "https://metabase.example.com"})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "api_key is required")
+	assert.Contains(t, err.Error(), "api_key or mcp_access_token is required")
 }
 
 func TestConfigure_MissingURL(t *testing.T) {
