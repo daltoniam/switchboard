@@ -26,13 +26,26 @@
   - `GET /integrations/notion-mcp/setup`: independent Notion hosted MCP OAuth (PKCE). Uses `/api/remote/notion-mcp/oauth/start` and `/api/remote/notion-mcp/oauth/callback`; successful sign-in enables `notion-mcp` and refreshes discovery without changing the existing Notion integration.
   - `GET /integrations/sentry/setup` — Sentry Device Flow OAuth
   - `GET /integrations/google/setup` — Unified Google Workspace setup (one OAuth client, one sign-in, fans tokens out to all selected Google services). See [google-setup.md](google-setup.md). The 11 per-service pages (`/integrations/gmail/setup`, `/integrations/gcal/setup`, etc.) remain but link back to this unified page.
-  - `GET /integrations/slack/setup` — Slack token extraction (Chrome auto-extract, manual browser snippet, direct entry)
+  - `GET /integrations/slack/setup` — Slack credentials (browser auto-extract, manual browser snippet, user OAuth token, direct entry)
   - `GET /integrations/notion/setup` — Notion token_v2 entry (browser snippet extraction, manual entry)
   - `GET /integrations/postgres/setup` — Postgres default plus additional aliased connections
   - `GET /integrations/clickhouse/setup` — ClickHouse default plus additional aliased cluster connections
   - `GET /integrations/microsoft365/setup` — Microsoft 365 OAuth (Azure AD / Entra ID PKCE) plus manual access token entry
 - All setup pages save credentials to both the integration config and any external token files
 - Integrations implementing `MultiIdentityIntegration` + `IdentityConfigHints` render a generic named-identity editor. Identity credentials and metadata persist under `integrations.<name>.identities` in the standard config file.
+
+## Setup Page Design Rules
+
+When adding or changing a setup page, reuse what the existing pages share. A one-off pattern makes one page look unlike every other. All CSS lives in `web/templates/layouts/base.templ`; add a class there instead of styling a new pattern inline.
+
+- **One card per credential method.** Each method is a `card` with a `card-title`. When a page offers several methods, title them `Option N: <Method>` (title case noun phrase), numbered in page order. Status and settings cards (enable toggle, current token, default selection) sit above the options and are not numbered. Examples: `slack_setup.templ`, `notion_setup.templ`, `github_setup.templ`.
+- **One description line under the title.** Use `<p class="slack-desc">` to say what the method does and when to pick it.
+- **Multi-step instructions use the step list, not `<ol>`.** `slack-steps` → `slack-step` → `slack-step-num` + a `<strong>` step title + `<p class="slack-step-detail">`. The step's form or code block goes inside its step. See Option 2 in `slack_setup.templ`.
+- **Copyable text uses `slack-code-block`.** A `<pre><code>` with a `btn btn-sm btn-outline` button labelled `Copy` that shows `Copied!` for two seconds (`copySnippet` in `slack_setup.templ`).
+- **External links use `class="slack-link"` with `target="_blank"`.**
+- **Form fields use `@components.FormGroup`**; secrets use input type `password`. Field ids must be unique on the page, because `FormGroup` uses the field name as the id.
+- **Results and errors use the `flash flash-success` / `flash flash-error` banner** driven by the `result=` / `error=` query parameters, not inline text.
+- **Copy is direct and imperative.** Step titles start with a verb ("Open Slack in your browser", "Paste the result below").
 
 ## Build Tooling
 

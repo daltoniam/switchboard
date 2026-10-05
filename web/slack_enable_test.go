@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -34,7 +33,7 @@ func TestSlackSetEnabled_FlipsEnabledAndKeepsCredentials(t *testing.T) {
 			notified := 0
 			ws.onConfigChange = func() { notified++ }
 
-			req := httptest.NewRequest(http.MethodPost, "/api/slack/set-enabled", strings.NewReader(tc.form))
+			req := localSlackRequest(http.MethodPost, "/api/slack/set-enabled", tc.form)
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			rr := httptest.NewRecorder()
 			ws.Handler().ServeHTTP(rr, req)
@@ -96,7 +95,7 @@ func TestSlackSetEnabled_AppliesToRunningIntegration(t *testing.T) {
 			creds := mcp.Credentials{"token": "xoxp-keep", "team_id": "T1"}
 			cfgService.cfg.Integrations["slack"] = &mcp.IntegrationConfig{Enabled: tc.initial, Credentials: creds}
 
-			req := httptest.NewRequest(http.MethodPost, "/api/slack/set-enabled", strings.NewReader(tc.form))
+			req := localSlackRequest(http.MethodPost, "/api/slack/set-enabled", tc.form)
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			ws.Handler().ServeHTTP(httptest.NewRecorder(), req)
 

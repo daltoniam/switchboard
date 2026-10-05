@@ -11,7 +11,7 @@ import (
 )
 
 func TestRefreshViaCookie_EmptyCookie(t *testing.T) {
-	result, err := refreshViaCookie("")
+	result, err := refreshViaCookie(t.Context(), "")
 	assert.NoError(t, err)
 	assert.Nil(t, result)
 }
@@ -23,7 +23,7 @@ func TestRefreshViaCookie_CapturesRotatedCookie(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := refreshViaCookieWithClient(srv.Client(), srv.URL, "xoxd-old-cookie")
+	result, err := refreshViaCookieWithClient(t.Context(), srv.Client(), srv.URL, "xoxd-old-cookie")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, "xoxc-refreshed-token-123", result.token)
@@ -36,7 +36,7 @@ func TestRefreshViaCookie_KeepsOriginalCookieWhenNoRotation(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := refreshViaCookieWithClient(srv.Client(), srv.URL, "xoxd-original-cookie")
+	result, err := refreshViaCookieWithClient(t.Context(), srv.Client(), srv.URL, "xoxd-original-cookie")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, "xoxc-refreshed-token-456", result.token)
@@ -50,7 +50,7 @@ func TestRefreshViaCookie_ApiTokenFallback(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := refreshViaCookieWithClient(srv.Client(), srv.URL, "xoxd-old")
+	result, err := refreshViaCookieWithClient(t.Context(), srv.Client(), srv.URL, "xoxd-old")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, "xoxc-api-fallback-789", result.token)
@@ -64,7 +64,7 @@ func TestRefreshViaCookie_NoTokenInResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := refreshViaCookieWithClient(srv.Client(), srv.URL, "xoxd-expired")
+	result, err := refreshViaCookieWithClient(t.Context(), srv.Client(), srv.URL, "xoxd-expired")
 	assert.NoError(t, err)
 	assert.Nil(t, result)
 }
@@ -76,7 +76,7 @@ func TestRefreshViaCookie_IgnoresNonXoxdCookie(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := refreshViaCookieWithClient(srv.Client(), srv.URL, "xoxd-original")
+	result, err := refreshViaCookieWithClient(t.Context(), srv.Client(), srv.URL, "xoxd-original")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, "xoxd-original", result.cookie)
@@ -90,7 +90,7 @@ func TestRefreshViaCookie_UsesLastSetCookie(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := refreshViaCookieWithClient(srv.Client(), srv.URL, "xoxd-original")
+	result, err := refreshViaCookieWithClient(t.Context(), srv.Client(), srv.URL, "xoxd-original")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, "xoxd-second", result.cookie)
