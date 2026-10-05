@@ -93,28 +93,31 @@ func (r *revokedCredentials) mark(key string) {
 	if r == nil || key == "" {
 		return
 	}
+	// r.mu guards only the in-memory map, so isRevoked never waits on disk I/O.
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.hashes[hashCredential(key)] = true
+	r.mu.Unlock()
 
 	revokedFileMu.Lock()
 	defer revokedFileMu.Unlock()
+	var onDisk []string
 	if data, err := os.ReadFile(r.path); err == nil { // #nosec G304 G703 -- path is fixed at Configure from the home dir
-		var onDisk []string
 		if err := json.Unmarshal(data, &onDisk); err != nil {
 			// Startup refuses a corrupt record; overwriting it here would
 			// silently drop every hash it held.
 			log.Printf("slack: revoked-credential record %s is corrupt (%v) — not overwriting; fix or delete it", r.path, err)
 			return
 		}
-		for _, h := range onDisk {
-			r.hashes[h] = true
-		}
+	}
+	r.mu.Lock()
+	for _, h := range onDisk {
+		r.hashes[h] = true
 	}
 	list := make([]string, 0, len(r.hashes))
 	for k := range r.hashes {
 		list = append(list, k)
 	}
+	r.mu.Unlock()
 	sort.Strings(list)
 	data, _ := json.Marshal(list)
 	tmp := r.path + ".tmp"

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -32,7 +33,7 @@ func TestVerifyUserToken_ReturnsTeamFromAuthTest(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := verifyUserTokenAt(t.Context(), "xoxp-good", srv.URL+"/")
+	got, err := verifyUserTokenWith(t.Context(), "xoxp-good", srv.URL+"/", nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, VerifiedUserToken{TeamID: "T1", TeamName: "Totto Labs", Token: "xoxp-good"}, got)
@@ -44,7 +45,7 @@ func TestVerifyUserToken_RejectsNonUserTokensWithoutNetwork(t *testing.T) {
 	defer srv.Close()
 
 	for _, tok := range []string{"xoxb-bot", "xoxc-browser", "", "garbage"} {
-		_, err := verifyUserTokenAt(t.Context(), tok, srv.URL+"/")
+		_, err := verifyUserTokenWith(t.Context(), tok, srv.URL+"/", nil)
 		assert.ErrorIs(t, err, errNotUserToken, tok)
 	}
 	assert.Equal(t, int32(0), hits.Load())
@@ -57,7 +58,7 @@ func TestVerifyUserToken_SurfacesSlackRejection(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := verifyUserTokenAt(t.Context(), "xoxp-dead", srv.URL+"/")
+	_, err := verifyUserTokenWith(t.Context(), "xoxp-dead", srv.URL+"/", nil)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid_auth")
@@ -211,6 +212,39 @@ func TestSaveToFile_SubSecondNewerDiskEntryWins(t *testing.T) {
 
 	require.NoError(t, saveUserTokenTo(path, VerifiedUserToken{TeamID: "T1", TeamName: "Stonks", Token: "xoxp-new"}))
 	require.NoError(t, server.saveToFile())
+
+	loaded := &tokenStore{workspaces: map[string]*workspace{}, filePath: path}
+	loaded.loadFromFile()
+	assert.Equal(t, "xoxp-new", loaded.getWorkspace("T1").Token)
+}
+
+// A pasted token that Slack rejects must reach the revoked list, so the
+// setup page refuses it next time without sending it to Slack again.
+func TestVerifyUserToken_RejectedTokenIsRecordedRevoked(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":false,"error":"token_revoked"}`))
+	}))
+	defer srv.Close()
+	revoked, err := newRevokedCredentials(filepath.Join(t.TempDir(), "revoked.json"))
+	require.NoError(t, err)
+
+	_, err = verifyUserTokenWith(t.Context(), "xoxp-dead", srv.URL+"/", revoked)
+
+	require.Error(t, err)
+	assert.True(t, revoked.isRevoked("xoxp-dead"))
+}
+
+// An entry whose timestamp cannot be read must not beat a newer copy. It
+// used to load as "now", so the file's unreadable entry erased a fresh save.
+func TestSaveToFile_UnreadableTimestampDoesNotWinMerge(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tokens.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"version":2,"workspaces":[{"team_id":"T1","token":"xoxp-old","updated_at":"garbage"}]}`), 0600))
+	s := &tokenStore{workspaces: map[string]*workspace{}, filePath: path}
+	s.loadFromFile()
+
+	s.setWorkspace(&workspace{TeamID: "T1", Token: "xoxp-new"})
+	require.NoError(t, s.saveToFile())
 
 	loaded := &tokenStore{workspaces: map[string]*workspace{}, filePath: path}
 	loaded.loadFromFile()

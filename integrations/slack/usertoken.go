@@ -21,12 +21,17 @@ type VerifiedUserToken struct {
 }
 
 // VerifyUserToken checks a user OAuth token with auth.test and returns the
-// workspace it belongs to.
+// workspace it belongs to. A token Slack rejects as dead goes on the revoked
+// record, so the setup page refuses it next time without resending it.
 func VerifyUserToken(ctx context.Context, token string) (VerifiedUserToken, error) {
-	return verifyUserTokenAt(ctx, token, "https://slack.com/api/")
+	revoked, err := newRevokedCredentials(revokedFilePath())
+	if err != nil {
+		return VerifiedUserToken{}, err
+	}
+	return verifyUserTokenWith(ctx, token, "https://slack.com/api/", revoked)
 }
 
-func verifyUserTokenAt(ctx context.Context, token, apiURL string) (VerifiedUserToken, error) {
+func verifyUserTokenWith(ctx context.Context, token, apiURL string, revoked *revokedCredentials) (VerifiedUserToken, error) {
 	if parseCredKind(token) != kindUserToken {
 		return VerifiedUserToken{}, errNotUserToken
 	}
@@ -35,6 +40,10 @@ func verifyUserTokenAt(ctx context.Context, token, apiURL string) (VerifiedUserT
 		slack.OptionHTTPClient(&http.Client{Timeout: 10 * time.Second}))
 	resp, err := client.AuthTestContext(ctx)
 	if err != nil {
+		var slackErr slack.SlackErrorResponse
+		if errors.As(err, &slackErr) && terminalAuthErrors[slackErr.Err] {
+			revoked.mark(token)
+		}
 		return VerifiedUserToken{}, err
 	}
 	return VerifiedUserToken{TeamID: resp.TeamID, TeamName: resp.Team, Token: token}, nil
@@ -53,7 +62,7 @@ func saveUserTokenTo(path string, v VerifiedUserToken) error {
 		TeamID:   v.TeamID,
 		TeamName: v.TeamName,
 		Token:    v.Token,
-		Source:   "oauth_user",
+		Source:   kindUserToken.String(),
 	})
 	return store.saveToFile()
 }

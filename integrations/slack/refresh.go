@@ -87,7 +87,7 @@ func refreshViaCookieWithClient(ctx context.Context, client *http.Client, url, c
 		end := strings.Index(sub[start:], `"`)
 		if end > 0 {
 			tok := sub[start : start+end]
-			if strings.HasPrefix(tok, "xoxc-") {
+			if parseCredKind(tok) == kindBrowserSession {
 				return &refreshResult{token: tok, cookie: latestCookie}, nil
 			}
 		}

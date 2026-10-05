@@ -229,10 +229,9 @@ func (ts *tokenStore) loadFromFile() {
 				Cookie:   entry.Cookie,
 				Source:   entry.Source,
 			}
+			// An unreadable timestamp stays zero, so any dated copy wins the merge.
 			if t, err := time.Parse(time.RFC3339, entry.UpdatedAt); err == nil {
 				ws.UpdatedAt = t
-			} else {
-				ws.UpdatedAt = time.Now()
 			}
 			ts.workspaces[ws.TeamID] = ws
 		}
@@ -267,8 +266,6 @@ func (ts *tokenStore) loadFromFile() {
 	}
 	if t, err := time.Parse(time.RFC3339, legacy.UpdatedAt); err == nil {
 		ws.UpdatedAt = t
-	} else {
-		ws.UpdatedAt = time.Now()
 	}
 	ts.workspaces[teamID] = ws
 	if ts.defaultTeamID == "" {
@@ -593,7 +590,7 @@ func listWorkspacesFromAllBrowsers() ([]WorkspaceInfo, error) {
 				continue
 			}
 			for id, team := range cfg.Teams {
-				if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
+				if seen[id] || parseCredKind(team.Token) != kindBrowserSession {
 					continue
 				}
 				seen[id] = true
@@ -634,7 +631,7 @@ func listWorkspacesWithTokensFromBrowser(profiles []string) []browserWorkspace {
 			continue
 		}
 		for id, team := range cfg.Teams {
-			if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
+			if seen[id] || parseCredKind(team.Token) != kindBrowserSession {
 				continue
 			}
 			seen[id] = true
@@ -667,14 +664,14 @@ func extractTokenFromLevelDB(profilePath, teamID string) (string, error) {
 		if !ok {
 			return "", fmt.Errorf("team %s not found in profile %s", teamID, filepath.Base(profilePath))
 		}
-		if !strings.HasPrefix(team.Token, "xoxc-") {
+		if parseCredKind(team.Token) != kindBrowserSession {
 			return "", fmt.Errorf("team %s has no xoxc-* token in profile %s", teamID, filepath.Base(profilePath))
 		}
 		return team.Token, nil
 	}
 
 	for _, team := range cfg.Teams {
-		if strings.HasPrefix(team.Token, "xoxc-") {
+		if parseCredKind(team.Token) == kindBrowserSession {
 			return team.Token, nil
 		}
 	}
