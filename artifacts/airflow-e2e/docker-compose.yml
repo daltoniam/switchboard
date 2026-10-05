@@ -1,0 +1,23 @@
+# Local Airflow 3 sandbox for Switchboard adapter E2E (no secrets in repo).
+# Default FAB user is created by `airflow standalone`: airflow / airflow
+services:
+  airflow:
+    image: apache/airflow:3.0.6-python3.12
+    command: standalone
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.api_fastapi.auth.managers.simple.simple_auth_manager.SimpleAuthManager
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:ADMIN"
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/config/simple_auth_manager_passwords.json
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./config:/opt/airflow/config
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v2/version"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
