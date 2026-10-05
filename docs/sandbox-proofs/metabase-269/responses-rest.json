@@ -1,0 +1,103 @@
+{
+  "base_url": "http://127.0.0.1:3000",
+  "head_sha": "f5a7e9d1c49e460468a9d536ec8d15c522295935",
+  "mode": "native REST (API key / x-api-key)",
+  "pr": 269,
+  "steps": [
+    {
+      "detail": {
+        "healthy": true
+      },
+      "ok": true,
+      "tool": "Healthy"
+    },
+    {
+      "detail": {
+        "count": 23,
+        "names": [
+          "metabase_list_databases",
+          "metabase_get_database",
+          "metabase_list_tables",
+          "metabase_get_table",
+          "metabase_get_table_fields",
+          "metabase_execute_query",
+          "metabase_execute_card",
+          "metabase_list_cards",
+          "metabase_get_card",
+          "metabase_create_card",
+          "metabase_update_card",
+          "metabase_delete_card",
+          "metabase_list_dashboards",
+          "metabase_get_dashboard",
+          "metabase_create_dashboard",
+          "metabase_update_dashboard",
+          "metabase_delete_dashboard",
+          "metabase_add_card_to_dashboard",
+          "metabase_list_collections",
+          "metabase_get_collection",
+          "metabase_create_collection",
+          "metabase_update_collection",
+          "metabase_search"
+        ]
+      },
+      "ok": true,
+      "tool": "Tools"
+    },
+    {
+      "detail": {
+        "preview": "{\"data\":\"[{\\\"uploads_schema_name\\\":null,\\\"description\\\":\\\"Some example data for you to play around with.\\\",\\\"features\\\":[\\\"database-routing\\\",\\\"window-functions/cumulative\\\",\\\"test/dynamic-dataset-loading\\\",\\\"basic-aggregations\\\",\\\"temporal-extract\\\",\\\"identifiers-with-spaces\\\",\\\"window-functions/offset\\\",\\\"now\\\",\\\"parameterized-sql\\\",\\\"jdbc/statements\\\",\\\"expression-literals\\\",\\\"expressions/today\\\",\\\"test/jvm-timezone-setting\\\",\\\"date-arithmetics\\\",\\\"parameters/table-reference\\\",\\\"expressions/date\\\",\\\"expression-aggregations\\\",\\\"describe-is-nullable\\\",\\\"saved-question-sandboxing\\\",\\\"distinct-where\\\",\\\"table-privileges\\\",\\\"left-join\\\",\\\"expressions/datetime\\\",\\\"expressions/text\\\",\\\"native-parameters\\\",\\\"nested-queries\\\",\\\"test/uuids-in-create-table-statements\\\",\\\"expressions\\\",\\\"test/create-table-without-data\\\",\\\"jdbc/set-query-timeout\\\",\\\"describe-default-expr\\\",\\\"binning\\\",\\\"metadata/key-constraints\\\",\\\"dependencies/native\\\",\\\"datetime-diff\\\",\\\"upload-with-auto-pk\\\",\\\"describe-is-generated\\\",\\\"inner-join\\\",\\\"native-temporal-units\\\",\\\"fingerprint\\\",\\\"native-parameter-card-reference\\\"],\\\"uploads_table_prefix\\\":null,\\\"cache_field_values_schedule\\\":\\\"0 0 19 * * ? *\\\",\\\"router_database_id\\\":null,\\\"write_data_details\\\":null,\\\"timezone\\\":\\\"UTC\\\",\\\"is_attached_dwh\\\":false,\\\"auto_run_queries\\\":true,\\\"is_stub\\\":false,\\\"metadata_sync_schedule\\\":\\\"0 48 * * * ? *\\\",\\\"transforms_permissions\\\":\\\"write\\\",\\\"name\\\":\\\"Sample Database\\\",\\\"settings\\\":null,\\\"caveats\\\":\\\"You probably don't want to use this for your business-critical analyses, but hey, it's your world, we're just living in it.\\\",\\\"creator_id\\\":13371338,\\\"is_full_sync\\\":true,\\\"updated_at\\\":\\\"2026-10-05T15:23:19.626015Z\\\",\\\"provider_name\\\":null,\\\"native_permissions\\\":\\\"write\\\",\\\"cache_ttl\\\":null,\\\"details\\\":{\\\"db\\\":\\\"/plugins/sample-database.sqlite\\\",\\\"read-only?\\\":true},\\\"is_sample\\\":true,\\\"id\\\":1,\\\"is_on_demand\\\":false,\\\"engine\\\":\\\"sqlite\\\",\\\"initial_sync_status\\\":\\\"complete\\\",\\\"is_audit\\\":false,\\\"dbms_version\\\":{},\\\"upl",
+        "truncated": true
+      },
+      "ok": true,
+      "tool": "metabase_list_databases"
+    },
+    {
+      "detail": {
+        "preview": "{\"data\":\"{\\\"data\\\":[{\\\"description\\\":\\\"Confirmed Sample Company orders for a product, from a user.\\\",\\\"archived\\\":null,\\\"table_id\\\":2,\\\"bookmark\\\":false,\\\"database_id\\\":1,\\\"last_editor_common_name\\\":null,\\\"database_name\\\":\\\"Sample Database\\\",\\\"pk_ref\\\":null,\\\"name\\\":\\\"Orders\\\",\\\"table_schema\\\":null,\\\"curated\\\":false,\\\"creator_common_name\\\":null,\\\"collection_authority_level\\\":null,\\\"updated_at\\\":\\\"2026-10-05T15:23:17.098894Z\\\",\\\"effective_location\\\":null,\\\"id\\\":2,\\\"last_edited_at\\\":null,\\\"table_description\\\":\\\"Confirmed Sample Company orders for a product, from a user.\\\",\\\"context\\\":null,\\\"scores\\\":[{\\\"score\\\":0.9999506272970679012346666666666666666667,\\\"name\\\":\\\"recency\\\",\\\"weight\\\":1,\\\"contribution\\\":0.9999506272970679012346666666666666666667},{\\\"score\\\":0,\\\"name\\\":\\\"pinned\\\",\\\"weight\\\":0,\\\"contribution\\\":0},{\\\"score\\\":0,\\\"name\\\":\\\"bookmarked\\\",\\\"weight\\\":1,\\\"contribution\\\":0},{\\\"score\\\":0.00000,\\\"name\\\":\\\"dashboard\\\",\\\"weight\\\":0,\\\"contribution\\\":0.00000},{\\\"score\\\":1,\\\"name\\\":\\\"prefix\\\",\\\"weight\\\":0,\\\"contribution\\\":0},{\\\"score\\\":0,\\\"name\\\":\\\"library\\\",\\\"weight\\\":0,\\\"contribution\\\":0},{\\\"score\\\":0,\\\"name\\\":\\\"data-layer\\\",\\\"weight\\\":0,\\\"contribution\\\":0},{\\\"score\\\":0,\\\"name\\\":\\\"mine\\\",\\\"weight\\\":1,\\\"contribution\\\":0},{\\\"score\\\":1,\\\"name\\\":\\\"exact\\\",\\\"weight\\\":100,\\\"contribution\\\":100},{\\\"score\\\":0.0,\\\"name\\\":\\\"view-count\\\",\\\"weight\\\":2,\\\"contribution\\\":0.0},{\\\"score\\\":0E-40,\\\"name\\\":\\\"user-recency\\\",\\\"weight\\\":5,\\\"contribution\\\":0E-40},{\\\"score\\\":1,\\\"name\\\":\\\"text\\\",\\\"weight\\\":5,\\\"contribution\\\":5},{\\\"score\\\":0.38461538461538464,\\\"name\\\":\\\"model\\\",\\\"weight\\\":2,\\\"contribution\\\":0.76923076923076928}],\\\"data_authority\\\":\\\"unconfigured\\\",\\\"initial_sync_status\\\":\\\"complete\\\",\\\"table_name\\\":\\\"ORDERS\\\",\\\"data_layer\\\":\\\"final\\\",\\\"collection\\\":{\\\"id\\\":null,\\\"name\\\":null,\\\"authority_level\\\":null,\\\"type\\\":null},\\\"created_at\\\":\\\"2026-10-05T15:23:17.098894Z\\\",\\\"model\\\":\\\"table\\\"},{\\\"description\\\":\\\"Canonical metric for number of orders placed\\\",\\\"archived\\\":false,\\\"display_type\\\":\\\"line\\\",\\\"collection_position\\\":null,\\\"bookmark\\\":false,\\\"can_write\\\":true,\\\"database_id\\\":1,\\\"last_editor_common_name\\\":null,\\\"query_type\\\":\\\"query\\\",\\\"pk_ref\\\":null,\\\"official_collection\\\":null,\\\"name\\\":\\\"Number of Orders\\\",\\\"curated\\\":false,\\\"creator_common_name\\\":\\\"Metabase Internal\\\",\\\"collection_authority_level\\\":null,\\\"creator_id\\\":13371338,\\\"updated_at\\\":\\\"2026-10-05T15:23:17.098894Z\\\",\\\"moderated_status\\\":null,\\\"effective_location\\\":null,\\\"last_editor_id\\\":null,\\\"id\\\":19,\\\"last_edi",
+        "truncated": true
+      },
+      "ok": true,
+      "tool": "metabase_search"
+    },
+    {
+      "detail": {
+        "preview": "{\"data\":\"{\\\"uploads_schema_name\\\":null,\\\"description\\\":\\\"Some example data for you to play around with.\\\",\\\"features\\\":[\\\"database-routing\\\",\\\"window-functions/cumulative\\\",\\\"test/dynamic-dataset-loading\\\",\\\"basic-aggregations\\\",\\\"temporal-extract\\\",\\\"identifiers-with-spaces\\\",\\\"window-functions/offset\\\",\\\"now\\\",\\\"parameterized-sql\\\",\\\"jdbc/statements\\\",\\\"expression-literals\\\",\\\"expressions/today\\\",\\\"test/jvm-timezone-setting\\\",\\\"date-arithmetics\\\",\\\"parameters/table-reference\\\",\\\"expressions/date\\\",\\\"expression-aggregations\\\",\\\"describe-is-nullable\\\",\\\"saved-question-sandboxing\\\",\\\"distinct-where\\\",\\\"table-privileges\\\",\\\"left-join\\\",\\\"expressions/datetime\\\",\\\"expressions/text\\\",\\\"native-parameters\\\",\\\"nested-queries\\\",\\\"test/uuids-in-create-table-statements\\\",\\\"expressions\\\",\\\"test/create-table-without-data\\\",\\\"jdbc/set-query-timeout\\\",\\\"describe-default-expr\\\",\\\"binning\\\",\\\"metadata/key-constraints\\\",\\\"dependencies/native\\\",\\\"datetime-diff\\\",\\\"upload-with-auto-pk\\\",\\\"describe-is-generated\\\",\\\"inner-join\\\",\\\"native-temporal-units\\\",\\\"fingerprint\\\",\\\"native-parameter-card-reference\\\"],\\\"uploads_table_prefix\\\":null,\\\"cache_field_values_schedule\\\":\\\"0 0 19 * * ? *\\\",\\\"router_database_id\\\":null,\\\"write_data_details\\\":null,\\\"timezone\\\":\\\"UTC\\\",\\\"is_attached_dwh\\\":false,\\\"auto_run_queries\\\":true,\\\"is_stub\\\":false,\\\"metadata_sync_schedule\\\":\\\"0 48 * * * ? *\\\",\\\"name\\\":\\\"Sample Database\\\",\\\"settings\\\":null,\\\"caveats\\\":\\\"You probably don't want to use this for your business-critical analyses, but hey, it's your world, we're just living in it.\\\",\\\"tables\\\":[{\\\"description\\\":\\\"Information on customer accounts registered with Piespace. Each account represents a new organization signing up for on-demand pies.\\\",\\\"entity_type\\\":\\\"entity/UserTable\\\",\\\"view_count\\\":0,\\\"schema\\\":\\\"\\\",\\\"is_writable\\\":null,\\\"database_require_filter\\\":null,\\\"collection_id\\\":null,\\\"show_in_getting_started\\\":false,\\\"name\\\":\\\"ACCOUNTS\\\",\\\"transform_target\\\":false,\\\"caveats\\\":\\\"Piespace’s business operates with a two week trial period. If you see that “Canceled At” is null then that account is still happily paying for their pies.\\\",\\\"owner_email\\\":null,\\\"transform_id\\\":null,\\\"updated_at\\\":\\\"2026-10-05T15:23:17.098894Z\\\",\\\"is_published\\\":false,\\\"owner_user_id\\\":null,\\\"active\\\":true,\\\"id\\\":6,\\\"db_id\\\":1,\\\"archived_at\\\":null,\\\"data_source\\\":null,\\\"visibility_type\\\":null,\\\"field_order\\\":\\\"database\\\",\\\"deactivated_at\\\":null,\\\"data_authority\\\":\\\"unconfigured\\\",\\\"is_upload\\\":false,\\\"initial_sync_",
+        "truncated": true
+      },
+      "ok": true,
+      "tool": "metabase_get_database"
+    },
+    {
+      "detail": {
+        "preview": "{\"data\":\"{\\\"uploads_schema_name\\\":null,\\\"description\\\":\\\"Some example data for you to play around with.\\\",\\\"features\\\":[\\\"database-routing\\\",\\\"window-functions/cumulative\\\",\\\"test/dynamic-dataset-loading\\\",\\\"basic-aggregations\\\",\\\"temporal-extract\\\",\\\"identifiers-with-spaces\\\",\\\"window-functions/offset\\\",\\\"now\\\",\\\"parameterized-sql\\\",\\\"jdbc/statements\\\",\\\"expression-literals\\\",\\\"expressions/today\\\",\\\"test/jvm-timezone-setting\\\",\\\"date-arithmetics\\\",\\\"parameters/table-reference\\\",\\\"expressions/date\\\",\\\"expression-aggregations\\\",\\\"describe-is-nullable\\\",\\\"saved-question-sandboxing\\\",\\\"distinct-where\\\",\\\"table-privileges\\\",\\\"left-join\\\",\\\"expressions/datetime\\\",\\\"expressions/text\\\",\\\"native-parameters\\\",\\\"nested-queries\\\",\\\"test/uuids-in-create-table-statements\\\",\\\"expressions\\\",\\\"test/create-table-without-data\\\",\\\"jdbc/set-query-timeout\\\",\\\"describe-default-expr\\\",\\\"binning\\\",\\\"metadata/key-constraints\\\",\\\"dependencies/native\\\",\\\"datetime-diff\\\",\\\"upload-with-auto-pk\\\",\\\"describe-is-generated\\\",\\\"inner-join\\\",\\\"native-temporal-units\\\",\\\"fingerprint\\\",\\\"native-parameter-card-reference\\\"],\\\"uploads_table_prefix\\\":null,\\\"cache_field_values_schedule\\\":\\\"0 0 19 * * ? *\\\",\\\"router_database_id\\\":null,\\\"write_data_details\\\":null,\\\"timezone\\\":\\\"UTC\\\",\\\"is_attached_dwh\\\":false,\\\"auto_run_queries\\\":true,\\\"is_stub\\\":false,\\\"metadata_sync_schedule\\\":\\\"0 48 * * * ? *\\\",\\\"name\\\":\\\"Sample Database\\\",\\\"settings\\\":null,\\\"caveats\\\":\\\"You probably don't want to use this for your business-critical analyses, but hey, it's your world, we're just living in it.\\\",\\\"tables\\\":[{\\\"description\\\":\\\"Information on customer accounts registered with Piespace. Each account represents a new organization signing up for on-demand pies.\\\",\\\"entity_type\\\":\\\"entity/UserTable\\\",\\\"view_count\\\":0,\\\"schema\\\":\\\"\\\",\\\"is_writable\\\":null,\\\"database_require_filter\\\":null,\\\"collection_id\\\":null,\\\"show_in_getting_started\\\":false,\\\"name\\\":\\\"ACCOUNTS\\\",\\\"transform_target\\\":false,\\\"fields\\\":[{\\\"description\\\":null,\\\"database_type\\\":\\\"BIGINT\\\",\\\"semantic_type\\\":\\\"type/PK\\\",\\\"table_id\\\":6,\\\"coercion_strategy\\\":null,\\\"database_indexed\\\":null,\\\"dimension_interestingness\\\":null,\\\"name\\\":\\\"ID\\\",\\\"fingerprint_version\\\":0,\\\"has_field_values\\\":\\\"none\\\",\\\"database_is_pk\\\":null,\\\"settings\\\":null,\\\"caveats\\\":null,\\\"fk_target_field_id\\\":null,\\\"updated_at\\\":\\\"2026-10-05T15:23:17.098894Z\\\",\\\"custom_position\\\":0,\\\"database_default\\\":null,\\\"effective_type\\\":\\\"type/BigInteger\\\",\\\"active\\\":true,\\\"nfc_path\\\":null,\\\"parent_id\\\":null",
+        "truncated": true
+      },
+      "ok": true,
+      "tool": "metabase_list_tables"
+    },
+    {
+      "detail": {
+        "preview": "{\"data\":\"[{\\\"cache_invalidated_at\\\":null,\\\"description\\\":\\\"Compares the total number of orders placed for this product this month with the previous period\\\",\\\"archived\\\":false,\\\"view_count\\\":0,\\\"collection_position\\\":null,\\\"source_card_id\\\":null,\\\"table_id\\\":2,\\\"result_metadata\\\":[{\\\"description\\\":\\\"The date and time an order was submitted.\\\",\\\"database_type\\\":\\\"TIMESTAMP\\\",\\\"semantic_type\\\":\\\"type/CreationTimestamp\\\",\\\"table_id\\\":2,\\\"lib/deduplicated-name\\\":\\\"CREATED_AT\\\",\\\"lib/original-name\\\":\\\"CREATED_AT\\\",\\\"lib/breakout?\\\":true,\\\"unit\\\":\\\"month\\\",\\\"name\\\":\\\"CREATED_AT\\\",\\\"lib/source\\\":\\\"source/table-defaults\\\",\\\"lib/source-column-alias\\\":\\\"CREATED_AT\\\",\\\"lib/original-display-name\\\":\\\"Created At\\\",\\\"source\\\":\\\"breakout\\\",\\\"field_ref\\\":[\\\"field\\\",13,{\\\"temporal-unit\\\":\\\"month\\\"}],\\\"effective_type\\\":\\\"type/DateTime\\\",\\\"active\\\":true,\\\"id\\\":13,\\\"lib/desired-column-alias\\\":\\\"CREATED_AT\\\",\\\"metabase.lib.field/temporal-unit\\\":\\\"month\\\",\\\"position\\\":7,\\\"visibility_type\\\":\\\"normal\\\",\\\"inherited_temporal_unit\\\":\\\"month\\\",\\\"display_name\\\":\\\"Created At: Month\\\",\\\"fingerprint\\\":{\\\"global\\\":{\\\"distinct-count\\\":10001,\\\"nil%\\\":0.0},\\\"type\\\":{\\\"type/DateTime\\\":{\\\"earliest\\\":\\\"2022-04-30T18:56:13.352Z\\\",\\\"latest\\\":\\\"2026-04-19T14:07:15.657Z\\\"}}},\\\"base_type\\\":\\\"type/DateTime\\\"},{\\\"database_type\\\":\\\"BIGINT\\\",\\\"semantic_type\\\":\\\"type/Quantity\\\",\\\"lib/deduplicated-name\\\":\\\"sum\\\",\\\"lib/original-name\\\":\\\"sum\\\",\\\"name\\\":\\\"sum\\\",\\\"lib/source\\\":\\\"source/aggregations\\\",\\\"lib/source-column-alias\\\":\\\"sum\\\",\\\"source\\\":\\\"aggregation\\\",\\\"field_ref\\\":[\\\"aggregation\\\",0],\\\"effective_type\\\":\\\"type/BigInteger\\\",\\\"lib/desired-column-alias\\\":\\\"sum\\\",\\\"display_name\\\":\\\"Sum of Quantity\\\",\\\"fingerprint\\\":{\\\"global\\\":{\\\"distinct-count\\\":7,\\\"nil%\\\":0.0},\\\"type\\\":{\\\"type/Number\\\":{\\\"min\\\":1.0,\\\"q1\\\":3.25,\\\"q3\\\":6.0,\\\"max\\\":74.0,\\\"sd\\\":22.086949389477336,\\\"avg\\\":11.5}}},\\\"base_type\\\":\\\"type/BigInteger\\\"}],\\\"embedding_type\\\":null,\\\"creator\\\":{\\\"email\\\":\\\"internal@metabase.com\\\",\\\"first_name\\\":\\\"Metabase\\\",\\\"is_data_analyst\\\":false,\\\"last_login\\\":null,\\\"is_qbnewb\\\":true,\\\"is_superuser\\\":false,\\\"id\\\":13371338,\\\"last_name\\\":\\\"Internal\\\",\\\"tenant_id\\\":null,\\\"date_joined\\\":\\\"2026-10-05T15:23:16.772882Z\\\",\\\"common_name\\\":\\\"Metabase Internal\\\"},\\\"initially_published_at\\\":null,\\\"card_schema\\\":23,\\\"database_id\\\":1,\\\"enable_embedding\\\":false,\\\"collection_id\\\":2,\\\"query_type\\\":\\\"query\\\",\\\"name\\\":\\\"Aerodynamic Copper Knife trend\\\",\\\"public_uuid_prefix\\\":null,\\\"document_id\\\":null,\\\"last_used_at\\\":\\\"2026-10-05T",
+        "truncated": true
+      },
+      "ok": true,
+      "tool": "metabase_list_cards"
+    },
+    {
+      "detail": {
+        "data": "[{\"description\":\"Overview of sample data and hypothetical sales\",\"archived\":false,\"view_count\":0,\"collection_position\":2,\"embedding_type\":null,\"creator\":{\"email\":\"internal@metabase.com\",\"first_name\":\"Metabase\",\"is_data_analyst\":false,\"last_login\":null,\"is_qbnewb\":true,\"is_superuser\":false,\"id\":13371338,\"last_name\":\"Internal\",\"tenant_id\":null,\"date_joined\":\"2026-10-05T15:23:16.772882Z\",\"common_name\":\"Metabase Internal\"},\"initially_published_at\":null,\"enable_embedding\":false,\"collection_id\":2,\"show_in_getting_started\":false,\"name\":\"E-commerce Insights\",\"width\":\"fixed\",\"public_uuid_prefix\":null,\"caveats\":null,\"creator_id\":13371338,\"updated_at\":\"2026-10-05T15:23:17.098894Z\",\"made_public_by_id\":null,\"embedding_params\":null,\"cache_ttl\":null,\"id\":1,\"last_viewed_at\":\"2026-10-05T15:23:17.098894Z\",\"position\":null,\"archived_directly\":false,\"entity_id\":\"xBLdW9FsgRuB2HGhWiBa_\",\"parameters\":[{\"id\":\"81cd957\",\"name\":\"Date Range\",\"required\":false,\"sectionId\":\"date\",\"slug\":\"date_range\",\"type\":\"date/all-options\"},{\"id\":\"efd919c7\",\"name\":\"Date Grouping\",\"sectionId\":\"temporal-unit\",\"slug\":\"date_grouping\",\"type\":\"temporal-unit\"},{\"default\":[\"Doohickey\",\"Gizmo\",\"Gadget\",\"Widget\"],\"id\":\"9d9cddd4\",\"name\":\"Product Category\",\"required\":true,\"sectionId\":\"string\",\"slug\":\"product_category\",\"type\":\"string/=\"},{\"id\":\"1ebab259\",\"isMultiSelect\":false,\"name\":\"Vendor\",\"sectionId\":\"string\",\"slug\":\"vendor\",\"type\":\"string/=\"}],\"auto_apply_filters\":true,\"created_at\":\"2026-10-05T15:23:17.098894Z\",\"public_uuid\":null,\"points_of_interest\":null}]",
+        "is_error": false
+      },
+      "ok": true,
+      "tool": "metabase_list_dashboards"
+    },
+    {
+      "detail": {
+        "preview": "{\"data\":\"{\\\"data\\\":{\\\"rows\\\":[[18760]],\\\"cols\\\":[{\\\"database_type\\\":\\\"INTEGER\\\",\\\"lib/deduplicated-name\\\":\\\"n\\\",\\\"lib/original-name\\\":\\\"n\\\",\\\"name\\\":\\\"n\\\",\\\"lib/source\\\":\\\"source/native\\\",\\\"lib/source-column-alias\\\":\\\"n\\\",\\\"source\\\":\\\"native\\\",\\\"field_ref\\\":[\\\"field\\\",\\\"n\\\",{\\\"base-type\\\":\\\"type/Integer\\\"}],\\\"effective_type\\\":\\\"type/Integer\\\",\\\"lib/desired-column-alias\\\":\\\"n\\\",\\\"display_name\\\":\\\"n\\\",\\\"base_type\\\":\\\"type/Integer\\\"}],\\\"native_form\\\":{\\\"lib/type\\\":\\\"mbql.stage/native\\\",\\\"query\\\":\\\"SELECT COUNT(*) AS n FROM ORDERS\\\"},\\\"pivot-export-options\\\":{\\\"show-row-totals\\\":true,\\\"show-column-totals\\\":true},\\\"results_timezone\\\":\\\"UTC\\\",\\\"format-rows?\\\":true,\\\"csv-include-bom?\\\":true,\\\"results_metadata\\\":{\\\"columns\\\":[{\\\"database_type\\\":\\\"INTEGER\\\",\\\"semantic_type\\\":null,\\\"lib/deduplicated-name\\\":\\\"n\\\",\\\"lib/original-name\\\":\\\"n\\\",\\\"name\\\":\\\"n\\\",\\\"lib/source\\\":\\\"source/native\\\",\\\"lib/source-column-alias\\\":\\\"n\\\",\\\"source\\\":\\\"native\\\",\\\"field_ref\\\":[\\\"field\\\",\\\"n\\\",{\\\"base-type\\\":\\\"type/Integer\\\"}],\\\"effective_type\\\":\\\"type/Integer\\\",\\\"lib/desired-column-alias\\\":\\\"n\\\",\\\"display_name\\\":\\\"n\\\",\\\"fingerprint\\\":{\\\"global\\\":{\\\"distinct-count\\\":1,\\\"nil%\\\":0.0},\\\"type\\\":{\\\"type/Number\\\":{\\\"skewness\\\":null,\\\"min\\\":18760.0,\\\"q1\\\":18760.0,\\\"q3\\\":18760.0,\\\"excess-kurtosis\\\":null,\\\"zero-fraction\\\":0.0,\\\"mode-fraction\\\":1.0,\\\"top-3-fraction\\\":1.0,\\\"max\\\":18760.0,\\\"sd\\\":0.0,\\\"avg\\\":18760.0}}},\\\"base_type\\\":\\\"type/Integer\\\"}]},\\\"insights\\\":null},\\\"cached\\\":null,\\\"database_id\\\":1,\\\"started_at\\\":",
+        "truncated": true
+      },
+      "ok": true,
+      "tool": "metabase_execute_query"
+    }
+  ]
+}

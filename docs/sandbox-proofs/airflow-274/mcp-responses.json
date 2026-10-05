@@ -1,0 +1,61 @@
+{
+  "via": "Switchboard MCP execute on :13847",
+  "arg_shape": "{tool_name, arguments}",
+  "steps": [
+    {
+      "tool": "search",
+      "ok": true,
+      "detail": "{\"has_more\":false,\"integrations\":[\"airflow\"],\"limit\":20,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"dag_id\":\"Exact DAG ID\",\"limit\":\"Results per page, 1-100 (default 25)\"},\"summary\":\"Found 6 tools matching \\\"airflow list dags\\\"\",\"tools\":[{\"description\":\"Get metadata and status of one Airflow DAG by ID. Use after list_dags.\",\"integration\":\"airflow\",\"name\":\"airflow_get_dag\",\"parameters\":{},\"required\":[\"dag_id\"]},{\"description\":\"List executions of an Airflow DAG to find failed or stalled pipeline runs. Use after list_dags.\",\"integration\":\"airflow\",\"name\":\"airflow_list_dag_runs\",\"parameters\":{\"offset\":\"Zero-based page offset\"},\"required\":[\"dag_id\"]},{\"description\":\"List Apache Airflow 3 pipeline DAGs. Start here to discover scheduled workflows and diagnose failed jobs.\",\"integration\":\"airflow\",\"name\":\"airflow_list_dags\",\"parameters\":{\"offset\":\"Zero-based page"
+    },
+    {
+      "tool": "airflow_list_dags",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "isError": false,
+        "text_preview": "{\"dags\":[{\"dag_display_name\":\"asset1_producer\",\"dag_id\":\"asset1_producer\",\"is_paused\":true,\"is_stale\":false},{\"dag_display_name\":\"asset2_producer\",\"dag_id\":\"asset2_producer\",\"is_paused\":true,\"is_stale\":false},{\"dag_display_name\":\"asset_alias_example_alias_consumer\",\"dag_id\":\"asset_alias_example_alias_consumer\",\"is_paused\":true,\"is_stale\":false,\"tags\":[\"asset-alias\",\"consumer\"]},{\"dag_display_name\":\"asset_alias_example_alias_consumer_with_no_taskflow\",\"dag_id\":\"asset_alias_example_alias_consumer_with_no_taskflow\",\"is_paused\":true,\"is_stale\":false,\"tags\":[\"asset-alias\",\"consumer\"]},{\"dag_display_name\":\"asset_alias_example_alias_producer\",\"dag_id\":\"asset_alias_example_alias_producer\",\"is_paused\":true,\"is_stale\":false,\"tags\":[\"asset-alias\",\"producer\"]}],\"total_entries\":81}",
+        "text_len": 779
+      }
+    },
+    {
+      "tool": "airflow_get_dag",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "isError": false,
+        "text_preview": "{\"dag_display_name\":\"example_bash_operator\",\"dag_id\":\"example_bash_operator\",\"is_paused\":true,\"is_stale\":false,\"next_dagrun_logical_date\":\"2026-10-05T00:00:00Z\",\"next_dagrun_run_after\":\"2026-10-05T00:00:00Z\",\"tags\":[\"example2\",\"example\"],\"timetable_summary\":\"0 0 * * *\"}",
+        "text_len": 270
+      }
+    },
+    {
+      "tool": "airflow_list_dag_runs",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "isError": false,
+        "text_preview": "{\"dag_runs\":[{\"dag_id\":\"asset1_producer\",\"dag_run_id\":\"manual__2026-10-05T15:25:23.077128+00:00_ktW6x7IT\",\"run_type\":\"manual\",\"state\":\"queued\"}],\"total_entries\":1}",
+        "text_len": 163
+      }
+    },
+    {
+      "tool": "airflow_get_dag_run",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "isError": false,
+        "text_preview": "{\"dag_id\":\"asset1_producer\",\"dag_run_id\":\"manual__2026-10-05T15:25:23.077128+00:00_ktW6x7IT\",\"run_type\":\"manual\",\"state\":\"queued\"}",
+        "text_len": 130
+      }
+    },
+    {
+      "tool": "airflow_list_task_instances",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "isError": false,
+        "text_preview": "{\"task_instances\":[{\"dag_id\":\"asset1_producer\",\"dag_run_id\":\"manual__2026-10-05T15:25:23.077128+00:00_ktW6x7IT\",\"task_id\":\"asset1_producer\",\"try_number\":0}],\"total_entries\":1}",
+        "text_len": 175
+      }
+    }
+  ]
+}
