@@ -70,6 +70,17 @@ var (
 	}
 )
 
+type hostTransportKey struct{}
+
+func withHostTransport(ctx context.Context, rt http.RoundTripper) context.Context {
+	return context.WithValue(ctx, hostTransportKey{}, rt)
+}
+
+func hostTransportFrom(ctx context.Context) http.RoundTripper {
+	rt, _ := ctx.Value(hostTransportKey{}).(http.RoundTripper)
+	return rt
+}
+
 func hostHTTPRequest(ctx context.Context, mod api.Module, ptrSize uint64) uint64 {
 	ptr, size := unpackPtrSize(ptrSize)
 
@@ -137,6 +148,9 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 	}
 	clientCopy := *client
 	clientCopy.Timeout = timeout
+	if rt := hostTransportFrom(ctx); rt != nil {
+		clientCopy.Transport = rt
+	}
 
 	resp, err := clientCopy.Do(httpReq)
 	if err != nil {
