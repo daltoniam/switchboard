@@ -288,3 +288,44 @@ func TestUpdateTunnelConfig_Validation(t *testing.T) {
 		})
 	}
 }
+
+func TestObjectList_AcceptsJSONStrings(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   any
+		want    []map[string]any
+		wantErr bool
+	}{
+		{"json array", `[{"service":"http://app:8080"}]`, []map[string]any{{"service": "http://app:8080"}}, false},
+		{"blank string", "  ", nil, false},
+		{"invalid json", `[{"service"`, nil, true},
+		{"json object, not array", `{"service":"x"}`, nil, true},
+		{"json array of strings", `["x"]`, nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := objectList(map[string]any{"ingress": tt.value}, "ingress")
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestUpdateTunnelConfig_JSONStringIngress(t *testing.T) {
+	c, got, done := captureClient(t, `{"success":true,"result":{}}`)
+	defer done()
+	result, err := c.Execute(context.Background(), "cloudflare_update_tunnel_config", map[string]any{
+		"tunnel_id": "t1",
+		"ingress":   `[{"hostname":"app.example.com","service":"http://app:8080"}]`,
+	})
+	require.NoError(t, err)
+	require.False(t, result.IsError, result.Data)
+	assert.Equal(t, map[string]any{"config": map[string]any{"ingress": []any{
+		map[string]any{"hostname": "app.example.com", "service": "http://app:8080"},
+		map[string]any{"service": "http_status:404"},
+	}}}, got.body)
+}

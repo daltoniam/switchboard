@@ -2,6 +2,7 @@ package cloudflare
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -282,11 +283,23 @@ func updateTunnelConfig(ctx context.Context, c *cloudflare, args map[string]any)
 }
 
 // objectList reads a list of JSON objects (Access rules, tunnel ingress
-// rules). Missing keys return nil.
+// rules), given as an array or as a JSON string holding one, since tool
+// parameters are described in text and agents often send JSON strings.
+// Missing keys and blank strings return nil.
 func objectList(args map[string]any, key string) ([]map[string]any, error) {
 	value, ok := args[key]
 	if !ok || value == nil {
 		return nil, nil
+	}
+	if text, isString := value.(string); isString {
+		if strings.TrimSpace(text) == "" {
+			return nil, nil
+		}
+		var parsed []any
+		if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+			return nil, fmt.Errorf("parameter %q: expected a JSON array of objects: %w", key, err)
+		}
+		value = parsed
 	}
 	switch typed := value.(type) {
 	case []map[string]any:
