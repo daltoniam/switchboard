@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/marketplace"
@@ -11,6 +12,27 @@ import (
 )
 
 var _ mcp.FieldCompactionIntegration = (*Module)(nil)
+
+// SetHTTPTransport routes every outbound HTTP request the guest makes through
+// rt instead of the host's default client. Hosts use it to send a plugin's
+// traffic through a private network path (for example a tunnel to a
+// customer-side agent) without changing the plugin. A nil rt restores the
+// default client. The transport replaces the h2c client too, so plugins that
+// need h2c must be served by a transport that supports it.
+func (m *Module) SetHTTPTransport(rt http.RoundTripper) {
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	m.transport = rt
+}
+
+// guestCtx attaches the module's HTTP transport to a guest call's context so
+// host_http_request can find it. Callers hold callMu.
+func (m *Module) guestCtx(ctx context.Context) context.Context {
+	if m.transport == nil {
+		return ctx
+	}
+	return withHostTransport(ctx, m.transport)
+}
 
 // SetName overrides the name returned by the WASM module's name() export.
 func (m *Module) SetName(name string) {
@@ -31,7 +53,7 @@ func (m *Module) Name() string {
 		return "unknown"
 	}
 	ctx := context.Background()
-	results, err := m.fnName.Call(ctx)
+	results, err := m.fnName.Call(m.guestCtx(ctx))
 	if err != nil {
 		return "unknown"
 	}
@@ -88,7 +110,7 @@ func (m *Module) configureGuest(ctx context.Context, creds mcp.Credentials) erro
 	}
 	defer freeInGuest(ctx, m.mod, ptr)
 
-	results, err := m.fnConfig.Call(ctx, packPtrSize(ptr, size))
+	results, err := m.fnConfig.Call(m.guestCtx(ctx), packPtrSize(ptr, size))
 	if err != nil {
 		return fmt.Errorf("wasm: configure call failed: %w", err)
 	}
@@ -122,7 +144,7 @@ func (m *Module) Tools() []mcp.ToolDefinition {
 		return nil
 	}
 	ctx := context.Background()
-	results, err := m.fnTools.Call(ctx)
+	results, err := m.fnTools.Call(m.guestCtx(ctx))
 	if err != nil {
 		return nil
 	}
@@ -178,7 +200,7 @@ func (m *Module) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 	}
 	defer freeInGuest(ctx, m.mod, ptr)
 
-	results, err := m.fnExec.Call(ctx, packPtrSize(ptr, size))
+	results, err := m.fnExec.Call(m.guestCtx(ctx), packPtrSize(ptr, size))
 	if err != nil {
 		return nil, fmt.Errorf("wasm: execute call failed: %w", err)
 	}
@@ -213,7 +235,7 @@ func (m *Module) Healthy(ctx context.Context) bool {
 	if err := m.prepareOAuth(ctx); err != nil {
 		return false
 	}
-	results, err := m.fnHealthy.Call(ctx)
+	results, err := m.fnHealthy.Call(m.guestCtx(ctx))
 	if err != nil {
 		return false
 	}
@@ -234,7 +256,7 @@ func (m *Module) Metadata() *marketplace.PluginMetadata {
 		return nil
 	}
 	ctx := context.Background()
-	results, err := m.fnMetadata.Call(ctx)
+	results, err := m.fnMetadata.Call(m.guestCtx(ctx))
 	if err != nil {
 		return nil
 	}
