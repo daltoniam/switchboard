@@ -2,6 +2,9 @@ package github
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
 
 	mcp "github.com/daltoniam/switchboard"
 	gh "github.com/google/go-github/v68/github"
@@ -18,14 +21,41 @@ func triggerWorkflow(ctx context.Context, g *integration, args map[string]any) (
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	event := gh.CreateWorkflowDispatchEventRequest{
-		Ref: ref,
+	inputs, err := dispatchInputs(args["inputs"])
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
-	_, err := g.client.Actions.CreateWorkflowDispatchEventByFileName(ctx, owner, repo, workflowID, event)
+	event := gh.CreateWorkflowDispatchEventRequest{
+		Ref:    ref,
+		Inputs: inputs,
+	}
+	_, err = g.client.Actions.CreateWorkflowDispatchEventByFileName(ctx, owner, repo, workflowID, event)
 	if err != nil {
 		return errResult(err)
 	}
 	return mcp.JSONResult(map[string]string{"status": "dispatched"})
+}
+
+// dispatchInputs reads workflow_dispatch inputs given as an object or as a
+// JSON string holding one, since agents often send JSON as text.
+func dispatchInputs(value any) (map[string]any, error) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, nil
+	case map[string]any:
+		return typed, nil
+	case string:
+		if strings.TrimSpace(typed) == "" {
+			return nil, nil
+		}
+		var inputs map[string]any
+		if err := json.Unmarshal([]byte(typed), &inputs); err != nil {
+			return nil, fmt.Errorf("parameter %q: expected a JSON object of workflow inputs: %w", "inputs", err)
+		}
+		return inputs, nil
+	default:
+		return nil, fmt.Errorf("parameter %q: expected an object of workflow inputs, got %T", "inputs", value)
+	}
 }
 
 func rerunFailedJobs(ctx context.Context, g *integration, args map[string]any) (*mcp.ToolResult, error) {

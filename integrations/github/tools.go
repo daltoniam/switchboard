@@ -740,8 +740,8 @@ var tools = []mcp.ToolDefinition{
 
 	// ── Actions (extended) ────────────────────────────────────────────
 	{
-		Name: mcp.ToolName("github_trigger_workflow"), Description: "Trigger a workflow dispatch event",
-		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "workflow_id": "Workflow filename (e.g., ci.yml)", "ref": "Git ref to run workflow on (branch or tag)"},
+		Name: mcp.ToolName("github_trigger_workflow"), Description: "Trigger a workflow_dispatch run of a workflow, optionally with inputs. Follow up with list_workflow_runs to find the run.",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "workflow_id": "Workflow filename (e.g., ci.yml)", "ref": "Git ref to run workflow on (branch or tag)", "inputs": "Workflow inputs as a JSON object, e.g. {\"mode\":\"implement\",\"target\":\"263\"} (values are strings or booleans)"},
 		Required:   []string{"owner", "repo", "workflow_id", "ref"},
 	},
 	{
