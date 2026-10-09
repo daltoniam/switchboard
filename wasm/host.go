@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -142,7 +143,8 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	if deny := hostDenyFrom(ctx); deny != nil {
+	deny := hostDenyFrom(ctx)
+	if deny != nil {
 		if err := deny(httpReq.URL); err != nil {
 			return nil, err
 		}
@@ -167,6 +169,23 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 	clientCopy.Timeout = timeout
 	if rt := hostTransportFrom(ctx); rt != nil {
 		clientCopy.Transport = rt
+	}
+	if deny != nil {
+		// Redirect targets get the same check as the original URL; the
+		// default policy's 10-redirect limit still applies.
+		next := clientCopy.CheckRedirect
+		clientCopy.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+			if err := deny(r.URL); err != nil {
+				return err
+			}
+			if next != nil {
+				return next(r, via)
+			}
+			if len(via) >= 10 {
+				return errors.New("stopped after 10 redirects")
+			}
+			return nil
+		}
 	}
 
 	resp, err := clientCopy.Do(httpReq)

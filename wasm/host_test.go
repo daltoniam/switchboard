@@ -354,3 +354,44 @@ func TestDoHostHTTP_DenyRunsBeforeEveryClient(t *testing.T) {
 		t.Fatalf("without a deny check the request must go through: %v %+v", err, resp)
 	}
 }
+
+func TestDoHostHTTP_DenyAppliesToRedirects(t *testing.T) {
+	var deniedHits atomic.Int32
+	denied := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		deniedHits.Add(1)
+		_, _ = w.Write([]byte("secret"))
+	}))
+	defer denied.Close()
+	allowed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/hop" {
+			http.Redirect(w, r, "/final", http.StatusFound)
+			return
+		}
+		if r.URL.Path == "/final" {
+			_, _ = w.Write([]byte("fine"))
+			return
+		}
+		http.Redirect(w, r, denied.URL+"/x", http.StatusFound)
+	}))
+	defer allowed.Close()
+
+	refused := errors.New("reserved host")
+	deniedHost := strings.TrimPrefix(denied.URL, "http://")
+	ctx := withHostDeny(context.Background(), func(u *url.URL) error {
+		if u.Host == deniedHost {
+			return refused
+		}
+		return nil
+	})
+	_, err := doHostHTTP(ctx, &httpRequest{Method: http.MethodGet, URL: allowed.URL + "/start"})
+	if !errors.Is(err, refused) {
+		t.Fatalf("a redirect to a denied host must be refused, got %v", err)
+	}
+	if deniedHits.Load() != 0 {
+		t.Fatal("the denied host must never be contacted")
+	}
+	resp, err := doHostHTTP(ctx, &httpRequest{Method: http.MethodGet, URL: allowed.URL + "/hop"})
+	if err != nil || resp.Body != "fine" {
+		t.Fatalf("redirects between allowed URLs must still be followed: %v %+v", err, resp)
+	}
+}
