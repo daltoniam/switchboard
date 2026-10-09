@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/marketplace"
@@ -25,13 +26,28 @@ func (m *Module) SetHTTPTransport(rt http.RoundTripper) {
 	m.transport = rt
 }
 
-// guestCtx attaches the module's HTTP transport to a guest call's context so
-// host_http_request can find it. Callers hold callMu.
+// SetHTTPDeny installs a check that runs on every outbound HTTP request the
+// guest makes, before any client is chosen, so it applies to the default,
+// h2c and custom-transport paths alike. A non-nil error refuses the request
+// and is returned to the guest. Hosts use it to reserve names (for example a
+// private-routing suffix) for plugins that are not allowed to use them. A
+// nil deny removes the check.
+func (m *Module) SetHTTPDeny(deny func(*url.URL) error) {
+	m.callMu.Lock()
+	defer m.callMu.Unlock()
+	m.deny = deny
+}
+
+// guestCtx attaches the module's HTTP transport and deny check to a guest
+// call's context so host_http_request can find them. Callers hold callMu.
 func (m *Module) guestCtx(ctx context.Context) context.Context {
-	if m.transport == nil {
-		return ctx
+	if m.transport != nil {
+		ctx = withHostTransport(ctx, m.transport)
 	}
-	return withHostTransport(ctx, m.transport)
+	if m.deny != nil {
+		ctx = withHostDeny(ctx, m.deny)
+	}
+	return ctx
 }
 
 // SetName overrides the name returned by the WASM module's name() export.

@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -76,6 +77,17 @@ func withHostTransport(ctx context.Context, rt http.RoundTripper) context.Contex
 	return context.WithValue(ctx, hostTransportKey{}, rt)
 }
 
+type hostDenyKey struct{}
+
+func withHostDeny(ctx context.Context, deny func(*url.URL) error) context.Context {
+	return context.WithValue(ctx, hostDenyKey{}, deny)
+}
+
+func hostDenyFrom(ctx context.Context) func(*url.URL) error {
+	deny, _ := ctx.Value(hostDenyKey{}).(func(*url.URL) error)
+	return deny
+}
+
 func hostTransportFrom(ctx context.Context) http.RoundTripper {
 	rt, _ := ctx.Value(hostTransportKey{}).(http.RoundTripper)
 	return rt
@@ -129,6 +141,11 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, req.Method, req.URL, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
+	}
+	if deny := hostDenyFrom(ctx); deny != nil {
+		if err := deny(httpReq.URL); err != nil {
+			return nil, err
+		}
 	}
 
 	// Check for control headers before copying to the outgoing request.

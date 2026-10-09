@@ -3,10 +3,15 @@ package wasm
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -308,5 +313,44 @@ func TestDoHostHTTP_BodyBase64_InvalidEncoding(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error for invalid base64")
+	}
+}
+
+func TestDoHostHTTP_DenyRunsBeforeEveryClient(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	refused := errors.New("reserved host")
+	ctx := withHostDeny(context.Background(), func(u *url.URL) error {
+		if u.Host == strings.TrimPrefix(srv.URL, "http://") {
+			return refused
+		}
+		return nil
+	})
+	for name, headers := range map[string]map[string]string{
+		"default": nil,
+		"h2c":     {h2cHeaderKey: "1"},
+		"custom":  nil,
+	} {
+		reqCtx := ctx
+		if name == "custom" {
+			reqCtx = withHostTransport(ctx, http.DefaultTransport)
+		}
+		_, err := doHostHTTP(reqCtx, &httpRequest{Method: http.MethodGet, URL: srv.URL + "/x", Headers: headers})
+		if !errors.Is(err, refused) {
+			t.Fatalf("%s: expected the deny error, got %v", name, err)
+		}
+	}
+	if hits.Load() != 0 {
+		t.Fatalf("a denied request reached the server %d times", hits.Load())
+	}
+
+	resp, err := doHostHTTP(context.Background(), &httpRequest{Method: http.MethodGet, URL: srv.URL + "/x"})
+	if err != nil || resp.Status != http.StatusOK || hits.Load() != 1 {
+		t.Fatalf("without a deny check the request must go through: %v %+v", err, resp)
 	}
 }

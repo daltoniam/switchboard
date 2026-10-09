@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sync"
 	"sync/atomic"
 
@@ -116,7 +117,10 @@ type Module struct {
 	nameOverride string
 	// transport, when set, carries every host_http_request the guest makes
 	// (see SetHTTPTransport). Guarded by callMu like the guest calls.
-	transport  http.RoundTripper
+	transport http.RoundTripper
+	// deny, when set, vets every guest request URL before any client runs
+	// (see SetHTTPDeny). Guarded by callMu like the guest calls.
+	deny       func(*url.URL) error
 	fnName     api.Function
 	fnTools    api.Function
 	fnConfig   api.Function
