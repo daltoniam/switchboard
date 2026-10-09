@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"sync"
 	"sync/atomic"
 
@@ -113,12 +115,18 @@ type Module struct {
 
 	mod          api.Module
 	nameOverride string
-	fnName       api.Function
-	fnTools      api.Function
-	fnConfig     api.Function
-	fnExec       api.Function
-	fnHealthy    api.Function
-	fnMetadata   api.Function
+	// transport, when set, carries every host_http_request the guest makes
+	// (see SetHTTPTransport). Guarded by callMu like the guest calls.
+	transport http.RoundTripper
+	// deny, when set, vets every guest request URL before any client runs
+	// (see SetHTTPDeny). Guarded by callMu like the guest calls.
+	deny       func(*url.URL) error
+	fnName     api.Function
+	fnTools    api.Function
+	fnConfig   api.Function
+	fnExec     api.Function
+	fnHealthy  api.Function
+	fnMetadata api.Function
 
 	fnCompactSpecs api.Function                        // optional: compact_specs() -> u64
 	compactSpecs   map[mcp.ToolName][]mcp.CompactField // parsed once after load
@@ -162,7 +170,7 @@ func (m *Module) loadCompactSpecs(ctx context.Context) {
 	if m.fnCompactSpecs == nil {
 		return
 	}
-	results, err := m.fnCompactSpecs.Call(ctx)
+	results, err := m.fnCompactSpecs.Call(m.guestCtx(ctx))
 	if err != nil {
 		slog.Warn("wasm: compact_specs call failed", "err", err)
 		return

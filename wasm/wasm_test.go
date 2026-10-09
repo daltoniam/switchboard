@@ -3,9 +3,11 @@ package wasm
 import (
 	"context"
 	_ "embed"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -378,5 +380,63 @@ func TestCompactSpec_AtLeastOneTool(t *testing.T) {
 	}
 	if specsFound == 0 {
 		t.Error("expected at least one tool to have compact specs (not all tools need specs)")
+	}
+}
+
+type recordingTransport struct {
+	mu    sync.Mutex
+	hosts []string
+	inner http.RoundTripper
+}
+
+func (r *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	r.mu.Lock()
+	r.hosts = append(r.hosts, req.URL.Host)
+	r.mu.Unlock()
+	return r.inner.RoundTrip(req)
+}
+
+func TestSetHTTPTransportRoutesGuestRequests(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != "private.example" {
+			t.Errorf("transport should see the guest's URL host, got %q", r.Host)
+		}
+		_, _ = w.Write([]byte(`[{"id":1,"name":"tunneled"}]`))
+	}))
+	defer srv.Close()
+	backend := srv.Listener.Addr().String()
+
+	rt := &recordingTransport{inner: &http.Transport{
+		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, backend)
+		},
+	}}
+	mod := loadTestModule(t)
+	mod.SetHTTPTransport(rt)
+	_ = mod.Configure(context.Background(), mcp.Credentials{
+		"base_url": "http://private.example",
+		"api_key":  "test-key",
+	})
+	result, err := mod.Execute(context.Background(), "example_http_get", map[string]any{"path": "/users"})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if result.IsError || !strings.Contains(result.Data, "tunneled") {
+		t.Fatalf("expected the response from the transport's backend, got %s", result.Data)
+	}
+	rt.mu.Lock()
+	hosts := append([]string(nil), rt.hosts...)
+	rt.mu.Unlock()
+	if len(hosts) == 0 || hosts[len(hosts)-1] != "private.example" {
+		t.Fatalf("guest request did not go through the transport: %v", hosts)
+	}
+
+	mod.SetHTTPTransport(nil)
+	result, err = mod.Execute(context.Background(), "example_http_get", map[string]any{"path": "/users"})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !result.IsError && strings.Contains(result.Data, "tunneled") {
+		t.Fatal("clearing the transport must stop routing through it")
 	}
 }
