@@ -734,6 +734,57 @@ var tools = []mcp.ToolDefinition{
 		Description: "List configured Access identity providers (Google, Okta, Azure AD, SAML, OIDC, GitHub, etc.).",
 		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)"},
 	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_access_app"),
+		Description: "Get one Access application: domain, type, session duration, allowed identity providers and its AUD tag (the audience an origin checks in the Cf-Access-Jwt-Assertion token). Use after list_access_apps or create_access_app.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "app_id": "Access application identifier"},
+		Required:    []string{"app_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_create_access_app"),
+		Description: "Protect a hostname (optionally a path) with Cloudflare Access by creating an Access application. Nobody gets in until a policy is added with create_access_app_policy. A more specific path (for example example.com/webhooks) can be its own application with a bypass policy. Returns the app ID and AUD tag.",
+		Parameters: map[string]string{
+			"account_id":                "Account identifier (defaults to configured account_id)",
+			"name":                      "Application name",
+			"domain":                    "Hostname with optional path, no scheme (e.g. app.example.com or app.example.com/admin)",
+			"type":                      "Application type (default self_hosted; also saas, ssh, vnc, rdp, bookmark, ...)",
+			"session_duration":          "How long a sign-in lasts (e.g. 24h, 30m; default 24h)",
+			"allowed_idps":              "Comma-separated identity provider IDs allowed to sign in (default: all; see list_access_identity_providers)",
+			"auto_redirect_to_identity": "Skip the identity provider picker when only one is allowed (true/false)",
+		},
+		Required: []string{"name", "domain"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_access_app"),
+		Description: "Delete an Access application. Its hostname or path is no longer protected by Access.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "app_id": "Access application identifier"},
+		Required:    []string{"app_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_create_access_app_policy"),
+		Description: "Add a policy to an Access application deciding who gets in: allow listed emails or email domains, bypass Access for everyone (e.g. a signed webhook path), or deny. Rules in include are OR-ed; require rules must all match. Use after create_access_app.",
+		Parameters: map[string]string{
+			"account_id":    "Account identifier (defaults to configured account_id)",
+			"app_id":        "Access application identifier",
+			"name":          "Policy name",
+			"decision":      "allow (default), deny, bypass (skip Access) or non_identity (service tokens, mTLS)",
+			"emails":        "Comma-separated emails to include",
+			"email_domains": "Comma-separated email domains to include (e.g. example.com)",
+			"login_methods": "Comma-separated identity provider IDs; anyone who signs in with them is included",
+			"everyone":      "Include everyone (true/false); typical with decision bypass",
+			"include":       "Extra raw include rules as a JSON array (e.g. [{\"group\":{\"id\":\"...\"}}, {\"service_token\":{\"token_id\":\"...\"}}])",
+			"exclude":       "Raw exclude rules as a JSON array",
+			"require":       "Raw require rules as a JSON array (all must match)",
+			"precedence":    "Evaluation order among the app's policies (1 = first)",
+		},
+		Required: []string{"app_id", "name"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_delete_access_app_policy"),
+		Description: "Delete a policy from an Access application.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "app_id": "Access application identifier", "policy_id": "Policy identifier"},
+		Required:    []string{"app_id", "policy_id"},
+	},
 
 	// ── Cloudflared Tunnels ─────────────────────────────────────────
 	{
@@ -753,6 +804,34 @@ var tools = []mcp.ToolDefinition{
 		Description: "Get a Cloudflared tunnel's details: name, status, connections, created/deleted timestamps. Use after list_tunnels.",
 		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "tunnel_id": "Tunnel identifier"},
 		Required:    []string{"tunnel_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_create_tunnel"),
+		Description: "Create a remotely managed Cloudflared tunnel. Its routes are set with update_tunnel_config, and cloudflared runs with the token from get_tunnel_token. Point DNS at <tunnel_id>.cfargotunnel.com with a proxied CNAME (create_dns_record).",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "name": "Tunnel name"},
+		Required:    []string{"name"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_tunnel_token"),
+		Description: "Get the token cloudflared runs with (cloudflared tunnel run --token, or TUNNEL_TOKEN). The token is a credential: store it as a secret and never post it in chat, logs or issues.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "tunnel_id": "Tunnel identifier"},
+		Required:    []string{"tunnel_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_get_tunnel_config"),
+		Description: "Get a remotely managed tunnel's ingress rules: which hostname and path go to which origin service.",
+		Parameters:  map[string]string{"account_id": "Account identifier (defaults to configured account_id)", "tunnel_id": "Tunnel identifier"},
+		Required:    []string{"tunnel_id"},
+	},
+	{
+		Name:        mcp.ToolName("cloudflare_update_tunnel_config"),
+		Description: "Replace a remotely managed tunnel's ingress rules. Rules are matched in order; a 404 catch-all is appended when the last rule has a hostname or path. Use get_tunnel_config first to keep existing routes.",
+		Parameters: map[string]string{
+			"account_id": "Account identifier (defaults to configured account_id)",
+			"tunnel_id":  "Tunnel identifier",
+			"ingress":    "JSON array of rules {hostname, path (regex), service, originRequest}, e.g. [{\"hostname\":\"app.example.com\",\"service\":\"http://app:8080\"}]",
+		},
+		Required: []string{"tunnel_id", "ingress"},
 	},
 	{
 		Name:        mcp.ToolName("cloudflare_delete_tunnel"),
