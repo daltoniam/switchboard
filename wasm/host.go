@@ -6,11 +6,13 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -76,6 +78,17 @@ func withHostTransport(ctx context.Context, rt http.RoundTripper) context.Contex
 	return context.WithValue(ctx, hostTransportKey{}, rt)
 }
 
+type hostDenyKey struct{}
+
+func withHostDeny(ctx context.Context, deny func(*url.URL) error) context.Context {
+	return context.WithValue(ctx, hostDenyKey{}, deny)
+}
+
+func hostDenyFrom(ctx context.Context) func(*url.URL) error {
+	deny, _ := ctx.Value(hostDenyKey{}).(func(*url.URL) error)
+	return deny
+}
+
 func hostTransportFrom(ctx context.Context) http.RoundTripper {
 	rt, _ := ctx.Value(hostTransportKey{}).(http.RoundTripper)
 	return rt
@@ -130,6 +143,12 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
+	deny := hostDenyFrom(ctx)
+	if deny != nil {
+		if err := deny(httpReq.URL); err != nil {
+			return nil, err
+		}
+	}
 
 	// Check for control headers before copying to the outgoing request.
 	useH2C := req.Headers[h2cHeaderKey] != ""
@@ -150,6 +169,23 @@ func doHostHTTP(ctx context.Context, req *httpRequest) (*httpResponse, error) {
 	clientCopy.Timeout = timeout
 	if rt := hostTransportFrom(ctx); rt != nil {
 		clientCopy.Transport = rt
+	}
+	if deny != nil {
+		// Redirect targets get the same check as the original URL; the
+		// default policy's 10-redirect limit still applies.
+		next := clientCopy.CheckRedirect
+		clientCopy.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+			if err := deny(r.URL); err != nil {
+				return err
+			}
+			if next != nil {
+				return next(r, via)
+			}
+			if len(via) >= 10 {
+				return errors.New("stopped after 10 redirects")
+			}
+			return nil
+		}
 	}
 
 	resp, err := clientCopy.Do(httpReq)
