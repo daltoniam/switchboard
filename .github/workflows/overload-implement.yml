@@ -1,0 +1,106 @@
+name: Overload Implement
+
+# One pass of the integration implementation job: implement one
+# automation-ready issue, or advance one open automation pull request.
+# Started by overload's schedule (or by hand); it never merges.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "auto: shepherd an open automation PR, else implement the next ready issue"
+        type: choice
+        options: [auto, implement, shepherd]
+        default: auto
+      target:
+        description: "Issue or PR number (empty picks the next one)"
+        type: string
+        default: ""
+      model:
+        description: "Crush model (provider/model)"
+        type: string
+        default: "openai-gateway/gpt-6.1-sol"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: overload-implement
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    name: Implement
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      MODE: ${{ inputs.mode }}
+      TARGET: ${{ inputs.target }}
+      MODEL: ${{ inputs.model }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Check inputs
+        run: |
+          [[ "$TARGET" =~ ^[0-9]*$ ]] || { echo "target must be a number"; exit 1; }
+          [[ "$MODEL" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "invalid model"; exit 1; }
+          echo "REPORT_FILE=$RUNNER_TEMP/report.md" >> "$GITHUB_ENV"
+
+      # A token other than GITHUB_TOKEN, so pushed branches and opened PRs
+      # start CI and the Crush review.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup buf
+        uses: bufbuild/buf-action@v1
+        with:
+          setup_only: true
+
+      - name: Install Crush
+        run: |
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq crush
+
+      - name: Configure git and labels
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+        run: |
+          git config user.name "switchboard-automation"
+          git config user.email "switchboard-automation@users.noreply.github.com"
+          gh label create overload-automation --color 5319e7 --description "Opened or maintained by the overload implementation job" --force
+
+      - name: Run Crush
+        env:
+          CF_AIG_TOKEN: ${{ secrets.CF_AIG_TOKEN }}
+          CF_AIG_ACCOUNT_ID: ${{ secrets.CF_AIG_ACCOUNT_ID }}
+          CF_AIG_GATEWAY_ID: ${{ secrets.CF_AIG_GATEWAY_ID }}
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          CRUSH_SKILLS_DIR: ${{ github.workspace }}/.agents/skills
+          CRUSH_GLOBAL_CONFIG: ${{ github.workspace }}/.ci/crush-implement
+        run: |
+          {
+            printf 'MODE=%s\nTARGET=%s\nRUN_URL=%s\nREPORT_FILE=%s\n\n' "$MODE" "$TARGET" "$RUN_URL" "$REPORT_FILE"
+            cat .github/overload/implement.md
+          } > "$RUNNER_TEMP/prompt.md"
+          crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md"
+
+      - name: Publish report
+        if: always()
+        run: |
+          if [ -s "$REPORT_FILE" ]; then cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"; else echo "No report was written." | tee "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: overload-report
+          path: ${{ runner.temp }}/report.md
+          retention-days: 30
