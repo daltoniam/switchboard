@@ -1,0 +1,217 @@
+[
+  {
+    "phase": "offline",
+    "step": "search",
+    "tool": "search",
+    "arguments": {
+      "query": "github_trigger_workflow workflow dispatch inputs"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"has_more\":true,\"integrations\":[\"github\"],\"limit\":20,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"owner\":\"Repository owner\",\"page\":\"Page number\",\"per_page\":\"Results per page\",\"repo\":\"Repository name\",\"run_id\":\"Workflow run ID\"},\"summary\":\"Found 198 tools matching \\\"github_trigger_workflow workflow dispatch inputs\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"github\"},\"rows\":[[\"Trigger a workflow_dispatch run of a workflow, optionally with inputs. Follow up with list_workflow_runs to find the run.\",\"github_trigger_workflow\",{\"inputs\":\"Workflow inputs as a JSON object, e.g. {\\\"mode\\\":\\\"implement\\\",\\\"target\\\":\\\"263\\\"} (values are strings or booleans)\",\"ref\":\"Git ref to run workflow on (branch or tag)\",\"workflow_id\":\"Workflow filename (e.g., ci.yml)\"},[\"owner\",\"repo\",\"workflow_id\",\"ref\"]],[\"Cancel a workflow run\",\"github_cancel_workflow_run\",{},[\"owner\",\"repo\",\"run_id\"]],[\"Delete a workflow run\",\"github_delete_workflow_run\",{},[\"owner\",\"repo\",\"run_id\"]],[\"Get a URL to download workflow run logs\",\"github_download_workflow_logs\",{},[\"owner\",\"repo\",\"run_id\"]],[\"Get a specific workflow run. Use after list_workflow_runs for full run details.\",\"github_get_workflow_run\",{},[\"owner\",\"repo\",\"run_id\"]],[\"List jobs for a workflow run\",\"github_list_workflow_jobs\",{\"filter\":\"Filter: latest, all\"},[\"owner\",\"repo\",\"run_id\"]],[\"Re-run only the failed jobs of a workflow run\",\"github_rerun_failed_jobs\",{},[\"owner\",\"repo\",\"run_id\"]],[\"Re-run a workflow run\",\"github_rerun_workflow\",{},[\"owner\",\"repo\",\"run_id\"]],[\"Trigger a repository dispatch event\",\"github_dispatch_event\",{\"event_type\":\"Custom event type string\"},[\"owner\",\"repo\",\"event_type\"]],[\"Get a single workflow job by ID\",\"github_get_workflow_job\",{\"job_id\":\"Job ID\"},[\"owner\",\"repo\",\"job_id\"]],[\"Get a URL to download a single job's logs\",\"github_get_workflow_job_logs\",{\"job_id\":\"Job ID\"},[\"owner\",\"repo\",\"job_id\"]],[\"List workflow runs for a repository. Use to check CI status or recent builds.\",\"github_list_workflow_runs\",{\"branch\":\"Filter by branch\",\"event\":\"Filter by event (push, pull_request, etc.)\",\"status\":\"Filter: completed, action_required, cancelled, failure, neutral, skipped, stale, success, timed_out, in_progress, queued, requested, waiting, pending\",\"workflow_id\":\"Workflow ID or filename (e.g., ci.yml)\"},[\"owner\",\"repo\"]],[\"Get a check run by ID\",\"github_get_check_run\",{\"check_run_id\":\"Check run ID\"},[\"owner\",\"repo\",\"check_run_id\"]],[\"Add a collaborator to a repository\",\"github_add_collaborator\",{\"permission\":\"Permission: pull, triage, push, maintain, admin\",\"username\":\"User to add\"},[\"owner\",\"repo\",\"username\"]],[\"Add labels to an issue\",\"github_add_issue_labels\",{\"labels\":\"Comma-separated label names to add\",\"number\":\"Issue number\"},[\"owner\",\"repo\",\"number\",\"labels\"]],[\"Add or update a user's membership in a team\",\"github_add_team_member\",{\"org\":\"Organization name\",\"role\":\"Role: member, maintainer\",\"slug\":\"Team slug\",\"username\":\"GitHub username\"},[\"org\",\"slug\",\"username\"]],[\"Add a repository to a team\",\"github_add_team_repo\",{\"org\":\"Organization name\",\"permission\":\"Permission: pull, triage, push, maintain, admin\",\"slug\":\"Team slug\"},[\"org\",\"slug\",\"owner\",\"repo\"]],[\"Compare two commits, branches, or tags. Use to see what changed between refs (commit list and diff). Start here for 'what changed in prod' queries.\",\"github_compare_commits\",{\"base\":\"Base ref (branch, tag, or SHA)\",\"head\":\"Head ref (branch, tag, or SHA)\"},[\"owner\",\"repo\",\"base\",\"head\"]],[\"Create a comment on a commit\",\"github_create_commit_comment\",{\"body\":\"Comment body\",\"path\":\"Relative file path\",\"position\":\"Line position in the diff\",\"sha\":\"Commit SHA\"},[\"owner\",\"repo\",\"sha\",\"body\"]],[\"Create a deployment\",\"github_create_deployment\",{\"auto_merge\":\"Auto-merge default branch into ref (true/false)\",\"description\":\"Description\",\"environment\":\"Environment name\",\"ref\":\"Ref to deploy (branch, tag, or SHA)\",\"task\":\"Task (default: deploy)\"},[\"owner\",\"repo\",\"ref\"]]]},\"total\":198}"
+        }
+      ]
+    }
+  },
+  {
+    "phase": "offline",
+    "step": "invalid_malformed_json",
+    "tool": "github_trigger_workflow",
+    "arguments": {
+      "owner": "sb-proof-owner",
+      "repo": "sb-proof-repo",
+      "workflow_id": "dispatch.yml",
+      "ref": "main",
+      "inputs": "{\"greeting\":"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "parameter \"inputs\": expected a JSON object of workflow inputs: unexpected end of JSON input"
+        }
+      ],
+      "isError": true
+    }
+  },
+  {
+    "phase": "offline",
+    "step": "invalid_json_array_string",
+    "tool": "github_trigger_workflow",
+    "arguments": {
+      "owner": "sb-proof-owner",
+      "repo": "sb-proof-repo",
+      "workflow_id": "dispatch.yml",
+      "ref": "main",
+      "inputs": "[\"dev\",\"staging\"]"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "parameter \"inputs\": expected a JSON object of workflow inputs: json: cannot unmarshal array into Go value of type map[string]interface {}"
+        }
+      ],
+      "isError": true
+    }
+  },
+  {
+    "phase": "offline",
+    "step": "invalid_number",
+    "tool": "github_trigger_workflow",
+    "arguments": {
+      "owner": "sb-proof-owner",
+      "repo": "sb-proof-repo",
+      "workflow_id": "dispatch.yml",
+      "ref": "main",
+      "inputs": 42
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "parameter \"inputs\": expected an object of workflow inputs, got float64"
+        }
+      ],
+      "isError": true
+    }
+  },
+  {
+    "phase": "offline",
+    "step": "invalid_array",
+    "tool": "github_trigger_workflow",
+    "arguments": {
+      "owner": "sb-proof-owner",
+      "repo": "sb-proof-repo",
+      "workflow_id": "dispatch.yml",
+      "ref": "main",
+      "inputs": [
+        "dev",
+        "staging"
+      ]
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "parameter \"inputs\": expected an object of workflow inputs, got []interface {}"
+        }
+      ],
+      "isError": true
+    }
+  },
+  {
+    "phase": "offline",
+    "step": "invalid_bool",
+    "tool": "github_trigger_workflow",
+    "arguments": {
+      "owner": "sb-proof-owner",
+      "repo": "sb-proof-repo",
+      "workflow_id": "dispatch.yml",
+      "ref": "main",
+      "inputs": true
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "parameter \"inputs\": expected an object of workflow inputs, got bool"
+        }
+      ],
+      "isError": true
+    }
+  },
+  {
+    "phase": "offline",
+    "step": "control_valid_object",
+    "tool": "github_trigger_workflow",
+    "arguments": {
+      "owner": "sb-proof-owner",
+      "repo": "sb-proof-repo",
+      "workflow_id": "dispatch.yml",
+      "ref": "main",
+      "inputs": {
+        "greeting": "x",
+        "env": "dev"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "POST https://api.github.com/repos/sb-proof-owner/sb-proof-repo/actions/workflows/dispatch.yml/dispatches: 401 Bad credentials []"
+        }
+      ],
+      "isError": true
+    }
+  },
+  {
+    "phase": "offline",
+    "step": "control_valid_json_string",
+    "tool": "github_trigger_workflow",
+    "arguments": {
+      "owner": "sb-proof-owner",
+      "repo": "sb-proof-repo",
+      "workflow_id": "dispatch.yml",
+      "ref": "main",
+      "inputs": "{\"greeting\":\"x\"}"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "POST https://api.github.com/repos/sb-proof-owner/sb-proof-repo/actions/workflows/dispatch.yml/dispatches: 401 Bad credentials []"
+        }
+      ],
+      "isError": true
+    }
+  },
+  {
+    "phase": "offline",
+    "step": "control_no_inputs",
+    "tool": "github_trigger_workflow",
+    "arguments": {
+      "owner": "sb-proof-owner",
+      "repo": "sb-proof-repo",
+      "workflow_id": "dispatch.yml",
+      "ref": "main"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "POST https://api.github.com/repos/sb-proof-owner/sb-proof-repo/actions/workflows/dispatch.yml/dispatches: 401 Bad credentials []"
+        }
+      ],
+      "isError": true
+    }
+  },
+  {
+    "phase": "offline",
+    "step": "info_non_string_values_object",
+    "tool": "github_trigger_workflow",
+    "arguments": {
+      "owner": "sb-proof-owner",
+      "repo": "sb-proof-repo",
+      "workflow_id": "dispatch.yml",
+      "ref": "main",
+      "inputs": {
+        "greeting": 5,
+        "nested": {
+          "a": 1
+        }
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "POST https://api.github.com/repos/sb-proof-owner/sb-proof-repo/actions/workflows/dispatch.yml/dispatches: 401 Bad credentials []"
+        }
+      ],
+      "isError": true
+    }
+  }
+]
