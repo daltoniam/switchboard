@@ -1,0 +1,80 @@
+# Switchboard compaction specs for the imessage integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction. Full spec syntax: docs/field-compaction.md.
+
+version: 1
+tools:
+  imessage_list_chats:
+    spec:
+      - total
+      - has_more
+      - chats[].chat_id
+      - chats[].name
+      - chats[].is_group
+      - chats[].service
+      - chats[].participants[].handle
+      - chats[].participants[].name
+      - chats[].last_message_at
+      - chats[].last_message
+      - chats[].last_message_from_me
+      - chats[].unread_count
+
+  imessage_get_chat_messages:
+    spec:
+      - chat_ids
+      - name
+      - participants[].handle
+      - participants[].name
+      - has_more
+      - next_before
+      - messages[].id
+      - messages[].guid
+      - messages[].date
+      - messages[].from_me
+      - messages[].sender
+      - messages[].sender_name
+      - messages[].text
+      - messages[].service
+      - messages[].reply_to
+      - messages[].edited
+      - messages[].unsent
+      - messages[].attachments[].name
+      - messages[].attachments[].mime_type
+      - messages[].attachments[].path
+      - messages[].reactions[].type
+      - messages[].reactions[].emoji
+      - messages[].reactions[].by
+      - messages[].reactions[].by_name
+    max_bytes: 120000
+
+  imessage_search_messages:
+    spec:
+      - count
+      - messages[].id
+      - messages[].chat_id
+      - messages[].chat_name
+      - messages[].date
+      - messages[].from_me
+      - messages[].sender
+      - messages[].sender_name
+      - messages[].text
+      - messages[].service
+      - messages[].attachments[].name
+      - messages[].attachments[].mime_type
+
+  imessage_list_unread:
+    spec:
+      - count
+      - messages[].id
+      - messages[].chat_id
+      - messages[].chat_name
+      - messages[].date
+      - messages[].sender
+      - messages[].sender_name
+      - messages[].text
+      - messages[].service
+      - messages[].attachments[].name
+      - messages[].attachments[].mime_type

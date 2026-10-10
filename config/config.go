@@ -64,6 +64,12 @@ var envMapping = map[string]map[string]string{
 	"recoll": {
 		"base_url": "RECOLL_URL",
 	},
+	"imessage": {
+		"db_path":        "IMESSAGE_DB_PATH",
+		"contacts_dir":   "IMESSAGE_CONTACTS_DIR",
+		"allow_send":     "IMESSAGE_ALLOW_SEND",
+		"send_allowlist": "IMESSAGE_SEND_ALLOWLIST",
+	},
 	"aws": {
 		"access_key_id":     "AWS_ACCESS_KEY_ID",
 		"secret_access_key": "AWS_SECRET_ACCESS_KEY",
@@ -376,6 +382,10 @@ func defaultConfig() *mcp.Config {
 			"recoll": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": ""},
+			},
+			"imessage": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"db_path": "", "contacts_dir": "", "allow_send": "", "send_allowlist": ""},
 			},
 			"aws": {
 				Enabled:     false,
