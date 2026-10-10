@@ -1,4 +1,6 @@
-FROM alpine:3.21 AS certs
+# Google's Docker Hub mirror: release builds on shared GitHub runners hit
+# Docker Hub's anonymous pull limit.
+FROM mirror.gcr.io/library/alpine:3.21 AS certs
 RUN apk add --no-cache ca-certificates
 
 FROM scratch
