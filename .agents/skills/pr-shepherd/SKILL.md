@@ -70,7 +70,7 @@ Bind every claim to one exact head SHA. The PR is complete only when all conditi
 1. Local `make ci` passes on the exact head.
 2. The PR head still equals the local exact head.
 3. The PR's required GitHub checks for that exact head are `completed/success`. Discover live check names; typical lanes are `build`, `test`, `lint`, `security`, `rust-sdk`, and `compose`.
-4. The `overload` commit status on the exact head is final: `success`, or `failure` only because overload requested changes that are now addressed (it becomes `success` once a later review of a new head finds nothing blocking). `pending` means the review is still running; `error` means it failed and must be retried, not ignored.
+4. The `overload` commit status on the exact head is `success`. A status describes the review of that exact head, so `failure` (overload requested changes) stays red on that head even after the comments are fixed and threads resolved: push the fixes to get a fresh review, and treat `failure` as NOT CLEAN until a later head reaches `success`. `pending` means the review is still running; `error` means it failed and must be retried, not ignored.
 5. Overload's review of the exact PR head is submitted (`commit_id == HEAD_SHA`). Collect its findings from GitHub PR comments and review threads. There is no confidence score and no generated body block to check.
 6. Every actionable automated-review comment encountered during shepherding has a recorded disposition and is addressed by code, tests, docs, or evidence.
 7. Automated review threads containing addressed findings are resolved only after an evidence-bearing reply when repository policy and permissions allow it. No actionable automated thread remains unresolved.
@@ -271,7 +271,7 @@ gh api "repos/$OWNER_REPO/pulls/$PR/reviews" \
   --jq '[.[]|select(.body|test("overload-run:"))|{user:.user.login,state,commit_id,submitted_at}]|last'
 ```
 
-Require the latest overload review to have `commit_id == HEAD_SHA`. If the head has no overload review and the status is `success` with "No issues found" or "noted as comments", overload had nothing new to post for that head.
+Require the latest overload review to have `commit_id == HEAD_SHA`. If the head has no overload review and its status `state` is `success`, overload had nothing new to post for that head. Key off `state`, not the description text: descriptions are informational (for example `Approved`, `Changes requested: ...`, `Reviewing`) and may change.
 
 Immediately before a terminal-clean report:
 
