@@ -247,7 +247,7 @@ SELECT COALESCE(m.associated_message_guid, ''), m.associated_message_type, COALE
 FROM message m
 JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
 LEFT JOIN handle h ON h.ROWID = m.handle_id
-WHERE cmj.chat_id IN ` + in + ` AND m.associated_message_type BETWEEN 2000 AND 3999 AND m.date >= ?
+WHERE cmj.chat_id IN ` + in + ` AND m.associated_message_type BETWEEN 2000 AND 3999 AND m.date >= ?` + m.liveFilter() + `
 ORDER BY m.date, m.ROWID` // #nosec G202 -- in is only "?" placeholders; column names are fixed literals
 	rows, err := m.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -353,11 +353,12 @@ ORDER BY chj.chat_id, h.ROWID`, args...)
 }
 
 func (m *imessage) unreadCounts(ctx context.Context) (map[int64]int, error) {
-	rows, err := m.db.QueryContext(ctx, `
+	query := `
 SELECT cmj.chat_id, COUNT(*)
 FROM message m JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
-WHERE m.is_read = 0 AND m.is_from_me = 0 AND `+visibleFilter+`
-GROUP BY cmj.chat_id`)
+WHERE m.is_read = 0 AND m.is_from_me = 0 AND ` + visibleFilter + m.liveFilter() + `
+GROUP BY cmj.chat_id` // #nosec G202 -- only fixed SQL fragments are concatenated
+	rows, err := m.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -513,7 +514,7 @@ func listChats(ctx context.Context, m *imessage, args map[string]any) (*mcp.Tool
 		resp.Chats = matched[offset:end]
 		resp.HasMore = end < len(matched)
 	}
-	lastQuery := m.messageSelectSQL() + ` WHERE cmj.chat_id = ? AND ` + visibleFilter + ` ORDER BY cmj.message_date DESC, m.ROWID DESC LIMIT 1`
+	lastQuery := m.messageSelectSQL() + ` WHERE cmj.chat_id = ? AND ` + visibleFilter + m.liveFilter() + ` ORDER BY cmj.message_date DESC, m.ROWID DESC LIMIT 1`
 	for i := range resp.Chats {
 		msgs, err := m.queryMessages(ctx, lastQuery, resp.Chats[i].ChatID)
 		if err != nil {
@@ -601,7 +602,7 @@ func getChatMessages(ctx context.Context, m *imessage, args map[string]any) (*mc
 	}
 
 	in, qargs := inClause(ids)
-	q := m.messageSelectSQL() + ` WHERE cmj.chat_id IN ` + in + ` AND ` + visibleFilter
+	q := m.messageSelectSQL() + ` WHERE cmj.chat_id IN ` + in + ` AND ` + visibleFilter + m.liveFilter()
 	if !before.IsZero() {
 		q += ` AND m.date < ?`
 		qargs = append(qargs, toAppleTime(before))

@@ -67,6 +67,7 @@ var fixtureMessages = []fixtureMessage{
 	{id: 10, chat: 2, text: "Removed a like", service: "iMessage", minute: 9, fromMe: true, read: true, assocType: 3001, assocGUID: "p:0/msg-5"},
 	{id: 11, handle: 1, text: "deleted lunch plans", service: "iMessage", minute: -10, recoverable: true},
 	{id: 12, handle: 1, text: "orphaned lunch note", service: "iMessage", minute: -11},
+	{id: 13, chat: 1, handle: 1, text: "deleted but still linked lunch", service: "iMessage", minute: -5, recoverable: true},
 }
 
 func execAll(t *testing.T, db *sql.DB, stmts ...string) {
