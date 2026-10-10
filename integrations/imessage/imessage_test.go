@@ -3,6 +3,7 @@ package imessage
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -21,8 +22,8 @@ func TestConfigure(t *testing.T) {
 	t.Run("success with fixture db", func(t *testing.T) {
 		m, _ := newConfigured(t, mcp.Credentials{"allow_send": "true", "send_allowlist": "+1 (555) 123-4567, Bob@Example.com"})
 		assert.True(t, m.allowSend)
-		assert.True(t, m.allowlist["5551234567"])
-		assert.True(t, m.allowlist["bob@example.com"])
+		assert.Equal(t, []string{"+1 (555) 123-4567", "Bob@Example.com"}, m.allowlist)
+		assert.True(t, m.hasRecoverable)
 		assert.True(t, m.Healthy(context.Background()))
 	})
 
@@ -274,6 +275,9 @@ func TestSearchMessages(t *testing.T) {
 		{name: "reactions excluded", args: map[string]any{"query": "loved"}, want: []int64{}},
 		{name: "scoped to chat", args: map[string]any{"query": "lunch", "chat_id": 2}, want: []int64{}},
 		{name: "scoped to handle", args: map[string]any{"query": "s", "handle": "bob@example.com"}, want: []int64{5}},
+		{name: "handle scope includes my own replies", args: map[string]any{"query": "lunch", "handle": "+1 (555) 123-4567"}, want: []int64{2}},
+		{name: "handle scope requires exact number", args: map[string]any{"query": "lunch", "handle": "+44 555 123 4567"}, want: []int64{}},
+		{name: "recently deleted and orphaned messages excluded", args: map[string]any{"query": "lunch"}, want: []int64{2}},
 		{name: "date range", args: map[string]any{"query": "n", "since": fixtureT0.Add(150 * 1e9).Format("2006-01-02T15:04:05Z07:00"), "before": fixtureT0.Add(270 * 1e9).Format("2006-01-02T15:04:05Z07:00")}, want: []int64{5, 4}},
 		{name: "limit", args: map[string]any{"query": "i", "limit": 2}, want: []int64{7, 6}},
 	}
@@ -314,7 +318,7 @@ func TestLookupContact(t *testing.T) {
 		query string
 		want  []string
 	}{
-		{name: "by first name", query: "alice", want: []string{"Alice Smith"}},
+		{name: "by first name", query: "alice", want: []string{"Alice Smith", "Alice Smith"}},
 		{name: "by phone fragment", query: "555-123-4567", want: []string{"Alice Smith"}},
 		{name: "by email", query: "bob@example", want: []string{"Bob Jones"}},
 		{name: "organization fallback", query: "acme", want: []string{"Acme Corp"}},
@@ -331,6 +335,20 @@ func TestLookupContact(t *testing.T) {
 		})
 	}
 
+	t.Run("same name different people stay separate", func(t *testing.T) {
+		resp := execJSON[contactsResponse](t, m, "imessage_lookup_contact", map[string]any{"query": "alice"})
+		require.Len(t, resp.Contacts, 2)
+		assert.Equal(t, []string{"(555) 123-4567"}, resp.Contacts[0].Phones)
+		assert.Equal(t, []string{"+44 20 7946 0958"}, resp.Contacts[1].Phones)
+	})
+
+	t.Run("same person across sources merges", func(t *testing.T) {
+		resp := execJSON[contactsResponse](t, m, "imessage_lookup_contact", map[string]any{"query": "bob"})
+		require.Len(t, resp.Contacts, 1)
+		assert.Equal(t, []string{"Bob@Example.com"}, resp.Contacts[0].Emails)
+		assert.Equal(t, []string{"+1 555 222 3333"}, resp.Contacts[0].Phones)
+	})
+
 	t.Run("missing contacts", func(t *testing.T) {
 		m2, _ := newConfigured(t, mcp.Credentials{"contacts_dir": filepath.Join(t.TempDir(), "none")})
 		assert.Contains(t, execErr(t, m2, "imessage_lookup_contact", map[string]any{"query": "alice"}), "cannot read")
@@ -341,6 +359,42 @@ func TestAppleTime(t *testing.T) {
 	assert.True(t, appleTime(0).IsZero())
 	assert.Equal(t, fixtureT0.Unix(), appleTime(toAppleTime(fixtureT0)).Unix())
 	assert.Equal(t, fixtureT0.Unix(), appleTime(fixtureT0.Unix()-appleEpochOffset).Unix(), "legacy seconds")
+}
+
+func TestSameHandle(t *testing.T) {
+	tests := []struct {
+		a, b string
+		want bool
+	}{
+		{"+15551234567", "(555) 123-4567", true},
+		{"5551234567", "+1 555 123 4567", true},
+		{"+15551234567", "+15551234567", true},
+		{"+445551234567", "+15551234567", false},
+		{"+445551234567", "5551234567", false},
+		{"Bob@Example.com", " bob@example.com", true},
+		{"bob@example.com", "bob@example.org", false},
+		{"", "", false},
+		{"12345", "+112345", false},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, sameHandle(tt.a, tt.b), "%q vs %q", tt.a, tt.b)
+		assert.Equal(t, tt.want, sameHandle(tt.b, tt.a), "%q vs %q", tt.b, tt.a)
+	}
+}
+
+func TestExpandHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	tests := map[string]string{
+		"~":                          home,
+		"~/Library/Messages/chat.db": filepath.Join(home, "Library", "Messages", "chat.db"),
+		"/tmp/chat.db":               "/tmp/chat.db",
+		"~other/chat.db":             "~other/chat.db",
+		"relative/chat.db":           "relative/chat.db",
+	}
+	for in, want := range tests {
+		assert.Equal(t, want, expandHome(in), in)
+	}
 }
 
 func TestNormalizeHandle(t *testing.T) {

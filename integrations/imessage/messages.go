@@ -536,8 +536,7 @@ func truncate(s string, n int) string {
 }
 
 func (m *imessage) findDirectChats(ctx context.Context, handle string) ([]int64, error) {
-	key := normalizeHandle(handle)
-	if key == "" {
+	if strings.TrimSpace(handle) == "" {
 		return nil, nil
 	}
 	chats, err := m.loadChats(ctx, nil)
@@ -546,7 +545,7 @@ func (m *imessage) findDirectChats(ctx context.Context, handle string) ([]int64,
 	}
 	var ids []int64
 	for _, c := range chats {
-		if c.style != groupChatStyle && normalizeHandle(c.ident) == key {
+		if c.style != groupChatStyle && sameHandle(c.ident, handle) {
 			ids = append(ids, c.id)
 		}
 	}
@@ -677,13 +676,19 @@ func (m *imessage) attachChatNames(ctx context.Context, msgs []messageOut) error
 	return nil
 }
 
-func (m *imessage) handleIDs(ctx context.Context, handle string) ([]int64, error) {
-	key := normalizeHandle(handle)
-	rows, err := m.db.QueryContext(ctx, `SELECT ROWID, COALESCE(id, '') FROM handle`)
+// chatsWithHandle returns every chat (1:1 or group) the person is part of, so
+// a handle-scoped search covers the whole conversation, including messages
+// sent by me (which carry no sender handle).
+func (m *imessage) chatsWithHandle(ctx context.Context, handle string) ([]int64, error) {
+	rows, err := m.db.QueryContext(ctx, `
+SELECT chj.chat_id, COALESCE(h.id, '') FROM chat_handle_join chj JOIN handle h ON h.ROWID = chj.handle_id
+UNION
+SELECT ROWID, COALESCE(chat_identifier, '') FROM chat`)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
+	seen := map[int64]bool{}
 	var ids []int64
 	for rows.Next() {
 		var id int64
@@ -691,11 +696,22 @@ func (m *imessage) handleIDs(ctx context.Context, handle string) ([]int64, error
 		if err := rows.Scan(&id, &h); err != nil {
 			return nil, err
 		}
-		if key != "" && normalizeHandle(h) == key {
+		if !seen[id] && sameHandle(h, handle) {
+			seen[id] = true
 			ids = append(ids, id)
 		}
 	}
 	return ids, rows.Err()
+}
+
+// liveFilter hides messages that are not in any conversation: ones in the
+// Recently Deleted folder and orphans left behind by deleted chats.
+func (m *imessage) liveFilter() string {
+	f := ` AND cmj.chat_id IS NOT NULL`
+	if m.hasRecoverable {
+		f += ` AND NOT EXISTS (SELECT 1 FROM chat_recoverable_message_join r WHERE r.message_id = m.ROWID)`
+	}
+	return f
 }
 
 func messagesResult(ctx context.Context, m *imessage, msgs []messageOut) (*mcp.ToolResult, error) {
@@ -729,14 +745,14 @@ func searchMessages(ctx context.Context, m *imessage, args map[string]any) (*mcp
 		return mcp.ErrResult(err)
 	}
 
-	q := m.messageSelectSQL() + ` WHERE ` + visibleFilter
+	q := m.messageSelectSQL() + ` WHERE ` + visibleFilter + m.liveFilter()
 	var qargs []any
 	if chatID > 0 {
 		q += ` AND cmj.chat_id = ?`
 		qargs = append(qargs, chatID)
 	}
 	if strings.TrimSpace(handle) != "" {
-		ids, err := m.handleIDs(ctx, handle)
+		ids, err := m.chatsWithHandle(ctx, handle)
 		if err != nil {
 			return mcp.ErrResult(err)
 		}
@@ -744,7 +760,7 @@ func searchMessages(ctx context.Context, m *imessage, args map[string]any) (*mcp
 			return messagesResult(ctx, m, []messageOut{})
 		}
 		in, a := inClause(ids)
-		q += ` AND m.handle_id IN ` + in
+		q += ` AND cmj.chat_id IN ` + in
 		qargs = append(qargs, a...)
 	}
 	if !since.IsZero() {
@@ -771,7 +787,7 @@ func listUnread(ctx context.Context, m *imessage, args map[string]any) (*mcp.Too
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	q := m.messageSelectSQL() + ` WHERE m.is_read = 0 AND m.is_from_me = 0 AND ` + visibleFilter +
+	q := m.messageSelectSQL() + ` WHERE m.is_read = 0 AND m.is_from_me = 0 AND ` + visibleFilter + m.liveFilter() +
 		` ORDER BY m.date DESC, m.ROWID DESC LIMIT ?`
 	msgs, err := m.queryMessages(ctx, q, limit)
 	if err != nil {

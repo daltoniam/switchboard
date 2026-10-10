@@ -1,6 +1,7 @@
 package imessage
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -49,6 +50,7 @@ func TestSendMessage_Validation(t *testing.T) {
 		{name: "bad service", args: map[string]any{"text": "hi", "to": "+15551234567", "service": "fax"}, want: "service must be"},
 		{name: "unknown chat", args: map[string]any{"text": "hi", "chat_id": 42}, want: "chat 42 not found"},
 		{name: "to not allowlisted", args: map[string]any{"text": "hi", "to": "+15559876543"}, want: "not in send_allowlist"},
+		{name: "same last 10 digits different country", args: map[string]any{"text": "hi", "to": "+445551234567"}, want: "not in send_allowlist"},
 		{name: "group with non-allowlisted member", args: map[string]any{"text": "hi", "chat_id": 2}, want: "bob@example.com is not in send_allowlist"},
 	}
 	for _, tt := range tests {
@@ -109,6 +111,55 @@ func TestSendMessage_ToNewHandle(t *testing.T) {
 		execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "hello", "to": "+15551234567", "service": "imessage"})
 		assert.Equal(t, []string{"+15551234567", "hello", "iMessage"}, runner.calls[before])
 	})
+
+	t.Run("different country code never reuses a lookalike chat", func(t *testing.T) {
+		before := len(runner.calls)
+		resp := execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "hello", "to": "+445551234567"})
+		assert.Equal(t, []string{"+445551234567", "hello", "iMessage"}, runner.calls[before])
+		assert.Zero(t, resp.ChatID)
+	})
+}
+
+func TestSendMessage_DoesNotBlockReconfigure(t *testing.T) {
+	m, runner := newConfigured(t, mcp.Credentials{"allow_send": "true"})
+	dbPath := m.dbPath
+	started := make(chan struct{})
+	release := make(chan struct{})
+	runner.onRun = func([]string) {
+		close(started)
+		<-release
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = m.Execute(context.Background(), "imessage_send_message", map[string]any{"text": "hi", "chat_id": 1})
+	}()
+	<-started
+
+	reconfigured := make(chan error, 1)
+	go func() {
+		reconfigured <- m.Configure(context.Background(), mcp.Credentials{"db_path": dbPath, "allow_send": "true"})
+	}()
+	select {
+	case err := <-reconfigured:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Configure blocked while a send was in flight")
+	}
+	close(release)
+	<-done
+}
+
+func TestSendMessage_CanceledWhileConfirming(t *testing.T) {
+	m, runner := newConfigured(t, mcp.Credentials{"allow_send": "true"})
+	m.confirmWait = 5 * time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runner.onRun = func([]string) { cancel() }
+	result, err := m.Execute(ctx, "imessage_send_message", map[string]any{"text": "hi", "chat_id": 1})
+	require.NoError(t, err)
+	require.True(t, result.IsError, result.Data)
+	assert.Contains(t, result.Data, "canceled")
 }
 
 func TestSendMessage_Failures(t *testing.T) {

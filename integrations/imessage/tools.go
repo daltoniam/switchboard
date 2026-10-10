@@ -32,7 +32,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"query":   "Text to search for",
 			"chat_id": "Optional chat ID to search within",
-			"handle":  "Optional phone number or email; only messages in conversations with this person",
+			"handle":  "Optional phone number or email; only messages (sent or received) in chats this person is part of, including group chats",
 			"since":   "Optional lower bound time (RFC3339 or YYYY-MM-DD)",
 			"before":  "Optional upper bound time (RFC3339 or YYYY-MM-DD)",
 			"limit":   "Max messages to return (default 20, max 100)",

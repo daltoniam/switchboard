@@ -4,6 +4,10 @@
 #
 # The `spec` array is a WHITELIST: only fields whose paths are listed survive
 # compaction. Full spec syntax: docs/field-compaction.md.
+#
+# Nested arrays (participants, attachments, reactions) are projected whole:
+# listing two sub-fields of an array nested inside another array collapses
+# the inner objects, so keep the small inner objects intact instead.
 
 version: 1
 tools:
@@ -15,8 +19,7 @@ tools:
       - chats[].name
       - chats[].is_group
       - chats[].service
-      - chats[].participants[].handle
-      - chats[].participants[].name
+      - chats[].participants
       - chats[].last_message_at
       - chats[].last_message
       - chats[].last_message_from_me
@@ -26,8 +29,7 @@ tools:
     spec:
       - chat_ids
       - name
-      - participants[].handle
-      - participants[].name
+      - participants
       - has_more
       - next_before
       - messages[].id
@@ -41,13 +43,8 @@ tools:
       - messages[].reply_to
       - messages[].edited
       - messages[].unsent
-      - messages[].attachments[].name
-      - messages[].attachments[].mime_type
-      - messages[].attachments[].path
-      - messages[].reactions[].type
-      - messages[].reactions[].emoji
-      - messages[].reactions[].by
-      - messages[].reactions[].by_name
+      - messages[].attachments
+      - messages[].reactions
     max_bytes: 120000
 
   imessage_search_messages:
@@ -62,8 +59,7 @@ tools:
       - messages[].sender_name
       - messages[].text
       - messages[].service
-      - messages[].attachments[].name
-      - messages[].attachments[].mime_type
+      - messages[].attachments
 
   imessage_list_unread:
     spec:
@@ -76,5 +72,4 @@ tools:
       - messages[].sender_name
       - messages[].text
       - messages[].service
-      - messages[].attachments[].name
-      - messages[].attachments[].mime_type
+      - messages[].attachments

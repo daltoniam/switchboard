@@ -44,7 +44,13 @@ type imessage struct {
 	msgCols   map[string]bool
 	contacts  *contactBook
 	allowSend bool
-	allowlist map[string]bool
+	allowlist []string
+	// hasRecoverable reports whether chat.db has the Recently Deleted table
+	// (macOS 13+), whose messages must be hidden from search and unread.
+	hasRecoverable bool
+	// inflight counts tool calls using db so Configure can close the previous
+	// database only after they finish.
+	inflight  *sync.WaitGroup
 	runScript scriptRunner
 	// confirmWait bounds how long send waits to observe the outgoing message
 	// in chat.db before reporting it as queued.
@@ -75,12 +81,17 @@ func defaultContactsDir() string {
 }
 
 func expandHome(p string) string {
-	if p == "~" || strings.HasPrefix(p, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, strings.TrimPrefix(p, "~"))
-		}
+	if p != "~" && !strings.HasPrefix(p, "~/") {
+		return p
 	}
-	return p
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return p
+	}
+	if p == "~" {
+		return home
+	}
+	return filepath.Join(home, strings.TrimPrefix(p, "~/"))
 }
 
 func (m *imessage) Configure(ctx context.Context, creds mcp.Credentials) error {
@@ -96,10 +107,10 @@ func (m *imessage) Configure(ctx context.Context, creds mcp.Credentials) error {
 	if err != nil {
 		return fmt.Errorf("imessage: %w", err)
 	}
-	allowlist := map[string]bool{}
+	var allowlist []string
 	for _, entry := range strings.Split(creds["send_allowlist"], ",") {
-		if k := normalizeHandle(entry); k != "" {
-			allowlist[k] = true
+		if entry = strings.TrimSpace(entry); entry != "" {
+			allowlist = append(allowlist, entry)
 		}
 	}
 
@@ -120,20 +131,34 @@ func (m *imessage) Configure(ctx context.Context, creds mcp.Credentials) error {
 		_ = db.Close()
 		return fmt.Errorf("imessage: %w", permissionHint(dbPath, err))
 	}
+	var recoverable int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'chat_recoverable_message_join'`).Scan(&recoverable); err != nil {
+		_ = db.Close()
+		return fmt.Errorf("imessage: %w", permissionHint(dbPath, err))
+	}
 
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.db != nil {
-		_ = m.db.Close()
-	}
+	old, oldInflight := m.db, m.inflight
 	m.db = db
 	m.dbPath = dbPath
 	m.msgCols = cols
+	m.hasRecoverable = recoverable > 0
+	m.inflight = &sync.WaitGroup{}
 	m.contacts = newContactBook(contactsDir)
 	m.allowSend = allowSend
 	m.allowlist = allowlist
 	if m.runScript == nil {
 		m.runScript = runOSAScript
+	}
+	m.mu.Unlock()
+
+	if old != nil {
+		go func() {
+			if oldInflight != nil {
+				oldInflight.Wait()
+			}
+			_ = old.Close()
+		}()
 	}
 	return nil
 }
@@ -174,16 +199,38 @@ func (m *imessage) MaxBytes(toolName mcp.ToolName) (int, bool) {
 }
 
 func (m *imessage) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	fn, ok := dispatch[toolName]
 	m.mu.RLock()
-	defer m.mu.RUnlock()
 	if m.db == nil {
+		m.mu.RUnlock()
 		return &mcp.ToolResult{Data: "imessage: not configured", IsError: true}, nil
 	}
-	fn, ok := dispatch[toolName]
 	if !ok {
+		m.mu.RUnlock()
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
 	}
-	return fn(ctx, m, args)
+	snap := m.snapshot()
+	snap.inflight.Add(1)
+	m.mu.RUnlock()
+	defer snap.inflight.Done()
+	return fn(ctx, snap, args)
+}
+
+// snapshot copies the configured state so a tool call (a send can take ~30s)
+// does not hold the lock and block Configure. Callers must hold m.mu.
+func (m *imessage) snapshot() *imessage {
+	return &imessage{
+		db:             m.db,
+		dbPath:         m.dbPath,
+		msgCols:        m.msgCols,
+		contacts:       m.contacts,
+		allowSend:      m.allowSend,
+		allowlist:      m.allowlist,
+		hasRecoverable: m.hasRecoverable,
+		inflight:       m.inflight,
+		runScript:      m.runScript,
+		confirmWait:    m.confirmWait,
+	}
 }
 
 func (m *imessage) PlainTextKeys() []string {

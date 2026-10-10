@@ -46,9 +46,9 @@ func TestFieldCompactionSpecs_Shape(t *testing.T) {
 		keep []string
 		drop []string
 	}{
-		{tool: "imessage_list_chats", keep: []string{"chat_id", "unread_count", "last_message"}, drop: []string{"guid", "identifier"}},
-		{tool: "imessage_get_chat_messages", args: map[string]any{"chat_id": 2}, keep: []string{"reactions", "attachments", "reply_to"}, drop: []string{"bytes"}},
-		{tool: "imessage_search_messages", args: map[string]any{"query": "snacks"}, keep: []string{"chat_name", "text"}, drop: []string{"guid", "bytes"}},
+		{tool: "imessage_list_chats", keep: []string{"chat_id", "unread_count", "last_message", "handle"}, drop: []string{"guid", "identifier"}},
+		{tool: "imessage_get_chat_messages", args: map[string]any{"chat_id": 2}, keep: []string{"reactions", "type", "emoji", "by", "attachments", "mime_type", "name", "reply_to", "handle"}},
+		{tool: "imessage_search_messages", args: map[string]any{"query": "snacks"}, keep: []string{"chat_name", "text", "mime_type", "name"}, drop: []string{"guid"}},
 		{tool: "imessage_list_unread", keep: []string{"chat_name", "text"}, drop: []string{"guid", "from_me"}},
 	}
 	for _, tt := range tests {

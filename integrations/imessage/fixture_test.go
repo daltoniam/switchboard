@@ -33,6 +33,7 @@ CREATE TABLE message (
 );
 CREATE TABLE attachment (ROWID INTEGER PRIMARY KEY, filename TEXT, mime_type TEXT, transfer_name TEXT, total_bytes INTEGER);
 CREATE TABLE message_attachment_join (message_id INTEGER, attachment_id INTEGER);
+CREATE TABLE chat_recoverable_message_join (chat_id INTEGER, message_id INTEGER, delete_date INTEGER);
 `
 
 type fixtureMessage struct {
@@ -50,6 +51,7 @@ type fixtureMessage struct {
 	assocEmoji  string
 	replyTo     string
 	attachments bool
+	recoverable bool
 }
 
 var fixtureMessages = []fixtureMessage{
@@ -63,6 +65,8 @@ var fixtureMessages = []fixtureMessage{
 	{id: 8, chat: 2, handle: 1, text: "Reacted", service: "iMessage", minute: 7, read: true, assocType: 2006, assocGUID: "p:0/msg-5", assocEmoji: "\U0001F525"},
 	{id: 9, chat: 2, text: "Liked", service: "iMessage", minute: 8, fromMe: true, read: true, assocType: 2001, assocGUID: "p:0/msg-5"},
 	{id: 10, chat: 2, text: "Removed a like", service: "iMessage", minute: 9, fromMe: true, read: true, assocType: 3001, assocGUID: "p:0/msg-5"},
+	{id: 11, handle: 1, text: "deleted lunch plans", service: "iMessage", minute: -10, recoverable: true},
+	{id: 12, handle: 1, text: "orphaned lunch note", service: "iMessage", minute: -11},
 }
 
 func execAll(t *testing.T, db *sql.DB, stmts ...string) {
@@ -107,6 +111,13 @@ func newFixtureDB(t *testing.T) string {
 			fm.id, "msg-"+itoa(fm.id), text, body, fm.handle, fm.service, fixtureDate(fm.minute), fm.fromMe, fm.read,
 			fm.assocType, nullable(fm.assocGUID), nullable(fm.assocEmoji), nullable(fm.replyTo), fm.attachments)
 		require.NoError(t, err)
+		if fm.recoverable {
+			_, err = db.Exec(`INSERT INTO chat_recoverable_message_join VALUES (1, ?, ?)`, fm.id, fixtureDate(fm.minute))
+			require.NoError(t, err)
+		}
+		if fm.chat == 0 {
+			continue
+		}
 		_, err = db.Exec(`INSERT INTO chat_message_join VALUES (?, ?, ?)`, fm.chat, fm.id, fixtureDate(fm.minute))
 		require.NoError(t, err)
 	}
@@ -127,20 +138,31 @@ func itoa(n int64) string {
 func newFixtureContacts(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	src := filepath.Join(dir, "Sources", "ABC")
+	writeAddressBook(t, dir, "ABC",
+		`INSERT INTO ZABCDRECORD VALUES (1, 'Alice', 'Smith', NULL, NULL), (2, 'Bob', 'Jones', NULL, NULL), (3, NULL, NULL, NULL, 'Acme Corp'), (4, 'Alice', 'Smith', NULL, NULL)`,
+		`INSERT INTO ZABCDPHONENUMBER VALUES (1, 1, '(555) 123-4567'), (2, 3, '+1 800 555 0000'), (3, 4, '+44 20 7946 0958')`,
+		`INSERT INTO ZABCDEMAILADDRESS VALUES (1, 2, 'Bob@Example.com')`,
+	)
+	writeAddressBook(t, dir, "DEF",
+		`INSERT INTO ZABCDRECORD VALUES (7, 'Bob', 'Jones', NULL, NULL)`,
+		`INSERT INTO ZABCDPHONENUMBER VALUES (1, 7, '+1 555 222 3333')`,
+		`INSERT INTO ZABCDEMAILADDRESS VALUES (1, 7, 'bob@example.com')`,
+	)
+	return dir
+}
+
+func writeAddressBook(t *testing.T, dir, source string, inserts ...string) {
+	t.Helper()
+	src := filepath.Join(dir, "Sources", source)
 	require.NoError(t, os.MkdirAll(src, 0o755))
 	db, err := sql.Open("sqlite", filepath.Join(src, "AddressBook-v22.abcddb"))
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
-	execAll(t, db,
+	execAll(t, db, append([]string{
 		`CREATE TABLE ZABCDRECORD (Z_PK INTEGER PRIMARY KEY, ZFIRSTNAME TEXT, ZLASTNAME TEXT, ZNICKNAME TEXT, ZORGANIZATION TEXT)`,
 		`CREATE TABLE ZABCDPHONENUMBER (Z_PK INTEGER PRIMARY KEY, ZOWNER INTEGER, ZFULLNUMBER TEXT)`,
 		`CREATE TABLE ZABCDEMAILADDRESS (Z_PK INTEGER PRIMARY KEY, ZOWNER INTEGER, ZADDRESS TEXT)`,
-		`INSERT INTO ZABCDRECORD VALUES (1, 'Alice', 'Smith', NULL, NULL), (2, 'Bob', 'Jones', NULL, NULL), (3, NULL, NULL, NULL, 'Acme Corp')`,
-		`INSERT INTO ZABCDPHONENUMBER VALUES (1, 1, '(555) 123-4567'), (2, 3, '+1 800 555 0000')`,
-		`INSERT INTO ZABCDEMAILADDRESS VALUES (1, 2, 'Bob@Example.com')`,
-	)
-	return dir
+	}, inserts...)...)
 }
 
 type fakeRunner struct {

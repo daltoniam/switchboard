@@ -70,7 +70,14 @@ func (m *imessage) checkAllowed(handles ...string) error {
 		return nil
 	}
 	for _, h := range handles {
-		if !m.allowlist[normalizeHandle(h)] {
+		allowed := false
+		for _, entry := range m.allowlist {
+			if sameHandle(entry, h) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
 			return fmt.Errorf("recipient %s is not in send_allowlist", h)
 		}
 	}
@@ -198,13 +205,12 @@ func (m *imessage) chatGUIDForSend(ctx context.Context, chatID int64) (string, e
 }
 
 func (m *imessage) recentDirectChat(ctx context.Context, handle string) (chatRow, bool, error) {
-	key := normalizeHandle(handle)
 	chats, err := m.loadChats(ctx, nil)
 	if err != nil {
 		return chatRow{}, false, err
 	}
 	for _, c := range chats {
-		if c.style != groupChatStyle && normalizeHandle(c.ident) == key {
+		if c.style != groupChatStyle && sameHandle(c.ident, handle) {
 			return c, true, nil
 		}
 	}
@@ -242,7 +248,7 @@ func (m *imessage) confirmSent(ctx context.Context, chatID int64, text string, s
 		}
 		select {
 		case <-ctx.Done():
-			return nil, 0, nil
+			return nil, 0, fmt.Errorf("messages accepted the send but confirmation was interrupted: %w", ctx.Err())
 		case <-time.After(confirmPollInterval):
 		}
 	}
