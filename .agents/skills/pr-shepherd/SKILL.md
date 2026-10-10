@@ -180,13 +180,13 @@ Every push invalidates prior local and remote terminal claims. Return to Step 2.
 
 Use `gh pr checks "$PR" --watch --interval 10` for an efficient blocking wait on the exact-head CI matrix. If it exits non-zero, fetch exact-head workflow and job evidence with `gh run list`, `gh run view`, and `gh run view --log-failed`.
 
-Overload reviews each pushed head on its own (it does not wait for CI). Wait for its `overload` commit status on the exact head to leave `pending`:
+Overload reviews each pushed head on its own (it does not wait for CI). Wait until the `overload` commit status on the exact head is final, that is `state` is `success`, `failure` or `error`. Right after a push there may be no `overload` status yet (the command below prints `null`); treat a missing status the same as `pending`:
 
 ```bash
 gh api "repos/$OWNER_REPO/commits/$HEAD_SHA/statuses" --jq '[.[]|select(.context=="overload")][0]|{state,description,target_url}'
 ```
 
-Do not inspect review comments until that status is final. A review usually takes 3–8 minutes; poll every 30 seconds for up to 20 minutes, then report BLOCKED with the status link.
+Then branch on the final state: `success` continues, `failure` means read overload's review and fix it, `error` means retry the review. Do not inspect review comments until the status is final. A review usually takes 3–8 minutes; poll every 30 seconds for up to 20 minutes, then report BLOCKED with the status link.
 
 Diagnose failures from the failed job log, not only the check summary. Reproduce and fix locally with `make ci`, commit, push, and re-bind.
 
