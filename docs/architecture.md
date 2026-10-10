@@ -202,6 +202,15 @@ integrations/
     networking.go            Domains, DNS records, load balancers, firewalls, VPCs, volumes handlers
     extras.go                Account, apps, regions, sizes, images, SSH keys, snapshots,
                              projects, billing, CDN, certificates, registry, tags handlers
+  imessage/
+    imessage.go              iMessage adapter (core, dispatch, read-only chat.db access, macOS-only defaults)
+    compact.yaml             Field compaction specs (4 read tools)
+    tools.go                 iMessage tool definitions (6 tools)
+    messages.go              Chats, transcripts, reactions, attachments, search, unread handlers
+    send.go                  Send via osascript (argv-only, allow_send gate, recipient allowlist, delivery confirm)
+    contacts.go              macOS AddressBook name/handle resolution (cached)
+    typedstream.go           NSAttributedString (attributedBody) plain-text decoder
+    db.go                    Read-only SQLite (modernc, pure Go) open, Apple epoch time helpers, search match func
   okta/
     okta.go                  Okta identity adapter (core, dispatch, SSWS HTTP helpers, FieldCompactionIntegration)
     compact.yaml             Field compaction specs (~16 list/get tools)

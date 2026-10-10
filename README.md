@@ -309,6 +309,10 @@ Environment variables override credential values but do not change the durable e
 | Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
 | Paperless-ngx | `url` | `PAPERLESS_URL` |
 | Recoll WebUI | `base_url` | `RECOLL_URL` |
+| iMessage (macOS) | `db_path` | `IMESSAGE_DB_PATH` (optional — default `~/Library/Messages/chat.db`) |
+| iMessage (macOS) | `contacts_dir` | `IMESSAGE_CONTACTS_DIR` (optional — default `~/Library/Application Support/AddressBook`) |
+| iMessage (macOS) | `allow_send` | `IMESSAGE_ALLOW_SEND` (optional — `true` enables sending; default off) |
+| iMessage (macOS) | `send_allowlist` | `IMESSAGE_SEND_ALLOWLIST` (optional — comma-separated phone numbers/emails allowed as recipients) |
 | AWS | `access_key_id` | `AWS_ACCESS_KEY_ID` |
 | AWS | `secret_access_key` | `AWS_SECRET_ACCESS_KEY` |
 | AWS | `session_token` | `AWS_SESSION_TOKEN` |
@@ -399,6 +403,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
 | Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |
 | Recoll WebUI | Base URL | Set `RECOLL_URL` to the Recoll WebUI root (for example `http://localhost:8080`) or enter it in the web UI |
+| iMessage (macOS) | Local macOS permissions | Enable in the web UI. Reading requires **Full Disk Access** for the `switchboard` binary (or the terminal running it) in System Settings → Privacy & Security. Sending requires `allow_send=true` and approving the **Automation → Messages** prompt on first send. |
 | PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |
 | Vercel | Personal Access Token | Set `VERCEL_API_TOKEN` env var or enter in web UI |
 | Microsoft 365 | OAuth (PKCE) | Web UI → Microsoft 365 → Setup, or set `MICROSOFT365_ACCESS_TOKEN` |

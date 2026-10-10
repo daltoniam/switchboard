@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 70)
-	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "metabase", "paperless", "recoll", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly"} {
+	assert.Len(t, m.cfg.Integrations, 71)
+	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "metabase", "paperless", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 70)
+	assert.Len(t, cfg.Integrations, 71)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 70)
+	assert.Len(t, cfg.Integrations, 71)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,7 +273,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 70)
+	assert.Len(t, cfg.Integrations, 71)
 
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
@@ -290,6 +290,7 @@ func TestDefaultConfig(t *testing.T) {
 		"paperless":        {"token", "url"},
 		"airflow":          {"base_url", "username", "password", "access_token"},
 		"recoll":           {"base_url"},
+		"imessage":         {"db_path", "contacts_dir", "allow_send", "send_allowlist"},
 		"aws":              {"access_key_id", "secret_access_key", "session_token", "region"},
 		"posthog":          {"api_key", "project_id", "base_url"},
 		"postgres":         {"connection_string", "host", "user", "read_only"},
@@ -733,13 +734,17 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "AIRFLOW_PASSWORD", m["airflow"]["password"])
 	assert.Equal(t, "AIRFLOW_ACCESS_TOKEN", m["airflow"]["access_token"])
 	assert.Equal(t, "RECOLL_URL", m["recoll"]["base_url"])
+	assert.Equal(t, "IMESSAGE_DB_PATH", m["imessage"]["db_path"])
+	assert.Equal(t, "IMESSAGE_CONTACTS_DIR", m["imessage"]["contacts_dir"])
+	assert.Equal(t, "IMESSAGE_ALLOW_SEND", m["imessage"]["allow_send"])
+	assert.Equal(t, "IMESSAGE_SEND_ALLOWLIST", m["imessage"]["send_allowlist"])
 	assert.Equal(t, "VERCEL_API_TOKEN", m["vercel"]["api_token"])
 	assert.Equal(t, "VERCEL_TEAM_ID", m["vercel"]["team_id"])
 	assert.Equal(t, "VERCEL_TEAM_SLUG", m["vercel"]["team_slug"])
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_BASE_URL", m["likec4excalidraw"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
-	assert.Len(t, m, 59)
+	assert.Len(t, m, 60)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
