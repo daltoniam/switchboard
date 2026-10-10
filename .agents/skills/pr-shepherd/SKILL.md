@@ -2,7 +2,7 @@
 name: pr-shepherd
 description: >
   Open or shepherd a daltoniam/switchboard PR until local make ci and remote
-  CI plus Crush review comments are clean. Never merge unless explicitly asked.
+  CI plus overload review comments are clean. Never merge unless explicitly asked.
 ---
 
 # PR Shepherd
@@ -70,14 +70,14 @@ Bind every claim to one exact head SHA. The PR is complete only when all conditi
 1. Local `make ci` passes on the exact head.
 2. The PR head still equals the local exact head.
 3. The PR's required GitHub checks for that exact head are `completed/success`. Discover live check names; typical lanes are `build`, `test`, `lint`, `security`, `rust-sdk`, and `compose`.
-4. The follow-on `Crush PR Review` `workflow_run` triggered after that exact-head CI run is completed/success. Because GitHub attributes `workflow_run` jobs to the default branch, do not require its run `headSha` to equal the PR head. Prefer the `Crush PR Review` check run posted onto the PR head when it exists.
-5. The remote review associated with that workflow run is submitted against the exact PR head. Collect its findings from GitHub PR comments and review threads. There is no confidence score and no generated body block to check.
+4. The `overload` commit status on the exact head is final: `success`, or `failure` only because overload requested changes that are now addressed (it becomes `success` once a later review of a new head finds nothing blocking). `pending` means the review is still running; `error` means it failed and must be retried, not ignored.
+5. Overload's review of the exact PR head is submitted (`commit_id == HEAD_SHA`). Collect its findings from GitHub PR comments and review threads. There is no confidence score and no generated body block to check.
 6. Every actionable automated-review comment encountered during shepherding has a recorded disposition and is addressed by code, tests, docs, or evidence.
 7. Automated review threads containing addressed findings are resolved only after an evidence-bearing reply when repository policy and permissions allow it. No actionable automated thread remains unresolved.
 8. Required branch-protection checks are successful, and `mergeStateStatus` has no blocking failure.
 9. A final re-fetch still returns the pinned head SHA.
 
-The remote review account is configured through a secret and is not fixed in repository code. Discover its login from the reviews and comments created during the exact-head `Crush PR Review` workflow run. Do not hard-code a bot identity.
+The reviewer is the overload GitHub App. Discover its login from the review that ends with an `<!-- overload-run:N -->` marker on the exact head; do not hard-code a bot identity. The `overload` status links to the run page with the full routing and timeline.
 
 ### Merge Authorization Contract
 
@@ -180,7 +180,13 @@ Every push invalidates prior local and remote terminal claims. Return to Step 2.
 
 Use `gh pr checks "$PR" --watch --interval 10` for an efficient blocking wait on the exact-head CI matrix. If it exits non-zero, fetch exact-head workflow and job evidence with `gh run list`, `gh run view`, and `gh run view --log-failed`.
 
-After CI passes, resolve the follow-on `Crush PR Review` run, then block on `gh run watch <review-run-id> --exit-status`. Do not inspect review comments until that run is completed/success.
+Overload reviews each pushed head on its own (it does not wait for CI). Wait for its `overload` commit status on the exact head to leave `pending`:
+
+```bash
+gh api "repos/$OWNER_REPO/commits/$HEAD_SHA/statuses" --jq '[.[]|select(.context=="overload")][0]|{state,description,target_url}'
+```
+
+Do not inspect review comments until that status is final. A review usually takes 3–8 minutes; poll every 30 seconds for up to 20 minutes, then report BLOCKED with the status link.
 
 Diagnose failures from the failed job log, not only the check summary. Reproduce and fix locally with `make ci`, commit, push, and re-bind.
 
@@ -220,7 +226,7 @@ Do not merge by default.
 1. Using the hosted `pr-shepherd` skill or `task pr:check`.
 2. Waiting on remote CI instead of reproducing and fixing with local `make ci`.
 3. Running `make ci` before a commit but not rerunning it after the commit changes HEAD.
-4. Looking for a confidence score or generated Findings block. Crush review posts PR comments.
+4. Looking for a confidence score or generated Findings block. Overload posts a PR review with inline comments.
 5. Treating a successful remote review workflow as proof that its comments are resolved.
 6. Hard-coding the remote review account identity.
 7. Stopping after a fix push without rebinding local gate, remote CI, review comments, and threads.
@@ -236,7 +242,7 @@ Report:
 - exact terminal head SHA;
 - exact-head `make ci` result;
 - exact-head CI run URL and success;
-- correlated `Crush PR Review` workflow-run URL and success;
+- exact-head `overload` commit status, its description and run link;
 - automated PR comments addressed with fixing commits and tests;
 - unresolved actionable automated thread count;
 - mergeability and merge state;
@@ -256,14 +262,16 @@ gh api "repos/$OWNER_REPO/commits/$HEAD_SHA/check-runs" \
   --jq '{total:.total_count,runs:[.check_runs[]|{id,name,status,conclusion,details_url,head_sha}]}'
 ```
 
-Require exact-head required checks to be `completed` and `success`. After the exact-head CI run completes, list review runs:
+Require exact-head required checks to be `completed` and `success`. Then read overload's status and review for the exact head:
 
 ```bash
-gh run list --workflow "Crush PR Review" --event workflow_run --limit 20 \
-  --json databaseId,name,event,status,conclusion,url,headSha,createdAt,updatedAt
+gh api "repos/$OWNER_REPO/commits/$HEAD_SHA/statuses" \
+  --jq '[.[]|select(.context=="overload")][0]|{state,description,target_url}'
+gh api "repos/$OWNER_REPO/pulls/$PR/reviews" \
+  --jq '[.[]|select(.body|test("overload-run:"))|{user:.user.login,state,commit_id,submitted_at}]|last'
 ```
 
-Select the run created immediately after the exact-head CI run completed. Require the review or comments created during that run to target this PR and, for a review event, to have `commit_id == HEAD_SHA`.
+Require the latest overload review to have `commit_id == HEAD_SHA`. If the head has no overload review and the status is `success` with "No issues found" or "noted as comments", overload had nothing new to post for that head.
 
 Immediately before a terminal-clean report:
 
