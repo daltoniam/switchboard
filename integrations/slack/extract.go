@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -144,8 +143,7 @@ func ExtractAllFromBrowsersForWeb() (int, error) {
 		return 0, fmt.Errorf("no Slack workspaces with xoxc-* tokens found in any browser or Slack app")
 	}
 
-	home, _ := os.UserHomeDir()
-	fp := filepath.Join(home, ".slack-mcp-tokens.json")
+	fp := tokenFilePath()
 	store := &tokenStore{
 		workspaces: make(map[string]*workspace),
 		filePath:   fp,
@@ -180,8 +178,7 @@ func SaveTokensForWeb(token, cookie, teamID string) (*TokenInfo, error) {
 		return nil, fmt.Errorf("token is required")
 	}
 
-	home, _ := os.UserHomeDir()
-	fp := filepath.Join(home, ".slack-mcp-tokens.json")
+	fp := tokenFilePath()
 
 	// Load existing file to preserve other workspaces.
 	store := &tokenStore{
@@ -220,8 +217,7 @@ func SaveTokensForWeb(token, cookie, teamID string) (*TokenInfo, error) {
 // GetTokenInfoForWeb reads the current token status from the persistent file.
 // Exported for use by the web UI server.
 func GetTokenInfoForWeb() *TokenInfo {
-	home, _ := os.UserHomeDir()
-	fp := filepath.Join(home, ".slack-mcp-tokens.json")
+	fp := tokenFilePath()
 
 	data, err := os.ReadFile(fp)
 	if err != nil {
@@ -288,8 +284,7 @@ type ConfiguredWorkspaceInfo struct {
 
 // GetConfiguredWorkspacesForWeb returns all workspaces from the token file.
 func GetConfiguredWorkspacesForWeb() ([]ConfiguredWorkspaceInfo, string) {
-	home, _ := os.UserHomeDir()
-	fp := filepath.Join(home, ".slack-mcp-tokens.json")
+	fp := tokenFilePath()
 
 	data, err := os.ReadFile(fp)
 	if err != nil {
@@ -318,8 +313,7 @@ func GetConfiguredWorkspacesForWeb() ([]ConfiguredWorkspaceInfo, string) {
 
 // SetDefaultWorkspaceForWeb updates the default workspace in the token file.
 func SetDefaultWorkspaceForWeb(teamID string) error {
-	home, _ := os.UserHomeDir()
-	fp := filepath.Join(home, ".slack-mcp-tokens.json")
+	fp := tokenFilePath()
 
 	store := &tokenStore{
 		workspaces: make(map[string]*workspace),

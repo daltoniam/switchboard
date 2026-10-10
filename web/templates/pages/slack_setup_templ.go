@@ -15,19 +15,21 @@ import (
 )
 
 type SlackSetupData struct {
-	HasToken       bool
-	HasCookie      bool
-	TokenStatus    string
-	TokenAge       float64
-	TokenSource    string
-	CanAutoExtract bool
-	ExtractSnippet string
-	Healthy        bool
-	FlashResult    string
-	FlashError     string
-	WorkspaceCount int
-	DefaultTeamID  string
-	Workspaces     []SlackWorkspaceItem
+	Enabled           bool
+	UserTokenManifest string
+	HasToken          bool
+	HasCookie         bool
+	TokenStatus       string
+	TokenAge          float64
+	TokenSource       string
+	CanAutoExtract    bool
+	ExtractSnippet    string
+	Healthy           bool
+	FlashResult       string
+	FlashError        string
+	WorkspaceCount    int
+	DefaultTeamID     string
+	Workspaces        []SlackWorkspaceItem
 }
 
 type SlackWorkspaceItem struct {
@@ -115,7 +117,7 @@ func SlackSetup(page layouts.PageData, data SlackSetupData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashResult)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 65, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 67, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -138,7 +140,7 @@ func SlackSetup(page layouts.PageData, data SlackSetupData) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashError)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 68, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 70, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -149,12 +151,20 @@ func SlackSetup(page layouts.PageData, data SlackSetupData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " <form method=\"POST\" action=\"/api/slack/set-enabled\"><div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">Enabled</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.Toggle("enabled", data.Enabled).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><button type=\"submit\" class=\"btn\">Save</button></div></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.HasToken {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">Current Token</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div class=\"card\"><div class=\"card-header\"><div class=\"card-title\">Current Token</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -174,200 +184,236 @@ func SlackSetup(page layouts.PageData, data SlackSetupData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><div class=\"slack-token-meta\"><span>Source: <strong>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div><div class=\"slack-token-meta\"><span>Source: <strong>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.TokenSource)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 83, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 94, Col: 45}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</strong></span> <span>Cookie: <strong>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</strong></span> <span>Cookie:  <strong>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.HasCookie {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "Present")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "Present")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "Missing")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "Missing")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</strong></span> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</strong></span> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if data.HasCookie {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<span>Auto-refresh: <strong>Enabled</strong> (via cookie every 4h)</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<span>Auto-refresh: <strong>Enabled</strong> (via cookie every 4h)</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(data.Workspaces) > 1 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Default Workspace</div><p class=\"slack-desc\">You have ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Default Workspace</div><p class=\"slack-desc\">You have ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(data.WorkspaceCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 102, Col: 47}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 115, Col: 47}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, " workspaces configured. The default workspace is used when no team_id is specified.</p><form method=\"POST\" action=\"/api/slack/set-default\" style=\"margin-top: 0.75rem;\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, " workspaces configured. The default workspace is used when no team_id is specified.</p><form method=\"POST\" action=\"/api/slack/set-default\" style=\"margin-top: 0.75rem;\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, ws := range data.Workspaces {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<label style=\"display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; cursor: pointer;\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<label style=\"display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; cursor: pointer;\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if ws.IsDefault {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<input type=\"radio\" name=\"team_id\" value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<input type=\"radio\" name=\"team_id\" value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var7 string
 						templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(ws.TeamID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 108, Col: 60}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 121, Col: 60}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" checked> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" checked> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<input type=\"radio\" name=\"team_id\" value=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<input type=\"radio\" name=\"team_id\" value=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var8 string
 						templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(ws.TeamID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 110, Col: 60}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 123, Col: 60}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"> ")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\"> ")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<span><strong>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<span><strong>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(ws.TeamName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 113, Col: 29}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 126, Col: 29}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</strong> <span style=\"color: var(--text-muted); font-size: 0.85rem;\">(")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</strong> <span style=\"color: var(--text-muted); font-size: 0.85rem;\">(")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var10 string
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(ws.TeamID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 114, Col: 80}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 127, Col: 80}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, ")</span></span></label> ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, ")</span></span></label> ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<button type=\"submit\" class=\"btn\" style=\"margin-top: 0.5rem;\">Set Default</button></form></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<button type=\"submit\" class=\"btn\" style=\"margin-top: 0.5rem;\">Set Default</button></form></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.CanAutoExtract {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Option 1: Auto-Extract from Browser</div><p class=\"slack-desc\">Automatically extracts session tokens and cookies for <strong>all workspaces</strong> from Chrome, Brave, or the Slack desktop app. Requires macOS with at least one of these installed and signed in to Slack.</p><form method=\"POST\" action=\"/api/slack/extract-browser\" style=\"margin-top: 0.75rem;\"><button type=\"submit\" class=\"btn\">Extract All Workspaces</button></form></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Option 1: Auto-Extract from Browser</div><p class=\"slack-desc\">Automatically extracts session tokens and cookies for <strong>all workspaces</strong> from Chrome, Brave, or the Slack desktop app. Requires macOS with at least one of these installed and signed in to Slack.</p><form method=\"POST\" action=\"/api/slack/extract-browser\" style=\"margin-top: 0.75rem;\"><button type=\"submit\" class=\"btn\">Extract All Workspaces</button></form></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, " <div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, " <div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.CanAutoExtract {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "Option 2: Manual Browser Extraction")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "Option 2: Manual Browser Extraction")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "Extract from Browser")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "Option 1: Extract from Browser")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</div><p class=\"slack-desc\">Extract your session token by running a script in your browser's developer console. Works on any platform and any browser.</p><div class=\"slack-steps\"><div class=\"slack-step\"><div class=\"slack-step-num\">1</div><div><strong>Open Slack in your browser</strong><p class=\"slack-step-detail\">Navigate to <a href=\"https://app.slack.com\" target=\"_blank\" class=\"slack-link\">app.slack.com</a> and make sure you're signed in to your workspace.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">2</div><div><strong>Open Developer Console</strong><p class=\"slack-step-detail\">Press <kbd>F12</kbd> (or <kbd>Cmd+Option+J</kbd> on Mac) to open DevTools, then click the <strong>Console</strong> tab.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">3</div><div><strong>Run the extraction script</strong><p class=\"slack-step-detail\">Copy and paste this script into the console, then press Enter:</p><div class=\"slack-code-block\"><pre><code id=\"extract-snippet\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</div><p class=\"slack-desc\">Extract your session token by running a script in your browser's developer console. Works on any platform and any browser.</p><div class=\"slack-steps\"><div class=\"slack-step\"><div class=\"slack-step-num\">1</div><div><strong>Open Slack in your browser</strong><p class=\"slack-step-detail\">Navigate to <a href=\"https://app.slack.com\" target=\"_blank\" class=\"slack-link\">app.slack.com</a> and make sure you're signed in to your workspace.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">2</div><div><strong>Open Developer Console</strong><p class=\"slack-step-detail\">Press <kbd>F12</kbd> (or <kbd>Cmd+Option+J</kbd> on Mac) to open DevTools, then click the <strong>Console</strong> tab.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">3</div><div><strong>Run the extraction script</strong><p class=\"slack-step-detail\">Copy and paste this script into the console, then press Enter:</p><div class=\"slack-code-block\"><pre><code id=\"extract-snippet\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(data.ExtractSnippet)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 166, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 178, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</code></pre><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"copySnippet()\" id=\"copy-btn\">Copy</button></div></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">4</div><div><strong>Paste the result below</strong><p class=\"slack-step-detail\">A prompt will appear with a JSON string. Copy it and paste it here:</p><form method=\"POST\" action=\"/api/slack/save-tokens\" style=\"margin-top: 0.5rem;\"><div class=\"form-group\"><textarea class=\"form-input slack-textarea\" name=\"extracted_json\" placeholder='{\"token\":\"xoxc-...\",\"cookie\":\"xoxd-...\"}' rows=\"3\"></textarea></div><button type=\"submit\" class=\"btn\">Save Tokens</button></form></div></div></div></div><div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Manual Token Entry</div><p class=\"slack-desc\">If you already have your token and cookie, enter them directly.</p><form method=\"POST\" action=\"/api/slack/save-tokens\" style=\"margin-top: 0.75rem;\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</code></pre><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"copySnippet()\" id=\"copy-btn\">Copy</button></div></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">4</div><div><strong>Paste the result below</strong><p class=\"slack-step-detail\">A prompt will appear with a JSON string. Copy it and paste it here:</p><form method=\"POST\" action=\"/api/slack/save-tokens\" style=\"margin-top: 0.5rem;\"><div class=\"form-group\"><textarea class=\"form-input slack-textarea\" name=\"extracted_json\" placeholder='{\"token\":\"xoxc-...\",\"cookie\":\"xoxd-...\"}' rows=\"3\"></textarea></div><button type=\"submit\" class=\"btn\">Save Tokens</button></form></div></div></div></div><div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.FormGroup("Token (xoxc-...)", "token", "text", "", "xoxc-...").Render(ctx, templ_7745c5c3_Buffer)
+			if data.CanAutoExtract {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "Option 3: User Token")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "Option 2: User Token")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div><p class=\"slack-desc\">Create a Slack app that acts as you. Its user token carries no browser session, so it cannot sign you out of Slack. Use it for workspaces that require two-factor sign-in.</p><div class=\"slack-steps\"><div class=\"slack-step\"><div class=\"slack-step-num\">1</div><div><strong>Create the app from a manifest</strong><p class=\"slack-step-detail\">Open <a href=\"https://api.slack.com/apps?new_app=1\" target=\"_blank\" class=\"slack-link\">api.slack.com/apps</a>, choose <strong>From a manifest</strong>, pick the workspace, and paste this manifest:</p><div class=\"slack-code-block\"><pre><code id=\"user-token-manifest\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.FormGroup("Cookie (xoxd-...)", "cookie", "text", "", "xoxd-...").Render(ctx, templ_7745c5c3_Buffer)
+			var templ_7745c5c3_Var12 string
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(data.UserTokenManifest)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/slack_setup.templ`, Line: 216, Col: 67}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<button type=\"submit\" class=\"btn\">Save Tokens</button></form></div><script>\n\t\t\tfunction copySnippet() {\n\t\t\t\tvar text = document.getElementById('extract-snippet').textContent;\n\t\t\t\tnavigator.clipboard.writeText(text).then(function() {\n\t\t\t\t\tvar btn = document.getElementById('copy-btn');\n\t\t\t\t\tbtn.textContent = 'Copied!';\n\t\t\t\t\tsetTimeout(function() { btn.textContent = 'Copy'; }, 2000);\n\t\t\t\t});\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</code></pre><button type=\"button\" class=\"btn btn-sm btn-outline\" onclick=\"copyUserTokenManifest()\" id=\"copy-manifest-btn\">Copy</button></div></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">2</div><div><strong>Install the app</strong><p class=\"slack-step-detail\">Open <strong>OAuth &amp; Permissions</strong>, choose <strong>Install to Workspace</strong>, and copy the <strong>User OAuth Token</strong>. It starts with <code>xoxp-</code>.</p></div></div><div class=\"slack-step\"><div class=\"slack-step-num\">3</div><div><strong>Paste the token below</strong><p class=\"slack-step-detail\">Switchboard checks the token with Slack before saving it. Repeat these steps for each workspace.</p><form method=\"POST\" action=\"/api/slack/add-user-token\" style=\"margin-top: 0.5rem;\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.FormGroup("User OAuth Token", "user_token", "password", "", "xoxp-...").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<button type=\"submit\" class=\"btn\">Add Workspace</button></form></div></div></div></div><div class=\"card\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">Manual Token Entry</div><p class=\"slack-desc\">If you already have your token and cookie, enter them directly.</p><form method=\"POST\" action=\"/api/slack/save-tokens\" style=\"margin-top: 0.75rem;\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.FormGroup("Token (xoxc-...)", "token", "password", "", "xoxc-...").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.FormGroup("Cookie (xoxd-...)", "cookie", "password", "", "xoxd-...").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<button type=\"submit\" class=\"btn\">Save Tokens</button></form></div><script>\n\t\t\tfunction copyUserTokenManifest() {\n\t\t\t\tvar text = document.getElementById('user-token-manifest').textContent;\n\t\t\t\tnavigator.clipboard.writeText(text).then(function() {\n\t\t\t\t\tvar btn = document.getElementById('copy-manifest-btn');\n\t\t\t\t\tbtn.textContent = 'Copied!';\n\t\t\t\t\tsetTimeout(function() { btn.textContent = 'Copy'; }, 2000);\n\t\t\t\t});\n\t\t\t}\n\t\t\tfunction copySnippet() {\n\t\t\t\tvar text = document.getElementById('extract-snippet').textContent;\n\t\t\t\tnavigator.clipboard.writeText(text).then(function() {\n\t\t\t\t\tvar btn = document.getElementById('copy-btn');\n\t\t\t\t\tbtn.textContent = 'Copied!';\n\t\t\t\t\tsetTimeout(function() { btn.textContent = 'Copy'; }, 2000);\n\t\t\t\t});\n\t\t\t}\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

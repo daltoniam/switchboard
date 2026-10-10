@@ -104,6 +104,8 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/slack/extract-browser", w.handleSlackExtractBrowser)
 	mux.HandleFunc("POST /api/slack/save-tokens", w.handleSlackSaveTokens)
 	mux.HandleFunc("POST /api/slack/set-default", w.handleSlackSetDefault)
+	mux.HandleFunc("POST /api/slack/set-enabled", w.handleSlackSetEnabled)
+	mux.HandleFunc("POST /api/slack/add-user-token", w.handleSlackAddUserToken)
 
 	mux.HandleFunc("GET /integrations/github/setup", w.handleGitHubSetup)
 	mux.HandleFunc("POST /api/github/oauth/start", w.handleGitHubOAuthStart)
@@ -926,18 +928,31 @@ func (w *WebServer) handleHealthRefresh(rw http.ResponseWriter, r *http.Request)
 	http.Redirect(rw, r, r.Referer(), http.StatusSeeOther)
 }
 
+// slackLocalOnly refuses requests that did not come from this machine's own
+// config UI. The UI has no login, so without it any website the user visits
+// could add tokens or change the default workspace (cross-site request
+// forgery), or read workspace names through DNS rebinding.
+func (w *WebServer) slackLocalOnly(rw http.ResponseWriter, r *http.Request, mutation bool) bool {
+	if w.localRequest(r, mutation, true) {
+		return true
+	}
+	http.Error(rw, "Local same-origin request required", http.StatusForbidden)
+	return false
+}
+
 func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 	info := slackInt.GetTokenInfoForWeb()
 
 	ic, exists := w.services.Config.GetIntegration("slack")
 
+	// Read health from the running integration. Re-running Configure here raced
+	// in-flight tool calls and resent every workspace's credentials on each load.
 	var healthy bool
-	if info.HasToken {
-		integration, ok := w.services.Registry.Get("slack")
-		if ok && exists {
-			if err := integration.Configure(r.Context(), ic.Credentials); err == nil {
-				healthy = integration.Healthy(r.Context())
-			}
+	if info.HasToken && exists && ic.Enabled {
+		if integration, ok := w.services.Registry.Get("slack"); ok {
+			ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+			healthy = integration.Healthy(ctx)
+			cancel()
 		}
 	}
 
@@ -956,16 +971,18 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 
 	page := w.pageData(r, "Slack Setup", "/integrations")
 	data := pages.SlackSetupData{
-		HasToken:       info.HasToken,
-		HasCookie:      info.HasCookie,
-		TokenStatus:    tokenStatus,
-		TokenAge:       info.AgeHours,
-		TokenSource:    tokenSource,
-		CanAutoExtract: slackInt.CanExtractFromBrowser(),
-		ExtractSnippet: slackInt.ExtractionSnippet(),
-		Healthy:        healthy,
-		WorkspaceCount: info.WorkspaceCount,
-		DefaultTeamID:  info.TeamID,
+		Enabled:           exists && ic.Enabled,
+		UserTokenManifest: slackInt.UserTokenManifest,
+		HasToken:          info.HasToken,
+		HasCookie:         info.HasCookie,
+		TokenStatus:       tokenStatus,
+		TokenAge:          info.AgeHours,
+		TokenSource:       tokenSource,
+		CanAutoExtract:    slackInt.CanExtractFromBrowser(),
+		ExtractSnippet:    slackInt.ExtractionSnippet(),
+		Healthy:           healthy,
+		WorkspaceCount:    info.WorkspaceCount,
+		DefaultTeamID:     info.TeamID,
 	}
 
 	// Populate workspace list for the default workspace selector.
@@ -989,6 +1006,9 @@ func (w *WebServer) handleSlackSetup(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (w *WebServer) handleSlackListWorkspaces(rw http.ResponseWriter, r *http.Request) {
+	if !w.slackLocalOnly(rw, r, false) {
+		return
+	}
 	rw.Header().Set("Content-Type", "application/json")
 	workspaces, err := slackInt.ListWorkspacesFromBrowsers()
 	if err != nil {
@@ -999,12 +1019,15 @@ func (w *WebServer) handleSlackListWorkspaces(rw http.ResponseWriter, r *http.Re
 }
 
 func (w *WebServer) handleSlackExtractBrowser(rw http.ResponseWriter, r *http.Request) {
+	if !w.slackLocalOnly(rw, r, true) {
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
 		return
 	}
 
-	count, err := slackInt.ExtractAllFromBrowsersForWeb()
+	count, err := slackExtractAll()
 	if err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
 		return
@@ -1019,7 +1042,7 @@ func (w *WebServer) handleSlackExtractBrowser(rw http.ResponseWriter, r *http.Re
 	ic.Credentials[mcp.CredKeyTokenSource] = "browser"
 	_ = w.services.Config.SetIntegration("slack", ic)
 
-	http.Redirect(rw, r, fmt.Sprintf("/integrations/slack/setup?result=Extracted+%d+workspaces+from+browser", count), http.StatusSeeOther)
+	w.applySlackAndRedirect(rw, r, fmt.Sprintf("Extracted %d workspaces from browser", count))
 }
 
 func (w *WebServer) handleGitHubSetup(rw http.ResponseWriter, r *http.Request) {
@@ -1367,6 +1390,9 @@ func (w *WebServer) handleSentrySaveToken(rw http.ResponseWriter, r *http.Reques
 }
 
 func (w *WebServer) handleSlackSaveTokens(rw http.ResponseWriter, r *http.Request) {
+	if !w.slackLocalOnly(rw, r, true) {
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
 		return
@@ -1395,7 +1421,7 @@ func (w *WebServer) handleSlackSaveTokens(rw http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	_, err := slackInt.SaveTokensForWeb(token, cookie, "")
+	_, err := slackSaveTokens(token, cookie, "")
 	if err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
 		return
@@ -1412,10 +1438,13 @@ func (w *WebServer) handleSlackSaveTokens(rw http.ResponseWriter, r *http.Reques
 	ic.Credentials[mcp.CredKeyTokenSource] = "browser"
 	_ = w.services.Config.SetIntegration("slack", ic)
 
-	http.Redirect(rw, r, "/integrations/slack/setup?result=Tokens+saved+successfully", http.StatusSeeOther)
+	w.applySlackAndRedirect(rw, r, "Tokens saved successfully")
 }
 
 func (w *WebServer) handleSlackSetDefault(rw http.ResponseWriter, r *http.Request) {
+	if !w.slackLocalOnly(rw, r, true) {
+		return
+	}
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
 		return
@@ -1427,7 +1456,7 @@ func (w *WebServer) handleSlackSetDefault(rw http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := slackInt.SetDefaultWorkspaceForWeb(teamID); err != nil {
+	if err := slackSetDefault(teamID); err != nil {
 		http.Redirect(rw, r, "/integrations/slack/setup?error="+strings.ReplaceAll(err.Error(), " ", "+"), http.StatusSeeOther)
 		return
 	}
@@ -1440,7 +1469,123 @@ func (w *WebServer) handleSlackSetDefault(rw http.ResponseWriter, r *http.Reques
 	ic.Credentials["team_id"] = teamID
 	_ = w.services.Config.SetIntegration("slack", ic)
 
-	http.Redirect(rw, r, "/integrations/slack/setup?result=Default+workspace+updated", http.StatusSeeOther)
+	w.applySlackAndRedirect(rw, r, "Default workspace updated")
+}
+
+// handleSlackSetEnabled flips only the enabled flag. The Slack setup page has
+// no cred_* fields, so the generic integration save would wipe credentials.
+func (w *WebServer) handleSlackSetEnabled(rw http.ResponseWriter, r *http.Request) {
+	if !w.slackLocalOnly(rw, r, true) {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	w.configMu.Lock()
+	ic, _ := w.services.Config.GetIntegration("slack")
+	ic = cloneIntegrationConfig(ic)
+	ic.Enabled = r.FormValue("enabled") == "true"
+	err := w.services.Config.SetIntegration("slack", ic)
+	w.configMu.Unlock()
+	if err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error=Failed+to+save:+"+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+	applyErr := w.applySlackToRunning(r.Context())
+	w.notifyConfigChanged()
+	if applyErr != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+url.QueryEscape("Saved, but Slack did not start: "+applyErr.Error()), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(rw, r, "/integrations/slack/setup?result=Configuration+saved", http.StatusSeeOther)
+}
+
+// applySlackAndRedirect applies the saved Slack state to the running
+// integration, refreshes search visibility, and reports the outcome.
+func (w *WebServer) applySlackAndRedirect(rw http.ResponseWriter, r *http.Request, result string) {
+	applyErr := w.applySlackToRunning(r.Context())
+	w.notifyConfigChanged()
+	if applyErr != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+url.QueryEscape(result+", but Slack did not reload: "+applyErr.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(rw, r, "/integrations/slack/setup?result="+url.QueryEscape(result), http.StatusSeeOther)
+}
+
+// applySlackToRunning pushes the saved Slack config into the registered
+// integration. Rebuilding the search index alone leaves the running client on
+// its old credentials and its cookie refresh running after a disable.
+func (w *WebServer) applySlackToRunning(ctx context.Context) error {
+	integration, ok := w.services.Registry.Get("slack")
+	if !ok {
+		return nil
+	}
+	ic, _ := w.services.Config.GetIntegration("slack")
+	if ic == nil || !ic.Enabled {
+		if s, ok := integration.(interface{ Stop() }); ok {
+			s.Stop()
+		}
+		return nil
+	}
+	return mcp.ConfigureIntegration(ctx, integration, cloneIntegrationConfig(ic))
+}
+
+// Replaced in tests so no test contacts Slack or writes the real token file.
+var (
+	slackVerifyUserToken  = slackInt.VerifyUserToken
+	slackSaveUserToken    = slackInt.SaveUserTokenForWeb
+	slackUserTokenRevoked = slackInt.UserTokenRevoked
+	slackExtractAll       = slackInt.ExtractAllFromBrowsersForWeb
+	slackSaveTokens       = slackInt.SaveTokensForWeb
+	slackSetDefault       = slackInt.SetDefaultWorkspaceForWeb
+)
+
+// handleSlackAddUserToken verifies a pasted user OAuth token (xoxp-) and saves
+// it under the workspace auth.test reports. It never writes config.json
+// credentials or changes Enabled.
+func (w *WebServer) handleSlackAddUserToken(rw http.ResponseWriter, r *http.Request) {
+	if !w.slackLocalOnly(rw, r, true) {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+	token := strings.TrimSpace(r.FormValue("user_token"))
+	if token == "" {
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+url.QueryEscape("Paste a user token (xoxp-…)"), http.StatusSeeOther)
+		return
+	}
+
+	if dead, err := slackUserTokenRevoked(token); err != nil || dead {
+		msg := "Token not added: Slack already rejected this token. Create a new one in the app's OAuth & Permissions page."
+		if err != nil {
+			msg = "Token not added: " + err.Error()
+		}
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+url.QueryEscape(msg), http.StatusSeeOther)
+		return
+	}
+
+	verified, err := slackVerifyUserToken(r.Context(), token)
+	if err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+url.QueryEscape("Token not added: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+	if err := slackSaveUserToken(verified); err != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+url.QueryEscape("Failed to save: "+err.Error()), http.StatusSeeOther)
+		return
+	}
+	applyErr := w.applySlackToRunning(r.Context())
+	w.notifyConfigChanged()
+	if applyErr != nil {
+		http.Redirect(rw, r, "/integrations/slack/setup?error="+url.QueryEscape("Added "+verified.TeamName+", but Slack did not reload: "+applyErr.Error()), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(rw, r, "/integrations/slack/setup?result="+url.QueryEscape("Added "+verified.TeamName), http.StatusSeeOther)
 }
 
 func (w *WebServer) handleNotionSetup(rw http.ResponseWriter, r *http.Request) {

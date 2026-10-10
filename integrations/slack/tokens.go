@@ -47,14 +47,37 @@ type tokenStore struct {
 	workspaces    map[string]*workspace // keyed by team_id
 	defaultTeamID string
 	filePath      string
+	removed       map[string]bool // team IDs deleted since the last save; saveToFile drops them from the file
+	// defaultChanged is set when this store chose the default itself, so a save
+	// does not write a stale default over one another writer just picked.
+	defaultChanged bool
+}
+
+// tokenFilePath is the one home of the persisted token file's location.
+func tokenFilePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".slack-mcp-tokens.json")
 }
 
 func newTokenStore() *tokenStore {
-	home, _ := os.UserHomeDir()
 	return &tokenStore{
 		workspaces: make(map[string]*workspace),
-		filePath:   filepath.Join(home, ".slack-mcp-tokens.json"),
+		filePath:   tokenFilePath(),
 	}
+}
+
+// replaceWith swaps in other's contents under one lock, so readers see
+// either the old workspaces or the new ones, never a half-built store.
+func (ts *tokenStore) replaceWith(other *tokenStore) {
+	other.mu.RLock()
+	defer other.mu.RUnlock()
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.workspaces = other.workspaces
+	ts.defaultTeamID = other.defaultTeamID
+	ts.filePath = other.filePath
+	ts.removed = other.removed
+	ts.defaultChanged = other.defaultChanged
 }
 
 func (ts *tokenStore) getWorkspace(teamID string) *workspace {
@@ -85,6 +108,7 @@ func (ts *tokenStore) setDefault(teamID string) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	ts.defaultTeamID = teamID
+	ts.defaultChanged = true
 }
 
 func (ts *tokenStore) allWorkspaces() []*workspace {
@@ -104,8 +128,10 @@ func (ts *tokenStore) setWorkspace(ws *workspace) {
 	defer ts.mu.Unlock()
 	ws.UpdatedAt = time.Now()
 	ts.workspaces[ws.TeamID] = ws
+	delete(ts.removed, ws.TeamID)
 	if ts.defaultTeamID == "" {
 		ts.defaultTeamID = ws.TeamID
+		ts.defaultChanged = true
 	}
 }
 
@@ -113,7 +139,12 @@ func (ts *tokenStore) removeWorkspace(teamID string) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	delete(ts.workspaces, teamID)
+	if ts.removed == nil {
+		ts.removed = make(map[string]bool)
+	}
+	ts.removed[teamID] = true
 	if ts.defaultTeamID == teamID {
+		ts.defaultChanged = true
 		ts.defaultTeamID = ""
 		for id := range ts.workspaces {
 			if ts.defaultTeamID == "" || id < ts.defaultTeamID {
@@ -130,13 +161,30 @@ func (ts *tokenStore) updateTokens(teamID, token, cookie string) {
 	if !ok {
 		ws = &workspace{TeamID: teamID}
 		ts.workspaces[teamID] = ws
+		delete(ts.removed, teamID)
 		if ts.defaultTeamID == "" {
 			ts.defaultTeamID = teamID
+			ts.defaultChanged = true
 		}
 	}
 	ws.Token = token
 	ws.Cookie = cookie
 	ws.UpdatedAt = time.Now()
+}
+
+// replaceTokensIf updates the workspace's token and cookie only while they
+// still equal oldToken and oldCookie, and reports whether it did.
+func (ts *tokenStore) replaceTokensIf(teamID, oldToken, oldCookie, token, cookie string) bool {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ws, ok := ts.workspaces[teamID]
+	if !ok || ws.Token != oldToken || ws.Cookie != oldCookie {
+		return false
+	}
+	ws.Token = token
+	ws.Cookie = cookie
+	ws.UpdatedAt = time.Now()
+	return true
 }
 
 // --- backward-compatible file persistence ---
@@ -181,10 +229,9 @@ func (ts *tokenStore) loadFromFile() {
 				Cookie:   entry.Cookie,
 				Source:   entry.Source,
 			}
+			// An unreadable timestamp stays zero, so any dated copy wins the merge.
 			if t, err := time.Parse(time.RFC3339, entry.UpdatedAt); err == nil {
 				ws.UpdatedAt = t
-			} else {
-				ws.UpdatedAt = time.Now()
 			}
 			ts.workspaces[ws.TeamID] = ws
 		}
@@ -219,8 +266,6 @@ func (ts *tokenStore) loadFromFile() {
 	}
 	if t, err := time.Parse(time.RFC3339, legacy.UpdatedAt); err == nil {
 		ws.UpdatedAt = t
-	} else {
-		ws.UpdatedAt = time.Now()
 	}
 	ts.workspaces[teamID] = ws
 	if ts.defaultTeamID == "" {
@@ -228,20 +273,47 @@ func (ts *tokenStore) loadFromFile() {
 	}
 }
 
+// tokenFileMu serializes every read-merge-write of the token file in this
+// process, so concurrent saves cannot drop each other's workspaces.
+var tokenFileMu sync.Mutex
+
+// saveToFile merges this store into the file instead of overwriting it.
+// Several stores hold copies of the file (the running server, web saves), so
+// a plain overwrite erased entries another writer had just added. Per team,
+// the newer entry wins; workspaces this store removed are deleted.
 func (ts *tokenStore) saveToFile() error {
+	tokenFileMu.Lock()
+	defer tokenFileMu.Unlock()
+
+	onDisk := &tokenStore{workspaces: make(map[string]*workspace), filePath: ts.filePath}
+	onDisk.loadFromFile()
+
 	ts.mu.RLock()
+	merged := onDisk.workspaces
+	for id := range ts.removed {
+		delete(merged, id)
+	}
+	for id, ws := range ts.workspaces {
+		if disk, ok := merged[id]; ok && !ws.UpdatedAt.After(disk.UpdatedAt) {
+			continue // the file's copy is as new or newer; ties go to the file
+		}
+		merged[id] = ws
+	}
 	v2 := tokenFileV2{
 		Version:       2,
-		DefaultTeamID: ts.defaultTeamID,
+		DefaultTeamID: onDisk.defaultTeamID,
 	}
-	for _, ws := range ts.workspaces {
+	if ts.defaultChanged || v2.DefaultTeamID == "" {
+		v2.DefaultTeamID = ts.defaultTeamID
+	}
+	for _, ws := range merged {
 		v2.Workspaces = append(v2.Workspaces, &tokenFileEntry{
 			TeamID:    ws.TeamID,
 			TeamName:  ws.TeamName,
 			Token:     ws.Token,
 			Cookie:    ws.Cookie,
 			Source:    ws.Source,
-			UpdatedAt: ws.UpdatedAt.UTC().Format(time.RFC3339),
+			UpdatedAt: ws.UpdatedAt.UTC().Format(time.RFC3339Nano),
 		})
 	}
 	ts.mu.RUnlock()
@@ -259,7 +331,14 @@ func (ts *tokenStore) saveToFile() error {
 	if err := os.WriteFile(tmp, data, 0600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, ts.filePath)
+	if err := os.Rename(tmp, ts.filePath); err != nil {
+		return err
+	}
+	ts.mu.Lock()
+	ts.removed = nil
+	ts.defaultChanged = false
+	ts.mu.Unlock()
+	return nil
 }
 
 // --- backward-compat helpers for single-workspace callers ---
@@ -511,7 +590,7 @@ func listWorkspacesFromAllBrowsers() ([]WorkspaceInfo, error) {
 				continue
 			}
 			for id, team := range cfg.Teams {
-				if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
+				if seen[id] || parseCredKind(team.Token) != kindBrowserSession {
 					continue
 				}
 				seen[id] = true
@@ -552,7 +631,7 @@ func listWorkspacesWithTokensFromBrowser(profiles []string) []browserWorkspace {
 			continue
 		}
 		for id, team := range cfg.Teams {
-			if seen[id] || !strings.HasPrefix(team.Token, "xoxc-") {
+			if seen[id] || parseCredKind(team.Token) != kindBrowserSession {
 				continue
 			}
 			seen[id] = true
@@ -585,14 +664,14 @@ func extractTokenFromLevelDB(profilePath, teamID string) (string, error) {
 		if !ok {
 			return "", fmt.Errorf("team %s not found in profile %s", teamID, filepath.Base(profilePath))
 		}
-		if !strings.HasPrefix(team.Token, "xoxc-") {
+		if parseCredKind(team.Token) != kindBrowserSession {
 			return "", fmt.Errorf("team %s has no xoxc-* token in profile %s", teamID, filepath.Base(profilePath))
 		}
 		return team.Token, nil
 	}
 
 	for _, team := range cfg.Teams {
-		if strings.HasPrefix(team.Token, "xoxc-") {
+		if parseCredKind(team.Token) == kindBrowserSession {
 			return team.Token, nil
 		}
 	}
@@ -791,17 +870,11 @@ func tokenStatusWithEndpoint(ctx context.Context, s *slackIntegration, endpoint 
 			ageHours = math.Round(time.Since(ws.UpdatedAt).Hours()*10) / 10
 		}
 
-		tokenType := "unknown"
-		if strings.HasPrefix(ws.Token, "xoxp-") {
-			tokenType = "oauth_user"
-		} else if strings.HasPrefix(ws.Token, "xoxc-") {
-			tokenType = "browser_session"
-		} else if strings.HasPrefix(ws.Token, "xoxb-") {
-			tokenType = "bot"
-		}
+		kind := parseCredKind(ws.Token)
+		tokenType := kind.String()
 
 		status := "healthy"
-		if tokenType == "browser_session" {
+		if kind == kindBrowserSession {
 			if ageHours > 10 {
 				status = "critical"
 			} else if ageHours > 6 {
@@ -822,7 +895,7 @@ func tokenStatusWithEndpoint(ctx context.Context, s *slackIntegration, endpoint 
 			probes.Add(1)
 			go func() {
 				defer probes.Done()
-				client := &http.Client{Timeout: 5 * time.Second, Transport: &cookieTransport{cookie: ws.Cookie, inner: http.DefaultTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+				client := &http.Client{Timeout: 5 * time.Second, Transport: newCookieTransport(ws, s.revoked), CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 				statuses[index].GrantedScopes, statuses[index].ScopesAvailable = probeGrantedScopes(ctx, ws, client, endpoint)
 			}()
 		}
@@ -852,7 +925,7 @@ func refreshTokens(ctx context.Context, s *slackIntegration, args map[string]any
 		if ws == nil {
 			return &mcp.ToolResult{Data: fmt.Sprintf("unknown workspace: %s", teamID), IsError: true}, nil
 		}
-		if strings.HasPrefix(ws.Token, "xoxp-") {
+		if parseCredKind(ws.Token) == kindUserToken {
 			return mcp.JSONResult(map[string]any{
 				"status": "not_needed",
 				"note":   "OAuth tokens (xoxp-) do not expire. No refresh needed.",
@@ -860,7 +933,7 @@ func refreshTokens(ctx context.Context, s *slackIntegration, args map[string]any
 		}
 	}
 
-	if ok := s.tryRefresh(); !ok {
+	if ok := s.tryRefresh(ctx); !ok {
 		return &mcp.ToolResult{
 			Data:    "Could not refresh tokens. Tried cookie-based refresh and browser extraction. Make sure you have a valid cookie or a supported browser (Chrome, Brave, Slack app) is running with Slack open.",
 			IsError: true,

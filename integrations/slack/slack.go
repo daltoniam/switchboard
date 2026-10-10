@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -40,9 +40,17 @@ type slackIntegration struct {
 	clients map[string]*slack.Client // keyed by team_id
 	store   *tokenStore
 	stopBg  chan struct{}
+	bgDone  sync.WaitGroup
+	revoked *revokedCredentials
+
+	// lifecycleMu serializes Configure and Stop, which the setup page calls
+	// while tool calls run.
+	lifecycleMu sync.Mutex
 
 	// refreshWorkspace is overridable in tests; defaults to (*slackIntegration).tryRefreshWorkspace.
-	refreshWorkspace func(teamID string) bool
+	refreshWorkspace func(ctx context.Context, teamID string) bool
+	// cookieRefresh is overridable in tests; defaults to (*slackIntegration).tryRefreshViaCookieForTeam.
+	cookieRefresh func(ctx context.Context, teamID string) bool
 }
 
 func New() mcp.Integration {
@@ -52,10 +60,14 @@ func New() mcp.Integration {
 func (s *slackIntegration) Name() string { return "slack" }
 
 func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials) error {
-	s.store = newTokenStore()
-	s.mu.Lock()
-	s.clients = make(map[string]*slack.Client)
-	s.mu.Unlock()
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+
+	store := newTokenStore()
+	revoked, err := newRevokedCredentials(filepath.Join(filepath.Dir(store.filePath), filepath.Base(revokedFilePath())))
+	if err != nil {
+		return err
+	}
 
 	configToken := creds["token"]
 	// xoxc-* tokens are browser session tokens that rotate constantly. Even
@@ -66,7 +78,7 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 	// Genuine externally-managed tokens (xoxb-, xoxp-, OAuth) keep the old
 	// "config is authoritative" behavior so we never clobber them.
 	isBrowserConfig := configToken != "" &&
-		(creds[mcp.CredKeyTokenSource] == "browser" || strings.HasPrefix(configToken, "xoxc-"))
+		(creds[mcp.CredKeyTokenSource] == "browser" || parseCredKind(configToken) == kindBrowserSession)
 
 	if configToken != "" {
 		teamID := creds["team_id"]
@@ -77,14 +89,14 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 		if isBrowserConfig {
 			source = "browser"
 		}
-		s.store.setWorkspace(&workspace{
+		store.setWorkspace(&workspace{
 			TeamID: teamID,
 			Token:  configToken,
 			Cookie: creds["cookie"],
 			Source: source,
 		})
 		if creds["team_id"] != "" {
-			s.store.setDefault(creds["team_id"])
+			store.setDefault(creds["team_id"])
 		}
 	}
 
@@ -92,12 +104,12 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 	// persisted file. The file may carry a fresher copy (background refresh
 	// writes there) and we want that to win.
 	if configToken == "" || isBrowserConfig {
-		s.store.loadFromFile()
+		store.loadFromFile()
 
-		if len(s.store.allWorkspaces()) == 0 {
+		if len(store.allWorkspaces()) == 0 {
 			wss, _ := listWorkspacesFromAllBrowsers()
 			for _, ws := range wss {
-				s.store.setWorkspace(&workspace{
+				store.setWorkspace(&workspace{
 					TeamID:   ws.TeamID,
 					TeamName: ws.Name,
 					Source:   "chrome",
@@ -106,9 +118,28 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 		}
 	}
 
-	if len(s.store.allWorkspaces()) == 0 {
+	if len(store.allWorkspaces()) == 0 {
 		return fmt.Errorf("slack: no token found — run with --web to configure, set SLACK_TOKEN/SLACK_COOKIE env vars, or open Slack in Chrome (macOS)")
 	}
+
+	// Stop the old refresh worker before installing the new state, so a
+	// refresh in flight cannot write old credentials over the new ones.
+	s.stopBackgroundRefresh()
+
+	// Tool calls read s.store and s.revoked without lifecycleMu, so a reload
+	// fills the existing store in place. The revoked record is one shared
+	// instance per path, so after the first Configure the pointer never changes.
+	if s.store == nil {
+		s.store = store
+	} else {
+		s.store.replaceWith(store)
+	}
+	if s.revoked != revoked {
+		s.revoked = revoked
+	}
+	s.mu.Lock()
+	s.clients = make(map[string]*slack.Client)
+	s.mu.Unlock()
 
 	s.buildAllClients()
 	s.resolveWorkspaceIdentities(ctx)
@@ -122,31 +153,50 @@ func (s *slackIntegration) Configure(ctx context.Context, creds mcp.Credentials)
 	// tokens skip this.
 	if configToken == "" || isBrowserConfig {
 		_ = s.store.saveToFile()
-
-		if s.stopBg != nil {
-			close(s.stopBg)
-		}
-		s.stopBg = make(chan struct{})
-		go s.backgroundRefresh()
-	} else if s.stopBg != nil {
-		close(s.stopBg)
-		s.stopBg = nil
+		s.startBackgroundRefresh()
 	}
 
 	return nil
+}
+
+// Stop ends the background cookie refresh and waits for an in-flight
+// refresh to finish. The setup page calls it when the user disables Slack.
+func (s *slackIntegration) Stop() {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	s.stopBackgroundRefresh()
+}
+
+func (s *slackIntegration) startBackgroundRefresh() {
+	stop := make(chan struct{})
+	s.stopBg = stop
+	s.bgDone.Add(1)
+	go func() {
+		defer s.bgDone.Done()
+		s.backgroundRefresh(stop)
+	}()
+}
+
+func (s *slackIntegration) stopBackgroundRefresh() {
+	if s.stopBg == nil {
+		return
+	}
+	close(s.stopBg)
+	s.stopBg = nil
+	s.bgDone.Wait()
 }
 
 func (s *slackIntegration) buildAllClients() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, ws := range s.store.allWorkspaces() {
-		transport := &cookieTransport{cookie: ws.Cookie, inner: http.DefaultTransport}
+		transport := newCookieTransport(ws, s.revoked)
 		s.clients[ws.TeamID] = slack.New(ws.Token, slack.OptionHTTPClient(&http.Client{Transport: transport}))
 	}
 }
 
 func (s *slackIntegration) buildClientForWorkspace(ws *workspace) {
-	transport := &cookieTransport{cookie: ws.Cookie, inner: http.DefaultTransport}
+	transport := newCookieTransport(ws, s.revoked)
 	s.mu.Lock()
 	s.clients[ws.TeamID] = slack.New(ws.Token, slack.OptionHTTPClient(&http.Client{Transport: transport}))
 	s.mu.Unlock()
@@ -211,7 +261,7 @@ func (s *slackIntegration) tryRecoverAuth(ctx context.Context, ws *workspace, or
 		return false, nil
 	}
 	log.Printf("slack: auth test failed for workspace %s: %v — attempting startup refresh", ws.TeamID, origErr)
-	if !s.refreshFn()(ws.TeamID) {
+	if !s.refreshFn()(ctx, ws.TeamID) {
 		log.Printf("slack: startup refresh failed for workspace %s — manual re-extract may be required (open Slack in Chrome and re-extract via web UI)", ws.TeamID)
 		return false, nil
 	}
@@ -268,12 +318,12 @@ func (s *slackIntegration) canSelfRefresh(ws *workspace) bool {
 	// Only xoxc-* browser session tokens rotate and have a local refresh
 	// path. xoxb-/xoxp-/xapp-/etc. are externally managed and must never
 	// be replaced by a browser extract, even when stored locally.
-	return strings.HasPrefix(ws.Token, "xoxc-")
+	return parseCredKind(ws.Token) == kindBrowserSession
 }
 
 // refreshFn returns the workspace-refresh callback, defaulting to the real
 // browser/cookie path. Tests override s.refreshWorkspace for determinism.
-func (s *slackIntegration) refreshFn() func(teamID string) bool {
+func (s *slackIntegration) refreshFn() func(ctx context.Context, teamID string) bool {
 	if s.refreshWorkspace != nil {
 		return s.refreshWorkspace
 	}
@@ -325,48 +375,98 @@ func (s *slackIntegration) Healthy(ctx context.Context) bool {
 	return err == nil
 }
 
-func (s *slackIntegration) backgroundRefresh() {
-	ticker := time.NewTicker(4 * time.Hour)
+// backgroundRefreshInterval is replaced in tests.
+var backgroundRefreshInterval = 4 * time.Hour
+
+func (s *slackIntegration) backgroundRefresh(stop <-chan struct{}) {
+	// Closing stop also cancels a refresh in flight, so Stop never waits on
+	// a stalled request to Slack.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		select {
+		case <-stop:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	ticker := time.NewTicker(backgroundRefreshInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			s.tryRefresh()
-		case <-s.stopBg:
+			s.tryRefresh(ctx)
+		case <-stop:
 			return
 		}
 	}
 }
 
-func (s *slackIntegration) tryRefresh() bool {
+func (s *slackIntegration) tryRefresh(ctx context.Context) bool {
 	allOk := true
 	refresh := s.refreshFn()
 	for _, ws := range s.store.allWorkspaces() {
 		if !s.canSelfRefresh(ws) {
 			continue
 		}
-		if !refresh(ws.TeamID) {
+		if !refresh(ctx, ws.TeamID) {
 			allOk = false
 		}
 	}
 	return allOk
 }
 
-func (s *slackIntegration) tryRefreshWorkspace(teamID string) bool {
-	if s.tryRefreshViaCookieForTeam(teamID) {
+// extractFromBrowserFn is replaced in tests so no test reads real browser data.
+var extractFromBrowserFn = extractFromBrowser
+
+// credentialKey is the value the revoked record tracks for a workspace: the
+// token and cookie together for a browser session, so one workspace's stale
+// token does not block the desktop cookie other workspaces share; otherwise
+// the token alone (user and bot tokens carry no cookie).
+func credentialKey(ws *workspace) string {
+	if parseCredKind(ws.Token) == kindBrowserSession && ws.Cookie != "" {
+		return ws.Token + "\x00" + ws.Cookie
+	}
+	return ws.Token
+}
+
+func (s *slackIntegration) tryRefreshWorkspace(ctx context.Context, teamID string) bool {
+	// A rejected workspace stays put until the user replaces its credential.
+	// Pulling a fresh browser cookie here and sending it logs strict
+	// workspaces out again.
+	if ws := s.store.getWorkspace(teamID); ws != nil && s.revoked.isRevoked(credentialKey(ws)) {
+		log.Printf("slack: workspace %s credential was rejected — not refreshing; replace it on the Slack setup page", teamID)
+		return false
+	}
+	cookieRefresh := s.tryRefreshViaCookieForTeam
+	if s.cookieRefresh != nil {
+		cookieRefresh = s.cookieRefresh
+	}
+	if cookieRefresh(ctx, teamID) {
 		return true
 	}
-	extracted := extractFromBrowser(teamID)
+	// The cookie refresh can store a new pair that Slack then rejects.
+	// Extracting yet another browser pair would bypass that rejection.
+	if ws := s.store.getWorkspace(teamID); ws != nil && s.revoked.isRevoked(credentialKey(ws)) {
+		log.Printf("slack: workspace %s refreshed credential was rejected — not extracting from the browser; replace it on the Slack setup page", teamID)
+		return false
+	}
+	extracted := extractFromBrowserFn(teamID)
 	if extracted == nil || extracted.token == "" {
 		return false
 	}
 	cookie := extracted.cookie
-	if cookie == "" {
-		if ws := s.store.getWorkspace(teamID); ws != nil {
+	var oldToken, oldCookie string
+	if ws := s.store.getWorkspace(teamID); ws != nil {
+		oldToken, oldCookie = ws.Token, ws.Cookie
+		if cookie == "" {
 			cookie = ws.Cookie
 		}
 	}
-	s.store.updateTokens(teamID, extracted.token, cookie)
+	if !s.store.replaceTokensIf(teamID, oldToken, oldCookie, extracted.token, cookie) {
+		log.Printf("slack: workspace %s credentials changed during browser extraction — discarding the extracted pair", teamID)
+		return false
+	}
 	ws := s.store.getWorkspace(teamID)
 	if ws != nil {
 		s.buildClientForWorkspace(ws)
@@ -379,11 +479,16 @@ func (s *slackIntegration) tryRefreshWorkspace(teamID string) bool {
 // --- cookie-injecting HTTP transport ---
 
 type cookieTransport struct {
-	cookie string
-	inner  http.RoundTripper
+	revoked *revokedCredentials
+	key     string // credentialKey of the workspace this transport serves
+	cookie  string
+	inner   http.RoundTripper
 }
 
 func (t *cookieTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.revoked.isRevoked(t.key) {
+		return nil, errRevokedCredential
+	}
 	if t.cookie != "" {
 		req = req.Clone(req.Context())
 		existing := req.Header.Get("Cookie")
@@ -394,7 +499,11 @@ func (t *cookieTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			req.Header.Set("Cookie", dCookie)
 		}
 	}
-	return t.inner.RoundTrip(req)
+	resp, err := t.inner.RoundTrip(req)
+	if err == nil {
+		t.revoked.markIfInvalidAuth(t.key, resp)
+	}
+	return resp, err
 }
 
 // --- handler function type and dispatch map ---
