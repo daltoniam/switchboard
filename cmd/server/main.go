@@ -297,6 +297,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	gpeopleIntegration := gpeople.New()
 	gmeetIntegration := gmeet.New()
 	microsoft365Integration := microsoft365.New()
+	metabaseIntegration := metabase.New()
 	amazonIntegration := amazon.New()
 
 	// One process-wide filesystem catalog. ProjectInterop and the
@@ -323,7 +324,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		likec4excalidraw.New(),
 		figma.New(),
 		notionmcp.New(),
-		metabase.New(),
+		metabaseIntegration,
 		paperless.New(),
 		airflow.New(),
 		recoll.New(),
@@ -443,6 +444,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		}
 	}
 
+	metabase.SetConfigService(metabaseIntegration, cfgMgr)
 	gmail.SetConfigService(gmailIntegration, cfgMgr)
 	gcal.SetConfigService(gcalIntegration, cfgMgr)
 	gdrive.SetConfigService(gdriveIntegration, cfgMgr)
