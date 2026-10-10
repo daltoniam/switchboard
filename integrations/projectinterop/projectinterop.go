@@ -171,6 +171,7 @@ func getContext(_ context.Context, p *projectInterop, args map[string]any) (*mcp
 	if !ok {
 		return errResult(fmt.Errorf("project %q not found", name))
 	}
+	//nolint:staticcheck // SA4023: ReadContextFile is a placeholder that always reports not found since the catalog schema was simplified to id and description
 	if path := argString(args, "path"); path != "" {
 		content, err := project.ReadContextFile(definition, p.store.ConfigDir(), path)
 		if err != nil {
