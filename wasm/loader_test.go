@@ -45,6 +45,10 @@ func (c *loaderConfig) SetWasmModules(modules []mcp.WasmModuleConfig) error {
 	c.cfg.WasmModules = modules
 	return nil
 }
+func (c *loaderConfig) SetSpecImports(imports []mcp.SpecImportConfig) error {
+	c.cfg.SpecImports = imports
+	return nil
+}
 func (c *loaderConfig) EnabledIntegrations() []string {
 	var names []string
 	for name, ic := range c.cfg.Integrations {
