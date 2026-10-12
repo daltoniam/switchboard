@@ -12,7 +12,17 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/netpolicy"
 )
+
+// allowPrivateOutboundHosts is test-only: httptest servers listen on loopback.
+var allowPrivateOutboundHosts bool
+
+// SetAllowPrivateOutboundHostsForTest enables loopback/private base URLs. Must
+// only be called from tests.
+func SetAllowPrivateOutboundHostsForTest(allow bool) {
+	allowPrivateOutboundHosts = allow
+}
 
 // defaultTimeout caps every upstream HTTP request the integration makes.
 const defaultTimeout = 30 * time.Second
@@ -347,21 +357,22 @@ func toSet(ss []string) map[string]bool {
 }
 
 // validateURL enforces that an imported endpoint is an absolute http(s) URL
-// with a host. This is defense-in-depth against accidental file://, gopher://
-// or scheme-relative inputs; it is not a full SSRF allowlist (spec import is
-// intentionally able to reach the customer's own internal APIs).
+// with an allowed host (same policy as hosted user-supplied outbound URLs).
 func validateURL(raw string) error {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return err
+	if allowPrivateOutboundHosts {
+		u, err := url.Parse(strings.TrimSpace(raw))
+		if err != nil {
+			return err
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return fmt.Errorf("url must be http or https, got %q", u.Scheme)
+		}
+		if u.Host == "" {
+			return fmt.Errorf("url must include a host")
+		}
+		return nil
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("url must be http or https, got %q", u.Scheme)
-	}
-	if u.Host == "" {
-		return fmt.Errorf("url must include a host")
-	}
-	return nil
+	return netpolicy.ValidateUserHTTPURL(raw)
 }
 
 func truncate(s string, n int) string {
