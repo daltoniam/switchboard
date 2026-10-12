@@ -76,7 +76,7 @@ bash scripts/compose-dev.sh endpoints
 
 ## Architecture
 
-- **app** (`Dockerfile.dev`): golang `1.26.6-bookworm`, Air
+- **app** (`Dockerfile.dev`): golang `1.27.2-bookworm`, Air
   (`github.com/air-verse/air` MIT, pinned `v1.67.4`) as PID1, repo bind-mounted
   at `/src`, named volumes for Go mod/build caches, `/src/tmp` binary output,
   and `/root/.config/switchboard`.

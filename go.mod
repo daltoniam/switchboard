@@ -2,6 +2,8 @@ module github.com/daltoniam/switchboard
 
 go 1.26.9
 
+toolchain go1.27.2
+
 require (
 	cloud.google.com/go/compute v1.54.0
 	cloud.google.com/go/firestore v1.21.0
@@ -373,11 +375,11 @@ require (
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260811182544-a038080d80e5 // indirect
+	golang.org/x/telemetry v0.0.0-20260908163034-4bcc4b2ee518 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/tools v0.50.0 // indirect
 	golang.org/x/vuln v1.1.4 // indirect
 	google.golang.org/genai v1.47.0 // indirect
 	google.golang.org/genproto v0.0.0-20260128011058-8636f8732409 // indirect
@@ -387,7 +389,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	honnef.co/go/tools v0.7.0 // indirect
+	honnef.co/go/tools v0.8.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
