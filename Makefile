@@ -1,4 +1,4 @@
-.PHONY: build generate proto proto-check test test-race vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm compose-check compose-up compose-status compose-endpoints compose-logs compose-down compose-destroy
+.PHONY: build generate proto proto-check test test-race test-ui ui-install vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm compose-check compose-up compose-status compose-endpoints compose-logs compose-down compose-destroy
 
 BIN        := dist/switchboard
 INSTALL_DIR := $(HOME)/.local/bin
@@ -51,6 +51,12 @@ test-race: ## Run tests with race detector
 	go test -race -coverprofile=coverage.out ./...
 	bash scripts/compose-dev_test.sh
 
+ui-install: ## Install the pinned Playwright driver and Chromium (UI_INSTALL_ARGS=--with-deps on Linux)
+	PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.playwright.dev/dbazure/download/playwright go run github.com/playwright-community/playwright-go/cmd/playwright install $(UI_INSTALL_ARGS) chromium
+
+test-ui: build ## Run mandatory isolated Chromium acceptance tests and save masked screenshots
+	SWITCHBOARD_UI_BINARY="$(CURDIR)/$(BIN)" SWITCHBOARD_UI_ARTIFACTS="$(CURDIR)/dist/ui-artifacts" go test -race -count=1 -timeout=5m -v ./web -run '^TestUI'
+
 ## Analysis
 
 vet: ## Run go vet
@@ -72,7 +78,7 @@ security: gosec govulncheck ## Run all security checks
 
 ## CI
 
-ci: proto-check build vet test-race lint security ## Run all CI checks locally
+ci: proto-check build vet test-race test-ui lint security ## Run all CI checks locally
 
 ## Stacklane compose (dev)
 

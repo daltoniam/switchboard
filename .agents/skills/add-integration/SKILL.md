@@ -174,10 +174,13 @@ Every adapter must have these test categories (see existing `*_test.go` files):
 
 ## 5. Wiring and Verification
 
-Follow `AGENTS.md > Adding a New Integration` steps 6-7 (register + config defaults), then verify:
+Follow the wiring checklist in `docs/architecture.md` (including registration and config defaults), then verify:
 
-1. `go build ./...` && `go test ./...` && `go vet ./...` && `go tool golangci-lint run`
-2. Run the isolated live smoke test below.
+1. Add integration-specific `TestUI<Integration>` browser acceptance coverage using `web/ui_test.go`; the baseline examples are not coverage for the new adapter.
+2. Follow `docs/integration-ui-testing.md`. Run `make ui-install` when needed, then `make test-ui` and unmodified `make ci`. Missing Chromium or a skipped browser gate blocks completion.
+3. Drive the new integration's isolated local UI with Playwright (already available), agent-browser, or Chrome DevTools. Verify fresh credential fields, setup routing, save/enable, invalid credentials, health, restart persistence, read-only MCP discovery/execute, and disable. Cover OAuth and named identities when supported. Inspect desktop/mobile screenshots and console/network failures; add regression tests for defects.
+4. Include masked screenshots, browser/test results, and fixture versus live-auth status in the PR test plan, bound to its exact head SHA. Live credentials are optional; mock-backed browser acceptance is mandatory. Never claim live authentication passed without dedicated credentials and a successful safe read.
+5. Run the isolated live smoke test below when dedicated test credentials are available. Otherwise report live authentication as unverified.
 
 ### Isolated Live Smoke Test
 
@@ -188,12 +191,14 @@ Start the development server in one terminal:
 ```bash
 sandbox="$(mktemp -d)"
 export SWITCHBOARD_DEV_HOME="$sandbox/switchboard-home"
-HOME="$SWITCHBOARD_DEV_HOME" go run ./cmd/server --port 13847
+go build -o "$sandbox/switchboard" ./cmd/server
+env -i PATH="$PATH" HOME="$SWITCHBOARD_DEV_HOME" XDG_CONFIG_HOME="$SWITCHBOARD_DEV_HOME/.config" \
+  "$sandbox/switchboard" --listen-host 127.0.0.1 --port 13847
 ```
 
 Configure only the test credentials needed for the new integration in `$SWITCHBOARD_DEV_HOME/.config/switchboard/config.json`, using the development Web UI at `http://127.0.0.1:13847/` if appropriate. Do not copy the host Switchboard config into this directory.
 
-In a second terminal, give the test agent its own config root. Copy the existing Crush configuration only to retain its provider setup, then add an MCP entry pointing to the development server. The copy is isolated: the generated `crushrc` changes only the sandboxed configuration.
+In a second terminal, set `sandbox` to the exact directory created above, then give the test agent its own config root. Copy the existing Crush configuration only to retain its provider setup, then add an MCP entry pointing to the development server. The copy is isolated: the generated `crushrc` changes only the sandboxed configuration.
 
 ```bash
 host_crush_config="${XDG_CONFIG_HOME:-$HOME/.config}/crush"
@@ -207,7 +212,7 @@ XDG_CONFIG_HOME="$CRUSH_DEV_CONFIG" crush --cwd "$PWD" run \
   "Use the switchboard-dev MCP only. Search for the new integration's tools, then execute a safe read-only tool and report the result."
 ```
 
-The agent must first discover the tool with `search`, then call it with `execute`. Confirm the response represents real data and that the new tool is returned by search. Remove the sandbox after testing: `rm -rf "$sandbox"`.
+The agent must first discover the tool with `search`, then call it with `execute`. Confirm the response represents real data and that the new tool is returned by search. Stop the development server and close the browser before removing the sandbox: `rm -rf "$sandbox"`.
 
 ## 6. Field Compaction
 

@@ -16,7 +16,9 @@
 | Vet | `go vet ./...` | `make vet` |
 | Lint | `go tool golangci-lint run` | `make lint` |
 | Format | `gofmt -w .` | `make fmt` |
-| **All CI checks** | build + vet + test-race + lint + security | **`make ci`** |
+| Browser prerequisites | Pinned Playwright driver + Chromium (`UI_INSTALL_ARGS=--with-deps` on Linux) | `make ui-install` |
+| UI acceptance | Isolated Chromium setup, persistence, OAuth/identities, and MCP tests | `make test-ui` |
+| **All CI checks** | build + vet + test-race + test-ui + lint + security | **`make ci`** |
 | Compose check | `bash scripts/compose-dev.sh check` | `make compose-check` |
 | Compose up | `bash scripts/compose-dev.sh up` | `make compose-up` |
 | Compose down | `bash scripts/compose-dev.sh down` | `make compose-down` |
@@ -29,6 +31,7 @@
 4. **Table-driven tests**: use `t.Run` subtests when 3+ cases share the same assert structure
 5. **MCP smoke test** — `TestSmoke_SearchResponseShape` in `server/server_test.go` validates the full response contract
 6. **Go files must be `gofmt`'d** — run `make fmt` or `gofmt -w <file>` after editing `.go` files
+7. **New integrations require browser acceptance**: add integration-specific `TestUI<Integration>` coverage and drive the isolated local UI. Follow [docs/integration-ui-testing.md](docs/integration-ui-testing.md), inspect masked desktop/mobile evidence, verify persistence and MCP search/read, and distinguish fixture from live authentication. Orca automations must not skip this gate.
 
 ## Git Workflow
 
