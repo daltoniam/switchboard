@@ -198,7 +198,7 @@ var tools = []mcp.ToolDefinition{
 	// DNS
 	{
 		Name:        mcp.ToolName("tailscale_get_dns"),
-		Description: "Get the Tailscale tailnet DNS configuration: global nameservers, split DNS routes, search paths, MagicDNS, and override local DNS preferences.",
+		Description: "Get the Tailscale tailnet DNS configuration: global nameservers, split DNS routes, search paths, MagicDNS, and override local DNS preferences. Empty sections are omitted: a missing nameservers, splitDNS, or searchPaths field means none configured, not an error.",
 		Parameters:  map[string]string{},
 	},
 	{

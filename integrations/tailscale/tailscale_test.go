@@ -130,6 +130,17 @@ func TestTools_Metadata(t *testing.T) {
 	}
 }
 
+func TestTools_GetDNSExplainsOmittedFields(t *testing.T) {
+	for _, tool := range New().Tools() {
+		if tool.Name == "tailscale_get_dns" {
+			assert.Contains(t, tool.Description, "omitted")
+			assert.Contains(t, tool.Description, "none configured")
+			return
+		}
+	}
+	t.Fatal("tailscale_get_dns not found")
+}
+
 func TestTools_EntryPointHasStartHere(t *testing.T) {
 	for _, tool := range New().Tools() {
 		if tool.Name == "tailscale_list_devices" {
