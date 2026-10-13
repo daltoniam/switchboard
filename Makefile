@@ -52,7 +52,7 @@ test-race: ## Run tests with race detector
 	bash scripts/compose-dev_test.sh
 
 ui-install: ## Install the pinned Playwright driver and Chromium (UI_INSTALL_ARGS=--with-deps on Linux)
-	PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.playwright.dev/dbazure/download/playwright go run github.com/playwright-community/playwright-go/cmd/playwright install $(UI_INSTALL_ARGS) chromium
+	bash scripts/ui-install.sh $(UI_INSTALL_ARGS)
 
 test-ui: build ## Run mandatory isolated Chromium acceptance tests and save masked screenshots
 	SWITCHBOARD_UI_BINARY="$(CURDIR)/$(BIN)" SWITCHBOARD_UI_ARTIFACTS="$(CURDIR)/dist/ui-artifacts" go test -race -count=1 -timeout=5m -v ./web -run '^TestUI'
