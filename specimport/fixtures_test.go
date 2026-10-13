@@ -102,6 +102,49 @@ func TestFixture_GraphQLCountriesExecutes(t *testing.T) {
 	if !strings.Contains(gotQuery, "continents") {
 		t.Errorf("query = %q", gotQuery)
 	}
+	const maxQueryBytes = 50 * 1024
+	if len(gotQuery) >= maxQueryBytes {
+		t.Errorf("continents query length %d exceeds %d byte cap", len(gotQuery), maxQueryBytes)
+	}
+}
+
+func TestFixture_OpenAPILargeIntegerPathParam(t *testing.T) {
+	raw, err := os.ReadFile(testdataPath("petstore_openapi.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_, _ = io.WriteString(w, `{"id":289893960,"name":"doggie","photoUrls":[],"tags":[],"status":"available"}`)
+	}))
+	defer srv.Close()
+
+	in, err := Load(mcp.SpecImportConfig{
+		Name:     "petstore",
+		Kind:     "openapi",
+		Spec:     string(raw),
+		Endpoint: srv.URL,
+		Enabled:  true,
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	const petID = 289893960
+	res, err := in.Execute(context.Background(), "petstore_getpetbyid", map[string]any{"petId": petID})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("error result: %s", res.Data)
+	}
+	wantPath := "/pet/289893960"
+	if gotPath != wantPath {
+		t.Errorf("path = %q, want %q", gotPath, wantPath)
+	}
+	if strings.Contains(gotPath, "e+") || strings.Contains(gotPath, "E+") {
+		t.Errorf("path must not use scientific notation: %q", gotPath)
+	}
 }
 
 func TestLoad_RejectsPrivateEndpoint(t *testing.T) {
@@ -116,5 +159,15 @@ func TestLoad_RejectsPrivateEndpoint(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "not allowed") {
 		t.Fatalf("expected private host rejection, got %v", err)
+	}
+
+	_, err = Load(mcp.SpecImportConfig{
+		Name:     "demo",
+		Kind:     "openapi",
+		Spec:     openAPIFixture,
+		Endpoint: "http://0.0.0.0:9999",
+	})
+	if err == nil || !strings.Contains(err.Error(), "not allowed") {
+		t.Fatalf("expected 0.0.0.0 rejection, got %v", err)
 	}
 }

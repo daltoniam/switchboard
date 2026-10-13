@@ -24,6 +24,10 @@ func TestHostDisallowed(t *testing.T) {
 		{"metadata.goog", true},
 		{"api.example.com", false},
 		{"8.8.8.8", false},
+		{"0.0.0.0", true},
+		{"0.0.0.1", true},
+		{"100.64.0.1", true},
+		{"::", true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.host, func(t *testing.T) {

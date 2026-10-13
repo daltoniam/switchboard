@@ -218,10 +218,10 @@ func buildGraphQLOperation(integration string, f gqlField, eff effect, gqlOp str
 }
 
 // maxSelectionDepth bounds how deeply build recurses into nested object
-// types when synthesizing a default selection set. Three levels is enough to
-// surface useful data (e.g. edges { node { id name } }) without risking an
-// unbounded or pathologically large query on a richly-typed schema.
-const maxSelectionDepth = 3
+// types when synthesizing a default selection set. Two levels selects scalars
+// on the return type plus one nested object level (scalars only beneath that),
+// which keeps cyclic schemas (e.g. countries) under response size limits.
+const maxSelectionDepth = 2
 
 // maxSelectionFields caps how many leaf fields we select at a single level so
 // a type with hundreds of scalar fields does not explode the query size.

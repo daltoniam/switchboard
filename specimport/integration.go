@@ -183,7 +183,11 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 		if !ok {
 			return mcp.ErrResult(fmt.Errorf("specimport: missing path parameter %q", name))
 		}
-		path = strings.ReplaceAll(path, "{"+name+"}", url.PathEscape(fmt.Sprint(v)))
+		formatted, err := formatParamValue(v)
+		if err != nil {
+			return mcp.ErrResult(fmt.Errorf("specimport: path parameter %q: %w", name, err))
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", url.PathEscape(formatted))
 	}
 
 	target := in.baseURL + path
@@ -191,7 +195,11 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 	querySet := toSet(op.queryParams)
 	for _, name := range op.queryParams {
 		if v, ok := args[name]; ok && v != nil {
-			q.Set(name, fmt.Sprint(v))
+			formatted, err := formatParamValue(v)
+			if err != nil {
+				return mcp.ErrResult(fmt.Errorf("specimport: query parameter %q: %w", name, err))
+			}
+			q.Set(name, formatted)
 		}
 	}
 	if encoded := q.Encode(); encoded != "" {
@@ -373,6 +381,12 @@ func validateURL(raw string) error {
 		return nil
 	}
 	return netpolicy.ValidateUserHTTPURL(raw)
+}
+
+// formatParamValue stringifies a path or query argument without scientific
+// notation for whole-number floats (JSON decodes integers as float64).
+func formatParamValue(v any) (string, error) {
+	return mcp.ArgStr(map[string]any{"v": v}, "v")
 }
 
 func truncate(s string, n int) string {
