@@ -244,6 +244,13 @@ var envMapping = map[string]map[string]string{
 		"access_token": "LAUNCHDARKLY_ACCESS_TOKEN",
 		"base_url":     "LAUNCHDARKLY_BASE_URL",
 	},
+	"tailscale": {
+		"api_key":             "TAILSCALE_API_KEY",
+		"oauth_client_id":     "TAILSCALE_OAUTH_CLIENT_ID",
+		"oauth_client_secret": "TAILSCALE_OAUTH_CLIENT_SECRET",
+		"tailnet":             "TAILSCALE_TAILNET",
+		"base_url":            "TAILSCALE_BASE_URL",
+	},
 	"microsoft365": {
 		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
 		"refresh_token": "MICROSOFT365_REFRESH_TOKEN",
@@ -504,6 +511,10 @@ func defaultConfig() *mcp.Config {
 			"launchdarkly": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"tailscale": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "oauth_client_id": "", "oauth_client_secret": "", "tailnet": "", "base_url": ""},
 			},
 			"microsoft365": {
 				Enabled: false,
