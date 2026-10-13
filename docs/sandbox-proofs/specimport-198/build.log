@@ -1,0 +1,1 @@
+go build ./cmd/server -> dist/switchboard: OK (exit 0) at 68343a8

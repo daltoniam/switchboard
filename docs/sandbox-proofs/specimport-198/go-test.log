@@ -1,0 +1,6 @@
+ok  	github.com/daltoniam/switchboard/specimport	0.067s
+ok  	github.com/daltoniam/switchboard/netpolicy	0.011s
+ok  	github.com/daltoniam/switchboard/config	0.288s
+ok  	github.com/daltoniam/switchboard/web	1.209s
+ok  	github.com/daltoniam/switchboard/cmd/server	0.069s
+test=0

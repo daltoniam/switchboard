@@ -1,0 +1,2 @@
+go: downloading go1.27.2 (linux/amd64)
+vet=0

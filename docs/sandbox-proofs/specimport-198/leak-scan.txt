@@ -1,0 +1,4 @@
+2026-10-13 07:20 CDT: scanned /workspace/sb-sandbox-proofs/specimport-198 (excluding homes/, binaries) for tokens/bearer/secret paths
+/workspace/sb-sandbox-proofs/specimport-198/finalize.py: personal path/name
+/workspace/sb-sandbox-proofs/specimport-198/go-test.log: personal path/name
+Note: both hits are false positives: go module path github.com/daltoniam/switchboard in go-test.log, and the scanner's own regex in finalize.py. No tokens or secrets. => CLEAN
