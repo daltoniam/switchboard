@@ -2,6 +2,8 @@ package tailscale
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -81,8 +83,29 @@ func updateUserRole(ctx context.Context, t *tailscale, args map[string]any) (*mc
 	return rawResult(t.doJSON(ctx, http.MethodPost, userPath(id, "/role"), map[string]any{"role": role}))
 }
 
+// listUserInvites always returns {"invites":[...]}. The documented response
+// is a bare array; wrapping it gives compaction a stable envelope, matches the
+// other list tools, and also passes an already-wrapped response through.
 func listUserInvites(ctx context.Context, t *tailscale, _ map[string]any) (*mcp.ToolResult, error) {
-	return rawResult(t.doJSON(ctx, http.MethodGet, t.tailnetPath("/user-invites"), nil))
+	data, err := t.doJSON(ctx, http.MethodGet, t.tailnetPath("/user-invites"), nil)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return mcp.ErrResult(fmt.Errorf("tailscale: decode user invites response: %w", err))
+	}
+	switch v := raw.(type) {
+	case []any:
+		return mcp.JSONResult(map[string]any{"invites": v})
+	case nil:
+		return mcp.JSONResult(map[string]any{"invites": []any{}})
+	case map[string]any:
+		if _, ok := v["invites"]; ok {
+			return mcp.JSONResult(v)
+		}
+	}
+	return mcp.ErrResult(fmt.Errorf("tailscale: unexpected user invites response shape"))
 }
 
 func createUserInvite(ctx context.Context, t *tailscale, args map[string]any) (*mcp.ToolResult, error) {

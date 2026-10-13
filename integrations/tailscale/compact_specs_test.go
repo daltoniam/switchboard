@@ -96,27 +96,71 @@ func TestCompactSpec_Accessors(t *testing.T) {
 
 func TestFieldCompactionSpecs_ShapeParity(t *testing.T) {
 	device := `{"addresses":["100.64.0.1","fd7a:115c:a1e0::1"],"id":"92960230385","nodeId":"n292kg92CNTRL","user":"ada@example.com","name":"web-1.tail1234.ts.net","hostname":"web-1","clientVersion":"1.80.0","updateAvailable":false,"os":"linux","created":"2025-01-01T00:00:00Z","connectedToControl":true,"lastSeen":"2026-10-13T00:00:00Z","keyExpiryDisabled":false,"expires":"2027-01-01T00:00:00Z","authorized":true,"isExternal":false,"machineKey":"mkey:SECRET","nodeKey":"nodekey:SECRET","blocksIncomingConnections":false,"enabledRoutes":["10.0.0.0/16"],"advertisedRoutes":["10.0.0.0/16"],"clientConnectivity":{"endpoints":["1.2.3.4:41641"],"latency":{"Dallas":{"latencyMs":12}}},"tags":["tag:web"],"tailnetLockKey":"tlpub:SECRET","isEphemeral":false}`
-	payloads := map[string]string{
-		"tailscale_list_devices":      `{"devices":[` + device + `]}`,
-		"tailscale_get_device":        device,
-		"tailscale_list_keys":         `{"keys":[{"id":"k1","keyType":"auth","description":"ci","created":"2025-01-01T00:00:00Z","expires":"2025-04-01T00:00:00Z","revoked":"","invalid":false,"capabilities":{"devices":{"create":{"reusable":true,"ephemeral":true,"preauthorized":true,"tags":["tag:ci"]}}},"userId":"u1"}]}`,
-		"tailscale_get_key":           `{"id":"k1","keyType":"auth","description":"ci","created":"2025-01-01T00:00:00Z","expires":"2025-04-01T00:00:00Z","capabilities":{"devices":{"create":{"reusable":true,"tags":["tag:ci"]}}},"userId":"u1"}`,
-		"tailscale_list_users":        `{"users":[{"id":"u1","displayName":"Ada","loginName":"ada@example.com","profilePicUrl":"https://x/pic.png","tailnetId":"t1","created":"2025-01-01T00:00:00Z","type":"member","role":"admin","status":"active","deviceCount":3,"lastSeen":"2026-10-13T00:00:00Z","currentlyConnected":true}]}`,
-		"tailscale_get_user":          `{"id":"u1","displayName":"Ada","loginName":"ada@example.com","profilePicUrl":"https://x/pic.png","role":"admin","status":"active","deviceCount":3}`,
-		"tailscale_list_user_invites": `[{"id":"29214","role":"admin","tailnetId":12345,"inviterId":34567,"email":"ada@example.com","lastEmailSentAt":"2024-05-09T16:23:26Z","inviteUrl":"https://login.tailscale.com/uinv/code"}]`,
-		"tailscale_list_webhooks":     `{"webhooks":[{"endpointId":"w1","endpointUrl":"https://hooks.example.com","providerType":"slack","creatorLoginName":"ada@example.com","created":"2025-01-01T00:00:00Z","lastModified":"2025-01-02T00:00:00Z","subscriptions":["nodeCreated"]}]}`,
+	cases := map[string]struct {
+		payload string
+		want    []string
+		dropped string
+	}{
+		"tailscale_list_devices": {
+			payload: `{"devices":[` + device + `]}`,
+			want:    []string{`"nodeId":"n292kg92CNTRL"`, `"hostname":"web-1"`},
+			dropped: "SECRET",
+		},
+		"tailscale_get_device": {
+			payload: device,
+			want:    []string{`"nodeId":"n292kg92CNTRL"`, `"hostname":"web-1"`},
+			dropped: "SECRET",
+		},
+		"tailscale_list_keys": {
+			payload: `{"keys":[{"id":"k1","keyType":"auth","description":"ci","created":"2025-01-01T00:00:00Z","expires":"2025-04-01T00:00:00Z","invalid":false,"capabilities":{"devices":{"create":{"reusable":true,"tags":["tag:ci"]}}},"userId":"u1","noise":"DROPME"}]}`,
+			want:    []string{`"id":"k1"`, `"keyType":"auth"`},
+			dropped: "DROPME",
+		},
+		"tailscale_get_key": {
+			payload: `{"id":"k1","keyType":"auth","description":"ci","created":"2025-01-01T00:00:00Z","expires":"2025-04-01T00:00:00Z","capabilities":{"devices":{"create":{"reusable":true,"tags":["tag:ci"]}}},"userId":"u1","noise":"DROPME"}`,
+			want:    []string{`"id":"k1"`, `"keyType":"auth"`},
+			dropped: "DROPME",
+		},
+		"tailscale_list_users": {
+			payload: `{"users":[{"id":"u1","displayName":"Ada","loginName":"ada@example.com","profilePicUrl":"https://x/DROPME.png","tailnetId":"t1","created":"2025-01-01T00:00:00Z","type":"member","role":"admin","status":"active","deviceCount":3,"lastSeen":"2026-10-13T00:00:00Z","currentlyConnected":true}]}`,
+			want:    []string{`"id":"u1"`, `"loginName":"ada@example.com"`, `"status":"active"`},
+			dropped: "DROPME",
+		},
+		"tailscale_get_user": {
+			payload: `{"id":"u1","displayName":"Ada","loginName":"ada@example.com","profilePicUrl":"https://x/DROPME.png","role":"admin","status":"active","deviceCount":3}`,
+			want:    []string{`"id":"u1"`, `"loginName":"ada@example.com"`},
+			dropped: "DROPME",
+		},
+		"tailscale_list_user_invites": {
+			payload: `{"invites":[{"id":"29214","role":"admin","tailnetId":12345,"inviterId":34567,"email":"ada@example.com","lastEmailSentAt":"2024-05-09T16:23:26Z","inviteUrl":"https://login.tailscale.com/uinv/code","noise":"DROPME"}]}`,
+			want:    []string{`"id":"29214"`, `"email":"ada@example.com"`, "uinv/code"},
+			dropped: "DROPME",
+		},
+		"tailscale_list_webhooks": {
+			payload: `{"webhooks":[{"endpointId":"w1","endpointUrl":"https://hooks.example.com","providerType":"slack","creatorLoginName":"ada@example.com","created":"2025-01-01T00:00:00Z","lastModified":"2025-01-02T00:00:00Z","subscriptions":["nodeCreated"],"noise":"DROPME"}]}`,
+			want:    []string{`"endpointId":"w1"`, "nodeCreated"},
+			dropped: "DROPME",
+		},
 	}
-	require.Len(t, payloads, len(compactedReadTools))
-	for toolName, payload := range payloads {
+
+	covered := make([]string, 0, len(cases))
+	for name := range cases {
+		covered = append(covered, name)
+	}
+	assert.ElementsMatch(t, compactedReadTools, covered, "every compacted read tool needs a shape parity fixture")
+
+	for toolName, tc := range cases {
 		t.Run(toolName, func(t *testing.T) {
 			fields, ok := fieldCompactionSpecs[mcp.ToolName(toolName)]
 			require.True(t, ok)
-			compacted, err := mcp.CompactJSON([]byte(payload), fields)
+			compacted, err := mcp.CompactJSON([]byte(tc.payload), fields)
 			require.NoError(t, err)
 			out := string(compacted)
-			assert.NotEqual(t, "{}", out)
-			assert.NotEqual(t, "[]", out)
-			assert.NotEqual(t, "[{}]", out)
+			for _, want := range tc.want {
+				assert.Contains(t, out, want, "spec dropped a routing field")
+			}
+			assert.NotContains(t, out, tc.dropped, "spec did not compact")
+			assert.Less(t, len(out), len(tc.payload))
 		})
 	}
 }

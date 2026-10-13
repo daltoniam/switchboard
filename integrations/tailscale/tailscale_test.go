@@ -770,6 +770,28 @@ func TestPreviewPolicyRules_WithProposedPolicy(t *testing.T) {
 	assert.Equal(t, "{}", (*reqs)[0].body)
 }
 
+func TestListUserInvites_NormalizesEnvelope(t *testing.T) {
+	tests := []struct {
+		name string
+		resp string
+		want string
+	}{
+		{"bare array", `[{"id":"1","email":"a@b.c"}]`, `{"invites":[{"id":"1","email":"a@b.c"}]}`},
+		{"already wrapped", `{"invites":[{"id":"1"}]}`, `{"invites":[{"id":"1"}]}`},
+		{"empty array", `[]`, `{"invites":[]}`},
+		{"null", `null`, `{"invites":[]}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts, _ := testServer(t, okJSON(tt.resp))
+			result, err := ts.Execute(context.Background(), "tailscale_list_user_invites", nil)
+			require.NoError(t, err)
+			require.False(t, result.IsError, result.Data)
+			assert.JSONEq(t, tt.want, result.Data)
+		})
+	}
+}
+
 func TestListWebhooks_StripsSecrets(t *testing.T) {
 	ts, _ := testServer(t, okJSON(`{"webhooks":[{"endpointId":"w1","endpointUrl":"https://x","secret":"SHHH","subscriptions":["nodeCreated"]}]}`))
 	result, err := ts.Execute(context.Background(), "tailscale_list_webhooks", nil)
