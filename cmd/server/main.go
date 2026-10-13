@@ -86,6 +86,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/stripe"
 	"github.com/daltoniam/switchboard/integrations/suno"
 	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
+	"github.com/daltoniam/switchboard/integrations/tailscale"
 	"github.com/daltoniam/switchboard/integrations/vercel"
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
@@ -364,6 +365,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		ollama.New(),
 		pagerduty.New(),
 		launchdarkly.New(),
+		tailscale.New(),
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),

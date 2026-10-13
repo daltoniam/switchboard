@@ -1,0 +1,136 @@
+# Switchboard compaction specs for the tailscale integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+#
+# Device specs keep routing fields (ids, hostname, IPs, tags, online and
+# authorization state, routes) and drop machine/node/tailnet-lock public keys
+# and per-DERP connectivity telemetry, which are only useful once a single
+# device is under investigation (get_device keeps connectivity summary).
+# Small singleton responses (DNS, settings, contacts, routes, policy file)
+# are returned whole. Webhook secrets are stripped in the handler so script
+# callers never see them.
+
+version: 1
+tools:
+  tailscale_list_devices:
+    spec:
+      - devices[].id
+      - devices[].nodeId
+      - devices[].name
+      - devices[].hostname
+      - devices[].addresses
+      - devices[].user
+      - devices[].os
+      - devices[].clientVersion
+      - devices[].updateAvailable
+      - devices[].tags
+      - devices[].authorized
+      - devices[].connectedToControl
+      - devices[].lastSeen
+      - devices[].expires
+      - devices[].keyExpiryDisabled
+      - devices[].isEphemeral
+      - devices[].isExternal
+      - devices[].advertisedRoutes
+      - devices[].enabledRoutes
+  tailscale_get_device:
+    spec:
+      - id
+      - nodeId
+      - name
+      - hostname
+      - addresses
+      - user
+      - os
+      - distro
+      - clientVersion
+      - updateAvailable
+      - created
+      - tags
+      - authorized
+      - connectedToControl
+      - lastSeen
+      - expires
+      - keyExpiryDisabled
+      - isEphemeral
+      - isExternal
+      - blocksIncomingConnections
+      - sshEnabled
+      - advertisedRoutes
+      - enabledRoutes
+      - clientConnectivity.mappingVariesByDestIP
+      - clientConnectivity.derp
+      - clientConnectivity.clientSupports
+      - postureIdentity.*
+      - tailnetLockError
+  tailscale_list_keys:
+    spec:
+      - keys[].id
+      - keys[].keyType
+      - keys[].description
+      - keys[].created
+      - keys[].expires
+      - keys[].revoked
+      - keys[].invalid
+      - keys[].scopes
+      - keys[].tags
+      - keys[].capabilities
+      - keys[].userId
+  tailscale_get_key:
+    spec:
+      - id
+      - keyType
+      - description
+      - created
+      - expires
+      - expirySeconds
+      - revoked
+      - invalid
+      - scopes
+      - tags
+      - capabilities
+      - userId
+  tailscale_list_users:
+    spec:
+      - users[].id
+      - users[].displayName
+      - users[].loginName
+      - users[].type
+      - users[].role
+      - users[].status
+      - users[].deviceCount
+      - users[].lastSeen
+      - users[].currentlyConnected
+      - users[].created
+  tailscale_get_user:
+    spec:
+      - id
+      - displayName
+      - loginName
+      - tailnetId
+      - type
+      - role
+      - status
+      - deviceCount
+      - lastSeen
+      - currentlyConnected
+      - created
+  tailscale_list_user_invites:
+    spec:
+      - id
+      - email
+      - role
+      - inviteUrl
+      - lastEmailSentAt
+      - inviterId
+  tailscale_list_webhooks:
+    spec:
+      - webhooks[].endpointId
+      - webhooks[].endpointUrl
+      - webhooks[].providerType
+      - webhooks[].subscriptions
+      - webhooks[].creatorLoginName
+      - webhooks[].created
+      - webhooks[].lastModified
