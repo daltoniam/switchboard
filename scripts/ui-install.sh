@@ -36,11 +36,15 @@ assemble_driver_from_npm() {
 		exit 1
 	fi
 	work="$(mktemp -d)"
-	trap 'rm -rf "$work"' RETURN
-	(cd "$work" && npm pack --silent "playwright-core@$version" >/dev/null && tar xzf "playwright-core-$version.tgz")
+	if ! (cd "$work" && npm pack --silent "playwright-core@$version" >/dev/null && tar xzf "playwright-core-$version.tgz"); then
+		rm -rf "$work"
+		echo "ui-install: could not download playwright-core@$version from npm" >&2
+		exit 1
+	fi
 	rm -rf "$driver_dir"
 	mkdir -p "$driver_dir"
 	mv "$work/package" "$driver_dir/package"
+	rm -rf "$work"
 	ln -s "$node_bin" "$driver_dir/node"
 	echo "ui-install: assembled Playwright $version driver in $driver_dir from npm"
 }
@@ -50,8 +54,14 @@ if [ -f "$driver_dir/package/cli.js" ]; then
 	exit 0
 fi
 
-if install_browsers "$@"; then
+status=0
+install_browsers "$@" || status=$?
+if [ "$status" -eq 0 ]; then
 	exit 0
+fi
+if [ -f "$driver_dir/package/cli.js" ]; then
+	echo "ui-install: Playwright install failed after the driver was installed" >&2
+	exit "$status"
 fi
 
 echo "ui-install: driver download failed; falling back to npm playwright-core@$version" >&2
