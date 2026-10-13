@@ -1,0 +1,955 @@
+[
+ {
+  "phase": "search",
+  "step": "search petstore",
+  "tool": "search",
+  "args": {
+   "query": "petstore",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"petstore\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"petstore\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"petstore_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"petstore_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"petstore_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"petstore_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"petstore_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"petstore_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"petstore_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"petstore_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"petstore_getinventory\",{},null],[\"Find purchase order by ID.\",\"petstore_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"petstore_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"petstore_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"petstore_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"petstore_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"petstore_placeorder\",{},null],[\"[write] Update an existing pet.\",\"petstore_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"petstore_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"petstore_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"petstore_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search countries",
+  "tool": "search",
+  "args": {
+   "query": "countries",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"These tools span multiple integrations. Use execute with a script to chain them in a single call — intermediate results stay server-side and never enter the conversation.\",\"shared_parameters\":{\"code\":\"ID! argument\"},\"summary\":\"Found 12 tools matching \\\"countries\\\"\",\"tools\":{\"columns\":[\"description\",\"integration\",\"name\",\"parameters\",\"required\"],\"rows\":[[\"GraphQL query continent\",\"countries\",\"countries_continent\",{},[\"code\"]],[\"GraphQL query continents\",\"countries\",\"countries_continents\",{\"filter\":\"ContinentFilterInput argument\"},null],[\"GraphQL query countries\",\"countries\",\"countries_countries\",{\"filter\":\"CountryFilterInput argument\"},null],[\"GraphQL query country\",\"countries\",\"countries_country\",{},[\"code\"]],[\"GraphQL query language\",\"countries\",\"countries_language\",{},[\"code\"]],[\"GraphQL query languages\",\"countries\",\"countries_languages\",{\"filter\":\"LanguageFilterInput argument\"},null],[\"GraphQL query continent\",\"countries_fixture\",\"countries_fixture_continent\",{},[\"code\"]],[\"GraphQL query continents\",\"countries_fixture\",\"countries_fixture_continents\",{\"filter\":\"ContinentFilterInput argument\"},null],[\"GraphQL query countries\",\"countries_fixture\",\"countries_fixture_countries\",{\"filter\":\"CountryFilterInput argument\"},null],[\"GraphQL query country\",\"countries_fixture\",\"countries_fixture_country\",{},[\"code\"]],[\"GraphQL query language\",\"countries_fixture\",\"countries_fixture_language\",{},[\"code\"]],[\"GraphQL query languages\",\"countries_fixture\",\"countries_fixture_languages\",{\"filter\":\"LanguageFilterInput argument\"},null]]},\"total\":12}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search countries_fixture",
+  "tool": "search",
+  "args": {
+   "query": "countries_fixture",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"These tools span multiple integrations. Use execute with a script to chain them in a single call — intermediate results stay server-side and never enter the conversation.\",\"shared_parameters\":{\"code\":\"ID! argument\"},\"summary\":\"Found 12 tools matching \\\"countries_fixture\\\"\",\"tools\":{\"columns\":[\"description\",\"integration\",\"name\",\"parameters\",\"required\"],\"rows\":[[\"GraphQL query continent\",\"countries_fixture\",\"countries_fixture_continent\",{},[\"code\"]],[\"GraphQL query continents\",\"countries_fixture\",\"countries_fixture_continents\",{\"filter\":\"ContinentFilterInput argument\"},null],[\"GraphQL query countries\",\"countries_fixture\",\"countries_fixture_countries\",{\"filter\":\"CountryFilterInput argument\"},null],[\"GraphQL query country\",\"countries_fixture\",\"countries_fixture_country\",{},[\"code\"]],[\"GraphQL query language\",\"countries_fixture\",\"countries_fixture_language\",{},[\"code\"]],[\"GraphQL query languages\",\"countries_fixture\",\"countries_fixture_languages\",{\"filter\":\"LanguageFilterInput argument\"},null],[\"GraphQL query continent\",\"countries\",\"countries_continent\",{},[\"code\"]],[\"GraphQL query continents\",\"countries\",\"countries_continents\",{\"filter\":\"ContinentFilterInput argument\"},null],[\"GraphQL query countries\",\"countries\",\"countries_countries\",{\"filter\":\"CountryFilterInput argument\"},null],[\"GraphQL query country\",\"countries\",\"countries_country\",{},[\"code\"]],[\"GraphQL query language\",\"countries\",\"countries_language\",{},[\"code\"]],[\"GraphQL query languages\",\"countries\",\"countries_languages\",{\"filter\":\"LanguageFilterInput argument\"},null]]},\"total\":12}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search petstore pet status",
+  "tool": "search",
+  "args": {
+   "query": "petstore pet status",
+   "limit": 10
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":true,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":10,\"offset\":0,\"script_hint\":\"These tools span multiple integrations. Use execute with a script to chain them in a single call — intermediate results stay server-side and never enter the conversation.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 35 tools matching \\\"petstore pet status\\\"\",\"tools\":{\"columns\":[\"description\",\"integration\",\"name\",\"parameters\",\"required\"],\"rows\":[[\"Returns pet inventories by status.\",\"petstore\",\"petstore_getinventory\",{},null],[\"Finds Pets by status.\",\"petstore\",\"petstore_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Returns pet inventories by status.\",\"ok_100_128\",\"ok_100_128_getinventory\",{},null],[\"Returns pet inventories by status.\",\"probe_dns_loopback\",\"probe_dns_loopback_getinventory\",{},null],[\"[write] Add a new pet to the store.\",\"petstore\",\"petstore_addpet\",{},[\"body\"]],[\"[write] Deletes a pet.\",\"petstore\",\"petstore_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"Find pet by ID.\",\"petstore\",\"petstore_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"[write] Place an order for a pet.\",\"petstore\",\"petstore_placeorder\",{},null],[\"[write] Update an existing pet.\",\"petstore\",\"petstore_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"petstore\",\"petstore_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]]]},\"total\":35}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_unspecified_v4",
+  "tool": "search",
+  "args": {
+   "query": "bad_unspecified_v4",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_unspecified_v4\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_unspecified_v6",
+  "tool": "search",
+  "args": {
+   "query": "bad_unspecified_v6",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_unspecified_v6\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_zero_net",
+  "tool": "search",
+  "args": {
+   "query": "bad_zero_net",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_zero_net\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_cgnat",
+  "tool": "search",
+  "args": {
+   "query": "bad_cgnat",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_cgnat\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_cgnat_hi",
+  "tool": "search",
+  "args": {
+   "query": "bad_cgnat_hi",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_cgnat_hi\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_loopback_v4",
+  "tool": "search",
+  "args": {
+   "query": "bad_loopback_v4",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"bad_loopback_v4\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"probe_dns_loopback\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"probe_dns_loopback_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"probe_dns_loopback_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"probe_dns_loopback_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"probe_dns_loopback_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"probe_dns_loopback_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"probe_dns_loopback_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"probe_dns_loopback_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"probe_dns_loopback_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"probe_dns_loopback_getinventory\",{},null],[\"Find purchase order by ID.\",\"probe_dns_loopback_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"probe_dns_loopback_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"probe_dns_loopback_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"probe_dns_loopback_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"probe_dns_loopback_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"probe_dns_loopback_placeorder\",{},null],[\"[write] Update an existing pet.\",\"probe_dns_loopback_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"probe_dns_loopback_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"probe_dns_loopback_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"probe_dns_loopback_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_localhost",
+  "tool": "search",
+  "args": {
+   "query": "bad_localhost",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_localhost\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_loopback_v6",
+  "tool": "search",
+  "args": {
+   "query": "bad_loopback_v6",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"bad_loopback_v6\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"probe_dns_loopback\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"probe_dns_loopback_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"probe_dns_loopback_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"probe_dns_loopback_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"probe_dns_loopback_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"probe_dns_loopback_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"probe_dns_loopback_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"probe_dns_loopback_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"probe_dns_loopback_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"probe_dns_loopback_getinventory\",{},null],[\"Find purchase order by ID.\",\"probe_dns_loopback_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"probe_dns_loopback_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"probe_dns_loopback_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"probe_dns_loopback_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"probe_dns_loopback_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"probe_dns_loopback_placeorder\",{},null],[\"[write] Update an existing pet.\",\"probe_dns_loopback_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"probe_dns_loopback_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"probe_dns_loopback_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"probe_dns_loopback_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_metadata",
+  "tool": "search",
+  "args": {
+   "query": "bad_metadata",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_metadata\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_metadata_gql",
+  "tool": "search",
+  "args": {
+   "query": "bad_metadata_gql",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_metadata_gql\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_basecred",
+  "tool": "search",
+  "args": {
+   "query": "bad_basecred",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_basecred\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_gcp_meta",
+  "tool": "search",
+  "args": {
+   "query": "bad_gcp_meta",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_gcp_meta\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_scheme",
+  "tool": "search",
+  "args": {
+   "query": "bad_scheme",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_scheme\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search petstore_yaml",
+  "tool": "search",
+  "args": {
+   "query": "petstore_yaml",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"petstore_yaml\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"petstore\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"petstore_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"petstore_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"petstore_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"petstore_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"petstore_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"petstore_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"petstore_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"petstore_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"petstore_getinventory\",{},null],[\"Find purchase order by ID.\",\"petstore_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"petstore_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"petstore_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"petstore_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"petstore_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"petstore_placeorder\",{},null],[\"[write] Update an existing pet.\",\"petstore_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"petstore_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"petstore_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"petstore_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search probe_mapped",
+  "tool": "search",
+  "args": {
+   "query": "probe_mapped",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"probe_mapped\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"probe_dns_loopback\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"probe_dns_loopback_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"probe_dns_loopback_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"probe_dns_loopback_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"probe_dns_loopback_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"probe_dns_loopback_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"probe_dns_loopback_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"probe_dns_loopback_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"probe_dns_loopback_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"probe_dns_loopback_getinventory\",{},null],[\"Find purchase order by ID.\",\"probe_dns_loopback_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"probe_dns_loopback_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"probe_dns_loopback_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"probe_dns_loopback_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"probe_dns_loopback_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"probe_dns_loopback_placeorder\",{},null],[\"[write] Update an existing pet.\",\"probe_dns_loopback_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"probe_dns_loopback_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"probe_dns_loopback_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"probe_dns_loopback_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByStatus available",
+  "tool": "petstore_findpetsbystatus",
+  "args": {
+   "status": "available"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"columns\":[\"id\",\"photoUrls\",\"tags\",\"name\",\"category\"],\"constants\":{\"status\":\"available\"},\"rows\":[[999,[],[],\"test\",null],[9001,[\"string\"],[],\"doggie\",{\"id\":1,\"name\":\"Dogs\"}],[9876501,[\"https://example.com/dog.png\"],[],\"pf-e2e-doggie\",{\"id\":1,\"name\":\"Dogs\"}],[2026,[\"string\"],[],\"katato\",{\"id\":1,\"name\":\"Dogs\"}],[2027,[\"string\"],[{\"id\":0,\"name\":\"string\"}],\"ქ-ნი აფროდიტა\",{\"id\":1,\"name\":\"Dogs\"}],[11,[\"string\"],[{\"id\":0,\"name\":\"string\"}],\"Sander\",{\"id\":1,\"name\":\"Dogs\"}],[7,[\"url1\",\"url2\",\"/tmp/inflector13850433732762582702.tmp\"],[{\"id\":1,\"name\":\"tag1\"},{\"id\":2,\"name\":\"tag2\"}],\"Lion 1\",{\"id\":4,\"name\":\"Lions\"}],[2028,[\"string\",\"/tmp/inflector15746691374953978371.tmp\"],[{\"id\":0,\"name\":\"string\"}],\"ნინი_002\",{\"id\":1,\"name\":\"Dogs\"}],[987654321012345,[\"https://example.com/photos/1.jpg\",\"https://example.com/photos/2.jpg\",\"/tmp/inflector9091668920589981078.tmp\"],[{\"id\":5,\"name\":\"friendly\"}],\"Buddy\",{\"id\":1,\"name\":\"Dogs\"}],[80999,[\"\\u001e\"],[\"name\"],\"Dog 1\",null],[15526,[\"È\"],[\"name\"],\"string\",null],[991234501,[\"https://example.com/rex.png\"],[{\"id\":101,\"name\":\"friendly\"},{\"id\":102,\"name\":\"trained\"}],\"Rex\",{\"id\":1,\"name\":\"Dogs\"}],[555777,[],[],null,null],[987654321,[],[],\"conduit-demo\",null],[987654322,[],[],\"conduit-demo\",null],[9,[\"string\"],[{\"id\":0,\"name\":\"string\"}],\"doggie\",{\"id\":1,\"name\":\"Dogs\"}],[6,null,null,\"dog\",null],[1791895738448,[\"string\"],[{\"id\":0,\"name\":\"string\"}],\"Charik_1791895738448\",{\"id\":1,\"name\":\"Dogs\"}],[1308,[\"string\",\"string\"],[{\"id\":8366,\"name\":\"string\"},{\"id\":3936,\"name\":\"string\"}],\"Sonia\",{\"id\":1,\"name\":\"Dogs\"}],[1791896054686,[\"string\"],[{\"id\":0,\"name\":\"string\"}],\"Charik_1791896054686\",{\"id\":1,\"name\":\"Dogs\"}],[793475852,[\"https://example.org/bella.png\"],[{\"id\":1,\"name\":\"contract-taf\"}],\"bella\",{\"id\":1,\"name\":\"Dogs\"}],[137646538,[\"https://example.org/rex.png\"],[{\"id\":1,\"name\":\"contract-taf\"}],\"rex\",{\"id\":1,\"name\":\"Dogs\"}],[897757741,[\"https://example.invalid/pet.png\"],[],\"schema-897757741\",null],[897760440,[\"https://example.invalid/pet.png\"],[],\"regression-897760440\",null],[10005,[\"http://example.com/1.jpg\"],[],\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",null],[10001,[\"http://example.com/1.jpg\"],[{\"id\":1,\"name\":\"cute\"}],\"测试宠物\",{\"id\":1,\"name\":\"Cats\"}],[10007,[\"http://example.com/1.jpg\"],[],null,null],[10008,[\"http://example.com/1.jpg\"],[],\"   \",null],[10009,[\"http://example.com/1.jpg\"],[],\"🐶🐱🎉\",null],[10010,[\"http://example.com/1.jpg\"],[],\"旺财\",null],[202610131,[\"https://example.com/photos/pixie.jpg\"],[{\"id\":9001,\"name\":\"diana-test\"},{\"id\":9002,\"name\":\"small\"},{\"id\":9003,\"name\":\"nocturnal\"}],\"Pixie\",{\"id\":3,\"name\":\"Mice\"}],[202610133,[\"https://example.com/photos/barsik.jpg\"],[{\"id\":9001,\"name\":\"diana-test\"},{\"id\":9006,\"name\":\"fluffy\"},{\"id\":9007,\"name\":\"vaccinated\"}],\"Barsik\",{\"id\":2,\"name\":\"Cats\"}],[9900001,[\"https://example.com/dog.png\"],[],\"cursor-scaffold-dog\",null],[1791906719197,[\"string\"],[{\"id\":0,\"name\":\"string\"}],\"Charik_1791906719197\",{\"id\":1,\"name\":\"Dogs\"}],[987123,[\"https://example.com/a.png\"],[],\"Catena\",null],[99,[\"http://fido.jpg\"],[{\"id\":102,\"name\":\"friendly\"}],\"fido\",{\"id\":101,\"name\":\"dogz\"}],[15,[\"http://fido.jpg\",\"/tmp/inflector4691426581822228281.tmp\"],[{\"id\":0,\"name\":\"string\"}],\"fodi\",{\"id\":1,\"name\":\"Dogs\"}],[1,[\"test1\",\"test2\"],[],\"Pet1\",null]]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $1"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByStatus sold",
+  "tool": "petstore_findpetsbystatus",
+  "args": {
+   "status": "sold"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"columns\":[\"id\",\"name\",\"photoUrls\",\"tags\",\"category\"],\"constants\":{\"status\":\"sold\"},\"rows\":[[735082001,\"Rex\",[\"https://example.com/rex.png\"],[],null],[8,\"Laki\",[\"url1\",\"url2\"],[{\"id\":1,\"name\":\"tag2\"},{\"id\":2,\"name\":\"tag3\"}],{\"id\":4,\"name\":\"Lions\"}],[519790593,\"max\",[\"https://example.org/max.png\"],[{\"id\":1,\"name\":\"contract-taf\"}],{\"id\":1,\"name\":\"Dogs\"}],[10002,\"Hello Kitty\",[\"http://example.com/kitty.jpg\"],[],null],[10003,\"\",[\"http://example.com/1.jpg\"],[],null],[10006,\"\\u003cscript\\u003ealert(1)\\u003c/script\\u003e\",[\"http://example.com/1.jpg\"],[],null],[10012,\"重复宠物\",[\"http://example.com/1.jpg\"],[],null],[3,\"doggie\",[\"unyzjjzgcheygwuayzfsrfuivkxrvtxr\",\"unyzjjzgcheygwuayzfsrfuivkxrvtxr\",\"unyzjjzgcheygwuayzfsrfuivkxrvtxr\",\"unyzjjzgcheygwuayzfsrfuivkxrvtxr\",\"unyzjjzgcheygwuayzfsrfuivkxrvtxr\"],[{\"id\":6485599975816249000,\"name\":\"zdepieeceyturyzzshhnbxbunkmevywx\"},{\"id\":6485599975816249000,\"name\":\"zdepieeceyturyzzshhnbxbunkmevywx\"},{\"id\":6485599975816249000,\"name\":\"zdepieeceyturyzzshhnbxbunkmevywx\"},{\"id\":6485599975816249000,\"name\":\"zdepieeceyturyzzshhnbxbunkmevywx\"}],{\"id\":1,\"name\":\"Dogs\"}],[2,\"doggie\",[\"fill some value\"],[{\"id\":0,\"name\":\"fill some value\"}],{\"id\":1,\"name\":\"Dogs\"}]]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $2"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getPetById 1",
+  "tool": "petstore_getpetbyid",
+  "args": {
+   "petId": 1
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"id\":1,\"name\":\"Pet1\",\"photoUrls\":[\"test1\",\"test2\"],\"status\":\"available\",\"tags\":[]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $3"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getInventory",
+  "tool": "petstore_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: upstream returned 500 Internal Server Error: {\"code\":500,\"message\":\"There was an error processing your request. It has been logged (ID: 82b338a669e1f772)\"}"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "addPet",
+  "tool": "petstore_addpet",
+  "args": {
+   "body": {
+    "id": 289910702,
+    "name": "sb-proof-198",
+    "status": "pending",
+    "photoUrls": [
+     "https://example.com/p.png"
+    ],
+    "category": {
+     "id": 1,
+     "name": "Dogs"
+    },
+    "tags": [
+     {
+      "id": 198,
+      "name": "sandbox-e2e"
+     }
+    ]
+   }
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":289910702,\"name\":\"sb-proof-198\",\"photoUrls\":[\"https://example.com/p.png\"],\"status\":\"pending\",\"tags\":[{\"id\":198,\"name\":\"sandbox-e2e\"}]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $4"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getPetById (new pet, integer id >=1e6)",
+  "tool": "petstore_getpetbyid",
+  "args": {
+   "petId": 289910702
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":289910702,\"name\":\"sb-proof-198\",\"photoUrls\":[\"https://example.com/p.png\"],\"status\":\"pending\",\"tags\":[{\"id\":198,\"name\":\"sandbox-e2e\"}]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $5"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "updatePetWithForm (query params)",
+  "tool": "petstore_updatepetwithform",
+  "args": {
+   "petId": 289910702,
+   "name": "sb-proof-198-renamed",
+   "status": "sold"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":289910702,\"name\":\"sb-proof-198-renamed\",\"photoUrls\":[\"https://example.com/p.png\"],\"status\":\"sold\",\"tags\":[{\"id\":198,\"name\":\"sandbox-e2e\"}]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $6"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getPetById after update",
+  "tool": "petstore_getpetbyid",
+  "args": {
+   "petId": 289910702
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":289910702,\"name\":\"sb-proof-198-renamed\",\"photoUrls\":[\"https://example.com/p.png\"],\"status\":\"sold\",\"tags\":[{\"id\":198,\"name\":\"sandbox-e2e\"}]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $7"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "deletePet (cleanup)",
+  "tool": "petstore_deletepet",
+  "args": {
+   "petId": 289910702
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "Pet deleted"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $8"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getPetById 0 (upstream 4xx)",
+  "tool": "petstore_getpetbyid",
+  "args": {
+   "petId": -1
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: upstream returned 404 Not Found: Pet not found"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByStatus status=pending (query) finds new pet",
+  "tool": "petstore_findpetsbystatus",
+  "args": {
+   "status": "pending"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "[{\"category\":{\"id\":20370,\"name\":\"tag2\"},\"id\":542496,\"name\":\"string\",\"photoUrls\":[\"æL´ç򯠔tk]\",\"W\",\"मनीष منش\",\"Å𷹏ß򡔐ø~\\rË\\u0016Çù÷ Õ¾\",\"IÅ\\u0007ß齳)`\",\"\",\"\\u003c¥\",\"\",\"/tmp/inflector17630949849261731830.tmp\",\"/tmp/inflector15518117238820961202.tmp\"],\"status\":\"pending\",\"tags\":[{\"id\":-16953485,\"name\":\"\"},{\"id\":0},{\"id\":-6469693230,\"name\":\"򗵪\"}]},{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":289893912,\"name\":\"sb-proof-198\",\"photoUrls\":[\"https://example.com/p.png\"],\"status\":\"pending\",\"tags\":[{\"id\":198,\"name\":\"sandbox-e2e\"}]},{\"category\":{\"id\":4,\"name\":\"Birds\"},\"id\":202610132,\"name\":\"Kesha\",\"photoUrls\":[\"https://example.com/photos/kesha.jpg\"],\"status\":\"pending\",\"tags\":[{\"id\":9001,\"name\":\"diana-test\"},{\"id\":9004,\"name\":\"talking\"},{\"id\":9005,\"name\":\"colorful\"}]},{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":1791906775800,\"name\":\"Charik_1791906775800_Updated\",\"photoUrls\":[\"string\"],\"status\":\"pending\",\"tags\":[{\"id\":0,\"name\":\"string\"}]}]"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $9"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByTags tags=[\"tag1\"] (array query param)",
+  "tool": "petstore_findpetsbytags",
+  "args": {
+   "tags": [
+    "tag1"
+   ]
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: query parameter \"tags\": parameter \"v\": cannot convert []interface {} to string"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByTags tags=\"tag1\" (string)",
+  "tool": "petstore_findpetsbytags",
+  "args": {
+   "tags": "tag1"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: upstream returned 500 Internal Server Error: {\"code\":500,\"message\":\"There was an error processing your request. It has been logged (ID: cd5462abb5e0283a)\"}"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "missing required arg",
+  "tool": "petstore_getpetbyid",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "missing required parameter \"petId\" for tool \"petstore_getpetbyid\". Required: [petId]"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "country US",
+  "tool": "countries_country",
+  "args": {
+   "code": "US"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"country\":{\"awsRegion\":\"us-east-2\",\"capital\":\"Washington D.C.\",\"code\":\"US\",\"continent\":{\"code\":\"NA\",\"countries\":{\"columns\":[],\"constants\":{\"__typename\":\"Country\"},\"rows\":[[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]},\"name\":\"North America\"},\"currencies\":[\"USD\",\"USN\",\"USS\"],\"currency\":\"USD,USN,USS\",\"emoji\":\"🇺🇸\",\"emojiU\":\"U+1F1FA U+1F1F8\",\"languages\":[{\"code\":\"en\",\"countries\":[{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"}],\"name\":\"English\",\"native\":\"English\",\"rtl\":false}],\"name\":\"United States\",\"native\":\"United States\",\"phone\":\"1\",\"phones\":[\"1\"],\"states\":{\"columns\":[\"code\",\"name\"],\"constants\":{\"country\":{\"__typename\":\"Country\"}},\"rows\":[[\"AL\",\"Alabama\"],[\"AK\",\"Alaska\"],[\"AZ\",\"Arizona\"],[\"AR\",\"Arkansas\"],[\"CA\",\"California\"],[\"CO\",\"Colorado\"],[\"CT\",\"Connecticut\"],[\"DC\",\"District of Columbia\"],[\"DE\",\"Delaware\"],[\"FL\",\"Florida\"],[\"GA\",\"Georgia\"],[\"HI\",\"Hawaii\"],[\"ID\",\"Idaho\"],[\"IL\",\"Illinois\"],[\"IN\",\"Indiana\"],[\"IA\",\"Iowa\"],[\"KS\",\"Kansas\"],[\"KY\",\"Kentucky\"],[\"LA\",\"Louisiana\"],[\"ME\",\"Maine\"],[\"MD\",\"Maryland\"],[\"MA\",\"Massachusetts\"],[\"MI\",\"Michigan\"],[\"MN\",\"Minnesota\"],[\"MS\",\"Mississippi\"],[\"MO\",\"Missouri\"],[\"MT\",\"Montana\"],[\"NE\",\"Nebraska\"],[\"NV\",\"Nevada\"],[\"NH\",\"New Hampshire\"],[\"NJ\",\"New Jersey\"],[\"NM\",\"New Mexico\"],[\"NY\",\"New York\"],[\"NC\",\"North Carolina\"],[\"ND\",\"North Dakota\"],[\"OH\",\"Ohio\"],[\"OK\",\"Oklahoma\"],[\"OR\",\"Oregon\"],[\"PA\",\"Pennsylvania\"],[\"RI\",\"Rhode Island\"],[\"SC\",\"South Carolina\"],[\"SD\",\"South Dakota\"],[\"TN\",\"Tennessee\"],[\"TX\",\"Texas\"],[\"UT\",\"Utah\"],[\"VT\",\"Vermont\"],[\"VA\",\"Virginia\"],[\"WA\",\"Washington\"],[\"WV\",\"West Virginia\"],[\"WI\",\"Wisconsin\"],[\"WY\",\"Wyoming\"],[\"AS\",\"American Samoa\"],[\"GU\",\"Guam\"],[\"MP\",\"Northern Mariana Islands\"],[\"PR\",\"Puerto Rico\"],[\"UM\",\"United States Minor Outlying Islands\"],[\"VI\",\"Virgin Islands\"]]},\"subdivisions\":[]}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $10"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "country JP",
+  "tool": "countries_country",
+  "args": {
+   "code": "JP"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"country\":{\"awsRegion\":\"ap-northeast-1\",\"capital\":\"Tokyo\",\"code\":\"JP\",\"continent\":{\"code\":\"AS\",\"countries\":{\"columns\":[],\"constants\":{\"__typename\":\"Country\"},\"rows\":[[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]},\"name\":\"Asia\"},\"currencies\":[\"JPY\"],\"currency\":\"JPY\",\"emoji\":\"🇯🇵\",\"emojiU\":\"U+1F1EF U+1F1F5\",\"languages\":[{\"code\":\"ja\",\"countries\":[{\"__typename\":\"Country\"}],\"name\":\"Japanese\",\"native\":\"日本語\",\"rtl\":false}],\"name\":\"Japan\",\"native\":\"日本\",\"phone\":\"81\",\"phones\":[\"81\"],\"states\":{\"columns\":[\"name\"],\"constants\":{\"code\":null,\"country\":{\"__typename\":\"Country\"}},\"rows\":[[\"愛知県\"],[\"秋田県\"],[\"青森県\"],[\"千葉県\"],[\"愛媛県\"],[\"福井県\"],[\"福岡県\"],[\"福島県\"],[\"岐阜県\"],[\"群馬県\"],[\"広島県\"],[\"北海道\"],[\"兵庫県\"],[\"茨城県\"],[\"石川県\"],[\"岩手県\"],[\"香川県\"],[\"鹿児島県\"],[\"神奈川県\"],[\"高知県\"],[\"熊本県\"],[\"京都府\"],[\"三重県\"],[\"宮城県\"],[\"宮崎県\"],[\"長野県\"],[\"長崎県\"],[\"奈良県\"],[\"新潟県\"],[\"大分県\"],[\"岡山県\"],[\"沖縄県\"],[\"大阪府\"],[\"佐賀県\"],[\"埼玉県\"],[\"滋賀県\"],[\"島根県\"],[\"静岡県\"],[\"栃木県\"],[\"徳島県\"],[\"東京都\"],[\"鳥取県\"],[\"富山県\"],[\"和歌山県\"],[\"山形県\"],[\"山口県\"],[\"山梨県\"]]},\"subdivisions\":[]}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $11"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "countries filter continent=OC",
+  "tool": "countries_countries",
+  "args": {
+   "filter": {
+    "continent": {
+     "eq": "OC"
+    }
+   }
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "Response exceeded 50KB (actual: 68KB). Use more specific filters, lower limit/per_page, or fetch individual items."
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "countries filter code in [DE,FR]",
+  "tool": "countries_countries",
+  "args": {
+   "filter": {
+    "code": {
+     "in": [
+      "DE",
+      "FR"
+     ]
+    }
+   }
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"countries\":[{\"awsRegion\":\"eu-central-1\",\"capital\":\"Berlin\",\"code\":\"DE\",\"continent\":{\"code\":\"EU\",\"countries\":[{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"}],\"name\":\"Europe\"},\"currencies\":[\"EUR\"],\"currency\":\"EUR\",\"emoji\":\"🇩🇪\",\"emojiU\":\"U+1F1E9 U+1F1EA\",\"languages\":[{\"code\":\"de\",\"countries\":[{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"}],\"name\":\"German\",\"native\":\"Deutsch\",\"rtl\":false}],\"name\":\"Germany\",\"native\":\"Deutschland\",\"phone\":\"49\",\"phones\":[\"49\"],\"states\":[{\"code\":\"BW\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Baden-Württemberg\"},{\"code\":\"BY\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Bayern\"},{\"code\":\"BE\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Berlin\"},{\"code\":\"BB\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Brandenburg\"},{\"code\":\"HB\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Bremen\"},{\"code\":\"HH\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Hamburg\"},{\"code\":\"HE\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Hessen\"},{\"code\":\"MV\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Mecklenburg-Vorpommern\"},{\"code\":\"NI\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Niedersachsen\"},{\"code\":\"NW\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Nordrhein-Westfalen\"},{\"code\":\"RP\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Rheinland-Pfalz\"},{\"code\":\"SL\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Saarland\"},{\"code\":\"SN\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Sachsen\"},{\"code\":\"ST\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Sachsen-Anhalt\"},{\"code\":\"SH\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Schleswig-Holstein\"},{\"code\":\"TH\",\"country\":{\"__typename\":\"Country\"},\"name\":\"Thüringen\"}],\"subdivisions\":[]},{\"awsRegion\":\"eu-west-3\",\"capital\":\"Paris\",\"code\":\"FR\",\"continent\":{\"code\":\"EU\",\"countries\":[{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"}],\"name\":\"Europe\"},\"currencies\":[\"EUR\"],\"currency\":\"EUR\",\"emoji\":\"🇫🇷\",\"emojiU\":\"U+1F1EB U+1F1F7\",\"languages\":[{\"code\":\"fr\",\"countries\":[{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"}],\"name\":\"French\",\"native\":\"Français\",\"rtl\":false}],\"name\":\"France\",\"native\":\"France\",\"phone\":\"33\",\"phones\":[\"33\"],\"states\":[],\"subdivisions\":[]}]}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $13"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "continents",
+  "tool": "countries_continents",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "Response exceeded 50KB (actual: 147KB). Use more specific filters, lower limit/per_page, or fetch individual items."
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "continent EU",
+  "tool": "countries_continent",
+  "args": {
+   "code": "EU"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"continent\":{\"code\":\"EU\",\"countries\":{\"columns\":[\"awsRegion\",\"capital\",\"code\",\"currencies\",\"currency\",\"emoji\",\"emojiU\",\"languages\",\"name\",\"native\",\"phone\",\"phones\",\"states\",\"subdivisions\"],\"constants\":{\"continent\":{\"__typename\":\"Continent\"}},\"rows\":[[\"eu-south-1\",\"Andorra la Vella\",\"AD\",[\"EUR\"],\"EUR\",\"🇦🇩\",\"U+1F1E6 U+1F1E9\",[{\"__typename\":\"Language\"}],\"Andorra\",\"Andorra\",\"376\",[\"376\"],[],[]],[\"eu-south-1\",\"Tirana\",\"AL\",[\"ALL\"],\"ALL\",\"🇦🇱\",\"U+1F1E6 U+1F1F1\",[{\"__typename\":\"Language\"}],\"Albania\",\"Shqipëria\",\"355\",[\"355\"],[],[]],[\"eu-south-1\",\"Vienna\",\"AT\",[\"EUR\"],\"EUR\",\"🇦🇹\",\"U+1F1E6 U+1F1F9\",[{\"__typename\":\"Language\"}],\"Austria\",\"Österreich\",\"43\",[\"43\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[]],[\"eu-west-1\",\"Mariehamn\",\"AX\",[\"EUR\"],\"EUR\",\"🇦🇽\",\"U+1F1E6 U+1F1FD\",[{\"__typename\":\"Language\"}],\"Åland\",\"Åland\",\"358\",[\"358\"],[],[{\"__typename\":\"Subdivision\"}]],[\"eu-south-1\",\"Sarajevo\",\"BA\",[\"BAM\"],\"BAM\",\"🇧🇦\",\"U+1F1E7 U+1F1E6\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Bosnia and Herzegovina\",\"Bosna i Hercegovina\",\"387\",[\"387\"],[],[]],[\"eu-west-3\",\"Brussels\",\"BE\",[\"EUR\"],\"EUR\",\"🇧🇪\",\"U+1F1E7 U+1F1EA\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Belgium\",\"België\",\"32\",[\"32\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"eu-south-1\",\"Sofia\",\"BG\",[\"BGN\"],\"BGN\",\"🇧🇬\",\"U+1F1E7 U+1F1EC\",[{\"__typename\":\"Language\"}],\"Bulgaria\",\"България\",\"359\",[\"359\"],[],[]],[\"eu-north-1\",\"Minsk\",\"BY\",[\"BYN\"],\"BYN\",\"🇧🇾\",\"U+1F1E7 U+1F1FE\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Belarus\",\"Белару́сь\",\"375\",[\"375\"],[],[]],[\"eu-south-1\",\"Bern\",\"CH\",[\"CHE\",\"CHF\",\"CHW\"],\"CHE,CHF,CHW\",\"🇨🇭\",\"U+1F1E8 U+1F1ED\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Switzerland\",\"Schweiz\",\"41\",[\"41\"],[],[]],[\"me-south-1\",\"Nicosia\",\"CY\",[\"EUR\"],\"EUR\",\"🇨🇾\",\"U+1F1E8 U+1F1FE\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Cyprus\",\"Κύπρος\",\"357\",[\"357\"],[],[]],[\"eu-central-1\",\"Prague\",\"CZ\",[\"CZK\"],\"CZK\",\"🇨🇿\",\"U+1F1E8 U+1F1FF\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Czech Republic\",\"Česká republika\",\"420\",[\"420\"],[],[]],[\"eu-central-1\",\"Berlin\",\"DE\",[\"EUR\"],\"EUR\",\"🇩🇪\",\"U+1F1E9 U+1F1EA\",[{\"__typename\":\"Language\"}],\"Germany\",\"Deutschland\",\"49\",[\"49\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[]],[\"eu-north-1\",\"Copenhagen\",\"DK\",[\"DKK\"],\"DKK\",\"🇩🇰\",\"U+1F1E9 U+1F1F0\",[{\"__typename\":\"Language\"}],\"Denmark\",\"Danmark\",\"45\",[\"45\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[]],[\"eu-north-1\",\"Tallinn\",\"EE\",[\"EUR\"],\"EUR\",\"🇪🇪\",\"U+1F1EA U+1F1EA\",[{\"__typename\":\"Language\"}],\"Estonia\",\"Eesti\",\"372\",[\"372\"],[],[]],[\"eu-west-3\",\"Madrid\",\"ES\",[\"EUR\"],\"EUR\",\"🇪🇸\",\"U+1F1EA U+1F1F8\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Spain\",\"España\",\"34\",[\"34\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"eu-north-1\",\"Helsinki\",\"FI\",[\"EUR\"],\"EUR\",\"🇫🇮\",\"U+1F1EB U+1F1EE\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Finland\",\"Suomi\",\"358\",[\"358\"],[],[]],[\"eu-west-1\",\"Tórshavn\",\"FO\",[\"DKK\"],\"DKK\",\"🇫🇴\",\"U+1F1EB U+1F1F4\",[{\"__typename\":\"Language\"}],\"Faroe Islands\",\"Føroyar\",\"298\",[\"298\"],[],[{\"__typename\":\"Subdivision\"}]],[\"eu-west-3\",\"Paris\",\"FR\",[\"EUR\"],\"EUR\",\"🇫🇷\",\"U+1F1EB U+1F1F7\",[{\"__typename\":\"Language\"}],\"France\",\"France\",\"33\",[\"33\"],[],[]],[\"eu-west-2\",\"London\",\"GB\",[\"GBP\"],\"GBP\",\"🇬🇧\",\"U+1F1EC U+1F1E7\",[{\"__typename\":\"Language\"}],\"United Kingdom\",\"United Kingdom\",\"44\",[\"44\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"eu-west-1\",\"St. Peter Port\",\"GG\",[\"GBP\"],\"GBP\",\"🇬🇬\",\"U+1F1EC U+1F1EC\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Guernsey\",\"Guernsey\",\"44\",[\"44\"],[],[{\"__typename\":\"Subdivision\"}]],[\"eu-west-3\",\"Gibraltar\",\"GI\",[\"GIP\"],\"GIP\",\"🇬🇮\",\"U+1F1EC U+1F1EE\",[{\"__typename\":\"Language\"}],\"Gibraltar\",\"Gibraltar\",\"350\",[\"350\"],[],[{\"__typename\":\"Subdivision\"}]],[\"eu-south-1\",\"Athens\",\"GR\",[\"EUR\"],\"EUR\",\"🇬🇷\",\"U+1F1EC U+1F1F7\",[{\"__typename\":\"Language\"}],\"Greece\",\"Ελλάδα\",\"30\",[\"30\"],[],[]],[\"eu-south-1\",\"Zagreb\",\"HR\",[\"HRK\"],\"HRK\",\"🇭🇷\",\"U+1F1ED U+1F1F7\",[{\"__typename\":\"Language\"}],\"Croatia\",\"Hrvatska\",\"385\",[\"385\"],[],[]],[\"eu-south-1\",\"Budapest\",\"HU\",[\"HUF\"],\"HUF\",\"🇭🇺\",\"U+1F1ED U+1F1FA\",[{\"__typename\":\"Language\"}],\"Hungary\",\"Magyarország\",\"36\",[\"36\"],[],[]],[\"eu-west-1\",\"Dublin\",\"IE\",[\"EUR\"],\"EUR\",\"🇮🇪\",\"U+1F1EE U+1F1EA\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Ireland\",\"Éire\",\"353\",[\"353\"],[],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"eu-west-1\",\"Douglas\",\"IM\",[\"GBP\"],\"GBP\",\"🇮🇲\",\"U+1F1EE U+1F1F2\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Isle of Man\",\"Isle of Man\",\"44\",[\"44\"],[],[{\"__typename\":\"Subdivision\"}]],[\"eu-west-1\",\"Reykjavik\",\"IS\",[\"ISK\"],\"ISK\",\"🇮🇸\",\"U+1F1EE U+1F1F8\",[{\"__typename\":\"Language\"}],\"Iceland\",\"Ísland\",\"354\",[\"354\"],[],[]],[\"eu-south-1\",\"Rome\",\"IT\",[\"EUR\"],\"EUR\",\"🇮🇹\",\"U+1F1EE U+1F1F9\",[{\"__typename\":\"Language\"}],\"Italy\",\"Italia\",\"39\",[\"39\"],[],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"eu-west-1\",\"Saint Helier\",\"JE\",[\"GBP\"],\"GBP\",\"🇯🇪\",\"U+1F1EF U+1F1EA\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Jersey\",\"Jersey\",\"44\",[\"44\"],[],[{\"__typename\":\"Subdivision\"}]],[\"eu-south-1\",\"Vaduz\",\"LI\",[\"CHF\"],\"CHF\",\"🇱🇮\",\"U+1F1F1 U+1F1EE\",[{\"__typename\":\"Language\"}],\"Liechtenstein\",\"Liechtenstein\",\"423\",[\"423\"],[],[]],[\"eu-north-1\",\"Vilnius\",\"LT\",[\"EUR\"],\"EUR\",\"🇱🇹\",\"U+1F1F1 U+1F1F9\",[{\"__typename\":\"Language\"}],\"Lithuania\",\"Lietuva\",\"370\",[\"370\"],[],[]],[\"eu-central-1\",\"Luxembourg\",\"LU\",[\"EUR\"],\"EUR\",\"🇱🇺\",\"U+1F1F1 U+1F1FA\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Luxembourg\",\"Luxembourg\",\"352\",[\"352\"],[],[]],[\"eu-north-1\",\"Riga\",\"LV\",[\"EUR\"],\"EUR\",\"🇱🇻\",\"U+1F1F1 U+1F1FB\",[{\"__typename\":\"Language\"}],\"Latvia\",\"Latvija\",\"371\",[\"371\"],[],[]],[\"eu-south-1\",\"Monaco\",\"MC\",[\"EUR\"],\"EUR\",\"🇲🇨\",\"U+1F1F2 U+1F1E8\",[{\"__typename\":\"Language\"}],\"Monaco\",\"Monaco\",\"377\",[\"377\"],[],[]],[\"eu-south-1\",\"Chișinău\",\"MD\",[\"MDL\"],\"MDL\",\"🇲🇩\",\"U+1F1F2 U+1F1E9\",[{\"__typename\":\"Language\"}],\"Moldova\",\"Moldova\",\"373\",[\"373\"],[],[]],[\"eu-south-1\",\"Podgorica\",\"ME\",[\"EUR\"],\"EUR\",\"🇲🇪\",\"U+1F1F2 U+1F1EA\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Montenegro\",\"Црна Гора\",\"382\",[\"382\"],[],[]],[\"eu-south-1\",\"Skopje\",\"MK\",[\"MKD\"],\"MKD\",\"🇲🇰\",\"U+1F1F2 U+1F1F0\",[{\"__typename\":\"Language\"}],\"North Macedonia\",\"Северна Македонија\",\"389\",[\"389\"],[],[]],[\"eu-south-1\",\"Valletta\",\"MT\",[\"EUR\"],\"EUR\",\"🇲🇹\",\"U+1F1F2 U+1F1F9\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Malta\",\"Malta\",\"356\",[\"356\"],[],[]],[\"eu-central-1\",\"Amsterdam\",\"NL\",[\"EUR\"],\"EUR\",\"🇳🇱\",\"U+1F1F3 U+1F1F1\",[{\"__typename\":\"Language\"}],\"Netherlands\",\"Nederland\",\"31\",[\"31\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"eu-north-1\",\"Oslo\",\"NO\",[\"NOK\"],\"NOK\",\"🇳🇴\",\"U+1F1F3 U+1F1F4\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Norway\",\"Norge\",\"47\",[\"47\"],[],[]],[\"eu-north-1\",\"Warsaw\",\"PL\",[\"PLN\"],\"PLN\",\"🇵🇱\",\"U+1F1F5 U+1F1F1\",[{\"__typename\":\"Language\"}],\"Poland\",\"Polska\",\"48\",[\"48\"],[],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"eu-west-3\",\"Lisbon\",\"PT\",[\"EUR\"],\"EUR\",\"🇵🇹\",\"U+1F1F5 U+1F1F9\",[{\"__typename\":\"Language\"}],\"Portugal\",\"Portugal\",\"351\",[\"351\"],[],[]],[\"eu-south-1\",\"Bucharest\",\"RO\",[\"RON\"],\"RON\",\"🇷🇴\",\"U+1F1F7 U+1F1F4\",[{\"__typename\":\"Language\"}],\"Romania\",\"România\",\"40\",[\"40\"],[],[]],[\"eu-south-1\",\"Belgrade\",\"RS\",[\"RSD\"],\"RSD\",\"🇷🇸\",\"U+1F1F7 U+1F1F8\",[{\"__typename\":\"Language\"}],\"Serbia\",\"Србија\",\"381\",[\"381\"],[],[]],[\"ap-northeast-2\",\"Moscow\",\"RU\",[\"RUB\"],\"RUB\",\"🇷🇺\",\"U+1F1F7 U+1F1FA\",[{\"__typename\":\"Language\"}],\"Russia\",\"Россия\",\"7\",[\"7\"],[],[]],[\"eu-north-1\",\"Stockholm\",\"SE\",[\"SEK\"],\"SEK\",\"🇸🇪\",\"U+1F1F8 U+1F1EA\",[{\"__typename\":\"Language\"}],\"Sweden\",\"Sverige\",\"46\",[\"46\"],[],[]],[\"eu-south-1\",\"Ljubljana\",\"SI\",[\"EUR\"],\"EUR\",\"🇸🇮\",\"U+1F1F8 U+1F1EE\",[{\"__typename\":\"Language\"}],\"Slovenia\",\"Slovenija\",\"386\",[\"386\"],[],[]],[\"eu-north-1\",\"Longyearbyen\",\"SJ\",[\"NOK\"],\"NOK\",\"🇸🇯\",\"U+1F1F8 U+1F1EF\",[{\"__typename\":\"Language\"}],\"Svalbard and Jan Mayen\",\"Svalbard og Jan Mayen\",\"4779\",[\"4779\"],[],[{\"__typename\":\"Subdivision\"}]],[\"eu-central-1\",\"Bratislava\",\"SK\",[\"EUR\"],\"EUR\",\"🇸🇰\",\"U+1F1F8 U+1F1F0\",[{\"__typename\":\"Language\"}],\"Slovakia\",\"Slovensko\",\"421\",[\"421\"],[],[]],[\"eu-south-1\",\"City of San Marino\",\"SM\",[\"EUR\"],\"EUR\",\"🇸🇲\",\"U+1F1F8 U+1F1F2\",[{\"__typename\":\"Language\"}],\"San Marino\",\"San Marino\",\"378\",[\"378\"],[],[]],[\"eu-north-1\",\"Kyiv\",\"UA\",[\"UAH\"],\"UAH\",\"🇺🇦\",\"U+1F1FA U+1F1E6\",[{\"__typename\":\"Language\"}],\"Ukraine\",\"Україна\",\"380\",[\"380\"],[],[]],[\"eu-south-1\",\"Vatican City\",\"VA\",[\"EUR\"],\"EUR\",\"🇻🇦\",\"U+1F1FB U+1F1E6\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Vatican City\",\"Vaticano\",\"379\",[\"379\"],[],[{\"__typename\":\"Subdivision\"}]],[\"eu-south-1\",\"Pristina\",\"XK\",[\"EUR\"],\"EUR\",\"🇽🇰\",\"U+1F1FD U+1F1F0\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Kosovo\",\"Republika e Kosovës\",\"377,381,383,386\",[\"377\",\"381\",\"383\",\"386\"],[],[]]]},\"name\":\"Europe\"}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $15"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "language es",
+  "tool": "countries_language",
+  "args": {
+   "code": "es"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"language\":{\"code\":\"es\",\"countries\":{\"columns\":[\"awsRegion\",\"capital\",\"code\",\"currencies\",\"currency\",\"emoji\",\"emojiU\",\"languages\",\"name\",\"native\",\"phone\",\"phones\",\"states\",\"subdivisions\"],\"constants\":{\"continent\":{\"__typename\":\"Continent\"}},\"rows\":[[\"sa-east-1\",\"Buenos Aires\",\"AR\",[\"ARS\"],\"ARS\",\"🇦🇷\",\"U+1F1E6 U+1F1F7\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Argentina\",\"Argentina\",\"54\",[\"54\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"sa-east-1\",\"Sucre\",\"BO\",[\"BOB\",\"BOV\"],\"BOB,BOV\",\"🇧🇴\",\"U+1F1E7 U+1F1F4\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Bolivia\",\"Bolivia\",\"591\",[\"591\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[]],[\"us-east-1\",\"Belmopan\",\"BZ\",[\"BZD\"],\"BZD\",\"🇧🇿\",\"U+1F1E7 U+1F1FF\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Belize\",\"Belize\",\"501\",[\"501\"],[],[]],[\"sa-east-1\",\"Santiago\",\"CL\",[\"CLF\",\"CLP\"],\"CLF,CLP\",\"🇨🇱\",\"U+1F1E8 U+1F1F1\",[{\"__typename\":\"Language\"}],\"Chile\",\"Chile\",\"56\",[\"56\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[]],[\"us-east-1\",\"Bogotá\",\"CO\",[\"COP\"],\"COP\",\"🇨🇴\",\"U+1F1E8 U+1F1F4\",[{\"__typename\":\"Language\"}],\"Colombia\",\"Colombia\",\"57\",[\"57\"],[],[]],[\"us-east-1\",\"San José\",\"CR\",[\"CRC\"],\"CRC\",\"🇨🇷\",\"U+1F1E8 U+1F1F7\",[{\"__typename\":\"Language\"}],\"Costa Rica\",\"Costa Rica\",\"506\",[\"506\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"us-east-1\",\"Havana\",\"CU\",[\"CUC\",\"CUP\"],\"CUC,CUP\",\"🇨🇺\",\"U+1F1E8 U+1F1FA\",[{\"__typename\":\"Language\"}],\"Cuba\",\"Cuba\",\"53\",[\"53\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"us-east-1\",\"Santo Domingo\",\"DO\",[\"DOP\"],\"DOP\",\"🇩🇴\",\"U+1F1E9 U+1F1F4\",[{\"__typename\":\"Language\"}],\"Dominican Republic\",\"República Dominicana\",\"1809,1829,1849\",[\"1809\",\"1829\",\"1849\"],[],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"sa-east-1\",\"Quito\",\"EC\",[\"USD\"],\"USD\",\"🇪🇨\",\"U+1F1EA U+1F1E8\",[{\"__typename\":\"Language\"}],\"Ecuador\",\"Ecuador\",\"593\",[\"593\"],[],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"eu-west-3\",\"El Aaiún\",\"EH\",[\"MAD\",\"DZD\",\"MRU\"],\"MAD,DZD,MRU\",\"🇪🇭\",\"U+1F1EA U+1F1ED\",[{\"__typename\":\"Language\"}],\"Western Sahara\",\"الصحراء الغربية\",\"212\",[\"212\"],[],[{\"__typename\":\"Subdivision\"}]],[\"eu-west-3\",\"Madrid\",\"ES\",[\"EUR\"],\"EUR\",\"🇪🇸\",\"U+1F1EA U+1F1F8\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Spain\",\"España\",\"34\",[\"34\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"af-south-1\",\"Malabo\",\"GQ\",[\"XAF\"],\"XAF\",\"🇬🇶\",\"U+1F1EC U+1F1F6\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Equatorial Guinea\",\"Guinea Ecuatorial\",\"240\",[\"240\"],[],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"us-east-1\",\"Guatemala City\",\"GT\",[\"GTQ\"],\"GTQ\",\"🇬🇹\",\"U+1F1EC U+1F1F9\",[{\"__typename\":\"Language\"}],\"Guatemala\",\"Guatemala\",\"502\",[\"502\"],[],[]],[\"ap-northeast-1\",\"Hagåtña\",\"GU\",[\"USD\"],\"USD\",\"🇬🇺\",\"U+1F1EC U+1F1FA\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Guam\",\"Guam\",\"1671\",[\"1671\"],[],[{\"__typename\":\"Subdivision\"}]],[\"us-east-1\",\"Tegucigalpa\",\"HN\",[\"HNL\"],\"HNL\",\"🇭🇳\",\"U+1F1ED U+1F1F3\",[{\"__typename\":\"Language\"}],\"Honduras\",\"Honduras\",\"504\",[\"504\"],[],[]],[\"us-west-1\",\"Mexico City\",\"MX\",[\"MXN\"],\"MXN\",\"🇲🇽\",\"U+1F1F2 U+1F1FD\",[{\"__typename\":\"Language\"}],\"Mexico\",\"México\",\"52\",[\"52\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[]],[\"us-east-1\",\"Managua\",\"NI\",[\"NIO\"],\"NIO\",\"🇳🇮\",\"U+1F1F3 U+1F1EE\",[{\"__typename\":\"Language\"}],\"Nicaragua\",\"Nicaragua\",\"505\",[\"505\"],[],[]],[\"us-east-1\",\"Panama City\",\"PA\",[\"PAB\",\"USD\"],\"PAB,USD\",\"🇵🇦\",\"U+1F1F5 U+1F1E6\",[{\"__typename\":\"Language\"}],\"Panama\",\"Panamá\",\"507\",[\"507\"],[],[{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"},{\"__typename\":\"Subdivision\"}]],[\"sa-east-1\",\"Lima\",\"PE\",[\"PEN\"],\"PEN\",\"🇵🇪\",\"U+1F1F5 U+1F1EA\",[{\"__typename\":\"Language\"}],\"Peru\",\"Perú\",\"51\",[\"51\"],[{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"},{\"__typename\":\"State\"}],[]],[\"us-east-1\",\"San Juan\",\"PR\",[\"USD\"],\"USD\",\"🇵🇷\",\"U+1F1F5 U+1F1F7\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Puerto Rico\",\"Puerto Rico\",\"1787,1939\",[\"1787\",\"1939\"],[],[{\"__typename\":\"Subdivision\"}]],[\"sa-east-1\",\"Asunción\",\"PY\",[\"PYG\"],\"PYG\",\"🇵🇾\",\"U+1F1F5 U+1F1FE\",[{\"__typename\":\"Language\"},{\"__typename\":\"Language\"}],\"Paraguay\",\"Paraguay\",\"595\",[\"595\"],[],[]],[\"us-east-1\",\"San Salvador\",\"SV\",[\"SVC\",\"USD\"],\"SVC,USD\",\"🇸🇻\",\"U+1F1F8 U+1F1FB\",[{\"__typename\":\"Language\"}],\"El Salvador\",\"El Salvador\",\"503\",[\"503\"],[],[]],[\"sa-east-1\",\"Montevideo\",\"UY\",[\"UYI\",\"UYU\"],\"UYI,UYU\",\"🇺🇾\",\"U+1F1FA U+1F1FE\",[{\"__typename\":\"Language\"}],\"Uruguay\",\"Uruguay\",\"598\",[\"598\"],[],[]],[\"us-east-1\",\"Caracas\",\"VE\",[\"VES\"],\"VES\",\"🇻🇪\",\"U+1F1FB U+1F1EA\",[{\"__typename\":\"Language\"}],\"Venezuela\",\"Venezuela\",\"58\",[\"58\"],[],[]]]},\"name\":\"Spanish\",\"native\":\"Español\",\"rtl\":false}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $16"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "country unknown ZZ",
+  "tool": "countries_country",
+  "args": {
+   "code": "ZZ"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"country\":null}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $17"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries_fixture",
+  "step": "fixture country BR",
+  "tool": "countries_fixture_country",
+  "args": {
+   "code": "BR"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"country\":{\"awsRegion\":\"sa-east-1\",\"capital\":\"Brasília\",\"code\":\"BR\",\"continent\":{\"code\":\"SA\",\"countries\":{\"columns\":[],\"constants\":{\"__typename\":\"Country\"},\"rows\":[[],[],[],[],[],[],[],[],[],[],[],[],[],[]]},\"name\":\"South America\"},\"currencies\":[\"BRL\"],\"currency\":\"BRL\",\"emoji\":\"🇧🇷\",\"emojiU\":\"U+1F1E7 U+1F1F7\",\"languages\":[{\"code\":\"pt\",\"countries\":[{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"},{\"__typename\":\"Country\"}],\"name\":\"Portuguese\",\"native\":\"Português\",\"rtl\":false}],\"name\":\"Brazil\",\"native\":\"Brasil\",\"phone\":\"55\",\"phones\":[\"55\"],\"states\":{\"columns\":[\"code\",\"name\"],\"constants\":{\"country\":{\"__typename\":\"Country\"}},\"rows\":[[\"AC\",\"Acre\"],[\"AL\",\"Alagoas\"],[\"AP\",\"Amapá\"],[\"AM\",\"Amazonas\"],[\"BA\",\"Bahia\"],[\"CE\",\"Ceará\"],[\"DF\",\"Distrito Federal\"],[\"ES\",\"Espírito Santo\"],[\"GO\",\"Goiás\"],[\"MA\",\"Maranhão\"],[\"MT\",\"Mato Grosso\"],[\"MS\",\"Mato Grosso do Sul\"],[\"MG\",\"Minas Gerais\"],[\"PA\",\"Pará\"],[\"PB\",\"Paraíba\"],[\"PR\",\"Paraná\"],[\"PE\",\"Pernambuco\"],[\"PI\",\"Piauí\"],[\"RJ\",\"Rio de Janeiro\"],[\"RN\",\"Rio Grande do Norte\"],[\"RS\",\"Rio Grande do Sul\"],[\"RO\",\"Rondônia\"],[\"RR\",\"Roraima\"],[\"SC\",\"Santa Catarina\"],[\"SP\",\"São Paulo\"],[\"SE\",\"Sergipe\"],[\"TO\",\"Tocantins\"]]},\"subdivisions\":[]}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $18"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries_fixture",
+  "step": "fixture continents",
+  "tool": "countries_fixture_continents",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "Response exceeded 50KB (actual: 147KB). Use more specific filters, lower limit/per_page, or fetch individual items."
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "step": "script",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"country\":\"Canada\",\"pet\":\"Pet1\"}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "bad_unspecified_v4_getinventory not executable",
+  "tool": "bad_unspecified_v4_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "tool \"bad_unspecified_v4_getinventory\" not found. Use the search tool to discover available tools"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "bad_unspecified_v6_getinventory not executable",
+  "tool": "bad_unspecified_v6_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "tool \"bad_unspecified_v6_getinventory\" not found. Use the search tool to discover available tools"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "bad_zero_net_getinventory not executable",
+  "tool": "bad_zero_net_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "tool \"bad_zero_net_getinventory\" not found. Use the search tool to discover available tools"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "bad_cgnat_getinventory not executable",
+  "tool": "bad_cgnat_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "tool \"bad_cgnat_getinventory\" not found. Use the search tool to discover available tools"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "control 100.128.0.1 (just outside 100.64/10) still accepted",
+  "tool": "ok_100_128_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: request failed: Get \"http://100.128.0.1:18999/store/inventory\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "probe_dns_loopback (127.0.0.1.nip.io)",
+  "tool": "probe_dns_loopback_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: request failed: Get \"http://127.0.0.1.nip.io:18999/store/inventory\": dial tcp 198.18.0.1:18999: i/o timeout (Client.Timeout exceeded while awaiting headers)"
+    }
+   ],
+   "isError": true
+  }
+ }
+]

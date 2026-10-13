@@ -1,0 +1,22 @@
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_basecred\": specimport \"bad_basecred\": specimport: invalid base_url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_gcp_meta\": specimport \"bad_gcp_meta\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_loopback_v4\": specimport \"bad_loopback_v4\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_metadata\": specimport \"bad_metadata\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_metadata_gql\": specimport \"bad_metadata_gql\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_scheme\": specimport \"bad_scheme\": specimport: invalid base url: url must be http or https, got \"file\""
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_cgnat_hi\": specimport \"bad_cgnat_hi\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"petstore_yaml\": specimport \"petstore_yaml\": specimport: parse openapi json: invalid character 'o' looking for beginning of value"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_unspecified_v4\": specimport \"bad_unspecified_v4\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"probe_mapped\": specimport \"probe_mapped\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_unspecified_v6\": specimport \"bad_unspecified_v6\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_cgnat\": specimport \"bad_cgnat\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_zero_net\": specimport \"bad_zero_net\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_localhost\": specimport \"bad_localhost\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.446-05:00 level=INFO msg="spec import: spec import \"bad_loopback_v6\": specimport \"bad_loopback_v6\": specimport: invalid base url: requests to private, loopback, link-local, or metadata addresses are not allowed"
+time=2026-10-13T11:58:01.447-05:00 level=INFO msg="Project work-model store: /workspace/sb-sandbox-proofs/specimport-198-v2/homes/a/.config/switchboard/awm (writes_enabled=true)"
+time=2026-10-13T11:58:01.450-05:00 level=INFO msg="Project Catalog on /mcp (writes_enabled=true)"
+Switchboard dev on http://127.0.0.1:13853
+  Web UI:  http://127.0.0.1:13853/
+  MCP:     http://127.0.0.1:13853/mcp
+  Project: http://127.0.0.1:13853/mcp/{project}
+  AWM gRPC (h2c): 127.0.0.1:13853
