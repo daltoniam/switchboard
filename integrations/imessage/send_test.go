@@ -180,6 +180,62 @@ func TestSendMessage_Failures(t *testing.T) {
 	})
 }
 
+func insertChat(t *testing.T, path string, id int64, ident string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+	_, err = db.Exec(`INSERT INTO chat VALUES (?, ?, ?, '', 'iMessage', 45)`, id, "any;-;"+ident, ident)
+	require.NoError(t, err)
+}
+
+func TestSendMessage_ConfirmationMatchesOnlyThisSend(t *testing.T) {
+	t.Run("ignores an earlier identical message in the same chat", func(t *testing.T) {
+		m, runner := newConfigured(t, mcp.Credentials{"allow_send": "true"})
+		insertOutgoing(t, m.dbPath, 1, "see you soon", 22)
+		resp := execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "see you soon", "chat_id": 1})
+		require.Len(t, runner.calls, 1)
+		assert.Equal(t, "queued", resp.Status, "a stale failed copy must not be reported as this send's result")
+		assert.Zero(t, resp.ErrorCode)
+		assert.Nil(t, resp.Message)
+	})
+
+	t.Run("reports the new message even when an older copy exists", func(t *testing.T) {
+		m, runner := newConfigured(t, mcp.Credentials{"allow_send": "true"})
+		insertOutgoing(t, m.dbPath, 1, "see you soon", 22)
+		runcount := 0
+		runner.onRun = func(args []string) {
+			runcount++
+			insertOutgoing(t, m.dbPath, 1, args[1], 0)
+		}
+		resp := execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "see you soon", "chat_id": 1})
+		require.Equal(t, 1, runcount)
+		assert.Equal(t, "sent", resp.Status)
+		assert.Zero(t, resp.ErrorCode)
+	})
+
+	t.Run("ignores an identical message in another chat when sending to a handle", func(t *testing.T) {
+		m, runner := newConfigured(t, mcp.Credentials{"allow_send": "true"})
+		runner.onRun = func(args []string) { insertOutgoing(t, m.dbPath, 2, args[1], 22) }
+		resp := execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "hello", "to": "new@example.com"})
+		assert.Equal(t, "queued", resp.Status)
+		assert.Zero(t, resp.ChatID, "must not adopt another conversation's chat_id")
+		assert.Zero(t, resp.ErrorCode)
+	})
+
+	t.Run("matches the new 1:1 chat when sending to a handle", func(t *testing.T) {
+		m, runner := newConfigured(t, mcp.Credentials{"allow_send": "true"})
+		runner.onRun = func(args []string) {
+			insertOutgoing(t, m.dbPath, 2, args[1], 22)
+			insertChat(t, m.dbPath, 50, "new@example.com")
+			insertOutgoing(t, m.dbPath, 50, args[1], 0)
+		}
+		resp := execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "hello", "to": "New@Example.com"})
+		assert.Equal(t, "sent", resp.Status)
+		assert.Equal(t, int64(50), resp.ChatID)
+	})
+}
+
 func TestRunOSAScript_NonDarwin(t *testing.T) {
 	orig := runtimeGOOS
 	runtimeGOOS = "linux"

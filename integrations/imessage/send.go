@@ -151,12 +151,15 @@ func sendMessage(ctx context.Context, m *imessage, args map[string]any) (*mcp.To
 		return mcp.ErrResult(fmt.Errorf("chat_id or to is required"))
 	}
 
-	start := time.Now().Add(-2 * time.Second)
+	baseline, err := m.maxMessageID(ctx)
+	if err != nil {
+		return mcp.ErrResult(err)
+	}
 	if _, err := m.runScript(ctx, script, scriptArgs...); err != nil {
 		return mcp.ErrResult(fmt.Errorf("messages app rejected the send: %w (on first use, allow switchboard to control Messages in System Settings > Privacy & Security > Automation)", err))
 	}
 
-	msg, errCode, err := m.confirmSent(ctx, resp.ChatID, text, start)
+	msg, errCode, err := m.confirmSent(ctx, resp.ChatID, to, text, baseline)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -204,6 +207,17 @@ func (m *imessage) chatGUIDForSend(ctx context.Context, chatID int64) (string, e
 	return chats[0].guid, nil
 }
 
+func (m *imessage) isDirectChatWith(ctx context.Context, chatID int64, handle string) (bool, error) {
+	if chatID == 0 || strings.TrimSpace(handle) == "" {
+		return false, nil
+	}
+	chats, err := m.loadChats(ctx, []int64{chatID})
+	if err != nil || len(chats) == 0 {
+		return false, err
+	}
+	return chats[0].style != groupChatStyle && sameHandle(chats[0].ident, handle), nil
+}
+
 func (m *imessage) recentDirectChat(ctx context.Context, handle string) (chatRow, bool, error) {
 	chats, err := m.loadChats(ctx, nil)
 	if err != nil {
@@ -217,16 +231,27 @@ func (m *imessage) recentDirectChat(ctx context.Context, handle string) (chatRow
 	return chatRow{}, false, nil
 }
 
+func (m *imessage) maxMessageID(ctx context.Context) (int64, error) {
+	var id int64
+	if err := m.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(ROWID), 0) FROM message`).Scan(&id); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
 // confirmSent polls chat.db for the outgoing message so the caller learns
-// whether Messages actually recorded (or failed) the send.
-func (m *imessage) confirmSent(ctx context.Context, chatID int64, text string, since time.Time) (*messageOut, int, error) {
-	q := m.messageSelectSQL() + ` WHERE m.is_from_me = 1 AND m.date >= ?`
-	args := []any{toAppleTime(since)}
+// whether Messages actually recorded (or failed) the send. Only rows created
+// after baseline count, so an earlier message with the same text is never
+// mistaken for this one. Without a chatID the row must belong to a 1:1 chat
+// with the recipient, so an identical text sent elsewhere is ignored.
+func (m *imessage) confirmSent(ctx context.Context, chatID int64, to, text string, baseline int64) (*messageOut, int, error) {
+	q := m.messageSelectSQL() + ` WHERE m.is_from_me = 1 AND m.ROWID > ?`
+	args := []any{baseline}
 	if chatID > 0 {
 		q += ` AND cmj.chat_id = ?`
 		args = append(args, chatID)
 	}
-	q += ` ORDER BY m.date DESC, m.ROWID DESC LIMIT 10`
+	q += ` ORDER BY m.ROWID ASC LIMIT 50`
 	want := strings.TrimSpace(text)
 	deadline := time.Now().Add(m.confirmWait)
 	for {
@@ -235,13 +260,23 @@ func (m *imessage) confirmSent(ctx context.Context, chatID int64, text string, s
 			return nil, 0, err
 		}
 		for i := range msgs {
-			if strings.TrimSpace(msgs[i].Text) == want {
-				var code int
-				if err := m.db.QueryRowContext(ctx, `SELECT COALESCE(error, 0) FROM message WHERE ROWID = ?`, msgs[i].ID).Scan(&code); err != nil {
+			if strings.TrimSpace(msgs[i].Text) != want {
+				continue
+			}
+			if chatID == 0 {
+				ok, err := m.isDirectChatWith(ctx, msgs[i].ChatID, to)
+				if err != nil {
 					return nil, 0, err
 				}
-				return &msgs[i], code, nil
+				if !ok {
+					continue
+				}
 			}
+			var code int
+			if err := m.db.QueryRowContext(ctx, `SELECT COALESCE(error, 0) FROM message WHERE ROWID = ?`, msgs[i].ID).Scan(&code); err != nil {
+				return nil, 0, err
+			}
+			return &msgs[i], code, nil
 		}
 		if !time.Now().Before(deadline) {
 			return nil, 0, nil
