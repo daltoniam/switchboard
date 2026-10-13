@@ -73,6 +73,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
 	"github.com/daltoniam/switchboard/integrations/projectinterop"
+	"github.com/daltoniam/switchboard/integrations/prometheus"
 	"github.com/daltoniam/switchboard/integrations/ramp"
 	"github.com/daltoniam/switchboard/integrations/recoll"
 	"github.com/daltoniam/switchboard/integrations/rwx"
@@ -364,6 +365,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		ollama.New(),
 		pagerduty.New(),
 		launchdarkly.New(),
+		prometheus.New(),
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),
