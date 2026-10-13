@@ -205,7 +205,7 @@ func (t *tailscale) do(ctx context.Context, method, path string, body []byte, op
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+	data, err := readLimited(resp.Body, maxResponseSize)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -218,6 +218,20 @@ func (t *tailscale) do(ctx context.Context, method, path string, body []byte, op
 		return nil, nil, fmt.Errorf("tailscale API error (%d): %s", resp.StatusCode, string(data))
 	}
 	return data, resp.Header, nil
+}
+
+// readLimited reads up to limit bytes and fails if the body is longer, so a
+// truncated payload (device list, policy file) is never mistaken for a
+// complete response and, for policy files, written back over the original.
+func readLimited(r io.Reader, limit int64) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("tailscale: response body exceeds %d bytes", limit)
+	}
+	return data, nil
 }
 
 func (t *tailscale) doJSON(ctx context.Context, method, path string, body any) (json.RawMessage, error) {

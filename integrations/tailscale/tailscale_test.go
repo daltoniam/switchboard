@@ -225,6 +225,40 @@ func TestDoRequest_Retryable(t *testing.T) {
 	assert.Equal(t, 429, re.StatusCode)
 }
 
+func TestReadLimited(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		limit   int64
+		wantErr bool
+	}{
+		{"under limit", "abc", 5, false},
+		{"exactly at limit", "abcde", 5, false},
+		{"over limit", "abcdef", 5, true},
+		{"empty", "", 5, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := readLimited(strings.NewReader(tt.body), tt.limit)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "exceeds")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.body, string(data))
+		})
+	}
+}
+
+func TestDoRequest_OversizedBodyFails(t *testing.T) {
+	big := strings.Repeat("a", maxResponseSize+1)
+	ts, _ := testServer(t, okJSON(big))
+	_, err := ts.doJSON(context.Background(), http.MethodGet, "/tailnet/-/devices", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds")
+}
+
 func TestDoRequest_EmptyBody(t *testing.T) {
 	ts, _ := testServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
