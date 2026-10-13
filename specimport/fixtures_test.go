@@ -62,6 +62,33 @@ func TestFixture_OpenAPIPetstoreExecutes(t *testing.T) {
 	}
 }
 
+func TestFixture_GraphQLCountriesDefaultQueriesUnderCap(t *testing.T) {
+	raw, err := os.ReadFile(testdataPath("countries_graphql.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	im, err := Parse(KindGraphQL, "countries", raw, "https://countries.test")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	in := NewIntegration(im)
+	const maxQueryBytes = 50 * 1024
+
+	for _, tool := range []mcp.ToolName{"countries_continents", "countries_countries"} {
+		op, ok := in.opByTool[tool]
+		if !ok {
+			t.Fatalf("expected tool %q", tool)
+		}
+		if len(op.gqlDocument) >= maxQueryBytes {
+			t.Errorf("%s default query length %d exceeds %d byte cap", tool, len(op.gqlDocument), maxQueryBytes)
+		}
+	}
+	continentsDoc := in.opByTool[mcp.ToolName("countries_continents")].gqlDocument
+	if strings.Contains(continentsDoc, "countries {") {
+		t.Errorf("continents query should not nest list-of-object countries, got: %s", continentsDoc)
+	}
+}
+
 func TestFixture_GraphQLCountriesExecutes(t *testing.T) {
 	raw, err := os.ReadFile(testdataPath("countries_graphql.json"))
 	if err != nil {

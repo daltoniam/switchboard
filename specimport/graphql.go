@@ -103,6 +103,28 @@ func (t gqlTypeRef) named() (kind, name string) {
 	return "", ""
 }
 
+// isList reports whether the type is wrapped in one or more LIST layers.
+func (t gqlTypeRef) isList() bool {
+	for cur := &t; cur != nil; cur = cur.OfType {
+		if cur.Kind == "LIST" {
+			return true
+		}
+	}
+	return false
+}
+
+// isListOfComposite reports whether the outermost LIST element is an object,
+// interface, or union (as opposed to a scalar/enum list).
+func (t gqlTypeRef) isListOfComposite() bool {
+	for cur := &t; cur != nil; cur = cur.OfType {
+		if cur.Kind == "LIST" && cur.OfType != nil {
+			kind, _ := cur.OfType.named()
+			return isComposite(kind)
+		}
+	}
+	return false
+}
+
 // parseGraphQL decodes a GraphQL introspection result and builds an Imported
 // where each query/mutation root field becomes a tool. endpoint is the URL
 // requests will be POSTed to and is required (introspection does not carry
@@ -218,9 +240,10 @@ func buildGraphQLOperation(integration string, f gqlField, eff effect, gqlOp str
 }
 
 // maxSelectionDepth bounds how deeply build recurses into nested object
-// types when synthesizing a default selection set. Two levels selects scalars
-// on the return type plus one nested object level (scalars only beneath that),
-// which keeps cyclic schemas (e.g. countries) under response size limits.
+// types when synthesizing a default selection set for non-list return types.
+// Two levels selects scalars on the return type plus one nested object level
+// (scalars only beneath that). List-returning root fields use depth 1 (scalars
+// only on each element) so large list responses stay under response size limits.
 const maxSelectionDepth = 2
 
 // maxSelectionFields caps how many leaf fields we select at a single level so
@@ -241,7 +264,13 @@ func (s *selectionBuilder) build(ret gqlTypeRef) string {
 	if !isComposite(kind) {
 		return ""
 	}
-	body := s.fields(name, maxSelectionDepth, map[string]bool{})
+	depth := maxSelectionDepth
+	scalarsOnly := false
+	if ret.isList() {
+		depth = 1
+		scalarsOnly = true
+	}
+	body := s.fields(name, depth, map[string]bool{}, scalarsOnly)
 	if body == "" {
 		// A composite type we cannot expand (unknown, empty, or purely
 		// cyclic) still needs a non-empty selection set to be valid.
@@ -255,7 +284,7 @@ func (s *selectionBuilder) build(ret gqlTypeRef) string {
 // composite fields until depth is exhausted, at which point nested composites
 // are reduced to their __typename so the selection set stays valid. visited
 // guards against cyclic type references along the current path.
-func (s *selectionBuilder) fields(typeName string, depth int, visited map[string]bool) string {
+func (s *selectionBuilder) fields(typeName string, depth int, visited map[string]bool, scalarsOnly bool) string {
 	t, ok := s.types[typeName]
 	if !ok || len(t.Fields) == 0 {
 		return ""
@@ -278,9 +307,15 @@ func (s *selectionBuilder) fields(typeName string, depth int, visited map[string
 		if hasRequiredArg(f) {
 			continue
 		}
+		if f.Type.isListOfComposite() {
+			continue
+		}
 		kind, name := f.Type.named()
 		if !isComposite(kind) {
 			parts = append(parts, f.Name)
+			continue
+		}
+		if scalarsOnly {
 			continue
 		}
 		if depth <= 1 {
@@ -288,7 +323,7 @@ func (s *selectionBuilder) fields(typeName string, depth int, visited map[string
 			parts = append(parts, f.Name+" { __typename }")
 			continue
 		}
-		nested := s.fields(name, depth-1, visited)
+		nested := s.fields(name, depth-1, visited, false)
 		if nested == "" {
 			nested = "__typename"
 		}
