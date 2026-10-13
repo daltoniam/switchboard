@@ -2,6 +2,8 @@ module github.com/daltoniam/switchboard
 
 go 1.26.9
 
+toolchain go1.27.2
+
 require (
 	cloud.google.com/go/compute v1.54.0
 	cloud.google.com/go/firestore v1.21.0
@@ -391,7 +393,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	honnef.co/go/tools v0.7.0 // indirect
+	honnef.co/go/tools v0.8.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect

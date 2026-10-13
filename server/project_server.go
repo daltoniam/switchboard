@@ -414,6 +414,7 @@ func (pr *ProjectRouter) makeContextHandler(def *project.Definition) mcpsdk.Tool
 
 		configDir := pr.store.ConfigDir()
 
+		//nolint:staticcheck // SA4023: ReadContextFile is a placeholder that always reports not found since the catalog schema was simplified to id and description
 		if args.Path != "" {
 			content, err := project.ReadContextFile(def, configDir, args.Path)
 			if err != nil {

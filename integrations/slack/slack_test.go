@@ -588,14 +588,14 @@ func TestTryRefresh_OnlyAttemptsRefreshableTokens(t *testing.T) {
 	var attempted []string
 	var mu sync.Mutex
 	s := &slackIntegration{store: store}
-	s.refreshWorkspace = func(id string) bool {
+	s.refreshWorkspace = func(_ context.Context, id string) bool {
 		mu.Lock()
 		attempted = append(attempted, id)
 		mu.Unlock()
 		return true
 	}
 
-	s.tryRefresh()
+	s.tryRefresh(t.Context())
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -641,7 +641,7 @@ func TestResolveWorkspaceIdentities_RecoversAfterRefresh(t *testing.T) {
 	}
 
 	var refreshCalls atomic.Int32
-	s.refreshWorkspace = func(id string) bool {
+	s.refreshWorkspace = func(_ context.Context, id string) bool {
 		assert.Equal(t, teamID, id)
 		refreshCalls.Add(1)
 		// Simulate a successful refresh by replacing the client with a fresh
@@ -668,7 +668,7 @@ func TestResolveWorkspaceIdentities_GivesUpWhenRefreshFails(t *testing.T) {
 		clients: map[string]*slack.Client{teamID: newClientForAPI(srv.URL)},
 		store:   &tokenStore{workspaces: map[string]*workspace{teamID: {TeamID: teamID, Token: "xoxc-stale", Source: "chrome"}}},
 	}
-	s.refreshWorkspace = func(string) bool { return false }
+	s.refreshWorkspace = func(context.Context, string) bool { return false }
 
 	// Should not panic; workspace should remain present with no team name.
 	s.resolveWorkspaceIdentities(context.Background())
@@ -686,7 +686,7 @@ func TestResolveWorkspaceIdentities_SkipsRefreshForConfigToken(t *testing.T) {
 		store:   &tokenStore{workspaces: map[string]*workspace{teamID: {TeamID: teamID, Token: "xoxb-cfg", Source: "config"}}},
 	}
 	var called atomic.Bool
-	s.refreshWorkspace = func(string) bool { called.Store(true); return true }
+	s.refreshWorkspace = func(context.Context, string) bool { called.Store(true); return true }
 
 	s.resolveWorkspaceIdentities(context.Background())
 	assert.False(t, called.Load(), "config-sourced tokens must not trigger local refresh")
@@ -701,7 +701,7 @@ func TestResolveWorkspaceIdentities_SkipsRefreshForOAuthToken(t *testing.T) {
 		store:   &tokenStore{workspaces: map[string]*workspace{teamID: {TeamID: teamID, Token: "xoxp-user", Source: "chrome"}}},
 	}
 	var called atomic.Bool
-	s.refreshWorkspace = func(string) bool { called.Store(true); return true }
+	s.refreshWorkspace = func(context.Context, string) bool { called.Store(true); return true }
 
 	s.resolveWorkspaceIdentities(context.Background())
 	assert.False(t, called.Load(), "OAuth user tokens must not trigger local refresh")

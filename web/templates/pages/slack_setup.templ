@@ -2,24 +2,26 @@ package pages
 
 import (
 	"fmt"
-	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
 )
 
 type SlackSetupData struct {
-	HasToken       bool
-	HasCookie      bool
-	TokenStatus    string
-	TokenAge       float64
-	TokenSource    string
-	CanAutoExtract bool
-	ExtractSnippet string
-	Healthy        bool
-	FlashResult    string
-	FlashError     string
-	WorkspaceCount int
-	DefaultTeamID  string
-	Workspaces     []SlackWorkspaceItem
+	Enabled           bool
+	UserTokenManifest string
+	HasToken          bool
+	HasCookie         bool
+	TokenStatus       string
+	TokenAge          float64
+	TokenSource       string
+	CanAutoExtract    bool
+	ExtractSnippet    string
+	Healthy           bool
+	FlashResult       string
+	FlashError        string
+	WorkspaceCount    int
+	DefaultTeamID     string
+	Workspaces        []SlackWorkspaceItem
 }
 
 type SlackWorkspaceItem struct {
@@ -67,6 +69,15 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 		if data.FlashError != "" {
 			<div class="flash flash-error">{ data.FlashError }</div>
 		}
+		<form method="POST" action="/api/slack/set-enabled">
+			<div class="card">
+				<div class="card-header">
+					<div class="card-title">Enabled</div>
+					@components.Toggle("enabled", data.Enabled)
+				</div>
+				<button type="submit" class="btn">Save</button>
+			</div>
+		</form>
 		if data.HasToken {
 			<div class="card">
 				<div class="card-header">
@@ -81,20 +92,22 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 				</div>
 				<div class="slack-token-meta">
 					<span>Source: <strong>{ data.TokenSource }</strong></span>
-					<span>Cookie: <strong>
-						if data.HasCookie {
-							Present
-						} else {
-							Missing
-						}
-					</strong></span>
+					<span>
+						Cookie: 
+						<strong>
+							if data.HasCookie {
+								Present
+							} else {
+								Missing
+							}
+						</strong>
+					</span>
 					if data.HasCookie {
 						<span>Auto-refresh: <strong>Enabled</strong> (via cookie every 4h)</span>
 					}
 				</div>
 			</div>
 		}
-
 		if len(data.Workspaces) > 1 {
 			<div class="card">
 				<div class="card-title" style="margin-bottom: 0.75rem;">Default Workspace</div>
@@ -119,7 +132,6 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 				</form>
 			</div>
 		}
-
 		if data.CanAutoExtract {
 			<div class="card">
 				<div class="card-title" style="margin-bottom: 0.75rem;">Option 1: Auto-Extract from Browser</div>
@@ -136,7 +148,7 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 				if data.CanAutoExtract {
 					Option 2: Manual Browser Extraction
 				} else {
-					Extract from Browser
+					Option 1: Extract from Browser
 				}
 			</div>
 			<p class="slack-desc">
@@ -184,15 +196,66 @@ templ SlackSetup(page layouts.PageData, data SlackSetupData) {
 			</div>
 		</div>
 		<div class="card">
+			<div class="card-title" style="margin-bottom: 0.75rem;">
+				if data.CanAutoExtract {
+					Option 3: User Token
+				} else {
+					Option 2: User Token
+				}
+			</div>
+			<p class="slack-desc">
+				Create a Slack app that acts as you. Its user token carries no browser session, so it cannot sign you out of Slack. Use it for workspaces that require two-factor sign-in.
+			</p>
+			<div class="slack-steps">
+				<div class="slack-step">
+					<div class="slack-step-num">1</div>
+					<div>
+						<strong>Create the app from a manifest</strong>
+						<p class="slack-step-detail">Open <a href="https://api.slack.com/apps?new_app=1" target="_blank" class="slack-link">api.slack.com/apps</a>, choose <strong>From a manifest</strong>, pick the workspace, and paste this manifest:</p>
+						<div class="slack-code-block">
+							<pre><code id="user-token-manifest">{ data.UserTokenManifest }</code></pre>
+							<button type="button" class="btn btn-sm btn-outline" onclick="copyUserTokenManifest()" id="copy-manifest-btn">Copy</button>
+						</div>
+					</div>
+				</div>
+				<div class="slack-step">
+					<div class="slack-step-num">2</div>
+					<div>
+						<strong>Install the app</strong>
+						<p class="slack-step-detail">Open <strong>OAuth &amp; Permissions</strong>, choose <strong>Install to Workspace</strong>, and copy the <strong>User OAuth Token</strong>. It starts with <code>xoxp-</code>.</p>
+					</div>
+				</div>
+				<div class="slack-step">
+					<div class="slack-step-num">3</div>
+					<div>
+						<strong>Paste the token below</strong>
+						<p class="slack-step-detail">Switchboard checks the token with Slack before saving it. Repeat these steps for each workspace.</p>
+						<form method="POST" action="/api/slack/add-user-token" style="margin-top: 0.5rem;">
+							@components.FormGroup("User OAuth Token", "user_token", "password", "", "xoxp-...")
+							<button type="submit" class="btn">Add Workspace</button>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="card">
 			<div class="card-title" style="margin-bottom: 0.75rem;">Manual Token Entry</div>
 			<p class="slack-desc">If you already have your token and cookie, enter them directly.</p>
 			<form method="POST" action="/api/slack/save-tokens" style="margin-top: 0.75rem;">
-				@components.FormGroup("Token (xoxc-...)", "token", "text", "", "xoxc-...")
-				@components.FormGroup("Cookie (xoxd-...)", "cookie", "text", "", "xoxd-...")
+				@components.FormGroup("Token (xoxc-...)", "token", "password", "", "xoxc-...")
+				@components.FormGroup("Cookie (xoxd-...)", "cookie", "password", "", "xoxd-...")
 				<button type="submit" class="btn">Save Tokens</button>
 			</form>
 		</div>
 		<script>
+			function copyUserTokenManifest() {
+				var text = document.getElementById('user-token-manifest').textContent;
+				navigator.clipboard.writeText(text).then(function() {
+					var btn = document.getElementById('copy-manifest-btn');
+					btn.textContent = 'Copied!';
+					setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+				});
+			}
 			function copySnippet() {
 				var text = document.getElementById('extract-snippet').textContent;
 				navigator.clipboard.writeText(text).then(function() {

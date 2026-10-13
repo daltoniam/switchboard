@@ -24,16 +24,16 @@ type refreshResult struct {
 // from Set-Cookie response headers — Slack rotates the session cookie on
 // each use, so failing to capture the new value causes subsequent refreshes
 // to fail.
-func refreshViaCookie(cookie string) (*refreshResult, error) {
-	return refreshViaCookieWithClient(nil, "https://app.slack.com", cookie)
+func refreshViaCookie(ctx context.Context, cookie string) (*refreshResult, error) {
+	return refreshViaCookieWithClient(ctx, nil, "https://app.slack.com", cookie)
 }
 
-func refreshViaCookieWithClient(client *http.Client, url, cookie string) (*refreshResult, error) {
+func refreshViaCookieWithClient(ctx context.Context, client *http.Client, url, cookie string) (*refreshResult, error) {
 	if cookie == "" {
 		return nil, nil
 	}
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +42,7 @@ func refreshViaCookieWithClient(client *http.Client, url, cookie string) (*refre
 
 	if client == nil {
 		client = &http.Client{
+			Timeout: 30 * time.Second,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 5 {
 					return http.ErrUseLastResponse
@@ -86,7 +87,7 @@ func refreshViaCookieWithClient(client *http.Client, url, cookie string) (*refre
 		end := strings.Index(sub[start:], `"`)
 		if end > 0 {
 			tok := sub[start : start+end]
-			if strings.HasPrefix(tok, "xoxc-") {
+			if parseCredKind(tok) == kindBrowserSession {
 				return &refreshResult{token: tok, cookie: latestCookie}, nil
 			}
 		}
@@ -96,13 +97,17 @@ func refreshViaCookieWithClient(client *http.Client, url, cookie string) (*refre
 }
 
 // tryRefreshViaCookieForTeam attempts a cookie-based refresh for a specific workspace.
-func (s *slackIntegration) tryRefreshViaCookieForTeam(teamID string) bool {
+// cookieFetch is replaced in tests so no test contacts Slack.
+var cookieFetch = refreshViaCookie
+
+func (s *slackIntegration) tryRefreshViaCookieForTeam(ctx context.Context, teamID string) bool {
 	ws := s.store.getWorkspace(teamID)
 	if ws == nil || ws.Cookie == "" {
 		return false
 	}
 
-	result, err := refreshViaCookie(ws.Cookie)
+	oldToken, oldCookie := ws.Token, ws.Cookie
+	result, err := cookieFetch(ctx, oldCookie)
 	if err != nil {
 		log.Printf("slack: cookie refresh failed for %s: %v", teamID, err)
 		return false
@@ -111,7 +116,12 @@ func (s *slackIntegration) tryRefreshViaCookieForTeam(teamID string) bool {
 		return false
 	}
 
-	s.store.updateTokens(teamID, result.token, result.cookie)
+	// The user can replace the credentials while the fetch runs. Writing
+	// the stale result would restore the browser session they replaced.
+	if !s.store.replaceTokensIf(teamID, oldToken, oldCookie, result.token, result.cookie) {
+		log.Printf("slack: workspace %s credentials changed during cookie refresh — discarding the refreshed pair", teamID)
+		return false
+	}
 	updatedWs := s.store.getWorkspace(teamID)
 	if updatedWs != nil {
 		s.buildClientForWorkspace(updatedWs)
@@ -120,7 +130,7 @@ func (s *slackIntegration) tryRefreshViaCookieForTeam(teamID string) bool {
 	// Validate that the refreshed token still belongs to the expected workspace.
 	client := s.getClientForTeam(teamID)
 	if client != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 		resp, err := client.AuthTestContext(ctx)
 		if err != nil {
@@ -149,24 +159,18 @@ func (s *slackIntegration) RefreshStatus() map[string]any {
 		}
 	}
 
-	tokenType := "unknown"
-	if strings.HasPrefix(ws.Token, "xoxp-") {
-		tokenType = "oauth_user"
-	} else if strings.HasPrefix(ws.Token, "xoxc-") {
-		tokenType = "browser_session"
-	} else if strings.HasPrefix(ws.Token, "xoxb-") {
-		tokenType = "bot"
-	}
+	kind := parseCredKind(ws.Token)
+	tokenType := kind.String()
 
 	return map[string]any{
 		"token_type":          tokenType,
 		"has_cookie":          ws.Cookie != "",
 		"source":              ws.Source,
 		"updated_at":          ws.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-		"can_cookie_refresh":  ws.Cookie != "" && strings.HasPrefix(ws.Token, "xoxc-"),
+		"can_cookie_refresh":  ws.Cookie != "" && kind == kindBrowserSession,
 		"can_browser_refresh": CanExtractFromBrowser(),
-		"oauth_token":         strings.HasPrefix(ws.Token, "xoxp-"),
-		"needs_refresh":       strings.HasPrefix(ws.Token, "xoxc-"),
+		"oauth_token":         kind == kindUserToken,
+		"needs_refresh":       kind == kindBrowserSession,
 	}
 }
 
