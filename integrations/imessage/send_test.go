@@ -86,38 +86,29 @@ func TestSendMessage_ToHandleUsesExistingChat(t *testing.T) {
 }
 
 func TestSendMessage_ToNewHandle(t *testing.T) {
-	m, runner := newConfigured(t, mcp.Credentials{"allow_send": "true"})
 	tests := []struct {
 		name    string
+		to      string
 		service string
-		want    string
+		want    []string
 	}{
-		{name: "default iMessage", service: "", want: "iMessage"},
-		{name: "explicit sms", service: "SMS", want: "SMS"},
+		{name: "default iMessage", to: "new@example.com", want: []string{"new@example.com", "hello", "iMessage"}},
+		{name: "explicit sms", to: "new@example.com", service: "SMS", want: []string{"new@example.com", "hello", "SMS"}},
+		{name: "explicit service bypasses existing chat", to: "+15551234567", service: "imessage", want: []string{"+15551234567", "hello", "iMessage"}},
+		{name: "different country code never reuses a lookalike chat", to: "+445551234567", want: []string{"+445551234567", "hello", "iMessage"}},
 	}
-	for i, tt := range tests {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp := execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "hello", "to": "new@example.com", "service": tt.service})
-			require.Len(t, runner.calls, i+1)
-			assert.Equal(t, []string{"new@example.com", "hello", tt.want}, runner.calls[i])
-			assert.Contains(t, runner.scripts[i], "participant")
+			m, runner := newConfigured(t, mcp.Credentials{"allow_send": "true"})
+			resp := execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "hello", "to": tt.to, "service": tt.service})
+			require.Len(t, runner.calls, 1)
+			assert.Equal(t, tt.want, runner.calls[0])
+			assert.Contains(t, runner.scripts[0], "participant")
 			assert.Equal(t, "queued", resp.Status)
-			assert.Equal(t, "new@example.com", resp.To)
+			assert.Equal(t, tt.to, resp.To)
+			assert.Zero(t, resp.ChatID)
 		})
 	}
-
-	t.Run("explicit service bypasses existing chat", func(t *testing.T) {
-		before := len(runner.calls)
-		execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "hello", "to": "+15551234567", "service": "imessage"})
-		assert.Equal(t, []string{"+15551234567", "hello", "iMessage"}, runner.calls[before])
-	})
-
-	t.Run("different country code never reuses a lookalike chat", func(t *testing.T) {
-		before := len(runner.calls)
-		resp := execJSON[sendResponseT](t, m, "imessage_send_message", map[string]any{"text": "hello", "to": "+445551234567"})
-		assert.Equal(t, []string{"+445551234567", "hello", "iMessage"}, runner.calls[before])
-		assert.Zero(t, resp.ChatID)
-	})
 }
 
 func TestSendMessage_DoesNotBlockReconfigure(t *testing.T) {
