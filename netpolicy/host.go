@@ -16,6 +16,14 @@ var blockedHostnames = map[string]bool{
 	"metadata.goog":            true,
 }
 
+// blockedCIDRs covers IPv4 ranges that must not be dialed even when they are
+// not classified as loopback/private by net.IP helpers (e.g. 0.0.0.0/8).
+var blockedCIDRs = func() []*net.IPNet {
+	_, n0, _ := net.ParseCIDR("0.0.0.0/8")
+	_, n1, _ := net.ParseCIDR("100.64.0.0/10")
+	return []*net.IPNet{n0, n1}
+}()
+
 // HostDisallowed reports whether host must not be used for a user-supplied
 // outbound HTTP(S) URL (loopback, RFC1918/ULA, link-local, or cloud metadata).
 func HostDisallowed(host string) bool {
@@ -40,6 +48,14 @@ func HostDisallowed(host string) bool {
 	ip := net.ParseIP(lower)
 	if ip == nil {
 		return false
+	}
+	if ip.IsUnspecified() {
+		return true
+	}
+	for _, n := range blockedCIDRs {
+		if n.Contains(ip) {
+			return true
+		}
 	}
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
 }
