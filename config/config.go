@@ -181,6 +181,14 @@ var envMapping = map[string]map[string]string{
 	"x": {
 		"bearer_token": "X_BEARER_TOKEN",
 	},
+	"prometheus": {
+		"base_url":     "PROMETHEUS_BASE_URL",
+		"username":     "PROMETHEUS_USERNAME",
+		"password":     "PROMETHEUS_PASSWORD",
+		"bearer_token": "PROMETHEUS_BEARER_TOKEN",
+		"headers":      "PROMETHEUS_HEADERS",
+		"ca_cert":      "PROMETHEUS_CA_CERT",
+	},
 	"signoz": {
 		"api_key":  "SIGNOZ_API_KEY",
 		"base_url": "SIGNOZ_BASE_URL",
@@ -504,6 +512,10 @@ func defaultConfig() *mcp.Config {
 			"launchdarkly": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"prometheus": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "bearer_token": "", "headers": "", "ca_cert": ""},
 			},
 			"microsoft365": {
 				Enabled: false,
