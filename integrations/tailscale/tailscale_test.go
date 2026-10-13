@@ -649,7 +649,8 @@ func TestSetPolicyFile_SendsHuJSONWithIfMatch(t *testing.T) {
 	}{
 		{"quoted etag passes through", `"abc123"`, `"abc123"`, "{\"acls\":[]}", `"def456"`},
 		{"bare etag gets quoted", "abc123", `"abc123"`, "// c\n{}", `"def456"`},
-		{"ts-default", "ts-default", `"ts-default"`, "{}", `"x"`},
+		{"ts-default sentinel quoted like the official tailscale-client-go-v2", "ts-default", `"ts-default"`, "{}", `"x"`},
+		{"quoted ts-default passes through", `"ts-default"`, `"ts-default"`, "{}", `"x"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
