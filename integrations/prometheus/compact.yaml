@@ -1,0 +1,20 @@
+version: 1
+tools:
+  prometheus_query:
+    spec: [status, data, warnings, infos, truncated]
+  prometheus_query_range:
+    spec: [status, data, warnings, infos, truncated]
+  prometheus_list_alerts:
+    spec: [status, data, warnings, infos, truncated]
+  prometheus_list_rules:
+    spec: [status, data, warnings, infos, truncated]
+  prometheus_list_targets:
+    spec: [status, data, warnings, infos, truncated]
+  prometheus_search_metrics:
+    spec: [status, data, warnings, infos, truncated]
+  prometheus_list_label_values:
+    spec: [status, data, warnings, infos, truncated]
+  prometheus_list_series:
+    spec: [status, data, warnings, infos, truncated]
+  prometheus_server_info:
+    spec: [status, data, warnings, infos, truncated]
