@@ -1,0 +1,57 @@
+[PASS] search:search petstore search — 19 tools; missing=[]; unexpected=[]
+[PASS] search:search countries search — 12 tools; missing=[]; unexpected=[]
+[PASS] search:search countries_fixture search — 12 tools; missing=[]; unexpected=[]
+[PASS] search:search petstore pet status search — 10 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_unspecified_v4 search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_unspecified_v6 search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_zero_net search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_cgnat search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_cgnat_hi search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_loopback_v4 search — 19 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_localhost search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_loopback_v6 search — 19 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_metadata search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_metadata_gql search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_basecred search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_gcp_meta search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search bad_scheme search — 0 tools; missing=[]; unexpected=[]
+[PASS] search:search petstore_yaml search — 19 tools; missing=[]; unexpected=[]
+[PASS] search:search probe_mapped search — 19 tools; missing=[]; unexpected=[]
+[PASS] petstore:findPetsByStatus available petstore_findpetsbystatus — type=dict len=3 sample={"columns": ["id", "name", "photoUrls", "tags", "category"], "constants": {"status": "available"}, "rows": [[4, "Dog 1", ["url1", "url2"], [{"id": 1, "name": "tag1"}, {"id": 2, "na
+[PASS] petstore:findPetsByStatus sold petstore_findpetsbystatus — type=list len=2 sample=[{"category": {"id": 1, "name": "Dogs"}, "id": 5, "name": "Dog 2", "photoUrls": ["url1", "url2"], "status": "sold", "tags": [{"id": 1, "name": "tag2"}, {"id": 2, "name": "tag3"}]},
+[PASS] petstore:getPetById 1 petstore_getpetbyid — {"id": 1, "name": "Pet1", "photoUrls": ["test1", "test2"], "status": "available", "tags": []}
+[INFO] petstore:getInventory petstore_getinventory — upstream petstore3 itself returns 500 for /store/inventory (curl direct: 500 x3) — not a PR issue; error surfaced cleanly: specimport: upstream returned 500 Internal Server Error: {"code":500,"message":"There was an error processing your request. It has been logged (ID: 1f783e7fdccaed98)"}
+[PASS] petstore:addPet petstore_addpet — {"category": {"id": 1, "name": "Dogs"}, "id": 289951065, "name": "sb-proof-198", "photoUrls": ["https://example.com/p.png"], "status": "pending", "tags": [{"id": 198, "name": "sandbox-e2e"}]}
+[PASS] petstore:getPetById (new pet, integer id >=1e6) petstore_getpetbyid — {"category": {"id": 1, "name": "Dogs"}, "id": 289951065, "name": "sb-proof-198", "photoUrls": ["https://example.com/p.png"], "status": "pending", "tags": [{"id": 198, "name": "sandbox-e2e"}]}
+[PASS] petstore:updatePetWithForm (query params) petstore_updatepetwithform — {"category":{"id":1,"name":"Dogs"},"id":289951065,"name":"sb-proof-198-renamed","photoUrls":["https://example.com/p.png"],"status":"sold","tags":[{"id":198,"name":"sandbox-e2e"}]}
+pinned as $6
+[PASS] petstore:getPetById after update petstore_getpetbyid — {"category":{"id":1,"name":"Dogs"},"id":289951065,"name":"sb-proof-198-renamed","photoUrls":["https://example.com/p.png"],"status":"sold","tags":[{"id":198,"name":"sandbox-e2e"}]}
+pinned as $7
+[PASS] petstore:deletePet (cleanup) petstore_deletepet — Pet deleted
+pinned as $8
+[PASS] petstore:getPetById 0 (upstream 4xx) petstore_getpetbyid — specimport: upstream returned 404 Not Found: Pet not found
+[INFO] petstore:findPetsByStatus status=pending (query) finds new pet petstore_findpetsbystatus — query string param; [{"category":{"id":2,"name":"Cats"},"id":3,"name":"Cat 3","photoUrls":["url1","url2"],"status":"pending","tags":[{"id":1,"name":"tag3"},{"id":2,"name"
+[INFO] petstore:findPetsByTags tags=["tag1"] (array query param) petstore_findpetsbytags — ERROR: specimport: query parameter "tags": parameter "v": cannot convert []interface {} to string
+[PASS] petstore:findPetsByTags tags="tag1" (string) petstore_findpetsbytags — [{"category":{"id":1,"name":"Dogs"},"id":4,"name":"Dog 1","photoUrls":["url1","url2"],"status":"available","tags":[{"id":1,"name":"tag1"},{"id":2,"name":"tag2"}]},{"category":{"id":4,"name":"Lions"},"
+[PASS] petstore:missing required arg petstore_getpetbyid — missing required parameter "petId" for tool "petstore_getpetbyid". Required: [petId]
+[PASS] countries:country US countries_country — {"data":{"country":{"awsRegion":"us-east-2","capital":"Washington D.C.","code":"US","continent":{"code":"NA","name":"North America"},"currencies":["USD","USN","USS"],"currency":"USD,USN,USS","emoji":"🇺🇸","emojiU":"U+1F1F
+[PASS] countries:country JP countries_country — {"data":{"country":{"awsRegion":"ap-northeast-1","capital":"Tokyo","code":"JP","continent":{"code":"AS","name":"Asia"},"currencies":["JPY"],"currency":"JPY","emoji":"🇯🇵","emojiU":"U+1F1EF U+1F1F5","name":"Japan","native"
+[PASS] countries:countries filter continent=OC countries_countries — rendered size=3.3KB (<50KB cap); {"data":{"countries":{"columns":["awsRegion","code","currencies","currency","emoji","emojiU","name","native","
+[PASS] countries:countries filter code in [DE,FR] countries_countries — {"data":{"countries":[{"awsRegion":"eu-central-1","capital":"Berlin","code":"DE","currencies":["EUR"],"currency":"EUR","emoji":"🇩🇪","emojiU":"U+1F1E9 U+1F1EA","name":"Germany","native":"Deutschland","phone":"49","phones"
+[PASS] countries:continents countries_continents — all 7 continents; rendered size=0.3KB (<50KB cap)
+[PASS] countries:continent EU countries_continent — rendered size=0.1KB (<50KB cap); {"data":{"continent":{"code":"EU","name":"Europe"}}}
+pinned as $16
+[PASS] countries:language es countries_language — rendered size=0.1KB (<50KB cap); {"data":{"language":{"code":"es","name":"Spanish","native":"Español","rtl":false}}}
+pinned as $17
+[INFO] countries:country unknown ZZ countries_country — {"data":{"country":null}}
+pinned as $18
+[PASS] countries_fixture:fixture country BR countries_fixture_country — {"data":{"country":{"awsRegion":"sa-east-1","capital":"Brasília","code":"BR","continent":{"code":"SA","name":"South America"},"currencies":["BRL"],"currency":"BRL","emoji":"🇧🇷","emojiU":"U+1F1E7 U+1F1F7","name":"Brazil",
+[PASS] countries_fixture:fixture continents countries_fixture_continents — rendered size=0.3KB (<50KB cap); {"data":{"continents":[{"code":"AF","name":"Africa"},{"code":"AN","name":"Antarctica"},{"code":"AS","name":"As
+[script] True {"country":"Canada","pet":"Pet1"}
+[PASS] ssrf-probe:bad_unspecified_v4_getinventory not executable bad_unspecified_v4_getinventory — tool "bad_unspecified_v4_getinventory" not found. Use the search tool to discover available tools
+[PASS] ssrf-probe:bad_unspecified_v6_getinventory not executable bad_unspecified_v6_getinventory — tool "bad_unspecified_v6_getinventory" not found. Use the search tool to discover available tools
+[PASS] ssrf-probe:bad_zero_net_getinventory not executable bad_zero_net_getinventory — tool "bad_zero_net_getinventory" not found. Use the search tool to discover available tools
+[PASS] ssrf-probe:bad_cgnat_getinventory not executable bad_cgnat_getinventory — tool "bad_cgnat_getinventory" not found. Use the search tool to discover available tools
+[INFO] ssrf-probe:control 100.128.0.1 (just outside 100.64/10) still accepted ok_100_128_getinventory — registered (boundary correct); specimport: request failed: Get "http://100.128.0.1:18999/store/inventory": dial tcp 100.128.0.1:18999: i/o timeout (Cli
+[INFO] ssrf-probe:probe_dns_loopback (127.0.0.1.nip.io) probe_dns_loopback_getinventory — still accepted at load (string-only host check); specimport: request failed: Get "http://127.0.0.1.nip.io:18999/store/inventory": context deadline exceeded (Client.Timeout exceeded while aw
+[canary] 0 0

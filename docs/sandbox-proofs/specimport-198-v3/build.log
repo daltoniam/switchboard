@@ -1,0 +1,1 @@
+go build ./cmd/server: OK at d39e116
