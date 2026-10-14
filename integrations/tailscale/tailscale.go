@@ -37,11 +37,12 @@ const (
 )
 
 type tailscale struct {
-	client     *http.Client
-	httpClient *http.Client
-	apiKey     string
-	baseURL    string
-	tailnet    string
+	client       *http.Client
+	httpClient   *http.Client
+	apiKey       string
+	baseURL      string
+	tailnet      string
+	configureErr error
 }
 
 var (
@@ -77,7 +78,16 @@ func (t *tailscale) OptionalKeys() []string {
 	return []string{"api_key", "oauth_client_id", "oauth_client_secret", "tailnet", "base_url"}
 }
 
-func (t *tailscale) Configure(_ context.Context, creds mcp.Credentials) error {
+// Configure records its error so Execute can tell the caller why the
+// integration is unusable. Hosts often only log Configure failures, which
+// leaves an agent with no way to learn that, for example, a device auth key
+// was pasted where an API token belongs.
+func (t *tailscale) Configure(ctx context.Context, creds mcp.Credentials) error {
+	t.configureErr = t.configure(ctx, creds)
+	return t.configureErr
+}
+
+func (t *tailscale) configure(_ context.Context, creds mcp.Credentials) error {
 	apiKey := strings.TrimSpace(creds["api_key"])
 	clientID := strings.TrimSpace(creds["oauth_client_id"])
 	clientSecret := strings.TrimSpace(creds["oauth_client_secret"])
@@ -152,6 +162,9 @@ func (t *tailscale) Execute(ctx context.Context, toolName mcp.ToolName, args map
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
 	}
 	if t.httpClient == nil {
+		if t.configureErr != nil {
+			return mcp.ErrResult(fmt.Errorf("tailscale: integration is not configured: %w", t.configureErr))
+		}
 		return mcp.ErrResult(fmt.Errorf("tailscale: integration is not configured"))
 	}
 	return fn(ctx, t, args)

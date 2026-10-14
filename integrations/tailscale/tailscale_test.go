@@ -65,6 +65,47 @@ func TestConfigure_Errors(t *testing.T) {
 	}
 }
 
+func TestExecute_ReportsWhyConfigureFailed(t *testing.T) {
+	tests := []struct {
+		name  string
+		creds mcp.Credentials
+		want  string
+	}{
+		{"auth key pasted as api key", mcp.Credentials{"api_key": "tskey-auth-abc"}, "looks like a device auth key"},
+		{"client secret pasted as api key", mcp.Credentials{"api_key": "tskey-client-abc"}, "looks like an OAuth client secret"},
+		{"half an oauth client", mcp.Credentials{"oauth_client_id": "k123"}, "must both be set"},
+		{"no credentials", mcp.Credentials{}, "api_key or oauth_client_id + oauth_client_secret is required"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := New()
+			require.Error(t, ts.Configure(context.Background(), tt.creds))
+			result, err := ts.Execute(context.Background(), "tailscale_list_devices", nil)
+			require.NoError(t, err)
+			require.True(t, result.IsError)
+			assert.Contains(t, result.Data, "not configured")
+			assert.Contains(t, result.Data, tt.want)
+		})
+	}
+}
+
+func TestExecute_ConfigureErrorClearedBySuccessfulConfigure(t *testing.T) {
+	ts, _ := testServer(t, okJSON(`{"devices":[]}`))
+	srvURL := ts.baseURL
+	require.Error(t, ts.Configure(context.Background(), mcp.Credentials{"api_key": "tskey-auth-abc"}))
+	require.NoError(t, ts.Configure(context.Background(), mcp.Credentials{"api_key": "tskey-api-ok", "base_url": srvURL}))
+	result, err := ts.Execute(context.Background(), "tailscale_list_devices", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, result.Data)
+}
+
+func TestExecute_NeverConfigured(t *testing.T) {
+	result, err := New().Execute(context.Background(), "tailscale_list_devices", nil)
+	require.NoError(t, err)
+	require.True(t, result.IsError)
+	assert.Contains(t, result.Data, "not configured")
+}
+
 func TestConfigure_OAuthClientCredentials(t *testing.T) {
 	var tokenCalls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
