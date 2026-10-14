@@ -99,6 +99,10 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /integrations/{name}/identities", w.handleIntegrationIdentitySave)
 	mux.HandleFunc("POST /integrations/{name}/identities/{identity}/delete", w.handleIntegrationIdentityDelete)
 
+	mux.HandleFunc("GET /spec-imports", w.handleSpecImports)
+	mux.HandleFunc("POST /api/spec-imports/save", w.handleSpecImportSave)
+	mux.HandleFunc("POST /api/spec-imports/delete", w.handleSpecImportDelete)
+
 	mux.HandleFunc("GET /integrations/slack/setup", w.handleSlackSetup)
 	mux.HandleFunc("GET /api/slack/list-workspaces", w.handleSlackListWorkspaces)
 	mux.HandleFunc("POST /api/slack/extract-browser", w.handleSlackExtractBrowser)

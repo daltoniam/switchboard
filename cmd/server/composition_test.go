@@ -137,4 +137,5 @@ func (s stubConfig) EnabledIntegrations() []string {
 	return names
 }
 func (s stubConfig) SetWasmModules([]mcp.WasmModuleConfig) error { return nil }
+func (s stubConfig) SetSpecImports([]mcp.SpecImportConfig) error { return nil }
 func (s stubConfig) DefaultCredentialKeys(string) []string       { return nil }
