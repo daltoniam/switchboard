@@ -1,0 +1,87 @@
+[
+ {
+  "step": "set_policy_file missing if_match",
+  "tool": "tailscale_set_policy_file",
+  "text": "missing required parameter \"if_match\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]"
+ },
+ {
+  "step": "set_policy_file missing policy",
+  "tool": "tailscale_set_policy_file",
+  "text": "missing required parameter \"policy\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]"
+ },
+ {
+  "step": "preview bad type",
+  "tool": "tailscale_preview_policy_rules",
+  "text": "type must be user or ipport, got \"bogus\""
+ },
+ {
+  "step": "validate neither",
+  "tool": "tailscale_validate_policy_file",
+  "text": "policy or tests is required"
+ },
+ {
+  "step": "validate tests not array",
+  "tool": "tailscale_validate_policy_file",
+  "text": "tests must be an array of ACL test objects"
+ },
+ {
+  "step": "split_dns bad value",
+  "tool": "tailscale_update_split_dns",
+  "text": "split_dns[\"corp.example\"] must be a list of nameservers or null, got string"
+ },
+ {
+  "step": "split_dns empty",
+  "tool": "tailscale_update_split_dns",
+  "text": "split_dns is required: map of domain to nameserver list (null removes a domain)"
+ },
+ {
+  "step": "nameservers missing",
+  "tool": "tailscale_set_dns_nameservers",
+  "text": "missing required parameter \"nameservers\" for tool \"tailscale_set_dns_nameservers\". Required: [nameservers]"
+ },
+ {
+  "step": "magic_dns missing",
+  "tool": "tailscale_set_dns_preferences",
+  "text": "missing required parameter \"magic_dns\" for tool \"tailscale_set_dns_preferences\". Required: [magic_dns]"
+ },
+ {
+  "step": "settings empty",
+  "tool": "tailscale_update_tailnet_settings",
+  "text": "settings is required: object of tailnet setting fields to change (e.g. {\"devicesApprovalOn\": true})"
+ },
+ {
+  "step": "webhook no subs",
+  "tool": "tailscale_create_webhook",
+  "text": "subscriptions is required: list of event types such as nodeCreated, nodeNeedsApproval, policyUpdate"
+ },
+ {
+  "step": "get_device no id",
+  "tool": "tailscale_get_device",
+  "text": "missing required parameter \"device_id\" for tool \"tailscale_get_device\". Required: [device_id]"
+ },
+ {
+  "step": "delete_key no id",
+  "tool": "tailscale_delete_key",
+  "text": "missing required parameter \"key_id\" for tool \"tailscale_delete_key\". Required: [key_id]"
+ },
+ {
+  "step": "fake token -> 401",
+  "tool": "tailscale_list_devices",
+  "text": "tailscale API error (401): {\"message\":\"API token invalid\"}"
+ },
+ {
+  "step": "fake token -> 401",
+  "tool": "tailscale_get_policy_file",
+  "text": "tailscale API error (401): {\"message\":\"API token invalid\"}"
+ },
+ {
+  "step": "fake token -> 401",
+  "tool": "tailscale_get_dns",
+  "text": "tailscale API error (401): {\"message\":\"API token invalid\"}"
+ },
+ {
+  "step": "fake token -> 401",
+  "tool": "tailscale_list_webhooks",
+  "text": "tailscale API error (401): {\"message\":\"API token invalid\"}"
+ }
+]

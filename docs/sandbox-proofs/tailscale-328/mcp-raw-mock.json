@@ -1,0 +1,327 @@
+[
+ {
+  "step": "set_policy_file missing if_match",
+  "tool": "tailscale_set_policy_file",
+  "text": "missing required parameter \"if_match\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]"
+ },
+ {
+  "step": "set_policy_file missing policy",
+  "tool": "tailscale_set_policy_file",
+  "text": "missing required parameter \"policy\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]"
+ },
+ {
+  "step": "preview bad type",
+  "tool": "tailscale_preview_policy_rules",
+  "text": "type must be user or ipport, got \"bogus\""
+ },
+ {
+  "step": "validate neither",
+  "tool": "tailscale_validate_policy_file",
+  "text": "policy or tests is required"
+ },
+ {
+  "step": "validate tests not array",
+  "tool": "tailscale_validate_policy_file",
+  "text": "tests must be an array of ACL test objects"
+ },
+ {
+  "step": "split_dns bad value",
+  "tool": "tailscale_update_split_dns",
+  "text": "split_dns[\"corp.example\"] must be a list of nameservers or null, got string"
+ },
+ {
+  "step": "split_dns empty",
+  "tool": "tailscale_update_split_dns",
+  "text": "split_dns is required: map of domain to nameserver list (null removes a domain)"
+ },
+ {
+  "step": "nameservers missing",
+  "tool": "tailscale_set_dns_nameservers",
+  "text": "missing required parameter \"nameservers\" for tool \"tailscale_set_dns_nameservers\". Required: [nameservers]"
+ },
+ {
+  "step": "magic_dns missing",
+  "tool": "tailscale_set_dns_preferences",
+  "text": "missing required parameter \"magic_dns\" for tool \"tailscale_set_dns_preferences\". Required: [magic_dns]"
+ },
+ {
+  "step": "settings empty",
+  "tool": "tailscale_update_tailnet_settings",
+  "text": "settings is required: object of tailnet setting fields to change (e.g. {\"devicesApprovalOn\": true})"
+ },
+ {
+  "step": "webhook no subs",
+  "tool": "tailscale_create_webhook",
+  "text": "subscriptions is required: list of event types such as nodeCreated, nodeNeedsApproval, policyUpdate"
+ },
+ {
+  "step": "get_device no id",
+  "tool": "tailscale_get_device",
+  "text": "missing required parameter \"device_id\" for tool \"tailscale_get_device\". Required: [device_id]"
+ },
+ {
+  "step": "delete_key no id",
+  "tool": "tailscale_delete_key",
+  "text": "missing required parameter \"key_id\" for tool \"tailscale_delete_key\". Required: [key_id]"
+ },
+ {
+  "step": "list_devices",
+  "tool": "tailscale_list_devices",
+  "text": "{\"devices\":[{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"authorized\":false,\"hostname\":\"sb-node\",\"id\":\"1001\",\"name\":\"sb-node.tail-mock.ts.net\",\"nodeId\":\"n1\"}]}\npinned as $1"
+ },
+ {
+  "step": "get_tailnet_settings (snapshot)",
+  "tool": "tailscale_get_tailnet_settings",
+  "text": "{\"devicesApprovalOn\":false,\"usersApprovalOn\":false}\npinned as $2"
+ },
+ {
+  "step": "get_dns (snapshot)",
+  "tool": "tailscale_get_dns",
+  "text": "{\"nameservers\":[{\"address\":\"8.8.8.8\"}],\"preferences\":{\"magicDNS\":true},\"searchPaths\":[],\"splitDNS\":{}}\npinned as $3"
+ },
+ {
+  "step": "list_users",
+  "tool": "tailscale_list_users",
+  "text": "{\"users\":[{\"id\":\"u1\",\"loginName\":\"sb@example.com\",\"role\":\"owner\",\"status\":\"active\"}]}\npinned as $4"
+ },
+ {
+  "step": "list_user_invites",
+  "tool": "tailscale_list_user_invites",
+  "text": "[]\npinned as $5"
+ },
+ {
+  "step": "get_contacts",
+  "tool": "tailscale_get_contacts",
+  "text": "{\"account\":{\"email\":\"sb@example.com\"}}\npinned as $6"
+ },
+ {
+  "step": "list_keys",
+  "tool": "tailscale_list_keys",
+  "text": "{\"keys\":[]}\npinned as $7"
+ },
+ {
+  "step": "get_policy_file (snapshot, HuJSON+etag)",
+  "tool": "tailscale_get_policy_file",
+  "text": "{\"etag\":\"\\\"c66f6893af4a9add\\\"\",\"policy\":\"// sandbox policy\\n{\\n  // groups comment\\n  \\\"acls\\\": [{\\\"action\\\":\\\"accept\\\",\\\"src\\\":[\\\"*\\\"],\\\"dst\\\":[\\\"*:*\\\"]},],\\n  \\\"tagOwners\\\": {\\\"tag:sb-proof\\\": [\\\"autogroup:admin\\\"]},\\n}\\n\"}\npinned as $8"
+ },
+ {
+  "step": "validate_policy_file (edited)",
+  "tool": "tailscale_validate_policy_file",
+  "text": "{\"valid\":true}\npinned as $9"
+ },
+ {
+  "step": "validate_policy_file (invalid HuJSON)",
+  "tool": "tailscale_validate_policy_file",
+  "text": "{\"message\":\"test(s) failed\"}\npinned as $10"
+ },
+ {
+  "step": "preview_policy_rules user (current)",
+  "tool": "tailscale_preview_policy_rules",
+  "text": "{\"matches\":[{\"lineNumber\":4,\"ports\":[\"*:*\"],\"users\":[\"*\"]}],\"previewFor\":\"sb@example.com\",\"type\":\"user\"}\npinned as $11"
+ },
+ {
+  "step": "preview_policy_rules ipport (draft)",
+  "tool": "tailscale_preview_policy_rules",
+  "text": "{\"matches\":[{\"lineNumber\":4,\"ports\":[\"*:*\"],\"users\":[\"*\"]}],\"previewFor\":\"sb@example.com\",\"type\":\"user\"}\npinned as $12"
+ },
+ {
+  "step": "set_policy_file with etag",
+  "tool": "tailscale_set_policy_file",
+  "text": "{\"etag\":\"\\\"36fb45560961503b\\\"\",\"status\":\"updated\"}\npinned as $13"
+ },
+ {
+  "step": "get after save: comment survived",
+  "tool": "tailscale_get_policy_file",
+  "text": "{\"etag\":\"\\\"36fb45560961503b\\\"\",\"policy\":\"// sandbox policy\\n{\\n  // sb-proof-328 marker comment \u2014 must survive round trip\\n  \\n  // groups comment\\n  \\\"acls\\\": [{\\\"action\\\":\\\"accept\\\",\\\"src\\\":[\\\"*\\\"],\\\"dst\\\":[\\\"*:*\\\"]},],\\n  \\\"tagOwners\\\": {\\\"tag:sb-proof\\\": [\\\"autogroup:admin\\\"]},\\n}\\n\"}\npinned as $14"
+ },
+ {
+  "step": "set_policy_file STALE etag refused (412)",
+  "tool": "tailscale_set_policy_file",
+  "text": "tailscale API error (412): {\"message\": \"precondition failed, invalid old hash\"}; the policy file changed since it was read, call tailscale_get_policy_file again and reapply the edit with the new etag"
+ },
+ {
+  "step": "set_policy_file bare etag (unquoted) accepted",
+  "tool": "tailscale_set_policy_file",
+  "text": "{\"etag\":\"\\\"34f0fcd8faa09f0a\\\"\",\"status\":\"updated\"}\npinned as $15"
+ },
+ {
+  "step": "create_auth_key",
+  "tool": "tailscale_create_auth_key",
+  "text": "{\"capabilities\":{\"devices\":{\"create\":{\"ephemeral\":false,\"preauthorized\":false,\"reusable\":false}}},\"description\":\"sb-proof-328\",\"id\":\"kMOCK0\",\"key\":\"tskey-auth-<REDACTED>\"}\npinned as $16"
+ },
+ {
+  "step": "get_key",
+  "tool": "tailscale_get_key",
+  "text": "{\"capabilities\":{\"devices\":{\"create\":{\"ephemeral\":false,\"preauthorized\":false,\"reusable\":false}}},\"description\":\"sb-proof-328\",\"id\":\"kMOCK0\"}\npinned as $17"
+ },
+ {
+  "step": "get_device (all fields)",
+  "tool": "tailscale_get_device",
+  "text": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"authorized\":false,\"hostname\":\"sb-node\",\"id\":\"1001\",\"name\":\"sb-node.tail-mock.ts.net\",\"nodeId\":\"n1\"}\npinned as $18"
+ },
+ {
+  "step": "authorize_device",
+  "tool": "tailscale_authorize_device",
+  "text": "{\"status\":\"success\"}\npinned as $19"
+ },
+ {
+  "step": "get_device authorized=true",
+  "tool": "tailscale_get_device",
+  "text": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"authorized\":true,\"hostname\":\"sb-node\",\"id\":\"1001\",\"name\":\"sb-node.tail-mock.ts.net\",\"nodeId\":\"n1\"}\npinned as $20"
+ },
+ {
+  "step": "set_device_name",
+  "tool": "tailscale_set_device_name",
+  "text": "{\"status\":\"success\"}\npinned as $21"
+ },
+ {
+  "step": "set_device_tags tag:sb-proof",
+  "tool": "tailscale_set_device_tags",
+  "text": "{\"status\":\"success\"}\npinned as $22"
+ },
+ {
+  "step": "get_device shows tag",
+  "tool": "tailscale_get_device",
+  "text": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"authorized\":true,\"hostname\":\"sb-node\",\"id\":\"1001\",\"name\":\"sb-proof-328-renamed\",\"nodeId\":\"n1\",\"tags\":[\"tag:sb-proof\"]}\npinned as $23"
+ },
+ {
+  "step": "get_device_routes (advertised 10.99.0.0/24)",
+  "tool": "tailscale_get_device_routes",
+  "text": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"enabledRoutes\":[]}\npinned as $24"
+ },
+ {
+  "step": "set_device_routes approve",
+  "tool": "tailscale_set_device_routes",
+  "text": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"enabledRoutes\":[\"10.99.0.0/24\"]}\npinned as $25"
+ },
+ {
+  "step": "routes enabled",
+  "tool": "tailscale_get_device_routes",
+  "text": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"enabledRoutes\":[\"10.99.0.0/24\"]}\npinned as $26"
+ },
+ {
+  "step": "set_dns_nameservers +9.9.9.9",
+  "tool": "tailscale_set_dns_nameservers",
+  "text": "{\"dns\":[\"8.8.8.8\",\"9.9.9.9\"],\"magicDNS\":true}\npinned as $27"
+ },
+ {
+  "step": "set_dns_search_paths",
+  "tool": "tailscale_set_dns_search_paths",
+  "text": "{\"searchPaths\":[\"sb-proof-328.example\"]}\npinned as $28"
+ },
+ {
+  "step": "set_dns_preferences toggle MagicDNS",
+  "tool": "tailscale_set_dns_preferences",
+  "text": "{\"magicDNS\":false}\npinned as $29"
+ },
+ {
+  "step": "update_split_dns add",
+  "tool": "tailscale_update_split_dns",
+  "text": "{\"sb-proof-328.example\":[\"1.1.1.1\"]}\npinned as $30"
+ },
+ {
+  "step": "get_dns reflects writes",
+  "tool": "tailscale_get_dns",
+  "text": "{\"nameservers\":[{\"address\":\"8.8.8.8\"},{\"address\":\"9.9.9.9\"}],\"preferences\":{\"magicDNS\":false},\"searchPaths\":[\"sb-proof-328.example\"],\"splitDNS\":{\"sb-proof-328.example\":[\"1.1.1.1\"]}}\npinned as $31"
+ },
+ {
+  "step": "update_tailnet_settings usersApprovalOn toggle",
+  "tool": "tailscale_update_tailnet_settings",
+  "text": "{\"devicesApprovalOn\":false,\"usersApprovalOn\":true}\npinned as $32"
+ },
+ {
+  "step": "create_user_invite (example.invalid, not delivered)",
+  "tool": "tailscale_create_user_invite",
+  "text": "[{\"email\":\"sb-proof-328@example.invalid\",\"id\":\"inv0\",\"role\":\"member\"}]\npinned as $33"
+ },
+ {
+  "step": "delete_user_invite",
+  "tool": "tailscale_delete_user_invite",
+  "text": "{\"status\":\"success\"}\npinned as $34"
+ },
+ {
+  "step": "create_webhook",
+  "tool": "tailscale_create_webhook",
+  "text": "{\"endpointId\":\"wh0\",\"endpointUrl\":\"https://example.com/sb-proof-328\",\"providerType\":\"\",\"secret\":\"tskey-webhook-<REDACTED>\",\"subscriptions\":[\"nodeCreated\",\"policyUpdate\"]}\npinned as $35"
+ },
+ {
+  "step": "list_webhooks: secret stripped",
+  "tool": "tailscale_list_webhooks",
+  "text": "{\"webhooks\":[{\"endpointId\":\"wh0\",\"endpointUrl\":\"https://example.com/sb-proof-328\",\"providerType\":\"\",\"subscriptions\":[\"nodeCreated\",\"policyUpdate\"]}]}\npinned as $36"
+ },
+ {
+  "step": "create_webhook result: secret stripped?",
+  "tool": "tailscale_create_webhook",
+  "text": "endpoint_url is required"
+ },
+ {
+  "step": "test_webhook",
+  "tool": "tailscale_test_webhook",
+  "text": "{\"status\":\"success\"}\npinned as $37"
+ },
+ {
+  "step": "delete_webhook",
+  "tool": "tailscale_delete_webhook",
+  "text": "{\"status\":\"success\"}\npinned as $38"
+ },
+ {
+  "step": "webhook gone",
+  "tool": "tailscale_list_webhooks",
+  "text": "{\"webhooks\":[]}\npinned as $39"
+ },
+ {
+  "step": "restore settings",
+  "tool": "tailscale_update_tailnet_settings",
+  "text": "{\"devicesApprovalOn\":false,\"usersApprovalOn\":false}\npinned as $40"
+ },
+ {
+  "step": "restore dns",
+  "tool": "tailscale_update_split_dns",
+  "text": "{}\npinned as $41"
+ },
+ {
+  "step": "restore dns",
+  "tool": "tailscale_set_dns_preferences",
+  "text": "{\"magicDNS\":true}\npinned as $42"
+ },
+ {
+  "step": "restore dns",
+  "tool": "tailscale_set_dns_search_paths",
+  "text": "{\"searchPaths\":[]}\npinned as $43"
+ },
+ {
+  "step": "restore dns",
+  "tool": "tailscale_set_dns_nameservers",
+  "text": "{\"dns\":[\"8.8.8.8\"],\"magicDNS\":true}\npinned as $44"
+ },
+ {
+  "step": "restore original policy",
+  "tool": "tailscale_set_policy_file",
+  "text": "{\"etag\":\"\\\"c66f6893af4a9add\\\"\",\"status\":\"updated\"}\npinned as $46"
+ },
+ {
+  "step": "revoke auth key",
+  "tool": "tailscale_delete_key",
+  "text": "{\"status\":\"success\"}\npinned as $47"
+ },
+ {
+  "step": "key revoked",
+  "tool": "tailscale_get_key",
+  "text": "tailscale API error (404): {\"message\": \"not found\"}"
+ },
+ {
+  "step": "policy byte-identical to snapshot",
+  "tool": "tailscale_get_policy_file",
+  "text": "{\"etag\":\"\\\"c66f6893af4a9add\\\"\",\"policy\":\"// sandbox policy\\n{\\n  // groups comment\\n  \\\"acls\\\": [{\\\"action\\\":\\\"accept\\\",\\\"src\\\":[\\\"*\\\"],\\\"dst\\\":[\\\"*:*\\\"]},],\\n  \\\"tagOwners\\\": {\\\"tag:sb-proof\\\": [\\\"autogroup:admin\\\"]},\\n}\\n\"}\npinned as $48"
+ },
+ {
+  "step": "dns matches snapshot",
+  "tool": "tailscale_get_dns",
+  "text": "{\"nameservers\":[{\"address\":\"8.8.8.8\"}],\"preferences\":{\"magicDNS\":true},\"searchPaths\":[],\"splitDNS\":{}}\npinned as $49"
+ },
+ {
+  "step": "settings match snapshot",
+  "tool": "tailscale_get_tailnet_settings",
+  "text": "{\"devicesApprovalOn\":false,\"usersApprovalOn\":false}\npinned as $50"
+ }
+]

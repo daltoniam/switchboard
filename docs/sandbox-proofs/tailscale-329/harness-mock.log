@@ -1,0 +1,110 @@
+[PASS] search "tailscale" 44 missing=[]
+[PASS] search "tailscale acl policy" 44 missing=[]
+[PASS] search "tailscale webhook" 44 missing=[]
+[PASS] validation:set_policy_file missing if_match tailscale_set_policy_file — missing required parameter "if_match" for tool "tailscale_set_policy_file". Required: [policy if_match]
+[PASS] validation:set_policy_file missing policy tailscale_set_policy_file — missing required parameter "policy" for tool "tailscale_set_policy_file". Required: [policy if_match]
+[PASS] validation:preview bad type tailscale_preview_policy_rules — type must be user or ipport, got "bogus"
+[PASS] validation:validate neither tailscale_validate_policy_file — policy or tests is required
+[PASS] validation:validate tests not array tailscale_validate_policy_file — tests must be an array of ACL test objects
+[PASS] validation:split_dns bad value tailscale_update_split_dns — split_dns["corp.example"] must be a list of nameservers or null, got string
+[PASS] validation:split_dns empty tailscale_update_split_dns — split_dns is required: map of domain to nameserver list (null removes a domain)
+[PASS] validation:nameservers missing tailscale_set_dns_nameservers — missing required parameter "nameservers" for tool "tailscale_set_dns_nameservers". Required: [nameservers]
+[PASS] validation:magic_dns missing tailscale_set_dns_preferences — missing required parameter "magic_dns" for tool "tailscale_set_dns_preferences". Required: [magic_dns]
+[PASS] validation:settings empty tailscale_update_tailnet_settings — settings is required: object of tailnet setting fields to change (e.g. {"devicesApprovalOn": true})
+[PASS] validation:webhook no subs tailscale_create_webhook — subscriptions is required: list of event types such as nodeCreated, nodeNeedsApproval, policyUpdate
+[PASS] validation:get_device no id tailscale_get_device — missing required parameter "device_id" for tool "tailscale_get_device". Required: [device_id]
+[PASS] validation:delete_key no id tailscale_delete_key — missing required parameter "key_id" for tool "tailscale_delete_key". Required: [key_id]
+[PASS] devices:list_devices tailscale_list_devices — 1 devices
+[PASS] settings:get_tailnet_settings (snapshot) tailscale_get_tailnet_settings — {"devicesApprovalOn":false,"usersApprovalOn":false}
+pinned as $2
+[PASS] dns:get_dns (snapshot) tailscale_get_dns — {"nameservers":[{"address":"8.8.8.8"}],"preferences":{"magicDNS":true},"searchPaths":[],"splitDNS":{}}
+pinned as $3
+[PASS] users:list_users tailscale_list_users — {"users":[{"id":"u1","loginName":"sb@example.com","role":"owner","status":"active"}]}
+pinned as $4
+[PASS] users:list_user_invites tailscale_list_user_invites — {"invites":[]}
+pinned as $5
+[PASS] contacts:get_contacts tailscale_get_contacts — {"account":{"email":"sb@example.com"}}
+pinned as $6
+[PASS] keys:list_keys tailscale_list_keys — {"keys":[]}
+pinned as $7
+[PASS] acl:get_policy_file (snapshot, HuJSON+etag) tailscale_get_policy_file — etag="c66f6893af4a9add" len=156 has_comment=True
+[PASS] acl:validate_policy_file (edited) tailscale_validate_policy_file — {"valid":true}
+pinned as $9
+[PASS] acl:validate_policy_file (invalid HuJSON) tailscale_validate_policy_file — {"message":"test(s) failed"}
+pinned as $10
+[PASS] acl:preview_policy_rules user (current) tailscale_preview_policy_rules — {"matches":[{"lineNumber":4,"ports":["*:*"],"users":["*"]}],"previewFor":"sb@example.com","type":"user"}
+pinned as $11
+[PASS] acl:preview_policy_rules ipport (draft) tailscale_preview_policy_rules — {"matches":[{"lineNumber":4,"ports":["*:*"],"users":["*"]}],"previewFor":"sb@example.com","type":"user"}
+pinned as $12
+[PASS] acl:set_policy_file with etag tailscale_set_policy_file — {"etag":"\"36fb45560961503b\"","status":"updated"}
+pinned as $13
+[PASS] acl:get after save: comment survived tailscale_get_policy_file — marker_present=True etag="36fb45560961503b"
+[PASS] acl:set_policy_file STALE etag refused (412) tailscale_set_policy_file — tailscale API error (412): {"message": "precondition failed, invalid old hash"}; the policy file changed since it was read, call tailscale_get_policy_file again and reapply the edit with the new etag
+[PASS] acl:set_policy_file bare etag (unquoted) accepted tailscale_set_policy_file — {"etag":"\"34f0fcd8faa09f0a\"","status":"updated"}
+pinned as $15
+[PASS] keys:create_auth_key tailscale_create_auth_key — id=kMOCK0 key returned once=True
+[PASS] keys:get_key tailscale_get_key — secret absent on get=True
+[PASS] devices:get_device (all fields) tailscale_get_device — {"advertisedRoutes":["10.99.0.0/24"],"authorized":false,"hostname":"sb-node","id":"1001","name":"sb-node.tail-mock.ts.net","nodeId":"n1"}
+pinned as $18
+[PASS] devices:authorize_device tailscale_authorize_device — {"status":"success"}
+pinned as $19
+[PASS] devices:get_device authorized=true tailscale_get_device — authorized=True
+[PASS] devices:set_device_name tailscale_set_device_name — {"status":"success"}
+pinned as $21
+[PASS] devices:set_device_tags tag:sb-proof tailscale_set_device_tags — {"status":"success"}
+pinned as $22
+[PASS] devices:get_device shows tag tailscale_get_device — tags=['tag:sb-proof'] name=sb-proof-328-renamed
+[PASS] routes:get_device_routes (advertised 10.99.0.0/24) tailscale_get_device_routes — {"advertisedRoutes":["10.99.0.0/24"],"enabledRoutes":[]}
+pinned as $24
+[PASS] routes:set_device_routes approve tailscale_set_device_routes — {"advertisedRoutes":["10.99.0.0/24"],"enabledRoutes":["10.99.0.0/24"]}
+pinned as $25
+[PASS] routes:routes enabled tailscale_get_device_routes — {"advertisedRoutes":["10.99.0.0/24"],"enabledRoutes":["10.99.0.0/24"]}
+pinned as $26
+[PASS] dns:set_dns_nameservers +9.9.9.9 tailscale_set_dns_nameservers — {"dns":["8.8.8.8","9.9.9.9"],"magicDNS":true}
+pinned as $27
+[PASS] dns:set_dns_search_paths tailscale_set_dns_search_paths — {"searchPaths":["sb-proof-328.example"]}
+pinned as $28
+[PASS] dns:set_dns_preferences toggle MagicDNS tailscale_set_dns_preferences — {"magicDNS":false}
+pinned as $29
+[PASS] dns:update_split_dns add tailscale_update_split_dns — {"sb-proof-328.example":["1.1.1.1"]}
+pinned as $30
+[PASS] dns:get_dns reflects writes tailscale_get_dns — {"nameservers":[{"address":"8.8.8.8"},{"address":"9.9.9.9"}],"preferences":{"magicDNS":false},"searchPaths":["sb-proof-328.example"],"splitDNS":{"sb-proof-328.example":["1.1.1.1"]}}
+pinned as $31
+[PASS] settings:update_tailnet_settings usersApprovalOn toggle tailscale_update_tailnet_settings — {"devicesApprovalOn":false,"usersApprovalOn":true}
+pinned as $32
+[PASS] users:create_user_invite (example.invalid, not delivered) tailscale_create_user_invite — [{"email":"sb-proof-328@example.invalid","id":"inv0","role":"member"}]
+pinned as $33
+[PASS] users:delete_user_invite tailscale_delete_user_invite — {"status":"success"}
+pinned as $34
+[PASS] webhooks:create_webhook tailscale_create_webhook — id=wh0 secret_in_create_result=True
+[PASS] webhooks:list_webhooks: secret stripped tailscale_list_webhooks — contains_secret=False
+[PASS] webhooks:create_webhook result: secret stripped? tailscale_create_webhook — endpoint_url is required
+[PASS] webhooks:test_webhook tailscale_test_webhook — {"status":"success"}
+pinned as $37
+[PASS] restore:delete_webhook tailscale_delete_webhook — {"status":"success"}
+pinned as $38
+[PASS] restore:webhook gone tailscale_list_webhooks — {"webhooks":[]}
+pinned as $39
+[PASS] restore:restore settings tailscale_update_tailnet_settings — {"devicesApprovalOn":false,"usersApprovalOn":false}
+pinned as $40
+[PASS] restore:restore dns tailscale_update_split_dns — {}
+pinned as $41
+[PASS] restore:restore dns tailscale_set_dns_preferences — {"magicDNS":true}
+pinned as $42
+[PASS] restore:restore dns tailscale_set_dns_search_paths — {"searchPaths":[]}
+pinned as $43
+[PASS] restore:restore dns tailscale_set_dns_nameservers — {"dns":["8.8.8.8"],"magicDNS":true}
+pinned as $44
+[PASS] restore:restore original policy tailscale_set_policy_file — {"etag":"\"c66f6893af4a9add\"","status":"updated"}
+pinned as $46
+[PASS] restore:revoke auth key tailscale_delete_key — {"status":"success"}
+pinned as $47
+[PASS] restore:key revoked tailscale_get_key — tailscale API error (404): {"message": "not found"}
+[PASS] restore:policy byte-identical to snapshot tailscale_get_policy_file — identical
+[PASS] restore:dns matches snapshot tailscale_get_dns — identical
+[PASS] restore:settings match snapshot tailscale_get_tailnet_settings — identical
+ACL POST application/hujson "c66f6893af4a9add"
+ACL POST application/hujson "c66f6893af4a9add"
+ACL POST application/hujson "36fb45560961503b"
+ACL POST application/hujson "34f0fcd8faa09f0a"
+== mock: {'PASS': 69, 'INFO': 1}

@@ -1,0 +1,54 @@
+{"m": "GET", "p": "/api/v2/tailnet/-/devices", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/devices?fields=default", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/settings", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/dns/configuration", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/users", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/user-invites", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/contacts", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/keys", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/acl", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/tailnet/-/acl/validate", "ct": "application/hujson", "if_match": null, "body": "// sandbox policy\n{\n  // sb-proof-328 marker comment \u2014 must survive round trip\n  \n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"}
+{"m": "POST", "p": "/api/v2/tailnet/-/acl/validate", "ct": "application/hujson", "if_match": null, "body": "{\"acls\": [ {\"action\": \"bogus\" "}
+{"m": "GET", "p": "/api/v2/tailnet/-/acl", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/tailnet/-/acl/preview?previewFor=sb%40example.com&type=user", "ct": "application/hujson", "if_match": null, "body": "// sandbox policy\n{\n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"}
+{"m": "POST", "p": "/api/v2/tailnet/-/acl/preview?previewFor=100.64.0.1%3A22&type=ipport", "ct": "application/hujson", "if_match": null, "body": "// sandbox policy\n{\n  // sb-proof-328 marker comment \u2014 must survive round trip\n  \n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"}
+{"m": "POST", "p": "/api/v2/tailnet/-/acl", "ct": "application/hujson", "if_match": "\"c66f6893af4a9add\"", "body": "// sandbox policy\n{\n  // sb-proof-328 marker comment \u2014 must survive round trip\n  \n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"}
+{"m": "GET", "p": "/api/v2/tailnet/-/acl", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/tailnet/-/acl", "ct": "application/hujson", "if_match": "\"c66f6893af4a9add\"", "body": "// sandbox policy\n{\n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"}
+{"m": "POST", "p": "/api/v2/tailnet/-/acl", "ct": "application/hujson", "if_match": "\"36fb45560961503b\"", "body": "// sandbox policy\n{\n  // sb-proof-328 marker comment \u2014 must survive round trip\n  \n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n\n"}
+{"m": "POST", "p": "/api/v2/tailnet/-/keys", "ct": "application/json", "if_match": null, "body": "{\"capabilities\":{\"devices\":{\"create\":{\"ephemeral\":false,\"preauthorized\":false,\"reusable\":false}}},\"description\":\"sb-proof-328\",\"expirySeconds\":3600,\"keyType\":\"auth\"}"}
+{"m": "GET", "p": "/api/v2/tailnet/-/keys/kMOCK0", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/device/n1?fields=all", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/device/n1/authorized", "ct": "application/json", "if_match": null, "body": "{\"authorized\":true}"}
+{"m": "GET", "p": "/api/v2/device/n1?fields=all", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/device/n1/name", "ct": "application/json", "if_match": null, "body": "{\"name\":\"sb-proof-328-renamed\"}"}
+{"m": "POST", "p": "/api/v2/device/n1/tags", "ct": "application/json", "if_match": null, "body": "{\"tags\":[\"tag:sb-proof\"]}"}
+{"m": "GET", "p": "/api/v2/device/n1?fields=all", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/device/n1/routes", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/device/n1/routes", "ct": "application/json", "if_match": null, "body": "{\"routes\":[\"10.99.0.0/24\"]}"}
+{"m": "GET", "p": "/api/v2/device/n1/routes", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/tailnet/-/dns/nameservers", "ct": "application/json", "if_match": null, "body": "{\"dns\":[\"8.8.8.8\",\"9.9.9.9\"]}"}
+{"m": "POST", "p": "/api/v2/tailnet/-/dns/searchpaths", "ct": "application/json", "if_match": null, "body": "{\"searchPaths\":[\"sb-proof-328.example\"]}"}
+{"m": "POST", "p": "/api/v2/tailnet/-/dns/preferences", "ct": "application/json", "if_match": null, "body": "{\"magicDNS\":false}"}
+{"m": "PATCH", "p": "/api/v2/tailnet/-/dns/split-dns", "ct": "application/json", "if_match": null, "body": "{\"sb-proof-328.example\":[\"1.1.1.1\"]}"}
+{"m": "GET", "p": "/api/v2/tailnet/-/dns/configuration", "ct": null, "if_match": null, "body": ""}
+{"m": "PATCH", "p": "/api/v2/tailnet/-/settings", "ct": "application/json", "if_match": null, "body": "{\"usersApprovalOn\":true}"}
+{"m": "POST", "p": "/api/v2/tailnet/-/user-invites", "ct": "application/json", "if_match": null, "body": "[{\"email\":\"sb-proof-328@example.invalid\",\"role\":\"member\"}]"}
+{"m": "DELETE", "p": "/api/v2/user-invites/inv0", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/tailnet/-/webhooks", "ct": "application/json", "if_match": null, "body": "{\"endpointUrl\":\"https://example.com/sb-proof-328\",\"subscriptions\":[\"nodeCreated\",\"policyUpdate\"]}"}
+{"m": "GET", "p": "/api/v2/tailnet/-/webhooks", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/webhooks/wh0/test", "ct": null, "if_match": null, "body": ""}
+{"m": "DELETE", "p": "/api/v2/webhooks/wh0", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/webhooks", "ct": null, "if_match": null, "body": ""}
+{"m": "PATCH", "p": "/api/v2/tailnet/-/settings", "ct": "application/json", "if_match": null, "body": "{\"usersApprovalOn\":false}"}
+{"m": "PATCH", "p": "/api/v2/tailnet/-/dns/split-dns", "ct": "application/json", "if_match": null, "body": "{\"sb-proof-328.example\":null}"}
+{"m": "POST", "p": "/api/v2/tailnet/-/dns/preferences", "ct": "application/json", "if_match": null, "body": "{\"magicDNS\":true}"}
+{"m": "POST", "p": "/api/v2/tailnet/-/dns/searchpaths", "ct": "application/json", "if_match": null, "body": "{\"searchPaths\":[]}"}
+{"m": "POST", "p": "/api/v2/tailnet/-/dns/nameservers", "ct": "application/json", "if_match": null, "body": "{\"dns\":[\"8.8.8.8\"]}"}
+{"m": "GET", "p": "/api/v2/tailnet/-/acl", "ct": null, "if_match": null, "body": ""}
+{"m": "POST", "p": "/api/v2/tailnet/-/acl", "ct": "application/hujson", "if_match": "\"34f0fcd8faa09f0a\"", "body": "// sandbox policy\n{\n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"}
+{"m": "DELETE", "p": "/api/v2/tailnet/-/keys/kMOCK0", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/keys/kMOCK0", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/acl", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/dns/configuration", "ct": null, "if_match": null, "body": ""}
+{"m": "GET", "p": "/api/v2/tailnet/-/settings", "ct": null, "if_match": null, "body": ""}

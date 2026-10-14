@@ -1,0 +1,2 @@
+Leak scan (tskey-* patterns, excluding known fake/mock/redacted values; homes/ = local config, not published)
+CLEAN: 0 real-looking keys

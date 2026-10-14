@@ -1,0 +1,194 @@
+{
+ "table": [
+  {
+   "case": "auth_key_as_api_key",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)"
+  },
+  {
+   "case": "client_secret_as_api_key",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id"
+  },
+  {
+   "case": "token_and_oauth",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both"
+  },
+  {
+   "case": "half_oauth_id_only",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set"
+  },
+  {
+   "case": "half_oauth_secret_only",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set"
+  },
+  {
+   "case": "missing_creds",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: api_key or oauth_client_id + oauth_client_secret is required"
+  }
+ ],
+ "steps": [
+  {
+   "phase": "bad-creds",
+   "step": "auth_key_as_api_key",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)'",
+   "args": {
+    "api_key": "tskey-auth-kSBPROOF-notreal"
+   },
+   "response": {
+    "case": "auth_key_as_api_key",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)"
+   }
+  },
+  {
+   "phase": "bad-creds",
+   "step": "client_secret_as_api_key",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id'",
+   "args": {
+    "api_key": "tskey-client-kSBPROOF-notreal"
+   },
+   "response": {
+    "case": "client_secret_as_api_key",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id"
+   }
+  },
+  {
+   "phase": "bad-creds",
+   "step": "token_and_oauth",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both'",
+   "args": {
+    "api_key": "tskey-api-SBPROOF-notreal",
+    "oauth_client_id": "cid",
+    "oauth_client_secret": "tskey-client-x-notreal"
+   },
+   "response": {
+    "case": "token_and_oauth",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both"
+   }
+  },
+  {
+   "phase": "bad-creds",
+   "step": "half_oauth_id_only",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set'",
+   "args": {
+    "oauth_client_id": "cid"
+   },
+   "response": {
+    "case": "half_oauth_id_only",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set"
+   }
+  },
+  {
+   "phase": "bad-creds",
+   "step": "half_oauth_secret_only",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set'",
+   "args": {
+    "oauth_client_secret": "tskey-client-x-notreal"
+   },
+   "response": {
+    "case": "half_oauth_secret_only",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set"
+   }
+  },
+  {
+   "phase": "bad-creds",
+   "step": "missing_creds",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: api_key or oauth_client_id + oauth_client_secret is required'",
+   "args": {
+    "api_key": ""
+   },
+   "response": {
+    "case": "missing_creds",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: api_key or oauth_client_id + oauth_client_secret is required"
+   }
+  },
+  {
+   "phase": "clear",
+   "step": "1 bad config -> specific reason",
+   "status": "PASS",
+   "note": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)",
+   "args": null,
+   "response": null
+  },
+  {
+   "phase": "clear",
+   "step": "2 reconfigure fake well-formed key (real API) -> clean 401, stored error gone",
+   "status": "PASS",
+   "note": "save=200 /integrations/tailscale?success=Configuration+saved | tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "args": null,
+   "response": null
+  },
+  {
+   "phase": "clear",
+   "step": "3 back to bad key -> reason returns, old client not reused",
+   "status": "PASS",
+   "note": "save=200 | tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)",
+   "args": null,
+   "response": null
+  },
+  {
+   "phase": "clear",
+   "step": "4 reconfigure valid key vs mock API -> real success, no stored error",
+   "status": "PASS",
+   "note": "save=200 | {\"devices\":[{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"authorized\":false,\"hostname\":\"sb-node\",\"id\":\"1001\",\"name\":\"sb-node.tail-mock.ts.net\",\"nodeId\":\"n1\"}]}",
+   "args": null,
+   "response": null
+  },
+  {
+   "phase": "clear",
+   "step": "5 half OAuth after success -> reason, previous working client dropped",
+   "status": "PASS",
+   "note": "save=200 | tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set",
+   "args": null,
+   "response": null
+  },
+  {
+   "phase": "clear",
+   "step": "6 OAuth client creds (mock token endpoint missing) -> error is upstream OAuth, not stale configure error",
+   "status": "PASS",
+   "note": "save=200 | Get \"http://127.0.0.1:18329/api/v2/tailnet/-/devices?fields=default\": oauth2: cannot fetch token: 401 Unauthorized\nResponse: {\"message\": \"API token invalid\"}",
+   "args": null,
+   "response": null
+  },
+  {
+   "phase": "leak",
+   "step": "credential fragment 'notreal' in server log",
+   "status": "PASS",
+   "note": "absent",
+   "args": null,
+   "response": null
+  },
+  {
+   "phase": "leak",
+   "step": "credential fragment 'MOCK-ok' in server log",
+   "status": "PASS",
+   "note": "absent",
+   "args": null,
+   "response": null
+  },
+  {
+   "phase": "leak",
+   "step": "credential fragment 'SBPROOF-fake' in server log",
+   "status": "PASS",
+   "note": "absent",
+   "args": null,
+   "response": null
+  }
+ ]
+}

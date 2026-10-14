@@ -1,0 +1,17 @@
+[PASS] bad-creds:auth_key_as_api_key — before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-a
+[PASS] bad-creds:client_secret_as_api_key — before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id'
+[PASS] bad-creds:token_and_oauth — before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both'
+[PASS] bad-creds:half_oauth_id_only — before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set'
+[PASS] bad-creds:half_oauth_secret_only — before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set'
+[PASS] bad-creds:missing_creds — before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: api_key or oauth_client_id + oauth_client_secret is required'
+[PASS] clear:1 bad config -> specific reason — tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)
+[PASS] clear:2 reconfigure fake well-formed key (real API) -> clean 401, stored error gone — save=200 /integrations/tailscale?success=Configuration+saved | tailscale API error (401): {"message":"API token invalid"}
+[PASS] clear:3 back to bad key -> reason returns, old client not reused — save=200 | tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)
+[PASS] clear:4 reconfigure valid key vs mock API -> real success, no stored error — save=200 | {"devices":[{"advertisedRoutes":["10.99.0.0/24"],"authorized":false,"hostname":"sb-node","id":"1001","name":"sb-node.tail-mock.ts.net","nodeId":"n1"}]}
+[PASS] clear:5 half OAuth after success -> reason, previous working client dropped — save=200 | tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set
+[PASS] clear:6 OAuth client creds (mock token endpoint missing) -> error is upstream OAuth, not stale configure error — save=200 | Get "http://127.0.0.1:18329/api/v2/tailnet/-/devices?fields=default": oauth2: cannot fetch token: 401 Unauthorized
+Response: {"message": "API token invalid"}
+[PASS] leak:credential fragment 'notreal' in server log — absent
+[PASS] leak:credential fragment 'MOCK-ok' in server log — absent
+[PASS] leak:credential fragment 'SBPROOF-fake' in server log — absent
+== 329: {'PASS': 15}

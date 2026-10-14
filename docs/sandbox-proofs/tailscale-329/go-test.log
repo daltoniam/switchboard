@@ -1,0 +1,404 @@
+=== RUN   TestFieldCompactionSpecs_AllParse
+--- PASS: TestFieldCompactionSpecs_AllParse (0.00s)
+=== RUN   TestFieldCompactionSpecs_NoDuplicateTools
+--- PASS: TestFieldCompactionSpecs_NoDuplicateTools (0.00s)
+=== RUN   TestFieldCompactionSpecs_NoOrphanSpecs
+--- PASS: TestFieldCompactionSpecs_NoOrphanSpecs (0.00s)
+=== RUN   TestFieldCompactionSpecs_ReadToolsCovered
+--- PASS: TestFieldCompactionSpecs_ReadToolsCovered (0.00s)
+=== RUN   TestFieldCompactionSpecs_NoSpecOnMutationTools
+--- PASS: TestFieldCompactionSpecs_NoSpecOnMutationTools (0.00s)
+=== RUN   TestCompactSpec_Accessors
+--- PASS: TestCompactSpec_Accessors (0.00s)
+=== RUN   TestFieldCompactionSpecs_ShapeParity
+=== RUN   TestFieldCompactionSpecs_ShapeParity/tailscale_list_users
+=== RUN   TestFieldCompactionSpecs_ShapeParity/tailscale_get_user
+=== RUN   TestFieldCompactionSpecs_ShapeParity/tailscale_list_user_invites
+=== RUN   TestFieldCompactionSpecs_ShapeParity/tailscale_list_webhooks
+=== RUN   TestFieldCompactionSpecs_ShapeParity/tailscale_list_devices
+=== RUN   TestFieldCompactionSpecs_ShapeParity/tailscale_get_device
+=== RUN   TestFieldCompactionSpecs_ShapeParity/tailscale_list_keys
+=== RUN   TestFieldCompactionSpecs_ShapeParity/tailscale_get_key
+--- PASS: TestFieldCompactionSpecs_ShapeParity (0.00s)
+    --- PASS: TestFieldCompactionSpecs_ShapeParity/tailscale_list_users (0.00s)
+    --- PASS: TestFieldCompactionSpecs_ShapeParity/tailscale_get_user (0.00s)
+    --- PASS: TestFieldCompactionSpecs_ShapeParity/tailscale_list_user_invites (0.00s)
+    --- PASS: TestFieldCompactionSpecs_ShapeParity/tailscale_list_webhooks (0.00s)
+    --- PASS: TestFieldCompactionSpecs_ShapeParity/tailscale_list_devices (0.00s)
+    --- PASS: TestFieldCompactionSpecs_ShapeParity/tailscale_get_device (0.00s)
+    --- PASS: TestFieldCompactionSpecs_ShapeParity/tailscale_list_keys (0.00s)
+    --- PASS: TestFieldCompactionSpecs_ShapeParity/tailscale_get_key (0.00s)
+=== RUN   TestFieldCompactionSpecs_DevicesKeepRoutingFieldsDropKeys
+--- PASS: TestFieldCompactionSpecs_DevicesKeepRoutingFieldsDropKeys (0.00s)
+=== RUN   TestNew
+--- PASS: TestNew (0.00s)
+=== RUN   TestConfigure_APIKey
+--- PASS: TestConfigure_APIKey (0.00s)
+=== RUN   TestConfigure_CustomTailnetAndBaseURL
+--- PASS: TestConfigure_CustomTailnetAndBaseURL (0.00s)
+=== RUN   TestConfigure_Errors
+=== RUN   TestConfigure_Errors/missing_everything
+=== RUN   TestConfigure_Errors/client_id_only
+=== RUN   TestConfigure_Errors/secret_only
+=== RUN   TestConfigure_Errors/both_auth_modes
+=== RUN   TestConfigure_Errors/auth_key_as_api_key
+=== RUN   TestConfigure_Errors/client_secret_as_api_key
+--- PASS: TestConfigure_Errors (0.00s)
+    --- PASS: TestConfigure_Errors/missing_everything (0.00s)
+    --- PASS: TestConfigure_Errors/client_id_only (0.00s)
+    --- PASS: TestConfigure_Errors/secret_only (0.00s)
+    --- PASS: TestConfigure_Errors/both_auth_modes (0.00s)
+    --- PASS: TestConfigure_Errors/auth_key_as_api_key (0.00s)
+    --- PASS: TestConfigure_Errors/client_secret_as_api_key (0.00s)
+=== RUN   TestExecute_ReportsWhyConfigureFailed
+=== RUN   TestExecute_ReportsWhyConfigureFailed/auth_key_pasted_as_api_key
+=== RUN   TestExecute_ReportsWhyConfigureFailed/client_secret_pasted_as_api_key
+=== RUN   TestExecute_ReportsWhyConfigureFailed/half_an_oauth_client
+=== RUN   TestExecute_ReportsWhyConfigureFailed/no_credentials
+--- PASS: TestExecute_ReportsWhyConfigureFailed (0.00s)
+    --- PASS: TestExecute_ReportsWhyConfigureFailed/auth_key_pasted_as_api_key (0.00s)
+    --- PASS: TestExecute_ReportsWhyConfigureFailed/client_secret_pasted_as_api_key (0.00s)
+    --- PASS: TestExecute_ReportsWhyConfigureFailed/half_an_oauth_client (0.00s)
+    --- PASS: TestExecute_ReportsWhyConfigureFailed/no_credentials (0.00s)
+=== RUN   TestExecute_ConfigureErrorClearedBySuccessfulConfigure
+--- PASS: TestExecute_ConfigureErrorClearedBySuccessfulConfigure (0.00s)
+=== RUN   TestExecute_NeverConfigured
+--- PASS: TestExecute_NeverConfigured (0.00s)
+=== RUN   TestConfigure_OAuthClientCredentials
+--- PASS: TestConfigure_OAuthClientCredentials (0.00s)
+=== RUN   TestHealthy_Unconfigured
+--- PASS: TestHealthy_Unconfigured (0.00s)
+=== RUN   TestHealthy
+--- PASS: TestHealthy (0.00s)
+=== RUN   TestTools_Metadata
+--- PASS: TestTools_Metadata (0.00s)
+=== RUN   TestTools_GetDNSExplainsOmittedFields
+--- PASS: TestTools_GetDNSExplainsOmittedFields (0.00s)
+=== RUN   TestTools_EntryPointHasStartHere
+--- PASS: TestTools_EntryPointHasStartHere (0.00s)
+=== RUN   TestExecute_UnknownTool
+--- PASS: TestExecute_UnknownTool (0.00s)
+=== RUN   TestDispatchMap_AllToolsCovered
+--- PASS: TestDispatchMap_AllToolsCovered (0.00s)
+=== RUN   TestDispatchMap_NoOrphanHandlers
+--- PASS: TestDispatchMap_NoOrphanHandlers (0.00s)
+=== RUN   TestDoRequest_BearerAuth
+--- PASS: TestDoRequest_BearerAuth (0.00s)
+=== RUN   TestDoRequest_APIError
+--- PASS: TestDoRequest_APIError (0.00s)
+=== RUN   TestDoRequest_Retryable
+--- PASS: TestDoRequest_Retryable (0.00s)
+=== RUN   TestReadLimited
+=== RUN   TestReadLimited/under_limit
+=== RUN   TestReadLimited/exactly_at_limit
+=== RUN   TestReadLimited/over_limit
+=== RUN   TestReadLimited/empty
+--- PASS: TestReadLimited (0.00s)
+    --- PASS: TestReadLimited/under_limit (0.00s)
+    --- PASS: TestReadLimited/exactly_at_limit (0.00s)
+    --- PASS: TestReadLimited/over_limit (0.00s)
+    --- PASS: TestReadLimited/empty (0.00s)
+=== RUN   TestDoRequest_OversizedBodyFails
+--- PASS: TestDoRequest_OversizedBodyFails (0.06s)
+=== RUN   TestDoRequest_EmptyBody
+--- PASS: TestDoRequest_EmptyBody (0.00s)
+=== RUN   TestHandlers_RequestShapes
+=== RUN   TestHandlers_RequestShapes/list_devices_with_filters
+=== RUN   TestHandlers_RequestShapes/list_devices_defaults
+=== RUN   TestHandlers_RequestShapes/get_device_defaults_to_all_fields
+=== RUN   TestHandlers_RequestShapes/authorize_device_defaults_true
+=== RUN   TestHandlers_RequestShapes/deauthorize_device
+=== RUN   TestHandlers_RequestShapes/delete_device
+=== RUN   TestHandlers_RequestShapes/rename_device
+=== RUN   TestHandlers_RequestShapes/set_tags
+=== RUN   TestHandlers_RequestShapes/clear_tags_with_empty_list
+=== RUN   TestHandlers_RequestShapes/disable_key_expiry
+=== RUN   TestHandlers_RequestShapes/expire_key
+=== RUN   TestHandlers_RequestShapes/set_ip
+=== RUN   TestHandlers_RequestShapes/get_routes
+=== RUN   TestHandlers_RequestShapes/set_routes_for_exit_node
+=== RUN   TestHandlers_RequestShapes/get_posture_attributes
+=== RUN   TestHandlers_RequestShapes/set_posture_attribute
+=== RUN   TestHandlers_RequestShapes/delete_posture_attribute
+=== RUN   TestHandlers_RequestShapes/list_keys_all
+=== RUN   TestHandlers_RequestShapes/get_key
+=== RUN   TestHandlers_RequestShapes/create_auth_key
+=== RUN   TestHandlers_RequestShapes/create_minimal_auth_key
+=== RUN   TestHandlers_RequestShapes/delete_key
+=== RUN   TestHandlers_RequestShapes/get_dns
+=== RUN   TestHandlers_RequestShapes/set_nameservers
+=== RUN   TestHandlers_RequestShapes/set_magic_dns
+=== RUN   TestHandlers_RequestShapes/set_search_paths
+=== RUN   TestHandlers_RequestShapes/update_split_dns
+=== RUN   TestHandlers_RequestShapes/list_users_filtered
+=== RUN   TestHandlers_RequestShapes/get_user
+=== RUN   TestHandlers_RequestShapes/update_user_role
+=== RUN   TestHandlers_RequestShapes/approve_user
+=== RUN   TestHandlers_RequestShapes/suspend_user
+=== RUN   TestHandlers_RequestShapes/restore_user
+=== RUN   TestHandlers_RequestShapes/delete_user
+=== RUN   TestHandlers_RequestShapes/list_user_invites
+=== RUN   TestHandlers_RequestShapes/create_user_invite
+=== RUN   TestHandlers_RequestShapes/delete_user_invite
+=== RUN   TestHandlers_RequestShapes/get_settings
+=== RUN   TestHandlers_RequestShapes/update_settings
+=== RUN   TestHandlers_RequestShapes/create_webhook
+=== RUN   TestHandlers_RequestShapes/delete_webhook
+=== RUN   TestHandlers_RequestShapes/test_webhook
+=== RUN   TestHandlers_RequestShapes/get_contacts
+--- PASS: TestHandlers_RequestShapes (0.02s)
+    --- PASS: TestHandlers_RequestShapes/list_devices_with_filters (0.00s)
+    --- PASS: TestHandlers_RequestShapes/list_devices_defaults (0.00s)
+    --- PASS: TestHandlers_RequestShapes/get_device_defaults_to_all_fields (0.00s)
+    --- PASS: TestHandlers_RequestShapes/authorize_device_defaults_true (0.00s)
+    --- PASS: TestHandlers_RequestShapes/deauthorize_device (0.00s)
+    --- PASS: TestHandlers_RequestShapes/delete_device (0.00s)
+    --- PASS: TestHandlers_RequestShapes/rename_device (0.00s)
+    --- PASS: TestHandlers_RequestShapes/set_tags (0.00s)
+    --- PASS: TestHandlers_RequestShapes/clear_tags_with_empty_list (0.00s)
+    --- PASS: TestHandlers_RequestShapes/disable_key_expiry (0.00s)
+    --- PASS: TestHandlers_RequestShapes/expire_key (0.00s)
+    --- PASS: TestHandlers_RequestShapes/set_ip (0.00s)
+    --- PASS: TestHandlers_RequestShapes/get_routes (0.00s)
+    --- PASS: TestHandlers_RequestShapes/set_routes_for_exit_node (0.00s)
+    --- PASS: TestHandlers_RequestShapes/get_posture_attributes (0.00s)
+    --- PASS: TestHandlers_RequestShapes/set_posture_attribute (0.00s)
+    --- PASS: TestHandlers_RequestShapes/delete_posture_attribute (0.00s)
+    --- PASS: TestHandlers_RequestShapes/list_keys_all (0.00s)
+    --- PASS: TestHandlers_RequestShapes/get_key (0.00s)
+    --- PASS: TestHandlers_RequestShapes/create_auth_key (0.00s)
+    --- PASS: TestHandlers_RequestShapes/create_minimal_auth_key (0.00s)
+    --- PASS: TestHandlers_RequestShapes/delete_key (0.00s)
+    --- PASS: TestHandlers_RequestShapes/get_dns (0.00s)
+    --- PASS: TestHandlers_RequestShapes/set_nameservers (0.00s)
+    --- PASS: TestHandlers_RequestShapes/set_magic_dns (0.00s)
+    --- PASS: TestHandlers_RequestShapes/set_search_paths (0.00s)
+    --- PASS: TestHandlers_RequestShapes/update_split_dns (0.00s)
+    --- PASS: TestHandlers_RequestShapes/list_users_filtered (0.00s)
+    --- PASS: TestHandlers_RequestShapes/get_user (0.00s)
+    --- PASS: TestHandlers_RequestShapes/update_user_role (0.00s)
+    --- PASS: TestHandlers_RequestShapes/approve_user (0.00s)
+    --- PASS: TestHandlers_RequestShapes/suspend_user (0.00s)
+    --- PASS: TestHandlers_RequestShapes/restore_user (0.00s)
+    --- PASS: TestHandlers_RequestShapes/delete_user (0.00s)
+    --- PASS: TestHandlers_RequestShapes/list_user_invites (0.00s)
+    --- PASS: TestHandlers_RequestShapes/create_user_invite (0.00s)
+    --- PASS: TestHandlers_RequestShapes/delete_user_invite (0.00s)
+    --- PASS: TestHandlers_RequestShapes/get_settings (0.00s)
+    --- PASS: TestHandlers_RequestShapes/update_settings (0.00s)
+    --- PASS: TestHandlers_RequestShapes/create_webhook (0.00s)
+    --- PASS: TestHandlers_RequestShapes/delete_webhook (0.00s)
+    --- PASS: TestHandlers_RequestShapes/test_webhook (0.00s)
+    --- PASS: TestHandlers_RequestShapes/get_contacts (0.00s)
+=== RUN   TestHandlers_CustomTailnetInPath
+--- PASS: TestHandlers_CustomTailnetInPath (0.00s)
+=== RUN   TestHandlers_PathEscapesIDs
+--- PASS: TestHandlers_PathEscapesIDs (0.00s)
+=== RUN   TestHandlers_ValidationErrors
+=== RUN   TestHandlers_ValidationErrors/get_device_missing_id
+=== RUN   TestHandlers_ValidationErrors/rename_missing_name
+=== RUN   TestHandlers_ValidationErrors/tags_missing
+=== RUN   TestHandlers_ValidationErrors/routes_missing
+=== RUN   TestHandlers_ValidationErrors/key_expiry_missing_flag
+=== RUN   TestHandlers_ValidationErrors/set_ip_missing
+=== RUN   TestHandlers_ValidationErrors/posture_non-custom_key
+=== RUN   TestHandlers_ValidationErrors/posture_missing_value
+=== RUN   TestHandlers_ValidationErrors/posture_bad_value_type
+=== RUN   TestHandlers_ValidationErrors/get_key_missing
+=== RUN   TestHandlers_ValidationErrors/magic_dns_missing
+=== RUN   TestHandlers_ValidationErrors/nameservers_missing
+=== RUN   TestHandlers_ValidationErrors/split_dns_missing
+=== RUN   TestHandlers_ValidationErrors/role_missing
+=== RUN   TestHandlers_ValidationErrors/settings_missing
+=== RUN   TestHandlers_ValidationErrors/webhook_url_missing
+=== RUN   TestHandlers_ValidationErrors/webhook_subs_missing
+=== RUN   TestHandlers_ValidationErrors/policy_missing
+=== RUN   TestHandlers_ValidationErrors/policy_if_match_missing
+=== RUN   TestHandlers_ValidationErrors/validate_nothing
+=== RUN   TestHandlers_ValidationErrors/preview_missing_type
+=== RUN   TestHandlers_ValidationErrors/preview_bad_type
+=== RUN   TestHandlers_ValidationErrors/wrong_arg_type
+--- PASS: TestHandlers_ValidationErrors (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/get_device_missing_id (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/rename_missing_name (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/tags_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/routes_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/key_expiry_missing_flag (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/set_ip_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/posture_non-custom_key (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/posture_missing_value (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/posture_bad_value_type (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/get_key_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/magic_dns_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/nameservers_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/split_dns_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/role_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/settings_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/webhook_url_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/webhook_subs_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/policy_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/policy_if_match_missing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/validate_nothing (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/preview_missing_type (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/preview_bad_type (0.00s)
+    --- PASS: TestHandlers_ValidationErrors/wrong_arg_type (0.00s)
+=== RUN   TestGetPolicyFile_ReturnsHuJSONAndETag
+--- PASS: TestGetPolicyFile_ReturnsHuJSONAndETag (0.00s)
+=== RUN   TestSetPolicyFile_SendsHuJSONWithIfMatch
+=== RUN   TestSetPolicyFile_SendsHuJSONWithIfMatch/quoted_etag_passes_through
+=== RUN   TestSetPolicyFile_SendsHuJSONWithIfMatch/bare_etag_gets_quoted
+=== RUN   TestSetPolicyFile_SendsHuJSONWithIfMatch/ts-default_sentinel_quoted_like_the_official_tailscale-client-go-v2
+=== RUN   TestSetPolicyFile_SendsHuJSONWithIfMatch/quoted_ts-default_passes_through
+--- PASS: TestSetPolicyFile_SendsHuJSONWithIfMatch (0.00s)
+    --- PASS: TestSetPolicyFile_SendsHuJSONWithIfMatch/quoted_etag_passes_through (0.00s)
+    --- PASS: TestSetPolicyFile_SendsHuJSONWithIfMatch/bare_etag_gets_quoted (0.00s)
+    --- PASS: TestSetPolicyFile_SendsHuJSONWithIfMatch/ts-default_sentinel_quoted_like_the_official_tailscale-client-go-v2 (0.00s)
+    --- PASS: TestSetPolicyFile_SendsHuJSONWithIfMatch/quoted_ts-default_passes_through (0.00s)
+=== RUN   TestSetPolicyFile_PreconditionFailed
+--- PASS: TestSetPolicyFile_PreconditionFailed (0.00s)
+=== RUN   TestValidatePolicyFile
+=== RUN   TestValidatePolicyFile/valid_policy
+=== RUN   TestValidatePolicyFile/invalid_policy_surfaces_message
+=== RUN   TestValidatePolicyFile/tests_array
+--- PASS: TestValidatePolicyFile (0.00s)
+    --- PASS: TestValidatePolicyFile/valid_policy (0.00s)
+    --- PASS: TestValidatePolicyFile/invalid_policy_surfaces_message (0.00s)
+    --- PASS: TestValidatePolicyFile/tests_array (0.00s)
+=== RUN   TestPreviewPolicyRules_UsesCurrentPolicyWhenOmitted
+--- PASS: TestPreviewPolicyRules_UsesCurrentPolicyWhenOmitted (0.00s)
+=== RUN   TestPreviewPolicyRules_WithProposedPolicy
+--- PASS: TestPreviewPolicyRules_WithProposedPolicy (0.00s)
+=== RUN   TestListUserInvites_NormalizesEnvelope
+=== RUN   TestListUserInvites_NormalizesEnvelope/bare_array
+=== RUN   TestListUserInvites_NormalizesEnvelope/already_wrapped
+=== RUN   TestListUserInvites_NormalizesEnvelope/empty_array
+=== RUN   TestListUserInvites_NormalizesEnvelope/null
+--- PASS: TestListUserInvites_NormalizesEnvelope (0.00s)
+    --- PASS: TestListUserInvites_NormalizesEnvelope/bare_array (0.00s)
+    --- PASS: TestListUserInvites_NormalizesEnvelope/already_wrapped (0.00s)
+    --- PASS: TestListUserInvites_NormalizesEnvelope/empty_array (0.00s)
+    --- PASS: TestListUserInvites_NormalizesEnvelope/null (0.00s)
+=== RUN   TestListWebhooks_StripsSecrets
+--- PASS: TestListWebhooks_StripsSecrets (0.00s)
+=== RUN   TestSetPostureAttribute_ValueTypes
+=== RUN   TestSetPostureAttribute_ValueTypes/number
+=== RUN   TestSetPostureAttribute_ValueTypes/bool
+=== RUN   TestSetPostureAttribute_ValueTypes/string_with_expiry
+--- PASS: TestSetPostureAttribute_ValueTypes (0.00s)
+    --- PASS: TestSetPostureAttribute_ValueTypes/number (0.00s)
+    --- PASS: TestSetPostureAttribute_ValueTypes/bool (0.00s)
+    --- PASS: TestSetPostureAttribute_ValueTypes/string_with_expiry (0.00s)
+PASS
+ok  	github.com/daltoniam/switchboard/integrations/tailscale	0.116s
+=== RUN   TestSaveReplacesFileAtomicallyAndRestrictsPermissions
+--- PASS: TestSaveReplacesFileAtomicallyAndRestrictsPermissions (0.00s)
+=== RUN   TestSaveRejectsSymlinkAndRollsBack
+--- PASS: TestSaveRejectsSymlinkAndRollsBack (0.00s)
+=== RUN   TestAtomicIntegrationUpdateUsesCurrentCopyAndRollsBack
+--- PASS: TestAtomicIntegrationUpdateUsesCurrentCopyAndRollsBack (0.01s)
+=== RUN   TestLoad_CreatesDefaultWhenMissing
+--- PASS: TestLoad_CreatesDefaultWhenMissing (0.00s)
+=== RUN   TestLoad_ParsesExistingFile
+--- PASS: TestLoad_ParsesExistingFile (0.00s)
+=== RUN   TestProjectCatalogConfig_DefaultEnabled
+--- PASS: TestProjectCatalogConfig_DefaultEnabled (0.00s)
+=== RUN   TestProjectCatalogConfig_ExplicitDisable
+--- PASS: TestProjectCatalogConfig_ExplicitDisable (0.00s)
+=== RUN   TestLoad_BackfillsMissingIntegrations
+--- PASS: TestLoad_BackfillsMissingIntegrations (0.00s)
+=== RUN   TestLoad_InvalidJSON
+--- PASS: TestLoad_InvalidJSON (0.00s)
+=== RUN   TestLoad_RejectsInvalidToolGlobs
+--- PASS: TestLoad_RejectsInvalidToolGlobs (0.00s)
+=== RUN   TestSave
+--- PASS: TestSave (0.00s)
+=== RUN   TestGet
+--- PASS: TestGet (0.00s)
+=== RUN   TestUpdate
+--- PASS: TestUpdate (0.00s)
+=== RUN   TestGetIntegration
+--- PASS: TestGetIntegration (0.00s)
+=== RUN   TestSetIntegration
+--- PASS: TestSetIntegration (0.00s)
+=== RUN   TestSetIntegration_NewIntegration
+--- PASS: TestSetIntegration_NewIntegration (0.00s)
+=== RUN   TestEnabledIntegrations
+--- PASS: TestEnabledIntegrations (0.00s)
+=== RUN   TestEnabledIntegrations_Multiple
+--- PASS: TestEnabledIntegrations_Multiple (0.00s)
+=== RUN   TestDefaultConfig
+--- PASS: TestDefaultConfig (0.00s)
+=== RUN   TestDefaultConfig_Forgejo
+--- PASS: TestDefaultConfig_Forgejo (0.00s)
+=== RUN   TestSave_FilePermissions
+--- PASS: TestSave_FilePermissions (0.00s)
+=== RUN   TestDefaultCredentialKeys
+--- PASS: TestDefaultCredentialKeys (0.00s)
+=== RUN   TestDefaultCredentialKeys_Forgejo
+--- PASS: TestDefaultCredentialKeys_Forgejo (0.00s)
+=== RUN   TestDefaultCredentialKeys_Unknown
+--- PASS: TestDefaultCredentialKeys_Unknown (0.00s)
+=== RUN   TestEnvOverrides_OverridesEmptyCredentials
+--- PASS: TestEnvOverrides_OverridesEmptyCredentials (0.00s)
+=== RUN   TestEnvOverrides_Forgejo
+=== RUN   TestEnvOverrides_Forgejo/backfills_existing_config
+=== RUN   TestEnvOverrides_Forgejo/environment_credentials_remain_disabled
+=== RUN   TestEnvOverrides_Forgejo/environment_overrides_stored_credentials
+=== RUN   TestEnvOverrides_Forgejo/empty_environment_preserves_stored_credentials
+=== RUN   TestEnvOverrides_Forgejo/token_override_preserves_deployment_subpath
+--- PASS: TestEnvOverrides_Forgejo (0.01s)
+    --- PASS: TestEnvOverrides_Forgejo/backfills_existing_config (0.00s)
+    --- PASS: TestEnvOverrides_Forgejo/environment_credentials_remain_disabled (0.00s)
+    --- PASS: TestEnvOverrides_Forgejo/environment_overrides_stored_credentials (0.00s)
+    --- PASS: TestEnvOverrides_Forgejo/empty_environment_preserves_stored_credentials (0.00s)
+    --- PASS: TestEnvOverrides_Forgejo/token_override_preserves_deployment_subpath (0.00s)
+=== RUN   TestEnvOverrides_GoogleSharedClientFansOut
+--- PASS: TestEnvOverrides_GoogleSharedClientFansOut (0.00s)
+=== RUN   TestEnvOverrides_OverridesExistingValues
+--- PASS: TestEnvOverrides_OverridesExistingValues (0.00s)
+=== RUN   TestEnvOverrides_EmptyEnvDoesNotOverride
+--- PASS: TestEnvOverrides_EmptyEnvDoesNotOverride (0.00s)
+=== RUN   TestEnvOverrides_AllIntegrations
+--- PASS: TestEnvOverrides_AllIntegrations (0.00s)
+=== RUN   TestEnvOverrides_DoesNotPersistToFile
+--- PASS: TestEnvOverrides_DoesNotPersistToFile (0.00s)
+=== RUN   TestEnvMapping_ReturnsMapping
+--- PASS: TestEnvMapping_ReturnsMapping (0.00s)
+=== RUN   TestToolGlobs_PersistThroughSaveLoad
+--- PASS: TestToolGlobs_PersistThroughSaveLoad (0.00s)
+=== RUN   TestToolGlobs_OmittedFromJSONWhenEmpty
+--- PASS: TestToolGlobs_OmittedFromJSONWhenEmpty (0.00s)
+=== RUN   TestSetIntegration_RejectsInvalidGlob
+--- PASS: TestSetIntegration_RejectsInvalidGlob (0.00s)
+=== RUN   TestSetIntegration_AcceptsValidGlobs
+--- PASS: TestSetIntegration_AcceptsValidGlobs (0.00s)
+=== RUN   TestUpdate_RejectsInvalidGlob
+--- PASS: TestUpdate_RejectsInvalidGlob (0.00s)
+=== RUN   TestSetWasmModules
+--- PASS: TestSetWasmModules (0.00s)
+=== RUN   TestSetWasmModules_EmptySlice
+--- PASS: TestSetWasmModules_EmptySlice (0.00s)
+=== RUN   TestSetWasmModules_PreservedOnReload
+--- PASS: TestSetWasmModules_PreservedOnReload (0.01s)
+=== RUN   TestMergeWithDefaults_PreservesIdentities
+--- PASS: TestMergeWithDefaults_PreservesIdentities (0.00s)
+=== RUN   TestLoad_PreservesIdentities
+--- PASS: TestLoad_PreservesIdentities (0.00s)
+=== RUN   TestDefaultConfig_SlackMCP
+--- PASS: TestDefaultConfig_SlackMCP (0.00s)
+=== RUN   TestSetIntegration_RollsBackMemoryWhenSaveFails
+--- PASS: TestSetIntegration_RollsBackMemoryWhenSaveFails (0.00s)
+=== RUN   TestSetWasmModules_DoesNotPersistEnvironmentOverrides
+--- PASS: TestSetWasmModules_DoesNotPersistEnvironmentOverrides (0.00s)
+=== RUN   TestConfigReads_ReturnCopies
+--- PASS: TestConfigReads_ReturnCopies (0.00s)
+=== RUN   TestNotionMCPDefaultsAndIsolation
+--- PASS: TestNotionMCPDefaultsAndIsolation (0.00s)
+=== RUN   TestNotionMCPEnvironment
+--- PASS: TestNotionMCPEnvironment (0.00s)
+=== RUN   TestPluginOAuthRotatedTokensSurviveDiskReload
+--- PASS: TestPluginOAuthRotatedTokensSurviveDiskReload (0.01s)
+=== RUN   TestUpdateConfigUsesFreshCopy
+--- PASS: TestUpdateConfigUsesFreshCopy (0.01s)
+PASS
+ok  	github.com/daltoniam/switchboard/config	0.122s

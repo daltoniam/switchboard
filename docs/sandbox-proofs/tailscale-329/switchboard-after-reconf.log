@@ -1,0 +1,8 @@
+time=2026-10-13T23:12:58.939-05:00 level=INFO msg="Project work-model store: /workspace/sb-sandbox-proofs/tailscale-329/homes/after-reconf/.config/switchboard/awm (writes_enabled=true)"
+time=2026-10-13T23:12:58.941-05:00 level=INFO msg="Project Catalog on /mcp (writes_enabled=true)"
+time=2026-10-13T23:12:58.941-05:00 level=INFO msg="WARN: failed to configure \"tailscale\": tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)"
+Switchboard dev on http://127.0.0.1:13862
+  Web UI:  http://127.0.0.1:13862/
+  MCP:     http://127.0.0.1:13862/mcp
+  Project: http://127.0.0.1:13862/mcp/{project}
+  AWM gRPC (h2c): 127.0.0.1:13862

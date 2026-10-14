@@ -1,0 +1,25 @@
+[PASS] search "tailscale" 44 missing=[]
+[PASS] search "tailscale acl policy" 44 missing=[]
+[PASS] search "tailscale webhook" 44 missing=[]
+[PASS] validation:set_policy_file missing if_match tailscale_set_policy_file — missing required parameter "if_match" for tool "tailscale_set_policy_file". Required: [policy if_match]
+[PASS] validation:set_policy_file missing policy tailscale_set_policy_file — missing required parameter "policy" for tool "tailscale_set_policy_file". Required: [policy if_match]
+[PASS] validation:preview bad type tailscale_preview_policy_rules — type must be user or ipport, got "bogus"
+[PASS] validation:validate neither tailscale_validate_policy_file — policy or tests is required
+[PASS] validation:validate tests not array tailscale_validate_policy_file — tests must be an array of ACL test objects
+[PASS] validation:split_dns bad value tailscale_update_split_dns — split_dns["corp.example"] must be a list of nameservers or null, got string
+[PASS] validation:split_dns empty tailscale_update_split_dns — split_dns is required: map of domain to nameserver list (null removes a domain)
+[PASS] validation:nameservers missing tailscale_set_dns_nameservers — missing required parameter "nameservers" for tool "tailscale_set_dns_nameservers". Required: [nameservers]
+[PASS] validation:magic_dns missing tailscale_set_dns_preferences — missing required parameter "magic_dns" for tool "tailscale_set_dns_preferences". Required: [magic_dns]
+[PASS] validation:settings empty tailscale_update_tailnet_settings — settings is required: object of tailnet setting fields to change (e.g. {"devicesApprovalOn": true})
+[PASS] validation:webhook no subs tailscale_create_webhook — subscriptions is required: list of event types such as nodeCreated, nodeNeedsApproval, policyUpdate
+[PASS] validation:get_device no id tailscale_get_device — missing required parameter "device_id" for tool "tailscale_get_device". Required: [device_id]
+[PASS] validation:delete_key no id tailscale_delete_key — missing required parameter "key_id" for tool "tailscale_delete_key". Required: [key_id]
+[PASS] auth:fake token -> 401 tailscale_list_devices — tailscale API error (401): {"message":"API token invalid"}
+[PASS] auth:fake token -> 401 tailscale_get_policy_file — tailscale API error (401): {"message":"API token invalid"}
+[PASS] auth:fake token -> 401 tailscale_get_dns — tailscale API error (401): {"message":"API token invalid"}
+[PASS] auth:fake token -> 401 tailscale_list_webhooks — tailscale API error (401): {"message":"API token invalid"}
+[PASS] config authkey_as_api_key: tailscale: integration is not configured | ['time=2026-10-13T12:05:09.760-05:00 level=INFO msg="WARN: failed to configure \\"tailscale\\": tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)"']
+[PASS] config both: tailscale: integration is not configured | ['time=2026-10-13T12:05:10.521-05:00 level=INFO msg="WARN: failed to configure \\"tailscale\\": tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both"']
+[PASS] config half_oauth: tailscale: integration is not configured | ['time=2026-10-13T12:05:11.286-05:00 level=INFO msg="WARN: failed to configure \\"tailscale\\": tailscale: oauth_client_id and oauth_client_secret must both be set"']
+[PASS] config client_secret_as_api_key: tailscale: integration is not configured | ['time=2026-10-13T12:05:12.048-05:00 level=INFO msg="WARN: failed to configure \\"tailscale\\": tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id"']
+== fake: {'PASS': 24}

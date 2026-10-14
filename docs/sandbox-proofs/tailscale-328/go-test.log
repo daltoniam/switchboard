@@ -1,0 +1,10 @@
+      1 ok  	github.com/daltoniam/switchboard/integrations/tailscale	0.035s
+      1 ok  	github.com/daltoniam/switchboard/config	0.090s
+      1 --- PASS: TestValidatePolicyFile (0.00s)
+      1 --- PASS: TestUpdate_RejectsInvalidGlob (0.00s)
+      1 --- PASS: TestUpdateConfigUsesFreshCopy (0.01s)
+      1 --- PASS: TestUpdate (0.00s)
+      1 --- PASS: TestTools_Metadata (0.00s)
+      1 --- PASS: TestTools_EntryPointHasStartHere (0.00s)
+      1 --- PASS: TestToolGlobs_PersistThroughSaveLoad (0.00s)
+      1 --- PASS: TestToolGlobs_OmittedFromJSONWhenEmpty (0.00s)

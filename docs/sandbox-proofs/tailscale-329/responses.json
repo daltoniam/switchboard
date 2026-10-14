@@ -1,0 +1,1882 @@
+{
+ "pr": 329,
+ "head": "9888bfc44a891af0b16921b2cbcf7be9cb41847b",
+ "baseline": "6bc872e (main, merged #328)",
+ "before_after": [
+  {
+   "case": "auth_key_as_api_key",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)"
+  },
+  {
+   "case": "client_secret_as_api_key",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id"
+  },
+  {
+   "case": "token_and_oauth",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both"
+  },
+  {
+   "case": "half_oauth_id_only",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set"
+  },
+  {
+   "case": "half_oauth_secret_only",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set"
+  },
+  {
+   "case": "missing_creds",
+   "before": "tailscale: integration is not configured",
+   "after": "tailscale: integration is not configured: tailscale: api_key or oauth_client_id + oauth_client_secret is required"
+  }
+ ],
+ "steps": [
+  {
+   "phase": "bad-creds",
+   "step": "auth_key_as_api_key",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)'",
+   "args": {
+    "api_key": "tskey-auth-kSBPROOF-notreal"
+   },
+   "response": {
+    "case": "auth_key_as_api_key",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)"
+   },
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "bad-creds",
+   "step": "client_secret_as_api_key",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id'",
+   "args": {
+    "api_key": "tskey-client-kSBPROOF-notreal"
+   },
+   "response": {
+    "case": "client_secret_as_api_key",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id"
+   },
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "bad-creds",
+   "step": "token_and_oauth",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both'",
+   "args": {
+    "api_key": "tskey-api-SBPROOF-notreal",
+    "oauth_client_id": "cid",
+    "oauth_client_secret": "tskey-client-x-notreal"
+   },
+   "response": {
+    "case": "token_and_oauth",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both"
+   },
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "bad-creds",
+   "step": "half_oauth_id_only",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set'",
+   "args": {
+    "oauth_client_id": "cid"
+   },
+   "response": {
+    "case": "half_oauth_id_only",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set"
+   },
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "bad-creds",
+   "step": "half_oauth_secret_only",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set'",
+   "args": {
+    "oauth_client_secret": "tskey-client-x-notreal"
+   },
+   "response": {
+    "case": "half_oauth_secret_only",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set"
+   },
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "bad-creds",
+   "step": "missing_creds",
+   "status": "PASS",
+   "note": "before='tailscale: integration is not configured' | after='tailscale: integration is not configured: tailscale: api_key or oauth_client_id + oauth_client_secret is required'",
+   "args": {
+    "api_key": ""
+   },
+   "response": {
+    "case": "missing_creds",
+    "before": "tailscale: integration is not configured",
+    "after": "tailscale: integration is not configured: tailscale: api_key or oauth_client_id + oauth_client_secret is required"
+   },
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "clear",
+   "step": "1 bad config -> specific reason",
+   "status": "PASS",
+   "note": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)",
+   "args": null,
+   "response": null,
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "clear",
+   "step": "2 reconfigure fake well-formed key (real API) -> clean 401, stored error gone",
+   "status": "PASS",
+   "note": "save=200 /integrations/tailscale?success=Configuration+saved | tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "args": null,
+   "response": null,
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "clear",
+   "step": "3 back to bad key -> reason returns, old client not reused",
+   "status": "PASS",
+   "note": "save=200 | tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)",
+   "args": null,
+   "response": null,
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "clear",
+   "step": "4 reconfigure valid key vs mock API -> real success, no stored error",
+   "status": "PASS",
+   "note": "save=200 | {\"devices\":[{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"authorized\":false,\"hostname\":\"sb-node\",\"id\":\"1001\",\"name\":\"sb-node.tail-mock.ts.net\",\"nodeId\":\"n1\"}]}",
+   "args": null,
+   "response": null,
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "clear",
+   "step": "5 half OAuth after success -> reason, previous working client dropped",
+   "status": "PASS",
+   "note": "save=200 | tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set",
+   "args": null,
+   "response": null,
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "clear",
+   "step": "6 OAuth client creds (mock token endpoint missing) -> error is upstream OAuth, not stale configure error",
+   "status": "PASS",
+   "note": "save=200 | Get \"http://127.0.0.1:18329/api/v2/tailnet/-/devices?fields=default\": oauth2: cannot fetch token: 401 Unauthorized\nResponse: {\"message\": \"API token invalid\"}",
+   "args": null,
+   "response": null,
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "leak",
+   "step": "credential fragment 'notreal' in server log",
+   "status": "PASS",
+   "note": "absent",
+   "args": null,
+   "response": null,
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "leak",
+   "step": "credential fragment 'MOCK-ok' in server log",
+   "status": "PASS",
+   "note": "absent",
+   "args": null,
+   "response": null,
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "leak",
+   "step": "credential fragment 'SBPROOF-fake' in server log",
+   "status": "PASS",
+   "note": "absent",
+   "args": null,
+   "response": null,
+   "suite": "329-configure-error"
+  },
+  {
+   "phase": "search",
+   "step": "search \"tailscale\"",
+   "tool": "search",
+   "args": {
+    "query": "tailscale"
+   },
+   "status": "PASS",
+   "note": "44 tools; missing=[]",
+   "response": [
+    "tailscale_approve_user",
+    "tailscale_authorize_device",
+    "tailscale_create_auth_key",
+    "tailscale_create_user_invite",
+    "tailscale_create_webhook",
+    "tailscale_delete_device",
+    "tailscale_delete_device_posture_attribute",
+    "tailscale_delete_key",
+    "tailscale_delete_user",
+    "tailscale_delete_user_invite",
+    "tailscale_delete_webhook",
+    "tailscale_expire_device_key",
+    "tailscale_get_contacts",
+    "tailscale_get_device",
+    "tailscale_get_device_posture_attributes",
+    "tailscale_get_device_routes",
+    "tailscale_get_dns",
+    "tailscale_get_key",
+    "tailscale_get_policy_file",
+    "tailscale_get_tailnet_settings",
+    "tailscale_get_user",
+    "tailscale_list_devices",
+    "tailscale_list_keys",
+    "tailscale_list_user_invites",
+    "tailscale_list_users",
+    "tailscale_list_webhooks",
+    "tailscale_preview_policy_rules",
+    "tailscale_restore_user",
+    "tailscale_set_device_ip",
+    "tailscale_set_device_key_expiry",
+    "tailscale_set_device_name",
+    "tailscale_set_device_posture_attribute",
+    "tailscale_set_device_routes",
+    "tailscale_set_device_tags",
+    "tailscale_set_dns_nameservers",
+    "tailscale_set_dns_preferences",
+    "tailscale_set_dns_search_paths",
+    "tailscale_set_policy_file",
+    "tailscale_suspend_user",
+    "tailscale_test_webhook",
+    "tailscale_update_split_dns",
+    "tailscale_update_tailnet_settings",
+    "tailscale_update_user_role",
+    "tailscale_validate_policy_file"
+   ],
+   "suite": "mock-api"
+  },
+  {
+   "phase": "search",
+   "step": "search \"tailscale acl policy\"",
+   "tool": "search",
+   "args": {
+    "query": "tailscale acl policy"
+   },
+   "status": "PASS",
+   "note": "44 tools; missing=[]",
+   "response": [
+    "tailscale_preview_policy_rules",
+    "tailscale_validate_policy_file",
+    "tailscale_create_webhook",
+    "tailscale_get_device_posture_attributes",
+    "tailscale_get_policy_file",
+    "tailscale_get_tailnet_settings",
+    "tailscale_set_device_tags",
+    "tailscale_set_policy_file",
+    "tailscale_approve_user",
+    "tailscale_authorize_device",
+    "tailscale_create_auth_key",
+    "tailscale_create_user_invite",
+    "tailscale_delete_device",
+    "tailscale_delete_device_posture_attribute",
+    "tailscale_delete_key",
+    "tailscale_delete_user",
+    "tailscale_delete_user_invite",
+    "tailscale_delete_webhook",
+    "tailscale_expire_device_key",
+    "tailscale_get_contacts",
+    "tailscale_get_device",
+    "tailscale_get_device_routes",
+    "tailscale_get_dns",
+    "tailscale_get_key",
+    "tailscale_get_user",
+    "tailscale_list_devices",
+    "tailscale_list_keys",
+    "tailscale_list_user_invites",
+    "tailscale_list_users",
+    "tailscale_list_webhooks",
+    "tailscale_restore_user",
+    "tailscale_set_device_ip",
+    "tailscale_set_device_key_expiry",
+    "tailscale_set_device_name",
+    "tailscale_set_device_posture_attribute",
+    "tailscale_set_device_routes",
+    "tailscale_set_dns_nameservers",
+    "tailscale_set_dns_preferences",
+    "tailscale_set_dns_search_paths",
+    "tailscale_suspend_user",
+    "tailscale_test_webhook",
+    "tailscale_update_split_dns",
+    "tailscale_update_tailnet_settings",
+    "tailscale_update_user_role"
+   ],
+   "suite": "mock-api"
+  },
+  {
+   "phase": "search",
+   "step": "search \"tailscale webhook\"",
+   "tool": "search",
+   "args": {
+    "query": "tailscale webhook"
+   },
+   "status": "PASS",
+   "note": "44 tools; missing=[]",
+   "response": [
+    "tailscale_create_webhook",
+    "tailscale_delete_webhook",
+    "tailscale_list_webhooks",
+    "tailscale_test_webhook",
+    "tailscale_approve_user",
+    "tailscale_authorize_device",
+    "tailscale_create_auth_key",
+    "tailscale_create_user_invite",
+    "tailscale_delete_device",
+    "tailscale_delete_device_posture_attribute",
+    "tailscale_delete_key",
+    "tailscale_delete_user",
+    "tailscale_delete_user_invite",
+    "tailscale_expire_device_key",
+    "tailscale_get_contacts",
+    "tailscale_get_device",
+    "tailscale_get_device_posture_attributes",
+    "tailscale_get_device_routes",
+    "tailscale_get_dns",
+    "tailscale_get_key",
+    "tailscale_get_policy_file",
+    "tailscale_get_tailnet_settings",
+    "tailscale_get_user",
+    "tailscale_list_devices",
+    "tailscale_list_keys",
+    "tailscale_list_user_invites",
+    "tailscale_list_users",
+    "tailscale_preview_policy_rules",
+    "tailscale_restore_user",
+    "tailscale_set_device_ip",
+    "tailscale_set_device_key_expiry",
+    "tailscale_set_device_name",
+    "tailscale_set_device_posture_attribute",
+    "tailscale_set_device_routes",
+    "tailscale_set_device_tags",
+    "tailscale_set_dns_nameservers",
+    "tailscale_set_dns_preferences",
+    "tailscale_set_dns_search_paths",
+    "tailscale_set_policy_file",
+    "tailscale_suspend_user",
+    "tailscale_update_split_dns",
+    "tailscale_update_tailnet_settings",
+    "tailscale_update_user_role",
+    "tailscale_validate_policy_file"
+   ],
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "set_policy_file missing if_match",
+   "tool": "tailscale_set_policy_file",
+   "args": {
+    "policy": "{}"
+   },
+   "status": "PASS",
+   "note": "missing required parameter \"if_match\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]",
+   "response": "missing required parameter \"if_match\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "set_policy_file missing policy",
+   "tool": "tailscale_set_policy_file",
+   "args": {
+    "if_match": "abc"
+   },
+   "status": "PASS",
+   "note": "missing required parameter \"policy\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]",
+   "response": "missing required parameter \"policy\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "preview bad type",
+   "tool": "tailscale_preview_policy_rules",
+   "args": {
+    "type": "bogus",
+    "preview_for": "x"
+   },
+   "status": "PASS",
+   "note": "type must be user or ipport, got \"bogus\"",
+   "response": "type must be user or ipport, got \"bogus\"",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "validate neither",
+   "tool": "tailscale_validate_policy_file",
+   "args": {},
+   "status": "PASS",
+   "note": "policy or tests is required",
+   "response": "policy or tests is required",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "validate tests not array",
+   "tool": "tailscale_validate_policy_file",
+   "args": {
+    "tests": {
+     "a": 1
+    }
+   },
+   "status": "PASS",
+   "note": "tests must be an array of ACL test objects",
+   "response": "tests must be an array of ACL test objects",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "split_dns bad value",
+   "tool": "tailscale_update_split_dns",
+   "args": {
+    "split_dns": {
+     "corp.example": "1.1.1.1"
+    }
+   },
+   "status": "PASS",
+   "note": "split_dns[\"corp.example\"] must be a list of nameservers or null, got string",
+   "response": "split_dns[\"corp.example\"] must be a list of nameservers or null, got string",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "split_dns empty",
+   "tool": "tailscale_update_split_dns",
+   "args": {
+    "split_dns": {}
+   },
+   "status": "PASS",
+   "note": "split_dns is required: map of domain to nameserver list (null removes a domain)",
+   "response": "split_dns is required: map of domain to nameserver list (null removes a domain)",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "nameservers missing",
+   "tool": "tailscale_set_dns_nameservers",
+   "args": {},
+   "status": "PASS",
+   "note": "missing required parameter \"nameservers\" for tool \"tailscale_set_dns_nameservers\". Required: [nameservers]",
+   "response": "missing required parameter \"nameservers\" for tool \"tailscale_set_dns_nameservers\". Required: [nameservers]",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "magic_dns missing",
+   "tool": "tailscale_set_dns_preferences",
+   "args": {},
+   "status": "PASS",
+   "note": "missing required parameter \"magic_dns\" for tool \"tailscale_set_dns_preferences\". Required: [magic_dns]",
+   "response": "missing required parameter \"magic_dns\" for tool \"tailscale_set_dns_preferences\". Required: [magic_dns]",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "settings empty",
+   "tool": "tailscale_update_tailnet_settings",
+   "args": {
+    "settings": {}
+   },
+   "status": "PASS",
+   "note": "settings is required: object of tailnet setting fields to change (e.g. {\"devicesApprovalOn\": true})",
+   "response": "settings is required: object of tailnet setting fields to change (e.g. {\"devicesApprovalOn\": true})",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "webhook no subs",
+   "tool": "tailscale_create_webhook",
+   "args": {
+    "endpoint_url": "https://example.com/h",
+    "subscriptions": []
+   },
+   "status": "PASS",
+   "note": "subscriptions is required: list of event types such as nodeCreated, nodeNeedsApproval, policyUpdate",
+   "response": "subscriptions is required: list of event types such as nodeCreated, nodeNeedsApproval, policyUpdate",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "get_device no id",
+   "tool": "tailscale_get_device",
+   "args": {},
+   "status": "PASS",
+   "note": "missing required parameter \"device_id\" for tool \"tailscale_get_device\". Required: [device_id]",
+   "response": "missing required parameter \"device_id\" for tool \"tailscale_get_device\". Required: [device_id]",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "validation",
+   "step": "delete_key no id",
+   "tool": "tailscale_delete_key",
+   "args": {},
+   "status": "PASS",
+   "note": "missing required parameter \"key_id\" for tool \"tailscale_delete_key\". Required: [key_id]",
+   "response": "missing required parameter \"key_id\" for tool \"tailscale_delete_key\". Required: [key_id]",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "devices",
+   "step": "list_devices",
+   "tool": "tailscale_list_devices",
+   "args": {},
+   "status": "PASS",
+   "note": "1 devices",
+   "response": {
+    "devices": [
+     {
+      "advertisedRoutes": [
+       "10.99.0.0/24"
+      ],
+      "authorized": false,
+      "hostname": "sb-node",
+      "id": "1001",
+      "name": "sb-node.tail-mock.ts.net",
+      "nodeId": "n1"
+     }
+    ]
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "settings",
+   "step": "get_tailnet_settings (snapshot)",
+   "tool": "tailscale_get_tailnet_settings",
+   "args": {},
+   "status": "PASS",
+   "note": "{\"devicesApprovalOn\":false,\"usersApprovalOn\":false}\npinned as $2",
+   "response": {
+    "devicesApprovalOn": false,
+    "usersApprovalOn": false
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "dns",
+   "step": "get_dns (snapshot)",
+   "tool": "tailscale_get_dns",
+   "args": {},
+   "status": "PASS",
+   "note": "{\"nameservers\":[{\"address\":\"8.8.8.8\"}],\"preferences\":{\"magicDNS\":true},\"searchPaths\":[],\"splitDNS\":{}}\npinned as $3",
+   "response": {
+    "nameservers": [
+     {
+      "address": "8.8.8.8"
+     }
+    ],
+    "preferences": {
+     "magicDNS": true
+    },
+    "searchPaths": [],
+    "splitDNS": {}
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "users",
+   "step": "list_users",
+   "tool": "tailscale_list_users",
+   "args": {},
+   "status": "PASS",
+   "note": "{\"users\":[{\"id\":\"u1\",\"loginName\":\"sb@example.com\",\"role\":\"owner\",\"status\":\"active\"}]}\npinned as $4",
+   "response": {
+    "users": [
+     {
+      "id": "u1",
+      "loginName": "sb@example.com",
+      "role": "owner",
+      "status": "active"
+     }
+    ]
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "users",
+   "step": "list_user_invites",
+   "tool": "tailscale_list_user_invites",
+   "args": {},
+   "status": "PASS",
+   "note": "{\"invites\":[]}\npinned as $5",
+   "response": {
+    "invites": []
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "contacts",
+   "step": "get_contacts",
+   "tool": "tailscale_get_contacts",
+   "args": {},
+   "status": "PASS",
+   "note": "{\"account\":{\"email\":\"sb@example.com\"}}\npinned as $6",
+   "response": {
+    "account": {
+     "email": "sb@example.com"
+    }
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "keys",
+   "step": "list_keys",
+   "tool": "tailscale_list_keys",
+   "args": {},
+   "status": "PASS",
+   "note": "{\"keys\":[]}\npinned as $7",
+   "response": {
+    "keys": []
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "acl",
+   "step": "get_policy_file (snapshot, HuJSON+etag)",
+   "tool": "tailscale_get_policy_file",
+   "args": {},
+   "status": "PASS",
+   "note": "etag=\"c66f6893af4a9add\" len=156 has_comment=True",
+   "response": {
+    "etag": "\"c66f6893af4a9add\"",
+    "policy": "// sandbox policy\n{\n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "acl",
+   "step": "validate_policy_file (edited)",
+   "tool": "tailscale_validate_policy_file",
+   "args": {
+    "policy": "// sandbox policy\n{\n  // sb-proof-328 marker comment \u2014 must survive round trip\n  \n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"
+   },
+   "status": "PASS",
+   "note": "{\"valid\":true}\npinned as $9",
+   "response": {
+    "valid": true
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "acl",
+   "step": "validate_policy_file (invalid HuJSON)",
+   "tool": "tailscale_validate_policy_file",
+   "args": {
+    "policy": "{\"acls\": [ {\"action\": \"bogus\" "
+   },
+   "status": "PASS",
+   "note": "{\"message\":\"test(s) failed\"}\npinned as $10",
+   "response": {
+    "message": "test(s) failed"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "acl",
+   "step": "preview_policy_rules user (current)",
+   "tool": "tailscale_preview_policy_rules",
+   "args": {
+    "type": "user",
+    "preview_for": "sb@example.com"
+   },
+   "status": "PASS",
+   "note": "{\"matches\":[{\"lineNumber\":4,\"ports\":[\"*:*\"],\"users\":[\"*\"]}],\"previewFor\":\"sb@example.com\",\"type\":\"user\"}\npinned as $11",
+   "response": {
+    "matches": [
+     {
+      "lineNumber": 4,
+      "ports": [
+       "*:*"
+      ],
+      "users": [
+       "*"
+      ]
+     }
+    ],
+    "previewFor": "sb@example.com",
+    "type": "user"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "acl",
+   "step": "preview_policy_rules ipport (draft)",
+   "tool": "tailscale_preview_policy_rules",
+   "args": {
+    "type": "ipport",
+    "preview_for": "100.64.0.1:22",
+    "policy": "// sandbox policy\n{\n  // sb-proof-328 marker comment \u2014 must survive round trip\n  \n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"
+   },
+   "status": "PASS",
+   "note": "{\"matches\":[{\"lineNumber\":4,\"ports\":[\"*:*\"],\"users\":[\"*\"]}],\"previewFor\":\"sb@example.com\",\"type\":\"user\"}\npinned as $12",
+   "response": {
+    "matches": [
+     {
+      "lineNumber": 4,
+      "ports": [
+       "*:*"
+      ],
+      "users": [
+       "*"
+      ]
+     }
+    ],
+    "previewFor": "sb@example.com",
+    "type": "user"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "acl",
+   "step": "set_policy_file with etag",
+   "tool": "tailscale_set_policy_file",
+   "args": {
+    "policy": "// sandbox policy\n{\n  // sb-proof-328 marker comment \u2014 must survive round trip\n  \n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n",
+    "if_match": "\"c66f6893af4a9add\""
+   },
+   "status": "PASS",
+   "note": "{\"etag\":\"\\\"36fb45560961503b\\\"\",\"status\":\"updated\"}\npinned as $13",
+   "response": {
+    "etag": "\"36fb45560961503b\"",
+    "status": "updated"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "acl",
+   "step": "get after save: comment survived",
+   "tool": "tailscale_get_policy_file",
+   "args": {},
+   "status": "PASS",
+   "note": "marker_present=True etag=\"36fb45560961503b\"",
+   "response": {
+    "etag": "\"36fb45560961503b\"",
+    "policy": "// sandbox policy\n{\n  // sb-proof-328 marker comment \u2014 must survive round trip\n  \n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "acl",
+   "step": "set_policy_file STALE etag refused (412)",
+   "tool": "tailscale_set_policy_file",
+   "args": {
+    "policy": "// sandbox policy\n{\n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n",
+    "if_match": "\"c66f6893af4a9add\""
+   },
+   "status": "PASS",
+   "note": "tailscale API error (412): {\"message\": \"precondition failed, invalid old hash\"}; the policy file changed since it was read, call tailscale_get_policy_file again and reapply the edit with the new etag",
+   "response": "tailscale API error (412): {\"message\": \"precondition failed, invalid old hash\"}; the policy file changed since it was read, call tailscale_get_policy_file again and reapply the edit with the new etag",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "acl",
+   "step": "set_policy_file bare etag (unquoted) accepted",
+   "tool": "tailscale_set_policy_file",
+   "args": {
+    "policy": "// sandbox policy\n{\n  // sb-proof-328 marker comment \u2014 must survive round trip\n  \n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n\n",
+    "if_match": "36fb45560961503b"
+   },
+   "status": "PASS",
+   "note": "{\"etag\":\"\\\"34f0fcd8faa09f0a\\\"\",\"status\":\"updated\"}\npinned as $15",
+   "response": {
+    "etag": "\"34f0fcd8faa09f0a\"",
+    "status": "updated"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "keys",
+   "step": "create_auth_key",
+   "tool": "tailscale_create_auth_key",
+   "args": {
+    "description": "sb-proof-328",
+    "expiry_seconds": 3600,
+    "reusable": false,
+    "preauthorized": false
+   },
+   "status": "PASS",
+   "note": "id=kMOCK0 key returned once=True",
+   "response": {
+    "capabilities": {
+     "devices": {
+      "create": {
+       "ephemeral": false,
+       "preauthorized": false,
+       "reusable": false
+      }
+     }
+    },
+    "description": "sb-proof-328",
+    "id": "kMOCK0",
+    "key": "tskey-auth-<REDACTED>"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "keys",
+   "step": "get_key",
+   "tool": "tailscale_get_key",
+   "args": {
+    "key_id": "kMOCK0"
+   },
+   "status": "PASS",
+   "note": "secret absent on get=True",
+   "response": {
+    "capabilities": {
+     "devices": {
+      "create": {
+       "ephemeral": false,
+       "preauthorized": false,
+       "reusable": false
+      }
+     }
+    },
+    "description": "sb-proof-328",
+    "id": "kMOCK0"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "devices",
+   "step": "get_device (all fields)",
+   "tool": "tailscale_get_device",
+   "args": {
+    "device_id": "n1",
+    "fields": "all"
+   },
+   "status": "PASS",
+   "note": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"authorized\":false,\"hostname\":\"sb-node\",\"id\":\"1001\",\"name\":\"sb-node.tail-mock.ts.net\",\"nodeId\":\"n1\"}\npinned as $18",
+   "response": {
+    "advertisedRoutes": [
+     "10.99.0.0/24"
+    ],
+    "authorized": false,
+    "hostname": "sb-node",
+    "id": "1001",
+    "name": "sb-node.tail-mock.ts.net",
+    "nodeId": "n1"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "devices",
+   "step": "authorize_device",
+   "tool": "tailscale_authorize_device",
+   "args": {
+    "device_id": "n1",
+    "authorized": true
+   },
+   "status": "PASS",
+   "note": "{\"status\":\"success\"}\npinned as $19",
+   "response": {
+    "status": "success"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "devices",
+   "step": "get_device authorized=true",
+   "tool": "tailscale_get_device",
+   "args": {
+    "device_id": "n1"
+   },
+   "status": "PASS",
+   "note": "authorized=True",
+   "response": {
+    "advertisedRoutes": [
+     "10.99.0.0/24"
+    ],
+    "authorized": true,
+    "hostname": "sb-node",
+    "id": "1001",
+    "name": "sb-node.tail-mock.ts.net",
+    "nodeId": "n1"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "devices",
+   "step": "set_device_name",
+   "tool": "tailscale_set_device_name",
+   "args": {
+    "device_id": "n1",
+    "name": "sb-proof-328-renamed"
+   },
+   "status": "PASS",
+   "note": "{\"status\":\"success\"}\npinned as $21",
+   "response": {
+    "status": "success"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "devices",
+   "step": "set_device_tags tag:sb-proof",
+   "tool": "tailscale_set_device_tags",
+   "args": {
+    "device_id": "n1",
+    "tags": [
+     "tag:sb-proof"
+    ]
+   },
+   "status": "PASS",
+   "note": "{\"status\":\"success\"}\npinned as $22",
+   "response": {
+    "status": "success"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "devices",
+   "step": "get_device shows tag",
+   "tool": "tailscale_get_device",
+   "args": {
+    "device_id": "n1"
+   },
+   "status": "PASS",
+   "note": "tags=['tag:sb-proof'] name=sb-proof-328-renamed",
+   "response": {
+    "advertisedRoutes": [
+     "10.99.0.0/24"
+    ],
+    "authorized": true,
+    "hostname": "sb-node",
+    "id": "1001",
+    "name": "sb-proof-328-renamed",
+    "nodeId": "n1",
+    "tags": [
+     "tag:sb-proof"
+    ]
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "routes",
+   "step": "get_device_routes (advertised 10.99.0.0/24)",
+   "tool": "tailscale_get_device_routes",
+   "args": {
+    "device_id": "n1"
+   },
+   "status": "PASS",
+   "note": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"enabledRoutes\":[]}\npinned as $24",
+   "response": {
+    "advertisedRoutes": [
+     "10.99.0.0/24"
+    ],
+    "enabledRoutes": []
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "routes",
+   "step": "set_device_routes approve",
+   "tool": "tailscale_set_device_routes",
+   "args": {
+    "device_id": "n1",
+    "routes": [
+     "10.99.0.0/24"
+    ]
+   },
+   "status": "PASS",
+   "note": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"enabledRoutes\":[\"10.99.0.0/24\"]}\npinned as $25",
+   "response": {
+    "advertisedRoutes": [
+     "10.99.0.0/24"
+    ],
+    "enabledRoutes": [
+     "10.99.0.0/24"
+    ]
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "routes",
+   "step": "routes enabled",
+   "tool": "tailscale_get_device_routes",
+   "args": {
+    "device_id": "n1"
+   },
+   "status": "PASS",
+   "note": "{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"enabledRoutes\":[\"10.99.0.0/24\"]}\npinned as $26",
+   "response": {
+    "advertisedRoutes": [
+     "10.99.0.0/24"
+    ],
+    "enabledRoutes": [
+     "10.99.0.0/24"
+    ]
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "dns",
+   "step": "set_dns_nameservers +9.9.9.9",
+   "tool": "tailscale_set_dns_nameservers",
+   "args": {
+    "nameservers": [
+     "8.8.8.8",
+     "9.9.9.9"
+    ]
+   },
+   "status": "PASS",
+   "note": "{\"dns\":[\"8.8.8.8\",\"9.9.9.9\"],\"magicDNS\":true}\npinned as $27",
+   "response": {
+    "dns": [
+     "8.8.8.8",
+     "9.9.9.9"
+    ],
+    "magicDNS": true
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "dns",
+   "step": "set_dns_search_paths",
+   "tool": "tailscale_set_dns_search_paths",
+   "args": {
+    "search_paths": [
+     "sb-proof-328.example"
+    ]
+   },
+   "status": "PASS",
+   "note": "{\"searchPaths\":[\"sb-proof-328.example\"]}\npinned as $28",
+   "response": {
+    "searchPaths": [
+     "sb-proof-328.example"
+    ]
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "dns",
+   "step": "set_dns_preferences toggle MagicDNS",
+   "tool": "tailscale_set_dns_preferences",
+   "args": {
+    "magic_dns": false
+   },
+   "status": "PASS",
+   "note": "{\"magicDNS\":false}\npinned as $29",
+   "response": {
+    "magicDNS": false
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "dns",
+   "step": "update_split_dns add",
+   "tool": "tailscale_update_split_dns",
+   "args": {
+    "split_dns": {
+     "sb-proof-328.example": [
+      "1.1.1.1"
+     ]
+    }
+   },
+   "status": "PASS",
+   "note": "{\"sb-proof-328.example\":[\"1.1.1.1\"]}\npinned as $30",
+   "response": {
+    "sb-proof-328.example": [
+     "1.1.1.1"
+    ]
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "dns",
+   "step": "get_dns reflects writes",
+   "tool": "tailscale_get_dns",
+   "args": {},
+   "status": "PASS",
+   "note": "{\"nameservers\":[{\"address\":\"8.8.8.8\"},{\"address\":\"9.9.9.9\"}],\"preferences\":{\"magicDNS\":false},\"searchPaths\":[\"sb-proof-328.example\"],\"splitDNS\":{\"sb-proof-328.example\":[\"1.1.1.1\"]}}\npinned as $31",
+   "response": {
+    "nameservers": [
+     {
+      "address": "8.8.8.8"
+     },
+     {
+      "address": "9.9.9.9"
+     }
+    ],
+    "preferences": {
+     "magicDNS": false
+    },
+    "searchPaths": [
+     "sb-proof-328.example"
+    ],
+    "splitDNS": {
+     "sb-proof-328.example": [
+      "1.1.1.1"
+     ]
+    }
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "settings",
+   "step": "update_tailnet_settings usersApprovalOn toggle",
+   "tool": "tailscale_update_tailnet_settings",
+   "args": {
+    "settings": {
+     "usersApprovalOn": true
+    }
+   },
+   "status": "PASS",
+   "note": "{\"devicesApprovalOn\":false,\"usersApprovalOn\":true}\npinned as $32",
+   "response": {
+    "devicesApprovalOn": false,
+    "usersApprovalOn": true
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "users",
+   "step": "create_user_invite (example.invalid, not delivered)",
+   "tool": "tailscale_create_user_invite",
+   "args": {
+    "email": "sb-proof-328@example.invalid",
+    "role": "member"
+   },
+   "status": "PASS",
+   "note": "[{\"email\":\"sb-proof-328@example.invalid\",\"id\":\"inv0\",\"role\":\"member\"}]\npinned as $33",
+   "response": [
+    {
+     "email": "sb-proof-328@example.invalid",
+     "id": "inv0",
+     "role": "member"
+    }
+   ],
+   "suite": "mock-api"
+  },
+  {
+   "phase": "users",
+   "step": "delete_user_invite",
+   "tool": "tailscale_delete_user_invite",
+   "args": {
+    "invite_id": "inv0"
+   },
+   "status": "PASS",
+   "note": "{\"status\":\"success\"}\npinned as $34",
+   "response": {
+    "status": "success"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "webhooks",
+   "step": "create_webhook",
+   "tool": "tailscale_create_webhook",
+   "args": {
+    "endpoint_url": "https://example.com/sb-proof-328",
+    "subscriptions": [
+     "nodeCreated",
+     "policyUpdate"
+    ]
+   },
+   "status": "PASS",
+   "note": "id=wh0 secret_in_create_result=True",
+   "response": {
+    "endpointId": "wh0",
+    "endpointUrl": "https://example.com/sb-proof-328",
+    "providerType": "",
+    "secret": "tskey-webhook-<REDACTED>",
+    "subscriptions": [
+     "nodeCreated",
+     "policyUpdate"
+    ]
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "webhooks",
+   "step": "list_webhooks: secret stripped",
+   "tool": "tailscale_list_webhooks",
+   "args": {},
+   "status": "PASS",
+   "note": "contains_secret=False",
+   "response": {
+    "webhooks": [
+     {
+      "endpointId": "wh0",
+      "endpointUrl": "https://example.com/sb-proof-328",
+      "providerType": "",
+      "subscriptions": [
+       "nodeCreated",
+       "policyUpdate"
+      ]
+     }
+    ]
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "webhooks",
+   "step": "create_webhook result: secret stripped?",
+   "tool": "tailscale_create_webhook",
+   "args": {
+    "endpoint_url": "",
+    "subscriptions": [
+     "x"
+    ]
+   },
+   "status": "PASS",
+   "note": "endpoint_url is required",
+   "response": "endpoint_url is required",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "webhooks",
+   "step": "create_webhook result contains secret",
+   "tool": "tailscale_create_webhook",
+   "args": {},
+   "status": "INFO",
+   "note": "create returns the signing secret unredacted (handler uses rawResult; only list strips). Possibly intentional (shown once) but inconsistent with list.",
+   "response": null,
+   "suite": "mock-api"
+  },
+  {
+   "phase": "webhooks",
+   "step": "test_webhook",
+   "tool": "tailscale_test_webhook",
+   "args": {
+    "webhook_id": "wh0"
+   },
+   "status": "PASS",
+   "note": "{\"status\":\"success\"}\npinned as $37",
+   "response": {
+    "status": "success"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "delete_webhook",
+   "tool": "tailscale_delete_webhook",
+   "args": {
+    "webhook_id": "wh0"
+   },
+   "status": "PASS",
+   "note": "{\"status\":\"success\"}\npinned as $38",
+   "response": {
+    "status": "success"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "webhook gone",
+   "tool": "tailscale_list_webhooks",
+   "args": {},
+   "status": "PASS",
+   "note": "{\"webhooks\":[]}\npinned as $39",
+   "response": {
+    "webhooks": []
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "restore settings",
+   "tool": "tailscale_update_tailnet_settings",
+   "args": {
+    "settings": {
+     "usersApprovalOn": false
+    }
+   },
+   "status": "PASS",
+   "note": "{\"devicesApprovalOn\":false,\"usersApprovalOn\":false}\npinned as $40",
+   "response": {
+    "devicesApprovalOn": false,
+    "usersApprovalOn": false
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "restore dns",
+   "tool": "tailscale_update_split_dns",
+   "args": {
+    "split_dns": {
+     "sb-proof-328.example": null
+    }
+   },
+   "status": "PASS",
+   "note": "{}\npinned as $41",
+   "response": {},
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "restore dns",
+   "tool": "tailscale_set_dns_preferences",
+   "args": {
+    "magic_dns": true
+   },
+   "status": "PASS",
+   "note": "{\"magicDNS\":true}\npinned as $42",
+   "response": {
+    "magicDNS": true
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "restore dns",
+   "tool": "tailscale_set_dns_search_paths",
+   "args": {
+    "search_paths": []
+   },
+   "status": "PASS",
+   "note": "{\"searchPaths\":[]}\npinned as $43",
+   "response": {
+    "searchPaths": []
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "restore dns",
+   "tool": "tailscale_set_dns_nameservers",
+   "args": {
+    "nameservers": [
+     "8.8.8.8"
+    ]
+   },
+   "status": "PASS",
+   "note": "{\"dns\":[\"8.8.8.8\"],\"magicDNS\":true}\npinned as $44",
+   "response": {
+    "dns": [
+     "8.8.8.8"
+    ],
+    "magicDNS": true
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "restore original policy",
+   "tool": "tailscale_set_policy_file",
+   "args": {
+    "policy": "// sandbox policy\n{\n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n",
+    "if_match": "\"34f0fcd8faa09f0a\""
+   },
+   "status": "PASS",
+   "note": "{\"etag\":\"\\\"c66f6893af4a9add\\\"\",\"status\":\"updated\"}\npinned as $46",
+   "response": {
+    "etag": "\"c66f6893af4a9add\"",
+    "status": "updated"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "revoke auth key",
+   "tool": "tailscale_delete_key",
+   "args": {
+    "key_id": "kMOCK0"
+   },
+   "status": "PASS",
+   "note": "{\"status\":\"success\"}\npinned as $47",
+   "response": {
+    "status": "success"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "key revoked",
+   "tool": "tailscale_get_key",
+   "args": {
+    "key_id": "kMOCK0"
+   },
+   "status": "PASS",
+   "note": "tailscale API error (404): {\"message\": \"not found\"}",
+   "response": "tailscale API error (404): {\"message\": \"not found\"}",
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "policy byte-identical to snapshot",
+   "tool": "tailscale_get_policy_file",
+   "args": {},
+   "status": "PASS",
+   "note": "identical",
+   "response": {
+    "etag": "\"c66f6893af4a9add\"",
+    "policy": "// sandbox policy\n{\n  // groups comment\n  \"acls\": [{\"action\":\"accept\",\"src\":[\"*\"],\"dst\":[\"*:*\"]},],\n  \"tagOwners\": {\"tag:sb-proof\": [\"autogroup:admin\"]},\n}\n"
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "dns matches snapshot",
+   "tool": "tailscale_get_dns",
+   "args": {},
+   "status": "PASS",
+   "note": "identical",
+   "response": {
+    "nameservers": [
+     {
+      "address": "8.8.8.8"
+     }
+    ],
+    "preferences": {
+     "magicDNS": true
+    },
+    "searchPaths": [],
+    "splitDNS": {}
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "restore",
+   "step": "settings match snapshot",
+   "tool": "tailscale_get_tailnet_settings",
+   "args": {},
+   "status": "PASS",
+   "note": "identical",
+   "response": {
+    "devicesApprovalOn": false,
+    "usersApprovalOn": false
+   },
+   "suite": "mock-api"
+  },
+  {
+   "phase": "wire",
+   "step": "ACL POSTs sent as application/hujson with quoted If-Match",
+   "tool": "-",
+   "args": {},
+   "status": "PASS",
+   "note": "[[\"application/hujson\", \"\\\"c66f6893af4a9add\\\"\"], [\"application/hujson\", \"\\\"c66f6893af4a9add\\\"\"], [\"application/hujson\", \"\\\"36fb45560961503b\\\"\"], [\"application/hujson\", \"\\\"34f0fcd8faa09f0a\\\"\"]]",
+   "response": null,
+   "suite": "mock-api"
+  },
+  {
+   "phase": "search",
+   "step": "search \"tailscale\"",
+   "tool": "search",
+   "args": {
+    "query": "tailscale"
+   },
+   "status": "PASS",
+   "note": "44 tools; missing=[]",
+   "response": [
+    "tailscale_approve_user",
+    "tailscale_authorize_device",
+    "tailscale_create_auth_key",
+    "tailscale_create_user_invite",
+    "tailscale_create_webhook",
+    "tailscale_delete_device",
+    "tailscale_delete_device_posture_attribute",
+    "tailscale_delete_key",
+    "tailscale_delete_user",
+    "tailscale_delete_user_invite",
+    "tailscale_delete_webhook",
+    "tailscale_expire_device_key",
+    "tailscale_get_contacts",
+    "tailscale_get_device",
+    "tailscale_get_device_posture_attributes",
+    "tailscale_get_device_routes",
+    "tailscale_get_dns",
+    "tailscale_get_key",
+    "tailscale_get_policy_file",
+    "tailscale_get_tailnet_settings",
+    "tailscale_get_user",
+    "tailscale_list_devices",
+    "tailscale_list_keys",
+    "tailscale_list_user_invites",
+    "tailscale_list_users",
+    "tailscale_list_webhooks",
+    "tailscale_preview_policy_rules",
+    "tailscale_restore_user",
+    "tailscale_set_device_ip",
+    "tailscale_set_device_key_expiry",
+    "tailscale_set_device_name",
+    "tailscale_set_device_posture_attribute",
+    "tailscale_set_device_routes",
+    "tailscale_set_device_tags",
+    "tailscale_set_dns_nameservers",
+    "tailscale_set_dns_preferences",
+    "tailscale_set_dns_search_paths",
+    "tailscale_set_policy_file",
+    "tailscale_suspend_user",
+    "tailscale_test_webhook",
+    "tailscale_update_split_dns",
+    "tailscale_update_tailnet_settings",
+    "tailscale_update_user_role",
+    "tailscale_validate_policy_file"
+   ],
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "search",
+   "step": "search \"tailscale acl policy\"",
+   "tool": "search",
+   "args": {
+    "query": "tailscale acl policy"
+   },
+   "status": "PASS",
+   "note": "44 tools; missing=[]",
+   "response": [
+    "tailscale_preview_policy_rules",
+    "tailscale_validate_policy_file",
+    "tailscale_create_webhook",
+    "tailscale_get_device_posture_attributes",
+    "tailscale_get_policy_file",
+    "tailscale_get_tailnet_settings",
+    "tailscale_set_device_tags",
+    "tailscale_set_policy_file",
+    "tailscale_approve_user",
+    "tailscale_authorize_device",
+    "tailscale_create_auth_key",
+    "tailscale_create_user_invite",
+    "tailscale_delete_device",
+    "tailscale_delete_device_posture_attribute",
+    "tailscale_delete_key",
+    "tailscale_delete_user",
+    "tailscale_delete_user_invite",
+    "tailscale_delete_webhook",
+    "tailscale_expire_device_key",
+    "tailscale_get_contacts",
+    "tailscale_get_device",
+    "tailscale_get_device_routes",
+    "tailscale_get_dns",
+    "tailscale_get_key",
+    "tailscale_get_user",
+    "tailscale_list_devices",
+    "tailscale_list_keys",
+    "tailscale_list_user_invites",
+    "tailscale_list_users",
+    "tailscale_list_webhooks",
+    "tailscale_restore_user",
+    "tailscale_set_device_ip",
+    "tailscale_set_device_key_expiry",
+    "tailscale_set_device_name",
+    "tailscale_set_device_posture_attribute",
+    "tailscale_set_device_routes",
+    "tailscale_set_dns_nameservers",
+    "tailscale_set_dns_preferences",
+    "tailscale_set_dns_search_paths",
+    "tailscale_suspend_user",
+    "tailscale_test_webhook",
+    "tailscale_update_split_dns",
+    "tailscale_update_tailnet_settings",
+    "tailscale_update_user_role"
+   ],
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "search",
+   "step": "search \"tailscale webhook\"",
+   "tool": "search",
+   "args": {
+    "query": "tailscale webhook"
+   },
+   "status": "PASS",
+   "note": "44 tools; missing=[]",
+   "response": [
+    "tailscale_create_webhook",
+    "tailscale_delete_webhook",
+    "tailscale_list_webhooks",
+    "tailscale_test_webhook",
+    "tailscale_approve_user",
+    "tailscale_authorize_device",
+    "tailscale_create_auth_key",
+    "tailscale_create_user_invite",
+    "tailscale_delete_device",
+    "tailscale_delete_device_posture_attribute",
+    "tailscale_delete_key",
+    "tailscale_delete_user",
+    "tailscale_delete_user_invite",
+    "tailscale_expire_device_key",
+    "tailscale_get_contacts",
+    "tailscale_get_device",
+    "tailscale_get_device_posture_attributes",
+    "tailscale_get_device_routes",
+    "tailscale_get_dns",
+    "tailscale_get_key",
+    "tailscale_get_policy_file",
+    "tailscale_get_tailnet_settings",
+    "tailscale_get_user",
+    "tailscale_list_devices",
+    "tailscale_list_keys",
+    "tailscale_list_user_invites",
+    "tailscale_list_users",
+    "tailscale_preview_policy_rules",
+    "tailscale_restore_user",
+    "tailscale_set_device_ip",
+    "tailscale_set_device_key_expiry",
+    "tailscale_set_device_name",
+    "tailscale_set_device_posture_attribute",
+    "tailscale_set_device_routes",
+    "tailscale_set_device_tags",
+    "tailscale_set_dns_nameservers",
+    "tailscale_set_dns_preferences",
+    "tailscale_set_dns_search_paths",
+    "tailscale_set_policy_file",
+    "tailscale_suspend_user",
+    "tailscale_update_split_dns",
+    "tailscale_update_tailnet_settings",
+    "tailscale_update_user_role",
+    "tailscale_validate_policy_file"
+   ],
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "set_policy_file missing if_match",
+   "tool": "tailscale_set_policy_file",
+   "args": {
+    "policy": "{}"
+   },
+   "status": "PASS",
+   "note": "missing required parameter \"if_match\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]",
+   "response": "missing required parameter \"if_match\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "set_policy_file missing policy",
+   "tool": "tailscale_set_policy_file",
+   "args": {
+    "if_match": "abc"
+   },
+   "status": "PASS",
+   "note": "missing required parameter \"policy\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]",
+   "response": "missing required parameter \"policy\" for tool \"tailscale_set_policy_file\". Required: [policy if_match]",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "preview bad type",
+   "tool": "tailscale_preview_policy_rules",
+   "args": {
+    "type": "bogus",
+    "preview_for": "x"
+   },
+   "status": "PASS",
+   "note": "type must be user or ipport, got \"bogus\"",
+   "response": "type must be user or ipport, got \"bogus\"",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "validate neither",
+   "tool": "tailscale_validate_policy_file",
+   "args": {},
+   "status": "PASS",
+   "note": "policy or tests is required",
+   "response": "policy or tests is required",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "validate tests not array",
+   "tool": "tailscale_validate_policy_file",
+   "args": {
+    "tests": {
+     "a": 1
+    }
+   },
+   "status": "PASS",
+   "note": "tests must be an array of ACL test objects",
+   "response": "tests must be an array of ACL test objects",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "split_dns bad value",
+   "tool": "tailscale_update_split_dns",
+   "args": {
+    "split_dns": {
+     "corp.example": "1.1.1.1"
+    }
+   },
+   "status": "PASS",
+   "note": "split_dns[\"corp.example\"] must be a list of nameservers or null, got string",
+   "response": "split_dns[\"corp.example\"] must be a list of nameservers or null, got string",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "split_dns empty",
+   "tool": "tailscale_update_split_dns",
+   "args": {
+    "split_dns": {}
+   },
+   "status": "PASS",
+   "note": "split_dns is required: map of domain to nameserver list (null removes a domain)",
+   "response": "split_dns is required: map of domain to nameserver list (null removes a domain)",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "nameservers missing",
+   "tool": "tailscale_set_dns_nameservers",
+   "args": {},
+   "status": "PASS",
+   "note": "missing required parameter \"nameservers\" for tool \"tailscale_set_dns_nameservers\". Required: [nameservers]",
+   "response": "missing required parameter \"nameservers\" for tool \"tailscale_set_dns_nameservers\". Required: [nameservers]",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "magic_dns missing",
+   "tool": "tailscale_set_dns_preferences",
+   "args": {},
+   "status": "PASS",
+   "note": "missing required parameter \"magic_dns\" for tool \"tailscale_set_dns_preferences\". Required: [magic_dns]",
+   "response": "missing required parameter \"magic_dns\" for tool \"tailscale_set_dns_preferences\". Required: [magic_dns]",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "settings empty",
+   "tool": "tailscale_update_tailnet_settings",
+   "args": {
+    "settings": {}
+   },
+   "status": "PASS",
+   "note": "settings is required: object of tailnet setting fields to change (e.g. {\"devicesApprovalOn\": true})",
+   "response": "settings is required: object of tailnet setting fields to change (e.g. {\"devicesApprovalOn\": true})",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "webhook no subs",
+   "tool": "tailscale_create_webhook",
+   "args": {
+    "endpoint_url": "https://example.com/h",
+    "subscriptions": []
+   },
+   "status": "PASS",
+   "note": "subscriptions is required: list of event types such as nodeCreated, nodeNeedsApproval, policyUpdate",
+   "response": "subscriptions is required: list of event types such as nodeCreated, nodeNeedsApproval, policyUpdate",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "get_device no id",
+   "tool": "tailscale_get_device",
+   "args": {},
+   "status": "PASS",
+   "note": "missing required parameter \"device_id\" for tool \"tailscale_get_device\". Required: [device_id]",
+   "response": "missing required parameter \"device_id\" for tool \"tailscale_get_device\". Required: [device_id]",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "validation",
+   "step": "delete_key no id",
+   "tool": "tailscale_delete_key",
+   "args": {},
+   "status": "PASS",
+   "note": "missing required parameter \"key_id\" for tool \"tailscale_delete_key\". Required: [key_id]",
+   "response": "missing required parameter \"key_id\" for tool \"tailscale_delete_key\". Required: [key_id]",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "auth",
+   "step": "fake token -> 401",
+   "tool": "tailscale_list_devices",
+   "args": {},
+   "status": "PASS",
+   "note": "tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "response": "tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "auth",
+   "step": "fake token -> 401",
+   "tool": "tailscale_get_policy_file",
+   "args": {},
+   "status": "PASS",
+   "note": "tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "response": "tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "auth",
+   "step": "fake token -> 401",
+   "tool": "tailscale_get_dns",
+   "args": {},
+   "status": "PASS",
+   "note": "tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "response": "tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "auth",
+   "step": "fake token -> 401",
+   "tool": "tailscale_list_webhooks",
+   "args": {},
+   "status": "PASS",
+   "note": "tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "response": "tailscale API error (401): {\"message\":\"API token invalid\"}",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "config",
+   "step": "misconfig authkey_as_api_key",
+   "tool": "Configure",
+   "args": {
+    "api_key": "tskey-auth-XXXX"
+   },
+   "status": "PASS",
+   "note": "tool: tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and ca | log: 05:00 level=INFO msg=\"WARN: failed to configure \\\"tailscale\\\": tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)\"",
+   "response": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "config",
+   "step": "misconfig both",
+   "tool": "Configure",
+   "args": {
+    "api_key": "tskey-api-x",
+    "oauth_client_id": "a",
+    "oauth_client_secret": "b"
+   },
+   "status": "PASS",
+   "note": "tool: tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not bo | log: time=2026-10-13T23:13:09.621-05:00 level=INFO msg=\"WARN: failed to configure \\\"tailscale\\\": tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both\"",
+   "response": "tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "config",
+   "step": "misconfig half_oauth",
+   "tool": "Configure",
+   "args": {
+    "oauth_client_id": "a"
+   },
+   "status": "PASS",
+   "note": "tool: tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set | log: time=2026-10-13T23:13:10.380-05:00 level=INFO msg=\"WARN: failed to configure \\\"tailscale\\\": tailscale: oauth_client_id and oauth_client_secret must both be set\"",
+   "response": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set",
+   "suite": "fake-token-real-api"
+  },
+  {
+   "phase": "config",
+   "step": "misconfig client_secret_as_api_key",
+   "tool": "Configure",
+   "args": {
+    "api_key": "tskey-client-x"
+   },
+   "status": "PASS",
+   "note": "tool: tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_s | log: e=2026-10-13T23:13:11.131-05:00 level=INFO msg=\"WARN: failed to configure \\\"tailscale\\\": tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id\"",
+   "response": "tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id",
+   "suite": "fake-token-real-api"
+  }
+ ]
+}

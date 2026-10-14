@@ -1,0 +1,8 @@
+time=2026-10-13T23:12:52.907-05:00 level=INFO msg="Project work-model store: /workspace/sb-sandbox-proofs/tailscale-329/homes/before-token_and_oauth/.config/switchboard/awm (writes_enabled=true)"
+time=2026-10-13T23:12:52.909-05:00 level=INFO msg="Project Catalog on /mcp (writes_enabled=true)"
+time=2026-10-13T23:12:52.909-05:00 level=INFO msg="WARN: failed to configure \"tailscale\": tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both"
+Switchboard dev on http://127.0.0.1:13860
+  Web UI:  http://127.0.0.1:13860/
+  MCP:     http://127.0.0.1:13860/mcp
+  Project: http://127.0.0.1:13860/mcp/{project}
+  AWM gRPC (h2c): 127.0.0.1:13860

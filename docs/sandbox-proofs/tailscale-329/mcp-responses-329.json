@@ -1,0 +1,92 @@
+[
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured: tailscale: api_key looks like an OAuth client secret; put it in oauth_client_secret along with oauth_client_id",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured: tailscale: set either api_key or oauth_client_id + oauth_client_secret, not both",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured: tailscale: api_key or oauth_client_id + oauth_client_secret is required",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale API error (401): {\"message\":\"API token invalid\"}",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured: tailscale: api_key looks like a device auth key; auth keys join devices and cannot call the API, use an API access token (tskey-api-...)",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "{\"devices\":[{\"advertisedRoutes\":[\"10.99.0.0/24\"],\"authorized\":false,\"hostname\":\"sb-node\",\"id\":\"1001\",\"name\":\"sb-node.tail-mock.ts.net\",\"nodeId\":\"n1\"}]}",
+  "isError": null
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "tailscale: integration is not configured: tailscale: oauth_client_id and oauth_client_secret must both be set",
+  "isError": true
+ },
+ {
+  "tool": "tailscale_list_devices",
+  "text": "Get \"http://127.0.0.1:18329/api/v2/tailnet/-/devices?fields=default\": oauth2: cannot fetch token: 401 Unauthorized\nResponse: {\"message\": \"API token invalid\"}",
+  "isError": true
+ }
+]

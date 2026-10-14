@@ -1,0 +1,8 @@
+time=2026-10-13T23:13:07.283-05:00 level=INFO msg="Project work-model store: /workspace/sb-sandbox-proofs/tailscale-329/homes/fake/.config/switchboard/awm (writes_enabled=true)"
+time=2026-10-13T23:13:07.286-05:00 level=INFO msg="Project Catalog on /mcp (writes_enabled=true)"
+time=2026-10-13T23:13:07.287-05:00 level=INFO msg="Configured integration \"tailscale\" with 44 tools"
+Switchboard dev on http://127.0.0.1:13854
+  Web UI:  http://127.0.0.1:13854/
+  MCP:     http://127.0.0.1:13854/mcp
+  Project: http://127.0.0.1:13854/mcp/{project}
+  AWM gRPC (h2c): 127.0.0.1:13854
