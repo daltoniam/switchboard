@@ -277,11 +277,8 @@ func (w *WebServer) integrationSummaries(_ context.Context) []pages.IntegrationS
 
 		var healthy bool
 		var lastCheck time.Time
-		if entry, ok := w.health.get(a.Name()); ok {
+		if entry, ok := w.health.get(a.Name()); ok && enabled && entry.Enabled {
 			healthy = entry.Healthy
-			if entry.Enabled {
-				enabled = true
-			}
 			lastCheck = entry.CheckedAt
 		}
 

@@ -47,6 +47,10 @@ When adding or changing a setup page, reuse what the existing pages share. A one
 - **Results and errors use the `flash flash-success` / `flash flash-error` banner** driven by the `result=` / `error=` query parameters, not inline text.
 - **Copy is direct and imperative.** Step titles start with a verb ("Open Slack in your browser", "Paste the result below").
 
+## Browser Acceptance
+
+Run `make ui-install` once, then `make test-ui` to verify integration setup in isolated Chromium sessions. `make ci` includes the browser gate. Add integration-specific browser coverage for every new adapter and follow [integration-ui-testing.md](integration-ui-testing.md) for sandboxing, masked evidence, OAuth/identity scenarios, and Orca automation completion requirements.
+
 ## Build Tooling
 
 - **Templ**: `web/templates/*.templ` → run `templ generate` after edits. **Never edit `*_templ.go`** (generated)

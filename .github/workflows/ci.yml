@@ -49,6 +49,31 @@ jobs:
           name: coverage
           path: coverage.out
 
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Chromium and system dependencies
+        run: make ui-install UI_INSTALL_ARGS=--with-deps
+
+      - name: Verify integration setup in Chromium
+        run: make test-ui
+
+      - name: Upload masked browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-ui-${{ github.sha }}
+          path: dist/ui-artifacts/
+          if-no-files-found: error
+          retention-days: 7
+
   lint:
     runs-on: ubuntu-latest
     steps:
