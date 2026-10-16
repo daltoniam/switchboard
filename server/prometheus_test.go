@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/integrations/prometheus"
@@ -13,9 +14,14 @@ import (
 )
 
 func TestPrometheusMCPDiscoveryAndExecute(t *testing.T) {
+	type queryRequest struct {
+		authorization string
+		query         string
+	}
+	requests := make(chan queryRequest, 1)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		require.Equal(t, "Bearer fixture-token", req.Header.Get("Authorization"))
 		if req.URL.Path == "/api/v1/query" {
+			requests <- queryRequest{authorization: req.Header.Get("Authorization"), query: req.URL.Query().Get("query")}
 			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"api"},"value":[100,"1"]}]},"warnings":["fixture warning"]}`))
 			return
 		}
@@ -28,10 +34,14 @@ func TestPrometheusMCPDiscoveryAndExecute(t *testing.T) {
 	httpServer := httptest.NewServer(BuildHTTPMux(HTTPMuxConfig{MCP: instance.StatelessHandler()}))
 	defer httpServer.Close()
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "prometheus-smoke", Version: "0"}, nil)
-	session, err := client.Connect(context.Background(), &mcpsdk.StreamableClientTransport{Endpoint: httpServer.URL + "/mcp", HTTPClient: httpServer.Client(), DisableStandaloneSSE: true}, nil)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	httpClient := httpServer.Client()
+	httpClient.Timeout = 10 * time.Second
+	session, err := client.Connect(ctx, &mcpsdk.StreamableClientTransport{Endpoint: httpServer.URL + "/mcp", HTTPClient: httpClient, DisableStandaloneSSE: true}, nil)
 	require.NoError(t, err)
 	defer func() { _ = session.Close() }()
-	result, err := session.CallTool(context.Background(), &mcpsdk.CallToolParams{Name: "search", Arguments: map[string]any{"integration": "prometheus", "limit": 50}})
+	result, err := session.CallTool(ctx, &mcpsdk.CallToolParams{Name: "search", Arguments: map[string]any{"integration": "prometheus", "limit": 50}})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	for _, tool := range prometheus.New().Tools() {
@@ -52,7 +62,7 @@ func TestPrometheusMCPDiscoveryAndExecute(t *testing.T) {
 			require.Contains(t, searchToolNames(t, parseSearchResponse(t, result)), item.expected)
 		})
 	}
-	result, err = session.CallTool(context.Background(), &mcpsdk.CallToolParams{Name: "execute", Arguments: map[string]any{"tool_name": "prometheus_query", "arguments": map[string]any{"query": "up"}}})
+	result, err = session.CallTool(ctx, &mcpsdk.CallToolParams{Name: "execute", Arguments: map[string]any{"tool_name": "prometheus_query", "arguments": map[string]any{"query": "up"}}})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	text := result.Content[0].(*mcpsdk.TextContent).Text
@@ -60,4 +70,11 @@ func TestPrometheusMCPDiscoveryAndExecute(t *testing.T) {
 	require.Contains(t, text, "fixture warning")
 	require.NotEqual(t, "{}", text)
 	require.NotContains(t, text, "fixture-token")
+	select {
+	case request := <-requests:
+		require.Equal(t, "Bearer fixture-token", request.authorization)
+		require.Equal(t, "up", request.query)
+	default:
+		t.Fatal("Prometheus query request was not recorded")
+	}
 }
