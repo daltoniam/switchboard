@@ -429,6 +429,7 @@ func (s *Store) pageFrom(kind, query, cursor string) (Page, error) {
 		}
 	}
 	page := Page{Projects: []ProjectSummary{}, InvalidProjects: []InvalidProjectSummary{}}
+	page.TotalCount = len(s.index)
 	remaining := append([]ProjectSummary(nil), valid...)
 	if len(remaining) > pageSizeDefault {
 		page.Projects = remaining[:pageSizeDefault]

@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"crypto/rand"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,6 +44,9 @@ import (
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/pages"
 )
+
+//go:embed static/*.mjs static/*.css
+var uiAssets embed.FS
 
 // WebServer serves the configuration web UI using templ templates.
 type WebServer struct {
@@ -85,11 +89,20 @@ func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.
 	return ws
 }
 
+func serveUIAsset(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "no-cache")
+	http.FileServerFS(uiAssets).ServeHTTP(w, r)
+}
+
 // Handler returns an http.Handler that serves the web UI routes.
 func (w *WebServer) Handler() http.Handler {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("GET /static/{name}", serveUIAsset)
+	mux.HandleFunc("GET /api/navigation", w.handleNavigationSearch)
 	mux.HandleFunc("GET /", w.handleDashboard)
+	mux.HandleFunc("GET /styleguide", w.handleStyleGuide)
 	mux.HandleFunc("GET /integrations", w.handleIntegrationsList)
 	mux.HandleFunc("GET /integrations/{name}", w.handleIntegrationDetail)
 	mux.HandleFunc("POST /integrations/{name}", w.handleIntegrationSave)
@@ -254,6 +267,62 @@ func (w *WebServer) Handler() http.Handler {
 	return mux
 }
 
+type navigationResult struct {
+	Label string `json:"label"`
+	Path  string `json:"path"`
+}
+
+func (w *WebServer) handleNavigationSearch(rw http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if len(query) > 200 {
+		http.Error(rw, "Search is too long", http.StatusBadRequest)
+		return
+	}
+	results := w.integrationNavigation(query)
+	projects, err := w.projectNavigation(r.Context(), query)
+	if err != nil {
+		http.Error(rw, "Search is unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	results = append(results, projects...)
+	rw.Header().Set("Content-Type", "application/json")
+	rw.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(rw).Encode(results)
+}
+
+func (w *WebServer) integrationNavigation(query string) []navigationResult {
+	results := []navigationResult{}
+	query = strings.ToLower(query)
+	for _, integration := range w.services.Registry.All() {
+		name := integration.Name()
+		label := "Integration: " + name
+		if !strings.Contains(strings.ToLower(label), query) {
+			continue
+		}
+		path := "/integrations/" + url.PathEscape(name)
+		results = append(results, navigationResult{Label: label, Path: path})
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].Label < results[j].Label })
+	return results
+}
+
+func (w *WebServer) projectNavigation(ctx context.Context, query string) ([]navigationResult, error) {
+	results := []navigationResult{}
+	if w.catalog == nil {
+		return results, nil
+	}
+	page, err := w.catalog.Search(ctx, project.SearchRequest{Query: query})
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range page.Projects {
+		label := "Project: " + item.Title
+		path := "/projects/" + url.PathEscape(string(item.ProjectID))
+		results = append(results, navigationResult{Label: label, Path: path})
+	}
+	return results, nil
+}
+
 func (w *WebServer) pageData(r *http.Request, title string, path string) layouts.PageData {
 	data := layouts.PageData{
 		Title:       title,
@@ -292,6 +361,11 @@ func (w *WebServer) integrationSummaries(_ context.Context) []pages.IntegrationS
 		})
 	}
 	return summaries
+}
+
+func (w *WebServer) handleStyleGuide(rw http.ResponseWriter, r *http.Request) {
+	page := w.pageData(r, "Style guide", "/styleguide")
+	pages.StyleGuide(page).Render(r.Context(), rw)
 }
 
 func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
@@ -338,35 +412,15 @@ func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Request) {
-	summaries := w.integrationSummaries(r.Context())
-
-	var errored, connected, disabled []pages.IntegrationSummary
-	var googleSummary pages.GoogleGroupSummary
-	for _, s := range summaries {
-		if googleWorkspaceServices[s.Name] {
-			googleSummary.TotalCount++
-			if s.Enabled && s.Healthy {
-				googleSummary.ConnectedCount++
-			}
-			continue
-		}
-		if !s.Enabled {
-			disabled = append(disabled, s)
-		} else if s.Healthy {
-			connected = append(connected, s)
-		} else {
-			errored = append(errored, s)
-		}
-	}
-
 	page := w.pageData(r, "Integrations", "/integrations")
-	data := pages.IntegrationsListData{
-		Errored:   errored,
-		Connected: connected,
-		Disabled:  disabled,
-		Google:    googleSummary,
-	}
+	data := w.integrationsListData(r.Context())
 	pages.IntegrationsList(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) integrationsListData(ctx context.Context) pages.IntegrationsListData {
+	integrations := w.integrationSummaries(ctx)
+	data := pages.IntegrationsListData{Integrations: integrations}
+	return data
 }
 
 const notionExtractionSnippet = `(function(){var c=document.cookie.split(';').find(function(c){return c.trim().startsWith('token_v2=')});if(!c){alert('token_v2 cookie not found. Make sure you are on notion.so and signed in.');return;}var t=c.split('=').slice(1).join('=').trim();prompt('Copy this token_v2 value:',t);})()`
@@ -417,7 +471,11 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 	}
 
 	if setupIntegrations[name] {
-		http.Redirect(rw, r, "/integrations/"+name+"/setup", http.StatusSeeOther)
+		setupPath := "/integrations/" + name + "/setup"
+		if googleWorkspaceServices[name] {
+			setupPath = googleSetupPath
+		}
+		http.Redirect(rw, r, setupPath, http.StatusSeeOther)
 		return
 	}
 
@@ -919,9 +977,16 @@ func (w *WebServer) handleHealthAPI(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (w *WebServer) handleHealthRefresh(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Add("Vary", "HX-Request")
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	w.health.refreshAll(ctx)
+	if r.Header.Get("HX-Request") == "true" {
+		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+		data := w.integrationsListData(ctx)
+		pages.IntegrationsListResults(data).Render(r.Context(), rw)
+		return
+	}
 	http.Redirect(rw, r, r.Referer(), http.StatusSeeOther)
 }
 

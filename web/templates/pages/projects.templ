@@ -5,8 +5,8 @@ import (
 	"net/url"
 
 	"github.com/daltoniam/switchboard/project"
-	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
 )
 
 type ProjectsListData struct {
@@ -14,8 +14,7 @@ type ProjectsListData struct {
 	Projects        []project.ProjectSummary
 	InvalidProjects []project.InvalidProjectSummary
 	NextCursor      string
-	TotalValid      int
-	TotalInvalid    int
+	TotalCount      string
 }
 
 func projectDetailHref(id project.ProjectID) string {
@@ -44,42 +43,37 @@ func diagBadge(n int) string {
 	return "yellow"
 }
 
-
-
 templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 	@layouts.Base(page) {
-		<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
-			<div>
-				<p class="section-title" style="margin-bottom: 0.25rem; letter-spacing: 0.04em;">Project Catalog</p>
-				<h1 class="page-title" style="margin-bottom: 0.25rem;">Projects</h1>
-				<p style="color: var(--text-secondary); font-size: 0.875rem; max-width: 40rem;">
-					Browse Switchboard projects and their resources (repos, files, globs). Catalog files live under ~/.config/switchboard.
-				</p>
+		<p class="section-title mb-1">Project Catalog</p>
+		@components.PageHeader("Projects", data.TotalCount+" projects") {
+			<div hx-sync="#project-search:abort">
+				@components.PageRefresh("Refresh projects")
 			</div>
-			<div style="display: flex; gap: 0.75rem; color: var(--text-muted); font-size: 0.8125rem; font-family: var(--font-mono);">
-				<span>{ fmt.Sprintf("%d valid", data.TotalValid) }</span>
-				if data.TotalInvalid > 0 {
-					<span style="color: var(--yellow);">{ fmt.Sprintf("%d invalid", data.TotalInvalid) }</span>
-				}
-			</div>
-		</div>
-
-		<form method="GET" action="/projects" style="display: flex; gap: 0.5rem; margin: 1.25rem 0 1.5rem; flex-wrap: wrap;">
+		}
+		<p class="text-secondary text-sm max-w-160">
+			Browse Switchboard projects and their resources (repos, files, globs). Catalog files live under ~/.config/switchboard.
+		</p>
+		<form id="project-search" hx-preserve method="GET" action="/projects" hx-get="/projects" hx-target="#project-results" hx-swap="outerHTML" hx-sync="#project-search:replace" hx-replace-url="true" role="search" class="flex my-6">
 			<input
+				id="project-query"
 				type="search"
 				name="q"
 				value={ data.Query }
-				placeholder="Search by name or repo…"
-				class="form-input"
-				style="flex: 1; min-width: 14rem;"
-				aria-label="Search projects"
+				placeholder="Filter by name or repo…"
+				class="form-input flex-1 min-w-0 basis-56"
+				aria-label="Filter projects"
+				aria-controls="project-results"
+				hx-get="/projects"
+				hx-trigger="input changed delay:100ms"
 			/>
-			<button type="submit" class="btn btn-outline">Search</button>
-			if data.Query != "" {
-				<a href="/projects" class="btn btn-outline">Clear</a>
-			}
 		</form>
+		@ProjectsListResults(data)
+	}
+}
 
+templ ProjectsListResults(data ProjectsListData) {
+	<div id="project-results" aria-live="polite">
 		if len(data.Projects) == 0 && len(data.InvalidProjects) == 0 {
 			<div class="card" style="padding: 1.5rem;">
 				<p style="color: var(--text-secondary); margin: 0 0 0.5rem 0;">No projects match this view.</p>
@@ -89,7 +83,6 @@ templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 				</p>
 			</div>
 		}
-
 		if len(data.InvalidProjects) > 0 {
 			<section class="metrics-section">
 				<h2 class="section-title" style="color: var(--yellow);">Needs attention</h2>
@@ -124,7 +117,6 @@ templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 				</div>
 			</section>
 		}
-
 		if len(data.Projects) > 0 {
 			<section class="metrics-section">
 				if len(data.InvalidProjects) > 0 {
@@ -169,31 +161,36 @@ templ ProjectsList(page layouts.PageData, data ProjectsListData) {
 				</div>
 			</section>
 		}
-
 		if data.NextCursor != "" {
 			<div style="margin-top: 1rem;">
 				<a
 					class="btn btn-outline btn-sm"
 					href={ templ.SafeURL(fmt.Sprintf("/projects?q=%s&cursor=%s", url.QueryEscape(data.Query), url.QueryEscape(data.NextCursor))) }
+					hx-get={ fmt.Sprintf("/projects?q=%s&cursor=%s", url.QueryEscape(data.Query), url.QueryEscape(data.NextCursor)) }
+					hx-target="#project-results"
+					hx-swap="outerHTML"
+					hx-sync="#project-search:replace"
+					hx-replace-url="true"
+					data-project-page
 				>
 					Next page
 				</a>
 			</div>
 		}
-	}
+	</div>
 }
 
 type ProjectDetailData struct {
-	Snapshot           project.Snapshot
-	Invalid            *project.InvalidProjectSummary
-	NotFound           bool
-	ProjectID          string
-	Context            []project.ContextEntry
-	JSON               string
-	WorkProfileCount   int
-	AgentProfileCount  int
-	WorkSessionCount   int
-	HasWorkModel       bool
+	Snapshot          project.Snapshot
+	Invalid           *project.InvalidProjectSummary
+	NotFound          bool
+	ProjectID         string
+	Context           []project.ContextEntry
+	JSON              string
+	WorkProfileCount  int
+	AgentProfileCount int
+	WorkSessionCount  int
+	HasWorkModel      bool
 }
 
 func projectDetailWorkHref(id string) string {
@@ -205,7 +202,6 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 		<p style="margin-bottom: 0.75rem;">
 			<a href="/projects" style="color: var(--text-secondary); text-decoration: none; font-size: 0.8125rem;">← Projects</a>
 		</p>
-
 		if data.NotFound {
 			<div class="card" style="padding: 1.5rem;">
 				<h1 class="page-title">Project not found</h1>
@@ -229,7 +225,7 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 								{ " — " }
 								{ d.Message }
 								if d.Path != "" {
-									<span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.75rem;"> ({ d.Path })</span>
+									<span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.75rem;">({ d.Path })</span>
 								}
 							</li>
 						}
@@ -256,7 +252,6 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 					@components.Badge(diagLabel(len(data.Snapshot.Diagnostics)), diagBadge(len(data.Snapshot.Diagnostics)))
 				</div>
 			</div>
-
 			if data.HasWorkModel {
 				<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
 					<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
@@ -279,7 +274,6 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 					</div>
 				</div>
 			}
-
 			<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
 				<div class="section-title" style="margin-bottom: 0.75rem;">Revisions</div>
 				<div class="table-wrap">
@@ -303,7 +297,6 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 					</table>
 				</div>
 			</div>
-
 			if len(data.Snapshot.Sources) > 0 {
 				<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
 					<div class="section-title" style="margin-bottom: 0.75rem;">Sources</div>
@@ -329,7 +322,6 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 					</div>
 				</div>
 			}
-
 			if len(data.Snapshot.Diagnostics) > 0 {
 				<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
 					<div class="section-title" style="margin-bottom: 0.75rem;">Diagnostics</div>
@@ -343,7 +335,6 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 					</ul>
 				</div>
 			}
-
 			if len(data.Context) > 0 {
 				<div class="card" style="margin-bottom: 1rem; padding: 1rem 1.25rem;">
 					<div class="section-title" style="margin-bottom: 0.75rem;">Context files</div>
@@ -371,7 +362,6 @@ templ ProjectDetail(page layouts.PageData, data ProjectDetailData) {
 					</div>
 				</div>
 			}
-
 			<div class="card" style="padding: 1rem 1.25rem;">
 				<div class="section-title" style="margin-bottom: 0.75rem;">Definition</div>
 				<pre style="margin: 0; padding: 0.75rem 0; overflow-x: auto; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word;">{ data.JSON }</pre>

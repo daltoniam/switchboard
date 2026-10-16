@@ -9,38 +9,7 @@ import (
 )
 
 type IntegrationsListData struct {
-	Errored   []IntegrationSummary
-	Connected []IntegrationSummary
-	Disabled  []IntegrationSummary
-	// Google summarizes the unified Google Workspace group shown as a single
-	// banner card linking to the consolidated setup page.
-	Google GoogleGroupSummary
-}
-
-// GoogleGroupSummary describes the collapsed Google Workspace group card.
-type GoogleGroupSummary struct {
-	ConnectedCount int
-	TotalCount     int
-}
-
-func googleGroupLabel(g GoogleGroupSummary) string {
-	if g.TotalCount > 0 && g.ConnectedCount == g.TotalCount {
-		return "All connected"
-	}
-	if g.ConnectedCount > 0 {
-		return fmt.Sprintf("%d of %d connected", g.ConnectedCount, g.TotalCount)
-	}
-	return "Not connected"
-}
-
-func googleGroupBadge(g GoogleGroupSummary) string {
-	if g.TotalCount > 0 && g.ConnectedCount == g.TotalCount {
-		return "green"
-	}
-	if g.ConnectedCount > 0 {
-		return "yellow"
-	}
-	return "muted"
+	Integrations []IntegrationSummary
 }
 
 func sortByName(items []IntegrationSummary) []IntegrationSummary {
@@ -52,70 +21,47 @@ func sortByName(items []IntegrationSummary) []IntegrationSummary {
 	return sorted
 }
 
-func intToStr(i int) string {
-	return fmt.Sprintf("%d", i)
-}
-
 templ IntegrationsList(page layouts.PageData, data IntegrationsListData) {
 	@layouts.Base(page) {
-		<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
-			<h1 class="page-title" style="margin-bottom: 0;">Integrations</h1>
-			<form method="POST" action="/api/health/refresh">
-				<button type="submit" class="btn btn-outline btn-sm">Re-check all</button>
-			</form>
-		</div>
-		if data.Google.TotalCount > 0 {
-			<section class="metrics-section">
-				<h2 class="section-title">Google Workspace</h2>
-				<div class="integration-grid">
-					<a href="/integrations/google/setup" class="integration-card">
-						<div class="integration-card-header">
-							<span class="name">Google Workspace</span>
-						</div>
-						<div class="integration-card-footer">
-							@components.Badge(googleGroupLabel(data.Google), googleGroupBadge(data.Google))
-							<span class="integration-card-tools">{ fmt.Sprintf("%d services", data.Google.TotalCount) }</span>
-						</div>
-					</a>
-				</div>
-			</section>
-		}
-		if len(data.Errored) > 0 {
-			<section class="metrics-section">
-				<h2 class="section-title" style="color: var(--yellow);">Needs Attention</h2>
-				<div class="integration-grid">
-					for _, i := range sortByName(data.Errored) {
-						@integrationCard(i)
-					}
-				</div>
-			</section>
-		}
-		if len(data.Connected) > 0 {
-			<section class="metrics-section">
-				<h2 class="section-title">Connected</h2>
-				<div class="integration-grid">
-					for _, i := range sortByName(data.Connected) {
-						@integrationCard(i)
-					}
-				</div>
-			</section>
-		}
-		if len(data.Disabled) > 0 {
-			<section class="metrics-section">
-				<h2 class="section-title">Disabled</h2>
-				<div class="integration-grid">
-					for _, i := range sortByName(data.Disabled) {
-						@integrationCard(i)
-					}
-				</div>
-			</section>
-		}
+		@IntegrationsListResults(data)
 	}
 }
 
+templ IntegrationsListResults(data IntegrationsListData) {
+	<div id="integration-results">
+		{{ count := len(data.Integrations) }}
+		@components.PageHeader("Integrations", fmt.Sprintf("%d integrations", count)) {
+			<form id="health-refresh" hx-preserve method="POST" action="/api/health/refresh" hx-post="/api/health/refresh" hx-target="#integration-results" hx-swap="outerHTML" hx-indicator="#integration-results" hx-disabled-elt="find button" hx-request='{"timeout":35000}' aria-describedby="page-refresh-status">
+				<button type="submit" class="icon-button h-10 w-10" aria-label="Re-check all" title="Re-check all">
+					<span class="refresh-icon" aria-hidden="true"></span>
+				</button>
+			</form>
+		}
+		<div id="integration-filters" hx-preserve role="search" aria-label="Filter integrations">
+			<fieldset class="flex flex-wrap items-center gap-3 mb-6 min-w-0 border-0" disabled>
+				<label for="integration-search" class="sr-only">Filter integrations</label>
+				<input id="integration-search" type="search" class="form-input flex-1 min-w-40" placeholder="Filter integrations…" autocomplete="off" aria-controls="integration-grid"/>
+				@components.ToggleGroup("Integration state") {
+					@components.ToggleGroupItem("Enabled", "true", true)
+					@components.ToggleGroupItem("Disabled", "false", true)
+				}
+			</fieldset>
+		</div>
+		<section class="metrics-section" aria-label="Integrations">
+			<div id="integration-grid" class="integration-grid">
+				for _, i := range sortByName(data.Integrations) {
+					@integrationCard(i)
+				}
+			</div>
+			<p class="text-secondary" data-integration-empty role="status" hidden?={ count > 0 }>No integrations match your filters.</p>
+		</section>
+	</div>
+}
+
 templ integrationCard(i IntegrationSummary) {
-	<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-card">
+	<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-card" data-enabled={ fmt.Sprint(i.Enabled) }>
 		<div class="integration-card-header">
+			@components.IntegrationIcon(i.Name)
 			<span class="name">{ i.Name }</span>
 			if i.IsRemote {
 				@components.Badge("remote", "muted")

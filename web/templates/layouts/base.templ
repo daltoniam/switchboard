@@ -1,17 +1,42 @@
 package layouts
 
 import (
+	_ "embed"
+	"encoding/json"
 	"strings"
 
 	"github.com/daltoniam/switchboard/version"
 )
 
+//go:embed themes.json
+var themeConfig []byte
+
+type appearanceConfig struct {
+	Defaults  map[string]string `json:"defaults"`
+	FontSizes []string          `json:"fontSizes"`
+	Themes    []themeOption     `json:"themes"`
+}
+
+type themeOption struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Scheme string `json:"scheme"`
+}
+
+func appearanceSettings() appearanceConfig {
+	var config appearanceConfig
+	if err := json.Unmarshal(themeConfig, &config); err != nil {
+		panic("invalid embedded theme configuration: " + err.Error())
+	}
+	return config
+}
+
 type PageData struct {
-	Title         string
-	CurrentPath   string
-	FlashSuccess  string
-	FlashError    string
-	Version       string
+	Title        string
+	CurrentPath  string
+	FlashSuccess string
+	FlashError   string
+	Version      string
 }
 
 type NavItem struct {
@@ -22,11 +47,11 @@ type NavItem struct {
 
 func navItems() []NavItem {
 	return []NavItem{
-		{Path: "/", Label: "Dashboard", Icon: "⚡"},
-		{Path: "/projects", Label: "Projects", Icon: "📁"},
-		{Path: "/integrations", Label: "Integrations", Icon: "🔌"},
-		{Path: "/plugins", Label: "Plugin Marketplace", Icon: "🏪"},
-		{Path: "/settings", Label: "Settings", Icon: "⚙"},
+		{Path: "/", Label: "Dashboard", Icon: "i-lucide:layout-dashboard"},
+		{Path: "/projects", Label: "Projects", Icon: "i-lucide:folder"},
+		{Path: "/integrations", Label: "Integrations", Icon: "i-lucide:plug"},
+		{Path: "/plugins", Label: "Plugin Marketplace", Icon: "i-lucide:store"},
+		{Path: "/settings", Label: "Settings", Icon: "i-lucide:settings"},
 	}
 }
 
@@ -37,243 +62,123 @@ func isActive(current, path string) bool {
 	return strings.HasPrefix(current, path)
 }
 
+templ themeSwatch(id string) {
+	<span class="theme-swatch" data-theme={ id } aria-hidden="true">
+		<span class="bg-accent"></span>
+		<span class="bg-positive"></span>
+		<span class="bg-warning"></span>
+		<span class="bg-negative"></span>
+	</span>
+}
+
 templ Base(data PageData) {
+	{{ appearance := appearanceSettings() }}
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ data.Title } — Switchboard</title>
+			@appearanceBootstrap(appearance)
+			<link rel="stylesheet" href="/static/style.css"/>
+			<script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" crossorigin="anonymous"></script>
+			<script defer src="https://cdn.jsdelivr.net/npm/@tarekraafat/autocomplete.js@10.2.10/dist/autoComplete.min.js" integrity="sha384-cLawOb2F3v0Zfax5NIlJRiJLXwaGoV0vezUUxIAvxIZDfx/jXGa8xOYNTXS8/cu4" crossorigin="anonymous"></script>
+			<script type="module" src="/static/ui.mjs"></script>
 			<style>
 				:root {
-					--bg:             oklch(13.5% 0.01 250);
-					--surface:        oklch(17% 0.01 250);
-					--surface-hover:  oklch(20% 0.012 250);
-					--border:         oklch(28% 0.01 250);
-					--border-subtle:  oklch(23% 0.008 250);
-					--text:           oklch(90% 0.01 250);
-					--text-secondary: oklch(65% 0.015 250);
-					--text-muted:     oklch(52% 0.01 250);
-					--accent:         oklch(68% 0.14 250);
-					--accent-dim:     oklch(68% 0.14 250 / 0.12);
-					--green:          oklch(65% 0.17 155);
-					--green-dim:      oklch(65% 0.17 155 / 0.12);
-					--red:            oklch(62% 0.2 25);
-					--red-dim:        oklch(62% 0.2 25 / 0.12);
-					--yellow:         oklch(72% 0.15 80);
-					--yellow-dim:     oklch(72% 0.15 80 / 0.12);
+					--accent-dim:     color-mix(in srgb, var(--accent) 12%, transparent);
+					--accent-active:  color-mix(in srgb, var(--accent) 24%, transparent);
+					--green-dim:      color-mix(in srgb, var(--green) 12%, transparent);
+					--red-dim:        color-mix(in srgb, var(--red) 12%, transparent);
+					--yellow-dim:     color-mix(in srgb, var(--yellow) 12%, transparent);
 					--radius:         6px;
 					--font-mono:      'SF Mono', ui-monospace, 'Cascadia Code', 'Fira Code', Menlo, monospace;
+					--header-height:  3.5rem;
 				}
 				* { margin: 0; padding: 0; box-sizing: border-box; }
 				body {
 					font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Helvetica, Arial, sans-serif;
 					background: var(--bg);
-					color: var(--text);
-					font-size: 14px;
 					line-height: 1.5;
 					display: flex;
 					min-height: 100vh;
-					font-weight: 350;
 					-webkit-font-smoothing: antialiased;
 				}
 
 				/* --- Sidebar --- */
-				.sidebar {
-					width: 200px;
-					background: var(--surface);
-					border-right: 1px solid var(--border-subtle);
-					padding: 1.25rem 0;
-					flex-shrink: 0;
-					display: flex;
-					flex-direction: column;
+				.sidebar[hidden], [data-sidebar="closed"] .sidebar { display: none; }
+				@media (max-width: 1024px) {
+					[data-sidebar] .sidebar { position: fixed; left: 0; top: var(--header-height); width: max-content; height: calc(100dvh - var(--header-height)); z-index: 40; }
+					:root:not([data-sidebar]) body { flex-direction: column; }
+					:root:not([data-sidebar]) .sidebar { position: static; width: 100%; min-width: 0; height: auto; }
 				}
-				.sidebar-brand {
-					padding: 0 1rem 1rem;
-					border-bottom: 1px solid var(--border-subtle);
-					margin-bottom: 0.5rem;
-				}
-				.sidebar-brand-name {
-					font-size: 0.875rem;
-					font-weight: 600;
-					color: var(--text);
-					letter-spacing: -0.01em;
-				}
-				.sidebar-brand-sub {
-					color: var(--text-muted);
-					font-size: 0.6875rem;
-					display: block;
-					margin-top: 0.125rem;
-				}
-				.nav-item {
-					display: flex;
-					align-items: center;
-					gap: 0.5rem;
-					padding: 0.4375rem 1rem;
-					color: var(--text-secondary);
-					text-decoration: none;
-					font-size: 0.8125rem;
-					border-left: 2px solid transparent;
-					transition: color 0.1s, background 0.1s;
-				}
-				.nav-item:hover {
-					background: var(--surface-hover);
-					color: var(--text);
-				}
+				.nav-item { white-space: nowrap; }
 				.nav-item.active {
 					color: var(--accent);
 					border-left-color: var(--accent);
 					background: var(--accent-dim);
 				}
-				.sidebar-version {
-					margin-top: auto;
-					padding: 0.75rem 1rem;
-					border-top: 1px solid var(--border-subtle);
+				.btn[aria-pressed="true"] {
+					color: var(--accent);
+					border-color: var(--accent);
+					background: var(--accent-active);
+				}
+				.appearance-picker summary { list-style: none; }
+				.appearance-picker summary::-webkit-details-marker { display: none; }
+				.appearance-picker summary[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+				.theme-option:has(input:checked) { color: var(--accent); background: var(--accent-dim); }
+				.theme-option:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+				.theme-option input:not(:checked) ~ .theme-check { visibility: hidden; }
+				.search-dialog::backdrop { background: rgb(0 0 0 / 0.4); }
+				.flash { animation: fade-in 0.15s ease-out; }
+				.flash[hidden] { display: none; }
+				.toast { background: color-mix(in srgb, currentColor 12%, var(--surface)); }
+				.section-loading {
+					position: relative;
+					height: var(--refresh-height);
+					min-height: var(--refresh-height);
+					max-height: var(--refresh-height);
+					visibility: hidden;
+				}
+				.section-loading::after {
+					content: "";
+					position: absolute;
+					inset: 0;
+					margin: auto;
+					visibility: visible;
 					color: var(--text-muted);
-					font-size: 0.625rem;
-					font-family: var(--font-mono);
 				}
-
-				/* --- Main content --- */
-				.main {
-					flex: 1;
-					padding: 2rem 2.5rem;
-					max-width: 960px;
-					min-width: 0;
+				@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+				@media (prefers-reduced-motion: reduce) {
+					*, *::before, *::after { animation: none !important; transition: none !important; }
 				}
-
-				/* --- Typography --- */
-				.page-title {
-					font-size: 1.25rem;
-					font-weight: 600;
-					margin-bottom: 1.5rem;
-					letter-spacing: -0.015em;
-				}
-				.section-title {
-					font-size: 0.6875rem;
-					font-weight: 600;
-					text-transform: uppercase;
-					letter-spacing: 0.06em;
-					color: var(--text-muted);
-					margin-bottom: 0.625rem;
-				}
-
-				/* --- Flash messages --- */
-				.flash {
-					padding: 0.5rem 0.75rem;
-					border-radius: var(--radius);
-					margin-bottom: 1rem;
-					font-size: 0.8125rem;
-					border: 1px solid;
-				}
-				.flash-success {
-					background: var(--green-dim);
-					border-color: oklch(65% 0.17 155 / 0.25);
-					color: var(--green);
-				}
-				.flash-error {
-					background: var(--red-dim);
-					border-color: oklch(62% 0.2 25 / 0.25);
-					color: var(--red);
-				}
-
-				/* --- Cards --- */
-				.card {
-					background: var(--surface);
-					border: 1px solid var(--border-subtle);
-					border-radius: var(--radius);
-					padding: 1rem;
-					margin-bottom: 0.75rem;
-				}
-				.card-header {
-					display: flex;
-					align-items: center;
-					justify-content: space-between;
-					margin-bottom: 0.75rem;
-				}
-				.card-title {
-					font-size: 0.875rem;
-					font-weight: 600;
-					display: flex;
-					align-items: center;
-					gap: 0.5rem;
-				}
-
-				/* --- Badges --- */
-				.badge {
-					display: inline-block;
-					font-size: 0.625rem;
-					padding: 1px 7px;
-					border-radius: 3px;
-					font-weight: 500;
-					text-transform: uppercase;
-					letter-spacing: 0.03em;
-				}
-				.badge-green { background: var(--green-dim); color: var(--green); }
-				.badge-red { background: var(--red-dim); color: var(--red); }
-				.badge-yellow { background: var(--yellow-dim); color: var(--yellow); }
-				.badge-muted { background: oklch(52% 0.01 250 / 0.12); color: var(--text-muted); }
 
 				/* --- Forms --- */
-				.form-group { margin-bottom: 0.625rem; }
-				.form-label {
-					display: block;
-					font-size: 0.75rem;
-					color: var(--text-secondary);
-					margin-bottom: 0.25rem;
-					text-transform: capitalize;
+				select.form-input {
+					appearance: none;
+					background-image: var(--select-chevron);
+					background-position: right 0.5rem center;
+					background-repeat: no-repeat;
+					background-size: 1.5em 1.5em;
+					padding-right: 2.5rem;
 				}
-				.form-input {
-					width: 100%;
-					background: var(--bg);
-					border: 1px solid var(--border);
-					border-radius: 4px;
-					color: var(--text);
-					padding: 0.4375rem 0.625rem;
-					font-size: 0.8125rem;
-					font-family: var(--font-mono);
-					transition: border-color 0.1s;
+				select.form-input:is([multiple], [size]:not([size="1"])) {
+					background-image: none;
+					padding-right: 0.75rem;
+				}
+				@media (forced-colors: active) {
+					select.form-input { appearance: auto; background-image: none; }
 				}
 				.form-input:focus {
 					outline: none;
 					border-color: var(--accent);
 					box-shadow: 0 0 0 2px var(--accent-dim);
 				}
-				.input-secret {
-					position: relative;
-					display: flex;
-				}
 				.input-secret .form-input {
 					padding-right: 2.25rem;
 				}
-				.secret-toggle {
-					position: absolute;
-					right: 1px;
-					top: 1px;
-					bottom: 1px;
-					width: 2rem;
-					display: flex;
-					align-items: center;
-					justify-content: center;
-					background: transparent;
-					border: none;
-					color: var(--text-muted);
-					cursor: pointer;
-					border-radius: 0 3px 3px 0;
-					transition: color 0.1s;
-				}
-				.secret-toggle:hover {
-					color: var(--text-secondary);
-				}
 
 				/* --- Toggle --- */
-				.toggle {
-					position: relative;
-					width: 36px;
-					height: 20px;
-					cursor: pointer;
-					display: inline-block;
-				}
 				.toggle input { opacity: 0; width: 0; height: 0; }
 				.toggle .slider {
 					position: absolute;
@@ -294,335 +199,63 @@ templ Base(data PageData) {
 					transition: transform 0.15s;
 				}
 				.toggle input:checked + .slider { background: var(--accent); }
+				.toggle input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }
 				.toggle input:checked + .slider:before { transform: translateX(16px); }
 
-				/* --- Buttons --- */
-				.btn {
-					background: var(--accent);
-					color: oklch(100% 0 0);
-					border: none;
-					border-radius: var(--radius);
-					padding: 0.4375rem 1rem;
-					font-size: 0.8125rem;
-					cursor: pointer;
-					font-weight: 500;
-					text-decoration: none;
-					display: inline-flex;
-					align-items: center;
-					gap: 0.375rem;
-					transition: opacity 0.1s;
-				}
-				.btn:hover { opacity: 0.85; }
-				.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-				.btn-sm { padding: 0.25rem 0.625rem; font-size: 0.75rem; }
-				.btn-outline {
-					background: transparent;
-					border: 1px solid var(--border);
-					color: var(--text-secondary);
-				}
-				.btn-outline:hover { border-color: var(--text-muted); color: var(--text); background: var(--surface-hover); }
-				.btn-green { background: var(--green); }
-
 				/* --- Stat cards --- */
-				.stats-grid {
-					display: grid;
-					grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-					gap: 0.75rem;
-					margin-bottom: 1.5rem;
-				}
-				.stat-card {
-					background: var(--surface);
-					border: 1px solid var(--border-subtle);
-					border-radius: var(--radius);
-					padding: 0.75rem 1rem;
-				}
-				.stat-value {
-					font-size: 1.5rem;
-					font-weight: 700;
-					font-variant-numeric: tabular-nums;
-					letter-spacing: -0.02em;
-				}
-				.stat-label { font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.0625rem; }
-				.stat-card-green { border-color: oklch(65% 0.17 155 / 0.25); }
-				.stat-card-green .stat-value { color: var(--green); }
-				.stat-card-yellow { border-color: oklch(72% 0.15 80 / 0.25); }
-				.stat-card-yellow .stat-value { color: var(--yellow); }
 				.stat-card-muted .stat-value { color: var(--text-muted); }
 
 				/* --- Integration links --- */
-				.integration-link {
-					display: flex;
-					align-items: center;
-					justify-content: space-between;
-					text-decoration: none;
-					color: inherit;
-					padding: 0.75rem 1rem;
-					background: var(--surface);
-					border: 1px solid var(--border-subtle);
-					border-radius: var(--radius);
-					margin-bottom: 0.375rem;
-					transition: border-color 0.1s;
-				}
-				.integration-link:hover { border-color: var(--accent); }
-				.integration-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 				.integration-link .name {
 					font-weight: 600;
-					font-size: 0.875rem;
 					text-transform: capitalize;
 				}
 				.integration-link .meta {
 					display: flex;
 					align-items: center;
 					gap: 0.5rem;
-					font-size: 0.75rem;
 					color: var(--text-muted);
 				}
-				.last-check { color: var(--text-muted); font-size: 0.625rem; margin-left: 0.5rem; }
 
 				/* --- Integration grid (cards) --- */
-				.integration-grid {
-					display: grid;
-					grid-template-columns: repeat(3, 1fr);
-					gap: 0.625rem;
-					margin-bottom: 0.5rem;
-				}
-				.integration-card {
-					display: flex;
-					flex-direction: column;
-					justify-content: space-between;
-					text-decoration: none;
-					color: inherit;
-					padding: 0.75rem 1rem;
-					background: var(--surface);
-					border: 1px solid var(--border-subtle);
-					border-radius: var(--radius);
-					transition: border-color 0.1s;
-					min-height: 72px;
-				}
-				.integration-card:hover { border-color: var(--accent); }
-				.integration-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-				.integration-card-header {
-					display: flex;
-					align-items: center;
-					gap: 0.5rem;
-					margin-bottom: 0.5rem;
-				}
 				.integration-card .name {
 					font-weight: 600;
-					font-size: 0.875rem;
 					text-transform: capitalize;
-				}
-				.integration-card-footer {
-					display: flex;
-					align-items: center;
-					gap: 0.5rem;
-					font-size: 0.75rem;
-					color: var(--text-muted);
-				}
-				.integration-card-tools {
-					font-size: 0.6875rem;
-					color: var(--text-muted);
 				}
 
 				/* --- Tools list --- */
-				.tools-rows {
-					display: flex;
-					flex-direction: column;
-					gap: 0.25rem;
-					margin-top: 0.5rem;
-				}
-				.tool-row {
-					display: grid;
-					grid-template-columns: minmax(180px, 240px) 1fr;
-					gap: 0.875rem;
-					align-items: baseline;
-					padding: 0.4375rem 0;
-					border-bottom: 1px solid var(--border-subtle);
-				}
 				.tool-row:last-child { border-bottom: none; }
-				.tool-row-name {
-					font-family: var(--font-mono);
-					font-size: 0.75rem;
-					color: var(--text-secondary);
-					word-break: break-all;
-				}
-				.tool-row-desc {
-					font-size: 0.75rem;
-					line-height: 1.45;
-					color: var(--text-muted);
-				}
-				.tool-row-desc-empty { font-style: italic; }
-				.tools-hint {
-					font-size: 0.75rem;
-					color: var(--text-muted);
-					margin-top: 0.25rem;
-				}
 				@media (max-width: 560px) {
 					.tool-row { grid-template-columns: 1fr; gap: 0.125rem; }
 				}
 
 				/* --- Named identity editor --- */
-				.identity-editor { padding-bottom: 0; }
-				.identity-editor-header { align-items: flex-start; }
 				.identity-editor-header .badge {
 					flex-shrink: 0;
 					white-space: nowrap;
 					color: var(--text-secondary);
 				}
 				.identity-editor .form-label { color: var(--text-secondary); }
-				.identity-hint {
-					margin: 0.25rem 0 0;
-					max-width: 680px;
-					font-size: 0.75rem;
-					line-height: 1.5;
-					color: var(--text-secondary);
-				}
-				.identity-empty {
-					padding: 0.75rem 0;
-					border-top: 1px solid var(--border-subtle);
-					font-size: 0.75rem;
-					color: var(--text-secondary);
-				}
-				.identity-list { border-top: 1px solid var(--border-subtle); }
-				.identity-item {
-					padding: 1rem 0;
-					border-bottom: 1px solid var(--border-subtle);
-				}
-				.identity-item-new {
-					margin-top: 0.25rem;
-					border-bottom: none;
-				}
-				.identity-item-heading {
-					display: flex;
-					align-items: flex-start;
-					justify-content: space-between;
-					gap: 1rem;
-					margin-bottom: 0.875rem;
-				}
-				.identity-name { font-size: 0.875rem; font-weight: 600; }
-				.identity-id {
-					display: inline-block;
-					margin-top: 0.1875rem;
-					font-family: var(--font-mono);
-					font-size: 0.6875rem;
-					color: var(--text-muted);
-				}
-				.identity-fields {
-					display: grid;
-					grid-template-columns: repeat(2, minmax(0, 1fr));
-					gap: 0 1rem;
-				}
-				.identity-fieldset-heading {
-					grid-column: 1 / -1;
-					margin: 0.25rem 0 0.5rem;
-					padding-top: 0.5rem;
-					border-top: 1px solid var(--border-subtle);
-					font-size: 0.625rem;
-					font-weight: 600;
-					text-transform: uppercase;
-					letter-spacing: 0.06em;
-					color: var(--text-muted);
-				}
-				.identity-secret-status {
-					display: block;
-					margin-top: 0.25rem;
-					font-family: var(--font-mono);
-					font-size: 0.625rem;
-					color: var(--green);
-				}
-				.identity-form-actions {
-					display: flex;
-					justify-content: flex-end;
-					margin-top: 0.25rem;
-				}
-				.identity-delete { color: var(--red); }
 				@media (max-width: 640px) {
 					.identity-fields { grid-template-columns: 1fr; }
 					.identity-item-heading { align-items: center; }
 				}
 
 				/* --- Footer --- */
-				.footer {
-					margin-top: 2rem;
-					padding-top: 0.75rem;
-					border-top: 1px solid var(--border-subtle);
-					color: var(--text-muted);
-					font-size: 0.6875rem;
-				}
 				.footer code {
 					background: var(--surface);
 					padding: 2px 6px;
 					border-radius: 3px;
 					font-family: var(--font-mono);
-					font-size: 0.625rem;
 				}
-
-				/* --- Metrics: Dashboard header --- */
-				.dash-header {
-					display: flex;
-					align-items: center;
-					gap: 0.625rem;
-					margin-bottom: 1.5rem;
-				}
-				.dash-header .page-title { margin-bottom: 0; }
-				.uptime-badge {
-					font-size: 0.625rem;
-					font-family: var(--font-mono);
-					color: var(--green);
-					background: var(--green-dim);
-					padding: 1px 8px;
-					border-radius: 3px;
-					font-weight: 500;
-				}
-
-				/* --- Metrics sections --- */
-				.metrics-section { margin-bottom: 1.5rem; }
-				.metrics-grid {
-					display: grid;
-					grid-template-columns: repeat(4, 1fr);
-					gap: 0.625rem;
-				}
-				.metric-card {
-					background: var(--surface);
-					border: 1px solid var(--border-subtle);
-					border-radius: var(--radius);
-					padding: 0.75rem 1rem;
-				}
-				.metric-value {
-					font-size: 1.25rem;
-					font-weight: 700;
-					font-variant-numeric: tabular-nums;
-					letter-spacing: -0.02em;
-				}
-				.metric-label {
-					font-size: 0.6875rem;
-					color: var(--text-muted);
-					margin-top: 0.0625rem;
-				}
-				.err-rate-warn { color: var(--red); }
-
-				/* --- Metrics: two-column row --- */
-				.metrics-row {
-					display: grid;
-					grid-template-columns: 1fr 1fr;
-					gap: 0.75rem;
-				}
-				.metrics-half { min-width: 0; }
 
 				/* --- Metrics: data table --- */
-				.table-wrap { overflow-x: auto; }
-				.metrics-table {
-					width: 100%;
-					border-collapse: collapse;
-					font-size: 0.8125rem;
-				}
 				.metrics-table th {
 					text-align: left;
 					font-weight: 500;
 					color: var(--text-muted);
 					padding: 0.375rem 0.75rem;
 					border-bottom: 1px solid var(--border);
-					font-size: 0.6875rem;
 					text-transform: uppercase;
 					letter-spacing: 0.04em;
 				}
@@ -635,99 +268,16 @@ templ Base(data PageData) {
 					text-align: right;
 					font-variant-numeric: tabular-nums;
 					font-family: var(--font-mono);
-					font-size: 0.75rem;
 				}
 				.metrics-table .latency { color: var(--text-secondary); }
 				.metrics-table .has-errors { color: var(--red); }
-				.integration-name-cell { text-transform: capitalize; }
 				.integration-name-cell a {
 					color: var(--accent);
 					text-decoration: none;
 				}
 				.integration-name-cell a:hover { text-decoration: underline; }
 
-				/* --- Metrics: top tools --- */
-				.top-tools-list {
-					display: flex;
-					flex-direction: column;
-					gap: 0.25rem;
-				}
-				.top-tool-item {
-					display: flex;
-					align-items: center;
-					gap: 0.5rem;
-					padding: 0.375rem 0.625rem;
-					background: var(--surface);
-					border: 1px solid var(--border-subtle);
-					border-radius: 4px;
-					font-size: 0.8125rem;
-				}
-				.top-tool-rank {
-					width: 18px;
-					height: 18px;
-					background: var(--accent-dim);
-					color: var(--accent);
-					border-radius: 3px;
-					display: flex;
-					align-items: center;
-					justify-content: center;
-					font-size: 0.625rem;
-					font-weight: 600;
-					flex-shrink: 0;
-				}
-				.top-tool-name {
-					flex: 1;
-					font-family: var(--font-mono);
-					font-size: 0.6875rem;
-					overflow: hidden;
-					text-overflow: ellipsis;
-					white-space: nowrap;
-					color: var(--text-secondary);
-				}
-				.top-tool-calls {
-					font-variant-numeric: tabular-nums;
-					font-family: var(--font-mono);
-					color: var(--text-muted);
-					font-size: 0.6875rem;
-				}
-
-				/* --- Metrics: efficiency --- */
-				.efficiency-grid {
-					display: grid;
-					grid-template-columns: 1fr 1fr;
-					gap: 0.375rem;
-				}
-				.efficiency-item {
-					background: var(--surface);
-					border: 1px solid var(--border-subtle);
-					border-radius: 4px;
-					padding: 0.625rem;
-				}
-				.efficiency-value {
-					font-size: 1rem;
-					font-weight: 700;
-					font-variant-numeric: tabular-nums;
-					letter-spacing: -0.01em;
-					display: block;
-				}
-				.efficiency-label {
-					font-size: 0.625rem;
-					color: var(--text-muted);
-					display: block;
-				}
-
 				/* --- Savings hero: headline value-prop card --- */
-				.savings-hero {
-					background: linear-gradient(135deg,
-						oklch(22% 0.04 250) 0%,
-						oklch(18% 0.025 250) 100%);
-					border: 1px solid var(--accent-dim);
-					border-radius: var(--radius);
-					padding: 1.25rem 1.5rem;
-					margin-bottom: 1.5rem;
-					position: relative;
-					overflow: hidden;
-				}
 				.savings-hero::before {
 					content: "";
 					position: absolute;
@@ -738,192 +288,30 @@ templ Base(data PageData) {
 					background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
 					pointer-events: none;
 				}
-				.savings-hero-head {
-					position: relative;
-					margin-bottom: 1rem;
-				}
-				.savings-hero-label {
-					font-size: 0.6875rem;
-					text-transform: uppercase;
-					letter-spacing: 0.08em;
-					color: var(--text-muted);
-					font-weight: 500;
-				}
-				.savings-hero-value {
-					font-size: 2.5rem;
-					font-weight: 700;
-					font-variant-numeric: tabular-nums;
-					letter-spacing: -0.03em;
-					color: var(--text);
-					line-height: 1.1;
-					margin-top: 0.25rem;
-				}
-				.savings-hero-unit {
-					font-size: 1rem;
-					font-weight: 500;
-					color: var(--text-muted);
-					margin-left: 0.375rem;
-					letter-spacing: 0;
-				}
-				.savings-hero-sub {
-					font-size: 0.8125rem;
-					color: var(--text-secondary);
-					margin-top: 0.25rem;
-				}
-				.savings-hero-dollars {
-					color: var(--green);
-					font-weight: 500;
-				}
-				.savings-buckets {
-					position: relative;
-					display: grid;
-					grid-template-columns: repeat(4, 1fr);
-					gap: 0.625rem;
-				}
-				.savings-bucket {
-					background: var(--surface);
-					border: 1px solid var(--border-subtle);
-					border-radius: 6px;
-					padding: 0.75rem 0.875rem;
-					display: flex;
-					flex-direction: column;
-					gap: 0.25rem;
-				}
-				.savings-bucket-head {
-					display: flex;
-					justify-content: space-between;
-					align-items: center;
-					gap: 0.5rem;
-				}
-				.savings-bucket-label {
-					font-size: 0.6875rem;
-					color: var(--text-secondary);
-					font-weight: 500;
-					text-transform: uppercase;
-					letter-spacing: 0.04em;
-				}
-				.savings-bucket-pct {
-					font-size: 0.6875rem;
-					font-variant-numeric: tabular-nums;
-					color: var(--accent);
-					background: var(--accent-dim);
-					padding: 1px 6px;
-					border-radius: 3px;
-					font-weight: 600;
-				}
-				.savings-bucket-value {
-					font-size: 1.25rem;
-					font-weight: 700;
-					font-variant-numeric: tabular-nums;
-					letter-spacing: -0.02em;
-					color: var(--text);
-				}
-				.savings-bucket-unit {
-					font-size: 0.6875rem;
-					font-weight: 500;
-					color: var(--text-muted);
-					margin-left: 0.25rem;
-				}
-				.savings-bucket-meta {
-					font-size: 0.6875rem;
-					color: var(--text-muted);
-					font-variant-numeric: tabular-nums;
-				}
-				.savings-bucket-blurb {
-					font-size: 0.6875rem;
-					color: var(--text-muted);
-					line-height: 1.4;
-					margin-top: 0.125rem;
-				}
-				.savings-hero-foot {
-					position: relative;
-					font-size: 0.625rem;
-					color: var(--text-muted);
-					margin-top: 0.875rem;
-					padding-top: 0.625rem;
-					border-top: 1px solid var(--border-subtle);
-				}
 
 				/* --- Slack/setup-specific --- */
-				.slack-desc { color: var(--text-secondary); font-size: 0.8125rem; line-height: 1.6; }
-				.slack-desc code { background: var(--bg); padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-family: var(--font-mono); }
-				.slack-steps { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
-				.slack-step { display: flex; gap: 0.625rem; align-items: flex-start; }
-				.slack-step-num {
-					flex-shrink: 0;
-					width: 24px; height: 24px;
-					background: var(--accent);
-					color: oklch(100% 0 0);
-					border-radius: 50%;
-					display: flex;
-					align-items: center;
-					justify-content: center;
-					font-size: 0.6875rem;
-					font-weight: 600;
-				}
-				.slack-step-detail { color: var(--text-secondary); font-size: 0.8125rem; margin-top: 0.125rem; }
+				.slack-desc code { background: var(--bg); padding: 2px 6px; border-radius: 3px; font-family: var(--font-mono); }
 				.slack-step-detail kbd {
 					background: var(--bg);
 					border: 1px solid var(--border);
 					border-radius: 3px;
 					padding: 1px 5px;
-					font-size: 0.6875rem;
 					font-family: var(--font-mono);
 				}
-				.slack-link { color: var(--accent); text-decoration: none; }
 				.slack-link:hover { text-decoration: underline; }
-				.slack-code-block {
-					background: var(--bg);
-					border: 1px solid var(--border-subtle);
-					border-radius: var(--radius);
-					padding: 0.625rem;
-					margin-top: 0.375rem;
-					position: relative;
-				}
 				.slack-code-block pre { overflow-x: auto; margin: 0; }
-				.slack-code-block code { font-size: 0.6875rem; font-family: var(--font-mono); color: var(--text-muted); white-space: pre-wrap; word-break: break-all; }
+				.slack-code-block code { font-family: var(--font-mono); color: var(--text-muted); white-space: pre-wrap; word-break: break-all; }
 				.slack-code-block .btn { position: absolute; top: 0.375rem; right: 0.375rem; }
-				.slack-textarea {
-					font-family: var(--font-mono);
-					font-size: 0.8125rem;
-					resize: vertical;
-					min-height: 56px;
-				}
-				.slack-token-meta {
-					display: flex;
-					gap: 1.25rem;
-					font-size: 0.8125rem;
-					color: var(--text-secondary);
-				}
 				.slack-token-meta strong { color: var(--text); font-weight: 600; }
-
-				/* --- Spinner --- */
-				.spinner {
-					display: inline-block;
-					width: 12px;
-					height: 12px;
-					border: 2px solid var(--border);
-					border-top-color: var(--accent);
-					border-radius: 50%;
-					animation: spin 0.6s linear infinite;
-					vertical-align: middle;
-				}
-				@keyframes spin { to { transform: rotate(360deg); } }
 
 				/* --- Responsive --- */
 				@media (max-width: 768px) {
-					.sidebar { width: 180px; }
 					.main { padding: 1.5rem; }
-					.metrics-grid { grid-template-columns: repeat(2, 1fr); }
 					.metrics-row { grid-template-columns: 1fr; }
-					.stats-grid { grid-template-columns: repeat(2, 1fr); }
-					.integration-grid { grid-template-columns: repeat(2, 1fr); }
-					.savings-buckets { grid-template-columns: repeat(2, 1fr); }
 					.savings-hero { padding: 1rem; }
 					.savings-hero-value { font-size: 2rem; }
 				}
 				@media (max-width: 560px) {
-					body { flex-direction: column; }
 					.btn { min-height: 40px; }
 					.form-input { min-height: 42px; }
 					.secret-toggle { width: 2.5rem; }
@@ -932,52 +320,20 @@ templ Base(data PageData) {
 					.toggle .slider { border-radius: 12px; }
 					.toggle .slider:before { width: 18px; height: 18px; }
 					.toggle input:checked + .slider:before { transform: translateX(20px); }
-					.sidebar {
-						width: 100%;
-						flex-direction: row;
-						padding: 0.5rem 0;
-						border-right: none;
-						border-bottom: 1px solid var(--border-subtle);
-						overflow-x: auto;
-					}
-					.sidebar-brand { display: none; }
-					.nav-item {
-						border-left: none;
-						border-bottom: 2px solid transparent;
-						padding: 0.375rem 0.75rem;
-						white-space: nowrap;
-					}
-					.nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent); }
 					.main { padding: 1rem; }
-					.integration-grid { grid-template-columns: 1fr; }
-					.savings-buckets { grid-template-columns: 1fr; }
 				}
 			</style>
 		</head>
-		<body>
-			<nav class="sidebar">
-				<div class="sidebar-brand">
-					<div class="sidebar-brand-name">⚙ Switchboard</div>
-					<span class="sidebar-brand-sub">Server Configuration</span>
-				</div>
-				for _, item := range navItems() {
-					if isActive(data.CurrentPath, item.Path) {
-						<a href={ templ.SafeURL(item.Path) } class="nav-item active">{ item.Icon } { item.Label }</a>
-					} else {
-						<a href={ templ.SafeURL(item.Path) } class="nav-item">{ item.Icon } { item.Label }</a>
-					}
-				}
-				<div class="sidebar-version">{ version.String() }</div>
-			</nav>
-			<main class="main">
-				if data.FlashSuccess != "" {
-					<div class="flash flash-success">{ data.FlashSuccess }</div>
-				}
-				if data.FlashError != "" {
-					<div class="flash flash-error">{ data.FlashError }</div>
-				}
-				{ children... }
-			</main>
+		<body class="text-base font-normal text-content">
+			@sidebar(data.CurrentPath)
+			<div class="flex-1 min-w-0">
+				@topbar(appearance)
+				@searchDialog()
+				@toastStack(data)
+				<main class="main" tabindex="-1">
+					{ children... }
+				</main>
+			</div>
 			<script>
 				function toggleSecret(btn) {
 					var input = btn.parentElement.querySelector('input');
@@ -996,4 +352,166 @@ templ Base(data PageData) {
 			</script>
 		</body>
 	</html>
+}
+
+templ appearanceBootstrap(appearance appearanceConfig) {
+	@templ.JSONScript("appearance-config", appearance)
+	<script id="appearance-bootstrap">
+		(() => {
+			const config = JSON.parse(document.getElementById('appearance-config').textContent);
+			const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+			const scheme = dark ? 'dark' : 'light';
+			const root = document.documentElement;
+			root.dataset.theme = config.defaults[scheme];
+			root.dataset.fontSize = '100';
+			try {
+				const theme = localStorage.getItem('switchboard.theme');
+				const size = localStorage.getItem('switchboard.fontSize');
+				const knownTheme = config.themes.some(option => option.id === theme);
+				if (knownTheme) root.dataset.theme = theme;
+				if (config.fontSizes.includes(size)) root.dataset.fontSize = size;
+			} catch {}
+		})();
+	</script>
+}
+
+templ sidebar(currentPath string) {
+	<nav id="sidebar" class="sidebar" aria-label="Main navigation">
+		<div class="sidebar-brand">
+			<div class="flex items-center justify-between gap-2">
+				<div class="sidebar-brand-name">Switchboard</div>
+				<button class="icon-button h-10 w-10" type="button" data-sidebar-close aria-label="Close sidebar" aria-controls="sidebar" disabled>
+					<span class="i-lucide:x text-base" aria-hidden="true"></span>
+				</button>
+			</div>
+		</div>
+		for _, item := range navItems() {
+			@navigationLink(item, currentPath)
+		}
+		<div class="sidebar-version">{ version.String() }</div>
+	</nav>
+}
+
+templ navigationLink(item NavItem, currentPath string) {
+	if isActive(currentPath, item.Path) {
+		<a href={ templ.SafeURL(item.Path) } class="nav-item active" aria-current="page">
+			<span class={ item.Icon, "w-[14px] h-[14px] shrink-0" } aria-hidden="true"></span>
+			{ item.Label }
+		</a>
+	} else {
+		<a href={ templ.SafeURL(item.Path) } class="nav-item">
+			<span class={ item.Icon, "w-[14px] h-[14px] shrink-0" } aria-hidden="true"></span>
+			{ item.Label }
+		</a>
+	}
+}
+
+templ topbar(appearance appearanceConfig) {
+	<header class="topbar" aria-label="Navigation and appearance">
+		<div class="flex items-center gap-2">
+			<button class="icon-button h-10 w-10" type="button" data-sidebar-toggle aria-label="Toggle sidebar" aria-controls="sidebar" aria-expanded="true" disabled>
+				<span class="i-lucide:panel-left text-base" aria-hidden="true"></span>
+			</button>
+			<span class="font-semibold text-lg hidden sm:inline">Switchboard</span>
+		</div>
+		<div class="appearance-controls ml-auto">
+			<button class="icon-button h-10 gap-2 px-2" type="button" data-search-open aria-label="Search" aria-keyshortcuts="Meta+K Control+K" title="Search (⌘K / Ctrl+K)" aria-haspopup="dialog" aria-controls="search-dialog" disabled>
+				<span class="i-lucide:search text-xl" aria-hidden="true"></span>
+				<kbd class="font-mono text-sm text-muted" aria-hidden="true">⌘K</kbd>
+			</button>
+			@fontSizePicker(appearance.FontSizes)
+			@themePicker(appearance.Themes)
+		</div>
+	</header>
+}
+
+templ fontSizePicker(fontSizes []string) {
+	<details class="appearance-picker relative" data-font-picker>
+		<summary class="icon-button h-10 w-10" aria-label="Font size" aria-disabled="true">
+			<span class="i-lucide:a-large-small text-2xl" aria-hidden="true"></span>
+		</summary>
+		<div class="theme-options w-40" role="radiogroup" aria-label="Font size">
+			for _, size := range fontSizes {
+				<label class="theme-option">
+					<input type="radio" name="font-size" value={ size } aria-label={ size + "%" } data-preference="fontSize" class="sr-only" checked?={ size == "100" } disabled/>
+					<span class="font-size-option font-mono w-6" data-size={ size } aria-hidden="true">A</span>
+					<span>{ size + "%" }</span>
+					<span class="theme-check i-lucide:check ml-auto shrink-0" aria-hidden="true"></span>
+				</label>
+			}
+		</div>
+	</details>
+}
+
+templ themePicker(themes []themeOption) {
+	<details class="appearance-picker theme-picker relative" data-theme-picker>
+		<summary id="appearance-theme" class="icon-button h-10 w-10" aria-disabled="true">
+			<span id="theme-label" class="sr-only">Theme</span>
+			@themeSwatch(themes[0].ID)
+			<span class="sr-only" data-theme-name>{ themes[0].Name }</span>
+		</summary>
+		<div class="theme-options" role="radiogroup" aria-labelledby="theme-label">
+			for _, theme := range themes {
+				<label class="theme-option">
+					<input class="sr-only" type="radio" name="theme" value={ theme.ID } aria-label={ theme.Name } data-preference="theme" disabled/>
+					@themeSwatch(theme.ID)
+					<span>{ theme.Name }</span>
+					<span class="theme-check i-lucide:check ml-auto shrink-0" aria-hidden="true"></span>
+				</label>
+			}
+		</div>
+	</details>
+}
+
+templ searchDialog() {
+	<dialog id="search-dialog" class="search-dialog" aria-labelledby="search-title">
+		<div class="flex items-center justify-between gap-3 mb-3">
+			<h2 id="search-title" class="text-lg font-semibold">Search</h2>
+			<form method="dialog">
+				<button class="icon-button h-10 w-10" aria-label="Close search"><span class="i-lucide:x text-xl" aria-hidden="true"></span></button>
+			</form>
+		</div>
+		<label for="route-search" class="sr-only">Search pages, integrations, and projects</label>
+		<input id="route-search" class="form-input" type="search" placeholder="Search…" autocomplete="off" aria-describedby="search-status" disabled autofocus/>
+		<p id="search-status" class="text-sm text-muted mt-3" role="status">Search pages, integrations, and projects.</p>
+	</dialog>
+}
+
+templ toastStack(data PageData) {
+	<div class="toast-stack">
+		@refreshToast()
+		if data.FlashSuccess != "" {
+			@successToast(data.FlashSuccess)
+		}
+		if data.FlashError != "" {
+			@errorToast(data.FlashError)
+		}
+	</div>
+}
+
+templ refreshToast() {
+	<div id="page-refresh-status" class="toast flash" data-flash="refresh" role="status" aria-atomic="true" hidden>
+		<span data-flash-message></span>
+		<button type="button" class="flash-dismiss" data-dismiss-flash aria-label="Dismiss notification">
+			<span class="i-lucide:x text-base" aria-hidden="true"></span>
+		</button>
+	</div>
+}
+
+templ successToast(message string) {
+	<div class="toast flash flash-success" data-flash="success" data-auto-dismiss role="status" aria-atomic="true">
+		<span>{ message }</span>
+		<button type="button" class="flash-dismiss" data-dismiss-flash aria-label="Dismiss success message">
+			<span class="i-lucide:x text-base" aria-hidden="true"></span>
+		</button>
+	</div>
+}
+
+templ errorToast(message string) {
+	<div class="toast flash flash-error" data-flash="error" role="alert" aria-atomic="true">
+		<span>{ message }</span>
+		<button type="button" class="flash-dismiss" data-dismiss-flash aria-label="Dismiss error message">
+			<span class="i-lucide:x text-base" aria-hidden="true"></span>
+		</button>
+	</div>
 }

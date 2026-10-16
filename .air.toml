@@ -13,10 +13,10 @@ tmp_dir = "tmp"
   cmd = "go tool templ generate && go build -buildvcs=false -o ./tmp/switchboard ./cmd/server"
   delay = 1000
   exclude_dir = ["tmp", "dist", "node_modules", ".git", "wasm/guest-rust/target"]
-  exclude_regex = ["_test\\.go$", "_templ\\.go$"]
+  exclude_regex = ["_test\\.go$", "_templ\\.go$", "\\.test\\.mjs$"]
   exclude_unchanged = false
   follow_symlink = false
-  include_ext = ["go", "templ"]
+  include_ext = ["go", "templ", "js", "mjs", "css", "json"]
   kill_delay = "2s"
   log = "build-errors.log"
   poll = false

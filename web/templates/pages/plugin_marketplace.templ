@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 
+	"github.com/daltoniam/switchboard/web/templates/components"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 )
 
@@ -47,10 +48,13 @@ type PluginMarketplaceData struct {
 
 templ PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) {
 	@layouts.Base(page) {
-		<h1 class="page-title">Plugin Marketplace</h1>
+		{{ count := fmt.Sprint(len(data.Installed)) }}
+		@components.PageHeader("Plugin Marketplace", count + " installed plugins") {
+			@components.PageRefresh("Refresh plugins")
+		}
 		<!-- Auto-Update Settings -->
 		<div class="card" style="margin-bottom: 1rem;">
-			<div style="display: flex; align-items: center; justify-content: space-between;">
+			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<div style="font-size: 0.8125rem; font-weight: 600;">Automatic Updates</div>
 					<div style="font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.125rem;">
@@ -61,17 +65,17 @@ templ PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) {
 						}
 					</div>
 				</div>
-				<div style="display: flex; align-items: center; gap: 0.75rem;">
+				<div class="flex flex-wrap items-center gap-3">
 					<form method="POST" action="/plugins/check-updates" style="display:inline;">
 						<button type="submit" class="btn btn-sm btn-outline">Check Now</button>
 					</form>
 					<form method="POST" action="/plugins/auto-update">
 						if data.AutoUpdate {
 							<input type="hidden" name="enabled" value="false"/>
-							<button type="submit" class="btn btn-sm btn-green">Auto-Update: ON</button>
+							<button type="submit" class="btn btn-sm" aria-pressed="true">Auto-Update: ON</button>
 						} else {
 							<input type="hidden" name="enabled" value="true"/>
-							<button type="submit" class="btn btn-sm btn-outline">Auto-Update: OFF</button>
+							<button type="submit" class="btn btn-sm btn-outline" aria-pressed="false">Auto-Update: OFF</button>
 						}
 					</form>
 				</div>
@@ -178,7 +182,7 @@ templ PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) {
 		}
 		<!-- Install from URL -->
 		<div class="section-title" style="margin-top: 1.5rem;">Install from URL</div>
-		<form method="POST" action="/plugins/install-url">
+		<form id="plugin-install-url" hx-preserve method="POST" action="/plugins/install-url">
 			<div class="card">
 				<div class="form-group">
 					<label class="form-label" for="plugin_url">WASM Plugin URL</label>
@@ -189,7 +193,7 @@ templ PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) {
 		</form>
 		<!-- Upload WASM -->
 		<div class="section-title">Upload Plugin</div>
-		<form method="POST" action="/plugins/upload" enctype="multipart/form-data">
+		<form id="plugin-upload" hx-preserve method="POST" action="/plugins/upload" enctype="multipart/form-data">
 			<div class="card">
 				<div class="form-group">
 					<label class="form-label" for="plugin_name">Plugin Name (optional)</label>
@@ -204,7 +208,7 @@ templ PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) {
 		</form>
 		<!-- Load from Local Path -->
 		<div class="section-title">Load from Local Path</div>
-		<form method="POST" action="/plugins/load-path">
+		<form id="plugin-load-path" hx-preserve method="POST" action="/plugins/load-path">
 			<div class="card">
 				<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.625rem;">
 					Load a WASM plugin directly from a local file path. Useful for development and testing.
@@ -251,7 +255,7 @@ templ PluginMarketplace(page layouts.PageData, data PluginMarketplaceData) {
 				</div>
 			}
 		}
-		<form method="POST" action="/plugins/add-manifest">
+		<form id="plugin-add-manifest" hx-preserve method="POST" action="/plugins/add-manifest">
 			<div class="card">
 				<div class="form-group">
 					<label class="form-label" for="manifest_url">Manifest URL</label>

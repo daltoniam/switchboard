@@ -40,6 +40,22 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Read Node version
+        id: node
+        run: echo "version=$(make --no-print-directory node-version)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.node.outputs.version }}
+
+      - name: Run web unit tests
+        run: make test-web
+
+      - name: Check generated CSS
+        run: |
+          make styles
+          git diff --exit-code -- web/static/style.css
+
       - name: Run tests
         run: go test -race -coverprofile=coverage.out ./...
 
@@ -73,6 +89,15 @@ jobs:
           path: dist/ui-artifacts/
           if-no-files-found: error
           retention-days: 7
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run browser interaction tests
+        run: make test-browser
 
   lint:
     runs-on: ubuntu-latest
