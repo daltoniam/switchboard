@@ -1,0 +1,60 @@
+{
+  "defaults": { "light": "github-light", "dark": "github-dark" },
+  "fontSizes": ["80", "100", "120"],
+  "themes": [
+    {
+      "id": "github-light", "name": "GitHub Light Default", "scheme": "light",
+      "colors": {
+        "bg": "#ffffff", "surface": "#f6f8fa", "surface-hover": "#eaeef2",
+        "border": "#8c959f", "border-subtle": "#d0d7de",
+        "text": "#24292f", "text-secondary": "#57606a", "text-muted": "#57606a",
+        "accent": "#0969da", "green": "#1a7f37", "red": "#cf222e", "yellow": "#9a6700"
+      }
+    },
+    {
+      "id": "atom-one-light", "name": "Atom One Light", "scheme": "light",
+      "colors": {
+        "bg": "#fafafa", "surface": "#ffffff", "surface-hover": "#eaeaeb",
+        "border": "#9d9d9f", "border-subtle": "#dbdbdc",
+        "text": "#383a42", "text-secondary": "#626772", "text-muted": "#626772",
+        "accent": "#4055c7", "green": "#2d702c", "red": "#b6372c", "yellow": "#895000"
+      }
+    },
+    {
+      "id": "catppuccin-latte", "name": "Catppuccin Latte", "scheme": "light",
+      "colors": {
+        "bg": "#eff1f5", "surface": "#e6e9ef", "surface-hover": "#dce0e8",
+        "border": "#8c8fa1", "border-subtle": "#bcc0cc",
+        "text": "#4c4f69", "text-secondary": "#5c5f77", "text-muted": "#5c5f77",
+        "accent": "#1854cc", "green": "#28701c", "red": "#b80c30", "yellow": "#895000"
+      }
+    },
+    {
+      "id": "github-dark", "name": "GitHub Dark Default", "scheme": "dark",
+      "colors": {
+        "bg": "#0d1117", "surface": "#161b22", "surface-hover": "#21262d",
+        "border": "#6e7681", "border-subtle": "#30363d",
+        "text": "#e6edf3", "text-secondary": "#c9d1d9", "text-muted": "#8b949e",
+        "accent": "#58a6ff", "green": "#3fb950", "red": "#f85149", "yellow": "#d29922"
+      }
+    },
+    {
+      "id": "dracula", "name": "Dracula", "scheme": "dark",
+      "colors": {
+        "bg": "#282a36", "surface": "#21222c", "surface-hover": "#44475a",
+        "border": "#6272a4", "border-subtle": "#44475a",
+        "text": "#f8f8f2", "text-secondary": "#f8f8f2", "text-muted": "#bd93f9",
+        "accent": "#bd93f9", "green": "#50fa7b", "red": "#ff5555", "yellow": "#f1fa8c"
+      }
+    },
+    {
+      "id": "nord", "name": "Nord", "scheme": "dark",
+      "colors": {
+        "bg": "#2e3440", "surface": "#3b4252", "surface-hover": "#434c5e",
+        "border": "#7b88a1", "border-subtle": "#4c566a",
+        "text": "#eceff4", "text-secondary": "#e5e9f0", "text-muted": "#d8dee9",
+        "accent": "#88c0d0", "green": "#a3be8c", "red": "#f19aa2", "yellow": "#ebcb8b"
+      }
+    }
+  ]
+}

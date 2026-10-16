@@ -2,6 +2,8 @@ package web
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -90,6 +93,8 @@ func (app *uiApp) restart() {
 
 func uiPage(t *testing.T) playwright.Page {
 	t.Helper()
+	scripts := uiScriptFixtures(t)
+	logos := uiLogoFixtures(t)
 	driver, err := playwright.Run()
 	require.NoError(t, err, "install the Playwright driver with make ui-install")
 	t.Cleanup(func() { require.NoError(t, driver.Stop()) })
@@ -103,6 +108,15 @@ func uiPage(t *testing.T) playwright.Page {
 	require.NoError(t, err)
 	page.SetDefaultTimeout(10000)
 	require.NoError(t, browserContext.Route("**/*", func(route playwright.Route) {
+		if body, ok := scripts[route.Request().URL()]; ok {
+			uiFulfillFixture(t, route, body, "text/javascript")
+			return
+		}
+		if logos[route.Request().URL()] {
+			body := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 2h20v20H2z"/></svg>`
+			uiFulfillFixture(t, route, body, "image/svg+xml")
+			return
+		}
 		target, parseErr := url.Parse(route.Request().URL())
 		if parseErr != nil || target.Hostname() != "127.0.0.1" {
 			t.Errorf("browser attempted non-fixture request")
@@ -128,6 +142,56 @@ func uiPage(t *testing.T) playwright.Page {
 		}
 	})
 	return page
+}
+
+func uiFulfillFixture(t *testing.T, route playwright.Route, body, contentType string) {
+	t.Helper()
+	headers := map[string]string{"Access-Control-Allow-Origin": "*"}
+	options := playwright.RouteFulfillOptions{
+		Body: body, ContentType: playwright.String(contentType), Headers: headers,
+	}
+	require.NoError(t, route.Fulfill(options))
+}
+
+func uiLogoFixtures(t *testing.T) map[string]bool {
+	t.Helper()
+	css, err := uiAssets.ReadFile("static/style.css")
+	require.NoError(t, err)
+	pattern := regexp.MustCompile(`https://cdn\.jsdelivr\.net/gh/[\w-]+/[\w-]+@[a-f0-9]{40}/[\w/.-]+\.svg`)
+	sources := pattern.FindAllString(string(css), -1)
+	require.NotEmpty(t, sources)
+	fixtures := make(map[string]bool, len(sources))
+	for _, source := range sources {
+		fixtures[source] = true
+	}
+	return fixtures
+}
+
+func uiScriptFixtures(t *testing.T) map[string]string {
+	t.Helper()
+	integrities := map[string]string{
+		"https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js":                              "2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg",
+		"https://cdn.jsdelivr.net/npm/@tarekraafat/autocomplete.js@10.2.10/dist/autoComplete.min.js": "cLawOb2F3v0Zfax5NIlJRiJLXwaGoV0vezUUxIAvxIZDfx/jXGa8xOYNTXS8/cu4",
+	}
+	fixtures := make(map[string]string, len(integrities))
+	for source, integrity := range integrities {
+		fixtures[source] = uiFetchScript(t, source, integrity)
+	}
+	return fixtures
+}
+
+func uiFetchScript(t *testing.T, source, integrity string) string {
+	t.Helper()
+	client := &http.Client{Timeout: 15 * time.Second}
+	response, err := client.Get(source)
+	require.NoError(t, err)
+	defer response.Body.Close()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	body, err := io.ReadAll(response.Body)
+	require.NoError(t, err)
+	digest := sha512.Sum384(body)
+	require.Equal(t, integrity, base64.StdEncoding.EncodeToString(digest[:]), source)
+	return string(body)
 }
 
 func uiNavigate(t *testing.T, page playwright.Page, target string) {
@@ -365,8 +429,8 @@ func TestUIOAuthSetup(t *testing.T) {
 			uiText(t, page.Locator("h1"), "Notion MCP Setup")
 			require.NoError(t, page.Locator("#notion-mcp-oauth-start").Click())
 			if test.connected {
-				require.NoError(t, page.Locator(".flash").First().WaitFor())
-				message, err := page.Locator(".flash").First().TextContent()
+				require.NoError(t, page.Locator(".flash-success").WaitFor())
+				message, err := page.Locator(".flash-success").TextContent()
 				require.NoError(t, err)
 				require.Contains(t, message, "Connected via MCP OAuth")
 				config, ok := store.GetIntegration("notion-mcp")

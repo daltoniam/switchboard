@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/googleoauth"
 	"github.com/daltoniam/switchboard/integrations/figma"
@@ -21,6 +22,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type integrationCardState struct {
+	name, enabled, label string
+}
 
 // --- mock types for testing ---
 
@@ -526,9 +531,9 @@ func TestDashboard_IntegrationCounts(t *testing.T) {
 	assert.Contains(t, body, "Errored")
 
 	// Verify stat card values: 1 connected (testint), 1 disabled, 1 errored
-	assert.Contains(t, body, `stat-card-green"><div class="stat-value">1</div>`)
+	assert.Contains(t, body, `stat-card"><div class="stat-value">1</div><div class="stat-label">Connected</div>`)
 	assert.Contains(t, body, `stat-card-muted"><div class="stat-value">1</div>`)
-	assert.Contains(t, body, `stat-card-yellow"><div class="stat-value">1</div>`)
+	assert.Contains(t, body, `stat-card-negative"><div class="stat-value">1</div>`)
 
 	// Should show errored integration in "Needs Attention" section
 	assert.Contains(t, body, "Needs Attention")
@@ -548,9 +553,29 @@ func TestDashboard_NoErroredHidesSection(t *testing.T) {
 
 	// "testint" is healthy, so no "Needs Attention" section
 	assert.NotContains(t, body, "Needs Attention")
+	assert.Contains(t, body, `stat-card"><div class="stat-value">0</div><div class="stat-label">Errored</div>`)
 }
 
-func TestIntegrationsList_CategorizedSections(t *testing.T) {
+func TestDashboard_ErrorRateColor(t *testing.T) {
+	for _, hasError := range []bool{false, true} {
+		t.Run(fmt.Sprint(hasError), func(t *testing.T) {
+			ws, _, _ := setupTestWeb()
+			ws.services.Metrics = mcp.NewMetrics()
+			const executionError = false
+			for range 99 {
+				ws.services.Metrics.RecordExecution("testint", "testint_do", 0, executionError, 0)
+			}
+			ws.services.Metrics.RecordExecution("testint", "testint_do", 0, hasError, 0)
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/", nil))
+			html := rr.Body.String()
+			hasErrorCard := strings.Contains(html, `class="metric-card card-error"`)
+			assert.Equal(t, hasError, hasErrorCard)
+		})
+	}
+}
+
+func TestIntegrationsList_CardStates(t *testing.T) {
 	ws, reg, cfgService := setupTestWeb()
 
 	// Add disabled integration
@@ -581,10 +606,13 @@ func TestIntegrationsList_CategorizedSections(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	body := rr.Body.String()
 
-	// Should have all 3 sections
-	assert.Contains(t, body, "Needs Attention")
-	assert.Contains(t, body, "Connected")
-	assert.Contains(t, body, "Disabled")
+	// Should retain all 3 integration states in the shared grid
+	expected := []integrationCardState{
+		{"alpha_disabled", "false", "Disabled"},
+		{"beta_errored", "true", "Not Verified"},
+		{"testint", "true", "Connected"},
+	}
+	assertIntegrationCards(t, rr, expected)
 
 	// Should show the integrations
 	assert.Contains(t, body, "beta_errored")
@@ -1189,6 +1217,123 @@ func TestRemoteOAuthProfiles(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "/api/remote/linear/oauth/callback", linearProfile.CallbackPath)
 	assert.Equal(t, "api_key", linearProfile.ClearCredentialKey)
+}
+
+func TestStyleGuide(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/styleguide", nil))
+	require.Equal(t, http.StatusOK, rr.Code)
+	for _, status := range []string{"success", "error"} {
+		assert.Contains(t, rr.Body.String(), `flash flash-`+status)
+	}
+	assertStyleGuideSections(t, rr.Body.String())
+	assert.NotContains(t, rr.Body.String(), `method="POST"`)
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rr.Body.String()))
+	require.NoError(t, err)
+	assert.Zero(t, doc.Find(`.flash-warning, .flash-info, .status-info, [data-example-toggle], .dash-header, .uptime-badge, .last-check, .spinner`).Length())
+	assert.Equal(t, 4, doc.Find(`[aria-labelledby="theme-tables"] thead th`).Length())
+}
+
+func assertStyleGuideSections(t *testing.T, body string) {
+	t.Helper()
+	for _, section := range []string{
+		"Typography", "Hover and keyboard focus", "Form controls", "Cards and integrations",
+		"Metrics and summaries", "Tables and metadata", "Lists and tools", "Identity editor",
+		"Setup steps and code", "Empty states", "Status messages",
+	} {
+		assert.Contains(t, body, section)
+	}
+}
+
+func TestUIAssets(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	for _, asset := range []struct {
+		name, contentType string
+		status            int
+	}{
+		{"ui.mjs", "javascript", http.StatusOK},
+		{"style.css", "text/css", http.StatusOK},
+		{"missing.mjs", "text/plain", http.StatusNotFound},
+	} {
+		t.Run(asset.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/static/"+asset.name, nil))
+			assert.Equal(t, asset.status, rr.Code)
+			assert.Contains(t, rr.Header().Get("Content-Type"), asset.contentType)
+			assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
+			assert.NotEmpty(t, rr.Body.String())
+		})
+	}
+}
+
+func TestHealthRefresh_ResponseVariants(t *testing.T) {
+	for _, header := range []string{"", "false", "true"} {
+		t.Run("HX-Request="+header, func(t *testing.T) {
+			ws, _, _ := setupTestWeb()
+			req := httptest.NewRequest("POST", "/api/health/refresh", nil)
+			req.Header.Set("HX-Request", header)
+			req.Header.Set("Referer", "/integrations")
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, req)
+			assert.Contains(t, rr.Header().Get("Vary"), "HX-Request")
+			if header != "true" {
+				assert.Equal(t, http.StatusSeeOther, rr.Code)
+				assert.Equal(t, "/integrations", rr.Header().Get("Location"))
+				return
+			}
+			assertHealthFragment(t, rr)
+			entry, ok := ws.health.get("testint")
+			require.True(t, ok)
+			assert.True(t, entry.Healthy)
+		})
+	}
+}
+
+func assertHealthFragment(t *testing.T, rr *httptest.ResponseRecorder) {
+	t.Helper()
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Header().Get("Content-Type"), "text/html")
+	assert.Contains(t, rr.Body.String(), `id="integration-results"`)
+	assert.Contains(t, rr.Body.String(), "testint")
+	assert.NotContains(t, rr.Body.String(), "<html")
+	assert.NotContains(t, rr.Body.String(), "<script")
+}
+
+func TestHealthRefresh_CardStates(t *testing.T) {
+	ws, registry, cfg := setupTestWeb()
+	for _, name := range []string{"gmail", "broken", "disabled"} {
+		cfg.cfg.Integrations[name] = &mcp.IntegrationConfig{Enabled: name != "disabled"}
+		require.NoError(t, registry.Register(&mockIntegration{name: name}))
+	}
+	req := httptest.NewRequest("POST", "/api/health/refresh", nil)
+	req.Header.Set("HX-Request", "true")
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+	expected := []integrationCardState{
+		{"gmail", "true", "Not Verified"},
+		{"broken", "true", "Not Verified"},
+		{"disabled", "false", "Disabled"},
+		{"testint", "true", "Connected"},
+	}
+	assertIntegrationCards(t, rr, expected)
+}
+
+func assertIntegrationCards(t *testing.T, rr *httptest.ResponseRecorder, expected []integrationCardState) {
+	t.Helper()
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rr.Body.String()))
+	require.NoError(t, err)
+	assert.Equal(t, len(expected), doc.Find(".integration-card").Length())
+	for _, item := range expected {
+		t.Run(item.name, func(t *testing.T) {
+			card := doc.Find(`.integration-card[href="/integrations/` + item.name + `"]`)
+			require.Equal(t, 1, card.Length())
+			assert.Equal(t, item.enabled, card.AttrOr("data-enabled", ""))
+			assert.Equal(t, item.name, card.Find(".name").Text())
+			assert.Equal(t, item.label, card.Find(".badge").Text())
+		})
+	}
 }
 
 func TestFigmaOAuthCallback_UsesRootCallbackRoute(t *testing.T) {

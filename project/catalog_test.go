@@ -300,6 +300,9 @@ func TestCatalog_TypedReplaceAndPatchPreserveCompatibilityFields(t *testing.T) {
 func TestList_InvalidProjectsOnlyOnFirstPage(t *testing.T) {
 	store := newTestCatalog(t)
 	ctx := context.Background()
+	empty, err := store.Search(ctx, SearchRequest{})
+	require.NoError(t, err)
+	assert.Zero(t, empty.TotalCount)
 	// Seed past page size with valid projects, plus a couple of invalid sources.
 	for i := 0; i < pageSizeDefault+5; i++ {
 		name := fmt.Sprintf("valid-%03d", i)
@@ -313,6 +316,7 @@ func TestList_InvalidProjectsOnlyOnFirstPage(t *testing.T) {
 
 	first, err := store.List(ctx, "")
 	require.NoError(t, err)
+	assert.Equal(t, pageSizeDefault+7, first.TotalCount)
 	require.NotEmpty(t, first.NextCursor)
 	require.NotEmpty(t, first.InvalidProjects, "invalids should appear on first page")
 	invalidIDs := map[string]int{}
@@ -325,6 +329,7 @@ func TestList_InvalidProjectsOnlyOnFirstPage(t *testing.T) {
 	for cursor != "" {
 		page, err := store.List(ctx, cursor)
 		require.NoError(t, err)
+		assert.Equal(t, pageSizeDefault+7, page.TotalCount)
 		assert.Empty(t, page.InvalidProjects, "invalids must only ride the first page")
 		if page.NextCursor == "" || page.NextCursor == cursor {
 			break
@@ -334,5 +339,18 @@ func TestList_InvalidProjectsOnlyOnFirstPage(t *testing.T) {
 	assert.GreaterOrEqual(t, invalidIDs["zzz-bad"]+invalidIDs["aaa-bad"], 1)
 	for id, n := range invalidIDs {
 		assert.Equal(t, 1, n, "invalid id %s duplicated", id)
+	}
+	for _, query := range []string{"", "valid", "no-match"} {
+		t.Run("search="+query, func(t *testing.T) {
+			page, err := store.Search(ctx, SearchRequest{Query: query})
+			require.NoError(t, err)
+			assert.Equal(t, pageSizeDefault+7, page.TotalCount)
+			if page.NextCursor == "" {
+				return
+			}
+			page, err = store.Search(ctx, SearchRequest{Query: query, Cursor: page.NextCursor})
+			require.NoError(t, err)
+			assert.Equal(t, pageSizeDefault+7, page.TotalCount)
+		})
 	}
 }

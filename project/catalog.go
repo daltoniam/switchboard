@@ -96,6 +96,7 @@ type Page struct {
 	Projects        []ProjectSummary
 	InvalidProjects []InvalidProjectSummary
 	NextCursor      string
+	TotalCount      int
 }
 
 // SearchRequest filters and pages catalog summaries.
