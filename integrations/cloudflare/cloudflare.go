@@ -381,6 +381,15 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("cloudflare_list_access_apps"):               listAccessApps,
 	mcp.ToolName("cloudflare_list_access_app_policies"):       listAccessAppPolicies,
 	mcp.ToolName("cloudflare_list_access_identity_providers"): listAccessIdentityProviders,
+	mcp.ToolName("cloudflare_get_access_app"):                 getAccessApp,
+	mcp.ToolName("cloudflare_create_access_app"):              createAccessApp,
+	mcp.ToolName("cloudflare_delete_access_app"):              deleteAccessApp,
+	mcp.ToolName("cloudflare_create_access_app_policy"):       createAccessAppPolicy,
+	mcp.ToolName("cloudflare_delete_access_app_policy"):       deleteAccessAppPolicy,
+	mcp.ToolName("cloudflare_create_tunnel"):                  createTunnel,
+	mcp.ToolName("cloudflare_get_tunnel_token"):               getTunnelToken,
+	mcp.ToolName("cloudflare_get_tunnel_config"):              getTunnelConfig,
+	mcp.ToolName("cloudflare_update_tunnel_config"):           updateTunnelConfig,
 
 	// Tunnels
 	mcp.ToolName("cloudflare_list_tunnels"):  listTunnels,
