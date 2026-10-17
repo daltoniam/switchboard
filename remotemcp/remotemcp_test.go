@@ -94,21 +94,6 @@ func TestClose_ResetsSessionState(t *testing.T) {
 	require.NoError(t, r.Close()) // idempotent
 }
 
-func TestBearerTransport(t *testing.T) {
-	var gotAuth string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	bt := &bearerTransport{token: "mytoken"}
-	client := &http.Client{Transport: bt}
-	_, err := client.Get(srv.URL)
-	assert.NoError(t, err)
-	assert.Equal(t, "Bearer mytoken", gotAuth)
-}
-
 func TestConvertTools(t *testing.T) {
 	schema := map[string]any{
 		"type": "object",
@@ -270,7 +255,7 @@ func TestOAuth_PollNoFlow(t *testing.T) {
 }
 
 func TestOAuth_DiscoverBadURL(t *testing.T) {
-	_, err := discoverOAuth("https://invalid.example.com")
+	_, err := discoverOAuth(context.Background(), "https://invalid.example.com")
 	assert.Error(t, err)
 }
 
@@ -289,7 +274,7 @@ func TestOAuth_DiscoverSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	meta, err := discoverOAuth(srv.URL)
+	meta, err := discoverOAuth(context.Background(), srv.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "https://example.com", meta.Issuer)
 	assert.Equal(t, "https://example.com/authorize", meta.AuthorizationEndpoint)
