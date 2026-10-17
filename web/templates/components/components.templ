@@ -6,6 +6,28 @@ templ Badge(label string, variant string) {
 	<span class={ "badge badge-" + variant }>{ label }</span>
 }
 
+templ IntegrationIcon(name string) {
+	<span class="integration-icon i-lucide:image inline-block w-5 h-5 shrink-0 text-muted" data-integration={ name } aria-hidden="true"></span>
+}
+
+templ PageHeader(title string, value string) {
+	<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+		<h1 class="page-title mb-0">{ title }</h1>
+		<div class="flex items-center gap-2 ml-auto">
+			if value != "" {
+				<span class="badge badge-muted normal-case whitespace-nowrap">{ value }</span>
+			}
+			{ children... }
+		</div>
+	</div>
+}
+
+templ PageRefresh(label string) {
+	<button id="page-refresh" hx-preserve type="button" class="icon-button h-10 w-10" aria-label={ label } title={ label } hx-get="" hx-target="main" hx-select="main" hx-swap="outerHTML" hx-indicator="closest main" hx-disabled-elt="this" hx-request='{"timeout":35000}' aria-describedby="page-refresh-status">
+		<span class="refresh-icon" aria-hidden="true"></span>
+	</button>
+}
+
 templ Toggle(name string, checked bool) {
 	<label class="toggle">
 		if checked {
@@ -15,6 +37,16 @@ templ Toggle(name string, checked bool) {
 		}
 		<span class="slider"></span>
 	</label>
+}
+
+templ ToggleGroup(label string) {
+	<div class="toggle-group" role="group" aria-label={ label } data-toggle-group>
+		{ children... }
+	</div>
+}
+
+templ ToggleGroupItem(label string, value string, selected bool) {
+	<button type="button" class="toggle-group-item" data-toggle-value={ value } aria-pressed={ fmt.Sprint(selected) }>{ label }</button>
 }
 
 templ FormGroup(label string, name string, inputType string, value string, placeholder string) {

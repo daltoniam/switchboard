@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"crypto/rand"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -60,6 +61,9 @@ type WebServer struct {
 
 type Option func(*WebServer)
 
+//go:embed static/*.css
+var uiAssets embed.FS
+
 func WithConfigChangeHook(fn func()) Option {
 	return func(w *WebServer) { w.onConfigChange = fn }
 }
@@ -85,9 +89,17 @@ func New(services *mcp.Services, port int, mp *marketplace.Manager, wl *wasmmod.
 	return ws
 }
 
+func serveUIAsset(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "no-cache")
+	http.FileServerFS(uiAssets).ServeHTTP(w, r)
+}
+
 // Handler returns an http.Handler that serves the web UI routes.
 func (w *WebServer) Handler() http.Handler {
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("GET /static/{name}", serveUIAsset)
 
 	mux.HandleFunc("GET /", w.handleDashboard)
 	mux.HandleFunc("GET /integrations", w.handleIntegrationsList)
