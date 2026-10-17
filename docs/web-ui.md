@@ -36,7 +36,7 @@
 
 ## Setup Page Design Rules
 
-When adding or changing a setup page, reuse what the existing pages share. A one-off pattern makes one page look unlike every other. All CSS lives in `web/templates/layouts/base.templ`; add a class there instead of styling a new pattern inline.
+When adding or changing a setup page, reuse what the existing pages share. A one-off pattern makes one page look unlike every other. Shared UnoCSS shortcuts live in `web/style.js`; remaining CSS lives in `web/templates/layouts/base.templ`. Reuse these instead of adding inline styles.
 
 - **One card per credential method.** Each method is a `card` with a `card-title`. When a page offers several methods, title them `Option N: <Method>` (title case noun phrase), numbered in page order. Status and settings cards (enable toggle, current token, default selection) sit above the options and are not numbered. Examples: `slack_setup.templ`, `notion_setup.templ`, `github_setup.templ`.
 - **One description line under the title.** Use `<p class="slack-desc">` to say what the method does and when to pick it.
@@ -53,6 +53,12 @@ Run `make ui-install` once, then `make test-ui` to verify integration setup in i
 
 ## Build Tooling
 
+- **Styles:** `make styles` compiles UnoCSS/Lucide from `web/style.js` and templates into `web/static/style.css`. Commit generated CSS; Go embeds it.
+- **Development:** install versions from `make node-version npm-version`. Tools run through pinned `npx` commands without a package manifest. Run `make styles-watch` alongside Air; refresh the browser manually.
+- **Style checks:** `make ci` rebuilds CSS; GitHub CI checks it is current.
+- **TypeScript:** `make tsc` runs the pinned compiler; pass options with `TSC_FLAGS`. Browser code remains JavaScript.
+- **Unit tests:** `make test-web` runs `web/tests/unit/{module}.test.{mjs,ts,mts}` with Node. TypeScript tests use type stripping, not type checking.
+- **Browser tests:** `make test-browser` runs isolated Docker/Chromium tests for navigation, shared styles, and native form interactions. Only Docker is required.
 - **Templ**: `web/templates/*.templ` → run `templ generate` after edits. **Never edit `*_templ.go`** (generated)
 - **Release**: GoReleaser via `.goreleaser.yml`. Ldflags: `main.version`, `main.commit`, `main.date`
 - **Testing**: `stretchr/testify` assertions. Tests in every package

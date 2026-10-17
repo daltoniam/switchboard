@@ -1201,3 +1201,24 @@ func TestFigmaOAuthCallback_UsesRootCallbackRoute(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, rr.Code)
 	assert.Contains(t, rr.Header().Get("Location"), "/integrations/figma/setup")
 }
+
+func TestUIAssets(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	for _, asset := range []struct {
+		name, contentType string
+		status            int
+	}{
+		{"ui.mjs", "text/plain", http.StatusNotFound},
+		{"style.css", "text/css", http.StatusOK},
+		{"missing.mjs", "text/plain", http.StatusNotFound},
+	} {
+		t.Run(asset.name, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/static/"+asset.name, nil))
+			assert.Equal(t, asset.status, rr.Code)
+			assert.Contains(t, rr.Header().Get("Content-Type"), asset.contentType)
+			assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
+			assert.NotEmpty(t, rr.Body.String())
+		})
+	}
+}

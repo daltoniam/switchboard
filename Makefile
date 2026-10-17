@@ -1,6 +1,14 @@
-.PHONY: build generate proto proto-check test test-race test-ui ui-install vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm compose-check compose-up compose-status compose-endpoints compose-logs compose-down compose-destroy
+.PHONY: build generate node-version npm-version check-node check-npm tsc styles styles-watch proto proto-check test test-race test-web test-browser test-ui ui-install vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm compose-check compose-up compose-status compose-endpoints compose-logs compose-down compose-destroy
 
 BIN        := dist/switchboard
+NODE_VERSION := 26.8.1
+NPM_VERSION := 11.19.0
+TYPESCRIPT_VERSION := 7.0.2
+PLAYWRIGHT_VERSION := 1.64.0
+TSC_FLAGS ?= --version
+UNOCSS_VERSION := 66.10.5
+LUCIDE_VERSION := 1.2.142
+SIMPLE_ICONS_VERSION := 1.2.100
 INSTALL_DIR := $(HOME)/.local/bin
 INSTALL_BIN := $(INSTALL_DIR)/switchboard
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -16,8 +24,38 @@ build: ## Build the binary
 	@mkdir -p dist
 	go build -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/server
 
-generate: proto ## Generate protobuf bindings and templ templates
+generate: proto styles ## Generate protobuf bindings, templ templates, and CSS
 	go generate .
+
+node-version: ## Print the required Node version for tooling and CI
+	@echo $(NODE_VERSION)
+
+npm-version: ## Print the required npm version
+	@echo $(NPM_VERSION)
+
+check-node: ## Require the Node version pinned in this Makefile
+	@test "$$(node --version 2>/dev/null)" = "v$(NODE_VERSION)" || \
+		{ echo "Node $(NODE_VERSION) is required. Install and activate it before running this target." >&2; exit 1; }
+
+check-npm: check-node ## Require the npm version pinned in this Makefile
+	@test "$$(npm --version 2>/dev/null)" = "$(NPM_VERSION)" || \
+		{ echo "npm $(NPM_VERSION) is required. Run npm install --global npm@$(NPM_VERSION)." >&2; exit 1; }
+
+tsc: check-npm ## Run the pinned TypeScript compiler (override TSC_FLAGS for options)
+	npx --yes --ignore-scripts --package=typescript@$(TYPESCRIPT_VERSION) tsc $(TSC_FLAGS)
+
+styles: check-npm ## Generate web CSS with pinned npx tools
+	npx --yes --ignore-scripts \
+		--package=@unocss/cli@$(UNOCSS_VERSION) \
+		--package=@unocss/preset-wind3@$(UNOCSS_VERSION) \
+		--package=@unocss/preset-icons@$(UNOCSS_VERSION) \
+		--package=@iconify-json/lucide@$(LUCIDE_VERSION) \
+		--package=@iconify-json/simple-icons@$(SIMPLE_ICONS_VERSION) \
+		unocss 'web/templates/**/*.templ' 'web/templates/layouts/themes.json' 'web/static/*.mjs' \
+		--config web/style.js --out-file web/static/style.css $(STYLE_FLAGS)
+
+styles-watch: ## Rebuild CSS when templates or style configuration change
+	$(MAKE) styles STYLE_FLAGS=--watch
 
 proto: ## Generate AWM gRPC protobuf bindings
 	buf generate
@@ -43,11 +81,20 @@ rust-awm: ## Test and package-verify the consumable switchboard-awm Rust client 
 
 ## Test
 
-test: ## Run tests
+test-web: check-node ## Run browser module unit tests with the pinned Node version
+	node --test 'web/tests/unit/*.test.{mjs,ts,mts}'
+
+test-browser: ## Build and run isolated Chromium tests in Docker
+	docker build -f web/tests/browser/Dockerfile -t switchboard-browser-tests \
+		--build-arg NODE_VERSION=$(NODE_VERSION) --build-arg NPM_VERSION=$(NPM_VERSION) \
+		--build-arg PLAYWRIGHT_VERSION=$(PLAYWRIGHT_VERSION) .
+	docker run --rm --init --network none --shm-size=256m switchboard-browser-tests
+
+test: test-web ## Run tests
 	go test ./...
 	bash scripts/compose-dev_test.sh
 
-test-race: ## Run tests with race detector
+test-race: test-web ## Run tests with race detector
 	go test -race -coverprofile=coverage.out ./...
 	bash scripts/compose-dev_test.sh
 
@@ -78,7 +125,7 @@ security: gosec govulncheck ## Run all security checks
 
 ## CI
 
-ci: proto-check build vet test-race test-ui lint security ## Run all CI checks locally
+ci: styles proto-check build vet test-race test-ui lint security ## Run all CI checks locally
 
 ## Stacklane compose (dev)
 
