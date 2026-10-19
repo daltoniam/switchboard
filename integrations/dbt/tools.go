@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("dbt_get_job_run_error"),
-		Description: "Diagnose a failed or errored dbt Cloud (dbt platform) run: status, git_sha, failing models and tests with error messages, original_file_path, compiled SQL, and the failed step's log tail. Start here for dbt run failures, broken models, and test errors. Returns artifacts_pending=true when artifacts are not ingested yet; wait and retry.",
+		Description: "Diagnose a failed or errored dbt Cloud (dbt platform) run: status, git_sha, failing models and tests with error messages, stale sources from source freshness checks, original_file_path, compiled SQL, and the failed step's log tail. Start here for dbt run failures, broken models, test errors, and stale or late source data. Returns artifacts_pending=true when artifacts are not ingested yet; wait and retry.",
 		Parameters: map[string]string{
 			"run_id": "dbt Cloud run ID that failed",
 		},

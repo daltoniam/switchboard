@@ -177,7 +177,53 @@ type runResults struct {
 	} `json:"results"`
 }
 
-// failingStatuses are run_results statuses that broke the run.
+// freshnessResults is the subset of sources.json that `dbt source freshness`
+// writes; its failures never appear in run_results.json.
+type freshnessResults struct {
+	Results []freshnessResult `json:"results"`
+}
+
+type freshnessResult struct {
+	UniqueID       string  `json:"unique_id"`
+	Status         string  `json:"status"`
+	MaxLoadedAt    string  `json:"max_loaded_at"`
+	SecondsAgo     float64 `json:"max_loaded_at_time_ago_in_s"`
+	Error          string  `json:"error"`
+	FreshnessRules struct {
+		ErrorAfter freshnessThreshold `json:"error_after"`
+	} `json:"criteria"`
+}
+
+type freshnessThreshold struct {
+	Count  *int   `json:"count"`
+	Period string `json:"period"`
+}
+
+func freshnessMessage(r freshnessResult) string {
+	if r.Error != "" {
+		return "freshness check failed: " + r.Error
+	}
+	msg := fmt.Sprintf("source is stale: last loaded %s (%.1fh ago)", r.MaxLoadedAt, r.SecondsAgo/3600)
+	if t := r.FreshnessRules.ErrorAfter; t.Count != nil {
+		msg += fmt.Sprintf(", error_after %d %s", *t.Count, t.Period)
+	}
+	return msg
+}
+
+// decodeArtifact streams one run-step artifact into v.
+func (d *dbt) decodeArtifact(ctx context.Context, runID int64, name string, step int, v any) error {
+	body, err := d.open(ctx, artifactPath(runID, name), stepQuery(step))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = body.Close() }()
+	if err := json.NewDecoder(io.LimitReader(body, maxArtifactSize)).Decode(v); err != nil {
+		return fmt.Errorf("dbt: decode %s: %w", name, err)
+	}
+	return nil
+}
+
+// failingStatuses are run_results and sources.json statuses that broke the run.
 var failingStatuses = map[string]bool{"error": true, "fail": true, "runtime error": true}
 
 type failedNode struct {
@@ -190,6 +236,7 @@ type failedNode struct {
 	Materialized     string `json:"materialized,omitempty"`
 	RelationName     string `json:"relation_name,omitempty"`
 	CompiledCode     string `json:"compiled_code,omitempty"`
+	MaxLoadedAt      string `json:"max_loaded_at,omitempty"`
 	Step             int    `json:"step"`
 }
 
@@ -273,18 +320,33 @@ type stepFailureResult struct {
 // stepFailures reads the step's run_results.json and joins each failing node
 // to its source file via the same step's manifest.json.
 func (d *dbt) stepFailures(ctx context.Context, runID int64, step int) (stepFailureResult, error) {
-	body, err := d.open(ctx, artifactPath(runID, "run_results.json"), stepQuery(step))
-	if err != nil {
-		return stepFailureResult{}, err
-	}
 	var rr runResults
-	err = json.NewDecoder(io.LimitReader(body, maxArtifactSize)).Decode(&rr)
-	_ = body.Close()
-	if err != nil {
-		return stepFailureResult{}, fmt.Errorf("dbt: decode run_results.json: %w", err)
+	rrErr := d.decodeArtifact(ctx, runID, "run_results.json", step, &rr)
+	var fr freshnessResults
+	frErr := d.decodeArtifact(ctx, runID, "sources.json", step, &fr)
+	var nf *errNotFound
+	switch {
+	case rrErr != nil && !errors.As(rrErr, &nf):
+		return stepFailureResult{}, rrErr
+	case frErr != nil && !errors.As(frErr, &nf):
+		return stepFailureResult{}, frErr
+	case rrErr != nil && frErr != nil:
+		return stepFailureResult{}, rrErr // neither artifact exists for this step
 	}
 
 	var res stepFailureResult
+	for _, r := range fr.Results {
+		if !failingStatuses[r.Status] {
+			continue
+		}
+		res.nodes = append(res.nodes, failedNode{
+			UniqueID:    r.UniqueID,
+			Status:      r.Status,
+			Message:     freshnessMessage(r),
+			MaxLoadedAt: r.MaxLoadedAt,
+			Step:        step,
+		})
+	}
 	for _, r := range rr.Results {
 		if !failingStatuses[r.Status] {
 			continue

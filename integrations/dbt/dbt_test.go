@@ -105,6 +105,7 @@ type fakeCloud struct {
 	manifestHits   atomic.Int32
 	artifactsSaved bool
 	noRunResults   bool
+	sourcesJSON    string // served as the failed step's sources.json; empty means 404
 	lastQuery      map[string]string
 }
 
@@ -164,6 +165,13 @@ func (f *fakeCloud) handler() http.Handler {
 			}
 			assert.Equal(f.t, "3", r.URL.Query().Get("step"), "run_results must come from the failed step")
 			write(w, runResultsJSON)
+		case "sources.json":
+			if f.sourcesJSON == "" {
+				http.Error(w, `{"status":{"code":404}}`, http.StatusNotFound)
+				return
+			}
+			assert.Equal(f.t, "3", r.URL.Query().Get("step"), "sources.json must come from the failed step")
+			write(w, f.sourcesJSON)
 		case "manifest.json":
 			f.manifestHits.Add(1)
 			write(w, testManifestJSON)
@@ -307,6 +315,29 @@ func TestGetJobRunError_NoRunResults(t *testing.T) {
 	assert.Equal(t, false, out["run_results_available"])
 	assert.Empty(t, out["failed_nodes"])
 	assert.Contains(t, out["failed_steps"].([]any)[0].(map[string]any)["log_tail"], "Database Error")
+}
+
+// dbt source freshness writes its results to sources.json, not run_results.json.
+func TestGetJobRunError_SourceFreshness(t *testing.T) {
+	f := &fakeCloud{artifactsSaved: true, noRunResults: true, sourcesJSON: `{"results":[
+ {"unique_id":"source.data_dbt.raw.orders","status":"error","max_loaded_at":"2026-10-15T11:15:48Z","max_loaded_at_time_ago_in_s":308852.7,"criteria":{"error_after":{"count":2,"period":"day"},"warn_after":{"count":1,"period":"day"}}},
+ {"unique_id":"source.data_dbt.raw.payments","status":"warn","max_loaded_at":"2026-10-18T17:53:56Z","max_loaded_at_time_ago_in_s":25763.0,"criteria":{"error_after":{"count":24,"period":"hour"},"warn_after":{"count":6,"period":"hour"}}},
+ {"unique_id":"source.data_dbt.raw.customers","status":"pass","max_loaded_at":"2026-10-19T00:00:00Z","max_loaded_at_time_ago_in_s":60}]}`}
+	d := newTestDBT(t, f, "")
+	out := execJSON(t, d, "dbt_get_job_run_error", map[string]any{"run_id": "100"})
+
+	assert.Equal(t, true, out["run_results_available"])
+	nodes := out["failed_nodes"].([]any)
+	require.Len(t, nodes, 1, "only error-status sources broke the run")
+	node := nodes[0].(map[string]any)
+	assert.Equal(t, "source.data_dbt.raw.orders", node["unique_id"])
+	assert.Equal(t, "error", node["status"])
+	assert.Equal(t, "source", node["resource_type"])
+	assert.Equal(t, "models/staging/_sources.yml", node["original_file_path"])
+	assert.Equal(t, "2026-10-15T11:15:48Z", node["max_loaded_at"])
+	assert.Contains(t, node["message"], "stale")
+	assert.Contains(t, node["message"], "error_after 2 day")
+	assert.Contains(t, node["message"], "85.8h ago")
 }
 
 func TestGetJobRunRegressionRange(t *testing.T) {
