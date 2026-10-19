@@ -68,20 +68,42 @@ const card = [cardBase, 'mb-3'];
 const integrationLink = [cardBase, 'interactive flex items-center justify-between gap-3 no-underline text-inherit mb-3'];
 const integrationCard = [cardBase, 'interactive flex flex-col justify-between gap-3 no-underline text-inherit min-h-[72px] [&[hidden]]:hidden'];
 const savingsBucket = [cardBase, 'flex flex-col gap-1'];
+const headerBase = 'h-[var(--header-height)] shrink-0 border-b border-b-solid border-b-subtle bg-surface';
+const topbar = [headerBase, 'sticky top-0 z-30 flex items-center gap-3 px-4'];
+const sidebarBrand = [headerBase, 'flex flex-col justify-center px-4 mb-2'];
 const iconButton = 'appearance-none inline-flex shrink-0 items-center justify-center rounded border-none shadow-none bg-transparent text-inherit cursor-pointer transition-colors duration-150 hover:bg-accent-dim active:bg-accent-active disabled:hover:bg-transparent disabled:active:bg-transparent disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-current focus-visible:outline-offset-2 motion-reduce:transition-none';
+const flashDismiss = [iconButton, 'h-8 w-8'];
 const shortcuts = {
   'interactive': 'transition-colors duration-150 ease-in-out motion-reduce:transition-none hover:bg-accent-dim hover:text-accent hover:border-accent focus-visible:bg-accent-dim focus-visible:text-accent focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-accent focus-visible:outline-offset-2 active:bg-accent-active active:text-accent active:border-accent',
+  topbar,
   'icon-button': iconButton,
   'refresh-icon': 'i-lucide:refresh-cw inline-block shrink-0 text-xl motion-safe:[[aria-busy=true]_&]:animate-spin motion-safe:[[aria-busy=true]_&]:animate-delay-150',
+  'section-loading': 'after:i-lucide:loader-circle after:text-2xl motion-safe:after:animate-spin',
+  'appearance-controls': 'flex items-center justify-end gap-3 shrink-0',
+  'search-dialog': 'mx-auto top-[12vh] w-[calc(100%-2rem)] max-w-160 max-h-[80vh] overflow-y-auto rounded-ui border border-solid border-frame bg-surface text-content p-4 shadow-lg',
+  'search-results': 'mt-3 max-h-80 overflow-y-auto list-none',
+  'search-result': 'interactive block rounded px-3 py-2 text-sm cursor-pointer [&[aria-selected=true]]:bg-accent-dim [&[aria-selected=true]]:text-accent',
+  'theme-picker': 'whitespace-nowrap',
+  'theme-swatch': 'grid grid-cols-2 gap-0.5 p-1 w-5 h-5 shrink-0 rounded bg-canvas [&>span]:rounded-full',
+  'theme-options': 'absolute right-0 top-full z-20 mt-1 p-1 w-72 max-w-[calc(100vw-2rem)] bg-surface text-content border border-solid border-frame rounded-ui shadow-lg',
+  'theme-option': 'interactive relative flex items-center gap-2 px-2 py-2 rounded cursor-pointer text-sm',
   'status-success': 'border border-solid border-positive bg-positive-dim text-positive',
   'status-warning': 'border border-solid border-warning bg-warning-dim text-warning',
   'status-error': 'border border-solid border-negative bg-negative-dim text-negative',
+  'sidebar': 'sticky top-0 h-screen w-50 min-w-max bg-surface border-r border-r-solid border-r-subtle shrink-0 flex flex-col overflow-y-auto',
+  'sidebar-brand': sidebarBrand,
+  'sidebar-brand-name': 'text-base font-semibold text-content tracking-[-0.01em]',
+  'nav-item': 'interactive flex items-center gap-2 py-2 px-4 text-secondary no-underline text-base border-l-2 border-l-solid border-l-transparent',
+  'sidebar-version': 'mt-auto py-3 px-4 border-t border-t-solid border-t-subtle text-muted text-sm font-mono',
   'main': 'flex-1 py-8 px-10 max-w-240 min-w-0',
   'page-title': 'text-xl font-semibold mb-6 tracking-[-0.015em]',
   'section-title': 'text-sm font-semibold uppercase tracking-[0.06em] text-muted mb-2.5',
   'flash': 'py-2 px-3 rounded-ui mb-4 text-base border border-solid',
+  'toast-stack': 'fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 w-max max-w-[min(24rem,calc(100vw-2rem))] pointer-events-none',
+  'toast': 'flex items-center justify-between gap-3 max-w-full !mb-0 shadow-lg pointer-events-auto break-words [&>span]:min-w-0',
   'flash-success': 'status-success',
   'flash-error': 'status-error',
+  'flash-dismiss': flashDismiss,
   card,
   'card-grid': 'grid gap-3 [&>.card]:mb-0',
   'card-stack': 'flex flex-col gap-3 [&>*]:mb-0',

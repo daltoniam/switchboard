@@ -13,7 +13,7 @@ ARG NPM_VERSION
 ARG PLAYWRIGHT_VERSION
 WORKDIR /tests
 RUN npm install --global --ignore-scripts npm@${NPM_VERSION} \
-    && npm install --no-save --package-lock=false --ignore-scripts @playwright/test@${PLAYWRIGHT_VERSION} \
+    && npm install --no-save --package-lock=false --ignore-scripts @playwright/test@${PLAYWRIGHT_VERSION} htmx.org@2.0.11 @tarekraafat/autocomplete.js@10.2.10 \
     && npx --no-install playwright install --with-deps chromium
 COPY --from=build /switchboard /usr/local/bin/switchboard
 COPY web/tests/browser/ui.test.ts ./ui.test.ts

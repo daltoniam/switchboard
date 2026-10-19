@@ -9,10 +9,35 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	_ "embed"
+	"encoding/json"
 	"strings"
 
 	"github.com/daltoniam/switchboard/version"
 )
+
+//go:embed themes.json
+var themeConfig []byte
+
+type appearanceConfig struct {
+	Defaults  map[string]string `json:"defaults"`
+	FontSizes []string          `json:"fontSizes"`
+	Themes    []themeOption     `json:"themes"`
+}
+
+type themeOption struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Scheme string `json:"scheme"`
+}
+
+func appearanceSettings() appearanceConfig {
+	var config appearanceConfig
+	if err := json.Unmarshal(themeConfig, &config); err != nil {
+		panic("invalid embedded theme configuration: " + err.Error())
+	}
+	return config
+}
 
 type PageData struct {
 	Title        string
@@ -30,11 +55,11 @@ type NavItem struct {
 
 func navItems() []NavItem {
 	return []NavItem{
-		{Path: "/", Label: "Dashboard", Icon: "⚡"},
-		{Path: "/projects", Label: "Projects", Icon: "📁"},
-		{Path: "/integrations", Label: "Integrations", Icon: "🔌"},
-		{Path: "/plugins", Label: "Plugin Marketplace", Icon: "🏪"},
-		{Path: "/settings", Label: "Settings", Icon: "⚙"},
+		{Path: "/", Label: "Dashboard", Icon: "i-lucide:layout-dashboard"},
+		{Path: "/projects", Label: "Projects", Icon: "i-lucide:folder"},
+		{Path: "/integrations", Label: "Integrations", Icon: "i-lucide:plug"},
+		{Path: "/plugins", Label: "Plugin Marketplace", Icon: "i-lucide:store"},
+		{Path: "/settings", Label: "Settings", Icon: "i-lucide:settings"},
 	}
 }
 
@@ -45,7 +70,7 @@ func isActive(current, path string) bool {
 	return strings.HasPrefix(current, path)
 }
 
-func Base(data PageData) templ.Component {
+func themeSwatch(id string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -66,174 +91,760 @@ func Base(data PageData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<span class=\"theme-swatch\" data-theme=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(data.Title)
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(id)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 46, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 66, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " — Switchboard</title><link rel=\"stylesheet\" href=\"/static/style.css\"><style>\n\t\t\t\t:root {\n\t\t\t\t\t--accent-dim:     color-mix(in srgb, var(--accent) 12%, transparent);\n\t\t\t\t\t--accent-active:  color-mix(in srgb, var(--accent) 24%, transparent);\n\t\t\t\t\t--green-dim:      color-mix(in srgb, var(--green) 12%, transparent);\n\t\t\t\t\t--red-dim:        color-mix(in srgb, var(--red) 12%, transparent);\n\t\t\t\t\t--yellow-dim:     color-mix(in srgb, var(--yellow) 12%, transparent);\n\t\t\t\t\t--radius:         6px;\n\t\t\t\t\t--font-mono:      'SF Mono', ui-monospace, 'Cascadia Code', 'Fira Code', Menlo, monospace;\n\t\t\t\t}\n\t\t\t\t* { margin: 0; padding: 0; box-sizing: border-box; }\n\t\t\t\tbody {\n\t\t\t\t\tfont-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Helvetica, Arial, sans-serif;\n\t\t\t\t\tbackground: var(--bg);\n\t\t\t\t\tline-height: 1.5;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\tmin-height: 100vh;\n\t\t\t\t\t-webkit-font-smoothing: antialiased;\n\t\t\t\t}\n\n\t\t\t\t/* --- Sidebar --- */\n\t\t\t\t.sidebar {\n\t\t\t\t\twidth: 200px;\n\t\t\t\t\tbackground: var(--surface);\n\t\t\t\t\tborder-right: 1px solid var(--border-subtle);\n\t\t\t\t\tpadding: 1.25rem 0;\n\t\t\t\t\tflex-shrink: 0;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\tflex-direction: column;\n\t\t\t\t}\n\t\t\t\t.sidebar-brand {\n\t\t\t\t\tpadding: 0 1rem 1rem;\n\t\t\t\t\tborder-bottom: 1px solid var(--border-subtle);\n\t\t\t\t\tmargin-bottom: 0.5rem;\n\t\t\t\t}\n\t\t\t\t.sidebar-brand-name {\n\t\t\t\t\tfont-size: 0.875rem;\n\t\t\t\t\tfont-weight: 600;\n\t\t\t\t\tcolor: var(--text);\n\t\t\t\t\tletter-spacing: -0.01em;\n\t\t\t\t}\n\t\t\t\t.sidebar-brand-sub {\n\t\t\t\t\tcolor: var(--text-muted);\n\t\t\t\t\tfont-size: 0.6875rem;\n\t\t\t\t\tdisplay: block;\n\t\t\t\t\tmargin-top: 0.125rem;\n\t\t\t\t}\n\t\t\t\t.nav-item {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tgap: 0.5rem;\n\t\t\t\t\tpadding: 0.4375rem 1rem;\n\t\t\t\t\tcolor: var(--text-secondary);\n\t\t\t\t\ttext-decoration: none;\n\t\t\t\t\tfont-size: 0.8125rem;\n\t\t\t\t\tborder-left: 2px solid transparent;\n\t\t\t\t\ttransition: color 0.1s, background 0.1s;\n\t\t\t\t}\n\t\t\t\t.nav-item:hover {\n\t\t\t\t\tbackground: var(--surface-hover);\n\t\t\t\t\tcolor: var(--text);\n\t\t\t\t}\n\t\t\t\t.nav-item.active {\n\t\t\t\t\tcolor: var(--accent);\n\t\t\t\t\tborder-left-color: var(--accent);\n\t\t\t\t\tbackground: var(--accent-dim);\n\t\t\t\t}\n\t\t\t\t.sidebar-version {\n\t\t\t\t\tmargin-top: auto;\n\t\t\t\t\tpadding: 0.75rem 1rem;\n\t\t\t\t\tborder-top: 1px solid var(--border-subtle);\n\t\t\t\t\tcolor: var(--text-muted);\n\t\t\t\t\tfont-size: 0.625rem;\n\t\t\t\t\tfont-family: var(--font-mono);\n\t\t\t\t}\n\n\t\t\t\t@media (prefers-reduced-motion: reduce) {\n\t\t\t\t\t*, *::before, *::after { animation: none !important; transition: none !important; }\n\t\t\t\t}\n\n\t\t\t\t/* --- Forms --- */\n\t\t\t\tselect.form-input {\n\t\t\t\t\tappearance: none;\n\t\t\t\t\tbackground-image: var(--select-chevron);\n\t\t\t\t\tbackground-position: right 0.5rem center;\n\t\t\t\t\tbackground-repeat: no-repeat;\n\t\t\t\t\tbackground-size: 1.5em 1.5em;\n\t\t\t\t\tpadding-right: 2.5rem;\n\t\t\t\t}\n\t\t\t\tselect.form-input:is([multiple], [size]:not([size=\"1\"])) {\n\t\t\t\t\tbackground-image: none;\n\t\t\t\t\tpadding-right: 0.75rem;\n\t\t\t\t}\n\t\t\t\t@media (forced-colors: active) {\n\t\t\t\t\tselect.form-input { appearance: auto; background-image: none; }\n\t\t\t\t}\n\t\t\t\t.form-input:focus {\n\t\t\t\t\toutline: none;\n\t\t\t\t\tborder-color: var(--accent);\n\t\t\t\t\tbox-shadow: 0 0 0 2px var(--accent-dim);\n\t\t\t\t}\n\t\t\t\t.input-secret .form-input {\n\t\t\t\t\tpadding-right: 2.25rem;\n\t\t\t\t}\n\n\t\t\t\t/* --- Toggle --- */\n\t\t\t\t.toggle input { opacity: 0; width: 0; height: 0; }\n\t\t\t\t.toggle .slider {\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\tinset: 0;\n\t\t\t\t\tbackground: var(--border);\n\t\t\t\t\tborder-radius: 10px;\n\t\t\t\t\ttransition: background 0.15s;\n\t\t\t\t}\n\t\t\t\t.toggle .slider:before {\n\t\t\t\t\tcontent: \"\";\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\theight: 14px;\n\t\t\t\t\twidth: 14px;\n\t\t\t\t\tleft: 3px;\n\t\t\t\t\tbottom: 3px;\n\t\t\t\t\tbackground: var(--text);\n\t\t\t\t\tborder-radius: 50%;\n\t\t\t\t\ttransition: transform 0.15s;\n\t\t\t\t}\n\t\t\t\t.toggle input:checked + .slider { background: var(--accent); }\n\t\t\t\t.toggle input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }\n\t\t\t\t.toggle input:checked + .slider:before { transform: translateX(16px); }\n\n\t\t\t\t/* --- Stat cards --- */\n\t\t\t\t.stat-card-green { border-color: oklch(65% 0.17 155 / 0.25); }\n\t\t\t\t.stat-card-green .stat-value { color: var(--green); }\n\t\t\t\t.stat-card-yellow { border-color: oklch(72% 0.15 80 / 0.25); }\n\t\t\t\t.stat-card-yellow .stat-value { color: var(--yellow); }\n\t\t\t\t.stat-card-muted .stat-value { color: var(--text-muted); }\n\n\t\t\t\t/* --- Integration links --- */\n\t\t\t\t.integration-link .name {\n\t\t\t\t\tfont-weight: 600;\n\t\t\t\t\ttext-transform: capitalize;\n\t\t\t\t}\n\t\t\t\t.integration-link .meta {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tgap: 0.5rem;\n\t\t\t\t\tcolor: var(--text-muted);\n\t\t\t\t}\n\n\t\t\t\t.last-check { color: var(--text-muted); font-size: 0.625rem; margin-left: 0.5rem; }\n\n\t\t\t\t/* --- Integration grid (cards) --- */\n\t\t\t\t.integration-card .name {\n\t\t\t\t\tfont-weight: 600;\n\t\t\t\t\ttext-transform: capitalize;\n\t\t\t\t}\n\n\t\t\t\t/* --- Tools list --- */\n\t\t\t\t.tool-row:last-child { border-bottom: none; }\n\t\t\t\t@media (max-width: 560px) {\n\t\t\t\t\t.tool-row { grid-template-columns: 1fr; gap: 0.125rem; }\n\t\t\t\t}\n\n\t\t\t\t/* --- Named identity editor --- */\n\t\t\t\t.identity-editor-header .badge {\n\t\t\t\t\tflex-shrink: 0;\n\t\t\t\t\twhite-space: nowrap;\n\t\t\t\t\tcolor: var(--text-secondary);\n\t\t\t\t}\n\t\t\t\t.identity-editor .form-label { color: var(--text-secondary); }\n\t\t\t\t@media (max-width: 640px) {\n\t\t\t\t\t.identity-fields { grid-template-columns: 1fr; }\n\t\t\t\t\t.identity-item-heading { align-items: center; }\n\t\t\t\t}\n\n\t\t\t\t/* --- Footer --- */\n\t\t\t\t.footer code {\n\t\t\t\t\tbackground: var(--surface);\n\t\t\t\t\tpadding: 2px 6px;\n\t\t\t\t\tborder-radius: 3px;\n\t\t\t\t\tfont-family: var(--font-mono);\n\t\t\t\t}\n\n\t\t\t\t/* --- Metrics: data table --- */\n\t\t\t\t.metrics-table th {\n\t\t\t\t\ttext-align: left;\n\t\t\t\t\tfont-weight: 500;\n\t\t\t\t\tcolor: var(--text-muted);\n\t\t\t\t\tpadding: 0.375rem 0.75rem;\n\t\t\t\t\tborder-bottom: 1px solid var(--border);\n\t\t\t\t\ttext-transform: uppercase;\n\t\t\t\t\tletter-spacing: 0.04em;\n\t\t\t\t}\n\t\t\t\t.metrics-table td {\n\t\t\t\t\tpadding: 0.375rem 0.75rem;\n\t\t\t\t\tborder-bottom: 1px solid var(--border-subtle);\n\t\t\t\t}\n\t\t\t\t.metrics-table tr:last-child td { border-bottom: none; }\n\t\t\t\t.metrics-table .num {\n\t\t\t\t\ttext-align: right;\n\t\t\t\t\tfont-variant-numeric: tabular-nums;\n\t\t\t\t\tfont-family: var(--font-mono);\n\t\t\t\t}\n\t\t\t\t.metrics-table .latency { color: var(--text-secondary); }\n\t\t\t\t.metrics-table .has-errors { color: var(--red); }\n\t\t\t\t.integration-name-cell a {\n\t\t\t\t\tcolor: var(--accent);\n\t\t\t\t\ttext-decoration: none;\n\t\t\t\t}\n\t\t\t\t.integration-name-cell a:hover { text-decoration: underline; }\n\n\t\t\t\t/* --- Savings hero: headline value-prop card --- */\n\t\t\t\t.savings-hero::before {\n\t\t\t\t\tcontent: \"\";\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\ttop: -40%;\n\t\t\t\t\tright: -10%;\n\t\t\t\t\twidth: 320px;\n\t\t\t\t\theight: 320px;\n\t\t\t\t\tbackground: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);\n\t\t\t\t\tpointer-events: none;\n\t\t\t\t}\n\n\t\t\t\t/* --- Slack/setup-specific --- */\n\t\t\t\t.slack-desc code { background: var(--bg); padding: 2px 6px; border-radius: 3px; font-family: var(--font-mono); }\n\t\t\t\t.slack-step-detail kbd {\n\t\t\t\t\tbackground: var(--bg);\n\t\t\t\t\tborder: 1px solid var(--border);\n\t\t\t\t\tborder-radius: 3px;\n\t\t\t\t\tpadding: 1px 5px;\n\t\t\t\t\tfont-family: var(--font-mono);\n\t\t\t\t}\n\t\t\t\t.slack-link:hover { text-decoration: underline; }\n\t\t\t\t.slack-code-block pre { overflow-x: auto; margin: 0; }\n\t\t\t\t.slack-code-block code { font-family: var(--font-mono); color: var(--text-muted); white-space: pre-wrap; word-break: break-all; }\n\t\t\t\t.slack-code-block .btn { position: absolute; top: 0.375rem; right: 0.375rem; }\n\t\t\t\t.slack-token-meta strong { color: var(--text); font-weight: 600; }\n\n\t\t\t\t/* --- Spinner --- */\n\t\t\t\t.spinner {\n\t\t\t\t\tdisplay: inline-block;\n\t\t\t\t\twidth: 12px;\n\t\t\t\t\theight: 12px;\n\t\t\t\t\tborder: 2px solid var(--border);\n\t\t\t\t\tborder-top-color: var(--accent);\n\t\t\t\t\tborder-radius: 50%;\n\t\t\t\t\tanimation: spin 0.6s linear infinite;\n\t\t\t\t\tvertical-align: middle;\n\t\t\t\t}\n\t\t\t\t@keyframes spin { to { transform: rotate(360deg); } }\n\n\t\t\t\t/* --- Responsive --- */\n\t\t\t\t@media (max-width: 768px) {\n\t\t\t\t\t.sidebar { width: 180px; }\n\t\t\t\t\t.main { padding: 1.5rem; }\n\t\t\t\t\t.metrics-grid { grid-template-columns: repeat(2, 1fr); }\n\t\t\t\t\t.metrics-row { grid-template-columns: 1fr; }\n\t\t\t\t\t.stats-grid { grid-template-columns: repeat(2, 1fr); }\n\t\t\t\t\t.integration-grid { grid-template-columns: repeat(2, 1fr); }\n\t\t\t\t\t.savings-buckets { grid-template-columns: repeat(2, 1fr); }\n\t\t\t\t\t.savings-hero { padding: 1rem; }\n\t\t\t\t\t.savings-hero-value { font-size: 2rem; }\n\t\t\t\t}\n\t\t\t\t@media (max-width: 560px) {\n\t\t\t\t\tbody { flex-direction: column; }\n\t\t\t\t\t.btn { min-height: 40px; }\n\t\t\t\t\t.form-input { min-height: 42px; }\n\t\t\t\t\t.secret-toggle { width: 2.5rem; }\n\t\t\t\t\t.input-secret .form-input { padding-right: 2.75rem; }\n\t\t\t\t\t.toggle { width: 44px; height: 24px; }\n\t\t\t\t\t.toggle .slider { border-radius: 12px; }\n\t\t\t\t\t.toggle .slider:before { width: 18px; height: 18px; }\n\t\t\t\t\t.toggle input:checked + .slider:before { transform: translateX(20px); }\n\t\t\t\t\t.sidebar {\n\t\t\t\t\t\twidth: 100%;\n\t\t\t\t\t\tflex-direction: row;\n\t\t\t\t\t\tpadding: 0.5rem 0;\n\t\t\t\t\t\tborder-right: none;\n\t\t\t\t\t\tborder-bottom: 1px solid var(--border-subtle);\n\t\t\t\t\t\toverflow-x: auto;\n\t\t\t\t\t}\n\t\t\t\t\t.sidebar-brand { display: none; }\n\t\t\t\t\t.nav-item {\n\t\t\t\t\t\tborder-left: none;\n\t\t\t\t\t\tborder-bottom: 2px solid transparent;\n\t\t\t\t\t\tpadding: 0.375rem 0.75rem;\n\t\t\t\t\t\twhite-space: nowrap;\n\t\t\t\t\t}\n\t\t\t\t\t.nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent); }\n\t\t\t\t\t.main { padding: 1rem; }\n\t\t\t\t\t.integration-grid { grid-template-columns: 1fr; }\n\t\t\t\t\t.savings-buckets { grid-template-columns: 1fr; }\n\t\t\t\t}\n\t\t\t</style></head><body class=\"text-base font-normal text-content\"><nav class=\"sidebar\"><div class=\"sidebar-brand\"><div class=\"sidebar-brand-name\">⚙ Switchboard</div><span class=\"sidebar-brand-sub\">Server Configuration</span></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" aria-hidden=\"true\"><span class=\"bg-accent\"></span> <span class=\"bg-positive\"></span> <span class=\"bg-warning\"></span> <span class=\"bg-negative\"></span></span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func Base(data PageData) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var3 == nil {
+			templ_7745c5c3_Var3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		appearance := appearanceSettings()
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var4 string
+		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.Title)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 81, Col: 22}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " — Switchboard</title>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = appearanceBootstrap(appearance).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<link rel=\"stylesheet\" href=\"/static/style.css\"><script defer src=\"https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js\" integrity=\"sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg\" crossorigin=\"anonymous\"></script><script defer src=\"https://cdn.jsdelivr.net/npm/@tarekraafat/autocomplete.js@10.2.10/dist/autoComplete.min.js\" integrity=\"sha384-cLawOb2F3v0Zfax5NIlJRiJLXwaGoV0vezUUxIAvxIZDfx/jXGa8xOYNTXS8/cu4\" crossorigin=\"anonymous\"></script><script type=\"module\" src=\"/static/ui.mjs\"></script><style>\n\t\t\t\t:root {\n\t\t\t\t\t--accent-dim:     color-mix(in srgb, var(--accent) 12%, transparent);\n\t\t\t\t\t--accent-active:  color-mix(in srgb, var(--accent) 24%, transparent);\n\t\t\t\t\t--green-dim:      color-mix(in srgb, var(--green) 12%, transparent);\n\t\t\t\t\t--red-dim:        color-mix(in srgb, var(--red) 12%, transparent);\n\t\t\t\t\t--yellow-dim:     color-mix(in srgb, var(--yellow) 12%, transparent);\n\t\t\t\t\t--radius:         6px;\n\t\t\t\t\t--font-mono:      'SF Mono', ui-monospace, 'Cascadia Code', 'Fira Code', Menlo, monospace;\n\t\t\t\t\t--header-height:  3.5rem;\n\t\t\t\t}\n\t\t\t\t* { margin: 0; padding: 0; box-sizing: border-box; }\n\t\t\t\tbody {\n\t\t\t\t\tfont-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Helvetica, Arial, sans-serif;\n\t\t\t\t\tbackground: var(--bg);\n\t\t\t\t\tline-height: 1.5;\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\tmin-height: 100vh;\n\t\t\t\t\t-webkit-font-smoothing: antialiased;\n\t\t\t\t}\n\n\t\t\t\t/* --- Sidebar --- */\n\t\t\t\t.sidebar[hidden], [data-sidebar=\"closed\"] .sidebar { display: none; }\n\t\t\t\t@media (max-width: 1024px) {\n\t\t\t\t\t[data-sidebar] .sidebar { position: fixed; left: 0; top: var(--header-height); width: max-content; height: calc(100dvh - var(--header-height)); z-index: 40; }\n\t\t\t\t\t:root:not([data-sidebar]) body { flex-direction: column; }\n\t\t\t\t\t:root:not([data-sidebar]) .sidebar { position: static; width: 100%; min-width: 0; height: auto; }\n\t\t\t\t}\n\t\t\t\t.nav-item { white-space: nowrap; }\n\t\t\t\t.nav-item.active {\n\t\t\t\t\tcolor: var(--accent);\n\t\t\t\t\tborder-left-color: var(--accent);\n\t\t\t\t\tbackground: var(--accent-dim);\n\t\t\t\t}\n\t\t\t\t.btn[aria-pressed=\"true\"] {\n\t\t\t\t\tcolor: var(--accent);\n\t\t\t\t\tborder-color: var(--accent);\n\t\t\t\t\tbackground: var(--accent-active);\n\t\t\t\t}\n\t\t\t\t.appearance-picker summary { list-style: none; }\n\t\t\t\t.appearance-picker summary::-webkit-details-marker { display: none; }\n\t\t\t\t.appearance-picker summary[aria-disabled=\"true\"] { opacity: 0.5; cursor: not-allowed; }\n\t\t\t\t.theme-option:has(input:checked) { color: var(--accent); background: var(--accent-dim); }\n\t\t\t\t.theme-option:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }\n\t\t\t\t.theme-option input:not(:checked) ~ .theme-check { visibility: hidden; }\n\t\t\t\t.search-dialog::backdrop { background: rgb(0 0 0 / 0.4); }\n\t\t\t\t.flash { animation: fade-in 0.15s ease-out; }\n\t\t\t\t.flash[hidden] { display: none; }\n\t\t\t\t.toast { background: color-mix(in srgb, currentColor 12%, var(--surface)); }\n\t\t\t\t.section-loading {\n\t\t\t\t\tposition: relative;\n\t\t\t\t\theight: var(--refresh-height);\n\t\t\t\t\tmin-height: var(--refresh-height);\n\t\t\t\t\tmax-height: var(--refresh-height);\n\t\t\t\t\tvisibility: hidden;\n\t\t\t\t}\n\t\t\t\t.section-loading::after {\n\t\t\t\t\tcontent: \"\";\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\tinset: 0;\n\t\t\t\t\tmargin: auto;\n\t\t\t\t\tvisibility: visible;\n\t\t\t\t\tcolor: var(--text-muted);\n\t\t\t\t}\n\t\t\t\t@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }\n\t\t\t\t@media (prefers-reduced-motion: reduce) {\n\t\t\t\t\t*, *::before, *::after { animation: none !important; transition: none !important; }\n\t\t\t\t}\n\n\t\t\t\t/* --- Forms --- */\n\t\t\t\tselect.form-input {\n\t\t\t\t\tappearance: none;\n\t\t\t\t\tbackground-image: var(--select-chevron);\n\t\t\t\t\tbackground-position: right 0.5rem center;\n\t\t\t\t\tbackground-repeat: no-repeat;\n\t\t\t\t\tbackground-size: 1.5em 1.5em;\n\t\t\t\t\tpadding-right: 2.5rem;\n\t\t\t\t}\n\t\t\t\tselect.form-input:is([multiple], [size]:not([size=\"1\"])) {\n\t\t\t\t\tbackground-image: none;\n\t\t\t\t\tpadding-right: 0.75rem;\n\t\t\t\t}\n\t\t\t\t@media (forced-colors: active) {\n\t\t\t\t\tselect.form-input { appearance: auto; background-image: none; }\n\t\t\t\t}\n\t\t\t\t.form-input:focus {\n\t\t\t\t\toutline: none;\n\t\t\t\t\tborder-color: var(--accent);\n\t\t\t\t\tbox-shadow: 0 0 0 2px var(--accent-dim);\n\t\t\t\t}\n\t\t\t\t.input-secret .form-input {\n\t\t\t\t\tpadding-right: 2.25rem;\n\t\t\t\t}\n\n\t\t\t\t/* --- Toggle --- */\n\t\t\t\t.toggle input { opacity: 0; width: 0; height: 0; }\n\t\t\t\t.toggle .slider {\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\tinset: 0;\n\t\t\t\t\tbackground: var(--border);\n\t\t\t\t\tborder-radius: 10px;\n\t\t\t\t\ttransition: background 0.15s;\n\t\t\t\t}\n\t\t\t\t.toggle .slider:before {\n\t\t\t\t\tcontent: \"\";\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\theight: 14px;\n\t\t\t\t\twidth: 14px;\n\t\t\t\t\tleft: 3px;\n\t\t\t\t\tbottom: 3px;\n\t\t\t\t\tbackground: var(--text);\n\t\t\t\t\tborder-radius: 50%;\n\t\t\t\t\ttransition: transform 0.15s;\n\t\t\t\t}\n\t\t\t\t.toggle input:checked + .slider { background: var(--accent); }\n\t\t\t\t.toggle input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }\n\t\t\t\t.toggle input:checked + .slider:before { transform: translateX(16px); }\n\n\t\t\t\t/* --- Stat cards --- */\n\t\t\t\t.stat-card-muted .stat-value { color: var(--text-muted); }\n\n\t\t\t\t/* --- Integration links --- */\n\t\t\t\t.integration-link .name {\n\t\t\t\t\tfont-weight: 600;\n\t\t\t\t\ttext-transform: capitalize;\n\t\t\t\t}\n\t\t\t\t.integration-link .meta {\n\t\t\t\t\tdisplay: flex;\n\t\t\t\t\talign-items: center;\n\t\t\t\t\tgap: 0.5rem;\n\t\t\t\t\tcolor: var(--text-muted);\n\t\t\t\t}\n\n\t\t\t\t/* --- Integration grid (cards) --- */\n\t\t\t\t.integration-card .name {\n\t\t\t\t\tfont-weight: 600;\n\t\t\t\t\ttext-transform: capitalize;\n\t\t\t\t}\n\n\t\t\t\t/* --- Tools list --- */\n\t\t\t\t.tool-row:last-child { border-bottom: none; }\n\t\t\t\t@media (max-width: 560px) {\n\t\t\t\t\t.tool-row { grid-template-columns: 1fr; gap: 0.125rem; }\n\t\t\t\t}\n\n\t\t\t\t/* --- Named identity editor --- */\n\t\t\t\t.identity-editor-header .badge {\n\t\t\t\t\tflex-shrink: 0;\n\t\t\t\t\twhite-space: nowrap;\n\t\t\t\t\tcolor: var(--text-secondary);\n\t\t\t\t}\n\t\t\t\t.identity-editor .form-label { color: var(--text-secondary); }\n\t\t\t\t@media (max-width: 640px) {\n\t\t\t\t\t.identity-fields { grid-template-columns: 1fr; }\n\t\t\t\t\t.identity-item-heading { align-items: center; }\n\t\t\t\t}\n\n\t\t\t\t/* --- Footer --- */\n\t\t\t\t.footer code {\n\t\t\t\t\tbackground: var(--surface);\n\t\t\t\t\tpadding: 2px 6px;\n\t\t\t\t\tborder-radius: 3px;\n\t\t\t\t\tfont-family: var(--font-mono);\n\t\t\t\t}\n\n\t\t\t\t/* --- Metrics: data table --- */\n\t\t\t\t.metrics-table th {\n\t\t\t\t\ttext-align: left;\n\t\t\t\t\tfont-weight: 500;\n\t\t\t\t\tcolor: var(--text-muted);\n\t\t\t\t\tpadding: 0.375rem 0.75rem;\n\t\t\t\t\tborder-bottom: 1px solid var(--border);\n\t\t\t\t\ttext-transform: uppercase;\n\t\t\t\t\tletter-spacing: 0.04em;\n\t\t\t\t}\n\t\t\t\t.metrics-table td {\n\t\t\t\t\tpadding: 0.375rem 0.75rem;\n\t\t\t\t\tborder-bottom: 1px solid var(--border-subtle);\n\t\t\t\t}\n\t\t\t\t.metrics-table tr:last-child td { border-bottom: none; }\n\t\t\t\t.metrics-table .num {\n\t\t\t\t\ttext-align: right;\n\t\t\t\t\tfont-variant-numeric: tabular-nums;\n\t\t\t\t\tfont-family: var(--font-mono);\n\t\t\t\t}\n\t\t\t\t.metrics-table .latency { color: var(--text-secondary); }\n\t\t\t\t.metrics-table .has-errors { color: var(--red); }\n\t\t\t\t.integration-name-cell a {\n\t\t\t\t\tcolor: var(--accent);\n\t\t\t\t\ttext-decoration: none;\n\t\t\t\t}\n\t\t\t\t.integration-name-cell a:hover { text-decoration: underline; }\n\n\t\t\t\t/* --- Savings hero: headline value-prop card --- */\n\t\t\t\t.savings-hero::before {\n\t\t\t\t\tcontent: \"\";\n\t\t\t\t\tposition: absolute;\n\t\t\t\t\ttop: -40%;\n\t\t\t\t\tright: -10%;\n\t\t\t\t\twidth: 320px;\n\t\t\t\t\theight: 320px;\n\t\t\t\t\tbackground: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);\n\t\t\t\t\tpointer-events: none;\n\t\t\t\t}\n\n\t\t\t\t/* --- Slack/setup-specific --- */\n\t\t\t\t.slack-desc code { background: var(--bg); padding: 2px 6px; border-radius: 3px; font-family: var(--font-mono); }\n\t\t\t\t.slack-step-detail kbd {\n\t\t\t\t\tbackground: var(--bg);\n\t\t\t\t\tborder: 1px solid var(--border);\n\t\t\t\t\tborder-radius: 3px;\n\t\t\t\t\tpadding: 1px 5px;\n\t\t\t\t\tfont-family: var(--font-mono);\n\t\t\t\t}\n\t\t\t\t.slack-link:hover { text-decoration: underline; }\n\t\t\t\t.slack-code-block pre { overflow-x: auto; margin: 0; }\n\t\t\t\t.slack-code-block code { font-family: var(--font-mono); color: var(--text-muted); white-space: pre-wrap; word-break: break-all; }\n\t\t\t\t.slack-code-block .btn { position: absolute; top: 0.375rem; right: 0.375rem; }\n\t\t\t\t.slack-token-meta strong { color: var(--text); font-weight: 600; }\n\n\t\t\t\t/* --- Responsive --- */\n\t\t\t\t@media (max-width: 768px) {\n\t\t\t\t\t.main { padding: 1.5rem; }\n\t\t\t\t\t.metrics-row { grid-template-columns: 1fr; }\n\t\t\t\t\t.savings-hero { padding: 1rem; }\n\t\t\t\t\t.savings-hero-value { font-size: 2rem; }\n\t\t\t\t}\n\t\t\t\t@media (max-width: 560px) {\n\t\t\t\t\t.btn { min-height: 40px; }\n\t\t\t\t\t.form-input { min-height: 42px; }\n\t\t\t\t\t.secret-toggle { width: 2.5rem; }\n\t\t\t\t\t.input-secret .form-input { padding-right: 2.75rem; }\n\t\t\t\t\t.toggle { width: 44px; height: 24px; }\n\t\t\t\t\t.toggle .slider { border-radius: 12px; }\n\t\t\t\t\t.toggle .slider:before { width: 18px; height: 18px; }\n\t\t\t\t\t.toggle input:checked + .slider:before { transform: translateX(20px); }\n\t\t\t\t\t.main { padding: 1rem; }\n\t\t\t\t}\n\t\t\t</style></head><body class=\"text-base font-normal text-content\"><details class=\"shrink-0\"><summary class=\"btn m-3\">Navigation</summary>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = sidebar(data.CurrentPath).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</details><div class=\"flex-1 min-w-0\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = topbar(appearance).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = searchDialog().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = toastStack(data).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<main class=\"main\" tabindex=\"-1\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ_7745c5c3_Var3.Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</main></div><script>\n\t\t\t\tfunction toggleSecret(btn) {\n\t\t\t\t\tvar input = btn.parentElement.querySelector('input');\n\t\t\t\t\tvar eyeOn = btn.querySelector('.eye-icon');\n\t\t\t\t\tvar eyeOff = btn.querySelector('.eye-off-icon');\n\t\t\t\t\tif (input.type === 'password') {\n\t\t\t\t\t\tinput.type = 'text';\n\t\t\t\t\t\teyeOn.style.display = 'none';\n\t\t\t\t\t\teyeOff.style.display = '';\n\t\t\t\t\t} else {\n\t\t\t\t\t\tinput.type = 'password';\n\t\t\t\t\t\teyeOn.style.display = '';\n\t\t\t\t\t\teyeOff.style.display = 'none';\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script></body></html>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func appearanceBootstrap(appearance appearanceConfig) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var5 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var5 == nil {
+			templ_7745c5c3_Var5 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templ.JSONScript("appearance-config", appearance).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<script id=\"appearance-bootstrap\">\n\t\t(() => {\n\t\t\tconst config = JSON.parse(document.getElementById('appearance-config').textContent);\n\t\t\tconst dark = matchMedia('(prefers-color-scheme: dark)').matches;\n\t\t\tconst scheme = dark ? 'dark' : 'light';\n\t\t\tconst root = document.documentElement;\n\t\t\troot.dataset.theme = config.defaults[scheme];\n\t\t\troot.dataset.fontSize = '100';\n\t\t\ttry {\n\t\t\t\tconst theme = localStorage.getItem('switchboard.theme');\n\t\t\t\tconst size = localStorage.getItem('switchboard.fontSize');\n\t\t\t\tconst knownTheme = config.themes.some(option => option.id === theme);\n\t\t\t\tif (knownTheme) root.dataset.theme = theme;\n\t\t\t\tif (config.fontSizes.includes(size)) root.dataset.fontSize = size;\n\t\t\t} catch {}\n\t\t})();\n\t</script>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func sidebar(currentPath string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var6 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var6 == nil {
+			templ_7745c5c3_Var6 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<nav id=\"sidebar\" class=\"sidebar\" aria-label=\"Main navigation\"><div class=\"sidebar-brand\"><div class=\"flex items-center justify-between gap-2\"><div class=\"sidebar-brand-name\">Switchboard</div><button class=\"icon-button h-10 w-10\" type=\"button\" data-sidebar-close aria-label=\"Close sidebar\" aria-controls=\"sidebar\" disabled><span class=\"i-lucide:x text-base\" aria-hidden=\"true\"></span></button></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, item := range navItems() {
-			if isActive(data.CurrentPath, item.Path) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<a href=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var3 templ.SafeURL
-				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(item.Path))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 350, Col: 40}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" class=\"nav-item active\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(item.Icon)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 350, Col: 78}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var5 string
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 350, Col: 93}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</a>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<a href=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var6 templ.SafeURL
-				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(item.Path))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 352, Col: 40}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" class=\"nav-item\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var7 string
-				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(item.Icon)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 352, Col: 71}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, " ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var8 string
-				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 352, Col: 86}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</a>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+			templ_7745c5c3_Err = navigationLink(item, currentPath).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
 			}
 		}
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"sidebar-version\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(version.String())
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(version.String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 355, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 394, Col: 49}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div></nav><main class=\"main\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if data.FlashSuccess != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"flash flash-success\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashSuccess)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 359, Col: 57}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div></nav>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
 		}
-		if data.FlashError != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"flash flash-error\">")
+		return nil
+	})
+}
+
+func navigationLink(item NavItem, currentPath string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var8 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var8 == nil {
+			templ_7745c5c3_Var8 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		if isActive(currentPath, item.Path) {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<a href=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var9 templ.SafeURL
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(item.Path))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 400, Col: 36}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" class=\"nav-item active\" aria-current=\"page\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var10 = []any{item.Icon, "w-[14px] h-[14px] shrink-0"}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var10...)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<span class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var11 string
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashError)
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var10).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 362, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" aria-hidden=\"true\"></span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var12 string
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 402, Col: 15}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</a>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<a href=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var13 templ.SafeURL
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(item.Path))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 405, Col: 36}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" class=\"nav-item\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var14 = []any{item.Icon, "w-[14px] h-[14px] shrink-0"}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var14...)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<span class=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var15 string
+			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var14).String())
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 1, Col: 0}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" aria-hidden=\"true\"></span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var16 string
+			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 407, Col: 15}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templ_7745c5c3_Var1.Render(ctx, templ_7745c5c3_Buffer)
+		return nil
+	})
+}
+
+func topbar(appearance appearanceConfig) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var17 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var17 == nil {
+			templ_7745c5c3_Var17 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<header class=\"topbar\" aria-label=\"Navigation and appearance\"><div class=\"flex items-center gap-2\"><button class=\"icon-button h-10 w-10\" type=\"button\" data-sidebar-toggle aria-label=\"Toggle sidebar\" aria-controls=\"sidebar\" aria-expanded=\"true\" disabled><span class=\"i-lucide:panel-left text-base\" aria-hidden=\"true\"></span></button> <span class=\"font-semibold text-lg hidden sm:inline\">Switchboard</span></div><div class=\"appearance-controls ml-auto\"><button class=\"icon-button h-10 gap-2 px-2\" type=\"button\" data-search-open aria-label=\"Search\" aria-keyshortcuts=\"Meta+K Control+K\" title=\"Search (⌘K / Ctrl+K)\" aria-haspopup=\"dialog\" aria-controls=\"search-dialog\" disabled><span class=\"i-lucide:search text-xl\" aria-hidden=\"true\"></span> <kbd class=\"font-mono text-sm text-muted\" aria-hidden=\"true\">⌘K</kbd></button>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</main><script>\n\t\t\t\tfunction toggleSecret(btn) {\n\t\t\t\t\tvar input = btn.parentElement.querySelector('input');\n\t\t\t\t\tvar eyeOn = btn.querySelector('.eye-icon');\n\t\t\t\t\tvar eyeOff = btn.querySelector('.eye-off-icon');\n\t\t\t\t\tif (input.type === 'password') {\n\t\t\t\t\t\tinput.type = 'text';\n\t\t\t\t\t\teyeOn.style.display = 'none';\n\t\t\t\t\t\teyeOff.style.display = '';\n\t\t\t\t\t} else {\n\t\t\t\t\t\tinput.type = 'password';\n\t\t\t\t\t\teyeOn.style.display = '';\n\t\t\t\t\t\teyeOff.style.display = 'none';\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script></body></html>")
+		templ_7745c5c3_Err = fontSizePicker(appearance.FontSizes).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = themePicker(appearance.Themes).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</div></header>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func fontSizePicker(fontSizes []string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var18 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var18 == nil {
+			templ_7745c5c3_Var18 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<details class=\"appearance-picker relative\" data-font-picker><summary class=\"icon-button h-10 w-10\" aria-label=\"Font size\" aria-disabled=\"true\"><span class=\"i-lucide:a-large-small text-2xl\" aria-hidden=\"true\"></span></summary><div class=\"theme-options w-40\" role=\"radiogroup\" aria-label=\"Font size\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, size := range fontSizes {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<label class=\"theme-option\"><input type=\"radio\" name=\"font-size\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var19 string
+			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(size)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 439, Col: 54}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" aria-label=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var20 string
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(size + "%")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 439, Col: 80}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" data-preference=\"fontSize\" class=\"sr-only\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if size == "100" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, " checked")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, " disabled> <span class=\"font-size-option font-mono w-6\" data-size=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var21 string
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(size)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 440, Col: 66}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" aria-hidden=\"true\">A</span> <span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var22 string
+			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(size + "%")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 441, Col: 23}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</span> <span class=\"theme-check i-lucide:check ml-auto shrink-0\" aria-hidden=\"true\"></span></label>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div></details>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func themePicker(themes []themeOption) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var23 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var23 == nil {
+			templ_7745c5c3_Var23 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<details class=\"appearance-picker theme-picker relative\" data-theme-picker><summary id=\"appearance-theme\" class=\"icon-button h-10 w-10\" aria-disabled=\"true\"><span id=\"theme-label\" class=\"sr-only\">Theme</span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = themeSwatch(themes[0].ID).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<span class=\"sr-only\" data-theme-name>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var24 string
+		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(themes[0].Name)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 454, Col: 57}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</span></summary><div class=\"theme-options\" role=\"radiogroup\" aria-labelledby=\"theme-label\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, theme := range themes {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<label class=\"theme-option\"><input class=\"sr-only\" type=\"radio\" name=\"theme\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var25 string
+			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(theme.ID)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 459, Col: 70}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\" aria-label=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var26 string
+			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(theme.Name)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 459, Col: 96}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" data-preference=\"theme\" disabled>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = themeSwatch(theme.ID).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var27 string
+			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(theme.Name)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 461, Col: 23}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</span> <span class=\"theme-check i-lucide:check ml-auto shrink-0\" aria-hidden=\"true\"></span></label>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</div></details>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func searchDialog() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var28 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var28 == nil {
+			templ_7745c5c3_Var28 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<dialog id=\"search-dialog\" class=\"search-dialog\" aria-labelledby=\"search-title\"><div class=\"flex items-center justify-between gap-3 mb-3\"><h2 id=\"search-title\" class=\"text-lg font-semibold\">Search</h2><form method=\"dialog\"><button class=\"icon-button h-10 w-10\" aria-label=\"Close search\"><span class=\"i-lucide:x text-xl\" aria-hidden=\"true\"></span></button></form></div><label for=\"route-search\" class=\"sr-only\">Search pages, integrations, and projects</label> <input id=\"route-search\" class=\"form-input\" type=\"search\" placeholder=\"Search…\" autocomplete=\"off\" aria-describedby=\"search-status\" disabled autofocus><p id=\"search-status\" class=\"text-sm text-muted mt-3\" role=\"status\">Search pages, integrations, and projects.</p></dialog>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func toastStack(data PageData) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var29 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var29 == nil {
+			templ_7745c5c3_Var29 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<div class=\"toast-stack\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = refreshToast().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if data.FlashSuccess != "" {
+			templ_7745c5c3_Err = successToast(data.FlashSuccess).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		if data.FlashError != "" {
+			templ_7745c5c3_Err = errorToast(data.FlashError).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func refreshToast() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var30 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var30 == nil {
+			templ_7745c5c3_Var30 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div id=\"page-refresh-status\" class=\"toast flash\" data-flash=\"refresh\" role=\"status\" aria-atomic=\"true\" hidden><span data-flash-message></span> <button type=\"button\" class=\"flash-dismiss\" data-dismiss-flash aria-label=\"Dismiss notification\"><span class=\"i-lucide:x text-base\" aria-hidden=\"true\"></span></button></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func successToast(message string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var31 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var31 == nil {
+			templ_7745c5c3_Var31 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<div class=\"toast flash flash-success\" data-flash=\"success\" data-auto-dismiss role=\"status\" aria-atomic=\"true\"><span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var32 string
+		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(message)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 506, Col: 17}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</span> <button type=\"button\" class=\"flash-dismiss\" data-dismiss-flash aria-label=\"Dismiss success message\"><span class=\"i-lucide:x text-base\" aria-hidden=\"true\"></span></button></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func errorToast(message string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var33 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var33 == nil {
+			templ_7745c5c3_Var33 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<div class=\"toast flash flash-error\" data-flash=\"error\" role=\"alert\" aria-atomic=\"true\"><span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var34 string
+		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(message)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/layouts/base.templ`, Line: 515, Col: 17}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</span> <button type=\"button\" class=\"flash-dismiss\" data-dismiss-flash aria-label=\"Dismiss error message\"><span class=\"i-lucide:x text-base\" aria-hidden=\"true\"></span></button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

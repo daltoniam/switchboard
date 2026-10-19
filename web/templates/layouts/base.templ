@@ -1,17 +1,42 @@
 package layouts
 
 import (
+	_ "embed"
+	"encoding/json"
 	"strings"
 
 	"github.com/daltoniam/switchboard/version"
 )
 
+//go:embed themes.json
+var themeConfig []byte
+
+type appearanceConfig struct {
+	Defaults  map[string]string `json:"defaults"`
+	FontSizes []string          `json:"fontSizes"`
+	Themes    []themeOption     `json:"themes"`
+}
+
+type themeOption struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Scheme string `json:"scheme"`
+}
+
+func appearanceSettings() appearanceConfig {
+	var config appearanceConfig
+	if err := json.Unmarshal(themeConfig, &config); err != nil {
+		panic("invalid embedded theme configuration: " + err.Error())
+	}
+	return config
+}
+
 type PageData struct {
-	Title         string
-	CurrentPath   string
-	FlashSuccess  string
-	FlashError    string
-	Version       string
+	Title        string
+	CurrentPath  string
+	FlashSuccess string
+	FlashError   string
+	Version      string
 }
 
 type NavItem struct {
@@ -22,11 +47,11 @@ type NavItem struct {
 
 func navItems() []NavItem {
 	return []NavItem{
-		{Path: "/", Label: "Dashboard", Icon: "⚡"},
-		{Path: "/projects", Label: "Projects", Icon: "📁"},
-		{Path: "/integrations", Label: "Integrations", Icon: "🔌"},
-		{Path: "/plugins", Label: "Plugin Marketplace", Icon: "🏪"},
-		{Path: "/settings", Label: "Settings", Icon: "⚙"},
+		{Path: "/", Label: "Dashboard", Icon: "i-lucide:layout-dashboard"},
+		{Path: "/projects", Label: "Projects", Icon: "i-lucide:folder"},
+		{Path: "/integrations", Label: "Integrations", Icon: "i-lucide:plug"},
+		{Path: "/plugins", Label: "Plugin Marketplace", Icon: "i-lucide:store"},
+		{Path: "/settings", Label: "Settings", Icon: "i-lucide:settings"},
 	}
 }
 
@@ -37,14 +62,28 @@ func isActive(current, path string) bool {
 	return strings.HasPrefix(current, path)
 }
 
+templ themeSwatch(id string) {
+	<span class="theme-swatch" data-theme={ id } aria-hidden="true">
+		<span class="bg-accent"></span>
+		<span class="bg-positive"></span>
+		<span class="bg-warning"></span>
+		<span class="bg-negative"></span>
+	</span>
+}
+
 templ Base(data PageData) {
+	{{ appearance := appearanceSettings() }}
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ data.Title } — Switchboard</title>
+			@appearanceBootstrap(appearance)
 			<link rel="stylesheet" href="/static/style.css"/>
+			<script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" crossorigin="anonymous"></script>
+			<script defer src="https://cdn.jsdelivr.net/npm/@tarekraafat/autocomplete.js@10.2.10/dist/autoComplete.min.js" integrity="sha384-cLawOb2F3v0Zfax5NIlJRiJLXwaGoV0vezUUxIAvxIZDfx/jXGa8xOYNTXS8/cu4" crossorigin="anonymous"></script>
+			<script type="module" src="/static/ui.mjs"></script>
 			<style>
 				:root {
 					--accent-dim:     color-mix(in srgb, var(--accent) 12%, transparent);
@@ -54,6 +93,7 @@ templ Base(data PageData) {
 					--yellow-dim:     color-mix(in srgb, var(--yellow) 12%, transparent);
 					--radius:         6px;
 					--font-mono:      'SF Mono', ui-monospace, 'Cascadia Code', 'Fira Code', Menlo, monospace;
+					--header-height:  3.5rem;
 				}
 				* { margin: 0; padding: 0; box-sizing: border-box; }
 				body {
@@ -66,61 +106,49 @@ templ Base(data PageData) {
 				}
 
 				/* --- Sidebar --- */
-				.sidebar {
-					width: 200px;
-					background: var(--surface);
-					border-right: 1px solid var(--border-subtle);
-					padding: 1.25rem 0;
-					flex-shrink: 0;
-					display: flex;
-					flex-direction: column;
+				.sidebar[hidden], [data-sidebar="closed"] .sidebar { display: none; }
+				@media (max-width: 1024px) {
+					[data-sidebar] .sidebar { position: fixed; left: 0; top: var(--header-height); width: max-content; height: calc(100dvh - var(--header-height)); z-index: 40; }
+					:root:not([data-sidebar]) body { flex-direction: column; }
+					:root:not([data-sidebar]) .sidebar { position: static; width: 100%; min-width: 0; height: auto; }
 				}
-				.sidebar-brand {
-					padding: 0 1rem 1rem;
-					border-bottom: 1px solid var(--border-subtle);
-					margin-bottom: 0.5rem;
-				}
-				.sidebar-brand-name {
-					font-size: 0.875rem;
-					font-weight: 600;
-					color: var(--text);
-					letter-spacing: -0.01em;
-				}
-				.sidebar-brand-sub {
-					color: var(--text-muted);
-					font-size: 0.6875rem;
-					display: block;
-					margin-top: 0.125rem;
-				}
-				.nav-item {
-					display: flex;
-					align-items: center;
-					gap: 0.5rem;
-					padding: 0.4375rem 1rem;
-					color: var(--text-secondary);
-					text-decoration: none;
-					font-size: 0.8125rem;
-					border-left: 2px solid transparent;
-					transition: color 0.1s, background 0.1s;
-				}
-				.nav-item:hover {
-					background: var(--surface-hover);
-					color: var(--text);
-				}
+				.nav-item { white-space: nowrap; }
 				.nav-item.active {
 					color: var(--accent);
 					border-left-color: var(--accent);
 					background: var(--accent-dim);
 				}
-				.sidebar-version {
-					margin-top: auto;
-					padding: 0.75rem 1rem;
-					border-top: 1px solid var(--border-subtle);
-					color: var(--text-muted);
-					font-size: 0.625rem;
-					font-family: var(--font-mono);
+				.btn[aria-pressed="true"] {
+					color: var(--accent);
+					border-color: var(--accent);
+					background: var(--accent-active);
 				}
-
+				.appearance-picker summary { list-style: none; }
+				.appearance-picker summary::-webkit-details-marker { display: none; }
+				.appearance-picker summary[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+				.theme-option:has(input:checked) { color: var(--accent); background: var(--accent-dim); }
+				.theme-option:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+				.theme-option input:not(:checked) ~ .theme-check { visibility: hidden; }
+				.search-dialog::backdrop { background: rgb(0 0 0 / 0.4); }
+				.flash { animation: fade-in 0.15s ease-out; }
+				.flash[hidden] { display: none; }
+				.toast { background: color-mix(in srgb, currentColor 12%, var(--surface)); }
+				.section-loading {
+					position: relative;
+					height: var(--refresh-height);
+					min-height: var(--refresh-height);
+					max-height: var(--refresh-height);
+					visibility: hidden;
+				}
+				.section-loading::after {
+					content: "";
+					position: absolute;
+					inset: 0;
+					margin: auto;
+					visibility: visible;
+					color: var(--text-muted);
+				}
+				@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 				@media (prefers-reduced-motion: reduce) {
 					*, *::before, *::after { animation: none !important; transition: none !important; }
 				}
@@ -175,10 +203,6 @@ templ Base(data PageData) {
 				.toggle input:checked + .slider:before { transform: translateX(16px); }
 
 				/* --- Stat cards --- */
-				.stat-card-green { border-color: oklch(65% 0.17 155 / 0.25); }
-				.stat-card-green .stat-value { color: var(--green); }
-				.stat-card-yellow { border-color: oklch(72% 0.15 80 / 0.25); }
-				.stat-card-yellow .stat-value { color: var(--yellow); }
 				.stat-card-muted .stat-value { color: var(--text-muted); }
 
 				/* --- Integration links --- */
@@ -192,8 +216,6 @@ templ Base(data PageData) {
 					gap: 0.5rem;
 					color: var(--text-muted);
 				}
-
-				.last-check { color: var(--text-muted); font-size: 0.625rem; margin-left: 0.5rem; }
 
 				/* --- Integration grid (cards) --- */
 				.integration-card .name {
@@ -282,33 +304,14 @@ templ Base(data PageData) {
 				.slack-code-block .btn { position: absolute; top: 0.375rem; right: 0.375rem; }
 				.slack-token-meta strong { color: var(--text); font-weight: 600; }
 
-				/* --- Spinner --- */
-				.spinner {
-					display: inline-block;
-					width: 12px;
-					height: 12px;
-					border: 2px solid var(--border);
-					border-top-color: var(--accent);
-					border-radius: 50%;
-					animation: spin 0.6s linear infinite;
-					vertical-align: middle;
-				}
-				@keyframes spin { to { transform: rotate(360deg); } }
-
 				/* --- Responsive --- */
 				@media (max-width: 768px) {
-					.sidebar { width: 180px; }
 					.main { padding: 1.5rem; }
-					.metrics-grid { grid-template-columns: repeat(2, 1fr); }
 					.metrics-row { grid-template-columns: 1fr; }
-					.stats-grid { grid-template-columns: repeat(2, 1fr); }
-					.integration-grid { grid-template-columns: repeat(2, 1fr); }
-					.savings-buckets { grid-template-columns: repeat(2, 1fr); }
 					.savings-hero { padding: 1rem; }
 					.savings-hero-value { font-size: 2rem; }
 				}
 				@media (max-width: 560px) {
-					body { flex-direction: column; }
 					.btn { min-height: 40px; }
 					.form-input { min-height: 42px; }
 					.secret-toggle { width: 2.5rem; }
@@ -317,52 +320,23 @@ templ Base(data PageData) {
 					.toggle .slider { border-radius: 12px; }
 					.toggle .slider:before { width: 18px; height: 18px; }
 					.toggle input:checked + .slider:before { transform: translateX(20px); }
-					.sidebar {
-						width: 100%;
-						flex-direction: row;
-						padding: 0.5rem 0;
-						border-right: none;
-						border-bottom: 1px solid var(--border-subtle);
-						overflow-x: auto;
-					}
-					.sidebar-brand { display: none; }
-					.nav-item {
-						border-left: none;
-						border-bottom: 2px solid transparent;
-						padding: 0.375rem 0.75rem;
-						white-space: nowrap;
-					}
-					.nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent); }
 					.main { padding: 1rem; }
-					.integration-grid { grid-template-columns: 1fr; }
-					.savings-buckets { grid-template-columns: 1fr; }
 				}
 			</style>
 		</head>
 		<body class="text-base font-normal text-content">
-			<nav class="sidebar">
-				<div class="sidebar-brand">
-					<div class="sidebar-brand-name">⚙ Switchboard</div>
-					<span class="sidebar-brand-sub">Server Configuration</span>
-				</div>
-				for _, item := range navItems() {
-					if isActive(data.CurrentPath, item.Path) {
-						<a href={ templ.SafeURL(item.Path) } class="nav-item active">{ item.Icon } { item.Label }</a>
-					} else {
-						<a href={ templ.SafeURL(item.Path) } class="nav-item">{ item.Icon } { item.Label }</a>
-					}
-				}
-				<div class="sidebar-version">{ version.String() }</div>
-			</nav>
-			<main class="main">
-				if data.FlashSuccess != "" {
-					<div class="flash flash-success">{ data.FlashSuccess }</div>
-				}
-				if data.FlashError != "" {
-					<div class="flash flash-error">{ data.FlashError }</div>
-				}
-				{ children... }
-			</main>
+			<details class="shrink-0">
+				<summary class="btn m-3">Navigation</summary>
+				@sidebar(data.CurrentPath)
+			</details>
+			<div class="flex-1 min-w-0">
+				@topbar(appearance)
+				@searchDialog()
+				@toastStack(data)
+				<main class="main" tabindex="-1">
+					{ children... }
+				</main>
+			</div>
 			<script>
 				function toggleSecret(btn) {
 					var input = btn.parentElement.querySelector('input');
@@ -381,4 +355,166 @@ templ Base(data PageData) {
 			</script>
 		</body>
 	</html>
+}
+
+templ appearanceBootstrap(appearance appearanceConfig) {
+	@templ.JSONScript("appearance-config", appearance)
+	<script id="appearance-bootstrap">
+		(() => {
+			const config = JSON.parse(document.getElementById('appearance-config').textContent);
+			const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+			const scheme = dark ? 'dark' : 'light';
+			const root = document.documentElement;
+			root.dataset.theme = config.defaults[scheme];
+			root.dataset.fontSize = '100';
+			try {
+				const theme = localStorage.getItem('switchboard.theme');
+				const size = localStorage.getItem('switchboard.fontSize');
+				const knownTheme = config.themes.some(option => option.id === theme);
+				if (knownTheme) root.dataset.theme = theme;
+				if (config.fontSizes.includes(size)) root.dataset.fontSize = size;
+			} catch {}
+		})();
+	</script>
+}
+
+templ sidebar(currentPath string) {
+	<nav id="sidebar" class="sidebar" aria-label="Main navigation">
+		<div class="sidebar-brand">
+			<div class="flex items-center justify-between gap-2">
+				<div class="sidebar-brand-name">Switchboard</div>
+				<button class="icon-button h-10 w-10" type="button" data-sidebar-close aria-label="Close sidebar" aria-controls="sidebar" disabled>
+					<span class="i-lucide:x text-base" aria-hidden="true"></span>
+				</button>
+			</div>
+		</div>
+		for _, item := range navItems() {
+			@navigationLink(item, currentPath)
+		}
+		<div class="sidebar-version">{ version.String() }</div>
+	</nav>
+}
+
+templ navigationLink(item NavItem, currentPath string) {
+	if isActive(currentPath, item.Path) {
+		<a href={ templ.SafeURL(item.Path) } class="nav-item active" aria-current="page">
+			<span class={ item.Icon, "w-[14px] h-[14px] shrink-0" } aria-hidden="true"></span>
+			{ item.Label }
+		</a>
+	} else {
+		<a href={ templ.SafeURL(item.Path) } class="nav-item">
+			<span class={ item.Icon, "w-[14px] h-[14px] shrink-0" } aria-hidden="true"></span>
+			{ item.Label }
+		</a>
+	}
+}
+
+templ topbar(appearance appearanceConfig) {
+	<header class="topbar" aria-label="Navigation and appearance">
+		<div class="flex items-center gap-2">
+			<button class="icon-button h-10 w-10" type="button" data-sidebar-toggle aria-label="Toggle sidebar" aria-controls="sidebar" aria-expanded="true" disabled>
+				<span class="i-lucide:panel-left text-base" aria-hidden="true"></span>
+			</button>
+			<span class="font-semibold text-lg hidden sm:inline">Switchboard</span>
+		</div>
+		<div class="appearance-controls ml-auto">
+			<button class="icon-button h-10 gap-2 px-2" type="button" data-search-open aria-label="Search" aria-keyshortcuts="Meta+K Control+K" title="Search (⌘K / Ctrl+K)" aria-haspopup="dialog" aria-controls="search-dialog" disabled>
+				<span class="i-lucide:search text-xl" aria-hidden="true"></span>
+				<kbd class="font-mono text-sm text-muted" aria-hidden="true">⌘K</kbd>
+			</button>
+			@fontSizePicker(appearance.FontSizes)
+			@themePicker(appearance.Themes)
+		</div>
+	</header>
+}
+
+templ fontSizePicker(fontSizes []string) {
+	<details class="appearance-picker relative" data-font-picker>
+		<summary class="icon-button h-10 w-10" aria-label="Font size" aria-disabled="true">
+			<span class="i-lucide:a-large-small text-2xl" aria-hidden="true"></span>
+		</summary>
+		<div class="theme-options w-40" role="radiogroup" aria-label="Font size">
+			for _, size := range fontSizes {
+				<label class="theme-option">
+					<input type="radio" name="font-size" value={ size } aria-label={ size + "%" } data-preference="fontSize" class="sr-only" checked?={ size == "100" } disabled/>
+					<span class="font-size-option font-mono w-6" data-size={ size } aria-hidden="true">A</span>
+					<span>{ size + "%" }</span>
+					<span class="theme-check i-lucide:check ml-auto shrink-0" aria-hidden="true"></span>
+				</label>
+			}
+		</div>
+	</details>
+}
+
+templ themePicker(themes []themeOption) {
+	<details class="appearance-picker theme-picker relative" data-theme-picker>
+		<summary id="appearance-theme" class="icon-button h-10 w-10" aria-disabled="true">
+			<span id="theme-label" class="sr-only">Theme</span>
+			@themeSwatch(themes[0].ID)
+			<span class="sr-only" data-theme-name>{ themes[0].Name }</span>
+		</summary>
+		<div class="theme-options" role="radiogroup" aria-labelledby="theme-label">
+			for _, theme := range themes {
+				<label class="theme-option">
+					<input class="sr-only" type="radio" name="theme" value={ theme.ID } aria-label={ theme.Name } data-preference="theme" disabled/>
+					@themeSwatch(theme.ID)
+					<span>{ theme.Name }</span>
+					<span class="theme-check i-lucide:check ml-auto shrink-0" aria-hidden="true"></span>
+				</label>
+			}
+		</div>
+	</details>
+}
+
+templ searchDialog() {
+	<dialog id="search-dialog" class="search-dialog" aria-labelledby="search-title">
+		<div class="flex items-center justify-between gap-3 mb-3">
+			<h2 id="search-title" class="text-lg font-semibold">Search</h2>
+			<form method="dialog">
+				<button class="icon-button h-10 w-10" aria-label="Close search"><span class="i-lucide:x text-xl" aria-hidden="true"></span></button>
+			</form>
+		</div>
+		<label for="route-search" class="sr-only">Search pages, integrations, and projects</label>
+		<input id="route-search" class="form-input" type="search" placeholder="Search…" autocomplete="off" aria-describedby="search-status" disabled autofocus/>
+		<p id="search-status" class="text-sm text-muted mt-3" role="status">Search pages, integrations, and projects.</p>
+	</dialog>
+}
+
+templ toastStack(data PageData) {
+	<div class="toast-stack">
+		@refreshToast()
+		if data.FlashSuccess != "" {
+			@successToast(data.FlashSuccess)
+		}
+		if data.FlashError != "" {
+			@errorToast(data.FlashError)
+		}
+	</div>
+}
+
+templ refreshToast() {
+	<div id="page-refresh-status" class="toast flash" data-flash="refresh" role="status" aria-atomic="true" hidden>
+		<span data-flash-message></span>
+		<button type="button" class="flash-dismiss" data-dismiss-flash aria-label="Dismiss notification">
+			<span class="i-lucide:x text-base" aria-hidden="true"></span>
+		</button>
+	</div>
+}
+
+templ successToast(message string) {
+	<div class="toast flash flash-success" data-flash="success" data-auto-dismiss role="status" aria-atomic="true">
+		<span>{ message }</span>
+		<button type="button" class="flash-dismiss" data-dismiss-flash aria-label="Dismiss success message">
+			<span class="i-lucide:x text-base" aria-hidden="true"></span>
+		</button>
+	</div>
+}
+
+templ errorToast(message string) {
+	<div class="toast flash flash-error" data-flash="error" role="alert" aria-atomic="true">
+		<span>{ message }</span>
+		<button type="button" class="flash-dismiss" data-dismiss-flash aria-label="Dismiss error message">
+			<span class="i-lucide:x text-base" aria-hidden="true"></span>
+		</button>
+	</div>
 }
