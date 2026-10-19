@@ -526,9 +526,9 @@ func TestDashboard_IntegrationCounts(t *testing.T) {
 	assert.Contains(t, body, "Errored")
 
 	// Verify stat card values: 1 connected (testint), 1 disabled, 1 errored
-	assert.Contains(t, body, `stat-card-green"><div class="stat-value">1</div>`)
+	assert.Contains(t, body, `stat-card"><div class="stat-value">1</div><div class="stat-label">Connected</div>`)
 	assert.Contains(t, body, `stat-card-muted"><div class="stat-value">1</div>`)
-	assert.Contains(t, body, `stat-card-yellow"><div class="stat-value">1</div>`)
+	assert.Contains(t, body, `stat-card-negative"><div class="stat-value">1</div>`)
 
 	// Should show errored integration in "Needs Attention" section
 	assert.Contains(t, body, "Needs Attention")
@@ -548,6 +548,26 @@ func TestDashboard_NoErroredHidesSection(t *testing.T) {
 
 	// "testint" is healthy, so no "Needs Attention" section
 	assert.NotContains(t, body, "Needs Attention")
+	assert.Contains(t, body, `stat-card"><div class="stat-value">0</div><div class="stat-label">Errored</div>`)
+}
+
+func TestDashboard_ErrorRateColor(t *testing.T) {
+	for _, hasError := range []bool{false, true} {
+		t.Run(fmt.Sprint(hasError), func(t *testing.T) {
+			ws, _, _ := setupTestWeb()
+			ws.services.Metrics = mcp.NewMetrics()
+			const executionError = false
+			for range 99 {
+				ws.services.Metrics.RecordExecution("testint", "testint_do", 0, executionError, 0)
+			}
+			ws.services.Metrics.RecordExecution("testint", "testint_do", 0, hasError, 0)
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/", nil))
+			html := rr.Body.String()
+			hasErrorCard := strings.Contains(html, `class="metric-card card-error"`)
+			assert.Equal(t, hasError, hasErrorCard)
+		})
+	}
 }
 
 func TestIntegrationsList_CategorizedSections(t *testing.T) {
@@ -1208,7 +1228,7 @@ func TestUIAssets(t *testing.T) {
 		name, contentType string
 		status            int
 	}{
-		{"ui.mjs", "text/plain", http.StatusNotFound},
+		{"ui.mjs", "javascript", http.StatusOK},
 		{"style.css", "text/css", http.StatusOK},
 		{"missing.mjs", "text/plain", http.StatusNotFound},
 	} {

@@ -61,7 +61,12 @@ type WebServer struct {
 
 type Option func(*WebServer)
 
-//go:embed static/*.css
+type navigationResult struct {
+	Label string `json:"label"`
+	Path  string `json:"path"`
+}
+
+//go:embed static/*.mjs static/*.css
 var uiAssets embed.FS
 
 func WithConfigChangeHook(fn func()) Option {
@@ -100,6 +105,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /static/{name}", serveUIAsset)
+	mux.HandleFunc("GET /api/navigation", w.handleNavigationSearch)
 
 	mux.HandleFunc("GET /", w.handleDashboard)
 	mux.HandleFunc("GET /integrations", w.handleIntegrationsList)
@@ -264,6 +270,57 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /plugins/load-path", w.handlePluginLoadPath)
 
 	return mux
+}
+
+func (w *WebServer) handleNavigationSearch(rw http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if len(query) > 200 {
+		http.Error(rw, "Search is too long", http.StatusBadRequest)
+		return
+	}
+	results := w.integrationNavigation(query)
+	projects, err := w.projectNavigation(r.Context(), query)
+	if err != nil {
+		http.Error(rw, "Search is unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	results = append(results, projects...)
+	rw.Header().Set("Content-Type", "application/json")
+	rw.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(rw).Encode(results)
+}
+
+func (w *WebServer) integrationNavigation(query string) []navigationResult {
+	results := []navigationResult{}
+	query = strings.ToLower(query)
+	for _, integration := range w.services.Registry.All() {
+		name := integration.Name()
+		label := "Integration: " + name
+		if !strings.Contains(strings.ToLower(label), query) {
+			continue
+		}
+		path := "/integrations/" + url.PathEscape(name)
+		results = append(results, navigationResult{Label: label, Path: path})
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].Label < results[j].Label })
+	return results
+}
+
+func (w *WebServer) projectNavigation(ctx context.Context, query string) ([]navigationResult, error) {
+	results := []navigationResult{}
+	if w.catalog == nil {
+		return results, nil
+	}
+	page, err := w.catalog.Search(ctx, project.SearchRequest{Query: query})
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range page.Projects {
+		label := "Project: " + item.Title
+		path := "/projects/" + url.PathEscape(string(item.ProjectID))
+		results = append(results, navigationResult{Label: label, Path: path})
+	}
+	return results, nil
 }
 
 func (w *WebServer) pageData(r *http.Request, title string, path string) layouts.PageData {

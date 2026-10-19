@@ -164,16 +164,22 @@ func errorRatePct(snap *mcp.MetricsSnapshot) string {
 
 templ Dashboard(page layouts.PageData, data DashboardData) {
 	@layouts.Base(page) {
-		<div class="dash-header">
-			<h1 class="page-title">Dashboard</h1>
-			if data.Metrics != nil {
-				<span class="uptime-badge">up { formatUptime(data.Metrics.UptimeSeconds) }</span>
-			}
-		</div>
+		{{ uptime := "" }}
+		if data.Metrics != nil {
+			{{ uptime = "Uptime: " + formatUptime(data.Metrics.UptimeSeconds) }}
+		}
+		@components.PageHeader("Dashboard", uptime) {
+			@components.PageRefresh("Refresh dashboard")
+		}
+		<h2 class="section-title">Integrations</h2>
 		<div class="stats-grid">
-			@components.StatCardColor(data.ConnectedCount, "Connected", "green")
+			@components.StatCard(data.ConnectedCount, "Connected")
 			@components.StatCardColor(data.DisabledCount, "Disabled", "muted")
-			@components.StatCardColor(data.ErroredCount, "Errored", "yellow")
+			if data.ErroredCount > 0 {
+				@components.StatCardColor(data.ErroredCount, "Errored", "negative")
+			} else {
+				@components.StatCard(data.ErroredCount, "Errored")
+			}
 		</div>
 		if hasSavings(data.Metrics) {
 			@savingsHero(data.Metrics)
@@ -194,12 +200,8 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 						<div class="metric-value">{ fmt.Sprint(data.Metrics.ScriptCount) }</div>
 						<div class="metric-label">Scripts</div>
 					</div>
-					<div class="metric-card">
-						<div class="metric-value">
-							<span class={ templ.KV("err-rate-warn", data.Metrics.ErrorRate() > 10) }>
-								{ errorRatePct(data.Metrics) }%
-							</span>
-						</div>
+					<div class={ "metric-card", templ.KV("card-error", data.Metrics.TotalErrors > 0) }>
+						<div class="metric-value">{ errorRatePct(data.Metrics) }%</div>
 						<div class="metric-label">Error Rate</div>
 					</div>
 				</div>
@@ -261,8 +263,8 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 								</div>
 							}
 							if data.Metrics.Truncations > 0 {
-								<div class="efficiency-item">
-									<span class="efficiency-value err-rate-warn">{ fmt.Sprint(data.Metrics.Truncations) }</span>
+								<div class="efficiency-item card-error">
+									<span class="efficiency-value">{ fmt.Sprint(data.Metrics.Truncations) }</span>
 									<span class="efficiency-label">Truncations</span>
 								</div>
 							}
@@ -276,7 +278,8 @@ templ Dashboard(page layouts.PageData, data DashboardData) {
 				<h2 class="section-title">Needs Attention</h2>
 				for _, i := range data.ErroredIntegrations {
 					<a href={ templ.SafeURL("/integrations/" + i.Name) } class="integration-link">
-						<div>
+						<div class="flex items-center gap-2">
+							@components.IntegrationIcon(i.Name)
 							<span class="name">{ i.Name }</span>
 							<span style="margin-left: 0.5rem;">
 								@components.Badge(healthLabel(i.Enabled, i.Healthy), healthBadge(i.Enabled, i.Healthy))

@@ -3,6 +3,7 @@ package pages
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -107,6 +108,22 @@ const heroSentinel = "Context window saved by Switchboard"
 func TestDashboard_NoMetrics_HidesHero(t *testing.T) {
 	html := renderDashboard(t, DashboardData{ConnectedCount: 2})
 	assert.NotContains(t, html, heroSentinel)
+}
+
+func TestDashboard_ErrorCardStates(t *testing.T) {
+	for _, count := range []int64{0, 1, 2} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			metrics := &mcp.MetricsSnapshot{TotalExecutions: 10, TotalErrors: count, Truncations: count}
+			html := renderDashboard(t, DashboardData{Metrics: metrics})
+			if count == 0 {
+				assert.NotContains(t, html, `class="metric-card card-error"`)
+				assert.NotContains(t, html, `class="efficiency-item card-error"`)
+				return
+			}
+			assert.Contains(t, html, `class="metric-card card-error"`)
+			assert.Contains(t, html, `class="efficiency-item card-error"`)
+		})
+	}
 }
 
 func TestDashboard_ZeroSavings_HidesHero(t *testing.T) {

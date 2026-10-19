@@ -12,6 +12,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNavigationSearch_ProjectMatches(t *testing.T) {
+	store := project.NewStore(t.TempDir())
+	require.NoError(t, store.Load())
+	definition := project.Definition{Version: "1", Name: "website", Description: "Handles payments"}
+	_, err := store.Create(context.Background(), project.CreateRequest{Definition: definition})
+	require.NoError(t, err)
+	ws := testWeb(t, store)
+	for _, query := range []string{"payments", "website", "WeBsItE"} {
+		t.Run(query, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/navigation?q="+query, nil))
+			require.Equal(t, http.StatusOK, rr.Code)
+			assert.JSONEq(t, `[{"label":"Project: website","path":"/projects/website"}]`, rr.Body.String())
+		})
+	}
+}
+
 func testWeb(t *testing.T, store *project.Store) *WebServer {
 	t.Helper()
 	services := &mcp.Services{Config: newMockConfigService(map[string]*mcp.IntegrationConfig{}), Registry: newMockRegistry()}

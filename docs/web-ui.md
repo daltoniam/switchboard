@@ -34,6 +34,16 @@
 - All setup pages save credentials to both the integration config and any external token files
 - Integrations implementing `MultiIdentityIntegration` + `IdentityConfigHints` render a generic named-identity editor. Identity credentials and metadata persist under `integrations.<name>.identities` in the standard config file.
 
+## Appearance and navigation
+
+- **Appearance:** [themes.json](../web/templates/layouts/themes.json) defines six palettes and 80%/100%/120% font sizes. The header has a theme and font-size menus; choices persist in `localStorage`. First visits follow the system theme.
+- **Shared styles:** use `interactive` and `status-*` shortcuts in [style.js](../web/style.js). Controls stay neutral at rest and use the accent for hover, focus, press, and selection. Use `aria-pressed` for toggles and `aria-current="page"` for navigation.
+- **Status:** matching text/border hues and tinted backgrounds. Error styling covers the whole card; zero errors stay neutral. Dismiss controls use borderless Lucide × buttons with accessible labels.
+- **Spacing:** cards `p-4`, groups and ranked lists `gap-3`, related text `gap-1`. Parent `card-grid`/`card-stack` controls gutters. Legacy setup pages retain inline overrides.
+- **Accessibility:** keep native controls and visible focus. Selects use themed chevrons; transitions respect reduced motion. Without JavaScript, the system theme applies and appearance controls are disabled.
+
+Palettes adapt [GitHub](https://github.com/primer/github-vscode-theme), [Atom One Light](https://github.com/akamud/vscode-theme-onelight), [Catppuccin](https://catppuccin.com/palette/), [Dracula](https://draculatheme.com/contribute), and [Nord](https://www.nordtheme.com/docs/colors-and-palettes/).
+
 ## Setup Page Design Rules
 
 When adding or changing a setup page, reuse what the existing pages share. A one-off pattern makes one page look unlike every other. Shared UnoCSS shortcuts live in `web/style.js`; remaining CSS lives in `web/templates/layouts/base.templ`. Reuse these instead of adding inline styles.
@@ -58,7 +68,7 @@ Run `make ui-install` once, then `make test-ui` to verify integration setup in i
 - **Style checks:** `make ci` rebuilds CSS; GitHub CI checks it is current.
 - **TypeScript:** `make tsc` runs the pinned compiler; pass options with `TSC_FLAGS`. Browser code remains JavaScript.
 - **Unit tests:** `make test-web` runs `web/tests/unit/{module}.test.{mjs,ts,mts}` with Node. TypeScript tests use type stripping, not type checking.
-- **Browser tests:** `make test-browser` runs isolated Docker/Chromium tests for navigation, shared styles, and native form interactions. Only Docker is required.
+- **Browser tests:** `make test-browser` runs isolated Docker/Chromium tests for navigation, appearance, notifications, dashboard refresh, and native form interactions. Only Docker is required.
 - **Templ**: `web/templates/*.templ` → run `templ generate` after edits. **Never edit `*_templ.go`** (generated)
 - **Release**: GoReleaser via `.goreleaser.yml`. Ldflags: `main.version`, `main.commit`, `main.date`
 - **Testing**: `stretchr/testify` assertions. Tests in every package
