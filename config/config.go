@@ -250,6 +250,12 @@ var envMapping = map[string]map[string]string{
 		"access_token": "LAUNCHDARKLY_ACCESS_TOKEN",
 		"base_url":     "LAUNCHDARKLY_BASE_URL",
 	},
+	"dbt": {
+		"token":       "DBT_TOKEN",
+		"account_id":  "DBT_ACCOUNT_ID",
+		"base_url":    "DBT_BASE_URL",
+		"prod_job_id": "DBT_PROD_JOB_ID",
+	},
 	"tailscale": {
 		"api_key":             "TAILSCALE_API_KEY",
 		"oauth_client_id":     "TAILSCALE_OAUTH_CLIENT_ID",
@@ -521,6 +527,10 @@ func defaultConfig() *mcp.Config {
 			"launchdarkly": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"dbt": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"token": "", "account_id": "", "base_url": "", "prod_job_id": ""},
 			},
 			"tailscale": {
 				Enabled:     false,

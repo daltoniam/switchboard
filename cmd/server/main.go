@@ -31,6 +31,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/cloudflare"
 	"github.com/daltoniam/switchboard/integrations/confluence"
 	"github.com/daltoniam/switchboard/integrations/datadog"
+	"github.com/daltoniam/switchboard/integrations/dbt"
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
 	"github.com/daltoniam/switchboard/integrations/figma"
@@ -367,6 +368,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		ollama.New(),
 		pagerduty.New(),
 		launchdarkly.New(),
+		dbt.New(),
 		tailscale.New(),
 		gcpInt.New(),
 		suno.New(),
