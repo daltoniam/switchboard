@@ -332,6 +332,7 @@
 .h-10{height:2.5rem;}
 .h-5{height:1.25rem;}
 .min-w-0{min-width:0;}
+.min-w-40{min-width:10rem;}
 .w-\[14px\]{width:14px;}
 .w-10{width:2.5rem;}
 .w-40{width:10rem;}
@@ -354,6 +355,7 @@
 .break-all{word-break:break-all;}
 .b,
 .border{border-width:1px;}
+.border-0{border-width:0px;}
 .border-subtle{border-color:var(--border-subtle);}
 .bg-accent{background-color:var(--accent);}
 .bg-negative{background-color:var(--red);}

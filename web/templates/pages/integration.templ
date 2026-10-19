@@ -106,6 +106,7 @@ templ IntegrationDetail(page layouts.PageData, data IntegrationDetailData) {
 	@layouts.Base(page) {
 		<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
 			<a href="/integrations" class="btn btn-sm btn-outline">← Back</a>
+			@components.IntegrationIcon(data.Name)
 			<h1 class="page-title" style="margin-bottom: 0; text-transform: capitalize;">{ data.Name }</h1>
 			@components.Badge(healthLabel(data.Enabled, data.Healthy), healthBadge(data.Enabled, data.Healthy))
 		</div>

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/googleoauth"
 	"github.com/daltoniam/switchboard/integrations/figma"
@@ -21,6 +22,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type integrationCardState struct {
+	name, enabled, label string
+}
 
 // --- mock types for testing ---
 
@@ -570,7 +575,7 @@ func TestDashboard_ErrorRateColor(t *testing.T) {
 	}
 }
 
-func TestIntegrationsList_CategorizedSections(t *testing.T) {
+func TestIntegrationsList_CardStates(t *testing.T) {
 	ws, reg, cfgService := setupTestWeb()
 
 	// Add disabled integration
@@ -601,10 +606,13 @@ func TestIntegrationsList_CategorizedSections(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	body := rr.Body.String()
 
-	// Should have all 3 sections
-	assert.Contains(t, body, "Needs Attention")
-	assert.Contains(t, body, "Connected")
-	assert.Contains(t, body, "Disabled")
+	// Should retain all 3 integration states in the shared grid
+	expected := []integrationCardState{
+		{"alpha_disabled", "false", "Disabled"},
+		{"beta_errored", "true", "Not Verified"},
+		{"testint", "true", "Connected"},
+	}
+	assertIntegrationCards(t, rr, expected)
 
 	// Should show the integrations
 	assert.Contains(t, body, "beta_errored")
@@ -1220,6 +1228,75 @@ func TestFigmaOAuthCallback_UsesRootCallbackRoute(t *testing.T) {
 
 	require.Equal(t, http.StatusSeeOther, rr.Code)
 	assert.Contains(t, rr.Header().Get("Location"), "/integrations/figma/setup")
+}
+
+func TestHealthRefresh_ResponseVariants(t *testing.T) {
+	for _, header := range []string{"", "false", "true"} {
+		t.Run("HX-Request="+header, func(t *testing.T) {
+			ws, _, _ := setupTestWeb()
+			req := httptest.NewRequest("POST", "/api/health/refresh", nil)
+			req.Header.Set("HX-Request", header)
+			req.Header.Set("Referer", "/integrations")
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, req)
+			assert.Contains(t, rr.Header().Get("Vary"), "HX-Request")
+			if header != "true" {
+				assert.Equal(t, http.StatusSeeOther, rr.Code)
+				assert.Equal(t, "/integrations", rr.Header().Get("Location"))
+				return
+			}
+			assertHealthFragment(t, rr)
+			entry, ok := ws.health.get("testint")
+			require.True(t, ok)
+			assert.True(t, entry.Healthy)
+		})
+	}
+}
+
+func assertHealthFragment(t *testing.T, rr *httptest.ResponseRecorder) {
+	t.Helper()
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Header().Get("Content-Type"), "text/html")
+	assert.Contains(t, rr.Body.String(), `id="integration-results"`)
+	assert.Contains(t, rr.Body.String(), "testint")
+	assert.NotContains(t, rr.Body.String(), "<html")
+	assert.NotContains(t, rr.Body.String(), "<script")
+}
+
+func TestHealthRefresh_CardStates(t *testing.T) {
+	ws, registry, cfg := setupTestWeb()
+	for _, name := range []string{"gmail", "broken", "disabled"} {
+		cfg.cfg.Integrations[name] = &mcp.IntegrationConfig{Enabled: name != "disabled"}
+		require.NoError(t, registry.Register(&mockIntegration{name: name}))
+	}
+	req := httptest.NewRequest("POST", "/api/health/refresh", nil)
+	req.Header.Set("HX-Request", "true")
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+	expected := []integrationCardState{
+		{"gmail", "true", "Not Verified"},
+		{"broken", "true", "Not Verified"},
+		{"disabled", "false", "Disabled"},
+		{"testint", "true", "Connected"},
+	}
+	assertIntegrationCards(t, rr, expected)
+}
+
+func assertIntegrationCards(t *testing.T, rr *httptest.ResponseRecorder, expected []integrationCardState) {
+	t.Helper()
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rr.Body.String()))
+	require.NoError(t, err)
+	assert.Equal(t, len(expected), doc.Find(".integration-card").Length())
+	for _, item := range expected {
+		t.Run(item.name, func(t *testing.T) {
+			card := doc.Find(`.integration-card[href="/integrations/` + item.name + `"]`)
+			require.Equal(t, 1, card.Length())
+			assert.Equal(t, item.enabled, card.AttrOr("data-enabled", ""))
+			assert.Equal(t, item.name, card.Find(".name").Text())
+			assert.Equal(t, item.label, card.Find(".badge").Text())
+		})
+	}
 }
 
 func TestUIAssets(t *testing.T) {
