@@ -459,7 +459,7 @@ test('font-size menu uses scaled glyphs and supports arrow-key selection', async
   });
 });
 
-['Control+k', 'Meta+k'].forEach(shortcut => {
+['Control+k', 'Meta+k', '/'].forEach(shortcut => {
   test(`${shortcut} opens search and Escape restores focus`, async (t) => {
     const page = await browserPage(t);
     await page.goto('/');
@@ -468,10 +468,39 @@ test('font-size menu uses scaled glyphs and supports arrow-key selection', async
     await button.focus();
     await page.keyboard.press(shortcut);
     await expect(page.getByRole('combobox')).toBeFocused();
+    await expect(page.getByRole('combobox')).toHaveValue('');
     await page.keyboard.press('Escape');
     await expect(page.locator('#search-dialog')).not.toBeVisible();
     await expect(button).toBeFocused();
   });
+});
+
+['#example-input', '#example-textarea', '#example-select', '[data-editable-test]'].forEach(selector => {
+  test(`/ leaves editable control ${selector} alone`, async (t) => {
+    const page = await browserPage(t);
+    await page.goto('/styleguide');
+    await page.evaluate(() => {
+      const editor = document.createElement('div');
+      editor.contentEditable = 'true';
+      editor.dataset.editableTest = '';
+      document.querySelector('main').append(editor);
+    });
+    const control = page.locator(selector);
+    await control.focus();
+    await page.keyboard.press('/');
+    await expect(page.locator('#search-dialog')).not.toBeVisible();
+    await expect(control).toBeFocused();
+    if (selector === '#example-input' || selector === '#example-textarea') await expect(control).toHaveValue('/');
+    if (selector === '[data-editable-test]') await expect(control).toHaveText('/');
+  });
+});
+
+test('/ remains text inside global search', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.keyboard.type('org/repo');
+  await expect(page.getByRole('combobox')).toHaveValue('org/repo');
 });
 
 test('dashboard refresh replaces main and unlocks before its notice dismisses', async (t) => {
@@ -605,6 +634,236 @@ test('plugin refresh preserves unfinished installation forms', async (t) => {
   await expect(page.locator('#page-refresh-status')).toHaveText('Refreshed.');
   await expect(page.locator('#plugin_url')).toHaveValue('https://example.test/plugin.wasm');
   await expect(page.locator('#plugin_name')).toHaveValue('draft-plugin');
+});
+
+test('project filtering targets results and preserves the total count', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/projects');
+  const count = page.locator('#project-count');
+  await expect(count).toHaveText('0 of 0 projects');
+  const filtered = page.waitForResponse(response => response.url().includes('/projects?q=alpha'));
+  await page.getByRole('searchbox', { name: 'Filter projects' }).fill('alpha');
+  const response = await filtered;
+  assert.equal(response.status(), 200);
+  assert.equal(response.request().headers()['hx-target'], 'project-results');
+  const body = await response.text();
+  assert.match(body, /^<div id="project-results"/);
+  assert.doesNotMatch(body, /<html|id="project-search"/);
+  await expect(page).toHaveURL(`${baseURL}/projects?q=alpha`);
+  await expect(page.locator('#project-results')).toContainText('No projects match this view.');
+  await expect(page.getByRole('searchbox', { name: 'Filter projects' })).toBeFocused();
+  await expect(count).toHaveText('0 of 0 projects');
+});
+
+test('project filtering updates the header count without duplicating it', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/projects');
+  const body = '<div id="project-results"><span id="project-count" hx-swap-oob="outerHTML">1 of 3 projects</span><p>alpha</p></div>';
+  await page.route('**/projects?q=alpha', route => route.fulfill({ contentType: 'text/html', body }));
+  const input = page.getByRole('searchbox', { name: 'Filter projects' });
+  await input.fill('alpha');
+  await expect(page.locator('#project-count')).toHaveCount(1);
+  await expect(page.locator('#project-count')).toHaveText('1 of 3 projects');
+  await expect(page.locator('#project-results')).toHaveText('alpha');
+  await expect(input).toBeFocused();
+});
+
+test('failed project filtering preserves results and the search input', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/projects');
+  const results = await page.locator('#project-results').innerHTML();
+  await page.route('**/projects?q=alpha', route => route.fulfill({ status: 500 }));
+  const input = page.getByRole('searchbox', { name: 'Filter projects' });
+  await input.fill('alpha');
+  await expect(page.getByRole('alert')).toHaveText('Could not filter projects. Try again.');
+  await expect(input).toHaveValue('alpha');
+  await expect(input).toBeFocused();
+  assert.equal(await page.locator('#project-results').innerHTML(), results);
+  await expect(page).toHaveURL(`${baseURL}/projects`);
+});
+
+test('project filtering cancels an older page refresh without a failure toast', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/projects');
+  const refresh = page.getByRole('button', { name: 'Refresh projects' });
+  const held = await holdProjectRequest(page, '');
+  await refresh.click();
+  await held.started;
+  await expect(refresh).toBeDisabled();
+  await expect(refresh).toHaveAttribute('aria-busy', 'true');
+  await expect(page.locator('main')).toHaveClass(/htmx-request/);
+  const aborted = page.waitForEvent('requestfailed', { predicate: request => request.url() === `${baseURL}/projects`, timeout: 5000 });
+  await page.getByRole('searchbox', { name: 'Filter projects' }).fill('alpha');
+  await aborted;
+  await held.release();
+  await expect(page).toHaveURL(`${baseURL}/projects?q=alpha`);
+  await expect(refresh).toBeEnabled();
+  await expect(refresh).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('main')).not.toHaveClass(/htmx-request/);
+  await expect(page.locator('#page-refresh-status')).toBeHidden();
+  await expect(page.locator('.section-loading')).toHaveCount(0);
+});
+
+test('project refresh unlocks while its success message remains visible', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/projects?q=alpha');
+  const button = page.getByRole('button', { name: 'Refresh projects' });
+  assert.equal(await button.getAttribute('data-page-refresh'), null);
+  await button.click();
+  await expect(page.locator('#page-refresh-status')).toHaveText('Refreshed.');
+  await expect(button).toBeEnabled();
+  await expect(page.locator('#page-refresh-status')).toBeVisible();
+  await expect(page.getByRole('searchbox', { name: 'Filter projects' })).toHaveValue('alpha');
+});
+
+test('project refresh does not interrupt a pending filter', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/projects');
+  const held = await holdProjectRequest(page, '?q=alpha', 'project-results');
+  await page.getByRole('searchbox', { name: 'Filter projects' }).fill('alpha');
+  await held.started;
+  const requests = new Set<string>();
+  page.on('request', request => { requests.add(request.url()); });
+  await page.getByRole('button', { name: 'Refresh projects' }).click();
+  await held.release();
+  await expect(page).toHaveURL(`${baseURL}/projects?q=alpha`);
+  assert.equal(requests.has(`${baseURL}/projects`), false);
+  await expect(page.getByRole('searchbox', { name: 'Filter projects' })).toHaveValue('alpha');
+  await expect(page.locator('#page-refresh-status')).toBeHidden();
+});
+
+async function holdProjectRequest(page: Page, query: string, target = 'main') {
+  const headers = { 'HX-Request': 'true', 'HX-Target': target };
+  const response = await page.request.get(`/projects${query}`, { headers });
+  const body = await response.text();
+  const { promise: started, resolve: markStarted } = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const completed = Promise.withResolvers<void>();
+  await page.route(`${baseURL}/projects${query}`, async route => {
+    markStarted();
+    await release.promise;
+    await route.fulfill({ body, contentType: 'text/html' });
+    completed.resolve();
+  }, { times: 1 });
+  const finish = async () => { release.resolve(); await completed.promise; };
+  const held = { started, release: finish };
+  return held;
+}
+
+['github-light', 'atom-one-light', 'catppuccin-latte', 'github-dark', 'dracula', 'nord'].forEach(theme => {
+  test(`${theme} provides an accent tint for styleguide utilities`, async (t) => {
+    const page = await browserPage(t);
+    await page.goto('/styleguide');
+    await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+    const tint = page.locator('#theme-colors + div .bg-accent-dim');
+    const expected = await page.evaluate(() => {
+      const sample = document.createElement('span');
+      sample.style.backgroundColor = 'color-mix(in srgb, var(--accent) 12%, transparent)';
+      document.body.append(sample);
+      const color = getComputedStyle(sample).backgroundColor;
+      sample.remove();
+      return color;
+    });
+    assert.notEqual(expected, 'rgba(0, 0, 0, 0)');
+    await expect(tint).toHaveCSS('background-color', expected);
+  });
+});
+
+test('style guide stays out of navigation and disabled buttons stay neutral', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/styleguide');
+  await expect(page.getByRole('heading', { name: 'Style guide', exact: true })).toBeVisible();
+  await expect(page.locator('nav a[href="/styleguide"]')).toHaveCount(0);
+  const disabled = page.getByRole('button', { name: 'Disabled action' });
+  await page.addStyleTag({ content: ':root { --surface: #123456; --text: #fedcba; }' });
+  await disabled.hover({ force: true });
+  await expect(disabled).toBeDisabled();
+  await expect(disabled).toHaveCSS('background-color', 'rgb(18, 52, 86)');
+  await expect(disabled).toHaveCSS('color', 'rgb(254, 220, 186)');
+});
+
+test('style guide form examples are interactive without saving', async (t) => {
+  const page = await browserPage(t);
+  const mutations = new Set<string>();
+  page.on('request', request => {
+    const isMutation = !['GET', 'HEAD'].includes(request.method());
+    if (isMutation) mutations.add(request.url());
+  });
+  await page.goto('/styleguide');
+  await page.getByRole('button', { name: 'Toggle visibility' }).click();
+  await expect(page.getByLabel('Secret input')).toHaveAttribute('type', 'text');
+  await page.getByLabel('Select', { exact: true }).selectOption({ label: 'File' });
+  await page.getByLabel('Personal', { exact: true }).check();
+  const setting = page.getByLabel('Example setting', { exact: true });
+  await page.locator('.toggle').filter({ has: setting }).click();
+  await expect(setting).toBeChecked();
+  await page.getByLabel('Multiline input').fill('Example configuration');
+  await page.getByRole('button', { name: 'Save example', exact: true }).click();
+  assert.equal(mutations.size, 0);
+});
+
+[1280, 390].forEach(width => {
+  test(`style guide sections fit at ${width}px`, async (t) => {
+    const viewport = { width, height: 900 };
+    const page = await browserPage(t, { viewport });
+    await page.goto('/styleguide');
+    const headings = ['Typography', 'Form controls', 'Cards and integrations', 'Metrics and summaries',
+      'Tables and metadata', 'Lists and tools', 'Identity editor', 'Setup steps and code', 'Empty states'];
+    for (const name of headings) await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+    assert.equal(overflow, false);
+    await page.getByRole('button', { name: 'Dismiss example success' }).click();
+    await expect(page.locator('[data-flash="success"]')).toHaveCount(0);
+  });
+});
+
+test('pressing and selecting controls have distinct states', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/styleguide');
+  const button = page.getByRole('button', { name: 'Example action', exact: true });
+  await page.addStyleTag({ content: ':root { --accent-active: #123456; }' });
+  await button.hover();
+  await page.mouse.down();
+  await expect(button).toHaveCSS('background-color', 'rgb(18, 52, 86)');
+  await page.mouse.up();
+  const group = page.getByRole('group', { name: 'Example integration state' });
+  const selected = group.getByRole('button', { name: 'Enabled', exact: true });
+  await expect(selected).toHaveAttribute('aria-pressed', 'true');
+  await selected.click();
+  await expect(selected).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('project pagination preserves the filter and Back/Forward history', async (t) => {
+  const page = await browserPage(t);
+  const nextURL = '/projects?q=alpha&cursor=page-2';
+  const nextLink = `<a href="${nextURL}" hx-get="${nextURL}" hx-target="#project-results" hx-swap="outerHTML" hx-sync="#project-search:replace" hx-push-url="true" data-project-page>Next page</a>`;
+  await page.route('**/projects?q=alpha', route => route.fulfill({
+    contentType: 'text/html', body: `<div id="project-results">Alpha first page${nextLink}</div>`,
+  }));
+  await page.route(`**${nextURL}`, route => route.fulfill({
+    contentType: 'text/html', body: '<div id="project-results">Alpha second page</div>',
+  }));
+  await page.goto('/settings');
+  await page.goto('/projects');
+  const input = page.getByRole('searchbox', { name: 'Filter projects' });
+  await input.fill('alpha');
+  const response = page.waitForResponse(`${baseURL}${nextURL}`);
+  await page.getByRole('link', { name: 'Next page' }).click();
+  assert.equal((await response).request().headers()['hx-target'], 'project-results');
+  await expect(page).toHaveURL(`${baseURL}${nextURL}`);
+  await expect(page.locator('#project-results')).toHaveText('Alpha second page');
+  await expect(input).toHaveValue('alpha');
+  await page.goBack();
+  await expect(page).toHaveURL(`${baseURL}/projects?q=alpha`);
+  await expect(page.locator('#project-results')).toContainText('Alpha first page');
+  await expect(input).toHaveValue('alpha');
+  await page.keyboard.press('Control+k');
+  await expect(page.locator('#search-dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.goForward();
+  await expect(page).toHaveURL(`${baseURL}${nextURL}`);
+  await expect(page.locator('#project-results')).toHaveText('Alpha second page');
+  await expect(input).toHaveValue('alpha');
 });
 
 async function browserPage(t: TestContext, options: BrowserContextOptions = {}): Promise<Page> {

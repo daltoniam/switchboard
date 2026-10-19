@@ -411,15 +411,17 @@ func (s *Store) pageFrom(kind, query, cursor string) (Page, error) {
 	q := strings.ToLower(strings.TrimSpace(query))
 	var valid []ProjectSummary
 	var invalid []InvalidProjectSummary
+	matchingCount := 0
 	for _, id := range s.sortedIDs() {
-		if after != "" && id <= after {
-			continue
-		}
 		rec := s.index[id]
 		if q != "" && !strings.Contains(strings.ToLower(string(id)), q) && (rec.effective == nil || !strings.Contains(strings.ToLower(rec.effective.TitleOrName()), q)) {
 			if rec.effective == nil || !strings.Contains(strings.ToLower(rec.effective.Description), q) {
 				continue
 			}
+		}
+		matchingCount++
+		if after != "" && id <= after {
+			continue
 		}
 		sum, inv, ok := s.summaryFromRecord(rec)
 		if ok {
@@ -429,6 +431,8 @@ func (s *Store) pageFrom(kind, query, cursor string) (Page, error) {
 		}
 	}
 	page := Page{Projects: []ProjectSummary{}, InvalidProjects: []InvalidProjectSummary{}}
+	page.TotalCount = matchingCount
+	page.CatalogCount = len(s.index)
 	remaining := append([]ProjectSummary(nil), valid...)
 	if len(remaining) > pageSizeDefault {
 		page.Projects = remaining[:pageSizeDefault]

@@ -1,7 +1,7 @@
 export class UI {
   static #token = Symbol();
   static #instance;
-  static #events = ['click', 'keydown', 'change', 'input', 'htmx:beforeRequest', 'htmx:afterSwap', 'htmx:afterRequest', 'htmx:sendAbort', 'htmx:sendError', 'htmx:timeout', 'htmx:responseError', 'htmx:swapError'];
+  static #events = ['click', 'keydown', 'change', 'input', 'htmx:beforeRequest', 'htmx:afterSwap', 'htmx:afterRequest', 'htmx:sendAbort', 'htmx:sendError', 'htmx:timeout', 'htmx:responseError', 'htmx:swapError', 'htmx:historyRestore'];
   #environment;
   #controller;
   #refreshStatus;
@@ -78,6 +78,12 @@ export class UI {
   }
 
   handleEvent(event) {
+    if (event.type === 'htmx:historyRestore') {
+      const environment = this.#environment;
+      this.destroy();
+      this.init(environment);
+      return;
+    }
     this.#handleToggleGroup(event);
     if (event.type === 'input') {
       this.#scheduleIntegrationFilter(event);
@@ -100,6 +106,15 @@ export class UI {
       return;
     }
     this.#updateRefresh(event);
+    this.#reportProjectFilterError(event);
+  }
+
+  #reportProjectFilterError(event) {
+    const errors = ['htmx:sendError', 'htmx:timeout', 'htmx:responseError', 'htmx:swapError'];
+    if (!errors.includes(event.type)) return;
+    const control = event.detail?.requestConfig?.elt ?? event.detail?.elt;
+    if (!control?.matches?.('#project-query, #project-search, [data-project-page]')) return;
+    this.#showRefreshToast('Could not filter projects. Try again.', false);
   }
 
   #cacheElements() {
@@ -239,15 +254,25 @@ export class UI {
   #openSearch(event) {
     if (!this.#searchDialog) return;
     const { htmx } = this.#environment;
-    const modifier = event.metaKey || event.ctrlKey;
-    const plainModifier = modifier && !event.altKey && !event.shiftKey;
-    const shortcut = event.type === 'keydown' && plainModifier && event.key.toLowerCase() === 'k';
+    const shortcut = this.#isSearchShortcut(event);
     const clicked = event.type === 'click' && htmx.closest(event.target, '[data-search-open]');
     const requested = shortcut || clicked;
     if (!requested) return;
     event.preventDefault();
     if (!this.#searchDialog.open) this.#searchDialog.showModal();
     this.#search?.input.focus();
+  }
+
+  #isSearchShortcut(event) {
+    const unavailable = event.type !== 'keydown' || event.defaultPrevented || event.isComposing;
+    if (unavailable) return false;
+    const modifier = event.metaKey || event.ctrlKey;
+    const plainModifier = modifier && !event.altKey && !event.shiftKey;
+    if (plainModifier && event.key.toLowerCase() === 'k') return true;
+    const slash = event.key === '/' && !modifier && !event.altKey;
+    if (!slash) return false;
+    const editable = event.target?.isContentEditable || event.target?.closest?.('input, textarea, select');
+    return !editable;
   }
 
   #initSidebar() {

@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,14 +18,24 @@ func WithProjectCatalog(cat project.Catalog) Option {
 }
 
 func (w *WebServer) handleProjectsList(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+	rw.Header().Add("Vary", "HX-Request, HX-Target")
+	partial := r.Header.Get("HX-Request") == "true"
+	resultsOnly := partial && r.Header.Get("HX-Target") == "project-results"
 	page := w.pageData(r, "Projects", "/projects")
 	data := pages.ProjectsListData{
+		CountLabel:      "0 of 0 projects",
+		Partial:         resultsOnly,
 		Query:           strings.TrimSpace(r.URL.Query().Get("q")),
 		Projects:        []project.ProjectSummary{},
 		InvalidProjects: []project.InvalidProjectSummary{},
 	}
 
 	if w.catalog == nil {
+		if resultsOnly {
+			_ = pages.ProjectsListResults(data).Render(r.Context(), rw)
+			return
+		}
 		_ = pages.ProjectsList(page, data).Render(r.Context(), rw)
 		return
 	}
@@ -35,16 +46,21 @@ func (w *WebServer) handleProjectsList(rw http.ResponseWriter, r *http.Request) 
 	})
 	if err != nil {
 		page.FlashError = "Failed to load projects: " + err.Error()
+		if partial {
+			rw.WriteHeader(http.StatusInternalServerError)
+		}
 		_ = pages.ProjectsList(page, data).Render(r.Context(), rw)
 		return
 	}
 	data.Projects = result.Projects
 	data.InvalidProjects = result.InvalidProjects
 	data.NextCursor = result.NextCursor
-	data.TotalValid = len(result.Projects)
-	data.TotalInvalid = len(result.InvalidProjects)
+	data.CountLabel = fmt.Sprintf("%d of %d projects", result.TotalCount, result.CatalogCount)
+	if resultsOnly {
+		_ = pages.ProjectsListResults(data).Render(r.Context(), rw)
+		return
+	}
 
-	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = pages.ProjectsList(page, data).Render(r.Context(), rw)
 }
 

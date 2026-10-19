@@ -1,0 +1,37 @@
+[2026-10-19T15:33:14.995Z] SUCCESS
+Command: git status --short | head; git diff main...HEAD --stat | tail -40; git log main..HEAD --oneline
+Exit Code: 0
+Output:  docs/web-ui.md                          |   5 +
+ project/catalog.go                      |   1 +
+ project/catalog_store.go                |   1 +
+ project/catalog_test.go                 |  18 +
+ web...
+---
+[2026-10-19T15:33:20.828Z] SUCCESS
+Command: git diff main...HEAD -- project web/projects.go web/web.go web/web_test.go web/projects_test.go web/static docs web/templates/pages/projects.templ
+Exit Code: 0
+Output: diff --git a/docs/web-ui.md b/docs/web-ui.md
+index 1b26c07..070a008 100644
+--- a/docs/web-ui.md
++++ b/docs/web-ui.md
+@@ -44,6 +44,11 @@
+ 
+ Palettes adapt [GitHub](https://github.com/primer/github-vsco...
+---
+[2026-10-19T15:33:20.971Z] SUCCESS
+Command: (make ci 2>&1 | tail -60)
+Exit Code: 0
+Output: Node 26.8.1 is required. Install and activate it before running this target.
+make: *** [check-node] Error 1
+---
+[2026-10-19T15:34:03.673Z] SUCCESS
+Command: node -v; go build ./... && echo BUILD OK; go vet ./... && echo VET OK; gofmt -l . | grep -v _templ.go; echo FMT DONE; go test -race ./project/... ./web/... 2>&1 | tail -15; (go tool golangci-lint run 2>&1 | tail -20); command -v templ && templ generate -f web/templates/pages/projects.templ >/dev/null 2>&1; git status --short
+Exit Code: 0
+Output: v26.7.0
+BUILD OK
+VET OK
+FMT DONE
+ok  	github.com/daltoniam/switchboard/project	2.205s
+ok  	github.com/daltoniam/switchboard/web	2.520s
+?   	github.com/daltoniam/switchboard/web/templates/components	[n...
+---

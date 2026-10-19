@@ -1299,6 +1299,33 @@ func assertIntegrationCards(t *testing.T, rr *httptest.ResponseRecorder, expecte
 	}
 }
 
+func TestStyleGuide(t *testing.T) {
+	ws, _, _ := setupTestWeb()
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, httptest.NewRequest("GET", "/styleguide", nil))
+	require.Equal(t, http.StatusOK, rr.Code)
+	for _, status := range []string{"success", "error"} {
+		assert.Contains(t, rr.Body.String(), `flash flash-`+status)
+	}
+	assertStyleGuideSections(t, rr.Body.String())
+	assert.NotContains(t, rr.Body.String(), `method="POST"`)
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rr.Body.String()))
+	require.NoError(t, err)
+	assert.Zero(t, doc.Find(`.flash-warning, .flash-info, .status-info, [data-example-toggle], .dash-header, .uptime-badge, .last-check, .spinner`).Length())
+	assert.Equal(t, 4, doc.Find(`[aria-labelledby="theme-tables"] thead th`).Length())
+}
+
+func assertStyleGuideSections(t *testing.T, body string) {
+	t.Helper()
+	for _, section := range []string{
+		"Typography", "Hover and keyboard focus", "Form controls", "Cards and integrations",
+		"Metrics and summaries", "Tables and metadata", "Lists and tools", "Identity editor",
+		"Setup steps and code", "Empty states", "Status messages",
+	} {
+		assert.Contains(t, body, section)
+	}
+}
+
 func TestUIAssets(t *testing.T) {
 	ws, _, _ := setupTestWeb()
 	for _, asset := range []struct {

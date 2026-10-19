@@ -1,0 +1,328 @@
+package pages
+
+import (
+	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+templ StyleGuide(page layouts.PageData) {
+	@layouts.Base(page) {
+		<h1 class="page-title">Style guide</h1>
+		<p class="text-secondary mb-6">Neutral surfaces, theme accents, and explicit status labels.</p>
+		<p class="text-muted mb-6">Use the header to explore themes and font sizes. Appearance is saved in this browser; examples below use sample data.</p>
+		@styleGuideColors()
+		@styleGuideTypography()
+		@styleGuideInteractions()
+		@styleGuideForms()
+		@styleGuideCards()
+		@styleGuideMetrics()
+		@styleGuideTables()
+		@styleGuideLists()
+		@styleGuideIdentity()
+		@styleGuideSetup()
+		@styleGuideStates()
+		@styleGuideStatuses()
+		<div class="footer">Footer text with <code>inline configuration</code>.</div>
+	}
+}
+
+templ styleGuideColors() {
+	<section class="mb-6" aria-labelledby="theme-colors">
+		<h2 id="theme-colors" class="section-title">Theme colors</h2>
+		<div class="card-grid sm:grid-cols-2">
+			<div class="card bg-canvas flex flex-col gap-1"><strong>Canvas</strong><p class="text-secondary">Page background</p></div>
+			<div class="card flex flex-col gap-1"><strong>Surface</strong><p class="text-secondary">Cards and controls at rest</p></div>
+			<div class="card border-accent text-accent flex flex-col gap-1"><strong>Accent</strong><p>Theme color for interactions and selection</p></div>
+			<div class="card bg-accent-dim flex flex-col gap-1"><strong>Accent background</strong><p class="text-secondary">A tint of the same accent</p></div>
+		</div>
+	</section>
+}
+
+templ styleGuideTypography() {
+	<section class="mb-6" aria-labelledby="theme-type">
+		<h2 id="theme-type" class="section-title">Typography</h2>
+		<div class="card">
+			<h3 class="page-title">Page heading</h3>
+			<h4 class="card-title mb-3">Card heading</h4>
+			<p class="text-content">Primary text for content and labels.</p>
+			<p class="text-secondary">Secondary text for supporting descriptions.</p>
+			<p class="text-muted text-sm">Muted text for metadata and hints.</p>
+			<code class="font-mono">example_tool_name</code>
+		</div>
+	</section>
+}
+
+templ styleGuideInteractions() {
+	<section class="mb-6" aria-labelledby="theme-interactions">
+		<h2 id="theme-interactions" class="section-title">Hover and keyboard focus</h2>
+		<p class="text-secondary mb-3">Hover, press, or use Tab to explore shared states. Transitions respect reduced motion. Disabled controls stay neutral.</p>
+		<div class="flex flex-wrap gap-3 mb-4">
+			<button type="button" class="btn">Example action</button>
+			<button type="button" class="btn btn-sm">Small action</button>
+			<button type="button" class="btn" disabled>Disabled action</button>
+			<button type="button" class="btn btn-sm btn-outline identity-delete">Delete example</button>
+		</div>
+		<div class="flex flex-wrap gap-3">
+			<a class="btn btn-sm btn-outline" href="#theme-colors">← Back</a>
+			<a class="btn btn-sm btn-outline" href="#theme-forms">Next page</a>
+			<a class="slack-link" href="#theme-statuses">Text link</a>
+		</div>
+	</section>
+}
+
+templ styleGuideForms() {
+	<section class="mb-6" aria-labelledby="theme-forms">
+		<h2 id="theme-forms" class="section-title">Form controls</h2>
+		<p class="text-secondary mb-3">Used by integration setup, Settings, Projects, and the plugin marketplace.</p>
+		<div class="card">
+			@styleGuideInputs()
+			<div class="form-group">
+				<label class="form-label" for="example-textarea">Multiline input</label>
+				<textarea class="form-input slack-textarea" id="example-textarea" rows="3" placeholder="Paste example JSON"></textarea>
+			</div>
+			<div class="form-group">
+				<label class="form-label" for="example-file">File picker</label>
+				<input class="form-input" id="example-file" type="file"/>
+			</div>
+			@styleGuideSelections()
+		</div>
+	</section>
+}
+
+templ styleGuideInputs() {
+	<div class="grid gap-3 sm:grid-cols-2">
+		@components.FormGroup("Text input", "example-input", "text", "", "Example value")
+		@components.FormGroup("Secret input", "example-secret", "password", "example-only", "")
+		@components.FormGroup("Search", "example-search", "search", "", "Search projects")
+		@components.FormGroup("URL", "example-url", "url", "", "https://example.com/plugin.wasm")
+		@components.FormGroup("Number", "example-number", "number", "3", "")
+		<div class="form-group">
+			<label class="form-label" for="example-select">Select</label>
+			<select class="form-input" id="example-select"><option>Memory</option><option>File</option></select>
+		</div>
+	</div>
+}
+
+templ styleGuideSelections() {
+	<div class="flex flex-wrap gap-4 mb-3">
+		<label><input type="checkbox" checked/> Checkbox</label>
+		<label><input type="radio" name="example-workspace" value="work" checked/> Work</label>
+		<label><input type="radio" name="example-workspace" value="personal"/> Personal</label>
+	</div>
+	<div class="flex flex-wrap items-center gap-3">
+		<label class="toggle"><input type="checkbox" aria-label="Example setting"/><span class="slider"></span></label>
+		<span>Off</span>
+		<label class="toggle"><input type="checkbox" aria-label="Enabled setting" checked/><span class="slider"></span></label>
+		<span>On</span>
+	</div>
+	<div class="mt-3">
+		@components.ToggleGroup("Example integration state") {
+			@components.ToggleGroupItem("Enabled", "true", true)
+			@components.ToggleGroupItem("Disabled", "false", true)
+		}
+	</div>
+}
+
+templ styleGuideCards() {
+	<section class="mb-6" aria-labelledby="theme-cards">
+		<h2 id="theme-cards" class="section-title">Cards and integrations</h2>
+		<div class="card-stack">
+			@styleGuideConfigurationCard()
+			<div class="integration-grid">
+				@integrationCard(IntegrationSummary{Name: "github", Enabled: true, Healthy: true, ToolCount: 12})
+				@integrationCard(IntegrationSummary{Name: "postgres", Enabled: true, ToolCount: 8})
+				@integrationCard(IntegrationSummary{Name: "slack", IsRemote: true, ToolCount: 6})
+			</div>
+			<a href="#theme-forms" class="integration-link">
+				<div><span class="name">Integration row</span></div>
+				<div class="meta"><span>12 tools</span><span aria-hidden="true">→</span></div>
+			</a>
+		</div>
+	</section>
+}
+
+templ styleGuideConfigurationCard() {
+	<div class="card">
+		<div class="card-header">
+			<h3 class="card-title">Configuration card</h3>
+			@components.Badge("3 configured", "muted")
+		</div>
+		<p class="text-secondary">A static card groups related settings or content.</p>
+	</div>
+}
+
+templ styleGuideMetrics() {
+	<section class="mb-6" aria-labelledby="theme-metrics">
+		<h2 id="theme-metrics" class="section-title">Metrics and summaries</h2>
+		<div class="card-stack">
+			@styleGuideCounts()
+			<div class="metrics-grid">
+				<div class="metric-card"><div class="metric-value">128</div><div class="metric-label">Executions</div></div>
+				<div class="metric-card"><div class="metric-value">24</div><div class="metric-label">Searches</div></div>
+				<div class="metric-card"><div class="metric-value">8</div><div class="metric-label">Scripts</div></div>
+				<div class="metric-card card-error"><div class="metric-value">1%</div><div class="metric-label">Error rate</div></div>
+			</div>
+			<div class="efficiency-grid">
+				<div class="efficiency-item"><span class="efficiency-value">2</span><span class="efficiency-label">Retries</span></div>
+				<div class="efficiency-item card-error"><span class="efficiency-value">1</span><span class="efficiency-label">Truncations</span></div>
+			</div>
+			@savingsHero(styleGuideSavings())
+		</div>
+	</section>
+}
+
+templ styleGuideCounts() {
+	<div class="stats-grid">
+		@components.StatCard(3, "Connected")
+		@components.StatCardColor(1, "Disabled", "muted")
+		@components.StatCard(0, "Zero errors")
+		@components.StatCardColor(2, "Errors", "negative")
+	</div>
+}
+
+templ styleGuideTables() {
+	<section class="mb-6" aria-labelledby="theme-tables">
+		<h2 id="theme-tables" class="section-title">Tables and metadata</h2>
+		<p class="text-secondary mb-3">Shared by dashboard usage, project catalogs, profiles, and work sessions.</p>
+		<div class="table-wrap mb-4">
+			<table class="metrics-table">
+				<thead><tr><th>Integration</th><th>Calls</th><th>Errors</th><th>Avg Latency</th></tr></thead>
+				<tbody>
+					<tr><td class="integration-name-cell"><a href="#theme-cards">GitHub</a></td><td class="num">128</td><td class="num">0</td><td class="num latency">42ms</td></tr>
+					<tr><td class="integration-name-cell"><a href="#theme-cards">Postgres</a></td><td class="num">16</td><td class="num has-errors">2</td><td class="num latency">180ms</td></tr>
+				</tbody>
+			</table>
+		</div>
+		@kvCard("Metadata card", [][2]string{{"ID", "example-project"}, {"Profile", "Development"}, {"Revision", "abc123"}})
+		@jsonCard(`{"name": "Example project", "state": "active"}`)
+	</section>
+}
+
+templ styleGuideLists() {
+	<section class="mb-6" aria-labelledby="theme-lists">
+		<h2 id="theme-lists" class="section-title">Lists and tools</h2>
+		<div class="card">
+			<div class="tools-rows">
+				@components.ToolRow("github_list_issues", "List issues for a repository.")
+				@components.ToolRow("postgres_query", "")
+			</div>
+			<p class="tools-hint">Tool rows include names, descriptions, and an empty-description state.</p>
+		</div>
+		<div class="top-tools-list">
+			<div class="top-tool-item"><span class="top-tool-rank">1</span><span class="top-tool-name">github_list_issues</span><span class="top-tool-calls">128</span></div>
+			<div class="top-tool-item"><span class="top-tool-rank">2</span><span class="top-tool-name">postgres_query</span><span class="top-tool-calls">16</span></div>
+		</div>
+	</section>
+}
+
+templ styleGuideIdentity() {
+	<section class="mb-6" aria-labelledby="theme-identity">
+		<h2 id="theme-identity" class="section-title">Identity editor</h2>
+		<div class="card identity-editor">
+			<div class="card-header identity-editor-header">
+				<div><h3 class="card-title">Named identities</h3><p class="identity-hint">Grouped credentials and metadata, as used by integration configuration.</p></div>
+				@components.Badge("1 configured", "muted")
+			</div>
+			<div class="identity-list">
+				@styleGuideIdentityItem()
+			</div>
+		</div>
+	</section>
+}
+
+templ styleGuideIdentityItem() {
+	<div class="identity-item">
+		<div class="identity-item-heading">
+			<div><div class="identity-name">Work</div><code class="identity-id">work-example</code></div>
+			<button type="button" class="btn btn-sm btn-outline identity-delete">Delete identity example</button>
+		</div>
+		<div class="identity-fields">
+			<div class="identity-fieldset-heading">Credentials</div>
+			<div class="form-group">
+				<label class="form-label" for="example-credential">Credential</label>
+				<input class="form-input" id="example-credential" type="password" placeholder="Leave blank to keep configured value" autocomplete="off"/>
+				<span class="identity-secret-status">Configured</span>
+			</div>
+			<div class="identity-fieldset-heading">Metadata</div>
+			@components.FormGroup("Display name", "example-identity-name", "text", "Work", "")
+		</div>
+		<div class="identity-form-actions"><button type="button" class="btn btn-sm">Save example</button></div>
+	</div>
+}
+
+templ styleGuideSetup() {
+	<section class="mb-6" aria-labelledby="theme-setup">
+		<h2 id="theme-setup" class="section-title">Setup steps and code</h2>
+		<div class="card">
+			<p class="slack-desc">Guided setup uses numbered steps, links, keyboard shortcuts, and code examples.</p>
+			<ul class="list-disc pl-5 mt-3 text-secondary"><li>Review connection details.</li><li>Confirm authorization.</li></ul>
+			@styleGuideSetupSteps()
+			<div class="card bg-canvas border-accent mt-4">
+				<p class="text-secondary mb-2">Example device authorization code</p>
+				<code class="text-2xl font-mono text-accent">ABCD-EFGH</code>
+			</div>
+			<div class="slack-token-meta flex-wrap"><span>Source: <strong>Example</strong></span><span>Auto-refresh: <strong>Enabled</strong></span></div>
+		</div>
+	</section>
+}
+
+templ styleGuideSetupSteps() {
+	<div class="slack-steps">
+		<div class="slack-step">
+			<div class="slack-step-num">1</div>
+			<div><strong>Review configuration</strong><p class="slack-step-detail">Use <kbd>Tab</kbd> to move between fields and inspect the <a href="#theme-forms" class="slack-link">form examples</a>.</p></div>
+		</div>
+		<div class="slack-step">
+			<div class="slack-step-num">2</div>
+			<div class="min-w-0 flex-1"><strong>Configuration snippet</strong><div class="slack-code-block"><pre><code>{ `{"mcpServers":{"example":{"url":"http://localhost:3847/mcp"}}}` }</code></pre></div></div>
+		</div>
+	</div>
+}
+
+templ styleGuideStates() {
+	<section class="mb-6" aria-labelledby="theme-states">
+		<h2 id="theme-states" class="section-title">Empty states</h2>
+		<div class="card"><h3 class="card-title mb-2">No projects match this view.</h3><p class="text-muted">Try a different search or add a project.</p></div>
+		<div class="card"><h3 class="card-title mb-2">Project not found</h3><p class="text-secondary">The requested resource is unavailable.</p></div>
+	</section>
+}
+
+templ styleGuideStatuses() {
+	<section class="mb-6" aria-labelledby="theme-statuses">
+		<h2 id="theme-statuses" class="section-title">Status messages</h2>
+		<p class="text-secondary mb-3">Each status uses a solid border, tinted background, and explicit label. Routine counts and zero errors stay neutral.</p>
+		<div class="flash flash-success flex items-center justify-between gap-3" data-flash="success">
+			<span><strong>Success:</strong> The action completed.</span>
+			<button type="button" class="flash-dismiss" data-dismiss-flash aria-label="Dismiss example success">
+				<span class="i-lucide:x text-base" aria-hidden="true"></span>
+			</button>
+		</div>
+		<div class="flash flash-error flex items-center justify-between gap-3" data-flash="error">
+			<span><strong>Error:</strong> The action failed and needs correction.</span>
+			<button type="button" class="flash-dismiss" data-dismiss-flash aria-label="Dismiss example error">
+				<span class="i-lucide:x text-base" aria-hidden="true"></span>
+			</button>
+		</div>
+		@styleGuideStatusBadges()
+	</section>
+}
+
+templ styleGuideStatusBadges() {
+	<div class="flex flex-wrap gap-3">
+		@components.Badge("Success", "green")
+		@components.Badge("Warning", "yellow")
+		@components.Badge("Error", "red")
+		@components.Badge("Disabled", "muted")
+	</div>
+}
+
+func styleGuideSavings() *mcp.MetricsSnapshot {
+	sample := &mcp.MetricsSnapshot{
+		TotalBytesSaved: 16000, TotalTokensSaved: 4000,
+		CatalogBytesAvoided: 12000, CatalogTokensSaved: 3000, CatalogAvoidedCount: 3,
+		CompactionBytesSaved: 4000, CompactionTokensSaved: 1000, CompactionSamples: 2,
+		EstDollarsSaved: "0.01", DollarsPerMTok: 3,
+	}
+	return sample
+}
