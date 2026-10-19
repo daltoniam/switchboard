@@ -59,6 +59,9 @@ type manifestMacro struct {
 	Name             string `json:"name"`
 	PackageName      string `json:"package_name"`
 	OriginalFilePath string `json:"original_file_path"`
+	DependsOn        struct {
+		Macros []string `json:"macros"`
+	} `json:"depends_on"`
 }
 
 func decodeManifest(r io.Reader) (*manifest, error) {
@@ -180,14 +183,36 @@ func (m *manifest) matchNodes(paths, names []string) matchResult {
 	return res
 }
 
+// macroDependents returns the non-test nodes that call macroID directly or
+// through wrapper macros. It walks reverse macro-call edges with a visited
+// set, so recursive or mutually calling macros terminate.
 func (m *manifest) macroDependents(macroID string) []string {
+	callers := map[string][]string{}
+	for id, mac := range m.Macros {
+		for _, dep := range mac.DependsOn.Macros {
+			callers[dep] = append(callers[dep], id)
+		}
+	}
+	affected := map[string]bool{macroID: true}
+	queue := []string{macroID}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for _, caller := range callers[current] {
+			if !affected[caller] {
+				affected[caller] = true
+				queue = append(queue, caller)
+			}
+		}
+	}
+
 	var out []string
 	for id, n := range m.Nodes {
 		if n.ResourceType == "test" {
 			continue
 		}
 		for _, dep := range n.DependsOn.Macros {
-			if dep == macroID {
+			if affected[dep] {
 				out = append(out, id)
 				break
 			}

@@ -12,14 +12,15 @@ import (
 //
 //	source.raw.orders -> stg_orders -> int_orders -> mart_orders -> exposure.revenue
 //	                                             \-> mart_orders_daily
-//	stg_orders also feeds a not_null test; mart_orders uses the cents macro.
+//	stg_orders also feeds a not_null test; mart_orders calls the cents macro
+//	directly and mart_orders_daily reaches it through the money wrapper.
 const testManifestJSON = `{
   "metadata": {"project_name": "data_dbt", "dbt_version": "1.9.0"},
   "nodes": {
     "model.data_dbt.stg_orders": {"unique_id": "model.data_dbt.stg_orders", "name": "stg_orders", "resource_type": "model", "package_name": "data_dbt", "original_file_path": "models/staging/stg_orders.sql", "patch_path": "data_dbt://models/staging/_staging.yml", "relation_name": "analytics.staging.stg_orders", "config": {"materialized": "view"}, "depends_on": {"macros": []}},
     "model.data_dbt.int_orders": {"unique_id": "model.data_dbt.int_orders", "name": "int_orders", "resource_type": "model", "package_name": "data_dbt", "original_file_path": "models/intermediate/int_orders.sql", "config": {"materialized": "incremental"}, "depends_on": {"macros": []}},
     "model.data_dbt.mart_orders": {"unique_id": "model.data_dbt.mart_orders", "name": "mart_orders", "resource_type": "model", "package_name": "data_dbt", "original_file_path": "models/marts/mart_orders.sql", "config": {"materialized": "table"}, "depends_on": {"macros": ["macro.data_dbt.cents"]}},
-    "model.data_dbt.mart_orders_daily": {"unique_id": "model.data_dbt.mart_orders_daily", "name": "mart_orders_daily", "resource_type": "model", "package_name": "data_dbt", "original_file_path": "models/marts/mart_orders_daily.sql", "config": {"materialized": "table"}, "depends_on": {"macros": []}},
+    "model.data_dbt.mart_orders_daily": {"unique_id": "model.data_dbt.mart_orders_daily", "name": "mart_orders_daily", "resource_type": "model", "package_name": "data_dbt", "original_file_path": "models/marts/mart_orders_daily.sql", "config": {"materialized": "table"}, "depends_on": {"macros": ["macro.data_dbt.money"]}},
     "test.data_dbt.not_null_stg_orders_id.abc": {"unique_id": "test.data_dbt.not_null_stg_orders_id.abc", "name": "not_null_stg_orders_id", "resource_type": "test", "package_name": "data_dbt", "original_file_path": "models/staging/_staging.yml", "config": {"materialized": "test"}, "depends_on": {"macros": []}},
     "model.dbt_utils.util_model": {"unique_id": "model.dbt_utils.util_model", "name": "util_model", "resource_type": "model", "package_name": "dbt_utils", "original_file_path": "models/staging/stg_orders.sql", "config": {"materialized": "view"}, "depends_on": {"macros": []}}
   },
@@ -30,7 +31,8 @@ const testManifestJSON = `{
     "exposure.data_dbt.revenue": {"unique_id": "exposure.data_dbt.revenue", "name": "revenue", "type": "dashboard", "package_name": "data_dbt", "original_file_path": "models/exposures.yml", "url": "https://metabase.example.com/dashboard/1", "owner": {"name": "Finance", "email": "finance@example.com"}}
   },
   "macros": {
-    "macro.data_dbt.cents": {"unique_id": "macro.data_dbt.cents", "name": "cents", "package_name": "data_dbt", "original_file_path": "macros/cents.sql"},
+    "macro.data_dbt.cents": {"unique_id": "macro.data_dbt.cents", "name": "cents", "package_name": "data_dbt", "original_file_path": "macros/cents.sql", "depends_on": {"macros": []}},
+    "macro.data_dbt.money": {"unique_id": "macro.data_dbt.money", "name": "money", "package_name": "data_dbt", "original_file_path": "macros/money.sql", "depends_on": {"macros": ["macro.data_dbt.cents"]}},
     "macro.dbt_utils.cents": {"unique_id": "macro.dbt_utils.cents", "name": "cents", "package_name": "dbt_utils", "original_file_path": "macros/cents.sql"}
   },
   "child_map": {
@@ -99,10 +101,16 @@ func TestMatchNodes(t *testing.T) {
 			wantUnmatched: []string{"models/marts/mart_new.sql"},
 		},
 		{
-			name:          "macro path returns dependent models",
+			name:          "macro path returns direct and transitive dependent models",
 			paths:         []string{"macros/cents.sql"},
 			wantIDs:       []string{"macro.data_dbt.cents"},
-			wantMacroDeps: []string{"model.data_dbt.mart_orders"},
+			wantMacroDeps: []string{"model.data_dbt.mart_orders", "model.data_dbt.mart_orders_daily"},
+		},
+		{
+			name:          "wrapper macro returns only its own callers",
+			paths:         []string{"macros/money.sql"},
+			wantIDs:       []string{"macro.data_dbt.money"},
+			wantMacroDeps: []string{"model.data_dbt.mart_orders_daily"},
 		},
 		{
 			name:    "name lookup",
@@ -230,4 +238,18 @@ func TestManifestCache_EvictsOldest(t *testing.T) {
 	assert.True(t, ok)
 	_, ok = c.get("d")
 	assert.True(t, ok)
+}
+
+func TestMacroDependents_CyclicMacrosTerminate(t *testing.T) {
+	m, err := decodeManifest(strings.NewReader(`{
+  "nodes": {
+    "model.p.a": {"unique_id": "model.p.a", "name": "a", "resource_type": "model", "depends_on": {"macros": ["macro.p.ping"]}}
+  },
+  "macros": {
+    "macro.p.ping": {"unique_id": "macro.p.ping", "name": "ping", "depends_on": {"macros": ["macro.p.pong"]}},
+    "macro.p.pong": {"unique_id": "macro.p.pong", "name": "pong", "depends_on": {"macros": ["macro.p.ping"]}}
+  }
+}`))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"model.p.a"}, m.macroDependents("macro.p.pong"))
 }
