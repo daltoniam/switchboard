@@ -268,7 +268,7 @@ function refreshFixture() {
   Object.assign(banner, attributeFixture(), { hidden: true, classList });
   const message = { textContent: '' };
   const button = { disabled: false };
-  const selectors = new Set(['#page-refresh']);
+  const selectors = new Set(['#page-refresh', '#page-refresh, #health-refresh']);
   const matches = selectors.has.bind(selectors);
   const form = { ...attributeFixture(), matches };
   htmx.find = (root, selector) => {

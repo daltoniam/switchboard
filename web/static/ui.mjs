@@ -1,10 +1,12 @@
 export class UI {
   static #token = Symbol();
   static #instance;
-  static #events = ['click', 'keydown', 'change', 'htmx:beforeRequest', 'htmx:afterSwap', 'htmx:afterRequest', 'htmx:sendAbort', 'htmx:sendError', 'htmx:timeout', 'htmx:responseError', 'htmx:swapError'];
+  static #events = ['click', 'keydown', 'change', 'input', 'htmx:beforeRequest', 'htmx:afterSwap', 'htmx:afterRequest', 'htmx:sendAbort', 'htmx:sendError', 'htmx:timeout', 'htmx:responseError', 'htmx:swapError'];
   #environment;
   #controller;
   #refreshStatus;
+  #integrationFilter;
+  #filterTimer;
   #themePicker;
   #fontPicker;
   #sidebar;
@@ -44,10 +46,14 @@ export class UI {
     this.#syncAppearance();
     this.#initNavigation();
     this.#initTimedFlashes();
+    this.#initIntegrationFilter();
+    this.#initToggleGroups();
     return this;
   }
 
   destroy() {
+    clearTimeout(this.#filterTimer);
+    this.#integrationFilter = undefined;
     this.dismissFlash(this.#refreshStatus, false);
     this.#refreshSections.forEach((sections, control) => this.#restoreSections(control));
     this.#dismissTimers.forEach(timer => clearTimeout(timer));
@@ -72,6 +78,15 @@ export class UI {
   }
 
   handleEvent(event) {
+    this.#handleToggleGroup(event);
+    if (event.type === 'input') {
+      this.#scheduleIntegrationFilter(event);
+      return;
+    }
+    if (event.type === 'htmx:afterSwap') {
+      this.#initIntegrationFilter();
+      this.#initToggleGroups();
+    }
     this.#openSearch(event);
     this.#handleAppearancePickers(event);
     this.#handleSidebar(event);
@@ -99,6 +114,111 @@ export class UI {
     this.#fontPicker = find('[data-font-picker]');
     this.#searchDialog = find('#search-dialog');
     this.#searchButton = find('[data-search-open]');
+  }
+
+  #initToggleGroups() {
+    const { document, htmx } = this.#environment;
+    const buttons = htmx.findAll(document, '[data-toggle-group] [data-toggle-value]');
+    const groups = new Set();
+    buttons.forEach(button => {
+      const group = button.parentElement;
+      const first = !button.disabled && !groups.has(group);
+      button.tabIndex = -1;
+      if (!first) return;
+      button.tabIndex = 0;
+      groups.add(group);
+    });
+  }
+
+  #handleToggleGroup(event) {
+    const { htmx } = this.#environment;
+    const button = htmx.closest(event.target, '[data-toggle-value]');
+    const unavailable = !button || button.disabled;
+    if (unavailable) return;
+    const group = htmx.closest(button, '[data-toggle-group]');
+    const buttons = Array.from(htmx.findAll(group, '[data-toggle-value]:not(:disabled)'));
+    if (event.type === 'keydown') {
+      this.#navigateToggleGroup(event, buttons);
+      return;
+    }
+    if (event.type !== 'click') return;
+    const selected = button.getAttribute('aria-pressed') !== 'true';
+    button.setAttribute('aria-pressed', String(selected));
+    buttons.forEach(item => { item.tabIndex = -1; });
+    button.tabIndex = 0;
+    this.#applyIntegrationFilter();
+  }
+
+  #navigateToggleGroup(event, buttons) {
+    const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const current = buttons.indexOf(event.target);
+    let next = current + 1;
+    if (event.key === 'ArrowLeft') next = current - 1;
+    if (event.key === 'Home') next = 0;
+    if (event.key === 'End') next = buttons.length - 1;
+    const index = (next + buttons.length) % buttons.length;
+    buttons.forEach(button => { button.tabIndex = -1; });
+    buttons[index].tabIndex = 0;
+    buttons[index].focus();
+  }
+
+  #initIntegrationFilter() {
+    const { document, htmx } = this.#environment;
+    const root = htmx.find(document, '#integration-results');
+    if (!root) {
+      this.#integrationFilter = undefined;
+      return;
+    }
+    const find = htmx.find.bind(htmx, root);
+    const [input, empty, controls] = ['#integration-search', '[data-integration-empty]', '#integration-filters fieldset'].map(find);
+    const buttons = Array.from(htmx.findAll(root, '[data-toggle-value]'));
+    const elements = Array.from(htmx.findAll(root, '.integration-card'));
+    const cards = elements.map(element => {
+      const text = element.textContent.toLowerCase();
+      const state = element.getAttribute('data-enabled');
+      const card = { element, text, state };
+      return card;
+    });
+    this.#integrationFilter = { input, buttons, empty, cards };
+    this.#syncIntegrationStates();
+    this.#applyIntegrationFilter();
+    controls.disabled = false;
+  }
+
+  #syncIntegrationStates() {
+    const { buttons, cards } = this.#integrationFilter;
+    const states = new Set(cards.map(card => card.state));
+    buttons.forEach(button => {
+      const available = states.has(button.dataset.toggleValue);
+      const restored = available && button.disabled;
+      if (restored) button.setAttribute('aria-pressed', 'true');
+      button.disabled = !available;
+      if (available) return;
+      button.setAttribute('aria-pressed', 'false');
+      button.tabIndex = -1;
+    });
+  }
+
+  #scheduleIntegrationFilter(event) {
+    if (event.target !== this.#integrationFilter?.input) return;
+    clearTimeout(this.#filterTimer);
+    this.#filterTimer = setTimeout(() => this.#applyIntegrationFilter(), 100);
+  }
+
+  #applyIntegrationFilter() {
+    if (!this.#integrationFilter) return;
+    clearTimeout(this.#filterTimer);
+    const { input, buttons, empty, cards } = this.#integrationFilter;
+    const query = input.value.trim().toLowerCase();
+    const pressed = buttons.filter(button => button.getAttribute('aria-pressed') === 'true');
+    const states = new Set(pressed.map(button => button.dataset.toggleValue));
+    cards.forEach(({ element, text, state }) => {
+      const matches = states.has(state) && text.includes(query);
+      element.hidden = !matches;
+    });
+    empty.hidden = cards.some(card => !card.element.hidden);
   }
 
   #initNavigation() {
@@ -321,13 +441,13 @@ export class UI {
     if (reusable) banner.hidden = true;
     else banner.remove();
     if (!shouldFocus) return;
-    const target = htmx.find(document, '[data-flash]:not([hidden]) [data-dismiss-flash], #page-refresh, main');
+    const target = htmx.find(document, '[data-flash]:not([hidden]) [data-dismiss-flash], #page-refresh, #health-refresh button, main');
     target?.focus();
   }
 
   #updateRefresh(event) {
     const control = event.detail?.requestConfig?.elt ?? event.detail?.elt;
-    if (!control?.matches?.('#page-refresh')) return;
+    if (!control?.matches?.('#page-refresh, #health-refresh')) return;
     const completed = event.type === 'htmx:afterRequest' || event.type === 'htmx:sendAbort';
     if (completed) {
       this.#restoreSections(control);
@@ -389,6 +509,8 @@ export class UI {
     this.#restoreSections(control);
     let message = 'Could not refresh. Try again.';
     if (successful) message = 'Refreshed.';
+    const healthComplete = successful && control.matches('#health-refresh');
+    if (healthComplete) message = 'Health checks complete.';
     this.#showRefreshToast(message, successful);
   }
 

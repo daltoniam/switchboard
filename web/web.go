@@ -407,35 +407,15 @@ func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (w *WebServer) handleIntegrationsList(rw http.ResponseWriter, r *http.Request) {
-	summaries := w.integrationSummaries(r.Context())
-
-	var errored, connected, disabled []pages.IntegrationSummary
-	var googleSummary pages.GoogleGroupSummary
-	for _, s := range summaries {
-		if googleWorkspaceServices[s.Name] {
-			googleSummary.TotalCount++
-			if s.Enabled && s.Healthy {
-				googleSummary.ConnectedCount++
-			}
-			continue
-		}
-		if !s.Enabled {
-			disabled = append(disabled, s)
-		} else if s.Healthy {
-			connected = append(connected, s)
-		} else {
-			errored = append(errored, s)
-		}
-	}
-
 	page := w.pageData(r, "Integrations", "/integrations")
-	data := pages.IntegrationsListData{
-		Errored:   errored,
-		Connected: connected,
-		Disabled:  disabled,
-		Google:    googleSummary,
-	}
+	data := w.integrationsListData(r.Context())
 	pages.IntegrationsList(page, data).Render(r.Context(), rw)
+}
+
+func (w *WebServer) integrationsListData(ctx context.Context) pages.IntegrationsListData {
+	integrations := w.integrationSummaries(ctx)
+	data := pages.IntegrationsListData{Integrations: integrations}
+	return data
 }
 
 const notionExtractionSnippet = `(function(){var c=document.cookie.split(';').find(function(c){return c.trim().startsWith('token_v2=')});if(!c){alert('token_v2 cookie not found. Make sure you are on notion.so and signed in.');return;}var t=c.split('=').slice(1).join('=').trim();prompt('Copy this token_v2 value:',t);})()`
@@ -486,7 +466,11 @@ func (w *WebServer) handleIntegrationDetail(rw http.ResponseWriter, r *http.Requ
 	}
 
 	if setupIntegrations[name] {
-		http.Redirect(rw, r, "/integrations/"+name+"/setup", http.StatusSeeOther)
+		setupPath := "/integrations/" + name + "/setup"
+		if googleWorkspaceServices[name] {
+			setupPath = googleSetupPath
+		}
+		http.Redirect(rw, r, setupPath, http.StatusSeeOther)
 		return
 	}
 
@@ -988,9 +972,16 @@ func (w *WebServer) handleHealthAPI(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (w *WebServer) handleHealthRefresh(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Add("Vary", "HX-Request")
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	w.health.refreshAll(ctx)
+	if r.Header.Get("HX-Request") == "true" {
+		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+		data := w.integrationsListData(ctx)
+		pages.IntegrationsListResults(data).Render(r.Context(), rw)
+		return
+	}
 	http.Redirect(rw, r, r.Referer(), http.StatusSeeOther)
 }
 

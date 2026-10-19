@@ -512,6 +512,101 @@ test('dashboard refresh replaces main and unlocks before its notice dismisses', 
   });
 });
 
+test('health refresh replaces results without navigating', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/integrations');
+  const button = page.getByRole('button', { name: 'Re-check all' });
+  const response = page.waitForResponse('**/api/health/refresh');
+  await button.click();
+  assert.equal((await response).request().headers()['hx-request'], 'true');
+  await expect(page.getByRole('status')).toHaveText('Health checks complete.');
+  await expect(page.locator('#integration-results')).toHaveCount(1);
+  await expect(page.locator('.integration-card').first()).toHaveCSS('display', 'flex');
+  await expect(button).toBeEnabled();
+  await expect(page.getByRole('status')).toHaveText('Health checks complete.');
+});
+
+test('failed health refresh allows retry while the error remains visible', async (t) => {
+  const page = await browserPage(t);
+  const pending = Promise.withResolvers<void>();
+  await page.route('**/api/health/refresh', async route => {
+    await pending.promise;
+    await route.fulfill({ status: 500 });
+  }, { times: 1 });
+  await page.goto('/integrations');
+  const button = page.getByRole('button', { name: 'Re-check all' });
+  await button.click();
+  await expect(button).toBeDisabled();
+  await expect(page.locator('#health-refresh')).toHaveAttribute('aria-busy', 'true');
+  pending.resolve();
+  await expect(page.getByRole('alert')).toHaveText('Could not refresh. Try again.');
+  await expect(button).toBeEnabled();
+  await expect(page.getByRole('alert')).toHaveText('Could not refresh. Try again.');
+  await button.click();
+  await expect(page.getByRole('status')).toHaveText('Health checks complete.');
+});
+
+test('network failure clears loading state and permits refresh retry', async (t) => {
+  const page = await browserPage(t);
+  await page.route('**/api/health/refresh', route => route.abort('failed'), { times: 1 });
+  await page.goto('/integrations');
+  const button = page.getByRole('button', { name: 'Re-check all' });
+  await button.click();
+  await expect(page.getByRole('alert')).toHaveText('Could not refresh. Try again.');
+  await expect(button).toBeEnabled();
+  await expect(page.locator('#health-refresh')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('.section-loading')).toHaveCount(0);
+  await button.click();
+  await expect(page.getByRole('status')).toHaveText('Health checks complete.');
+});
+
+test('auto-update selection follows its saved server state', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/plugins');
+  const button = page.getByRole('button', { name: /Auto-Update:/ });
+  const previous = await button.getAttribute('aria-pressed');
+  await button.click();
+  await page.waitForLoadState();
+  await expect(button).toHaveAttribute('aria-pressed', String(previous !== 'true'));
+  await page.reload();
+  await expect(button).toHaveAttribute('aria-pressed', String(previous !== 'true'));
+});
+
+test('integration filters preserve query and state after health refresh', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/integrations');
+  const search = page.getByRole('searchbox', { name: 'Filter integrations' });
+  await search.fill('github');
+  const cards = page.locator('.integration-card:visible');
+  await expect(cards).toHaveCount(1);
+  await expect(cards.locator('.name')).toHaveText('github');
+  await page.getByRole('button', { name: 'Re-check all' }).click();
+  await expect(page.locator('#page-refresh-status')).toHaveText('Health checks complete.');
+  await expect(search).toHaveValue('github');
+  await expect(cards).toHaveCount(1);
+  const disabled = page.getByRole('button', { name: 'Disabled', exact: true });
+  await disabled.click();
+  await expect(cards).toHaveCount(0);
+  await expect(page.locator('[data-integration-empty]')).toBeVisible();
+  await page.getByRole('button', { name: 'Re-check all' }).click();
+  await expect(page.locator('#page-refresh-status')).toHaveText('Health checks complete.');
+  await expect(disabled).toHaveAttribute('aria-pressed', 'false');
+  await expect(cards).toHaveCount(0);
+  await disabled.click();
+  await expect(cards).toHaveCount(1);
+});
+
+test('plugin refresh preserves unfinished installation forms', async (t) => {
+  const page = await browserPage(t);
+  await page.goto('/plugins');
+  await page.locator('#plugin_url').fill('https://example.test/plugin.wasm');
+  await page.locator('#plugin_name').fill('draft-plugin');
+  await page.getByRole('button', { name: 'Refresh plugins' }).click();
+  await expect(page.locator('#page-refresh-status')).toHaveText('Refreshed.');
+  await expect(page.locator('#plugin_url')).toHaveValue('https://example.test/plugin.wasm');
+  await expect(page.locator('#plugin_name')).toHaveValue('draft-plugin');
+});
+
 async function browserPage(t: TestContext, options: BrowserContextOptions = {}): Promise<Page> {
   const context = await browser.newContext({ baseURL, ...options });
   t.after(() => context.close());
