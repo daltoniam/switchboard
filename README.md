@@ -363,6 +363,10 @@ Environment variables override credential values but do not change the durable e
 | PagerDuty | `base_url` | `PAGERDUTY_BASE_URL` (optional — default `https://api.pagerduty.com`) |
 | LaunchDarkly | `access_token` | `LAUNCHDARKLY_ACCESS_TOKEN` (personal or service access token; SDK keys cannot call the REST API) |
 | LaunchDarkly | `base_url` | `LAUNCHDARKLY_BASE_URL` (optional — default `https://app.launchdarkly.com`; EU `https://app.eu.launchdarkly.com`; Federal `https://app.launchdarkly.us`) |
+| dbt | `token` | `DBT_TOKEN` (dbt Cloud service token with Job Viewer permission, or a personal access token; sent as `Authorization: Token <token>`) |
+| dbt | `account_id` | `DBT_ACCOUNT_ID` (numeric dbt Cloud account ID) |
+| dbt | `base_url` | `DBT_BASE_URL` (optional — default `https://cloud.getdbt.com`; cell/regional access URL such as `https://ab123.us1.dbt.com`, `https://emea.dbt.com`, `https://au.dbt.com`) |
+| dbt | `prod_job_id` | `DBT_PROD_JOB_ID` (optional — production job whose latest successful run supplies `manifest.json` for lineage tools) |
 | Tailscale | `api_key` | `TAILSCALE_API_KEY` (API access token `tskey-api-...`; set this or the OAuth client pair) |
 | Tailscale | `oauth_client_id` | `TAILSCALE_OAUTH_CLIENT_ID` (OAuth client ID; scopes on the client limit which tools work) |
 | Tailscale | `oauth_client_secret` | `TAILSCALE_OAUTH_CLIENT_SECRET` (OAuth client secret `tskey-client-...`) |

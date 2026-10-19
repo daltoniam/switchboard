@@ -1,0 +1,28 @@
+# Switchboard compaction specs for the dbt (dbt Cloud Admin API v2) integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+#
+# Only the raw API passthrough tool (list_jobs_runs) carries a spec. The
+# computed tools (get_job_run_error, get_job_run_regression_range,
+# get_manifest_nodes, get_model_lineage) already return purpose-built shapes,
+# and get_job_run_artifact returns the artifact or a caller's jq selection.
+
+version: 1
+tools:
+  dbt_list_jobs_runs:
+    spec:
+      - runs[].id
+      - runs[].job_definition_id
+      - runs[].status
+      - runs[].status_humanized
+      - runs[].git_sha
+      - runs[].git_branch
+      - runs[].created_at
+      - runs[].finished_at
+      - runs[].duration_humanized
+      - runs[].trigger.cause
+      - runs[].trigger.github_pull_request_id
+      - runs[].href
+      - total_count
