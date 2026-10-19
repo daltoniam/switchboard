@@ -108,6 +108,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/navigation", w.handleNavigationSearch)
 
 	mux.HandleFunc("GET /", w.handleDashboard)
+	mux.HandleFunc("GET /styleguide", w.handleStyleGuide)
 	mux.HandleFunc("GET /integrations", w.handleIntegrationsList)
 	mux.HandleFunc("GET /integrations/{name}", w.handleIntegrationDetail)
 	mux.HandleFunc("POST /integrations/{name}", w.handleIntegrationSave)
@@ -361,6 +362,11 @@ func (w *WebServer) integrationSummaries(_ context.Context) []pages.IntegrationS
 		})
 	}
 	return summaries
+}
+
+func (w *WebServer) handleStyleGuide(rw http.ResponseWriter, r *http.Request) {
+	page := w.pageData(r, "Style guide", "/styleguide")
+	pages.StyleGuide(page).Render(r.Context(), rw)
 }
 
 func (w *WebServer) handleDashboard(rw http.ResponseWriter, r *http.Request) {

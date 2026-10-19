@@ -36,6 +36,7 @@
 
 ## Appearance and navigation
 
+- **Global search:** press `/`, `Cmd+K`, or `Ctrl+K` to open search. `/` stays available for typing in inputs, textareas, selects, and editable content. Escape closes search and restores focus.
 - **Appearance:** [themes.json](../web/templates/layouts/themes.json) defines six palettes and 80%/100%/120% font sizes. The header has a theme and font-size menus; choices persist in `localStorage`. First visits follow the system theme.
 - **Shared styles:** use `interactive` and `status-*` shortcuts in [style.js](../web/style.js). Controls stay neutral at rest and use the accent for hover, focus, press, and selection. Use `aria-pressed` for toggles and `aria-current="page"` for navigation.
 - **Status:** matching text/border hues and tinted backgrounds. Error styling covers the whole card; zero errors stay neutral. Dismiss controls use borderless Lucide × buttons with accessible labels.
@@ -43,6 +44,11 @@
 - **Accessibility:** keep native controls and visible focus. Selects use themed chevrons; transitions respect reduced motion. Without JavaScript, the system theme applies and appearance controls are disabled.
 
 Palettes adapt [GitHub](https://github.com/primer/github-vscode-theme), [Atom One Light](https://github.com/akamud/vscode-theme-onelight), [Catppuccin](https://catppuccin.com/palette/), [Dracula](https://draculatheme.com/contribute), and [Nord](https://www.nordtheme.com/docs/colors-and-palettes/).
+
+## Projects and style guide
+
+- **Projects:** filtering and pagination replace results without a full navigation. The header shows matching projects out of the catalog-wide total, including invalid projects. Counts cover all result pages and update with the filter. Refresh preserves the search input and coordinates with pending filter requests.
+- **Style guide:** open `/styleguide` for shared UI examples using sample data. It has no sidebar entry and does not save integration configuration. Use the header to explore themes and font sizes.
 
 ## Setup Page Design Rules
 

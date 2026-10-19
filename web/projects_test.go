@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +12,128 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type countingProjectCatalog struct {
+	project.Catalog
+	searchRequests []project.SearchRequest
+	listCursors    []string
+	searchErr      error
+	listErr        error
+}
+
+func TestProjectsList_CountFromSearch(t *testing.T) {
+	for _, tc := range []struct {
+		name, hxRequest, target, cursor string
+		wantCount                       bool
+	}{
+		{name: "document", wantCount: true},
+		{name: "filter", hxRequest: "true", target: "project-results"},
+		{name: "pagination", hxRequest: "true", target: "project-results", cursor: "search-page-2"},
+		{name: "refresh", hxRequest: "true", wantCount: true},
+		{name: "navigation", hxRequest: "true", target: "main", wantCount: true},
+		{name: "target without HTMX", hxRequest: "false", target: "project-results", wantCount: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			catalog := &countingProjectCatalog{}
+			rr := requestProjectList(t, catalog, tc.hxRequest, tc.target, tc.cursor)
+			require.Equal(t, http.StatusOK, rr.Code)
+			assert.Contains(t, rr.Header().Get("Vary"), "HX-Request")
+			assert.Contains(t, rr.Header().Get("Vary"), "HX-Target")
+			expectedRequests := []project.SearchRequest{{Query: "alp", Cursor: tc.cursor}}
+			assert.Equal(t, expectedRequests, catalog.searchRequests)
+			assert.Contains(t, rr.Body.String(), `id="project-results"`)
+			assert.Contains(t, rr.Body.String(), "alpha")
+			assert.Contains(t, rr.Body.String(), `>1 of 3 projects</span>`)
+			assert.Contains(t, rr.Body.String(), "search-page-3")
+			assert.Contains(t, rr.Body.String(), `hx-push-url="true" data-project-page`)
+			assert.Empty(t, catalog.listCursors, "counting must reuse the search snapshot without listing the catalog again")
+			if !tc.wantCount {
+				assert.Contains(t, rr.Body.String(), `hx-swap-oob="outerHTML"`)
+				assert.NotContains(t, rr.Body.String(), "<html")
+				assert.NotContains(t, rr.Body.String(), `id="project-search"`)
+				return
+			}
+			assert.Contains(t, rr.Body.String(), "<html")
+			assert.Contains(t, rr.Body.String(), `>1 of 3 projects</span>`)
+		})
+	}
+}
+
+func TestProjectsList_WithoutCatalog(t *testing.T) {
+	for _, tc := range []struct {
+		name, hxRequest, target string
+		fragment                bool
+	}{
+		{name: "document"},
+		{name: "filter", hxRequest: "true", target: "project-results", fragment: true},
+		{name: "refresh", hxRequest: "true", target: "main"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rr := requestProjectList(t, nil, tc.hxRequest, tc.target, "")
+			require.Equal(t, http.StatusOK, rr.Code)
+			assert.Contains(t, rr.Body.String(), `id="project-results"`)
+			assert.Contains(t, rr.Body.String(), "No projects match this view.")
+			if tc.fragment {
+				assert.NotContains(t, rr.Body.String(), "<html")
+				return
+			}
+			assert.Contains(t, rr.Body.String(), "<html")
+			assert.Contains(t, rr.Body.String(), `>0 of 0 projects</span>`)
+		})
+	}
+}
+
+func TestProjectsList_FilterIgnoresCountFailure(t *testing.T) {
+	catalog := &countingProjectCatalog{listErr: errors.New("count unavailable")}
+	rr := requestProjectList(t, catalog, "true", "project-results", "")
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Empty(t, catalog.listCursors)
+	assert.Contains(t, rr.Body.String(), "alpha")
+}
+
+func TestProjectsList_FilterSearchFailure(t *testing.T) {
+	catalog := &countingProjectCatalog{searchErr: errors.New("search unavailable")}
+	rr := requestProjectList(t, catalog, "true", "project-results", "")
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Empty(t, catalog.listCursors)
+	assert.Contains(t, rr.Body.String(), "Failed to load projects")
+}
+
+func TestProjectsList_RefreshIgnoresListFailure(t *testing.T) {
+	catalog := &countingProjectCatalog{listErr: errors.New("count unavailable")}
+	rr := requestProjectList(t, catalog, "true", "", "")
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Empty(t, catalog.listCursors)
+	assert.Contains(t, rr.Body.String(), `>1 of 3 projects</span>`)
+}
+
+func requestProjectList(t *testing.T, catalog project.Catalog, hxRequest, target, cursor string) *httptest.ResponseRecorder {
+	t.Helper()
+	ws, _, _ := setupTestWeb()
+	ws.catalog = catalog
+	req := httptest.NewRequest(http.MethodGet, "/projects?q=alp&cursor="+cursor, nil)
+	req.Header.Set("HX-Request", hxRequest)
+	req.Header.Set("HX-Target", target)
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	return rr
+}
+
+func (c *countingProjectCatalog) Search(_ context.Context, req project.SearchRequest) (project.Page, error) {
+	c.searchRequests = append(c.searchRequests, req)
+	page := project.Page{
+		Projects:     []project.ProjectSummary{{ProjectID: "alpha", Title: "alpha"}},
+		NextCursor:   "search-page-3",
+		TotalCount:   1,
+		CatalogCount: 3,
+	}
+	return page, c.searchErr
+}
+
+func (c *countingProjectCatalog) List(_ context.Context, cursor string) (project.Page, error) {
+	c.listCursors = append(c.listCursors, cursor)
+	return project.Page{}, c.listErr
+}
 
 func TestNavigationSearch_ProjectMatches(t *testing.T) {
 	store := project.NewStore(t.TempDir())
@@ -65,6 +188,7 @@ func TestProjectsList_SearchQuery(t *testing.T) {
 	body := rr.Body.String()
 	assert.Contains(t, body, "alpha")
 	assert.NotContains(t, body, ">beta<")
+	assert.Contains(t, body, ">1 of 2 projects</span>")
 }
 
 func TestProjectDetail_RendersDefinition(t *testing.T) {
