@@ -115,8 +115,8 @@ func conversationsHistory(ctx context.Context, s *slackIntegration, args map[str
 		return readErrorResult(err)
 	}
 	// Bot posts (dbt Cloud, Sentry, Datadog alerts) often have empty text and
-	// carry their content in attachments, so bot_id and attachment titles are
-	// the only way to tell them apart.
+	// carry their content in attachments, so bot identity and attachment
+	// title/text are the only way to tell them apart.
 	type attachment struct {
 		Title string `json:"title,omitempty"`
 		Text  string `json:"text,omitempty"`
@@ -128,6 +128,7 @@ func conversationsHistory(ctx context.Context, s *slackIntegration, args map[str
 		ThreadTS    string       `json:"thread_ts,omitempty"`
 		ReplyCount  int          `json:"reply_count,omitempty"`
 		BotID       string       `json:"bot_id,omitempty"`
+		Username    string       `json:"username,omitempty"`
 		Subtype     string       `json:"subtype,omitempty"`
 		Attachments []attachment `json:"attachments,omitempty"`
 	}
@@ -139,9 +140,13 @@ func conversationsHistory(ctx context.Context, s *slackIntegration, args map[str
 				atts = append(atts, attachment{Title: a.Title, Text: a.Text})
 			}
 		}
+		username := m.Username
+		if username == "" && m.BotProfile != nil {
+			username = m.BotProfile.Name
+		}
 		msgs = append(msgs, msg{
 			TS: m.Timestamp, User: m.User, Text: m.Text, ThreadTS: m.ThreadTimestamp, ReplyCount: m.ReplyCount,
-			BotID: m.BotID, Subtype: m.SubType, Attachments: atts,
+			BotID: m.BotID, Username: username, Subtype: m.SubType, Attachments: atts,
 		})
 	}
 	return mcp.JSONResult(map[string]any{"channel": channelID, "count": len(msgs), "has_more": resp.HasMore, "messages": msgs, "next_cursor": resp.ResponseMetaData.NextCursor})

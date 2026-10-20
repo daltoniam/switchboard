@@ -46,30 +46,39 @@ func TestFieldCompactionSpec_ReturnsFieldsForListTool(t *testing.T) {
 
 func TestFieldCompactionSpecs_PreservePaginationAndScopes(t *testing.T) {
 	for _, tc := range []struct {
-		tool, payload, field string
+		name, tool, payload string
+		expect              []string
 	}{
-		{"slack_list_conversations", `{"count":1,"next_cursor":"","warning":"cursor repeated"}`, "warning"},
-		{"slack_conversations_history", `{"count":1,"has_more":true,"next_cursor":"page-two"}`, "next_cursor"},
-		{"slack_conversations_history", `{"messages":[{"ts":"1.2","text":"","bot_id":"B1","subtype":"bot_message","attachments":[{"title":"Run #1 failed","text":"Environment: SNOWFLAKE"}]}]}`, "bot_id"},
-		{"slack_token_status", `{"workspaces":[{"granted_scopes":["channels:history"],"scopes_available":true}]}`, "workspaces"},
+		{
+			name:    "list conversations keeps warning",
+			tool:    "slack_list_conversations",
+			payload: `{"count":1,"next_cursor":"","warning":"cursor repeated"}`,
+			expect:  []string{"warning", "next_cursor"},
+		},
+		{
+			name:    "history keeps pagination",
+			tool:    "slack_conversations_history",
+			payload: `{"count":1,"has_more":true,"next_cursor":"page-two"}`,
+			expect:  []string{"next_cursor", "has_more"},
+		},
+		{
+			name:    "history keeps bot identity and attachment content",
+			tool:    "slack_conversations_history",
+			payload: `{"messages":[{"ts":"1.2","text":"","bot_id":"B1","username":"dbt Cloud","subtype":"bot_message","attachments":[{"title":"Run #1 failed","text":"Environment: SNOWFLAKE"},{"text":"title-less body"}]}]}`,
+			expect:  []string{`"bot_id":"B1"`, `"username":"dbt Cloud"`, "bot_message", `"title":"Run #1 failed"`, `"text":"Environment: SNOWFLAKE"`, "title-less body"},
+		},
+		{
+			name:    "token status keeps scopes",
+			tool:    "slack_token_status",
+			payload: `{"workspaces":[{"granted_scopes":["channels:history"],"scopes_available":true}]}`,
+			expect:  []string{"workspaces", "granted_scopes", "scopes_available"},
+		},
 	} {
-		t.Run(tc.tool, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			result, err := mcp.CompactJSON([]byte(tc.payload), fieldCompactionSpecs[mcp.ToolName(tc.tool)])
 			require.NoError(t, err)
-			assert.Contains(t, string(result), tc.field)
-			switch tc.tool {
-			case "slack_list_conversations":
-				assert.Contains(t, string(result), "next_cursor")
-			case "slack_token_status":
-				assert.Contains(t, string(result), "granted_scopes")
-				assert.Contains(t, string(result), "scopes_available")
-			case "slack_conversations_history":
-				if tc.field == "bot_id" {
-					assert.Contains(t, string(result), "bot_message")
-					assert.Contains(t, string(result), `"attachments":["Run #1 failed"]`)
-				} else {
-					assert.Contains(t, string(result), "has_more")
-				}
+			for _, want := range tc.expect {
+				assert.Contains(t, string(result), want)
 			}
 		})
 	}
