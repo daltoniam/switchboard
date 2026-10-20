@@ -47,7 +47,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name:        mcp.ToolName("slack_conversations_history"),
-		Description: "Start here to read channel messages. Returns messages in reverse chronological order. Requires channel ID (C...), not channel name. Use list_conversations to find IDs. OAuth tokens need channels:history, groups:history, im:history, or mpim:history for the channel type; browser sessions need a valid d cookie.",
+		Description: "Start here to read channel messages. Returns messages in reverse chronological order. Bot and app posts (alerts from dbt Cloud, Sentry, Datadog) include bot_id, subtype, and attachment titles, since their text is often empty. Requires channel ID (C...), not channel name. Use list_conversations to find IDs. OAuth tokens need channels:history, groups:history, im:history, or mpim:history for the channel type; browser sessions need a valid d cookie.",
 		Parameters: map[string]string{
 			"channel_id": "Channel or DM ID",
 			"limit":      "Number of messages to fetch (default 50, max 100)",

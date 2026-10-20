@@ -114,16 +114,35 @@ func conversationsHistory(ctx context.Context, s *slackIntegration, args map[str
 	if err != nil {
 		return readErrorResult(err)
 	}
+	// Bot posts (dbt Cloud, Sentry, Datadog alerts) often have empty text and
+	// carry their content in attachments, so bot_id and attachment titles are
+	// the only way to tell them apart.
+	type attachment struct {
+		Title string `json:"title,omitempty"`
+		Text  string `json:"text,omitempty"`
+	}
 	type msg struct {
-		TS         string `json:"ts"`
-		User       string `json:"user"`
-		Text       string `json:"text"`
-		ThreadTS   string `json:"thread_ts,omitempty"`
-		ReplyCount int    `json:"reply_count,omitempty"`
+		TS          string       `json:"ts"`
+		User        string       `json:"user"`
+		Text        string       `json:"text"`
+		ThreadTS    string       `json:"thread_ts,omitempty"`
+		ReplyCount  int          `json:"reply_count,omitempty"`
+		BotID       string       `json:"bot_id,omitempty"`
+		Subtype     string       `json:"subtype,omitempty"`
+		Attachments []attachment `json:"attachments,omitempty"`
 	}
 	msgs := make([]msg, 0, len(resp.Messages))
 	for _, m := range resp.Messages {
-		msgs = append(msgs, msg{TS: m.Timestamp, User: m.User, Text: m.Text, ThreadTS: m.ThreadTimestamp, ReplyCount: m.ReplyCount})
+		var atts []attachment
+		for _, a := range m.Attachments {
+			if a.Title != "" || a.Text != "" {
+				atts = append(atts, attachment{Title: a.Title, Text: a.Text})
+			}
+		}
+		msgs = append(msgs, msg{
+			TS: m.Timestamp, User: m.User, Text: m.Text, ThreadTS: m.ThreadTimestamp, ReplyCount: m.ReplyCount,
+			BotID: m.BotID, Subtype: m.SubType, Attachments: atts,
+		})
 	}
 	return mcp.JSONResult(map[string]any{"channel": channelID, "count": len(msgs), "has_more": resp.HasMore, "messages": msgs, "next_cursor": resp.ResponseMetaData.NextCursor})
 }

@@ -50,6 +50,7 @@ func TestFieldCompactionSpecs_PreservePaginationAndScopes(t *testing.T) {
 	}{
 		{"slack_list_conversations", `{"count":1,"next_cursor":"","warning":"cursor repeated"}`, "warning"},
 		{"slack_conversations_history", `{"count":1,"has_more":true,"next_cursor":"page-two"}`, "next_cursor"},
+		{"slack_conversations_history", `{"messages":[{"ts":"1.2","text":"","bot_id":"B1","subtype":"bot_message","attachments":[{"title":"Run #1 failed","text":"Environment: SNOWFLAKE"}]}]}`, "bot_id"},
 		{"slack_token_status", `{"workspaces":[{"granted_scopes":["channels:history"],"scopes_available":true}]}`, "workspaces"},
 	} {
 		t.Run(tc.tool, func(t *testing.T) {
@@ -63,7 +64,12 @@ func TestFieldCompactionSpecs_PreservePaginationAndScopes(t *testing.T) {
 				assert.Contains(t, string(result), "granted_scopes")
 				assert.Contains(t, string(result), "scopes_available")
 			case "slack_conversations_history":
-				assert.Contains(t, string(result), "has_more")
+				if tc.field == "bot_id" {
+					assert.Contains(t, string(result), "bot_message")
+					assert.Contains(t, string(result), `"attachments":["Run #1 failed"]`)
+				} else {
+					assert.Contains(t, string(result), "has_more")
+				}
 			}
 		})
 	}

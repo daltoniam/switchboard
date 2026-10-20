@@ -159,3 +159,39 @@ func TestConversationReads_ChannelNotFound(t *testing.T) {
 		})
 	}
 }
+
+func TestConversationsHistory_BotMessageFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/conversations.history", r.URL.Path)
+		_, _ = w.Write([]byte(`{"ok":true,"messages":[
+			{"ts":"1792458205.988649","subtype":"bot_message","bot_id":"B03UTA95ZCN","text":"","attachments":[
+				{"title":"Run #70403229689640 failed on Job \"Source Freshness [Daily]\"","text":"Environment: SNOWFLAKE","fallback":"Run failed"},
+				{"title":"Invoke dbt source freshness (Error in 30 seconds)"}]},
+			{"ts":"1792458100.000100","user":"U1","text":"hello"}]}`))
+	}))
+	defer server.Close()
+	result, err := conversationsHistory(t.Context(), testConversationsClient(server), map[string]any{"channel_id": "C1"})
+	require.NoError(t, err)
+	require.False(t, result.IsError, result.Data)
+	var body struct {
+		Messages []map[string]any `json:"messages"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &body))
+	require.Len(t, body.Messages, 2)
+
+	bot := body.Messages[0]
+	assert.Equal(t, "B03UTA95ZCN", bot["bot_id"])
+	assert.Equal(t, "bot_message", bot["subtype"])
+	attachments, ok := bot["attachments"].([]any)
+	require.True(t, ok, "bot message should carry attachments")
+	require.Len(t, attachments, 2)
+	first := attachments[0].(map[string]any)
+	assert.Equal(t, `Run #70403229689640 failed on Job "Source Freshness [Daily]"`, first["title"])
+	assert.Equal(t, "Environment: SNOWFLAKE", first["text"])
+
+	human := body.Messages[1]
+	assert.Equal(t, "U1", human["user"])
+	assert.NotContains(t, human, "bot_id")
+	assert.NotContains(t, human, "subtype")
+	assert.NotContains(t, human, "attachments")
+}
