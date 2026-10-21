@@ -75,11 +75,13 @@ func hogQLString(value string) string {
 }
 
 func hogQLTime(name, value string) (string, error) {
-	t, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
+	t, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(value))
 	if err != nil {
 		return "", fmt.Errorf("%s must be an ISO 8601 timestamp such as 2026-09-10T14:14:30Z", name)
 	}
-	return "toDateTime('" + t.UTC().Format("2006-01-02 15:04:05") + "')", nil
+	// Keep microsecond precision and pin UTC so the bound neither drops
+	// fractional seconds nor shifts by the project's time zone.
+	return "toDateTime64('" + t.UTC().Format("2006-01-02 15:04:05.000000") + "', 6, 'UTC')", nil
 }
 
 func getSessionConsoleLogs(ctx context.Context, p *posthog, args map[string]any) (*mcp.ToolResult, error) {

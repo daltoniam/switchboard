@@ -63,8 +63,8 @@ func TestGetSessionConsoleLogs_BuildsSafeHogQL(t *testing.T) {
 		"session_id": "https://us.posthog.com/project/26958/replay/01a08ba9-0bbb-78d5-af50-c44b748a366e",
 		"level":      "error, warn",
 		"search":     "Apollo's",
-		"after":      "2026-09-10T14:14:30Z",
-		"before":     "2026-09-10T14:15:00Z",
+		"after":      "2026-09-10T09:14:30-05:00",
+		"before":     "2026-09-10T14:14:30.9Z",
 		"limit":      "50",
 	})
 	require.NoError(t, err)
@@ -77,8 +77,8 @@ func TestGetSessionConsoleLogs_BuildsSafeHogQL(t *testing.T) {
 		"log_source_id = '01a08ba9-0bbb-78d5-af50-c44b748a366e'",
 		"level IN ('error', 'warn')",
 		`positionCaseInsensitive(message, 'Apollo\'s') > 0`,
-		"timestamp >= toDateTime('2026-09-10 14:14:30')",
-		"timestamp <= toDateTime('2026-09-10 14:15:00')",
+		"timestamp >= toDateTime64('2026-09-10 14:14:30.000000', 6, 'UTC')",
+		"timestamp <= toDateTime64('2026-09-10 14:14:30.900000', 6, 'UTC')",
 		"ORDER BY timestamp ASC",
 		"LIMIT 50",
 	} {
