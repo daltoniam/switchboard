@@ -62,6 +62,27 @@ jobs:
         with:
           setup_only: true
 
+      # make ci requires the Node and npm versions pinned in the Makefile.
+      - name: Read Node version
+        id: node
+        run: |
+          echo "node=$(make --no-print-directory node-version)" >> "$GITHUB_OUTPUT"
+          echo "npm=$(make --no-print-directory npm-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.node.outputs.node }}
+
+      - name: Setup npm
+        run: |
+          npm install --global "npm@${{ steps.node.outputs.npm }}"
+          make check-npm
+
+      # make ci includes the Chromium acceptance tests.
+      - name: Install Chromium and system dependencies
+        run: make ui-install UI_INSTALL_ARGS=--with-deps
+
       - name: Install Crush
         run: |
           sudo mkdir -p /etc/apt/keyrings
@@ -86,11 +107,40 @@ jobs:
           CRUSH_SKILLS_DIR: ${{ github.workspace }}/.agents/skills
           CRUSH_GLOBAL_CONFIG: ${{ github.workspace }}/.ci/crush-implement
         run: |
+          deadline="$(date -u -d '+80 minutes' +%Y-%m-%dT%H:%M:%SZ)"
           {
-            printf 'MODE=%s\nTARGET=%s\nRUN_URL=%s\nREPORT_FILE=%s\n\n' "$MODE" "$TARGET" "$RUN_URL" "$REPORT_FILE"
+            printf 'MODE=%s\nTARGET=%s\nRUN_URL=%s\nREPORT_FILE=%s\nDEADLINE=%s\n\n' "$MODE" "$TARGET" "$RUN_URL" "$REPORT_FILE" "$deadline"
             cat .github/overload/implement.md
           } > "$RUNNER_TEMP/prompt.md"
-          crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md"
+          # Stop Crush before the job timeout so the report and transcript
+          # steps still run.
+          status=0
+          timeout --signal=INT --kill-after=2m 95m \
+            crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md" || status=$?
+          if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+            echo "::error::Crush was stopped after 95 minutes"
+            [ -s "$REPORT_FILE" ] || printf 'BLOCKED\n\nCrush was stopped after 95 minutes before writing a report. See the Crush transcript step.\n' > "$REPORT_FILE"
+          fi
+          exit "$status"
+
+      # Crush prints nothing until it finishes, so list what it did and
+      # when. Tool results are left out because they can contain secrets.
+      - name: Crush transcript
+        if: always()
+        run: |
+          [ -f .crush/crush.db ] || { echo "No Crush session found."; exit 0; }
+          python3 - <<'EOF'
+          import datetime, json, sqlite3
+          db = sqlite3.connect("file:.crush/crush.db?mode=ro", uri=True)
+          for created, parts in db.execute("select created_at, parts from messages order by created_at"):
+              when = datetime.datetime.fromtimestamp(created, datetime.timezone.utc).strftime("%H:%M:%S")
+              for part in json.loads(parts):
+                  data = part.get("data") or {}
+                  if part.get("type") == "tool_call":
+                      print(when, data.get("name"), str(data.get("input"))[:240].replace("\n", " "))
+                  elif part.get("type") == "text" and data.get("text", "").strip():
+                      print(when, "text:", data["text"][:240].replace("\n", " "))
+          EOF
 
       - name: Publish report
         if: always()
