@@ -524,6 +524,10 @@ func buildColumnar(objects []map[string]any) map[string]any {
 		}
 	}
 
+	if len(constants) == 0 {
+		return map[string]any{"columns": allCols, "rows": fullRows}
+	}
+
 	// Build final columns/rows without constants.
 	cols := make([]string, 0, len(allCols)-len(constants))
 	for j, c := range allCols {

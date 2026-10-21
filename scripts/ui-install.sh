@@ -7,7 +7,6 @@
 set -euo pipefail
 
 module=github.com/playwright-community/playwright-go
-download_host="${PLAYWRIGHT_DOWNLOAD_HOST:-https://cdn.playwright.dev/dbazure/download/playwright}"
 go mod download "$module"
 module_dir="$(go list -m -f '{{.Dir}}' "$module")"
 version="$(sed -n 's/^const playwrightCliVersion = "\(.*\)"$/\1/p' "$module_dir/run.go")"
@@ -25,7 +24,7 @@ else
 fi
 
 install_browsers() {
-	PLAYWRIGHT_DOWNLOAD_HOST="$download_host" go run "$module/cmd/playwright" install "$@" chromium
+	go run "$module/cmd/playwright" install "$@" chromium
 }
 
 assemble_driver_from_npm() {
