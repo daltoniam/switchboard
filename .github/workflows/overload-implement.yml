@@ -62,6 +62,14 @@ jobs:
         with:
           setup_only: true
 
+      # make ci includes the Chromium acceptance tests. This runs before
+      # Node is set up, like the ui job in CI: the Playwright driver it
+      # assembles runs on the runner's Node and hangs downloading Chromium
+      # on the newer Node the Makefile pins.
+      - name: Install Chromium and system dependencies
+        timeout-minutes: 10
+        run: make ui-install UI_INSTALL_ARGS=--with-deps
+
       # make ci requires the Node and npm versions pinned in the Makefile.
       - name: Read Node version
         id: node
@@ -78,10 +86,6 @@ jobs:
         run: |
           npm install --global "npm@${{ steps.node.outputs.npm }}"
           make check-npm
-
-      # make ci includes the Chromium acceptance tests.
-      - name: Install Chromium and system dependencies
-        run: make ui-install UI_INSTALL_ARGS=--with-deps
 
       - name: Install Crush
         run: |
