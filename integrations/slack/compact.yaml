@@ -29,6 +29,10 @@ tools:
             - messages[].text
             - messages[].thread_ts
             - messages[].reply_count
+            - messages[].bot_id
+            - messages[].username
+            - messages[].subtype
+            - messages[].attachments
             - count
             - has_more
             - next_cursor
