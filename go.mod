@@ -2,7 +2,7 @@ module github.com/daltoniam/switchboard
 
 go 1.26.9
 
-toolchain go1.27.2
+toolchain go1.27.3
 
 require (
 	cloud.google.com/go/compute v1.54.0

@@ -1026,6 +1026,24 @@ func TestBuildColumnar(t *testing.T) {
 		constants map[string]any // expected constant columns lifted out (nil = no constants)
 	}{
 		{
+			name:    "empty input keeps empty columns and rows",
+			columns: []string{},
+			rows:    [][]any{},
+		},
+		{
+			name:    "empty objects keep empty rows",
+			objects: []map[string]any{{}, {}},
+			columns: []string{},
+			rows:    [][]any{{}, {}},
+		},
+		{
+			name:      "all columns constant keeps empty rows",
+			objects:   []map[string]any{{"state": "open"}, {"state": "open"}},
+			columns:   []string{},
+			constants: map[string]any{"state": "open"},
+			rows:      [][]any{{}, {}},
+		},
+		{
 			name: "converts uniform objects to columns and rows",
 			objects: []map[string]any{
 				{"id": float64(1), "name": "foo"},
