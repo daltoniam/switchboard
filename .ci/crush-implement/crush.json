@@ -7,8 +7,8 @@
       "max_tokens": 16384
     },
     "small": {
-      "model": "grok-build-0.1",
-      "provider": "xAI",
+      "model": "gpt-6.1-sol",
+      "provider": "openai-gateway",
       "max_tokens": 16384
     }
   },

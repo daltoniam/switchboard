@@ -117,13 +117,40 @@ jobs:
             cat .github/overload/implement.md
           } > "$RUNNER_TEMP/prompt.md"
           # Stop Crush before the job timeout so the report and transcript
-          # steps still run.
+          # steps still run, and sooner when it stalls: no session writes
+          # and no command running (language servers aside) for 15 minutes
+          # means it is stuck waiting on a model reply.
+          crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md" &
+          crush_pid=$!
+          started=$(date +%s)
+          reason=""
+          running() { ps -o stat= -p "$crush_pid" 2>/dev/null | grep -qv '^Z'; }
+          while running; do
+            sleep 30
+            running || break
+            now=$(date +%s)
+            if [ $((now - started)) -ge $((95 * 60)) ]; then
+              reason="after 95 minutes"
+            else
+              last=$(stat -c %Y .crush/crush.db* 2>/dev/null | sort -n | tail -1)
+              busy=$(ps -o comm= --ppid "$crush_pid" 2>/dev/null | grep -vE 'gopls|language-server' || true)
+              if [ -z "$busy" ] && [ $((now - ${last:-$started})) -ge $((15 * 60)) ]; then
+                reason="after 15 minutes without progress"
+              fi
+            fi
+            if [ -n "$reason" ]; then
+              kill -TERM "$crush_pid" 2>/dev/null || true
+              for _ in $(seq 1 6); do running || break; sleep 5; done
+              kill -KILL "$crush_pid" 2>/dev/null || true
+              break
+            fi
+          done
           status=0
-          timeout --signal=INT --kill-after=2m 95m \
-            crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md" || status=$?
-          if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
-            echo "::error::Crush was stopped after 95 minutes"
-            [ -s "$REPORT_FILE" ] || printf 'BLOCKED\n\nCrush was stopped after 95 minutes before writing a report. See the Crush transcript step.\n' > "$REPORT_FILE"
+          wait "$crush_pid" || status=$?
+          if [ -n "$reason" ]; then
+            echo "::error::Crush was stopped $reason"
+            [ -s "$REPORT_FILE" ] || printf 'BLOCKED\n\nCrush was stopped %s before writing a report. See the Crush transcript step; uncommitted work is in the overload-report artifact (work.patch).\n' "$reason" > "$REPORT_FILE"
+            exit 1
           fi
           exit "$status"
 
@@ -151,10 +178,22 @@ jobs:
         run: |
           if [ -s "$REPORT_FILE" ]; then cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"; else echo "No report was written." | tee "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"; fi
 
+      # Keep what the job changed but did not push, so a stopped run's work
+      # can be recovered (git apply work.patch on main).
+      - name: Save unpushed work
+        if: always()
+        run: |
+          git add -A -- . ':(exclude).crush' ':(exclude)dist' 2>/dev/null || true
+          git diff --cached --binary origin/main > "$RUNNER_TEMP/work.patch" || true
+          [ -s "$RUNNER_TEMP/work.patch" ] || rm -f "$RUNNER_TEMP/work.patch"
+
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: overload-report
-          path: ${{ runner.temp }}/report.md
+          path: |
+            ${{ runner.temp }}/report.md
+            ${{ runner.temp }}/work.patch
+          if-no-files-found: ignore
           retention-days: 30
