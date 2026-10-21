@@ -119,6 +119,29 @@ tools:
             - updated_at
             - timezone
             - completed_snippet_onboarding
+    posthog_get_session_console_logs:
+        spec:
+            - columns
+            - results
+            - hasMore
+            - error
+    posthog_get_session_recording:
+        spec:
+            - id
+            - distinct_id
+            - person.id
+            - person.distinct_ids
+            - person.properties.email
+            - start_time
+            - end_time
+            - recording_duration
+            - active_seconds
+            - start_url
+            - click_count
+            - keypress_count
+            - console_log_count
+            - console_warn_count
+            - console_error_count
     posthog_get_survey:
         spec:
             - id
@@ -220,6 +243,19 @@ tools:
             - results[].name
             - results[].created_at
             - results[].updated_at
+    posthog_list_session_recordings:
+        spec:
+            - results[].id
+            - results[].distinct_id
+            - results[].person.properties.email
+            - results[].start_time
+            - results[].end_time
+            - results[].recording_duration
+            - results[].start_url
+            - results[].click_count
+            - results[].console_warn_count
+            - results[].console_error_count
+            - has_next
     posthog_list_surveys:
         spec:
             - results[].id

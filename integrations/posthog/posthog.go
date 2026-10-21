@@ -283,6 +283,11 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("posthog_list_events"): listEvents,
 	mcp.ToolName("posthog_get_event"):   getEvent,
 
+	// Session Replay
+	mcp.ToolName("posthog_get_session_console_logs"): getSessionConsoleLogs,
+	mcp.ToolName("posthog_list_session_recordings"):  listSessionRecordings,
+	mcp.ToolName("posthog_get_session_recording"):    getSessionRecording,
+
 	// Experiments
 	mcp.ToolName("posthog_list_experiments"):  listExperiments,
 	mcp.ToolName("posthog_get_experiment"):    getExperiment,
