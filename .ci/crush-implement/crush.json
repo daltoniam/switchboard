@@ -73,5 +73,11 @@
         }
       ]
     }
+  },
+  "options": {
+    "disabled_tools": [
+      "agent",
+      "agentic_fetch"
+    ]
   }
 }

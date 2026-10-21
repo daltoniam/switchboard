@@ -93,6 +93,7 @@ jobs:
           curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
           echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
           sudo apt-get update -qq && sudo apt-get install -y -qq crush
+          crush --version
 
       - name: Configure git and labels
         env:
@@ -163,14 +164,19 @@ jobs:
           python3 - <<'EOF'
           import datetime, json, sqlite3
           db = sqlite3.connect("file:.crush/crush.db?mode=ro", uri=True)
-          for created, parts in db.execute("select created_at, parts from messages order by created_at"):
+          for created, role, parts in db.execute("select created_at, role, parts from messages order by created_at"):
               when = datetime.datetime.fromtimestamp(created, datetime.timezone.utc).strftime("%H:%M:%S")
               for part in json.loads(parts):
                   data = part.get("data") or {}
-                  if part.get("type") == "tool_call":
+                  kind = part.get("type")
+                  if kind == "tool_call":
                       print(when, data.get("name"), str(data.get("input"))[:240].replace("\n", " "))
-                  elif part.get("type") == "text" and data.get("text", "").strip():
-                      print(when, "text:", data["text"][:240].replace("\n", " "))
+                  elif kind == "tool_result":
+                      print(when, "  result", data.get("name", ""), "error" if data.get("is_error") else "ok")
+                  elif kind == "text" and data.get("text", "").strip():
+                      print(when, role + ":", data["text"][:240].replace("\n", " "))
+                  elif kind == "finish":
+                      print(when, "  finish", data.get("reason", ""), data.get("message", "")[:160])
           EOF
 
       - name: Publish report
@@ -179,12 +185,12 @@ jobs:
           if [ -s "$REPORT_FILE" ]; then cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"; else echo "No report was written." | tee "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"; fi
 
       # Keep what the job changed but did not push, so a stopped run's work
-      # can be recovered (git apply work.patch on main).
+      # can be recovered (git apply work.patch on the commit the run used).
       - name: Save unpushed work
         if: always()
         run: |
           git add -A -- . ':(exclude).crush' ':(exclude)dist' 2>/dev/null || true
-          git diff --cached --binary origin/main > "$RUNNER_TEMP/work.patch" || true
+          git diff --cached --binary "$GITHUB_SHA" > "$RUNNER_TEMP/work.patch" || true
           [ -s "$RUNNER_TEMP/work.patch" ] || rm -f "$RUNNER_TEMP/work.patch"
 
       - name: Upload report
