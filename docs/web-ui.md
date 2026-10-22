@@ -80,7 +80,7 @@ Run `make ui-install` once, then `make test-ui` to verify integration setup in i
 - **Testing**: `stretchr/testify` assertions. Tests in every package
 - **Linting**: `.golangci.yml` — errcheck, govet, ineffassign, nestif, staticcheck, unused
 - **CI**: `.github/workflows/ci.yml` — build, test (race), gofmt, golangci-lint, gosec, govulncheck
-- **Go 1.26** — deps: `go-sdk`, `go-github/v68`, `slack-go/slack`, `a-h/templ`, `lib/pq`, `clickhouse-go/v2`, `testify`
+- **Go 1.26.6** — deps: `go-sdk`, `go-github/v68`, `slack-go/slack`, `a-h/templ`, `lib/pq`, `clickhouse-go/v2`, `testify`
 
 ## CLI & Daemon
 
