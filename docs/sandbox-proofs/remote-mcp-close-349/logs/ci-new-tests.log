@@ -1,0 +1,22 @@
+=== RUN   TestRemoteMCPAdapters_ImplementClose
+--- PASS: TestRemoteMCPAdapters_ImplementClose (0.05s)
+PASS
+ok  	github.com/daltoniam/switchboard	0.054s
+=== RUN   TestClose_EndsRemoteSession
+--- PASS: TestClose_EndsRemoteSession (0.00s)
+=== RUN   TestClose_WithoutRemoteIsANoop
+--- PASS: TestClose_WithoutRemoteIsANoop (0.00s)
+=== RUN   TestConfigure_SwitchingToAPIKeyEndsRemoteSession
+--- PASS: TestConfigure_SwitchingToAPIKeyEndsRemoteSession (0.00s)
+PASS
+ok  	github.com/daltoniam/switchboard/integrations/linear	0.005s
+=== RUN   TestClose_EndsRemoteSession
+--- PASS: TestClose_EndsRemoteSession (0.00s)
+=== RUN   TestConfigure_ChangingServerEndsOldSession
+--- PASS: TestConfigure_ChangingServerEndsOldSession (0.00s)
+PASS
+ok  	github.com/daltoniam/switchboard/integrations/figma	0.003s
+=== RUN   TestClose_EndsEveryIdentitySession
+--- PASS: TestClose_EndsEveryIdentitySession (0.00s)
+PASS
+ok  	github.com/daltoniam/switchboard/integrations/slackmcp	0.004s

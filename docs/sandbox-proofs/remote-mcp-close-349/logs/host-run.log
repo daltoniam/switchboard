@@ -1,0 +1,23 @@
+[before] [INFO] startup: Switchboard configures figma + slackmcp(2 identities) — sessions opened at startup: figma-a=['SQOYZZOKKBS4367CF6QCCZ7BNA'] slack=['R2TXFLOUH3XHQYDTWZDLLMQ3UV', 'VBMIFBHF2BMFZMQWOHGDKR2ES6']
+[before] [PASS] search finds figma_whoami — {"has_more":false,"integrations":["figma","slackmcp"],"limit":20,"offset":0,"script_hint":"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and 
+[before] [PASS] search finds slackmcp_read_channel — {"has_more":false,"integrations":["figma","slackmcp"],"limit":20,"offset":0,"script_hint":"These tools span multiple integrations. Use execute with a script to chain them in a single call — intermedia
+[before] [PASS] execute figma_whoami via Switchboard → stand-in figma-a — {"query":"","session":"SQOYZZOKKBS4367CF6QCCZ7BNA","standin":"figma-a","tool":"whoami"}
+pinned as $1
+[before] [PASS] execute slackmcp_read_channel for work + personal — work sid=VBMIFBHF2BMFZMQWOHGDKR2ES6 personal sid=R2TXFLOUH3XHQYDTWZDLLMQ3UV
+[before] [INFO (leak)] web Save figma base_url A→B ends old session on A — save HTTP 200 → http://127.0.0.1:13856/integrations/figma/setup?success=Configuration+saved; DELETE on figma-a=[]; probe old figma-a sid SQOYZZOKKBS4367CF6QCCZ7BNA → HTTP 200
+[before] [PASS] execute figma_whoami after base_url change → figma-b — {"query":"","session":"JOGATVSCGGGCHIR7MS5VLSG6BP","standin":"figma-b","tool":"whoami"}
+pinned as $4
+[before] [INFO] slack sessions still alive while instance in use — probe work → 200, personal → 200
+[before] [INFO] Switchboard shutdown (SIGTERM): sessions ended? — DELETEs on shutdown=[]; probes after exit: work=200 personal=200
+[after] [INFO] startup: Switchboard configures figma + slackmcp(2 identities) — sessions opened at startup: figma-a=['HZFNZQIODJYGLLSFZPVNK62ZPS'] slack=['B43U4GWKN2AIMUIGFR5SSXNKHB', '6AS6473GIFA27KSYLVSONZ4LRL']
+[after] [PASS] search finds figma_whoami — {"has_more":false,"integrations":["slackmcp","figma"],"limit":20,"offset":0,"script_hint":"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and 
+[after] [PASS] search finds slackmcp_read_channel — {"has_more":false,"integrations":["figma","slackmcp"],"limit":20,"offset":0,"script_hint":"These tools span multiple integrations. Use execute with a script to chain them in a single call — intermedia
+[after] [PASS] execute figma_whoami via Switchboard → stand-in figma-a — {"query":"","session":"HZFNZQIODJYGLLSFZPVNK62ZPS","standin":"figma-a","tool":"whoami"}
+pinned as $1
+[after] [PASS] execute slackmcp_read_channel for work + personal — work sid=6AS6473GIFA27KSYLVSONZ4LRL personal sid=B43U4GWKN2AIMUIGFR5SSXNKHB
+[after] [PASS] web Save figma base_url A→B ends old session on A — save HTTP 200 → http://127.0.0.1:13855/integrations/figma/setup?success=Configuration+saved; DELETE on figma-a=['HZFNZQIODJYGLLSFZPVNK62ZPS']; probe old figma-a sid HZFNZQIODJYGLLSFZPVNK62ZPS → HTTP 404
+[after] [PASS] execute figma_whoami after base_url change → figma-b — {"query":"","session":"4KFSIXN7MUA2VTHG3NJZGVAHXM","standin":"figma-b","tool":"whoami"}
+pinned as $4
+[after] [INFO] slack sessions still alive while instance in use — probe work → 200, personal → 200
+[after] [INFO] Switchboard shutdown (SIGTERM): sessions ended? — DELETEs on shutdown=[]; probes after exit: work=200 personal=200
+== host: {('before', 'INFO'): 4, ('before', 'PASS'): 5, ('after', 'INFO'): 3, ('after', 'PASS'): 6}

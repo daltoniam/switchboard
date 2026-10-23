@@ -1,0 +1,27 @@
+[after] PASS 1 Linear (mcp_access_token) | Configure → session opened → tool call works | tools=2, session_open=1 [DFJAKPWG47IAXXHQNTQXDRMPYD], linear_list_issues → {"query":"proof","session":"DFJAKPWG47IAXXHQNTQXDRMPYD","standin":"linear","tool":"list_issues"}
+[after] PASS 1 Linear (mcp_access_token) | Close() → DELETE sent, session invalid server-side | Close err=<nil>; DELETE count=1 sid=[DFJAKPWG47IAXXHQNTQXDRMPYD]; probe tools/list on old sid → HTTP 404
+[after] PASS 1 Linear (mcp_access_token) | second Close() is a no-op | Close err=<nil>; new server events=0 (DELETE=0)
+[after] INFO 1 Linear (mcp_access_token) | Execute after Close (before re-Configure) | IsError=true err=<nil> data=linear API error (401): {"errors":[{"message":"Authentication required, not authenticated","extensions":{"type":"authentication error","code":"AUTHENTICATION_ER…
+[after] PASS 1 Linear (mcp_access_token) | re-Configure → fresh session id → tool call works | session_open=1 new=[LD5FZQRSEYBEVIKNDUPBHU6SNP] old=DFJAKPWG47IAXXHQNTQXDRMPYD; {"query":"proof","session":"LD5FZQRSEYBEVIKNDUPBHU6SNP","standin":"linear","tool":"list_issues"}
+[after] PASS 1 Figma | Configure → session opened → tool call works | tools=2, session_open=1 [X2XUFV35PLPAY5XX6V6L6MZK37], figma_whoami → {"query":"","session":"X2XUFV35PLPAY5XX6V6L6MZK37","standin":"figma-a","tool":"whoami"}
+[after] PASS 1 Figma | Close() → DELETE sent, session invalid server-side | Close err=<nil>; DELETE count=1 sid=[X2XUFV35PLPAY5XX6V6L6MZK37]; probe tools/list on old sid → HTTP 404
+[after] PASS 1 Figma | second Close() is a no-op | Close err=<nil>; new server events=0 (DELETE=0)
+[after] INFO 1 Figma | Execute after Close (before re-Configure) | IsError=true err=<nil> data=integration not configured
+[after] PASS 1 Figma | re-Configure → fresh session id → tool call works | session_open=1 new=[DPP4X67MKNG7TOBPKXHSDTRWF7] old=X2XUFV35PLPAY5XX6V6L6MZK37; {"query":"","session":"DPP4X67MKNG7TOBPKXHSDTRWF7","standin":"figma-a","tool":"whoami"}
+[after] PASS 1 Slack MCP (1 identity) | Configure → session opened → tool call works | tools=3, session_open=1 [W43CYZ3F5TRBGNYJVLO5FJJLIE], slackmcp_search_channels → {"query":"general","session":"W43CYZ3F5TRBGNYJVLO5FJJLIE","standin":"slack","tool":"slack_search_channels"}
+[after] PASS 1 Slack MCP (1 identity) | Close() → DELETE sent, session invalid server-side | Close err=<nil>; DELETE count=1 sid=[W43CYZ3F5TRBGNYJVLO5FJJLIE]; probe tools/list on old sid → HTTP 404
+[after] PASS 1 Slack MCP (1 identity) | second Close() is a no-op | Close err=<nil>; new server events=0 (DELETE=0)
+[after] INFO 1 Slack MCP (1 identity) | Execute after Close (before re-Configure) | IsError=true err=<nil> data=unknown identity: work
+[after] PASS 1 Slack MCP (1 identity) | re-Configure → fresh session id → tool call works | session_open=1 new=[OLSSYWD2D53TUMRMGPIA5JBOSR] old=W43CYZ3F5TRBGNYJVLO5FJJLIE; {"query":"general","session":"OLSSYWD2D53TUMRMGPIA5JBOSR","standin":"slack","tool":"slack_search_channels"}
+[after] PASS 2 Linear mcp → api_key switch | remote mode session opened + call works | sid=[JNBRAXASB6ZHIVEFM2MZNC47CR] IsRemoteMCP=true
+[after] PASS 2 Linear mcp → api_key switch | Configure(api_key) ends remote session | err=<nil> DELETE=1 [JNBRAXASB6ZHIVEFM2MZNC47CR]; probe old sid → HTTP 404; IsRemoteMCP=false
+[after] PASS 2 Linear mcp → api_key switch | api_key native REST path wired (fake key → api.linear.app) | linear_viewer → IsError=true linear API error (401): {"errors":[{"message":"Authentication required, not authenticated","extensions":{"type":"authentication error","code":"AUTHENTICATION_ERROR","statusCode":401,"userError":true,"…; stand-in events=0
+[after] PASS 3 Figma base_url change | session on server A + call works | figma-a sid=[MZO7INX3V7E2EVDWT4ZEFT7W4T]
+[after] INFO 3 Figma base_url change | same base_url + same token re-Configure reuses session | session_open=0 DELETE=0
+[after] PASS 3 Figma base_url change | Configure(base_url=B) ends session on A | err=<nil> DELETE on figma-a=1 [MZO7INX3V7E2EVDWT4ZEFT7W4T]; probe old A sid → HTTP 404
+[after] PASS 3 Figma base_url change | new session opened on B + call works | figma-b sid=[PPUTA47QMWITDL72OQY4O32QXD] → {"query":"","session":"PPUTA47QMWITDL72OQY4O32QXD","standin":"figma-b","tool":"whoami"}
+[after] PASS 4 Slack MCP two identities | two identities → two sessions, calls work on each | err=<nil> sessions=[P7HJQMRZ6B7OQAWFAJDTIJSUAV QLDE5LABSO6RJYPUPW4JQS2RAJ] work→{"query":"","session":"QLDE5LABSO6RJYPUPW4JQS2RAJ","standin":"slack","tool":"slack_read_ch… personal→{"query":"","session":"P7HJQMRZ6B7OQAWFAJDTIJSUAV","standin":"slack","tool":"slack_read_ch…
+[after] PASS 4 Slack MCP two identities | Close() ends both sessions | err=<nil> DELETE=2 [P7HJQMRZ6B7OQAWFAJDTIJSUAV QLDE5LABSO6RJYPUPW4JQS2RAJ]; probes → 404, 404
+[after] PASS 4 Slack MCP two identities | second Close() no-op | err=<nil> events=0
+[after] PASS 4 Slack MCP two identities | Healthy false after Close | 
+[after] PASS=22 FAIL=0

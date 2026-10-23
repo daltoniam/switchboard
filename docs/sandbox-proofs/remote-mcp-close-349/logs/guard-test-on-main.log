@@ -1,0 +1,7 @@
+--- FAIL: TestRemoteMCPAdapters_ImplementClose (0.10s)
+    remote_close_test.go:41: integrations/figma uses remotemcp but has no Close() error method; implement io.Closer to end its session
+    remote_close_test.go:41: integrations/linear uses remotemcp but has no Close() error method; implement io.Closer to end its session
+    remote_close_test.go:41: integrations/slackmcp uses remotemcp but has no Close() error method; implement io.Closer to end its session
+FAIL
+FAIL	github.com/daltoniam/switchboard	0.103s
+FAIL

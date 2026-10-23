@@ -1,0 +1,10 @@
+ .agents/skills/add-integration/SKILL.md |  4 ++
+ AGENTS.md                               |  1 +
+ integrations/figma/figma.go             | 20 +++++++++
+ integrations/figma/figma_test.go        | 45 +++++++++++++++++++
+ integrations/linear/close_test.go       | 80 +++++++++++++++++++++++++++++++++
+ integrations/linear/linear.go           | 23 +++++++++-
+ integrations/slackmcp/slackmcp.go       | 26 +++++++++++
+ integrations/slackmcp/slackmcp_test.go  | 33 ++++++++++++++
+ remote_close_test.go                    | 44 ++++++++++++++++++
+ 9 files changed, 275 insertions(+), 1 deletion(-)

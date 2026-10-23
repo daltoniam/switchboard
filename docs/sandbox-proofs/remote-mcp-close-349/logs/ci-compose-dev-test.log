@@ -1,0 +1,10 @@
+ok: help verbs
+ok: destroy refused without CONFIRM
+ok: destroy refused with wrong CONFIRM
+ok: down never uses -v
+ok: destroy uses down -v after CONFIRM
+ok: compose -p present
+ok: dev compose has no provider tokens
+ok: dev publish form
+ok: paseo.json scripts
+ok: compose-dev lifecycle tests

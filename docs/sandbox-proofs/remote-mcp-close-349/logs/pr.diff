@@ -1,0 +1,429 @@
+diff --git a/.agents/skills/add-integration/SKILL.md b/.agents/skills/add-integration/SKILL.md
+index cce1889..0c53171 100644
+--- a/.agents/skills/add-integration/SKILL.md
++++ b/.agents/skills/add-integration/SKILL.md
+@@ -143,6 +143,10 @@ func (x *myapi) Configure(creds mcp.Credentials) error {
+ 
+ Implement a lightweight API call that verifies credentials work (e.g., "get current user" or "list with limit=1"). Must handle the case where `Configure()` hasn't been called yet (nil client) — return `false`, don't panic.
+ 
++### Close() for Held Resources
++
++If the adapter holds anything that outlives a call (a `*sql.DB`, a remote MCP session from `remotemcp`, a background goroutine), implement `io.Closer`: end the resource, make a second call a no-op, and let a later `Configure` start fresh. When `Configure` replaces such a resource (a new token or server), end the old one. Hosts such as Switchboard Hosted create and drop instances per request, so a missing `Close` leaks one session per dropped instance. Add `_ io.Closer = (*yourType)(nil)` to the interface assertions.
++
+ ### Error Handling
+ 
+ Follow `AGENTS.md > Error Handling`. Key judgment: surface errors to the caller — never swallow them, never add fallback defaults.
+diff --git a/AGENTS.md b/AGENTS.md
+index 620c19a..e12f2da 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -67,6 +67,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
+ - **Entry-point guidance** (MUST): Every integration's primary tool description must include "Start here" text for wayfinding. See `add-integration` skill for pattern.
+ - **Semantic types** (MUST): `mcp.ToolName` for all tool name parameters, `mcp.Markdown` for markdown return values — never cast back to `string` in the dispatch chain. `string()` only at I/O boundaries.
+ - **Markdown rendering**: When a tool returns document content (pages, emails, comments), implement `mcp.MarkdownIntegration` with types from the `markdown` package — see [docs/markdown-rendering.md](docs/markdown-rendering.md) for decision framework and implementation checklist. Parity test `TestRenderMarkdown_ToolsCovered` is MUST.
++- **Release resources with `io.Closer`** (MUST): an adapter that holds a connection pool, a remote MCP session, or a background goroutine implements `Close() error`, safe to call more than once, and ends any such resource it replaces during `Configure`. Hosts drop instances (per-request pools, reconfiguration) and rely on `Close` to avoid leaks. `TestRemoteMCPAdapters_ImplementClose` enforces this for every adapter that uses `remotemcp`.
+ - **Script scope**: `api.call()` in scripts can only call integration tools — the `search` and `execute` meta-tools are not callable from scripts. Scripts skip `processResult` entirely (no compaction, no markdown rendering) so tools always return raw JSON for programmatic access.
+ 
+ ## Reference Docs
+diff --git a/integrations/figma/figma.go b/integrations/figma/figma.go
+index 592fc98..ad4f325 100644
+--- a/integrations/figma/figma.go
++++ b/integrations/figma/figma.go
+@@ -3,6 +3,7 @@ package figma
+ import (
+ 	"context"
+ 	"fmt"
++	"io"
+ 	"maps"
+ 	"strings"
+ 
+@@ -26,6 +27,7 @@ var (
+ 	_ mcp.Integration          = (*figma)(nil)
+ 	_ mcp.PlainTextCredentials = (*figma)(nil)
+ 	_ mcp.OptionalCredentials  = (*figma)(nil)
++	_ io.Closer                = (*figma)(nil)
+ )
+ 
+ type figma struct {
+@@ -72,12 +74,30 @@ func (f *figma) Configure(ctx context.Context, creds mcp.Credentials) error {
+ 				return remotemcp.New("figma", serverURL)
+ 			}
+ 		}
++		// A different server needs a new session; end the old one.
++		// Best effort: the old session is abandoned either way.
++		_ = f.closeRemote()
+ 		f.remote = factory(baseURL)
+ 	}
+ 	f.baseURL = baseURL
+ 	return f.remote.Configure(ctx, mcp.Credentials{"access_token": token})
+ }
+ 
++// Close ends the remote MCP session, if one is open. It is safe to call more
++// than once; a later Configure starts a new session.
++func (f *figma) Close() error {
++	return f.closeRemote()
++}
++
++func (f *figma) closeRemote() error {
++	remote := f.remote
++	f.remote = nil
++	if closer, ok := remote.(io.Closer); ok {
++		return closer.Close()
++	}
++	return nil
++}
++
+ func (f *figma) Healthy(ctx context.Context) bool {
+ 	return f.remote != nil && f.remote.Healthy(ctx)
+ }
+diff --git a/integrations/figma/figma_test.go b/integrations/figma/figma_test.go
+index 583f764..60f6974 100644
+--- a/integrations/figma/figma_test.go
++++ b/integrations/figma/figma_test.go
+@@ -2,6 +2,7 @@ package figma
+ 
+ import (
+ 	"context"
++	"io"
+ 	"testing"
+ 
+ 	mcp "github.com/daltoniam/switchboard"
+@@ -138,3 +139,47 @@ func TestExecuteRequiresConfiguration(t *testing.T) {
+ 	assert.Contains(t, result.Data, mcp.ErrNotConfigured.Error())
+ 	assert.False(t, integration.Healthy(context.Background()))
+ }
++
++type closingRemote struct {
++	fakeRemote
++	closed int
++}
++
++func (c *closingRemote) Close() error {
++	c.closed++
++	return nil
++}
++
++func TestClose_EndsRemoteSession(t *testing.T) {
++	var created []*closingRemote
++	integration := &figma{baseURL: defaultBaseURL, newRemote: func(string) mcp.Integration {
++		r := &closingRemote{}
++		created = append(created, r)
++		return r
++	}}
++	require.Implements(t, (*io.Closer)(nil), integration)
++	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "token"}))
++
++	require.NoError(t, integration.Close())
++	require.Len(t, created, 1)
++	assert.Equal(t, 1, created[0].closed)
++	require.NoError(t, integration.Close(), "Close is safe to call again")
++	assert.Equal(t, 1, created[0].closed)
++
++	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "token"}))
++	assert.Len(t, created, 2, "a Configure after Close starts a new session")
++}
++
++func TestConfigure_ChangingServerEndsOldSession(t *testing.T) {
++	var created []*closingRemote
++	integration := &figma{baseURL: defaultBaseURL, newRemote: func(string) mcp.Integration {
++		r := &closingRemote{}
++		created = append(created, r)
++		return r
++	}}
++	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "token"}))
++	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "token", "base_url": "https://figma.example/mcp"}))
++	require.Len(t, created, 2)
++	assert.Equal(t, 1, created[0].closed, "the old server's session must be ended")
++	assert.Equal(t, 0, created[1].closed)
++}
+diff --git a/integrations/linear/close_test.go b/integrations/linear/close_test.go
+new file mode 100644
+index 0000000..083af4b
+--- /dev/null
++++ b/integrations/linear/close_test.go
+@@ -0,0 +1,80 @@
++package linear
++
++import (
++	"context"
++	"io"
++	"testing"
++
++	mcp "github.com/daltoniam/switchboard"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++type closeCountingRemote struct {
++	token  string
++	closed int
++}
++
++func (r *closeCountingRemote) Name() string { return "linear" }
++func (r *closeCountingRemote) Configure(_ context.Context, creds mcp.Credentials) error {
++	r.token = creds["access_token"]
++	return nil
++}
++func (r *closeCountingRemote) Tools() []mcp.ToolDefinition  { return nil }
++func (r *closeCountingRemote) Healthy(context.Context) bool { return true }
++func (r *closeCountingRemote) Execute(context.Context, mcp.ToolName, map[string]any) (*mcp.ToolResult, error) {
++	return &mcp.ToolResult{}, nil
++}
++func (r *closeCountingRemote) Close() error {
++	r.closed++
++	return nil
++}
++
++func withFakeRemote(t *testing.T) *[]*closeCountingRemote {
++	t.Helper()
++	var created []*closeCountingRemote
++	old := newRemote
++	newRemote = func(string) mcp.Integration {
++		r := &closeCountingRemote{}
++		created = append(created, r)
++		return r
++	}
++	t.Cleanup(func() { newRemote = old })
++	return &created
++}
++
++func TestClose_EndsRemoteSession(t *testing.T) {
++	created := withFakeRemote(t)
++	i := New("https://mcp.linear.example")
++	require.Implements(t, (*io.Closer)(nil), i)
++	require.NoError(t, i.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "tok"}))
++	require.True(t, IsRemoteMCP(i))
++
++	require.NoError(t, i.(io.Closer).Close())
++	require.Len(t, *created, 1)
++	assert.Equal(t, 1, (*created)[0].closed)
++	assert.False(t, IsRemoteMCP(i))
++
++	require.NoError(t, i.(io.Closer).Close(), "Close is safe to call again")
++	assert.Equal(t, 1, (*created)[0].closed)
++
++	require.NoError(t, i.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "tok2"}))
++	require.Len(t, *created, 2, "a Configure after Close starts a new session")
++	assert.True(t, IsRemoteMCP(i))
++}
++
++func TestClose_WithoutRemoteIsANoop(t *testing.T) {
++	i := New()
++	require.NoError(t, i.Configure(context.Background(), mcp.Credentials{"api_key": "lin_api_x"}))
++	assert.NoError(t, i.(io.Closer).Close())
++}
++
++func TestConfigure_SwitchingToAPIKeyEndsRemoteSession(t *testing.T) {
++	created := withFakeRemote(t)
++	i := New("https://mcp.linear.example")
++	require.NoError(t, i.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "tok"}))
++	require.NoError(t, i.Configure(context.Background(), mcp.Credentials{"api_key": "lin_api_x"}))
++	require.Len(t, *created, 1)
++	assert.Equal(t, 1, (*created)[0].closed, "an unused remote session must not stay open")
++	assert.False(t, IsRemoteMCP(i))
++}
+diff --git a/integrations/linear/linear.go b/integrations/linear/linear.go
+index c896f5c..ea3e07a 100644
+--- a/integrations/linear/linear.go
++++ b/integrations/linear/linear.go
+@@ -32,6 +32,7 @@ var (
+ 	_ mcp.Integration                = (*linear)(nil)
+ 	_ mcp.FieldCompactionIntegration = (*linear)(nil)
+ 	_ mcp.ToolMaxBytesIntegration    = (*linear)(nil)
++	_ io.Closer                      = (*linear)(nil)
+ )
+ 
+ type linear struct {
+@@ -71,7 +72,8 @@ func MCPServerURL(i mcp.Integration) string {
+ 	return ""
+ }
+ 
+-func newRemote(serverURL string) mcp.Integration {
++// newRemote builds the remote MCP client. Tests replace it.
++var newRemote = func(serverURL string) mcp.Integration {
+ 	return remotemcp.New("linear", serverURL)
+ }
+ 
+@@ -89,7 +91,10 @@ func (l *linear) Configure(ctx context.Context, creds mcp.Credentials) error {
+ 		return nil
+ 	}
+ 
++	// Switching to API key mode: the remote session is no longer used.
+ 	l.useRemote = false
++	// Best effort: the old session is abandoned either way.
++	_ = l.closeRemote()
+ 	l.apiKey = creds["api_key"]
+ 	if l.apiKey == "" {
+ 		return fmt.Errorf("linear: api_key or mcp_access_token is required")
+@@ -102,6 +107,22 @@ func (l *linear) Configure(ctx context.Context, creds mcp.Credentials) error {
+ 	return nil
+ }
+ 
++// Close ends the remote MCP session, if one is open. It is safe to call more
++// than once; a later Configure starts a new session.
++func (l *linear) Close() error {
++	l.useRemote = false
++	return l.closeRemote()
++}
++
++func (l *linear) closeRemote() error {
++	remote := l.remote
++	l.remote = nil
++	if closer, ok := remote.(io.Closer); ok {
++		return closer.Close()
++	}
++	return nil
++}
++
+ func (l *linear) Healthy(ctx context.Context) bool {
+ 	if l.useRemote && l.remote != nil {
+ 		return l.remote.Healthy(ctx)
+diff --git a/integrations/slackmcp/slackmcp.go b/integrations/slackmcp/slackmcp.go
+index 09bb629..a0e6783 100644
+--- a/integrations/slackmcp/slackmcp.go
++++ b/integrations/slackmcp/slackmcp.go
+@@ -4,6 +4,7 @@ package slackmcp
+ import (
+ 	"context"
+ 	"fmt"
++	"io"
+ 	"sort"
+ 	"strings"
+ 	"sync"
+@@ -27,6 +28,7 @@ var (
+ 	_ mcp.MultiIdentityIntegration = (*slackmcp)(nil)
+ 	_ mcp.IdentityConfigHints      = (*slackmcp)(nil)
+ 	_ mcp.PlainTextCredentials     = (*slackmcp)(nil)
++	_ io.Closer                    = (*slackmcp)(nil)
+ 	_ mcp.OptionalCredentials      = (*slackmcp)(nil)
+ )
+ 
+@@ -213,6 +215,30 @@ func newRemoteClient(baseURL string) mcp.Integration {
+ 	return remotemcp.New(internalRemotePrefix, baseURL)
+ }
+ 
++// Close ends every identity's remote MCP session. It is safe to call more
++// than once; a later Configure or ConfigureIdentities starts new sessions.
++func (s *slackmcp) Close() error {
++	s.cfgMu.Lock()
++	defer s.cfgMu.Unlock()
++	s.mu.Lock()
++	identities := s.identities
++	s.identities = make(map[string]*identityState)
++	s.order = nil
++	s.mu.Unlock()
++	closed := make(map[mcp.Integration]struct{}, len(identities))
++	for _, st := range identities {
++		if st == nil || st.remote == nil {
++			continue
++		}
++		if _, done := closed[st.remote]; done {
++			continue
++		}
++		closed[st.remote] = struct{}{}
++		closeRemote(st.remote)
++	}
++	return nil
++}
++
+ func closeRemote(r mcp.Integration) {
+ 	type closer interface {
+ 		Close() error
+diff --git a/integrations/slackmcp/slackmcp_test.go b/integrations/slackmcp/slackmcp_test.go
+index ff47821..d806bed 100644
+--- a/integrations/slackmcp/slackmcp_test.go
++++ b/integrations/slackmcp/slackmcp_test.go
+@@ -3,6 +3,7 @@ package slackmcp
+ import (
+ 	"context"
+ 	"encoding/json"
++	"io"
+ 	"net/http"
+ 	"net/http/httptest"
+ 	"strings"
+@@ -630,3 +631,35 @@ func TestConfigureIdentities_RejectsUnreachableHostedMCP(t *testing.T) {
+ 	require.Error(t, err)
+ 	assert.Contains(t, err.Error(), "unhealthy")
+ }
++
++func TestClose_EndsEveryIdentitySession(t *testing.T) {
++	s := New().(*slackmcp)
++	var created []*closeTrackingRemote
++	s.newRemote = func(baseURL string) mcp.Integration {
++		r := &closeTrackingRemote{name: "mock", baseURL: baseURL}
++		created = append(created, r)
++		return r
++	}
++	require.Implements(t, (*io.Closer)(nil), s)
++	require.NoError(t, s.ConfigureIdentities(context.Background(), map[string]mcp.IntegrationIdentity{
++		"work":     {Credentials: mcp.Credentials{"access_token": "tok-work"}},
++		"personal": {Credentials: mcp.Credentials{"access_token": "tok-personal"}},
++	}))
++	require.Len(t, created, 2)
++
++	require.NoError(t, s.Close())
++	for _, r := range created {
++		assert.Equal(t, 1, r.closeCount(), "every identity's session must be ended")
++	}
++	assert.False(t, s.Healthy(context.Background()), "no identities remain after Close")
++
++	require.NoError(t, s.Close(), "Close is safe to call again")
++	for _, r := range created {
++		assert.Equal(t, 1, r.closeCount())
++	}
++
++	require.NoError(t, s.ConfigureIdentities(context.Background(), map[string]mcp.IntegrationIdentity{
++		"work": {Credentials: mcp.Credentials{"access_token": "tok-work"}},
++	}))
++	assert.Len(t, created, 3, "a ConfigureIdentities after Close starts a new session")
++}
+diff --git a/remote_close_test.go b/remote_close_test.go
+new file mode 100644
+index 0000000..31753e8
+--- /dev/null
++++ b/remote_close_test.go
+@@ -0,0 +1,44 @@
++package mcp
++
++import (
++	"os"
++	"path/filepath"
++	"regexp"
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++var closeMethod = regexp.MustCompile(`(?m)^func \(\w+ \*\w+\) Close\(\) error \{`)
++
++// TestRemoteMCPAdapters_ImplementClose: every adapter that holds a remote MCP
++// session (it imports remotemcp) must implement io.Closer, so a host that
++// drops an instance (a per-request pool, a reconfigure) can end the session
++// instead of leaking it.
++func TestRemoteMCPAdapters_ImplementClose(t *testing.T) {
++	dirs, err := filepath.Glob("integrations/*")
++	require.NoError(t, err)
++	for _, dir := range dirs {
++		files, err := filepath.Glob(filepath.Join(dir, "*.go"))
++		require.NoError(t, err)
++		usesRemote, hasClose := false, false
++		for _, f := range files {
++			if strings.HasSuffix(f, "_test.go") {
++				continue
++			}
++			data, err := os.ReadFile(f)
++			require.NoError(t, err)
++			src := string(data)
++			if strings.Contains(src, `"github.com/daltoniam/switchboard/remotemcp"`) {
++				usesRemote = true
++			}
++			if closeMethod.MatchString(src) {
++				hasClose = true
++			}
++		}
++		if usesRemote && !hasClose {
++			t.Errorf("%s uses remotemcp but has no Close() error method; implement io.Closer to end its session", dir)
++		}
++	}
++}

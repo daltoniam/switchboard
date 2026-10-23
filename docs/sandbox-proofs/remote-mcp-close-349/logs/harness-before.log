@@ -1,0 +1,21 @@
+[before] PASS 1 Linear (mcp_access_token) | Configure → session opened → tool call works | tools=2, session_open=1 [55LHIA6G3BJQ7OSWEKYBRQJ7ST], linear_list_issues → {"query":"proof","session":"55LHIA6G3BJQ7OSWEKYBRQJ7ST","standin":"linear","tool":"list_issues"}
+[before] FAIL 1 Linear (mcp_access_token) | adapter implements io.Closer | type does not implement io.Closer; host cannot end the session
+[before] INFO 1 Linear (mcp_access_token) | session after host drops instance (no Close possible) | probe tools/list on 55LHIA6G3BJQ7OSWEKYBRQJ7ST → HTTP 200 (session still alive = leaked)
+[before] PASS 1 Figma | Configure → session opened → tool call works | tools=2, session_open=1 [IBK64W7EY4RTMYGGQNKCFSRBXR], figma_whoami → {"query":"","session":"IBK64W7EY4RTMYGGQNKCFSRBXR","standin":"figma-a","tool":"whoami"}
+[before] FAIL 1 Figma | adapter implements io.Closer | type does not implement io.Closer; host cannot end the session
+[before] INFO 1 Figma | session after host drops instance (no Close possible) | probe tools/list on IBK64W7EY4RTMYGGQNKCFSRBXR → HTTP 200 (session still alive = leaked)
+[before] PASS 1 Slack MCP (1 identity) | Configure → session opened → tool call works | tools=3, session_open=1 [UC2QP4HJEJ4RJJUDRWDLGRGY4N], slackmcp_search_channels → {"query":"general","session":"UC2QP4HJEJ4RJJUDRWDLGRGY4N","standin":"slack","tool":"slack_search_channels"}
+[before] FAIL 1 Slack MCP (1 identity) | adapter implements io.Closer | type does not implement io.Closer; host cannot end the session
+[before] INFO 1 Slack MCP (1 identity) | session after host drops instance (no Close possible) | probe tools/list on UC2QP4HJEJ4RJJUDRWDLGRGY4N → HTTP 200 (session still alive = leaked)
+[before] PASS 2 Linear mcp → api_key switch | remote mode session opened + call works | sid=[5OBX4IBBLOEXKBDAG7YJYHBIHF] IsRemoteMCP=true
+[before] FAIL 2 Linear mcp → api_key switch | Configure(api_key) ends remote session | err=<nil> DELETE=0 []; probe old sid → HTTP 200; IsRemoteMCP=false
+[before] INFO 2 Linear mcp → api_key switch | before: session left open after switch | probe old sid → HTTP 200 (200 = leaked)
+[before] PASS 2 Linear mcp → api_key switch | api_key native REST path wired (fake key → api.linear.app) | linear_viewer → IsError=true linear API error (401): {"errors":[{"message":"Authentication required, not authenticated","extensions":{"type":"authentication error","code":"AUTHENTICATION_ERROR","statusCode":401,"userError":true,"…; stand-in events=0
+[before] PASS 3 Figma base_url change | session on server A + call works | figma-a sid=[TAMWB2DT7QKRGNTZK3SVYZGALT]
+[before] INFO 3 Figma base_url change | same base_url + same token re-Configure reuses session | session_open=0 DELETE=0
+[before] FAIL 3 Figma base_url change | Configure(base_url=B) ends session on A | err=<nil> DELETE on figma-a=0 []; probe old A sid → HTTP 200
+[before] PASS 3 Figma base_url change | new session opened on B + call works | figma-b sid=[PRIIQWIJ7LLVHPWHTI27RHRCID] → {"query":"","session":"PRIIQWIJ7LLVHPWHTI27RHRCID","standin":"figma-b","tool":"whoami"}
+[before] PASS 4 Slack MCP two identities | two identities → two sessions, calls work on each | err=<nil> sessions=[UG3F2FP6NNKQR7LZTXXHDAV5AW 44RDJAADU66P7IN3KFY7KY3CB7] work→{"query":"","session":"44RDJAADU66P7IN3KFY7KY3CB7","standin":"slack","tool":"slack_read_ch… personal→{"query":"","session":"UG3F2FP6NNKQR7LZTXXHDAV5AW","standin":"slack","tool":"slack_read_ch…
+[before] FAIL 4 Slack MCP two identities | adapter implements io.Closer | no Close on main
+[before] INFO 4 Slack MCP two identities | sessions after host drops instance | probes → 200, 200 (200 = leaked)
+[before] PASS=8 FAIL=6

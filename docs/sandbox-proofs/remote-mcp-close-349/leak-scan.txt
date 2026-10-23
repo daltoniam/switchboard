@@ -1,0 +1,3 @@
+2026-10-23 15:58 CDT: scanned /workspace/sb-sandbox-proofs/remote-mcp-close-349 (excl. homes/, mp4/png) for Linear/Slack/Figma/GitHub/Tailscale/AWS tokens, private keys, secret-file paths.
+Only credentials used: stand-in placeholder tokens (standin-*) and the fake Linear key lin_api_sandboxFAKEkey0… (intentionally fake, excluded).
+CLEAN

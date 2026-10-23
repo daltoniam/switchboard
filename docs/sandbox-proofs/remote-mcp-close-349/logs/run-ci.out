@@ -1,0 +1,10 @@
+new-tests rc=0 0s
+pkg-tests-race rc=0 4s
+build rc=0 109s
+vet rc=0 17s
+test-race-all rc=0 48s
+compose-dev-test rc=0 0s
+test-web-node20 rc=1 1s
+lint rc=0 38s
+gosec rc=0 13s
+govulncheck rc=1 227s

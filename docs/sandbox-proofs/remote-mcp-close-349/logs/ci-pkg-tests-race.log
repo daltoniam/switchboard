@@ -1,0 +1,5 @@
+ok  	github.com/daltoniam/switchboard	3.249s
+ok  	github.com/daltoniam/switchboard/remotemcp	1.298s
+ok  	github.com/daltoniam/switchboard/integrations/linear	1.078s
+ok  	github.com/daltoniam/switchboard/integrations/figma	1.017s
+ok  	github.com/daltoniam/switchboard/integrations/slackmcp	1.260s

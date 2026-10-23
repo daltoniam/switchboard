@@ -1,0 +1,86 @@
+[
+ {
+  "build": "before",
+  "call": "search figma whoami",
+  "text": "{\"has_more\":false,\"integrations\":[\"figma\",\"slackmcp\"],\"limit\":20,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"summary\":\"Found 2 tools matching \\\"figma whoami\\\"\",\"tools\":[{\"description\":\"Get the authenticated Figma user, plans, and seat types to verify account access before creating or editing a FigJam whiteboard.\",\"integration\":\"figma\",\"name\":\"figma_whoami\",\"parameters\":{\"query\":\"optional query\"}},{\"description\":\"Read a FigJam whiteboard as structured XML with node IDs, positions, sizes, and screenshots. Start here to inspect an existing FigJam board before editing it or implementing reviewed decisions.\",\"integration\":\"figma\",\"name\":\"figma_get_figjam\",\"parameters\":{\"query\":\"optional query\"}}],\"total\":2}"
+ },
+ {
+  "build": "before",
+  "call": "search slackmcp",
+  "text": "{\"has_more\":false,\"integrations\":[\"figma\",\"slackmcp\"],\"limit\":20,\"offset\":0,\"script_hint\":\"These tools span multiple integrations. Use execute with a script to chain them in a single call \u2014 intermediate results stay server-side and never enter the conversation.\",\"shared_parameters\":{\"query\":\"optional query\"},\"summary\":\"Found 5 tools matching \\\"slackmcp read channel\\\"\",\"tools\":[{\"description\":\"stand-in channel read\",\"integration\":\"slackmcp\",\"name\":\"slackmcp_read_channel\",\"parameters\":{\"identity_id\":\"Configured identity ID (from slackmcp_list_available_identites)\"},\"required\":[\"identity_id\"]},{\"description\":\"stand-in channel search\",\"integration\":\"slackmcp\",\"name\":\"slackmcp_search_channels\",\"parameters\":{\"identity_id\":\"Configured identity ID (from slackmcp_list_available_identites)\"},\"required\":[\"identity_id\"]},{\"description\":\"Read a FigJam whiteboard as structured XML with node IDs, positions, sizes, and screenshots. Start here to inspect an existing FigJam board before editing it or implementing reviewed decisions.\",\"integration\":\"figma\",\"name\":\"figma_get_figjam\",\"parameters\":{}},{\"description\":\"Get the authenticated Figma user, plans, and seat types to verify account access before creating or editing a FigJam whiteboard.\",\"integration\":\"figma\",\"name\":\"figma_whoami\",\"parameters\":{}},{\"description\":\"Start here. List configured Slack MCP identities (IDs, metadata, and available tools). Does not return secrets.\",\"integration\":\"slackmcp\",\"name\":\"slackmcp_list_available_identites\",\"parameters\":{}}],\"total\":5}"
+ },
+ {
+  "build": "before",
+  "tool": "figma_whoami",
+  "args": null,
+  "text": "{\"query\":\"\",\"session\":\"SQOYZZOKKBS4367CF6QCCZ7BNA\",\"standin\":\"figma-a\",\"tool\":\"whoami\"}\npinned as $1",
+  "isError": null
+ },
+ {
+  "build": "before",
+  "tool": "slackmcp_read_channel",
+  "args": {
+   "identity_id": "work"
+  },
+  "text": "{\"query\":\"\",\"session\":\"VBMIFBHF2BMFZMQWOHGDKR2ES6\",\"standin\":\"slack\",\"tool\":\"slack_read_channel\"}\npinned as $2",
+  "isError": null
+ },
+ {
+  "build": "before",
+  "tool": "slackmcp_read_channel",
+  "args": {
+   "identity_id": "personal"
+  },
+  "text": "{\"query\":\"\",\"session\":\"R2TXFLOUH3XHQYDTWZDLLMQ3UV\",\"standin\":\"slack\",\"tool\":\"slack_read_channel\"}\npinned as $3",
+  "isError": null
+ },
+ {
+  "build": "before",
+  "tool": "figma_whoami",
+  "args": null,
+  "text": "{\"query\":\"\",\"session\":\"JOGATVSCGGGCHIR7MS5VLSG6BP\",\"standin\":\"figma-b\",\"tool\":\"whoami\"}\npinned as $4",
+  "isError": null
+ },
+ {
+  "build": "after",
+  "call": "search figma whoami",
+  "text": "{\"has_more\":false,\"integrations\":[\"slackmcp\",\"figma\"],\"limit\":20,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"summary\":\"Found 2 tools matching \\\"figma whoami\\\"\",\"tools\":[{\"description\":\"Get the authenticated Figma user, plans, and seat types to verify account access before creating or editing a FigJam whiteboard.\",\"integration\":\"figma\",\"name\":\"figma_whoami\",\"parameters\":{\"query\":\"optional query\"}},{\"description\":\"Read a FigJam whiteboard as structured XML with node IDs, positions, sizes, and screenshots. Start here to inspect an existing FigJam board before editing it or implementing reviewed decisions.\",\"integration\":\"figma\",\"name\":\"figma_get_figjam\",\"parameters\":{\"query\":\"optional query\"}}],\"total\":2}"
+ },
+ {
+  "build": "after",
+  "call": "search slackmcp",
+  "text": "{\"has_more\":false,\"integrations\":[\"figma\",\"slackmcp\"],\"limit\":20,\"offset\":0,\"script_hint\":\"These tools span multiple integrations. Use execute with a script to chain them in a single call \u2014 intermediate results stay server-side and never enter the conversation.\",\"shared_parameters\":{\"query\":\"optional query\"},\"summary\":\"Found 5 tools matching \\\"slackmcp read channel\\\"\",\"tools\":[{\"description\":\"stand-in channel read\",\"integration\":\"slackmcp\",\"name\":\"slackmcp_read_channel\",\"parameters\":{\"identity_id\":\"Configured identity ID (from slackmcp_list_available_identites)\"},\"required\":[\"identity_id\"]},{\"description\":\"stand-in channel search\",\"integration\":\"slackmcp\",\"name\":\"slackmcp_search_channels\",\"parameters\":{\"identity_id\":\"Configured identity ID (from slackmcp_list_available_identites)\"},\"required\":[\"identity_id\"]},{\"description\":\"Read a FigJam whiteboard as structured XML with node IDs, positions, sizes, and screenshots. Start here to inspect an existing FigJam board before editing it or implementing reviewed decisions.\",\"integration\":\"figma\",\"name\":\"figma_get_figjam\",\"parameters\":{}},{\"description\":\"Get the authenticated Figma user, plans, and seat types to verify account access before creating or editing a FigJam whiteboard.\",\"integration\":\"figma\",\"name\":\"figma_whoami\",\"parameters\":{}},{\"description\":\"Start here. List configured Slack MCP identities (IDs, metadata, and available tools). Does not return secrets.\",\"integration\":\"slackmcp\",\"name\":\"slackmcp_list_available_identites\",\"parameters\":{}}],\"total\":5}"
+ },
+ {
+  "build": "after",
+  "tool": "figma_whoami",
+  "args": null,
+  "text": "{\"query\":\"\",\"session\":\"HZFNZQIODJYGLLSFZPVNK62ZPS\",\"standin\":\"figma-a\",\"tool\":\"whoami\"}\npinned as $1",
+  "isError": null
+ },
+ {
+  "build": "after",
+  "tool": "slackmcp_read_channel",
+  "args": {
+   "identity_id": "work"
+  },
+  "text": "{\"query\":\"\",\"session\":\"6AS6473GIFA27KSYLVSONZ4LRL\",\"standin\":\"slack\",\"tool\":\"slack_read_channel\"}\npinned as $2",
+  "isError": null
+ },
+ {
+  "build": "after",
+  "tool": "slackmcp_read_channel",
+  "args": {
+   "identity_id": "personal"
+  },
+  "text": "{\"query\":\"\",\"session\":\"B43U4GWKN2AIMUIGFR5SSXNKHB\",\"standin\":\"slack\",\"tool\":\"slack_read_channel\"}\npinned as $3",
+  "isError": null
+ },
+ {
+  "build": "after",
+  "tool": "figma_whoami",
+  "args": null,
+  "text": "{\"query\":\"\",\"session\":\"4KFSIXN7MUA2VTHG3NJZGVAHXM\",\"standin\":\"figma-b\",\"tool\":\"whoami\"}\npinned as $4",
+  "isError": null
+ }
+]

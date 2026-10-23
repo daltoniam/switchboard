@@ -1,0 +1,659 @@
+{
+ "checks": [
+  {
+   "scenario": "1 Linear (mcp_access_token)",
+   "step": "Configure → session opened → tool call works",
+   "result": "PASS",
+   "evidence": "tools=2, session_open=1 [55LHIA6G3BJQ7OSWEKYBRQJ7ST], linear_list_issues → {\"query\":\"proof\",\"session\":\"55LHIA6G3BJQ7OSWEKYBRQJ7ST\",\"standin\":\"linear\",\"tool\":\"list_issues\"}",
+   "server_events": [
+    {
+     "seq": 1,
+     "server": "linear",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "",
+     "rpc": "server/discover",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 2,
+     "server": "linear",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "55LHIA6G3BJQ7OSWEKYBRQJ7ST",
+     "rpc": "initialize",
+     "tool": "",
+     "status": 200,
+     "kind": "session_open",
+     "probe": false
+    },
+    {
+     "seq": 3,
+     "server": "linear",
+     "http_method": "POST",
+     "session_in": "55LHIA6G3BJQ7OSWEKYBRQJ7ST",
+     "session_out": "",
+     "rpc": "notifications/initialized",
+     "tool": "",
+     "status": 202,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 4,
+     "server": "linear",
+     "http_method": "POST",
+     "session_in": "55LHIA6G3BJQ7OSWEKYBRQJ7ST",
+     "session_out": "",
+     "rpc": "tools/list",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 5,
+     "server": "linear",
+     "http_method": "POST",
+     "session_in": "55LHIA6G3BJQ7OSWEKYBRQJ7ST",
+     "session_out": "",
+     "rpc": "tools/call",
+     "tool": "list_issues",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    }
+   ]
+  },
+  {
+   "scenario": "1 Linear (mcp_access_token)",
+   "step": "adapter implements io.Closer",
+   "result": "FAIL",
+   "evidence": "type does not implement io.Closer; host cannot end the session"
+  },
+  {
+   "scenario": "1 Linear (mcp_access_token)",
+   "step": "session after host drops instance (no Close possible)",
+   "result": "INFO",
+   "evidence": "probe tools/list on 55LHIA6G3BJQ7OSWEKYBRQJ7ST → HTTP 200 (session still alive = leaked)"
+  },
+  {
+   "scenario": "1 Figma",
+   "step": "Configure → session opened → tool call works",
+   "result": "PASS",
+   "evidence": "tools=2, session_open=1 [IBK64W7EY4RTMYGGQNKCFSRBXR], figma_whoami → {\"query\":\"\",\"session\":\"IBK64W7EY4RTMYGGQNKCFSRBXR\",\"standin\":\"figma-a\",\"tool\":\"whoami\"}",
+   "server_events": [
+    {
+     "seq": 7,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "",
+     "rpc": "server/discover",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 8,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "IBK64W7EY4RTMYGGQNKCFSRBXR",
+     "rpc": "initialize",
+     "tool": "",
+     "status": 200,
+     "kind": "session_open",
+     "probe": false
+    },
+    {
+     "seq": 9,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "IBK64W7EY4RTMYGGQNKCFSRBXR",
+     "session_out": "",
+     "rpc": "notifications/initialized",
+     "tool": "",
+     "status": 202,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 10,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "IBK64W7EY4RTMYGGQNKCFSRBXR",
+     "session_out": "",
+     "rpc": "tools/list",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 11,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "IBK64W7EY4RTMYGGQNKCFSRBXR",
+     "session_out": "",
+     "rpc": "tools/call",
+     "tool": "whoami",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    }
+   ]
+  },
+  {
+   "scenario": "1 Figma",
+   "step": "adapter implements io.Closer",
+   "result": "FAIL",
+   "evidence": "type does not implement io.Closer; host cannot end the session"
+  },
+  {
+   "scenario": "1 Figma",
+   "step": "session after host drops instance (no Close possible)",
+   "result": "INFO",
+   "evidence": "probe tools/list on IBK64W7EY4RTMYGGQNKCFSRBXR → HTTP 200 (session still alive = leaked)"
+  },
+  {
+   "scenario": "1 Slack MCP (1 identity)",
+   "step": "Configure → session opened → tool call works",
+   "result": "PASS",
+   "evidence": "tools=3, session_open=1 [UC2QP4HJEJ4RJJUDRWDLGRGY4N], slackmcp_search_channels → {\"query\":\"general\",\"session\":\"UC2QP4HJEJ4RJJUDRWDLGRGY4N\",\"standin\":\"slack\",\"tool\":\"slack_search_channels\"}",
+   "server_events": [
+    {
+     "seq": 13,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "",
+     "rpc": "server/discover",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 14,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "UC2QP4HJEJ4RJJUDRWDLGRGY4N",
+     "rpc": "initialize",
+     "tool": "",
+     "status": 200,
+     "kind": "session_open",
+     "probe": false
+    },
+    {
+     "seq": 15,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "UC2QP4HJEJ4RJJUDRWDLGRGY4N",
+     "session_out": "",
+     "rpc": "notifications/initialized",
+     "tool": "",
+     "status": 202,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 16,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "UC2QP4HJEJ4RJJUDRWDLGRGY4N",
+     "session_out": "",
+     "rpc": "tools/list",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 17,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "UC2QP4HJEJ4RJJUDRWDLGRGY4N",
+     "session_out": "",
+     "rpc": "tools/list",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 18,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "UC2QP4HJEJ4RJJUDRWDLGRGY4N",
+     "session_out": "",
+     "rpc": "tools/call",
+     "tool": "slack_search_channels",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    }
+   ]
+  },
+  {
+   "scenario": "1 Slack MCP (1 identity)",
+   "step": "adapter implements io.Closer",
+   "result": "FAIL",
+   "evidence": "type does not implement io.Closer; host cannot end the session"
+  },
+  {
+   "scenario": "1 Slack MCP (1 identity)",
+   "step": "session after host drops instance (no Close possible)",
+   "result": "INFO",
+   "evidence": "probe tools/list on UC2QP4HJEJ4RJJUDRWDLGRGY4N → HTTP 200 (session still alive = leaked)"
+  },
+  {
+   "scenario": "2 Linear mcp → api_key switch",
+   "step": "remote mode session opened + call works",
+   "result": "PASS",
+   "evidence": "sid=[5OBX4IBBLOEXKBDAG7YJYHBIHF] IsRemoteMCP=true",
+   "server_events": [
+    {
+     "seq": 20,
+     "server": "linear",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "",
+     "rpc": "server/discover",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 21,
+     "server": "linear",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "5OBX4IBBLOEXKBDAG7YJYHBIHF",
+     "rpc": "initialize",
+     "tool": "",
+     "status": 200,
+     "kind": "session_open",
+     "probe": false
+    },
+    {
+     "seq": 22,
+     "server": "linear",
+     "http_method": "POST",
+     "session_in": "5OBX4IBBLOEXKBDAG7YJYHBIHF",
+     "session_out": "",
+     "rpc": "notifications/initialized",
+     "tool": "",
+     "status": 202,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 23,
+     "server": "linear",
+     "http_method": "POST",
+     "session_in": "5OBX4IBBLOEXKBDAG7YJYHBIHF",
+     "session_out": "",
+     "rpc": "tools/call",
+     "tool": "list_issues",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    }
+   ]
+  },
+  {
+   "scenario": "2 Linear mcp → api_key switch",
+   "step": "Configure(api_key) ends remote session",
+   "result": "FAIL",
+   "evidence": "err=\u003cnil\u003e DELETE=0 []; probe old sid → HTTP 200; IsRemoteMCP=false"
+  },
+  {
+   "scenario": "2 Linear mcp → api_key switch",
+   "step": "before: session left open after switch",
+   "result": "INFO",
+   "evidence": "probe old sid → HTTP 200 (200 = leaked)"
+  },
+  {
+   "scenario": "2 Linear mcp → api_key switch",
+   "step": "api_key native REST path wired (fake key → api.linear.app)",
+   "result": "PASS",
+   "evidence": "linear_viewer → IsError=true linear API error (401): {\"errors\":[{\"message\":\"Authentication required, not authenticated\",\"extensions\":{\"type\":\"authentication error\",\"code\":\"AUTHENTICATION_ERROR\",\"statusCode\":401,\"userError\":true,\"…; stand-in events=0"
+  },
+  {
+   "scenario": "3 Figma base_url change",
+   "step": "session on server A + call works",
+   "result": "PASS",
+   "evidence": "figma-a sid=[TAMWB2DT7QKRGNTZK3SVYZGALT]",
+   "server_events": [
+    {
+     "seq": 25,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "",
+     "rpc": "server/discover",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 26,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "TAMWB2DT7QKRGNTZK3SVYZGALT",
+     "rpc": "initialize",
+     "tool": "",
+     "status": 200,
+     "kind": "session_open",
+     "probe": false
+    },
+    {
+     "seq": 27,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "TAMWB2DT7QKRGNTZK3SVYZGALT",
+     "session_out": "",
+     "rpc": "notifications/initialized",
+     "tool": "",
+     "status": 202,
+     "kind": "request",
+     "probe": false
+    }
+   ]
+  },
+  {
+   "scenario": "3 Figma base_url change",
+   "step": "same base_url + same token re-Configure reuses session",
+   "result": "INFO",
+   "evidence": "session_open=0 DELETE=0",
+   "server_events": [
+    {
+     "seq": 28,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "TAMWB2DT7QKRGNTZK3SVYZGALT",
+     "session_out": "",
+     "rpc": "tools/call",
+     "tool": "whoami",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 29,
+     "server": "figma-a",
+     "http_method": "POST",
+     "session_in": "TAMWB2DT7QKRGNTZK3SVYZGALT",
+     "session_out": "",
+     "rpc": "tools/call",
+     "tool": "whoami",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    }
+   ]
+  },
+  {
+   "scenario": "3 Figma base_url change",
+   "step": "Configure(base_url=B) ends session on A",
+   "result": "FAIL",
+   "evidence": "err=\u003cnil\u003e DELETE on figma-a=0 []; probe old A sid → HTTP 200"
+  },
+  {
+   "scenario": "3 Figma base_url change",
+   "step": "new session opened on B + call works",
+   "result": "PASS",
+   "evidence": "figma-b sid=[PRIIQWIJ7LLVHPWHTI27RHRCID] → {\"query\":\"\",\"session\":\"PRIIQWIJ7LLVHPWHTI27RHRCID\",\"standin\":\"figma-b\",\"tool\":\"whoami\"}",
+   "server_events": [
+    {
+     "seq": 31,
+     "server": "figma-b",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "",
+     "rpc": "server/discover",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 32,
+     "server": "figma-b",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "PRIIQWIJ7LLVHPWHTI27RHRCID",
+     "rpc": "initialize",
+     "tool": "",
+     "status": 200,
+     "kind": "session_open",
+     "probe": false
+    },
+    {
+     "seq": 33,
+     "server": "figma-b",
+     "http_method": "POST",
+     "session_in": "PRIIQWIJ7LLVHPWHTI27RHRCID",
+     "session_out": "",
+     "rpc": "notifications/initialized",
+     "tool": "",
+     "status": 202,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 34,
+     "server": "figma-b",
+     "http_method": "POST",
+     "session_in": "PRIIQWIJ7LLVHPWHTI27RHRCID",
+     "session_out": "",
+     "rpc": "tools/call",
+     "tool": "whoami",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    }
+   ]
+  },
+  {
+   "scenario": "4 Slack MCP two identities",
+   "step": "two identities → two sessions, calls work on each",
+   "result": "PASS",
+   "evidence": "err=\u003cnil\u003e sessions=[UG3F2FP6NNKQR7LZTXXHDAV5AW 44RDJAADU66P7IN3KFY7KY3CB7] work→{\"query\":\"\",\"session\":\"44RDJAADU66P7IN3KFY7KY3CB7\",\"standin\":\"slack\",\"tool\":\"slack_read_ch… personal→{\"query\":\"\",\"session\":\"UG3F2FP6NNKQR7LZTXXHDAV5AW\",\"standin\":\"slack\",\"tool\":\"slack_read_ch…",
+   "server_events": [
+    {
+     "seq": 35,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "",
+     "rpc": "server/discover",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 36,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "UG3F2FP6NNKQR7LZTXXHDAV5AW",
+     "rpc": "initialize",
+     "tool": "",
+     "status": 200,
+     "kind": "session_open",
+     "probe": false
+    },
+    {
+     "seq": 37,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "UG3F2FP6NNKQR7LZTXXHDAV5AW",
+     "session_out": "",
+     "rpc": "notifications/initialized",
+     "tool": "",
+     "status": 202,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 38,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "UG3F2FP6NNKQR7LZTXXHDAV5AW",
+     "session_out": "",
+     "rpc": "tools/list",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 39,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "UG3F2FP6NNKQR7LZTXXHDAV5AW",
+     "session_out": "",
+     "rpc": "tools/list",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 40,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "",
+     "rpc": "server/discover",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 41,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "",
+     "session_out": "44RDJAADU66P7IN3KFY7KY3CB7",
+     "rpc": "initialize",
+     "tool": "",
+     "status": 200,
+     "kind": "session_open",
+     "probe": false
+    },
+    {
+     "seq": 42,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "44RDJAADU66P7IN3KFY7KY3CB7",
+     "session_out": "",
+     "rpc": "notifications/initialized",
+     "tool": "",
+     "status": 202,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 43,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "44RDJAADU66P7IN3KFY7KY3CB7",
+     "session_out": "",
+     "rpc": "tools/list",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 44,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "44RDJAADU66P7IN3KFY7KY3CB7",
+     "session_out": "",
+     "rpc": "tools/list",
+     "tool": "",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 45,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "44RDJAADU66P7IN3KFY7KY3CB7",
+     "session_out": "",
+     "rpc": "tools/call",
+     "tool": "slack_read_channel",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    },
+    {
+     "seq": 46,
+     "server": "slack",
+     "http_method": "POST",
+     "session_in": "UG3F2FP6NNKQR7LZTXXHDAV5AW",
+     "session_out": "",
+     "rpc": "tools/call",
+     "tool": "slack_read_channel",
+     "status": 200,
+     "kind": "request",
+     "probe": false
+    }
+   ]
+  },
+  {
+   "scenario": "4 Slack MCP two identities",
+   "step": "adapter implements io.Closer",
+   "result": "FAIL",
+   "evidence": "no Close on main"
+  },
+  {
+   "scenario": "4 Slack MCP two identities",
+   "step": "sessions after host drops instance",
+   "result": "INFO",
+   "evidence": "probes → 200, 200 (200 = leaked)"
+  }
+ ],
+ "final_session_table": {
+  "deleted": {
+   "figma-a": {},
+   "figma-b": {},
+   "linear": {},
+   "slack": {}
+  },
+  "live": {
+   "figma-a": {
+    "IBK64W7EY4RTMYGGQNKCFSRBXR": true,
+    "TAMWB2DT7QKRGNTZK3SVYZGALT": true
+   },
+   "figma-b": {
+    "PRIIQWIJ7LLVHPWHTI27RHRCID": true
+   },
+   "linear": {
+    "55LHIA6G3BJQ7OSWEKYBRQJ7ST": true,
+    "5OBX4IBBLOEXKBDAG7YJYHBIHF": true
+   },
+   "slack": {
+    "44RDJAADU66P7IN3KFY7KY3CB7": true,
+    "UC2QP4HJEJ4RJJUDRWDLGRGY4N": true,
+    "UG3F2FP6NNKQR7LZTXXHDAV5AW": true
+   }
+  }
+ },
+ "label": "before"
+}
