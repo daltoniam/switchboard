@@ -4,6 +4,7 @@ package slackmcp
 import (
 	"context"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -27,6 +28,7 @@ var (
 	_ mcp.MultiIdentityIntegration = (*slackmcp)(nil)
 	_ mcp.IdentityConfigHints      = (*slackmcp)(nil)
 	_ mcp.PlainTextCredentials     = (*slackmcp)(nil)
+	_ io.Closer                    = (*slackmcp)(nil)
 	_ mcp.OptionalCredentials      = (*slackmcp)(nil)
 )
 
@@ -211,6 +213,30 @@ func (s *slackmcp) ConfigureIdentities(ctx context.Context, identities map[strin
 // internalRemotePrefix; translateUpstreamTools rewrites them to slackmcp_*.
 func newRemoteClient(baseURL string) mcp.Integration {
 	return remotemcp.New(internalRemotePrefix, baseURL)
+}
+
+// Close ends every identity's remote MCP session. It is safe to call more
+// than once; a later Configure or ConfigureIdentities starts new sessions.
+func (s *slackmcp) Close() error {
+	s.cfgMu.Lock()
+	defer s.cfgMu.Unlock()
+	s.mu.Lock()
+	identities := s.identities
+	s.identities = make(map[string]*identityState)
+	s.order = nil
+	s.mu.Unlock()
+	closed := make(map[mcp.Integration]struct{}, len(identities))
+	for _, st := range identities {
+		if st == nil || st.remote == nil {
+			continue
+		}
+		if _, done := closed[st.remote]; done {
+			continue
+		}
+		closed[st.remote] = struct{}{}
+		closeRemote(st.remote)
+	}
+	return nil
 }
 
 func closeRemote(r mcp.Integration) {

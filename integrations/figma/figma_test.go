@@ -2,6 +2,7 @@ package figma
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -137,4 +138,48 @@ func TestExecuteRequiresConfiguration(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, mcp.ErrNotConfigured.Error())
 	assert.False(t, integration.Healthy(context.Background()))
+}
+
+type closingRemote struct {
+	fakeRemote
+	closed int
+}
+
+func (c *closingRemote) Close() error {
+	c.closed++
+	return nil
+}
+
+func TestClose_EndsRemoteSession(t *testing.T) {
+	var created []*closingRemote
+	integration := &figma{baseURL: defaultBaseURL, newRemote: func(string) mcp.Integration {
+		r := &closingRemote{}
+		created = append(created, r)
+		return r
+	}}
+	require.Implements(t, (*io.Closer)(nil), integration)
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "token"}))
+
+	require.NoError(t, integration.Close())
+	require.Len(t, created, 1)
+	assert.Equal(t, 1, created[0].closed)
+	require.NoError(t, integration.Close(), "Close is safe to call again")
+	assert.Equal(t, 1, created[0].closed)
+
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "token"}))
+	assert.Len(t, created, 2, "a Configure after Close starts a new session")
+}
+
+func TestConfigure_ChangingServerEndsOldSession(t *testing.T) {
+	var created []*closingRemote
+	integration := &figma{baseURL: defaultBaseURL, newRemote: func(string) mcp.Integration {
+		r := &closingRemote{}
+		created = append(created, r)
+		return r
+	}}
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "token"}))
+	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"mcp_access_token": "token", "base_url": "https://figma.example/mcp"}))
+	require.Len(t, created, 2)
+	assert.Equal(t, 1, created[0].closed, "the old server's session must be ended")
+	assert.Equal(t, 0, created[1].closed)
 }
