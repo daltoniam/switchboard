@@ -143,6 +143,10 @@ func (x *myapi) Configure(creds mcp.Credentials) error {
 
 Implement a lightweight API call that verifies credentials work (e.g., "get current user" or "list with limit=1"). Must handle the case where `Configure()` hasn't been called yet (nil client) — return `false`, don't panic.
 
+### Close() for Held Resources
+
+If the adapter holds anything that outlives a call (a `*sql.DB`, a remote MCP session from `remotemcp`, a background goroutine), implement `io.Closer`: end the resource, make a second call a no-op, and let a later `Configure` start fresh. When `Configure` replaces such a resource (a new token or server), end the old one. Hosts such as Switchboard Hosted create and drop instances per request, so a missing `Close` leaks one session per dropped instance. Add `_ io.Closer = (*yourType)(nil)` to the interface assertions.
+
 ### Error Handling
 
 Follow `AGENTS.md > Error Handling`. Key judgment: surface errors to the caller — never swallow them, never add fallback defaults.
