@@ -29,8 +29,17 @@ type OAuthState struct {
 	codeVerifier string
 	resource     string
 	token        string
+	refreshToken string
 	err          string
 	done         bool
+}
+
+// TokenSet is everything a remote integration needs to keep using and refreshing an OAuth grant.
+type TokenSet struct {
+	AccessToken  string
+	RefreshToken string
+	ClientID     string
+	ClientSecret string
 }
 
 // OAuthOptions configures provider-specific OAuth requirements.
@@ -68,8 +77,14 @@ func pkceChallenge(verifier string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
-	resp, err := http.Get(serverURL + "/.well-known/oauth-authorization-server")
+func discoverOAuth(ctx context.Context, serverURL string) (*oauthServerMeta, error) {
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serverURL+"/.well-known/oauth-authorization-server", nil)
+	if err != nil {
+		return nil, fmt.Errorf("discover oauth: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("discover oauth: %w", err)
 	}
@@ -131,7 +146,7 @@ func registerClient(registerURL, redirectURI string, clientNames ...string) (cli
 // StartOAuth begins the MCP OAuth flow for a remote server.
 // It discovers the OAuth endpoints, registers a dynamic client, and returns the authorize URL.
 func StartOAuth(name, serverURL, redirectURI string, options ...OAuthOptions) (string, error) {
-	meta, err := discoverOAuth(serverURL)
+	meta, err := discoverOAuth(context.Background(), serverURL)
 	if err != nil {
 		return "", err
 	}
@@ -210,7 +225,7 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 		return fmt.Errorf("%s", os.err)
 	}
 
-	meta, err := discoverOAuth(os.serverURL)
+	meta, err := discoverOAuth(context.Background(), os.serverURL)
 	if err != nil {
 		os.err = err.Error()
 		os.done = true
@@ -263,54 +278,147 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 		return fmt.Errorf("%s", os.err)
 	}
 
-	var tokenResp struct {
-		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		Error       string `json:"error"`
-	}
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		os.err = fmt.Sprintf("parse token response: %v", err)
+	tokenResp, err := parseTokenResponse(body)
+	if err != nil {
+		os.err = err.Error()
 		os.done = true
-		return fmt.Errorf("%s", os.err)
-	}
-
-	if tokenResp.Error != "" {
-		os.err = fmt.Sprintf("OAuth error: %s", tokenResp.Error)
-		os.done = true
-		return fmt.Errorf("%s", os.err)
-	}
-
-	if tokenResp.AccessToken == "" {
-		os.err = "no access_token in response"
-		os.done = true
-		return fmt.Errorf("%s", os.err)
+		return err
 	}
 
 	os.token = tokenResp.AccessToken
+	os.refreshToken = tokenResp.RefreshToken
 	os.done = true
+	return nil
+}
+
+type tokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	Error        string `json:"error"`
+}
+
+func parseTokenResponse(body []byte) (tokenResponse, error) {
+	var tokenResp tokenResponse
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		return tokenResp, fmt.Errorf("parse token response: %v", err)
+	}
+	if tokenResp.Error != "" {
+		return tokenResp, fmt.Errorf("OAuth error: %s", tokenResp.Error)
+	}
+	if tokenResp.AccessToken == "" {
+		return tokenResp, fmt.Errorf("no access_token in response")
+	}
+	return tokenResp, nil
+}
+
+// refreshAccessToken exchanges the stored refresh token for a new grant. rejected is the
+// access token the server just refused; when another caller already replaced it, the
+// retry can proceed without a second refresh.
+func (r *remote) refreshAccessToken(ctx context.Context, rejected string) error {
+	r.refreshMu.Lock()
+	defer r.refreshMu.Unlock()
+
+	r.mu.RLock()
+	current := TokenSet{AccessToken: r.token, RefreshToken: r.refreshToken, ClientID: r.clientID, ClientSecret: r.clientSecret}
+	rejectedRefresh, rejectedErr := r.rejectedRefreshToken, r.rejectedRefreshErr
+	r.mu.RUnlock()
+	if current.AccessToken != rejected && current.AccessToken != "" {
+		return nil
+	}
+	if current.AccessToken == "" {
+		return fmt.Errorf("%s: the server requires authorization but no access token is configured", r.name)
+	}
+	if current.RefreshToken == "" {
+		return fmt.Errorf("%s: access token rejected and no refresh token is stored; reconnect via the web UI", r.name)
+	}
+	if rejectedErr != nil && rejectedRefresh == current.RefreshToken {
+		return rejectedErr
+	}
+
+	meta, err := discoverOAuth(ctx, r.serverURL)
+	if err != nil {
+		return fmt.Errorf("%s: refresh: %w", r.name, err)
+	}
+	data := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {current.RefreshToken},
+		"client_id":     {current.ClientID},
+	}
+	if current.ClientSecret != "" {
+		data.Set("client_secret", current.ClientSecret)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, meta.TokenEndpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		return fmt.Errorf("%s: refresh: %w", r.name, err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("%s: refresh: %w", r.name, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return fmt.Errorf("%s: refresh: read token response: %w", r.name, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("%s: refresh: token endpoint returned %d: %s; reconnect via the web UI", r.name, resp.StatusCode, truncate(body, maxErrorBodyBytes))
+		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnauthorized {
+			r.mu.Lock()
+			r.rejectedRefreshToken = current.RefreshToken
+			r.rejectedRefreshErr = err
+			r.mu.Unlock()
+		}
+		return err
+	}
+	tokenResp, err := parseTokenResponse(body)
+	if err != nil {
+		return fmt.Errorf("%s: refresh: %w", r.name, err)
+	}
+
+	next := current
+	next.AccessToken = tokenResp.AccessToken
+	if tokenResp.RefreshToken != "" {
+		next.RefreshToken = tokenResp.RefreshToken
+	}
+	r.mu.Lock()
+	r.token = next.AccessToken
+	r.refreshToken = next.RefreshToken
+	r.mu.Unlock()
+	if r.onTokenRefresh != nil {
+		r.onTokenRefresh(next)
+	}
 	return nil
 }
 
 // PollOAuth checks the status of a pending OAuth flow.
 func PollOAuth(name string) (status, token, errStr string) {
+	status, tokens, errStr := PollOAuthTokens(name)
+	return status, tokens.AccessToken, errStr
+}
+
+// PollOAuthTokens is PollOAuth with the full token set, including the refresh token and
+// registered client, so callers can persist what a later refresh needs.
+func PollOAuthTokens(name string) (status string, tokens TokenSet, errStr string) {
 	activeRemoteOAuth.mu.Lock()
 	os := activeRemoteOAuth.states[name]
 	activeRemoteOAuth.mu.Unlock()
 
 	if os == nil {
-		return "no_flow", "", "No OAuth flow in progress"
+		return "no_flow", TokenSet{}, "No OAuth flow in progress"
 	}
 
 	os.mu.Lock()
 	defer os.mu.Unlock()
 
 	if !os.done {
-		return "pending", "", ""
+		return "pending", TokenSet{}, ""
 	}
 	if os.err != "" {
-		return "error", "", os.err
+		return "error", TokenSet{}, os.err
 	}
-	return "complete", os.token, ""
+	return "complete", TokenSet{AccessToken: os.token, RefreshToken: os.refreshToken, ClientID: os.clientID, ClientSecret: os.clientSecret}, ""
 }
 
 // ServerURL returns the configured server URL for a remote MCP integration.
@@ -319,4 +427,11 @@ func ServerURL(i mcp.Integration) string {
 		return r.serverURL
 	}
 	return ""
+}
+
+func truncate(body []byte, limit int) string {
+	if len(body) <= limit {
+		return string(body)
+	}
+	return string(body[:limit]) + "..."
 }
