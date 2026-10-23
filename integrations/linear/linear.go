@@ -93,7 +93,8 @@ func (l *linear) Configure(ctx context.Context, creds mcp.Credentials) error {
 
 	// Switching to API key mode: the remote session is no longer used.
 	l.useRemote = false
-	l.closeRemote()
+	// Best effort: the old session is abandoned either way.
+	_ = l.closeRemote()
 	l.apiKey = creds["api_key"]
 	if l.apiKey == "" {
 		return fmt.Errorf("linear: api_key or mcp_access_token is required")

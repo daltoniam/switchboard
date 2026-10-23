@@ -75,7 +75,8 @@ func (f *figma) Configure(ctx context.Context, creds mcp.Credentials) error {
 			}
 		}
 		// A different server needs a new session; end the old one.
-		f.closeRemote()
+		// Best effort: the old session is abandoned either way.
+		_ = f.closeRemote()
 		f.remote = factory(baseURL)
 	}
 	f.baseURL = baseURL
