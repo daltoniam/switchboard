@@ -221,8 +221,8 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"query"},
 	},
 	{
-		Name: mcp.ToolName("datadog_get_incident"), Description: "Get details of a specific Datadog incident, including timeline and response data for outage investigation",
-		Parameters: map[string]string{"id": "Incident ID"},
+		Name: mcp.ToolName("datadog_get_incident"), Description: "Get details of a specific Datadog incident, including timeline and response data for outage investigation. Accepts the incident UUID or its public id (94, IR-94).",
+		Parameters: map[string]string{"id": "Incident UUID or public id (e.g. 94, IR-94)"},
 		Required:   []string{"id"},
 	},
 	{
@@ -231,9 +231,21 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"title", "customer_impacted"},
 	},
 	{
-		Name: mcp.ToolName("datadog_update_incident"), Description: "Update an incident",
-		Parameters: map[string]string{"id": "Incident ID", "title": "New title", "severity": "New severity", "status": "Status: active, stable, resolved", "customer_impacted": "Customer impacted (true/false)"},
-		Required:   []string{"id"},
+		Name: mcp.ToolName("datadog_update_incident"), Description: "Update a Datadog incident: title, severity, state, commander, customer impact window, and custom fields (root cause, summary, services, teams).",
+		Parameters: map[string]string{
+			"id":                    "Incident UUID or public id (e.g. 94, IR-94)",
+			"title":                 "New title",
+			"severity":              "New severity: SEV-1, SEV-2, SEV-3, SEV-4, SEV-5, UNKNOWN",
+			"status":                "State: active, stable, resolved",
+			"customer_impacted":     "Customer impacted (true/false)",
+			"customer_impact_scope": "Customer-facing description of the impact",
+			"customer_impact_start": "Customer impact start (RFC3339)",
+			"customer_impact_end":   "Customer impact end (RFC3339)",
+			"detected":              "Time the incident was detected (RFC3339)",
+			"commander_user_id":     "Datadog user UUID to set as incident commander (find it with datadog_list_users)",
+			"fields":                "Custom fields object: {\"root_cause\": \"text\", \"services\": [\"curri-api\"]}. Strings set single-value fields, arrays set multi-value fields; use {\"type\": \"textbox\", \"value\": \"...\"} to set the field type.",
+		},
+		Required: []string{"id"},
 	},
 	{
 		Name: mcp.ToolName("datadog_list_incident_attachments"), Description: "List attachments for a Datadog incident. View postmortems and linked resources attached to an outage.",
@@ -244,6 +256,116 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("datadog_list_incident_todos"), Description: "List todos and action items for a Datadog incident. Track remediation tasks and follow-up work.",
 		Parameters: map[string]string{"incident_id": "Incident ID"},
 		Required:   []string{"incident_id"},
+	},
+
+	{
+		Name: mcp.ToolName("datadog_get_incident_todo"), Description: "Get one todo (action item) on a Datadog incident",
+		Parameters: map[string]string{"incident_id": "Incident UUID or public id (e.g. IR-94)", "todo_id": "Todo ID"},
+		Required:   []string{"incident_id", "todo_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_create_incident_todo"), Description: "Create a todo (action item or follow-up) on a Datadog incident",
+		Parameters: map[string]string{"incident_id": "Incident UUID or public id (e.g. IR-94)", "content": "Todo text", "assignees": "Comma-separated Datadog user handles (emails)", "due_date": "Due date (YYYY-MM-DD)"},
+		Required:   []string{"incident_id", "content"},
+	},
+	{
+		Name: mcp.ToolName("datadog_update_incident_todo"), Description: "Update a todo on a Datadog incident (text, assignees, due date, or mark completed)",
+		Parameters: map[string]string{"incident_id": "Incident UUID or public id (e.g. IR-94)", "todo_id": "Todo ID", "content": "Todo text (required by the API; resend the current text if unchanged)", "assignees": "Comma-separated Datadog user handles (emails)", "due_date": "Due date (YYYY-MM-DD)", "completed": "Completion timestamp (RFC3339) to mark the todo done"},
+		Required:   []string{"incident_id", "todo_id", "content"},
+	},
+	{
+		Name: mcp.ToolName("datadog_delete_incident_todo"), Description: "Delete a todo from a Datadog incident",
+		Parameters: map[string]string{"incident_id": "Incident UUID or public id (e.g. IR-94)", "todo_id": "Todo ID"},
+		Required:   []string{"incident_id", "todo_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_list_incident_integrations"), Description: "List integrations linked to a Datadog incident, such as its Slack channel or Jira issue. Use to map an incident to its Slack channel.",
+		Parameters: map[string]string{"incident_id": "Incident UUID or public id (e.g. IR-94)"},
+		Required:   []string{"incident_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_get_incident_integration"), Description: "Get one integration (Slack channel, Jira issue) linked to a Datadog incident",
+		Parameters: map[string]string{"incident_id": "Incident UUID or public id (e.g. IR-94)", "integration_id": "Integration metadata ID"},
+		Required:   []string{"incident_id", "integration_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_list_incident_impacts"), Description: "List customer impacts recorded on a Datadog incident",
+		Parameters: map[string]string{"incident_id": "Incident UUID or public id (e.g. IR-94)"},
+		Required:   []string{"incident_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_create_incident_impact"), Description: "Record a customer impact (description and time window) on a Datadog incident",
+		Parameters: map[string]string{"incident_id": "Incident UUID or public id (e.g. IR-94)", "description": "What customers experienced", "start_at": "Impact start (RFC3339)", "end_at": "Impact end (RFC3339), omit if ongoing"},
+		Required:   []string{"incident_id", "description", "start_at"},
+	},
+	{
+		Name: mcp.ToolName("datadog_create_incident_attachment"), Description: "Attach a link (runbook, status page entry, doc) or postmortem to a Datadog incident",
+		Parameters: map[string]string{"incident_id": "Incident UUID or public id (e.g. IR-94)", "url": "Document URL", "title": "Link title", "attachment_type": "link (default) or postmortem"},
+		Required:   []string{"incident_id", "url"},
+	},
+	{
+		Name: mcp.ToolName("datadog_list_incident_types"), Description: "List Datadog incident types configured for the org",
+		Parameters: map[string]string{"include_deleted": "Include deleted types (true/false)"},
+	},
+
+	// ── Status Pages ─────────────────────────────────────────────────
+	{
+		Name: mcp.ToolName("datadog_list_status_pages"), Description: "List Datadog Status Pages (public customer-facing status sites). Start here for status page work: get the page_id, then list its components and degradations.",
+		Parameters: map[string]string{"page_limit": "Results per page", "page_offset": "Pagination offset"},
+	},
+	{
+		Name: mcp.ToolName("datadog_get_status_page"), Description: "Get a Datadog Status Page, including its URL and component layout",
+		Parameters: map[string]string{"page_id": "Status page UUID"},
+		Required:   []string{"page_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_list_status_page_components"), Description: "List the components (services) shown on a Datadog Status Page with their current status. Use the component ids in degradations.",
+		Parameters: map[string]string{"page_id": "Status page UUID"},
+		Required:   []string{"page_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_get_status_page_component"), Description: "Get one component on a Datadog Status Page",
+		Parameters: map[string]string{"page_id": "Status page UUID", "component_id": "Component UUID"},
+		Required:   []string{"page_id", "component_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_list_status_page_degradations"), Description: "List degradations (public outage or incident posts) on Datadog Status Pages, with their status updates",
+		Parameters: map[string]string{"page_id": "Filter by status page UUID", "status": "Filter by status, comma-separated: investigating, identified, monitoring, resolved", "page_limit": "Results per page", "page_offset": "Pagination offset"},
+	},
+	{
+		Name: mcp.ToolName("datadog_get_status_page_degradation"), Description: "Get one degradation (public outage post) on a Datadog Status Page, including its update history",
+		Parameters: map[string]string{"page_id": "Status page UUID", "degradation_id": "Degradation UUID"},
+		Required:   []string{"page_id", "degradation_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_create_status_page_degradation"), Description: "Post a new degradation (public outage notice) to a Datadog Status Page. Customer-facing: confirm the exact wording first.",
+		Parameters: map[string]string{
+			"page_id":             "Status page UUID",
+			"title":               "Public title",
+			"status":              "investigating, identified, monitoring, or resolved",
+			"description":         "Public message shown to customers",
+			"components_affected": "JSON array of affected components: [{\"id\": \"<component uuid>\", \"status\": \"degraded|partial_outage|major_outage|operational\"}]",
+			"notify_subscribers":  "Email status page subscribers (true/false). Required so the choice is explicit.",
+		},
+		Required: []string{"page_id", "title", "status", "components_affected", "notify_subscribers"},
+	},
+	{
+		Name: mcp.ToolName("datadog_update_status_page_degradation"), Description: "Post an update to an existing degradation on a Datadog Status Page: new status, message, or component states. Customer-facing.",
+		Parameters: map[string]string{
+			"page_id":             "Status page UUID",
+			"degradation_id":      "Degradation UUID",
+			"title":               "New public title",
+			"status":              "investigating, identified, monitoring, or resolved",
+			"description":         "Public update message shown to customers",
+			"components_affected": "JSON array of components: [{\"id\": \"<component uuid>\", \"status\": \"operational|degraded|partial_outage|major_outage\"}]",
+			"notify_subscribers":  "Email status page subscribers about this update (true/false)",
+		},
+		Required: []string{"page_id", "degradation_id"},
+	},
+	{
+		Name: mcp.ToolName("datadog_delete_status_page_degradation"), Description: "Delete a degradation from a Datadog Status Page",
+		Parameters: map[string]string{"page_id": "Status page UUID", "degradation_id": "Degradation UUID"},
+		Required:   []string{"page_id", "degradation_id"},
 	},
 
 	// ── Incident Services ────────────────────────────────────────────

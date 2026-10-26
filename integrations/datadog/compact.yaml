@@ -62,7 +62,14 @@ tools:
     datadog_get_incident:
         spec:
             - data.id
+            - data.attributes.public_id
             - data.attributes.title
+            - data.attributes.customer_impacted
+            - data.attributes.customer_impact_scope
+            - data.attributes.customer_impact_start
+            - data.attributes.customer_impact_end
+            - data.attributes.detected
+            - data.relationships.commander_user.data.id
             - data.attributes.severity
             - data.attributes.status
             - data.attributes.fields
@@ -292,6 +299,7 @@ tools:
     datadog_list_incidents:
         spec:
             - data[].id
+            - data[].attributes.public_id
             - data[].attributes.title
             - data[].attributes.severity
             - data[].attributes.status
@@ -410,6 +418,7 @@ tools:
     datadog_search_incidents:
         spec:
             - data[].id
+            - data[].attributes.public_id
             - data[].attributes.title
             - data[].attributes.severity
             - data[].attributes.status
@@ -450,3 +459,54 @@ tools:
             - data[].attributes.start
             - data[].attributes.span_id
             - data[].attributes.trace_id
+    datadog_list_incident_integrations:
+        spec:
+            - data[].id
+            - data[].attributes.integration_type
+            - data[].attributes.status
+            - data[].attributes.metadata
+            - data[].attributes.created
+            - data[].attributes.modified
+    datadog_list_incident_impacts:
+        spec:
+            - data[].id
+            - data[].attributes.description
+            - data[].attributes.start_at
+            - data[].attributes.end_at
+            - data[].attributes.fields
+    datadog_list_incident_types:
+        spec:
+            - data[].id
+            - data[].attributes.name
+            - data[].attributes.description
+            - data[].attributes.is_default
+    datadog_list_status_pages:
+        spec:
+            - data[].id
+            - data[].attributes.name
+            - data[].attributes.page_url
+            - data[].attributes.custom_domain
+            - data[].attributes.enabled
+            - data[].attributes.subscriptions_enabled
+            - data[].attributes.components
+            - meta
+    datadog_list_status_page_components:
+        spec:
+            - data[].id
+            - data[].attributes.name
+            - data[].attributes.type
+            - data[].attributes.status
+            - data[].attributes.position
+            - data[].attributes.components
+    datadog_list_status_page_degradations:
+        spec:
+            - data[].id
+            - data[].attributes.title
+            - data[].attributes.status
+            - data[].attributes.description
+            - data[].attributes.components_affected
+            - data[].attributes.created_at
+            - data[].attributes.modified_at
+            - data[].attributes.updates
+            - data[].relationships.status_page.data.id
+            - meta
