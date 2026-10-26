@@ -1,13 +1,14 @@
 package notion
 
 import (
-	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/markdown"
+	"github.com/ohler55/ojg/gen"
 )
 
 // ── Semantic domain types for the rendering layer ─────────────────────
@@ -70,7 +71,7 @@ func renderPageContentMD(data []byte) (markdown.Markdown, bool) {
 		Page   rawBlock   `json:"page"`
 		Blocks []rawBlock `json:"blocks"`
 	}
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := mcp.UnmarshalJSON(data, &raw); err != nil {
 		return "", false
 	}
 
@@ -88,7 +89,7 @@ func renderCommentsMD(data []byte) (markdown.Markdown, bool) {
 	var raw struct {
 		Results []rawThreadEntry `json:"results"`
 	}
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := mcp.UnmarshalJSON(data, &raw); err != nil {
 		return "", false
 	}
 
@@ -122,8 +123,8 @@ type rawBlock struct {
 }
 
 type rawProperties struct {
-	Title   []any `json:"title"`
-	Checked []any `json:"checked"`
+	Title   gen.Array `json:"title"`
+	Checked gen.Array `json:"checked"`
 }
 
 type rawFormat struct {
@@ -140,9 +141,9 @@ type rawDiscussion struct {
 }
 
 type rawComment struct {
-	CreatedByID string `json:"created_by_id"`
-	CreatedTime int64  `json:"created_time"`
-	Text        []any  `json:"text"`
+	CreatedByID string    `json:"created_by_id"`
+	CreatedTime int64     `json:"created_time"`
+	Text        gen.Array `json:"text"`
 }
 
 // parseBlocks converts raw JSON blocks into typed renderedBlocks.
@@ -162,16 +163,15 @@ func parseBlocks(blocks []rawBlock) []renderedBlock {
 }
 
 // isRawChecked interprets the Notion v3 checked property: [["Yes"]] → true.
-func isRawChecked(checked []any) bool {
+func isRawChecked(checked gen.Array) bool {
 	if len(checked) == 0 {
 		return false
 	}
-	first, _ := checked[0].([]any)
+	first, _ := checked[0].(gen.Array)
 	if len(first) == 0 {
 		return false
 	}
-	val, _ := first[0].(string)
-	return val == "Yes"
+	return nodeString(first[0]) == "Yes"
 }
 
 // ── Rich text conversion (Notion v3 format → inline Markdown) ────────
@@ -185,58 +185,49 @@ func isRawChecked(checked []any) bool {
 //	[["linked", [["a", "https://url"]]]]
 //	[["bold italic", [["b"], ["i"]]]]
 //	[["segment 1"], ["segment 2", [["b"]]]]
-func richTextToMarkdown(richText []any) string {
-	if len(richText) == 0 {
-		return ""
-	}
-
+func richTextToMarkdown(richText gen.Array) string {
 	var sb strings.Builder
 	for _, segment := range richText {
-		arr, ok := segment.([]any)
-		if !ok || len(arr) == 0 {
+		array, ok := segment.(gen.Array)
+		valid := ok && len(array) > 0
+		if !valid {
 			continue
 		}
-		text, _ := arr[0].(string)
-		if len(arr) < 2 {
-			sb.WriteString(text)
-			continue
+		text := nodeString(array[0])
+		var formats gen.Array
+		if len(array) > 1 {
+			formats, _ = array[1].(gen.Array)
 		}
-
-		formats, ok := arr[1].([]any)
-		if !ok {
-			sb.WriteString(text)
-			continue
-		}
-
-		var hasBold, hasItalic, hasCode, hasStrike bool
-		var linkURL string
-
-		for _, f := range formats {
-			fArr, ok := f.([]any)
-			if !ok || len(fArr) == 0 {
-				continue
-			}
-			code, _ := fArr[0].(string)
-			switch code {
-			case "b":
-				hasBold = true
-			case "i":
-				hasItalic = true
-			case "c":
-				hasCode = true
-			case "s":
-				hasStrike = true
-			case "a":
-				if len(fArr) > 1 {
-					linkURL, _ = fArr[1].(string)
-				}
-			}
-		}
-
-		markdown.ApplyMarks(&sb, text, hasBold, hasItalic, hasCode, hasStrike, linkURL)
+		marks := parseTextMarks(formats)
+		markdown.ApplyMarks(&sb, text, marks.bold, marks.italic, marks.code, marks.strike, marks.linkURL)
 	}
-
 	return sb.String()
+}
+
+type textMarks struct {
+	bold, italic, code, strike bool
+	linkURL                    string
+}
+
+func parseTextMarks(formats gen.Array) textMarks {
+	var marks textMarks
+	for _, format := range formats {
+		tokens, ok := format.(gen.Array)
+		valid := ok && len(tokens) > 0
+		if !valid {
+			continue
+		}
+		code := nodeString(tokens[0])
+		marks.bold = marks.bold || code == "b"
+		marks.italic = marks.italic || code == "i"
+		marks.code = marks.code || code == "c"
+		marks.strike = marks.strike || code == "s"
+		link := code == "a" && len(tokens) > 1
+		if link {
+			marks.linkURL = nodeString(tokens[1])
+		}
+	}
+	return marks
 }
 
 // ── Typed rendering functions (accept only semantic types) ───────────
@@ -387,21 +378,21 @@ func millisToTimeString(ms int64) string {
 // ── View renderer bridges ────────────────────────────────────────────
 //
 // Renderers registered via compactRenderers in notion.go. Each one
-// accepts the post-CompactAny projection and produces markdown bytes.
+// accepts the post-CompactValue projection and produces markdown bytes.
 // Errors from these bridges surface as view_dispatch_failed envelopes
-// to the LLM, so the failure mode (an unexpected shape from CompactAny)
+// to the LLM, so the failure mode (an unexpected shape from CompactValue)
 // is visible rather than silently degraded.
 
 // renderSearchTitlesMD renders the search titles view as a markdown table.
 // The titles view projects id, type, parent_id, collection_id,
 // properties.title, url — the renderer surfaces title (linked to url),
 // type, and id so LLMs can drill in by id.
-func renderSearchTitlesMD(projected any) ([]byte, error) {
-	root, ok := projected.(map[string]any)
+func renderSearchTitlesMD(projected gen.Node) ([]byte, error) {
+	root, ok := projected.(gen.Object)
 	if !ok {
 		return nil, fmt.Errorf("notion: search titles renderer: expected object root, got %T", projected)
 	}
-	rawResults, _ := root["results"].([]any)
+	rawResults, _ := root["results"].(gen.Array)
 
 	b := markdown.NewBuilder()
 	b.Metadata("notion", "tool", "search", "view", "titles")
@@ -413,14 +404,14 @@ func renderSearchTitlesMD(projected any) ([]byte, error) {
 	rows := make([][]string, 0, len(rawResults)+1)
 	rows = append(rows, []string{"Title", "Type", "ID"})
 	for _, r := range rawResults {
-		entry, ok := r.(map[string]any)
+		entry, ok := r.(gen.Object)
 		if !ok {
 			continue
 		}
 		title := searchResultTitle(entry)
-		typ, _ := entry["type"].(string)
-		id, _ := entry["id"].(string)
-		url, _ := entry["url"].(string)
+		typ := nodeString(entry["type"])
+		id := nodeString(entry["id"])
+		url := nodeString(entry["url"])
 		linkedTitle := title
 		if url != "" && title != "" {
 			linkedTitle = fmt.Sprintf("[%s](%s)", title, url)
@@ -437,12 +428,12 @@ func renderSearchTitlesMD(projected any) ([]byte, error) {
 // renderQuerySummaryMD renders the query_data_source summary view as a
 // markdown table. Surfaces id, title, last_edited so LLMs can find the
 // target row before calling again with view=full for full properties.
-func renderQuerySummaryMD(projected any) ([]byte, error) {
-	root, ok := projected.(map[string]any)
+func renderQuerySummaryMD(projected gen.Node) ([]byte, error) {
+	root, ok := projected.(gen.Object)
 	if !ok {
 		return nil, fmt.Errorf("notion: query summary renderer: expected object root, got %T", projected)
 	}
-	rawResults, _ := root["results"].([]any)
+	rawResults, _ := root["results"].(gen.Array)
 
 	b := markdown.NewBuilder()
 	b.Metadata("notion", "tool", "query_data_source", "view", "summary")
@@ -454,14 +445,14 @@ func renderQuerySummaryMD(projected any) ([]byte, error) {
 	rows := make([][]string, 0, len(rawResults)+1)
 	rows = append(rows, []string{"ID", "Title", "Last Edited"})
 	for _, r := range rawResults {
-		entry, ok := r.(map[string]any)
+		entry, ok := r.(gen.Object)
 		if !ok {
 			continue
 		}
-		id, _ := entry["id"].(string)
+		id := nodeString(entry["id"])
 		title := titleFromProperties(entry["properties"])
 		lastEdited := ""
-		if ms := millisFromAny(entry["last_edited_time"]); ms > 0 {
+		if ms := millisFromValue(entry["last_edited_time"]); ms > 0 {
 			lastEdited = millisToTimeString(ms)
 		}
 		rows = append(rows, []string{id, title, lastEdited})
@@ -476,8 +467,8 @@ func renderQuerySummaryMD(projected any) ([]byte, error) {
 // renderFullCommentsMD bridges the legacy raw-bytes renderCommentsMD into
 // the typed Renderer signature used by the views renderer registry. Same
 // shape as renderFullPageContentMD in notion.go.
-func renderFullCommentsMD(projected any) ([]byte, error) {
-	data, err := json.Marshal(projected)
+func renderFullCommentsMD(projected gen.Node) ([]byte, error) {
+	data, err := mcp.MarshalJSONValue(projected)
 	if err != nil {
 		return nil, fmt.Errorf("notion: marshal projected comments: %w", err)
 	}
@@ -491,13 +482,13 @@ func renderFullCommentsMD(projected any) ([]byte, error) {
 // titleFromProperties pulls the title text out of a Notion v3 properties
 // object. Returns "" when title is missing — the table cell stays blank
 // rather than failing the whole render.
-func titleFromProperties(props any) string {
-	m, ok := props.(map[string]any)
+func titleFromProperties(props gen.Node) string {
+	object, ok := props.(gen.Object)
 	if !ok {
 		return ""
 	}
-	rt, _ := m["title"].([]any)
-	return richTextToMarkdown(rt)
+	title, _ := object["title"].(gen.Array)
+	return richTextToMarkdown(title)
 }
 
 // searchResultTitle resolves a displayable title for one search result.
@@ -505,33 +496,35 @@ func titleFromProperties(props any) string {
 // recordMap) or highlight.title/highlight.text (block unresolved). The
 // renderer prefers the cleanest source; the empty case returns "" so
 // the table cell stays blank rather than failing the whole render.
-func searchResultTitle(entry map[string]any) string {
-	if t := titleFromProperties(entry["properties"]); t != "" {
-		return t
+func searchResultTitle(entry gen.Object) string {
+	if title := titleFromProperties(entry["properties"]); title != "" {
+		return title
 	}
-	hl, ok := entry["highlight"].(map[string]any)
+	highlight, ok := entry["highlight"].(gen.Object)
 	if !ok {
 		return ""
 	}
-	if t, _ := hl["title"].(string); t != "" {
-		return t
+	if title := nodeString(highlight["title"]); title != "" {
+		return title
 	}
-	t, _ := hl["text"].(string)
-	return t
+	return nodeString(highlight["text"])
 }
 
-// millisFromAny extracts an integer milliseconds value from a JSON
-// number (encoding/json decodes integers into float64 unless told
-// otherwise). Returns 0 on any mismatch — the renderer will then omit
-// the timestamp from the table.
-func millisFromAny(v any) int64 {
-	switch n := v.(type) {
-	case float64:
-		return int64(n)
-	case int64:
-		return n
-	case int:
-		return int64(n)
+func nodeString(node gen.Node) string {
+	value, _ := node.(gen.String)
+	return string(value)
+}
+
+func millisFromValue(node gen.Node) int64 {
+	switch value := node.(type) {
+	case gen.Big:
+		number, _ := strconv.ParseFloat(string(value), 64)
+		return int64(number)
+	case gen.Float:
+		return int64(value)
+	case gen.Int:
+		return int64(value)
+	default:
+		return 0
 	}
-	return 0
 }

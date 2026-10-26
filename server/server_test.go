@@ -14,6 +14,7 @@ import (
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/ohler55/ojg/gen"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1298,6 +1299,64 @@ func TestHandleExecute_CompactionSkippedOnErrorResult(t *testing.T) {
 	assert.Equal(t, "API rate limit exceeded", tc.Text, "error results should not be compacted")
 }
 
+func TestDecodeResponseJSON_Compatibility(t *testing.T) {
+	for name, input := range responseJSONCompatibilityInputs() {
+		t.Run(name, func(t *testing.T) {
+			var want any
+			wantErr := json.Unmarshal(input, &want)
+			got, err := mcp.ParseJSONValue(input)
+			require.Equal(t, wantErr != nil, err != nil)
+			if wantErr == nil {
+				wantJSON, err := json.Marshal(want)
+				require.NoError(t, err)
+				gotJSON, err := mcp.MarshalJSONValue(got)
+				require.NoError(t, err)
+				switch name {
+				case "large number", "precise number", "mixed":
+					assert.JSONEq(t, string(wantJSON), string(gotJSON))
+				default:
+					assert.Equal(t, string(wantJSON), string(gotJSON))
+				}
+				assert.False(t, strings.ContainsAny(string(gotJSON), "<>&\u2028\u2029"))
+			}
+		})
+	}
+}
+
+func responseJSONCompatibilityInputs() map[string][]byte {
+	return map[string][]byte{
+		"null":           []byte(`null`),
+		"empty object":   []byte(`{}`),
+		"empty array":    []byte(`[]`),
+		"mixed":          []byte(`{"z":[null,true,1.5],"a":"<>&\u2028\n"}`),
+		"large number":   []byte(`18446744073709551615`),
+		"precise number": []byte(`1.234567890123456789`),
+		"negative zero":  []byte(`-0`),
+		"overflow":       []byte(`1e400`),
+		"duplicate keys": []byte(`{"x":1,"x":2}`),
+		"lone surrogate": []byte(`"\ud800"`),
+		"unicode":        []byte(`"\ud83d\ude80"`),
+		"invalid UTF-8":  {'[', '"', 0xff, '"', ']'},
+		"trailing value": []byte(`{} {}`),
+		"empty input":    nil,
+		"invalid escape": []byte(`"\x01"`),
+	}
+}
+
+func TestDecodeResponseJSON_DepthLimit(t *testing.T) {
+	for _, depth := range []int{10000, 10001} {
+		t.Run(fmt.Sprint(depth), func(t *testing.T) {
+			input := []byte(strings.Repeat("[", depth) + "0" + strings.Repeat("]", depth))
+			_, err := mcp.ParseJSONValue(input)
+			if depth == 10000 {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestProcessResult_MarkdownRendered(t *testing.T) {
 	mi := &mockMarkdownIntegration{
 		mockIntegration: mockIntegration{
@@ -1418,13 +1477,11 @@ func TestResultProcessor_MaxBytesExceededReplacesWithEnvelope(t *testing.T) {
 	got := processResult(rp, "foo", compact.ViewArgs{}, big, nil)
 
 	// Envelope must be valid JSON the LLM can parse.
-	var env map[string]any
-	require.NoError(t, json.Unmarshal([]byte(got), &env), "envelope must be parseable JSON")
-	assert.Equal(t, "response_too_large", env["error"])
-	assert.Equal(t, "foo", env["tool"])
-	assert.EqualValues(t, 50, env["limit"])
-	assert.Contains(t, env, "size")
-	assert.Contains(t, env, "hint")
+	want := fmt.Sprintf(`{
+		"error":"response_too_large", "tool":"foo", "size":%d, "limit":50,
+		"hint":"narrow your query (e.g., add a filter, reduce page size, or request fewer fields)"
+	}`, len(big))
+	assert.JSONEq(t, want, got)
 }
 
 func TestResultProcessor_MaxBytesUnderLimitUnchanged(t *testing.T) {
@@ -1460,14 +1517,32 @@ func TestResultProcessor_MaxBytesZeroLimitNoCheck(t *testing.T) {
 
 // ── Views dispatch ──────────────────────────────────────────────────
 
+func TestProcessViews_PreservesNumberPrecision(t *testing.T) {
+	vs := buildTestViewSet(t)
+	rp := resultProcessor{
+		views: func(mcp.ToolName) (compact.ViewSet, bool) { return vs, true },
+	}
+	for _, input := range []string{
+		`{"id":18446744073709551615}`,
+		`[{"id":18446744073709551615}]`,
+		`{"id":1.234567890123456789}`,
+	} {
+		t.Run(input, func(t *testing.T) {
+			got := processResult(rp, "tool", compact.ViewArgs{}, input, nil)
+			assert.Contains(t, got, input[1:len(input)-1])
+			assert.Contains(t, got, `"_more"`)
+		})
+	}
+}
+
 // buildTestViewSet constructs a minimal ViewSet for testing. Two views
 // (toc, full); toc supports json only, full supports json + markdown.
 // Renderers are simple identity-style functions — tests assert dispatch
 // logic, not rendering quality.
 func buildTestViewSet(t *testing.T) compact.ViewSet {
 	t.Helper()
-	jsonR := func(v any) ([]byte, error) { return json.Marshal(v) }
-	mdR := func(v any) ([]byte, error) { return []byte("MARKDOWN"), nil }
+	jsonR := func(v gen.Node) ([]byte, error) { return mcp.MarshalJSONValue(v) }
+	mdR := func(v gen.Node) ([]byte, error) { return []byte("MARKDOWN"), nil }
 	return compact.ViewSet{
 		Default: compact.ViewSelection{View: "toc", Format: compact.FormatJSON},
 		Views: map[compact.ViewName]compact.ParsedView{
@@ -1509,11 +1584,10 @@ func TestProcessViews_UnknownView_ReturnsErrorEnvelope(t *testing.T) {
 	view := compact.ViewArgs{View: "wat"}
 	got := processResult(rp, "tool", view, `{"id":1}`, nil)
 
-	var env map[string]any
-	require.NoError(t, json.Unmarshal([]byte(got), &env))
-	assert.Equal(t, "view_dispatch_failed", env["error"])
-	assert.Contains(t, env["message"], "unknown view")
-	assert.Contains(t, env["message"], "wat")
+	assert.JSONEq(t, `{
+		"error":"view_dispatch_failed", "tool":"tool",
+		"message":"unknown view \"wat\" (available: full, toc)"
+	}`, got)
 }
 
 func TestProcessViews_UndeclaredFormatForView_ReturnsErrorEnvelope(t *testing.T) {
@@ -1524,10 +1598,10 @@ func TestProcessViews_UndeclaredFormatForView_ReturnsErrorEnvelope(t *testing.T)
 	view := compact.ViewArgs{View: "toc", Format: "markdown"}
 	got := processResult(rp, "tool", view, `{"id":1}`, nil)
 
-	var env map[string]any
-	require.NoError(t, json.Unmarshal([]byte(got), &env))
-	assert.Equal(t, "view_dispatch_failed", env["error"])
-	assert.Contains(t, env["message"], "does not declare format")
+	assert.JSONEq(t, `{
+		"error":"view_dispatch_failed", "tool":"tool",
+		"message":"view \"toc\" does not declare format \"markdown\" (available formats: json)"
+	}`, got)
 }
 
 func TestProcessViews_ToolWithoutViews_FallsThrough(t *testing.T) {
@@ -1656,15 +1730,7 @@ func TestProcessViews_MoreEnvelopeOnObjectRoot(t *testing.T) {
 	}
 	got := processResult(rp, "tool", compact.ViewArgs{}, `{"id":1}`, nil)
 
-	var env map[string]any
-	require.NoError(t, json.Unmarshal([]byte(got), &env))
-
-	more, ok := env["_more"].(map[string]any)
-	require.True(t, ok, "_more envelope missing")
-	views, ok := more["views"].(map[string]any)
-	require.True(t, ok, "_more.views missing")
-	assert.Contains(t, views, "full", "alternates should list `full` (not the current `toc`)")
-	assert.NotContains(t, views, "toc", "current view should not appear in alternates")
+	assert.JSONEq(t, `{"id":1,"_more":{"views":{"full":"Whole thing."}}}`, got)
 }
 
 func TestProcessViews_MoreEnvelopeWrapsArrayRoot(t *testing.T) {
@@ -1674,14 +1740,7 @@ func TestProcessViews_MoreEnvelopeWrapsArrayRoot(t *testing.T) {
 	}
 	got := processResult(rp, "tool", compact.ViewArgs{}, `[{"id":1},{"id":2}]`, nil)
 
-	var env map[string]any
-	require.NoError(t, json.Unmarshal([]byte(got), &env))
-
-	data, ok := env["data"].([]any)
-	require.True(t, ok, "array root should be wrapped under `data` key")
-	assert.Len(t, data, 2)
-	_, hasMore := env["_more"]
-	assert.True(t, hasMore, "_more envelope missing on array-root response")
+	assert.JSONEq(t, `{"data":[{"id":1},{"id":2}],"_more":{"views":{"full":"Whole thing."}}}`, got)
 }
 
 func TestProcessViews_MarkdownFormatSkipsMore(t *testing.T) {
@@ -1697,7 +1756,7 @@ func TestProcessViews_MarkdownFormatSkipsMore(t *testing.T) {
 
 func TestProcessViews_SingleViewSkipsMore(t *testing.T) {
 	// Only one view declared → no alternates → no _more envelope.
-	jsonR := func(v any) ([]byte, error) { return json.Marshal(v) }
+	jsonR := func(v gen.Node) ([]byte, error) { return mcp.MarshalJSONValue(v) }
 	vs := compact.ViewSet{
 		Default: compact.ViewSelection{View: "only", Format: compact.FormatJSON},
 		Views: map[compact.ViewName]compact.ParsedView{

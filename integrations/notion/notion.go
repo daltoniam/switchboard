@@ -14,6 +14,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
+	"github.com/ohler55/ojg/gen"
 )
 
 const maxResponseSize = 512 << 10 // 512 KB — largest real response ~230KB, caps worst-case at ~125K tokens
@@ -33,8 +34,8 @@ var compactV1YAML []byte
 // far better output than the framework generic markdown formatter would
 // (block tree → nested headings + paragraphs). Keeping the legacy
 // function and bridging is cheaper than rewriting it.
-func renderFullPageContentMD(projected any) ([]byte, error) {
-	data, err := json.Marshal(projected)
+func renderFullPageContentMD(projected gen.Node) ([]byte, error) {
+	data, err := mcp.MarshalJSONValue(projected)
 	if err != nil {
 		return nil, fmt.Errorf("notion: marshal projected page content: %w", err)
 	}

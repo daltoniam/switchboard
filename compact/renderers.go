@@ -1,21 +1,22 @@
 package compact
 
 import (
-	"encoding/json"
 	"fmt"
+	mcp "github.com/daltoniam/switchboard"
+	"github.com/ohler55/ojg/gen"
 	"sort"
 	"strings"
 )
 
 // jsonRenderer is the framework default for FormatJSON. Marshals the
-// projected Go value with json.Marshal — same shape as today's
+// projected JSON value with the shared codec — same shape as today's
 // processResult output.
-func jsonRenderer(projected any) ([]byte, error) {
-	return json.Marshal(projected)
+func jsonRenderer(projected gen.Node) ([]byte, error) {
+	return mcp.MarshalJSONValue(projected)
 }
 
 // markdownRenderer is the framework default for FormatMarkdown. Renders any
-// projected Go value as readable markdown:
+// projected JSON value as readable markdown:
 //
 //   - flat map → definition list (- **key**: value)
 //   - nested map → heading + recurse
@@ -27,65 +28,65 @@ func jsonRenderer(projected any) ([]byte, error) {
 // register a custom renderer via Options.Renderers instead of using this
 // default. This is the "good enough" path for tools that don't need
 // hand-tuned markdown.
-func markdownRenderer(projected any) ([]byte, error) {
+func markdownRenderer(projected gen.Node) ([]byte, error) {
 	var sb strings.Builder
 	renderMarkdownValue(&sb, projected, 0)
 	out := strings.TrimRight(sb.String(), "\n") + "\n"
 	return []byte(out), nil
 }
 
-func renderMarkdownValue(sb *strings.Builder, v any, depth int) {
+func renderMarkdownValue(sb *strings.Builder, v gen.Node, depth int) {
 	switch val := v.(type) {
 	case nil:
 		sb.WriteString("_(none)_\n")
-	case map[string]any:
+	case gen.Object:
 		renderMarkdownMap(sb, val, depth)
-	case []any:
+	case gen.Array:
 		renderMarkdownSlice(sb, val, depth)
 	default:
-		fmt.Fprintf(sb, "%v\n", val)
+		fmt.Fprintf(sb, "%s\n", displayValue(val))
 	}
 }
 
-func renderMarkdownMap(sb *strings.Builder, m map[string]any, depth int) {
+func renderMarkdownMap(sb *strings.Builder, m gen.Object, depth int) {
 	keys := sortedKeys(m)
 	for _, k := range keys {
 		v := m[k]
 		switch vv := v.(type) {
 		case nil:
 			// skip nil values
-		case map[string]any, []any:
+		case gen.Object, gen.Array:
 			level := min(depth+2, 6)
 			fmt.Fprintf(sb, "%s %s\n\n", strings.Repeat("#", level), k)
 			renderMarkdownValue(sb, vv, depth+1)
 			sb.WriteString("\n")
 		default:
-			fmt.Fprintf(sb, "- **%s**: %v\n", k, vv)
+			fmt.Fprintf(sb, "- **%s**: %s\n", k, displayValue(vv))
 		}
 	}
 }
 
-func renderMarkdownSlice(sb *strings.Builder, s []any, depth int) {
+func renderMarkdownSlice(sb *strings.Builder, s gen.Array, depth int) {
 	if len(s) == 0 {
 		sb.WriteString("_(empty)_\n")
 		return
 	}
-	if first, ok := s[0].(map[string]any); ok && allMapsHomogeneous(s, first) {
+	if first, ok := s[0].(gen.Object); ok && allMapsHomogeneous(s, first) {
 		renderMarkdownTable(sb, s, first)
 		return
 	}
 	for _, item := range s {
 		switch vv := item.(type) {
-		case map[string]any:
+		case gen.Object:
 			sb.WriteString("- \n")
 			renderMarkdownMap(sb, vv, depth+1)
 		default:
-			fmt.Fprintf(sb, "- %v\n", vv)
+			fmt.Fprintf(sb, "- %s\n", displayValue(vv))
 		}
 	}
 }
 
-func renderMarkdownTable(sb *strings.Builder, s []any, first map[string]any) {
+func renderMarkdownTable(sb *strings.Builder, s gen.Array, first gen.Object) {
 	keys := sortedKeys(first)
 	sb.WriteString("| " + strings.Join(keys, " | ") + " |\n")
 	sb.WriteString("|")
@@ -94,20 +95,53 @@ func renderMarkdownTable(sb *strings.Builder, s []any, first map[string]any) {
 	}
 	sb.WriteString("\n")
 	for _, item := range s {
-		m, ok := item.(map[string]any)
+		m, ok := item.(gen.Object)
 		if !ok {
 			continue
 		}
 		row := make([]string, len(keys))
 		for i, k := range keys {
-			row[i] = fmt.Sprintf("%v", m[k])
+			row[i] = displayValue(m[k])
 		}
 		sb.WriteString("| " + strings.Join(row, " | ") + " |\n")
 	}
 	sb.WriteString("\n")
 }
 
-func sortedKeys(m map[string]any) []string {
+func displayValue(node gen.Node) string {
+	switch value := node.(type) {
+	case nil:
+		return "<nil>"
+	case gen.String:
+		return string(value)
+	case gen.Big:
+		return string(value)
+	case gen.Object:
+		return displayObject(value)
+	case gen.Array:
+		return displayArray(value)
+	default:
+		return fmt.Sprint(value)
+	}
+}
+
+func displayObject(object gen.Object) string {
+	parts := make([]string, 0, len(object))
+	for _, key := range sortedKeys(object) {
+		parts = append(parts, key+":"+displayValue(object[key]))
+	}
+	return fmt.Sprintf("map[%s]", strings.Join(parts, " "))
+}
+
+func displayArray(array gen.Array) string {
+	parts := make([]string, len(array))
+	for i, value := range array {
+		parts[i] = displayValue(value)
+	}
+	return fmt.Sprintf("[%s]", strings.Join(parts, " "))
+}
+
+func sortedKeys(m gen.Object) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -116,10 +150,10 @@ func sortedKeys(m map[string]any) []string {
 	return keys
 }
 
-func allMapsHomogeneous(s []any, first map[string]any) bool {
+func allMapsHomogeneous(s gen.Array, first gen.Object) bool {
 	firstKeys := sortedKeys(first)
 	for _, item := range s {
-		m, ok := item.(map[string]any)
+		m, ok := item.(gen.Object)
 		if !ok {
 			return false
 		}

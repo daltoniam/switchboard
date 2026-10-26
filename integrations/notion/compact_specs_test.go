@@ -8,6 +8,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
+	"github.com/ohler55/ojg/alt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -85,7 +86,7 @@ func TestFieldCompactionSpec_ReturnsFalseForUnknownTool(t *testing.T) {
 // ── Reduction tests (moved from notion_test.go) ─────────────────────
 
 // TestGetPageContent_ReturnsMarkdown drives the full views pipeline:
-// handler → JSON → CompactAny(full spec) → custom markdown renderer.
+// handler → JSON → CompactValue(full spec) → custom markdown renderer.
 // Production processResult does these steps in order; the test asserts
 // the integrated result. RenderMarkdown is no longer in the picture for
 // view-aware tools, so the old direct-RenderMarkdown invocation was
@@ -120,11 +121,11 @@ func TestGetPageContent_ReturnsMarkdown(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 
-	// Production path: JSON → CompactAny(full view spec) → renderer.
-	var parsed any
-	require.NoError(t, json.Unmarshal([]byte(result.Data), &parsed))
+	// Production path: JSON → CompactValue(full view spec) → renderer.
+	parsed, err := mcp.ParseJSONValue([]byte(result.Data))
+	require.NoError(t, err)
 	fullSpec := viewSets[pageContentTool].Views[compact.ViewName("full")].Spec
-	projected := mcp.CompactAny(parsed, fullSpec)
+	projected := mcp.CompactValue(parsed, fullSpec)
 	renderer := viewSets[pageContentTool].Renderers[compact.ViewName("full")][compact.FormatMarkdown]
 	require.NotNil(t, renderer)
 	md, err := renderer(projected)
@@ -134,7 +135,7 @@ func TestGetPageContent_ReturnsMarkdown(t *testing.T) {
 	assert.Contains(t, out, "<!-- notion:page_id=page-1 -->")
 	assert.Contains(t, out, "# My Page")
 	assert.Contains(t, out, "Hello")
-	// CompactAny strips noise fields before the renderer sees them.
+	// CompactValue strips noise fields before the renderer sees them.
 	assert.NotContains(t, out, "crdt_data")
 	assert.NotContains(t, out, "space_id")
 }
@@ -355,7 +356,7 @@ func TestPageContent_FullMarkdownRendererBridge(t *testing.T) {
 		},
 		"blocks": []any{},
 	}
-	got, err := renderer(projected)
+	got, err := renderer(alt.Generify(projected))
 	require.NoError(t, err)
 	assert.NotEmpty(t, got, "renderer should produce markdown bytes")
 	// The bridge returns whatever renderPageContentMD returns; smoke-checking
@@ -460,7 +461,7 @@ func TestSearch_TitlesMarkdownRenderer(t *testing.T) {
 			},
 		},
 	}
-	got, err := renderer(projected)
+	got, err := renderer(alt.Generify(projected))
 	require.NoError(t, err)
 	out := string(got)
 	assert.Contains(t, out, "Meeting Notes", "properties.title must appear")
@@ -517,7 +518,7 @@ func TestQuery_SummaryMarkdownRenderer(t *testing.T) {
 			},
 		},
 	}
-	got, err := renderer(projected)
+	got, err := renderer(alt.Generify(projected))
 	require.NoError(t, err)
 	out := string(got)
 	assert.Contains(t, out, "Task 1")
@@ -579,7 +580,7 @@ func TestComments_FullMarkdownRendererBridge(t *testing.T) {
 			},
 		},
 	}
-	got, err := renderer(projected)
+	got, err := renderer(alt.Generify(projected))
 	require.NoError(t, err)
 	assert.NotEmpty(t, got)
 	assert.Contains(t, string(got), "first message")

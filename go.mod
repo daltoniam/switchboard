@@ -1,6 +1,6 @@
 module github.com/daltoniam/switchboard
 
-go 1.26.9
+go 1.27.0
 
 toolchain go1.27.3
 
@@ -46,7 +46,9 @@ require (
 	github.com/itchyny/gojq v0.12.17
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/ohler55/ojg v1.28.7
 	github.com/playwright-community/playwright-go v0.5001.0
+	github.com/shopspring/decimal v1.4.0
 	github.com/slack-go/slack v0.18.0
 	github.com/stretchr/testify v1.11.1
 	github.com/syndtr/goleveldb v1.0.0
@@ -321,7 +323,6 @@ require (
 	github.com/securego/gosec/v2 v2.24.6 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/sivchari/containedctx v1.0.3 // indirect
 	github.com/sonatard/noctx v0.4.0 // indirect
