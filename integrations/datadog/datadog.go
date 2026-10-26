@@ -55,23 +55,7 @@ func (d *dd) Configure(_ context.Context, creds mcp.Credentials) error {
 	d.site = creds["site"]
 
 	cfg := datadog.NewConfiguration()
-	cfg.SetUnstableOperationEnabled("v2.ListIncidents", true)
-	cfg.SetUnstableOperationEnabled("v2.GetIncident", true)
-	cfg.SetUnstableOperationEnabled("v2.CreateIncident", true)
-	cfg.SetUnstableOperationEnabled("v2.UpdateIncident", true)
-	cfg.SetUnstableOperationEnabled("v2.SearchIncidents", true)
-	cfg.SetUnstableOperationEnabled("v2.ListIncidentAttachments", true)
-	cfg.SetUnstableOperationEnabled("v2.ListIncidentTodos", true)
-	cfg.SetUnstableOperationEnabled("v2.ListIncidentServices", true)
-	cfg.SetUnstableOperationEnabled("v2.GetIncidentService", true)
-	cfg.SetUnstableOperationEnabled("v2.CreateIncidentService", true)
-	cfg.SetUnstableOperationEnabled("v2.UpdateIncidentService", true)
-	cfg.SetUnstableOperationEnabled("v2.DeleteIncidentService", true)
-	cfg.SetUnstableOperationEnabled("v2.ListIncidentTeams", true)
-	cfg.SetUnstableOperationEnabled("v2.GetIncidentTeam", true)
-	cfg.SetUnstableOperationEnabled("v2.CreateIncidentTeam", true)
-	cfg.SetUnstableOperationEnabled("v2.UpdateIncidentTeam", true)
-	cfg.SetUnstableOperationEnabled("v2.DeleteIncidentTeam", true)
+	enableUnstableOperations(cfg)
 	d.client = datadog.NewAPIClient(cfg)
 	return nil
 }
@@ -143,6 +127,42 @@ func parseTime(s string, fallback time.Duration) time.Time {
 	return time.Now().Add(fallback)
 }
 
+// unstableOperations lists the SDK operations Datadog still marks unstable.
+// The SDK refuses to call them unless each one is enabled explicitly.
+var unstableOperations = []string{
+	"v2.ListIncidents",
+	"v2.GetIncident",
+	"v2.CreateIncident",
+	"v2.UpdateIncident",
+	"v2.SearchIncidents",
+	"v2.ListIncidentAttachments",
+	"v2.ListIncidentTodos",
+	"v2.GetIncidentTodo",
+	"v2.CreateIncidentTodo",
+	"v2.UpdateIncidentTodo",
+	"v2.DeleteIncidentTodo",
+	"v2.ListIncidentIntegrations",
+	"v2.GetIncidentIntegration",
+	"v2.CreateIncidentAttachment",
+	"v2.ListIncidentTypes",
+	"v2.ListIncidentServices",
+	"v2.GetIncidentService",
+	"v2.CreateIncidentService",
+	"v2.UpdateIncidentService",
+	"v2.DeleteIncidentService",
+	"v2.ListIncidentTeams",
+	"v2.GetIncidentTeam",
+	"v2.CreateIncidentTeam",
+	"v2.UpdateIncidentTeam",
+	"v2.DeleteIncidentTeam",
+}
+
+func enableUnstableOperations(cfg *datadog.Configuration) {
+	for _, op := range unstableOperations {
+		cfg.SetUnstableOperationEnabled(op, true)
+	}
+}
+
 type handlerFunc func(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error)
 
 var dispatch = map[mcp.ToolName]handlerFunc{
@@ -205,13 +225,34 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("datadog_cancel_downtime"): cancelDowntime,
 
 	// Incidents
-	mcp.ToolName("datadog_list_incidents"):            listIncidents,
-	mcp.ToolName("datadog_search_incidents"):          searchIncidents,
-	mcp.ToolName("datadog_get_incident"):              getIncident,
-	mcp.ToolName("datadog_create_incident"):           createIncident,
-	mcp.ToolName("datadog_update_incident"):           updateIncident,
-	mcp.ToolName("datadog_list_incident_attachments"): listIncidentAttachments,
-	mcp.ToolName("datadog_list_incident_todos"):       listIncidentTodos,
+	mcp.ToolName("datadog_list_incidents"):             listIncidents,
+	mcp.ToolName("datadog_search_incidents"):           searchIncidents,
+	mcp.ToolName("datadog_get_incident"):               getIncident,
+	mcp.ToolName("datadog_create_incident"):            createIncident,
+	mcp.ToolName("datadog_update_incident"):            updateIncident,
+	mcp.ToolName("datadog_list_incident_attachments"):  listIncidentAttachments,
+	mcp.ToolName("datadog_list_incident_todos"):        listIncidentTodos,
+	mcp.ToolName("datadog_get_incident_todo"):          getIncidentTodo,
+	mcp.ToolName("datadog_create_incident_todo"):       createIncidentTodo,
+	mcp.ToolName("datadog_update_incident_todo"):       updateIncidentTodo,
+	mcp.ToolName("datadog_delete_incident_todo"):       deleteIncidentTodo,
+	mcp.ToolName("datadog_list_incident_integrations"): listIncidentIntegrations,
+	mcp.ToolName("datadog_get_incident_integration"):   getIncidentIntegration,
+	mcp.ToolName("datadog_list_incident_impacts"):      listIncidentImpacts,
+	mcp.ToolName("datadog_create_incident_impact"):     createIncidentImpact,
+	mcp.ToolName("datadog_create_incident_attachment"): createIncidentAttachment,
+	mcp.ToolName("datadog_list_incident_types"):        listIncidentTypes,
+
+	// Status Pages
+	mcp.ToolName("datadog_list_status_pages"):              listStatusPages,
+	mcp.ToolName("datadog_get_status_page"):                getStatusPage,
+	mcp.ToolName("datadog_list_status_page_components"):    listStatusPageComponents,
+	mcp.ToolName("datadog_get_status_page_component"):      getStatusPageComponent,
+	mcp.ToolName("datadog_list_status_page_degradations"):  listStatusPageDegradations,
+	mcp.ToolName("datadog_get_status_page_degradation"):    getStatusPageDegradation,
+	mcp.ToolName("datadog_create_status_page_degradation"): createStatusPageDegradation,
+	mcp.ToolName("datadog_update_status_page_degradation"): updateStatusPageDegradation,
+	mcp.ToolName("datadog_delete_status_page_degradation"): deleteStatusPageDegradation,
 
 	// Incident Services
 	mcp.ToolName("datadog_list_incident_services"):  listIncidentServices,
