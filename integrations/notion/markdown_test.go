@@ -1,11 +1,12 @@
 package notion
 
 import (
-	"encoding/json"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/markdown"
+	"github.com/ohler55/ojg/alt"
+	"github.com/ohler55/ojg/gen"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,8 +44,28 @@ func TestRichTextToMarkdown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := richTextToMarkdown(tt.input)
+			got := richTextToMarkdown(alt.Generify(tt.input).(gen.Array))
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestViewRenderersIgnoreWrongScalarTypes(t *testing.T) {
+	tests := []struct {
+		name, input, absent string
+		render              func(gen.Node) ([]byte, error)
+	}{
+		{"type", `{"results":[{"type":true}]}`, "true", renderSearchTitlesMD},
+		{"highlight", `{"results":[{"highlight":{"text":false}}]}`, "false", renderSearchTitlesMD},
+		{"timestamp", `{"results":[{"last_edited_time":"1700000000000"}]}`, "2023-", renderQuerySummaryMD},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value, err := mcp.ParseJSONValue([]byte(tt.input))
+			require.NoError(t, err)
+			out, err := tt.render(value)
+			require.NoError(t, err)
+			assert.NotContains(t, string(out), tt.absent)
 		})
 	}
 }
@@ -237,8 +258,8 @@ func TestRenderMarkdown_EndToEnd(t *testing.T) {
 
 	t.Run("page content via view bridge", func(t *testing.T) {
 		data := []byte(`{"page":{"id":"p1","type":"page","properties":{"title":[["Test"]]},"last_edited_time":1700000000000},"blocks":[{"id":"b1","type":"text","properties":{"title":[["Hello"]]}}]}`)
-		var parsed any
-		require.NoError(t, json.Unmarshal(data, &parsed))
+		parsed, err := mcp.ParseJSONValue(data)
+		require.NoError(t, err)
 		md, err := renderFullPageContentMD(parsed)
 		require.NoError(t, err)
 		assert.Contains(t, string(md), "<!-- notion:page_id=p1 -->")
@@ -248,8 +269,8 @@ func TestRenderMarkdown_EndToEnd(t *testing.T) {
 
 	t.Run("comments via view bridge", func(t *testing.T) {
 		data := []byte(`{"results":[{"discussion":{"resolved":false},"comments":[{"created_by_id":"alice","created_time":1700000000000,"text":[["Nice work!"]]}]}]}`)
-		var parsed any
-		require.NoError(t, json.Unmarshal(data, &parsed))
+		parsed, err := mcp.ParseJSONValue(data)
+		require.NoError(t, err)
 		md, err := renderFullCommentsMD(parsed)
 		require.NoError(t, err)
 		assert.Contains(t, string(md), "## Comments")

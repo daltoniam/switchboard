@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/ohler55/ojg/gen"
 
 	"github.com/daltoniam/switchboard/compact"
 )
@@ -492,7 +493,7 @@ tools:
 func TestLoad_MultiView_CustomRendererResolves(t *testing.T) {
 	// Adapter provides a custom renderer for (tool, view, format) — load succeeds.
 	customCalled := false
-	customRenderer := func(projected any) ([]byte, error) {
+	customRenderer := func(projected gen.Node) ([]byte, error) {
 		customCalled = true
 		return []byte("custom"), nil
 	}
@@ -548,7 +549,7 @@ tools:
 	}
 	r := res.Views[mcp.ToolName("t")].Renderers["v"][compact.FormatJSON]
 
-	got, err := r(map[string]any{"k": "v"})
+	got, err := r(gen.Object{"k": gen.String("v")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -574,17 +575,26 @@ tools:
 
 	cases := []struct {
 		name     string
-		input    any
+		input    string
 		contains string
 	}{
-		{"flat map gets definition list", map[string]any{"title": "Foo"}, "- **title**: Foo"},
-		{"array of homogeneous maps becomes table", []any{map[string]any{"a": "1"}, map[string]any{"a": "2"}}, "| a |"},
-		{"empty array", []any{}, "_(empty)_"},
-		{"nil value", nil, "_(none)_"},
+		{"flat map gets definition list", `{"title":"Foo"}`, "- **title**: Foo"},
+		{"array of homogeneous maps becomes table", `[{"a":"1"},{"a":"2"}]`, "| a |"},
+		{"empty array", `[]`, "_(empty)_"},
+		{"nil value", `null`, "_(none)_"},
+		{"large integer scalar", `18446744073709551615`, "18446744073709551615"},
+		{"large integer list", `[18446744073709551615]`, "- 18446744073709551615"},
+		{"large integer table", `[{"id":18446744073709551615}]`, "| 18446744073709551615 |"},
+		{"precise decimal", `1.234567890123456789`, "1.234567890123456789"},
+		{"underflow", `1e-1000000000`, "1e-1000000000"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			out, err := r(tc.input)
+			value, err := mcp.ParseJSONValue([]byte(tc.input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err := r(value)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -593,6 +603,15 @@ tools:
 			}
 		})
 	}
+	t.Run("number outside float64 range", func(t *testing.T) {
+		out, err := r(gen.Big("1e400"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(out) != "1e400\n" {
+			t.Errorf("expected original number text, got: %s", out)
+		}
+	})
 }
 
 func TestLoadWithOverlay_MultiView_WholeToolReplacement(t *testing.T) {

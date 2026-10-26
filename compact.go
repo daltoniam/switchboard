@@ -2,11 +2,18 @@ package mcp
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"fmt"
+	"maps"
 	"path"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
+
+	"github.com/ohler55/ojg/gen"
+	"github.com/shopspring/decimal"
 )
 
 // CompactField is a parsed field compaction spec — parse once via ParseCompactSpecs,
@@ -33,6 +40,94 @@ type fieldPlan struct {
 	excludes     map[string]bool           // top-level keys to exclude (exact match)
 	globExcludes []string                  // glob patterns to exclude (e.g. "*_url")
 	hasIncludes  bool                      // true if any non-exclude specs exist
+}
+
+type columnarResult[T any] struct {
+	columns   []string
+	rows      [][]T
+	constants map[string]T
+}
+
+type JSONOptions struct {
+	Fields   []CompactField
+	Columnar bool
+}
+
+type jsonValue struct {
+	gen.Node
+	columnar bool
+}
+
+var jsonNodeUnmarshalers = jsonv2.UnmarshalFromFunc(func(dec *jsontext.Decoder, value *gen.Node) error {
+	node, err := readJSONNode(dec)
+	*value = node
+	return err
+})
+
+// CompactJSON applies field compaction to JSON bytes.
+// Parses once and encodes the projected value. See CompactAny for field semantics.
+func CompactJSON(data []byte, fields []CompactField) ([]byte, error) {
+	if len(data) == 0 || len(fields) == 0 {
+		return data, nil
+	}
+	parsed, err := ParseJSONValue(data)
+	if err != nil {
+		return nil, fmt.Errorf("compactJSON: %w", err)
+	}
+	return EncodeJSONValue(parsed, JSONOptions{Fields: fields})
+}
+
+// ColumnarizeJSON converts arrays of objects in JSON to columnar format.
+// Parses once and encodes the columnar value. See ColumnarizeAny for semantics.
+// Returns data unchanged if parsing or reshaping fails — columnarization is best-effort.
+func ColumnarizeJSON(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return data, nil
+	}
+	parsed, err := ParseJSONValue(data)
+	if err != nil {
+		return data, nil
+	}
+	result, err := EncodeJSONValue(parsed, JSONOptions{Columnar: true})
+	if err != nil {
+		return data, nil
+	}
+	return result, nil
+}
+
+func EncodeJSONValue(value gen.Node, options JSONOptions) ([]byte, error) {
+	projected := CompactValue(value, options.Fields)
+	return jsonv2.Marshal(jsonValue{Node: projected, columnar: options.Columnar}, json.DefaultOptionsV1())
+}
+
+func CompactValue(value gen.Node, fields []CompactField) gen.Node {
+	unchanged := value == nil || len(fields) == 0
+	if unchanged {
+		return value
+	}
+	plan := buildFieldPlan(fields)
+	switch data := value.(type) {
+	case gen.Object:
+		return compactTypedObject(data, fields, plan)
+	case gen.Array:
+		return compactTypedArray(data, fields, plan)
+	default:
+		return value
+	}
+}
+
+func projectObjects(obj, out gen.Object, plan *fieldPlan) {
+	for root := range plan.objectGroups {
+		parent, ok := obj[root].(gen.Object)
+		if !ok {
+			continue
+		}
+		children := plan.childPlans[root]
+		sub := compactTypedObject(parent, children, buildFieldPlan(children))
+		if len(sub) > 0 {
+			out[root] = sub
+		}
+	}
 }
 
 // buildFieldPlan pre-computes groupings from a slice of CompactFields.
@@ -322,19 +417,6 @@ func CompactAny(v any, fields []CompactField) any {
 	}
 }
 
-// CompactJSON applies field compaction to JSON bytes.
-// Thin wrapper: unmarshal → CompactAny → marshal. See CompactAny for field semantics.
-func CompactJSON(data []byte, fields []CompactField) ([]byte, error) {
-	if len(data) == 0 || len(fields) == 0 {
-		return data, nil
-	}
-	var parsed any
-	if err := json.Unmarshal(data, &parsed); err != nil {
-		return nil, fmt.Errorf("compactJSON: %w", err)
-	}
-	return json.Marshal(CompactAny(parsed, fields))
-}
-
 // compactObject keeps only the specified fields from an unmarshalled object.
 // Uses pre-computed fieldPlan for groupings, avoiding per-object re-computation.
 // When only exclusion specs exist, copies all keys except excluded ones.
@@ -460,12 +542,23 @@ func compactSubObject(obj map[string]any, root string, _ []CompactField, childFi
 // that eliminating key repetition genuinely helps LLM scanning.
 const columnarMinItems = 8
 
+func writeJSONArrayLayout(enc *jsontext.Encoder, array gen.Array, columnar bool) error {
+	if columnar {
+		if objects, ok := columnarObjects(array); ok {
+			result := columnarObject(buildColumnar(objects, sameJSONValue))
+			const nestedColumnar = false
+			return writeJSONObject(enc, result, nestedColumnar)
+		}
+	}
+	return writeJSONArray(enc, array)
+}
+
 // buildColumnar converts a slice of objects into columnar format:
 // {"columns": [sorted keys], "rows": [[val, ...], ...], "constants": {key: val, ...}}.
 // Missing keys produce nil (JSON null) in the corresponding cell.
-// Columns where every row has the same value (by reflect.DeepEqual) are lifted
+// Columns whose values compare equal across every row are lifted
 // into a "constants" map and removed from columns/rows.
-func buildColumnar(objects []map[string]any) map[string]any {
+func buildColumnar[T any](objects []map[string]T, equal func(T, T) bool) columnarResult[T] {
 	seen := make(map[string]bool)
 	for _, o := range objects {
 		for k := range o {
@@ -479,9 +572,10 @@ func buildColumnar(objects []map[string]any) map[string]any {
 
 	// Count non-null values per column for density ordering.
 	density := make(map[string]int, len(allCols))
+	var zero T
 	for _, o := range objects {
 		for _, c := range allCols {
-			if o[c] != nil {
+			if !equal(o[c], zero) {
 				density[c]++
 			}
 		}
@@ -497,9 +591,9 @@ func buildColumnar(objects []map[string]any) map[string]any {
 	})
 
 	// Build full rows first, then scan for constant columns.
-	fullRows := make([][]any, len(objects))
+	fullRows := make([][]T, len(objects))
 	for i, o := range objects {
-		row := make([]any, len(allCols))
+		row := make([]T, len(allCols))
 		for j, c := range allCols {
 			row[j] = o[c]
 		}
@@ -507,13 +601,13 @@ func buildColumnar(objects []map[string]any) map[string]any {
 	}
 
 	// Detect constant columns: every row has the same value.
-	constants := map[string]any{}
+	constants := map[string]T{}
 	constantIdx := make(map[int]bool)
 	for j, col := range allCols {
 		first := fullRows[0][j]
 		uniform := true
 		for i := 1; i < len(fullRows); i++ {
-			if !reflect.DeepEqual(first, fullRows[i][j]) {
+			if !equal(first, fullRows[i][j]) {
 				uniform = false
 				break
 			}
@@ -525,7 +619,7 @@ func buildColumnar(objects []map[string]any) map[string]any {
 	}
 
 	if len(constants) == 0 {
-		return map[string]any{"columns": allCols, "rows": fullRows}
+		return columnarResult[T]{columns: allCols, rows: fullRows}
 	}
 
 	// Build final columns/rows without constants.
@@ -536,9 +630,9 @@ func buildColumnar(objects []map[string]any) map[string]any {
 		}
 	}
 
-	rows := make([][]any, len(objects))
+	rows := make([][]T, len(objects))
 	for i, fullRow := range fullRows {
-		row := make([]any, 0, len(cols))
+		row := make([]T, 0, len(cols))
 		for j, val := range fullRow {
 			if !constantIdx[j] {
 				row = append(row, val)
@@ -547,11 +641,7 @@ func buildColumnar(objects []map[string]any) map[string]any {
 		rows[i] = row
 	}
 
-	result := map[string]any{"columns": cols, "rows": rows}
-	if len(constants) > 0 {
-		result["constants"] = constants
-	}
-	return result
+	return columnarResult[T]{columns: cols, rows: rows, constants: constants}
 }
 
 // columnarizeNestedArrays walks a compacted object and converts any nested
@@ -579,7 +669,7 @@ func columnarizeNestedArrays(obj map[string]any) {
 			if objects == nil {
 				continue
 			}
-			obj[key] = buildColumnar(objects)
+			obj[key] = buildColumnar(objects, reflect.DeepEqual).asMap()
 		}
 	}
 }
@@ -605,28 +695,18 @@ func ColumnarizeAny(v any) any {
 			}
 			objects = append(objects, m)
 		}
-		return buildColumnar(objects)
+		return buildColumnar(objects, reflect.DeepEqual).asMap()
 	default:
 		return v
 	}
 }
 
-// ColumnarizeJSON converts arrays of objects in JSON to columnar format.
-// Thin wrapper: unmarshal → ColumnarizeAny → marshal. See ColumnarizeAny for semantics.
-// Returns data unchanged if parsing or reshaping fails — columnarization is best-effort.
-func ColumnarizeJSON(data []byte) ([]byte, error) {
-	if len(data) == 0 {
-		return data, nil
+func (r columnarResult[T]) asMap() map[string]any {
+	result := map[string]any{"columns": r.columns, "rows": r.rows}
+	if len(r.constants) > 0 {
+		result["constants"] = r.constants
 	}
-	var parsed any
-	if err := json.Unmarshal(data, &parsed); err != nil {
-		return data, nil
-	}
-	result, err := json.Marshal(ColumnarizeAny(parsed))
-	if err != nil {
-		return data, nil
-	}
-	return result, nil
+	return result
 }
 
 // extractField dispatches to the right extraction strategy based on the spec shape.
@@ -807,16 +887,6 @@ func extractChildValue(obj map[string]any, childPath []string) (string, any, boo
 	return childPath[len(childPath)-1], val, ok
 }
 
-// hasNestedArray reports whether a child path contains a [] segment.
-func hasNestedArray(childPath []string) bool {
-	for _, p := range childPath {
-		if strings.HasSuffix(p, "[]") {
-			return true
-		}
-	}
-	return false
-}
-
 // navigateToLeaf walks a dot-path through nested JSON objects to the leaf value.
 func navigateToLeaf(obj map[string]any, path []string) (any, bool) {
 	current := obj
@@ -834,4 +904,441 @@ func navigateToLeaf(obj map[string]any, path []string) (any, bool) {
 
 	val, ok := current[path[len(path)-1]]
 	return val, ok
+}
+
+func ParseJSONValue(data []byte) (gen.Node, error) {
+	var value jsonValue
+	err := jsonv2.Unmarshal(data, &value, json.DefaultOptionsV1())
+	return value.Node, err
+}
+
+func UnmarshalJSON[T any](data []byte, target *T) error {
+	return jsonv2.Unmarshal(data, target, json.DefaultOptionsV1(), jsonv2.WithUnmarshalers(jsonNodeUnmarshalers))
+}
+
+func (v *jsonValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	node, err := readJSONNode(dec)
+	v.Node = node
+	return err
+}
+
+func readJSONNode(dec *jsontext.Decoder) (gen.Node, error) {
+	token, err := dec.ReadToken()
+	if err != nil {
+		return nil, err
+	}
+	switch token.Kind() {
+	case '{':
+		return readJSONObject(dec)
+	case '[':
+		return readJSONArray(dec)
+	default:
+		return readJSONScalar(token)
+	}
+}
+
+func readJSONScalar(token jsontext.Token) (gen.Node, error) {
+	switch token.Kind() {
+	case 'n':
+		return nil, nil
+	case 't', 'f':
+		return gen.Bool(token.Bool()), nil
+	case '"':
+		return gen.String(token.String()), nil
+	case '0':
+		if _, err := token.Float(); err != nil {
+			return nil, err
+		}
+		return gen.Big(token.String()), nil
+	default:
+		return nil, fmt.Errorf("unexpected JSON token %s", token.Kind())
+	}
+}
+
+func readJSONObject(dec *jsontext.Decoder) (gen.Object, error) {
+	object := make(gen.Object)
+	for dec.PeekKind() != '}' {
+		name, err := dec.ReadToken()
+		if err != nil {
+			return nil, err
+		}
+		key := name.String()
+		value, err := readJSONNode(dec)
+		if err != nil {
+			return nil, err
+		}
+		object[key] = value
+	}
+	_, err := dec.ReadToken()
+	return object, err
+}
+
+func readJSONArray(dec *jsontext.Decoder) (gen.Array, error) {
+	array := make(gen.Array, 0)
+	for dec.PeekKind() != ']' {
+		value, err := readJSONNode(dec)
+		if err != nil {
+			return nil, err
+		}
+		array = append(array, value)
+	}
+	_, err := dec.ReadToken()
+	return array, err
+}
+
+func MarshalJSONValue(value gen.Node) ([]byte, error) {
+	return jsonv2.Marshal(jsonValue{Node: value}, json.DefaultOptionsV1())
+}
+
+func (v jsonValue) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return writeJSONNode(enc, v.Node, v.columnar)
+}
+
+func writeJSONNode(enc *jsontext.Encoder, node gen.Node, columnar bool) error {
+	switch value := node.(type) {
+	case gen.Object:
+		return writeJSONObject(enc, value, columnar)
+	case gen.Array:
+		return writeJSONArrayLayout(enc, value, columnar)
+	case gen.Big:
+		return enc.WriteValue(jsontext.Value(value))
+	case gen.Float:
+		return jsonv2.MarshalEncode(enc, float64(value))
+	default:
+		token, err := jsonScalarToken(node)
+		if err != nil {
+			return err
+		}
+		return enc.WriteToken(token)
+	}
+}
+
+func jsonScalarToken(node gen.Node) (jsontext.Token, error) {
+	switch value := node.(type) {
+	case nil:
+		return jsontext.Null, nil
+	case gen.String:
+		return jsontext.String(string(value)), nil
+	case gen.Bool:
+		return jsontext.Bool(bool(value)), nil
+	case gen.Int:
+		return jsontext.Int(int64(value)), nil
+	default:
+		return jsontext.Token{}, fmt.Errorf("unsupported JSON node %T", node)
+	}
+}
+
+func writeJSONObject(enc *jsontext.Encoder, object gen.Object, columnar bool) error {
+	if err := enc.WriteToken(jsontext.BeginObject); err != nil {
+		return err
+	}
+	keys := slices.Sorted(maps.Keys(object))
+	for _, key := range keys {
+		if err := enc.WriteToken(jsontext.String(key)); err != nil {
+			return err
+		}
+		if err := writeJSONNode(enc, object[key], columnar); err != nil {
+			return err
+		}
+	}
+	return enc.WriteToken(jsontext.EndObject)
+}
+
+func writeJSONArray(enc *jsontext.Encoder, array gen.Array) error {
+	if err := enc.WriteToken(jsontext.BeginArray); err != nil {
+		return err
+	}
+	const columnar = false
+	for _, value := range array {
+		if err := writeJSONNode(enc, value, columnar); err != nil {
+			return err
+		}
+	}
+	return enc.WriteToken(jsontext.EndArray)
+}
+
+func columnarObjects(array gen.Array) ([]map[string]gen.Node, bool) {
+	if len(array) < columnarMinItems {
+		return nil, false
+	}
+	objects := make([]map[string]gen.Node, 0, len(array))
+	for _, value := range array {
+		object, ok := value.(gen.Object)
+		if !ok {
+			return nil, false
+		}
+		objects = append(objects, object)
+	}
+	return objects, true
+}
+
+func columnarObject(result columnarResult[gen.Node]) gen.Object {
+	columns := make(gen.Array, len(result.columns))
+	for i, key := range result.columns {
+		columns[i] = gen.String(key)
+	}
+	rows := make(gen.Array, len(result.rows))
+	for i, row := range result.rows {
+		rows[i] = gen.Array(row)
+	}
+	object := gen.Object{"columns": columns, "rows": rows}
+	if len(result.constants) > 0 {
+		object["constants"] = gen.Object(result.constants)
+	}
+	return object
+}
+
+func sameJSONValue(a, b gen.Node) bool {
+	switch value := a.(type) {
+	case gen.Object:
+		other, ok := b.(gen.Object)
+		return ok && maps.EqualFunc(value, other, sameJSONValue)
+	case gen.Array:
+		other, ok := b.(gen.Array)
+		return ok && slices.EqualFunc(value, other, sameJSONValue)
+	case gen.Big, gen.Int, gen.Float:
+		if !jsonNumberNode(b) {
+			return false
+		}
+		return sameJSONNumber(a.String(), b.String())
+	default:
+		return reflect.DeepEqual(a, b)
+	}
+}
+
+func jsonNumberNode(node gen.Node) bool {
+	switch node.(type) {
+	case gen.Big, gen.Int, gen.Float:
+		return true
+	default:
+		return false
+	}
+}
+
+func sameJSONNumber(a, b string) bool {
+	if a == b {
+		return true
+	}
+	left, leftErr := decimal.NewFromString(a)
+	right, rightErr := decimal.NewFromString(b)
+	valid := leftErr == nil && rightErr == nil
+	if !valid {
+		return false
+	}
+	return equalJSONDecimals(left, right)
+}
+
+func equalJSONDecimals(a, b decimal.Decimal) bool {
+	zero := a.IsZero() || b.IsZero()
+	if zero {
+		bothZero := a.IsZero() && b.IsZero()
+		return bothZero
+	}
+	leftMagnitude := int64(a.NumDigits()) + int64(a.Exponent())
+	rightMagnitude := int64(b.NumDigits()) + int64(b.Exponent())
+	if leftMagnitude != rightMagnitude {
+		return false
+	}
+	return a.Equal(b)
+}
+
+func compactTypedArray(array gen.Array, fields []CompactField, plan *fieldPlan) gen.Array {
+	result := make(gen.Array, len(array))
+	for i, value := range array {
+		object, ok := value.(gen.Object)
+		if !ok {
+			result[i] = value
+			continue
+		}
+		result[i] = compactTypedObject(object, fields, plan)
+	}
+	return result
+}
+
+func compactTypedObject(obj gen.Object, fields []CompactField, plan *fieldPlan) gen.Object {
+	if !plan.hasIncludes {
+		return excludedObject(obj, plan)
+	}
+	out := make(gen.Object, len(fields))
+	projectScalars(obj, out, plan)
+	projectObjects(obj, out, plan)
+	projectArrays(obj, out, plan)
+	for key := range out {
+		if plan.isExcluded(key) {
+			delete(out, key)
+		}
+	}
+	return out
+}
+
+func excludedObject(obj gen.Object, plan *fieldPlan) gen.Object {
+	out := make(gen.Object, len(obj))
+	for key, value := range obj {
+		keep := !plan.isExcluded(key) && !emptyTypedValue(value)
+		if keep {
+			out[key] = value
+		}
+	}
+	return out
+}
+
+func projectScalars(obj, out gen.Object, plan *fieldPlan) {
+	for _, field := range plan.scalars {
+		value, ok := extractTypedField(obj, field)
+		keep := ok && !emptyTypedValue(value)
+		if keep {
+			out[field.outputKey] = value
+		}
+	}
+}
+
+func projectArrays(obj, out gen.Object, plan *fieldPlan) {
+	for key, group := range plan.arrayGroups {
+		value, ok := extractTypedArrayGroup(obj, group)
+		if !ok {
+			continue
+		}
+		root := group[0].objectRoot
+		if root == "" {
+			out[key] = value
+			continue
+		}
+		parent, _ := out[root].(gen.Object)
+		if parent == nil {
+			parent = make(gen.Object)
+		}
+		parent[group[0].arrayKey] = value
+		out[root] = parent
+	}
+}
+
+func extractTypedField(obj gen.Object, field CompactField) (gen.Node, bool) {
+	direct := field.wildcard || len(field.path) == 1
+	if direct {
+		value, ok := obj[field.path[0]]
+		return value, ok
+	}
+	if field.arrayIdx >= 0 {
+		return extractTypedArrayGroup(obj, []CompactField{field})
+	}
+	if value, ok := obj[field.outputKey]; ok {
+		return value, true
+	}
+	return navigateTypedLeaf(obj, field.path)
+}
+
+func extractTypedArrayGroup(obj gen.Object, fields []CompactField) (gen.Node, bool) {
+	field := fields[0]
+	path := append([]string(nil), field.path[:field.arrayIdx]...)
+	path = append(path, field.arrayKey)
+	value, ok := navigateTypedLeaf(obj, path)
+	items, array := value.(gen.Array)
+	arrayFound := ok && array
+	if !arrayFound {
+		return nil, false
+	}
+	pluck := len(fields) == 1 && !hasNestedArray(field.childPath)
+	if pluck {
+		return pluckTypedArray(items, field.childPath), true
+	}
+	return projectArrayItems(items, fields), true
+}
+
+func projectArrayItems(items gen.Array, fields []CompactField) gen.Node {
+	result := make(gen.Array, 0, len(items))
+	for _, item := range items {
+		object, ok := item.(gen.Object)
+		if !ok {
+			result = append(result, item)
+			continue
+		}
+		sub := projectArrayObject(object, fields)
+		if len(sub) > 0 {
+			result = append(result, sub)
+		}
+	}
+	return result
+}
+
+func projectArrayObject(object gen.Object, fields []CompactField) gen.Object {
+	sub := make(gen.Object, len(fields))
+	for _, child := range fields {
+		key, value, ok := extractTypedChild(object, child.childPath)
+		keep := ok && !emptyTypedValue(value)
+		if keep {
+			sub[key] = value
+		}
+	}
+	return sub
+}
+
+func extractTypedChild(obj gen.Object, path []string) (string, gen.Node, bool) {
+	for i, key := range path {
+		if !strings.HasSuffix(key, "[]") {
+			continue
+		}
+		key = strings.TrimSuffix(key, "[]")
+		parentPath := append([]string(nil), path[:i]...)
+		parentPath = append(parentPath, key)
+		value, ok := navigateTypedLeaf(obj, parentPath)
+		items, array := value.(gen.Array)
+		arrayFound := ok && array
+		if !arrayFound {
+			return "", nil, false
+		}
+		return key, pluckTypedArray(items, path[i+1:]), true
+	}
+	value, ok := navigateTypedLeaf(obj, path)
+	return path[len(path)-1], value, ok
+}
+
+func emptyTypedValue(value gen.Node) bool {
+	switch data := value.(type) {
+	case nil:
+		return true
+	case gen.Object:
+		return len(data) == 0
+	case gen.Array:
+		return len(data) == 0
+	default:
+		return false
+	}
+}
+
+func pluckTypedArray(items gen.Array, path []string) gen.Node {
+	result := make(gen.Array, 0, len(items))
+	for _, item := range items {
+		object, ok := item.(gen.Object)
+		if !ok {
+			result = append(result, item)
+			continue
+		}
+		value, ok := navigateTypedLeaf(object, path)
+		if ok {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+func navigateTypedLeaf(obj gen.Object, path []string) (gen.Node, bool) {
+	for _, key := range path[:len(path)-1] {
+		value, ok := obj[key].(gen.Object)
+		if !ok {
+			return nil, false
+		}
+		obj = value
+	}
+	value, ok := obj[path[len(path)-1]]
+	return value, ok
+}
+
+// hasNestedArray reports whether a child path contains a [] segment.
+func hasNestedArray(childPath []string) bool {
+	for _, p := range childPath {
+		if strings.HasSuffix(p, "[]") {
+			return true
+		}
+	}
+	return false
 }

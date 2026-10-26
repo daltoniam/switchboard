@@ -3,6 +3,8 @@ package compact
 import (
 	"fmt"
 
+	"github.com/ohler55/ojg/gen"
+
 	mcp "github.com/daltoniam/switchboard"
 )
 
@@ -104,10 +106,10 @@ type RenderKey struct {
 	Format Format
 }
 
-// Renderer turns a projected Go value (whatever survived the view's spec)
+// Renderer turns a projected JSON value (whatever survived the view's spec)
 // into bytes in the target format. Returning an error fails the dispatch
 // and bubbles up as an error envelope to the LLM.
-type Renderer func(projected any) ([]byte, error)
+type Renderer func(projected gen.Node) ([]byte, error)
 
 // ToolViewsIntegration is the opt-in interface adapters implement when a
 // tool exposes multiple views. The server pipeline calls Views() with the
