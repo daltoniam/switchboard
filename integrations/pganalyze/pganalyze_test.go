@@ -232,15 +232,15 @@ func newTestPganalyze(t *testing.T) (*pganalyze, *httptest.Server) {
 		mcpURL: ts.URL,
 		client: ts.Client(),
 	}
-	p.startProxy(context.Background())
-	require.NotNil(t, p.proxy, "proxy should be initialized")
+	_, err := p.ensureProxy(context.Background())
+	require.NoError(t, err, "proxy should be initialized")
 	return p, ts
 }
 
 func TestProxy_Initialize(t *testing.T) {
 	p, _ := newTestPganalyze(t)
 	assert.NotNil(t, p.proxy)
-	assert.True(t, p.started)
+	assert.NoError(t, p.initErr)
 }
 
 func TestProxy_FetchTools(t *testing.T) {
@@ -428,5 +428,5 @@ func TestTools_StaticToolsNoDuplicates(t *testing.T) {
 }
 
 func TestTools_StaticToolsCount(t *testing.T) {
-	assert.Equal(t, 20, len(staticTools), "expected 20 tools matching pganalyze MCP server")
+	assert.Equal(t, 30, len(staticTools), "expected 30 tools matching pganalyze MCP server")
 }
