@@ -471,6 +471,12 @@ make compose-status
 make compose-down
 ```
 
+## Contact
+
+### Dalton Cherry
+* https://github.com/daltoniam
+* https://x.com/daltoniam
+
 ## License
 
 Switchboard is source-available under the [Elastic License 2.0](LICENSE).
