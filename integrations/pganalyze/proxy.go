@@ -1,11 +1,13 @@
 package pganalyze
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"sync"
@@ -16,12 +18,13 @@ import (
 
 // proxyClient manages communication with the pganalyze MCP server over HTTP.
 type proxyClient struct {
-	mu     sync.Mutex
-	mcpURL string
-	apiKey string
-	client *http.Client
-	tools  []proxyToolDef
-	nextID atomic.Int64
+	mu        sync.Mutex
+	mcpURL    string
+	apiKey    string
+	client    *http.Client
+	tools     []proxyToolDef
+	sessionID string
+	nextID    atomic.Int64
 }
 
 type proxyToolDef struct {
@@ -37,9 +40,15 @@ type jsonRPCRequest struct {
 	Params  any    `json:"params,omitempty"`
 }
 
+type jsonRPCNotification struct {
+	JSONRPC string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Params  any    `json:"params,omitempty"`
+}
+
 type jsonRPCResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      int64           `json:"id"`
+	ID      *int64          `json:"id"`
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *jsonRPCError   `json:"error,omitempty"`
 }
@@ -70,8 +79,9 @@ func (p *proxyClient) initialize(ctx context.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	// Send initialized notification (no response expected, but send as request for HTTP).
-	_, _ = p.send(ctx, "notifications/initialized", map[string]any{})
+	if err := p.notify(ctx, "notifications/initialized", map[string]any{}); err != nil {
+		return fmt.Errorf("initialized notification: %w", err)
+	}
 	return nil
 }
 
@@ -95,60 +105,140 @@ func (p *proxyClient) fetchTools(ctx context.Context) error {
 
 func (p *proxyClient) send(ctx context.Context, method string, params any) (json.RawMessage, error) {
 	id := p.nextID.Add(1)
-	req := jsonRPCRequest{
-		JSONRPC: "2.0",
-		ID:      id,
-		Method:  method,
-		Params:  params,
-	}
-
-	body, err := json.Marshal(req)
+	body, err := json.Marshal(jsonRPCRequest{JSONRPC: "2.0", ID: id, Method: method, Params: params})
 	if err != nil {
 		return nil, err
 	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", p.mcpURL, bytes.NewReader(body))
+	resp, respBody, err := p.post(ctx, body)
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
-
-	resp, err := p.client.Do(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
-		re := &mcp.RetryableError{
-			StatusCode: resp.StatusCode,
-			Err:        fmt.Errorf("pganalyze MCP error (%d): %s", resp.StatusCode, string(respBody)),
-		}
-		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
-		return nil, re
-	}
-	if resp.StatusCode == 202 {
+	if resp.StatusCode == http.StatusAccepted {
 		return nil, nil
 	}
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("pganalyze MCP error (%d): %s", resp.StatusCode, string(respBody))
-	}
 
-	var rpcResp jsonRPCResponse
-	if err := json.Unmarshal(respBody, &rpcResp); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
+	rpcResp, err := decodeResponse(resp.Header.Get("Content-Type"), respBody, id)
+	if err != nil {
+		return nil, err
 	}
 	if rpcResp.Error != nil {
 		return nil, fmt.Errorf("MCP error %d: %s", rpcResp.Error.Code, rpcResp.Error.Message)
 	}
 	return rpcResp.Result, nil
+}
+
+// notify sends a JSON-RPC notification, which carries no id and gets no reply.
+func (p *proxyClient) notify(ctx context.Context, method string, params any) error {
+	body, err := json.Marshal(jsonRPCNotification{JSONRPC: "2.0", Method: method, Params: params})
+	if err != nil {
+		return err
+	}
+	_, _, err = p.post(ctx, body)
+	return err
+}
+
+// post performs one Streamable HTTP exchange: it advertises both response
+// encodings, echoes the server-assigned session id, and maps HTTP failures.
+func (p *proxyClient) post(ctx context.Context, body []byte) (*http.Response, []byte, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.mcpURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json, text/event-stream")
+	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+	p.mu.Lock()
+	if p.sessionID != "" {
+		httpReq.Header.Set("Mcp-Session-Id", p.sessionID)
+	}
+	p.mu.Unlock()
+
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+		re := &mcp.RetryableError{
+			StatusCode: resp.StatusCode,
+			Err:        fmt.Errorf("pganalyze MCP error (%d): %s", resp.StatusCode, string(respBody)),
+		}
+		re.RetryAfter = mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))
+		return nil, nil, re
+	}
+	if resp.StatusCode >= 400 {
+		return nil, nil, fmt.Errorf("pganalyze MCP error (%d): %s", resp.StatusCode, string(respBody))
+	}
+
+	if sid := resp.Header.Get("Mcp-Session-Id"); sid != "" {
+		p.mu.Lock()
+		p.sessionID = sid
+		p.mu.Unlock()
+	}
+	return resp, respBody, nil
+}
+
+// decodeResponse extracts the JSON-RPC response for id from either a plain
+// JSON body or a text/event-stream body, skipping interleaved server messages.
+func decodeResponse(contentType string, body []byte, id int64) (*jsonRPCResponse, error) {
+	mediaType, _, _ := mime.ParseMediaType(contentType)
+	if mediaType != "text/event-stream" {
+		var rpcResp jsonRPCResponse
+		if err := json.Unmarshal(body, &rpcResp); err != nil {
+			return nil, fmt.Errorf("parse response: %w", err)
+		}
+		return &rpcResp, nil
+	}
+
+	var data []string
+	var found *jsonRPCResponse
+	flush := func() error {
+		if len(data) == 0 {
+			return nil
+		}
+		payload := strings.Join(data, "\n")
+		data = data[:0]
+		var rpcResp jsonRPCResponse
+		if err := json.Unmarshal([]byte(payload), &rpcResp); err != nil {
+			return fmt.Errorf("parse event-stream message: %w", err)
+		}
+		if rpcResp.ID != nil && *rpcResp.ID == id {
+			found = &rpcResp
+		}
+		return nil
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(body))
+	scanner.Buffer(make([]byte, 0, 64*1024), len(body)+1)
+	for scanner.Scan() && found == nil {
+		line := scanner.Text()
+		switch {
+		case line == "":
+			if err := flush(); err != nil {
+				return nil, err
+			}
+		case strings.HasPrefix(line, "data:"):
+			data = append(data, strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read event stream: %w", err)
+	}
+	if found == nil {
+		if err := flush(); err != nil {
+			return nil, err
+		}
+	}
+	if found == nil {
+		return nil, fmt.Errorf("event stream ended without a response to request %d", id)
+	}
+	return found, nil
 }
 
 func (p *proxyClient) toolDefinitions() []mcp.ToolDefinition {
