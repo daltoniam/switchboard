@@ -126,6 +126,7 @@ jobs:
           source scripts/overload-crush-watchdog.sh
           setsid crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md" &
           crush_pid=$!
+          crush_pgid=$(overload_crush_pgid "$crush_pid")
           started=$(date +%s)
           reason=""
           running() { ps -o stat= -p "$crush_pid" 2>/dev/null | grep -qv '^Z'; }
@@ -143,9 +144,9 @@ jobs:
               fi
             fi
             if [ -n "$reason" ]; then
-              overload_kill_crush_tree "$crush_pid" TERM
+              overload_kill_crush_tree "$crush_pid" TERM "$crush_pgid"
               for _ in $(seq 1 6); do running || break; sleep 5; done
-              overload_kill_crush_tree "$crush_pid" KILL
+              overload_kill_crush_tree "$crush_pid" KILL "$crush_pgid"
               break
             fi
           done

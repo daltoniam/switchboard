@@ -7,14 +7,15 @@ overload_crush_pgid() {
   ps -o pgid= -p "$1" 2>/dev/null | tr -d ' ' || true
 }
 
-# Signal pid's entire process group (Linux: negative PGID). Falls back to pid alone.
+# Signal a process group. pgid is captured at Crush launch; pid is optional fallback.
 overload_kill_crush_tree() {
-  local pid=$1 signal=$2
-  local pgid
-  pgid=$(overload_crush_pgid "$pid")
+  local pid=${1:-} signal=$2 pgid=${3:-}
+  if [ -z "$pgid" ] && [ -n "$pid" ]; then
+    pgid=$(overload_crush_pgid "$pid")
+  fi
   if [ -n "$pgid" ]; then
     kill "-$signal" -- "-$pgid" 2>/dev/null || true
-  else
+  elif [ -n "$pid" ]; then
     kill "-$signal" "$pid" 2>/dev/null || true
   fi
 }
