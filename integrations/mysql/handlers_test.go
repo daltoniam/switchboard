@@ -68,6 +68,18 @@ func TestConfiguredValidation(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestQueryArgsBigIntJSONPrecision(t *testing.T) {
+	const bigInt = int64(9007199254740993)
+	query, params, err := queryArgs(map[string]any{
+		"query":  "SELECT ?",
+		"params": "[9007199254740993]",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "SELECT ?", query)
+	require.Len(t, params, 1)
+	require.Equal(t, bigInt, params[0])
+}
+
 func TestQueryParameters(t *testing.T) {
 	for _, params := range []any{[]any{"value", nil, true, 1.5}, `["value",null,true,1.5]`} {
 		t.Run("array", func(t *testing.T) {

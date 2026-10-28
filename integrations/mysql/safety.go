@@ -132,6 +132,12 @@ func validateQuery(query string) error {
 			}
 			continue
 		}
+		if index > 0 && tokens[index-1].text == "AS" {
+			continue
+		}
+		if token.text == "USING" {
+			continue
+		}
 		if token.text == "IN" || token.text == "EXISTS" || token.text == "OVER" || token.text == "AS" || token.text == "FROM" || token.text == "JOIN" || token.text == "WHERE" || token.text == "AND" || token.text == "OR" || token.text == "NOT" || token.text == "ON" || token.text == "HAVING" || token.text == "SELECT" {
 			continue
 		}

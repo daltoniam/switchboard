@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -85,21 +86,56 @@ func queryArgs(args map[string]any) (string, []any, error) {
 		case []any:
 			params = value
 		case string:
-			if err := json.Unmarshal([]byte(value), &params); err != nil {
+			decoded, err := decodeParamsJSON(value)
+			if err != nil {
 				return "", nil, fmt.Errorf("mysql: params must be a JSON array")
 			}
+			params = decoded
 		default:
 			return "", nil, fmt.Errorf("mysql: params must be a JSON array")
 		}
 	}
-	for _, value := range params {
+	for index, value := range params {
 		switch value.(type) {
 		case nil, string, bool, float64, int, int64, json.Number:
 		default:
 			return "", nil, fmt.Errorf("mysql: params must contain only scalar values")
 		}
+		normalized, err := normalizeQueryParam(value)
+		if err != nil {
+			return "", nil, err
+		}
+		params[index] = normalized
 	}
 	return query, params, nil
+}
+
+func decodeParamsJSON(raw string) ([]any, error) {
+	dec := json.NewDecoder(bytes.NewReader([]byte(raw)))
+	dec.UseNumber()
+	var params []any
+	if err := dec.Decode(&params); err != nil {
+		return nil, err
+	}
+	if dec.More() {
+		return nil, fmt.Errorf("mysql: params must be a JSON array")
+	}
+	return params, nil
+}
+
+func normalizeQueryParam(value any) (any, error) {
+	number, ok := value.(json.Number)
+	if !ok {
+		return value, nil
+	}
+	if integer, err := number.Int64(); err == nil {
+		return integer, nil
+	}
+	decimal, err := number.Float64()
+	if err != nil {
+		return nil, fmt.Errorf("mysql: params must contain only scalar values")
+	}
+	return decimal, nil
 }
 
 func executeQuery(ctx context.Context, db *sql.DB, args map[string]any, limit int) (*mcp.ToolResult, error) {
