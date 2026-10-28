@@ -16,6 +16,8 @@ func TestValidateQuery(t *testing.T) {
 		{"SELECT 'drop table users', 'it''s safe'", true},
 		{"SELECT * FROM users WHERE id IN (SELECT user_id FROM orders)", true},
 		{"SELECT CASE WHEN id > 1 THEN 'yes' ELSE 'no' END FROM users", true},
+		{"SELECT CASE WHEN (1 = 1) THEN 1 ELSE 0 END", true},
+		{"SELECT id FROM t ORDER BY (id)", true},
 		{"SELECT CAST(1 AS DECIMAL(10,2))", true},
 		{"SELECT a.id FROM a JOIN b USING (id)", true},
 		{"SHOW DATABASES", true},

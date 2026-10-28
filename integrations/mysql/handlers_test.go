@@ -80,6 +80,19 @@ func TestQueryArgsBigIntJSONPrecision(t *testing.T) {
 	require.Equal(t, bigInt, params[0])
 }
 
+func TestQueryArgsBigIntUnsignedJSONPrecision(t *testing.T) {
+	const unsigned = "9223372036854775809"
+	query, params, err := queryArgs(map[string]any{
+		"query":  "SELECT ?",
+		"params": "[9223372036854775809]",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "SELECT ?", query)
+	require.Len(t, params, 1)
+	require.Equal(t, unsigned, params[0])
+	require.NotEqual(t, float64(9223372036854775808), params[0])
+}
+
 func TestQueryParameters(t *testing.T) {
 	for _, params := range []any{[]any{"value", nil, true, 1.5}, `["value",null,true,1.5]`} {
 		t.Run("array", func(t *testing.T) {

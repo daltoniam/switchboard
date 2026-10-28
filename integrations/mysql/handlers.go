@@ -128,14 +128,18 @@ func normalizeQueryParam(value any) (any, error) {
 	if !ok {
 		return value, nil
 	}
+	text := number.String()
+	if strings.ContainsAny(text, ".eE") {
+		decimal, err := number.Float64()
+		if err != nil {
+			return nil, fmt.Errorf("mysql: params must contain only scalar values")
+		}
+		return decimal, nil
+	}
 	if integer, err := number.Int64(); err == nil {
 		return integer, nil
 	}
-	decimal, err := number.Float64()
-	if err != nil {
-		return nil, fmt.Errorf("mysql: params must contain only scalar values")
-	}
-	return decimal, nil
+	return text, nil
 }
 
 func executeQuery(ctx context.Context, db *sql.DB, args map[string]any, limit int) (*mcp.ToolResult, error) {
