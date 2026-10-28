@@ -121,7 +121,10 @@ jobs:
           # steps still run, and sooner when it stalls: no session writes
           # and no command running (language servers aside) for 15 minutes
           # means it is stuck waiting on a model reply.
-          crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md" &
+          # setsid gives Crush its own process group so timeout can stop tool children too.
+          # shellcheck source=scripts/overload-crush-watchdog.sh
+          source scripts/overload-crush-watchdog.sh
+          setsid crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md" &
           crush_pid=$!
           started=$(date +%s)
           reason=""
@@ -140,9 +143,9 @@ jobs:
               fi
             fi
             if [ -n "$reason" ]; then
-              kill -TERM "$crush_pid" 2>/dev/null || true
+              overload_kill_crush_tree "$crush_pid" TERM
               for _ in $(seq 1 6); do running || break; sleep 5; done
-              kill -KILL "$crush_pid" 2>/dev/null || true
+              overload_kill_crush_tree "$crush_pid" KILL
               break
             fi
           done
