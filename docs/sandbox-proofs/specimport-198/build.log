@@ -1,1 +1,2 @@
-go build ./cmd/server -> dist/switchboard: OK (exit 0) at 68343a8
+go: downloading github.com/ohler55/ojg v1.28.7
+go build ./cmd/server: OK at 3bbe246

@@ -1,0 +1,965 @@
+[
+ {
+  "phase": "search",
+  "step": "search petstore",
+  "tool": "search",
+  "args": {
+   "query": "petstore",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"petstore\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"petstore\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"petstore_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"petstore_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"petstore_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"petstore_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"petstore_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"petstore_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"petstore_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"petstore_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"petstore_getinventory\",{},null],[\"Find purchase order by ID.\",\"petstore_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"petstore_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"petstore_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"petstore_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"petstore_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"petstore_placeorder\",{},null],[\"[write] Update an existing pet.\",\"petstore_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"petstore_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"petstore_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"petstore_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search countries",
+  "tool": "search",
+  "args": {
+   "query": "countries",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"These tools span multiple integrations. Use execute with a script to chain them in a single call — intermediate results stay server-side and never enter the conversation.\",\"shared_parameters\":{\"code\":\"ID! argument\"},\"summary\":\"Found 12 tools matching \\\"countries\\\"\",\"tools\":{\"columns\":[\"description\",\"integration\",\"name\",\"parameters\",\"required\"],\"rows\":[[\"GraphQL query continent\",\"countries\",\"countries_continent\",{},[\"code\"]],[\"GraphQL query continents\",\"countries\",\"countries_continents\",{\"filter\":\"ContinentFilterInput argument\"},null],[\"GraphQL query countries\",\"countries\",\"countries_countries\",{\"filter\":\"CountryFilterInput argument\"},null],[\"GraphQL query country\",\"countries\",\"countries_country\",{},[\"code\"]],[\"GraphQL query language\",\"countries\",\"countries_language\",{},[\"code\"]],[\"GraphQL query languages\",\"countries\",\"countries_languages\",{\"filter\":\"LanguageFilterInput argument\"},null],[\"GraphQL query continent\",\"countries_fixture\",\"countries_fixture_continent\",{},[\"code\"]],[\"GraphQL query continents\",\"countries_fixture\",\"countries_fixture_continents\",{\"filter\":\"ContinentFilterInput argument\"},null],[\"GraphQL query countries\",\"countries_fixture\",\"countries_fixture_countries\",{\"filter\":\"CountryFilterInput argument\"},null],[\"GraphQL query country\",\"countries_fixture\",\"countries_fixture_country\",{},[\"code\"]],[\"GraphQL query language\",\"countries_fixture\",\"countries_fixture_language\",{},[\"code\"]],[\"GraphQL query languages\",\"countries_fixture\",\"countries_fixture_languages\",{\"filter\":\"LanguageFilterInput argument\"},null]]},\"total\":12}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search countries_fixture",
+  "tool": "search",
+  "args": {
+   "query": "countries_fixture",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"These tools span multiple integrations. Use execute with a script to chain them in a single call — intermediate results stay server-side and never enter the conversation.\",\"shared_parameters\":{\"code\":\"ID! argument\"},\"summary\":\"Found 12 tools matching \\\"countries_fixture\\\"\",\"tools\":{\"columns\":[\"description\",\"integration\",\"name\",\"parameters\",\"required\"],\"rows\":[[\"GraphQL query continent\",\"countries_fixture\",\"countries_fixture_continent\",{},[\"code\"]],[\"GraphQL query continents\",\"countries_fixture\",\"countries_fixture_continents\",{\"filter\":\"ContinentFilterInput argument\"},null],[\"GraphQL query countries\",\"countries_fixture\",\"countries_fixture_countries\",{\"filter\":\"CountryFilterInput argument\"},null],[\"GraphQL query country\",\"countries_fixture\",\"countries_fixture_country\",{},[\"code\"]],[\"GraphQL query language\",\"countries_fixture\",\"countries_fixture_language\",{},[\"code\"]],[\"GraphQL query languages\",\"countries_fixture\",\"countries_fixture_languages\",{\"filter\":\"LanguageFilterInput argument\"},null],[\"GraphQL query continent\",\"countries\",\"countries_continent\",{},[\"code\"]],[\"GraphQL query continents\",\"countries\",\"countries_continents\",{\"filter\":\"ContinentFilterInput argument\"},null],[\"GraphQL query countries\",\"countries\",\"countries_countries\",{\"filter\":\"CountryFilterInput argument\"},null],[\"GraphQL query country\",\"countries\",\"countries_country\",{},[\"code\"]],[\"GraphQL query language\",\"countries\",\"countries_language\",{},[\"code\"]],[\"GraphQL query languages\",\"countries\",\"countries_languages\",{\"filter\":\"LanguageFilterInput argument\"},null]]},\"total\":12}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search petstore pet status",
+  "tool": "search",
+  "args": {
+   "query": "petstore pet status",
+   "limit": 10
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":true,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":10,\"offset\":0,\"script_hint\":\"These tools span multiple integrations. Use execute with a script to chain them in a single call — intermediate results stay server-side and never enter the conversation.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 35 tools matching \\\"petstore pet status\\\"\",\"tools\":{\"columns\":[\"description\",\"integration\",\"name\",\"parameters\",\"required\"],\"rows\":[[\"Returns pet inventories by status.\",\"petstore\",\"petstore_getinventory\",{},null],[\"Finds Pets by status.\",\"petstore\",\"petstore_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Returns pet inventories by status.\",\"ok_100_128\",\"ok_100_128_getinventory\",{},null],[\"Returns pet inventories by status.\",\"probe_dns_loopback\",\"probe_dns_loopback_getinventory\",{},null],[\"[write] Add a new pet to the store.\",\"petstore\",\"petstore_addpet\",{},[\"body\"]],[\"[write] Deletes a pet.\",\"petstore\",\"petstore_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"Find pet by ID.\",\"petstore\",\"petstore_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"[write] Place an order for a pet.\",\"petstore\",\"petstore_placeorder\",{},null],[\"[write] Update an existing pet.\",\"petstore\",\"petstore_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"petstore\",\"petstore_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]]]},\"total\":35}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_unspecified_v4",
+  "tool": "search",
+  "args": {
+   "query": "bad_unspecified_v4",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_unspecified_v4\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_unspecified_v6",
+  "tool": "search",
+  "args": {
+   "query": "bad_unspecified_v6",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_unspecified_v6\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_zero_net",
+  "tool": "search",
+  "args": {
+   "query": "bad_zero_net",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_zero_net\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_cgnat",
+  "tool": "search",
+  "args": {
+   "query": "bad_cgnat",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_cgnat\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_cgnat_hi",
+  "tool": "search",
+  "args": {
+   "query": "bad_cgnat_hi",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_cgnat_hi\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_loopback_v4",
+  "tool": "search",
+  "args": {
+   "query": "bad_loopback_v4",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"bad_loopback_v4\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"probe_dns_loopback\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"probe_dns_loopback_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"probe_dns_loopback_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"probe_dns_loopback_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"probe_dns_loopback_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"probe_dns_loopback_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"probe_dns_loopback_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"probe_dns_loopback_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"probe_dns_loopback_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"probe_dns_loopback_getinventory\",{},null],[\"Find purchase order by ID.\",\"probe_dns_loopback_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"probe_dns_loopback_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"probe_dns_loopback_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"probe_dns_loopback_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"probe_dns_loopback_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"probe_dns_loopback_placeorder\",{},null],[\"[write] Update an existing pet.\",\"probe_dns_loopback_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"probe_dns_loopback_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"probe_dns_loopback_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"probe_dns_loopback_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_localhost",
+  "tool": "search",
+  "args": {
+   "query": "bad_localhost",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_localhost\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_loopback_v6",
+  "tool": "search",
+  "args": {
+   "query": "bad_loopback_v6",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"bad_loopback_v6\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"probe_dns_loopback\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"probe_dns_loopback_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"probe_dns_loopback_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"probe_dns_loopback_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"probe_dns_loopback_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"probe_dns_loopback_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"probe_dns_loopback_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"probe_dns_loopback_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"probe_dns_loopback_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"probe_dns_loopback_getinventory\",{},null],[\"Find purchase order by ID.\",\"probe_dns_loopback_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"probe_dns_loopback_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"probe_dns_loopback_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"probe_dns_loopback_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"probe_dns_loopback_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"probe_dns_loopback_placeorder\",{},null],[\"[write] Update an existing pet.\",\"probe_dns_loopback_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"probe_dns_loopback_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"probe_dns_loopback_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"probe_dns_loopback_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_metadata",
+  "tool": "search",
+  "args": {
+   "query": "bad_metadata",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_metadata\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_metadata_gql",
+  "tool": "search",
+  "args": {
+   "query": "bad_metadata_gql",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_metadata_gql\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_basecred",
+  "tool": "search",
+  "args": {
+   "query": "bad_basecred",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_basecred\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_gcp_meta",
+  "tool": "search",
+  "args": {
+   "query": "bad_gcp_meta",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_gcp_meta\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search bad_scheme",
+  "tool": "search",
+  "args": {
+   "query": "bad_scheme",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"summary\":\"Found 0 tools matching \\\"bad_scheme\\\"\",\"tools\":[],\"total\":0}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search petstore_yaml",
+  "tool": "search",
+  "args": {
+   "query": "petstore_yaml",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"petstore_yaml\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"petstore\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"petstore_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"petstore_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"petstore_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"petstore_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"petstore_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"petstore_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"petstore_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"petstore_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"petstore_getinventory\",{},null],[\"Find purchase order by ID.\",\"petstore_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"petstore_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"petstore_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"petstore_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"petstore_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"petstore_placeorder\",{},null],[\"[write] Update an existing pet.\",\"petstore_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"petstore_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"petstore_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"petstore_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "search",
+  "step": "search probe_mapped",
+  "tool": "search",
+  "args": {
+   "query": "probe_mapped",
+   "limit": 50
+  },
+  "via": "direct",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"has_more\":false,\"integrations\":[\"petstore\",\"countries\",\"countries_fixture\",\"petstore_yaml\",\"bad_loopback_v4\",\"bad_localhost\",\"bad_loopback_v6\",\"bad_metadata\",\"bad_metadata_gql\",\"bad_basecred\",\"bad_gcp_meta\",\"bad_scheme\",\"bad_unspecified_v4\",\"probe_mapped\",\"probe_dns_loopback\",\"bad_unspecified_v6\",\"bad_zero_net\",\"bad_cgnat\",\"bad_cgnat_hi\",\"ok_100_128\"],\"limit\":50,\"offset\":0,\"script_hint\":\"Tip: if your task requires multiple tool calls, use execute with a script to chain them in a single call and reduce token usage.\",\"shared_parameters\":{\"body\":\"JSON request body (object)\"},\"summary\":\"Found 19 tools matching \\\"probe_mapped\\\"\",\"tools\":{\"columns\":[\"description\",\"name\",\"parameters\",\"required\"],\"constants\":{\"integration\":\"probe_dns_loopback\"},\"rows\":[[\"[write] Add a new pet to the store.\",\"probe_dns_loopback_addpet\",{},[\"body\"]],[\"[write] Create user.\",\"probe_dns_loopback_createuser\",{},null],[\"[write] Creates list of users with given input array.\",\"probe_dns_loopback_createuserswithlistinput\",{},null],[\"[write] Delete purchase order by identifier.\",\"probe_dns_loopback_deleteorder\",{\"orderId\":\"ID of the order that needs to be deleted\"},[\"orderId\"]],[\"[write] Deletes a pet.\",\"probe_dns_loopback_deletepet\",{\"api_key\":\"header parameter\",\"petId\":\"Pet id to delete\"},[\"petId\"]],[\"[write] Delete user resource.\",\"probe_dns_loopback_deleteuser\",{\"username\":\"The name that needs to be deleted\"},[\"username\"]],[\"Finds Pets by status.\",\"probe_dns_loopback_findpetsbystatus\",{\"status\":\"Status values that need to be considered for filter\"},[\"status\"]],[\"Finds Pets by tags.\",\"probe_dns_loopback_findpetsbytags\",{\"tags\":\"Tags to filter by\"},[\"tags\"]],[\"Returns pet inventories by status.\",\"probe_dns_loopback_getinventory\",{},null],[\"Find purchase order by ID.\",\"probe_dns_loopback_getorderbyid\",{\"orderId\":\"ID of order that needs to be fetched\"},[\"orderId\"]],[\"Find pet by ID.\",\"probe_dns_loopback_getpetbyid\",{\"petId\":\"ID of pet to return\"},[\"petId\"]],[\"Get user by user name.\",\"probe_dns_loopback_getuserbyname\",{\"username\":\"The name that needs to be fetched. Use user1 for testing\"},[\"username\"]],[\"Logs user into the system.\",\"probe_dns_loopback_loginuser\",{\"password\":\"The password for login in clear text\",\"username\":\"The user name for login\"},null],[\"Logs out current logged in user session.\",\"probe_dns_loopback_logoutuser\",{},null],[\"[write] Place an order for a pet.\",\"probe_dns_loopback_placeorder\",{},null],[\"[write] Update an existing pet.\",\"probe_dns_loopback_updatepet\",{},[\"body\"]],[\"[write] Updates a pet in the store with form data.\",\"probe_dns_loopback_updatepetwithform\",{\"name\":\"Name of pet that needs to be updated\",\"petId\":\"ID of pet that needs to be updated\",\"status\":\"Status of pet that needs to be updated\"},[\"petId\"]],[\"[write] Update user resource.\",\"probe_dns_loopback_updateuser\",{\"username\":\"name that need to be deleted\"},[\"username\"]],[\"[write] Uploads an image.\",\"probe_dns_loopback_uploadfile\",{\"additionalMetadata\":\"Additional Metadata\",\"petId\":\"ID of pet to update\"},[\"petId\"]]]},\"total\":19}"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByStatus available",
+  "tool": "petstore_findpetsbystatus",
+  "args": {
+   "status": "available"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"columns\":[\"id\",\"photoUrls\",\"tags\",\"name\",\"category\"],\"constants\":{\"status\":\"available\"},\"rows\":[[4,[\"url1\",\"url2\"],[{\"id\":1,\"name\":\"tag1\"},{\"id\":2,\"name\":\"tag2\"}],\"Dog 1\",{\"id\":1,\"name\":\"Dogs\"}],[7,[\"url1\",\"url2\"],[{\"id\":1,\"name\":\"tag1\"},{\"id\":2,\"name\":\"tag2\"}],\"Lion 1\",{\"id\":4,\"name\":\"Lions\"}],[987654,[\"x\"],[],\"doggie\",null],[598365025,[\"https://example.org/bella.png\"],[{\"id\":1,\"name\":\"contract-taf\"}],\"bella\",{\"id\":1,\"name\":\"Dogs\"}],[685302763,[\"https://example.org/rex.png\"],[{\"id\":1,\"name\":\"contract-taf\"}],\"rex\",{\"id\":1,\"name\":\"Dogs\"}],[99,[\"http://fido.jpg\"],[{\"id\":102,\"name\":\"friendly\"}],\"fido\",{\"id\":101,\"name\":\"dogz\"}],[9,[\"string\"],[{\"id\":0,\"name\":\"string\"}],\"doggie\",{\"id\":1,\"name\":\"Dogs\"}],[15,[\"string\"],[{\"id\":0,\"name\":\"string\"}],\"doggie\",{\"id\":1,\"name\":\"Dogs\"}],[6,[\"url1\",\"url2\"],[{\"id\":1,\"name\":\"tag3\"},{\"id\":2,\"name\":\"tag4\"}],\"dog\",{\"id\":1,\"name\":\"Dogs\"}],[2002,[\"https://example.com/dog.jpg\"],[],\"BirlesikOtomasyonTesti\",null],[9001,[],[],\"probe\",null],[777,[],[],\"Rex\",null],[8,[\"https://petstore.swagger.io/resources/photos/623389095.jpg\"],[{\"id\":0,\"name\":\"tag1\"}],\"Cupcake\",null],[290028,[],[],null,null]]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $1"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByStatus sold",
+  "tool": "petstore_findpetsbystatus",
+  "args": {
+   "status": "sold"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "[{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":370752812,\"name\":\"max\",\"photoUrls\":[\"https://example.org/max.png\"],\"status\":\"sold\",\"tags\":[{\"id\":1,\"name\":\"contract-taf\"}]},{\"id\":13467,\"name\":\"見響见响仮仏!$%\\u0026()*+,-ƄƅƆḞḟṀʶʷʸăĄą\",\"photoUrls\":[\"https://petstore3.swagger.io/resources/photos/623389095.jpg\"],\"status\":\"sold\",\"tags\":[]},{\"id\":735082001,\"name\":\"Rex\",\"photoUrls\":[\"https://example.com/rex.png\"],\"status\":\"sold\",\"tags\":[]}]"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $2"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getPetById 1",
+  "tool": "petstore_getpetbyid",
+  "args": {
+   "petId": 1
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: upstream returned 404 Not Found: Pet not found"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getInventory",
+  "tool": "petstore_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: upstream returned 500 Internal Server Error: {\"code\":500,\"message\":\"There was an error processing your request. It has been logged (ID: 624ecde778988efe)\"}"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "addPet",
+  "tool": "petstore_addpet",
+  "args": {
+   "body": {
+    "id": 291204101,
+    "name": "sb-proof-198",
+    "status": "pending",
+    "photoUrls": [
+     "https://example.com/p.png"
+    ],
+    "category": {
+     "id": 1,
+     "name": "Dogs"
+    },
+    "tags": [
+     {
+      "id": 198,
+      "name": "sandbox-e2e"
+     }
+    ]
+   }
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":291204101,\"name\":\"sb-proof-198\",\"photoUrls\":[\"https://example.com/p.png\"],\"status\":\"pending\",\"tags\":[{\"id\":198,\"name\":\"sandbox-e2e\"}]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $3"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getPetById (new pet, integer id >=1e6)",
+  "tool": "petstore_getpetbyid",
+  "args": {
+   "petId": 291204101
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":291204101,\"name\":\"sb-proof-198\",\"photoUrls\":[\"https://example.com/p.png\"],\"status\":\"pending\",\"tags\":[{\"id\":198,\"name\":\"sandbox-e2e\"}]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $4"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "updatePetWithForm (query params)",
+  "tool": "petstore_updatepetwithform",
+  "args": {
+   "petId": 291204101,
+   "name": "sb-proof-198-renamed",
+   "status": "sold"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":291204101,\"name\":\"sb-proof-198-renamed\",\"photoUrls\":[\"https://example.com/p.png\"],\"status\":\"sold\",\"tags\":[{\"id\":198,\"name\":\"sandbox-e2e\"}]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $5"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getPetById after update",
+  "tool": "petstore_getpetbyid",
+  "args": {
+   "petId": 291204101
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":291204101,\"name\":\"sb-proof-198-renamed\",\"photoUrls\":[\"https://example.com/p.png\"],\"status\":\"sold\",\"tags\":[{\"id\":198,\"name\":\"sandbox-e2e\"}]}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $6"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "deletePet (cleanup)",
+  "tool": "petstore_deletepet",
+  "args": {
+   "petId": 291204101
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "Pet deleted"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $7"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "getPetById 0 (upstream 4xx)",
+  "tool": "petstore_getpetbyid",
+  "args": {
+   "petId": -1
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: upstream returned 404 Not Found: Pet not found"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByStatus status=pending (query) finds new pet",
+  "tool": "petstore_findpetsbystatus",
+  "args": {
+   "status": "pending"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "[{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":3,\"name\":\"doggie\",\"photoUrls\":[\"qfylkzxcykevqurmrcxsvcdiikhcjfnx\",\"qfylkzxcykevqurmrcxsvcdiikhcjfnx\",\"qfylkzxcykevqurmrcxsvcdiikhcjfnx\"],\"status\":\"pending\",\"tags\":[{\"id\":6382839279638710000,\"name\":\"kimhuedxmjuizfoswgnbnlnoatasyuon\"},{\"id\":6382839279638710000,\"name\":\"kimhuedxmjuizfoswgnbnlnoatasyuon\"}]}]"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $8"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByTags tags=[\"tag1\"] (array query param)",
+  "tool": "petstore_findpetsbytags",
+  "args": {
+   "tags": [
+    "tag1"
+   ]
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: query parameter \"tags\": parameter \"v\": cannot convert []interface {} to string"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "findPetsByTags tags=\"tag1\" (string)",
+  "tool": "petstore_findpetsbytags",
+  "args": {
+   "tags": "tag1"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "[{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":4,\"name\":\"Dog 1\",\"photoUrls\":[\"url1\",\"url2\"],\"status\":\"available\",\"tags\":[{\"id\":1,\"name\":\"tag1\"},{\"id\":2,\"name\":\"tag2\"}]},{\"category\":{\"id\":4,\"name\":\"Lions\"},\"id\":7,\"name\":\"Lion 1\",\"photoUrls\":[\"url1\",\"url2\"],\"status\":\"available\",\"tags\":[{\"id\":1,\"name\":\"tag1\"},{\"id\":2,\"name\":\"tag2\"}]},{\"id\":8,\"name\":\"Cupcake\",\"photoUrls\":[\"https://petstore.swagger.io/resources/photos/623389095.jpg\"],\"status\":\"available\",\"tags\":[{\"id\":0,\"name\":\"tag1\"}]}]"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $9"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "petstore",
+  "step": "missing required arg",
+  "tool": "petstore_getpetbyid",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "missing required parameter \"petId\" for tool \"petstore_getpetbyid\". Required: [petId]"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "country US",
+  "tool": "countries_country",
+  "args": {
+   "code": "US"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"country\":{\"awsRegion\":\"us-east-2\",\"capital\":\"Washington D.C.\",\"code\":\"US\",\"continent\":{\"code\":\"NA\",\"name\":\"North America\"},\"currencies\":[\"USD\",\"USN\",\"USS\"],\"currency\":\"USD,USN,USS\",\"emoji\":\"🇺🇸\",\"emojiU\":\"U+1F1FA U+1F1F8\",\"name\":\"United States\",\"native\":\"United States\",\"phone\":\"1\",\"phones\":[\"1\"]}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $10"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "country JP",
+  "tool": "countries_country",
+  "args": {
+   "code": "JP"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"country\":{\"awsRegion\":\"ap-northeast-1\",\"capital\":\"Tokyo\",\"code\":\"JP\",\"continent\":{\"code\":\"AS\",\"name\":\"Asia\"},\"currencies\":[\"JPY\"],\"currency\":\"JPY\",\"emoji\":\"🇯🇵\",\"emojiU\":\"U+1F1EF U+1F1F5\",\"name\":\"Japan\",\"native\":\"日本\",\"phone\":\"81\",\"phones\":[\"81\"]}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $11"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "countries filter continent=OC",
+  "tool": "countries_countries",
+  "args": {
+   "filter": {
+    "continent": {
+     "eq": "OC"
+    }
+   }
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"countries\":{\"columns\":[\"awsRegion\",\"code\",\"currencies\",\"currency\",\"emoji\",\"emojiU\",\"name\",\"native\",\"phone\",\"phones\",\"capital\"],\"rows\":[[\"ap-southeast-2\",\"AS\",[\"USD\"],\"USD\",\"🇦🇸\",\"U+1F1E6 U+1F1F8\",\"American Samoa\",\"American Samoa\",\"1684\",[\"1684\"],\"Pago Pago\"],[\"ap-southeast-2\",\"AU\",[\"AUD\"],\"AUD\",\"🇦🇺\",\"U+1F1E6 U+1F1FA\",\"Australia\",\"Australia\",\"61\",[\"61\"],\"Canberra\"],[\"ap-southeast-2\",\"CK\",[\"NZD\"],\"NZD\",\"🇨🇰\",\"U+1F1E8 U+1F1F0\",\"Cook Islands\",\"Cook Islands\",\"682\",[\"682\"],\"Avarua\"],[\"ap-southeast-2\",\"FJ\",[\"FJD\"],\"FJD\",\"🇫🇯\",\"U+1F1EB U+1F1EF\",\"Fiji\",\"Fiji\",\"679\",[\"679\"],\"Suva\"],[\"ap-northeast-1\",\"FM\",[\"USD\"],\"USD\",\"🇫🇲\",\"U+1F1EB U+1F1F2\",\"Micronesia\",\"Micronesia\",\"691\",[\"691\"],\"Palikir\"],[\"ap-northeast-1\",\"GU\",[\"USD\"],\"USD\",\"🇬🇺\",\"U+1F1EC U+1F1FA\",\"Guam\",\"Guam\",\"1671\",[\"1671\"],\"Hagåtña\"],[\"ap-southeast-2\",\"KI\",[\"AUD\"],\"AUD\",\"🇰🇮\",\"U+1F1F0 U+1F1EE\",\"Kiribati\",\"Kiribati\",\"686\",[\"686\"],\"South Tarawa\"],[\"ap-northeast-1\",\"MH\",[\"USD\"],\"USD\",\"🇲🇭\",\"U+1F1F2 U+1F1ED\",\"Marshall Islands\",\"M̧ajeļ\",\"692\",[\"692\"],\"Majuro\"],[\"ap-northeast-1\",\"MP\",[\"USD\"],\"USD\",\"🇲🇵\",\"U+1F1F2 U+1F1F5\",\"Northern Mariana Islands\",\"Northern Mariana Islands\",\"1670\",[\"1670\"],\"Saipan\"],[\"ap-southeast-2\",\"NC\",[\"XPF\"],\"XPF\",\"🇳🇨\",\"U+1F1F3 U+1F1E8\",\"New Caledonia\",\"Nouvelle-Calédonie\",\"687\",[\"687\"],\"Nouméa\"],[\"ap-southeast-2\",\"NF\",[\"AUD\"],\"AUD\",\"🇳🇫\",\"U+1F1F3 U+1F1EB\",\"Norfolk Island\",\"Norfolk Island\",\"672\",[\"672\"],\"Kingston\"],[\"ap-southeast-2\",\"NR\",[\"AUD\"],\"AUD\",\"🇳🇷\",\"U+1F1F3 U+1F1F7\",\"Nauru\",\"Nauru\",\"674\",[\"674\"],\"Yaren\"],[\"ap-southeast-2\",\"NU\",[\"NZD\"],\"NZD\",\"🇳🇺\",\"U+1F1F3 U+1F1FA\",\"Niue\",\"Niuē\",\"683\",[\"683\"],\"Alofi\"],[\"ap-southeast-2\",\"NZ\",[\"NZD\"],\"NZD\",\"🇳🇿\",\"U+1F1F3 U+1F1FF\",\"New Zealand\",\"New Zealand\",\"64\",[\"64\"],\"Wellington\"],[\"us-west-1\",\"PF\",[\"XPF\"],\"XPF\",\"🇵🇫\",\"U+1F1F5 U+1F1EB\",\"French Polynesia\",\"Polynésie française\",\"689\",[\"689\"],\"Papeetē\"],[\"ap-southeast-2\",\"PG\",[\"PGK\"],\"PGK\",\"🇵🇬\",\"U+1F1F5 U+1F1EC\",\"Papua New Guinea\",\"Papua Niugini\",\"675\",[\"675\"],\"Port Moresby\"],[\"us-west-1\",\"PN\",[\"NZD\"],\"NZD\",\"🇵🇳\",\"U+1F1F5 U+1F1F3\",\"Pitcairn Islands\",\"Pitcairn Islands\",\"64\",[\"64\"],\"Adamstown\"],[\"ap-east-1\",\"PW\",[\"USD\"],\"USD\",\"🇵🇼\",\"U+1F1F5 U+1F1FC\",\"Palau\",\"Palau\",\"680\",[\"680\"],\"Ngerulmud\"],[\"ap-southeast-2\",\"SB\",[\"SBD\"],\"SBD\",\"🇸🇧\",\"U+1F1F8 U+1F1E7\",\"Solomon Islands\",\"Solomon Islands\",\"677\",[\"677\"],\"Honiara\"],[\"ap-southeast-2\",\"TK\",[\"NZD\"],\"NZD\",\"🇹🇰\",\"U+1F1F9 U+1F1F0\",\"Tokelau\",\"Tokelau\",\"690\",[\"690\"],\"Fakaofo\"],[\"ap-southeast-1\",\"TL\",[\"USD\"],\"USD\",\"🇹🇱\",\"U+1F1F9 U+1F1F1\",\"East Timor\",\"Timor-Leste\",\"670\",[\"670\"],\"Dili\"],[\"ap-southeast-2\",\"TO\",[\"TOP\"],\"TOP\",\"🇹🇴\",\"U+1F1F9 U+1F1F4\",\"Tonga\",\"Tonga\",\"676\",[\"676\"],\"Nuku'alofa\"],[\"ap-southeast-2\",\"TV\",[\"AUD\"],\"AUD\",\"🇹🇻\",\"U+1F1F9 U+1F1FB\",\"Tuvalu\",\"Tuvalu\",\"688\",[\"688\"],\"Funafuti\"],[\"ap-northeast-1\",\"UM\",[\"USD\"],\"USD\",\"🇺🇲\",\"U+1F1FA U+1F1F2\",\"U.S. Minor Outlying Islands\",\"United States Minor Outlying Islands\",\"1\",[\"1\"],null],[\"ap-southeast-2\",\"VU\",[\"VUV\"],\"VUV\",\"🇻🇺\",\"U+1F1FB U+1F1FA\",\"Vanuatu\",\"Vanuatu\",\"678\",[\"678\"],\"Port Vila\"],[\"ap-southeast-2\",\"WF\",[\"XPF\"],\"XPF\",\"🇼🇫\",\"U+1F1FC U+1F1EB\",\"Wallis and Futuna\",\"Wallis et Futuna\",\"681\",[\"681\"],\"Mata-Utu\"],[\"ap-southeast-2\",\"WS\",[\"WST\"],\"WST\",\"🇼🇸\",\"U+1F1FC U+1F1F8\",\"Samoa\",\"Samoa\",\"685\",[\"685\"],\"Apia\"]]}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $12"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "countries filter code in [DE,FR]",
+  "tool": "countries_countries",
+  "args": {
+   "filter": {
+    "code": {
+     "in": [
+      "DE",
+      "FR"
+     ]
+    }
+   }
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"countries\":[{\"awsRegion\":\"eu-central-1\",\"capital\":\"Berlin\",\"code\":\"DE\",\"currencies\":[\"EUR\"],\"currency\":\"EUR\",\"emoji\":\"🇩🇪\",\"emojiU\":\"U+1F1E9 U+1F1EA\",\"name\":\"Germany\",\"native\":\"Deutschland\",\"phone\":\"49\",\"phones\":[\"49\"]},{\"awsRegion\":\"eu-west-3\",\"capital\":\"Paris\",\"code\":\"FR\",\"currencies\":[\"EUR\"],\"currency\":\"EUR\",\"emoji\":\"🇫🇷\",\"emojiU\":\"U+1F1EB U+1F1F7\",\"name\":\"France\",\"native\":\"France\",\"phone\":\"33\",\"phones\":[\"33\"]}]}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $13"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "continents",
+  "tool": "countries_continents",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"continents\":[{\"code\":\"AF\",\"name\":\"Africa\"},{\"code\":\"AN\",\"name\":\"Antarctica\"},{\"code\":\"AS\",\"name\":\"Asia\"},{\"code\":\"EU\",\"name\":\"Europe\"},{\"code\":\"NA\",\"name\":\"North America\"},{\"code\":\"OC\",\"name\":\"Oceania\"},{\"code\":\"SA\",\"name\":\"South America\"}]}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $14"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "continent EU",
+  "tool": "countries_continent",
+  "args": {
+   "code": "EU"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"continent\":{\"code\":\"EU\",\"name\":\"Europe\"}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $15"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "language es",
+  "tool": "countries_language",
+  "args": {
+   "code": "es"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"language\":{\"code\":\"es\",\"name\":\"Spanish\",\"native\":\"Español\",\"rtl\":false}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $16"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries",
+  "step": "country unknown ZZ",
+  "tool": "countries_country",
+  "args": {
+   "code": "ZZ"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"country\":null}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $17"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries_fixture",
+  "step": "fixture country BR",
+  "tool": "countries_fixture_country",
+  "args": {
+   "code": "BR"
+  },
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"country\":{\"awsRegion\":\"sa-east-1\",\"capital\":\"Brasília\",\"code\":\"BR\",\"continent\":{\"code\":\"SA\",\"name\":\"South America\"},\"currencies\":[\"BRL\"],\"currency\":\"BRL\",\"emoji\":\"🇧🇷\",\"emojiU\":\"U+1F1E7 U+1F1F7\",\"name\":\"Brazil\",\"native\":\"Brasil\",\"phone\":\"55\",\"phones\":[\"55\"]}}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $18"
+    }
+   ]
+  }
+ },
+ {
+  "phase": "countries_fixture",
+  "step": "fixture continents",
+  "tool": "countries_fixture_continents",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\"data\":{\"continents\":[{\"code\":\"AF\",\"name\":\"Africa\"},{\"code\":\"AN\",\"name\":\"Antarctica\"},{\"code\":\"AS\",\"name\":\"Asia\"},{\"code\":\"EU\",\"name\":\"Europe\"},{\"code\":\"NA\",\"name\":\"North America\"},{\"code\":\"OC\",\"name\":\"Oceania\"},{\"code\":\"SA\",\"name\":\"South America\"}]}}"
+    },
+    {
+     "type": "text",
+     "text": "pinned as $19"
+    }
+   ]
+  }
+ },
+ {
+  "step": "script",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "GoError: api.call(\"petstore_getpetbyid\") returned error: specimport: upstream returned 404 Not Found: Pet not found at github.com/daltoniam/switchboard/script.(*Engine).Run.func2 (native)"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "bad_unspecified_v4_getinventory not executable",
+  "tool": "bad_unspecified_v4_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "tool \"bad_unspecified_v4_getinventory\" not found. Use the search tool to discover available tools"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "bad_unspecified_v6_getinventory not executable",
+  "tool": "bad_unspecified_v6_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "tool \"bad_unspecified_v6_getinventory\" not found. Use the search tool to discover available tools"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "bad_zero_net_getinventory not executable",
+  "tool": "bad_zero_net_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "tool \"bad_zero_net_getinventory\" not found. Use the search tool to discover available tools"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "bad_cgnat_getinventory not executable",
+  "tool": "bad_cgnat_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "tool \"bad_cgnat_getinventory\" not found. Use the search tool to discover available tools"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "control 100.128.0.1 (just outside 100.64/10) still accepted",
+  "tool": "ok_100_128_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: request failed: Get \"http://100.128.0.1:18999/store/inventory\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)"
+    }
+   ],
+   "isError": true
+  }
+ },
+ {
+  "phase": "ssrf-probe",
+  "step": "probe_dns_loopback (127.0.0.1.nip.io)",
+  "tool": "probe_dns_loopback_getinventory",
+  "args": {},
+  "via": "execute",
+  "raw": {
+   "content": [
+    {
+     "type": "text",
+     "text": "specimport: upstream returned 500 Internal Server Error: "
+    }
+   ],
+   "isError": true
+  }
+ }
+]
