@@ -90,7 +90,18 @@ func TestUIPrometheus(t *testing.T) {
 	page, err := browserContext.NewPage()
 	require.NoError(t, err)
 	page.SetDefaultTimeout(10000)
+	scripts := uiScriptFixtures(t)
+	logos := uiLogoFixtures(t)
 	require.NoError(t, browserContext.Route("**/*", func(route playwright.Route) {
+		if body, ok := scripts[route.Request().URL()]; ok {
+			uiFulfillFixture(t, route, body, "text/javascript")
+			return
+		}
+		if logos[route.Request().URL()] {
+			body := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 2h20v20H2z"/></svg>`
+			uiFulfillFixture(t, route, body, "image/svg+xml")
+			return
+		}
 		if !strings.HasPrefix(route.Request().URL(), address+"/") {
 			t.Error("browser attempted non-fixture request")
 			_ = route.Abort()
@@ -199,6 +210,7 @@ func TestUIPrometheus(t *testing.T) {
 	search(true)
 	capture("prometheus-desktop")
 	require.NoError(t, page.SetViewportSize(390, 844))
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Close sidebar", Exact: playwright.Bool(true)}).Click())
 	capture("prometheus-mobile")
 	stop()
 	start()
