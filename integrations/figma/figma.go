@@ -3,6 +3,7 @@ package figma
 import (
 	"context"
 	"fmt"
+	"io"
 	"maps"
 	"strings"
 
@@ -26,6 +27,7 @@ var (
 	_ mcp.Integration          = (*figma)(nil)
 	_ mcp.PlainTextCredentials = (*figma)(nil)
 	_ mcp.OptionalCredentials  = (*figma)(nil)
+	_ io.Closer                = (*figma)(nil)
 )
 
 type figma struct {
@@ -72,10 +74,28 @@ func (f *figma) Configure(ctx context.Context, creds mcp.Credentials) error {
 				return remotemcp.New("figma", serverURL)
 			}
 		}
+		// A different server needs a new session; end the old one.
+		// Best effort: the old session is abandoned either way.
+		_ = f.closeRemote()
 		f.remote = factory(baseURL)
 	}
 	f.baseURL = baseURL
 	return f.remote.Configure(ctx, mcp.Credentials{"access_token": token})
+}
+
+// Close ends the remote MCP session, if one is open. It is safe to call more
+// than once; a later Configure starts a new session.
+func (f *figma) Close() error {
+	return f.closeRemote()
+}
+
+func (f *figma) closeRemote() error {
+	remote := f.remote
+	f.remote = nil
+	if closer, ok := remote.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
 }
 
 func (f *figma) Healthy(ctx context.Context) bool {
