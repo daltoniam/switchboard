@@ -17,7 +17,7 @@ import (
 )
 
 // renderPageContentFullViewMD reproduces the production views pipeline
-// for notion_get_page_content's full+markdown combo: JSON → CompactAny
+// for notion_get_page_content's full+markdown combo: JSON → CompactValue
 // (full spec) → typed renderer. Tests that previously called the
 // legacy RenderMarkdown route on this tool use this helper instead,
 // since the tool moved to the views pipeline.
@@ -33,14 +33,14 @@ func renderCommentsFullViewMD(t *testing.T, data []byte) string {
 	return renderViewMD(t, commentsTool, compact.ViewName("full"), data)
 }
 
-// renderViewMD is the shared body: JSON → CompactAny(spec) → renderer.
+// renderViewMD is the shared body: JSON → CompactValue(spec) → renderer.
 // Used by the two tool-specific helpers above.
 func renderViewMD(t *testing.T, tool mcp.ToolName, view compact.ViewName, data []byte) string {
 	t.Helper()
-	var parsed any
-	require.NoError(t, json.Unmarshal(data, &parsed))
+	parsed, err := mcp.ParseJSONValue(data)
+	require.NoError(t, err)
 	spec := viewSets[tool].Views[view].Spec
-	projected := mcp.CompactAny(parsed, spec)
+	projected := mcp.CompactValue(parsed, spec)
 	renderer := viewSets[tool].Renderers[view][compact.FormatMarkdown]
 	require.NotNil(t, renderer, "%s/%s markdown renderer must be registered", tool, view)
 	md, err := renderer(projected)

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
@@ -24,6 +25,24 @@ import (
 	"github.com/daltoniam/switchboard/version"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+type alternateViewHints struct {
+	Views map[string]string `json:"views"`
+}
+
+type viewErrorResponse struct {
+	Error   string       `json:"error"`
+	Message string       `json:"message"`
+	Tool    mcp.ToolName `json:"tool"`
+}
+
+type responseTooLarge struct {
+	Error string       `json:"error"`
+	Hint  string       `json:"hint"`
+	Limit int          `json:"limit"`
+	Size  int          `json:"size"`
+	Tool  mcp.ToolName `json:"tool"`
+}
 
 const defaultSearchLimit = 20
 const defaultMaxResponseBytes = 50 * 1024 // 50KB
@@ -1098,21 +1117,17 @@ func processResult(rp resultProcessor, toolName mcp.ToolName, view compact.ViewA
 
 	originalLen := len(data)
 
-	var parsed any
-	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+	parsed, err := mcp.ParseJSONValue([]byte(data))
+	if err != nil {
 		slog.Warn("processResult: unmarshal failed", "tool", toolName, "err", err)
 		return data
 	}
 
+	var fields []mcp.CompactField
 	if rp.compact != nil {
-		if fields, ok := rp.compact(toolName); ok {
-			parsed = mcp.CompactAny(parsed, fields)
-		}
+		fields, _ = rp.compact(toolName)
 	}
-
-	parsed = mcp.ColumnarizeAny(parsed)
-
-	result, err := json.Marshal(parsed)
+	result, err := mcp.EncodeJSONValue(parsed, mcp.JSONOptions{Fields: fields, Columnar: true})
 	if err != nil {
 		slog.Warn("processResult: marshal failed", "tool", toolName, "err", err)
 		return data
@@ -1174,15 +1189,15 @@ func processViewsResult(viewSet compact.ViewSet, toolName mcp.ToolName, view com
 
 	originalLen := len(data)
 
-	var parsed any
-	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+	parsed, err := mcp.ParseJSONValue([]byte(data))
+	if err != nil {
 		slog.Warn("processViewsResult: unmarshal failed", "tool", toolName, "err", err)
 		return data
 	}
 
 	parsedView := viewSet.Views[selection.View]
 	if len(parsedView.Spec) > 0 {
-		parsed = mcp.CompactAny(parsed, parsedView.Spec)
+		parsed = mcp.CompactValue(parsed, parsedView.Spec)
 	}
 
 	out, err := renderer(parsed)
@@ -1284,27 +1299,41 @@ func appendMoreHint(out []byte, viewSet compact.ViewSet, selection compact.ViewS
 		return out
 	}
 
-	var parsed any
-	if err := json.Unmarshal(out, &parsed); err != nil {
-		// Can't augment what we can't parse; preserve the original.
+	more, err := json.Marshal(alternateViewHints{Views: alternates})
+	if err != nil {
 		return out
 	}
+	return addViewHint(out, more)
+}
 
-	more := map[string]any{"views": alternates}
-
-	var augmented any
-	switch v := parsed.(type) {
-	case map[string]any:
-		v["_more"] = more
-		augmented = v
-	case []any:
-		augmented = map[string]any{"data": v, "_more": more}
-	default:
-		// Scalar root — leave alone.
+func addViewHint(out, more json.RawMessage) []byte {
+	trimmed := bytes.TrimSpace(out)
+	invalid := len(trimmed) == 0 || !json.Valid(out)
+	if invalid {
 		return out
 	}
+	if trimmed[0] == '[' {
+		result, err := json.Marshal(struct {
+			More json.RawMessage `json:"_more"`
+			Data json.RawMessage `json:"data"`
+		}{More: more, Data: out})
+		if err != nil {
+			return out
+		}
+		return result
+	}
+	return addObjectViewHint(out, more)
+}
 
-	result, err := json.Marshal(augmented)
+func addObjectViewHint(out, more json.RawMessage) []byte {
+	var object map[string]json.RawMessage
+	err := json.Unmarshal(out, &object)
+	invalid := err != nil || object == nil
+	if invalid {
+		return out
+	}
+	object["_more"] = more
+	result, err := json.Marshal(object)
 	if err != nil {
 		slog.Warn("appendMoreHint: marshal failed; returning unaugmented", "err", err)
 		return out
@@ -1316,10 +1345,10 @@ func appendMoreHint(out []byte, viewSet compact.ViewSet, selection compact.ViewS
 // can read and recover from. Distinct from response_too_large; this
 // signals contract mismatch (bad view/format), not size overrun.
 func viewErrorEnvelope(toolName mcp.ToolName, err error) string {
-	envelope := map[string]any{
-		"error":   "view_dispatch_failed",
-		"tool":    string(toolName),
-		"message": err.Error(),
+	envelope := viewErrorResponse{
+		Error:   "view_dispatch_failed",
+		Tool:    toolName,
+		Message: err.Error(),
 	}
 	out, mErr := json.Marshal(envelope)
 	if mErr != nil {
@@ -1334,12 +1363,12 @@ func viewErrorEnvelope(toolName mcp.ToolName, err error) string {
 func tooLargeEnvelope(toolName mcp.ToolName, size, limit int) string {
 	slog.Warn("processResult: response exceeded per-tool max_bytes",
 		"tool", toolName, "size", size, "limit", limit)
-	envelope := map[string]any{
-		"error": "response_too_large",
-		"tool":  string(toolName),
-		"size":  size,
-		"limit": limit,
-		"hint":  "narrow your query (e.g., add a filter, reduce page size, or request fewer fields)",
+	envelope := responseTooLarge{
+		Error: "response_too_large",
+		Tool:  toolName,
+		Size:  size,
+		Limit: limit,
+		Hint:  "narrow your query (e.g., add a filter, reduce page size, or request fewer fields)",
 	}
 	out, err := json.Marshal(envelope)
 	if err != nil {
@@ -1357,12 +1386,12 @@ func columnarizeResult(data string) string {
 	if len(trimmed) == 0 || (trimmed[0] != '[' && trimmed[0] != '{') {
 		return data
 	}
-	var parsed any
-	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+	parsed, err := mcp.ParseJSONValue([]byte(data))
+	if err != nil {
 		slog.Warn("columnarizeResult: unmarshal failed", "err", err)
 		return data
 	}
-	result, err := json.Marshal(mcp.ColumnarizeAny(parsed))
+	result, err := mcp.EncodeJSONValue(parsed, mcp.JSONOptions{Columnar: true})
 	if err != nil {
 		slog.Warn("columnarizeResult: marshal failed", "err", err)
 		return data

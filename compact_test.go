@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1231,28 +1232,16 @@ func TestBuildColumnar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildColumnar(tt.objects)
+			result := buildColumnar(tt.objects, reflect.DeepEqual)
 
-			cols, ok := result["columns"].([]string)
-			require.True(t, ok, "columns should be []string")
-			assert.Equal(t, tt.columns, cols)
-
-			rows, ok := result["rows"].([][]any)
-			require.True(t, ok, "rows should be [][]any")
-			require.Len(t, rows, len(tt.rows))
+			assert.Equal(t, tt.columns, result.columns)
+			require.Len(t, result.rows, len(tt.rows))
 
 			for i, expectedRow := range tt.rows {
-				assert.Equal(t, expectedRow, rows[i], "row %d mismatch", i)
+				assert.Equal(t, expectedRow, result.rows[i], "row %d mismatch", i)
 			}
 
-			if tt.constants != nil {
-				constants, ok := result["constants"].(map[string]any)
-				require.True(t, ok, "constants should be map[string]any")
-				assert.Equal(t, tt.constants, constants)
-			} else {
-				_, hasConstants := result["constants"]
-				assert.False(t, hasConstants, "should not have constants key")
-			}
+			assert.Equal(t, tt.constants, result.constants)
 		})
 	}
 }
@@ -1260,6 +1249,60 @@ func TestBuildColumnar(t *testing.T) {
 // ---------------------------------------------------------------------------
 // CompactAny tests — verify any-based compaction matches CompactJSON behavior
 // ---------------------------------------------------------------------------
+
+func TestTypedJSONPipeline(t *testing.T) {
+	tests := []struct {
+		name, input, want string
+		fields            []string
+	}{
+		{"nested projection", `{"user":{"id":1,"name":"a","extra":true}}`, `{"user":{"id":1,"name":"a"}}`, []string{"user.id", "user.name"}},
+		{"empty targeted array", `{"items":[],"extra":true}`, `{"items":[]}`, []string{"items[].id"}},
+		{"precise numbers", `{"id":18446744073709551615,"zero":-0}`, `{"id":18446744073709551615,"zero":-0}`, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value, err := ParseJSONValue([]byte(tt.input))
+			require.NoError(t, err)
+			fields, err := ParseCompactSpecs(tt.fields)
+			require.NoError(t, err)
+			out, err := EncodeJSONValue(value, JSONOptions{Fields: fields, Columnar: true})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, string(out))
+		})
+	}
+}
+
+func TestTypedColumnarConstantsUseJSONEquality(t *testing.T) {
+	input := `[{"id":0,"meta":{"a":1,"b":2}},{"id":1,"meta":{"b":2,"a":1.0}},` +
+		`{"id":2,"meta":{"a":1,"b":2}},{"id":3,"meta":{"a":1,"b":2}},` +
+		`{"id":4,"meta":{"a":1,"b":2}},{"id":5,"meta":{"a":1,"b":2}},` +
+		`{"id":6,"meta":{"a":1,"b":2}},{"id":7,"meta":{"a":1,"b":2}}]`
+	value, err := ParseJSONValue([]byte(input))
+	require.NoError(t, err)
+	out, err := EncodeJSONValue(value, JSONOptions{Columnar: true})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"columns":["id"],"rows":[[0],[1],[2],[3],[4],[5],[6],[7]],"constants":{"meta":{"a":1,"b":2}}}`, string(out))
+}
+
+func TestJSONValueEquality(t *testing.T) {
+	tests := []struct {
+		name, left, right string
+		equal             bool
+	}{
+		{"equivalent numbers", `{"value":1}`, `{"value":1.0}`, true},
+		{"distinct large integers", `18446744073709551615`, `18446744073709551614`, false},
+		{"underflow is not zero", `1e-1000000000`, `0`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			left, err := ParseJSONValue([]byte(tt.left))
+			require.NoError(t, err)
+			right, err := ParseJSONValue([]byte(tt.right))
+			require.NoError(t, err)
+			assert.Equal(t, tt.equal, sameJSONValue(left, right))
+		})
+	}
+}
 
 func TestCompactAny_CompactsObjectFields(t *testing.T) {
 	obj := map[string]any{
@@ -1351,8 +1394,11 @@ func TestColumnarizeAny_ConvertsLargeArrayToColumnar(t *testing.T) {
 	result := ColumnarizeAny(arr)
 	m, ok := result.(map[string]any)
 	require.True(t, ok)
-	assert.Contains(t, m, "columns")
-	assert.Contains(t, m, "rows")
+	assert.Equal(t, []string{"id"}, m["columns"])
+	rows, ok := m["rows"].([][]any)
+	require.True(t, ok)
+	assert.Len(t, rows, len(arr))
+	assert.Equal(t, map[string]any{"name": "item"}, m["constants"])
 }
 
 func TestColumnarizeAny_PassesThroughSmallArray(t *testing.T) {

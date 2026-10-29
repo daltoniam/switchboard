@@ -481,20 +481,6 @@ func listIncidents(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolRe
 	return mcp.JSONResult(resp)
 }
 
-func getIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
-	r := mcp.NewArgs(args)
-	id := r.Str("id")
-	if err := r.Err(); err != nil {
-		return mcp.ErrResult(err)
-	}
-	api := datadogV2.NewIncidentsApi(d.client)
-	resp, _, err := api.GetIncident(ctx, id, *datadogV2.NewGetIncidentOptionalParameters())
-	if err != nil {
-		return mcp.ErrResult(err)
-	}
-	return mcp.JSONResult(resp)
-}
-
 func createIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	api := datadogV2.NewIncidentsApi(d.client)
@@ -525,54 +511,6 @@ func createIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolR
 	}
 
 	resp, _, err := api.CreateIncident(ctx, body)
-	if err != nil {
-		return mcp.ErrResult(err)
-	}
-	return mcp.JSONResult(resp)
-}
-
-func updateIncident(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
-	r := mcp.NewArgs(args)
-	api := datadogV2.NewIncidentsApi(d.client)
-
-	incidentID := r.Str("id")
-	if err := r.Err(); err != nil {
-		return mcp.ErrResult(err)
-	}
-	attrs := datadogV2.IncidentUpdateAttributes{}
-	if v := r.Str("title"); v != "" {
-		attrs.Title = datadog.PtrString(v)
-	}
-	if _, ok := args["customer_impacted"]; ok {
-		attrs.CustomerImpacted = datadog.PtrBool(r.Bool("customer_impacted"))
-	}
-
-	fields := map[string]datadogV2.IncidentFieldAttributes{}
-	if sev := r.Str("severity"); sev != "" {
-		sevField := datadogV2.NewIncidentFieldAttributesSingleValue()
-		sevField.SetValue(sev)
-		sevField.SetType(datadogV2.INCIDENTFIELDATTRIBUTESSINGLEVALUETYPE_DROPDOWN)
-		fields["severity"] = datadogV2.IncidentFieldAttributesSingleValueAsIncidentFieldAttributes(sevField)
-	}
-	if status := r.Str("status"); status != "" {
-		statusField := datadogV2.NewIncidentFieldAttributesSingleValue()
-		statusField.SetValue(status)
-		statusField.SetType(datadogV2.INCIDENTFIELDATTRIBUTESSINGLEVALUETYPE_DROPDOWN)
-		fields["state"] = datadogV2.IncidentFieldAttributesSingleValueAsIncidentFieldAttributes(statusField)
-	}
-	if len(fields) > 0 {
-		attrs.Fields = fields
-	}
-
-	body := datadogV2.IncidentUpdateRequest{
-		Data: datadogV2.IncidentUpdateData{
-			Id:         incidentID,
-			Attributes: &attrs,
-			Type:       datadogV2.INCIDENTTYPE_INCIDENTS,
-		},
-	}
-
-	resp, _, err := api.UpdateIncident(ctx, incidentID, body, *datadogV2.NewUpdateIncidentOptionalParameters())
 	if err != nil {
 		return mcp.ErrResult(err)
 	}

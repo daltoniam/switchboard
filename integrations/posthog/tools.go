@@ -114,7 +114,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"insight_id"},
 	},
 	{
-		Name: mcp.ToolName("posthog_query"), Description: "Run a HogQL (SQL-like) query synchronously and return inline results. Use this for ad-hoc analytics without persisting an insight. Returns columns, results rows, and execution metadata.",
+		Name: mcp.ToolName("posthog_query"), Description: "Run a HogQL (SQL-like) query synchronously and return inline results. Use this for ad-hoc analytics without persisting an insight. Tables include events, persons, sessions, and console_logs_log_entries (session replay console output). Returns columns, results rows, and execution metadata.",
 		Parameters: map[string]string{"project_id": "Project ID (uses default if configured, otherwise required)", "query": "HogQL query text, e.g. SELECT count() FROM events WHERE timestamp > now() - INTERVAL 7 DAY", "client_query_id": "Optional client-supplied identifier to correlate the request in PostHog logs", "refresh": "Optional cache mode: 'blocking' (default-ish, wait for fresh result), 'force_blocking', 'lazy_async', 'force_cache'"},
 		Required:   []string{"query"},
 	},
@@ -243,6 +243,22 @@ var tools = []mcp.ToolDefinition{
 		Name: mcp.ToolName("posthog_get_event"), Description: "Get details of a specific event",
 		Parameters: map[string]string{"project_id": "Project ID (uses default if configured, otherwise required)", "event_id": "Event UUID"},
 		Required:   []string{"event_id"},
+	},
+
+	// ── Session Replay ──────────────────────────────────────────────
+	{
+		Name: mcp.ToolName("posthog_get_session_console_logs"), Description: "Start here to debug a user's session from a PostHog replay link: read the browser console log entries the replay captured (Apollo Client GraphQL and network errors, JavaScript errors, warnings) with their timestamps. Accepts a replay URL or session recording ID; filter by level, text, and time window around a user action.",
+		Parameters: map[string]string{"project_id": "Project ID (taken from the replay URL, else the default)", "session_id": "Session recording ID or PostHog replay URL (https://us.posthog.com/project/<id>/replay/<session>)", "level": "Optional comma-separated levels: error, warn, info, log, debug", "search": "Optional case-insensitive text to match, e.g. Apollo or bookDelivery", "after": "Optional ISO 8601 lower bound, e.g. 2026-09-10T14:14:30Z", "before": "Optional ISO 8601 upper bound", "limit": "Max entries (default 200, max 1000)"},
+		Required:   []string{"session_id"},
+	},
+	{
+		Name: mcp.ToolName("posthog_list_session_recordings"), Description: "List session replay recordings, optionally for one person and date range. Returns recording IDs with start/end times, start URL, and click and console error/warning counts to find the session to inspect.",
+		Parameters: map[string]string{"project_id": "Project ID (uses default if configured, otherwise required)", "person_id": "Filter by person UUID", "date_from": "ISO 8601 start, or relative like -7d", "date_to": "ISO 8601 end", "limit": "Max results", "offset": "Pagination offset"},
+	},
+	{
+		Name: mcp.ToolName("posthog_get_session_recording"), Description: "Get a session replay recording's metadata: person, duration, start URL, and click and console error/warning counts. Accepts a replay URL or session recording ID. Use posthog_get_session_console_logs for the console messages themselves.",
+		Parameters: map[string]string{"project_id": "Project ID (taken from the replay URL, else the default)", "session_id": "Session recording ID or PostHog replay URL"},
+		Required:   []string{"session_id"},
 	},
 
 	// ── Experiments ─────────────────────────────────────────────────
