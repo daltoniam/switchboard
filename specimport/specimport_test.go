@@ -79,6 +79,52 @@ func TestParseOpenAPI(t *testing.T) {
 	}
 }
 
+func TestParseOpenAPI_PathItemParameters(t *testing.T) {
+	doc := `{
+  "openapi": "3.0.0",
+  "info": {"title": "Demo"},
+  "paths": {
+    "/users/{id}": {
+      "parameters": [
+        {"name": "id", "in": "path", "required": true, "description": "user id"}
+      ],
+      "get": {"operationId": "getUser"}
+    }
+  }
+}`
+	im, err := Parse(KindOpenAPI, "demo", []byte(doc), "https://1.1.1.1")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	in := NewIntegration(im)
+	op, ok := in.opByTool["demo_getuser"]
+	if !ok {
+		t.Fatalf("missing tool, have %v", in.opByTool)
+	}
+	if len(op.pathParams) != 1 || op.pathParams[0] != "id" {
+		t.Fatalf("pathParams = %v", op.pathParams)
+	}
+}
+
+func TestParseOpenAPI_RejectsParameterRef(t *testing.T) {
+	doc := `{
+  "openapi": "3.0.0",
+  "info": {"title": "Demo"},
+  "paths": {
+    "/users": {
+      "get": {
+        "operationId": "list",
+        "parameters": [{"$ref": "#/components/parameters/UserId"}]
+      }
+    }
+  }
+}`
+	_, err := Parse(KindOpenAPI, "demo", []byte(doc), "https://1.1.1.1")
+	if err == nil {
+		t.Fatal("expected error for parameter $ref")
+	}
+}
+
 func TestParseOpenAPIEndpointOverride(t *testing.T) {
 	im, err := Parse(KindOpenAPI, "demo", []byte(openAPIFixture), "https://staging.example.com")
 	if err != nil {

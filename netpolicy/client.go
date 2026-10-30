@@ -23,8 +23,9 @@ type UserHTTPClientConfig struct {
 	AllowPrivate bool
 	// ValidateURL checks each request URL (initial and redirect targets).
 	ValidateURL func(raw string) error
-	// AuthHeader, when non-empty, is stripped on requests whose origin differs from AuthOrigin.
+	// AuthHeader and AuthValue are attached only for requests to AuthOrigin.
 	AuthHeader string
+	AuthValue  string
 	AuthOrigin *url.URL
 	// DisableRedirects rejects redirect responses instead of following them.
 	DisableRedirects bool
@@ -44,20 +45,24 @@ func (t *validatingRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	return t.base.RoundTrip(req)
 }
 
-type authStripRoundTripper struct {
+type authRoundTripper struct {
 	base   http.RoundTripper
 	header string
+	value  string
 	origin *url.URL
 }
 
-func (t *authStripRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if t.header != "" && t.origin != nil && !sameOrigin(t.origin, req.URL) {
-		req2 := req.Clone(req.Context())
-		req2.Header = req.Header.Clone()
-		req2.Header.Del(t.header)
-		req = req2
+func (t *authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req2 := req.Clone(req.Context())
+	req2.Header = req.Header.Clone()
+	if t.header != "" && t.value != "" {
+		if t.origin == nil || sameOrigin(t.origin, req.URL) {
+			req2.Header.Set(t.header, t.value)
+		} else {
+			req2.Header.Del(t.header)
+		}
 	}
-	return t.base.RoundTrip(req)
+	return t.base.RoundTrip(req2)
 }
 
 // NewUserHTTPClient returns an http.Client that enforces host policy at dial time
@@ -74,8 +79,8 @@ func NewUserHTTPClient(cfg UserHTTPClientConfig) *http.Client {
 	}
 	rt := http.RoundTripper(base)
 	rt = &validatingRoundTripper{base: rt, validate: cfg.ValidateURL}
-	if cfg.AuthHeader != "" && cfg.AuthOrigin != nil {
-		rt = &authStripRoundTripper{base: rt, header: cfg.AuthHeader, origin: cfg.AuthOrigin}
+	if cfg.AuthHeader != "" && cfg.AuthValue != "" {
+		rt = &authRoundTripper{base: rt, header: cfg.AuthHeader, value: cfg.AuthValue, origin: cfg.AuthOrigin}
 	}
 	client := &http.Client{
 		Timeout:   cfg.Timeout,
@@ -121,29 +126,13 @@ func dialContext(ctx context.Context, network, address string, allowPrivate bool
 		return nil, err
 	}
 	host = strings.Trim(host, "[]")
-	if ip := net.ParseIP(host); ip != nil {
-		if HostDisallowed(host) {
-			return nil, fmt.Errorf("connection to disallowed address")
-		}
-		return d.DialContext(ctx, network, address)
-	}
-	if HostDisallowed(host) {
-		return nil, fmt.Errorf("connection to disallowed host")
-	}
-	addrs, err := lookupIPAddr(ctx, host)
+	ips, err := allowedIPAddrs(ctx, host)
 	if err != nil {
 		return nil, err
 	}
-	if len(addrs) == 0 {
-		return nil, fmt.Errorf("no addresses for %q", host)
-	}
 	var lastErr error
-	for _, ipa := range addrs {
-		if HostDisallowed(ipa.IP.String()) {
-			lastErr = fmt.Errorf("host %q resolves to disallowed address", host)
-			continue
-		}
-		target := net.JoinHostPort(ipa.IP.String(), port)
+	for _, ip := range ips {
+		target := net.JoinHostPort(ip.String(), port)
 		conn, err := d.DialContext(ctx, network, target)
 		if err == nil {
 			return conn, nil
@@ -151,7 +140,7 @@ func dialContext(ctx context.Context, network, address string, allowPrivate bool
 		lastErr = err
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("host %q resolves only to disallowed addresses", host)
+		lastErr = fmt.Errorf("host %q could not be dialed", host)
 	}
 	return nil, lastErr
 }

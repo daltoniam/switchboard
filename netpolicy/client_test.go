@@ -2,8 +2,10 @@ package netpolicy
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,6 +38,19 @@ func TestNewUserHTTPClient_RejectsRedirectToLoopback(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestNewUserHTTPClient_ValidatesInitialURL(t *testing.T) {
+	client := NewUserHTTPClient(UserHTTPClientConfig{
+		AllowPrivate: true,
+		ValidateURL: func(string) error {
+			return assert.AnError
+		},
+	})
+	req, err := http.NewRequest(http.MethodGet, "https://example.test/", nil)
+	require.NoError(t, err)
+	_, err = client.Do(req)
+	assert.Error(t, err)
+}
+
 func TestNewUserHTTPClient_StripsAuthOnCrossOriginRedirect(t *testing.T) {
 	var seenAuth string
 	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -49,23 +64,17 @@ func TestNewUserHTTPClient_StripsAuthOnCrossOriginRedirect(t *testing.T) {
 	}))
 	t.Cleanup(public.Close)
 
+	origin, err := url.Parse(public.URL)
+	require.NoError(t, err)
 	client := NewUserHTTPClient(UserHTTPClientConfig{
 		AllowPrivate: true,
-		ValidateURL: func(raw string) error {
-			u, err := http.NewRequest(http.MethodGet, raw, nil)
-			if err != nil {
-				return err
-			}
-			if u.URL.Host == "" {
-				return assert.AnError
-			}
-			return nil
-		},
-		AuthHeader: "X-API-Key",
+		ValidateURL:  func(string) error { return nil },
+		AuthHeader:   "X-API-Key",
+		AuthValue:    "secret",
+		AuthOrigin:   origin,
 	})
 	req, err := http.NewRequest(http.MethodGet, public.URL, nil)
 	require.NoError(t, err)
-	req.Header.Set("X-API-Key", "secret")
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 	_ = resp.Body.Close()
@@ -90,14 +99,17 @@ func TestNewUserHTTPClient_StripsAuthThroughRedirectChain(t *testing.T) {
 	}))
 	t.Cleanup(start.Close)
 
+	origin, err := url.Parse(start.URL)
+	require.NoError(t, err)
 	client := NewUserHTTPClient(UserHTTPClientConfig{
 		AllowPrivate: true,
 		ValidateURL:  func(string) error { return nil },
 		AuthHeader:   "X-API-Key",
+		AuthValue:    "secret",
+		AuthOrigin:   origin,
 	})
 	req, err := http.NewRequest(http.MethodGet, start.URL, nil)
 	require.NoError(t, err)
-	req.Header.Set("X-API-Key", "secret")
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 	_ = resp.Body.Close()
@@ -106,5 +118,15 @@ func TestNewUserHTTPClient_StripsAuthThroughRedirectChain(t *testing.T) {
 
 func TestDialContext_BlocksLoopback(t *testing.T) {
 	_, err := dialContext(context.Background(), "tcp", "127.0.0.1:9", false)
+	assert.Error(t, err)
+}
+
+func TestDialContext_RejectsDisallowedResolution(t *testing.T) {
+	orig := lookupIPAddr
+	t.Cleanup(func() { lookupIPAddr = orig })
+	lookupIPAddr = func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("127.0.0.1")}}, nil
+	}
+	_, err := dialContext(context.Background(), "tcp", "rebind.example.test:443", false)
 	assert.Error(t, err)
 }

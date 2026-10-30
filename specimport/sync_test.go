@@ -109,6 +109,27 @@ func TestSyncer_BadEntryCollectsError(t *testing.T) {
 	}
 }
 
+func TestSyncer_RemovesStaleOnLoadFailure(t *testing.T) {
+	reg := registry.New()
+	s := specimport.NewSyncer(reg)
+
+	s.Sync([]mcp.SpecImportConfig{cfg("Demo API", openAPISync)})
+	if _, ok := reg.Get("demo_api"); !ok {
+		t.Fatal("expected demo_api registered")
+	}
+
+	res := s.Sync([]mcp.SpecImportConfig{cfg("Demo API", "not json")})
+	if len(res.Errors) != 1 {
+		t.Fatalf("Errors = %v", res.Errors)
+	}
+	if len(res.Removed) != 1 || res.Removed[0] != "demo_api" {
+		t.Fatalf("Removed = %v", res.Removed)
+	}
+	if _, ok := reg.Get("demo_api"); ok {
+		t.Fatal("stale demo_api should be unregistered after load failure")
+	}
+}
+
 func TestSyncer_LeavesUnmanagedAlone(t *testing.T) {
 	reg := registry.New()
 	s := specimport.NewSyncer(reg)

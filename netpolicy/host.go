@@ -26,8 +26,13 @@ var blockedCIDRs = func() []*net.IPNet {
 	return []*net.IPNet{n0, n1}
 }()
 
+// errDisallowedHost is returned when an outbound URL targets a forbidden host or address.
+var errDisallowedHost = fmt.Errorf("requests to private, loopback, link-local, or metadata addresses are not allowed")
+
 // HostDisallowed reports whether host must not be used for a user-supplied
 // outbound HTTP(S) URL (loopback, RFC1918/ULA, link-local, or cloud metadata).
+// Hostname labels that are not IP literals return false here; callers must also
+// invoke ResolveOutboundHost before connecting.
 func HostDisallowed(host string) bool {
 	host = strings.TrimSpace(host)
 	if host == "" {
@@ -67,6 +72,57 @@ func HostDisallowed(host string) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
 }
 
+// ResolveOutboundHost resolves host when needed and enforces the outbound address policy.
+func ResolveOutboundHost(ctx context.Context, host string) error {
+	_, err := allowedIPAddrs(ctx, host)
+	return err
+}
+
+func allowedIPAddrs(ctx context.Context, host string) ([]net.IP, error) {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return nil, fmt.Errorf("host is required")
+	}
+	h := host
+	if strings.Contains(h, ":") {
+		if name, _, err := net.SplitHostPort(h); err == nil {
+			h = name
+		}
+	}
+	h = strings.Trim(h, "[]")
+	if strings.Contains(h, "%") {
+		return nil, errDisallowedHost
+	}
+	lower := strings.ToLower(h)
+	if lower == "localhost" || blockedHostnames[lower] {
+		return nil, errDisallowedHost
+	}
+	if ip := net.ParseIP(lower); ip != nil {
+		if HostDisallowed(host) {
+			return nil, errDisallowedHost
+		}
+		return []net.IP{ip}, nil
+	}
+	addrs, err := lookupIPAddr(ctx, h)
+	if err != nil {
+		return nil, fmt.Errorf("resolve host: %w", err)
+	}
+	if len(addrs) == 0 {
+		return nil, fmt.Errorf("host %q has no addresses", h)
+	}
+	var allowed []net.IP
+	for _, a := range addrs {
+		if HostDisallowed(a.IP.String()) {
+			continue
+		}
+		allowed = append(allowed, a.IP)
+	}
+	if len(allowed) == 0 {
+		return nil, errDisallowedHost
+	}
+	return allowed, nil
+}
+
 // ValidateUserHTTPURL checks that raw is an absolute http or https URL whose host
 // is allowed for outbound requests from user-supplied configuration.
 func ValidateUserHTTPURL(raw string) error {
@@ -84,24 +140,7 @@ func ValidateUserHTTPURL(raw string) error {
 	if u.Host == "" {
 		return fmt.Errorf("url must include a host")
 	}
-	if HostDisallowed(u.Hostname()) {
-		return fmt.Errorf("requests to private, loopback, link-local, or metadata addresses are not allowed")
-	}
-	if ip := net.ParseIP(u.Hostname()); ip == nil && !strings.Contains(u.Hostname(), "%") {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		addrs, err := lookupIPAddr(ctx, u.Hostname())
-		if err != nil {
-			return fmt.Errorf("resolve host: %w", err)
-		}
-		if len(addrs) == 0 {
-			return fmt.Errorf("host %q has no addresses", u.Hostname())
-		}
-		for _, a := range addrs {
-			if HostDisallowed(a.IP.String()) {
-				return fmt.Errorf("requests to private, loopback, link-local, or metadata addresses are not allowed")
-			}
-		}
-	}
-	return nil
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return ResolveOutboundHost(ctx, u.Hostname())
 }

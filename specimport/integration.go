@@ -76,13 +76,13 @@ func NewIntegration(im *Imported) *Integration {
 	}
 	return &Integration{
 		im:       im,
-		client:   outboundHTTPClient(im.BaseURL, ""),
+		client:   outboundHTTPClient(im.BaseURL, "", ""),
 		baseURL:  im.BaseURL,
 		opByTool: idx,
 	}
 }
 
-func outboundHTTPClient(baseURL, authHeader string) *http.Client {
+func outboundHTTPClient(baseURL, authHeader, authValue string) *http.Client {
 	var origin *url.URL
 	if u, err := url.Parse(strings.TrimSpace(baseURL)); err == nil {
 		origin = u
@@ -92,13 +92,14 @@ func outboundHTTPClient(baseURL, authHeader string) *http.Client {
 		AllowPrivate:     allowPrivateOutboundHosts,
 		ValidateURL:      validateURL,
 		AuthHeader:       authHeader,
+		AuthValue:        authValue,
 		AuthOrigin:       origin,
 		DisableRedirects: !allowPrivateOutboundHosts,
 	})
 }
 
 func (in *Integration) rebuildClient() {
-	in.client = outboundHTTPClient(in.baseURL, in.authHeader)
+	in.client = outboundHTTPClient(in.baseURL, in.authHeader, in.authValue)
 }
 
 // Name returns the integration identifier (the sanitized import name).
@@ -325,9 +326,6 @@ func graphQLError(body string) (string, bool) {
 // bounded, truncation-aware ToolResult. Non-2xx responses are surfaced as
 // non-retryable errors carrying the upstream body so the model can react.
 func (in *Integration) do(req *http.Request) (*mcp.ToolResult, error) {
-	if in.authHeader != "" && in.authValue != "" {
-		req.Header.Set(in.authHeader, in.authValue)
-	}
 	if req.Header.Get("Accept") == "" {
 		req.Header.Set("Accept", "application/json")
 	}
