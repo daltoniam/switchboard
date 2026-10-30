@@ -59,7 +59,7 @@ func HostDisallowed(host string) bool {
 	}
 	ip := net.ParseIP(lower)
 	if ip == nil {
-		return false
+		return blockedHostnameLabel(lower)
 	}
 	if ip.IsUnspecified() {
 		return true
@@ -70,6 +70,10 @@ func HostDisallowed(host string) bool {
 		}
 	}
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
+}
+
+func blockedHostnameLabel(lower string) bool {
+	return lower == "localhost" || blockedHostnames[lower]
 }
 
 // ResolveOutboundHost resolves host when needed and enforces the outbound address policy.

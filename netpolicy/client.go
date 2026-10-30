@@ -92,17 +92,6 @@ func NewUserHTTPClient(cfg UserHTTPClientConfig) *http.Client {
 			if len(via) >= maxRedirects {
 				return fmt.Errorf("too many redirects (max %d)", maxRedirects)
 			}
-			if cfg.ValidateURL != nil {
-				if err := cfg.ValidateURL(req.URL.String()); err != nil {
-					return err
-				}
-			}
-			if cfg.AuthHeader != "" && len(via) > 0 {
-				original := via[0].URL
-				if !sameOrigin(original, req.URL) {
-					req.Header.Del(cfg.AuthHeader)
-				}
-			}
 			return nil
 		},
 	}

@@ -976,7 +976,12 @@ func (m *manager) EnabledIntegrations() []string {
 	// Spec imports are registered under their sanitized name and must be
 	// reported here so search indexing and execute resolution can find them —
 	// they live in a separate config list from built-in integrations.
-	for _, si := range m.cfg.SpecImports {
+	names = appendUniqueEnabledSpecImports(names, seen, m.cfg.SpecImports)
+	return names
+}
+
+func appendUniqueEnabledSpecImports(names []string, seen map[string]struct{}, imports []mcp.SpecImportConfig) []string {
+	for _, si := range imports {
 		if !si.Enabled {
 			continue
 		}

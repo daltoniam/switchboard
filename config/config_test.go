@@ -342,6 +342,18 @@ func TestSetSpecImports_Persisted(t *testing.T) {
 	assert.Equal(t, "Demo API", persisted.SpecImports[0].Name)
 }
 
+func TestAppendUniqueEnabledSpecImports_Dedupes(t *testing.T) {
+	seen := map[string]struct{}{"github": {}}
+	names := []string{"github"}
+	out := appendUniqueEnabledSpecImports(names, seen, []mcp.SpecImportConfig{
+		{Name: "Demo API", Enabled: true},
+		{Name: "demo-api", Enabled: true},
+		{Name: "github", Enabled: true},
+	})
+	assert.Equal(t, 1, countName(out, "demo_api"))
+	assert.Equal(t, 1, countName(out, "github"))
+}
+
 func countName(names []string, want string) int {
 	n := 0
 	for _, name := range names {

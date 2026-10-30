@@ -29,9 +29,7 @@ type openAPIServer struct {
 	URL string `json:"url"`
 }
 
-// openAPIPathItem holds the operations keyed by HTTP method. We decode the
-// well-known verbs explicitly rather than as a map so JSON tags document the
-// supported set.
+// openAPIPathItem holds path-level parameters and operations keyed by HTTP method.
 type openAPIPathItem struct {
 	Parameters []openAPIParam    `json:"parameters"`
 	Get        *openAPIOperation `json:"get"`
@@ -145,7 +143,7 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 	for _, rawPath := range paths {
 		item := d.Paths[rawPath]
 		for _, me := range item.entries() {
-			op := buildOpenAPIOperation(name, rawPath, me, item.Parameters, seen)
+			op := buildOpenAPIOperation(name, rawPath, me, openAPIOperationParameters(item, me.op), seen)
 			im.operations = append(im.operations, op)
 		}
 	}
@@ -268,6 +266,14 @@ func validateOpenAPIParamList(ps []openAPIParam) error {
 		}
 	}
 	return nil
+}
+
+// openAPIOperationParameters merges path-item parameters with operation overrides.
+func openAPIOperationParameters(item openAPIPathItem, op *openAPIOperation) []openAPIParam {
+	if op == nil {
+		return mergeOpenAPIParams(item.Parameters, nil)
+	}
+	return mergeOpenAPIParams(item.Parameters, op.Parameters)
 }
 
 func mergeOpenAPIParams(pathLevel, opLevel []openAPIParam) []openAPIParam {
