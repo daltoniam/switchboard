@@ -935,6 +935,7 @@ func (m *manager) SetSpecImports(imports []mcp.SpecImportConfig) error {
 	}
 	previousRuntime := m.cfg.SpecImports
 	previousPersisted := m.persisted.SpecImports
+	imports = dedupeSpecImportConfigs(imports)
 	m.cfg.SpecImports = imports
 	m.persisted.SpecImports = imports
 	if err := m.saveLocked(); err != nil {
@@ -943,6 +944,21 @@ func (m *manager) SetSpecImports(imports []mcp.SpecImportConfig) error {
 		return err
 	}
 	return nil
+}
+
+func dedupeSpecImportConfigs(list []mcp.SpecImportConfig) []mcp.SpecImportConfig {
+	seen := map[string]int{}
+	out := make([]mcp.SpecImportConfig, 0, len(list))
+	for _, si := range list {
+		key := specimport.SanitizedName(si.Name)
+		if idx, ok := seen[key]; ok {
+			out[idx] = si
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, si)
+	}
+	return out
 }
 
 func (m *manager) EnabledIntegrations() []string {

@@ -155,6 +155,27 @@ func TestHandleSpecImportSave_ReservedName(t *testing.T) {
 	assert.Contains(t, rw.Header().Get("Location"), "reserved")
 }
 
+func TestHandleSpecImportSave_PreservesCredentialsWithoutAPIKey(t *testing.T) {
+	ws, _, cfg := setupTestWeb()
+	cfg.cfg.SpecImports = []mcp.SpecImportConfig{
+		{Name: "Demo API", Kind: "openapi", Spec: specImportOpenAPI, Enabled: true, Credentials: mcp.Credentials{"api_key": "keep-me"}},
+	}
+
+	form := url.Values{}
+	form.Set("name", "Demo API")
+	form.Set("kind", "openapi")
+	form.Set("spec", specImportOpenAPI)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/spec-imports/save", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rw := httptest.NewRecorder()
+
+	ws.handleSpecImportSave(rw, req)
+
+	require.Len(t, cfg.cfg.SpecImports, 1)
+	assert.Equal(t, "keep-me", cfg.cfg.SpecImports[0].Credentials["api_key"])
+}
+
 func TestHandleSpecImportSave_RawAuthScheme(t *testing.T) {
 	ws, _, cfg := setupTestWeb()
 

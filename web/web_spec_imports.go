@@ -68,17 +68,17 @@ func (w *WebServer) handleSpecImportSave(rw http.ResponseWriter, r *http.Request
 		Endpoint: strings.TrimSpace(r.FormValue("endpoint")),
 		Enabled:  true,
 	}
-	if creds := specImportCreds(r); len(creds) > 0 {
-		entry.Credentials = creds
-	}
+	entry = mergeSpecImportCredentials(cfg.SpecImports, regName, entry, r)
 
 	// Validate by loading before persisting.
-	if _, err := specimport.Load(entry); err != nil {
+	in, err := specimport.Load(entry)
+	if err != nil {
 		specImportRedirect(rw, r, "", err.Error())
 		return
 	}
+	_ = in
 
-	imports := upsertSpecImport(cfg.SpecImports, entry)
+	imports := dedupeSpecImports(upsertSpecImport(cfg.SpecImports, entry))
 	if err := w.services.Config.SetSpecImports(imports); err != nil {
 		specImportRedirect(rw, r, "", "save failed: "+err.Error())
 		return
@@ -174,8 +174,58 @@ func specImportNameReserved(w *WebServer, regName string, imports []mcp.SpecImpo
 	if w.services.Registry == nil {
 		return false
 	}
-	_, ok := w.services.Registry.Get(regName)
-	return ok
+	for _, n := range w.services.Registry.Names() {
+		if n == regName {
+			return true
+		}
+	}
+	return false
+}
+
+func mergeSpecImportCredentials(list []mcp.SpecImportConfig, regName string, entry mcp.SpecImportConfig, r *http.Request) mcp.SpecImportConfig {
+	prev := findSpecImportBySanitized(list, regName)
+	if prev == nil {
+		if creds := specImportCreds(r); len(creds) > 0 {
+			entry.Credentials = creds
+		}
+		return entry
+	}
+	if strings.TrimSpace(r.FormValue("api_key")) != "" {
+		entry.Credentials = specImportCreds(r)
+		return entry
+	}
+	entry.Credentials = prev.Credentials
+	if v := strings.TrimSpace(r.FormValue("auth_header")); v != "" {
+		if entry.Credentials == nil {
+			entry.Credentials = mcp.Credentials{}
+		}
+		entry.Credentials["auth_header"] = v
+	}
+	return entry
+}
+
+func findSpecImportBySanitized(list []mcp.SpecImportConfig, sanitized string) *mcp.SpecImportConfig {
+	for i := range list {
+		if specimport.SanitizedName(list[i].Name) == sanitized {
+			return &list[i]
+		}
+	}
+	return nil
+}
+
+func dedupeSpecImports(list []mcp.SpecImportConfig) []mcp.SpecImportConfig {
+	seen := map[string]int{}
+	out := make([]mcp.SpecImportConfig, 0, len(list))
+	for _, si := range list {
+		key := specimport.SanitizedName(si.Name)
+		if idx, ok := seen[key]; ok {
+			out[idx] = si
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, si)
+	}
+	return out
 }
 
 // removeSpecImport drops the entry whose sanitized name matches.

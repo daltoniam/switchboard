@@ -1,6 +1,8 @@
 package netpolicy
 
 import (
+	"context"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,6 +43,16 @@ func TestHostDisallowed(t *testing.T) {
 func TestValidateUserHTTPURL(t *testing.T) {
 	assert.NoError(t, ValidateUserHTTPURL("https://1.1.1.1/v1"))
 	assert.Error(t, ValidateUserHTTPURL("https://127.0.0.1/pets"))
+	assert.Error(t, ValidateUserHTTPURL("https://[::1%lo]/pets"))
 	assert.Error(t, ValidateUserHTTPURL("ftp://example.com"))
 	assert.Error(t, ValidateUserHTTPURL("https://metadata.google.internal/computeMetadata/v1/"))
+}
+
+func TestValidateUserHTTPURL_RejectsDisallowedResolution(t *testing.T) {
+	orig := lookupIPAddr
+	t.Cleanup(func() { lookupIPAddr = orig })
+	lookupIPAddr = func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("127.0.0.1")}}, nil
+	}
+	assert.Error(t, ValidateUserHTTPURL("https://rebind.example.test/"))
 }

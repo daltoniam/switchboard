@@ -12,14 +12,22 @@ import (
 
 const maxRedirects = 10
 
+// lookupIPAddr resolves hostnames for outbound policy checks. Tests may replace it.
+var lookupIPAddr = func(ctx context.Context, host string) ([]net.IPAddr, error) {
+	return net.DefaultResolver.LookupIPAddr(ctx, host)
+}
+
 // UserHTTPClientConfig configures an outbound HTTP client for user-supplied URLs.
 type UserHTTPClientConfig struct {
 	Timeout      time.Duration
 	AllowPrivate bool
 	// ValidateURL checks each request URL (initial and redirect targets).
 	ValidateURL func(raw string) error
-	// AuthHeader, when non-empty, is stripped on redirects outside the original origin.
+	// AuthHeader, when non-empty, is stripped on requests whose origin differs from AuthOrigin.
 	AuthHeader string
+	AuthOrigin *url.URL
+	// DisableRedirects rejects redirect responses instead of following them.
+	DisableRedirects bool
 }
 
 type validatingRoundTripper struct {
@@ -36,9 +44,25 @@ func (t *validatingRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	return t.base.RoundTrip(req)
 }
 
+type authStripRoundTripper struct {
+	base   http.RoundTripper
+	header string
+	origin *url.URL
+}
+
+func (t *authStripRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.header != "" && t.origin != nil && !sameOrigin(t.origin, req.URL) {
+		req2 := req.Clone(req.Context())
+		req2.Header = req.Header.Clone()
+		req2.Header.Del(t.header)
+		req = req2
+	}
+	return t.base.RoundTrip(req)
+}
+
 // NewUserHTTPClient returns an http.Client that enforces host policy at dial time
 // (mitigating DNS rebinding), validates every request URL, and drops the
-// configured auth header when a redirect leaves the original origin.
+// configured auth header when a request leaves AuthOrigin.
 func NewUserHTTPClient(cfg UserHTTPClientConfig) *http.Client {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 30 * time.Second
@@ -48,11 +72,18 @@ func NewUserHTTPClient(cfg UserHTTPClientConfig) *http.Client {
 			return dialContext(ctx, network, address, cfg.AllowPrivate)
 		},
 	}
-	transport := &validatingRoundTripper{base: base, validate: cfg.ValidateURL}
+	rt := http.RoundTripper(base)
+	rt = &validatingRoundTripper{base: rt, validate: cfg.ValidateURL}
+	if cfg.AuthHeader != "" && cfg.AuthOrigin != nil {
+		rt = &authStripRoundTripper{base: rt, header: cfg.AuthHeader, origin: cfg.AuthOrigin}
+	}
 	client := &http.Client{
 		Timeout:   cfg.Timeout,
-		Transport: transport,
+		Transport: rt,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if cfg.DisableRedirects {
+				return http.ErrUseLastResponse
+			}
 			if len(via) >= maxRedirects {
 				return fmt.Errorf("too many redirects (max %d)", maxRedirects)
 			}
@@ -99,7 +130,7 @@ func dialContext(ctx context.Context, network, address string, allowPrivate bool
 	if HostDisallowed(host) {
 		return nil, fmt.Errorf("connection to disallowed host")
 	}
-	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	addrs, err := lookupIPAddr(ctx, host)
 	if err != nil {
 		return nil, err
 	}

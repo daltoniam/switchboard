@@ -136,6 +136,10 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 	}
 	sort.Strings(paths)
 
+	if err := validateOpenAPIParams(d); err != nil {
+		return nil, err
+	}
+
 	im := &Imported{Name: name, Kind: KindOpenAPI, BaseURL: base}
 	seen := map[string]bool{}
 	for _, rawPath := range paths {
@@ -238,6 +242,32 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+func validateOpenAPIParams(doc openAPIDoc) error {
+	for path, item := range doc.Paths {
+		if err := validateOpenAPIParamList(item.Parameters); err != nil {
+			return fmt.Errorf("specimport: path %q: %w", path, err)
+		}
+		for _, me := range item.entries() {
+			if me.op == nil {
+				continue
+			}
+			if err := validateOpenAPIParamList(me.op.Parameters); err != nil {
+				return fmt.Errorf("specimport: path %q %s: %w", path, me.method, err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateOpenAPIParamList(ps []openAPIParam) error {
+	for _, p := range ps {
+		if p.Ref != "" {
+			return fmt.Errorf("unsupported parameter $ref %q", p.Ref)
+		}
+	}
+	return nil
 }
 
 func mergeOpenAPIParams(pathLevel, opLevel []openAPIParam) []openAPIParam {

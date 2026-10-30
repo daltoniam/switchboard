@@ -90,7 +90,7 @@ func ValidateUserHTTPURL(raw string) error {
 	if ip := net.ParseIP(u.Hostname()); ip == nil && !strings.Contains(u.Hostname(), "%") {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		addrs, err := net.DefaultResolver.LookupIPAddr(ctx, u.Hostname())
+		addrs, err := lookupIPAddr(ctx, u.Hostname())
 		if err != nil {
 			return fmt.Errorf("resolve host: %w", err)
 		}

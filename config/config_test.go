@@ -325,6 +325,23 @@ func TestEnabledIntegrations_SpecImportDedupe(t *testing.T) {
 	assert.Equal(t, 1, countName(enabled, "github"))
 }
 
+func TestSetSpecImports_Persisted(t *testing.T) {
+	m, path := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	imports := []mcp.SpecImportConfig{
+		{Name: "Demo API", Kind: "openapi", Spec: "{}", Enabled: true},
+	}
+	require.NoError(t, m.SetSpecImports(imports))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var persisted mcp.Config
+	require.NoError(t, json.Unmarshal(data, &persisted))
+	require.Len(t, persisted.SpecImports, 1)
+	assert.Equal(t, "Demo API", persisted.SpecImports[0].Name)
+}
+
 func countName(names []string, want string) int {
 	n := 0
 	for _, name := range names {

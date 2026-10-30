@@ -76,23 +76,29 @@ func NewIntegration(im *Imported) *Integration {
 	}
 	return &Integration{
 		im:       im,
-		client:   outboundHTTPClient(""),
+		client:   outboundHTTPClient(im.BaseURL, ""),
 		baseURL:  im.BaseURL,
 		opByTool: idx,
 	}
 }
 
-func outboundHTTPClient(authHeader string) *http.Client {
+func outboundHTTPClient(baseURL, authHeader string) *http.Client {
+	var origin *url.URL
+	if u, err := url.Parse(strings.TrimSpace(baseURL)); err == nil {
+		origin = u
+	}
 	return netpolicy.NewUserHTTPClient(netpolicy.UserHTTPClientConfig{
-		Timeout:      defaultTimeout,
-		AllowPrivate: allowPrivateOutboundHosts,
-		ValidateURL:  validateURL,
-		AuthHeader:   authHeader,
+		Timeout:          defaultTimeout,
+		AllowPrivate:     allowPrivateOutboundHosts,
+		ValidateURL:      validateURL,
+		AuthHeader:       authHeader,
+		AuthOrigin:       origin,
+		DisableRedirects: !allowPrivateOutboundHosts,
 	})
 }
 
 func (in *Integration) rebuildClient() {
-	in.client = outboundHTTPClient(in.authHeader)
+	in.client = outboundHTTPClient(in.baseURL, in.authHeader)
 }
 
 // Name returns the integration identifier (the sanitized import name).
