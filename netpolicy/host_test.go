@@ -56,3 +56,16 @@ func TestValidateUserHTTPURL_RejectsDisallowedResolution(t *testing.T) {
 	}
 	assert.Error(t, ValidateUserHTTPURL("https://rebind.example.test/"))
 }
+
+func TestAllowedIPAddrs_RejectsMixedPublicAndPrivate(t *testing.T) {
+	orig := lookupIPAddr
+	t.Cleanup(func() { lookupIPAddr = orig })
+	lookupIPAddr = func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{
+			{IP: net.ParseIP("8.8.8.8")},
+			{IP: net.ParseIP("127.0.0.1")},
+		}, nil
+	}
+	_, err := allowedIPAddrs(context.Background(), "mixed.example.test")
+	assert.ErrorIs(t, err, errDisallowedHost)
+}

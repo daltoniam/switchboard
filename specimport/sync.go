@@ -58,11 +58,17 @@ func (s *Syncer) Sync(desired []mcp.SpecImportConfig) SyncResult {
 
 	var res SyncResult
 	wanted := make(map[string]mcp.SpecImportConfig)
+	seenNames := make(map[string]struct{})
 	for _, cfg := range desired {
 		if !cfg.Enabled {
 			continue
 		}
 		name := SanitizedName(cfg.Name)
+		if _, dup := seenNames[name]; dup {
+			res.Errors = append(res.Errors, fmt.Errorf("spec import %q: duplicate sanitized name %q", cfg.Name, name))
+			continue
+		}
+		seenNames[name] = struct{}{}
 		wanted[name] = cfg
 	}
 

@@ -62,12 +62,13 @@ type openAPIParam struct {
 }
 
 type openAPIReqBody struct {
+	Ref         string `json:"$ref"`
 	Description string `json:"description"`
 	Required    bool   `json:"required"`
 }
 
 type openAPISchema struct {
-	Type string `json:"type"`
+	Type json.RawMessage `json:"type"`
 }
 
 // methodEntry pairs an HTTP verb with its parsed operation for iteration.
@@ -147,7 +148,10 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 	for _, rawPath := range paths {
 		item := d.Paths[rawPath]
 		for _, me := range item.entries() {
-			op := buildOpenAPIOperation(name, rawPath, me, item.mergedParameters(me.op), seen)
+			op, err := buildOpenAPIOperation(name, rawPath, me, item.mergedParameters(me.op), seen)
+			if err != nil {
+				return nil, err
+			}
 			im.operations = append(im.operations, op)
 		}
 	}
@@ -160,7 +164,7 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 // buildOpenAPIOperation converts a single (path, method, operation) into the
 // protocol-neutral operation form, deriving a stable, prefixed tool name and
 // splitting parameters into path vs query buckets.
-func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathParams []openAPIParam, seen map[string]bool) operation {
+func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathParams []openAPIParam, seen map[string]bool) (operation, error) {
 	toolBase := me.op.OperationID
 	if toolBase == "" {
 		// Synthesize from method + path when operationId is absent, e.g.
@@ -198,6 +202,9 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 		}
 	}
 	eff := effectForMethod(me.method)
+	if eff == effectWrite && me.op.RequestBody != nil && strings.TrimSpace(me.op.RequestBody.Ref) != "" {
+		return operation{}, fmt.Errorf("specimport: unsupported requestBody $ref on %s %s", me.method, rawPath)
+	}
 	if eff == effectWrite && me.op.RequestBody != nil {
 		params["body"] = "JSON request body (object)"
 		if me.op.RequestBody.Required {
@@ -224,7 +231,7 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 		queryBindings:  queryBindings,
 		headerBindings: headerBindings,
 		cookieBindings: cookieBindings,
-	}
+	}, nil
 }
 
 func openAPIToolArg(p openAPIParam) string {

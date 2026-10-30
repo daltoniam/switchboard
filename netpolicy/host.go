@@ -124,12 +124,9 @@ func allowedIPAddrs(ctx context.Context, host string) ([]net.IP, error) {
 	var allowed []net.IP
 	for _, a := range addrs {
 		if HostDisallowed(a.IP.String()) {
-			continue
+			return nil, errDisallowedHost
 		}
 		allowed = append(allowed, a.IP)
-	}
-	if len(allowed) == 0 {
-		return nil, errDisallowedHost
 	}
 	return allowed, nil
 }

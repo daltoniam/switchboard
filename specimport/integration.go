@@ -228,18 +228,9 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 		target += "?" + encoded
 	}
 
-	var body io.Reader
-	contentType := ""
-	if op.effect == effectWrite {
-		payload := bodyArgs(args, pathSet, querySet, op.headerBindings, op.cookieBindings)
-		if len(payload) > 0 {
-			raw, err := json.Marshal(payload)
-			if err != nil {
-				return mcp.ErrResult(fmt.Errorf("specimport: marshal body: %w", err))
-			}
-			body = bytes.NewReader(raw)
-			contentType = "application/json"
-		}
+	body, contentType, bodyErr := openAPIWriteBody(op, args, pathSet, querySet)
+	if bodyErr != nil {
+		return mcp.ErrResult(bodyErr)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, op.httpMethod, target, body)
@@ -272,6 +263,32 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 		req.AddCookie(&http.Cookie{Name: b.wire, Value: formatted})
 	}
 	return in.do(req)
+}
+
+func openAPIWriteBody(op *operation, args map[string]any, pathSet, querySet map[string]bool) (io.Reader, string, error) {
+	if op.effect != effectWrite {
+		return nil, "", nil
+	}
+	if bodyVal, explicitBody := args["body"]; explicitBody {
+		m, ok := bodyVal.(map[string]any)
+		if !ok {
+			return nil, "", fmt.Errorf("specimport: body must be a JSON object")
+		}
+		raw, err := json.Marshal(m)
+		if err != nil {
+			return nil, "", fmt.Errorf("specimport: marshal body: %w", err)
+		}
+		return bytes.NewReader(raw), "application/json", nil
+	}
+	payload := bodyArgs(args, pathSet, querySet, op.headerBindings, op.cookieBindings)
+	if len(payload) == 0 {
+		return nil, "", nil
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return nil, "", fmt.Errorf("specimport: marshal body: %w", err)
+	}
+	return bytes.NewReader(raw), "application/json", nil
 }
 
 // executeGraphQL POSTs the synthesized document with the relevant args

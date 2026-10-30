@@ -39,9 +39,10 @@ type gqlNamedType struct {
 }
 
 type gqlType struct {
-	Kind   string     `json:"kind"`
-	Name   string     `json:"name"`
-	Fields []gqlField `json:"fields"`
+	Kind          string         `json:"kind"`
+	Name          string         `json:"name"`
+	Fields        []gqlField     `json:"fields"`
+	PossibleTypes []gqlNamedType `json:"possibleTypes"`
 }
 
 type gqlField struct {
@@ -309,7 +310,13 @@ func (s *selectionBuilder) build(ret gqlTypeRef) string {
 // guards against cyclic type references along the current path.
 func (s *selectionBuilder) fields(typeName string, depth int, visited map[string]bool, scalarsOnly bool) string {
 	t, ok := s.types[typeName]
-	if !ok || len(t.Fields) == 0 {
+	if !ok {
+		return ""
+	}
+	if t.Kind == "UNION" {
+		return s.unionSelection(t, depth, visited, scalarsOnly)
+	}
+	if len(t.Fields) == 0 {
 		return ""
 	}
 	if visited[typeName] {
@@ -380,6 +387,24 @@ func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visi
 		nested = "__typename"
 	}
 	return f.Name + " { " + nested + " }"
+}
+
+func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[string]bool, scalarsOnly bool) string {
+	if len(t.PossibleTypes) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, pt := range t.PossibleTypes {
+		if len(parts) >= maxSelectionFields {
+			break
+		}
+		member := s.fields(pt.Name, depth, visited, scalarsOnly)
+		if member == "" {
+			member = "__typename"
+		}
+		parts = append(parts, fmt.Sprintf("... on %s { %s }", pt.Name, member))
+	}
+	return strings.Join(parts, " ")
 }
 
 // firstScalarField returns the name of the first selectable scalar/enum field on

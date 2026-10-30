@@ -97,6 +97,18 @@ func TestSyncer_UpdatesChanged(t *testing.T) {
 	}
 }
 
+func TestSyncer_RejectsDuplicateSanitizedNames(t *testing.T) {
+	reg := registry.New()
+	s := specimport.NewSyncer(reg)
+	res := s.Sync([]mcp.SpecImportConfig{
+		cfg("Demo API", openAPISync),
+		cfg("demo-api", openAPISync),
+	})
+	if len(res.Errors) != 1 {
+		t.Fatalf("Errors = %v", res.Errors)
+	}
+}
+
 func TestSyncer_BadEntryCollectsError(t *testing.T) {
 	reg := registry.New()
 	s := specimport.NewSyncer(reg)
