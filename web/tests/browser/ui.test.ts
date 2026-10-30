@@ -41,7 +41,7 @@ after(async () => {
     const viewport = { width, height: 900 };
     const page = await browserPage(t, { viewport });
     await page.goto('/integrations');
-    await expect(page.locator('.nav-item')).toHaveCount(5);
+    await expect(page.locator('.nav-item')).toHaveCount(6);
     await openSidebar(page);
     await page.locator('.nav-item[href="/settings"]').click();
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
@@ -140,7 +140,7 @@ test('navigation keeps the sidebar and icons styled', async (t) => {
   await page.goto('/integrations');
   await expect(page.locator('.sidebar')).toHaveCSS('width', '200px');
   const icons = page.locator('.nav-item > span');
-  await expect(icons).toHaveCount(5);
+  await expect(icons).toHaveCount(6);
   await assertIcons(icons);
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
@@ -882,7 +882,7 @@ async function browserPage(t: TestContext, options: BrowserContextOptions = {}):
 }
 
 async function assertIcons(icons: Locator) {
-  await expect(icons).toHaveCount(5);
+  await expect(icons).toHaveCount(6);
   const matches = await icons.evaluateAll(elements => elements.every(element => {
     const style = getComputedStyle(element);
     const correctSize = style.width === '14px' && style.height === '14px';
