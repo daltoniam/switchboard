@@ -3,6 +3,7 @@ package slackmcp
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -629,4 +630,36 @@ func TestConfigureIdentities_RejectsUnreachableHostedMCP(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unhealthy")
+}
+
+func TestClose_EndsEveryIdentitySession(t *testing.T) {
+	s := New().(*slackmcp)
+	var created []*closeTrackingRemote
+	s.newRemote = func(baseURL string) mcp.Integration {
+		r := &closeTrackingRemote{name: "mock", baseURL: baseURL}
+		created = append(created, r)
+		return r
+	}
+	require.Implements(t, (*io.Closer)(nil), s)
+	require.NoError(t, s.ConfigureIdentities(context.Background(), map[string]mcp.IntegrationIdentity{
+		"work":     {Credentials: mcp.Credentials{"access_token": "tok-work"}},
+		"personal": {Credentials: mcp.Credentials{"access_token": "tok-personal"}},
+	}))
+	require.Len(t, created, 2)
+
+	require.NoError(t, s.Close())
+	for _, r := range created {
+		assert.Equal(t, 1, r.closeCount(), "every identity's session must be ended")
+	}
+	assert.False(t, s.Healthy(context.Background()), "no identities remain after Close")
+
+	require.NoError(t, s.Close(), "Close is safe to call again")
+	for _, r := range created {
+		assert.Equal(t, 1, r.closeCount())
+	}
+
+	require.NoError(t, s.ConfigureIdentities(context.Background(), map[string]mcp.IntegrationIdentity{
+		"work": {Credentials: mcp.Credentials{"access_token": "tok-work"}},
+	}))
+	assert.Len(t, created, 3, "a ConfigureIdentities after Close starts a new session")
 }
