@@ -67,6 +67,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 - **Entry-point guidance** (MUST): Every integration's primary tool description must include "Start here" text for wayfinding. See `add-integration` skill for pattern.
 - **Semantic types** (MUST): `mcp.ToolName` for all tool name parameters, `mcp.Markdown` for markdown return values — never cast back to `string` in the dispatch chain. `string()` only at I/O boundaries.
 - **Markdown rendering**: When a tool returns document content (pages, emails, comments), implement `mcp.MarkdownIntegration` with types from the `markdown` package — see [docs/markdown-rendering.md](docs/markdown-rendering.md) for decision framework and implementation checklist. Parity test `TestRenderMarkdown_ToolsCovered` is MUST.
+- **Release resources with `io.Closer`** (MUST): an adapter that holds a connection pool, a remote MCP session, or a background goroutine implements `Close() error`, safe to call more than once, and ends any such resource it replaces during `Configure`. Hosts drop instances (per-request pools, reconfiguration) and rely on `Close` to avoid leaks. `TestRemoteMCPAdapters_ImplementClose` enforces this for every adapter that uses `remotemcp`.
 - **Script scope**: `api.call()` in scripts can only call integration tools — the `search` and `execute` meta-tools are not callable from scripts. Scripts skip `processResult` entirely (no compaction, no markdown rendering) so tools always return raw JSON for programmatic access.
 
 ## Reference Docs

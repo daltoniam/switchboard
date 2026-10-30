@@ -32,6 +32,7 @@ var (
 	_ mcp.Integration                = (*linear)(nil)
 	_ mcp.FieldCompactionIntegration = (*linear)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*linear)(nil)
+	_ io.Closer                      = (*linear)(nil)
 )
 
 type linear struct {
@@ -71,7 +72,8 @@ func MCPServerURL(i mcp.Integration) string {
 	return ""
 }
 
-func newRemote(serverURL string) mcp.Integration {
+// newRemote builds the remote MCP client. Tests replace it.
+var newRemote = func(serverURL string) mcp.Integration {
 	return remotemcp.New("linear", serverURL)
 }
 
@@ -89,7 +91,10 @@ func (l *linear) Configure(ctx context.Context, creds mcp.Credentials) error {
 		return nil
 	}
 
+	// Switching to API key mode: the remote session is no longer used.
 	l.useRemote = false
+	// Best effort: the old session is abandoned either way.
+	_ = l.closeRemote()
 	l.apiKey = creds["api_key"]
 	if l.apiKey == "" {
 		return fmt.Errorf("linear: api_key or mcp_access_token is required")
@@ -98,6 +103,22 @@ func (l *linear) Configure(ctx context.Context, creds mcp.Credentials) error {
 		l.authHeader = l.apiKey
 	} else {
 		l.authHeader = "Bearer " + l.apiKey
+	}
+	return nil
+}
+
+// Close ends the remote MCP session, if one is open. It is safe to call more
+// than once; a later Configure starts a new session.
+func (l *linear) Close() error {
+	l.useRemote = false
+	return l.closeRemote()
+}
+
+func (l *linear) closeRemote() error {
+	remote := l.remote
+	l.remote = nil
+	if closer, ok := remote.(io.Closer); ok {
+		return closer.Close()
 	}
 	return nil
 }
