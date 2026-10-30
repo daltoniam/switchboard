@@ -76,10 +76,23 @@ func NewIntegration(im *Imported) *Integration {
 	}
 	return &Integration{
 		im:       im,
-		client:   &http.Client{Timeout: defaultTimeout},
+		client:   outboundHTTPClient(""),
 		baseURL:  im.BaseURL,
 		opByTool: idx,
 	}
+}
+
+func outboundHTTPClient(authHeader string) *http.Client {
+	return netpolicy.NewUserHTTPClient(netpolicy.UserHTTPClientConfig{
+		Timeout:      defaultTimeout,
+		AllowPrivate: allowPrivateOutboundHosts,
+		ValidateURL:  validateURL,
+		AuthHeader:   authHeader,
+	})
+}
+
+func (in *Integration) rebuildClient() {
+	in.client = outboundHTTPClient(in.authHeader)
 }
 
 // Name returns the integration identifier (the sanitized import name).
@@ -106,6 +119,7 @@ func (in *Integration) Configure(_ context.Context, creds mcp.Credentials) error
 	if key == "" {
 		// Public / unauthenticated API — valid, just no auth header.
 		in.authHeader, in.authValue = "", ""
+		in.rebuildClient()
 		return nil
 	}
 	header := strings.TrimSpace(creds[credHeader])
@@ -123,6 +137,7 @@ func (in *Integration) Configure(_ context.Context, creds mcp.Credentials) error
 	} else {
 		in.authValue = scheme + " " + key
 	}
+	in.rebuildClient()
 	return nil
 }
 
@@ -327,9 +342,12 @@ func (in *Integration) do(req *http.Request) (*mcp.ToolResult, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
 		return mcp.ErrResult(fmt.Errorf("specimport: read response: %w", err))
+	}
+	if int64(len(data)) > maxResponseBytes {
+		return mcp.ErrResult(fmt.Errorf("specimport: response exceeds %d byte limit", maxResponseBytes))
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return mcp.ErrResult(fmt.Errorf("specimport: upstream returned %s: %s", resp.Status, truncate(string(data), 2048)))

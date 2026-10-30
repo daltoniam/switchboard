@@ -38,6 +38,11 @@ func HostDisallowed(host string) bool {
 		}
 	}
 	h = strings.Trim(h, "[]")
+	// Scoped IPv6 literals (fe80::1%eth0) are not accepted by net.ParseIP and
+	// would bypass literal checks; reject zone identifiers outright.
+	if strings.Contains(h, "%") {
+		return true
+	}
 	lower := strings.ToLower(h)
 	if lower == "localhost" {
 		return true

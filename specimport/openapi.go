@@ -33,12 +33,13 @@ type openAPIServer struct {
 // well-known verbs explicitly rather than as a map so JSON tags document the
 // supported set.
 type openAPIPathItem struct {
-	Get    *openAPIOperation `json:"get"`
-	Post   *openAPIOperation `json:"post"`
-	Put    *openAPIOperation `json:"put"`
-	Patch  *openAPIOperation `json:"patch"`
-	Delete *openAPIOperation `json:"delete"`
-	Head   *openAPIOperation `json:"head"`
+	Parameters []openAPIParam    `json:"parameters"`
+	Get        *openAPIOperation `json:"get"`
+	Post       *openAPIOperation `json:"post"`
+	Put        *openAPIOperation `json:"put"`
+	Patch      *openAPIOperation `json:"patch"`
+	Delete     *openAPIOperation `json:"delete"`
+	Head       *openAPIOperation `json:"head"`
 }
 
 type openAPIOperation struct {
@@ -50,6 +51,7 @@ type openAPIOperation struct {
 }
 
 type openAPIParam struct {
+	Ref         string         `json:"$ref"`
 	Name        string         `json:"name"`
 	In          string         `json:"in"` // path, query, header, cookie
 	Description string         `json:"description"`
@@ -139,7 +141,7 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 	for _, rawPath := range paths {
 		item := d.Paths[rawPath]
 		for _, me := range item.entries() {
-			op := buildOpenAPIOperation(name, rawPath, me, seen)
+			op := buildOpenAPIOperation(name, rawPath, me, item.Parameters, seen)
 			im.operations = append(im.operations, op)
 		}
 	}
@@ -152,7 +154,7 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 // buildOpenAPIOperation converts a single (path, method, operation) into the
 // protocol-neutral operation form, deriving a stable, prefixed tool name and
 // splitting parameters into path vs query buckets.
-func buildOpenAPIOperation(integration, rawPath string, me methodEntry, seen map[string]bool) operation {
+func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathParams []openAPIParam, seen map[string]bool) operation {
 	toolBase := me.op.OperationID
 	if toolBase == "" {
 		// Synthesize from method + path when operationId is absent, e.g.
@@ -164,8 +166,11 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, seen map
 
 	params := map[string]string{}
 	var required []string
-	var pathParams, queryParams []string
-	for _, pr := range me.op.Parameters {
+	var pathParamsOut, queryParams []string
+	for _, pr := range mergeOpenAPIParams(pathParams, me.op.Parameters) {
+		if pr.Ref != "" || pr.Name == "" {
+			continue
+		}
 		desc := pr.Description
 		if desc == "" {
 			desc = fmt.Sprintf("%s parameter", pr.In)
@@ -176,7 +181,7 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, seen map
 		}
 		switch strings.ToLower(pr.In) {
 		case "path":
-			pathParams = append(pathParams, pr.Name)
+			pathParamsOut = append(pathParamsOut, pr.Name)
 		case "query":
 			queryParams = append(queryParams, pr.Name)
 		}
@@ -204,7 +209,7 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, seen map
 		effect:       eff,
 		httpMethod:   me.method,
 		pathTemplate: rawPath,
-		pathParams:   pathParams,
+		pathParams:   pathParamsOut,
 		queryParams:  queryParams,
 	}
 }
@@ -233,4 +238,32 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+func mergeOpenAPIParams(pathLevel, opLevel []openAPIParam) []openAPIParam {
+	type paramKey struct {
+		name string
+		in   string
+	}
+	merged := map[paramKey]openAPIParam{}
+	var order []paramKey
+	add := func(ps []openAPIParam) {
+		for _, p := range ps {
+			if p.Ref != "" || p.Name == "" {
+				continue
+			}
+			k := paramKey{name: p.Name, in: strings.ToLower(p.In)}
+			if _, ok := merged[k]; !ok {
+				order = append(order, k)
+			}
+			merged[k] = p
+		}
+	}
+	add(pathLevel)
+	add(opLevel)
+	out := make([]openAPIParam, 0, len(order))
+	for _, k := range order {
+		out = append(out, merged[k])
+	}
+	return out
 }

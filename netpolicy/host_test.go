@@ -28,6 +28,8 @@ func TestHostDisallowed(t *testing.T) {
 		{"0.0.0.1", true},
 		{"100.64.0.1", true},
 		{"::", true},
+		{"fe80::1%eth0", true},
+		{"::1%lo", true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.host, func(t *testing.T) {

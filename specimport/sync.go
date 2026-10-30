@@ -83,6 +83,11 @@ func (s *Syncer) Sync(desired []mcp.SpecImportConfig) SyncResult {
 		}
 		in, err := Load(cfg)
 		if err != nil {
+			if _, wasManaged := s.managed[name]; wasManaged {
+				s.reg.Unregister(name)
+				delete(s.managed, name)
+				res.Removed = append(res.Removed, name)
+			}
 			res.Errors = append(res.Errors, fmt.Errorf("spec import %q: %w", cfg.Name, err))
 			continue
 		}

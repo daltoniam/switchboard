@@ -84,8 +84,11 @@ func TestFixture_GraphQLCountriesDefaultQueriesUnderCap(t *testing.T) {
 		}
 	}
 	continentsDoc := in.opByTool[mcp.ToolName("countries_continents")].gqlDocument
-	if strings.Contains(continentsDoc, "countries {") {
-		t.Errorf("continents query should not nest list-of-object countries, got: %s", continentsDoc)
+	if strings.Contains(continentsDoc, "countries { awsRegion capital") {
+		t.Errorf("continents query should not expand list-of-object countries deeply, got: %s", continentsDoc)
+	}
+	if !strings.Contains(continentsDoc, "countries {") {
+		t.Errorf("continents query should select a bounded scalar from list-of-object countries, got: %s", continentsDoc)
 	}
 }
 

@@ -930,8 +930,19 @@ func (m *manager) SetWasmModules(modules []mcp.WasmModuleConfig) error {
 func (m *manager) SetSpecImports(imports []mcp.SpecImportConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.persisted == nil {
+		m.persisted = cloneConfig(m.cfg)
+	}
+	previousRuntime := m.cfg.SpecImports
+	previousPersisted := m.persisted.SpecImports
 	m.cfg.SpecImports = imports
-	return m.saveLocked()
+	m.persisted.SpecImports = imports
+	if err := m.saveLocked(); err != nil {
+		m.cfg.SpecImports = previousRuntime
+		m.persisted.SpecImports = previousPersisted
+		return err
+	}
+	return nil
 }
 
 func (m *manager) EnabledIntegrations() []string {

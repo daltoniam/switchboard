@@ -52,9 +52,18 @@ type gqlField struct {
 }
 
 type gqlArg struct {
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	Type        gqlTypeRef `json:"type"`
+	Name         string           `json:"name"`
+	Description  string           `json:"description"`
+	DefaultValue *json.RawMessage `json:"defaultValue"`
+	Type         gqlTypeRef       `json:"type"`
+}
+
+func (a gqlArg) hasDefault() bool {
+	if a.DefaultValue == nil {
+		return false
+	}
+	s := strings.TrimSpace(string(*a.DefaultValue))
+	return s != "" && s != "null"
 }
 
 // gqlTypeRef is the recursive type wrapper. We only need to know whether the
@@ -123,6 +132,16 @@ func (t gqlTypeRef) isListOfComposite() bool {
 		}
 	}
 	return false
+}
+
+// listElementNamed returns the kind and name of the element type when t is a list.
+func (t gqlTypeRef) listElementNamed() (kind, name string) {
+	for cur := &t; cur != nil; cur = cur.OfType {
+		if cur.Kind == "LIST" && cur.OfType != nil {
+			return cur.OfType.named()
+		}
+	}
+	return "", ""
 }
 
 // parseGraphQL decodes a GraphQL introspection result and builds an Imported
@@ -196,11 +215,15 @@ func buildGraphQLOperation(integration string, f gqlField, eff effect, gqlOp str
 			desc = a.Type.typeName() + " argument"
 		}
 		params[a.Name] = desc
-		if a.Type.required() {
+		if a.Type.required() && !a.hasDefault() {
 			required = append(required, a.Name)
 		}
 		varNames = append(varNames, a.Name)
-		varDecls = append(varDecls, fmt.Sprintf("$%s: %s", a.Name, a.Type.typeName()))
+		decl := fmt.Sprintf("$%s: %s", a.Name, a.Type.typeName())
+		if a.hasDefault() {
+			decl += " = " + strings.TrimSpace(string(*a.DefaultValue))
+		}
+		varDecls = append(varDecls, decl)
 		callArgs = append(callArgs, fmt.Sprintf("%s: $%s", a.Name, a.Name))
 	}
 
@@ -308,6 +331,14 @@ func (s *selectionBuilder) fields(typeName string, depth int, visited map[string
 			continue
 		}
 		if f.Type.isListOfComposite() {
+			elemKind, elemName := f.Type.listElementNamed()
+			if isComposite(elemKind) {
+				if leaf := s.firstScalarField(elemName); leaf != "" {
+					parts = append(parts, f.Name+" { "+leaf+" }")
+				} else {
+					parts = append(parts, f.Name+" { __typename }")
+				}
+			}
 			continue
 		}
 		kind, name := f.Type.named()
@@ -332,11 +363,32 @@ func (s *selectionBuilder) fields(typeName string, depth int, visited map[string
 	return strings.Join(parts, " ")
 }
 
+// firstScalarField returns the name of the first selectable scalar/enum field on
+// a composite type, used for bounded list-of-object selections.
+func (s *selectionBuilder) firstScalarField(typeName string) string {
+	t, ok := s.types[typeName]
+	if !ok {
+		return ""
+	}
+	fields := append([]gqlField(nil), t.Fields...)
+	sort.Slice(fields, func(i, j int) bool { return fields[i].Name < fields[j].Name })
+	for _, f := range fields {
+		if hasRequiredArg(f) {
+			continue
+		}
+		kind, _ := f.Type.named()
+		if !isComposite(kind) {
+			return f.Name
+		}
+	}
+	return ""
+}
+
 // hasRequiredArg reports whether any of a field's arguments is non-null,
 // meaning we cannot select it without supplying a value.
 func hasRequiredArg(f gqlField) bool {
 	for _, a := range f.Args {
-		if a.Type.required() {
+		if a.Type.required() && !a.hasDefault() {
 			return true
 		}
 	}
