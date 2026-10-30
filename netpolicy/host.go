@@ -3,10 +3,12 @@
 package netpolicy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // blockedHostnames are well-known cloud metadata endpoints that must not be
@@ -84,6 +86,22 @@ func ValidateUserHTTPURL(raw string) error {
 	}
 	if HostDisallowed(u.Hostname()) {
 		return fmt.Errorf("requests to private, loopback, link-local, or metadata addresses are not allowed")
+	}
+	if ip := net.ParseIP(u.Hostname()); ip == nil && !strings.Contains(u.Hostname(), "%") {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		addrs, err := net.DefaultResolver.LookupIPAddr(ctx, u.Hostname())
+		if err != nil {
+			return fmt.Errorf("resolve host: %w", err)
+		}
+		if len(addrs) == 0 {
+			return fmt.Errorf("host %q has no addresses", u.Hostname())
+		}
+		for _, a := range addrs {
+			if HostDisallowed(a.IP.String()) {
+				return fmt.Errorf("requests to private, loopback, link-local, or metadata addresses are not allowed")
+			}
+		}
 	}
 	return nil
 }

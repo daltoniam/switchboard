@@ -15,7 +15,7 @@ import (
 const specImportOpenAPI = `{
   "openapi": "3.0.0",
   "info": {"title": "Demo API"},
-  "servers": [{"url": "https://api.example.com/v1"}],
+  "servers": [{"url": "https://1.1.1.1/v1"}],
   "paths": {"/users": {"get": {"operationId": "listUsers"}}}
 }`
 

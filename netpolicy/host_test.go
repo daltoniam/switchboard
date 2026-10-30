@@ -39,7 +39,7 @@ func TestHostDisallowed(t *testing.T) {
 }
 
 func TestValidateUserHTTPURL(t *testing.T) {
-	assert.NoError(t, ValidateUserHTTPURL("https://api.example.com/v1"))
+	assert.NoError(t, ValidateUserHTTPURL("https://1.1.1.1/v1"))
 	assert.Error(t, ValidateUserHTTPURL("https://127.0.0.1/pets"))
 	assert.Error(t, ValidateUserHTTPURL("ftp://example.com"))
 	assert.Error(t, ValidateUserHTTPURL("https://metadata.google.internal/computeMetadata/v1/"))

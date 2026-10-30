@@ -55,15 +55,10 @@ func (w *WebServer) handleSpecImportSave(rw http.ResponseWriter, r *http.Request
 		return
 	}
 	regName := specimport.SanitizedName(name)
-	if w.services.Registry != nil {
-		if _, exists := w.services.Registry.Get(regName); exists {
-			// Allow replace of an already-registered spec import (same name).
-			// Reject only when the name is owned by a non-spec-import integration.
-			if !isSpecImportName(w.services.Config.Get().SpecImports, regName) {
-				specImportRedirect(rw, r, "", fmt.Sprintf("name %q is reserved by a built-in integration", regName))
-				return
-			}
-		}
+	cfg := w.services.Config.Get()
+	if specImportNameReserved(w, regName, cfg.SpecImports) {
+		specImportRedirect(rw, r, "", fmt.Sprintf("name %q is reserved by a built-in integration", regName))
+		return
 	}
 
 	entry := mcp.SpecImportConfig{
@@ -83,7 +78,6 @@ func (w *WebServer) handleSpecImportSave(rw http.ResponseWriter, r *http.Request
 		return
 	}
 
-	cfg := w.services.Config.Get()
 	imports := upsertSpecImport(cfg.SpecImports, entry)
 	if err := w.services.Config.SetSpecImports(imports); err != nil {
 		specImportRedirect(rw, r, "", "save failed: "+err.Error())
@@ -169,6 +163,19 @@ func isSpecImportName(list []mcp.SpecImportConfig, sanitized string) bool {
 		}
 	}
 	return false
+}
+
+// specImportNameReserved reports whether regName is owned by a built-in
+// integration in the registry and is not an existing spec-import replace.
+func specImportNameReserved(w *WebServer, regName string, imports []mcp.SpecImportConfig) bool {
+	if isSpecImportName(imports, regName) {
+		return false
+	}
+	if w.services.Registry == nil {
+		return false
+	}
+	_, ok := w.services.Registry.Get(regName)
+	return ok
 }
 
 // removeSpecImport drops the entry whose sanitized name matches.

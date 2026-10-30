@@ -11,9 +11,8 @@
 //   - Credentials are injected host-side at request time and never appear
 //     in tool definitions or results.
 //   - Operation semantics are preserved: read-only operations (HTTP GET /
-//     HEAD, GraphQL queries) are marked safe; writes (POST/PUT/PATCH/DELETE,
-//     GraphQL mutations) are marked destructive so the policy layer can
-//     gate them.
+//     HEAD, GraphQL queries) are described as reads; writes (POST/PUT/PATCH/DELETE,
+//     GraphQL mutations) are prefixed with [write] in tool descriptions.
 //
 // The package depends only on the standard library plus the public
 // switchboard module, so it adds no new third-party dependencies. It lives
