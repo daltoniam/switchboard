@@ -187,6 +187,14 @@ var envMapping = map[string]map[string]string{
 	"x": {
 		"bearer_token": "X_BEARER_TOKEN",
 	},
+	"prometheus": {
+		"base_url":     "PROMETHEUS_BASE_URL",
+		"username":     "PROMETHEUS_USERNAME",
+		"password":     "PROMETHEUS_PASSWORD",
+		"bearer_token": "PROMETHEUS_BEARER_TOKEN",
+		"headers":      "PROMETHEUS_HEADERS",
+		"ca_cert":      "PROMETHEUS_CA_CERT",
+	},
 	"signoz": {
 		"api_key":  "SIGNOZ_API_KEY",
 		"base_url": "SIGNOZ_BASE_URL",
@@ -531,6 +539,10 @@ func defaultConfig() *mcp.Config {
 			"dbt": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "account_id": "", "base_url": "", "prod_job_id": ""},
+			},
+			"prometheus": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "bearer_token": "", "headers": "", "ca_cert": ""},
 			},
 			"tailscale": {
 				Enabled:     false,
