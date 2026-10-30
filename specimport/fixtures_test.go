@@ -161,7 +161,7 @@ func TestFixture_OpenAPILargeIntegerPathParam(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	const petID = 289893960
-	res, err := in.Execute(context.Background(), "petstore_getpetbyid", map[string]any{"petId": petID})
+	res, err := in.Execute(context.Background(), "petstore_getpetbyid", map[string]any{"path_petId": petID})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}

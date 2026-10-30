@@ -78,7 +78,7 @@ func (w *WebServer) handleSpecImportSave(rw http.ResponseWriter, r *http.Request
 	}
 	_ = in
 
-	imports := dedupeSpecImports(upsertSpecImport(cfg.SpecImports, entry))
+	imports := upsertSpecImport(dedupeSpecImports(cfg.SpecImports), entry)
 	if err := w.services.Config.SetSpecImports(imports); err != nil {
 		specImportRedirect(rw, r, "", "save failed: "+err.Error())
 		return
@@ -137,21 +137,29 @@ func specImportSource(si mcp.SpecImportConfig) string {
 	return "inline"
 }
 
-// upsertSpecImport replaces an entry with the same sanitized name or appends it.
+// upsertSpecImport replaces every entry with the same sanitized name or appends.
 func upsertSpecImport(list []mcp.SpecImportConfig, entry mcp.SpecImportConfig) []mcp.SpecImportConfig {
 	target := specimport.SanitizedName(entry.Name)
-	out := make([]mcp.SpecImportConfig, len(list))
-	copy(out, list)
-	for i := range out {
-		if specimport.SanitizedName(out[i].Name) == target {
-			if entry.Credentials == nil && len(out[i].Credentials) > 0 {
-				entry.Credentials = out[i].Credentials
-			}
-			out[i] = entry
-			return out
+	out := make([]mcp.SpecImportConfig, 0, len(list)+1)
+	replaced := false
+	for _, si := range list {
+		if specimport.SanitizedName(si.Name) != target {
+			out = append(out, si)
+			continue
 		}
+		if replaced {
+			continue
+		}
+		if entry.Credentials == nil && len(si.Credentials) > 0 {
+			entry.Credentials = si.Credentials
+		}
+		out = append(out, entry)
+		replaced = true
 	}
-	return append(out, entry)
+	if !replaced {
+		out = append(out, entry)
+	}
+	return out
 }
 
 // isSpecImportName reports whether sanitized name already belongs to a

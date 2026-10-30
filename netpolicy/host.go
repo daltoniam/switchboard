@@ -45,8 +45,7 @@ func HostDisallowed(host string) bool {
 		}
 	}
 	h = strings.Trim(h, "[]")
-	// Scoped IPv6 literals (fe80::1%eth0) are not accepted by net.ParseIP and
-	// would bypass literal checks; reject zone identifiers outright.
+	h = stripIPv6ZoneID(h)
 	if strings.Contains(h, "%") {
 		return true
 	}
@@ -76,6 +75,13 @@ func blockedHostnameLabel(lower string) bool {
 	return lower == "localhost" || blockedHostnames[lower]
 }
 
+func stripIPv6ZoneID(host string) string {
+	if i := strings.LastIndex(host, "%"); i != -1 && strings.Contains(host, ":") {
+		return host[:i]
+	}
+	return host
+}
+
 // ResolveOutboundHost resolves host when needed and enforces the outbound address policy.
 func ResolveOutboundHost(ctx context.Context, host string) error {
 	_, err := allowedIPAddrs(ctx, host)
@@ -94,6 +100,7 @@ func allowedIPAddrs(ctx context.Context, host string) ([]net.IP, error) {
 		}
 	}
 	h = strings.Trim(h, "[]")
+	h = stripIPv6ZoneID(h)
 	if strings.Contains(h, "%") {
 		return nil, errDisallowedHost
 	}

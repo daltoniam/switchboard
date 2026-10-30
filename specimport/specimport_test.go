@@ -101,8 +101,84 @@ func TestParseOpenAPI_PathItemParameters(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing tool, have %v", in.opByTool)
 	}
-	if len(op.pathParams) != 1 || op.pathParams[0] != "id" {
-		t.Fatalf("pathParams = %v", op.pathParams)
+	if len(op.pathBindings) != 1 || op.pathBindings[0].wire != "id" || op.pathBindings[0].arg != "path_id" {
+		t.Fatalf("pathBindings = %v", op.pathBindings)
+	}
+	if _, ok := in.opByTool["demo_getuser"].tool.Parameters["path_id"]; !ok {
+		t.Fatalf("expected path_id parameter, got %v", in.opByTool["demo_getuser"].tool.Parameters)
+	}
+}
+
+func TestParseOpenAPI_DistinctPathAndQueryID(t *testing.T) {
+	doc := `{
+  "openapi": "3.0.0",
+  "info": {"title": "Demo"},
+  "paths": {
+    "/items/{id}": {
+      "get": {
+        "operationId": "getItem",
+        "parameters": [
+          {"name": "id", "in": "path", "required": true},
+          {"name": "id", "in": "query", "required": false, "description": "legacy filter"}
+        ]
+      }
+    }
+  }
+}`
+	im, err := Parse(KindOpenAPI, "demo", []byte(doc), "https://api.example.com")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	in := NewIntegration(im)
+	op := in.opByTool["demo_getitem"]
+	if op == nil {
+		t.Fatal("missing demo_getitem")
+	}
+	if _, ok := op.tool.Parameters["path_id"]; !ok {
+		t.Fatalf("params = %v", op.tool.Parameters)
+	}
+	if _, ok := op.tool.Parameters["query_id"]; !ok {
+		t.Fatalf("params = %v", op.tool.Parameters)
+	}
+	if len(op.pathBindings) != 1 || len(op.queryBindings) != 1 {
+		t.Fatalf("bindings path=%v query=%v", op.pathBindings, op.queryBindings)
+	}
+}
+
+func TestExecuteOpenAPI_HeaderParameter(t *testing.T) {
+	doc := `{
+  "openapi": "3.0.0",
+  "info": {"title": "Demo"},
+  "paths": {
+    "/ping": {
+      "get": {
+        "operationId": "ping",
+        "parameters": [
+          {"name": "X-Tenant", "in": "header", "required": true}
+        ]
+      }
+    }
+  }
+}`
+	var seen string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Get("X-Tenant")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	defer srv.Close()
+	im, err := Parse(KindOpenAPI, "demo", []byte(doc), srv.URL)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	in := NewIntegration(im)
+	_ = in.Configure(context.Background(), mcp.Credentials{})
+	res, err := in.Execute(context.Background(), "demo_ping", map[string]any{"header_x_tenant": "acme"})
+	if err != nil || res.IsError {
+		t.Fatalf("Execute: err=%v res=%+v", err, res)
+	}
+	if seen != "acme" {
+		t.Fatalf("header = %q", seen)
 	}
 }
 
@@ -165,7 +241,7 @@ func TestExecuteOpenAPI_GETWithPathAndQuery(t *testing.T) {
 	if err := in.Configure(context.Background(), mcp.Credentials{credAPIKey: "secret"}); err != nil {
 		t.Fatalf("Configure: %v", err)
 	}
-	res, err := in.Execute(context.Background(), "demo_getuser", map[string]any{"id": "42"})
+	res, err := in.Execute(context.Background(), "demo_getuser", map[string]any{"path_id": "42"})
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -179,7 +255,7 @@ func TestExecuteOpenAPI_GETWithPathAndQuery(t *testing.T) {
 		t.Errorf("auth = %q, want Bearer secret", gotAuth)
 	}
 
-	if _, err := in.Execute(context.Background(), "demo_listusers", map[string]any{"limit": 5}); err != nil {
+	if _, err := in.Execute(context.Background(), "demo_listusers", map[string]any{"query_limit": 5}); err != nil {
 		t.Fatalf("listUsers: %v", err)
 	}
 	if gotQuery != "limit=5" {
@@ -207,7 +283,7 @@ func TestExecuteSendsUserAgent(t *testing.T) {
 	if err := in.Configure(context.Background(), mcp.Credentials{}); err != nil {
 		t.Fatalf("Configure: %v", err)
 	}
-	if _, err := in.Execute(context.Background(), "demo_getuser", map[string]any{"id": "1"}); err != nil {
+	if _, err := in.Execute(context.Background(), "demo_getuser", map[string]any{"path_id": "1"}); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
 	if gotUA != userAgent {
@@ -255,7 +331,7 @@ func TestExecuteOpenAPI_MissingRequired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute returned go error: %v", err)
 	}
-	if !res.IsError || !strings.Contains(res.Data, "id") {
+	if !res.IsError || !strings.Contains(res.Data, "path_id") {
 		t.Errorf("expected missing-required error, got %+v", res)
 	}
 }
@@ -269,7 +345,7 @@ func TestExecuteOpenAPI_UpstreamError(t *testing.T) {
 	im, _ := Parse(KindOpenAPI, "demo", []byte(openAPIFixture), srv.URL)
 	in := NewIntegration(im)
 	_ = in.Configure(context.Background(), mcp.Credentials{})
-	res, err := in.Execute(context.Background(), "demo_getuser", map[string]any{"id": "1"})
+	res, err := in.Execute(context.Background(), "demo_getuser", map[string]any{"path_id": "1"})
 	if err != nil {
 		t.Fatalf("Execute go error: %v", err)
 	}
@@ -312,7 +388,7 @@ func TestConfigureCustomHeaderAndScheme(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := in.Execute(context.Background(), "demo_getuser", map[string]any{"id": "1"}); err != nil {
+	if _, err := in.Execute(context.Background(), "demo_getuser", map[string]any{"path_id": "1"}); err != nil {
 		t.Fatal(err)
 	}
 	if gotHeader != "k" {

@@ -205,3 +205,13 @@ func TestUpsertSpecImport_DoesNotMutateInput(t *testing.T) {
 	_ = upsertSpecImport(orig, mcp.SpecImportConfig{Name: "Demo API", Kind: "openapi", Spec: "x", Enabled: true})
 	assert.Equal(t, snapshot, orig, "upsert must not mutate the shared config slice")
 }
+
+func TestUpsertSpecImport_DropsDuplicateNames(t *testing.T) {
+	list := []mcp.SpecImportConfig{
+		{Name: "Demo API", Kind: "openapi", Spec: "old-first", Enabled: true},
+		{Name: "demo-api", Kind: "openapi", Spec: "stale", Enabled: true},
+	}
+	out := upsertSpecImport(list, mcp.SpecImportConfig{Name: "Demo API", Kind: "openapi", Spec: "new", Enabled: true})
+	require.Len(t, out, 1)
+	assert.Equal(t, "new", out[0].Spec)
+}

@@ -199,29 +199,29 @@ func requireArgs(op *operation, args map[string]any) error {
 // (write methods only) as a JSON body.
 func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args map[string]any) (*mcp.ToolResult, error) {
 	path := op.pathTemplate
-	pathSet := toSet(op.pathParams)
-	for _, name := range op.pathParams {
-		v, ok := args[name]
+	pathSet := bindingArgSet(op.pathBindings)
+	for _, b := range op.pathBindings {
+		v, ok := args[b.arg]
 		if !ok {
-			return mcp.ErrResult(fmt.Errorf("specimport: missing path parameter %q", name))
+			return mcp.ErrResult(fmt.Errorf("specimport: missing path parameter %q", b.arg))
 		}
 		formatted, err := formatParamValue(v)
 		if err != nil {
-			return mcp.ErrResult(fmt.Errorf("specimport: path parameter %q: %w", name, err))
+			return mcp.ErrResult(fmt.Errorf("specimport: path parameter %q: %w", b.arg, err))
 		}
-		path = strings.ReplaceAll(path, "{"+name+"}", url.PathEscape(formatted))
+		path = strings.ReplaceAll(path, "{"+b.wire+"}", url.PathEscape(formatted))
 	}
 
 	target := in.baseURL + path
 	q := url.Values{}
-	querySet := toSet(op.queryParams)
-	for _, name := range op.queryParams {
-		if v, ok := args[name]; ok && v != nil {
+	querySet := bindingArgSet(op.queryBindings)
+	for _, b := range op.queryBindings {
+		if v, ok := args[b.arg]; ok && v != nil {
 			formatted, err := formatParamValue(v)
 			if err != nil {
-				return mcp.ErrResult(fmt.Errorf("specimport: query parameter %q: %w", name, err))
+				return mcp.ErrResult(fmt.Errorf("specimport: query parameter %q: %w", b.arg, err))
 			}
-			q.Set(name, formatted)
+			q.Set(b.wire, formatted)
 		}
 	}
 	if encoded := q.Encode(); encoded != "" {
@@ -231,7 +231,7 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 	var body io.Reader
 	contentType := ""
 	if op.effect == effectWrite {
-		payload := bodyArgs(args, pathSet, querySet)
+		payload := bodyArgs(args, pathSet, querySet, op.headerBindings, op.cookieBindings)
 		if len(payload) > 0 {
 			raw, err := json.Marshal(payload)
 			if err != nil {
@@ -248,6 +248,28 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 	}
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	for _, b := range op.headerBindings {
+		v, ok := args[b.arg]
+		if !ok || v == nil {
+			continue
+		}
+		formatted, err := formatParamValue(v)
+		if err != nil {
+			return mcp.ErrResult(fmt.Errorf("specimport: header parameter %q: %w", b.arg, err))
+		}
+		req.Header.Set(b.wire, formatted)
+	}
+	for _, b := range op.cookieBindings {
+		v, ok := args[b.arg]
+		if !ok || v == nil {
+			continue
+		}
+		formatted, err := formatParamValue(v)
+		if err != nil {
+			return mcp.ErrResult(fmt.Errorf("specimport: cookie parameter %q: %w", b.arg, err))
+		}
+		req.AddCookie(&http.Cookie{Name: b.wire, Value: formatted})
 	}
 	return in.do(req)
 }
@@ -362,7 +384,7 @@ func (in *Integration) do(req *http.Request) (*mcp.ToolResult, error) {
 // bodyArgs returns the args that are neither path nor query params — these
 // form the JSON request body for write methods. An explicit "body" arg, if
 // present, takes precedence and is used verbatim.
-func bodyArgs(args map[string]any, pathSet, querySet map[string]bool) map[string]any {
+func bodyArgs(args map[string]any, pathSet, querySet map[string]bool, headers, cookies []openAPIParamBinding) map[string]any {
 	if b, ok := args["body"]; ok {
 		if m, ok := b.(map[string]any); ok {
 			return m
@@ -373,17 +395,29 @@ func bodyArgs(args map[string]any, pathSet, querySet map[string]bool) map[string
 		if k == "body" || pathSet[k] || querySet[k] {
 			continue
 		}
+		if paramBindingContains(headers, k) || paramBindingContains(cookies, k) {
+			continue
+		}
 		out[k] = v
 	}
 	return out
 }
 
-func toSet(ss []string) map[string]bool {
-	m := make(map[string]bool, len(ss))
-	for _, s := range ss {
-		m[s] = true
+func bindingArgSet(bindings []openAPIParamBinding) map[string]bool {
+	m := make(map[string]bool, len(bindings))
+	for _, b := range bindings {
+		m[b.arg] = true
 	}
 	return m
+}
+
+func paramBindingContains(bindings []openAPIParamBinding, arg string) bool {
+	for _, b := range bindings {
+		if b.arg == arg {
+			return true
+		}
+	}
+	return false
 }
 
 // validateURL enforces that an imported endpoint is an absolute http(s) URL

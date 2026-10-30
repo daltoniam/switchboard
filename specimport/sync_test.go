@@ -1,6 +1,7 @@
 package specimport_test
 
 import (
+	"fmt"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -127,6 +128,44 @@ func TestSyncer_RemovesStaleOnLoadFailure(t *testing.T) {
 	}
 	if _, ok := reg.Get("demo_api"); ok {
 		t.Fatal("stale demo_api should be unregistered after load failure")
+	}
+}
+
+type blockingRegistry struct {
+	mcp.Registry
+	blockName string
+	block     bool
+}
+
+func (b *blockingRegistry) Register(i mcp.Integration) error {
+	if b.block && i.Name() == b.blockName {
+		return fmt.Errorf("register blocked for test")
+	}
+	return b.Registry.Register(i)
+}
+
+func TestSyncer_ReportsRemovalWhenRegisterFails(t *testing.T) {
+	base := registry.New()
+	reg := &blockingRegistry{Registry: base, blockName: "demo_api"}
+	s := specimport.NewSyncer(reg)
+
+	s.Sync([]mcp.SpecImportConfig{cfg("Demo API", openAPISync)})
+	reg.block = true
+
+	changed := cfg("Demo API", openAPISync)
+	changed.Credentials = mcp.Credentials{"api_key": "secret"}
+	res := s.Sync([]mcp.SpecImportConfig{changed})
+	if len(res.Errors) != 1 {
+		t.Fatalf("Errors = %v", res.Errors)
+	}
+	if len(res.Removed) != 1 || res.Removed[0] != "demo_api" {
+		t.Fatalf("Removed = %v", res.Removed)
+	}
+	if !res.Changed() {
+		t.Fatal("expected Changed() after failed replacement")
+	}
+	if _, ok := base.Get("demo_api"); ok {
+		t.Fatal("demo_api should be unregistered after failed Register")
 	}
 }
 

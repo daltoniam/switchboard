@@ -40,6 +40,10 @@ type openAPIPathItem struct {
 	Head       *openAPIOperation `json:"head"`
 }
 
+func (p openAPIPathItem) mergedParameters(op *openAPIOperation) []openAPIParam {
+	return openAPIOperationParameters(p, op)
+}
+
 type openAPIOperation struct {
 	OperationID string          `json:"operationId"`
 	Summary     string          `json:"summary"`
@@ -143,7 +147,7 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 	for _, rawPath := range paths {
 		item := d.Paths[rawPath]
 		for _, me := range item.entries() {
-			op := buildOpenAPIOperation(name, rawPath, me, openAPIOperationParameters(item, me.op), seen)
+			op := buildOpenAPIOperation(name, rawPath, me, item.mergedParameters(me.op), seen)
 			im.operations = append(im.operations, op)
 		}
 	}
@@ -168,24 +172,29 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 
 	params := map[string]string{}
 	var required []string
-	var pathParamsOut, queryParams []string
+	var pathBindings, queryBindings, headerBindings, cookieBindings []openAPIParamBinding
 	for _, pr := range mergeOpenAPIParams(pathParams, me.op.Parameters) {
 		if pr.Ref != "" || pr.Name == "" {
 			continue
 		}
+		arg := openAPIToolArg(pr)
 		desc := pr.Description
 		if desc == "" {
 			desc = fmt.Sprintf("%s parameter", pr.In)
 		}
-		params[pr.Name] = desc
+		params[arg] = desc
 		if pr.Required {
-			required = append(required, pr.Name)
+			required = append(required, arg)
 		}
 		switch strings.ToLower(pr.In) {
 		case "path":
-			pathParamsOut = append(pathParamsOut, pr.Name)
+			pathBindings = append(pathBindings, openAPIParamBinding{arg: arg, wire: pr.Name})
 		case "query":
-			queryParams = append(queryParams, pr.Name)
+			queryBindings = append(queryBindings, openAPIParamBinding{arg: arg, wire: pr.Name})
+		case "header":
+			headerBindings = append(headerBindings, openAPIParamBinding{arg: arg, wire: pr.Name})
+		case "cookie":
+			cookieBindings = append(cookieBindings, openAPIParamBinding{arg: arg, wire: pr.Name})
 		}
 	}
 	eff := effectForMethod(me.method)
@@ -208,11 +217,28 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 			Parameters:  params,
 			Required:    required,
 		},
-		effect:       eff,
-		httpMethod:   me.method,
-		pathTemplate: rawPath,
-		pathParams:   pathParamsOut,
-		queryParams:  queryParams,
+		effect:         eff,
+		httpMethod:     me.method,
+		pathTemplate:   rawPath,
+		pathBindings:   pathBindings,
+		queryBindings:  queryBindings,
+		headerBindings: headerBindings,
+		cookieBindings: cookieBindings,
+	}
+}
+
+func openAPIToolArg(p openAPIParam) string {
+	switch strings.ToLower(p.In) {
+	case "path":
+		return "path_" + p.Name
+	case "query":
+		return "query_" + p.Name
+	case "header":
+		return "header_" + sanitizeName(p.Name)
+	case "cookie":
+		return "cookie_" + sanitizeName(p.Name)
+	default:
+		return sanitizeName(p.In) + "_" + sanitizeName(p.Name)
 	}
 }
 

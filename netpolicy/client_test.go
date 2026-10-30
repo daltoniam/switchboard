@@ -116,6 +116,28 @@ func TestNewUserHTTPClient_StripsAuthThroughRedirectChain(t *testing.T) {
 	assert.Empty(t, finalAuth)
 }
 
+func TestNewUserHTTPClient_OmitsAuthWithoutOrigin(t *testing.T) {
+	var seenAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenAuth = r.Header.Get("X-API-Key")
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	client := NewUserHTTPClient(UserHTTPClientConfig{
+		AllowPrivate: true,
+		ValidateURL:  func(string) error { return nil },
+		AuthHeader:   "X-API-Key",
+		AuthValue:    "secret",
+	})
+	req, err := http.NewRequest(http.MethodGet, srv.URL, nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	assert.Empty(t, seenAuth)
+}
+
 func TestDialContext_BlocksLoopback(t *testing.T) {
 	_, err := dialContext(context.Background(), "tcp", "127.0.0.1:9", false)
 	assert.Error(t, err)

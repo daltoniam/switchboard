@@ -330,37 +330,56 @@ func (s *selectionBuilder) fields(typeName string, depth int, visited map[string
 		if hasRequiredArg(f) {
 			continue
 		}
-		if f.Type.isListOfComposite() {
-			elemKind, elemName := f.Type.listElementNamed()
-			if isComposite(elemKind) {
-				if leaf := s.firstScalarField(elemName); leaf != "" {
-					parts = append(parts, f.Name+" { "+leaf+" }")
-				} else {
-					parts = append(parts, f.Name+" { __typename }")
-				}
-			}
-			continue
+		if sel := s.selectionForField(f, depth, visited, scalarsOnly); sel != "" {
+			parts = append(parts, sel)
 		}
-		kind, name := f.Type.named()
-		if !isComposite(kind) {
-			parts = append(parts, f.Name)
-			continue
-		}
-		if scalarsOnly {
-			continue
-		}
-		if depth <= 1 {
-			// Out of depth budget: pull the nested object's identity only.
-			parts = append(parts, f.Name+" { __typename }")
-			continue
-		}
-		nested := s.fields(name, depth-1, visited, false)
-		if nested == "" {
-			nested = "__typename"
-		}
-		parts = append(parts, f.Name+" { "+nested+" }")
 	}
 	return strings.Join(parts, " ")
+}
+
+func (s *selectionBuilder) selectionForField(f gqlField, depth int, visited map[string]bool, scalarsOnly bool) string {
+	if f.Type.isListOfComposite() {
+		return s.selectionForListComposite(f, depth, visited, scalarsOnly)
+	}
+	kind, name := f.Type.named()
+	if !isComposite(kind) {
+		return f.Name
+	}
+	if scalarsOnly {
+		return ""
+	}
+	if depth <= 1 {
+		return f.Name + " { __typename }"
+	}
+	nested := s.fields(name, depth-1, visited, false)
+	if nested == "" {
+		nested = "__typename"
+	}
+	return f.Name + " { " + nested + " }"
+}
+
+func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visited map[string]bool, scalarsOnly bool) string {
+	elemKind, elemName := f.Type.listElementNamed()
+	if scalarsOnly {
+		if !isComposite(elemKind) {
+			return ""
+		}
+		if leaf := s.firstScalarField(elemName); leaf != "" {
+			return f.Name + " { " + leaf + " }"
+		}
+		return f.Name + " { __typename }"
+	}
+	if depth <= 1 {
+		return f.Name + " { __typename }"
+	}
+	if !isComposite(elemKind) {
+		return ""
+	}
+	nested := s.fields(elemName, depth-1, visited, false)
+	if nested == "" {
+		nested = "__typename"
+	}
+	return f.Name + " { " + nested + " }"
 }
 
 // firstScalarField returns the name of the first selectable scalar/enum field on

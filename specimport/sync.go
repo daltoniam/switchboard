@@ -100,6 +100,9 @@ func (s *Syncer) Sync(desired []mcp.SpecImportConfig) SyncResult {
 		if err := s.reg.Register(in); err != nil {
 			// A name collision with a non-managed integration lands here.
 			res.Errors = append(res.Errors, fmt.Errorf("spec import %q: %w", cfg.Name, err))
+			if changed {
+				res.Removed = append(res.Removed, name)
+			}
 			delete(s.managed, name)
 			continue
 		}

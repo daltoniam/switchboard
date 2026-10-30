@@ -55,12 +55,10 @@ type authRoundTripper struct {
 func (t *authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	req2 := req.Clone(req.Context())
 	req2.Header = req.Header.Clone()
-	if t.header != "" && t.value != "" {
-		if t.origin == nil || sameOrigin(t.origin, req.URL) {
-			req2.Header.Set(t.header, t.value)
-		} else {
-			req2.Header.Del(t.header)
-		}
+	if t.header != "" && t.value != "" && t.origin != nil && sameOrigin(t.origin, req.URL) {
+		req2.Header.Set(t.header, t.value)
+	} else if t.header != "" {
+		req2.Header.Del(t.header)
 	}
 	return t.base.RoundTrip(req2)
 }

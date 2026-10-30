@@ -75,16 +75,23 @@ type operation struct {
 	// pathTemplate may contain {placeholders} substituted from args.
 	httpMethod   string
 	pathTemplate string
-	// pathParams / queryParams name the args that map to URL path
-	// segments and query string respectively. Anything not in either
-	// (for write methods) is sent as a JSON body.
-	pathParams  []string
-	queryParams []string
+	// pathBindings / queryBindings / headerBindings / cookieBindings map tool
+	// argument names to their wire names and HTTP locations.
+	pathBindings   []openAPIParamBinding
+	queryBindings  []openAPIParamBinding
+	headerBindings []openAPIParamBinding
+	cookieBindings []openAPIParamBinding
 
 	// gqlDocument is the GraphQL query/mutation string for GraphQL ops.
 	// gqlVariables names the args forwarded as GraphQL variables.
 	gqlDocument  string
 	gqlVariables []string
+}
+
+// openAPIParamBinding ties a generated tool argument to its wire name.
+type openAPIParamBinding struct {
+	arg  string
+	wire string
 }
 
 // Imported is the result of parsing a spec: the protocol-neutral operation
