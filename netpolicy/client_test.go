@@ -1,6 +1,7 @@
 package netpolicy
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -69,4 +70,41 @@ func TestNewUserHTTPClient_StripsAuthOnCrossOriginRedirect(t *testing.T) {
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 	assert.Empty(t, seenAuth)
+}
+
+func TestNewUserHTTPClient_StripsAuthThroughRedirectChain(t *testing.T) {
+	var finalAuth string
+	final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		finalAuth = r.Header.Get("X-API-Key")
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(final.Close)
+
+	mid := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, final.URL, http.StatusFound)
+	}))
+	t.Cleanup(mid.Close)
+
+	start := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, mid.URL, http.StatusFound)
+	}))
+	t.Cleanup(start.Close)
+
+	client := NewUserHTTPClient(UserHTTPClientConfig{
+		AllowPrivate: true,
+		ValidateURL:  func(string) error { return nil },
+		AuthHeader:   "X-API-Key",
+	})
+	req, err := http.NewRequest(http.MethodGet, start.URL, nil)
+	require.NoError(t, err)
+	req.Header.Set("X-API-Key", "secret")
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	assert.Empty(t, finalAuth)
+}
+
+func TestDialContext_BlocksLoopback(t *testing.T) {
+	_, err := dialContext(context.Background(), "tcp", "127.0.0.1:9", false)
+	assert.Error(t, err)
 }

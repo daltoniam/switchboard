@@ -150,6 +150,9 @@ func upsertSpecImport(list []mcp.SpecImportConfig, entry mcp.SpecImportConfig) [
 	copy(out, list)
 	for i := range out {
 		if specimport.SanitizedName(out[i].Name) == target {
+			if entry.Credentials == nil && len(out[i].Credentials) > 0 {
+				entry.Credentials = out[i].Credentials
+			}
 			out[i] = entry
 			return out
 		}

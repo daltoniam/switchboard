@@ -18,22 +18,37 @@ type UserHTTPClientConfig struct {
 	AllowPrivate bool
 	// ValidateURL checks each request URL (initial and redirect targets).
 	ValidateURL func(raw string) error
-	// AuthHeader, when non-empty, is stripped on cross-origin redirects.
+	// AuthHeader, when non-empty, is stripped on redirects outside the original origin.
 	AuthHeader string
 }
 
+type validatingRoundTripper struct {
+	base     http.RoundTripper
+	validate func(raw string) error
+}
+
+func (t *validatingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.validate != nil {
+		if err := t.validate(req.URL.String()); err != nil {
+			return nil, err
+		}
+	}
+	return t.base.RoundTrip(req)
+}
+
 // NewUserHTTPClient returns an http.Client that enforces host policy at dial time
-// (mitigating DNS rebinding), validates redirect destinations, and drops the
-// configured auth header when a redirect changes origin.
+// (mitigating DNS rebinding), validates every request URL, and drops the
+// configured auth header when a redirect leaves the original origin.
 func NewUserHTTPClient(cfg UserHTTPClientConfig) *http.Client {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 30 * time.Second
 	}
-	transport := &http.Transport{
+	base := &http.Transport{
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 			return dialContext(ctx, network, address, cfg.AllowPrivate)
 		},
 	}
+	transport := &validatingRoundTripper{base: base, validate: cfg.ValidateURL}
 	client := &http.Client{
 		Timeout:   cfg.Timeout,
 		Transport: transport,
@@ -47,8 +62,8 @@ func NewUserHTTPClient(cfg UserHTTPClientConfig) *http.Client {
 				}
 			}
 			if cfg.AuthHeader != "" && len(via) > 0 {
-				prev := via[len(via)-1].URL
-				if !sameOrigin(prev, req.URL) {
+				original := via[0].URL
+				if !sameOrigin(original, req.URL) {
 					req.Header.Del(cfg.AuthHeader)
 				}
 			}
@@ -63,18 +78,6 @@ func sameOrigin(a, b *url.URL) bool {
 		return false
 	}
 	return strings.EqualFold(a.Scheme, b.Scheme) && strings.EqualFold(a.Host, b.Host)
-}
-
-func sameHost(a, b string) bool {
-	return strings.EqualFold(stripPort(a), stripPort(b))
-}
-
-func stripPort(host string) string {
-	host = strings.TrimSpace(host)
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		return strings.Trim(h, "[]")
-	}
-	return strings.Trim(host, "[]")
 }
 
 func dialContext(ctx context.Context, network, address string, allowPrivate bool) (net.Conn, error) {

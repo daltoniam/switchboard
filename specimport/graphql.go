@@ -52,17 +52,17 @@ type gqlField struct {
 }
 
 type gqlArg struct {
-	Name         string           `json:"name"`
-	Description  string           `json:"description"`
-	DefaultValue *json.RawMessage `json:"defaultValue"`
-	Type         gqlTypeRef       `json:"type"`
+	Name         string     `json:"name"`
+	Description  string     `json:"description"`
+	DefaultValue *string    `json:"defaultValue"`
+	Type         gqlTypeRef `json:"type"`
 }
 
 func (a gqlArg) hasDefault() bool {
 	if a.DefaultValue == nil {
 		return false
 	}
-	s := strings.TrimSpace(string(*a.DefaultValue))
+	s := strings.TrimSpace(*a.DefaultValue)
 	return s != "" && s != "null"
 }
 
@@ -221,7 +221,7 @@ func buildGraphQLOperation(integration string, f gqlField, eff effect, gqlOp str
 		varNames = append(varNames, a.Name)
 		decl := fmt.Sprintf("$%s: %s", a.Name, a.Type.typeName())
 		if a.hasDefault() {
-			decl += " = " + strings.TrimSpace(string(*a.DefaultValue))
+			decl += " = " + strings.TrimSpace(*a.DefaultValue)
 		}
 		varDecls = append(varDecls, decl)
 		callArgs = append(callArgs, fmt.Sprintf("%s: $%s", a.Name, a.Name))
