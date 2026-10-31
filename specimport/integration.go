@@ -358,12 +358,17 @@ func substitutePathParams(template string, bindings []openAPIParamBinding, args 
 }
 
 func trimURLPathOnly(raw string) string {
-	u, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || u.Scheme == "" {
+	raw = strings.TrimSpace(raw)
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
 		return strings.TrimRight(raw, "/")
 	}
-	u.Path = strings.TrimRight(u.Path, "/")
-	return u.String()
+	prefix := u.Scheme + "://" + u.Host
+	rest := pathAfterHost(raw, u.Host)
+	if qi := strings.Index(rest, "?"); qi >= 0 {
+		return prefix + strings.TrimSuffix(rest[:qi], "/") + rest[qi:]
+	}
+	return prefix + strings.TrimSuffix(rest, "/")
 }
 
 func openAPIWriteBody(op *operation, args map[string]any, pathSet, querySet map[string]bool) (io.Reader, string, error) {

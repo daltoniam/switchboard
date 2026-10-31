@@ -203,6 +203,12 @@ func mergeSpecImportCredentials(list []mcp.SpecImportConfig, regName string, ent
 		return entry
 	}
 	entry.Credentials = cloneCredentials(prev.Credentials)
+	if _, ok := r.Form["auth_scheme"]; ok {
+		if entry.Credentials == nil {
+			entry.Credentials = mcp.Credentials{}
+		}
+		entry.Credentials["auth_scheme"] = strings.TrimSpace(r.FormValue("auth_scheme"))
+	}
 	if v := strings.TrimSpace(r.FormValue("auth_header")); v != "" {
 		if entry.Credentials == nil {
 			entry.Credentials = mcp.Credentials{}
