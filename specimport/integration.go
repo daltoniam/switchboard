@@ -313,6 +313,10 @@ func validatePathParamValue(v string) error {
 	return nil
 }
 
+func escapePathSegment(v string) string {
+	return url.PathEscape(v)
+}
+
 func substitutePathParams(template string, bindings []openAPIParamBinding, args map[string]any) (string, error) {
 	wireToArg := make(map[string]string, len(bindings))
 	for _, b := range bindings {
@@ -347,7 +351,7 @@ func substitutePathParams(template string, bindings []openAPIParamBinding, args 
 		if err := validatePathParamValue(formatted); err != nil {
 			return "", fmt.Errorf("specimport: path parameter %q: %w", arg, err)
 		}
-		out.WriteString(formatted)
+		out.WriteString(escapePathSegment(formatted))
 		i += end + 2
 	}
 	return out.String(), nil

@@ -439,8 +439,10 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 	conflicts := s.unionFieldConflicts(t)
 	globalReserved := unionAllFieldNames(s, t)
 	var parts []string
+	parts = append(parts, "__typename")
+	fieldBudget := maxSelectionFields - 1
 	for _, pt := range t.PossibleTypes {
-		if len(parts) >= maxSelectionFields {
+		if fieldBudget <= 0 {
 			break
 		}
 		if pt.Name == t.Name {
@@ -461,9 +463,10 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 		}
 		memberSel := s.fields(pt.Name, depth, visited, scalarsOnly, aliases)
 		if memberSel == "" {
-			memberSel = "__typename"
+			continue
 		}
 		parts = append(parts, fmt.Sprintf("... on %s { %s }", pt.Name, memberSel))
+		fieldBudget--
 	}
 	return strings.Join(parts, " ")
 }
