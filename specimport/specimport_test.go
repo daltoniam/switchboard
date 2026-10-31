@@ -57,8 +57,9 @@ func TestSubstitutePathParams_NoPlaceholderInjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "/users/{file}/files/123" {
-		t.Fatalf("path = %q", got)
+	want := "/users/" + url.PathEscape("{file}") + "/files/" + url.PathEscape("123")
+	if got != want {
+		t.Fatalf("path = %q, want %q", got, want)
 	}
 }
 
@@ -684,6 +685,24 @@ func TestExecuteGraphQLPartialDataKept(t *testing.T) {
 	}
 	if res.Data != partial {
 		t.Errorf("partial response body should pass through unchanged, got: %s", res.Data)
+	}
+}
+
+func TestExecuteGraphQLNullRootFieldWithErrors(t *testing.T) {
+	const body = `{"data":{"user":null},"errors":[{"message":"Permission denied"}]}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, body)
+	}))
+	defer srv.Close()
+	im, _ := Parse(KindGraphQL, "gql", []byte(graphqlFixture), srv.URL)
+	in := NewIntegration(im)
+	_ = in.Configure(context.Background(), mcp.Credentials{credAPIKey: "t"})
+	res, err := in.Execute(context.Background(), "gql_user", map[string]any{"id": "1"})
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !res.IsError || !strings.Contains(res.Data, "Permission denied") {
+		t.Fatalf("expected graphql error for null root field, got: %+v", res)
 	}
 }
 

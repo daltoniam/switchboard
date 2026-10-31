@@ -448,8 +448,7 @@ func graphQLError(body string) (string, bool) {
 	if len(env.Errors) == 0 {
 		return "", false
 	}
-	if len(env.Data) > 0 && string(env.Data) != "null" {
-		// Partial success: keep the data, do not flag as a hard error.
+	if len(env.Data) > 0 && string(env.Data) != "null" && graphqlDataHasUsableFields(env.Data) {
 		return "", false
 	}
 	msg := env.Errors[0].Message
@@ -460,6 +459,19 @@ func graphQLError(body string) (string, bool) {
 		msg = fmt.Sprintf("%s (and %d more)", msg, len(env.Errors)-1)
 	}
 	return msg, true
+}
+
+func graphqlDataHasUsableFields(data json.RawMessage) bool {
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(data, &root); err != nil {
+		return true
+	}
+	for _, v := range root {
+		if len(v) > 0 && string(v) != "null" {
+			return true
+		}
+	}
+	return false
 }
 
 // do attaches auth + Accept headers, sends the request, and returns a
