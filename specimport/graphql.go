@@ -428,24 +428,20 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 		return ""
 	}
 	conflicts := s.unionFieldConflicts(t)
+	globalReserved := unionAllFieldNames(s, t)
 	var parts []string
 	for _, pt := range t.PossibleTypes {
 		if len(parts) >= maxSelectionFields {
 			break
 		}
-		member, ok := s.types[pt.Name]
-		if !ok {
-			continue
-		}
-		reserved := memberFieldNames(member)
 		aliases := map[string]string{}
 		for name := range conflicts {
 			al := sanitizeName(pt.Name) + "_" + name
-			for reserved[al] {
+			for globalReserved[al] {
 				al += "_"
 			}
 			aliases[name] = al
-			reserved[al] = true
+			globalReserved[al] = true
 		}
 		memberSel := s.fields(pt.Name, depth, visited, scalarsOnly, aliases)
 		if memberSel == "" {
@@ -454,6 +450,20 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 		parts = append(parts, fmt.Sprintf("... on %s { %s }", pt.Name, memberSel))
 	}
 	return strings.Join(parts, " ")
+}
+
+func unionAllFieldNames(s *selectionBuilder, t gqlType) map[string]bool {
+	names := map[string]bool{}
+	for _, pt := range t.PossibleTypes {
+		member, ok := s.types[pt.Name]
+		if !ok {
+			continue
+		}
+		for k := range memberFieldNames(member) {
+			names[k] = true
+		}
+	}
+	return names
 }
 
 func memberFieldNames(t gqlType) map[string]bool {

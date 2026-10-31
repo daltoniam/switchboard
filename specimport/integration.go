@@ -228,7 +228,10 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 		if err != nil {
 			return mcp.ErrResult(fmt.Errorf("specimport: path parameter %q: %w", b.arg, err))
 		}
-		path = strings.ReplaceAll(path, "{"+b.wire+"}", url.PathEscape(formatted))
+		if err := validatePathParamValue(formatted); err != nil {
+			return mcp.ErrResult(fmt.Errorf("specimport: path parameter %q: %w", b.arg, err))
+		}
+		path = strings.ReplaceAll(path, "{"+b.wire+"}", formatted)
 	}
 
 	target, err := joinOpenAPIURL(in.baseURL, path, q)
@@ -278,11 +281,11 @@ func joinOpenAPIURL(base, path string, opQuery url.Values) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("specimport: invalid base url: %w", err)
 	}
-	joined, err := url.JoinPath(u.Path, path)
-	if err != nil {
-		return "", fmt.Errorf("specimport: join url path: %w", err)
+	basePath := strings.TrimRight(u.Path, "/")
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
 	}
-	u.Path = joined
+	u.Path = basePath + path
 	q := u.Query()
 	for k, vals := range opQuery {
 		for _, v := range vals {
@@ -291,6 +294,13 @@ func joinOpenAPIURL(base, path string, opQuery url.Values) (string, error) {
 	}
 	u.RawQuery = q.Encode()
 	return u.String(), nil
+}
+
+func validatePathParamValue(v string) error {
+	if v == "." || v == ".." || strings.Contains(v, "/") {
+		return fmt.Errorf("invalid path segment %q", v)
+	}
+	return nil
 }
 
 func openAPIWriteBody(op *operation, args map[string]any, pathSet, querySet map[string]bool) (io.Reader, string, error) {
