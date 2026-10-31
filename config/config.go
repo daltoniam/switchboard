@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/specimport"
 )
 
 const (
@@ -679,6 +680,7 @@ func (m *manager) Load() error {
 func mergeWithDefaults(file *mcp.Config) *mcp.Config {
 	cfg := defaultConfig()
 	cfg.WasmModules = file.WasmModules
+	cfg.SpecImports = file.SpecImports
 	cfg.Marketplace = file.Marketplace
 	cfg.SessionStore = file.SessionStore
 	cfg.ShowDollarEstimate = file.ShowDollarEstimate
@@ -925,14 +927,70 @@ func (m *manager) SetWasmModules(modules []mcp.WasmModuleConfig) error {
 	return nil
 }
 
+func (m *manager) SetSpecImports(imports []mcp.SpecImportConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.persisted == nil {
+		m.persisted = cloneConfig(m.cfg)
+	}
+	previousRuntime := m.cfg.SpecImports
+	previousPersisted := m.persisted.SpecImports
+	imports = dedupeSpecImportConfigs(imports)
+	m.cfg.SpecImports = imports
+	m.persisted.SpecImports = imports
+	if err := m.saveLocked(); err != nil {
+		m.cfg.SpecImports = previousRuntime
+		m.persisted.SpecImports = previousPersisted
+		return err
+	}
+	return nil
+}
+
+func dedupeSpecImportConfigs(list []mcp.SpecImportConfig) []mcp.SpecImportConfig {
+	seen := map[string]int{}
+	out := make([]mcp.SpecImportConfig, 0, len(list))
+	for _, si := range list {
+		key := specimport.SanitizedName(si.Name)
+		if idx, ok := seen[key]; ok {
+			out[idx] = si
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, si)
+	}
+	return out
+}
+
 func (m *manager) EnabledIntegrations() []string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	var names []string
+	seen := make(map[string]struct{})
 	for name, ic := range m.cfg.Integrations {
-		if ic.Enabled {
-			names = append(names, name)
+		if !ic.Enabled {
+			continue
 		}
+		names = append(names, name)
+		seen[name] = struct{}{}
+	}
+	// Spec imports are registered under their sanitized name and must be
+	// reported here so search indexing and execute resolution can find them —
+	// they live in a separate config list from built-in integrations.
+	names = appendUniqueEnabledSpecImports(names, seen, m.cfg.SpecImports)
+	return names
+}
+
+func appendUniqueEnabledSpecImports(names []string, seen map[string]struct{}, imports []mcp.SpecImportConfig) []string {
+	for _, si := range imports {
+		if !si.Enabled {
+			continue
+		}
+		n := specimport.SanitizedName(si.Name)
+		if _, ok := seen[n]; ok {
+			continue
+		}
+		seen[n] = struct{}{}
+		names = append(names, n)
 	}
 	return names
 }
