@@ -95,9 +95,8 @@ type openAPIParamBinding struct {
 }
 
 // Imported is the result of parsing a spec: the protocol-neutral operation
-// set plus the metadata needed to build a runtime integration. It is
-// serializable so the import can be persisted and rehydrated without
-// re-parsing the original document.
+// set plus the metadata needed to build a runtime integration. JSON
+// serialization is supported via MarshalJSON/UnmarshalJSON (see persist.go).
 type Imported struct {
 	// Name is the integration identifier (lowercased, sanitized). Tool
 	// names are prefixed with it, matching built-in integrations.

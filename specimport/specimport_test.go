@@ -49,6 +49,26 @@ const openAPIFixture = `{
   }
 }`
 
+func TestSubstitutePathParams_NoPlaceholderInjection(t *testing.T) {
+	got, err := substitutePathParams("/users/{user}/files/{file}", []openAPIParamBinding{
+		{arg: "path_user", wire: "user"},
+		{arg: "path_file", wire: "file"},
+	}, map[string]any{"path_user": "{file}", "path_file": "123"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "/users/{file}/files/123" {
+		t.Fatalf("path = %q", got)
+	}
+}
+
+func TestTrimURLPathOnly_PreservesQuerySlash(t *testing.T) {
+	got := trimURLPathOnly("https://api.example.com/v1/?key=abc/")
+	if got != "https://api.example.com/v1?key=abc/" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestJoinOpenAPIURL_MergesBaseQueryAndPath(t *testing.T) {
 	got, err := joinOpenAPIURL("https://api.example.com/v1?version=2", "/items", url.Values{"limit": []string{"5"}})
 	if err != nil {

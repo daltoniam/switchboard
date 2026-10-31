@@ -157,6 +157,9 @@ func parseGraphQL(name string, doc []byte, endpoint string) (*Imported, error) {
 	if _, err := url.ParseRequestURI(endpoint); err != nil {
 		return nil, fmt.Errorf("specimport: invalid graphql endpoint %q: %w", endpoint, err)
 	}
+	if err := validateAbsoluteHTTPURL(endpoint); err != nil {
+		return nil, fmt.Errorf("specimport: invalid graphql endpoint %q: %w", endpoint, err)
+	}
 
 	var intro gqlIntrospection
 	if err := json.Unmarshal(doc, &intro); err != nil {

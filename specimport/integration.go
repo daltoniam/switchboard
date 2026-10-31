@@ -111,7 +111,7 @@ func (in *Integration) Name() string { return in.im.Name }
 func (in *Integration) Configure(_ context.Context, creds mcp.Credentials) error {
 	in.baseURL = in.im.BaseURL
 	if in.im.Kind != KindGraphQL {
-		in.baseURL = strings.TrimRight(in.baseURL, "/")
+		in.baseURL = trimURLPathOnly(in.baseURL)
 	}
 	if override := strings.TrimSpace(creds[credBaseURL]); override != "" {
 		if err := validateURL(override); err != nil {
@@ -120,7 +120,7 @@ func (in *Integration) Configure(_ context.Context, creds mcp.Credentials) error
 		if in.im.Kind == KindGraphQL {
 			in.baseURL = override
 		} else {
-			in.baseURL = strings.TrimRight(override, "/")
+			in.baseURL = trimURLPathOnly(override)
 		}
 	}
 	if in.baseURL == "" {
@@ -206,7 +206,6 @@ func requireArgs(op *operation, args map[string]any) error {
 // substitute path params, append query params, and send remaining args
 // (write methods only) as a JSON body.
 func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args map[string]any) (*mcp.ToolResult, error) {
-	path := op.pathTemplate
 	pathSet := bindingArgSet(op.pathBindings)
 	querySet := bindingArgSet(op.queryBindings)
 	q := url.Values{}
@@ -219,19 +218,9 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 			q.Set(b.wire, formatted)
 		}
 	}
-	for _, b := range op.pathBindings {
-		v, ok := args[b.arg]
-		if !ok {
-			return mcp.ErrResult(fmt.Errorf("specimport: missing path parameter %q", b.arg))
-		}
-		formatted, err := formatParamValue(v)
-		if err != nil {
-			return mcp.ErrResult(fmt.Errorf("specimport: path parameter %q: %w", b.arg, err))
-		}
-		if err := validatePathParamValue(formatted); err != nil {
-			return mcp.ErrResult(fmt.Errorf("specimport: path parameter %q: %w", b.arg, err))
-		}
-		path = strings.ReplaceAll(path, "{"+b.wire+"}", formatted)
+	path, err := substitutePathParams(op.pathTemplate, op.pathBindings, args)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
 
 	target, err := joinOpenAPIURL(in.baseURL, path, q)
@@ -301,6 +290,55 @@ func validatePathParamValue(v string) error {
 		return fmt.Errorf("invalid path segment %q", v)
 	}
 	return nil
+}
+
+func substitutePathParams(template string, bindings []openAPIParamBinding, args map[string]any) (string, error) {
+	wireToArg := make(map[string]string, len(bindings))
+	for _, b := range bindings {
+		wireToArg[b.wire] = b.arg
+	}
+	var out strings.Builder
+	for i := 0; i < len(template); {
+		if template[i] != '{' {
+			out.WriteByte(template[i])
+			i++
+			continue
+		}
+		end := strings.IndexByte(template[i+1:], '}')
+		if end == -1 {
+			out.WriteByte(template[i])
+			i++
+			continue
+		}
+		wire := template[i+1 : i+1+end]
+		arg, ok := wireToArg[wire]
+		if !ok {
+			return "", fmt.Errorf("specimport: unknown path parameter %q", wire)
+		}
+		v, ok := args[arg]
+		if !ok {
+			return "", fmt.Errorf("specimport: missing path parameter %q", arg)
+		}
+		formatted, err := formatParamValue(v)
+		if err != nil {
+			return "", fmt.Errorf("specimport: path parameter %q: %w", arg, err)
+		}
+		if err := validatePathParamValue(formatted); err != nil {
+			return "", fmt.Errorf("specimport: path parameter %q: %w", arg, err)
+		}
+		out.WriteString(formatted)
+		i += end + 2
+	}
+	return out.String(), nil
+}
+
+func trimURLPathOnly(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme == "" {
+		return strings.TrimRight(raw, "/")
+	}
+	u.Path = strings.TrimRight(u.Path, "/")
+	return u.String()
 }
 
 func openAPIWriteBody(op *operation, args map[string]any, pathSet, querySet map[string]bool) (io.Reader, string, error) {
@@ -473,6 +511,20 @@ func paramBindingContains(bindings []openAPIParamBinding, arg string) bool {
 		}
 	}
 	return false
+}
+
+func validateAbsoluteHTTPURL(raw string) error {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("url must be http or https, got %q", u.Scheme)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("url must include a host")
+	}
+	return nil
 }
 
 // validateURL enforces that an imported endpoint is an absolute http(s) URL

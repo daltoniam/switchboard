@@ -130,10 +130,14 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 	if base == "" && len(d.Servers) > 0 {
 		base = d.Servers[0].URL
 	}
-	base = strings.TrimRight(strings.TrimSpace(base), "/")
+	base = strings.TrimSpace(base)
 	if base != "" {
+		base = trimURLPathOnly(base)
 		if _, err := url.ParseRequestURI(base); err != nil {
 			return nil, fmt.Errorf("specimport: invalid server url %q: %w", base, err)
+		}
+		if err := validateAbsoluteHTTPURL(base); err != nil {
+			return nil, err
 		}
 	}
 
