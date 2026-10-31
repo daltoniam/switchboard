@@ -62,12 +62,38 @@ jobs:
         with:
           setup_only: true
 
+      # make ci includes the Chromium acceptance tests. This runs before
+      # Node is set up, like the ui job in CI: the Playwright driver it
+      # assembles runs on the runner's Node and hangs downloading Chromium
+      # on the newer Node the Makefile pins.
+      - name: Install Chromium and system dependencies
+        timeout-minutes: 10
+        run: make ui-install UI_INSTALL_ARGS=--with-deps
+
+      # make ci requires the Node and npm versions pinned in the Makefile.
+      - name: Read Node version
+        id: node
+        run: |
+          echo "node=$(make --no-print-directory node-version)" >> "$GITHUB_OUTPUT"
+          echo "npm=$(make --no-print-directory npm-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.node.outputs.node }}
+
+      - name: Setup npm
+        run: |
+          npm install --global "npm@${{ steps.node.outputs.npm }}"
+          make check-npm
+
       - name: Install Crush
         run: |
           sudo mkdir -p /etc/apt/keyrings
           curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
           echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
           sudo apt-get update -qq && sudo apt-get install -y -qq crush
+          crush --version
 
       - name: Configure git and labels
         env:
@@ -86,21 +112,100 @@ jobs:
           CRUSH_SKILLS_DIR: ${{ github.workspace }}/.agents/skills
           CRUSH_GLOBAL_CONFIG: ${{ github.workspace }}/.ci/crush-implement
         run: |
+          deadline="$(date -u -d '+80 minutes' +%Y-%m-%dT%H:%M:%SZ)"
           {
-            printf 'MODE=%s\nTARGET=%s\nRUN_URL=%s\nREPORT_FILE=%s\n\n' "$MODE" "$TARGET" "$RUN_URL" "$REPORT_FILE"
+            printf 'MODE=%s\nTARGET=%s\nRUN_URL=%s\nREPORT_FILE=%s\nDEADLINE=%s\n\n' "$MODE" "$TARGET" "$RUN_URL" "$REPORT_FILE" "$deadline"
             cat .github/overload/implement.md
           } > "$RUNNER_TEMP/prompt.md"
-          crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md"
+          # Stop Crush before the job timeout so the report and transcript
+          # steps still run, and sooner when it stalls: no session writes
+          # and no command running (language servers aside) for 15 minutes
+          # means it is stuck waiting on a model reply.
+          # setsid gives Crush its own process group so timeout can stop tool children too.
+          # shellcheck source=scripts/overload-crush-watchdog.sh
+          source scripts/overload-crush-watchdog.sh
+          setsid crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md" &
+          crush_pid=$!
+          crush_pgid=$(overload_crush_pgid "$crush_pid")
+          started=$(date +%s)
+          reason=""
+          running() { ps -o stat= -p "$crush_pid" 2>/dev/null | grep -qv '^Z'; }
+          while running; do
+            sleep 30
+            running || break
+            now=$(date +%s)
+            if [ $((now - started)) -ge $((95 * 60)) ]; then
+              reason="after 95 minutes"
+            else
+              last=$(stat -c %Y .crush/crush.db* 2>/dev/null | sort -n | tail -1)
+              busy=$(ps -o comm= --ppid "$crush_pid" 2>/dev/null | grep -vE 'gopls|language-server' || true)
+              if [ -z "$busy" ] && [ $((now - ${last:-$started})) -ge $((15 * 60)) ]; then
+                reason="after 15 minutes without progress"
+              fi
+            fi
+            if [ -n "$reason" ]; then
+              overload_kill_crush_tree "$crush_pid" TERM "$crush_pgid"
+              for _ in $(seq 1 6); do running || break; sleep 5; done
+              overload_kill_crush_tree "$crush_pid" KILL "$crush_pgid"
+              break
+            fi
+          done
+          status=0
+          wait "$crush_pid" || status=$?
+          if [ -n "$reason" ]; then
+            echo "::error::Crush was stopped $reason"
+            [ -s "$REPORT_FILE" ] || printf 'BLOCKED\n\nCrush was stopped %s before writing a report. See the Crush transcript step; uncommitted work is in the overload-report artifact (work.patch).\n' "$reason" > "$REPORT_FILE"
+            exit 1
+          fi
+          exit "$status"
+
+      # Crush prints nothing until it finishes, so list what it did and
+      # when. Tool results are left out because they can contain secrets.
+      - name: Crush transcript
+        if: always()
+        run: |
+          [ -f .crush/crush.db ] || { echo "No Crush session found."; exit 0; }
+          python3 - <<'EOF'
+          import datetime, json, sqlite3
+          db = sqlite3.connect("file:.crush/crush.db?mode=ro", uri=True)
+          for created, role, parts in db.execute("select created_at, role, parts from messages order by created_at"):
+              when = datetime.datetime.fromtimestamp(created, datetime.timezone.utc).strftime("%H:%M:%S")
+              for part in json.loads(parts):
+                  data = part.get("data") or {}
+                  kind = part.get("type")
+                  if kind == "tool_call":
+                      print(when, data.get("name"), str(data.get("input"))[:240].replace("\n", " "))
+                  elif kind == "tool_result":
+                      print(when, "  result", data.get("name", ""), "error" if data.get("is_error") else "ok")
+                  elif kind == "text" and data.get("text", "").strip():
+                      print(when, role + ":", data["text"][:240].replace("\n", " "))
+                  elif kind == "finish":
+                      print(when, "  finish", data.get("reason", ""), data.get("message", "")[:160])
+          EOF
 
       - name: Publish report
         if: always()
         run: |
           if [ -s "$REPORT_FILE" ]; then cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"; else echo "No report was written." | tee "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"; fi
 
+      # Keep what the job changed but did not push, so a stopped run's work
+      # can be recovered (git apply work.patch on the pushed branch, or on
+      # the commit the run started from when nothing was pushed).
+      - name: Save unpushed work
+        if: always()
+        run: |
+          git add -A -- . ':(exclude).crush' ':(exclude)dist' 2>/dev/null || true
+          base="$(git rev-parse --verify -q '@{upstream}' || echo "$GITHUB_SHA")"
+          git diff --cached --binary "$base" > "$RUNNER_TEMP/work.patch" || true
+          [ -s "$RUNNER_TEMP/work.patch" ] || rm -f "$RUNNER_TEMP/work.patch"
+
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: overload-report
-          path: ${{ runner.temp }}/report.md
+          path: |
+            ${{ runner.temp }}/report.md
+            ${{ runner.temp }}/work.patch
+          if-no-files-found: ignore
           retention-days: 30

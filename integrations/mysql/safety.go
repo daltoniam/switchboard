@@ -141,7 +141,9 @@ func validateQuery(query string) error {
 		if token.text == "BY" && index > 0 && (tokens[index-1].text == "ORDER" || tokens[index-1].text == "GROUP") {
 			continue
 		}
-		if token.text == "IN" || token.text == "EXISTS" || token.text == "OVER" || token.text == "AS" || token.text == "FROM" || token.text == "JOIN" || token.text == "WHERE" || token.text == "AND" || token.text == "OR" || token.text == "NOT" || token.text == "ON" || token.text == "HAVING" || token.text == "SELECT" || token.text == "CASE" || token.text == "WHEN" || token.text == "THEN" || token.text == "ELSE" || token.text == "END" {
+		switch token.text {
+		case "IN", "EXISTS", "OVER", "AS", "FROM", "JOIN", "WHERE", "AND", "OR", "NOT", "ON", "HAVING", "SELECT", "CASE", "WHEN", "THEN", "ELSE", "END",
+			"DISTINCT", "DISTINCTROW", "ALL", "LIKE", "REGEXP", "RLIKE", "BETWEEN", "XOR":
 			continue
 		}
 		return fmt.Errorf("mysql: function is not in the supported read-only built-in allowlist")
