@@ -69,6 +69,16 @@ func TestTrimURLPathOnly_PreservesQuerySlash(t *testing.T) {
 	}
 }
 
+func TestJoinOpenAPIURL_PreservesEncodedSlashInBase(t *testing.T) {
+	got, err := joinOpenAPIURL("https://api.example.com/tenant%2Facme", "/items", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "tenant%2Facme/items") {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestJoinOpenAPIURL_MergesBaseQueryAndPath(t *testing.T) {
 	got, err := joinOpenAPIURL("https://api.example.com/v1?version=2", "/items", url.Values{"limit": []string{"5"}})
 	if err != nil {

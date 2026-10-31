@@ -270,19 +270,40 @@ func joinOpenAPIURL(base, path string, opQuery url.Values) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("specimport: invalid base url: %w", err)
 	}
-	basePath := strings.TrimRight(u.Path, "/")
+	if u.Scheme == "" || u.Host == "" {
+		return "", fmt.Errorf("specimport: invalid base url: missing scheme or host")
+	}
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	u.Path = basePath + path
+	pathBase := pathAfterHost(strings.TrimSpace(base), u.Host)
+	if qi := strings.Index(pathBase, "?"); qi >= 0 {
+		pathBase = pathBase[:qi]
+	}
+	fullPath := strings.TrimSuffix(pathBase, "/") + path
+	out := u.Scheme + "://" + u.Host + fullPath
 	q := u.Query()
 	for k, vals := range opQuery {
 		for _, v := range vals {
 			q.Add(k, v)
 		}
 	}
-	u.RawQuery = q.Encode()
-	return u.String(), nil
+	if enc := q.Encode(); enc != "" {
+		out += "?" + enc
+	}
+	return out, nil
+}
+
+func pathAfterHost(raw, host string) string {
+	idx := strings.Index(raw, "://")
+	if idx < 0 {
+		return raw
+	}
+	rest := raw[idx+3:]
+	if !strings.HasPrefix(rest, host) {
+		return ""
+	}
+	return rest[len(host):]
 }
 
 func validatePathParamValue(v string) error {

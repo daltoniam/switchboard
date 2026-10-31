@@ -430,12 +430,25 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 	if len(t.PossibleTypes) == 0 {
 		return ""
 	}
+	if visited[t.Name] {
+		return ""
+	}
+	visited[t.Name] = true
+	defer delete(visited, t.Name)
+
 	conflicts := s.unionFieldConflicts(t)
 	globalReserved := unionAllFieldNames(s, t)
 	var parts []string
 	for _, pt := range t.PossibleTypes {
 		if len(parts) >= maxSelectionFields {
 			break
+		}
+		if pt.Name == t.Name {
+			continue
+		}
+		memberType, ok := s.types[pt.Name]
+		if !ok || (memberType.Kind != "OBJECT" && memberType.Kind != "INTERFACE") {
+			continue
 		}
 		aliases := map[string]string{}
 		for name := range conflicts {
