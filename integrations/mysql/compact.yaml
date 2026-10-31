@@ -1,0 +1,38 @@
+version: 1
+tools:
+  mysql_list_databases:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_list_tables:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_describe_table:
+    spec: [columns.columns, columns.rows, columns.truncated, indexes.columns, indexes.rows, indexes.truncated, foreign_keys.columns, foreign_keys.rows, foreign_keys.truncated, ddl.columns, ddl.rows, ddl.truncated]
+    max_bytes: 1048576
+  mysql_list_columns:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_list_indexes:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_list_foreign_keys:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_list_views:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_table_stats:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_running_queries:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_server_info:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_query:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
+  mysql_explain:
+    spec: [columns, rows, truncated]
+    max_bytes: 1048576
