@@ -433,17 +433,38 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 		if len(parts) >= maxSelectionFields {
 			break
 		}
+		member, ok := s.types[pt.Name]
+		if !ok {
+			continue
+		}
+		reserved := memberFieldNames(member)
 		aliases := map[string]string{}
 		for name := range conflicts {
-			aliases[name] = sanitizeName(pt.Name) + "_" + name
+			al := sanitizeName(pt.Name) + "_" + name
+			for reserved[al] {
+				al += "_"
+			}
+			aliases[name] = al
+			reserved[al] = true
 		}
-		member := s.fields(pt.Name, depth, visited, scalarsOnly, aliases)
-		if member == "" {
-			member = "__typename"
+		memberSel := s.fields(pt.Name, depth, visited, scalarsOnly, aliases)
+		if memberSel == "" {
+			memberSel = "__typename"
 		}
-		parts = append(parts, fmt.Sprintf("... on %s { %s }", pt.Name, member))
+		parts = append(parts, fmt.Sprintf("... on %s { %s }", pt.Name, memberSel))
 	}
 	return strings.Join(parts, " ")
+}
+
+func memberFieldNames(t gqlType) map[string]bool {
+	names := map[string]bool{}
+	for _, f := range t.Fields {
+		if hasRequiredArg(f) {
+			continue
+		}
+		names[f.Name] = true
+	}
+	return names
 }
 
 // firstScalarField returns the name of the first selectable scalar/enum field on

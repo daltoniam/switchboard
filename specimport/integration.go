@@ -208,6 +208,17 @@ func requireArgs(op *operation, args map[string]any) error {
 func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args map[string]any) (*mcp.ToolResult, error) {
 	path := op.pathTemplate
 	pathSet := bindingArgSet(op.pathBindings)
+	querySet := bindingArgSet(op.queryBindings)
+	q := url.Values{}
+	for _, b := range op.queryBindings {
+		if v, ok := args[b.arg]; ok && v != nil {
+			formatted, err := formatParamValue(v)
+			if err != nil {
+				return mcp.ErrResult(fmt.Errorf("specimport: query parameter %q: %w", b.arg, err))
+			}
+			q.Set(b.wire, formatted)
+		}
+	}
 	for _, b := range op.pathBindings {
 		v, ok := args[b.arg]
 		if !ok {
@@ -220,20 +231,9 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 		path = strings.ReplaceAll(path, "{"+b.wire+"}", url.PathEscape(formatted))
 	}
 
-	target := in.baseURL + path
-	q := url.Values{}
-	querySet := bindingArgSet(op.queryBindings)
-	for _, b := range op.queryBindings {
-		if v, ok := args[b.arg]; ok && v != nil {
-			formatted, err := formatParamValue(v)
-			if err != nil {
-				return mcp.ErrResult(fmt.Errorf("specimport: query parameter %q: %w", b.arg, err))
-			}
-			q.Set(b.wire, formatted)
-		}
-	}
-	if encoded := q.Encode(); encoded != "" {
-		target += "?" + encoded
+	target, err := joinOpenAPIURL(in.baseURL, path, q)
+	if err != nil {
+		return mcp.ErrResult(err)
 	}
 
 	body, contentType, bodyErr := openAPIWriteBody(op, args, pathSet, querySet)
@@ -271,6 +271,26 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 		req.AddCookie(&http.Cookie{Name: b.wire, Value: formatted})
 	}
 	return in.do(req)
+}
+
+func joinOpenAPIURL(base, path string, opQuery url.Values) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(base))
+	if err != nil {
+		return "", fmt.Errorf("specimport: invalid base url: %w", err)
+	}
+	joined, err := url.JoinPath(u.Path, path)
+	if err != nil {
+		return "", fmt.Errorf("specimport: join url path: %w", err)
+	}
+	u.Path = joined
+	q := u.Query()
+	for k, vals := range opQuery {
+		for _, v := range vals {
+			q.Add(k, v)
+		}
+	}
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }
 
 func openAPIWriteBody(op *operation, args map[string]any, pathSet, querySet map[string]bool) (io.Reader, string, error) {

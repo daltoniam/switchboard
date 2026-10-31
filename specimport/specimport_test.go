@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -47,6 +48,23 @@ const openAPIFixture = `{
     }
   }
 }`
+
+func TestJoinOpenAPIURL_MergesBaseQueryAndPath(t *testing.T) {
+	got, err := joinOpenAPIURL("https://api.example.com/v1?version=2", "/items", url.Values{"limit": []string{"5"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := url.Parse(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Path != "/v1/items" {
+		t.Fatalf("path = %q", u.Path)
+	}
+	if u.Query().Get("version") != "2" || u.Query().Get("limit") != "5" {
+		t.Fatalf("query = %v", u.Query())
+	}
+}
 
 func TestParseOpenAPI(t *testing.T) {
 	im, err := Parse(KindOpenAPI, "Demo API", []byte(openAPIFixture), "")
