@@ -32,6 +32,7 @@ type openAPIServer struct {
 // openAPIPathItem holds path-level parameters and operations keyed by HTTP method.
 type openAPIPathItem struct {
 	Parameters []openAPIParam    `json:"parameters"`
+	Servers    []openAPIServer   `json:"servers"`
 	Get        *openAPIOperation `json:"get"`
 	Post       *openAPIOperation `json:"post"`
 	Put        *openAPIOperation `json:"put"`
@@ -48,6 +49,7 @@ type openAPIOperation struct {
 	OperationID string          `json:"operationId"`
 	Summary     string          `json:"summary"`
 	Description string          `json:"description"`
+	Servers     []openAPIServer `json:"servers"`
 	Parameters  []openAPIParam  `json:"parameters"`
 	RequestBody *openAPIReqBody `json:"requestBody"`
 }
@@ -62,9 +64,14 @@ type openAPIParam struct {
 }
 
 type openAPIReqBody struct {
-	Ref         string `json:"$ref"`
-	Description string `json:"description"`
-	Required    bool   `json:"required"`
+	Ref         string                      `json:"$ref"`
+	Description string                      `json:"description"`
+	Required    bool                        `json:"required"`
+	Content     map[string]openAPIMediaType `json:"content"`
+}
+
+type openAPIMediaType struct {
+	Schema *openAPISchema `json:"schema"`
 }
 
 type openAPISchema struct {
@@ -147,10 +154,16 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 	seen := map[string]bool{}
 	for _, rawPath := range paths {
 		item := d.Paths[rawPath]
+		if len(item.Servers) > 0 {
+			return nil, fmt.Errorf("specimport: path-level servers are not supported on %s", rawPath)
+		}
 		for _, me := range item.entries() {
+			if len(me.op.Servers) > 0 {
+				return nil, fmt.Errorf("specimport: operation-level servers are not supported on %s %s", me.method, rawPath)
+			}
 			op, err := buildOpenAPIOperation(name, rawPath, me, item.mergedParameters(me.op), seen)
 			if err != nil {
-				return nil, err
+				continue
 			}
 			im.operations = append(im.operations, op)
 		}
@@ -206,6 +219,11 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 		return operation{}, fmt.Errorf("specimport: unsupported requestBody $ref on %s %s", me.method, rawPath)
 	}
 	if eff == effectWrite && me.op.RequestBody != nil {
+		if len(me.op.RequestBody.Content) > 0 {
+			if _, ok := me.op.RequestBody.Content["application/json"]; !ok {
+				return operation{}, fmt.Errorf("specimport: unsupported requestBody media type on %s %s (application/json required)", me.method, rawPath)
+			}
+		}
 		params["body"] = "JSON request body (object)"
 		if me.op.RequestBody.Required {
 			required = append(required, "body")

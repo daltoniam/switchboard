@@ -294,7 +294,7 @@ func (s *selectionBuilder) build(ret gqlTypeRef) string {
 		depth = 1
 		scalarsOnly = true
 	}
-	body := s.fields(name, depth, map[string]bool{}, scalarsOnly)
+	body := s.fields(name, depth, map[string]bool{}, scalarsOnly, nil)
 	if body == "" {
 		// A composite type we cannot expand (unknown, empty, or purely
 		// cyclic) still needs a non-empty selection set to be valid.
@@ -308,7 +308,7 @@ func (s *selectionBuilder) build(ret gqlTypeRef) string {
 // composite fields until depth is exhausted, at which point nested composites
 // are reduced to their __typename so the selection set stays valid. visited
 // guards against cyclic type references along the current path.
-func (s *selectionBuilder) fields(typeName string, depth int, visited map[string]bool, scalarsOnly bool) string {
+func (s *selectionBuilder) fields(typeName string, depth int, visited map[string]bool, scalarsOnly bool, aliases map[string]string) string {
 	t, ok := s.types[typeName]
 	if !ok {
 		return ""
@@ -337,35 +337,45 @@ func (s *selectionBuilder) fields(typeName string, depth int, visited map[string
 		if hasRequiredArg(f) {
 			continue
 		}
-		if sel := s.selectionForField(f, depth, visited, scalarsOnly); sel != "" {
+		if sel := s.selectionForField(f, depth, visited, scalarsOnly, aliases); sel != "" {
 			parts = append(parts, sel)
 		}
 	}
 	return strings.Join(parts, " ")
 }
 
-func (s *selectionBuilder) selectionForField(f gqlField, depth int, visited map[string]bool, scalarsOnly bool) string {
+func gqlFieldLabel(name string, aliases map[string]string) string {
+	if aliases == nil {
+		return name
+	}
+	if al, ok := aliases[name]; ok && al != "" {
+		return al + ": " + name
+	}
+	return name
+}
+
+func (s *selectionBuilder) selectionForField(f gqlField, depth int, visited map[string]bool, scalarsOnly bool, aliases map[string]string) string {
 	if f.Type.isListOfComposite() {
-		return s.selectionForListComposite(f, depth, visited, scalarsOnly)
+		return s.selectionForListComposite(f, depth, visited, scalarsOnly, aliases)
 	}
 	kind, name := f.Type.named()
 	if !isComposite(kind) {
-		return f.Name
+		return gqlFieldLabel(f.Name, aliases)
 	}
 	if scalarsOnly {
 		return ""
 	}
 	if depth <= 1 {
-		return f.Name + " { __typename }"
+		return gqlFieldLabel(f.Name, aliases) + " { __typename }"
 	}
-	nested := s.fields(name, depth-1, visited, false)
+	nested := s.fields(name, depth-1, visited, false, nil)
 	if nested == "" {
 		nested = "__typename"
 	}
-	return f.Name + " { " + nested + " }"
+	return gqlFieldLabel(f.Name, aliases) + " { " + nested + " }"
 }
 
-func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visited map[string]bool, scalarsOnly bool) string {
+func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visited map[string]bool, scalarsOnly bool, aliases map[string]string) string {
 	elemKind, elemName := f.Type.listElementNamed()
 	if scalarsOnly {
 		if !isComposite(elemKind) {
@@ -382,23 +392,51 @@ func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visi
 	if !isComposite(elemKind) {
 		return ""
 	}
-	nested := s.fields(elemName, depth-1, visited, false)
+	nested := s.fields(elemName, depth-1, visited, false, nil)
 	if nested == "" {
 		nested = "__typename"
 	}
 	return f.Name + " { " + nested + " }"
 }
 
+func (s *selectionBuilder) unionFieldConflicts(t gqlType) map[string]struct{} {
+	counts := map[string]int{}
+	for _, pt := range t.PossibleTypes {
+		member, ok := s.types[pt.Name]
+		if !ok {
+			continue
+		}
+		for _, f := range member.Fields {
+			if hasRequiredArg(f) {
+				continue
+			}
+			counts[f.Name]++
+		}
+	}
+	out := map[string]struct{}{}
+	for name, n := range counts {
+		if n > 1 {
+			out[name] = struct{}{}
+		}
+	}
+	return out
+}
+
 func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[string]bool, scalarsOnly bool) string {
 	if len(t.PossibleTypes) == 0 {
 		return ""
 	}
+	conflicts := s.unionFieldConflicts(t)
 	var parts []string
 	for _, pt := range t.PossibleTypes {
 		if len(parts) >= maxSelectionFields {
 			break
 		}
-		member := s.fields(pt.Name, depth, visited, scalarsOnly)
+		aliases := map[string]string{}
+		for name := range conflicts {
+			aliases[name] = sanitizeName(pt.Name) + "_" + name
+		}
+		member := s.fields(pt.Name, depth, visited, scalarsOnly, aliases)
 		if member == "" {
 			member = "__typename"
 		}

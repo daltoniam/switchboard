@@ -109,11 +109,15 @@ func (in *Integration) Name() string { return in.im.Name }
 // stored on the instance and attached to outbound requests; they are never
 // exposed to the model.
 func (in *Integration) Configure(_ context.Context, creds mcp.Credentials) error {
-	if override := strings.TrimRight(strings.TrimSpace(creds[credBaseURL]), "/"); override != "" {
+	if override := strings.TrimSpace(creds[credBaseURL]); override != "" {
 		if err := validateURL(override); err != nil {
 			return fmt.Errorf("specimport: invalid base_url: %w", err)
 		}
-		in.baseURL = override
+		if in.im.Kind == KindGraphQL {
+			in.baseURL = override
+		} else {
+			in.baseURL = strings.TrimRight(override, "/")
+		}
 	}
 	if in.baseURL == "" {
 		return fmt.Errorf("specimport: no base url; set base_url credential or include a server in the spec")
@@ -184,7 +188,7 @@ func requireArgs(op *operation, args map[string]any) error {
 	var missing []string
 	for _, r := range op.tool.Required {
 		v, ok := args[r]
-		if !ok || v == nil || v == "" {
+		if !ok || v == nil {
 			missing = append(missing, r)
 		}
 	}
