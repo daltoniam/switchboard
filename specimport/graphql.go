@@ -376,18 +376,19 @@ func (s *selectionBuilder) selectionForField(f gqlField, depth int, visited map[
 }
 
 func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visited map[string]bool, scalarsOnly bool, aliases map[string]string) string {
+	label := gqlFieldLabel(f.Name, aliases)
 	elemKind, elemName := f.Type.listElementNamed()
 	if scalarsOnly {
 		if !isComposite(elemKind) {
 			return ""
 		}
 		if leaf := s.firstScalarField(elemName); leaf != "" {
-			return f.Name + " { " + leaf + " }"
+			return label + " { " + leaf + " }"
 		}
-		return f.Name + " { __typename }"
+		return label + " { __typename }"
 	}
 	if depth <= 1 {
-		return f.Name + " { __typename }"
+		return label + " { __typename }"
 	}
 	if !isComposite(elemKind) {
 		return ""
@@ -396,7 +397,7 @@ func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visi
 	if nested == "" {
 		nested = "__typename"
 	}
-	return f.Name + " { " + nested + " }"
+	return label + " { " + nested + " }"
 }
 
 func (s *selectionBuilder) unionFieldConflicts(t gqlType) map[string]struct{} {

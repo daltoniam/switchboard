@@ -109,6 +109,10 @@ func (in *Integration) Name() string { return in.im.Name }
 // stored on the instance and attached to outbound requests; they are never
 // exposed to the model.
 func (in *Integration) Configure(_ context.Context, creds mcp.Credentials) error {
+	in.baseURL = in.im.BaseURL
+	if in.im.Kind != KindGraphQL {
+		in.baseURL = strings.TrimRight(in.baseURL, "/")
+	}
 	if override := strings.TrimSpace(creds[credBaseURL]); override != "" {
 		if err := validateURL(override); err != nil {
 			return fmt.Errorf("specimport: invalid base_url: %w", err)

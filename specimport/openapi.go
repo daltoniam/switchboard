@@ -190,11 +190,16 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 	params := map[string]string{}
 	var required []string
 	var pathBindings, queryBindings, headerBindings, cookieBindings []openAPIParamBinding
+	usedArgs := map[string]struct{}{}
 	for _, pr := range mergeOpenAPIParams(pathParams, me.op.Parameters) {
 		if pr.Ref != "" || pr.Name == "" {
 			continue
 		}
 		arg := openAPIToolArg(pr)
+		if _, dup := usedArgs[arg]; dup {
+			return operation{}, fmt.Errorf("specimport: duplicate tool argument %q for %s %s", arg, me.method, rawPath)
+		}
+		usedArgs[arg] = struct{}{}
 		desc := pr.Description
 		if desc == "" {
 			desc = fmt.Sprintf("%s parameter", pr.In)
