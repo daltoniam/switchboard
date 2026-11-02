@@ -21,7 +21,7 @@ var (
 func skipIfUnavailable(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
-		t.Skipf("playwright not available (%v) — install with: go run github.com/playwright-community/playwright-go/cmd/playwright install chromium", err)
+		t.Skipf("playwright not available (%v) — install with: go run github.com/mxschmitt/playwright-go/cmd/playwright install chromium", err)
 	}
 }
 
