@@ -22,6 +22,11 @@ case "$args" in
   "pr view"*)
     echo '{"number":7,"state":"OPEN","isDraft":false,"isCrossRepository":false,"headRefName":"feat/demo-integration","headRefOid":"sha7","baseRefName":"main","labels":[{"name":"overload-automation"}],"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","reviewDecision":""}' ;;
   *"rules/branches/main"*) echo '["build","overload"]' ;;
+  *"branches/main/protection/required_status_checks"*)
+    if [ -n "${CLASSIC_404:-}" ]; then echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi
+    if [ -n "${CLASSIC_500:-}" ]; then echo "gh: Server Error (HTTP 500)" >&2; exit 1; fi
+    echo '["build","legacy-ci"]' ;;
+  "api repos/o/r/pulls/7 "*|"api repos/o/r/pulls/7") echo "${CHANGED_FILES:-3}" ;;
   *"check-runs"*)
     echo '{"name":"build","conclusion":"failure","started_at":"2026-01-01T00:00:00Z"}'
     echo '{"name":"build","conclusion":"success","started_at":"2026-01-02T00:00:00Z"}' ;;
@@ -46,8 +51,20 @@ esac
 EOF
 chmod +x "$work/bin/gh"
 
-facts="$(PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r AUTOMERGE_POLL_SECONDS=0 bash "$ROOT/scripts/automerge-facts.sh" 7)" ||
-  fail "facts script failed: $facts"
+gather() { PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r AUTOMERGE_POLL_SECONDS=0 bash "$ROOT/scripts/automerge-facts.sh" 7; }
+facts="$(gather)" || fail "facts script failed: $facts"
+
+[ "$(jq -c .required_checks <<<"$facts")" = '["build","legacy-ci","overload"]' ] ||
+  fail "required checks from rulesets and classic protection: $(jq -c .required_checks <<<"$facts")"
+ok "combines ruleset and classic branch protection required checks"
+[ "$(CLASSIC_404=1 gather | jq -c .required_checks)" = '["build","overload"]' ] || fail "classic protection absent"
+ok "treats missing classic protection as no extra checks"
+if CLASSIC_500=1 gather >/dev/null 2>&1; then fail "an unreadable classic protection must fail the facts"; fi
+ok "fails when classic protection cannot be read"
+
+[ "$(jq .files_truncated <<<"$facts")" = false ] || fail "complete list reported truncated"
+[ "$(CHANGED_FILES=3001 gather | jq .files_truncated)" = true ] || fail "truncated file list not detected"
+ok "detects a file list GitHub truncated"
 
 [ "$(jq -c .labels <<<"$facts")" = '["overload-automation"]' ] || fail "labels: $(jq -c .labels <<<"$facts")"
 [ "$(jq -c .check_runs <<<"$facts")" = '[{"name":"build","conclusion":"success"}]' ] ||

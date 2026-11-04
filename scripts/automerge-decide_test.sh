@@ -24,7 +24,7 @@ ready='{
   "statuses": [{"context": "overload", "state": "success"}],
   "unresolved_threads": 0,
   "review_decision": "APPROVED",
-  "mergeable": "MERGEABLE", "merge_state": "CLEAN",
+  "mergeable": "MERGEABLE", "merge_state": "CLEAN", "files_truncated": false,
   "base_integrations": ["github", "postgres"],
   "files": [
     {"path": "integrations/keycloak/keycloak.go", "additions": 300, "deletions": 0},
@@ -115,6 +115,9 @@ check "pending optional status waits" '.statuses += [{"context": "codecov", "sta
 check "renaming a shared file into the integration holds" '.files += [{"path": "integrations/keycloak/notes.md", "additions": 0, "deletions": 0}, {"path": "docs/architecture.md", "additions": 0, "deletions": 0, "status": "removed"}]' hold "docs/architecture.md is outside what an integration PR may change"
 check "renaming a listing file into the integration holds" '.files += [{"path": "README.md", "additions": 0, "deletions": 0, "status": "removed"}]' hold "README.md is removed"
 check "removing an owned file is fine" '.files += [{"path": "integrations/keycloak/old.go", "additions": 0, "deletions": 4, "status": "removed"}]' merge
+
+check "removed live spec holds" '.files |= map(if .path == "web/live_keycloak_test.go" then .status = "removed" else . end)' hold "web/live_keycloak_test.go"
+check "incomplete file list holds" '.files_truncated = true' hold "file list is incomplete"
 
 check "editing shared tests is fine" '.files |= map(if .path == "config/config_test.go" then .deletions = 20 else . end)' merge
 check "lookalike integration name holds" '.files += [{"path": "integrations/keycloak2/x.go", "additions": 1, "deletions": 0}]' hold "integrations/keycloak2/x.go"

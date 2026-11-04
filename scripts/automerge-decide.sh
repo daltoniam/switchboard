@@ -86,6 +86,7 @@ jq '
           elif (.result | passed) then empty
           else "\(.name) is \(.result)" end),
 
+      (if $f.files_truncated then "file list is incomplete (GitHub lists at most 3000 files)" else empty end),
       (if $f.unresolved_threads > 0
         then "\($f.unresolved_threads) unresolved review threads" else empty end),
       (if $f.review_decision == "CHANGES_REQUESTED" then "a reviewer has changes requested" else empty end),
@@ -98,7 +99,7 @@ jq '
           then "integration \($name) already exists on main; only new integrations auto-merge" else empty end),
         (if ($f.files | any(.path | startswith("integrations/" + $name + "/")) | not)
           then "no files under integrations/\($name)/" else empty end),
-        (if ($f.files | any(.path == "web/live_" + $name + "_test.go") | not)
+        (if ($f.files | any(.path == "web/live_" + $name + "_test.go" and .status != "removed") | not)
           then "no live acceptance spec web/live_\($name)_test.go" else empty end),
         ($f.files[]
           | if (.path | owned($name)) then empty

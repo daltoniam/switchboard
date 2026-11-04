@@ -23,8 +23,22 @@ done
 head_sha="$(jq -r .headRefOid <<<"$view")"
 base_ref="$(jq -r .baseRefName <<<"$view")"
 
-required="$(gh api "repos/$repo/rules/branches/$base_ref" \
-  --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | unique')"
+ruleset_checks="$(gh api "repos/$repo/rules/branches/$base_ref" \
+  --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context]')"
+# Classic branch protection can require checks too. No protection is a 404;
+# any other failure stops here rather than under-reporting requirements.
+if ! classic_checks="$(gh api "repos/$repo/branches/$base_ref/protection/required_status_checks" \
+  --jq '[.contexts[]?, (.checks[]?.context)] | unique' 2>"${TMPDIR:-/tmp}/automerge-classic.$$")"; then
+  if grep -q "HTTP 404" "${TMPDIR:-/tmp}/automerge-classic.$$"; then
+    classic_checks='[]'
+  else
+    cat "${TMPDIR:-/tmp}/automerge-classic.$$" >&2
+    rm -f "${TMPDIR:-/tmp}/automerge-classic.$$"
+    exit 1
+  fi
+fi
+rm -f "${TMPDIR:-/tmp}/automerge-classic.$$"
+required="$(jq -cn --argjson a "$ruleset_checks" --argjson b "$classic_checks" '$a + $b | unique')"
 
 # Latest run per check name; a pending run has no conclusion yet, so report
 # its status instead.
@@ -63,7 +77,14 @@ files="$(gh api --paginate "repos/$repo/pulls/$pr/files?per_page=100" \
        # Registration files are reviewed line by line, so keep their patch.
        + (if .path == "cmd/server/main.go" or .path == "config/config.go" then {patch} else {} end)),
       # A rename takes its source away, so list the source as removed.
-      (select(.previous != null) | {path: .previous, additions: 0, deletions: .deletions, status: "removed"})]')"
+      (select(.previous != null) | {path: .previous, additions: 0, deletions: .deletions, status: "removed", synthetic: true})]')"
+
+# The files endpoint stops at 3000 entries; compare with the PR's own count.
+changed_files="$(gh api "repos/$repo/pulls/$pr" --jq .changed_files)"
+listed="$(jq '[.[] | select(.synthetic | not)] | length' <<<"$files")"
+files_truncated=false
+[ "$listed" -ge "$changed_files" ] || files_truncated=true
+files="$(jq '[.[] | del(.synthetic)]' <<<"$files")"
 
 merge_base="$(gh api "repos/$repo/compare/$base_ref...$head_sha" --jq .merge_base_commit.sha)"
 base_integrations="$(gh api "repos/$repo/contents/integrations?ref=$merge_base" --jq '[.[] | select(.type == "dir") | .name]')"
@@ -76,6 +97,7 @@ jq -n \
   --argjson unresolved "$unresolved" \
   --argjson files "$files" \
   --argjson base_integrations "$base_integrations" \
+  --argjson files_truncated "$files_truncated" \
   '{
     pr: $view.number,
     state: $view.state,
@@ -93,5 +115,6 @@ jq -n \
     mergeable: $view.mergeable,
     merge_state: $view.mergeStateStatus,
     base_integrations: $base_integrations,
-    files: $files
+    files: $files,
+    files_truncated: $files_truncated
   }'
