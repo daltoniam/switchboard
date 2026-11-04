@@ -137,7 +137,7 @@ func TestFieldCompactionStrictAndShape(t *testing.T) {
 	}{
 		{"keycloak_list_users", `{"items":[{"id":"1","username":"alice","enabled":false,"email":"alice@example.test","emailVerified":false}],"first":0,"max":20,"returned_count":1,"has_more_possible":false}`},
 		{"keycloak_get_user", `{"id":"1","username":"alice","enabled":false,"email":"alice@example.test","emailVerified":true,"firstName":"Alice","lastName":"Example","createdTimestamp":1}`},
-		{"keycloak_list_groups", `{"items":[{"id":"1","name":"support","path":"/support","parentId":"2","subGroupCount":0}],"first":0,"max":20,"returned_count":1,"has_more_possible":false}`},
+		{"keycloak_list_groups", `{"items":[{"id":"1","name":"support","path":"/support","subGroupCount":0}],"first":0,"max":20,"returned_count":1,"has_more_possible":false}`},
 		{"keycloak_list_events", `{"items":[{"time":1,"type":"LOGIN_ERROR","userId":"1","clientId":"app","error":"invalid_credentials"}],"first":0,"max":20,"returned_count":1,"has_more_possible":false,"events_enabled":true,"date_from":"2026-10-01","date_to":"2026-10-01"}`},
 	}
 	for _, test := range cases {

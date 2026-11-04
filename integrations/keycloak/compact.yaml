@@ -5,6 +5,6 @@ tools:
   keycloak_get_user:
     spec: [id, username, enabled, email, emailVerified, firstName, lastName, createdTimestamp]
   keycloak_list_groups:
-    spec: ['items[].id', 'items[].name', 'items[].path', 'items[].parentId', 'items[].subGroupCount', first, max, returned_count, has_more_possible]
+    spec: ['items[].id', 'items[].name', 'items[].path', 'items[].subGroupCount', first, max, returned_count, has_more_possible]
   keycloak_list_events:
     spec: ['items[].time', 'items[].type', 'items[].userId', 'items[].clientId', 'items[].error', first, max, returned_count, has_more_possible, events_enabled, date_from, date_to]
