@@ -45,6 +45,13 @@ commit "bot merge"
 [ "$(weekly)" = yes ] || fail "untagged commits should need a release"
 ok "weekly release when commits landed since the last tag"
 
+git -C "$repo" checkout -q -b release-branch
+commit "release fix"
+git -C "$repo" tag v2026.1105.0
+git -C "$repo" checkout -q main
+[ "$(weekly)" = no ] || fail "head contained in a later release tag should not need a release"
+ok "no weekly release when a release tag already contains the head"
+
 empty="$(mktemp -d)"
 git -C "$empty" init -q -b main
 git -C "$empty" -c user.email=t@e -c user.name=t -c commit.gpgsign=false commit -q --allow-empty -m only

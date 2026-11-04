@@ -15,7 +15,7 @@ view="$(gh pr view "$pr" --repo "$repo" --json \
 # GitHub computes mergeability lazily after main moves; asking starts the
 # computation, so poll briefly instead of reporting UNKNOWN.
 for _ in 1 2 3 4 5 6; do
-  [ "$(jq -r .mergeable <<<"$view")" = UNKNOWN ] || break
+  [ "$(jq -r .state <<<"$view")" = OPEN ] && [ "$(jq -r .mergeable <<<"$view")" = UNKNOWN ] || break
   sleep "${AUTOMERGE_POLL_SECONDS:-5}"
   view="$(gh pr view "$pr" --repo "$repo" --json \
     number,state,isDraft,isCrossRepository,headRefName,headRefOid,baseRefName,labels,mergeable,mergeStateStatus,reviewDecision)"
@@ -43,8 +43,12 @@ unresolved="$(gh api graphql -F owner="$owner" -F name="$name" -F pr="$pr" -f qu
   }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not)] | length')"
 
 files="$(gh api --paginate "repos/$repo/pulls/$pr/files?per_page=100" \
-  --jq '.[] | {path: .filename, additions, deletions, status, previous: .previous_filename}' |
-  jq -s '[.[] | {path, additions, deletions}, (select(.previous != null) | {path: .previous, additions: 0, deletions: .deletions})]')"
+  --jq '.[] | {path: .filename, additions, deletions, previous: .previous_filename, patch}' |
+  jq -s '[.[]
+    | ({path, additions, deletions}
+       # Registration files are reviewed line by line, so keep their patch.
+       + (if .path == "cmd/server/main.go" or .path == "config/config.go" then {patch} else {} end)),
+      (select(.previous != null) | {path: .previous, additions: 0, deletions: .deletions})]')"
 
 merge_base="$(gh api "repos/$repo/compare/$base_ref...$head_sha" --jq .merge_base_commit.sha)"
 base_integrations="$(gh api "repos/$repo/contents/integrations?ref=$merge_base" --jq '[.[] | select(.type == "dir") | .name]')"

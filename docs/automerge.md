@@ -12,14 +12,15 @@ The scheduled implementation job opens one integration PR at a time and fixes it
 | `overload-automation` label, no `automation-hold` label | Only bot PRs; `automation-hold` is the per-PR kill switch |
 | Branch `feat/<name>-integration`, `integrations/<name>/` is new on `main` | Only new integrations; changes to shipped ones go to a person |
 | `web/live_<name>_test.go` exists | The integration was tested against the real product |
-| Every required check on the `main` ruleset passed (including `overload` and `live-integration`), and no other check failed or is still running | The required list is read from the ruleset, so new required checks apply automatically |
+| Every required check on the `main` ruleset passed (including `overload` and `live-integration`), and no other check run or commit status failed or is still running | The required list is read from the ruleset, so new required checks apply automatically |
 | No unresolved review threads, no changes requested, mergeable and `CLEAN` | Review findings are addressed |
 | Files stay in the integration's lane | See below |
 
 Files a PR may change:
 
 - Its own files: `integrations/<name>/`, `docs/<name>*.md`, `web/{<name>_ui,ui_<name>,live_<name>}_test.go`, `config/<name>_test.go`, `server/<name>_*test.go`, `web/templates/pages/<name>_setup*`.
-- Registration in shared files, additions only: `cmd/server/main.go`, `config/config.go`, `README.md`, `docs/adapter-reference.md`, `web/static/style.css`.
+- Registration in `cmd/server/main.go` and `config/config.go`, checked line by line: no removed lines, and every added run must be the integration's import line, its `<name>.New(),` registry entry, or a `"<name>": { ... },` block that maps credentials only to `<NAME>_*` environment variables or lists credentials with `Enabled: false`. A statement, a comment opener, another integration's name, or an environment variable belonging to another product holds the PR.
+- Listing in `README.md`, `docs/adapter-reference.md`, and the generated `web/static/style.css`, additions only (CI fails if the CSS differs from what `make styles` generates).
 - Shared tests whose counts change: `config/config_test.go`, `web/tests/unit/ui.test.ts`.
 
 Anything else, including `go.mod`/`go.sum` (new dependencies), workflows, `server/`, or another integration, holds the PR for a person.
@@ -36,7 +37,7 @@ The repository variable `AUTOMERGE_MODE` controls the workflow without a code ch
 
 Switch modes with `gh variable set AUTOMERGE_MODE --body merge` (or `dry-run`, `disabled`). The job summary of every run lists each PR and why it is held.
 
-The workflow runs when CI, Live Integration, or Crush review finish, when overload posts its status, on review submissions, every 30 minutes, and by hand (`gh workflow run automerge.yml -f pr=<n>`). Its scripts always come from `main`, never from the PR being evaluated.
+The workflow runs when CI, Live Integration, or Crush review finish, when overload posts its status, every 30 minutes, and by hand (`gh workflow run automerge.yml -f pr=<n>`). Its scripts always come from `main`, never from the PR being evaluated.
 
 ## Releases
 

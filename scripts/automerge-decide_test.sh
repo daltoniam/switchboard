@@ -34,8 +34,10 @@ ready='{
     {"path": "docs/keycloak-setup.md", "additions": 50, "deletions": 0},
     {"path": "config/keycloak_test.go", "additions": 28, "deletions": 0},
     {"path": "server/keycloak_test.go", "additions": 105, "deletions": 0},
-    {"path": "cmd/server/main.go", "additions": 2, "deletions": 0},
-    {"path": "config/config.go", "additions": 10, "deletions": 0},
+    {"path": "cmd/server/main.go", "additions": 2, "deletions": 0,
+     "patch": "@@ -57,6 +57,7 @@ import (\n \t\"github.com/daltoniam/switchboard/integrations/jira\"\n+\t\"github.com/daltoniam/switchboard/integrations/keycloak\"\n \t\"github.com/daltoniam/switchboard/integrations/kubernetes\"\n@@ -365,6 +366,7 @@ func runServer(\n \t\tokta.New(),\n+\t\tkeycloak.New(),\n \t\tollama.New(),"},
+    {"path": "config/config.go", "additions": 8, "deletions": 0,
+     "patch": "@@ -241,6 +241,12 @@ var envMapping = map[string]map[string]string{\n \t},\n+\t\"keycloak\": {\n+\t\t\"base_url\":      \"KEYCLOAK_BASE_URL\",\n+\t\t\"client_secret\": \"KEYCLOAK_CLIENT_SECRET\",\n+\t},\n \t\"pagerduty\": {\n@@ -520,6 +526,10 @@ func defaultConfig() *mcp.Config {\n \t\t\t},\n+\t\t\t\"keycloak\": {\n+\t\t\t\tEnabled:     false,\n+\t\t\t\tCredentials: mcp.Credentials{\"base_url\": \"\", \"client_secret\": \"\"},\n+\t\t\t},\n \t\t\t\"pagerduty\": {"},
     {"path": "config/config_test.go", "additions": 6, "deletions": 5},
     {"path": "README.md", "additions": 4, "deletions": 0},
     {"path": "docs/adapter-reference.md", "additions": 4, "deletions": 0},
@@ -95,6 +97,21 @@ check "dependency change holds" '.files += [{"path": "go.mod", "additions": 3, "
 check "other integration holds" '.files += [{"path": "integrations/github/github.go", "additions": 1, "deletions": 0}]' hold "integrations/github/github.go"
 check "other integration live spec holds" '.files += [{"path": "web/live_postgres_test.go", "additions": 1, "deletions": 0}]' hold "web/live_postgres_test.go"
 check "removing lines from shared code holds" '.files |= map(if .path == "cmd/server/main.go" then .deletions = 1 else . end)' hold "cmd/server/main.go removes lines"
+# Registration files only accept the exact registration lines for this integration.
+patch_main() { printf '.files |= map(if .path == "cmd/server/main.go" then .patch = %s else . end)' "$(jq -Rs . <<<"$1")"; }
+patch_config() { printf '.files |= map(if .path == "config/config.go" then .patch = %s else . end)' "$(jq -Rs . <<<"$1")"; }
+check "main.go statement added inside a function holds" "$(patch_main $'@@ -1,3 +1,4 @@\n \t\tokta.New(),\n+\t\tos.Setenv("X", "y")\n \t\tollama.New(),')" hold "cmd/server/main.go adds a line that is not keycloak registration"
+check "main.go comment opener holds" "$(patch_main $'@@ -1,3 +1,4 @@\n \t\tokta.New(),\n+/*\n \t\tollama.New(),')" hold "cmd/server/main.go adds a line that is not keycloak registration"
+check "registering another integration holds" "$(patch_main $'@@ -1,3 +1,4 @@\n \t\tokta.New(),\n+\t\tgithub.New(),\n \t\tollama.New(),')" hold "cmd/server/main.go adds a line that is not keycloak registration"
+check "missing patch holds" '.files |= map(if .path == "config/config.go" then del(.patch) else . end)' hold "config/config.go has no patch to review"
+check "env mapping to another product's variable holds" "$(patch_config $'@@ -1,2 +1,5 @@\n \t},\n+\t"keycloak": {\n+\t\t"client_secret": "GITHUB_TOKEN",\n+\t},\n \t"pagerduty": {')" hold "config/config.go adds a line that is not keycloak registration"
+check "config block for another name holds" "$(patch_config $'@@ -1,2 +1,5 @@\n \t},\n+\t"github": {\n+\t\t"token": "KEYCLOAK_TOKEN",\n+\t},\n \t"pagerduty": {')" hold "config/config.go adds a line that is not keycloak registration"
+check "config line outside a block holds" "$(patch_config $'@@ -1,2 +1,3 @@\n \t\t"api_token": "OKTA_API_TOKEN",\n+\t\t"base_url": "KEYCLOAK_BASE_URL",\n \t},')" hold "config/config.go adds a line that is not keycloak registration"
+check "config default enabled holds" "$(patch_config $'@@ -1,2 +1,5 @@\n \t\t\t},\n+\t\t\t"keycloak": {\n+\t\t\t\tEnabled:     true,\n+\t\t\t},\n \t\t\t"pagerduty": {')" hold "config/config.go adds a line that is not keycloak registration"
+
+check "failing optional status holds" '.statuses += [{"context": "codecov", "state": "failure"}]' hold "codecov is failure"
+check "pending optional status waits" '.statuses += [{"context": "codecov", "state": "pending"}]' hold "waiting for codecov"
+
 check "editing shared tests is fine" '.files |= map(if .path == "config/config_test.go" then .deletions = 20 else . end)' merge
 check "lookalike integration name holds" '.files += [{"path": "integrations/keycloak2/x.go", "additions": 1, "deletions": 0}]' hold "integrations/keycloak2/x.go"
 

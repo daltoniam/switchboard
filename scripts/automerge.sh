@@ -55,7 +55,14 @@ for pr in $prs; do
 
   marker="<!-- automerge:$sha -->"
   if [ "$mode" = dry-run ]; then
-    if gh api --paginate "repos/$repo/issues/$pr/comments" --jq '.[].body' | grep -qF -- "$marker"; then
+    # Read every comment before searching, so a lookup failure is never
+    # mistaken for "not noted yet" and turned into a duplicate comment.
+    if ! bodies="$(gh api --paginate "repos/$repo/issues/$pr/comments" --jq '.[].body')"; then
+      echo "#$pr: could not read existing comments" | tee -a "$summary" >&2
+      status=1
+      continue
+    fi
+    if grep -qF -- "$marker" <<<"$bodies"; then
       echo "#$pr ($integration) would merge at ${sha:0:7}; already noted" | tee -a "$summary"
       continue
     fi

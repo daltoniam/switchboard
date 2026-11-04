@@ -19,6 +19,7 @@ cat >"$work/bin/gh" <<EOF
 #!/usr/bin/env bash
 printf 'GH_TOKEN=%s gh %s\n' "\${GH_TOKEN:-}" "\$*" >>"$log"
 case "\$*" in
+  *"issues/404/comments"*) exit 1 ;;
   "pr list"*) cat "$work/prs" ;;
   *"repos/o/r/issues/"*"/comments"*)
     args="\$*"
@@ -83,6 +84,16 @@ merge_line="$(grep -nF 'pr merge 359' "$log" | cut -d: -f1)"
 [ "$label_line" -lt "$merge_line" ] || fail "release:skip must be added before merging"
 [ "$(calls 'pr merge 326')" = 0 ] || fail "merge mode merged a held PR"
 ok "merge mode labels release:skip, then merges at the decided head"
+
+printf '404\n' >"$work/prs"
+facts 404 merge sha404
+: >"$log"
+if PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r GH_TOKEN=read-token AUTOMERGE_FACTS="$work/facts.sh" \
+  AUTOMERGE_DECIDE="$work/decide.sh" AUTOMERGE_MODE=dry-run bash "$ROOT/scripts/automerge.sh" >"$work/out" 2>&1; then
+  fail "a failed comment lookup should fail the run"
+fi
+[ "$(calls 'pr comment 404')" = 0 ] || fail "dry run commented although it could not read existing comments"
+ok "dry run does not comment when existing comments cannot be read"
 
 run disabled
 [ "$(calls 'pr ')" = 0 ] || fail "disabled mode touched PRs: $(cat "$log")"

@@ -8,9 +8,9 @@ on:
   workflow_run:
     workflows: ["CI", "Live Integration", "Crush PR Review"]
     types: [completed]
+  # No pull_request or pull_request_review triggers: those run the PR's own
+  # copy of this workflow and attach a check to the PR head.
   status:
-  pull_request_review:
-    types: [submitted]
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:

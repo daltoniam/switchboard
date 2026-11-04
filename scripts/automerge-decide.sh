@@ -7,12 +7,41 @@
 set -euo pipefail
 
 jq '
-  # Shared production files an integration registers itself in. They may
-  # only gain lines, so a bot PR cannot change existing behavior there.
-  def additive_shared: [
-    "cmd/server/main.go", "config/config.go", "README.md",
-    "docs/adapter-reference.md", "web/static/style.css"
-  ];
+  # Shared docs and generated CSS an integration lists itself in. They may
+  # only gain lines. CI regenerates the CSS and fails on any difference.
+  def additive_shared: ["README.md", "docs/adapter-reference.md", "web/static/style.css"];
+  # Shared Go files an integration registers in. Every added line must be one
+  # of the exact registration shapes for this integration (see registration).
+  def registration_files: ["cmd/server/main.go", "config/config.go"];
+
+  # Runs of consecutive added lines in a unified diff, and whether it removes any.
+  def added_runs:
+    reduce (split("\n")[] | select(startswith("@@") | not)) as $line
+      ({runs: [], current: []};
+       if ($line | startswith("+")) then .current += [$line[1:]]
+       elif (.current | length) > 0 then .runs += [.current] | .current = []
+       else . end)
+    | .runs + (if (.current | length) > 0 then [.current] else [] end);
+  def removes_lines: split("\n") | any(startswith("-"));
+
+  # A run of added lines is acceptable registration for $name in $path when:
+  #   main.go: one import line, or one constructor call in the registry list
+  #   config.go: one "<name>": { ... }, block that maps credentials to
+  #     <NAME>_* environment variables or lists disabled-by-default credentials
+  def registration($path; $name):
+    ($name | ascii_upcase) as $env
+    | if $path == "cmd/server/main.go" then
+        length == 1 and (.[0] | test("^\t\"github\\.com/daltoniam/switchboard/integrations/" + $name + "\"$")
+                               or test("^\t\t" + $name + "\\.New\\(\\),$"))
+      else
+        length >= 3
+        and (.[0] | test("^\t+\"" + $name + "\": \\{$"))
+        and (.[-1] | test("^\t+\\},$"))
+        and (.[1:-1] | all(
+              test("^\t+\"[a-z0-9_]+\":\\s+\"" + $env + "_[A-Z0-9_]+\",$")
+              or test("^\t+Enabled:\\s+false,$")
+              or test("^\t+Credentials:\\s+mcp\\.Credentials\\{(\"[a-z0-9_]+\": \"\"(, )?)*\\},$")))
+      end;
   # Shared test files whose expected counts change when an integration is added.
   def editable_shared_tests: ["config/config_test.go", "web/tests/unit/ui.test.ts"];
 
@@ -48,14 +77,14 @@ jq '
         | if ($results | length) == 0 or ($results | any(pending)) then "waiting for \($check)"
           elif ($results | all(passed)) then empty
           else "\($check) is \($results | map(select(passed | not)) | unique | join(", "))" end),
-      ($f.check_runs[]
+      # Checks outside the required list still must not be failing or running,
+      # whether they report as check runs or as commit statuses.
+      (([$f.check_runs[] | {name, result: .conclusion}]
+        + [$f.statuses[] | {name: .context, result: .state}])[]
         | select((.name as $n | $f.required_checks | index($n)) == null)
-        | select((.conclusion | pending) or (.conclusion | passed) | not)
-        | "\(.name) is \(.conclusion)"),
-      ($f.check_runs[]
-        | select((.name as $n | $f.required_checks | index($n)) == null)
-        | select(.conclusion | pending)
-        | "waiting for \(.name)"),
+        | if (.result | pending) then "waiting for \(.name)"
+          elif (.result | passed) then empty
+          else "\(.name) is \(.result)" end),
 
       (if $f.unresolved_threads > 0
         then "\($f.unresolved_threads) unresolved review threads" else empty end),
@@ -73,6 +102,12 @@ jq '
           then "no live acceptance spec web/live_\($name)_test.go" else empty end),
         ($f.files[]
           | if (.path | owned($name)) then empty
+            elif (.path as $p | registration_files | index($p)) != null then
+              .path as $p
+              | if (.patch // "") == "" then "\($p) has no patch to review"
+                elif .deletions > 0 or (.patch | removes_lines) then "\($p) removes lines; shared files may only gain lines"
+                elif (.patch | added_runs | all(registration($p; $name))) then empty
+                else "\($p) adds a line that is not \($name) registration" end
             elif (.path as $p | additive_shared | index($p)) != null then
               (if .deletions > 0 then "\(.path) removes lines; shared files may only gain lines" else empty end)
             elif (.path as $p | editable_shared_tests | index($p)) != null then empty
