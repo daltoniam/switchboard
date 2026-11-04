@@ -96,13 +96,17 @@ jq '
       and (. as $b | [range($b.removed | length)] | all(. as $i | $b.added[$i] | bumped($b.removed[$i]; $name)))
       and (.added[(.removed | length):] | all(listing_line($name))));
 
+  # Shared files keep their own rules even when their name matches the
+  # integration (an integration named adapter must not own adapter-reference.md).
   def owned($name):
-    test("^integrations/" + $name + "/")
+    . as $path
+    | (additive_shared + registration_files + editable_shared_tests | index($path)) == null
+    and (test("^integrations/" + $name + "/")
     or test("^docs/" + $name + "([-.][a-z0-9.-]*)?\\.md$")
     or test("^web/(" + $name + "_ui|ui_" + $name + "|live_" + $name + ")_test\\.go$")
     or test("^config/" + $name + "_test\\.go$")
     or test("^server/" + $name + "(_[a-z0-9_]+)?_test\\.go$")
-    or test("^web/templates/pages/" + $name + "_setup(\\.templ|_templ\\.go)$");
+    or test("^web/templates/pages/" + $name + "_setup(\\.templ|_templ\\.go)$"));
 
   def pending: . == null or . == "" or . == "pending" or . == "queued"
     or . == "in_progress" or . == "waiting" or . == "requested" or . == "expected";

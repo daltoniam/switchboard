@@ -149,6 +149,11 @@ check "same-named check from another app failing holds" '.check_runs += [{"name"
 check "same-named check from another app running waits" '.check_runs += [{"name": "build", "app_id": 999, "conclusion": "in_progress"}]' hold "waiting for build"
 check "status named like an app-bound requirement failing holds" '.statuses += [{"context": "build", "state": "failure"}]' hold "build is failure"
 
+# An integration named "adapter" must not own the shared docs/adapter-reference.md.
+as_adapter='walk(if type == "string" then gsub("keycloak"; "adapter") | gsub("KEYCLOAK"; "ADAPTER") else . end)'
+check "shared doc matching the integration name stays additive-only" "$as_adapter | .files |= map(if .path == \"docs/adapter-reference.md\" then .deletions = 3 else . end)" hold "docs/adapter-reference.md removes lines"
+check "shared doc matching the integration name can still grow" "$as_adapter" merge
+
 check "missing server registration holds" '.files |= map(select(.path != "cmd/server/main.go"))' hold "cmd/server/main.go does not register keycloak"
 check "import without constructor holds" "$(patch_main $'@@ -1,2 +1,3 @@\n \t"github.com/daltoniam/switchboard/integrations/jira"\n+\t"github.com/daltoniam/switchboard/integrations/keycloak"\n \t"github.com/daltoniam/switchboard/integrations/kubernetes"')" hold "cmd/server/main.go does not register keycloak"
 check "missing default config holds" '.files |= map(select(.path != "config/config.go"))' hold "config/config.go has no keycloak defaults"
