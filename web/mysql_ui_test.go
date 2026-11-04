@@ -12,7 +12,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/mysql"
 	"github.com/daltoniam/switchboard/internal/mysqltest"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
 
