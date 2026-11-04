@@ -57,6 +57,8 @@ Do not substitute individual Go commands, a partial test package, or remote CI f
 
 For integration PRs, follow `docs/integration-ui-testing.md`: require new-integration-specific browser coverage and an isolated local browser walkthrough, desktop/mobile evidence, console/network checks, restart persistence, and read-only MCP discovery/execute. Record fixture versus live-auth results explicitly. Bind browser evidence to the exact head alongside local CI; baseline examples alone do not verify a new adapter. Orca automations must not declare completion if this gate is skipped or blocked.
 
+Integration PRs must also pass `make test-live INTEGRATION=<name>` locally (needs Docker) and the remote `live-integration` check on the exact head. A failing live check means the adapter or its `compact.yaml` disagrees with the real product; fix the code, never the spec's expectations to match a fixture.
+
 A zero exit is necessary. After it passes, record:
 
 ```bash

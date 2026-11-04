@@ -18,6 +18,7 @@
 | Format | `gofmt -w .` | `make fmt` |
 | Browser prerequisites | Pinned Playwright driver + Chromium (`UI_INSTALL_ARGS=--with-deps` on Linux) | `make ui-install` |
 | UI acceptance | Isolated Chromium setup, persistence, OAuth/identities, and MCP tests | `make test-ui` |
+| Live acceptance | Real provider in Docker, configured through the UI, every tool called over MCP (needs Docker) | `make test-live INTEGRATION=<name>` |
 | **All CI checks** | build + vet + test-race + test-ui + lint + security | **`make ci`** |
 | Compose check | `bash scripts/compose-dev.sh check` | `make compose-check` |
 | Compose up | `bash scripts/compose-dev.sh up` | `make compose-up` |

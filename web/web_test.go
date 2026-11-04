@@ -229,6 +229,39 @@ func TestIntegrationSave_NotifiesConfigChange(t *testing.T) {
 	assert.True(t, called)
 }
 
+// Setup-page integrations (postgres, clickhouse) do not reconfigure when their
+// page loads, so saving must apply the new credentials immediately; otherwise
+// health and MCP calls keep using the old ones until the server restarts.
+func TestIntegrationSave_SetupIntegrationAppliesCredentials(t *testing.T) {
+	tests := []struct {
+		name       string
+		form       string
+		configured bool
+	}{
+		{"enabled applies credentials", "enabled=true&cred_host=db.internal", true},
+		{"disabled leaves adapter alone", "cred_host=db.internal", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ws, reg, _ := setupTestWeb()
+			adapter := &mockIntegration{name: "postgres", healthy: true}
+			reg.Register(adapter)
+			req := httptest.NewRequest("POST", "/integrations/postgres", strings.NewReader(tt.form))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, req)
+
+			require.Equal(t, http.StatusSeeOther, rr.Code)
+			assert.Contains(t, rr.Header().Get("Location"), "/integrations/postgres/setup?success=")
+			if tt.configured {
+				assert.Equal(t, "db.internal", adapter.lastCreds["host"])
+			} else {
+				assert.Nil(t, adapter.lastCreds)
+			}
+		})
+	}
+}
+
 func TestIntegrationSave_NotFound(t *testing.T) {
 	ws, _, _ := setupTestWeb()
 	handler := ws.Handler()

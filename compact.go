@@ -28,7 +28,14 @@ type CompactField struct {
 	exclude     bool     // true for "-field" exclusion specs
 	wildcard    bool     // true for "parent.*" wildcard specs
 	globPattern string   // non-empty for glob exclusion specs like "-*_url"
+	spec        string   // the spec line this field was parsed from
 }
+
+// Spec returns the spec line the field was parsed from, e.g. "labels[].name".
+func (f CompactField) Spec() string { return f.spec }
+
+// Exclusion reports whether the field removes data ("-field") rather than keeping it.
+func (f CompactField) Exclusion() bool { return f.exclude }
 
 // fieldPlan holds pre-computed groupings for a set of CompactField specs.
 // Built once by ParseCompactSpecs; reused on every object in an array.
@@ -238,6 +245,7 @@ func ParseCompactSpecs(specs []string) ([]CompactField, error) {
 		if err != nil {
 			return nil, err
 		}
+		f.spec = s
 		fields = append(fields, f)
 	}
 	return fields, nil

@@ -9,6 +9,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        "postgres_list_databases",
 		Description: "List all configured database connections with their alias, host, database name, and read-only status",
+		Access:      mcp.AccessRead,
 		Parameters:  map[string]string{},
 	},
 
@@ -16,6 +17,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_schemas"),
 		Description: "List all schemas in the database. Start here for schema discovery.",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"database": databaseParamDesc,
 		},
@@ -23,6 +25,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_tables"),
 		Description: "List all tables in a schema with row counts and size estimates",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"schema":   "Schema name (default: public)",
 			"database": databaseParamDesc,
@@ -31,6 +34,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_describe_table"),
 		Description: "Get detailed column info for a table including types, nullability, defaults, and constraints",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"table":    "Table name",
 			"schema":   "Schema name (default: public)",
@@ -41,6 +45,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_columns"),
 		Description: "List all columns for a table with data types and ordinal positions",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"table":    "Table name",
 			"schema":   "Schema name (default: public)",
@@ -51,6 +56,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_indexes"),
 		Description: "List all indexes on a table with definitions and size",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"table":    "Table name",
 			"schema":   "Schema name (default: public)",
@@ -61,6 +67,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_constraints"),
 		Description: "List all constraints (primary key, foreign key, unique, check) on a table",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"table":    "Table name",
 			"schema":   "Schema name (default: public)",
@@ -71,6 +78,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_foreign_keys"),
 		Description: "List all foreign key relationships for a table (both referencing and referenced)",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"table":    "Table name",
 			"schema":   "Schema name (default: public)",
@@ -81,6 +89,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_views"),
 		Description: "List all views in a schema with their definitions",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"schema":   "Schema name (default: public)",
 			"database": databaseParamDesc,
@@ -89,6 +98,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_functions"),
 		Description: "List user-defined functions in a schema",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"schema":   "Schema name (default: public)",
 			"database": databaseParamDesc,
@@ -97,6 +107,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_triggers"),
 		Description: "List all triggers on a table or in a schema",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"table":    "Table name (optional, lists all triggers in schema if omitted)",
 			"schema":   "Schema name (default: public)",
@@ -106,6 +117,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_enums"),
 		Description: "List all enum types in the database with their values",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"schema":   "Schema name (default: public)",
 			"database": databaseParamDesc,
@@ -116,6 +128,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_query"),
 		Description: "Execute a read-only SQL query and return results as JSON. Use for database exploration and performance investigation. Automatically wrapped in a read-only transaction.",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"sql":      "SQL query to execute (SELECT, SHOW, EXPLAIN, etc.)",
 			"limit":    "Max rows to return (default: 100, max: 1000)",
@@ -126,6 +139,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_execute"),
 		Description: "Execute a data-modifying SQL statement (INSERT, UPDATE, DELETE, CREATE, ALTER, DROP). Returns rows affected. **CAUTION: executes arbitrary SQL including DDL/DML. Disabled by default -- set read_only=false in credentials to enable.** DROP DATABASE and TRUNCATE are always denied.",
+		Access:      mcp.AccessDestructive,
 		Parameters: map[string]string{
 			"sql":      "SQL statement to execute",
 			"database": databaseParamDesc,
@@ -135,6 +149,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_explain"),
 		Description: "Run EXPLAIN ANALYZE on a SQL query to show the execution plan with actual timing. Use to diagnose slow queries and optimize database performance.",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"sql":      "SQL query to explain",
 			"analyze":  "Run EXPLAIN ANALYZE with actual execution (default: false)",
@@ -148,6 +163,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_select"),
 		Description: "Select rows from a table with optional filtering, ordering, and pagination. The columns, where, and order_by parameters accept SQL expressions (semicolons and comments are rejected).",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"table":    "Table name",
 			"schema":   "Schema name (default: public)",
@@ -165,6 +181,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_database_info"),
 		Description: "Get database-level info: version, current database, current user, server settings",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"database": databaseParamDesc,
 		},
@@ -172,6 +189,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_database_size"),
 		Description: "Get the size of the current database and its largest tables",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"limit":    "Number of largest tables to return (default: 20)",
 			"database": databaseParamDesc,
@@ -180,6 +198,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_table_stats"),
 		Description: "Get detailed statistics for a table including row count, dead tuples, last vacuum/analyze times",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"table":    "Table name",
 			"schema":   "Schema name (default: public)",
@@ -192,6 +211,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_roles"),
 		Description: "List all database roles with their attributes (superuser, createdb, login, etc.)",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"database": databaseParamDesc,
 		},
@@ -199,6 +219,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_grants"),
 		Description: "List privileges granted on a table or schema",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"table":    "Table name (optional, shows schema-level grants if omitted)",
 			"schema":   "Schema name (default: public)",
@@ -210,6 +231,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_extensions"),
 		Description: "List all installed extensions with versions",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"database": databaseParamDesc,
 		},
@@ -217,6 +239,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_active_connections"),
 		Description: "List active database connections with query state, duration, and client info",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"state":    "Filter by state: active, idle, idle in transaction (optional)",
 			"database": databaseParamDesc,
@@ -225,6 +248,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_list_locks"),
 		Description: "List current lock activity showing blocked and blocking queries",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"database": databaseParamDesc,
 		},
@@ -232,6 +256,7 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name:        mcp.ToolName("postgres_running_queries"),
 		Description: "List currently running queries with duration and state. Use to find slow or long-running queries that may be blocking database operations.",
+		Access:      mcp.AccessRead,
 		Parameters: map[string]string{
 			"min_duration": "Minimum duration in seconds to filter by (optional)",
 			"database":     databaseParamDesc,
