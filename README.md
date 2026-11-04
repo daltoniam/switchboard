@@ -452,7 +452,7 @@ go install github.com/air-verse/air@latest
 Install the Playwright Chromium driver (optional — enables browser-based integrations):
 
 ```bash
-go run github.com/playwright-community/playwright-go/cmd/playwright install chromium
+go run github.com/mxschmitt/playwright-go/cmd/playwright install chromium
 ```
 
 Then run with live-reload:

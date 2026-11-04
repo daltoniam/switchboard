@@ -10,7 +10,7 @@ make test-ui
 make ci
 ```
 
-On Linux, install Chromium's system dependencies with `make ui-install UI_INSTALL_ARGS=--with-deps`. The Playwright Go module pins the driver/browser version; `scripts/ui-install.sh` uses the current ESRP download mirror because the older Azure Edge mirrors no longer serve that version. The mirror does not serve Linux driver archives, so on Linux the script assembles the driver from the matching npm `playwright-core` release and the system Node.js (Node.js and npm are required there).
+On Linux, install Chromium's system dependencies with `make ui-install UI_INSTALL_ARGS=--with-deps`. The Playwright Go module (`github.com/mxschmitt/playwright-go`) pins the driver/browser version and downloads the matching npm `playwright-core` release plus its own Node.js runtime, so no system Node.js is required. Keep it current: each Playwright release only supports the Linux distributions that existed when it shipped, so a GitHub runner image upgrade (for example to Ubuntu 26.04) needs a matching Playwright Go upgrade.
 
 `make ci` includes `test-ui`. Ordinary `go test ./...` skips the opt-in UI tests so unit tests do not require a browser. The explicit UI target builds the development binary, sets `SWITCHBOARD_UI_BINARY`, and fails on missing drivers, Chromium, server startup, assertions, or browser errors. GitHub Actions runs a separate `ui` job with Chromium installed. Repository administrators should require the `ui` check in branch protection; adding a workflow does not change remote protection rules.
 
