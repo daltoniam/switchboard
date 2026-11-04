@@ -20,7 +20,16 @@ cat >"$work/bin/gh" <<'EOF'
 args="$*"
 case "$args" in
   "pr view"*)
-    echo '{"number":7,"state":"OPEN","isDraft":false,"isCrossRepository":false,"headRefName":"feat/demo-integration","headRefOid":"sha7","baseRefName":"main","labels":[{"name":"overload-automation"}],"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","reviewDecision":""}' ;;
+    # The second view (after collection) can report a new push via HEAD_AFTER.
+    calls="$(cat "$STATE/views" 2>/dev/null || echo 0)"
+    echo $((calls + 1)) >"$STATE/views"
+    head=sha7
+    [ "$calls" -ge 1 ] && [ -n "${HEAD_AFTER:-}" ] && head="$HEAD_AFTER"
+    printf '{"number":7,"state":"OPEN","isDraft":false,"isCrossRepository":false,"headRefName":"feat/demo-integration","headRefOid":"%s","baseRefName":"%s","labels":[{"name":"overload-automation"}],"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","reviewDecision":""}\n' "$head" "${BASE_REF:-main}" ;;
+  *"rules/branches/release%231"*) echo '["build"]' ;;
+  *"branches/release%231/protection/required_status_checks"*) echo '[]' ;;
+  *"compare/release%231...sha7"*) echo 'base7' ;;
+  *"release#1"*) echo "unencoded branch name in: $args" >&2; exit 1 ;;
   *"rules/branches/main"*) echo '["build","overload"]' ;;
   *"branches/main/protection/required_status_checks"*)
     if [ -n "${CLASSIC_404:-}" ]; then echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi
@@ -55,7 +64,10 @@ esac
 EOF
 chmod +x "$work/bin/gh"
 
-gather() { PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r AUTOMERGE_POLL_SECONDS=0 bash "$ROOT/scripts/automerge-facts.sh" 7; }
+gather() {
+  rm -f "$work/views"
+  PATH="$work/bin:$PATH" STATE="$work" GITHUB_REPOSITORY=o/r AUTOMERGE_POLL_SECONDS=0 bash "$ROOT/scripts/automerge-facts.sh" 7
+}
 facts="$(gather)" || fail "facts script failed: $facts"
 
 [ "$(jq -c .required_checks <<<"$facts")" = '["build","legacy-ci","overload"]' ] ||
@@ -99,5 +111,11 @@ printf '%s\n' "$big" >"$work/big-files"
 facts="$(BIG_FILES="$work/big-files" CHANGED_FILES=3000 gather)" || fail "facts failed for a 3000-file PR"
 [ "$(jq '.files | length' <<<"$facts")" = 3000 ] || fail "large PR lost files: $(jq '.files | length' <<<"$facts")"
 ok "assembles facts for a 3000-file PR"
+
+if HEAD_AFTER=sha8 gather >/dev/null 2>&1; then fail "a push during collection must fail the facts"; fi
+ok "fails when the PR head moves while facts are collected"
+
+[ "$(BASE_REF='release#1' gather | jq -c .required_checks)" = '["build"]' ] || fail "branch names must be URL-encoded"
+ok "URL-encodes the base branch in API paths"
 
 echo "PASS: automerge facts" >&2

@@ -58,16 +58,23 @@ jq '
        else . end)
     | .blocks;
 
-  # True when $new is $old with each number unchanged or one higher, after
-  # dropping a quoted "<name>" list entry from $new.
+  # Count assertions whose expected number grows by one per integration.
+  def count_assertion:
+    test("^\\s*assert\\.Len\\(t, [A-Za-z0-9_.]+, [0-9]+\\)$")
+    or test("^\\s*assert\\.equal\\(rules\\.length, [0-9]+\\);$");
+
+  # True when $new is $old with exactly one change: the number in a count
+  # assertion going up by one, or "<name>" added to a quoted string list.
   def bumped($old; $name):
-    ($old | [scan("[0-9]+|[^0-9]+")]) as $o
-    | (gsub("\"" + $name + "\", "; "") | gsub(", \"" + $name + "\""; "") | [scan("[0-9]+|[^0-9]+")]) as $n
-    | ($o | length) == ($n | length)
-      and ([range($o | length)] | all(. as $i
-        | if ($o[$i] | test("^[0-9]+$")) and ($n[$i] | test("^[0-9]+$"))
-          then ($n[$i] | tonumber) - ($o[$i] | tonumber) | IN(0, 1)
-          else $o[$i] == $n[$i] end));
+    . as $new
+    | if ($old | count_assertion) and ($new | count_assertion) then
+        ($old | capture("^(?<head>.*[^0-9])(?<n>[0-9]+)(?<tail>[^0-9]*)$")) as $o
+        | ($new | capture("^(?<head>.*[^0-9])(?<n>[0-9]+)(?<tail>[^0-9]*)$")) as $n
+        | $o.head == $n.head and $o.tail == $n.tail and (($n.n | tonumber) - ($o.n | tonumber)) == 1
+      else
+        $new != $old
+        and ($new | gsub("\"" + $name + "\", "; "") | gsub(", \"" + $name + "\""; "")) == $old
+      end;
 
   # Added assertion lines a new integration may contribute to shared tests.
   def listing_line($name):

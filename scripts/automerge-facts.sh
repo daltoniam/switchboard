@@ -22,15 +22,17 @@ for _ in 1 2 3 4 5 6; do
 done
 head_sha="$(jq -r .headRefOid <<<"$view")"
 base_ref="$(jq -r .baseRefName <<<"$view")"
+# Branch names can hold characters that mean something in a URL (#, ?, %).
+base_path="$(jq -rn --arg ref "$base_ref" '$ref | @uri')"
 
 facts_dir="$(mktemp -d)"
 trap 'rm -rf "$facts_dir"' EXIT
 
-ruleset_checks="$(gh api "repos/$repo/rules/branches/$base_ref" \
+ruleset_checks="$(gh api "repos/$repo/rules/branches/$base_path" \
   --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context]')"
 # Classic branch protection can require checks too. No protection is a 404;
 # any other failure stops here rather than under-reporting requirements.
-if ! classic_checks="$(gh api "repos/$repo/branches/$base_ref/protection/required_status_checks" \
+if ! classic_checks="$(gh api "repos/$repo/branches/$base_path/protection/required_status_checks" \
   --jq '[.contexts[]?, (.checks[]?.context)] | unique' 2>"$facts_dir/classic.err")"; then
   if grep -q "HTTP 404" "$facts_dir/classic.err"; then
     classic_checks='[]'
@@ -88,8 +90,16 @@ files_truncated=false
 [ "$listed" -ge "$changed_files" ] || files_truncated=true
 files="$(jq '[.[] | del(.synthetic)]' <<<"$files")"
 
-merge_base="$(gh api "repos/$repo/compare/$base_ref...$head_sha" --jq .merge_base_commit.sha)"
+merge_base="$(gh api "repos/$repo/compare/$base_path...$head_sha" --jq .merge_base_commit.sha)"
 base_integrations="$(gh api "repos/$repo/contents/integrations?ref=$merge_base" --jq '[.[] | select(.type == "dir") | .name]')"
+
+# The files endpoint follows the PR's live head, while checks were read for
+# head_sha. If a push landed meanwhile the facts would mix two revisions.
+after="$(gh pr view "$pr" --repo "$repo" --json headRefOid,baseRefName)"
+if [ "$(jq -r .headRefOid <<<"$after")" != "$head_sha" ] || [ "$(jq -r .baseRefName <<<"$after")" != "$base_ref" ]; then
+  echo "PR #$pr changed while its facts were collected; evaluate it again on the next run" >&2
+  exit 1
+fi
 
 # Large values go through files, not argv: a 3000-file list can exceed the
 # per-argument limit on Linux.

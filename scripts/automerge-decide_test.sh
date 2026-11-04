@@ -129,6 +129,9 @@ check "rewriting a shared assertion holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\ta
 check "a count jump of more than one holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tassert.Len(t, m, 62)\n+\tassert.Len(t, m, 64)')" hold "config/config_test.go changes more than counts and keycloak entries"
 check "a skip mentioning the integration holds" "$(patch_cfgt $'@@ -1,1 +1,2 @@\n+\tt.Skip() // "keycloak"')" hold "config/config_test.go changes more than counts and keycloak entries"
 check "another integration's entry holds" "$(patch_cfgt $'@@ -1,1 +1,2 @@\n+\t\t"github":         {"token"},')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "bumping a loop start in a shared test holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tfor i := 0; i < len(configs); i++ {\n+\tfor i := 1; i < len(configs); i++ {')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "bumping a non-count argument holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tassert.Equal(t, 3, retries)\n+\tassert.Equal(t, 4, retries)')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "adding the name and bumping a number on one line holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tcheck(t, 2, []string{"github"})\n+\tcheck(t, 3, []string{"github", "keycloak"})')" hold "config/config_test.go changes more than counts and keycloak entries"
 check "missing shared test patch holds" '.files |= map(if .path == "web/tests/unit/ui.test.ts" then del(.patch) else . end)' hold "web/tests/unit/ui.test.ts has no patch to review"
 check "lookalike integration name holds" '.files += [{"path": "integrations/keycloak2/x.go", "additions": 1, "deletions": 0}]' hold "integrations/keycloak2/x.go"
 
