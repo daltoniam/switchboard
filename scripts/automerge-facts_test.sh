@@ -41,6 +41,7 @@ case "$args" in
       echo '{"unresolved":0,"hasNextPage":true,"endCursor":"page2"}'
     fi ;;
   *"pulls/7/files"*)
+    if [ -n "${BIG_FILES:-}" ]; then cat "$BIG_FILES"; exit 0; fi
     echo '{"path":"integrations/demo/demo.go","additions":10,"deletions":0,"status":"added","previous":null,"patch":"+package demo"}'
     echo '{"path":"cmd/server/main.go","additions":1,"deletions":0,"status":"modified","previous":null,"patch":"@@ -1 +1,2 @@\n+\tdemo.New(),"}'
     echo '{"path":"integrations/demo/README.md","additions":0,"deletions":0,"status":"renamed","previous":"docs/architecture.md","patch":null}' ;;
@@ -88,5 +89,12 @@ ok "keeps patches only for registration files"
 
 [ "$(jq -c .base_integrations <<<"$facts")" = '["github","postgres"]' ] || fail "base integrations"
 ok "lists integrations at the merge base"
+
+# A large PR must not overflow the command line when facts are assembled.
+big="$(jq -cn '[range(3000) | {path: ("integrations/demo/file_\(.)_" + ("x" * 400) + ".go"), additions: 1, deletions: 0, status: "added", previous: null, patch: null}] | .[]')"
+printf '%s\n' "$big" >"$work/big-files"
+facts="$(BIG_FILES="$work/big-files" CHANGED_FILES=3000 gather)" || fail "facts failed for a 3000-file PR"
+[ "$(jq '.files | length' <<<"$facts")" = 3000 ] || fail "large PR lost files: $(jq '.files | length' <<<"$facts")"
+ok "assembles facts for a 3000-file PR"
 
 echo "PASS: automerge facts" >&2

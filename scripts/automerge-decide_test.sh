@@ -38,11 +38,13 @@ ready='{
      "patch": "@@ -57,6 +57,7 @@ import (\n \t\"github.com/daltoniam/switchboard/integrations/jira\"\n+\t\"github.com/daltoniam/switchboard/integrations/keycloak\"\n \t\"github.com/daltoniam/switchboard/integrations/kubernetes\"\n@@ -365,6 +366,7 @@ func runServer(\n \t\tokta.New(),\n+\t\tkeycloak.New(),\n \t\tollama.New(),"},
     {"path": "config/config.go", "additions": 8, "deletions": 0,
      "patch": "@@ -241,6 +241,12 @@ var envMapping = map[string]map[string]string{\n \t},\n+\t\"keycloak\": {\n+\t\t\"base_url\":      \"KEYCLOAK_BASE_URL\",\n+\t\t\"client_secret\": \"KEYCLOAK_CLIENT_SECRET\",\n+\t},\n \t\"pagerduty\": {\n@@ -520,6 +526,10 @@ func defaultConfig() *mcp.Config {\n \t\t\t},\n+\t\t\t\"keycloak\": {\n+\t\t\t\tEnabled:     false,\n+\t\t\t\tCredentials: mcp.Credentials{\"base_url\": \"\", \"client_secret\": \"\"},\n+\t\t\t},\n \t\t\t\"pagerduty\": {"},
-    {"path": "config/config_test.go", "additions": 6, "deletions": 5},
+    {"path": "config/config_test.go", "additions": 5, "deletions": 2,
+     "patch": "@@ -32,7 +32,7 @@ func TestLoad(t *testing.T) {\n-\tassert.Len(t, m.cfg.Integrations, 73)\n+\tassert.Len(t, m.cfg.Integrations, 74)\n@@ -32,8 +32,8 @@\n-\tfor _, name := range []string{\"github\", \"okta\"} {\n+\tfor _, name := range []string{\"github\", \"okta\", \"keycloak\"} {\n@@ -310,6 +310,7 @@ func TestDefaultConfig(t *testing.T) {\n+\t\t\"keycloak\":         {\"base_url\", \"realm\", \"client_id\", \"client_secret\"},\n@@ -704,6 +705,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {\n+\tassert.Equal(t, \"KEYCLOAK_BASE_URL\", m[\"keycloak\"][\"base_url\"])"},
     {"path": "README.md", "additions": 4, "deletions": 0},
     {"path": "docs/adapter-reference.md", "additions": 4, "deletions": 0},
     {"path": "web/static/style.css", "additions": 1, "deletions": 0},
-    {"path": "web/tests/unit/ui.test.ts", "additions": 2, "deletions": 1}
+    {"path": "web/tests/unit/ui.test.ts", "additions": 2, "deletions": 1,
+     "patch": "@@ -17,7 +17,8 @@ test(\"logos\", () => {\n-  assert.equal(rules.length, 60);\n+  assert.equal(rules.length, 61);\n+  assert.ok(rules.some(([, name]) => name === '\''keycloak'\''));"}
   ]
 }'
 
@@ -119,7 +121,15 @@ check "removing an owned file is fine" '.files += [{"path": "integrations/keyclo
 check "removed live spec holds" '.files |= map(if .path == "web/live_keycloak_test.go" then .status = "removed" else . end)' hold "web/live_keycloak_test.go"
 check "incomplete file list holds" '.files_truncated = true' hold "file list is incomplete"
 
-check "editing shared tests is fine" '.files |= map(if .path == "config/config_test.go" then .deletions = 20 else . end)' merge
+# Shared tests only accept count bumps, this name added to a list, and the
+# exact assertion shapes that list this integration.
+patch_cfgt() { printf '.files |= map(if .path == "config/config_test.go" then .patch = %s else . end)' "$(jq -Rs . <<<"$1")"; }
+check "deleting a shared test line holds" "$(patch_cfgt $'@@ -1,3 +1,2 @@\n-\tassert.Len(t, m, 62)')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "rewriting a shared assertion holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tassert.Len(t, m, 62)\n+\tassert.True(t, true)')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "a count jump of more than one holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tassert.Len(t, m, 62)\n+\tassert.Len(t, m, 64)')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "a skip mentioning the integration holds" "$(patch_cfgt $'@@ -1,1 +1,2 @@\n+\tt.Skip() // "keycloak"')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "another integration's entry holds" "$(patch_cfgt $'@@ -1,1 +1,2 @@\n+\t\t"github":         {"token"},')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "missing shared test patch holds" '.files |= map(if .path == "web/tests/unit/ui.test.ts" then del(.patch) else . end)' hold "web/tests/unit/ui.test.ts has no patch to review"
 check "lookalike integration name holds" '.files += [{"path": "integrations/keycloak2/x.go", "additions": 1, "deletions": 0}]' hold "integrations/keycloak2/x.go"
 
 echo "PASS: automerge decide" >&2

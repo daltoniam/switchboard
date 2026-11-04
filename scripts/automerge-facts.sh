@@ -74,8 +74,9 @@ files="$(gh api --paginate "repos/$repo/pulls/$pr/files?per_page=100" \
   --jq '.[] | {path: .filename, additions, deletions, status, previous: .previous_filename, patch}' |
   jq -s '[.[]
     | ({path, additions, deletions, status}
-       # Registration files are reviewed line by line, so keep their patch.
-       + (if .path == "cmd/server/main.go" or .path == "config/config.go" then {patch} else {} end)),
+       # Shared Go and test files are reviewed line by line, so keep their patch.
+       + (if .path | IN("cmd/server/main.go", "config/config.go", "config/config_test.go", "web/tests/unit/ui.test.ts")
+          then {patch} else {} end)),
       # A rename takes its source away, so list the source as removed.
       (select(.previous != null) | {path: .previous, additions: 0, deletions: .deletions, status: "removed", synthetic: true})]')"
 
@@ -89,16 +90,26 @@ files="$(jq '[.[] | del(.synthetic)]' <<<"$files")"
 merge_base="$(gh api "repos/$repo/compare/$base_ref...$head_sha" --jq .merge_base_commit.sha)"
 base_integrations="$(gh api "repos/$repo/contents/integrations?ref=$merge_base" --jq '[.[] | select(.type == "dir") | .name]')"
 
+# Large values go through files, not argv: a 3000-file list can exceed the
+# per-argument limit on Linux.
+facts_dir="$(mktemp -d)"
+trap 'rm -rf "$facts_dir"' EXIT
+printf '%s' "$view" >"$facts_dir/view"
+printf '%s' "$files" >"$facts_dir/files"
+printf '%s' "$check_runs" >"$facts_dir/check_runs"
+printf '%s' "$statuses" >"$facts_dir/statuses"
+
 jq -n \
-  --argjson view "$view" \
+  --slurpfile view "$facts_dir/view" \
+  --slurpfile files "$facts_dir/files" \
+  --slurpfile check_runs "$facts_dir/check_runs" \
+  --slurpfile statuses "$facts_dir/statuses" \
   --argjson required "$required" \
-  --argjson check_runs "$check_runs" \
-  --argjson statuses "$statuses" \
   --argjson unresolved "$unresolved" \
-  --argjson files "$files" \
   --argjson base_integrations "$base_integrations" \
   --argjson files_truncated "$files_truncated" \
-  '{
+  '$view[0] as $view
+  | {
     pr: $view.number,
     state: $view.state,
     draft: $view.isDraft,
@@ -108,13 +119,13 @@ jq -n \
     base_ref: $view.baseRefName,
     labels: [$view.labels[].name],
     required_checks: $required,
-    check_runs: $check_runs,
-    statuses: $statuses,
+    check_runs: $check_runs[0],
+    statuses: $statuses[0],
     unresolved_threads: $unresolved,
     review_decision: ($view.reviewDecision // ""),
     mergeable: $view.mergeable,
     merge_state: $view.mergeStateStatus,
     base_integrations: $base_integrations,
-    files: $files,
+    files: $files[0],
     files_truncated: $files_truncated
   }'

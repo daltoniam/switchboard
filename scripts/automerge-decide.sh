@@ -42,8 +42,47 @@ jq '
               or test("^\t+Enabled:\\s+false,$")
               or test("^\t+Credentials:\\s+mcp\\.Credentials\\{(\"[a-z0-9_]+\": \"\"(, )?)*\\},$")))
       end;
-  # Shared test files whose expected counts change when an integration is added.
+  # Shared test files whose expected counts change when an integration is
+  # added. Their patches are reviewed by shared_test_edit.
   def editable_shared_tests: ["config/config_test.go", "web/tests/unit/ui.test.ts"];
+
+  # Change blocks of a unified diff: each consecutive run of -/+ lines,
+  # split into what it removes and what it adds.
+  def change_blocks:
+    reduce ((split("\n") | map(select(startswith("@@") | not))) + [" "])[] as $line
+      ({blocks: [], removed: [], added: []};
+       if ($line | startswith("-")) then .removed += [$line[1:]]
+       elif ($line | startswith("+")) then .added += [$line[1:]]
+       elif (.removed + .added | length) > 0
+         then .blocks += [{removed, added}] | .removed = [] | .added = []
+       else . end)
+    | .blocks;
+
+  # True when $new is $old with each number unchanged or one higher, after
+  # dropping a quoted "<name>" list entry from $new.
+  def bumped($old; $name):
+    ($old | [scan("[0-9]+|[^0-9]+")]) as $o
+    | (gsub("\"" + $name + "\", "; "") | gsub(", \"" + $name + "\""; "") | [scan("[0-9]+|[^0-9]+")]) as $n
+    | ($o | length) == ($n | length)
+      and ([range($o | length)] | all(. as $i
+        | if ($o[$i] | test("^[0-9]+$")) and ($n[$i] | test("^[0-9]+$"))
+          then ($n[$i] | tonumber) - ($o[$i] | tonumber) | IN(0, 1)
+          else $o[$i] == $n[$i] end));
+
+  # Added assertion lines a new integration may contribute to shared tests.
+  def listing_line($name):
+    ($name | ascii_upcase) as $env
+    | test("^\t+\"" + $name + "\":\\s+\\{(\"[a-z0-9_]+\"(, )?)*\\},$")
+      or test("^\tassert\\.Equal\\(t, \"" + $env + "_[A-Z0-9_]+\", m\\[\"" + $name + "\"\\]\\[\"[a-z0-9_]+\"\\]\\)$")
+      or test("^  assert\\.ok\\(rules\\.some\\(\\(\\[, name\\]\\) => name === \u0027" + $name + "\u0027\\)\\);$");
+
+  # Each removed line must come back bumped (in order); extra added lines
+  # must be listing lines for this integration.
+  def shared_test_edit($name):
+    change_blocks | all(
+      (.removed | length) <= (.added | length)
+      and (. as $b | [range($b.removed | length)] | all(. as $i | $b.added[$i] | bumped($b.removed[$i]; $name)))
+      and (.added[(.removed | length):] | all(listing_line($name))));
 
   def owned($name):
     test("^integrations/" + $name + "/")
@@ -114,7 +153,11 @@ jq '
                 else "\($p) adds a line that is not \($name) registration" end
             elif (.path as $p | additive_shared | index($p)) != null then
               (if .deletions > 0 then "\(.path) removes lines; shared files may only gain lines" else empty end)
-            elif (.path as $p | editable_shared_tests | index($p)) != null then empty
+            elif (.path as $p | editable_shared_tests | index($p)) != null then
+              .path as $p
+              | if (.patch // "") == "" then "\($p) has no patch to review"
+                elif (.patch | shared_test_edit($name)) then empty
+                else "\($p) changes more than counts and \($name) entries" end
             else "\(.path) is outside what an integration PR may change" end)
       end)
     ]
