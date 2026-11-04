@@ -59,7 +59,8 @@ statuses="$(gh api --paginate "repos/$repo/commits/$head_sha/status" --jq '.stat
 unresolved=0
 cursor=null
 while :; do
-  page="$(gh api graphql -F owner="$owner" -F name="$name" -F pr="$pr" -F cursor="$cursor" -f query='
+  # owner and name stay strings (-f); -F would turn a name like 123 into a number.
+  page="$(gh api graphql -f owner="$owner" -f name="$name" -F pr="$pr" -F cursor="$cursor" -f query='
     query($owner: String!, $name: String!, $pr: Int!, $cursor: String) {
       repository(owner: $owner, name: $name) {
         pullRequest(number: $pr) {

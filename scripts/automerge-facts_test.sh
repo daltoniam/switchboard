@@ -49,6 +49,8 @@ case "$args" in
     echo '{"context":"overload","state":"success"}'
     echo '{"context":"codecov","state":"pending"}' ;;
   "api graphql"*)
+    # Repository identifiers must stay strings (-f), never typed (-F).
+    case "$args" in *"-F owner="*|*"-F name="*) echo "typed repository identifier: $args" >&2; exit 1 ;; esac
     if [[ "$args" == *"cursor=page2"* ]]; then
       echo '{"unresolved":1,"hasNextPage":false,"endCursor":null}'
     else

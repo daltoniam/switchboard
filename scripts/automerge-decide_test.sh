@@ -143,6 +143,12 @@ check "required check from another app does not count" '.check_runs |= map(if .n
 check "another app cannot hide a failing required check" '.check_runs |= map(if .name == "build" then .conclusion = "failure" else . end) | .check_runs += [{"name": "build", "app_id": 999, "conclusion": "success"}]' hold "build is failure"
 check "unrestricted required check accepts a status" '.required_checks += [{"context": "codecov", "app_id": null}] | .statuses += [{"context": "codecov", "state": "success"}]' merge
 
+check "server production file named like a test holds" '.files += [{"path": "server/keycloak_contest.go", "additions": 5, "deletions": 0}]' hold "server/keycloak_contest.go is outside"
+check "server test file with a suffix is fine" '.files += [{"path": "server/keycloak_search_test.go", "additions": 5, "deletions": 0}]' merge
+check "same-named check from another app failing holds" '.check_runs += [{"name": "build", "app_id": 999, "conclusion": "failure"}]' hold "build is failure"
+check "same-named check from another app running waits" '.check_runs += [{"name": "build", "app_id": 999, "conclusion": "in_progress"}]' hold "waiting for build"
+check "status named like an app-bound requirement failing holds" '.statuses += [{"context": "build", "state": "failure"}]' hold "build is failure"
+
 check "missing server registration holds" '.files |= map(select(.path != "cmd/server/main.go"))' hold "cmd/server/main.go does not register keycloak"
 check "import without constructor holds" "$(patch_main $'@@ -1,2 +1,3 @@\n \t"github.com/daltoniam/switchboard/integrations/jira"\n+\t"github.com/daltoniam/switchboard/integrations/keycloak"\n \t"github.com/daltoniam/switchboard/integrations/kubernetes"')" hold "cmd/server/main.go does not register keycloak"
 check "missing default config holds" '.files |= map(select(.path != "config/config.go"))' hold "config/config.go has no keycloak defaults"

@@ -101,7 +101,7 @@ jq '
     or test("^docs/" + $name + "([-.][a-z0-9.-]*)?\\.md$")
     or test("^web/(" + $name + "_ui|ui_" + $name + "|live_" + $name + ")_test\\.go$")
     or test("^config/" + $name + "_test\\.go$")
-    or test("^server/" + $name + "_[a-z0-9_]*test\\.go$")
+    or test("^server/" + $name + "(_[a-z0-9_]+)?_test\\.go$")
     or test("^web/templates/pages/" + $name + "_setup(\\.templ|_templ\\.go)$");
 
   def pending: . == null or . == "" or . == "pending" or . == "queued"
@@ -133,9 +133,14 @@ jq '
           else "\($check) is \($results | map(select(passed | not)) | unique | join(", "))" end),
       # Checks outside the required list still must not be failing or running,
       # whether they report as check runs or as commit statuses.
-      (([$f.check_runs[] | {name, result: .conclusion}]
-        + [$f.statuses[] | {name: .context, result: .state}])[]
-        | select((.name as $n | $f.required_checks | map(.context) | index($n)) == null)
+      # A result is covered only if the required-check pass above counted it:
+      # same name and (no app or the same app) for runs, same name and no app
+      # for statuses.
+      (([$f.check_runs[] | {name, app_id, status: false, result: .conclusion}]
+        + [$f.statuses[] | {name: .context, app_id: null, status: true, result: .state}])[]
+        | . as $r
+        | select($f.required_checks | any(.context == $r.name
+            and (if $r.status then .app_id == null else (.app_id == null or .app_id == $r.app_id) end)) | not)
         | if (.result | pending) then "waiting for \(.name)"
           elif (.result | passed) then empty
           else "\(.name) is \(.result)" end),
