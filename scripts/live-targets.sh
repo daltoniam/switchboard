@@ -8,7 +8,9 @@ set -euo pipefail
 base=${1:?usage: live-targets.sh <base-ref> <head-ref>}
 head=${2:?usage: live-targets.sh <base-ref> <head-ref>}
 
-changed="$(git diff --name-only "$base...$head")"
+# --no-renames lists both sides of a move, so the integration losing a file
+# is tested too.
+changed="$(git diff --name-only --no-renames "$base...$head")"
 
 # Specs present at head, as integration names (web/live_<name>_test.go).
 specs="$(git ls-tree -r --name-only "$head" -- web/ |

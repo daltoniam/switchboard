@@ -91,4 +91,9 @@ commit drop >/dev/null
 expect "removed spec is not tested" 0 ""
 reset
 
+git -C "$repo" mv integrations/postgres/postgres.go integrations/github/postgres.go
+commit move >/dev/null
+expect "moving a file out of an integration tests the source" 0 "postgres"
+reset
+
 echo "PASS: live targets" >&2
