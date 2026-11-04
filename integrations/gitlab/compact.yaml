@@ -1,0 +1,131 @@
+# GitLab REST API response compaction (read tools).
+version: 1
+tools:
+  gitlab_list_projects:
+    spec:
+      - id
+      - name
+      - path_with_namespace
+      - web_url
+      - description
+      - visibility
+      - default_branch
+      - star_count
+      - forks_count
+      - open_issues_count
+      - last_activity_at
+  gitlab_get_project:
+    spec:
+      - id
+      - name
+      - path_with_namespace
+      - web_url
+      - description
+      - visibility
+      - default_branch
+      - ssh_url_to_repo
+      - http_url_to_repo
+      - namespace.full_path
+      - owner.username
+      - last_activity_at
+  gitlab_get_current_user:
+    spec:
+      - id
+      - username
+      - name
+      - email
+      - web_url
+      - state
+  gitlab_list_merge_requests:
+    spec:
+      - iid
+      - title
+      - state
+      - web_url
+      - reference
+      - author.username
+      - assignees[].username
+      - reviewers[].username
+      - labels[].name
+      - draft
+      - has_conflicts
+      - merge_status
+      - detailed_merge_status
+      - source_branch
+      - target_branch
+      - created_at
+      - updated_at
+  gitlab_get_merge_request:
+    spec:
+      - iid
+      - title
+      - description
+      - state
+      - web_url
+      - reference
+      - author.username
+      - assignees[].username
+      - reviewers[].username
+      - labels[].name
+      - draft
+      - has_conflicts
+      - merge_status
+      - detailed_merge_status
+      - source_branch
+      - target_branch
+      - sha
+      - diff_refs.base_sha
+      - diff_refs.head_sha
+      - head_pipeline.id
+      - head_pipeline.status
+      - created_at
+      - updated_at
+      - merged_at
+  gitlab_list_issues:
+    spec:
+      - iid
+      - title
+      - state
+      - web_url
+      - author.username
+      - assignees[].username
+      - labels[].name
+      - created_at
+      - updated_at
+      - closed_at
+  gitlab_get_issue:
+    spec:
+      - iid
+      - title
+      - description
+      - state
+      - web_url
+      - author.username
+      - assignees[].username
+      - labels[].name
+      - created_at
+      - updated_at
+      - closed_at
+  gitlab_list_pipelines:
+    spec:
+      - id
+      - iid
+      - status
+      - ref
+      - sha
+      - web_url
+      - created_at
+      - updated_at
+      - source
+  gitlab_list_pipeline_jobs:
+    spec:
+      - id
+      - name
+      - status
+      - stage
+      - ref
+      - web_url
+      - duration
+      - failure_reason
+      - started_at
+      - finished_at
