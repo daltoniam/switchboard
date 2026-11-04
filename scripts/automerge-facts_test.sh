@@ -26,11 +26,15 @@ case "$args" in
     head=sha7
     [ "$calls" -ge 1 ] && [ -n "${HEAD_AFTER:-}" ] && head="$HEAD_AFTER"
     printf '{"number":7,"state":"OPEN","isDraft":false,"isCrossRepository":false,"headRefName":"feat/demo-integration","headRefOid":"%s","baseRefName":"%s","labels":[{"name":"overload-automation"}],"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","reviewDecision":""}\n' "$head" "${BASE_REF:-main}" ;;
-  *"rules/branches/release%231"*) echo '[{"context":"build","app_id":15368}]' ;;
+  *"rules/branches/release%231"*) echo '{"context":"build","app_id":15368}' ;;
   *"branches/release%231/protection/required_status_checks"*) echo '[]' ;;
   *"compare/release%231...sha7"*) echo 'base7' ;;
   *"release#1"*) echo "unencoded branch name in: $args" >&2; exit 1 ;;
-  *"rules/branches/main"*) echo '[{"context":"build","app_id":15368},{"context":"overload","app_id":null}]' ;;
+  *"rules/branches/main"*)
+    # Rules span two pages; the second page holds the overload requirement.
+    case "$args" in *--paginate*) ;; *) echo "rules must be paginated: $args" >&2; exit 1 ;; esac
+    echo '{"context":"build","app_id":15368}'
+    echo '{"context":"overload","app_id":null}' ;;
   *"branches/main/protection/required_status_checks"*)
     if [ -n "${CLASSIC_404:-}" ]; then echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi
     if [ -n "${CLASSIC_500:-}" ]; then echo "gh: Server Error (HTTP 500)" >&2; exit 1; fi

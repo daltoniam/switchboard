@@ -28,9 +28,10 @@ base_path="$(jq -rn --arg ref "$base_ref" '$ref | @uri')"
 facts_dir="$(mktemp -d)"
 trap 'rm -rf "$facts_dir"' EXIT
 
-ruleset_checks="$(gh api "repos/$repo/rules/branches/$base_path" \
-  --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[]
-         | {context, app_id: (.integration_id // null)}]')"
+# Branch rules are paged; collect requirements from every page.
+ruleset_checks="$(gh api --paginate "repos/$repo/rules/branches/$base_path" \
+  --jq '.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[]
+        | {context, app_id: (.integration_id // null)}' | jq -s .)"
 # Classic branch protection can require checks too. No protection is a 404;
 # any other failure stops here rather than under-reporting requirements.
 if ! classic_checks="$(gh api "repos/$repo/branches/$base_path/protection/required_status_checks" \
