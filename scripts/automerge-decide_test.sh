@@ -132,6 +132,10 @@ check "another integration's entry holds" "$(patch_cfgt $'@@ -1,1 +1,2 @@\n+\t\t
 check "bumping a loop start in a shared test holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tfor i := 0; i < len(configs); i++ {\n+\tfor i := 1; i < len(configs); i++ {')" hold "config/config_test.go changes more than counts and keycloak entries"
 check "bumping a non-count argument holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tassert.Equal(t, 3, retries)\n+\tassert.Equal(t, 4, retries)')" hold "config/config_test.go changes more than counts and keycloak entries"
 check "adding the name and bumping a number on one line holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tcheck(t, 2, []string{"github"})\n+\tcheck(t, 3, []string{"github", "keycloak"})')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "inserting the name as assertion arguments holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tassert.Equal(t, want, got)\n+\tassert.Equal(t, "keycloak", "keycloak", want, got)')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "appending the name as a message argument holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tassert.Equal(t, want, got)\n+\tassert.Equal(t, want, got, "keycloak")')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "adding the name to a string list twice holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tnames := []string{"github"}\n+\tnames := []string{"keycloak", "github", "keycloak"}')" hold "config/config_test.go changes more than counts and keycloak entries"
+check "adding the name at the start of a string list is fine" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tfor _, name := range []string{"github", "okta"} {\n+\tfor _, name := range []string{"keycloak", "github", "okta"} {')" merge
 check "missing shared test patch holds" '.files |= map(if .path == "web/tests/unit/ui.test.ts" then del(.patch) else . end)' hold "web/tests/unit/ui.test.ts has no patch to review"
 check "lookalike integration name holds" '.files += [{"path": "integrations/keycloak2/x.go", "additions": 1, "deletions": 0}]' hold "integrations/keycloak2/x.go"
 

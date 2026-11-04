@@ -72,8 +72,13 @@ jq '
         | ($new | capture("^(?<head>.*[^0-9])(?<n>[0-9]+)(?<tail>[^0-9]*)$")) as $n
         | $o.head == $n.head and $o.tail == $n.tail and (($n.n | tonumber) - ($o.n | tonumber)) == 1
       else
-        $new != $old
-        and ($new | gsub("\"" + $name + "\", "; "") | gsub(", \"" + $name + "\""; "")) == $old
+        # One "<name>" element added inside a []string{...} literal, nowhere else.
+        ($old | test("\\[\\]string\\{[^}]*\\}"))
+        and ($old | contains("\"" + $name + "\"") | not)
+        and ([$new | scan("\"" + $name + "\"")] | length) == 1
+        and ($new | test("\\[\\]string\\{[^}]*\"" + $name + "\"[^}]*\\}"))
+        and (($new | sub("\"" + $name + "\", "; "")) == $old
+             or ($new | sub(", \"" + $name + "\""; "")) == $old)
       end;
 
   # Added assertion lines a new integration may contribute to shared tests.
