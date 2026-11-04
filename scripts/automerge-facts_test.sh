@@ -26,22 +26,24 @@ case "$args" in
     head=sha7
     [ "$calls" -ge 1 ] && [ -n "${HEAD_AFTER:-}" ] && head="$HEAD_AFTER"
     printf '{"number":7,"state":"OPEN","isDraft":false,"isCrossRepository":false,"headRefName":"feat/demo-integration","headRefOid":"%s","baseRefName":"%s","labels":[{"name":"overload-automation"}],"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","reviewDecision":""}\n' "$head" "${BASE_REF:-main}" ;;
-  *"rules/branches/release%231"*) echo '["build"]' ;;
+  *"rules/branches/release%231"*) echo '[{"context":"build","app_id":15368}]' ;;
   *"branches/release%231/protection/required_status_checks"*) echo '[]' ;;
   *"compare/release%231...sha7"*) echo 'base7' ;;
   *"release#1"*) echo "unencoded branch name in: $args" >&2; exit 1 ;;
-  *"rules/branches/main"*) echo '["build","overload"]' ;;
+  *"rules/branches/main"*) echo '[{"context":"build","app_id":15368},{"context":"overload","app_id":null}]' ;;
   *"branches/main/protection/required_status_checks"*)
     if [ -n "${CLASSIC_404:-}" ]; then echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi
     if [ -n "${CLASSIC_500:-}" ]; then echo "gh: Server Error (HTTP 500)" >&2; exit 1; fi
-    echo '["build","legacy-ci"]' ;;
+    echo '[{"context":"build","app_id":15368},{"context":"legacy-ci","app_id":null}]' ;;
   "api repos/o/r/pulls/7 "*|"api repos/o/r/pulls/7") echo "${CHANGED_FILES:-3}" ;;
   *"check-runs"*)
-    echo '{"id":10,"name":"build","conclusion":"failure","started_at":"2026-01-01T00:00:00Z"}'
-    echo '{"id":11,"name":"build","conclusion":"success","started_at":"2026-01-02T00:00:00Z"}'
+    echo '{"id":10,"name":"build","app_id":15368,"conclusion":"failure","started_at":"2026-01-01T00:00:00Z"}'
+    echo '{"id":11,"name":"build","app_id":15368,"conclusion":"success","started_at":"2026-01-02T00:00:00Z"}'
+    # Same name from another app must stay separate.
+    echo '{"id":12,"name":"build","app_id":999,"conclusion":"failure","started_at":"2026-01-03T00:00:00Z"}'
     # A re-run that is still queued has no start time yet but is the newest.
-    echo '{"id":20,"name":"lint","conclusion":"success","started_at":"2026-01-02T00:00:00Z"}'
-    echo '{"id":21,"name":"lint","conclusion":"queued","started_at":null}' ;;
+    echo '{"id":20,"name":"lint","app_id":15368,"conclusion":"success","started_at":"2026-01-02T00:00:00Z"}'
+    echo '{"id":21,"name":"lint","app_id":15368,"conclusion":"queued","started_at":null}' ;;
   *"commits/sha7/status"*)
     # Two pages of the combined status.
     echo '{"context":"overload","state":"success"}'
@@ -70,10 +72,10 @@ gather() {
 }
 facts="$(gather)" || fail "facts script failed: $facts"
 
-[ "$(jq -c .required_checks <<<"$facts")" = '["build","legacy-ci","overload"]' ] ||
+[ "$(jq -c .required_checks <<<"$facts")" = '[{"context":"build","app_id":15368},{"context":"legacy-ci","app_id":null},{"context":"overload","app_id":null}]' ] ||
   fail "required checks from rulesets and classic protection: $(jq -c .required_checks <<<"$facts")"
-ok "combines ruleset and classic branch protection required checks"
-[ "$(CLASSIC_404=1 gather | jq -c .required_checks)" = '["build","overload"]' ] || fail "classic protection absent"
+ok "combines ruleset and classic required checks, keeping their app"
+[ "$(CLASSIC_404=1 gather | jq -c .required_checks)" = '[{"context":"build","app_id":15368},{"context":"overload","app_id":null}]' ] || fail "classic protection absent"
 ok "treats missing classic protection as no extra checks"
 if CLASSIC_500=1 gather >/dev/null 2>&1; then fail "an unreadable classic protection must fail the facts"; fi
 ok "fails when classic protection cannot be read"
@@ -83,9 +85,9 @@ ok "fails when classic protection cannot be read"
 ok "detects a file list GitHub truncated"
 
 [ "$(jq -c .labels <<<"$facts")" = '["overload-automation"]' ] || fail "labels: $(jq -c .labels <<<"$facts")"
-[ "$(jq -c .check_runs <<<"$facts")" = '[{"name":"build","conclusion":"success"},{"name":"lint","conclusion":"queued"}]' ] ||
+[ "$(jq -c .check_runs <<<"$facts")" = '[{"name":"build","app_id":999,"conclusion":"failure"},{"name":"build","app_id":15368,"conclusion":"success"},{"name":"lint","app_id":15368,"conclusion":"queued"}]' ] ||
   fail "latest run per check: $(jq -c .check_runs <<<"$facts")"
-ok "keeps only the newest run of each check, even one not started yet"
+ok "keeps the newest run of each check per app, even one not started yet"
 
 [ "$(jq -c '[.statuses[].context]' <<<"$facts")" = '["overload","codecov"]' ] ||
   fail "statuses across pages: $(jq -c .statuses <<<"$facts")"
@@ -115,7 +117,7 @@ ok "assembles facts for a 3000-file PR"
 if HEAD_AFTER=sha8 gather >/dev/null 2>&1; then fail "a push during collection must fail the facts"; fi
 ok "fails when the PR head moves while facts are collected"
 
-[ "$(BASE_REF='release#1' gather | jq -c .required_checks)" = '["build"]' ] || fail "branch names must be URL-encoded"
+[ "$(BASE_REF='release#1' gather | jq -c .required_checks)" = '[{"context":"build","app_id":15368}]' ] || fail "branch names must be URL-encoded"
 ok "URL-encodes the base branch in API paths"
 
 echo "PASS: automerge facts" >&2

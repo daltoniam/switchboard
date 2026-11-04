@@ -122,9 +122,12 @@ jq '
       (if $name == null
         then "branch \($f.head_ref) is not feat/<name>-integration" else empty end),
 
-      ($f.required_checks[] as $check
-        | ([$f.check_runs[] | select(.name == $check) | .conclusion]
-           + [$f.statuses[] | select(.context == $check) | .state]) as $results
+      # A requirement tied to an app only counts runs from that app; one with
+      # no app also accepts a commit status of the same name.
+      ($f.required_checks[] as $req
+        | $req.context as $check
+        | ([$f.check_runs[] | select(.name == $check and ($req.app_id == null or .app_id == $req.app_id)) | .conclusion]
+           + (if $req.app_id == null then [$f.statuses[] | select(.context == $check) | .state] else [] end)) as $results
         | if ($results | length) == 0 or ($results | any(pending)) then "waiting for \($check)"
           elif ($results | all(passed)) then empty
           else "\($check) is \($results | map(select(passed | not)) | unique | join(", "))" end),
@@ -132,7 +135,7 @@ jq '
       # whether they report as check runs or as commit statuses.
       (([$f.check_runs[] | {name, result: .conclusion}]
         + [$f.statuses[] | {name: .context, result: .state}])[]
-        | select((.name as $n | $f.required_checks | index($n)) == null)
+        | select((.name as $n | $f.required_checks | map(.context) | index($n)) == null)
         | if (.result | pending) then "waiting for \(.name)"
           elif (.result | passed) then empty
           else "\(.name) is \(.result)" end),
@@ -150,6 +153,14 @@ jq '
           then "integration \($name) already exists on main; only new integrations auto-merge" else empty end),
         (if ($f.files | any(.path | startswith("integrations/" + $name + "/")) | not)
           then "no files under integrations/\($name)/" else empty end),
+        # The server must actually load the integration and offer its defaults.
+        ([$f.files[] | select(.path == "cmd/server/main.go") | (.patch // "") | added_runs[][]] as $lines
+          | if ($lines | any(test("^\\t\"github\\.com/daltoniam/switchboard/integrations/" + $name + "\"$")))
+               and ($lines | any(test("^\\t\\t" + $name + "\\.New\\(\\),$")))
+            then empty else "cmd/server/main.go does not register \($name) (import and constructor)" end),
+        ([$f.files[] | select(.path == "config/config.go") | (.patch // "") | added_runs[]]
+          | if any(.[0] | test("^\\t+\"" + $name + "\": \\{$")) and any(any(test("^\\t+Enabled:\\s+false,$")))
+            then empty else "config/config.go has no \($name) defaults" end),
         (if ($f.files | any(.path == "web/live_" + $name + "_test.go" and .status != "removed") | not)
           then "no live acceptance spec web/live_\($name)_test.go" else empty end),
         ($f.files[]

@@ -14,12 +14,15 @@ ready='{
   "head_ref": "feat/keycloak-integration", "base_ref": "main",
   "head_sha": "abc123",
   "labels": ["overload-automation", "integration", "enhancement"],
-  "required_checks": ["build", "test", "overload", "live-integration"],
+  "required_checks": [
+    {"context": "build", "app_id": 15368}, {"context": "test", "app_id": 15368},
+    {"context": "overload", "app_id": null}, {"context": "live-integration", "app_id": 15368}
+  ],
   "check_runs": [
-    {"name": "build", "conclusion": "success"},
-    {"name": "test", "conclusion": "success"},
-    {"name": "live-integration", "conclusion": "success"},
-    {"name": "Crush PR Review", "conclusion": "success"}
+    {"name": "build", "app_id": 15368, "conclusion": "success"},
+    {"name": "test", "app_id": 15368, "conclusion": "success"},
+    {"name": "live-integration", "app_id": 15368, "conclusion": "success"},
+    {"name": "Crush PR Review", "app_id": 15368, "conclusion": "success"}
   ],
   "statuses": [{"context": "overload", "state": "success"}],
   "unresolved_threads": 0,
@@ -136,6 +139,13 @@ check "inserting the name as assertion arguments holds" "$(patch_cfgt $'@@ -1,1 
 check "appending the name as a message argument holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tassert.Equal(t, want, got)\n+\tassert.Equal(t, want, got, "keycloak")')" hold "config/config_test.go changes more than counts and keycloak entries"
 check "adding the name to a string list twice holds" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tnames := []string{"github"}\n+\tnames := []string{"keycloak", "github", "keycloak"}')" hold "config/config_test.go changes more than counts and keycloak entries"
 check "adding the name at the start of a string list is fine" "$(patch_cfgt $'@@ -1,1 +1,1 @@\n-\tfor _, name := range []string{"github", "okta"} {\n+\tfor _, name := range []string{"keycloak", "github", "okta"} {')" merge
+check "required check from another app does not count" '.check_runs |= map(if .name == "build" then .app_id = 999 else . end)' hold "waiting for build"
+check "another app cannot hide a failing required check" '.check_runs |= map(if .name == "build" then .conclusion = "failure" else . end) | .check_runs += [{"name": "build", "app_id": 999, "conclusion": "success"}]' hold "build is failure"
+check "unrestricted required check accepts a status" '.required_checks += [{"context": "codecov", "app_id": null}] | .statuses += [{"context": "codecov", "state": "success"}]' merge
+
+check "missing server registration holds" '.files |= map(select(.path != "cmd/server/main.go"))' hold "cmd/server/main.go does not register keycloak"
+check "import without constructor holds" "$(patch_main $'@@ -1,2 +1,3 @@\n \t"github.com/daltoniam/switchboard/integrations/jira"\n+\t"github.com/daltoniam/switchboard/integrations/keycloak"\n \t"github.com/daltoniam/switchboard/integrations/kubernetes"')" hold "cmd/server/main.go does not register keycloak"
+check "missing default config holds" '.files |= map(select(.path != "config/config.go"))' hold "config/config.go has no keycloak defaults"
 check "missing shared test patch holds" '.files |= map(if .path == "web/tests/unit/ui.test.ts" then del(.patch) else . end)' hold "web/tests/unit/ui.test.ts has no patch to review"
 check "lookalike integration name holds" '.files += [{"path": "integrations/keycloak2/x.go", "additions": 1, "deletions": 0}]' hold "integrations/keycloak2/x.go"
 

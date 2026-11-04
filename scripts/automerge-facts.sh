@@ -29,11 +29,14 @@ facts_dir="$(mktemp -d)"
 trap 'rm -rf "$facts_dir"' EXIT
 
 ruleset_checks="$(gh api "repos/$repo/rules/branches/$base_path" \
-  --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context]')"
+  --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[]
+         | {context, app_id: (.integration_id // null)}]')"
 # Classic branch protection can require checks too. No protection is a 404;
 # any other failure stops here rather than under-reporting requirements.
 if ! classic_checks="$(gh api "repos/$repo/branches/$base_path/protection/required_status_checks" \
-  --jq '[.contexts[]?, (.checks[]?.context)] | unique' 2>"$facts_dir/classic.err")"; then
+  --jq '[(.contexts[]? | {context: ., app_id: null}),
+         (.checks[]? | {context, app_id: (if (.app_id // -1) == -1 then null else .app_id end)})]' \
+  2>"$facts_dir/classic.err")"; then
   if grep -q "HTTP 404" "$facts_dir/classic.err"; then
     classic_checks='[]'
   else
@@ -41,13 +44,14 @@ if ! classic_checks="$(gh api "repos/$repo/branches/$base_path/protection/requir
     exit 1
   fi
 fi
-required="$(jq -cn --argjson a "$ruleset_checks" --argjson b "$classic_checks" '$a + $b | unique')"
+# A requirement is a context plus, optionally, the app that must report it.
+required="$(jq -cn --argjson a "$ruleset_checks" --argjson b "$classic_checks" '$a + $b | unique_by([.context, .app_id])')"
 
-# Newest run per check name (by ID: a queued re-run has no start time yet);
+# Newest run per check name and app (by ID: a queued re-run has no start time yet);
 # a pending run has no conclusion yet, so report its status instead.
 check_runs="$(gh api --paginate "repos/$repo/commits/$head_sha/check-runs?per_page=100" \
-  --jq '.check_runs[] | {id, name, conclusion: (.conclusion // .status)}' |
-  jq -s 'group_by(.name) | map(sort_by(.id) | last | {name, conclusion})')"
+  --jq '.check_runs[] | {id, name, app_id: .app.id, conclusion: (.conclusion // .status)}' |
+  jq -s 'group_by([.name, .app_id]) | map(sort_by(.id) | last | {name, app_id, conclusion})')"
 
 # The combined status keeps only the latest state per context, but is paged.
 statuses="$(gh api --paginate "repos/$repo/commits/$head_sha/status" --jq '.statuses[] | {context, state}' | jq -s .)"

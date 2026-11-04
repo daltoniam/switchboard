@@ -12,7 +12,8 @@ The scheduled implementation job opens one integration PR at a time and fixes it
 | `overload-automation` label, no `automation-hold` label | Only bot PRs; `automation-hold` is the per-PR kill switch |
 | Branch `feat/<name>-integration`, `integrations/<name>/` is new on `main` | Only new integrations; changes to shipped ones go to a person |
 | `web/live_<name>_test.go` exists | The integration was tested against the real product |
-| Every required check on the `main` ruleset passed (including `overload` and `live-integration`), and no other check run or commit status failed or is still running | The required list is read from rulesets and classic branch protection, so new required checks apply automatically |
+| `cmd/server/main.go` adds its import and `<name>.New()`, and `config/config.go` adds its disabled-by-default entry | The merged integration is actually loaded and configurable |
+| Every required check on the `main` ruleset passed (including `overload` and `live-integration`), and no other check run or commit status failed or is still running | The required list is read from rulesets and classic branch protection, so new required checks apply automatically. A check tied to an app only counts runs from that app |
 | No unresolved review threads, no changes requested, mergeable and `CLEAN` | Review findings are addressed |
 | Files stay in the integration's lane | See below |
 
