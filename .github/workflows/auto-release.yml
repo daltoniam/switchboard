@@ -61,24 +61,7 @@ jobs:
         id: version
         if: steps.skip.outputs.skip != 'true'
         run: |
-          # Build semver-compatible calver: vYYYY.MMDD.N
-          # e.g. v2026.422.0, v2026.422.1, ...
-          YEAR=$(date -u +%Y)
-          # Strip leading zeros for semver compliance
-          MONTH=$(date -u +%-m)
-          DAY=$(date -u +%-d)
-          MMDD=$((MONTH * 100 + DAY))
-          PREFIX="v${YEAR}.${MMDD}"
-
-          EXISTING=$(git tag -l "${PREFIX}.*" --sort=-v:refname | head -1)
-          if [ -z "$EXISTING" ]; then
-            NEXT="${PREFIX}.0"
-          else
-            # Extract the .N patch suffix
-            N="${EXISTING##*.}"
-            NEXT="${PREFIX}.$((N + 1))"
-          fi
-
+          NEXT="$(bash scripts/calver-next.sh)"
           echo "next=$NEXT" >> "$GITHUB_OUTPUT"
           echo "Calver tag: $NEXT"
 

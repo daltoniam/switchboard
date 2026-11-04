@@ -95,12 +95,18 @@ test: test-web ## Run tests
 	bash scripts/compose-dev_test.sh
 	bash scripts/overload_crush_watchdog_test.sh
 	bash scripts/live-targets_test.sh
+	bash scripts/automerge-decide_test.sh
+	bash scripts/automerge_test.sh
+	bash scripts/release-tags_test.sh
 
 test-race: test-web ## Run tests with race detector
 	go test -race -coverprofile=coverage.out ./...
 	bash scripts/compose-dev_test.sh
 	bash scripts/overload_crush_watchdog_test.sh
 	bash scripts/live-targets_test.sh
+	bash scripts/automerge-decide_test.sh
+	bash scripts/automerge_test.sh
+	bash scripts/release-tags_test.sh
 
 ui-install: ## Install the pinned Playwright driver and Chromium (UI_INSTALL_ARGS=--with-deps on Linux)
 	bash scripts/ui-install.sh $(UI_INSTALL_ARGS)

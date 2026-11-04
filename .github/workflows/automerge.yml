@@ -1,0 +1,57 @@
+name: Auto-merge
+
+# Merges bot integration PRs once every gate in scripts/automerge-decide.sh
+# passes on the PR's current head. The repository variable AUTOMERGE_MODE
+# selects dry-run (default: comment "would merge" once per head), merge, or
+# disabled. Add the automation-hold label to keep a PR out.
+on:
+  workflow_run:
+    workflows: ["CI", "Live Integration", "Crush PR Review"]
+    types: [completed]
+  status:
+  pull_request_review:
+    types: [submitted]
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number (empty evaluates every open overload-automation PR)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: read
+  statuses: read
+
+concurrency:
+  group: automerge
+  cancel-in-progress: false
+
+jobs:
+  automerge:
+    # Only the overload status is interesting among status events.
+    if: github.event_name != 'status' || github.event.context == 'overload'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Scripts always come from main, never from a PR under evaluation.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Evaluate and merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Used only for the merge itself so the merge commit starts push
+          # workflows. It must not be able to bypass the main ruleset.
+          MERGE_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          AUTOMERGE_MODE: ${{ vars.AUTOMERGE_MODE || 'dry-run' }}
+          PR: ${{ inputs.pr }}
+        run: |
+          [[ "$PR" =~ ^[0-9]*$ ]] || { echo "pr must be a number"; exit 1; }
+          # shellcheck disable=SC2086
+          bash scripts/automerge.sh $PR
