@@ -11,6 +11,9 @@ head=${2:?usage: live-targets.sh <base-ref> <head-ref>}
 # --no-renames lists both sides of a move, so the integration losing a file
 # is tested too.
 changed="$(git diff --name-only --no-renames "$base...$head")"
+# The three-dot diff compares against the merge base, so judge whether an
+# integration already existed against that same tree.
+merge_base="$(git merge-base "$base" "$head")"
 
 # Specs present at head, as integration names (web/live_<name>_test.go).
 specs="$(git ls-tree -r --name-only "$head" -- web/ |
@@ -37,7 +40,7 @@ while IFS= read -r path; do
       name="${name%%/*}"
       if has_spec "$name"; then
         targets="$targets $name"
-      elif ! git cat-file -e "$base:integrations/$name" 2>/dev/null; then
+      elif ! git cat-file -e "$merge_base:integrations/$name" 2>/dev/null; then
         missing="$missing $name"
       fi
       continue

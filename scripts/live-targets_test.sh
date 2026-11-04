@@ -96,4 +96,18 @@ commit move >/dev/null
 expect "moving a file out of an integration tests the source" 0 "postgres"
 reset
 
+# The base branch deletes github after the head branched; the head still
+# edits it. Existence must be judged at the merge base, like the diff.
+write integrations/github/issues.go
+head_sha="$(commit edit-github)"
+git -C "$repo" checkout -q -b later "$base"
+git -C "$repo" rm -q -r integrations/github
+later="$(commit drop-github)"
+git -C "$repo" checkout -q main
+output="$(cd "$repo" && bash "$SCRIPT" "$later" "$head_sha" 2>&1)" ||
+  fail "integration deleted on base after branching: exit $?, output: $output"
+[ -z "$output" ] || fail "integration deleted on base after branching: output [$output], want []"
+ok "existing integration is judged at the merge base"
+reset
+
 echo "PASS: live targets" >&2
