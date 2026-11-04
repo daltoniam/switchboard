@@ -1,4 +1,4 @@
-.PHONY: build generate node-version npm-version check-node check-npm tsc styles styles-watch proto proto-check test test-race test-web test-browser test-ui ui-install vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm compose-check compose-up compose-status compose-endpoints compose-logs compose-down compose-destroy
+.PHONY: build generate node-version npm-version check-node check-npm tsc styles styles-watch proto proto-check test test-race test-web test-browser test-ui test-live ui-install vet lint fmt security gosec govulncheck ci clean install deploy help wasm-build wasm-test rust-awm compose-check compose-up compose-status compose-endpoints compose-logs compose-down compose-destroy
 
 BIN        := dist/switchboard
 NODE_VERSION := 26.8.1
@@ -94,17 +94,22 @@ test: test-web ## Run tests
 	go test ./...
 	bash scripts/compose-dev_test.sh
 	bash scripts/overload_crush_watchdog_test.sh
+	bash scripts/live-targets_test.sh
 
 test-race: test-web ## Run tests with race detector
 	go test -race -coverprofile=coverage.out ./...
 	bash scripts/compose-dev_test.sh
 	bash scripts/overload_crush_watchdog_test.sh
+	bash scripts/live-targets_test.sh
 
 ui-install: ## Install the pinned Playwright driver and Chromium (UI_INSTALL_ARGS=--with-deps on Linux)
 	bash scripts/ui-install.sh $(UI_INSTALL_ARGS)
 
 test-ui: build ## Run mandatory isolated Chromium acceptance tests and save masked screenshots
 	SWITCHBOARD_UI_BINARY="$(CURDIR)/$(BIN)" SWITCHBOARD_UI_ARTIFACTS="$(CURDIR)/dist/ui-artifacts" go test -race -count=1 -timeout=5m -v ./web -run '^TestUI'
+
+test-live: build ## Exercise integrations against real providers in Docker (INTEGRATION=<name> runs one)
+	SWITCHBOARD_LIVE=1 SWITCHBOARD_UI_BINARY="$(CURDIR)/$(BIN)" SWITCHBOARD_UI_ARTIFACTS="$(CURDIR)/dist/live-artifacts" go test -count=1 -timeout=20m -v ./web -run '^TestLive$$$(if $(INTEGRATION),/^$(INTEGRATION)$$)'
 
 ## Analysis
 
