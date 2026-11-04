@@ -112,6 +112,10 @@ check "config default enabled holds" "$(patch_config $'@@ -1,2 +1,5 @@\n \t\t\t}
 check "failing optional status holds" '.statuses += [{"context": "codecov", "state": "failure"}]' hold "codecov is failure"
 check "pending optional status waits" '.statuses += [{"context": "codecov", "state": "pending"}]' hold "waiting for codecov"
 
+check "renaming a shared file into the integration holds" '.files += [{"path": "integrations/keycloak/notes.md", "additions": 0, "deletions": 0}, {"path": "docs/architecture.md", "additions": 0, "deletions": 0, "status": "removed"}]' hold "docs/architecture.md is outside what an integration PR may change"
+check "renaming a listing file into the integration holds" '.files += [{"path": "README.md", "additions": 0, "deletions": 0, "status": "removed"}]' hold "README.md is removed"
+check "removing an owned file is fine" '.files += [{"path": "integrations/keycloak/old.go", "additions": 0, "deletions": 4, "status": "removed"}]' merge
+
 check "editing shared tests is fine" '.files |= map(if .path == "config/config_test.go" then .deletions = 20 else . end)' merge
 check "lookalike integration name holds" '.files += [{"path": "integrations/keycloak2/x.go", "additions": 1, "deletions": 0}]' hold "integrations/keycloak2/x.go"
 

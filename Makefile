@@ -96,6 +96,7 @@ test: test-web ## Run tests
 	bash scripts/overload_crush_watchdog_test.sh
 	bash scripts/live-targets_test.sh
 	bash scripts/automerge-decide_test.sh
+	bash scripts/automerge-facts_test.sh
 	bash scripts/automerge_test.sh
 	bash scripts/release-tags_test.sh
 
@@ -105,6 +106,7 @@ test-race: test-web ## Run tests with race detector
 	bash scripts/overload_crush_watchdog_test.sh
 	bash scripts/live-targets_test.sh
 	bash scripts/automerge-decide_test.sh
+	bash scripts/automerge-facts_test.sh
 	bash scripts/automerge_test.sh
 	bash scripts/release-tags_test.sh
 

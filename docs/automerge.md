@@ -45,7 +45,7 @@ Bot merges carry `release:skip`, which `auto-release.yml` honors. `weekly-releas
 
 ## Tests
 
-`make test` runs `scripts/automerge-decide_test.sh` (every gate), `scripts/automerge_test.sh` (dry run never merges, comments once per head, merge mode labels before merging at the evaluated head), and `scripts/release-tags_test.sh`.
+`make test` runs `scripts/automerge-decide_test.sh` (every gate), `scripts/automerge-facts_test.sh` (API pagination, rename sources), `scripts/automerge_test.sh` (dry run never merges, comments once per head, merge mode labels before merging at the evaluated head), and `scripts/release-tags_test.sh`.
 
 To see what the gate thinks of a real PR without changing anything:
 

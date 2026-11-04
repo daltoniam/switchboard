@@ -63,6 +63,8 @@ run dry-run
 [ "$(calls 'pr comment 326')" = 0 ] || fail "dry run commented on a held PR"
 grep -q "waiting for live-integration" "$work/out" || fail "hold reasons were not reported"
 ok "dry run comments once on a mergeable PR and never merges"
+grep -q 'gh pr list .*--limit 1000' "$log" || fail "PR discovery must not stop at the default page size: $(grep 'pr list' "$log")"
+ok "discovers every open automation PR, not just the first page"
 
 printf '<!-- automerge:sha359 -->\n' >"$work/comments-359"
 run dry-run

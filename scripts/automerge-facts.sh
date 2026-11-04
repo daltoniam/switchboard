@@ -32,23 +32,38 @@ check_runs="$(gh api --paginate "repos/$repo/commits/$head_sha/check-runs?per_pa
   --jq '.check_runs[] | {name, conclusion: (.conclusion // .status), started_at}' |
   jq -s 'group_by(.name) | map(sort_by(.started_at) | last | {name, conclusion})')"
 
-# The combined status already keeps only the latest state per context.
-statuses="$(gh api "repos/$repo/commits/$head_sha/status" --jq '[.statuses[] | {context, state}]')"
+# The combined status keeps only the latest state per context, but is paged.
+statuses="$(gh api --paginate "repos/$repo/commits/$head_sha/status" --jq '.statuses[] | {context, state}' | jq -s .)"
 
-unresolved="$(gh api graphql -F owner="$owner" -F name="$name" -F pr="$pr" -f query='
-  query($owner: String!, $name: String!, $pr: Int!) {
-    repository(owner: $owner, name: $name) {
-      pullRequest(number: $pr) { reviewThreads(first: 100) { nodes { isResolved } } }
-    }
-  }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not)] | length')"
+unresolved=0
+cursor=null
+while :; do
+  page="$(gh api graphql -F owner="$owner" -F name="$name" -F pr="$pr" -F cursor="$cursor" -f query='
+    query($owner: String!, $name: String!, $pr: Int!, $cursor: String) {
+      repository(owner: $owner, name: $name) {
+        pullRequest(number: $pr) {
+          reviewThreads(first: 100, after: $cursor) {
+            nodes { isResolved }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }
+    }' --jq '.data.repository.pullRequest.reviewThreads
+      | {unresolved: ([.nodes[] | select(.isResolved | not)] | length),
+         hasNextPage: .pageInfo.hasNextPage, endCursor: .pageInfo.endCursor}')"
+  unresolved=$((unresolved + $(jq .unresolved <<<"$page")))
+  [ "$(jq -r .hasNextPage <<<"$page")" = true ] || break
+  cursor="$(jq -r .endCursor <<<"$page")"
+done
 
 files="$(gh api --paginate "repos/$repo/pulls/$pr/files?per_page=100" \
-  --jq '.[] | {path: .filename, additions, deletions, previous: .previous_filename, patch}' |
+  --jq '.[] | {path: .filename, additions, deletions, status, previous: .previous_filename, patch}' |
   jq -s '[.[]
-    | ({path, additions, deletions}
+    | ({path, additions, deletions, status}
        # Registration files are reviewed line by line, so keep their patch.
        + (if .path == "cmd/server/main.go" or .path == "config/config.go" then {patch} else {} end)),
-      (select(.previous != null) | {path: .previous, additions: 0, deletions: .deletions})]')"
+      # A rename takes its source away, so list the source as removed.
+      (select(.previous != null) | {path: .previous, additions: 0, deletions: .deletions, status: "removed"})]')"
 
 merge_base="$(gh api "repos/$repo/compare/$base_ref...$head_sha" --jq .merge_base_commit.sha)"
 base_integrations="$(gh api "repos/$repo/contents/integrations?ref=$merge_base" --jq '[.[] | select(.type == "dir") | .name]')"

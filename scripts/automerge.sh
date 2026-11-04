@@ -29,7 +29,7 @@ repo=${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner -q .nameWithOwner)
 if [ "$#" -gt 0 ]; then
   prs="$*"
 else
-  prs="$(gh pr list --repo "$repo" --state open --label overload-automation --json number --jq '.[].number')"
+  prs="$(gh pr list --repo "$repo" --state open --label overload-automation --limit 1000 --json number --jq '.[].number')"
 fi
 
 echo "## Auto-merge ($mode)" >>"$summary"

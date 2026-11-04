@@ -102,6 +102,9 @@ jq '
           then "no live acceptance spec web/live_\($name)_test.go" else empty end),
         ($f.files[]
           | if (.path | owned($name)) then empty
+            # A rename lists its source as removed; only owned files may go.
+            elif .status == "removed" and ((.path as $p | additive_shared + registration_files + editable_shared_tests | index($p)) != null)
+              then "\(.path) is removed or renamed; shared files may only gain lines"
             elif (.path as $p | registration_files | index($p)) != null then
               .path as $p
               | if (.patch // "") == "" then "\($p) has no patch to review"
