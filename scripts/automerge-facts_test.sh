@@ -28,8 +28,11 @@ case "$args" in
     echo '["build","legacy-ci"]' ;;
   "api repos/o/r/pulls/7 "*|"api repos/o/r/pulls/7") echo "${CHANGED_FILES:-3}" ;;
   *"check-runs"*)
-    echo '{"name":"build","conclusion":"failure","started_at":"2026-01-01T00:00:00Z"}'
-    echo '{"name":"build","conclusion":"success","started_at":"2026-01-02T00:00:00Z"}' ;;
+    echo '{"id":10,"name":"build","conclusion":"failure","started_at":"2026-01-01T00:00:00Z"}'
+    echo '{"id":11,"name":"build","conclusion":"success","started_at":"2026-01-02T00:00:00Z"}'
+    # A re-run that is still queued has no start time yet but is the newest.
+    echo '{"id":20,"name":"lint","conclusion":"success","started_at":"2026-01-02T00:00:00Z"}'
+    echo '{"id":21,"name":"lint","conclusion":"queued","started_at":null}' ;;
   *"commits/sha7/status"*)
     # Two pages of the combined status.
     echo '{"context":"overload","state":"success"}'
@@ -68,9 +71,9 @@ ok "fails when classic protection cannot be read"
 ok "detects a file list GitHub truncated"
 
 [ "$(jq -c .labels <<<"$facts")" = '["overload-automation"]' ] || fail "labels: $(jq -c .labels <<<"$facts")"
-[ "$(jq -c .check_runs <<<"$facts")" = '[{"name":"build","conclusion":"success"}]' ] ||
+[ "$(jq -c .check_runs <<<"$facts")" = '[{"name":"build","conclusion":"success"},{"name":"lint","conclusion":"queued"}]' ] ||
   fail "latest run per check: $(jq -c .check_runs <<<"$facts")"
-ok "keeps only the latest run of each check"
+ok "keeps only the newest run of each check, even one not started yet"
 
 [ "$(jq -c '[.statuses[].context]' <<<"$facts")" = '["overload","codecov"]' ] ||
   fail "statuses across pages: $(jq -c .statuses <<<"$facts")"

@@ -74,10 +74,18 @@ for pr in $prs; do
     continue
   fi
 
-  gh pr edit "$pr" --repo "$repo" --add-label release:skip
+  added_label=false
+  if ! jq -e '.labels | index("release:skip")' <<<"$facts" >/dev/null; then
+    gh pr edit "$pr" --repo "$repo" --add-label release:skip
+    added_label=true
+  fi
   if GH_TOKEN="${MERGE_TOKEN:-${GH_TOKEN:-}}" gh pr merge "$pr" --repo "$repo" --squash --match-head-commit "$sha"; then
     echo "#$pr ($integration) merged at ${sha:0:7}" | tee -a "$summary"
   else
+    # Leave the PR as it was, so a later manual merge still releases.
+    if [ "$added_label" = true ]; then
+      gh pr edit "$pr" --repo "$repo" --remove-label release:skip || true
+    fi
     echo "#$pr ($integration) merge failed at ${sha:0:7}" | tee -a "$summary" >&2
     status=1
   fi

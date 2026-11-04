@@ -23,28 +23,29 @@ done
 head_sha="$(jq -r .headRefOid <<<"$view")"
 base_ref="$(jq -r .baseRefName <<<"$view")"
 
+facts_dir="$(mktemp -d)"
+trap 'rm -rf "$facts_dir"' EXIT
+
 ruleset_checks="$(gh api "repos/$repo/rules/branches/$base_ref" \
   --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context]')"
 # Classic branch protection can require checks too. No protection is a 404;
 # any other failure stops here rather than under-reporting requirements.
 if ! classic_checks="$(gh api "repos/$repo/branches/$base_ref/protection/required_status_checks" \
-  --jq '[.contexts[]?, (.checks[]?.context)] | unique' 2>"${TMPDIR:-/tmp}/automerge-classic.$$")"; then
-  if grep -q "HTTP 404" "${TMPDIR:-/tmp}/automerge-classic.$$"; then
+  --jq '[.contexts[]?, (.checks[]?.context)] | unique' 2>"$facts_dir/classic.err")"; then
+  if grep -q "HTTP 404" "$facts_dir/classic.err"; then
     classic_checks='[]'
   else
-    cat "${TMPDIR:-/tmp}/automerge-classic.$$" >&2
-    rm -f "${TMPDIR:-/tmp}/automerge-classic.$$"
+    cat "$facts_dir/classic.err" >&2
     exit 1
   fi
 fi
-rm -f "${TMPDIR:-/tmp}/automerge-classic.$$"
 required="$(jq -cn --argjson a "$ruleset_checks" --argjson b "$classic_checks" '$a + $b | unique')"
 
-# Latest run per check name; a pending run has no conclusion yet, so report
-# its status instead.
+# Newest run per check name (by ID: a queued re-run has no start time yet);
+# a pending run has no conclusion yet, so report its status instead.
 check_runs="$(gh api --paginate "repos/$repo/commits/$head_sha/check-runs?per_page=100" \
-  --jq '.check_runs[] | {name, conclusion: (.conclusion // .status), started_at}' |
-  jq -s 'group_by(.name) | map(sort_by(.started_at) | last | {name, conclusion})')"
+  --jq '.check_runs[] | {id, name, conclusion: (.conclusion // .status)}' |
+  jq -s 'group_by(.name) | map(sort_by(.id) | last | {name, conclusion})')"
 
 # The combined status keeps only the latest state per context, but is paged.
 statuses="$(gh api --paginate "repos/$repo/commits/$head_sha/status" --jq '.statuses[] | {context, state}' | jq -s .)"
@@ -92,8 +93,6 @@ base_integrations="$(gh api "repos/$repo/contents/integrations?ref=$merge_base" 
 
 # Large values go through files, not argv: a 3000-file list can exceed the
 # per-argument limit on Linux.
-facts_dir="$(mktemp -d)"
-trap 'rm -rf "$facts_dir"' EXIT
 printf '%s' "$view" >"$facts_dir/view"
 printf '%s' "$files" >"$facts_dir/files"
 printf '%s' "$check_runs" >"$facts_dir/check_runs"

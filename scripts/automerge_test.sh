@@ -20,6 +20,7 @@ cat >"$work/bin/gh" <<EOF
 printf 'GH_TOKEN=%s gh %s\n' "\${GH_TOKEN:-}" "\$*" >>"$log"
 case "\$*" in
   *"issues/404/comments"*) exit 1 ;;
+  "pr merge 409"*) exit 1 ;;
   "pr list"*) cat "$work/prs" ;;
   *"repos/o/r/issues/"*"/comments"*)
     args="\$*"
@@ -40,7 +41,7 @@ cat >"$work/decide.sh" <<'EOF'
 jq '{decision: .want, integration: "keycloak", reasons: (.why // [])}'
 EOF
 
-facts() { printf '{"want":"%s","head_sha":"%s","why":%s}\n' "$2" "$3" "${4:-[]}" >"$work/facts/$1.json"; }
+facts() { printf '{"want":"%s","head_sha":"%s","why":%s,"labels":%s}\n' "$2" "$3" "${4:-[]}" "${5:-[]}" >"$work/facts/$1.json"; }
 
 run() {
   : >"$log"
@@ -96,6 +97,24 @@ if PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r GH_TOKEN=read-token AUTOMERGE_FA
 fi
 [ "$(calls 'pr comment 404')" = 0 ] || fail "dry run commented although it could not read existing comments"
 ok "dry run does not comment when existing comments cannot be read"
+
+printf '409\n' >"$work/prs"
+facts 409 merge sha409
+: >"$log"
+if PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r GH_TOKEN=read-token AUTOMERGE_FACTS="$work/facts.sh" \
+  AUTOMERGE_DECIDE="$work/decide.sh" AUTOMERGE_MODE=merge bash "$ROOT/scripts/automerge.sh" >"$work/out" 2>&1; then
+  fail "a failed merge should fail the run"
+fi
+grep -qF 'gh pr edit 409 --repo o/r --remove-label release:skip' "$log" || fail "failed merge left release:skip: $(cat "$log")"
+ok "a failed merge removes the release:skip label it added"
+
+facts 409 merge sha409 '[]' '["release:skip"]'
+: >"$log"
+PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r GH_TOKEN=read-token AUTOMERGE_FACTS="$work/facts.sh" \
+  AUTOMERGE_DECIDE="$work/decide.sh" AUTOMERGE_MODE=merge bash "$ROOT/scripts/automerge.sh" >/dev/null 2>&1 || true
+[ "$(calls 'remove-label')" = 0 ] || fail "removed a release:skip label a person had set"
+[ "$(calls 'add-label')" = 0 ] || fail "re-added a label that was already there"
+ok "a failed merge keeps a release:skip label that was already there"
 
 run disabled
 [ "$(calls 'pr ')" = 0 ] || fail "disabled mode touched PRs: $(cat "$log")"
