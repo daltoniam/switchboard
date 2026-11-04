@@ -142,6 +142,36 @@ func TestToolDefinitionOptionalRequired(t *testing.T) {
 	assert.Nil(t, td.Required)
 }
 
+func TestToolAccess(t *testing.T) {
+	tests := []struct {
+		access      ToolAccess
+		declared    bool
+		changesData bool
+	}{
+		{AccessUnspecified, false, false},
+		{AccessRead, true, false},
+		{AccessWrite, true, true},
+		{AccessDestructive, true, true},
+		{ToolAccess("admin"), false, false},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.access), func(t *testing.T) {
+			assert.Equal(t, tt.declared, tt.access.Declared())
+			assert.Equal(t, tt.changesData, tt.access.ChangesData())
+		})
+	}
+}
+
+func TestToolDefinitionAccessOmittedWhenUnspecified(t *testing.T) {
+	data, err := json.Marshal(ToolDefinition{Name: "x_get"})
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "access")
+
+	data, err = json.Marshal(ToolDefinition{Name: "x_get", Access: AccessRead})
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"access":"read"`)
+}
+
 func TestToolResult(t *testing.T) {
 	t.Run("success result", func(t *testing.T) {
 		r := &ToolResult{Data: `{"count":5}`}

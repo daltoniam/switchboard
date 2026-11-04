@@ -36,6 +36,22 @@ The baseline examples are not coverage for an arbitrary new integration. Add a `
 
 For basic-token integrations, model the real-binary lifecycle test. For custom setup, OAuth, and named identities, add the integration-specific browser flows and retain existing handler tests. Include persistence and MCP discovery/execute verification for the new adapter, not just the shared examples. Intentional auth failures must assert the visible error state, not merely a successful save redirect.
 
+## Live acceptance against the real product
+
+Fixture-backed tests prove the UI and the contract the adapter author wrote down. They cannot prove the product answers that way. `make test-live INTEGRATION=<name>` closes that gap:
+
+1. The spec's `Provision` starts the real product (a container image pinned by digest), seeds known data through the product's own API, and returns least-privilege credentials.
+2. The development binary starts in the same isolated sandbox as `make test-ui`. Chromium enters the credentials on the real setup page, enables the integration, saves, and requires a `Connected` health badge. The server restarts and the badge must persist.
+3. Every case runs through MCP `search` then `execute`, asserting seeded values in the response.
+4. Every read case runs again as a script (raw output, no compaction). Each `compact.yaml` field must match something in that raw response, so a stale field name that strips data from every LLM response fails the run.
+5. Masked desktop and mobile screenshots and `live-<name>.json` (outcomes and byte counts only, never response bodies) are written to `dist/live-artifacts/`.
+
+Specs live in `web/live_<name>_test.go` and register from `init()`. `TestLiveSpecs_Coverage` runs in ordinary `go test` without Docker and fails when any tool lacks a declared `Access`, has neither a case nor a skip reason, or when a `liveSandbox` spec runs a tool that is not `AccessRead`. Container specs may exercise writes because the provider is disposable. `TestLive` itself only runs when `SWITCHBOARD_LIVE=1`, which `make test-live` sets; it needs the Docker CLI.
+
+When a server log or container log is shown after a failure, it is only for `liveContainer` specs, whose credentials are disposable.
+
+On pull requests and pushes to `main`, the `live-integration` workflow runs `scripts/live-targets.sh` to choose specs: changed integrations and their specs, or every spec when shared code (root Go files, `server/`, `config/`, `cmd/`, `web/*.go`, the harness, `go.mod`) changes. A new `integrations/<name>/` directory without `web/live_<name>_test.go` fails the job. The job holds no secrets and uploads `dist/live-artifacts/` as masked evidence.
+
 ## Orca browser walkthrough
 
 In addition to repeatable tests, the automation must drive the new integration's actual local UI using Go Playwright, agent-browser, or Chrome DevTools. Playwright is already available and is the default; no additional CLI dependency is required. If using agent-browser, pin its version and load its installed workflow instructions. Never attach to a personal browser session.

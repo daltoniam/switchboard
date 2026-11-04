@@ -89,6 +89,29 @@ func TestParseCompactSpec(t *testing.T) {
 	}
 }
 
+func TestCompactField_SpecAndExclusion(t *testing.T) {
+	tests := []struct {
+		spec      string
+		exclusion bool
+	}{
+		{"name", false},
+		{"user.login", false},
+		{"labels[].name", false},
+		{"title:summary", false},
+		{"-body", true},
+		{"-*_url", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.spec, func(t *testing.T) {
+			fields, err := ParseCompactSpecs([]string{tt.spec})
+			require.NoError(t, err)
+			require.Len(t, fields, 1)
+			assert.Equal(t, tt.spec, fields[0].Spec())
+			assert.Equal(t, tt.exclusion, fields[0].Exclusion())
+		})
+	}
+}
+
 func TestCompactJSON_Object(t *testing.T) {
 	tests := []struct {
 		name  string

@@ -632,6 +632,13 @@ func (w *WebServer) handleIntegrationSave(rw http.ResponseWriter, r *http.Reques
 		http.Redirect(rw, r, redirect+"?error=Failed+to+save:+"+err.Error(), http.StatusSeeOther)
 		return
 	}
+	// Setup pages skip Configure on load to stay fast, so apply saved
+	// credentials here. A failure shows up as an unhealthy badge.
+	if setupIntegrations[name] && !oauth && enabled {
+		if integration, ok := w.services.Registry.Get(name); ok {
+			_ = mcp.ConfigureIntegration(r.Context(), integration, ic)
+		}
+	}
 	w.notifyConfigChanged()
 
 	redirect := "/integrations/" + name
