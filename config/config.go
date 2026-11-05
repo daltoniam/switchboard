@@ -19,6 +19,12 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"argoworkflows": {
+		"base_url":  "ARGO_WORKFLOWS_BASE_URL",
+		"namespace": "ARGO_WORKFLOWS_NAMESPACE",
+		"token":     "ARGO_WORKFLOWS_TOKEN",
+		"ca_cert":   "ARGO_WORKFLOWS_CA_CERT",
+	},
 	"github": {
 		"token": "GITHUB_TOKEN",
 	},
@@ -339,6 +345,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"argoworkflows": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "namespace": "", "token": "", "ca_cert": ""},
+			},
 			"github": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
