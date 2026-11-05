@@ -1,0 +1,188 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+const (
+	MetabaseMCPEnabled  = "enabled"
+	MetabaseMCPDisabled = "disabled"
+	MetabaseMCPUnknown  = "unknown"
+)
+
+type MetabaseSetupData struct {
+	URL           string
+	HasAPIKey     bool
+	HasOAuth      bool
+	TokenSource   string
+	Enabled       bool
+	HealthChecked bool
+	Healthy       bool
+	MCPProbe      string
+	MCPProbeError string
+	FlashResult   string
+	FlashError    string
+}
+
+func metabaseHasCredentials(data MetabaseSetupData) bool {
+	return data.URL != "" && (data.HasAPIKey || data.HasOAuth)
+}
+
+func metabaseUsesOAuth(data MetabaseSetupData) bool {
+	return data.HasOAuth && !(data.TokenSource == "api_key" && data.HasAPIKey)
+}
+
+func metabaseOfferOAuth(data MetabaseSetupData) bool {
+	return data.URL != "" && data.MCPProbe != MetabaseMCPDisabled
+}
+
+templ MetabaseSetup(page layouts.PageData, data MetabaseSetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline" style="min-height: 44px;">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Metabase Setup</h1>
+			if !metabaseHasCredentials(data) {
+				@components.Badge("Not Connected", "muted")
+			} else if !data.Enabled {
+				@components.Badge("Disabled", "muted")
+			} else if data.HealthChecked && data.Healthy {
+				@components.Badge("Connected", "green")
+			} else if data.HealthChecked {
+				@components.Badge("Connection Error", "red")
+			} else {
+				@components.Badge("Credentials Saved", "muted")
+			}
+			if metabaseHasCredentials(data) {
+				if metabaseUsesOAuth(data) {
+					@components.Badge("Signed in via OAuth", "muted")
+				} else {
+					@components.Badge("Using API key", "muted")
+				}
+			}
+		</div>
+		<div aria-live="polite" aria-atomic="true">
+			if data.FlashError != "" {
+				<div class="flash flash-error">{ data.FlashError }</div>
+			} else if data.FlashResult != "" {
+				<div class="flash flash-success">{ data.FlashResult }</div>
+			}
+		</div>
+		<p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+			Save the Metabase URL, then either sign in with Metabase (recommended) or paste an API key. The API key keeps working as a fallback if OAuth is unavailable.
+		</p>
+		<section aria-labelledby="metabase-url-heading" class="card">
+			<div class="card-header">
+				<h2 id="metabase-url-heading" class="card-title">Step 1: Metabase URL</h2>
+			</div>
+			<form method="POST" action="/api/metabase/save-credentials" id="metabase-url-form">
+				@components.FormGroup("Metabase URL", "url", "url", data.URL, "https://your-metabase-instance.com")
+				<button type="submit" class="btn" style="min-height: 44px;">Save URL</button>
+			</form>
+		</section>
+		if metabaseOfferOAuth(data) {
+			<section aria-labelledby="metabase-oauth-heading" class="card">
+				<div class="card-header">
+					<h2 id="metabase-oauth-heading" class="card-title">Step 2, option A: Sign in with Metabase (recommended)</h2>
+					if metabaseUsesOAuth(data) && data.HealthChecked && data.Healthy {
+						@components.Badge("Connected", "green")
+					}
+				</div>
+				<p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+					Uses Metabase's built-in MCP server and your own Metabase permissions. You will be redirected to Metabase to approve access; tick the write, SQL, and alert permissions there if you want them.
+				</p>
+				if data.MCPProbe == MetabaseMCPEnabled {
+					<p style="color: var(--text-muted); margin-bottom: 0.75rem;">This instance reports its MCP server is enabled.</p>
+				} else if data.MCPProbe == MetabaseMCPUnknown {
+					<p style="color: var(--text-muted); margin-bottom: 0.75rem;">Could not confirm the MCP server setting: { data.MCPProbeError }</p>
+				}
+				<button type="button" class="btn btn-green" id="metabase-oauth-start" onclick="startMetabaseOAuth()" style="min-height: 44px;">
+					if data.HasOAuth {
+						Re-authorize with Metabase
+					} else {
+						Sign in with Metabase →
+					}
+				</button>
+				<div aria-live="polite" aria-atomic="true" style="margin-top: 0.75rem;">
+					<p id="metabase-oauth-status" style="color: var(--text-secondary);"></p>
+					<div id="metabase-oauth-error" class="flash flash-error" hidden></div>
+				</div>
+				<button type="button" class="btn btn-outline" id="metabase-oauth-retry" onclick="startMetabaseOAuth()" style="display: none; min-height: 44px;">Try Again</button>
+				<noscript><p style="color: var(--text-secondary); margin-top: 0.75rem;">Enable JavaScript to sign in with Metabase.</p></noscript>
+			</section>
+		} else if data.URL != "" {
+			<section aria-labelledby="metabase-oauth-heading" class="card">
+				<div class="card-header">
+					<h2 id="metabase-oauth-heading" class="card-title">Step 2, option A: Sign in with Metabase</h2>
+					@components.Badge("Unavailable", "muted")
+				</div>
+				<p style="color: var(--text-secondary);">
+					This instance reports its MCP server is turned off. Ask a Metabase admin to enable it under Admin &gt; AI &gt; MCP, or use an API key below.
+				</p>
+			</section>
+		}
+		<section aria-labelledby="metabase-api-key-heading" class="card">
+			<div class="card-header">
+				<h2 id="metabase-api-key-heading" class="card-title">
+					if data.URL != "" {
+						Step 2, option B: API key
+					} else {
+						Step 2: API key or sign-in
+					}
+				</h2>
+				if !metabaseUsesOAuth(data) && data.HasAPIKey && data.HealthChecked && data.Healthy {
+					@components.Badge("Connected", "green")
+				}
+			</div>
+			<p style="color: var(--text-secondary); margin-bottom: 1rem;">
+				Create an API key in Metabase under Admin &gt; Settings &gt; Authentication &gt; API keys and paste it here. Saving a key switches this integration to REST mode; any OAuth sign-in is kept for later.
+			</p>
+			<form method="POST" action="/api/metabase/save-credentials">
+				<input type="hidden" name="url" value={ data.URL }/>
+				@components.FormGroup("API Key", "api_key", "password", "", "mb_...")
+				<button type="submit" class="btn" style="min-height: 44px;">Save API Key</button>
+			</form>
+		</section>
+		if metabaseOfferOAuth(data) {
+			<script>
+				async function startMetabaseOAuth() {
+					var button = document.getElementById('metabase-oauth-start');
+					var retry = document.getElementById('metabase-oauth-retry');
+					var status = document.getElementById('metabase-oauth-status');
+					var error = document.getElementById('metabase-oauth-error');
+					if (button.disabled) return;
+					button.disabled = true;
+					button.setAttribute('aria-busy', 'true');
+					retry.style.display = 'none';
+					error.hidden = true;
+					status.textContent = 'Starting secure sign-in…';
+					var controller = new AbortController();
+					var timeout = setTimeout(function() { controller.abort(); }, 30000);
+					try {
+						var response = await fetch('/api/remote/metabase/oauth/start', { method: 'POST', signal: controller.signal });
+						if (!response.ok) throw new Error('Could not start sign-in. Please try again.');
+						var data = await response.json();
+						if (data.error) throw new Error(data.error);
+						if (!data.authorize_url) throw new Error('No sign-in URL was returned. Please try again.');
+						var authorizeURL = new URL(data.authorize_url);
+						if (authorizeURL.protocol !== 'https:' && authorizeURL.protocol !== 'http:') {
+							throw new Error('Invalid sign-in URL. Please try again.');
+						}
+						status.textContent = 'Redirecting to Metabase…';
+						window.location.assign(authorizeURL.href);
+					} catch (err) {
+						status.textContent = '';
+						error.textContent = err.name === 'AbortError' ? 'Sign-in timed out. Please try again.' : err.message;
+						error.hidden = false;
+						button.disabled = false;
+						button.removeAttribute('aria-busy');
+						retry.style.display = 'inline-flex';
+						retry.focus();
+					} finally {
+						clearTimeout(timeout);
+					}
+				}
+			</script>
+		}
+	}
+}

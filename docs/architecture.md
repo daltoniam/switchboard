@@ -79,7 +79,8 @@ integrations/
     figma.go                 Official hosted Figma MCP proxy filtered to FigJam planning tools
     figma_test.go            FigJam tool filtering, skill injection, and routing tests
   metabase/
-    metabase.go              Metabase integration adapter (core, dispatch, HTTP helpers)
+    metabase.go              Metabase integration adapter (dual mode: REST with api_key, or hosted MCP with OAuth; dispatch, HTTP helpers)
+    oauth.go                 Hosted MCP proxy wiring (remotemcp at /api/metabase-mcp), token persistence, MCP-enabled probe
     tools.go                 Metabase tool definitions (~22 tools)
     databases.go             Database, table, field metadata handlers
     queries.go               Native SQL query execution, card CRUD handlers

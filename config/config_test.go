@@ -286,7 +286,7 @@ func TestDefaultConfig(t *testing.T) {
 		"likec4excalidraw": {"base_url", "mcp_token"},
 		"figma":            {"mcp_access_token", "base_url", "token_source"},
 		"notion-mcp":       {"mcp_access_token", "base_url", "token_source"},
-		"metabase":         {"api_key", "url"},
+		"metabase":         {"api_key", "url", "mcp_access_token", "mcp_refresh_token", "mcp_client_id", "token_source"},
 		"paperless":        {"token", "url"},
 		"airflow":          {"base_url", "username", "password", "access_token"},
 		"recoll":           {"base_url"},
