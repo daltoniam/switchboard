@@ -86,6 +86,7 @@ Co-Authored-By: <agent model name> <noreply@anthropic.com>
 | [docs/web-ui.md](docs/web-ui.md) | Modifying the web config UI |
 | [docs/google-setup.md](docs/google-setup.md) | Unified Google Workspace OAuth setup (BYO client, token fan-out) |
 | [docs/dev-compose.md](docs/dev-compose.md) | Stacklane-compatible Docker Compose DEV stack (worktree isolation) |
+| [docs/automerge.md](docs/automerge.md) | Auto-merge gates for bot integration PRs, modes, weekly releases |
 
 ## Skills
 
