@@ -17,6 +17,7 @@ require (
 	cloud.google.com/go/storage v1.56.0
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v3 v3.0.0
 	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/DataDog/datadog-api-client-go/v2 v2.55.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/PuerkitoBio/goquery v1.11.0
@@ -38,6 +39,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.7
 	github.com/digitalocean/godo v1.178.0
 	github.com/dop251/goja v0.0.0-20260226184354-913bd86fb70c
+	github.com/go-sql-driver/mysql v1.10.1
 	github.com/go-sqlite/sqlite3 v0.0.0-20180313105335-53dd8e640ee7
 	github.com/gofrs/flock v0.13.0
 	github.com/google/go-github/v68 v68.0.0
@@ -80,6 +82,7 @@ require (
 	codeberg.org/polyfloyd/go-errorlint v1.9.0 // indirect
 	dev.gaijin.team/go/exhaustruct/v4 v4.0.0 // indirect
 	dev.gaijin.team/go/golib v0.6.0 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/42wim/httpsig v1.2.3 // indirect
 	github.com/4meepo/tagalign v1.4.3 // indirect
 	github.com/Abirdcfly/dupword v0.1.7 // indirect

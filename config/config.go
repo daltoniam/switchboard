@@ -91,6 +91,15 @@ var envMapping = map[string]map[string]string{
 		"api_token": "CONFLUENCE_API_TOKEN",
 		"domain":    "CONFLUENCE_DOMAIN",
 	},
+	"mysql": {
+		"connection_string": "MYSQL_DSN",
+		"host":              "MYSQL_HOST",
+		"port":              "MYSQL_PORT",
+		"user":              "MYSQL_USER",
+		"password":          "MYSQL_PASSWORD",
+		"database":          "MYSQL_DATABASE",
+		"tls":               "MYSQL_TLS",
+	},
 	"postgres": {
 		"connection_string": "DATABASE_URL",
 		"host":              "PGHOST",
@@ -407,6 +416,10 @@ func defaultConfig() *mcp.Config {
 			"posthog": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "project_id": "", "base_url": ""},
+			},
+			"mysql": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"connection_string": "", "host": "", "port": "", "user": "", "password": "", "database": "", "tls": "", "connections": ""},
 			},
 			"postgres": {
 				Enabled:     false,
