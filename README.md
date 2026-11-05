@@ -361,6 +361,11 @@ Environment variables override credential values but do not change the durable e
 | PagerDuty | `api_token` | `PAGERDUTY_API_TOKEN` (REST API user or account token) |
 | PagerDuty | `from_email` | `PAGERDUTY_FROM_EMAIL` (optional default From header for notes/ack/resolve) |
 | PagerDuty | `base_url` | `PAGERDUTY_BASE_URL` (optional — default `https://api.pagerduty.com`) |
+| Prometheus | `base_url` | `PROMETHEUS_BASE_URL` (required trusted HTTPS endpoint, optional proxy path) |
+| Prometheus | `username` / `password` | `PROMETHEUS_USERNAME` / `PROMETHEUS_PASSWORD` (optional complete Basic auth pair) |
+| Prometheus | `bearer_token` | `PROMETHEUS_BEARER_TOKEN` (optional alternative to Basic auth) |
+| Prometheus | `headers` | `PROMETHEUS_HEADERS` (optional JSON tenant headers; reserved auth/routing headers are rejected) |
+| Prometheus | `ca_cert` | `PROMETHEUS_CA_CERT` (optional PEM CA certificate; TLS verification cannot be disabled) |
 | LaunchDarkly | `access_token` | `LAUNCHDARKLY_ACCESS_TOKEN` (personal or service access token; SDK keys cannot call the REST API) |
 | LaunchDarkly | `base_url` | `LAUNCHDARKLY_BASE_URL` (optional — default `https://app.launchdarkly.com`; EU `https://app.eu.launchdarkly.com`; Federal `https://app.launchdarkly.us`) |
 | dbt | `token` | `DBT_TOKEN` (dbt Cloud service token with Job Viewer permission, or a personal access token; sent as `Authorization: Token <token>`) |
@@ -417,6 +422,15 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Vercel | Personal Access Token | Set `VERCEL_API_TOKEN` env var or enter in web UI |
 | Microsoft 365 | OAuth (PKCE) | Web UI → Microsoft 365 → Setup, or set `MICROSOFT365_ACCESS_TOKEN` |
 | Postgres | Connection String | Set `DATABASE_URL` env var or enter in web UI |
+| Prometheus | Basic, bearer, or trusted anonymous TLS | Enter the endpoint and optional credentials in the generic integration page; enable explicitly. |
+
+### Standalone Prometheus
+
+The native Prometheus adapter provides nine read-only tools for instant/range PromQL, alerts, rules, scrape targets, metric discovery, label values, series and build/runtime information. It connects directly without Grafana installation, datasource registration or a Grafana credential. Grafana and VictoriaMetrics MCP servers overlap these workflows; this adapter specifically serves standalone endpoints and scrape diagnostics. AWS SigV4 and Google managed-service credential exchange are not supported.
+
+Configure a trusted HTTPS origin, optionally including a reverse-proxy path, then explicitly enable `prometheus`. Basic credentials must be paired and cannot be combined with a bearer token. Tenant headers remain secrets. Use an upstream read-only proxy policy where required: Basic authentication alone does not provide per-tool authorization. Keep Prometheus admin APIs disabled; this adapter exposes neither admin operations nor remote writes. Rotate credentials upstream and replace the stored values. Plain HTTP is accepted only for literal loopback development addresses. Redirects are never followed, and custom CA certificates supplement system trust.
+
+Each response is capped at 2 MiB and each request at 15 seconds (PromQL timeout 10 seconds). Series/value limits default to 20, maximum 100; range queries permit at most 1000 evaluation points per series and 5000 returned samples total. Float matrices return `timestamps` and `samples` columns; native histograms are retained separately. Adapter-side cuts carry `truncated`; upstream warnings and infos are preserved. Rule-group continuation tokens are passed through without automatic paging, and local cuts may require narrower filters to retrieve omitted rules. Metric discovery uses two requests and explicitly marks metadata as potentially incomplete. Errors and oversize responses never masquerade as complete results; retryable 429/5xx failures use the server's bounded retry loop and honor `Retry-After`.
 
 ## Adding to Cursor / Claude Desktop
 
