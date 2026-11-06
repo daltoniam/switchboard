@@ -47,6 +47,7 @@ func TestBase_NavigationIcons(t *testing.T) {
 		{Path: "/", Label: "Dashboard", Icon: "i-lucide:layout-dashboard"},
 		{Path: "/projects", Label: "Projects", Icon: "i-lucide:folder"},
 		{Path: "/integrations", Label: "Integrations", Icon: "i-lucide:plug"},
+		{Path: "/spec-imports", Label: "Spec Imports", Icon: "i-lucide:file-input"},
 		{Path: "/plugins", Label: "Plugin Marketplace", Icon: "i-lucide:store"},
 		{Path: "/settings", Label: "Settings", Icon: "i-lucide:settings"},
 	} {
