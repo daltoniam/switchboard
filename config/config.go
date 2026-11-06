@@ -263,6 +263,10 @@ var envMapping = map[string]map[string]string{
 		"tailnet":             "TAILSCALE_TAILNET",
 		"base_url":            "TAILSCALE_BASE_URL",
 	},
+	"sourcebot": {
+		"base_url": "SOURCEBOT_BASE_URL",
+		"api_key":  "SOURCEBOT_API_KEY",
+	},
 	"microsoft365": {
 		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
 		"refresh_token": "MICROSOFT365_REFRESH_TOKEN",
@@ -535,6 +539,10 @@ func defaultConfig() *mcp.Config {
 			"tailscale": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "oauth_client_id": "", "oauth_client_secret": "", "tailnet": "", "base_url": ""},
+			},
+			"sourcebot": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_key": ""},
 			},
 			"microsoft365": {
 				Enabled: false,

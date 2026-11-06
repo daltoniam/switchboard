@@ -85,6 +85,7 @@ import (
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/integrations/slackmcp"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
+	"github.com/daltoniam/switchboard/integrations/sourcebot"
 	"github.com/daltoniam/switchboard/integrations/stripe"
 	"github.com/daltoniam/switchboard/integrations/suno"
 	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
@@ -370,6 +371,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		launchdarkly.New(),
 		dbt.New(),
 		tailscale.New(),
+		sourcebot.New(),
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),
