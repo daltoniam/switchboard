@@ -298,3 +298,54 @@ func TestMalformedResponse(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "unexpected response")
 }
+
+func TestRedirects_KeyStaysOnConfiguredOrigin(t *testing.T) {
+	var leaked []string
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		leaked = append(leaked, r.Header.Get("X-Sourcebot-Api-Key"))
+		_, _ = io.WriteString(w, `[]`)
+	}))
+	t.Cleanup(other.Close)
+	s := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/models":
+			http.Redirect(w, r, other.URL+"/api/models", http.StatusFound)
+		case "/old/api/repos":
+			http.Redirect(w, r, "/api/repos", http.StatusMovedPermanently)
+		case "/api/repos":
+			assert.Equal(t, testKey, r.Header.Get("X-Sourcebot-Api-Key"))
+			_, _ = io.WriteString(w, `[]`)
+		}
+	})
+
+	for _, client := range []*http.Client{s.client, s.askClient} {
+		_, _, err := s.do(context.Background(), client, http.MethodGet, "/api/models", nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "refusing to follow redirect")
+	}
+	assert.Empty(t, leaked, "the API key must not reach another origin")
+
+	_, _, err := s.do(context.Background(), s.client, http.MethodGet, "/old/api/repos", nil)
+	require.NoError(t, err, "same-origin redirects are still followed")
+}
+
+func TestSameOriginRedirect(t *testing.T) {
+	tests := []struct {
+		from, to string
+		allowed  bool
+	}{
+		{"https://sourcebot.example.com/api/repos", "https://sourcebot.example.com/login", true},
+		{"http://sourcebot.example.com/api/repos", "https://sourcebot.example.com/api/repos", true},
+		{"https://sourcebot.example.com/api/repos", "http://sourcebot.example.com/api/repos", false},
+		{"https://sourcebot.example.com/api/repos", "https://login.example.com/api/repos", false},
+		{"https://sourcebot.example.com/api/repos", "https://sourcebot.example.com:8443/api/repos", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.from+" -> "+tt.to, func(t *testing.T) {
+			from := httptest.NewRequest(http.MethodGet, tt.from, nil)
+			to := httptest.NewRequest(http.MethodGet, tt.to, nil)
+			err := sameOriginRedirect(to, []*http.Request{from})
+			assert.Equal(t, tt.allowed, err == nil, err)
+		})
+	}
+}

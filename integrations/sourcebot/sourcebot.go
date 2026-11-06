@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -52,9 +53,30 @@ var (
 
 func New() mcp.Integration {
 	return &sourcebot{
-		client:    &http.Client{Timeout: requestTimeout},
-		askClient: &http.Client{Timeout: askTimeout},
+		client:    newHTTPClient(requestTimeout),
+		askClient: newHTTPClient(askTimeout),
 	}
+}
+
+func newHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout, CheckRedirect: sameOriginRedirect}
+}
+
+// sameOriginRedirect stops redirects to another origin. Go forwards custom
+// headers such as X-Sourcebot-Api-Key on every redirect, so following one
+// off the configured instance would hand the API key to that host. An
+// upgrade from http to https on the same host is allowed.
+func sameOriginRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("sourcebot: stopped after 10 redirects")
+	}
+	from, to := via[0].URL, req.URL
+	sameOrigin := from.Scheme == to.Scheme && from.Host == to.Host
+	upgrade := from.Scheme == "http" && to.Scheme == "https" && from.Hostname() == to.Hostname()
+	if !sameOrigin && !upgrade {
+		return fmt.Errorf("sourcebot: refusing to follow redirect from %s://%s to %s://%s; set base_url to the address Sourcebot is served from", from.Scheme, from.Host, to.Scheme, to.Host)
+	}
+	return nil
 }
 
 func (s *sourcebot) Name() string { return "sourcebot" }
@@ -85,10 +107,10 @@ func (s *sourcebot) Configure(_ context.Context, creds mcp.Credentials) error {
 	s.baseURL = base
 	s.apiKey = strings.TrimSpace(creds["api_key"])
 	if s.client == nil {
-		s.client = &http.Client{Timeout: requestTimeout}
+		s.client = newHTTPClient(requestTimeout)
 	}
 	if s.askClient == nil {
-		s.askClient = &http.Client{Timeout: askTimeout}
+		s.askClient = newHTTPClient(askTimeout)
 	}
 	s.configured = true
 	return nil
