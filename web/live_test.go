@@ -618,7 +618,10 @@ type liveDockerOptions struct {
 	// Ports are container ports such as "5432/tcp", published on a random
 	// 127.0.0.1 port.
 	Ports []string
-	Cmd   []string
+	// Entrypoint replaces the image entrypoint, for seeding files before the
+	// product starts.
+	Entrypoint string
+	Cmd        []string
 }
 
 func liveStartContainer(t *testing.T, options liveDockerOptions) *liveDockerContainer {
@@ -635,6 +638,9 @@ func liveStartContainer(t *testing.T, options liveDockerOptions) *liveDockerCont
 	slices.Sort(keys)
 	for _, key := range keys {
 		args = append(args, "--env", key+"="+options.Env[key])
+	}
+	if options.Entrypoint != "" {
+		args = append(args, "--entrypoint", options.Entrypoint)
 	}
 	args = append(args, options.Image)
 	args = append(args, options.Cmd...)
