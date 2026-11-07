@@ -32,19 +32,14 @@ trap 'rm -rf "$facts_dir"' EXIT
 ruleset_checks="$(gh api --paginate "repos/$repo/rules/branches/$base_path" \
   --jq '.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[]
         | {context, app_id: (.integration_id // null)}' | jq -s .)"
-# Classic branch protection can require checks too. No protection is a 404;
-# any other failure stops here rather than under-reporting requirements.
-if ! classic_checks="$(gh api "repos/$repo/branches/$base_path/protection/required_status_checks" \
-  --jq '[(.contexts[]? | {context: ., app_id: null}),
-         (.checks[]? | {context, app_id: (if (.app_id // -1) == -1 then null else .app_id end)})]' \
-  2>"$facts_dir/classic.err")"; then
-  if grep -q "HTTP 404" "$facts_dir/classic.err"; then
-    classic_checks='[]'
-  else
-    cat "$facts_dir/classic.err" >&2
-    exit 1
-  fi
-fi
+# Classic branch protection can require checks too. The protection endpoints
+# need administration access, which the workflow token never has, so read the
+# summary the branch endpoint gives anyone who can read the repository. Any
+# failure stops here rather than under-reporting requirements.
+classic_checks="$(gh api "repos/$repo/branches/$base_path" \
+  --jq '.protection.required_status_checks // {}
+        | [(.contexts[]? | {context: ., app_id: null}),
+           (.checks[]? | {context, app_id: (if (.app_id // -1) == -1 then null else .app_id end)})]')"
 # A requirement is a context plus, optionally, the app that must report it.
 required="$(jq -cn --argjson a "$ruleset_checks" --argjson b "$classic_checks" '$a + $b | unique_by([.context, .app_id])')"
 

@@ -28,8 +28,12 @@ jq '
   #   main.go: one import line, or one constructor call in the registry list
   #   config.go: one "<name>": { ... }, block that maps credentials to
   #     <NAME>_* environment variables or lists disabled-by-default credentials
+  # Env var prefix for an integration: its name in upper case, optionally
+  # split by underscores (argoworkflows -> ARGO_WORKFLOWS_...).
+  def env_prefix($name): $name | ascii_upcase | split("") | join("_?");
+
   def registration($path; $name):
-    ($name | ascii_upcase) as $env
+    env_prefix($name) as $env
     | if $path == "cmd/server/main.go" then
         length == 1 and (.[0] | test("^\t\"github\\.com/daltoniam/switchboard/integrations/" + $name + "\"$")
                                or test("^\t\t" + $name + "\\.New\\(\\),$"))
@@ -83,7 +87,7 @@ jq '
 
   # Added assertion lines a new integration may contribute to shared tests.
   def listing_line($name):
-    ($name | ascii_upcase) as $env
+    env_prefix($name) as $env
     | test("^\t+\"" + $name + "\":\\s+\\{(\"[a-z0-9_]+\"(, )?)*\\},$")
       or test("^\tassert\\.Equal\\(t, \"" + $env + "_[A-Z0-9_]+\", m\\[\"" + $name + "\"\\]\\[\"[a-z0-9_]+\"\\]\\)$")
       or test("^  assert\\.ok\\(rules\\.some\\(\\(\\[, name\\]\\) => name === \u0027" + $name + "\u0027\\)\\);$");
