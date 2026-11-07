@@ -273,6 +273,13 @@ var envMapping = map[string]map[string]string{
 		"base_url": "SOURCEBOT_BASE_URL",
 		"api_key":  "SOURCEBOT_API_KEY",
 	},
+	"openbao": {
+		"base_url":    "OPENBAO_BASE_URL",
+		"token":       "OPENBAO_TOKEN",
+		"mount":       "OPENBAO_MOUNT",
+		"path_prefix": "OPENBAO_PATH_PREFIX",
+		"ca_cert":     "OPENBAO_CA_CERT",
+	},
 	"microsoft365": {
 		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
 		"refresh_token": "MICROSOFT365_REFRESH_TOKEN",
@@ -553,6 +560,10 @@ func defaultConfig() *mcp.Config {
 			"sourcebot": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "api_key": ""},
+			},
+			"openbao": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": "", "mount": "", "path_prefix": "", "ca_cert": ""},
 			},
 			"microsoft365": {
 				Enabled: false,

@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 75)
-	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "metabase", "paperless", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows"} {
+	assert.Len(t, m.cfg.Integrations, 76)
+	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "metabase", "paperless", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 75)
+	assert.Len(t, cfg.Integrations, 76)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 75)
+	assert.Len(t, cfg.Integrations, 76)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,11 +273,12 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 75)
+	assert.Len(t, cfg.Integrations, 76)
 
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
 		"forgejo":          {"base_url", "token"},
+		"openbao":          {"base_url", "token", "mount", "path_prefix", "ca_cert"},
 		"datadog":          {"api_key", "app_key"},
 		"linear":           {"api_key", "mcp_access_token", "token_source"},
 		"sentry":           {"auth_token", "organization", "client_id", "token_source"},
