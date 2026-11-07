@@ -33,6 +33,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gtasks"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/microsoft365"
+	"github.com/daltoniam/switchboard/integrations/mobbin"
 	"github.com/daltoniam/switchboard/integrations/notionmcp"
 	sentryInt "github.com/daltoniam/switchboard/integrations/sentry"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
@@ -136,6 +137,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/linear/save-token", w.handleLinearSaveToken)
 	mux.HandleFunc("GET /integrations/figma/setup", w.handleFigmaSetup)
 	mux.HandleFunc("GET /integrations/notion-mcp/setup", w.handleNotionMCPSetup)
+	mux.HandleFunc("GET /integrations/mobbin/setup", w.handleMobbinSetup)
 
 	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
 	mux.HandleFunc("GET /api/remote/{name}/oauth/callback", w.handleRemoteMCPOAuthCallback)
@@ -443,6 +445,7 @@ var setupIntegrations = map[string]bool{
 	"linear":       true,
 	"figma":        true,
 	"notion-mcp":   true,
+	"mobbin":       true,
 	"sentry":       true,
 	"gmail":        true,
 	"gcal":         true,
@@ -1846,6 +1849,14 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 		Options:       remotemcp.OAuthOptions{Scope: "default"},
 		CredentialKey: "mcp_access_token",
 	},
+	// Mobbin's authorization server is a separate Supabase issuer found
+	// through protected resource metadata; it advertises only openid.
+	"mobbin": {
+		CallbackPath:  "/api/remote/mobbin/oauth/callback",
+		ResourcePath:  "/mcp",
+		Options:       remotemcp.OAuthOptions{Scope: "openid"},
+		CredentialKey: "mcp_access_token",
+	},
 }
 
 func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
@@ -1867,6 +1878,9 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 	}
 	if serverURL == "" {
 		serverURL = notionmcp.MCPServerURL(integration)
+	}
+	if serverURL == "" {
+		serverURL = mobbin.MCPServerURL(integration)
 	}
 	if serverURL == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})
