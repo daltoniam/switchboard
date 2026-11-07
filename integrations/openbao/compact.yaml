@@ -1,0 +1,8 @@
+version: 1
+tools:
+  openbao_list_secret_keys:
+    spec: [path, keys, has_more, next_after]
+  openbao_get_secret_metadata:
+    spec: [path, current_version, oldest_version, created_time, updated_time, "versions[].version", "versions[].created_time", "versions[].deletion_time", "versions[].destroyed"]
+  openbao_get_health:
+    spec: [initialized, sealed, standby, version]
