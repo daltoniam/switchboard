@@ -25,6 +25,7 @@ import (
 	agentsInt "github.com/daltoniam/switchboard/integrations/agents"
 	"github.com/daltoniam/switchboard/integrations/airflow"
 	"github.com/daltoniam/switchboard/integrations/amazon"
+	"github.com/daltoniam/switchboard/integrations/argoworkflows"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/botidentity"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
@@ -70,6 +71,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/notionmcp"
 	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
+	"github.com/daltoniam/switchboard/integrations/openbao"
 	"github.com/daltoniam/switchboard/integrations/pagerduty"
 	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -331,6 +333,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		metabase.New(),
 		paperless.New(),
 		airflow.New(),
+		argoworkflows.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),
@@ -374,6 +377,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		dbt.New(),
 		tailscale.New(),
 		sourcebot.New(),
+		openbao.New(),
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),

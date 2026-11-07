@@ -278,6 +278,15 @@ Open `/integrations/notion-mcp/setup` in the web UI and select **Sign in with No
 
 Tools are discovered from Notion after authorization and namespaced as `notion-mcp_<upstream-tool-name>`. Start with `search` filtered to `integration: "notion-mcp"`; use the returned names with `execute` rather than the existing `notion_*` tools. The catalog and content permissions depend on the authorized workspace. Re-authorize in setup if the token expires or is revoked; the shared remote OAuth flow currently stores access tokens only and does not refresh them automatically.
 
+### Argo Workflows (`argoworkflows`)
+
+Inspect workflow run status in one namespace using two read-only tools. Configure a
+trusted HTTPS Argo Server URL, namespace, and get/list-only service-account token;
+Argo client authentication is required. Specs, parameters, artifacts, logs, and
+arbitrary failure messages are excluded from both normal and raw script results.
+See [Argo Workflows setup](docs/argoworkflows-setup.md) for RBAC, private CA setup,
+pagination, response limits, and the live acceptance test.
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
@@ -287,6 +296,10 @@ Environment variables override credential values but do not change the durable e
 | Integration | Credential | Env Var |
 |---|---|---|
 | GitHub | `token` | `GITHUB_TOKEN` |
+| Argo Workflows | `base_url` | `ARGO_WORKFLOWS_BASE_URL` (required HTTPS installation URL) |
+| Argo Workflows | `namespace` | `ARGO_WORKFLOWS_NAMESPACE` (required fixed namespace) |
+| Argo Workflows | `token` | `ARGO_WORKFLOWS_TOKEN` (required get/list-only service-account token) |
+| Argo Workflows | `ca_cert` | `ARGO_WORKFLOWS_CA_CERT` (optional PEM CA certificate) |
 | Forgejo | `base_url` | `FORGEJO_BASE_URL` (required — instance URL including any deployment subpath) |
 | Forgejo | `token` | `FORGEJO_TOKEN` (required — personal access token) |
 | Datadog | `api_key` | `DD_API_KEY` |

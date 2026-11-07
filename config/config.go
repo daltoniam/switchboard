@@ -19,6 +19,12 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"argoworkflows": {
+		"base_url":  "ARGO_WORKFLOWS_BASE_URL",
+		"namespace": "ARGO_WORKFLOWS_NAMESPACE",
+		"token":     "ARGO_WORKFLOWS_TOKEN",
+		"ca_cert":   "ARGO_WORKFLOWS_CA_CERT",
+	},
 	"github": {
 		"token": "GITHUB_TOKEN",
 	},
@@ -273,6 +279,13 @@ var envMapping = map[string]map[string]string{
 		"base_url": "SOURCEBOT_BASE_URL",
 		"api_key":  "SOURCEBOT_API_KEY",
 	},
+	"openbao": {
+		"base_url":    "OPENBAO_BASE_URL",
+		"token":       "OPENBAO_TOKEN",
+		"mount":       "OPENBAO_MOUNT",
+		"path_prefix": "OPENBAO_PATH_PREFIX",
+		"ca_cert":     "OPENBAO_CA_CERT",
+	},
 	"microsoft365": {
 		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
 		"refresh_token": "MICROSOFT365_REFRESH_TOKEN",
@@ -349,6 +362,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"argoworkflows": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "namespace": "", "token": "", "ca_cert": ""},
+			},
 			"github": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
@@ -553,6 +570,10 @@ func defaultConfig() *mcp.Config {
 			"sourcebot": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "api_key": ""},
+			},
+			"openbao": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": "", "mount": "", "path_prefix": "", "ca_cert": ""},
 			},
 			"microsoft365": {
 				Enabled: false,
