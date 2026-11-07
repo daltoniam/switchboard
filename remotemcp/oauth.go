@@ -68,22 +68,70 @@ func pkceChallenge(verifier string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
+// discoverOAuth finds the authorization server for a remote MCP server. It
+// reads RFC 8414 metadata at the server origin first and falls back to RFC 9728
+// protected resource metadata for servers, such as Mobbin's, whose authorization
+// server is a separate issuer.
 func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
-	resp, err := http.Get(serverURL + "/.well-known/oauth-authorization-server")
+	var meta oauthServerMeta
+	originErr := getJSON(serverURL+"/.well-known/oauth-authorization-server", &meta)
+	if originErr == nil {
+		return &meta, nil
+	}
+
+	var resource struct {
+		Resource             string   `json:"resource"`
+		AuthorizationServers []string `json:"authorization_servers"`
+	}
+	if err := getJSON(serverURL+"/.well-known/oauth-protected-resource/mcp", &resource); err != nil {
+		return nil, originErr
+	}
+	if resource.Resource != "" && resource.Resource != serverURL+"/mcp" {
+		return nil, fmt.Errorf("protected resource metadata is for %q, not %q", resource.Resource, serverURL+"/mcp")
+	}
+	if len(resource.AuthorizationServers) == 0 {
+		return nil, fmt.Errorf("protected resource metadata lists no authorization servers")
+	}
+	issuer := strings.TrimRight(resource.AuthorizationServers[0], "/")
+	metadataURL, err := authorizationServerMetadataURL(issuer)
 	if err != nil {
-		return nil, fmt.Errorf("discover oauth: %w", err)
+		return nil, err
+	}
+	if err := getJSON(metadataURL, &meta); err != nil {
+		return nil, err
+	}
+	if meta.Issuer != issuer {
+		return nil, fmt.Errorf("authorization server metadata issuer %q does not match %q", meta.Issuer, issuer)
+	}
+	return &meta, nil
+}
+
+// authorizationServerMetadataURL inserts the RFC 8414 well-known segment
+// between the issuer's host and path.
+func authorizationServerMetadataURL(issuer string) (string, error) {
+	parsed, err := url.Parse(issuer)
+	if err != nil || parsed.Host == "" {
+		return "", fmt.Errorf("invalid authorization server issuer %q", issuer)
+	}
+	parsed.Path = "/.well-known/oauth-authorization-server" + strings.TrimRight(parsed.Path, "/")
+	parsed.RawPath = ""
+	return parsed.String(), nil
+}
+
+func getJSON(target string, v any) error {
+	resp, err := http.Get(target) // #nosec G107 -- URL from the configured server or its OAuth metadata
+	if err != nil {
+		return fmt.Errorf("discover oauth: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("oauth discovery returned %d", resp.StatusCode)
+		return fmt.Errorf("oauth discovery returned %d", resp.StatusCode)
 	}
-
-	var meta oauthServerMeta
-	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
-		return nil, fmt.Errorf("parse oauth metadata: %w", err)
+	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+		return fmt.Errorf("parse oauth metadata: %w", err)
 	}
-	return &meta, nil
+	return nil
 }
 
 func registerClient(registerURL, redirectURI string, clientNames ...string) (clientID, clientSecret string, err error) {

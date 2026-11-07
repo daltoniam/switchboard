@@ -372,3 +372,66 @@ func TestOAuth_HandleCallback_NoFlow(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no OAuth flow in progress")
 }
+
+// protectedResourceServer models a resource server such as Mobbin's that has
+// no origin authorization metadata and points to a separate issuer with a path
+// through RFC 9728 protected resource metadata.
+func protectedResourceServer(t *testing.T, issuerOverride string) *httptest.Server {
+	t.Helper()
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		issuer := srv.URL + "/auth/v1"
+		switch r.URL.Path {
+		case "/.well-known/oauth-protected-resource/mcp":
+			json.NewEncoder(w).Encode(map[string]any{
+				"resource":              srv.URL + "/mcp",
+				"authorization_servers": []string{issuer},
+			})
+		case "/.well-known/oauth-authorization-server/auth/v1":
+			reported := issuer
+			if issuerOverride != "" {
+				reported = issuerOverride
+			}
+			json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                 reported,
+				"authorization_endpoint": issuer + "/oauth/authorize",
+				"token_endpoint":         issuer + "/oauth/token",
+				"registration_endpoint":  issuer + "/oauth/clients/register",
+			})
+		default:
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("<html>not found</html>"))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestOAuth_DiscoverProtectedResourceMetadata(t *testing.T) {
+	srv := protectedResourceServer(t, "")
+
+	meta, err := discoverOAuth(srv.URL)
+	require.NoError(t, err)
+	assert.Equal(t, srv.URL+"/auth/v1", meta.Issuer)
+	assert.Equal(t, srv.URL+"/auth/v1/oauth/authorize", meta.AuthorizationEndpoint)
+	assert.Equal(t, srv.URL+"/auth/v1/oauth/token", meta.TokenEndpoint)
+	assert.Equal(t, srv.URL+"/auth/v1/oauth/clients/register", meta.RegistrationEndpoint)
+}
+
+func TestOAuth_DiscoverProtectedResourceRejectsIssuerMismatch(t *testing.T) {
+	srv := protectedResourceServer(t, "https://attacker.example/auth/v1")
+
+	_, err := discoverOAuth(srv.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "issuer")
+}
+
+func TestOAuth_DiscoverNoMetadata(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+
+	_, err := discoverOAuth(srv.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "oauth discovery returned 404")
+}
