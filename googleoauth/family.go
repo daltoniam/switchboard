@@ -72,6 +72,14 @@ const GroupName = "google-workspace"
 // covers every granted service and is fanned out to each service's config by
 // the caller.
 func StartGroup(clientID, clientSecret, redirectURI string, serviceNames []string) (*StartResult, error) {
+	return StartGroupForAccount(clientID, clientSecret, redirectURI, serviceNames, "", "")
+}
+
+// StartGroupForAccount is StartGroup for an additional named account. The
+// account and label are echoed by PollGroup so the callback can store the
+// token as a named identity instead of the default credentials. An empty
+// account starts the ordinary default-account flow.
+func StartGroupForAccount(clientID, clientSecret, redirectURI string, serviceNames []string, account, label string) (*StartResult, error) {
 	scopes := UnionScopes(serviceNames)
 	if len(scopes) == 0 {
 		return nil, errNoServices
@@ -82,6 +90,8 @@ func StartGroup(clientID, clientSecret, redirectURI string, serviceNames []strin
 		ClientSecret:    clientSecret,
 		RedirectURI:     redirectURI,
 		Scopes:          scopes,
+		Account:         account,
+		AccountLabel:    label,
 	})
 }
 
