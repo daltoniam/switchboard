@@ -123,8 +123,14 @@ func authorizationServerMetadataURL(issuer string) (string, error) {
 		return "", fmt.Errorf("authorization server issuer %q must use HTTPS", issuer)
 	}
 	const wellKnown = "/.well-known/oauth-authorization-server"
+	// Trim only literal slashes from the escaped path and derive the decoded
+	// path from it, so an encoded %2F stays part of the issuer.
 	escaped := strings.TrimRight(parsed.EscapedPath(), "/")
-	parsed.Path = wellKnown + strings.TrimRight(parsed.Path, "/")
+	decoded, err := url.PathUnescape(escaped)
+	if err != nil {
+		return "", fmt.Errorf("invalid authorization server issuer %q", issuer)
+	}
+	parsed.Path = wellKnown + decoded
 	parsed.RawPath = wellKnown + escaped
 	return parsed.String(), nil
 }
