@@ -486,3 +486,28 @@ func TestOAuth_DiscoverFallbackIgnoresPartialOriginMetadata(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, meta.RegistrationEndpoint, "fields from the failed origin response must not leak into the fallback")
 }
+
+func TestOAuth_AuthorizationServerMetadataURL(t *testing.T) {
+	for _, tc := range []struct {
+		name, issuer, want, err string
+	}{
+		{name: "path", issuer: "https://auth.example/auth/v1", want: "https://auth.example/.well-known/oauth-authorization-server/auth/v1"},
+		{name: "trailing slash", issuer: "https://auth.example/auth/v1/", want: "https://auth.example/.well-known/oauth-authorization-server/auth/v1"},
+		{name: "no path", issuer: "https://auth.example", want: "https://auth.example/.well-known/oauth-authorization-server"},
+		{name: "escaped separator", issuer: "https://auth.example/tenant%2Fwest", want: "https://auth.example/.well-known/oauth-authorization-server/tenant%2Fwest"},
+		{name: "loopback http", issuer: "http://127.0.0.1:8080/auth", want: "http://127.0.0.1:8080/.well-known/oauth-authorization-server/auth"},
+		{name: "remote http", issuer: "http://auth.example/auth/v1", err: "HTTPS"},
+		{name: "no host", issuer: "/auth/v1", err: "invalid"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := authorizationServerMetadataURL(tc.issuer)
+			if tc.err != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

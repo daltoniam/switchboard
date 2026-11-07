@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -111,15 +112,29 @@ func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
 }
 
 // authorizationServerMetadataURL inserts the RFC 8414 well-known segment
-// between the issuer's host and path.
+// between the issuer's host and path, keeping the path's escaping. Issuers
+// must use HTTPS, except on loopback for local development and tests.
 func authorizationServerMetadataURL(issuer string) (string, error) {
 	parsed, err := url.Parse(issuer)
 	if err != nil || parsed.Host == "" {
 		return "", fmt.Errorf("invalid authorization server issuer %q", issuer)
 	}
-	parsed.Path = "/.well-known/oauth-authorization-server" + strings.TrimRight(parsed.Path, "/")
-	parsed.RawPath = ""
+	if parsed.Scheme != "https" && (parsed.Scheme != "http" || !isLoopback(parsed.Hostname())) {
+		return "", fmt.Errorf("authorization server issuer %q must use HTTPS", issuer)
+	}
+	const wellKnown = "/.well-known/oauth-authorization-server"
+	escaped := strings.TrimRight(parsed.EscapedPath(), "/")
+	parsed.Path = wellKnown + strings.TrimRight(parsed.Path, "/")
+	parsed.RawPath = wellKnown + escaped
 	return parsed.String(), nil
+}
+
+func isLoopback(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func getJSON(target string, v any) error {
