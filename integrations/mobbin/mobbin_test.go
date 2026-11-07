@@ -19,7 +19,6 @@ import (
 type hostedCall struct {
 	name string
 	args map[string]any
-	auth string
 }
 
 // hostedMobbin is a fake of Mobbin's hosted MCP server at <url>/mcp. Each
