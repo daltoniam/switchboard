@@ -1513,7 +1513,7 @@ func TestGoogleAccountDelete_RemovesFromEveryService(t *testing.T) {
 			"other": {Credentials: mcp.Credentials{"access_token": "o"}},
 		}
 	}
-	req := httptest.NewRequest("POST", "/api/google/accounts/work/delete", nil)
+	req := localSlackRequest("POST", "/api/google/accounts/work/delete", "")
 	rr := httptest.NewRecorder()
 	ws.Handler().ServeHTTP(rr, req)
 	require.Equal(t, http.StatusSeeOther, rr.Code)
@@ -1544,7 +1544,7 @@ func TestGoogleAccountDelete_RejectsDefaultAndUnknown(t *testing.T) {
 			cfg.cfg.Integrations["gmail"].Identities = map[string]mcp.IntegrationIdentity{
 				"work": {Credentials: mcp.Credentials{"access_token": "w"}},
 			}
-			req := httptest.NewRequest("POST", "/api/google/accounts/"+tt.id+"/delete", nil)
+			req := localSlackRequest("POST", "/api/google/accounts/"+tt.id+"/delete", "")
 			rr := httptest.NewRecorder()
 			ws.Handler().ServeHTTP(rr, req)
 			require.Equal(t, http.StatusSeeOther, rr.Code)
@@ -1573,7 +1573,7 @@ func TestGoogleAccountDelete_DefaultPromotesNextAccount(t *testing.T) {
 	changed := 0
 	ws.onConfigChange = func() { changed++ }
 
-	req := httptest.NewRequest("POST", "/api/google/accounts/default/delete", nil)
+	req := localSlackRequest("POST", "/api/google/accounts/default/delete", "")
 	rr := httptest.NewRecorder()
 	ws.Handler().ServeHTTP(rr, req)
 	require.Equal(t, http.StatusSeeOther, rr.Code)
@@ -1615,7 +1615,7 @@ func TestGoogleAccountDelete_DefaultPromotesNextAccount(t *testing.T) {
 func TestGoogleAccountDelete_DefaultNeedsAnotherAccount(t *testing.T) {
 	ws, _, cfg := setupTestWeb()
 	seedGooglePrimary(cfg, "gmail")
-	req := httptest.NewRequest("POST", "/api/google/accounts/default/delete", nil)
+	req := localSlackRequest("POST", "/api/google/accounts/default/delete", "")
 	rr := httptest.NewRecorder()
 	ws.Handler().ServeHTTP(rr, req)
 	require.Equal(t, http.StatusSeeOther, rr.Code)
@@ -1623,4 +1623,46 @@ func TestGoogleAccountDelete_DefaultNeedsAnotherAccount(t *testing.T) {
 	ic, _ := cfg.GetIntegration("gmail")
 	assert.Equal(t, "primary-access", ic.Credentials["access_token"])
 	assert.True(t, ic.Enabled)
+}
+
+func TestGoogleAccountDelete_RejectsCrossSiteRequests(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		request func(path string) *http.Request
+	}{
+		{name: "cross-site named", id: "work", request: crossSiteRequest},
+		{name: "cross-site default", id: "default", request: crossSiteRequest},
+		{name: "rebound named", id: "work", request: reboundRequest},
+		{name: "rebound default", id: "default", request: reboundRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ws, _, cfg := setupTestWeb()
+			seedGooglePrimary(cfg, "gmail")
+			cfg.cfg.Integrations["gmail"].Identities = map[string]mcp.IntegrationIdentity{
+				"work": {Credentials: mcp.Credentials{"access_token": "w"}},
+			}
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, tt.request("/api/google/accounts/"+tt.id+"/delete"))
+			assert.Equal(t, http.StatusForbidden, rr.Code)
+
+			ic, _ := cfg.GetIntegration("gmail")
+			assert.Contains(t, ic.Identities, "work")
+			assert.Equal(t, "primary-access", ic.Credentials["access_token"])
+		})
+	}
+}
+
+func crossSiteRequest(path string) *http.Request {
+	r := localSlackRequest(http.MethodPost, path, "")
+	r.Header.Set("Origin", "https://evil.example")
+	r.Header.Set("Sec-Fetch-Site", "cross-site")
+	return r
+}
+
+func reboundRequest(path string) *http.Request {
+	r := httptest.NewRequest(http.MethodPost, "http://attacker.example"+path, nil)
+	r.RemoteAddr = "127.0.0.1:54321"
+	return r
 }

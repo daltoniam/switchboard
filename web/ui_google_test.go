@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -24,10 +25,17 @@ func TestUIGoogleAdditionalAccount(t *testing.T) {
 	googleoauth.SetTokenURLForTest(t, tokenSrv.URL)
 	googleoauth.Reset()
 
-	ws, reg, store := setupTestWeb()
+	_, reg, store := setupTestWeb()
 	reg.Register(&mockIntegration{name: "gmail", healthy: true})
 	seedGooglePrimary(store, "gmail")
-	app := httptest.NewServer(ws.Handler())
+	// The account delete handler only accepts same-origin requests to the
+	// server's own port, so serve on the port the WebServer is built with.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	ws := New(&mcp.Services{Config: store, Registry: reg}, listener.Addr().(*net.TCPAddr).Port, nil, nil)
+	app := httptest.NewUnstartedServer(ws.Handler())
+	app.Listener = listener
+	app.Start()
 	t.Cleanup(app.Close)
 
 	page := uiPage(t)

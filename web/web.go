@@ -4141,6 +4141,12 @@ func (w *WebServer) applyGoogleAccounts(ctx context.Context, name string, ic *mc
 // handleGoogleAccountDelete removes a named Google account from every Google
 // Workspace service. The default account cannot be removed here.
 func (w *WebServer) handleGoogleAccountDelete(rw http.ResponseWriter, r *http.Request) {
+	// The config UI has no login, so refuse cross-site and DNS-rebound
+	// requests before removing any account.
+	if !w.localRequest(r, true, true) {
+		http.Error(rw, "Local same-origin request required", http.StatusForbidden)
+		return
+	}
 	id := r.PathValue("id")
 	w.configMu.Lock()
 	defer w.configMu.Unlock()
