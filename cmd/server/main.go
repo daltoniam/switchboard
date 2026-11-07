@@ -25,6 +25,7 @@ import (
 	agentsInt "github.com/daltoniam/switchboard/integrations/agents"
 	"github.com/daltoniam/switchboard/integrations/airflow"
 	"github.com/daltoniam/switchboard/integrations/amazon"
+	"github.com/daltoniam/switchboard/integrations/argoworkflows"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/botidentity"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
@@ -331,6 +332,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		metabase.New(),
 		paperless.New(),
 		airflow.New(),
+		argoworkflows.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),
