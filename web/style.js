@@ -41,6 +41,14 @@ const logoSources = {
   ramp: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@519c5834ec021db50db5a0db16a510f5679ae887/svg/ramp.svg',
 };
 
+// Sourcebot publishes its "SB." mark only as PNG, so it is redrawn here as a
+// monochrome outline that follows the theme color like the Simple Icons logos.
+const drawnLogos = {
+  sourcebot: {
+    body: '<g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.6C8.3 6.6 7.2 6 5.6 6C3.6 6 2.3 7.1 2.3 8.7c0 3.6 6.9 2.3 6.9 6.2c0 1.8-1.4 3.1-3.6 3.1c-1.7 0-3-.7-3.7-1.9"/><path d="M12.5 6v12h3.9c2 0 3.3-1.2 3.3-3s-1.3-3-3.3-3h-3.9h3.5c1.7 0 2.8-1.1 2.8-3S17.7 6 16 6z"/></g><circle cx="22.2" cy="17.4" r="1.5" fill="currentColor"/>',
+  },
+};
+
 const colors = {
   canvas: 'var(--bg)',
   surface: 'var(--surface)',
@@ -271,7 +279,7 @@ function integrationLogo(directory) {
 
 function fallbackIntegrationLogo(directory, name) {
   const slug = simpleLogoAliases[directory] ?? directory;
-  const icon = simpleIcons.icons[slug];
+  const icon = simpleIcons.icons[slug] ?? drawnLogos[directory];
   if (icon) {
     const image = simpleLogoImage(icon);
     const rule = `.integration-icon[data-integration="${name}"]{--un-icon:${image};color:inherit}`;

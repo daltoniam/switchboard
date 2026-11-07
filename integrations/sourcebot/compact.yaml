@@ -1,0 +1,107 @@
+# Switchboard compaction specs for the sourcebot integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# sourcebot.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+    sourcebot_search_code:
+        spec:
+            - query
+            - matchCount
+            - totalMatchCount
+            - fileCount
+            - isSearchExhaustive
+            - files[].repository
+            - files[].fileName
+            - files[].language
+            - files[].webUrl
+            - files[].externalWebUrl
+            - files[].branches
+            - files[].matchCount
+            - files[].chunks
+    sourcebot_list_repos:
+        spec:
+            - repos[].repoName
+            - repos[].codeHostType
+            - repos[].defaultBranch
+            - repos[].pushedAt
+            - repos[].indexedAt
+            - repos[].isFork
+            - repos[].isArchived
+            - repos[].webUrl
+            - repos[].externalWebUrl
+            - totalCount
+            - page
+            - hasMore
+    sourcebot_read_file:
+        spec:
+            - repo
+            - path
+            - language
+            - webUrl
+            - externalWebUrl
+            - totalLines
+            - startLine
+            - endLine
+            - source
+    sourcebot_list_tree:
+        spec:
+            - repo
+            - ref
+            - path
+            - entries[].type
+            - entries[].path
+            - totalReturned
+            - truncated
+    sourcebot_list_commits:
+        spec:
+            - commits[].hash
+            - commits[].date
+            - commits[].authorName
+            - commits[].authorEmail
+            - commits[].message
+            - commits[].body
+            - commits[].refs
+            - totalCount
+            - page
+            - hasMore
+    sourcebot_find_references:
+        spec:
+            - symbol
+            - matchCount
+            - files[].repository
+            - files[].fileName
+            - files[].language
+            - files[].webUrl
+            - files[].matches
+    sourcebot_find_definitions:
+        spec:
+            - symbol
+            - matchCount
+            - files[].repository
+            - files[].fileName
+            - files[].language
+            - files[].webUrl
+            - files[].matches
+    sourcebot_list_language_models:
+        spec:
+            - models[].provider
+            - models[].model
+            - models[].displayName
+    sourcebot_ask_codebase:
+        spec:
+            - answer
+            - chatUrl
+            - languageModel.provider
+            - languageModel.model
