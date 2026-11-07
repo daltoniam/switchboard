@@ -379,6 +379,10 @@ Environment variables override credential values but do not change the durable e
 | Grist | `base_url` | `GRIST_HOST` (optional — default `https://docs.getgrist.com`; team sites `https://{team}.getgrist.com`; self-hosted origin) |
 | Okta | `api_token` | `OKTA_API_TOKEN` |
 | Okta | `org_url` | `OKTA_ORG_URL` (e.g. `https://your-org.okta.com`) |
+| [Keycloak](docs/keycloak-setup.md) | `base_url` | `KEYCLOAK_BASE_URL` (required HTTPS installation URL, including any deployment subpath) |
+| Keycloak | `realm` | `KEYCLOAK_REALM` (required target realm name) |
+| Keycloak | `client_id` | `KEYCLOAK_CLIENT_ID` (required read-only service-account client) |
+| Keycloak | `client_secret` | `KEYCLOAK_CLIENT_SECRET` (required confidential client secret) |
 | PagerDuty | `api_token` | `PAGERDUTY_API_TOKEN` (REST API user or account token) |
 | PagerDuty | `from_email` | `PAGERDUTY_FROM_EMAIL` (optional default From header for notes/ack/resolve) |
 | PagerDuty | `base_url` | `PAGERDUTY_BASE_URL` (optional — default `https://api.pagerduty.com`) |

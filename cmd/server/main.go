@@ -58,6 +58,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/imessage"
 	"github.com/daltoniam/switchboard/integrations/intercom"
 	"github.com/daltoniam/switchboard/integrations/jira"
+	"github.com/daltoniam/switchboard/integrations/keycloak"
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/launchdarkly"
 	"github.com/daltoniam/switchboard/integrations/likec4excalidraw"
@@ -371,6 +372,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		confluence.New(),
 		notionInt.New(),
 		okta.New(),
+		keycloak.New(),
 		ollama.New(),
 		pagerduty.New(),
 		launchdarkly.New(),

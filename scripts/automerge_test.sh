@@ -164,11 +164,17 @@ grep -o 'autofix:sha326:[0-9]*' "$log" | head -1 >"$work/marker326" || true
 [ -s "$work/marker326" ] || fail "fix request comment has no marker"
 printf '<!-- %s -->\n' "$(cat "$work/marker326")" >"$work/comments-326"
 run dry-run
-grep -qF -- '-f target=363' "$log" || fail "did not move on to the next fixable PR: $(cat "$log")"
-[ "$(calls 'target=326')" = 0 ] || fail "asked again for the same head and findings"
-ok "asks once per head and set of findings, then moves to the next PR"
+grep -qF -- '-f target=326' "$log" || fail "did not retry after one attempt (a run can die with the runner): $(cat "$log")"
+grep -q "attempt 2 of 2" "$log" || fail "retry comment does not say which attempt it is: $(cat "$log")"
+ok "retries a head and set of findings once, in case the first run was lost"
 
-printf '<!-- autofix:sha363:x -->\n' >"$work/comments-363"
+printf '<!-- %s -->\n<!-- %s -->\n' "$(cat "$work/marker326")" "$(cat "$work/marker326")" >"$work/comments-326"
+run dry-run
+grep -qF -- '-f target=363' "$log" || fail "did not move on to the next fixable PR: $(cat "$log")"
+[ "$(calls 'target=326')" = 0 ] || fail "asked a third time for the same head and findings"
+ok "stops after two attempts per head and set of findings, then moves to the next PR"
+
+printf '<!-- autofix:sha363:x -->\n<!-- autofix:sha363:x -->\n' >"$work/comments-363"
 next_facts 326 fix sha326 '["build is failure"]'
 run dry-run
 grep -qF -- '-f target=326' "$log" || fail "new findings on the same head were not sent: $(cat "$log")"

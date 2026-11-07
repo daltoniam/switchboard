@@ -9,8 +9,9 @@
 # AUTOFIX (on by default, "off" to disable): when a held PR is something the
 #   bot can fix (conflict with main, failed check, review findings), start
 #   the implementation job in shepherd mode for it. One PR per run, only
-#   while no implementation run is queued or running, and once per head and
-#   set of findings so a fix the job cannot make does not loop.
+#   while no implementation run is queued or running, and at most twice per
+#   head and set of findings: a run can be lost with its runner, but a fix
+#   the job cannot make must not loop.
 # MERGE_TOKEN, if set, is used only for the merge call so the merge commit
 # starts push workflows; GH_TOKEN is used for everything else.
 #
@@ -139,12 +140,16 @@ if [ "$autofix" = on ] && [ "${#fixable[@]}" -gt 0 ]; then
         status=1
         continue
       fi
-      if grep -qF -- "$marker" <<<"$bodies"; then
+      # Two attempts per head and set of findings: a run can be lost with
+      # its runner, but a fix the job cannot make must not loop.
+      attempts="$(grep -cF -- "$marker" <<<"$bodies" || true)"
+      if [ "$attempts" -ge 2 ]; then
         continue
       fi
+      attempt=$((attempts + 1))
       gh workflow run overload-implement.yml --repo "$repo" -f mode=shepherd -f target="$pr"
       gh pr comment "$pr" --repo "$repo" --body "$(printf '%s\n\n%s\n\n%s' \
-        "Auto-fix: started the implementation job to fix this PR at \`$sha\`." \
+        "Auto-fix: started the implementation job to fix this PR at \`$sha\` (attempt $attempt of 2)." \
         "$(jq -r '.[] | "- " + .' <<<"$reasons")" \
         "$marker")"
       echo "Auto-fix: sent the implementation job to #$pr at ${sha:0:7}" | tee -a "$summary"
