@@ -110,8 +110,13 @@ done
 if [ "$autofix" = on ] && [ "${#fixable[@]}" -gt 0 ]; then
   # The implementation job runs one pass at a time; a second dispatch would
   # only replace a queued one, so wait until it is idle.
-  busy="$(gh run list --workflow overload-implement.yml --repo "$repo" --limit 20 --json status \
-    --jq '[.[] | select(.status != "completed")] | length')"
+  # Ask for each active status directly; a long run can be older than any
+  # fixed window of recent runs.
+  busy=0
+  for state in in_progress queued waiting pending requested; do
+    count="$(gh run list --workflow overload-implement.yml --repo "$repo" --status "$state" --limit 1 --json databaseId --jq length)"
+    busy=$((busy + count))
+  done
   if [ "$busy" != 0 ]; then
     echo "Auto-fix: the implementation job is busy; fixable PRs wait for the next run" | tee -a "$summary"
   else

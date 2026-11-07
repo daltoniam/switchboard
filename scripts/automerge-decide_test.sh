@@ -184,6 +184,7 @@ check_next "a failed check named like a merge state still goes to the bot" '.che
 check_next "a failed check named like a conflict is not a conflict" '.check_runs += [{"name": "CONFLICTING", "app_id": 1, "conclusion": "failure"}] | .check_runs |= map(if .name == "test" then .conclusion = "in_progress" else . end)' wait
 check_next "a failed check named like a person reason still goes to the bot" '.check_runs += [{"name": "PR is a draft", "app_id": 1, "conclusion": "failure"}]' fix
 check_next "a failed check named like a waiting reason still goes to the bot" '.check_runs += [{"name": "waiting for deployment", "app_id": 1, "conclusion": "failure"}]' fix
+check_next "a check named like a scope reason cannot hide the scope reason" '.check_runs += [{"name": "ci is outside what an integration PR may change", "app_id": 1, "conclusion": "in_progress"}] | .files += [{"path": "waiting for ci", "additions": 1, "deletions": 0}] | .mergeable = "CONFLICTING" | .merge_state = "DIRTY"' person
 check_next "dependency change needs a person" '.files += [{"path": "go.mod", "additions": 3, "deletions": 0}]' person
 check_next "dependency change with a conflict still needs a person" '.files += [{"path": "go.mod", "additions": 3, "deletions": 0}] | .mergeable = "CONFLICTING" | .merge_state = "DIRTY"' person
 check_next "existing integration needs a person" '.base_integrations += ["keycloak"]' person

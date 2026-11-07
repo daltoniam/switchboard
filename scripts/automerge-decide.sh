@@ -210,8 +210,10 @@ jq '
             else ("\(.path) is outside what an integration PR may change" | person) end)
       end)
     ) | if type == "string" then fix else . end]
-  | unique_by(.text) as $tagged
-  | [$tagged[].text] as $reasons
+  # Kinds come from every reason before display text is deduplicated, so
+  # two reasons that happen to read the same cannot drop a kind.
+  | . as $tagged
+  | ([$tagged[].text] | unique) as $reasons
   # What should happen next with a held PR:
   #   person  a reason the bot must not work around (scope, existing
   #           integration, labels, fork, draft); a person decides

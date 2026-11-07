@@ -22,7 +22,10 @@ case "\$*" in
   *"issues/404/comments"*) exit 1 ;;
   "pr merge 409"*) exit 1 ;;
   "pr list"*) cat "$work/prs" ;;
-  "run list --workflow overload-implement.yml"*) cat "$work/impl-runs" 2>/dev/null || echo 0 ;;
+  "run list --workflow overload-implement.yml"*)
+    # Only an explicit status filter sees an old run that is still going.
+    case "\$*" in *"--status in_progress"*|*"--status queued"*|*"--status waiting"*|*"--status pending"*|*"--status requested"*) ;; *) echo 0; exit 0 ;; esac
+    case "\$*" in *"--status in_progress"*) cat "$work/impl-runs" 2>/dev/null || echo 0 ;; *) echo 0 ;; esac ;;
   *"repos/o/r/issues/"*"/comments"*)
     args="\$*"
     number="\${args#*repos/o/r/issues/}"
