@@ -112,23 +112,30 @@ jq '
     or test("^server/" + $name + "(_[a-z0-9_]+)?_test\\.go$")
     or test("^web/templates/pages/" + $name + "_setup(\\.templ|_templ\\.go)$"));
 
+  # Each reason carries the action it calls for, set where it is created so
+  # check names inside the text can never change the classification.
+  def person: {kind: "person", text: .};
+  def wait: {kind: "wait", text: .};
+  def conflict: {kind: "conflict", text: .};
+  def fix: {kind: "fix", text: .};
+
   def pending: . == null or . == "" or . == "pending" or . == "queued"
     or . == "in_progress" or . == "waiting" or . == "requested" or . == "expected";
   def passed: . == "success" or . == "neutral" or . == "skipped";
 
   . as $f
   | (($f.head_ref | capture("^feat/(?<name>[a-z0-9]+)-integration$").name) // null) as $name
-  | [
-      (if $f.state != "OPEN" then "PR is not open (\($f.state))" else empty end),
-      (if $f.draft then "PR is a draft" else empty end),
-      (if $f.cross_repository then "PR comes from a fork" else empty end),
-      (if $f.base_ref != "main" then "base branch is \($f.base_ref), not main" else empty end),
+  | [(
+      (if $f.state != "OPEN" then ("PR is not open (\($f.state))" | person) else empty end),
+      (if $f.draft then ("PR is a draft" | person) else empty end),
+      (if $f.cross_repository then ("PR comes from a fork" | person) else empty end),
+      (if $f.base_ref != "main" then ("base branch is \($f.base_ref), not main" | person) else empty end),
       (if ($f.labels | index("overload-automation")) == null
-        then "missing the overload-automation label" else empty end),
+        then ("missing the overload-automation label" | person) else empty end),
       (if ($f.labels | index("automation-hold")) != null
-        then "automation-hold label is set" else empty end),
+        then ("automation-hold label is set" | person) else empty end),
       (if $name == null
-        then "branch \($f.head_ref) is not feat/<name>-integration" else empty end),
+        then ("branch \($f.head_ref) is not feat/<name>-integration" | person) else empty end),
 
       # A requirement tied to an app only counts runs from that app; one with
       # no app also accepts a commit status of the same name.
@@ -136,7 +143,7 @@ jq '
         | $req.context as $check
         | ([$f.check_runs[] | select(.name == $check and ($req.app_id == null or .app_id == $req.app_id)) | .conclusion]
            + (if $req.app_id == null then [$f.statuses[] | select(.context == $check) | .state] else [] end)) as $results
-        | if ($results | length) == 0 or ($results | any(pending)) then "waiting for \($check)"
+        | if ($results | length) == 0 or ($results | any(pending)) then ("waiting for \($check)" | wait)
           elif ($results | all(passed)) then empty
           else "\($check) is \($results | map(select(passed | not)) | unique | join(", "))" end),
       # Checks outside the required list still must not be failing or running,
@@ -149,21 +156,27 @@ jq '
         | . as $r
         | select($f.required_checks | any(.context == $r.name
             and (if $r.status then .app_id == null else (.app_id == null or .app_id == $r.app_id) end)) | not)
-        | if (.result | pending) then "waiting for \(.name)"
+        | if (.result | pending) then ("waiting for \(.name)" | wait)
           elif (.result | passed) then empty
           else "\(.name) is \(.result)" end),
 
-      (if $f.files_truncated then "file list is incomplete (GitHub lists at most 3000 files)" else empty end),
+      (if $f.files_truncated then ("file list is incomplete (GitHub lists at most 3000 files)" | person) else empty end),
       (if $f.unresolved_threads > 0
         then "\($f.unresolved_threads) unresolved review threads" else empty end),
       (if $f.review_decision == "CHANGES_REQUESTED" then "a reviewer has changes requested" else empty end),
-      (if $f.mergeable != "MERGEABLE" then "not mergeable (\($f.mergeable))" else empty end),
+      (if $f.mergeable != "MERGEABLE" then ("not mergeable (\($f.mergeable))"
+        | if $f.mergeable == "CONFLICTING" then conflict elif $f.mergeable == "UNKNOWN" then wait else fix end) else empty end),
       (if ($f.merge_state | IN("CLEAN", "HAS_HOOKS") | not)
-        then "merge state is \($f.merge_state)" else empty end),
+        then ("merge state is \($f.merge_state)"
+          # BLOCKED only restates that requirements are unmet; it decides
+          # nothing unless it is the only reason.
+          | if $f.merge_state == "DIRTY" then conflict elif $f.merge_state == "UNKNOWN" then wait
+            elif $f.merge_state == "BLOCKED" then {kind: "blocked", text: .} else fix end)
+        else empty end),
 
       (if $name == null then empty else
         (if ($f.base_integrations | index($name)) != null
-          then "integration \($name) already exists on main; only new integrations auto-merge" else empty end),
+          then ("integration \($name) already exists on main; only new integrations auto-merge" | person) else empty end),
         (if ($f.files | any(.path | startswith("integrations/" + $name + "/")) | not)
           then "no files under integrations/\($name)/" else empty end),
         # The server must actually load the integration and offer its defaults.
@@ -194,12 +207,30 @@ jq '
               | if (.patch // "") == "" then "\($p) has no patch to review"
                 elif (.patch | shared_test_edit($name)) then empty
                 else "\($p) changes more than counts and \($name) entries" end
-            else "\(.path) is outside what an integration PR may change" end)
+            else ("\(.path) is outside what an integration PR may change" | person) end)
       end)
-    ]
-  | unique as $reasons
+    ) | if type == "string" then fix else . end]
+  # Kinds come from every reason before display text is deduplicated, so
+  # two reasons that happen to read the same cannot drop a kind.
+  | . as $tagged
+  | ([$tagged[].text] | unique) as $reasons
+  # What should happen next with a held PR:
+  #   person  a reason the bot must not work around (scope, existing
+  #           integration, labels, fork, draft); a person decides
+  #   fix     a conflict with main, which GitHub will not run checks on, or
+  #           only things the bot can fix (failed checks, review findings,
+  #           open threads, a missing live spec, registration shape)
+  #   wait    checks or the review are still running, or GitHub has not
+  #           worked out mergeability yet
+  | ([$tagged[].kind]) as $kinds
   | {
       decision: (if ($reasons | length) == 0 then "merge" else "hold" end),
+      next: (if ($reasons | length) == 0 then "merge"
+             elif ($kinds | index("person")) then "person"
+             elif ($kinds | index("conflict")) then "fix"
+             elif ($kinds | index("wait")) then "wait"
+             elif ($kinds | index("fix")) then "fix"
+             else "wait" end),
       integration: $name,
       reasons: $reasons
     }

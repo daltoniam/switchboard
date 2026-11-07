@@ -6,6 +6,11 @@
 #   dry-run   comment "would merge" once per head, never merge (default)
 #   merge     add release:skip, then squash-merge at the evaluated head
 #   disabled  do nothing
+# AUTOFIX (on by default, "off" to disable): when a held PR is something the
+#   bot can fix (conflict with main, failed check, review findings), start
+#   the implementation job in shepherd mode for it. One PR per run, only
+#   while no implementation run is queued or running, and once per head and
+#   set of findings so a fix the job cannot make does not loop.
 # MERGE_TOKEN, if set, is used only for the merge call so the merge commit
 # starts push workflows; GH_TOKEN is used for everything else.
 #
@@ -32,8 +37,15 @@ else
   prs="$(gh pr list --repo "$repo" --state open --label overload-automation --limit 1000 --json number --jq '.[].number')"
 fi
 
+autofix=${AUTOFIX:-on}
+
+# comments <pr>: every comment body, or failure. Read in full before
+# searching, so a lookup failure is never mistaken for "not there yet".
+comments() { gh api --paginate "repos/$repo/issues/$1/comments" --jq '.[].body'; }
+
 echo "## Auto-merge ($mode)" >>"$summary"
 status=0
+fixable=()
 for pr in $prs; do
   if ! facts="$(bash "$facts_cmd" "$pr")"; then
     echo "#$pr: could not read PR facts" | tee -a "$summary" >&2
@@ -46,8 +58,14 @@ for pr in $prs; do
   integration="$(jq -r '.integration // "unknown"' <<<"$result")"
 
   if [ "$decision" != merge ]; then
+    next="$(jq -r '.next // "wait"' <<<"$result")"
+    case "$next" in
+      person) label="needs a person" ;;
+      fix) label="needs fixes"; fixable+=("$pr|$sha|$(jq -c '.reasons' <<<"$result")") ;;
+      *) label="waiting" ;;
+    esac
     {
-      echo "#$pr ($integration) held at ${sha:0:7}:"
+      echo "#$pr ($integration) $label at ${sha:0:7}:"
       jq -r '.reasons[] | "- " + .' <<<"$result"
     } | tee -a "$summary"
     continue
@@ -55,9 +73,7 @@ for pr in $prs; do
 
   marker="<!-- automerge:$sha -->"
   if [ "$mode" = dry-run ]; then
-    # Read every comment before searching, so a lookup failure is never
-    # mistaken for "not noted yet" and turned into a duplicate comment.
-    if ! bodies="$(gh api --paginate "repos/$repo/issues/$pr/comments" --jq '.[].body')"; then
+    if ! bodies="$(comments "$pr")"; then
       echo "#$pr: could not read existing comments" | tee -a "$summary" >&2
       status=1
       continue
@@ -90,4 +106,40 @@ for pr in $prs; do
     status=1
   fi
 done
+
+if [ "$autofix" = on ] && [ "${#fixable[@]}" -gt 0 ]; then
+  # The implementation job runs one pass at a time; a second dispatch would
+  # only replace a queued one, so wait until it is idle.
+  # Ask for each active status directly; a long run can be older than any
+  # fixed window of recent runs.
+  busy=0
+  for state in in_progress queued waiting pending requested; do
+    count="$(gh run list --workflow overload-implement.yml --repo "$repo" --status "$state" --limit 1 --json databaseId --jq length)"
+    busy=$((busy + count))
+  done
+  if [ "$busy" != 0 ]; then
+    echo "Auto-fix: the implementation job is busy; fixable PRs wait for the next run" | tee -a "$summary"
+  else
+    for entry in "${fixable[@]}"; do
+      IFS='|' read -r pr sha reasons <<<"$entry"
+      key="$(printf '%s' "$reasons" | cksum | cut -d' ' -f1)"
+      marker="<!-- autofix:$sha:$key -->"
+      if ! bodies="$(comments "$pr")"; then
+        echo "#$pr: could not read existing comments" | tee -a "$summary" >&2
+        status=1
+        continue
+      fi
+      if grep -qF -- "$marker" <<<"$bodies"; then
+        continue
+      fi
+      gh workflow run overload-implement.yml --repo "$repo" -f mode=shepherd -f target="$pr"
+      gh pr comment "$pr" --repo "$repo" --body "$(printf '%s\n\n%s\n\n%s' \
+        "Auto-fix: started the implementation job to fix this PR at \`$sha\`." \
+        "$(jq -r '.[] | "- " + .' <<<"$reasons")" \
+        "$marker")"
+      echo "Auto-fix: sent the implementation job to #$pr at ${sha:0:7}" | tee -a "$summary"
+      break
+    done
+  fi
+fi
 exit "$status"
