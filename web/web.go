@@ -4030,6 +4030,8 @@ func (w *WebServer) validateGoogleAdditionalAccount(account string, services []s
 // identity result.Account on every granted service that already has a
 // default account. The default (top-level) credentials are left untouched.
 func (w *WebServer) saveGoogleAdditionalAccount(rw http.ResponseWriter, r *http.Request, result googleoauth.PollResult, granted []string) {
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
 	saved := 0
 	for _, name := range granted {
 		ic, ok := w.services.Config.GetIntegration(name)
@@ -4048,8 +4050,12 @@ func (w *WebServer) saveGoogleAdditionalAccount(rw http.ResponseWriter, r *http.
 			ic.Identities = map[string]mcp.IntegrationIdentity{}
 		}
 		ic.Identities[result.Account] = ident
-		_ = w.services.Config.SetIntegration(name, ic)
-		saved++
+		if w.applyGoogleAccounts(r.Context(), name, ic) {
+			saved++
+		}
+	}
+	if saved > 0 {
+		w.notifyConfigChanged()
 	}
 	if saved == 0 {
 		http.Redirect(rw, r, googleFlash("", "Google did not grant access to any service with a connected main account"), http.StatusSeeOther)
@@ -4058,10 +4064,24 @@ func (w *WebServer) saveGoogleAdditionalAccount(rw http.ResponseWriter, r *http.
 	http.Redirect(rw, r, googleFlash(fmt.Sprintf("Added Google account %s to %d service(s)", result.Account, saved), ""), http.StatusSeeOther)
 }
 
+// applyGoogleAccounts applies ic to the running adapter, so account changes
+// take effect without a restart, then saves it. A config the adapter rejects
+// is not saved and reports false.
+func (w *WebServer) applyGoogleAccounts(ctx context.Context, name string, ic *mcp.IntegrationConfig) bool {
+	if integration, ok := w.services.Registry.Get(name); ok && ic.Enabled {
+		if err := mcp.ConfigureIntegration(ctx, integration, ic); err != nil {
+			return false
+		}
+	}
+	return w.services.Config.SetIntegration(name, ic) == nil
+}
+
 // handleGoogleAccountDelete removes a named Google account from every Google
 // Workspace service. The default account cannot be removed here.
 func (w *WebServer) handleGoogleAccountDelete(rw http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
 	if id == googleoauth.DefaultAccountID || !validIdentityID(id) {
 		http.Redirect(rw, r, googleFlash("", "Unknown Google account"), http.StatusSeeOther)
 		return
@@ -4076,8 +4096,12 @@ func (w *WebServer) handleGoogleAccountDelete(rw http.ResponseWriter, r *http.Re
 			continue
 		}
 		delete(ic.Identities, id)
-		_ = w.services.Config.SetIntegration(def.Name, ic)
-		removed++
+		if w.applyGoogleAccounts(r.Context(), def.Name, ic) {
+			removed++
+		}
+	}
+	if removed > 0 {
+		w.notifyConfigChanged()
 	}
 	if removed == 0 {
 		http.Redirect(rw, r, googleFlash("", "Unknown Google account"), http.StatusSeeOther)

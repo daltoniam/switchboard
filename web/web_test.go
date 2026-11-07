@@ -1440,8 +1440,12 @@ func TestGoogleOAuthCallback_AdditionalAccountStoredAsIdentity(t *testing.T) {
 	googleoauth.SetTokenURLForTest(t, tokenSrv.URL)
 	googleoauth.Reset()
 
-	ws, _, cfg := setupTestWeb()
+	ws, reg, cfg := setupTestWeb()
 	seedGooglePrimary(cfg, "gmail", "gcal")
+	gmailLive := &multiIdentityWebMock{name: "gmail", healthy: true}
+	reg.Register(gmailLive)
+	changed := 0
+	ws.onConfigChange = func() { changed++ }
 	handler := ws.Handler()
 
 	resp := postGoogleStart(t, handler, `{"services":["gmail","gcal"],"account":"work","label":"Work mail"}`)
@@ -1466,6 +1470,11 @@ func TestGoogleOAuthCallback_AdditionalAccountStoredAsIdentity(t *testing.T) {
 	// Calendar scope was not granted, so the account is not added there.
 	gcalIC, _ := cfg.GetIntegration("gcal")
 	assert.NotContains(t, gcalIC.Identities, "work")
+
+	// The running adapter picks up the account without a restart.
+	require.Contains(t, gmailLive.lastIdentities, "work", "running adapter must be reconfigured")
+	assert.Equal(t, "primary-access", gmailLive.lastCreds["access_token"])
+	assert.Positive(t, changed, "search index must be refreshed")
 }
 
 func TestGoogleSetup_ListsAdditionalAccountsWithoutTokens(t *testing.T) {
@@ -1491,8 +1500,12 @@ func TestGoogleSetup_ListsAdditionalAccountsWithoutTokens(t *testing.T) {
 }
 
 func TestGoogleAccountDelete_RemovesFromEveryService(t *testing.T) {
-	ws, _, cfg := setupTestWeb()
+	ws, reg, cfg := setupTestWeb()
 	seedGooglePrimary(cfg, "gmail", "gcal")
+	gmailLive := &multiIdentityWebMock{name: "gmail", healthy: true, lastIdentities: map[string]mcp.IntegrationIdentity{"work": {}}}
+	reg.Register(gmailLive)
+	changed := 0
+	ws.onConfigChange = func() { changed++ }
 	for _, name := range []string{"gmail", "gcal"} {
 		cfg.cfg.Integrations[name].Identities = map[string]mcp.IntegrationIdentity{
 			"work":  {Credentials: mcp.Credentials{"access_token": "w"}},
@@ -1510,6 +1523,9 @@ func TestGoogleAccountDelete_RemovesFromEveryService(t *testing.T) {
 		assert.Contains(t, ic.Identities, "other")
 		assert.Equal(t, "primary-access", ic.Credentials["access_token"])
 	}
+	assert.NotContains(t, gmailLive.lastIdentities, "work", "running adapter must drop the account")
+	assert.Contains(t, gmailLive.lastIdentities, "other")
+	assert.Positive(t, changed, "search index must be refreshed")
 }
 
 func TestGoogleAccountDelete_RejectsDefaultAndUnknown(t *testing.T) {
