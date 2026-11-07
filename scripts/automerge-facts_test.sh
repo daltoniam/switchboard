@@ -27,7 +27,10 @@ case "$args" in
     [ "$calls" -ge 1 ] && [ -n "${HEAD_AFTER:-}" ] && head="$HEAD_AFTER"
     printf '{"number":7,"state":"OPEN","isDraft":false,"isCrossRepository":false,"headRefName":"feat/demo-integration","headRefOid":"%s","baseRefName":"%s","labels":[{"name":"overload-automation"}],"mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","reviewDecision":""}\n' "$head" "${BASE_REF:-main}" ;;
   *"rules/branches/release%231"*) echo '{"context":"build","app_id":15368}' ;;
-  *"branches/release%231/protection/required_status_checks"*) echo '[]' ;;
+  *"/protection/"*|*"/protection "*)
+    # The workflow token has no administration permission, like GITHUB_TOKEN.
+    echo "gh: Resource not accessible by integration (HTTP 403)" >&2; exit 1 ;;
+  *"repos/o/r/branches/release%231"*) echo '[]' ;;
   *"compare/release%231...sha7"*) echo 'base7' ;;
   *"release#1"*) echo "unencoded branch name in: $args" >&2; exit 1 ;;
   *"rules/branches/main"*)
@@ -35,9 +38,9 @@ case "$args" in
     case "$args" in *--paginate*) ;; *) echo "rules must be paginated: $args" >&2; exit 1 ;; esac
     echo '{"context":"build","app_id":15368}'
     echo '{"context":"overload","app_id":null}' ;;
-  *"branches/main/protection/required_status_checks"*)
-    if [ -n "${CLASSIC_404:-}" ]; then echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi
+  *"repos/o/r/branches/main"*)
     if [ -n "${CLASSIC_500:-}" ]; then echo "gh: Server Error (HTTP 500)" >&2; exit 1; fi
+    if [ -n "${CLASSIC_OFF:-}" ]; then echo '[]'; exit 0; fi
     echo '[{"context":"build","app_id":15368},{"context":"legacy-ci","app_id":null}]' ;;
   "api repos/o/r/pulls/7 "*|"api repos/o/r/pulls/7") echo "${CHANGED_FILES:-3}" ;;
   *"check-runs"*)
@@ -81,10 +84,11 @@ facts="$(gather)" || fail "facts script failed: $facts"
 [ "$(jq -c .required_checks <<<"$facts")" = '[{"context":"build","app_id":15368},{"context":"legacy-ci","app_id":null},{"context":"overload","app_id":null}]' ] ||
   fail "required checks from rulesets and classic protection: $(jq -c .required_checks <<<"$facts")"
 ok "combines ruleset and classic required checks, keeping their app"
-[ "$(CLASSIC_404=1 gather | jq -c .required_checks)" = '[{"context":"build","app_id":15368},{"context":"overload","app_id":null}]' ] || fail "classic protection absent"
+[ "$(CLASSIC_OFF=1 gather | jq -c .required_checks)" = '[{"context":"build","app_id":15368},{"context":"overload","app_id":null}]' ] || fail "classic protection absent"
 ok "treats missing classic protection as no extra checks"
-if CLASSIC_500=1 gather >/dev/null 2>&1; then fail "an unreadable classic protection must fail the facts"; fi
-ok "fails when classic protection cannot be read"
+if CLASSIC_500=1 gather >/dev/null 2>&1; then fail "an unreadable branch must fail the facts"; fi
+ok "fails when the branch cannot be read"
+ok "never calls admin-only branch protection endpoints"
 
 [ "$(jq .files_truncated <<<"$facts")" = false ] || fail "complete list reported truncated"
 [ "$(CHANGED_FILES=3001 gather | jq .files_truncated)" = true ] || fail "truncated file list not detected"
