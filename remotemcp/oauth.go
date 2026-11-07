@@ -83,14 +83,11 @@ func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
 		originErr = errMissingEndpoints
 	}
 
-	var resource struct {
-		Resource             string   `json:"resource"`
-		AuthorizationServers []string `json:"authorization_servers"`
-	}
-	if err := getJSON(serverURL+"/.well-known/oauth-protected-resource/mcp", &resource); err != nil {
+	resource, ok := protectedResource(serverURL)
+	if !ok {
 		return nil, originErr
 	}
-	if resource.Resource != "" && resource.Resource != serverURL+"/mcp" {
+	if resource.Resource != "" && resource.Resource != serverURL+"/mcp" && resource.Resource != serverURL {
 		return nil, fmt.Errorf("protected resource metadata is for %q, not %q", resource.Resource, serverURL+"/mcp")
 	}
 	if len(resource.AuthorizationServers) == 0 {
@@ -115,6 +112,23 @@ func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
 		return nil, errMissingEndpoints
 	}
 	return &meta, nil
+}
+
+type protectedResourceMeta struct {
+	Resource             string   `json:"resource"`
+	AuthorizationServers []string `json:"authorization_servers"`
+}
+
+// protectedResource reads RFC 9728 metadata for the /mcp endpoint, then at
+// the origin, which MCP servers may publish instead.
+func protectedResource(serverURL string) (protectedResourceMeta, bool) {
+	for _, path := range []string{"/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-protected-resource"} {
+		var resource protectedResourceMeta
+		if getJSON(serverURL+path, &resource) == nil {
+			return resource, true
+		}
+	}
+	return protectedResourceMeta{}, false
 }
 
 var errMissingEndpoints = fmt.Errorf("oauth metadata has no authorization or token endpoint")

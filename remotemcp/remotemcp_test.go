@@ -539,3 +539,31 @@ func TestOAuth_DiscoverFallsBackWhenOriginMetadataIsEmpty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, srv.URL+"/auth/v1/token", meta.TokenEndpoint)
 }
+
+func TestOAuth_DiscoverOriginProtectedResourceMetadata(t *testing.T) {
+	for _, resource := range []string{"", "/mcp"} {
+		t.Run("resource "+resource, func(t *testing.T) {
+			var srv *httptest.Server
+			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				issuer := srv.URL + "/auth/v1"
+				switch r.URL.Path {
+				case "/.well-known/oauth-protected-resource":
+					json.NewEncoder(w).Encode(map[string]any{"resource": srv.URL + resource, "authorization_servers": []string{issuer}})
+				case "/.well-known/oauth-authorization-server/auth/v1":
+					json.NewEncoder(w).Encode(map[string]any{
+						"issuer":                 issuer,
+						"authorization_endpoint": issuer + "/authorize",
+						"token_endpoint":         issuer + "/token",
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+
+			meta, err := discoverOAuth(srv.URL)
+			require.NoError(t, err)
+			assert.Equal(t, srv.URL+"/auth/v1/token", meta.TokenEndpoint)
+		})
+	}
+}
