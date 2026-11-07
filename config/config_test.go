@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 78)
-	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "metabase", "paperless", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus"} {
+	assert.Len(t, m.cfg.Integrations, 79)
+	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "metabase", "paperless", "obsidian", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 78)
+	assert.Len(t, cfg.Integrations, 79)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 78)
+	assert.Len(t, cfg.Integrations, 79)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,7 +273,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 78)
+	assert.Len(t, cfg.Integrations, 79)
 
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
@@ -289,6 +289,7 @@ func TestDefaultConfig(t *testing.T) {
 		"notion-mcp":       {"mcp_access_token", "base_url", "token_source"},
 		"metabase":         {"api_key", "url"},
 		"paperless":        {"token", "url"},
+		"obsidian":         {"api_key", "base_url", "ca_cert", "insecure_skip_tls_verify"},
 		"airflow":          {"base_url", "username", "password", "access_token"},
 		"recoll":           {"base_url"},
 		"imessage":         {"db_path", "contacts_dir", "allow_send", "send_allowlist"},
@@ -745,6 +746,10 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "KUBERNETES_ALLOW_MUTATIONS", m["kubernetes"]["allow_mutations"])
 	assert.Equal(t, "PAPERLESS_TOKEN", m["paperless"]["token"])
 	assert.Equal(t, "PAPERLESS_URL", m["paperless"]["url"])
+	assert.Equal(t, "OBSIDIAN_API_KEY", m["obsidian"]["api_key"])
+	assert.Equal(t, "OBSIDIAN_BASE_URL", m["obsidian"]["base_url"])
+	assert.Equal(t, "OBSIDIAN_CA_CERT", m["obsidian"]["ca_cert"])
+	assert.Equal(t, "OBSIDIAN_INSECURE_SKIP_TLS_VERIFY", m["obsidian"]["insecure_skip_tls_verify"])
 	assert.Equal(t, "AIRFLOW_BASE_URL", m["airflow"]["base_url"])
 	assert.Equal(t, "AIRFLOW_USERNAME", m["airflow"]["username"])
 	assert.Equal(t, "AIRFLOW_PASSWORD", m["airflow"]["password"])
@@ -760,7 +765,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_BASE_URL", m["likec4excalidraw"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
-	assert.Len(t, m, 67)
+	assert.Len(t, m, 68)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
