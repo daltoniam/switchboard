@@ -73,10 +73,10 @@ func pkceChallenge(verifier string) string {
 // protected resource metadata for servers, such as Mobbin's, whose authorization
 // server is a separate issuer.
 func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
-	var meta oauthServerMeta
-	originErr := getJSON(serverURL+"/.well-known/oauth-authorization-server", &meta)
+	var origin oauthServerMeta
+	originErr := getJSON(serverURL+"/.well-known/oauth-authorization-server", &origin)
 	if originErr == nil {
-		return &meta, nil
+		return &origin, nil
 	}
 
 	var resource struct {
@@ -92,11 +92,15 @@ func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
 	if len(resource.AuthorizationServers) == 0 {
 		return nil, fmt.Errorf("protected resource metadata lists no authorization servers")
 	}
-	issuer := strings.TrimRight(resource.AuthorizationServers[0], "/")
+	// The issuer is compared exactly, so a trailing slash is kept here and
+	// dropped only when building the metadata URL.
+	issuer := resource.AuthorizationServers[0]
 	metadataURL, err := authorizationServerMetadataURL(issuer)
 	if err != nil {
 		return nil, err
 	}
+	// A fresh struct, so nothing from a partly decoded origin response leaks in.
+	var meta oauthServerMeta
 	if err := getJSON(metadataURL, &meta); err != nil {
 		return nil, err
 	}
