@@ -55,7 +55,13 @@ func newHostedFixture(t *testing.T, results map[string]string, extra ...string) 
 			f.mu.Lock()
 			f.calls = append(f.calls, upstreamCall{name: req.Params.Name, args: args, auth: "Bearer " + fixtureToken})
 			f.mu.Unlock()
-			return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: text}}}, nil
+			// Like the hosted server: JSON in structuredContent, a
+			// human-readable summary in content.
+			var structured map[string]any
+			if err := json.Unmarshal([]byte(text), &structured); err != nil {
+				return nil, err
+			}
+			return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "Summary of " + name}}, StructuredContent: structured}, nil
 		})
 	}
 	handler := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true})

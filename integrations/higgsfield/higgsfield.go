@@ -6,7 +6,9 @@
 // with an OAuth access token. The hosted server exposes ~150 tools, many of
 // them chat-widget workflows; this adapter exposes a fixed allowlist with
 // hand-written descriptions, access classes, and compaction specs, and
-// refuses everything else before it reaches the network.
+// refuses everything else before it reaches the network. The hosted server
+// puts JSON in structuredContent and a prose summary in content, so results
+// are taken from structuredContent.
 package higgsfield
 
 import (
@@ -92,7 +94,7 @@ func (h *higgsfield) Configure(ctx context.Context, creds mcp.Credentials) error
 	if h.remote != nil && h.baseURL == baseURL {
 		return h.remote.Configure(ctx, credentials)
 	}
-	remote := remotemcp.New(integrationName, baseURL)
+	remote := remotemcp.NewStructured(integrationName, baseURL)
 	if err := remote.Configure(ctx, credentials); err != nil {
 		return fmt.Errorf("higgsfield: configure remote: %w", errors.Join(err, closeRemote(remote)))
 	}
