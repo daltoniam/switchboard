@@ -15,9 +15,12 @@ run picks up where this one stopped.
 - `MODE=auto`: shepherd if an automation PR needs work, otherwise implement.
 
 An automation PR needs work when a check failed, a review thread is
-unresolved, or the `overload` commit status on its head is not `success`
-(missing, `pending`, `failure` or `error`). A PR that is green (checks
-passed, `overload` is `success`, no unresolved threads) is waiting to be
+unresolved, the `overload` commit status on its head is not `success`
+(missing, `pending`, `failure` or `error`), or it conflicts with `main`
+(`gh pr view --json mergeable` is `CONFLICTING`; merge `origin/main` into
+it as the hard rules describe). A PR that is green (checks
+passed, `overload` is `success`, no unresolved threads, no conflicts) is
+waiting to be
 merged by the auto-merge workflow or a person: leave it alone, and in `auto`
 mode implement instead. Auto-merge only takes new integrations that change
 nothing outside their own files, the registration lines in

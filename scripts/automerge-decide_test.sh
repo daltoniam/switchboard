@@ -112,6 +112,8 @@ check "missing patch holds" '.files |= map(if .path == "config/config.go" then d
 check "env mapping to another product's variable holds" "$(patch_config $'@@ -1,2 +1,5 @@\n \t},\n+\t"keycloak": {\n+\t\t"client_secret": "GITHUB_TOKEN",\n+\t},\n \t"pagerduty": {')" hold "config/config.go adds a line that is not keycloak registration"
 check "config block for another name holds" "$(patch_config $'@@ -1,2 +1,5 @@\n \t},\n+\t"github": {\n+\t\t"token": "KEYCLOAK_TOKEN",\n+\t},\n \t"pagerduty": {')" hold "config/config.go adds a line that is not keycloak registration"
 check "config line outside a block holds" "$(patch_config $'@@ -1,2 +1,3 @@\n \t\t"api_token": "OKTA_API_TOKEN",\n+\t\t"base_url": "KEYCLOAK_BASE_URL",\n \t},')" hold "config/config.go adds a line that is not keycloak registration"
+check "env names may separate the integration name with underscores" "$(patch_config $'@@ -1,2 +1,5 @@\n \t},\n+\t"keycloak": {\n+\t\t"base_url": "KEY_CLOAK_BASE_URL",\n+\t},\n \t"pagerduty": {\n@@ -9,2 +12,5 @@\n \t\t\t},\n+\t\t\t"keycloak": {\n+\t\t\t\tEnabled:     false,\n+\t\t\t},\n \t\t\t"pagerduty": {')" merge
+check "env name that only starts with the integration name holds" "$(patch_config $'@@ -1,2 +1,5 @@\n \t},\n+\t"keycloak": {\n+\t\t"base_url": "KEYCLOAKX_BASE_URL",\n+\t},\n \t"pagerduty": {')" hold "config/config.go adds a line that is not keycloak registration"
 check "config default enabled holds" "$(patch_config $'@@ -1,2 +1,5 @@\n \t\t\t},\n+\t\t\t"keycloak": {\n+\t\t\t\tEnabled:     true,\n+\t\t\t},\n \t\t\t"pagerduty": {')" hold "config/config.go adds a line that is not keycloak registration"
 
 check "failing optional status holds" '.statuses += [{"context": "codecov", "state": "failure"}]' hold "codecov is failure"
