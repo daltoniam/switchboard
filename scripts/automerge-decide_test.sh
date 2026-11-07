@@ -162,4 +162,29 @@ check "missing default config holds" '.files |= map(select(.path != "config/conf
 check "missing shared test patch holds" '.files |= map(if .path == "web/tests/unit/ui.test.ts" then del(.patch) else . end)' hold "web/tests/unit/ui.test.ts has no patch to review"
 check "lookalike integration name holds" '.files += [{"path": "integrations/keycloak2/x.go", "additions": 1, "deletions": 0}]' hold "integrations/keycloak2/x.go"
 
+# next tells the runner what to do with a held PR: wait for running checks,
+# send the bot to fix it, or leave it for a person.
+check_next() {
+  local description=$1 edit=$2 want=$3 got
+  got="$(jq "$edit" <<<"$ready" | bash "$DECIDE" | jq -r .next)"
+  [ "$got" = "$want" ] || fail "$description: next $got, want $want"
+  ok "$description"
+}
+check_next "ready PR is next to merge" '.' merge
+check_next "running check waits" '.check_runs |= map(if .name == "test" then .conclusion = "in_progress" else . end)' wait
+check_next "pending overload waits" '.statuses = [{"context": "overload", "state": "pending"}]' wait
+check_next "unknown mergeability waits" '.mergeable = "UNKNOWN" | .merge_state = "UNKNOWN"' wait
+check_next "failed check goes to the bot" '.check_runs |= map(if .name == "build" then .conclusion = "failure" else . end)' fix
+check_next "overload changes requested goes to the bot" '.statuses = [{"context": "overload", "state": "failure"}]' fix
+check_next "open review threads go to the bot" '.unresolved_threads = 1' fix
+check_next "missing live spec goes to the bot" '.files |= map(select(.path != "web/live_keycloak_test.go"))' fix
+check_next "conflict goes to the bot even while checks are missing" '.mergeable = "CONFLICTING" | .merge_state = "DIRTY" | .check_runs |= map(select(.name != "live-integration"))' fix
+check_next "failure and a running check still waits" '.check_runs |= map(if .name == "build" then .conclusion = "failure" elif .name == "test" then .conclusion = "in_progress" else . end)' wait
+check_next "dependency change needs a person" '.files += [{"path": "go.mod", "additions": 3, "deletions": 0}]' person
+check_next "dependency change with a conflict still needs a person" '.files += [{"path": "go.mod", "additions": 3, "deletions": 0}] | .mergeable = "CONFLICTING" | .merge_state = "DIRTY"' person
+check_next "existing integration needs a person" '.base_integrations += ["keycloak"]' person
+check_next "kill switch needs a person" '.labels += ["automation-hold"]' person
+check_next "draft needs a person" '.draft = true' person
+check_next "fork needs a person" '.cross_repository = true' person
+
 echo "PASS: automerge decide" >&2

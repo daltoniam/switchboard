@@ -40,13 +40,27 @@ Switch modes with `gh variable set AUTOMERGE_MODE --body merge` (or `dry-run`, `
 
 The workflow runs when CI, Live Integration, or Crush review finish, when overload posts its status, every 30 minutes, and by hand (`gh workflow run automerge.yml -f pr=<n>`). Its scripts always come from `main`, never from the PR being evaluated.
 
+## Auto-fix
+
+A held PR falls into one of three groups, reported as `next` by the decision script and shown in each run's summary:
+
+| `next` | When | What happens |
+|---|---|---|
+| `wait` | Checks or the overload review are still running, or GitHub has not computed mergeability | Nothing; a later event re-evaluates it |
+| `fix` | A conflict with `main` (GitHub runs no checks on a conflicting PR), or only things the bot can fix: a failed check, overload changes requested, open review threads, a missing live spec, registration or shared-test edits that drifted | The workflow starts the implementation job with `mode=shepherd` and `target=<pr>` and lists the findings in a PR comment |
+| `person` | Scope the bot must not work around (new dependency, files outside the lane, an existing integration), `automation-hold`, a draft, a fork | Nothing; a person decides |
+
+Auto-fix starts at most one job per run and only while no implementation run is queued or running (a second dispatch would replace the queued one). It asks once per head commit and set of findings, so a fix the job cannot make does not loop; a new push or new findings ask again. Set the repository variable `AUTOFIX` to `off` to stop it; `AUTOMERGE_MODE=disabled` stops both.
+
+The loop this closes: the bot pushes, CI, Live Integration and overload run, the workflow re-evaluates, and the PR either merges or goes back to the bot with the findings. A merge raises integration counts on `main`, which makes the other bot PRs conflict; the next evaluation sends the bot to merge `main` into them one at a time.
+
 ## Releases
 
 Bot merges carry `release:skip`, which `auto-release.yml` honors. `weekly-release.yml` tags `main` on Mondays at 15:00 UTC when anything landed since the last tag, and `release.yml` publishes it. Merges by people still release immediately. Both jobs compute the tag with `scripts/calver-next.sh`.
 
 ## Tests
 
-`make test` runs `scripts/automerge-decide_test.sh` (every gate), `scripts/automerge-facts_test.sh` (API pagination, rename sources), `scripts/automerge_test.sh` (dry run never merges, comments once per head, merge mode labels before merging at the evaluated head), and `scripts/release-tags_test.sh`.
+`make test` runs `scripts/automerge-decide_test.sh` (every gate and the `next` classification), `scripts/automerge-facts_test.sh` (API pagination, rename sources), `scripts/automerge_test.sh` (dry run never merges, comments once per head, merge mode labels before merging at the evaluated head, auto-fix dispatch rules), and `scripts/release-tags_test.sh`.
 
 To see what the gate thinks of a real PR without changing anything:
 

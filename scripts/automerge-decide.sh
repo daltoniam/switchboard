@@ -198,8 +198,24 @@ jq '
       end)
     ]
   | unique as $reasons
-  | {
+  # What should happen next with a held PR:
+  #   person  a reason the bot must not work around (scope, existing
+  #           integration, labels, fork, draft); a person decides
+  #   fix     a conflict with main, which GitHub will not run checks on, or
+  #           only things the bot can fix (failed checks, review findings,
+  #           open threads, a missing live spec, registration shape)
+  #   wait    checks or the review are still running, or GitHub has not
+  #           worked out mergeability yet
+  | def person_reason: test("outside what an integration PR may change|already exists on main|is not feat/<name>-integration|missing the overload-automation label|automation-hold label|comes from a fork|is a draft|^base branch is|^PR is not open|file list is incomplete");
+    def conflict_reason: test("CONFLICTING|merge state is DIRTY");
+    def wait_reason: test("^waiting for |UNKNOWN|merge state is BLOCKED");
+  {
       decision: (if ($reasons | length) == 0 then "merge" else "hold" end),
+      next: (if ($reasons | length) == 0 then "merge"
+             elif ($reasons | any(person_reason)) then "person"
+             elif ($reasons | any(conflict_reason)) then "fix"
+             elif ($reasons | all(wait_reason)) or ($reasons | any(test("^waiting for "))) then "wait"
+             else "fix" end),
       integration: $name,
       reasons: $reasons
     }

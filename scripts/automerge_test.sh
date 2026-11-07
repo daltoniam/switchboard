@@ -22,6 +22,7 @@ case "\$*" in
   *"issues/404/comments"*) exit 1 ;;
   "pr merge 409"*) exit 1 ;;
   "pr list"*) cat "$work/prs" ;;
+  "run list --workflow overload-implement.yml"*) cat "$work/impl-runs" 2>/dev/null || echo 0 ;;
   *"repos/o/r/issues/"*"/comments"*)
     args="\$*"
     number="\${args#*repos/o/r/issues/}"
@@ -38,16 +39,18 @@ cat "$work/facts/\$1.json"
 EOF
 cat >"$work/decide.sh" <<'EOF'
 #!/usr/bin/env bash
-jq '{decision: .want, integration: "keycloak", reasons: (.why // [])}'
+jq '{decision: (if .want == "merge" then "merge" else "hold" end), next: (.next // .want), integration: "keycloak", reasons: (.why // [])}'
 EOF
 
 facts() { printf '{"want":"%s","head_sha":"%s","why":%s,"labels":%s}\n' "$2" "$3" "${4:-[]}" "${5:-[]}" >"$work/facts/$1.json"; }
+# next_facts <pr> <next> <sha> <reasons-json>: a held PR with an explicit next step.
+next_facts() { printf '{"want":"hold","next":"%s","head_sha":"%s","why":%s,"labels":[]}\n' "$2" "$3" "$4" >"$work/facts/$1.json"; }
 
 run() {
   : >"$log"
   PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r GH_TOKEN=read-token MERGE_TOKEN=merge-token \
     AUTOMERGE_FACTS="$work/facts.sh" AUTOMERGE_DECIDE="$work/decide.sh" \
-    AUTOMERGE_MODE="$1" bash "$ROOT/scripts/automerge.sh" >"$work/out" 2>&1 ||
+    AUTOMERGE_MODE="$1" AUTOFIX="${AUTOFIX:-on}" bash "$ROOT/scripts/automerge.sh" >"$work/out" 2>&1 ||
     fail "automerge.sh exited $? in $1 mode: $(cat "$work/out")"
 }
 
@@ -116,8 +119,58 @@ PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r GH_TOKEN=read-token AUTOMERGE_FACTS
 [ "$(calls 'add-label')" = 0 ] || fail "re-added a label that was already there"
 ok "a failed merge keeps a release:skip label that was already there"
 
+# --- Auto-fix: send the implementation job to PRs it can fix ---
+rm -f "$work"/comments-*
+printf '326\n346\n363\n' >"$work/prs"
+next_facts 326 fix sha326 '["not mergeable (CONFLICTING)", "merge state is DIRTY"]'
+next_facts 346 person sha346 '["go.mod is outside what an integration PR may change"]'
+next_facts 363 fix sha363 '["overload is failure"]'
+echo 0 >"$work/impl-runs"
+
+run dry-run
+[ "$(calls 'workflow run overload-implement.yml')" = 1 ] || fail "expected one fix dispatch: $(cat "$log")"
+grep -qF 'gh workflow run overload-implement.yml --repo o/r -f mode=shepherd -f target=326' "$log" ||
+  fail "did not send the job to the first fixable PR: $(cat "$log")"
+grep -qF 'pr comment 326' "$log" || fail "did not record the fix request on the PR"
+[ "$(calls 'pr comment 346')" = 0 ] || fail "commented on a PR that needs a person"
+grep -q "#346 (keycloak) needs a person" "$work/out" || fail "person hold was not reported: $(cat "$work/out")"
+ok "sends the implementation job to one fixable PR per run, never to a person's PR"
+
+grep -o 'autofix:sha326:[0-9]*' "$log" | head -1 >"$work/marker326" || true
+[ -s "$work/marker326" ] || fail "fix request comment has no marker"
+printf '<!-- %s -->\n' "$(cat "$work/marker326")" >"$work/comments-326"
+run dry-run
+grep -qF -- '-f target=363' "$log" || fail "did not move on to the next fixable PR: $(cat "$log")"
+[ "$(calls 'target=326')" = 0 ] || fail "asked again for the same head and findings"
+ok "asks once per head and set of findings, then moves to the next PR"
+
+printf '<!-- autofix:sha363:x -->\n' >"$work/comments-363"
+next_facts 326 fix sha326 '["build is failure"]'
+run dry-run
+grep -qF -- '-f target=326' "$log" || fail "new findings on the same head were not sent: $(cat "$log")"
+ok "asks again when the findings on a head change"
+
+echo 1 >"$work/impl-runs"
+rm -f "$work"/comments-*
+run dry-run
+[ "$(calls 'workflow run')" = 0 ] || fail "dispatched while the implementation job was busy"
+grep -q "implementation job is busy" "$work/out" || fail "busy job was not reported"
+ok "waits while an implementation run is queued or running"
+
+echo 0 >"$work/impl-runs"
+AUTOFIX=off run dry-run
+[ "$(calls 'workflow run')" = 0 ] || fail "dispatched with AUTOFIX=off"
+ok "AUTOFIX=off turns auto-fix off"
+
+next_facts 326 wait sha326 '["waiting for test"]'
+next_facts 363 wait sha363 '["waiting for overload"]'
+run dry-run
+[ "$(calls 'workflow run')" = 0 ] || fail "dispatched for PRs that are only waiting"
+ok "does not send the job to PRs that are only waiting"
+
 run disabled
 [ "$(calls 'pr ')" = 0 ] || fail "disabled mode touched PRs: $(cat "$log")"
+[ "$(calls 'workflow run')" = 0 ] || fail "disabled mode dispatched"
 ok "disabled mode does nothing"
 
 : >"$log"

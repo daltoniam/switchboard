@@ -1,7 +1,8 @@
 name: Auto-merge
 
 # Merges bot integration PRs once every gate in scripts/automerge-decide.sh
-# passes on the PR's current head. The repository variable AUTOMERGE_MODE
+# passes on the PR's current head, and sends the implementation job to fix
+# PRs that are held for something it can fix. The repository variable AUTOMERGE_MODE
 # selects dry-run (default: comment "would merge" once per head), merge, or
 # disabled. Add the automation-hold label to keep a PR out.
 on:
@@ -26,6 +27,9 @@ permissions:
   issues: write
   checks: read
   statuses: read
+  # Auto-fix starts the implementation job (workflow_dispatch) and checks
+  # whether it is already running.
+  actions: write
 
 concurrency:
   group: automerge
@@ -50,6 +54,7 @@ jobs:
           # workflows. It must not be able to bypass the main ruleset.
           MERGE_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           AUTOMERGE_MODE: ${{ vars.AUTOMERGE_MODE || 'dry-run' }}
+          AUTOFIX: ${{ vars.AUTOFIX || 'on' }}
           PR: ${{ inputs.pr }}
         run: |
           [[ "$PR" =~ ^[0-9]*$ ]] || { echo "pr must be a number"; exit 1; }
