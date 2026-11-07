@@ -173,7 +173,9 @@ that already has a default account:
   lists account IDs and labels — never tokens. Omitting `account` uses the
   default account, so single-account configs and prompts are unchanged.
 - Refreshed tokens for a named account are written back to that identity.
-- Remove an account from every service with its **Remove** button.
+- Remove an account from every service with its **Remove** button. Removing
+  the `default` account promotes the first other account (by ID) to default;
+  a service with no other account is disconnected. The OAuth client is kept.
 
 ## Troubleshooting
 

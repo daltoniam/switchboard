@@ -152,6 +152,15 @@ templ GoogleSetup(page layouts.PageData, data GoogleSetupData) {
 				</p>
 				if len(data.Accounts) > 0 {
 					<div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+						<div data-google-account="default" style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+							<div>
+								<strong>default</strong>
+								<span style="color: var(--text-muted);">· the account you signed in with first</span>
+							</div>
+							<form method="POST" action="/api/google/accounts/default/delete" onsubmit="return confirm('Remove the default Google account? The first other account becomes the default.');">
+								<button type="submit" class="btn btn-sm btn-outline identity-delete">Remove</button>
+							</form>
+						</div>
 						for _, acct := range data.Accounts {
 							<div data-google-account={ acct.ID } style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
 								<div>

@@ -4064,6 +4064,68 @@ func (w *WebServer) saveGoogleAdditionalAccount(rw http.ResponseWriter, r *http.
 	http.Redirect(rw, r, googleFlash(fmt.Sprintf("Added Google account %s to %d service(s)", result.Account, saved), ""), http.StatusSeeOther)
 }
 
+// removeGoogleDefaultAccount removes the default (top-level) Google account
+// and promotes a named account in its place. The promoted account is the
+// first named account by ID; a service without it promotes its own first
+// named account, and a service with no named account is disconnected. The
+// OAuth client is kept. Callers hold configMu.
+func (w *WebServer) removeGoogleDefaultAccount(rw http.ResponseWriter, r *http.Request) {
+	svcDefs := googleoauth.Services()
+	promoted := ""
+	for _, def := range svcDefs {
+		ic, ok := w.services.Config.GetIntegration(def.Name)
+		if !ok || ic == nil {
+			continue
+		}
+		for id := range ic.Identities {
+			if promoted == "" || id < promoted {
+				promoted = id
+			}
+		}
+	}
+	if promoted == "" {
+		http.Redirect(rw, r, googleFlash("", "Add another Google account before removing the default one"), http.StatusSeeOther)
+		return
+	}
+
+	changed := 0
+	for _, def := range svcDefs {
+		ic, ok := w.services.Config.GetIntegration(def.Name)
+		if !ok || ic == nil || ic.Credentials["access_token"] == "" {
+			continue
+		}
+		next := promoted
+		if _, has := ic.Identities[next]; !has {
+			next = ""
+			for id := range ic.Identities {
+				if next == "" || id < next {
+					next = id
+				}
+			}
+		}
+		for _, key := range []string{"access_token", "refresh_token", "scope"} {
+			delete(ic.Credentials, key)
+		}
+		if next == "" {
+			ic.Enabled = false
+		} else {
+			for _, key := range []string{"access_token", "refresh_token"} {
+				if v := ic.Identities[next].Credentials[key]; v != "" {
+					ic.Credentials[key] = v
+				}
+			}
+			delete(ic.Identities, next)
+		}
+		if w.applyGoogleAccounts(r.Context(), def.Name, ic) {
+			changed++
+		}
+	}
+	if changed > 0 {
+		w.notifyConfigChanged()
+	}
+	http.Redirect(rw, r, googleFlash(fmt.Sprintf("Removed the default Google account; %s is now the default", promoted), ""), http.StatusSeeOther)
+}
+
 // applyGoogleAccounts applies ic to the running adapter, so account changes
 // take effect without a restart, then saves it. A config the adapter rejects
 // is not saved and reports false.
@@ -4082,7 +4144,11 @@ func (w *WebServer) handleGoogleAccountDelete(rw http.ResponseWriter, r *http.Re
 	id := r.PathValue("id")
 	w.configMu.Lock()
 	defer w.configMu.Unlock()
-	if id == googleoauth.DefaultAccountID || !validIdentityID(id) {
+	if id == googleoauth.DefaultAccountID {
+		w.removeGoogleDefaultAccount(rw, r)
+		return
+	}
+	if !validIdentityID(id) {
 		http.Redirect(rw, r, googleFlash("", "Unknown Google account"), http.StatusSeeOther)
 		return
 	}

@@ -267,7 +267,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				if len(data.Accounts) > 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div style=\"display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div style=\"display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;\"><div data-google-account=\"default\" style=\"display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;\"><div><strong>default</strong> <span style=\"color: var(--text-muted);\">· the account you signed in with first</span></div><form method=\"POST\" action=\"/api/google/accounts/default/delete\" onsubmit=\"return confirm('Remove the default Google account? The first other account becomes the default.');\"><button type=\"submit\" class=\"btn btn-sm btn-outline identity-delete\">Remove</button></form></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -279,7 +279,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 						var templ_7745c5c3_Var8 string
 						templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(acct.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 156, Col: 41}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 165, Col: 41}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 						if templ_7745c5c3_Err != nil {
@@ -292,7 +292,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 						var templ_7745c5c3_Var9 string
 						templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(acct.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 158, Col: 26}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 167, Col: 26}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 						if templ_7745c5c3_Err != nil {
@@ -310,7 +310,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 							var templ_7745c5c3_Var10 string
 							templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(acct.Label)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 160, Col: 65}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 169, Col: 65}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 							if templ_7745c5c3_Err != nil {
@@ -328,7 +328,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 						var templ_7745c5c3_Var11 string
 						templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(acct.Services, ", "))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 162, Col: 102}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 171, Col: 102}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 						if templ_7745c5c3_Err != nil {
@@ -341,7 +341,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 						var templ_7745c5c3_Var12 templ.SafeURL
 						templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/api/google/accounts/" + url.PathEscape(acct.ID) + "/delete"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 164, Col: 113}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 173, Col: 113}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 						if templ_7745c5c3_Err != nil {
