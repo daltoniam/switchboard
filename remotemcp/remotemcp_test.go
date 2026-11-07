@@ -512,3 +512,30 @@ func TestOAuth_AuthorizationServerMetadataURL(t *testing.T) {
 		})
 	}
 }
+
+func TestOAuth_DiscoverFallsBackWhenOriginMetadataIsEmpty(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		issuer := srv.URL + "/auth/v1"
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			// A catch-all route answering 200 with no OAuth endpoints.
+			_, _ = w.Write([]byte(`{}`))
+		case "/.well-known/oauth-protected-resource/mcp":
+			json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{issuer}})
+		case "/.well-known/oauth-authorization-server/auth/v1":
+			json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                 issuer,
+				"authorization_endpoint": issuer + "/authorize",
+				"token_endpoint":         issuer + "/token",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	meta, err := discoverOAuth(srv.URL)
+	require.NoError(t, err)
+	assert.Equal(t, srv.URL+"/auth/v1/token", meta.TokenEndpoint)
+}

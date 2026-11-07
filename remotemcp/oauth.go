@@ -77,7 +77,10 @@ func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
 	var origin oauthServerMeta
 	originErr := getJSON(serverURL+"/.well-known/oauth-authorization-server", &origin)
 	if originErr == nil {
-		return &origin, nil
+		if origin.hasEndpoints() {
+			return &origin, nil
+		}
+		originErr = errMissingEndpoints
 	}
 
 	var resource struct {
@@ -108,7 +111,16 @@ func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
 	if meta.Issuer != issuer {
 		return nil, fmt.Errorf("authorization server metadata issuer %q does not match %q", meta.Issuer, issuer)
 	}
+	if !meta.hasEndpoints() {
+		return nil, errMissingEndpoints
+	}
 	return &meta, nil
+}
+
+var errMissingEndpoints = fmt.Errorf("oauth metadata has no authorization or token endpoint")
+
+func (m *oauthServerMeta) hasEndpoints() bool {
+	return m.AuthorizationEndpoint != "" && m.TokenEndpoint != ""
 }
 
 // authorizationServerMetadataURL inserts the RFC 8414 well-known segment
