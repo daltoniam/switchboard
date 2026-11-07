@@ -241,6 +241,12 @@ var envMapping = map[string]map[string]string{
 		"api_token": "OKTA_API_TOKEN",
 		"org_url":   "OKTA_ORG_URL",
 	},
+	"keycloak": {
+		"base_url":      "KEYCLOAK_BASE_URL",
+		"realm":         "KEYCLOAK_REALM",
+		"client_id":     "KEYCLOAK_CLIENT_ID",
+		"client_secret": "KEYCLOAK_CLIENT_SECRET",
+	},
 	"pagerduty": {
 		"api_token":  "PAGERDUTY_API_TOKEN",
 		"from_email": "PAGERDUTY_FROM_EMAIL",
@@ -523,6 +529,10 @@ func defaultConfig() *mcp.Config {
 			"okta": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "org_url": ""},
+			},
+			"keycloak": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "realm": "", "client_id": "", "client_secret": ""},
 			},
 			"pagerduty": {
 				Enabled:     false,
