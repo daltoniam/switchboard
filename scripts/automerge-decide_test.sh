@@ -180,6 +180,8 @@ check_next "open review threads go to the bot" '.unresolved_threads = 1' fix
 check_next "missing live spec goes to the bot" '.files |= map(select(.path != "web/live_keycloak_test.go"))' fix
 check_next "conflict goes to the bot even while checks are missing" '.mergeable = "CONFLICTING" | .merge_state = "DIRTY" | .check_runs |= map(select(.name != "live-integration"))' fix
 check_next "failure and a running check still waits" '.check_runs |= map(if .name == "build" then .conclusion = "failure" elif .name == "test" then .conclusion = "in_progress" else . end)' wait
+check_next "a failed check named like a merge state still goes to the bot" '.check_runs += [{"name": "UNKNOWN", "app_id": 1, "conclusion": "failure"}] | .merge_state = "BLOCKED"' fix
+check_next "a failed check named like a conflict is not a conflict" '.check_runs += [{"name": "CONFLICTING", "app_id": 1, "conclusion": "failure"}] | .check_runs |= map(if .name == "test" then .conclusion = "in_progress" else . end)' wait
 check_next "dependency change needs a person" '.files += [{"path": "go.mod", "additions": 3, "deletions": 0}]' person
 check_next "dependency change with a conflict still needs a person" '.files += [{"path": "go.mod", "additions": 3, "deletions": 0}] | .mergeable = "CONFLICTING" | .merge_state = "DIRTY"' person
 check_next "existing integration needs a person" '.base_integrations += ["keycloak"]' person
