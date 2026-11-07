@@ -175,6 +175,8 @@ Every adapter must have these test categories (see existing `*_test.go` files):
 - [ ] **Execute unknown tool**: Returns `IsError: true`, `"unknown tool"` in Data
 - [ ] **HTTP helpers**: `httptest.NewServer` for success, API errors (>=400), 204 no-content
 - [ ] **Arg extraction**: Uses shared `mcp.NewArgs(args)` reader with `r.Err()` check — type coercion is tested in root `args_test.go`. `TestNewArgs_ErrCheckParity` automatically covers new adapters
+- [ ] **Tool access**: Every `ToolDefinition` sets `Access` to `mcp.AccessRead`, `mcp.AccessWrite`, or `mcp.AccessDestructive`. Classify by what the call can change in the external system, not by its name (an `EXPLAIN ANALYZE` wrapped in a read-only transaction is a read; arbitrary SQL is destructive)
+- [ ] **Live acceptance spec**: `web/live_<name>_test.go` registers a `liveSpec` (see section 5). `TestLiveSpecs_Coverage` runs in ordinary CI and fails when a tool has no live case and no skip reason
 
 ## 5. Wiring and Verification
 
@@ -184,7 +186,21 @@ Follow the wiring checklist in `docs/architecture.md` (including registration an
 2. Follow `docs/integration-ui-testing.md`. Run `make ui-install` when needed, then `make test-ui` and unmodified `make ci`. Missing Chromium or a skipped browser gate blocks completion.
 3. Drive the new integration's isolated local UI with Playwright (already available), agent-browser, or Chrome DevTools. Verify fresh credential fields, setup routing, save/enable, invalid credentials, health, restart persistence, read-only MCP discovery/execute, and disable. Cover OAuth and named identities when supported. Inspect desktop/mobile screenshots and console/network failures; add regression tests for defects.
 4. Include masked screenshots, browser/test results, and fixture versus live-auth status in the PR test plan, bound to its exact head SHA. Live credentials are optional; mock-backed browser acceptance is mandatory. Never claim live authentication passed without dedicated credentials and a successful safe read.
-5. Run the isolated live smoke test below when dedicated test credentials are available. Otherwise report live authentication as unverified.
+5. Add a live acceptance spec and run `make test-live INTEGRATION=<name>` (see below). Run the isolated live smoke test when dedicated test credentials are available for products that cannot run in a container. Otherwise report live authentication as unverified.
+
+### Live Acceptance Spec
+
+Fixtures prove the UI and the contract you wrote; they cannot prove the product answers the way you assumed. `make test-live INTEGRATION=<name>` starts the real product, enters credentials through the real setup page, restarts, and calls every tool through the real MCP endpoint. It also replays each read case as a script and fails when a `compact.yaml` field matches nothing in the live response, because such a field silently strips data from every LLM response.
+
+Add `web/live_<name>_test.go` that calls `registerLiveSpec` from `init()`. Copy `web/live_postgres_test.go` for databases or follow the HTTP admin-API seeding pattern for services:
+
+- **Tier**: `liveContainer` when an official image exists (pin it by digest with `docker image inspect --format '{{index .RepoDigests 0}}'`); any tool may run. `liveSandbox` for SaaS reached with stored sandbox credentials; only `AccessRead` tools may have cases.
+- **Provision**: start the container with `liveStartContainer`, wait with `liveEventually`, seed known data through the product's own API or client, and return `liveProvision{Credentials, Values}`. Credentials are keyed by `#cred_<name>` form field. `Values` fill `${name}` placeholders in case args and expectations for generated IDs and dates.
+- **Least privilege**: return a credential with only the permissions the setup guide documents (a read-only database user, a service account with view roles), never the bootstrap admin. The live run is what proves the documented permissions are enough.
+- **Cases**: one or more per tool, each asserting seeded values in `Expect`. Seed activity for tools that report it (locks, running queries, login events) so they return rows, not empty lists.
+- **Skips**: only with a concrete reason (for example, a paid feature the image does not include).
+
+Include the `make test-live` result and `dist/live-artifacts/live-<name>.json` summary in the PR test plan.
 
 ### Isolated Live Smoke Test
 

@@ -25,6 +25,7 @@ import (
 	agentsInt "github.com/daltoniam/switchboard/integrations/agents"
 	"github.com/daltoniam/switchboard/integrations/airflow"
 	"github.com/daltoniam/switchboard/integrations/amazon"
+	"github.com/daltoniam/switchboard/integrations/argoworkflows"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/botidentity"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
@@ -57,6 +58,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/imessage"
 	"github.com/daltoniam/switchboard/integrations/intercom"
 	"github.com/daltoniam/switchboard/integrations/jira"
+	"github.com/daltoniam/switchboard/integrations/keycloak"
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/launchdarkly"
 	"github.com/daltoniam/switchboard/integrations/likec4excalidraw"
@@ -69,6 +71,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/notionmcp"
 	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
+	"github.com/daltoniam/switchboard/integrations/openbao"
 	"github.com/daltoniam/switchboard/integrations/pagerduty"
 	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
@@ -86,6 +89,7 @@ import (
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/integrations/slackmcp"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
+	"github.com/daltoniam/switchboard/integrations/sourcebot"
 	"github.com/daltoniam/switchboard/integrations/stripe"
 	"github.com/daltoniam/switchboard/integrations/suno"
 	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
@@ -330,6 +334,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		metabase.New(),
 		paperless.New(),
 		airflow.New(),
+		argoworkflows.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),
@@ -366,12 +371,15 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		confluence.New(),
 		notionInt.New(),
 		okta.New(),
+		keycloak.New(),
 		ollama.New(),
 		pagerduty.New(),
 		launchdarkly.New(),
 		dbt.New(),
 		prometheus.New(),
 		tailscale.New(),
+		sourcebot.New(),
+		openbao.New(),
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),

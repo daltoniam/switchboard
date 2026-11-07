@@ -278,6 +278,15 @@ Open `/integrations/notion-mcp/setup` in the web UI and select **Sign in with No
 
 Tools are discovered from Notion after authorization and namespaced as `notion-mcp_<upstream-tool-name>`. Start with `search` filtered to `integration: "notion-mcp"`; use the returned names with `execute` rather than the existing `notion_*` tools. The catalog and content permissions depend on the authorized workspace. Re-authorize in setup if the token expires or is revoked; the shared remote OAuth flow currently stores access tokens only and does not refresh them automatically.
 
+### Argo Workflows (`argoworkflows`)
+
+Inspect workflow run status in one namespace using two read-only tools. Configure a
+trusted HTTPS Argo Server URL, namespace, and get/list-only service-account token;
+Argo client authentication is required. Specs, parameters, artifacts, logs, and
+arbitrary failure messages are excluded from both normal and raw script results.
+See [Argo Workflows setup](docs/argoworkflows-setup.md) for RBAC, private CA setup,
+pagination, response limits, and the live acceptance test.
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
@@ -287,6 +296,10 @@ Environment variables override credential values but do not change the durable e
 | Integration | Credential | Env Var |
 |---|---|---|
 | GitHub | `token` | `GITHUB_TOKEN` |
+| Argo Workflows | `base_url` | `ARGO_WORKFLOWS_BASE_URL` (required HTTPS installation URL) |
+| Argo Workflows | `namespace` | `ARGO_WORKFLOWS_NAMESPACE` (required fixed namespace) |
+| Argo Workflows | `token` | `ARGO_WORKFLOWS_TOKEN` (required get/list-only service-account token) |
+| Argo Workflows | `ca_cert` | `ARGO_WORKFLOWS_CA_CERT` (optional PEM CA certificate) |
 | Forgejo | `base_url` | `FORGEJO_BASE_URL` (required — instance URL including any deployment subpath) |
 | Forgejo | `token` | `FORGEJO_TOKEN` (required — personal access token) |
 | Datadog | `api_key` | `DD_API_KEY` |
@@ -358,6 +371,10 @@ Environment variables override credential values but do not change the durable e
 | Grist | `base_url` | `GRIST_HOST` (optional — default `https://docs.getgrist.com`; team sites `https://{team}.getgrist.com`; self-hosted origin) |
 | Okta | `api_token` | `OKTA_API_TOKEN` |
 | Okta | `org_url` | `OKTA_ORG_URL` (e.g. `https://your-org.okta.com`) |
+| [Keycloak](docs/keycloak-setup.md) | `base_url` | `KEYCLOAK_BASE_URL` (required HTTPS installation URL, including any deployment subpath) |
+| Keycloak | `realm` | `KEYCLOAK_REALM` (required target realm name) |
+| Keycloak | `client_id` | `KEYCLOAK_CLIENT_ID` (required read-only service-account client) |
+| Keycloak | `client_secret` | `KEYCLOAK_CLIENT_SECRET` (required confidential client secret) |
 | PagerDuty | `api_token` | `PAGERDUTY_API_TOKEN` (REST API user or account token) |
 | PagerDuty | `from_email` | `PAGERDUTY_FROM_EMAIL` (optional default From header for notes/ack/resolve) |
 | PagerDuty | `base_url` | `PAGERDUTY_BASE_URL` (optional — default `https://api.pagerduty.com`) |
@@ -377,6 +394,8 @@ Environment variables override credential values but do not change the durable e
 | Tailscale | `oauth_client_secret` | `TAILSCALE_OAUTH_CLIENT_SECRET` (OAuth client secret `tskey-client-...`) |
 | Tailscale | `tailnet` | `TAILSCALE_TAILNET` (optional — default `-`, the credential's own tailnet) |
 | Tailscale | `base_url` | `TAILSCALE_BASE_URL` (optional — default `https://api.tailscale.com`) |
+| Sourcebot | `base_url` | `SOURCEBOT_BASE_URL` (URL of your self-hosted Sourcebot instance, e.g. `https://sourcebot.example.com`) |
+| Sourcebot | `api_key` | `SOURCEBOT_API_KEY` (optional — API key from Settings → API Keys, `sbk_...` or `sourcebot-...`; leave unset when anonymous access is enabled) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
 | Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
 | ServiceNow | `instance_url` | `SERVICENOW_INSTANCE_URL` (e.g. `https://dev12345.service-now.com`) |
@@ -466,7 +485,7 @@ go install github.com/air-verse/air@latest
 Install the Playwright Chromium driver (optional — enables browser-based integrations):
 
 ```bash
-go run github.com/playwright-community/playwright-go/cmd/playwright install chromium
+go run github.com/mxschmitt/playwright-go/cmd/playwright install chromium
 ```
 
 Then run with live-reload:

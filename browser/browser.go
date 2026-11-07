@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	mcp "github.com/daltoniam/switchboard"
-	playwright "github.com/playwright-community/playwright-go"
+	playwright "github.com/mxschmitt/playwright-go"
 )
 
 // service implements mcp.BrowserService backed by Playwright.

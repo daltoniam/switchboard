@@ -242,6 +242,36 @@ func ValidateProjectCatalogConfig(cfg ProjectCatalogConfig) error {
 	return nil
 }
 
+// ToolAccess classifies what a tool can change in the external system.
+// Live acceptance tests use it to decide which tools may run against shared
+// vendor sandboxes (read only) versus disposable containers (everything).
+type ToolAccess string
+
+const (
+	// AccessUnspecified means the adapter has not classified the tool.
+	AccessUnspecified ToolAccess = ""
+	// AccessRead tools only read; they never change external state.
+	AccessRead ToolAccess = "read"
+	// AccessWrite tools create or update external state.
+	AccessWrite ToolAccess = "write"
+	// AccessDestructive tools can delete or irreversibly alter external state.
+	AccessDestructive ToolAccess = "destructive"
+)
+
+// Declared reports whether the access is one of the known classifications.
+func (a ToolAccess) Declared() bool {
+	switch a {
+	case AccessRead, AccessWrite, AccessDestructive:
+		return true
+	}
+	return false
+}
+
+// ChangesData reports whether running the tool can change external state.
+func (a ToolAccess) ChangesData() bool {
+	return a == AccessWrite || a == AccessDestructive
+}
+
 // ToolDefinition describes an API operation an integration exposes.
 // These are used by the search tool to let the AI discover available operations.
 type ToolDefinition struct {
@@ -249,6 +279,7 @@ type ToolDefinition struct {
 	Description string            `json:"description"`
 	Parameters  map[string]string `json:"parameters"` // param name -> description
 	Required    []string          `json:"required,omitempty"`
+	Access      ToolAccess        `json:"access,omitempty"`
 }
 
 type MediaContent struct {

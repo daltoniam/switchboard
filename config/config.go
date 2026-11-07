@@ -19,6 +19,12 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"argoworkflows": {
+		"base_url":  "ARGO_WORKFLOWS_BASE_URL",
+		"namespace": "ARGO_WORKFLOWS_NAMESPACE",
+		"token":     "ARGO_WORKFLOWS_TOKEN",
+		"ca_cert":   "ARGO_WORKFLOWS_CA_CERT",
+	},
 	"github": {
 		"token": "GITHUB_TOKEN",
 	},
@@ -249,6 +255,12 @@ var envMapping = map[string]map[string]string{
 		"api_token": "OKTA_API_TOKEN",
 		"org_url":   "OKTA_ORG_URL",
 	},
+	"keycloak": {
+		"base_url":      "KEYCLOAK_BASE_URL",
+		"realm":         "KEYCLOAK_REALM",
+		"client_id":     "KEYCLOAK_CLIENT_ID",
+		"client_secret": "KEYCLOAK_CLIENT_SECRET",
+	},
 	"pagerduty": {
 		"api_token":  "PAGERDUTY_API_TOKEN",
 		"from_email": "PAGERDUTY_FROM_EMAIL",
@@ -270,6 +282,17 @@ var envMapping = map[string]map[string]string{
 		"oauth_client_secret": "TAILSCALE_OAUTH_CLIENT_SECRET",
 		"tailnet":             "TAILSCALE_TAILNET",
 		"base_url":            "TAILSCALE_BASE_URL",
+	},
+	"sourcebot": {
+		"base_url": "SOURCEBOT_BASE_URL",
+		"api_key":  "SOURCEBOT_API_KEY",
+	},
+	"openbao": {
+		"base_url":    "OPENBAO_BASE_URL",
+		"token":       "OPENBAO_TOKEN",
+		"mount":       "OPENBAO_MOUNT",
+		"path_prefix": "OPENBAO_PATH_PREFIX",
+		"ca_cert":     "OPENBAO_CA_CERT",
 	},
 	"microsoft365": {
 		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
@@ -347,6 +370,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"argoworkflows": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "namespace": "", "token": "", "ca_cert": ""},
+			},
 			"github": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
@@ -528,6 +555,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "org_url": ""},
 			},
+			"keycloak": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "realm": "", "client_id": "", "client_secret": ""},
+			},
 			"pagerduty": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "from_email": "", "base_url": ""},
@@ -547,6 +578,14 @@ func defaultConfig() *mcp.Config {
 			"tailscale": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "oauth_client_id": "", "oauth_client_secret": "", "tailnet": "", "base_url": ""},
+			},
+			"sourcebot": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_key": ""},
+			},
+			"openbao": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": "", "mount": "", "path_prefix": "", "ca_cert": ""},
 			},
 			"microsoft365": {
 				Enabled: false,

@@ -25,6 +25,13 @@ grep -q 'crush_pgid=' "$workflow" || fail "workflow must capture crush_pgid at l
 grep -q 'overload_kill_crush_tree' "$workflow" || fail "workflow must use overload_kill_crush_tree"
 ok "workflow wiring"
 
+# The watchdog runs on the Linux Actions runner. macOS has no setsid, so the
+# process-group checks only run where the watchdog itself can.
+if ! command -v setsid >/dev/null 2>&1; then
+  ok "skipping process-group checks: setsid is not installed"
+  exit 0
+fi
+
 tag="overload-watchdog-$$-a"
 marker="${ROOT}/.${tag}"
 setsid bash -c "sleep 9999 & touch '$marker'; exec tail -f /dev/null # ${tag}" &

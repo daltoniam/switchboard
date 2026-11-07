@@ -49,9 +49,9 @@ type envelope struct {
 	Data      any      `json:"data"`
 	ErrorType string   `json:"errorType,omitempty"`
 	Error     string   `json:"error,omitempty"`
-	Warnings  []string `json:"warnings,omitempty"`
-	Infos     []string `json:"infos,omitempty"`
-	Truncated bool     `json:"truncated,omitempty"`
+	Warnings  []string `json:"warnings"`
+	Infos     []string `json:"infos"`
+	Truncated bool     `json:"truncated"`
 }
 
 func New() mcp.Integration                        { return &prometheus{} }

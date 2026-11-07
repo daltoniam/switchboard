@@ -196,6 +196,23 @@ func TestInvalidArgumentsDoNotRequest(t *testing.T) {
 	}
 }
 
+func TestResponseIncludesOptionalMetadata(t *testing.T) {
+	integration := configured(t, func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(writer, `{"status":"success","data":{"resultType":"vector","result":[]}}`)
+	})
+	result, err := integration.Execute(t.Context(), "prometheus_query", map[string]any{"query": "up"})
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	var response map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &response))
+	for _, key := range []string{"warnings", "infos", "truncated"} {
+		require.Contains(t, response, key)
+	}
+	require.Equal(t, false, response["truncated"])
+	require.Nil(t, response["warnings"])
+	require.Nil(t, response["infos"])
+}
+
 func TestHTTPFailures(t *testing.T) {
 	cases := []struct {
 		name  string
