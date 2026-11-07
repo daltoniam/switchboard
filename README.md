@@ -287,6 +287,12 @@ arbitrary failure messages are excluded from both normal and raw script results.
 See [Argo Workflows setup](docs/argoworkflows-setup.md) for RBAC, private CA setup,
 pagination, response limits, and the live acceptance test.
 
+### Higgsfield (`higgsfield`)
+
+Connects to Higgsfield's hosted MCP server at `https://mcp.higgsfield.ai/mcp` for AI image, video, and audio generation. Higgsfield has no API-key REST API for account features, so Switchboard proxies a curated set of 23 of the ~150 hosted tools (credits, model catalog, presets, voices, history, jobs, projects, media import, and image/video/audio generation) with hand-written descriptions and compaction. Chat-widget workflows (websites, 3D scenes, TikTok publishing, Ads Studio) are refused locally.
+
+Open `/integrations/higgsfield/setup` in the web UI and select **Sign in with Higgsfield**. OAuth uses dynamic client registration, PKCE, the `openid email offline_access` scopes, and resource binding to the MCP endpoint. Start with `higgsfield_balance`. Generation tools spend credits: preflight with `params.get_cost=true` first. Re-authorize in setup if the token expires; the shared remote OAuth flow stores access tokens only.
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
@@ -427,6 +433,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
 | Figma and FigJam | Hosted MCP OAuth (PKCE) | Web UI → Figma → Setup, or set `FIGMA_MCP_ACCESS_TOKEN` |
 | Notion MCP (`notion-mcp`) | Hosted MCP OAuth (PKCE) | Web UI → notion-mcp → Setup, or set `NOTION_MCP_ACCESS_TOKEN` and enable explicitly |
+| Higgsfield | Hosted MCP OAuth (PKCE) | Web UI → higgsfield → Setup, or set `HIGGSFIELD_MCP_ACCESS_TOKEN` and enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
 | Slack MCP (official hosted) | User OAuth access tokens per identity | Edit `~/.config/switchboard/config.json` `slackmcp.identities` (see below). Bot `xoxb-` tokens are **not** accepted by Slack's hosted MCP endpoint. |

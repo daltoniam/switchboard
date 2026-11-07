@@ -90,6 +90,10 @@ integrations/
     compact.yaml             Field compaction specs (read tools)
     tools.go                 Grist tool definitions (~30 tools)
     handlers.go              Orgs, workspaces, docs, tables, columns, records, SQL, webhooks, attachments
+  higgsfield/
+    higgsfield.go            Higgsfield hosted MCP proxy (curated static allowlist, remotemcp OAuth)
+    tools.go                 Tool definitions and dispatch map (exposed name → upstream tool)
+    compact.yaml             Compaction specs for verified response shapes
   notionmcp/
     notionmcp.go             Independent notion-mcp hosted proxy (dynamic tools, remotemcp OAuth)
     notionmcp_test.go        Remote protocol, credential isolation, and dynamic routing tests
