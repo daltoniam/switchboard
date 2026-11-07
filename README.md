@@ -376,6 +376,8 @@ Environment variables override credential values but do not change the durable e
 | Tailscale | `oauth_client_secret` | `TAILSCALE_OAUTH_CLIENT_SECRET` (OAuth client secret `tskey-client-...`) |
 | Tailscale | `tailnet` | `TAILSCALE_TAILNET` (optional — default `-`, the credential's own tailnet) |
 | Tailscale | `base_url` | `TAILSCALE_BASE_URL` (optional — default `https://api.tailscale.com`) |
+| Sourcebot | `base_url` | `SOURCEBOT_BASE_URL` (URL of your self-hosted Sourcebot instance, e.g. `https://sourcebot.example.com`) |
+| Sourcebot | `api_key` | `SOURCEBOT_API_KEY` (optional — API key from Settings → API Keys, `sbk_...` or `sourcebot-...`; leave unset when anonymous access is enabled) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
 | Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
 | ServiceNow | `instance_url` | `SERVICENOW_INSTANCE_URL` (e.g. `https://dev12345.service-now.com`) |
