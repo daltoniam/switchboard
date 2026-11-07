@@ -89,6 +89,26 @@ func TestAccountSet_ConfigureValidation(t *testing.T) {
 			identities: map[string]mcp.IntegrationIdentity{"  ": {Credentials: mcp.Credentials{"access_token": "a"}}},
 			wantErr:    "account id cannot be empty",
 		},
+		{
+			// A padded key would not match the key persist() writes back to.
+			name:       "padded id",
+			identities: map[string]mcp.IntegrationIdentity{" work ": {Credentials: mcp.Credentials{"access_token": "a"}}},
+			wantErr:    `account id " work " must not have leading or trailing spaces`,
+		},
+		{
+			// Without rejection both keys would collapse into one account.
+			name: "padded id colliding with another",
+			identities: map[string]mcp.IntegrationIdentity{
+				"work":  {Credentials: mcp.Credentials{"access_token": "a"}},
+				"work ": {Credentials: mcp.Credentials{"access_token": "b"}},
+			},
+			wantErr: `account id "work " must not have leading or trailing spaces`,
+		},
+		{
+			name:       "padded reserved id",
+			identities: map[string]mcp.IntegrationIdentity{" default": {Credentials: mcp.Credentials{"access_token": "a"}}},
+			wantErr:    "must not have leading or trailing spaces",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -151,6 +151,11 @@ func (s *AccountSet) Configure(identities map[string]mcp.IntegrationIdentity, cl
 		if id == "" {
 			return fmt.Errorf("%s: account id cannot be empty", s.integration)
 		}
+		// The ID must equal its config key: refreshed tokens are persisted
+		// under the ID, and trimming could merge two keys into one account.
+		if id != rawID {
+			return fmt.Errorf("%s: account id %q must not have leading or trailing spaces", s.integration, rawID)
+		}
 		if id == DefaultAccountID {
 			return fmt.Errorf("%s: account id %q is reserved for the top-level credentials", s.integration, DefaultAccountID)
 		}
