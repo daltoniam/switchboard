@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -1376,6 +1377,166 @@ func TestUIAssets(t *testing.T) {
 			assert.Contains(t, rr.Header().Get("Content-Type"), asset.contentType)
 			assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
 			assert.NotEmpty(t, rr.Body.String())
+		})
+	}
+}
+
+// seedGooglePrimary configures a Google service with a client and a default
+// (top-level) account, as the primary sign-in leaves it.
+func seedGooglePrimary(cfg *mockConfigService, names ...string) {
+	for _, name := range names {
+		cfg.cfg.Integrations[name] = &mcp.IntegrationConfig{
+			Enabled: true,
+			Credentials: mcp.Credentials{
+				mcp.CredKeyClientID:     "cid",
+				mcp.CredKeyClientSecret: "csec",
+				"access_token":          "primary-access",
+				"refresh_token":         "primary-refresh",
+			},
+		}
+	}
+}
+
+func postGoogleStart(t *testing.T, handler http.Handler, body string) map[string]string {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/api/google/oauth/start", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	return resp
+}
+
+func TestGoogleOAuthStart_AdditionalAccountValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		seed    []string
+		body    string
+		wantErr string
+	}{
+		{name: "reserved id", seed: []string{"gmail"}, body: `{"services":["gmail"],"account":"default"}`, wantErr: "reserved"},
+		{name: "invalid id", seed: []string{"gmail"}, body: `{"services":["gmail"],"account":"bad id!"}`, wantErr: "Account ID"},
+		{name: "no primary account", seed: []string{"gmail"}, body: `{"services":["gmail","gcal"],"account":"work"}`, wantErr: "Google Calendar"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			googleoauth.Reset()
+			ws, _, cfg := setupTestWeb()
+			seedGooglePrimary(cfg, tt.seed...)
+			resp := postGoogleStart(t, ws.Handler(), tt.body)
+			assert.Contains(t, resp["error"], tt.wantErr)
+			assert.Empty(t, resp["authorize_url"])
+		})
+	}
+}
+
+func TestGoogleOAuthCallback_AdditionalAccountStoredAsIdentity(t *testing.T) {
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"work-access","refresh_token":"work-refresh","scope":"https://mail.google.com/"}`))
+	}))
+	defer tokenSrv.Close()
+	googleoauth.SetTokenURLForTest(t, tokenSrv.URL)
+	googleoauth.Reset()
+
+	ws, _, cfg := setupTestWeb()
+	seedGooglePrimary(cfg, "gmail", "gcal")
+	handler := ws.Handler()
+
+	resp := postGoogleStart(t, handler, `{"services":["gmail","gcal"],"account":"work","label":"Work mail"}`)
+	require.Empty(t, resp["error"])
+	u, err := url.Parse(resp["authorize_url"])
+	require.NoError(t, err)
+	assert.Equal(t, "consent select_account", u.Query().Get("prompt"))
+
+	req := httptest.NewRequest("GET", "/api/google/oauth/callback?code=c&state="+url.QueryEscape(u.Query().Get("state")), nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "result=")
+
+	gmailIC, _ := cfg.GetIntegration("gmail")
+	assert.Equal(t, "primary-access", gmailIC.Credentials["access_token"], "default account must be untouched")
+	require.Contains(t, gmailIC.Identities, "work")
+	assert.Equal(t, "work-access", gmailIC.Identities["work"].Credentials["access_token"])
+	assert.Equal(t, "work-refresh", gmailIC.Identities["work"].Credentials["refresh_token"])
+	assert.Equal(t, "Work mail", gmailIC.Identities["work"].Metadata["label"])
+
+	// Calendar scope was not granted, so the account is not added there.
+	gcalIC, _ := cfg.GetIntegration("gcal")
+	assert.NotContains(t, gcalIC.Identities, "work")
+}
+
+func TestGoogleSetup_ListsAdditionalAccountsWithoutTokens(t *testing.T) {
+	ws, reg, cfg := setupTestWeb()
+	// A healthy adapter keeps the page from probing Google's tokeninfo.
+	reg.Register(&mockIntegration{name: "gmail", healthy: true})
+	seedGooglePrimary(cfg, "gmail")
+	cfg.cfg.Integrations["gmail"].Identities = map[string]mcp.IntegrationIdentity{
+		"work": {
+			Credentials: mcp.Credentials{"access_token": "work-secret-token"},
+			Metadata:    map[string]string{"label": "Work mail"},
+		},
+	}
+	req := httptest.NewRequest("GET", "/integrations/google/setup", nil)
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+	body := rr.Body.String()
+	assert.Contains(t, body, "Work mail")
+	assert.Contains(t, body, `data-google-account="work"`)
+	assert.NotContains(t, body, "work-secret-token")
+	assert.NotContains(t, body, "primary-access")
+}
+
+func TestGoogleAccountDelete_RemovesFromEveryService(t *testing.T) {
+	ws, _, cfg := setupTestWeb()
+	seedGooglePrimary(cfg, "gmail", "gcal")
+	for _, name := range []string{"gmail", "gcal"} {
+		cfg.cfg.Integrations[name].Identities = map[string]mcp.IntegrationIdentity{
+			"work":  {Credentials: mcp.Credentials{"access_token": "w"}},
+			"other": {Credentials: mcp.Credentials{"access_token": "o"}},
+		}
+	}
+	req := httptest.NewRequest("POST", "/api/google/accounts/work/delete", nil)
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+
+	for _, name := range []string{"gmail", "gcal"} {
+		ic, _ := cfg.GetIntegration(name)
+		assert.NotContains(t, ic.Identities, "work")
+		assert.Contains(t, ic.Identities, "other")
+		assert.Equal(t, "primary-access", ic.Credentials["access_token"])
+	}
+}
+
+func TestGoogleAccountDelete_RejectsDefaultAndUnknown(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "default account", id: "default"},
+		{name: "unknown account", id: "nope"},
+		{name: "invalid id", id: "-bad"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ws, _, cfg := setupTestWeb()
+			seedGooglePrimary(cfg, "gmail")
+			cfg.cfg.Integrations["gmail"].Identities = map[string]mcp.IntegrationIdentity{
+				"work": {Credentials: mcp.Credentials{"access_token": "w"}},
+			}
+			req := httptest.NewRequest("POST", "/api/google/accounts/"+tt.id+"/delete", nil)
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, req)
+			require.Equal(t, http.StatusSeeOther, rr.Code)
+			assert.Contains(t, rr.Header().Get("Location"), "error=")
+
+			ic, _ := cfg.GetIntegration("gmail")
+			assert.Contains(t, ic.Identities, "work")
+			assert.Equal(t, "primary-access", ic.Credentials["access_token"])
 		})
 	}
 }
