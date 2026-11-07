@@ -21,6 +21,11 @@ printf 'GH_TOKEN=%s gh %s\n' "\${GH_TOKEN:-}" "\$*" >>"$log"
 case "\$*" in
   *"issues/404/comments"*) exit 1 ;;
   "pr merge 409"*) exit 1 ;;
+  "pr edit 410 --repo o/r --add-label release:skip"*)
+    # The label does not exist until it is created.
+    [ -f "$work/label-created" ] || { echo "'release:skip' not found" >&2; exit 1; } ;;
+  "label create release:skip"*) touch "$work/label-created" ;;
+  "pr edit 411 --repo o/r --add-label release:skip"*) exit 1 ;;
   "pr list"*) cat "$work/prs" ;;
   "run list --workflow overload-implement.yml"*)
     # Only an explicit status filter sees an old run that is still going.
@@ -121,6 +126,22 @@ PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r GH_TOKEN=read-token AUTOMERGE_FACTS
 [ "$(calls 'remove-label')" = 0 ] || fail "removed a release:skip label a person had set"
 [ "$(calls 'add-label')" = 0 ] || fail "re-added a label that was already there"
 ok "a failed merge keeps a release:skip label that was already there"
+
+# --- Missing release:skip label ---
+rm -f "$work/label-created"
+printf '410\n411\n412\n' >"$work/prs"
+facts 410 merge sha410
+facts 411 merge sha411
+facts 412 merge sha412
+: >"$log"
+PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r GH_TOKEN=read-token AUTOMERGE_FACTS="$work/facts.sh" \
+  AUTOMERGE_DECIDE="$work/decide.sh" AUTOMERGE_MODE=merge AUTOFIX=off bash "$ROOT/scripts/automerge.sh" >"$work/out" 2>&1 && \
+  fail "a PR that could not be labeled should fail the run"
+grep -qF 'gh label create release:skip' "$log" || fail "missing label was not created: $(cat "$log")"
+grep -qF 'pr merge 410' "$log" || fail "did not merge after creating the label: $(cat "$log")"
+[ "$(calls 'pr merge 411')" = 0 ] || fail "merged a PR it could not label release:skip"
+grep -qF 'pr merge 412' "$log" || fail "one labeling failure stopped the other PRs: $(cat "$log")"
+ok "creates a missing release:skip label, and a PR it cannot label is skipped, not the run"
 
 # --- Auto-fix: send the implementation job to PRs it can fix ---
 rm -f "$work"/comments-*

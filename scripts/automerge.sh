@@ -92,7 +92,17 @@ for pr in $prs; do
 
   added_label=false
   if ! jq -e '.labels | index("release:skip")' <<<"$facts" >/dev/null; then
-    gh pr edit "$pr" --repo "$repo" --add-label release:skip
+    # The label may not exist yet; create it once and retry. A PR that
+    # still cannot be labeled is not merged, since it would release alone.
+    if ! gh pr edit "$pr" --repo "$repo" --add-label release:skip; then
+      gh label create release:skip --repo "$repo" --color ededed \
+        --description "Ship in the weekly release instead of releasing on merge" >/dev/null 2>&1 || true
+      if ! gh pr edit "$pr" --repo "$repo" --add-label release:skip; then
+        echo "#$pr ($integration) not merged: could not add release:skip" | tee -a "$summary" >&2
+        status=1
+        continue
+      fi
+    fi
     added_label=true
   fi
   if GH_TOKEN="${MERGE_TOKEN:-${GH_TOKEN:-}}" gh pr merge "$pr" --repo "$repo" --squash --match-head-commit "$sha"; then
