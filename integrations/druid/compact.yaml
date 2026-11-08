@@ -1,0 +1,12 @@
+version: 1
+tools:
+  druid_list_datasources:
+    spec: [items, truncated, partial, notice]
+  druid_get_datasource:
+    spec: [name, properties.segments]
+  druid_get_load_status:
+    spec: [items, truncated, partial, notice]
+  druid_list_tasks:
+    spec: [items, truncated, partial, notice]
+  druid_get_task_status:
+    spec: [task, status]
