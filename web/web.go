@@ -154,6 +154,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/google/save-oauth-credentials", w.handleGoogleSaveOAuthCredentials)
 	mux.HandleFunc("POST /api/google/oauth/start", w.handleGoogleOAuthStart)
 	mux.HandleFunc("GET /api/google/oauth/callback", w.handleGoogleOAuthCallback)
+	mux.HandleFunc("POST /api/google/accounts/{id}/delete", w.handleGoogleAccountDelete)
 
 	mux.HandleFunc("GET /integrations/gmail/setup", w.handleGmailSetup)
 	mux.HandleFunc("POST /api/gmail/oauth/start", w.handleGmailOAuthStart)
@@ -3827,6 +3828,7 @@ func (w *WebServer) handleGoogleSetup(rw http.ResponseWriter, r *http.Request) {
 		ConnectedCount: healthyCount,
 		TotalCount:     len(svcDefs),
 		AnyAPIDisabled: anyAPIDisabled,
+		Accounts:       w.googleAdditionalAccounts(svcDefs),
 	}
 	if flash := r.URL.Query().Get("result"); flash != "" {
 		data.FlashResult = flash
@@ -3867,10 +3869,22 @@ func (w *WebServer) handleGoogleOAuthStart(rw http.ResponseWriter, r *http.Reque
 
 	var body struct {
 		Services []string `json:"services"`
+		// Account, when set, connects an additional named Google account
+		// instead of replacing the default one.
+		Account string `json:"account"`
+		Label   string `json:"label"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Services) == 0 {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Select at least one service to connect"})
 		return
+	}
+	body.Account = strings.TrimSpace(body.Account)
+	body.Label = strings.TrimSpace(body.Label)
+	if body.Account != "" {
+		if errMsg := w.validateGoogleAdditionalAccount(body.Account, body.Services); errMsg != "" {
+			json.NewEncoder(rw).Encode(map[string]string{"error": errMsg})
+			return
+		}
 	}
 
 	// Client credentials are shared across all Google services; read them
@@ -3891,7 +3905,7 @@ func (w *WebServer) handleGoogleOAuthStart(rw http.ResponseWriter, r *http.Reque
 	}
 
 	redirectURI := fmt.Sprintf("http://localhost:%d/api/google/oauth/callback", w.port)
-	result, err := googleoauth.StartGroup(clientID, clientSecret, redirectURI, body.Services)
+	result, err := googleoauth.StartGroupForAccount(clientID, clientSecret, redirectURI, body.Services, body.Account, body.Label)
 	if err != nil {
 		json.NewEncoder(rw).Encode(map[string]string{"error": err.Error()})
 		return
@@ -3938,6 +3952,11 @@ func (w *WebServer) handleGoogleOAuthCallback(rw http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if result.Account != "" {
+		w.saveGoogleAdditionalAccount(rw, r, result, granted)
+		return
+	}
+
 	for _, name := range granted {
 		ic, _ := w.services.Config.GetIntegration(name)
 		if ic == nil {
@@ -3956,6 +3975,223 @@ func (w *WebServer) handleGoogleOAuthCallback(rw http.ResponseWriter, r *http.Re
 	}
 
 	http.Redirect(rw, r, googleFlash(fmt.Sprintf("Connected %d Google service(s) via OAuth", len(granted)), ""), http.StatusSeeOther)
+}
+
+// googleAdditionalAccounts gathers the named Google accounts across every
+// service, with only their non-secret metadata.
+func (w *WebServer) googleAdditionalAccounts(svcDefs []googleoauth.Service) []pages.GoogleAccountStatus {
+	byID := map[string]*pages.GoogleAccountStatus{}
+	for _, def := range svcDefs {
+		ic, ok := w.services.Config.GetIntegration(def.Name)
+		if !ok || ic == nil {
+			continue
+		}
+		for id, ident := range ic.Identities {
+			acct := byID[id]
+			if acct == nil {
+				acct = &pages.GoogleAccountStatus{ID: id}
+				byID[id] = acct
+			}
+			if acct.Label == "" {
+				acct.Label = ident.Metadata["label"]
+			}
+			acct.Services = append(acct.Services, def.DisplayName)
+		}
+	}
+	out := make([]pages.GoogleAccountStatus, 0, len(byID))
+	for _, acct := range byID {
+		out = append(out, *acct)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+// validateGoogleAdditionalAccount checks a request to connect a named
+// (non-default) Google account. Named accounts inherit the OAuth client and
+// sit beside the default account, so every selected service must already
+// have its default account connected. It returns a user-facing error message,
+// or "" when the request is valid.
+func (w *WebServer) validateGoogleAdditionalAccount(account string, services []string) string {
+	if account == googleoauth.DefaultAccountID {
+		return fmt.Sprintf("Account ID %q is reserved for the main Google account", account)
+	}
+	if !validIdentityID(account) {
+		return "Account ID must use 1-64 letters, numbers, dots, underscores, or hyphens"
+	}
+	var missing []string
+	for _, name := range services {
+		ic, ok := w.services.Config.GetIntegration(name)
+		if ok && ic != nil && ic.Credentials["access_token"] != "" {
+			continue
+		}
+		display := name
+		for _, def := range googleoauth.Services() {
+			if def.Name == name {
+				display = def.DisplayName
+			}
+		}
+		missing = append(missing, display)
+	}
+	if len(missing) > 0 {
+		return "Sign in with your main Google account first for: " + strings.Join(missing, ", ")
+	}
+	return ""
+}
+
+// saveGoogleAdditionalAccount stores a completed sign-in as the named
+// identity result.Account on every granted service that already has a
+// default account. The default (top-level) credentials are left untouched.
+func (w *WebServer) saveGoogleAdditionalAccount(rw http.ResponseWriter, r *http.Request, result googleoauth.PollResult, granted []string) {
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
+	saved := 0
+	for _, name := range granted {
+		ic, ok := w.services.Config.GetIntegration(name)
+		if !ok || ic == nil || ic.Credentials["access_token"] == "" {
+			continue
+		}
+		creds := mcp.Credentials{"access_token": result.AccessToken}
+		if result.RefreshToken != "" {
+			creds["refresh_token"] = result.RefreshToken
+		}
+		ident := mcp.IntegrationIdentity{Credentials: creds}
+		if result.AccountLabel != "" {
+			ident.Metadata = map[string]string{"label": result.AccountLabel}
+		}
+		if ic.Identities == nil {
+			ic.Identities = map[string]mcp.IntegrationIdentity{}
+		}
+		ic.Identities[result.Account] = ident
+		if w.applyGoogleAccounts(r.Context(), name, ic) {
+			saved++
+		}
+	}
+	if saved > 0 {
+		w.notifyConfigChanged()
+	}
+	if saved == 0 {
+		http.Redirect(rw, r, googleFlash("", "Google did not grant access to any service with a connected main account"), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(rw, r, googleFlash(fmt.Sprintf("Added Google account %s to %d service(s)", result.Account, saved), ""), http.StatusSeeOther)
+}
+
+// removeGoogleDefaultAccount removes the default (top-level) Google account
+// and promotes a named account in its place. The promoted account is the
+// first named account by ID; a service without it promotes its own first
+// named account, and a service with no named account is disconnected. The
+// OAuth client is kept. Callers hold configMu.
+func (w *WebServer) removeGoogleDefaultAccount(rw http.ResponseWriter, r *http.Request) {
+	svcDefs := googleoauth.Services()
+	promoted := ""
+	for _, def := range svcDefs {
+		ic, ok := w.services.Config.GetIntegration(def.Name)
+		if !ok || ic == nil {
+			continue
+		}
+		for id := range ic.Identities {
+			if promoted == "" || id < promoted {
+				promoted = id
+			}
+		}
+	}
+	if promoted == "" {
+		http.Redirect(rw, r, googleFlash("", "Add another Google account before removing the default one"), http.StatusSeeOther)
+		return
+	}
+
+	changed := 0
+	for _, def := range svcDefs {
+		ic, ok := w.services.Config.GetIntegration(def.Name)
+		if !ok || ic == nil || ic.Credentials["access_token"] == "" {
+			continue
+		}
+		next := promoted
+		if _, has := ic.Identities[next]; !has {
+			next = ""
+			for id := range ic.Identities {
+				if next == "" || id < next {
+					next = id
+				}
+			}
+		}
+		for _, key := range []string{"access_token", "refresh_token", "scope"} {
+			delete(ic.Credentials, key)
+		}
+		if next == "" {
+			ic.Enabled = false
+		} else {
+			for _, key := range []string{"access_token", "refresh_token"} {
+				if v := ic.Identities[next].Credentials[key]; v != "" {
+					ic.Credentials[key] = v
+				}
+			}
+			delete(ic.Identities, next)
+		}
+		if w.applyGoogleAccounts(r.Context(), def.Name, ic) {
+			changed++
+		}
+	}
+	if changed > 0 {
+		w.notifyConfigChanged()
+	}
+	http.Redirect(rw, r, googleFlash(fmt.Sprintf("Removed the default Google account; %s is now the default", promoted), ""), http.StatusSeeOther)
+}
+
+// applyGoogleAccounts applies ic to the running adapter, so account changes
+// take effect without a restart, then saves it. A config the adapter rejects
+// is not saved and reports false.
+func (w *WebServer) applyGoogleAccounts(ctx context.Context, name string, ic *mcp.IntegrationConfig) bool {
+	if integration, ok := w.services.Registry.Get(name); ok && ic.Enabled {
+		if err := mcp.ConfigureIntegration(ctx, integration, ic); err != nil {
+			return false
+		}
+	}
+	return w.services.Config.SetIntegration(name, ic) == nil
+}
+
+// handleGoogleAccountDelete removes a named Google account from every Google
+// Workspace service. The default account cannot be removed here.
+func (w *WebServer) handleGoogleAccountDelete(rw http.ResponseWriter, r *http.Request) {
+	// The config UI has no login, so refuse cross-site and DNS-rebound
+	// requests before removing any account.
+	if !w.localRequest(r, true, true) {
+		http.Error(rw, "Local same-origin request required", http.StatusForbidden)
+		return
+	}
+	id := r.PathValue("id")
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
+	if id == googleoauth.DefaultAccountID {
+		w.removeGoogleDefaultAccount(rw, r)
+		return
+	}
+	if !validIdentityID(id) {
+		http.Redirect(rw, r, googleFlash("", "Unknown Google account"), http.StatusSeeOther)
+		return
+	}
+	removed := 0
+	for _, def := range googleoauth.Services() {
+		ic, ok := w.services.Config.GetIntegration(def.Name)
+		if !ok || ic == nil {
+			continue
+		}
+		if _, has := ic.Identities[id]; !has {
+			continue
+		}
+		delete(ic.Identities, id)
+		if w.applyGoogleAccounts(r.Context(), def.Name, ic) {
+			removed++
+		}
+	}
+	if removed > 0 {
+		w.notifyConfigChanged()
+	}
+	if removed == 0 {
+		http.Redirect(rw, r, googleFlash("", "Unknown Google account"), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(rw, r, googleFlash("Removed Google account "+id, ""), http.StatusSeeOther)
 }
 
 func (w *WebServer) handleMetricsAPI(rw http.ResponseWriter, r *http.Request) {

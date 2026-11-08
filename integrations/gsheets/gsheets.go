@@ -31,6 +31,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
+	"github.com/daltoniam/switchboard/googleoauth"
 )
 
 //go:embed compact.yaml
@@ -50,6 +51,9 @@ type gsheets struct {
 	baseURL      string
 	configSvc    mcp.ConfigService
 	mu           sync.Mutex
+	// accounts holds additional named Google accounts; the fields above
+	// are the default account.
+	accounts *googleoauth.AccountSet
 }
 
 var (
@@ -57,6 +61,8 @@ var (
 	_ mcp.PlainTextCredentials       = (*gsheets)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gsheets)(nil)
 	_ compact.ToolViewsIntegration   = (*gsheets)(nil)
+	_ mcp.MultiIdentityIntegration   = (*gsheets)(nil)
+	_ mcp.IdentityConfigHints        = (*gsheets)(nil)
 )
 
 func (g *gsheets) PlainTextKeys() []string {
@@ -68,8 +74,9 @@ const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 // New returns a fresh, unconfigured gsheets integration.
 func New() mcp.Integration {
 	return &gsheets{
-		client:  &http.Client{Timeout: 30 * time.Second},
-		baseURL: "https://sheets.googleapis.com/v4",
+		client:   &http.Client{Timeout: 30 * time.Second},
+		baseURL:  "https://sheets.googleapis.com/v4",
+		accounts: googleoauth.NewAccountSet("gsheets", tools),
 	}
 }
 
@@ -80,6 +87,7 @@ func SetConfigService(i mcp.Integration, svc mcp.ConfigService) {
 		g.mu.Lock()
 		g.configSvc = svc
 		g.mu.Unlock()
+		g.accounts.SetConfigService(svc)
 	}
 }
 
@@ -104,16 +112,33 @@ func (g *gsheets) Configure(_ context.Context, creds mcp.Credentials) error {
 // other than a 401/403 (which would indicate a credential problem) counts
 // as healthy — even a 404 means the token is valid and the request reached
 // the API.
+// ConfigureIdentities configures additional named Google accounts. Runs
+// after Configure, so named accounts inherit the top-level OAuth client.
+func (g *gsheets) ConfigureIdentities(_ context.Context, identities map[string]mcp.IntegrationIdentity) error {
+	return g.accounts.Configure(identities, g.clientID, g.clientSecret)
+}
+
+func (g *gsheets) IdentityCredentialKeys() []string { return googleoauth.IdentityCredentialKeys() }
+
+func (g *gsheets) IdentityMetadataKeys() []string { return googleoauth.IdentityMetadataKeys() }
+
 func (g *gsheets) Healthy(ctx context.Context) bool {
 	_, err := g.get(ctx, "/spreadsheets/HEALTHCHECK_PROBE")
 	return err == nil || strings.Contains(err.Error(), "(404)")
 }
 
 func (g *gsheets) Tools() []mcp.ToolDefinition {
+	if g.accounts != nil {
+		return g.accounts.Tools()
+	}
 	return tools
 }
 
 func (g *gsheets) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	ctx, args, res, err := g.accounts.Route(ctx, toolName, args)
+	if res != nil || err != nil {
+		return res, err
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -163,7 +188,12 @@ func (g *gsheets) doRequestInner(ctx context.Context, method, fullURL string, bo
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+g.accessToken)
+	acct := googleoauth.AccountFromContext(ctx)
+	token := g.accessToken
+	if acct != nil {
+		token = acct.AccessToken()
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	if body != nil && contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -178,7 +208,12 @@ func (g *gsheets) doRequestInner(ctx context.Context, method, fullURL string, bo
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == 401 && canRetry && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
+	if resp.StatusCode == 401 && canRetry && acct != nil {
+		if _, rerr := acct.Refresh(ctx, token); rerr == nil {
+			return g.doRequestInner(ctx, method, fullURL, body, contentType, false)
+		}
+	}
+	if resp.StatusCode == 401 && canRetry && acct == nil && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
 		g.mu.Lock()
 		currentToken := g.accessToken
 		g.mu.Unlock()

@@ -21,6 +21,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
+	"github.com/daltoniam/switchboard/googleoauth"
 )
 
 //go:embed compact.yaml
@@ -40,6 +41,9 @@ type gcal struct {
 	baseURL      string
 	configSvc    mcp.ConfigService
 	mu           sync.Mutex
+	// accounts holds additional named Google accounts; the fields above
+	// are the default account.
+	accounts *googleoauth.AccountSet
 }
 
 var (
@@ -47,6 +51,8 @@ var (
 	_ mcp.PlainTextCredentials       = (*gcal)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gcal)(nil)
 	_ compact.ToolViewsIntegration   = (*gcal)(nil)
+	_ mcp.MultiIdentityIntegration   = (*gcal)(nil)
+	_ mcp.IdentityConfigHints        = (*gcal)(nil)
 )
 
 func (g *gcal) PlainTextKeys() []string {
@@ -58,8 +64,9 @@ const maxResponseSize = 10 * 1024 * 1024 // 10 MB
 // New returns a fresh, unconfigured gcal integration.
 func New() mcp.Integration {
 	return &gcal{
-		client:  &http.Client{Timeout: 30 * time.Second},
-		baseURL: "https://www.googleapis.com/calendar/v3",
+		client:   &http.Client{Timeout: 30 * time.Second},
+		baseURL:  "https://www.googleapis.com/calendar/v3",
+		accounts: googleoauth.NewAccountSet("gcal", tools),
 	}
 }
 
@@ -70,6 +77,7 @@ func SetConfigService(i mcp.Integration, svc mcp.ConfigService) {
 		g.mu.Lock()
 		g.configSvc = svc
 		g.mu.Unlock()
+		g.accounts.SetConfigService(svc)
 	}
 }
 
@@ -89,16 +97,33 @@ func (g *gcal) Configure(_ context.Context, creds mcp.Credentials) error {
 	return nil
 }
 
+// ConfigureIdentities configures additional named Google accounts. Runs
+// after Configure, so named accounts inherit the top-level OAuth client.
+func (g *gcal) ConfigureIdentities(_ context.Context, identities map[string]mcp.IntegrationIdentity) error {
+	return g.accounts.Configure(identities, g.clientID, g.clientSecret)
+}
+
+func (g *gcal) IdentityCredentialKeys() []string { return googleoauth.IdentityCredentialKeys() }
+
+func (g *gcal) IdentityMetadataKeys() []string { return googleoauth.IdentityMetadataKeys() }
+
 func (g *gcal) Healthy(ctx context.Context) bool {
 	_, err := g.get(ctx, "/users/me/calendarList?maxResults=1")
 	return err == nil
 }
 
 func (g *gcal) Tools() []mcp.ToolDefinition {
+	if g.accounts != nil {
+		return g.accounts.Tools()
+	}
 	return tools
 }
 
 func (g *gcal) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	ctx, args, res, err := g.accounts.Route(ctx, toolName, args)
+	if res != nil || err != nil {
+		return res, err
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -141,7 +166,12 @@ func (g *gcal) doRequestInner(ctx context.Context, method, path string, body any
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+g.accessToken)
+	acct := googleoauth.AccountFromContext(ctx)
+	token := g.accessToken
+	if acct != nil {
+		token = acct.AccessToken()
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -156,7 +186,12 @@ func (g *gcal) doRequestInner(ctx context.Context, method, path string, body any
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == 401 && canRetry && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
+	if resp.StatusCode == 401 && canRetry && acct != nil {
+		if _, rerr := acct.Refresh(ctx, token); rerr == nil {
+			return g.doRequestInner(ctx, method, path, body, false)
+		}
+	}
+	if resp.StatusCode == 401 && canRetry && acct == nil && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
 		g.mu.Lock()
 		currentToken := g.accessToken
 		g.mu.Unlock()
