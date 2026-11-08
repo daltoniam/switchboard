@@ -199,6 +199,12 @@ var envMapping = map[string]map[string]string{
 	"x": {
 		"bearer_token": "X_BEARER_TOKEN",
 	},
+	"druid": {
+		"base_url": "DRUID_BASE_URL",
+		"username": "DRUID_USERNAME",
+		"password": "DRUID_PASSWORD",
+		"ca_cert":  "DRUID_CA_CERT",
+	},
 	"prometheus": {
 		"base_url":     "PROMETHEUS_BASE_URL",
 		"username":     "PROMETHEUS_USERNAME",
@@ -580,6 +586,10 @@ func defaultConfig() *mcp.Config {
 			"dbt": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "account_id": "", "base_url": "", "prod_job_id": ""},
+			},
+			"druid": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "ca_cert": ""},
 			},
 			"prometheus": {
 				Enabled:     false,
