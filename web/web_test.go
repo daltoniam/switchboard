@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -1378,4 +1379,290 @@ func TestUIAssets(t *testing.T) {
 			assert.NotEmpty(t, rr.Body.String())
 		})
 	}
+}
+
+// seedGooglePrimary configures a Google service with a client and a default
+// (top-level) account, as the primary sign-in leaves it.
+func seedGooglePrimary(cfg *mockConfigService, names ...string) {
+	for _, name := range names {
+		cfg.cfg.Integrations[name] = &mcp.IntegrationConfig{
+			Enabled: true,
+			Credentials: mcp.Credentials{
+				mcp.CredKeyClientID:     "cid",
+				mcp.CredKeyClientSecret: "csec",
+				"access_token":          "primary-access",
+				"refresh_token":         "primary-refresh",
+			},
+		}
+	}
+}
+
+func postGoogleStart(t *testing.T, handler http.Handler, body string) map[string]string {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/api/google/oauth/start", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+	var resp map[string]string
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	return resp
+}
+
+func TestGoogleOAuthStart_AdditionalAccountValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		seed    []string
+		body    string
+		wantErr string
+	}{
+		{name: "reserved id", seed: []string{"gmail"}, body: `{"services":["gmail"],"account":"default"}`, wantErr: "reserved"},
+		{name: "invalid id", seed: []string{"gmail"}, body: `{"services":["gmail"],"account":"bad id!"}`, wantErr: "Account ID"},
+		{name: "no primary account", seed: []string{"gmail"}, body: `{"services":["gmail","gcal"],"account":"work"}`, wantErr: "Google Calendar"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			googleoauth.Reset()
+			ws, _, cfg := setupTestWeb()
+			seedGooglePrimary(cfg, tt.seed...)
+			resp := postGoogleStart(t, ws.Handler(), tt.body)
+			assert.Contains(t, resp["error"], tt.wantErr)
+			assert.Empty(t, resp["authorize_url"])
+		})
+	}
+}
+
+func TestGoogleOAuthCallback_AdditionalAccountStoredAsIdentity(t *testing.T) {
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"work-access","refresh_token":"work-refresh","scope":"https://mail.google.com/ https://www.googleapis.com/auth/gmail.settings.basic"}`))
+	}))
+	defer tokenSrv.Close()
+	googleoauth.SetTokenURLForTest(t, tokenSrv.URL)
+	googleoauth.Reset()
+
+	ws, reg, cfg := setupTestWeb()
+	seedGooglePrimary(cfg, "gmail", "gcal")
+	gmailLive := &multiIdentityWebMock{name: "gmail", healthy: true}
+	reg.Register(gmailLive)
+	changed := 0
+	ws.onConfigChange = func() { changed++ }
+	handler := ws.Handler()
+
+	resp := postGoogleStart(t, handler, `{"services":["gmail","gcal"],"account":"work","label":"Work mail"}`)
+	require.Empty(t, resp["error"])
+	u, err := url.Parse(resp["authorize_url"])
+	require.NoError(t, err)
+	assert.Equal(t, "consent select_account", u.Query().Get("prompt"))
+
+	req := httptest.NewRequest("GET", "/api/google/oauth/callback?code=c&state="+url.QueryEscape(u.Query().Get("state")), nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "result=")
+
+	gmailIC, _ := cfg.GetIntegration("gmail")
+	assert.Equal(t, "primary-access", gmailIC.Credentials["access_token"], "default account must be untouched")
+	require.Contains(t, gmailIC.Identities, "work")
+	assert.Equal(t, "work-access", gmailIC.Identities["work"].Credentials["access_token"])
+	assert.Equal(t, "work-refresh", gmailIC.Identities["work"].Credentials["refresh_token"])
+	assert.Equal(t, "Work mail", gmailIC.Identities["work"].Metadata["label"])
+
+	// Calendar scope was not granted, so the account is not added there.
+	gcalIC, _ := cfg.GetIntegration("gcal")
+	assert.NotContains(t, gcalIC.Identities, "work")
+
+	// The running adapter picks up the account without a restart.
+	require.Contains(t, gmailLive.lastIdentities, "work", "running adapter must be reconfigured")
+	assert.Equal(t, "primary-access", gmailLive.lastCreds["access_token"])
+	assert.Positive(t, changed, "search index must be refreshed")
+}
+
+func TestGoogleSetup_ListsAdditionalAccountsWithoutTokens(t *testing.T) {
+	ws, reg, cfg := setupTestWeb()
+	// A healthy adapter keeps the page from probing Google's tokeninfo.
+	reg.Register(&mockIntegration{name: "gmail", healthy: true})
+	seedGooglePrimary(cfg, "gmail")
+	cfg.cfg.Integrations["gmail"].Identities = map[string]mcp.IntegrationIdentity{
+		"work": {
+			Credentials: mcp.Credentials{"access_token": "work-secret-token"},
+			Metadata:    map[string]string{"label": "Work mail"},
+		},
+	}
+	req := httptest.NewRequest("GET", "/integrations/google/setup", nil)
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusOK, rr.Code)
+	body := rr.Body.String()
+	assert.Contains(t, body, "Work mail")
+	assert.Contains(t, body, `data-google-account="work"`)
+	assert.Contains(t, body, `data-google-account="default"`, "default account is removable once another exists")
+	assert.NotContains(t, body, "work-secret-token")
+	assert.NotContains(t, body, "primary-access")
+}
+
+func TestGoogleAccountDelete_RemovesFromEveryService(t *testing.T) {
+	ws, reg, cfg := setupTestWeb()
+	seedGooglePrimary(cfg, "gmail", "gcal")
+	gmailLive := &multiIdentityWebMock{name: "gmail", healthy: true, lastIdentities: map[string]mcp.IntegrationIdentity{"work": {}}}
+	reg.Register(gmailLive)
+	changed := 0
+	ws.onConfigChange = func() { changed++ }
+	for _, name := range []string{"gmail", "gcal"} {
+		cfg.cfg.Integrations[name].Identities = map[string]mcp.IntegrationIdentity{
+			"work":  {Credentials: mcp.Credentials{"access_token": "w"}},
+			"other": {Credentials: mcp.Credentials{"access_token": "o"}},
+		}
+	}
+	req := localSlackRequest("POST", "/api/google/accounts/work/delete", "")
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+
+	for _, name := range []string{"gmail", "gcal"} {
+		ic, _ := cfg.GetIntegration(name)
+		assert.NotContains(t, ic.Identities, "work")
+		assert.Contains(t, ic.Identities, "other")
+		assert.Equal(t, "primary-access", ic.Credentials["access_token"])
+	}
+	assert.NotContains(t, gmailLive.lastIdentities, "work", "running adapter must drop the account")
+	assert.Contains(t, gmailLive.lastIdentities, "other")
+	assert.Positive(t, changed, "search index must be refreshed")
+}
+
+func TestGoogleAccountDelete_RejectsDefaultAndUnknown(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "unknown account", id: "nope"},
+		{name: "invalid id", id: "-bad"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ws, _, cfg := setupTestWeb()
+			seedGooglePrimary(cfg, "gmail")
+			cfg.cfg.Integrations["gmail"].Identities = map[string]mcp.IntegrationIdentity{
+				"work": {Credentials: mcp.Credentials{"access_token": "w"}},
+			}
+			req := localSlackRequest("POST", "/api/google/accounts/"+tt.id+"/delete", "")
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, req)
+			require.Equal(t, http.StatusSeeOther, rr.Code)
+			assert.Contains(t, rr.Header().Get("Location"), "error=")
+
+			ic, _ := cfg.GetIntegration("gmail")
+			assert.Contains(t, ic.Identities, "work")
+			assert.Equal(t, "primary-access", ic.Credentials["access_token"])
+		})
+	}
+}
+
+func TestGoogleAccountDelete_DefaultPromotesNextAccount(t *testing.T) {
+	ws, reg, cfg := setupTestWeb()
+	seedGooglePrimary(cfg, "gmail", "gcal", "gdrive")
+	cfg.cfg.Integrations["gmail"].Credentials["scope"] = "https://mail.google.com/"
+	cfg.cfg.Integrations["gmail"].Identities = map[string]mcp.IntegrationIdentity{
+		"zeta":  {Credentials: mcp.Credentials{"access_token": "z", "refresh_token": "zr"}},
+		"alpha": {Credentials: mcp.Credentials{"access_token": "a", "refresh_token": "ar"}, Metadata: map[string]string{"label": "Alpha"}},
+	}
+	cfg.cfg.Integrations["gcal"].Identities = map[string]mcp.IntegrationIdentity{
+		"zeta": {Credentials: mcp.Credentials{"access_token": "z2"}},
+	}
+	gmailLive := &multiIdentityWebMock{name: "gmail", healthy: true}
+	reg.Register(gmailLive)
+	changed := 0
+	ws.onConfigChange = func() { changed++ }
+
+	req := localSlackRequest("POST", "/api/google/accounts/default/delete", "")
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "result=")
+
+	tests := []struct {
+		service     string
+		wantEnabled bool
+		wantAccess  string
+		wantRefresh string
+		wantIDs     []string
+	}{
+		// alpha sorts first, so it becomes the default everywhere it exists.
+		{service: "gmail", wantEnabled: true, wantAccess: "a", wantRefresh: "ar", wantIDs: []string{"zeta"}},
+		// gcal has no alpha, so its only other account is promoted.
+		{service: "gcal", wantEnabled: true, wantAccess: "z2", wantRefresh: "", wantIDs: nil},
+		// gdrive had only the default, so it is disconnected.
+		{service: "gdrive", wantEnabled: false, wantAccess: "", wantRefresh: "", wantIDs: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.service, func(t *testing.T) {
+			ic, _ := cfg.GetIntegration(tt.service)
+			assert.Equal(t, tt.wantEnabled, ic.Enabled)
+			assert.Equal(t, tt.wantAccess, ic.Credentials["access_token"])
+			assert.Equal(t, tt.wantRefresh, ic.Credentials["refresh_token"])
+			assert.Empty(t, ic.Credentials["scope"], "the old account's scope must not linger")
+			assert.Equal(t, "cid", ic.Credentials[mcp.CredKeyClientID], "OAuth client is kept")
+			ids := make([]string, 0, len(ic.Identities))
+			for id := range ic.Identities {
+				ids = append(ids, id)
+			}
+			assert.ElementsMatch(t, tt.wantIDs, ids)
+		})
+	}
+	assert.Equal(t, "a", gmailLive.lastCreds["access_token"], "running adapter must use the promoted account")
+	assert.Positive(t, changed)
+}
+
+func TestGoogleAccountDelete_DefaultNeedsAnotherAccount(t *testing.T) {
+	ws, _, cfg := setupTestWeb()
+	seedGooglePrimary(cfg, "gmail")
+	req := localSlackRequest("POST", "/api/google/accounts/default/delete", "")
+	rr := httptest.NewRecorder()
+	ws.Handler().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "error=")
+	ic, _ := cfg.GetIntegration("gmail")
+	assert.Equal(t, "primary-access", ic.Credentials["access_token"])
+	assert.True(t, ic.Enabled)
+}
+
+func TestGoogleAccountDelete_RejectsCrossSiteRequests(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		request func(path string) *http.Request
+	}{
+		{name: "cross-site named", id: "work", request: crossSiteRequest},
+		{name: "cross-site default", id: "default", request: crossSiteRequest},
+		{name: "rebound named", id: "work", request: reboundRequest},
+		{name: "rebound default", id: "default", request: reboundRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ws, _, cfg := setupTestWeb()
+			seedGooglePrimary(cfg, "gmail")
+			cfg.cfg.Integrations["gmail"].Identities = map[string]mcp.IntegrationIdentity{
+				"work": {Credentials: mcp.Credentials{"access_token": "w"}},
+			}
+			rr := httptest.NewRecorder()
+			ws.Handler().ServeHTTP(rr, tt.request("/api/google/accounts/"+tt.id+"/delete"))
+			assert.Equal(t, http.StatusForbidden, rr.Code)
+
+			ic, _ := cfg.GetIntegration("gmail")
+			assert.Contains(t, ic.Identities, "work")
+			assert.Equal(t, "primary-access", ic.Credentials["access_token"])
+		})
+	}
+}
+
+func crossSiteRequest(path string) *http.Request {
+	r := localSlackRequest(http.MethodPost, path, "")
+	r.Header.Set("Origin", "https://evil.example")
+	r.Header.Set("Sec-Fetch-Site", "cross-site")
+	return r
+}
+
+func reboundRequest(path string) *http.Request {
+	r := httptest.NewRequest(http.MethodPost, "http://attacker.example"+path, nil)
+	r.RemoteAddr = "127.0.0.1:54321"
+	return r
 }

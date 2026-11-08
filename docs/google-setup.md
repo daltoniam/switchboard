@@ -141,6 +141,42 @@ scopes. Switchboard writes that pair into the config entry for **each** granted
 service, so every Google adapter can refresh independently. On a 401 each
 adapter refreshes its own copy of the token and persists the rotated value.
 
+## Multiple Google accounts
+
+The account you sign in with first is each service's **default** account and
+lives in its top-level `credentials`. To add another (for example a work
+account), open **3. Additional Google accounts** on the setup page, tick the
+services above, enter an account ID such as `work` and an optional label, and
+click **Add another Google account**. Google shows its account picker so you
+can choose a different account. The same OAuth client serves every account.
+
+Additional accounts are stored as named `identities` on each granted service
+that already has a default account:
+
+```json
+"gmail": {
+  "enabled": true,
+  "credentials": { "client_id": "...", "client_secret": "...", "access_token": "...", "refresh_token": "..." },
+  "identities": {
+    "work": {
+      "credentials": { "access_token": "...", "refresh_token": "..." },
+      "metadata": { "label": "Work mail", "email": "me@work.example" }
+    }
+  }
+}
+```
+
+- Named accounts inherit `client_id`/`client_secret` from the top-level
+  credentials unless they set their own. `default` is reserved.
+- With at least one named account, every tool takes an optional `account`
+  argument, and `<service>_list_accounts` (for example `gmail_list_accounts`)
+  lists account IDs and labels — never tokens. Omitting `account` uses the
+  default account, so single-account configs and prompts are unchanged.
+- Refreshed tokens for a named account are written back to that identity.
+- Remove an account from every service with its **Remove** button. Removing
+  the `default` account promotes the first other account (by ID) to default;
+  a service with no other account is disconnected. The OAuth client is kept.
+
 ## Troubleshooting
 
 - **Yellow "Enable API" badge** — your token is valid but the service's API is
