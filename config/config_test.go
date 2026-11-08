@@ -761,11 +761,11 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_BASE_URL", m["likec4excalidraw"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
+	assert.Len(t, m, 68)
 	assert.Equal(t, "DRUID_BASE_URL", m["druid"]["base_url"])
 	assert.Equal(t, "DRUID_USERNAME", m["druid"]["username"])
 	assert.Equal(t, "DRUID_PASSWORD", m["druid"]["password"])
 	assert.Equal(t, "DRUID_CA_CERT", m["druid"]["ca_cert"])
-	assert.Len(t, m, 68)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
