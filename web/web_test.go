@@ -1434,7 +1434,7 @@ func TestGoogleOAuthStart_AdditionalAccountValidation(t *testing.T) {
 
 func TestGoogleOAuthCallback_AdditionalAccountStoredAsIdentity(t *testing.T) {
 	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"access_token":"work-access","refresh_token":"work-refresh","scope":"https://mail.google.com/"}`))
+		_, _ = w.Write([]byte(`{"access_token":"work-access","refresh_token":"work-refresh","scope":"https://mail.google.com/ https://www.googleapis.com/auth/gmail.settings.basic"}`))
 	}))
 	defer tokenSrv.Close()
 	googleoauth.SetTokenURLForTest(t, tokenSrv.URL)

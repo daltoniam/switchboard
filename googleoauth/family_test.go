@@ -163,7 +163,7 @@ func TestTokenValid(t *testing.T) {
 
 func TestStartGroupForAccount_CarriesAccountAndForcesAccountPicker(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"access_token":"second","refresh_token":"second-r","scope":"https://mail.google.com/"}`))
+		_, _ = w.Write([]byte(`{"access_token":"second","refresh_token":"second-r","scope":"https://mail.google.com/ https://www.googleapis.com/auth/gmail.settings.basic"}`))
 	}))
 	defer ts.Close()
 	withTokenURL(t, ts.URL)

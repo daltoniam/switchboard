@@ -19,7 +19,7 @@ import (
 func TestUIGoogleAdditionalAccount(t *testing.T) {
 	_ = newUIApp(t)
 	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"access_token":"work-fixture-secret","refresh_token":"work-fixture-refresh","scope":"https://mail.google.com/"}`))
+		_, _ = w.Write([]byte(`{"access_token":"work-fixture-secret","refresh_token":"work-fixture-refresh","scope":"https://mail.google.com/ https://www.googleapis.com/auth/gmail.settings.basic"}`))
 	}))
 	t.Cleanup(tokenSrv.Close)
 	googleoauth.SetTokenURLForTest(t, tokenSrv.URL)
