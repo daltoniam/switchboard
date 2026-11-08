@@ -101,6 +101,7 @@ exec /bin/prometheus --config.file=/prometheus/prometheus.yml --web.config.file=
 	adapter := prometheus.New()
 	credentials := mcp.Credentials{"base_url": baseURL, "username": "reader", "password": password}
 	require.NoError(t, adapter.Configure(context.Background(), credentials))
+	started := time.Now().Add(-time.Minute)
 	liveEventually(t, time.Minute, func() error {
 		result, err := adapter.Execute(t.Context(), "prometheus_list_alerts", nil)
 		if err != nil {
@@ -111,11 +112,30 @@ exec /bin/prometheus --config.file=/prometheus/prometheus.yml --web.config.file=
 		}
 		return nil
 	})
+	// The range must hold real samples. Times are sent with whole-second
+	// precision, so an end taken in the same second as the first scrape is
+	// rounded down to before it and the range comes back empty. Poll the
+	// exact window the case will use until it returns data.
+	var start, end string
+	liveEventually(t, time.Minute, func() error {
+		start = started.UTC().Format(time.RFC3339)
+		end = time.Now().UTC().Format(time.RFC3339)
+		result, err := adapter.Execute(t.Context(), "prometheus_query_range", map[string]any{
+			"query": `up{job="live-prometheus"}`, "start": start, "end": end, "step": "1s",
+		})
+		if err != nil {
+			return err
+		}
+		if result.IsError || !liveContainsAll(result.Data, []string{"live-prometheus", "timestamps"}) {
+			return fmt.Errorf("waiting for range samples")
+		}
+		return nil
+	})
 	return liveProvision{
 		Credentials: map[string]string{"base_url": baseURL, "username": "reader", "password": password},
 		Values: map[string]string{
-			"start": time.Now().Add(-10 * time.Second).UTC().Format(time.RFC3339),
-			"end":   time.Now().UTC().Format(time.RFC3339),
+			"start": start,
+			"end":   end,
 		},
 	}
 }

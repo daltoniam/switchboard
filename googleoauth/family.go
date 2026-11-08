@@ -62,6 +62,10 @@ type Service struct {
 // gmailScope grants read/write/send access to the user's mail.
 const gmailScope = "https://mail.google.com/"
 
+// gmailSettingsScope lets the Gmail tools manage filters and other basic
+// mail settings, which gmailScope does not cover.
+const gmailSettingsScope = "https://www.googleapis.com/auth/gmail.settings.basic"
+
 // GroupName is the flow key used for the unified "Google Workspace" setup
 // flow. It is not a real integration — no adapter registers it — so it can
 // never collide with a service's own single-integration flow.
@@ -104,7 +108,7 @@ func PollGroup() PollResult {
 // Order is intentional — it controls the order services appear in the unified
 // setup UI (mail/calendar/drive first, productivity apps next, comms last).
 var services = []Service{
-	{Name: "gmail", DisplayName: "Gmail", Scopes: []string{gmailScope}},
+	{Name: "gmail", DisplayName: "Gmail", Scopes: []string{gmailScope, gmailSettingsScope}},
 	{Name: "gcal", DisplayName: "Google Calendar", Scopes: []string{
 		"https://www.googleapis.com/auth/calendar",
 	}},
