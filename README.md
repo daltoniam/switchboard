@@ -386,6 +386,9 @@ Environment variables override credential values but do not change the durable e
 | PagerDuty | `api_token` | `PAGERDUTY_API_TOKEN` (REST API user or account token) |
 | PagerDuty | `from_email` | `PAGERDUTY_FROM_EMAIL` (optional default From header for notes/ack/resolve) |
 | PagerDuty | `base_url` | `PAGERDUTY_BASE_URL` (optional — default `https://api.pagerduty.com`) |
+| [Apache Druid](docs/druid-setup.md) | `base_url` | `DRUID_BASE_URL` (required trusted HTTPS Router URL, optional proxy prefix) |
+| Apache Druid | `username` / `password` | `DRUID_USERNAME` / `DRUID_PASSWORD` (required dedicated basic-security diagnostic identity) |
+| Apache Druid | `ca_cert` | `DRUID_CA_CERT` (optional PEM CA certificate; UI accepts literal `\n` line breaks) |
 | Prometheus | `base_url` | `PROMETHEUS_BASE_URL` (required trusted HTTPS endpoint, optional proxy path) |
 | Prometheus | `username` / `password` | `PROMETHEUS_USERNAME` / `PROMETHEUS_PASSWORD` (optional complete Basic auth pair) |
 | Prometheus | `bearer_token` | `PROMETHEUS_BEARER_TOKEN` (optional alternative to Basic auth) |
