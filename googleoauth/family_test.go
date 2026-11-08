@@ -39,8 +39,9 @@ func TestServices_CoverAllElevenIntegrations(t *testing.T) {
 }
 
 func TestScopesFor(t *testing.T) {
-	if got := ScopesFor("gmail"); len(got) != 1 || got[0] != gmailScope {
-		t.Errorf("ScopesFor(gmail) = %v", got)
+	wantGmail := []string{"https://mail.google.com/", "https://www.googleapis.com/auth/gmail.settings.basic"}
+	if got := ScopesFor("gmail"); !reflect.DeepEqual(got, wantGmail) {
+		t.Errorf("ScopesFor(gmail) = %v, want %v (filters need gmail.settings.basic)", got, wantGmail)
 	}
 	if got := ScopesFor("gpeople"); len(got) != 3 {
 		t.Errorf("ScopesFor(gpeople) = %v, want 3 scopes", got)
@@ -55,6 +56,7 @@ func TestUnionScopes_DedupesAndSorts(t *testing.T) {
 	want := []string{
 		"https://mail.google.com/",
 		"https://www.googleapis.com/auth/calendar",
+		"https://www.googleapis.com/auth/gmail.settings.basic",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("UnionScopes = %v, want %v", got, want)
@@ -81,6 +83,7 @@ func TestGrantedServices(t *testing.T) {
 		"https://mail.google.com/",
 		"https://www.googleapis.com/auth/calendar",
 		"https://www.googleapis.com/auth/contacts",
+		"https://www.googleapis.com/auth/gmail.settings.basic",
 	}, " ")
 	got := GrantedServices(requested, granted)
 	want := []string{"gmail", "gcal"}

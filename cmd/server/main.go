@@ -34,6 +34,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/dbt"
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
+	"github.com/daltoniam/switchboard/integrations/druid"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
 	"github.com/daltoniam/switchboard/integrations/figma"
 	flyInt "github.com/daltoniam/switchboard/integrations/fly"
@@ -377,6 +378,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		launchdarkly.New(),
 		dbt.New(),
 		prometheus.New(),
+		druid.New(),
 		tailscale.New(),
 		sourcebot.New(),
 		openbao.New(),

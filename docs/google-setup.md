@@ -116,7 +116,7 @@ scopes* — the abbreviated `.../auth/...` form is rejected as invalid.
 
 | Service   | Scopes |
 |-----------|--------|
-| Gmail     | `https://mail.google.com/` |
+| Gmail     | `https://mail.google.com/`, `https://www.googleapis.com/auth/gmail.settings.basic` |
 | Calendar  | `https://www.googleapis.com/auth/calendar` |
 | Drive     | `https://www.googleapis.com/auth/drive` |
 | Docs      | `https://www.googleapis.com/auth/documents` |
