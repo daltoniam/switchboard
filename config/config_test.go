@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 78)
-	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "metabase", "paperless", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus"} {
+	assert.Len(t, m.cfg.Integrations, 79)
+	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "metabase", "paperless", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus", "druid"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 78)
+	assert.Len(t, cfg.Integrations, 79)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 78)
+	assert.Len(t, cfg.Integrations, 79)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,11 +273,12 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 78)
+	assert.Len(t, cfg.Integrations, 79)
 
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
 		"forgejo":          {"base_url", "token"},
+		"druid":            {"base_url", "username", "password", "ca_cert"},
 		"openbao":          {"base_url", "token", "mount", "path_prefix", "ca_cert"},
 		"datadog":          {"api_key", "app_key"},
 		"linear":           {"api_key", "mcp_access_token", "token_source"},
@@ -760,7 +761,11 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_BASE_URL", m["likec4excalidraw"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
-	assert.Len(t, m, 67)
+	assert.Equal(t, "DRUID_BASE_URL", m["druid"]["base_url"])
+	assert.Equal(t, "DRUID_USERNAME", m["druid"]["username"])
+	assert.Equal(t, "DRUID_PASSWORD", m["druid"]["password"])
+	assert.Equal(t, "DRUID_CA_CERT", m["druid"]["ca_cert"])
+	assert.Len(t, m, 68)
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])
