@@ -85,6 +85,12 @@ integrations/
     queries.go               Native SQL query execution, card CRUD handlers
     dashboards.go            Dashboard CRUD, add-card-to-dashboard handlers
     collections.go           Collection CRUD, search handlers
+  obsidian/
+    obsidian.go              Obsidian Local REST API adapter (core, dispatch, HTTP + TLS helpers)
+    tools.go                 Obsidian tool definitions (13 tools: vault files, notes, search, tags, commands)
+    handlers.go              Note read/write/patch, search, query, tag, and command handlers
+    markdown.go              Note markdown rendering (read_note, get_active_note)
+    compact.yaml             Field compaction specs (read tools)
   grist/
     grist.go                 Grist spreadsheet adapter (core, dispatch, HTTP helpers)
     compact.yaml             Field compaction specs (read tools)

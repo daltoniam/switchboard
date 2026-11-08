@@ -9,6 +9,9 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServices_CoverAllElevenIntegrations(t *testing.T) {
@@ -156,4 +159,35 @@ func TestTokenValid(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStartGroupForAccount_CarriesAccountAndForcesAccountPicker(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"second","refresh_token":"second-r","scope":"https://mail.google.com/ https://www.googleapis.com/auth/gmail.settings.basic"}`))
+	}))
+	defer ts.Close()
+	withTokenURL(t, ts.URL)
+
+	Reset()
+	res, err := StartGroupForAccount("cid", "secret", "http://localhost/cb", []string{"gmail"}, "work", "Work")
+	require.NoError(t, err)
+	u, err := url.Parse(res.AuthorizeURL)
+	require.NoError(t, err)
+	assert.Equal(t, "consent select_account", u.Query().Get("prompt"))
+
+	require.NoError(t, HandleGroupCallback("code", u.Query().Get("state")))
+	got := PollGroup()
+	assert.Equal(t, "complete", got.Status)
+	assert.Equal(t, "work", got.Account)
+	assert.Equal(t, "Work", got.AccountLabel)
+	assert.Equal(t, "second", got.AccessToken)
+}
+
+func TestStartGroup_PrimaryFlowHasNoAccount(t *testing.T) {
+	Reset()
+	res, err := StartGroup("cid", "secret", "http://localhost/cb", []string{"gmail"})
+	require.NoError(t, err)
+	u, err := url.Parse(res.AuthorizeURL)
+	require.NoError(t, err)
+	assert.Equal(t, "consent", u.Query().Get("prompt"))
 }

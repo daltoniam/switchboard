@@ -21,6 +21,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
+	"github.com/daltoniam/switchboard/googleoauth"
 )
 
 //go:embed compact.yaml
@@ -41,6 +42,9 @@ type gdrive struct {
 	uploadURL    string
 	configSvc    mcp.ConfigService
 	mu           sync.Mutex
+	// accounts holds additional named Google accounts; the fields above
+	// are the default account.
+	accounts *googleoauth.AccountSet
 }
 
 var (
@@ -48,6 +52,8 @@ var (
 	_ mcp.PlainTextCredentials       = (*gdrive)(nil)
 	_ mcp.ToolMaxBytesIntegration    = (*gdrive)(nil)
 	_ compact.ToolViewsIntegration   = (*gdrive)(nil)
+	_ mcp.MultiIdentityIntegration   = (*gdrive)(nil)
+	_ mcp.IdentityConfigHints        = (*gdrive)(nil)
 )
 
 func (g *gdrive) PlainTextKeys() []string {
@@ -62,6 +68,7 @@ func New() mcp.Integration {
 		client:    &http.Client{Timeout: 60 * time.Second},
 		baseURL:   "https://www.googleapis.com/drive/v3",
 		uploadURL: "https://www.googleapis.com/upload/drive/v3",
+		accounts:  googleoauth.NewAccountSet("gdrive", tools),
 	}
 }
 
@@ -72,6 +79,7 @@ func SetConfigService(i mcp.Integration, svc mcp.ConfigService) {
 		g.mu.Lock()
 		g.configSvc = svc
 		g.mu.Unlock()
+		g.accounts.SetConfigService(svc)
 	}
 }
 
@@ -94,16 +102,33 @@ func (g *gdrive) Configure(_ context.Context, creds mcp.Credentials) error {
 	return nil
 }
 
+// ConfigureIdentities configures additional named Google accounts. Runs
+// after Configure, so named accounts inherit the top-level OAuth client.
+func (g *gdrive) ConfigureIdentities(_ context.Context, identities map[string]mcp.IntegrationIdentity) error {
+	return g.accounts.Configure(identities, g.clientID, g.clientSecret)
+}
+
+func (g *gdrive) IdentityCredentialKeys() []string { return googleoauth.IdentityCredentialKeys() }
+
+func (g *gdrive) IdentityMetadataKeys() []string { return googleoauth.IdentityMetadataKeys() }
+
 func (g *gdrive) Healthy(ctx context.Context) bool {
 	_, err := g.get(ctx, "/about?fields=user(emailAddress)")
 	return err == nil
 }
 
 func (g *gdrive) Tools() []mcp.ToolDefinition {
+	if g.accounts != nil {
+		return g.accounts.Tools()
+	}
 	return tools
 }
 
 func (g *gdrive) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	ctx, args, res, err := g.accounts.Route(ctx, toolName, args)
+	if res != nil || err != nil {
+		return res, err
+	}
 	fn, ok := dispatch[toolName]
 	if !ok {
 		return &mcp.ToolResult{Data: fmt.Sprintf("unknown tool: %s", toolName), IsError: true}, nil
@@ -173,7 +198,12 @@ func (g *gdrive) doRequestInner(ctx context.Context, method, fullURL string, bod
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+g.accessToken)
+	acct := googleoauth.AccountFromContext(ctx)
+	token := g.accessToken
+	if acct != nil {
+		token = acct.AccessToken()
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	if body != nil && contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -188,7 +218,12 @@ func (g *gdrive) doRequestInner(ctx context.Context, method, fullURL string, bod
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == 401 && canRetry && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
+	if resp.StatusCode == 401 && canRetry && acct != nil {
+		if _, rerr := acct.Refresh(ctx, token); rerr == nil {
+			return g.doRequestInner(ctx, method, fullURL, body, contentType, false, rawBody)
+		}
+	}
+	if resp.StatusCode == 401 && canRetry && acct == nil && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
 		g.mu.Lock()
 		currentToken := g.accessToken
 		g.mu.Unlock()
@@ -223,7 +258,12 @@ func (g *gdrive) doRawInner(ctx context.Context, method, fullURL string, canRetr
 	if err != nil {
 		return nil, "", err
 	}
-	req.Header.Set("Authorization", "Bearer "+g.accessToken)
+	acct := googleoauth.AccountFromContext(ctx)
+	token := g.accessToken
+	if acct != nil {
+		token = acct.AccessToken()
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := g.client.Do(req)
 	if err != nil {
@@ -235,7 +275,12 @@ func (g *gdrive) doRawInner(ctx context.Context, method, fullURL string, canRetr
 	if err != nil {
 		return nil, "", err
 	}
-	if resp.StatusCode == 401 && canRetry && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
+	if resp.StatusCode == 401 && canRetry && acct != nil {
+		if _, rerr := acct.Refresh(ctx, token); rerr == nil {
+			return g.doRawInner(ctx, method, fullURL, false)
+		}
+	}
+	if resp.StatusCode == 401 && canRetry && acct == nil && g.refreshToken != "" && g.clientID != "" && g.clientSecret != "" {
 		g.mu.Lock()
 		currentToken := g.accessToken
 		g.mu.Unlock()

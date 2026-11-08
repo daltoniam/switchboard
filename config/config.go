@@ -61,6 +61,12 @@ var envMapping = map[string]map[string]string{
 		"token": "PAPERLESS_TOKEN",
 		"url":   "PAPERLESS_URL",
 	},
+	"obsidian": {
+		"api_key":                  "OBSIDIAN_API_KEY",
+		"base_url":                 "OBSIDIAN_BASE_URL",
+		"ca_cert":                  "OBSIDIAN_CA_CERT",
+		"insecure_skip_tls_verify": "OBSIDIAN_INSECURE_SKIP_TLS_VERIFY",
+	},
 	"airflow": {
 		"base_url":     "AIRFLOW_BASE_URL",
 		"username":     "AIRFLOW_USERNAME",
@@ -436,6 +442,10 @@ func defaultConfig() *mcp.Config {
 			"paperless": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "url": ""},
+			},
+			"obsidian": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "ca_cert": "", "insecure_skip_tls_verify": ""},
 			},
 			"airflow": {
 				Enabled:     false,

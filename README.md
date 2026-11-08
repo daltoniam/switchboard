@@ -329,6 +329,10 @@ Environment variables override credential values but do not change the durable e
 | Metabase | `url` | `METABASE_URL` |
 | Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
 | Paperless-ngx | `url` | `PAPERLESS_URL` |
+| Obsidian | `api_key` | `OBSIDIAN_API_KEY` |
+| Obsidian | `base_url` | `OBSIDIAN_BASE_URL` (optional, default `https://127.0.0.1:27124`) |
+| Obsidian | `ca_cert` | `OBSIDIAN_CA_CERT` (optional — PEM from `<base_url>/obsidian-local-rest-api.crt` to trust the plugin's self-signed certificate) |
+| Obsidian | `insecure_skip_tls_verify` | `OBSIDIAN_INSECURE_SKIP_TLS_VERIFY` (optional — `true` skips certificate checks; prefer `ca_cert`) |
 | Recoll WebUI | `base_url` | `RECOLL_URL` |
 | iMessage (macOS) | `db_path` | `IMESSAGE_DB_PATH` (optional — default `~/Library/Messages/chat.db`) |
 | iMessage (macOS) | `contacts_dir` | `IMESSAGE_CONTACTS_DIR` (optional — default `~/Library/Application Support/AddressBook`) |
@@ -447,6 +451,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
 | Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |
+| Obsidian | Local REST API key | Install the [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) community plugin in Obsidian, copy its API key from Settings → Local REST API, and set `OBSIDIAN_API_KEY` or enter it in the web UI. Obsidian must be running. The default HTTPS port uses a self-signed certificate: set `ca_cert`, or point `base_url` at the plugin's optional HTTP port (`http://127.0.0.1:27123`). |
 | Recoll WebUI | Base URL | Set `RECOLL_URL` to the Recoll WebUI root (for example `http://localhost:8080`) or enter it in the web UI |
 | iMessage (macOS) | Local macOS permissions | Enable in the web UI. Reading requires **Full Disk Access** for the `switchboard` binary (or the terminal running it) in System Settings → Privacy & Security. Sending requires `allow_send=true` and approving the **Automation → Messages** prompt on first send. |
 | PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |
