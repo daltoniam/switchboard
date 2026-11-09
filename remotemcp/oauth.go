@@ -224,6 +224,9 @@ func (f discoveryFetcher) transport() http.RoundTripper {
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = dialer.DialContext
+	// Connect directly: through a proxy the check would only see the
+	// proxy's address, never the destination it connects to.
+	transport.Proxy = nil
 	if discoveryTLSConfig != nil {
 		transport.TLSClientConfig = discoveryTLSConfig
 	}

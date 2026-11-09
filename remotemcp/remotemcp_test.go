@@ -643,6 +643,16 @@ func TestOAuth_DiscoveryRefusesHostnameResolvingToLoopback(t *testing.T) {
 	assert.False(t, reached, "the connection must be refused before any request reaches a local address")
 }
 
+func TestOAuth_DiscoveryIgnoresEnvironmentProxy(t *testing.T) {
+	// A proxy would make the connection on our behalf, so the dial check
+	// would only ever see the proxy's address.
+	t.Setenv("HTTPS_PROXY", "http://proxy.example:3128")
+	t.Setenv("HTTP_PROXY", "http://proxy.example:3128")
+	transport, ok := discoveryFetcher{}.transport().(*http.Transport)
+	require.True(t, ok)
+	require.Nil(t, transport.Proxy, "discovery must connect directly so every destination is checked")
+}
+
 func TestOAuth_DiscoverPrefersProtectedResourceIssuer(t *testing.T) {
 	routedDiscovery(t, map[string]http.HandlerFunc{
 		"mcp.example": func(w http.ResponseWriter, r *http.Request) {
