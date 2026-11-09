@@ -292,6 +292,11 @@ pagination, response limits, and the live acceptance test.
 Proxies Mobbin's hosted MCP server at `https://api.mobbin.com/mcp`, a searchable library of real app screens, user flows, and website sections. Tools are `mobbin_search_screens`, `mobbin_search_flows`, `mobbin_search_sections`, `mobbin_list_collections`, and `mobbin_get_collection_contents` (reads), plus `mobbin_create_collection`, `mobbin_save_content`, and `mobbin_add_comment` (writes to your Mobbin account). Search results include inline preview images.
 
 Open `/integrations/mobbin/setup` and select **Sign in with Mobbin**. Mobbin's authorization server is a separate issuer advertised through protected resource metadata (RFC 9728); OAuth uses dynamic client registration, PKCE, the `openid` scope, and resource binding to the MCP endpoint. A Mobbin account is required. Access tokens expire after about an hour and the shared remote OAuth flow does not refresh them, so sign in again when the setup page shows a connection error.
+### Higgsfield (`higgsfield`)
+
+Connects to Higgsfield's hosted MCP server at `https://mcp.higgsfield.ai/mcp` for AI image, video, and audio generation. Higgsfield has no API-key REST API for account features, so Switchboard proxies a curated set of 23 of the ~150 hosted tools (credits, model catalog, presets, voices, history, jobs, projects, media import, and image/video/audio generation) with hand-written descriptions and compaction. Chat-widget workflows (websites, 3D scenes, TikTok publishing, Ads Studio) are refused locally.
+
+Open `/integrations/higgsfield/setup` in the web UI and select **Sign in with Higgsfield**. OAuth uses dynamic client registration, PKCE, the `openid email offline_access` scopes, and resource binding to the MCP endpoint. Higgsfield's consent flow may show a plans upsell page first; choose **Skip & proceed to MCP** to finish sign-in. Start with `higgsfield_balance`. Generation tools spend credits: preflight with `params.get_cost=true` first. Re-authorize in setup if the token expires; the shared remote OAuth flow stores access tokens only.
 
 ### Environment Variables
 
@@ -443,6 +448,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Figma and FigJam | Hosted MCP OAuth (PKCE) | Web UI → Figma → Setup, or set `FIGMA_MCP_ACCESS_TOKEN` |
 | Notion MCP (`notion-mcp`) | Hosted MCP OAuth (PKCE) | Web UI → notion-mcp → Setup, or set `NOTION_MCP_ACCESS_TOKEN` and enable explicitly |
 | Mobbin | Hosted MCP OAuth (PKCE) | Web UI → Mobbin → Setup, or set `MOBBIN_MCP_ACCESS_TOKEN` and enable explicitly |
+| Higgsfield | Hosted MCP OAuth (PKCE) | Web UI → higgsfield → Setup, or set `HIGGSFIELD_MCP_ACCESS_TOKEN` and enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
 | Slack MCP (official hosted) | User OAuth access tokens per identity | Edit `~/.config/switchboard/config.json` `slackmcp.identities` (see below). Bot `xoxb-` tokens are **not** accepted by Slack's hosted MCP endpoint. |

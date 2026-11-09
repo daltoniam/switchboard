@@ -29,6 +29,7 @@ type remote struct {
 	cachedTools   []mcp.ToolDefinition
 	toolsFetched  bool
 	optionalToken bool
+	structured    bool
 }
 
 // New creates a remote MCP integration that proxies to the given server URL.
@@ -44,6 +45,17 @@ func NewOptionalToken(name, serverURL string) mcp.Integration {
 		name:          name,
 		serverURL:     serverURL,
 		optionalToken: true,
+	}
+}
+
+// NewStructured is New for servers that put the JSON result in
+// structuredContent and only a human-readable summary in content. Execute
+// returns the structured JSON so compaction and scripts see real data.
+func NewStructured(name, serverURL string) mcp.Integration {
+	return &remote{
+		name:       name,
+		serverURL:  serverURL,
+		structured: true,
 	}
 }
 
@@ -216,6 +228,9 @@ func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 	}
 
+	if r.structured {
+		return convertStructuredResult(result), nil
+	}
 	return convertResult(result), nil
 }
 
@@ -292,6 +307,21 @@ func toMap(v any) (map[string]any, bool) {
 		return nil, false
 	}
 	return m, true
+}
+
+// convertStructuredResult returns structuredContent as JSON when the call
+// succeeded and the server sent it; errors keep their text explanation.
+func convertStructuredResult(result *mcpsdk.CallToolResult) *mcp.ToolResult {
+	converted := convertResult(result)
+	if result == nil || result.IsError || result.StructuredContent == nil {
+		return converted
+	}
+	data, err := json.Marshal(result.StructuredContent)
+	if err != nil {
+		return converted
+	}
+	converted.Data = string(data)
+	return converted
 }
 
 func convertResult(result *mcpsdk.CallToolResult) *mcp.ToolResult {

@@ -3,6 +3,7 @@ package remotemcp
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -564,6 +565,66 @@ func TestOAuth_DiscoverOriginProtectedResourceMetadata(t *testing.T) {
 			meta, err := discoverOAuth(srv.URL)
 			require.NoError(t, err)
 			assert.Equal(t, srv.URL+"/auth/v1/token", meta.TokenEndpoint)
+		})
+	}
+}
+
+func TestConvertStructuredResult(t *testing.T) {
+	tests := []struct {
+		name    string
+		result  *mcpsdk.CallToolResult
+		want    string
+		isError bool
+	}{
+		{
+			name:   "prefers structured content over text summary",
+			result: &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "Credits: 4 | Plan: free"}}, StructuredContent: map[string]any{"credits": 4, "plan": "free"}},
+			want:   `{"credits":4,"plan":"free"}`,
+		},
+		{
+			name:   "falls back to text without structured content",
+			result: &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "plain"}}},
+			want:   "plain",
+		},
+		{
+			name:    "keeps error text even with structured content",
+			result:  &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "quota exceeded"}}, StructuredContent: map[string]any{"code": 429}, IsError: true},
+			want:    "quota exceeded",
+			isError: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertStructuredResult(tt.result)
+			assert.Equal(t, tt.want, result.Data)
+			assert.Equal(t, tt.isError, result.IsError)
+		})
+	}
+}
+
+func TestNewStructured_ExecuteReturnsStructuredContent(t *testing.T) {
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "1"}, nil)
+	server.AddTool(&mcpsdk.Tool{Name: "balance", InputSchema: map[string]any{"type": "object"}}, func(context.Context, *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+		return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "Credits: 4"}}, StructuredContent: map[string]any{"credits": 4}}, nil
+	})
+	stream := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true})
+	testServer := httptest.NewServer(stream)
+	defer testServer.Close()
+
+	for _, tc := range []struct {
+		name        string
+		integration mcp.Integration
+		want        string
+	}{
+		{name: "structured", integration: NewStructured("test", testServer.URL), want: `{"credits":4}`},
+		{name: "default keeps text", integration: New("test", testServer.URL), want: "Credits: 4"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, tc.integration.Configure(context.Background(), mcp.Credentials{"access_token": "t"}))
+			t.Cleanup(func() { _ = tc.integration.(io.Closer).Close() })
+			result, err := tc.integration.Execute(context.Background(), "test_balance", nil)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, result.Data)
 		})
 	}
 }

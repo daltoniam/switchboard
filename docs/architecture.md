@@ -99,6 +99,10 @@ integrations/
   mobbin/
     mobbin.go                Mobbin hosted MCP proxy (static catalog, remotemcp OAuth)
     tools.go                 Mobbin tool definitions (8 tools)
+  higgsfield/
+    higgsfield.go            Higgsfield hosted MCP proxy (curated static allowlist, remotemcp OAuth)
+    tools.go                 Tool definitions and dispatch map (exposed name → upstream tool)
+    compact.yaml             Compaction specs for verified response shapes
   notionmcp/
     notionmcp.go             Independent notion-mcp hosted proxy (dynamic tools, remotemcp OAuth)
     notionmcp_test.go        Remote protocol, credential isolation, and dynamic routing tests

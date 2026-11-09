@@ -32,7 +32,7 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 81)
+	assert.Len(t, m.cfg.Integrations, 82)
 	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "mobbin", "metabase", "paperless", "obsidian", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus", "druid"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 81)
+	assert.Len(t, cfg.Integrations, 82)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 81)
+	assert.Len(t, cfg.Integrations, 82)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,7 +273,7 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 81)
+	assert.Len(t, cfg.Integrations, 82)
 
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
@@ -769,7 +769,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_BASE_URL", m["likec4excalidraw"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
-	assert.Len(t, m, 70)
+	assert.Len(t, m, 71)
 	assert.Equal(t, "DRUID_BASE_URL", m["druid"]["base_url"])
 	assert.Equal(t, "DRUID_USERNAME", m["druid"]["username"])
 	assert.Equal(t, "DRUID_PASSWORD", m["druid"]["password"])

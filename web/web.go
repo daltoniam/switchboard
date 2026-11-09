@@ -31,6 +31,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
+	"github.com/daltoniam/switchboard/integrations/higgsfield"
 	linearInt "github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/microsoft365"
 	"github.com/daltoniam/switchboard/integrations/mobbin"
@@ -138,6 +139,7 @@ func (w *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /integrations/figma/setup", w.handleFigmaSetup)
 	mux.HandleFunc("GET /integrations/notion-mcp/setup", w.handleNotionMCPSetup)
 	mux.HandleFunc("GET /integrations/mobbin/setup", w.handleMobbinSetup)
+	mux.HandleFunc("GET /integrations/higgsfield/setup", w.handleHiggsfieldSetup)
 
 	mux.HandleFunc("POST /api/remote/{name}/oauth/start", w.handleRemoteMCPOAuthStart)
 	mux.HandleFunc("GET /api/remote/{name}/oauth/callback", w.handleRemoteMCPOAuthCallback)
@@ -447,6 +449,7 @@ var setupIntegrations = map[string]bool{
 	"figma":        true,
 	"notion-mcp":   true,
 	"mobbin":       true,
+	"higgsfield":   true,
 	"sentry":       true,
 	"gmail":        true,
 	"gcal":         true,
@@ -1858,6 +1861,12 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 		Options:       remotemcp.OAuthOptions{Scope: "openid"},
 		CredentialKey: "mcp_access_token",
 	},
+	"higgsfield": {
+		CallbackPath:  "/api/remote/higgsfield/oauth/callback",
+		ResourcePath:  "/mcp",
+		Options:       remotemcp.OAuthOptions{Scope: "openid email offline_access"},
+		CredentialKey: "mcp_access_token",
+	},
 }
 
 func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Request) {
@@ -1882,6 +1891,9 @@ func (w *WebServer) handleRemoteMCPOAuthStart(rw http.ResponseWriter, r *http.Re
 	}
 	if serverURL == "" {
 		serverURL = mobbin.MCPServerURL(integration)
+	}
+	if serverURL == "" {
+		serverURL = higgsfield.MCPServerURL(integration)
 	}
 	if serverURL == "" {
 		json.NewEncoder(rw).Encode(map[string]string{"error": "Not a remote MCP integration"})
