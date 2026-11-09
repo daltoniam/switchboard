@@ -3,6 +3,7 @@ package remotemcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -491,18 +492,21 @@ func TestOAuth_DiscoverFallbackIgnoresPartialOriginMetadata(t *testing.T) {
 func TestOAuth_AuthorizationServerMetadataURL(t *testing.T) {
 	for _, tc := range []struct {
 		name, issuer, want, err string
+		allowLocal              bool
 	}{
 		{name: "path", issuer: "https://auth.example/auth/v1", want: "https://auth.example/.well-known/oauth-authorization-server/auth/v1"},
 		{name: "trailing slash", issuer: "https://auth.example/auth/v1/", want: "https://auth.example/.well-known/oauth-authorization-server/auth/v1"},
 		{name: "no path", issuer: "https://auth.example", want: "https://auth.example/.well-known/oauth-authorization-server"},
 		{name: "escaped separator", issuer: "https://auth.example/tenant%2Fwest", want: "https://auth.example/.well-known/oauth-authorization-server/tenant%2Fwest"},
 		{name: "escaped trailing separator", issuer: "https://auth.example/tenant%2F", want: "https://auth.example/.well-known/oauth-authorization-server/tenant%2F"},
-		{name: "loopback http", issuer: "http://127.0.0.1:8080/auth", want: "http://127.0.0.1:8080/.well-known/oauth-authorization-server/auth"},
+		{name: "loopback http for a local server", issuer: "http://127.0.0.1:8080/auth", allowLocal: true, want: "http://127.0.0.1:8080/.well-known/oauth-authorization-server/auth"},
+		{name: "loopback http for a remote server", issuer: "http://127.0.0.1:8080/auth", err: "local"},
+		{name: "loopback https for a remote server", issuer: "https://localhost/auth", err: "local"},
 		{name: "remote http", issuer: "http://auth.example/auth/v1", err: "HTTPS"},
 		{name: "no host", issuer: "/auth/v1", err: "invalid"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := authorizationServerMetadataURL(tc.issuer)
+			got, err := authorizationServerMetadataURL(tc.issuer, tc.allowLocal)
 			if tc.err != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.err)
@@ -512,6 +516,112 @@ func TestOAuth_AuthorizationServerMetadataURL(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+// routedDiscovery serves discovery requests for named remote hosts from
+// handlers, records every host contacted, and fails any request to a host
+// it does not know, such as loopback.
+func routedDiscovery(t *testing.T, routes map[string]http.HandlerFunc) *[]string {
+	t.Helper()
+	var hosts []string
+	orig := discoveryTransport
+	discoveryTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		hosts = append(hosts, r.URL.Host)
+		handler, ok := routes[r.URL.Host]
+		if !ok {
+			return nil, fmt.Errorf("unexpected request to %s", r.URL.Host)
+		}
+		rec := httptest.NewRecorder()
+		handler(rec, r)
+		return rec.Result(), nil
+	})
+	t.Cleanup(func() { discoveryTransport = orig })
+	return &hosts
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestOAuth_DiscoverRefusesLocalTargetsFromRemoteMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		issuer string
+	}{
+		{"loopback http issuer", "http://127.0.0.1:9/auth"},
+		{"loopback https issuer", "https://127.0.0.1:9/auth"},
+		{"localhost issuer", "https://localhost:9/auth"},
+		{"ipv6 loopback issuer", "https://[::1]:9/auth"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hosts := routedDiscovery(t, map[string]http.HandlerFunc{
+				"mcp.example": func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/.well-known/oauth-protected-resource/mcp" {
+						_ = json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{tc.issuer}})
+						return
+					}
+					http.NotFound(w, r)
+				},
+			})
+			_, err := discoverOAuth("https://mcp.example")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "local")
+			for _, host := range *hosts {
+				assert.Equal(t, "mcp.example", host, "a remote server must not make discovery contact a local address")
+			}
+		})
+	}
+}
+
+func TestOAuth_DiscoverRefusesRedirectToLocalTarget(t *testing.T) {
+	hosts := routedDiscovery(t, map[string]http.HandlerFunc{
+		"mcp.example": func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/.well-known/oauth-protected-resource/mcp" {
+				_ = json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{"https://auth.example/v1"}})
+				return
+			}
+			http.NotFound(w, r)
+		},
+		"auth.example": func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "http://127.0.0.1:9/metadata", http.StatusFound)
+		},
+	})
+	_, err := discoverOAuth("https://mcp.example")
+	require.Error(t, err)
+	assert.NotContains(t, *hosts, "127.0.0.1:9", "redirects must not reach a local address")
+}
+
+func TestOAuth_DiscoverPrefersProtectedResourceIssuer(t *testing.T) {
+	routedDiscovery(t, map[string]http.HandlerFunc{
+		"mcp.example": func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/.well-known/oauth-authorization-server":
+				// The origin runs its own, unrelated authorization server.
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"issuer":                 "https://mcp.example",
+					"authorization_endpoint": "https://mcp.example/authorize",
+					"token_endpoint":         "https://mcp.example/token",
+				})
+			case "/.well-known/oauth-protected-resource/mcp":
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"resource":              "https://mcp.example/mcp",
+					"authorization_servers": []string{"https://auth.example/v1"},
+				})
+			default:
+				http.NotFound(w, r)
+			}
+		},
+		"auth.example": func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                 "https://auth.example/v1",
+				"authorization_endpoint": "https://auth.example/v1/authorize",
+				"token_endpoint":         "https://auth.example/v1/token",
+			})
+		},
+	})
+	meta, err := discoverOAuth("https://mcp.example")
+	require.NoError(t, err)
+	assert.Equal(t, "https://auth.example/v1/token", meta.TokenEndpoint, "the MCP resource's declared authorization server wins")
 }
 
 func TestOAuth_DiscoverFallsBackWhenOriginMetadataIsEmpty(t *testing.T) {
