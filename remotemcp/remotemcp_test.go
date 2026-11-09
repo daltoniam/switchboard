@@ -2,6 +2,7 @@ package remotemcp
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -589,6 +590,57 @@ func TestOAuth_DiscoverRefusesRedirectToLocalTarget(t *testing.T) {
 	_, err := discoverOAuth("https://mcp.example")
 	require.Error(t, err)
 	assert.NotContains(t, *hosts, "127.0.0.1:9", "redirects must not reach a local address")
+}
+
+func TestOAuth_DiscoveryDialRefusesLocalAddresses(t *testing.T) {
+	for _, tc := range []struct {
+		address    string
+		allowLocal bool
+		wantErr    bool
+	}{
+		{"127.0.0.1:443", false, true},
+		{"[::1]:443", false, true},
+		{"169.254.169.254:80", false, true},
+		{"0.0.0.0:443", false, true},
+		{"10.0.0.5:443", false, false},
+		{"93.184.216.34:443", false, false},
+		{"127.0.0.1:443", true, false},
+	} {
+		t.Run(fmt.Sprintf("%s allowLocal=%v", tc.address, tc.allowLocal), func(t *testing.T) {
+			err := discoveryFetcher{allowLocal: tc.allowLocal}.checkDialAddress(tc.address)
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "refusing local address")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestOAuth_DiscoveryRefusesHostnameResolvingToLoopback(t *testing.T) {
+	// "localhost." is not literally a loopback name, but resolves to one,
+	// like a DNS alias or rebinding attack would.
+	reached := false
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	u, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	target := "https://localhost.:" + u.Port() + "/.well-known/oauth-authorization-server"
+
+	// Trust the test server so only the address check can stop the request.
+	orig := discoveryTLSConfig
+	discoveryTLSConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402 -- test server
+	t.Cleanup(func() { discoveryTLSConfig = orig })
+
+	var meta oauthServerMeta
+	err = discoveryFetcher{allowLocal: false}.getJSON(target, &meta)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing local address")
+	assert.False(t, reached, "the connection must be refused before any request reaches a local address")
 }
 
 func TestOAuth_DiscoverPrefersProtectedResourceIssuer(t *testing.T) {

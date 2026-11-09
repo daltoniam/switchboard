@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -194,13 +196,59 @@ func checkDiscoveryTarget(target *url.URL, allowLocal bool) error {
 	return nil
 }
 
-// discoveryTransport is the transport for OAuth discovery; tests replace it.
-var discoveryTransport http.RoundTripper = http.DefaultTransport
+// discoveryTransport replaces the checked transport in tests that serve
+// discovery from handlers; nil uses the real network with address checks.
+var discoveryTransport http.RoundTripper
+
+// discoveryTLSConfig lets tests trust a local TLS server; nil uses defaults.
+var discoveryTLSConfig *tls.Config
 
 // discoveryFetcher reads OAuth discovery documents. Every request and every
 // redirect is checked with checkDiscoveryTarget.
 type discoveryFetcher struct {
 	allowLocal bool
+}
+
+// transport dials only addresses checkDialAddress allows. The check runs on
+// the resolved IP at connect time, so a hostname that resolves (or is
+// rebound) to a local address cannot get past the hostname check.
+func (f discoveryFetcher) transport() http.RoundTripper {
+	if discoveryTransport != nil {
+		return discoveryTransport
+	}
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
+		Control: func(_, address string, _ syscall.RawConn) error {
+			return f.checkDialAddress(address)
+		},
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = dialer.DialContext
+	if discoveryTLSConfig != nil {
+		transport.TLSClientConfig = discoveryTLSConfig
+	}
+	return transport
+}
+
+// checkDialAddress refuses loopback, link-local (including cloud metadata
+// at 169.254.169.254) and unspecified addresses unless allowLocal is set.
+// Private ranges stay reachable for self-hosted MCP servers.
+func (f discoveryFetcher) checkDialAddress(address string) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("discover oauth: %w", err)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return fmt.Errorf("discover oauth: unresolved address %q", address)
+	}
+	if f.allowLocal {
+		return nil
+	}
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+		return fmt.Errorf("refusing local address %s for a remote MCP server", address)
+	}
+	return nil
 }
 
 func (f discoveryFetcher) getJSON(target string, v any) error {
@@ -212,7 +260,7 @@ func (f discoveryFetcher) getJSON(target string, v any) error {
 		return fmt.Errorf("discover oauth: %w", err)
 	}
 	client := &http.Client{
-		Transport: discoveryTransport,
+		Transport: f.transport(),
 		Timeout:   15 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
