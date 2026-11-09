@@ -96,6 +96,9 @@ integrations/
     compact.yaml             Field compaction specs (read tools)
     tools.go                 Grist tool definitions (~30 tools)
     handlers.go              Orgs, workspaces, docs, tables, columns, records, SQL, webhooks, attachments
+  mobbin/
+    mobbin.go                Mobbin hosted MCP proxy (static catalog, remotemcp OAuth)
+    tools.go                 Mobbin tool definitions (8 tools)
   higgsfield/
     higgsfield.go            Higgsfield hosted MCP proxy (curated static allowlist, remotemcp OAuth)
     tools.go                 Tool definitions and dispatch map (exposed name → upstream tool)

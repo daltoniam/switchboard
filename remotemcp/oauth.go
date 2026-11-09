@@ -5,14 +5,17 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -68,22 +71,220 @@ func pkceChallenge(verifier string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
+// discoverOAuth finds the authorization server for a remote MCP server. It
+// follows RFC 9728 protected resource metadata first, since an MCP resource
+// may delegate to an issuer other than its origin (as Mobbin's does), and
+// falls back to RFC 8414 metadata at the server origin.
+//
+// Metadata comes from the remote server, so it may only send discovery to a
+// local address when the configured server is itself local (development and
+// tests); otherwise a server could aim requests at the Switchboard host.
 func discoverOAuth(serverURL string) (*oauthServerMeta, error) {
-	resp, err := http.Get(serverURL + "/.well-known/oauth-authorization-server")
+	parsed, err := url.Parse(serverURL)
+	if err != nil || parsed.Host == "" {
+		return nil, fmt.Errorf("invalid MCP server URL %q", serverURL)
+	}
+	fetch := discoveryFetcher{allowLocal: isLoopback(parsed.Hostname())}
+
+	if resource, ok := fetch.protectedResource(serverURL); ok {
+		if resource.Resource != "" && resource.Resource != serverURL+"/mcp" && resource.Resource != serverURL {
+			return nil, fmt.Errorf("protected resource metadata is for %q, not %q", resource.Resource, serverURL+"/mcp")
+		}
+		if len(resource.AuthorizationServers) > 0 {
+			return fetch.authorizationServer(resource.AuthorizationServers[0])
+		}
+	}
+
+	var origin oauthServerMeta
+	if err := fetch.getJSON(serverURL+"/.well-known/oauth-authorization-server", &origin); err != nil {
+		return nil, err
+	}
+	if !origin.hasEndpoints() {
+		return nil, errMissingEndpoints
+	}
+	return &origin, nil
+}
+
+// authorizationServer reads RFC 8414 metadata for an issuer named by
+// protected resource metadata and checks the issuer matches exactly.
+func (f discoveryFetcher) authorizationServer(issuer string) (*oauthServerMeta, error) {
+	// The issuer is compared exactly, so a trailing slash is kept here and
+	// dropped only when building the metadata URL.
+	metadataURL, err := authorizationServerMetadataURL(issuer, f.allowLocal)
 	if err != nil {
-		return nil, fmt.Errorf("discover oauth: %w", err)
+		return nil, err
+	}
+	var meta oauthServerMeta
+	if err := f.getJSON(metadataURL, &meta); err != nil {
+		return nil, err
+	}
+	if meta.Issuer != issuer {
+		return nil, fmt.Errorf("authorization server metadata issuer %q does not match %q", meta.Issuer, issuer)
+	}
+	if !meta.hasEndpoints() {
+		return nil, errMissingEndpoints
+	}
+	return &meta, nil
+}
+
+type protectedResourceMeta struct {
+	Resource             string   `json:"resource"`
+	AuthorizationServers []string `json:"authorization_servers"`
+}
+
+// protectedResource reads RFC 9728 metadata for the /mcp endpoint, then at
+// the origin, which MCP servers may publish instead.
+func (f discoveryFetcher) protectedResource(serverURL string) (protectedResourceMeta, bool) {
+	for _, path := range []string{"/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-protected-resource"} {
+		var resource protectedResourceMeta
+		if f.getJSON(serverURL+path, &resource) == nil {
+			return resource, true
+		}
+	}
+	return protectedResourceMeta{}, false
+}
+
+var errMissingEndpoints = fmt.Errorf("oauth metadata has no authorization or token endpoint")
+
+func (m *oauthServerMeta) hasEndpoints() bool {
+	return m.AuthorizationEndpoint != "" && m.TokenEndpoint != ""
+}
+
+// authorizationServerMetadataURL inserts the RFC 8414 well-known segment
+// between the issuer's host and path, keeping the path's escaping. Issuers
+// must use HTTPS and a non-local host; a local issuer (over HTTP or HTTPS) is
+// accepted only when allowLocal says the configured server is local too.
+func authorizationServerMetadataURL(issuer string, allowLocal bool) (string, error) {
+	parsed, err := url.Parse(issuer)
+	if err != nil || parsed.Host == "" {
+		return "", fmt.Errorf("invalid authorization server issuer %q", issuer)
+	}
+	if err := checkDiscoveryTarget(parsed, allowLocal); err != nil {
+		return "", fmt.Errorf("authorization server issuer %q: %w", issuer, err)
+	}
+	const wellKnown = "/.well-known/oauth-authorization-server"
+	// Trim only literal slashes from the escaped path and derive the decoded
+	// path from it, so an encoded %2F stays part of the issuer.
+	escaped := strings.TrimRight(parsed.EscapedPath(), "/")
+	decoded, err := url.PathUnescape(escaped)
+	if err != nil {
+		return "", fmt.Errorf("invalid authorization server issuer %q", issuer)
+	}
+	parsed.Path = wellKnown + decoded
+	parsed.RawPath = wellKnown + escaped
+	return parsed.String(), nil
+}
+
+func isLoopback(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// checkDiscoveryTarget allows HTTPS to non-local hosts, and local hosts
+// (over HTTP or HTTPS) only when allowLocal is set.
+func checkDiscoveryTarget(target *url.URL, allowLocal bool) error {
+	local := isLoopback(target.Hostname())
+	if local && !allowLocal {
+		return fmt.Errorf("refusing local address %s for a remote MCP server", target.Host)
+	}
+	if target.Scheme != "https" && (target.Scheme != "http" || !local) {
+		return fmt.Errorf("must use HTTPS")
+	}
+	return nil
+}
+
+// discoveryTransport replaces the checked transport in tests that serve
+// discovery from handlers; nil uses the real network with address checks.
+var discoveryTransport http.RoundTripper
+
+// discoveryTLSConfig lets tests trust a local TLS server; nil uses defaults.
+var discoveryTLSConfig *tls.Config
+
+// discoveryFetcher reads OAuth discovery documents. Every request and every
+// redirect is checked with checkDiscoveryTarget.
+type discoveryFetcher struct {
+	allowLocal bool
+}
+
+// transport dials only addresses checkDialAddress allows. The check runs on
+// the resolved IP at connect time, so a hostname that resolves (or is
+// rebound) to a local address cannot get past the hostname check.
+func (f discoveryFetcher) transport() http.RoundTripper {
+	if discoveryTransport != nil {
+		return discoveryTransport
+	}
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
+		Control: func(_, address string, _ syscall.RawConn) error {
+			return f.checkDialAddress(address)
+		},
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = dialer.DialContext
+	// Connect directly: through a proxy the check would only see the
+	// proxy's address, never the destination it connects to.
+	transport.Proxy = nil
+	if discoveryTLSConfig != nil {
+		transport.TLSClientConfig = discoveryTLSConfig
+	}
+	return transport
+}
+
+// checkDialAddress refuses loopback, link-local (including cloud metadata
+// at 169.254.169.254) and unspecified addresses unless allowLocal is set.
+// Private ranges stay reachable for self-hosted MCP servers.
+func (f discoveryFetcher) checkDialAddress(address string) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("discover oauth: %w", err)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return fmt.Errorf("discover oauth: unresolved address %q", address)
+	}
+	if f.allowLocal {
+		return nil
+	}
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+		return fmt.Errorf("refusing local address %s for a remote MCP server", address)
+	}
+	return nil
+}
+
+func (f discoveryFetcher) getJSON(target string, v any) error {
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return fmt.Errorf("discover oauth: %w", err)
+	}
+	if err := checkDiscoveryTarget(parsed, f.allowLocal); err != nil {
+		return fmt.Errorf("discover oauth: %w", err)
+	}
+	client := &http.Client{
+		Transport: f.transport(),
+		Timeout:   15 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			return checkDiscoveryTarget(req.URL, f.allowLocal)
+		},
+	}
+	resp, err := client.Get(target) // #nosec G107 -- URL from the configured server or its OAuth metadata, checked above
+	if err != nil {
+		return fmt.Errorf("discover oauth: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("oauth discovery returned %d", resp.StatusCode)
+		return fmt.Errorf("oauth discovery returned %d", resp.StatusCode)
 	}
-
-	var meta oauthServerMeta
-	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
-		return nil, fmt.Errorf("parse oauth metadata: %w", err)
+	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+		return fmt.Errorf("parse oauth metadata: %w", err)
 	}
-	return &meta, nil
+	return nil
 }
 
 func registerClient(registerURL, redirectURI string, clientNames ...string) (clientID, clientSecret string, err error) {
