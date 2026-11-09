@@ -55,6 +55,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
+	"github.com/daltoniam/switchboard/integrations/higgsfield"
 	"github.com/daltoniam/switchboard/integrations/hubspot"
 	"github.com/daltoniam/switchboard/integrations/imessage"
 	"github.com/daltoniam/switchboard/integrations/intercom"
@@ -333,6 +334,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		likec4excalidraw.New(),
 		figma.New(),
 		notionmcp.New(),
+		higgsfield.New(),
 		metabase.New(),
 		paperless.New(),
 		obsidian.New(),

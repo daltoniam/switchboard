@@ -322,6 +322,10 @@ var envMapping = map[string]map[string]string{
 		"mcp_access_token": "NOTION_MCP_ACCESS_TOKEN",
 		"base_url":         "NOTION_MCP_BASE_URL",
 	},
+	"higgsfield": {
+		"mcp_access_token": "HIGGSFIELD_MCP_ACCESS_TOKEN",
+		"base_url":         "HIGGSFIELD_MCP_BASE_URL",
+	},
 }
 
 // googleWorkspaceIntegrations lists the integrations that share one Google
@@ -424,6 +428,10 @@ func defaultConfig() *mcp.Config {
 				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
 			"notion-mcp": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"higgsfield": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
