@@ -17,10 +17,8 @@ test('branded logo CSS uses immutable CDN URLs and preserves theme variants', ()
   const css = readFileSync(new URL('../../static/style.css', import.meta.url), 'utf8');
   const rules = [...css.matchAll(/\.integration-icon\[data-integration="([^"]+)"\]\{([^}]+)\}/g)];
   const branded = rules.filter(([, , rule]) => rule.includes('--integration-light:'));
-  const existingRules = rules.filter(([, name]) => name !== 'influxdb');
-  assert.equal(existingRules.length, 65);
-  const influxRule = rules.find(([, name]) => name === 'influxdb');
-  if (influxRule) assert.match(influxRule[2], /--un-icon:url\("data:image\/svg\+xml;base64,/);
+  assert.equal(rules.length, 66);
+  assert.ok(rules.some(([, name]) => name === 'influxdb'));
   assert.ok(rules.some(([, name]) => name === 'prometheus'));
   assert.ok(rules.some(([, name]) => name === 'keycloak'));
   assert.ok(rules.some(([, name]) => name === 'obsidian'));
