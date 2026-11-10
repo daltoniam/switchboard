@@ -58,6 +58,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/higgsfield"
 	"github.com/daltoniam/switchboard/integrations/hubspot"
 	"github.com/daltoniam/switchboard/integrations/imessage"
+	"github.com/daltoniam/switchboard/integrations/influxdb"
 	"github.com/daltoniam/switchboard/integrations/intercom"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/keycloak"
@@ -340,6 +341,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		metabase.New(),
 		paperless.New(),
 		obsidian.New(),
+		influxdb.New(),
 		airflow.New(),
 		argoworkflows.New(),
 		recoll.New(),
