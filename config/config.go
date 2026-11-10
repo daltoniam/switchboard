@@ -455,6 +455,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "ca_cert": "", "insecure_skip_tls_verify": ""},
 			},
+			"influxdb": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_token": "", "org_id": "", "ca_cert": ""},
+			},
 			"airflow": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "access_token": ""},
