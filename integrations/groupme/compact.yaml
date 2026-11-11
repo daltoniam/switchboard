@@ -1,0 +1,87 @@
+# Switchboard compaction specs for the groupme integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Handlers unwrap
+# GroupMe's {"response": ...} envelope, so paths start at the payload.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# groupme.yaml there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+  groupme_get_me:
+    spec: [id, user_id, name, created_at]
+
+  # Top-level array of groups (members omitted by the handler).
+  groupme_list_groups:
+    spec:
+      - id
+      - name
+      - type
+      - description
+      - updated_at
+      - messages.count
+      - messages.last_message_id
+      - messages.last_message_created_at
+      - messages.preview.nickname
+      - messages.preview.text
+
+  groupme_get_group:
+    spec:
+      - id
+      - name
+      - type
+      - description
+      - creator_user_id
+      - created_at
+      - updated_at
+      - members[].user_id
+      - members[].nickname
+      - members[].roles
+      - messages.count
+      - messages.last_message_id
+      - messages.last_message_created_at
+
+  groupme_list_group_messages:
+    spec:
+      - count
+      - messages[].id
+      - messages[].created_at
+      - messages[].user_id
+      - messages[].name
+      - messages[].text
+      - messages[].attachments
+      - messages[].favorited_by
+      - messages[].system
+
+  # Top-level array of DM conversations.
+  groupme_list_chats:
+    spec:
+      - updated_at
+      - messages_count
+      - other_user.id
+      - other_user.name
+      - last_message.id
+      - last_message.sender_id
+      - last_message.text
+      - last_message.created_at
+
+  groupme_list_direct_messages:
+    spec:
+      - count
+      - direct_messages[].id
+      - direct_messages[].created_at
+      - direct_messages[].sender_id
+      - direct_messages[].recipient_id
+      - direct_messages[].name
+      - direct_messages[].text
+      - direct_messages[].attachments
+      - direct_messages[].favorited_by
+
+  # Top-level array of bots.
+  groupme_list_bots:
+    spec: [bot_id, group_id, group_name, name, active, callback_url]
