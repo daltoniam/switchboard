@@ -73,6 +73,10 @@ Dynamic adapters without a static dispatch map (e.g. `slackmcp`) must instead pr
 - Only return a non-nil Go error for truly exceptional failures
 - The server layer wraps these into MCP error results
 
+### MySQL
+
+The native MySQL adapter uses `database/sql` and `go-sql-driver/mysql` for MySQL 8.4 LTS direct TCP, read-only access. See [mysql.md](mysql.md) for credential fields, aliases, verified TLS, least-privilege grants, SQL restrictions, tool limits, and verification commands.
+
 ### HTTP Client / SDK Pattern
 Each adapter uses either a typed SDK or raw HTTP. Auth varies:
 - **Argo Workflows (`argoworkflows`)**: two status-only REST reads against a fixed trusted HTTPS Argo Server and namespace, using a get/list-only service-account bearer token in client auth mode. Optional PEM CA trust, no TLS bypass or redirects. Strict output allowlisting precedes raw scripts and compaction; arbitrary failure messages, specs, parameters, artifacts and logs are excluded. Lists use bounded `limit`, opaque `cursor`, and optional `label_selector`. See [Argo Workflows setup](argoworkflows-setup.md) for least privilege, response bounds, and live acceptance.

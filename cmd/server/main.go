@@ -69,6 +69,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/microsoft365"
 	"github.com/daltoniam/switchboard/integrations/mobbin"
+	"github.com/daltoniam/switchboard/integrations/mysql"
 	"github.com/daltoniam/switchboard/integrations/netsuite"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
@@ -349,6 +350,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		awsInt.New(),
 		posthog.New(),
 		postgres.New(),
+		mysql.New(),
 		clickhouse.New(),
 		elasticsearch.New(),
 		pganalyze.New(),
