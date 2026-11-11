@@ -1,0 +1,12 @@
+version: 1
+tools:
+  influxdb_list_buckets:
+    spec: [buckets, limit, offset, next_offset, has_more, page_only]
+  influxdb_list_tasks:
+    spec: [tasks, limit, next_after, has_more, page_only]
+  influxdb_get_task:
+    spec: [id, orgID, name, status, every, cron, offset, latestCompleted, lastRunStatus]
+  influxdb_list_task_runs:
+    spec: [runs, limit, next_after, has_more, page_only, after_time, before_time]
+  influxdb_get_task_run:
+    spec: [id, taskID, status, scheduledFor, startedAt, finishedAt, requestedAt]

@@ -1,0 +1,83 @@
+name: Live Integration
+
+# Runs each changed integration's live acceptance spec against the real
+# product in Docker: configured through the setup UI in Chromium, then every
+# tool called over MCP. The job is named live-integration so it can be a
+# required check; it succeeds without work when no spec is affected.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# No secrets: container providers use disposable credentials created by the
+# test. Shared vendor sandboxes will need a separate, egress-restricted job.
+permissions:
+  contents: read
+
+concurrency:
+  group: live-integration-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  live-integration:
+    name: live-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select integrations
+        id: targets
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            BASE="$(git rev-parse HEAD~1)"
+          fi
+          targets="$(bash scripts/live-targets.sh "$BASE" HEAD)"
+          echo "Live specs to run: ${targets:-none}"
+          {
+            echo "targets<<EOF"
+            echo "$targets"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        if: steps.targets.outputs.targets != ''
+        with:
+          go-version-file: go.mod
+
+      - name: Install Chromium and system dependencies
+        if: steps.targets.outputs.targets != ''
+        timeout-minutes: 10
+        run: make ui-install UI_INSTALL_ARGS=--with-deps
+
+      - name: Run live specs
+        if: steps.targets.outputs.targets != ''
+        env:
+          TARGETS: ${{ steps.targets.outputs.targets }}
+        run: |
+          status=0
+          for name in $TARGETS; do
+            echo "::group::live $name"
+            if make test-live INTEGRATION="$name"; then
+              echo "live $name: passed" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "live $name: FAILED" >> "$GITHUB_STEP_SUMMARY"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
+
+      - name: Upload masked live evidence
+        if: always() && steps.targets.outputs.targets != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-integration-${{ github.sha }}
+          path: dist/live-artifacts/
+          if-no-files-found: warn
+          retention-days: 7

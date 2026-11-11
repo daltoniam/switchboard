@@ -220,6 +220,7 @@ func TestDispatchMap_AllToolsCovered(t *testing.T) {
 	seen := map[mcp.ToolName]bool{}
 	for _, tool := range New().Tools() {
 		require.NotEmpty(t, tool.Description)
+		require.Equal(t, mcp.AccessRead, tool.Access)
 		require.True(t, strings.HasPrefix(string(tool.Name), "mysql_"))
 		require.False(t, seen[tool.Name])
 		seen[tool.Name] = true

@@ -18,28 +18,35 @@ tools:
     postgres_database_info:
         spec:
             - version
-            - current_database
-            - current_user
-            - server_encoding
+            - database
+            - user
+            - encoding
+            - timezone
+            - max_connections
     postgres_database_size:
         spec:
+            - database
             - database_size
-            - tables
+            - schema
+            - table_name
+            - total_size
+            - estimated_rows
     postgres_describe_table:
         spec:
             - column_name
             - data_type
             - is_nullable
             - column_default
-            - constraints
+            - is_primary_key
     postgres_list_active_connections:
         spec:
             - pid
-            - usename
-            - datname
+            - user
+            - database
             - state
             - query
             - query_start
+            - duration_seconds
             - client_addr
     postgres_list_columns:
         spec:
@@ -52,29 +59,33 @@ tools:
             - constraint_name
             - constraint_type
             - column_name
-            - foreign_table
+            - references_table
+            - references_column
+            - check_clause
     postgres_list_enums:
         spec:
             - enum_name
-            - enum_values
+            - values
     postgres_list_extensions:
         spec:
             - name
-            - default_version
-            - installed_version
+            - version
+            - schema
             - comment
     postgres_list_foreign_keys:
         spec:
             - constraint_name
-            - column_name
-            - foreign_table_name
-            - foreign_column_name
+            - from_column
+            - to_schema
+            - to_table
+            - to_column
+            - delete_rule
     postgres_list_functions:
         spec:
             - function_name
-            - result_type
-            - argument_types
-            - type
+            - arguments
+            - return_type
+            - kind
     postgres_list_grants:
         spec:
             - grantee
@@ -82,54 +93,65 @@ tools:
             - table_name
     postgres_list_indexes:
         spec:
-            - indexname
-            - indexdef
-            - tablespace
+            - index_name
+            - definition
+            - is_unique
+            - is_primary
             - size
     postgres_list_locks:
         spec:
-            - pid
+            - blocked_pid
+            - blocked_user
+            - blocked_query
+            - blocked_mode
+            - blocking_pid
+            - blocking_user
+            - blocking_query
+            - blocking_mode
             - locktype
-            - relation
-            - mode
-            - granted
-            - query
     postgres_list_roles:
         spec:
-            - rolname
-            - rolsuper
-            - rolcreatedb
-            - rolcanlogin
+            - role_name
+            - is_superuser
+            - can_create_db
+            - can_create_role
+            - can_login
     postgres_list_schemas:
         spec:
             - schema_name
     postgres_list_tables:
         spec:
             - table_name
-            - schema_name
-            - row_count
+            - estimated_rows
             - total_size
+            - comment
     postgres_list_triggers:
         spec:
             - trigger_name
-            - event_manipulation
-            - event_object_table
+            - table_name
+            - timing
+            - event
             - action_statement
     postgres_list_views:
         spec:
-            - viewname
-            - definition
+            - view_name
+            - view_definition
     postgres_running_queries:
         spec:
             - pid
-            - usename
+            - user
             - state
             - query
-            - duration
+            - duration_seconds
+            - wait_event_type
+            - wait_event
     postgres_table_stats:
         spec:
             - table_name
-            - row_count
-            - dead_tuples
+            - live_rows
+            - dead_rows
             - last_vacuum
+            - last_autovacuum
             - last_analyze
+            - last_autoanalyze
+            - total_size

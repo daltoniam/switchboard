@@ -1,0 +1,6 @@
+version: 1
+tools:
+  argoworkflows_list_workflows:
+    spec: ["workflows[].name", "workflows[].phase", "workflows[].started_at", "workflows[].finished_at", "workflows[].failure_summary", next_cursor, incomplete]
+  argoworkflows_get_workflow:
+    spec: [name, phase, started_at, finished_at, progress, failure_summary, "failed_nodes[].name", "failed_nodes[].phase", nodes_truncated, messages_omitted]

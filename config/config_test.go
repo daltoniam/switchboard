@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 74)
-	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "metabase", "paperless", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt"} {
+	assert.Len(t, m.cfg.Integrations, 84)
+	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "mobbin", "metabase", "paperless", "obsidian", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus", "druid", "mysql"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -154,7 +154,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 74)
+	assert.Len(t, cfg.Integrations, 84)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 74)
+	assert.Len(t, cfg.Integrations, 84)
 }
 
 func TestUpdate(t *testing.T) {
@@ -273,11 +273,13 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 74)
+	assert.Len(t, cfg.Integrations, 84)
 
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
 		"forgejo":          {"base_url", "token"},
+		"druid":            {"base_url", "username", "password", "ca_cert"},
+		"openbao":          {"base_url", "token", "mount", "path_prefix", "ca_cert"},
 		"datadog":          {"api_key", "app_key"},
 		"linear":           {"api_key", "mcp_access_token", "token_source"},
 		"sentry":           {"auth_token", "organization", "client_id", "token_source"},
@@ -286,8 +288,10 @@ func TestDefaultConfig(t *testing.T) {
 		"likec4excalidraw": {"base_url", "mcp_token"},
 		"figma":            {"mcp_access_token", "base_url", "token_source"},
 		"notion-mcp":       {"mcp_access_token", "base_url", "token_source"},
+		"mobbin":           {"mcp_access_token", "base_url", "token_source"},
 		"metabase":         {"api_key", "url"},
 		"paperless":        {"token", "url"},
+		"obsidian":         {"api_key", "base_url", "ca_cert", "insecure_skip_tls_verify"},
 		"airflow":          {"base_url", "username", "password", "access_token"},
 		"recoll":           {"base_url"},
 		"imessage":         {"db_path", "contacts_dir", "allow_send", "send_allowlist"},
@@ -310,10 +314,12 @@ func TestDefaultConfig(t *testing.T) {
 		"ramp":             {"access_token", "base_url"},
 		"zendesk":          {"subdomain", "email", "api_token", "access_token", "base_url"},
 		"okta":             {"api_token", "org_url"},
+		"keycloak":         {"base_url", "realm", "client_id", "client_secret"},
 		"pagerduty":        {"api_token", "from_email", "base_url"},
 		"launchdarkly":     {"access_token", "base_url"},
 		"dbt":              {"token", "account_id", "base_url", "prod_job_id"},
 		"tailscale":        {"api_key", "oauth_client_id", "oauth_client_secret", "tailnet", "base_url"},
+		"sourcebot":        {"base_url", "api_key"},
 		"microsoft365":     {"access_token", "refresh_token", "client_id", "client_secret", "tenant_id", "base_url", "token_source"},
 		"gcp":              {"project_id", "credentials_json"},
 		"confluence":       {"email", "api_token", "domain"},
@@ -716,6 +722,8 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "TAILSCALE_OAUTH_CLIENT_SECRET", m["tailscale"]["oauth_client_secret"])
 	assert.Equal(t, "TAILSCALE_TAILNET", m["tailscale"]["tailnet"])
 	assert.Equal(t, "TAILSCALE_BASE_URL", m["tailscale"]["base_url"])
+	assert.Equal(t, "SOURCEBOT_BASE_URL", m["sourcebot"]["base_url"])
+	assert.Equal(t, "SOURCEBOT_API_KEY", m["sourcebot"]["api_key"])
 	assert.Equal(t, "NETSUITE_ACCOUNT_ID", m["netsuite"]["account_id"])
 	assert.Equal(t, "NETSUITE_ACCESS_TOKEN", m["netsuite"]["access_token"])
 	assert.Equal(t, "MICROSOFT365_ACCESS_TOKEN", m["microsoft365"]["access_token"])
@@ -723,6 +731,8 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "MICROSOFT365_TENANT_ID", m["microsoft365"]["tenant_id"])
 	assert.Equal(t, "FIGMA_MCP_ACCESS_TOKEN", m["figma"]["mcp_access_token"])
 	assert.Equal(t, "FIGMA_MCP_BASE_URL", m["figma"]["base_url"])
+	assert.Equal(t, "MOBBIN_MCP_ACCESS_TOKEN", m["mobbin"]["mcp_access_token"])
+	assert.Equal(t, "MOBBIN_MCP_BASE_URL", m["mobbin"]["base_url"])
 	assert.Equal(t, "SERVICENOW_INSTANCE_URL", m["servicenow"]["instance_url"])
 	assert.Equal(t, "SERVICENOW_USERNAME", m["servicenow"]["username"])
 	assert.Equal(t, "SERVICENOW_PASSWORD", m["servicenow"]["password"])
@@ -740,6 +750,10 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "KUBERNETES_ALLOW_MUTATIONS", m["kubernetes"]["allow_mutations"])
 	assert.Equal(t, "PAPERLESS_TOKEN", m["paperless"]["token"])
 	assert.Equal(t, "PAPERLESS_URL", m["paperless"]["url"])
+	assert.Equal(t, "OBSIDIAN_API_KEY", m["obsidian"]["api_key"])
+	assert.Equal(t, "OBSIDIAN_BASE_URL", m["obsidian"]["base_url"])
+	assert.Equal(t, "OBSIDIAN_CA_CERT", m["obsidian"]["ca_cert"])
+	assert.Equal(t, "OBSIDIAN_INSECURE_SKIP_TLS_VERIFY", m["obsidian"]["insecure_skip_tls_verify"])
 	assert.Equal(t, "AIRFLOW_BASE_URL", m["airflow"]["base_url"])
 	assert.Equal(t, "AIRFLOW_USERNAME", m["airflow"]["username"])
 	assert.Equal(t, "AIRFLOW_PASSWORD", m["airflow"]["password"])
@@ -755,7 +769,11 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "VERCEL_BASE_URL", m["vercel"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_BASE_URL", m["likec4excalidraw"]["base_url"])
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
-	assert.Len(t, m, 63)
+	assert.Len(t, m, 72)
+	assert.Equal(t, "DRUID_BASE_URL", m["druid"]["base_url"])
+	assert.Equal(t, "DRUID_USERNAME", m["druid"]["username"])
+	assert.Equal(t, "DRUID_PASSWORD", m["druid"]["password"])
+	assert.Equal(t, "DRUID_CA_CERT", m["druid"]["ca_cert"])
 	for _, name := range googleWorkspaceIntegrations {
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_ID", m[name][mcp.CredKeyClientID])
 		assert.Equal(t, "GOOGLE_OAUTH_CLIENT_SECRET", m[name][mcp.CredKeyClientSecret])

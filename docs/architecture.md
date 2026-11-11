@@ -85,11 +85,24 @@ integrations/
     queries.go               Native SQL query execution, card CRUD handlers
     dashboards.go            Dashboard CRUD, add-card-to-dashboard handlers
     collections.go           Collection CRUD, search handlers
+  obsidian/
+    obsidian.go              Obsidian Local REST API adapter (core, dispatch, HTTP + TLS helpers)
+    tools.go                 Obsidian tool definitions (13 tools: vault files, notes, search, tags, commands)
+    handlers.go              Note read/write/patch, search, query, tag, and command handlers
+    markdown.go              Note markdown rendering (read_note, get_active_note)
+    compact.yaml             Field compaction specs (read tools)
   grist/
     grist.go                 Grist spreadsheet adapter (core, dispatch, HTTP helpers)
     compact.yaml             Field compaction specs (read tools)
     tools.go                 Grist tool definitions (~30 tools)
     handlers.go              Orgs, workspaces, docs, tables, columns, records, SQL, webhooks, attachments
+  mobbin/
+    mobbin.go                Mobbin hosted MCP proxy (static catalog, remotemcp OAuth)
+    tools.go                 Mobbin tool definitions (8 tools)
+  higgsfield/
+    higgsfield.go            Higgsfield hosted MCP proxy (curated static allowlist, remotemcp OAuth)
+    tools.go                 Tool definitions and dispatch map (exposed name → upstream tool)
+    compact.yaml             Compaction specs for verified response shapes
   notionmcp/
     notionmcp.go             Independent notion-mcp hosted proxy (dynamic tools, remotemcp OAuth)
     notionmcp_test.go        Remote protocol, credential isolation, and dynamic routing tests

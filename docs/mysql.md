@@ -59,6 +59,14 @@ Results preserve `columns`, positional `rows`, and `truncated`; table descriptio
 
 Unit tests cover configuration, unsafe SQL and DSNs, dispatch parity, compaction shape, aliases, parameter binding, failure paths, cancellation, and row/byte limits. `TestUIMySQL` drives the real binary in isolated Chromium against a credential-checking local wire fixture, including fresh fields, save/health, invalid/missing password, restart persistence, MCP discovery/read, and disable. Screenshots mask every input.
 
+Run the container-backed acceptance gate with Docker and the pinned Chromium prerequisites available:
+
+```bash
+make test-live INTEGRATION=mysql
+```
+
+`web/live_mysql_test.go` pins the official MySQL 8.4 image by digest, seeds customers, orders, a view and an active reader query, then configures the real UI with a dedicated reader using only the grants above. It verifies all 12 tools (13 cases, including exact unsigned BIGINT parameter binding), read-only script replay, all 48 compaction fields, and persistence across restart. It also checks that the reader cannot insert, create tables, or read the MySQL account catalog. Masked screenshots and the run summary are written to `dist/live-artifacts/`. No production credentials or remote TLS authentication are exercised.
+
 For an explicitly isolated MySQL 8.4 test server with an `app.users` fixture table, run:
 
 ```bash

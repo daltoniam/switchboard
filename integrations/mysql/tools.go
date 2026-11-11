@@ -44,7 +44,7 @@ func buildTools() []mcp.ToolDefinition {
 			parameters["params"] = "Optional JSON array of positional values for ? placeholders"
 			required = append(required, "query")
 		}
-		result = append(result, mcp.ToolDefinition{Name: definition.name, Description: definition.description, Parameters: parameters, Required: required})
+		result = append(result, mcp.ToolDefinition{Name: definition.name, Description: definition.description, Access: mcp.AccessRead, Parameters: parameters, Required: required})
 	}
 	return result
 }
