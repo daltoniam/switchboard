@@ -103,6 +103,20 @@ jobs:
           git config user.email "switchboard-automation@users.noreply.github.com"
           gh label create overload-automation --color 5319e7 --description "Opened or maintained by the overload implementation job" --force
 
+      # The job runs make ci (race tests, Chromium), Docker containers for
+      # live tests and Crush at once. Runs have been lost with "the hosted
+      # runner lost communication", which is what CPU, memory or disk
+      # starvation looks like; leave headroom before Crush starts.
+      - name: Make room on the runner
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost || true
+          if sudo fallocate -l 8G /mnt/overload-swap 2>/dev/null; then
+            sudo chmod 600 /mnt/overload-swap
+            sudo mkswap /mnt/overload-swap >/dev/null && sudo swapon /mnt/overload-swap || true
+          fi
+          source scripts/overload-crush-watchdog.sh
+          overload_resource_sample "$GITHUB_WORKSPACE"
+
       - name: Run Crush
         env:
           CF_AIG_TOKEN: ${{ secrets.CF_AIG_TOKEN }}
@@ -124,15 +138,22 @@ jobs:
           # setsid gives Crush its own process group so timeout can stop tool children too.
           # shellcheck source=scripts/overload-crush-watchdog.sh
           source scripts/overload-crush-watchdog.sh
-          setsid crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md" &
+          # nice keeps the runner's own agent responsive while Crush and its
+          # builds use every core.
+          setsid nice -n 10 crush run --quiet -c "$GITHUB_WORKSPACE" -m "$MODEL" < "$RUNNER_TEMP/prompt.md" &
           crush_pid=$!
           crush_pgid=$(overload_crush_pgid "$crush_pid")
           started=$(date +%s)
           reason=""
           running() { ps -o stat= -p "$crush_pid" 2>/dev/null | grep -qv '^Z'; }
+          ticks=0
           while running; do
             sleep 30
             running || break
+            ticks=$((ticks + 1))
+            # Every 5 minutes, so a run that ends badly shows how close the
+            # runner was to its limits.
+            [ $((ticks % 10)) -eq 0 ] && overload_resource_sample "$GITHUB_WORKSPACE"
             now=$(date +%s)
             if [ $((now - started)) -ge $((95 * 60)) ]; then
               reason="after 95 minutes"

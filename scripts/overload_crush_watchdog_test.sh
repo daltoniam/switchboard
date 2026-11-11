@@ -20,10 +20,23 @@ child_running() {
 }
 
 workflow="${ROOT}/.github/workflows/overload-implement.yml"
-grep -q 'setsid crush run' "$workflow" || fail "workflow must start Crush with setsid"
+grep -q 'setsid nice -n 10 crush run' "$workflow" || fail "workflow must start Crush with setsid at lower CPU priority"
+grep -q 'overload_resource_sample' "$workflow" || fail "workflow must log resource samples while Crush runs"
+grep -q 'name: Make room on the runner' "$workflow" || fail "workflow must free disk and add swap before Crush runs"
 grep -q 'crush_pgid=' "$workflow" || fail "workflow must capture crush_pgid at launch"
 grep -q 'overload_kill_crush_tree' "$workflow" || fail "workflow must use overload_kill_crush_tree"
 ok "workflow wiring"
+
+sample_file="$(mktemp)"
+OVERLOAD_PROC_ROOT="${ROOT}/scripts/testdata/proc" overload_resource_sample "/" >"$sample_file"
+sample="$(cat "$sample_file")"; rm -f "$sample_file"
+for field in load= mem_avail_mb= swap_used_mb= disk_free_gb=; do
+  grep -q "$field" <<<"$sample" || fail "resource sample lacks $field: $sample"
+done
+grep -q "mem_avail_mb=6144" <<<"$sample" || fail "resource sample misread MemAvailable: $sample"
+grep -q "swap_used_mb=1024" <<<"$sample" || fail "resource sample misread swap: $sample"
+grep -q "load=3.50" <<<"$sample" || fail "resource sample misread load: $sample"
+ok "resource sample"
 
 # The watchdog runs on the Linux Actions runner. macOS has no setsid, so the
 # process-group checks only run where the watchdog itself can.
