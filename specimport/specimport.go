@@ -50,14 +50,24 @@ var (
 	ErrUnknownKind = errors.New("specimport: unknown spec kind")
 )
 
-// httpMethod classifies an operation's effect so the policy layer can gate
-// writes. Read operations may auto-run; writes should require approval.
+// effect classifies whether an operation changes data. It is published on
+// each tool as mcp.ToolDefinition.Access and as a "[write]" description
+// prefix.
 type effect string
 
 const (
 	effectRead  effect = "read"
 	effectWrite effect = "write"
 )
+
+// access maps an effect to the tool access it declares. Anything not known
+// to be a read is reported as a write.
+func (e effect) access() mcp.ToolAccess {
+	if e == effectRead {
+		return mcp.AccessRead
+	}
+	return mcp.AccessWrite
+}
 
 // operation is the protocol-neutral representation of a single callable
 // endpoint, produced by the OpenAPI or GraphQL parser and consumed by the
@@ -66,7 +76,7 @@ const (
 type operation struct {
 	// tool is the MCP-facing definition (name, description, params).
 	tool mcp.ToolDefinition
-	// effect drives the destructive-hint / approval semantics.
+	// effect becomes the tool's declared Access (read or write).
 	effect effect
 
 	// --- transport details, populated per spec kind ---
@@ -110,11 +120,14 @@ type Imported struct {
 	operations []operation
 }
 
-// Tools returns the MCP tool definitions for every imported operation.
+// Tools returns the MCP tool definitions for every imported operation, each
+// declaring whether it reads or writes so callers can treat writes with care.
 func (im *Imported) Tools() []mcp.ToolDefinition {
 	out := make([]mcp.ToolDefinition, 0, len(im.operations))
 	for i := range im.operations {
-		out = append(out, im.operations[i].tool)
+		tool := im.operations[i].tool
+		tool.Access = im.operations[i].effect.access()
+		out = append(out, tool)
 	}
 	return out
 }

@@ -426,8 +426,8 @@ func (in *Integration) executeGraphQL(ctx context.Context, op *operation, args m
 	// GraphQL reports query-level failures as HTTP 200 with a top-level
 	// "errors" array, so a 2xx status alone does not mean success. Promote a
 	// response that carries errors (and no usable data) to an error result so
-	// the policy layer and the model see the failure instead of treating the
-	// error envelope as a successful payload.
+	// callers and the model see the failure instead of treating the error
+	// envelope as a successful payload.
 	if msg, failed := graphQLError(res.Data); failed {
 		return mcp.ErrResult(fmt.Errorf("specimport: graphql error: %s", msg))
 	}
@@ -493,10 +493,11 @@ func (in *Integration) do(req *http.Request) (*mcp.ToolResult, error) {
 		req.Header.Set("User-Agent", userAgent)
 	}
 	// #nosec G704 -- The request URL is the customer's own imported API
-	// (validated http/https at Configure/Parse time via url.ParseRequestURI).
-	// Spec import is a deliberate "fetch your own API" feature, the same
-	// trust model as the webfetch integration; the per-org policy layer and
-	// write-approval gating bound what an agent can actually invoke.
+	// (validated http/https at Configure/Parse time). Spec import is a
+	// deliberate "fetch your own API" feature with the same trust model as the
+	// webfetch integration; the netpolicy client blocks private, loopback and
+	// metadata destinations at connect time, and each tool declares whether
+	// it writes.
 	resp, err := in.client.Do(req)
 	if err != nil {
 		return mcp.ErrResult(fmt.Errorf("specimport: request failed: %w", err))

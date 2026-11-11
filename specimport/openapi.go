@@ -108,7 +108,7 @@ func (p openAPIPathItem) entries() []methodEntry {
 }
 
 // effectForMethod classifies an HTTP verb. GET/HEAD are reads; everything
-// else mutates and must be gated by the policy layer.
+// else may change data and is declared as a write.
 func effectForMethod(method string) effect {
 	switch strings.ToUpper(method) {
 	case "GET", "HEAD":
