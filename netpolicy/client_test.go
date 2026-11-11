@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -151,4 +153,48 @@ func TestDialContext_RejectsDisallowedResolution(t *testing.T) {
 	}
 	_, err := dialContext(context.Background(), "tcp", "rebind.example.test:443", false)
 	assert.Error(t, err)
+}
+
+func TestDialContext_FallsBackPastAnUnreachableAddressInTime(t *testing.T) {
+	// The first address never answers (a blackholed IPv6 route, say); the
+	// second accepts at once. The dial must reach the second well within the
+	// client timeout instead of spending it all on the first.
+	origLookup, origDial := lookupIPAddr, dialAddr
+	t.Cleanup(func() { lookupIPAddr, dialAddr = origLookup, origDial })
+	lookupIPAddr = func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("2001:db8::1")}, {IP: net.ParseIP("93.184.216.34")}}, nil
+	}
+	dialAddr = func(ctx context.Context, _ *net.Dialer, _, target string) (net.Conn, error) {
+		if strings.HasPrefix(target, "[2001:db8::1]") {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+		client, server := net.Pipe()
+		t.Cleanup(func() { _ = server.Close() })
+		return client, nil
+	}
+
+	start := time.Now()
+	conn, err := dialContext(context.Background(), "tcp", "dualstack.example.test:443", false)
+	require.NoError(t, err)
+	_ = conn.Close()
+	assert.Less(t, time.Since(start), 2*time.Second, "an unreachable first address must not hold up the next one")
+}
+
+func TestDialContext_StopsAtTheOverallDeadline(t *testing.T) {
+	origLookup, origDial := lookupIPAddr, dialAddr
+	t.Cleanup(func() { lookupIPAddr, dialAddr = origLookup, origDial })
+	lookupIPAddr = func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("2001:db8::1")}, {IP: net.ParseIP("2001:db8::2")}}, nil
+	}
+	dialAddr = func(ctx context.Context, _ *net.Dialer, _, _ string) (net.Conn, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := dialContext(ctx, "tcp", "blackhole.example.test:443", false)
+	require.Error(t, err)
+	assert.Less(t, time.Since(start), 2*time.Second, "dialing must respect the caller's deadline")
 }

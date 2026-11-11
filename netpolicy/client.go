@@ -103,6 +103,15 @@ func sameOrigin(a, b *url.URL) bool {
 	return strings.EqualFold(a.Scheme, b.Scheme) && strings.EqualFold(a.Host, b.Host)
 }
 
+// dialAddr dials one already-validated address. Tests may replace it.
+var dialAddr = func(ctx context.Context, d *net.Dialer, network, target string) (net.Conn, error) {
+	return d.DialContext(ctx, network, target)
+}
+
+// fallbackDelay is how long one address gets before the next one is also
+// tried, as in RFC 8305 (Happy Eyeballs).
+const fallbackDelay = 300 * time.Millisecond
+
 func dialContext(ctx context.Context, network, address string, allowPrivate bool) (net.Conn, error) {
 	d := &net.Dialer{Timeout: 30 * time.Second}
 	if allowPrivate {
@@ -117,14 +126,69 @@ func dialContext(ctx context.Context, network, address string, allowPrivate bool
 	if err != nil {
 		return nil, err
 	}
+	return dialStaggered(ctx, d, network, host, port, ips)
+}
+
+// dialStaggered dials only the validated addresses, starting the next one
+// after fallbackDelay (or as soon as the previous fails) so an address that
+// never answers cannot use up the whole deadline. The first connection wins;
+// the rest are cancelled and closed.
+func dialStaggered(ctx context.Context, d *net.Dialer, network, host, port string, ips []net.IP) (net.Conn, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	type result struct {
+		conn net.Conn
+		err  error
+	}
+	results := make(chan result, len(ips))
+	dial := dialAddr
+	started, finished := 0, 0
+	start := func() {
+		target := net.JoinHostPort(ips[started].String(), port)
+		started++
+		go func() {
+			conn, err := dial(ctx, d, network, target)
+			results <- result{conn, err}
+		}()
+	}
+	start()
+
 	var lastErr error
-	for _, ip := range ips {
-		target := net.JoinHostPort(ip.String(), port)
-		conn, err := d.DialContext(ctx, network, target)
-		if err == nil {
-			return conn, nil
+	timer := time.NewTimer(fallbackDelay)
+	defer timer.Stop()
+	for finished < started {
+		select {
+		case r := <-results:
+			finished++
+			if r.err == nil {
+				cancel()
+				// Close any connection that wins a race after this one.
+				go func(pending int) {
+					for ; pending > 0; pending-- {
+						if late := <-results; late.conn != nil {
+							_ = late.conn.Close()
+						}
+					}
+				}(started - finished)
+				return r.conn, nil
+			}
+			lastErr = r.err
+			if started < len(ips) {
+				start()
+				timer.Reset(fallbackDelay)
+			}
+		case <-timer.C:
+			if started < len(ips) {
+				start()
+				timer.Reset(fallbackDelay)
+			}
+		case <-ctx.Done():
+			if lastErr == nil {
+				lastErr = ctx.Err()
+			}
+			return nil, lastErr
 		}
-		lastErr = err
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("host %q could not be dialed", host)
