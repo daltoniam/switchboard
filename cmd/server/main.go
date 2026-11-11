@@ -25,6 +25,7 @@ import (
 	agentsInt "github.com/daltoniam/switchboard/integrations/agents"
 	"github.com/daltoniam/switchboard/integrations/airflow"
 	"github.com/daltoniam/switchboard/integrations/amazon"
+	"github.com/daltoniam/switchboard/integrations/argoworkflows"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/botidentity"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
@@ -33,6 +34,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/dbt"
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
+	"github.com/daltoniam/switchboard/integrations/druid"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
 	"github.com/daltoniam/switchboard/integrations/figma"
 	flyInt "github.com/daltoniam/switchboard/integrations/fly"
@@ -53,28 +55,36 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
+	"github.com/daltoniam/switchboard/integrations/higgsfield"
 	"github.com/daltoniam/switchboard/integrations/hubspot"
 	"github.com/daltoniam/switchboard/integrations/imessage"
+	"github.com/daltoniam/switchboard/integrations/influxdb"
 	"github.com/daltoniam/switchboard/integrations/intercom"
 	"github.com/daltoniam/switchboard/integrations/jira"
+	"github.com/daltoniam/switchboard/integrations/keycloak"
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
 	"github.com/daltoniam/switchboard/integrations/launchdarkly"
 	"github.com/daltoniam/switchboard/integrations/likec4excalidraw"
 	"github.com/daltoniam/switchboard/integrations/linear"
 	"github.com/daltoniam/switchboard/integrations/metabase"
 	"github.com/daltoniam/switchboard/integrations/microsoft365"
+	"github.com/daltoniam/switchboard/integrations/mobbin"
+	"github.com/daltoniam/switchboard/integrations/mysql"
 	"github.com/daltoniam/switchboard/integrations/netsuite"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	"github.com/daltoniam/switchboard/integrations/notionmcp"
+	"github.com/daltoniam/switchboard/integrations/obsidian"
 	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
+	"github.com/daltoniam/switchboard/integrations/openbao"
 	"github.com/daltoniam/switchboard/integrations/pagerduty"
 	"github.com/daltoniam/switchboard/integrations/paperless"
 	"github.com/daltoniam/switchboard/integrations/pganalyze"
 	"github.com/daltoniam/switchboard/integrations/postgres"
 	"github.com/daltoniam/switchboard/integrations/posthog"
 	"github.com/daltoniam/switchboard/integrations/projectinterop"
+	"github.com/daltoniam/switchboard/integrations/prometheus"
 	"github.com/daltoniam/switchboard/integrations/ramp"
 	"github.com/daltoniam/switchboard/integrations/recoll"
 	"github.com/daltoniam/switchboard/integrations/rwx"
@@ -85,6 +95,7 @@ import (
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/integrations/slackmcp"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
+	"github.com/daltoniam/switchboard/integrations/sourcebot"
 	"github.com/daltoniam/switchboard/integrations/stripe"
 	"github.com/daltoniam/switchboard/integrations/suno"
 	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
@@ -327,14 +338,20 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		likec4excalidraw.New(),
 		figma.New(),
 		notionmcp.New(),
+		mobbin.New(),
+		higgsfield.New(),
 		metabase.New(),
 		paperless.New(),
+		obsidian.New(),
+		influxdb.New(),
 		airflow.New(),
+		argoworkflows.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),
 		posthog.New(),
 		postgres.New(),
+		mysql.New(),
 		clickhouse.New(),
 		elasticsearch.New(),
 		pganalyze.New(),
@@ -366,11 +383,16 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		confluence.New(),
 		notionInt.New(),
 		okta.New(),
+		keycloak.New(),
 		ollama.New(),
 		pagerduty.New(),
 		launchdarkly.New(),
 		dbt.New(),
+		prometheus.New(),
+		druid.New(),
 		tailscale.New(),
+		sourcebot.New(),
+		openbao.New(),
 		gcpInt.New(),
 		suno.New(),
 		salesforce.New(),

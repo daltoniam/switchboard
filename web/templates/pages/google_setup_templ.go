@@ -11,7 +11,9 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"github.com/daltoniam/switchboard/web/templates/components"
 	"github.com/daltoniam/switchboard/web/templates/layouts"
+	"net/url"
 	"strconv"
+	"strings"
 )
 
 func googleProgressLabel(connected, total int) string {
@@ -31,6 +33,15 @@ type GoogleServiceStatus struct {
 	APIDisabled bool
 }
 
+// GoogleAccountStatus describes one additional (named) Google account. It
+// carries only non-secret metadata; tokens never reach the template.
+type GoogleAccountStatus struct {
+	ID    string
+	Label string
+	// Services lists the display names of services holding this account.
+	Services []string
+}
+
 // GoogleSetupData drives the unified Google Workspace setup page.
 type GoogleSetupData struct {
 	// HasOAuth is true once a client_id/secret has been saved.
@@ -48,8 +59,10 @@ type GoogleSetupData struct {
 	// AnyAPIDisabled is true when at least one connected service has a valid
 	// token but its Google API is not enabled in the Cloud project.
 	AnyAPIDisabled bool
-	FlashResult    string
-	FlashError     string
+	// Accounts are the additional named Google accounts, sorted by ID.
+	Accounts    []GoogleAccountStatus
+	FlashResult string
+	FlashError  string
 }
 
 func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
@@ -117,7 +130,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashResult)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 67, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 80, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -140,7 +153,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.FlashError)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 70, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 83, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -158,7 +171,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.RedirectURI)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 79, Col: 121}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 92, Col: 121}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -203,7 +216,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 					var templ_7745c5c3_Var6 string
 					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(svc.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 110, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 123, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 					if templ_7745c5c3_Err != nil {
@@ -216,7 +229,7 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(svc.DisplayName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 111, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 124, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -249,12 +262,119 @@ func GoogleSetup(page layouts.PageData, data GoogleSetupData) templ.Component {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div><button type=\"button\" class=\"btn\" id=\"oauth-start-btn\" onclick=\"startGoogleOAuth()\">Sign in with Google</button></div><div id=\"oauth-error\" style=\"display: none;\"><div class=\"flash flash-error\" id=\"oauth-error-msg\"></div><button type=\"button\" class=\"btn btn-outline\" onclick=\"resetOAuth()\" style=\"margin-top: 0.5rem;\">Try Again</button></div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div><button type=\"button\" class=\"btn\" id=\"oauth-start-btn\" onclick=\"startGoogleOAuth()\">Sign in with Google</button></div><div id=\"oauth-error\" style=\"display: none;\"><div class=\"flash flash-error\" id=\"oauth-error-msg\"></div><button type=\"button\" class=\"btn btn-outline\" onclick=\"resetOAuth()\" style=\"margin-top: 0.5rem;\">Try Again</button></div></div><div class=\"card\" id=\"google-accounts\"><div class=\"card-title\" style=\"margin-bottom: 0.75rem;\">3. Additional Google accounts</div><p style=\"color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;\">Connect more Google accounts to the services ticked above. The account you signed in with first stays the default; tools take an optional <code>account</code> argument to pick another one.</p>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if len(data.Accounts) > 0 {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div style=\"display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;\"><div data-google-account=\"default\" style=\"display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;\"><div><strong>default</strong> <span style=\"color: var(--text-muted);\">· the account you signed in with first</span></div><form method=\"POST\" action=\"/api/google/accounts/default/delete\" onsubmit=\"return confirm('Remove the default Google account? The first other account becomes the default.');\"><button type=\"submit\" class=\"btn btn-sm btn-outline identity-delete\">Remove</button></form></div>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					for _, acct := range data.Accounts {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div data-google-account=\"")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var8 string
+						templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(acct.ID)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 165, Col: 41}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" style=\"display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;\"><div><strong>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var9 string
+						templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(acct.ID)
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 167, Col: 26}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</strong> ")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						if acct.Label != "" {
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<span style=\"color: var(--text-muted);\">· ")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							var templ_7745c5c3_Var10 string
+							templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(acct.Label)
+							if templ_7745c5c3_Err != nil {
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 169, Col: 65}
+							}
+							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</span>")
+							if templ_7745c5c3_Err != nil {
+								return templ_7745c5c3_Err
+							}
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<div style=\"color: var(--text-muted); font-size: 0.8rem;\">")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var11 string
+						templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(acct.Services, ", "))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 171, Col: 102}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</div></div><form method=\"POST\" action=\"")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						var templ_7745c5c3_Var12 templ.SafeURL
+						templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/api/google/accounts/" + url.PathEscape(acct.ID) + "/delete"))
+						if templ_7745c5c3_Err != nil {
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/pages/google_setup.templ`, Line: 173, Col: 113}
+						}
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" onsubmit=\"return confirm('Remove this Google account from every service?');\"><button type=\"submit\" class=\"btn btn-sm btn-outline identity-delete\">Remove</button></form></div>")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div id=\"account-container\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = components.FormGroup("Account ID", "google_account_id", "text", "", "work").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = components.FormGroup("Label (optional)", "google_account_label", "text", "", "Work mail").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<button type=\"button\" class=\"btn btn-outline\" id=\"account-start-btn\" onclick=\"startGoogleOAuth(true)\">Add another Google account</button></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, " <script>\n\t\t\tfunction startGoogleOAuth() {\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tvar checks = document.querySelectorAll('.gsvc:checked');\n\t\t\t\tvar services = [];\n\t\t\t\tfor (var i = 0; i < checks.length; i = i + 1) { services.push(checks[i].value); }\n\t\t\t\tif (services.length === 0) {\n\t\t\t\t\tshowOAuthError('Select at least one service to connect.');\n\t\t\t\t\treturn;\n\t\t\t\t}\n\t\t\t\tbtn.disabled = true;\n\t\t\t\tbtn.textContent = 'Starting...';\n\t\t\t\tfetch('/api/google/oauth/start', {\n\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\theaders: { 'Content-Type': 'application/json' },\n\t\t\t\t\tbody: JSON.stringify({ services: services })\n\t\t\t\t})\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(data) {\n\t\t\t\t\t\tif (data.error) { showOAuthError(data.error); return; }\n\t\t\t\t\t\twindow.location.href = data.authorize_url;\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function(err) {\n\t\t\t\t\t\tshowOAuthError('Failed to start OAuth flow: ' + err.message);\n\t\t\t\t\t});\n\t\t\t}\n\n\t\t\tfunction showOAuthError(msg) {\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-error-msg').textContent = msg;\n\t\t\t}\n\n\t\t\tfunction resetOAuth() {\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'block';\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tbtn.disabled = false;\n\t\t\t\tbtn.textContent = 'Sign in with Google';\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, " <script>\n\t\t\tfunction startGoogleOAuth(additional) {\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tvar checks = document.querySelectorAll('.gsvc:checked');\n\t\t\t\tvar services = [];\n\t\t\t\tfor (var i = 0; i < checks.length; i = i + 1) { services.push(checks[i].value); }\n\t\t\t\tif (services.length === 0) {\n\t\t\t\t\tshowOAuthError('Select at least one service to connect.');\n\t\t\t\t\treturn;\n\t\t\t\t}\n\t\t\t\tvar payload = { services: services };\n\t\t\t\tif (additional) {\n\t\t\t\t\tbtn = document.getElementById('account-start-btn');\n\t\t\t\t\tpayload.account = document.getElementById('google_account_id').value.trim();\n\t\t\t\t\tpayload.label = document.getElementById('google_account_label').value.trim();\n\t\t\t\t\tif (payload.account === '') {\n\t\t\t\t\t\tshowOAuthError('Enter an account ID such as \"work\".');\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\tbtn.disabled = true;\n\t\t\t\tbtn.textContent = 'Starting...';\n\t\t\t\tfetch('/api/google/oauth/start', {\n\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\theaders: { 'Content-Type': 'application/json' },\n\t\t\t\t\tbody: JSON.stringify(payload)\n\t\t\t\t})\n\t\t\t\t\t.then(function(r) { return r.json(); })\n\t\t\t\t\t.then(function(data) {\n\t\t\t\t\t\tif (data.error) { showOAuthError(data.error); return; }\n\t\t\t\t\t\twindow.location.href = data.authorize_url;\n\t\t\t\t\t})\n\t\t\t\t\t.catch(function(err) {\n\t\t\t\t\t\tshowOAuthError('Failed to start OAuth flow: ' + err.message);\n\t\t\t\t\t});\n\t\t\t}\n\n\t\t\tfunction showOAuthError(msg) {\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'block';\n\t\t\t\tdocument.getElementById('oauth-error-msg').textContent = msg;\n\t\t\t}\n\n\t\t\tfunction resetOAuth() {\n\t\t\t\tdocument.getElementById('oauth-error').style.display = 'none';\n\t\t\t\tdocument.getElementById('oauth-container').style.display = 'block';\n\t\t\t\tvar btn = document.getElementById('oauth-start-btn');\n\t\t\t\tbtn.disabled = false;\n\t\t\t\tbtn.textContent = 'Sign in with Google';\n\t\t\t\tvar acctBtn = document.getElementById('account-start-btn');\n\t\t\t\tif (acctBtn) {\n\t\t\t\t\tacctBtn.disabled = false;\n\t\t\t\t\tacctBtn.textContent = 'Add another Google account';\n\t\t\t\t}\n\t\t\t}\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

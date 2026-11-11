@@ -9,6 +9,9 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServices_CoverAllElevenIntegrations(t *testing.T) {
@@ -36,8 +39,9 @@ func TestServices_CoverAllElevenIntegrations(t *testing.T) {
 }
 
 func TestScopesFor(t *testing.T) {
-	if got := ScopesFor("gmail"); len(got) != 1 || got[0] != gmailScope {
-		t.Errorf("ScopesFor(gmail) = %v", got)
+	wantGmail := []string{"https://mail.google.com/", "https://www.googleapis.com/auth/gmail.settings.basic"}
+	if got := ScopesFor("gmail"); !reflect.DeepEqual(got, wantGmail) {
+		t.Errorf("ScopesFor(gmail) = %v, want %v (filters need gmail.settings.basic)", got, wantGmail)
 	}
 	if got := ScopesFor("gpeople"); len(got) != 3 {
 		t.Errorf("ScopesFor(gpeople) = %v, want 3 scopes", got)
@@ -52,6 +56,7 @@ func TestUnionScopes_DedupesAndSorts(t *testing.T) {
 	want := []string{
 		"https://mail.google.com/",
 		"https://www.googleapis.com/auth/calendar",
+		"https://www.googleapis.com/auth/gmail.settings.basic",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("UnionScopes = %v, want %v", got, want)
@@ -78,6 +83,7 @@ func TestGrantedServices(t *testing.T) {
 		"https://mail.google.com/",
 		"https://www.googleapis.com/auth/calendar",
 		"https://www.googleapis.com/auth/contacts",
+		"https://www.googleapis.com/auth/gmail.settings.basic",
 	}, " ")
 	got := GrantedServices(requested, granted)
 	want := []string{"gmail", "gcal"}
@@ -153,4 +159,35 @@ func TestTokenValid(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStartGroupForAccount_CarriesAccountAndForcesAccountPicker(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"second","refresh_token":"second-r","scope":"https://mail.google.com/ https://www.googleapis.com/auth/gmail.settings.basic"}`))
+	}))
+	defer ts.Close()
+	withTokenURL(t, ts.URL)
+
+	Reset()
+	res, err := StartGroupForAccount("cid", "secret", "http://localhost/cb", []string{"gmail"}, "work", "Work")
+	require.NoError(t, err)
+	u, err := url.Parse(res.AuthorizeURL)
+	require.NoError(t, err)
+	assert.Equal(t, "consent select_account", u.Query().Get("prompt"))
+
+	require.NoError(t, HandleGroupCallback("code", u.Query().Get("state")))
+	got := PollGroup()
+	assert.Equal(t, "complete", got.Status)
+	assert.Equal(t, "work", got.Account)
+	assert.Equal(t, "Work", got.AccountLabel)
+	assert.Equal(t, "second", got.AccessToken)
+}
+
+func TestStartGroup_PrimaryFlowHasNoAccount(t *testing.T) {
+	Reset()
+	res, err := StartGroup("cid", "secret", "http://localhost/cb", []string{"gmail"})
+	require.NoError(t, err)
+	u, err := url.Parse(res.AuthorizeURL)
+	require.NoError(t, err)
+	assert.Equal(t, "consent", u.Query().Get("prompt"))
 }

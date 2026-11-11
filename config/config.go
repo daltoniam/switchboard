@@ -20,6 +20,12 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"argoworkflows": {
+		"base_url":  "ARGO_WORKFLOWS_BASE_URL",
+		"namespace": "ARGO_WORKFLOWS_NAMESPACE",
+		"token":     "ARGO_WORKFLOWS_TOKEN",
+		"ca_cert":   "ARGO_WORKFLOWS_CA_CERT",
+	},
 	"github": {
 		"token": "GITHUB_TOKEN",
 	},
@@ -56,6 +62,12 @@ var envMapping = map[string]map[string]string{
 		"token": "PAPERLESS_TOKEN",
 		"url":   "PAPERLESS_URL",
 	},
+	"obsidian": {
+		"api_key":                  "OBSIDIAN_API_KEY",
+		"base_url":                 "OBSIDIAN_BASE_URL",
+		"ca_cert":                  "OBSIDIAN_CA_CERT",
+		"insecure_skip_tls_verify": "OBSIDIAN_INSECURE_SKIP_TLS_VERIFY",
+	},
 	"airflow": {
 		"base_url":     "AIRFLOW_BASE_URL",
 		"username":     "AIRFLOW_USERNAME",
@@ -91,6 +103,15 @@ var envMapping = map[string]map[string]string{
 		"email":     "CONFLUENCE_EMAIL",
 		"api_token": "CONFLUENCE_API_TOKEN",
 		"domain":    "CONFLUENCE_DOMAIN",
+	},
+	"mysql": {
+		"connection_string": "MYSQL_DSN",
+		"host":              "MYSQL_HOST",
+		"port":              "MYSQL_PORT",
+		"user":              "MYSQL_USER",
+		"password":          "MYSQL_PASSWORD",
+		"database":          "MYSQL_DATABASE",
+		"tls":               "MYSQL_TLS",
 	},
 	"postgres": {
 		"connection_string": "DATABASE_URL",
@@ -188,6 +209,20 @@ var envMapping = map[string]map[string]string{
 	"x": {
 		"bearer_token": "X_BEARER_TOKEN",
 	},
+	"druid": {
+		"base_url": "DRUID_BASE_URL",
+		"username": "DRUID_USERNAME",
+		"password": "DRUID_PASSWORD",
+		"ca_cert":  "DRUID_CA_CERT",
+	},
+	"prometheus": {
+		"base_url":     "PROMETHEUS_BASE_URL",
+		"username":     "PROMETHEUS_USERNAME",
+		"password":     "PROMETHEUS_PASSWORD",
+		"bearer_token": "PROMETHEUS_BEARER_TOKEN",
+		"headers":      "PROMETHEUS_HEADERS",
+		"ca_cert":      "PROMETHEUS_CA_CERT",
+	},
 	"signoz": {
 		"api_key":  "SIGNOZ_API_KEY",
 		"base_url": "SIGNOZ_BASE_URL",
@@ -242,6 +277,12 @@ var envMapping = map[string]map[string]string{
 		"api_token": "OKTA_API_TOKEN",
 		"org_url":   "OKTA_ORG_URL",
 	},
+	"keycloak": {
+		"base_url":      "KEYCLOAK_BASE_URL",
+		"realm":         "KEYCLOAK_REALM",
+		"client_id":     "KEYCLOAK_CLIENT_ID",
+		"client_secret": "KEYCLOAK_CLIENT_SECRET",
+	},
 	"pagerduty": {
 		"api_token":  "PAGERDUTY_API_TOKEN",
 		"from_email": "PAGERDUTY_FROM_EMAIL",
@@ -264,6 +305,17 @@ var envMapping = map[string]map[string]string{
 		"tailnet":             "TAILSCALE_TAILNET",
 		"base_url":            "TAILSCALE_BASE_URL",
 	},
+	"sourcebot": {
+		"base_url": "SOURCEBOT_BASE_URL",
+		"api_key":  "SOURCEBOT_API_KEY",
+	},
+	"openbao": {
+		"base_url":    "OPENBAO_BASE_URL",
+		"token":       "OPENBAO_TOKEN",
+		"mount":       "OPENBAO_MOUNT",
+		"path_prefix": "OPENBAO_PATH_PREFIX",
+		"ca_cert":     "OPENBAO_CA_CERT",
+	},
 	"microsoft365": {
 		"access_token":  "MICROSOFT365_ACCESS_TOKEN",
 		"refresh_token": "MICROSOFT365_REFRESH_TOKEN",
@@ -279,6 +331,14 @@ var envMapping = map[string]map[string]string{
 	"notion-mcp": {
 		"mcp_access_token": "NOTION_MCP_ACCESS_TOKEN",
 		"base_url":         "NOTION_MCP_BASE_URL",
+	},
+	"mobbin": {
+		"mcp_access_token": "MOBBIN_MCP_ACCESS_TOKEN",
+		"base_url":         "MOBBIN_MCP_BASE_URL",
+	},
+	"higgsfield": {
+		"mcp_access_token": "HIGGSFIELD_MCP_ACCESS_TOKEN",
+		"base_url":         "HIGGSFIELD_MCP_BASE_URL",
 	},
 }
 
@@ -340,6 +400,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"argoworkflows": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "namespace": "", "token": "", "ca_cert": ""},
+			},
 			"github": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", mcp.CredKeyClientID: "", mcp.CredKeyTokenSource: ""},
@@ -381,6 +445,14 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
+			"mobbin": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
+			"higgsfield": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
+			},
 			"metabase": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "url": ""},
@@ -388,6 +460,14 @@ func defaultConfig() *mcp.Config {
 			"paperless": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "url": ""},
+			},
+			"obsidian": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "ca_cert": "", "insecure_skip_tls_verify": ""},
+			},
+			"influxdb": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_token": "", "org_id": "", "ca_cert": ""},
 			},
 			"airflow": {
 				Enabled:     false,
@@ -408,6 +488,10 @@ func defaultConfig() *mcp.Config {
 			"posthog": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "project_id": "", "base_url": ""},
+			},
+			"mysql": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"connection_string": "", "host": "", "port": "", "user": "", "password": "", "database": "", "tls": "", "connections": ""},
 			},
 			"postgres": {
 				Enabled:     false,
@@ -521,6 +605,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "org_url": ""},
 			},
+			"keycloak": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "realm": "", "client_id": "", "client_secret": ""},
+			},
 			"pagerduty": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_token": "", "from_email": "", "base_url": ""},
@@ -533,9 +621,25 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"token": "", "account_id": "", "base_url": "", "prod_job_id": ""},
 			},
+			"druid": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "ca_cert": ""},
+			},
+			"prometheus": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "bearer_token": "", "headers": "", "ca_cert": ""},
+			},
 			"tailscale": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "oauth_client_id": "", "oauth_client_secret": "", "tailnet": "", "base_url": ""},
+			},
+			"sourcebot": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_key": ""},
+			},
+			"openbao": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": "", "mount": "", "path_prefix": "", "ca_cert": ""},
 			},
 			"microsoft365": {
 				Enabled: false,

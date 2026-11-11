@@ -2,7 +2,10 @@ package remotemcp
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -371,4 +374,429 @@ func TestOAuth_HandleCallback_NoFlow(t *testing.T) {
 	err := HandleOAuthCallback("nonexistent", "code123", "state123")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no OAuth flow in progress")
+}
+
+// protectedResourceServer models a resource server such as Mobbin's that has
+// no origin authorization metadata and points to a separate issuer with a path
+// through RFC 9728 protected resource metadata.
+func protectedResourceServer(t *testing.T, issuerOverride string) *httptest.Server {
+	t.Helper()
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		issuer := srv.URL + "/auth/v1"
+		switch r.URL.Path {
+		case "/.well-known/oauth-protected-resource/mcp":
+			json.NewEncoder(w).Encode(map[string]any{
+				"resource":              srv.URL + "/mcp",
+				"authorization_servers": []string{issuer},
+			})
+		case "/.well-known/oauth-authorization-server/auth/v1":
+			reported := issuer
+			if issuerOverride != "" {
+				reported = issuerOverride
+			}
+			json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                 reported,
+				"authorization_endpoint": issuer + "/oauth/authorize",
+				"token_endpoint":         issuer + "/oauth/token",
+				"registration_endpoint":  issuer + "/oauth/clients/register",
+			})
+		default:
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("<html>not found</html>"))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestOAuth_DiscoverProtectedResourceMetadata(t *testing.T) {
+	srv := protectedResourceServer(t, "")
+
+	meta, err := discoverOAuth(srv.URL)
+	require.NoError(t, err)
+	assert.Equal(t, srv.URL+"/auth/v1", meta.Issuer)
+	assert.Equal(t, srv.URL+"/auth/v1/oauth/authorize", meta.AuthorizationEndpoint)
+	assert.Equal(t, srv.URL+"/auth/v1/oauth/token", meta.TokenEndpoint)
+	assert.Equal(t, srv.URL+"/auth/v1/oauth/clients/register", meta.RegistrationEndpoint)
+}
+
+func TestOAuth_DiscoverProtectedResourceRejectsIssuerMismatch(t *testing.T) {
+	srv := protectedResourceServer(t, "https://attacker.example/auth/v1")
+
+	_, err := discoverOAuth(srv.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "issuer")
+}
+
+func TestOAuth_DiscoverNoMetadata(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+
+	_, err := discoverOAuth(srv.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "oauth discovery returned 404")
+}
+
+func TestOAuth_DiscoverProtectedResourceKeepsIssuerTrailingSlash(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		issuer := srv.URL + "/auth/v1/"
+		switch r.URL.Path {
+		case "/.well-known/oauth-protected-resource/mcp":
+			json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{issuer}})
+		case "/.well-known/oauth-authorization-server/auth/v1":
+			json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                 issuer,
+				"authorization_endpoint": issuer + "authorize",
+				"token_endpoint":         issuer + "token",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	meta, err := discoverOAuth(srv.URL)
+	require.NoError(t, err)
+	assert.Equal(t, srv.URL+"/auth/v1/", meta.Issuer)
+}
+
+func TestOAuth_DiscoverFallbackIgnoresPartialOriginMetadata(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		issuer := srv.URL + "/auth/v1"
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			// Decoding fills registration_endpoint before failing on issuer.
+			_, _ = w.Write([]byte(`{"registration_endpoint":"https://stale.example/register","issuer":5}`))
+		case "/.well-known/oauth-protected-resource/mcp":
+			json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{issuer}})
+		case "/.well-known/oauth-authorization-server/auth/v1":
+			json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                 issuer,
+				"authorization_endpoint": issuer + "/authorize",
+				"token_endpoint":         issuer + "/token",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	meta, err := discoverOAuth(srv.URL)
+	require.NoError(t, err)
+	assert.Empty(t, meta.RegistrationEndpoint, "fields from the failed origin response must not leak into the fallback")
+}
+
+func TestOAuth_AuthorizationServerMetadataURL(t *testing.T) {
+	for _, tc := range []struct {
+		name, issuer, want, err string
+		allowLocal              bool
+	}{
+		{name: "path", issuer: "https://auth.example/auth/v1", want: "https://auth.example/.well-known/oauth-authorization-server/auth/v1"},
+		{name: "trailing slash", issuer: "https://auth.example/auth/v1/", want: "https://auth.example/.well-known/oauth-authorization-server/auth/v1"},
+		{name: "no path", issuer: "https://auth.example", want: "https://auth.example/.well-known/oauth-authorization-server"},
+		{name: "escaped separator", issuer: "https://auth.example/tenant%2Fwest", want: "https://auth.example/.well-known/oauth-authorization-server/tenant%2Fwest"},
+		{name: "escaped trailing separator", issuer: "https://auth.example/tenant%2F", want: "https://auth.example/.well-known/oauth-authorization-server/tenant%2F"},
+		{name: "loopback http for a local server", issuer: "http://127.0.0.1:8080/auth", allowLocal: true, want: "http://127.0.0.1:8080/.well-known/oauth-authorization-server/auth"},
+		{name: "loopback http for a remote server", issuer: "http://127.0.0.1:8080/auth", err: "local"},
+		{name: "loopback https for a remote server", issuer: "https://localhost/auth", err: "local"},
+		{name: "remote http", issuer: "http://auth.example/auth/v1", err: "HTTPS"},
+		{name: "no host", issuer: "/auth/v1", err: "invalid"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := authorizationServerMetadataURL(tc.issuer, tc.allowLocal)
+			if tc.err != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+// routedDiscovery serves discovery requests for named remote hosts from
+// handlers, records every host contacted, and fails any request to a host
+// it does not know, such as loopback.
+func routedDiscovery(t *testing.T, routes map[string]http.HandlerFunc) *[]string {
+	t.Helper()
+	var hosts []string
+	orig := discoveryTransport
+	discoveryTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		hosts = append(hosts, r.URL.Host)
+		handler, ok := routes[r.URL.Host]
+		if !ok {
+			return nil, fmt.Errorf("unexpected request to %s", r.URL.Host)
+		}
+		rec := httptest.NewRecorder()
+		handler(rec, r)
+		return rec.Result(), nil
+	})
+	t.Cleanup(func() { discoveryTransport = orig })
+	return &hosts
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestOAuth_DiscoverRefusesLocalTargetsFromRemoteMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		issuer string
+	}{
+		{"loopback http issuer", "http://127.0.0.1:9/auth"},
+		{"loopback https issuer", "https://127.0.0.1:9/auth"},
+		{"localhost issuer", "https://localhost:9/auth"},
+		{"ipv6 loopback issuer", "https://[::1]:9/auth"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hosts := routedDiscovery(t, map[string]http.HandlerFunc{
+				"mcp.example": func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/.well-known/oauth-protected-resource/mcp" {
+						_ = json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{tc.issuer}})
+						return
+					}
+					http.NotFound(w, r)
+				},
+			})
+			_, err := discoverOAuth("https://mcp.example")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "local")
+			for _, host := range *hosts {
+				assert.Equal(t, "mcp.example", host, "a remote server must not make discovery contact a local address")
+			}
+		})
+	}
+}
+
+func TestOAuth_DiscoverRefusesRedirectToLocalTarget(t *testing.T) {
+	hosts := routedDiscovery(t, map[string]http.HandlerFunc{
+		"mcp.example": func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/.well-known/oauth-protected-resource/mcp" {
+				_ = json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{"https://auth.example/v1"}})
+				return
+			}
+			http.NotFound(w, r)
+		},
+		"auth.example": func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "http://127.0.0.1:9/metadata", http.StatusFound)
+		},
+	})
+	_, err := discoverOAuth("https://mcp.example")
+	require.Error(t, err)
+	assert.NotContains(t, *hosts, "127.0.0.1:9", "redirects must not reach a local address")
+}
+
+func TestOAuth_DiscoveryDialRefusesLocalAddresses(t *testing.T) {
+	for _, tc := range []struct {
+		address    string
+		allowLocal bool
+		wantErr    bool
+	}{
+		{"127.0.0.1:443", false, true},
+		{"[::1]:443", false, true},
+		{"169.254.169.254:80", false, true},
+		{"0.0.0.0:443", false, true},
+		{"10.0.0.5:443", false, false},
+		{"93.184.216.34:443", false, false},
+		{"127.0.0.1:443", true, false},
+	} {
+		t.Run(fmt.Sprintf("%s allowLocal=%v", tc.address, tc.allowLocal), func(t *testing.T) {
+			err := discoveryFetcher{allowLocal: tc.allowLocal}.checkDialAddress(tc.address)
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "refusing local address")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestOAuth_DiscoveryRefusesHostnameResolvingToLoopback(t *testing.T) {
+	// "localhost." is not literally a loopback name, but resolves to one,
+	// like a DNS alias or rebinding attack would.
+	reached := false
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	u, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+	target := "https://localhost.:" + u.Port() + "/.well-known/oauth-authorization-server"
+
+	// Trust the test server so only the address check can stop the request.
+	orig := discoveryTLSConfig
+	discoveryTLSConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402 -- test server
+	t.Cleanup(func() { discoveryTLSConfig = orig })
+
+	var meta oauthServerMeta
+	err = discoveryFetcher{allowLocal: false}.getJSON(target, &meta)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "refusing local address")
+	assert.False(t, reached, "the connection must be refused before any request reaches a local address")
+}
+
+func TestOAuth_DiscoveryIgnoresEnvironmentProxy(t *testing.T) {
+	// A proxy would make the connection on our behalf, so the dial check
+	// would only ever see the proxy's address.
+	t.Setenv("HTTPS_PROXY", "http://proxy.example:3128")
+	t.Setenv("HTTP_PROXY", "http://proxy.example:3128")
+	transport, ok := discoveryFetcher{}.transport().(*http.Transport)
+	require.True(t, ok)
+	require.Nil(t, transport.Proxy, "discovery must connect directly so every destination is checked")
+}
+
+func TestOAuth_DiscoverPrefersProtectedResourceIssuer(t *testing.T) {
+	routedDiscovery(t, map[string]http.HandlerFunc{
+		"mcp.example": func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/.well-known/oauth-authorization-server":
+				// The origin runs its own, unrelated authorization server.
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"issuer":                 "https://mcp.example",
+					"authorization_endpoint": "https://mcp.example/authorize",
+					"token_endpoint":         "https://mcp.example/token",
+				})
+			case "/.well-known/oauth-protected-resource/mcp":
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"resource":              "https://mcp.example/mcp",
+					"authorization_servers": []string{"https://auth.example/v1"},
+				})
+			default:
+				http.NotFound(w, r)
+			}
+		},
+		"auth.example": func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                 "https://auth.example/v1",
+				"authorization_endpoint": "https://auth.example/v1/authorize",
+				"token_endpoint":         "https://auth.example/v1/token",
+			})
+		},
+	})
+	meta, err := discoverOAuth("https://mcp.example")
+	require.NoError(t, err)
+	assert.Equal(t, "https://auth.example/v1/token", meta.TokenEndpoint, "the MCP resource's declared authorization server wins")
+}
+
+func TestOAuth_DiscoverFallsBackWhenOriginMetadataIsEmpty(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		issuer := srv.URL + "/auth/v1"
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			// A catch-all route answering 200 with no OAuth endpoints.
+			_, _ = w.Write([]byte(`{}`))
+		case "/.well-known/oauth-protected-resource/mcp":
+			json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{issuer}})
+		case "/.well-known/oauth-authorization-server/auth/v1":
+			json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                 issuer,
+				"authorization_endpoint": issuer + "/authorize",
+				"token_endpoint":         issuer + "/token",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	meta, err := discoverOAuth(srv.URL)
+	require.NoError(t, err)
+	assert.Equal(t, srv.URL+"/auth/v1/token", meta.TokenEndpoint)
+}
+
+func TestOAuth_DiscoverOriginProtectedResourceMetadata(t *testing.T) {
+	for _, resource := range []string{"", "/mcp"} {
+		t.Run("resource "+resource, func(t *testing.T) {
+			var srv *httptest.Server
+			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				issuer := srv.URL + "/auth/v1"
+				switch r.URL.Path {
+				case "/.well-known/oauth-protected-resource":
+					json.NewEncoder(w).Encode(map[string]any{"resource": srv.URL + resource, "authorization_servers": []string{issuer}})
+				case "/.well-known/oauth-authorization-server/auth/v1":
+					json.NewEncoder(w).Encode(map[string]any{
+						"issuer":                 issuer,
+						"authorization_endpoint": issuer + "/authorize",
+						"token_endpoint":         issuer + "/token",
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+
+			meta, err := discoverOAuth(srv.URL)
+			require.NoError(t, err)
+			assert.Equal(t, srv.URL+"/auth/v1/token", meta.TokenEndpoint)
+		})
+	}
+}
+
+func TestConvertStructuredResult(t *testing.T) {
+	tests := []struct {
+		name    string
+		result  *mcpsdk.CallToolResult
+		want    string
+		isError bool
+	}{
+		{
+			name:   "prefers structured content over text summary",
+			result: &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "Credits: 4 | Plan: free"}}, StructuredContent: map[string]any{"credits": 4, "plan": "free"}},
+			want:   `{"credits":4,"plan":"free"}`,
+		},
+		{
+			name:   "falls back to text without structured content",
+			result: &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "plain"}}},
+			want:   "plain",
+		},
+		{
+			name:    "keeps error text even with structured content",
+			result:  &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "quota exceeded"}}, StructuredContent: map[string]any{"code": 429}, IsError: true},
+			want:    "quota exceeded",
+			isError: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertStructuredResult(tt.result)
+			assert.Equal(t, tt.want, result.Data)
+			assert.Equal(t, tt.isError, result.IsError)
+		})
+	}
+}
+
+func TestNewStructured_ExecuteReturnsStructuredContent(t *testing.T) {
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "1"}, nil)
+	server.AddTool(&mcpsdk.Tool{Name: "balance", InputSchema: map[string]any{"type": "object"}}, func(context.Context, *mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+		return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "Credits: 4"}}, StructuredContent: map[string]any{"credits": 4}}, nil
+	})
+	stream := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true})
+	testServer := httptest.NewServer(stream)
+	defer testServer.Close()
+
+	for _, tc := range []struct {
+		name        string
+		integration mcp.Integration
+		want        string
+	}{
+		{name: "structured", integration: NewStructured("test", testServer.URL), want: `{"credits":4}`},
+		{name: "default keeps text", integration: New("test", testServer.URL), want: "Credits: 4"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, tc.integration.Configure(context.Background(), mcp.Credentials{"access_token": "t"}))
+			t.Cleanup(func() { _ = tc.integration.(io.Closer).Close() })
+			result, err := tc.integration.Execute(context.Background(), "test_balance", nil)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, result.Data)
+		})
+	}
 }

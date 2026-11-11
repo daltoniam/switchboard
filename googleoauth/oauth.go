@@ -50,6 +50,13 @@ type Config struct {
 	// Scopes are space-joined into the OAuth scope parameter. At least one
 	// is required.
 	Scopes []string
+	// Account, when set, names the additional (non-default) account this
+	// flow connects. It is echoed back by Poll so the caller can store the
+	// token under that account, and it makes Google show its account
+	// picker so the user can choose a different Google account.
+	Account string
+	// AccountLabel is an optional human label for Account, echoed by Poll.
+	AccountLabel string
 }
 
 // StartResult is returned by Start.
@@ -67,7 +74,10 @@ type PollResult struct {
 	// It may be narrower than requested if the user denied individual
 	// scopes on the consent screen.
 	Scope string `json:"scope,omitempty"`
-	Error string `json:"error,omitempty"`
+	// Account and AccountLabel echo Config.Account / Config.AccountLabel.
+	Account      string `json:"account,omitempty"`
+	AccountLabel string `json:"account_label,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 // flow holds the state for a single in-progress OAuth flow.
@@ -81,6 +91,8 @@ type flow struct {
 	accessToken  string
 	refreshToken string
 	scope        string
+	account      string
+	accountLabel string
 	err          string
 	done         bool
 	startedAt    time.Time
@@ -122,6 +134,10 @@ func Start(cfg Config) (*StartResult, error) {
 	codeVerifier := randomString(64)
 	codeChallenge := pkceChallenge(codeVerifier)
 
+	prompt := "consent"
+	if cfg.Account != "" {
+		prompt = "consent select_account"
+	}
 	params := url.Values{
 		"client_id":             {cfg.ClientID},
 		"redirect_uri":          {cfg.RedirectURI},
@@ -131,7 +147,7 @@ func Start(cfg Config) (*StartResult, error) {
 		"state":                 {state},
 		"code_challenge":        {codeChallenge},
 		"code_challenge_method": {"S256"},
-		"prompt":                {"consent"},
+		"prompt":                {prompt},
 		// include_granted_scopes lets a later flow (e.g. adding a service to
 		// an already-connected Google account) build incrementally on scopes
 		// the user has previously granted instead of discarding them.
@@ -144,6 +160,8 @@ func Start(cfg Config) (*StartResult, error) {
 		redirectURI:  cfg.RedirectURI,
 		state:        state,
 		codeVerifier: codeVerifier,
+		account:      cfg.Account,
+		accountLabel: cfg.AccountLabel,
 		startedAt:    time.Now(),
 	}
 
@@ -281,6 +299,8 @@ func Poll(integrationName string) PollResult {
 		AccessToken:  f.accessToken,
 		RefreshToken: f.refreshToken,
 		Scope:        f.scope,
+		Account:      f.account,
+		AccountLabel: f.accountLabel,
 	}
 }
 

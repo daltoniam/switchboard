@@ -1,0 +1,46 @@
+name: Weekly Release
+
+# Bot integration merges carry release:skip so they don't each publish a
+# release. This tags main once a week when anything landed since the last
+# release; release.yml publishes the tag. Merges by people still release
+# immediately through auto-release.yml.
+on:
+  schedule:
+    - cron: "0 15 * * 1" # Mondays 15:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  weekly-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          # A token other than GITHUB_TOKEN, so the pushed tag starts release.yml.
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Check for unreleased commits
+        id: needed
+        run: |
+          needed="$(bash scripts/weekly-release-needed.sh)"
+          echo "needed=$needed" >> "$GITHUB_OUTPUT"
+          echo "Unreleased commits on main: $needed"
+
+      - name: Create and push tag
+        if: steps.needed.outputs.needed == 'yes'
+        run: |
+          next="$(bash scripts/calver-next.sh)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$next" -m "Weekly release $next"
+          git push origin "$next"
+          echo "Tagged $next; release.yml publishes it" >> "$GITHUB_STEP_SUMMARY"

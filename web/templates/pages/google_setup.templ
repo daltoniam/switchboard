@@ -3,7 +3,9 @@ package pages
 import (
 	"github.com/daltoniam/switchboard/web/templates/layouts"
 	"github.com/daltoniam/switchboard/web/templates/components"
+	"net/url"
 	"strconv"
+	"strings"
 )
 
 func googleProgressLabel(connected, total int) string {
@@ -23,6 +25,15 @@ type GoogleServiceStatus struct {
 	APIDisabled bool
 }
 
+// GoogleAccountStatus describes one additional (named) Google account. It
+// carries only non-secret metadata; tokens never reach the template.
+type GoogleAccountStatus struct {
+	ID    string
+	Label string
+	// Services lists the display names of services holding this account.
+	Services []string
+}
+
 // GoogleSetupData drives the unified Google Workspace setup page.
 type GoogleSetupData struct {
 	// HasOAuth is true once a client_id/secret has been saved.
@@ -40,8 +51,10 @@ type GoogleSetupData struct {
 	// AnyAPIDisabled is true when at least one connected service has a valid
 	// token but its Google API is not enabled in the Cloud project.
 	AnyAPIDisabled bool
-	FlashResult    string
-	FlashError     string
+	// Accounts are the additional named Google accounts, sorted by ID.
+	Accounts    []GoogleAccountStatus
+	FlashResult string
+	FlashError  string
 }
 
 templ GoogleSetup(page layouts.PageData, data GoogleSetupData) {
@@ -130,9 +143,51 @@ templ GoogleSetup(page layouts.PageData, data GoogleSetupData) {
 					<button type="button" class="btn btn-outline" onclick="resetOAuth()" style="margin-top: 0.5rem;">Try Again</button>
 				</div>
 			</div>
+			<div class="card" id="google-accounts">
+				<div class="card-title" style="margin-bottom: 0.75rem;">3. Additional Google accounts</div>
+				<p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+					Connect more Google accounts to the services ticked above. The account you signed in
+					with first stays the default; tools take an optional <code>account</code>
+					argument to pick another one.
+				</p>
+				if len(data.Accounts) > 0 {
+					<div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+						<div data-google-account="default" style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+							<div>
+								<strong>default</strong>
+								<span style="color: var(--text-muted);">· the account you signed in with first</span>
+							</div>
+							<form method="POST" action="/api/google/accounts/default/delete" onsubmit="return confirm('Remove the default Google account? The first other account becomes the default.');">
+								<button type="submit" class="btn btn-sm btn-outline identity-delete">Remove</button>
+							</form>
+						</div>
+						for _, acct := range data.Accounts {
+							<div data-google-account={ acct.ID } style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+								<div>
+									<strong>{ acct.ID }</strong>
+									if acct.Label != "" {
+										<span style="color: var(--text-muted);">· { acct.Label }</span>
+									}
+									<div style="color: var(--text-muted); font-size: 0.8rem;">{ strings.Join(acct.Services, ", ") }</div>
+								</div>
+								<form method="POST" action={ templ.SafeURL("/api/google/accounts/" + url.PathEscape(acct.ID) + "/delete") } onsubmit="return confirm('Remove this Google account from every service?');">
+									<button type="submit" class="btn btn-sm btn-outline identity-delete">Remove</button>
+								</form>
+							</div>
+						}
+					</div>
+				}
+				<div id="account-container">
+					@components.FormGroup("Account ID", "google_account_id", "text", "", "work")
+					@components.FormGroup("Label (optional)", "google_account_label", "text", "", "Work mail")
+					<button type="button" class="btn btn-outline" id="account-start-btn" onclick="startGoogleOAuth(true)">
+						Add another Google account
+					</button>
+				</div>
+			</div>
 		}
 		<script>
-			function startGoogleOAuth() {
+			function startGoogleOAuth(additional) {
 				var btn = document.getElementById('oauth-start-btn');
 				var checks = document.querySelectorAll('.gsvc:checked');
 				var services = [];
@@ -141,12 +196,22 @@ templ GoogleSetup(page layouts.PageData, data GoogleSetupData) {
 					showOAuthError('Select at least one service to connect.');
 					return;
 				}
+				var payload = { services: services };
+				if (additional) {
+					btn = document.getElementById('account-start-btn');
+					payload.account = document.getElementById('google_account_id').value.trim();
+					payload.label = document.getElementById('google_account_label').value.trim();
+					if (payload.account === '') {
+						showOAuthError('Enter an account ID such as "work".');
+						return;
+					}
+				}
 				btn.disabled = true;
 				btn.textContent = 'Starting...';
 				fetch('/api/google/oauth/start', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ services: services })
+					body: JSON.stringify(payload)
 				})
 					.then(function(r) { return r.json(); })
 					.then(function(data) {
@@ -170,6 +235,11 @@ templ GoogleSetup(page layouts.PageData, data GoogleSetupData) {
 				var btn = document.getElementById('oauth-start-btn');
 				btn.disabled = false;
 				btn.textContent = 'Sign in with Google';
+				var acctBtn = document.getElementById('account-start-btn');
+				if (acctBtn) {
+					acctBtn.disabled = false;
+					acctBtn.textContent = 'Add another Google account';
+				}
 			}
 		</script>
 	}

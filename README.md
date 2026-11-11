@@ -278,6 +278,26 @@ Open `/integrations/notion-mcp/setup` in the web UI and select **Sign in with No
 
 Tools are discovered from Notion after authorization and namespaced as `notion-mcp_<upstream-tool-name>`. Start with `search` filtered to `integration: "notion-mcp"`; use the returned names with `execute` rather than the existing `notion_*` tools. The catalog and content permissions depend on the authorized workspace. Re-authorize in setup if the token expires or is revoked; the shared remote OAuth flow currently stores access tokens only and does not refresh them automatically.
 
+### Argo Workflows (`argoworkflows`)
+
+Inspect workflow run status in one namespace using two read-only tools. Configure a
+trusted HTTPS Argo Server URL, namespace, and get/list-only service-account token;
+Argo client authentication is required. Specs, parameters, artifacts, logs, and
+arbitrary failure messages are excluded from both normal and raw script results.
+See [Argo Workflows setup](docs/argoworkflows-setup.md) for RBAC, private CA setup,
+pagination, response limits, and the live acceptance test.
+
+### Mobbin (`mobbin`)
+
+Proxies Mobbin's hosted MCP server at `https://api.mobbin.com/mcp`, a searchable library of real app screens, user flows, and website sections. Tools are `mobbin_search_screens`, `mobbin_search_flows`, `mobbin_search_sections`, `mobbin_list_collections`, and `mobbin_get_collection_contents` (reads), plus `mobbin_create_collection`, `mobbin_save_content`, and `mobbin_add_comment` (writes to your Mobbin account). Search results include inline preview images.
+
+Open `/integrations/mobbin/setup` and select **Sign in with Mobbin**. Mobbin's authorization server is a separate issuer advertised through protected resource metadata (RFC 9728); OAuth uses dynamic client registration, PKCE, the `openid` scope, and resource binding to the MCP endpoint. A Mobbin account is required. Access tokens expire after about an hour and the shared remote OAuth flow does not refresh them, so sign in again when the setup page shows a connection error.
+### Higgsfield (`higgsfield`)
+
+Connects to Higgsfield's hosted MCP server at `https://mcp.higgsfield.ai/mcp` for AI image, video, and audio generation. Higgsfield has no API-key REST API for account features, so Switchboard proxies a curated set of 23 of the ~150 hosted tools (credits, model catalog, presets, voices, history, jobs, projects, media import, and image/video/audio generation) with hand-written descriptions and compaction. Chat-widget workflows (websites, 3D scenes, TikTok publishing, Ads Studio) are refused locally.
+
+Open `/integrations/higgsfield/setup` in the web UI and select **Sign in with Higgsfield**. OAuth uses dynamic client registration, PKCE, the `openid email offline_access` scopes, and resource binding to the MCP endpoint. Higgsfield's consent flow may show a plans upsell page first; choose **Skip & proceed to MCP** to finish sign-in. Start with `higgsfield_balance`. Generation tools spend credits: preflight with `params.get_cost=true` first. Re-authorize in setup if the token expires; the shared remote OAuth flow stores access tokens only.
+
 ### Environment Variables
 
 Switchboard automatically reads environment variables from your shell (fish, zsh, bash, etc.) and overlays them on top of the JSON config. If an env var is set, it takes precedence over the corresponding value in `config.json`. Env-sourced values are never written back to disk.
@@ -287,6 +307,10 @@ Environment variables override credential values but do not change the durable e
 | Integration | Credential | Env Var |
 |---|---|---|
 | GitHub | `token` | `GITHUB_TOKEN` |
+| Argo Workflows | `base_url` | `ARGO_WORKFLOWS_BASE_URL` (required HTTPS installation URL) |
+| Argo Workflows | `namespace` | `ARGO_WORKFLOWS_NAMESPACE` (required fixed namespace) |
+| Argo Workflows | `token` | `ARGO_WORKFLOWS_TOKEN` (required get/list-only service-account token) |
+| Argo Workflows | `ca_cert` | `ARGO_WORKFLOWS_CA_CERT` (optional PEM CA certificate) |
 | Forgejo | `base_url` | `FORGEJO_BASE_URL` (required — instance URL including any deployment subpath) |
 | Forgejo | `token` | `FORGEJO_TOKEN` (required — personal access token) |
 | Datadog | `api_key` | `DD_API_KEY` |
@@ -304,10 +328,16 @@ Environment variables override credential values but do not change the durable e
 | Figma MCP | `base_url` | `FIGMA_MCP_BASE_URL` (optional, default `https://mcp.figma.com`) |
 | Notion MCP | `mcp_access_token` | `NOTION_MCP_ACCESS_TOKEN` |
 | Notion MCP | `base_url` | `NOTION_MCP_BASE_URL` (optional, default `https://mcp.notion.com`; a trailing `/mcp` is accepted) |
+| Mobbin | `mcp_access_token` | `MOBBIN_MCP_ACCESS_TOKEN` |
+| Mobbin | `base_url` | `MOBBIN_MCP_BASE_URL` (optional, default `https://api.mobbin.com`; a trailing `/mcp` is accepted) |
 | Metabase | `api_key` | `METABASE_API_KEY` |
 | Metabase | `url` | `METABASE_URL` |
 | Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
 | Paperless-ngx | `url` | `PAPERLESS_URL` |
+| Obsidian | `api_key` | `OBSIDIAN_API_KEY` |
+| Obsidian | `base_url` | `OBSIDIAN_BASE_URL` (optional, default `https://127.0.0.1:27124`) |
+| Obsidian | `ca_cert` | `OBSIDIAN_CA_CERT` (optional — PEM from `<base_url>/obsidian-local-rest-api.crt` to trust the plugin's self-signed certificate) |
+| Obsidian | `insecure_skip_tls_verify` | `OBSIDIAN_INSECURE_SKIP_TLS_VERIFY` (optional — `true` skips certificate checks; prefer `ca_cert`) |
 | Recoll WebUI | `base_url` | `RECOLL_URL` |
 | iMessage (macOS) | `db_path` | `IMESSAGE_DB_PATH` (optional — default `~/Library/Messages/chat.db`) |
 | iMessage (macOS) | `contacts_dir` | `IMESSAGE_CONTACTS_DIR` (optional — default `~/Library/Application Support/AddressBook`) |
@@ -358,9 +388,21 @@ Environment variables override credential values but do not change the durable e
 | Grist | `base_url` | `GRIST_HOST` (optional — default `https://docs.getgrist.com`; team sites `https://{team}.getgrist.com`; self-hosted origin) |
 | Okta | `api_token` | `OKTA_API_TOKEN` |
 | Okta | `org_url` | `OKTA_ORG_URL` (e.g. `https://your-org.okta.com`) |
+| [Keycloak](docs/keycloak-setup.md) | `base_url` | `KEYCLOAK_BASE_URL` (required HTTPS installation URL, including any deployment subpath) |
+| Keycloak | `realm` | `KEYCLOAK_REALM` (required target realm name) |
+| Keycloak | `client_id` | `KEYCLOAK_CLIENT_ID` (required read-only service-account client) |
+| Keycloak | `client_secret` | `KEYCLOAK_CLIENT_SECRET` (required confidential client secret) |
 | PagerDuty | `api_token` | `PAGERDUTY_API_TOKEN` (REST API user or account token) |
 | PagerDuty | `from_email` | `PAGERDUTY_FROM_EMAIL` (optional default From header for notes/ack/resolve) |
 | PagerDuty | `base_url` | `PAGERDUTY_BASE_URL` (optional — default `https://api.pagerduty.com`) |
+| [Apache Druid](docs/druid-setup.md) | `base_url` | `DRUID_BASE_URL` (required trusted HTTPS Router URL, optional proxy prefix) |
+| Apache Druid | `username` / `password` | `DRUID_USERNAME` / `DRUID_PASSWORD` (required dedicated basic-security diagnostic identity) |
+| Apache Druid | `ca_cert` | `DRUID_CA_CERT` (optional PEM CA certificate; UI accepts literal `\n` line breaks) |
+| Prometheus | `base_url` | `PROMETHEUS_BASE_URL` (required trusted HTTPS endpoint, optional proxy path) |
+| Prometheus | `username` / `password` | `PROMETHEUS_USERNAME` / `PROMETHEUS_PASSWORD` (optional complete Basic auth pair) |
+| Prometheus | `bearer_token` | `PROMETHEUS_BEARER_TOKEN` (optional alternative to Basic auth) |
+| Prometheus | `headers` | `PROMETHEUS_HEADERS` (optional JSON tenant headers; reserved auth/routing headers are rejected) |
+| Prometheus | `ca_cert` | `PROMETHEUS_CA_CERT` (optional PEM CA certificate; TLS verification cannot be disabled) |
 | LaunchDarkly | `access_token` | `LAUNCHDARKLY_ACCESS_TOKEN` (personal or service access token; SDK keys cannot call the REST API) |
 | LaunchDarkly | `base_url` | `LAUNCHDARKLY_BASE_URL` (optional — default `https://app.launchdarkly.com`; EU `https://app.eu.launchdarkly.com`; Federal `https://app.launchdarkly.us`) |
 | dbt | `token` | `DBT_TOKEN` (dbt Cloud service token with Job Viewer permission, or a personal access token; sent as `Authorization: Token <token>`) |
@@ -372,6 +414,8 @@ Environment variables override credential values but do not change the durable e
 | Tailscale | `oauth_client_secret` | `TAILSCALE_OAUTH_CLIENT_SECRET` (OAuth client secret `tskey-client-...`) |
 | Tailscale | `tailnet` | `TAILSCALE_TAILNET` (optional — default `-`, the credential's own tailnet) |
 | Tailscale | `base_url` | `TAILSCALE_BASE_URL` (optional — default `https://api.tailscale.com`) |
+| Sourcebot | `base_url` | `SOURCEBOT_BASE_URL` (URL of your self-hosted Sourcebot instance, e.g. `https://sourcebot.example.com`) |
+| Sourcebot | `api_key` | `SOURCEBOT_API_KEY` (optional — API key from Settings → API Keys, `sbk_...` or `sourcebot-...`; leave unset when anonymous access is enabled) |
 | Ramp | `access_token` | `RAMP_ACCESS_TOKEN` |
 | Ramp | `base_url` | `RAMP_BASE_URL` (optional — default `https://api.ramp.com`, use `https://demo-api.ramp.com` for sandbox) |
 | ServiceNow | `instance_url` | `SERVICENOW_INSTANCE_URL` (e.g. `https://dev12345.service-now.com`) |
@@ -403,6 +447,8 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Linear | OAuth (PKCE) | Web UI → Linear → Setup, or set `LINEAR_API_KEY` |
 | Figma and FigJam | Hosted MCP OAuth (PKCE) | Web UI → Figma → Setup, or set `FIGMA_MCP_ACCESS_TOKEN` |
 | Notion MCP (`notion-mcp`) | Hosted MCP OAuth (PKCE) | Web UI → notion-mcp → Setup, or set `NOTION_MCP_ACCESS_TOKEN` and enable explicitly |
+| Mobbin | Hosted MCP OAuth (PKCE) | Web UI → Mobbin → Setup, or set `MOBBIN_MCP_ACCESS_TOKEN` and enable explicitly |
+| Higgsfield | Hosted MCP OAuth (PKCE) | Web UI → higgsfield → Setup, or set `HIGGSFIELD_MCP_ACCESS_TOKEN` and enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
 | Slack MCP (official hosted) | User OAuth access tokens per identity | Edit `~/.config/switchboard/config.json` `slackmcp.identities` (see below). Bot `xoxb-` tokens are **not** accepted by Slack's hosted MCP endpoint. |
@@ -411,12 +457,22 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
 | Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |
+| Obsidian | Local REST API key | Install the [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) community plugin in Obsidian, copy its API key from Settings → Local REST API, and set `OBSIDIAN_API_KEY` or enter it in the web UI. Obsidian must be running. The default HTTPS port uses a self-signed certificate: set `ca_cert`, or point `base_url` at the plugin's optional HTTP port (`http://127.0.0.1:27123`). |
 | Recoll WebUI | Base URL | Set `RECOLL_URL` to the Recoll WebUI root (for example `http://localhost:8080`) or enter it in the web UI |
 | iMessage (macOS) | Local macOS permissions | Enable in the web UI. Reading requires **Full Disk Access** for the `switchboard` binary (or the terminal running it) in System Settings → Privacy & Security. Sending requires `allow_send=true` and approving the **Automation → Messages** prompt on first send. |
 | PostHog | Personal API Key | Set `POSTHOG_API_KEY` env var or enter in web UI |
 | Vercel | Personal Access Token | Set `VERCEL_API_TOKEN` env var or enter in web UI |
 | Microsoft 365 | OAuth (PKCE) | Web UI → Microsoft 365 → Setup, or set `MICROSOFT365_ACCESS_TOKEN` |
 | Postgres | Connection String | Set `DATABASE_URL` env var or enter in web UI |
+| Prometheus | Basic, bearer, or trusted anonymous TLS | Enter the endpoint and optional credentials in the generic integration page; enable explicitly. |
+
+### Standalone Prometheus
+
+The native Prometheus adapter provides nine read-only tools for instant/range PromQL, alerts, rules, scrape targets, metric discovery, label values, series and build/runtime information. It connects directly without Grafana installation, datasource registration or a Grafana credential. Grafana and VictoriaMetrics MCP servers overlap these workflows; this adapter specifically serves standalone endpoints and scrape diagnostics. AWS SigV4 and Google managed-service credential exchange are not supported.
+
+Configure a trusted HTTPS origin, optionally including a reverse-proxy path, then explicitly enable `prometheus`. Basic credentials must be paired and cannot be combined with a bearer token. Tenant headers remain secrets. Use an upstream read-only proxy policy where required: Basic authentication alone does not provide per-tool authorization. Keep Prometheus admin APIs disabled; this adapter exposes neither admin operations nor remote writes. Rotate credentials upstream and replace the stored values. Plain HTTP is accepted only for literal loopback development addresses. Redirects are never followed, and custom CA certificates supplement system trust.
+
+Each response is capped at 2 MiB and each request at 15 seconds (PromQL timeout 10 seconds). Series/value limits default to 20, maximum 100; range queries permit at most 1000 evaluation points per series and 5000 returned samples total. Float matrices return `timestamps` and `samples` columns; native histograms are retained separately. Adapter-side cuts carry `truncated`; upstream warnings and infos are preserved. Rule-group continuation tokens are passed through without automatic paging, and local cuts may require narrower filters to retrieve omitted rules. Metric discovery uses two requests and explicitly marks metadata as potentially incomplete. Errors and oversize responses never masquerade as complete results; retryable 429/5xx failures use the server's bounded retry loop and honor `Retry-After`.
 
 ## Adding to Cursor / Claude Desktop
 
@@ -452,7 +508,7 @@ go install github.com/air-verse/air@latest
 Install the Playwright Chromium driver (optional — enables browser-based integrations):
 
 ```bash
-go run github.com/playwright-community/playwright-go/cmd/playwright install chromium
+go run github.com/mxschmitt/playwright-go/cmd/playwright install chromium
 ```
 
 Then run with live-reload:

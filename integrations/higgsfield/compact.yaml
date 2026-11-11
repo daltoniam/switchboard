@@ -1,0 +1,72 @@
+# Switchboard compaction specs for the higgsfield integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# higgsfield.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+#
+# Only tools whose live response shape was verified against the hosted MCP
+# server have specs. models_explore is deliberately uncompacted: its shape
+# differs per action and it is the source of truth for model parameters.
+
+version: 1
+tools:
+  # Live shape: {items:[{id,type,status,model,params{...},results{rawUrl,minUrl},createdAt,liked}],next_cursor}
+  higgsfield_show_generations:
+    spec:
+      - items[].id
+      - items[].type
+      - items[].status
+      - items[].model
+      - items[].params.prompt
+      - items[].params.aspect_ratio
+      - items[].results.rawUrl
+      - items[].createdAt
+      - next_cursor
+
+  # Live shape: {voices:[{voice_id,voice_type,name,gender,preview_url,logo_url}],has_more,next_cursor}
+  higgsfield_list_voices:
+    spec:
+      - voices[].voice_id
+      - voices[].voice_type
+      - voices[].name
+      - voices[].gender
+      - voices[].preview_url
+      - has_more
+      - next_cursor
+
+  # Live shape: {items:[{display_name,credits,action,created_at}],next_cursor}
+  higgsfield_transactions:
+    spec:
+      - items[].display_name
+      - items[].credits
+      - items[].action
+      - items[].created_at
+      - next_cursor
+
+  # Live response is ~30 KB of widget config (feature lists, tooltips, sales
+  # copy). Keep plan prices, purchase links, and the trial terms an agent must
+  # relay before anyone follows a checkout link.
+  higgsfield_show_plans_and_credits:
+    spec:
+      - plans[].id
+      - plans[].name
+      - plans[].credits
+      - plans[].monthly_final_price_cents
+      - plans[].annual_final_price_cents
+      - purchase_links[].kind
+      - purchase_links[].label
+      - purchase_links[].url
+      - purchase_links[].price_cents
+      - purchase_links[].credits
+      - workspace_kind
+      - free_trial.headline
+      - free_trial.compliance_note
