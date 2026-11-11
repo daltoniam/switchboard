@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1.7
 # Switchboard DEV image — Air hot-reload, source bind-mounted at runtime.
-# Pins match the go.mod toolchain (Go 1.27.2). Do not use for production (see Dockerfile).
+# Pins match the go.mod toolchain (Go 1.27.4). Do not use for production (see Dockerfile).
 
-ARG GO_VERSION=1.27.2
+ARG GO_VERSION=1.27.4
 # air-verse/air is MIT. Pin >=1.62: older 1.61.x overwrote .air.toml with flag defaults.
 ARG AIR_VERSION=v1.67.4
 
-FROM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61
+FROM golang:1.27.4-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea
 
 ARG AIR_VERSION
 ENV CGO_ENABLED=0 \
