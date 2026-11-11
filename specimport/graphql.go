@@ -277,11 +277,28 @@ const maxSelectionDepth = 2
 // a type with hundreds of scalar fields does not explode the query size.
 const maxSelectionFields = 50
 
+// maxDocumentSelections caps the leaf fields in one generated query across
+// every level, union member and nested type, so a wide union or deep schema
+// cannot multiply the per-level cap.
+const maxDocumentSelections = 200
+
 // selectionBuilder synthesizes a default selection set for object/interface/
 // union return types from the introspected schema. Scalar and enum types
 // need no selection set; object-like types require one to form a valid query.
 type selectionBuilder struct {
 	types map[string]gqlType
+	// remaining is the leaf budget left for the query being built.
+	remaining int
+}
+
+// takeLeaf consumes one leaf selection from the query budget, reporting
+// whether one was available.
+func (s *selectionBuilder) takeLeaf() bool {
+	if s.remaining <= 0 {
+		return false
+	}
+	s.remaining--
+	return true
 }
 
 // build returns a selection set (including the surrounding braces) for the
@@ -291,6 +308,7 @@ func (s *selectionBuilder) build(ret gqlTypeRef) string {
 	if !isComposite(kind) {
 		return ""
 	}
+	s.remaining = maxDocumentSelections
 	depth := maxSelectionDepth
 	scalarsOnly := false
 	if ret.isList() {
@@ -333,7 +351,7 @@ func (s *selectionBuilder) fields(typeName string, depth int, visited map[string
 
 	var parts []string
 	for _, f := range fields {
-		if len(parts) >= maxSelectionFields {
+		if len(parts) >= maxSelectionFields || s.remaining <= 0 {
 			break
 		}
 		// Skip fields that require arguments — we have no values to supply.
@@ -363,6 +381,9 @@ func (s *selectionBuilder) selectionForField(f gqlField, depth int, visited map[
 	}
 	kind, name := f.Type.named()
 	if !isComposite(kind) {
+		if !s.takeLeaf() {
+			return ""
+		}
 		return gqlFieldLabel(f.Name, aliases)
 	}
 	if scalarsOnly {
@@ -440,9 +461,9 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 	globalReserved := unionAllFieldNames(s, t)
 	var parts []string
 	parts = append(parts, "__typename")
-	fieldBudget := maxSelectionFields - 1
+	members := 0
 	for _, pt := range t.PossibleTypes {
-		if fieldBudget <= 0 {
+		if members >= maxSelectionFields-1 || s.remaining <= 0 {
 			break
 		}
 		if pt.Name == t.Name {
@@ -466,7 +487,7 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 			continue
 		}
 		parts = append(parts, fmt.Sprintf("... on %s { %s }", pt.Name, memberSel))
-		fieldBudget--
+		members++
 	}
 	return strings.Join(parts, " ")
 }
