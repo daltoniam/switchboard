@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 85)
-	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "mobbin", "metabase", "paperless", "obsidian", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "groupme", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus", "druid", "mysql"} {
+	assert.Len(t, m.cfg.Integrations, 86)
+	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "mobbin", "metabase", "paperless", "obsidian", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "groupme", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus", "druid", "mysql", "semaphoreui"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -77,6 +77,26 @@ func TestProjectCatalogConfig_ExplicitDisable(t *testing.T) {
 	require.NoError(t, m.Load())
 	assert.False(t, mcp.ProjectCatalogEnabled(m.cfg.ProjectCatalog))
 	assert.False(t, mcp.ProjectCatalogWritesEnabled(m.cfg.ProjectCatalog))
+}
+
+func TestLoad_PreservesSpecImports(t *testing.T) {
+	m, path := newTestManager(t)
+
+	cfg := &mcp.Config{
+		SpecImports: []mcp.SpecImportConfig{
+			{Name: "Demo API", Kind: "openapi", Spec: "{}", Endpoint: "https://ex.com", Enabled: true},
+		},
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
+	require.NoError(t, os.WriteFile(path, data, 0600))
+
+	require.NoError(t, m.Load())
+	require.Len(t, m.cfg.SpecImports, 1)
+	assert.Equal(t, "Demo API", m.cfg.SpecImports[0].Name)
+	assert.Equal(t, "https://ex.com", m.cfg.SpecImports[0].Endpoint)
+	assert.True(t, m.cfg.SpecImports[0].Enabled)
 }
 
 func TestLoad_BackfillsMissingIntegrations(t *testing.T) {
@@ -154,7 +174,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 85)
+	assert.Len(t, cfg.Integrations, 86)
 }
 
 func TestGet(t *testing.T) {
@@ -163,7 +183,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 85)
+	assert.Len(t, cfg.Integrations, 86)
 }
 
 func TestUpdate(t *testing.T) {
@@ -270,10 +290,84 @@ func TestEnabledIntegrations_Multiple(t *testing.T) {
 	assert.ElementsMatch(t, []string{"github", "datadog"}, enabled)
 }
 
+func TestEnabledIntegrations_SpecImports(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	err := m.SetSpecImports([]mcp.SpecImportConfig{
+		{Name: "Demo API", Enabled: true},
+		{Name: "Disabled API", Enabled: false},
+	})
+	require.NoError(t, err)
+
+	enabled := m.EnabledIntegrations()
+	assert.Contains(t, enabled, "demo_api")
+	assert.NotContains(t, enabled, "disabled_api")
+}
+
+func TestEnabledIntegrations_SpecImportDedupe(t *testing.T) {
+	m, _ := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	require.NoError(t, m.SetIntegration("github", &mcp.IntegrationConfig{
+		Enabled:     true,
+		Credentials: mcp.Credentials{"token": "t"},
+	}))
+	// Two names that sanitize to the same id, plus a collision with a built-in.
+	require.NoError(t, m.SetSpecImports([]mcp.SpecImportConfig{
+		{Name: "Demo API", Enabled: true},
+		{Name: "demo-api", Enabled: true},
+		{Name: "github", Enabled: true},
+	}))
+
+	enabled := m.EnabledIntegrations()
+	assert.Equal(t, 1, countName(enabled, "demo_api"))
+	assert.Equal(t, 1, countName(enabled, "github"))
+}
+
+func TestSetSpecImports_Persisted(t *testing.T) {
+	m, path := newTestManager(t)
+	require.NoError(t, m.Load())
+
+	imports := []mcp.SpecImportConfig{
+		{Name: "Demo API", Kind: "openapi", Spec: "{}", Enabled: true},
+	}
+	require.NoError(t, m.SetSpecImports(imports))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var persisted mcp.Config
+	require.NoError(t, json.Unmarshal(data, &persisted))
+	require.Len(t, persisted.SpecImports, 1)
+	assert.Equal(t, "Demo API", persisted.SpecImports[0].Name)
+}
+
+func TestAppendUniqueEnabledSpecImports_Dedupes(t *testing.T) {
+	seen := map[string]struct{}{"github": {}}
+	names := []string{"github"}
+	out := appendUniqueEnabledSpecImports(names, seen, []mcp.SpecImportConfig{
+		{Name: "Demo API", Enabled: true},
+		{Name: "demo-api", Enabled: true},
+		{Name: "github", Enabled: true},
+	})
+	assert.Equal(t, 1, countName(out, "demo_api"))
+	assert.Equal(t, 1, countName(out, "github"))
+}
+
+func countName(names []string, want string) int {
+	n := 0
+	for _, name := range names {
+		if name == want {
+			n++
+		}
+	}
+	return n
+}
+
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 85)
+	assert.Len(t, cfg.Integrations, 86)
 
 	expected := map[string][]string{
 		"github":           {"token", "client_id", "token_source"},
@@ -772,7 +866,7 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "LIKEC4_EXCALIDRAW_MCP_TOKEN", m["likec4excalidraw"]["mcp_token"])
 	assert.Equal(t, "GROUPME_ACCESS_TOKEN", m["groupme"]["access_token"])
 	assert.Equal(t, "GROUPME_BASE_URL", m["groupme"]["base_url"])
-	assert.Len(t, m, 73)
+	assert.Len(t, m, 74)
 	assert.Equal(t, "DRUID_BASE_URL", m["druid"]["base_url"])
 	assert.Equal(t, "DRUID_USERNAME", m["druid"]["username"])
 	assert.Equal(t, "DRUID_PASSWORD", m["druid"]["password"])
