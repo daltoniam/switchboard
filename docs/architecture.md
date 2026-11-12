@@ -96,6 +96,11 @@ integrations/
     compact.yaml             Field compaction specs (read tools)
     tools.go                 Grist tool definitions (~30 tools)
     handlers.go              Orgs, workspaces, docs, tables, columns, records, SQL, webhooks, attachments
+  groupme/
+    groupme.go               GroupMe integration adapter (core, HTTP envelope handling, FieldCompactionIntegration)
+    compact.yaml             Field compaction specs (read tools)
+    tools.go                 GroupMe tool definitions and dispatch map (10 tools)
+    handlers.go              Account, groups, group messages, chats, direct messages, bots
   discord/
     discord.go               Discord bot integration adapter (core, HTTP helpers, FieldCompactionIntegration)
     compact.yaml             Field compaction specs (read tools)
