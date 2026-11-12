@@ -194,3 +194,41 @@ func TestGraphQLCompositeOnlyUnionStaysWithinTheBudget(t *testing.T) {
 	assert.LessOrEqual(t, leaves, maxDocumentSelections, "synthesized leaves share the query budget")
 	assert.Equal(t, strings.Count(query, "{"), strings.Count(query, "}"), "the query stays well formed")
 }
+
+// OpenAPI array query parameters default to style=form, explode=true:
+// repeated keys. explode=false joins with commas.
+func TestExecuteOpenAPI_EncodesArrayQueryParameters(t *testing.T) {
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.RawQuery
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+	doc := `{"openapi":"3.0.0","info":{"title":"t","version":"1"},"servers":[{"url":"https://api.example.test"}],
+	  "paths":{"/items":{"get":{"operationId":"listItems","parameters":[
+	    {"name":"tags","in":"query","schema":{"type":"array","items":{"type":"string"}}},
+	    {"name":"ids","in":"query","explode":false,"schema":{"type":"array","items":{"type":"integer"}}},
+	    {"name":"q","in":"query","schema":{"type":"string"}}
+	  ],"responses":{"200":{"description":"ok"}}}}}}`
+	im, err := Parse(KindOpenAPI, "demo", []byte(doc), srv.URL)
+	require.NoError(t, err)
+
+	// Also through persistence, so rehydrated imports encode the same way.
+	raw, err := json.Marshal(im)
+	require.NoError(t, err)
+	var back Imported
+	require.NoError(t, json.Unmarshal(raw, &back))
+
+	for label, imp := range map[string]*Imported{"parsed": im, "rehydrated": &back} {
+		in := NewIntegration(imp)
+		require.NoError(t, in.Configure(context.Background(), mcp.Credentials{}))
+		res, err := in.Execute(context.Background(), "demo_listitems", map[string]any{
+			"query_tags": []any{"a", "b c"},
+			"query_ids":  []any{1, 2},
+			"query_q":    "x",
+		})
+		require.NoError(t, err, label)
+		require.False(t, res.IsError, "%s: %s", label, res.Data)
+		assert.Equal(t, "ids=1%2C2&q=x&tags=a&tags=b+c", gotQuery, label)
+	}
+}

@@ -61,6 +61,38 @@ type openAPIParam struct {
 	Description string         `json:"description"`
 	Required    bool           `json:"required"`
 	Schema      *openAPISchema `json:"schema"`
+	Style       string         `json:"style"`
+	Explode     *bool          `json:"explode"`
+}
+
+// isArray reports whether the parameter's schema type is (or includes, in
+// OpenAPI 3.1) "array".
+func (p openAPIParam) isArray() bool {
+	if p.Schema == nil || len(p.Schema.Type) == 0 {
+		return false
+	}
+	var one string
+	if json.Unmarshal(p.Schema.Type, &one) == nil {
+		return one == "array"
+	}
+	var many []string
+	if json.Unmarshal(p.Schema.Type, &many) == nil {
+		for _, t := range many {
+			if t == "array" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// queryExplode reports how an array query parameter is sent. Form style (the
+// query default) explodes unless explode is false.
+func (p openAPIParam) queryExplode() bool {
+	if p.Explode != nil {
+		return *p.Explode
+	}
+	return p.Style == "" || p.Style == "form"
 }
 
 type openAPIReqBody struct {
@@ -216,7 +248,12 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 		case "path":
 			pathBindings = append(pathBindings, openAPIParamBinding{arg: arg, wire: pr.Name})
 		case "query":
-			queryBindings = append(queryBindings, openAPIParamBinding{arg: arg, wire: pr.Name})
+			if pr.isArray() && pr.Style != "" && pr.Style != "form" {
+				return operation{}, fmt.Errorf("specimport: unsupported query parameter style %q for %q on %s %s", pr.Style, pr.Name, me.method, rawPath)
+			}
+			queryBindings = append(queryBindings, openAPIParamBinding{
+				arg: arg, wire: pr.Name, array: pr.isArray(), explode: pr.queryExplode(),
+			})
 		case "header":
 			headerBindings = append(headerBindings, openAPIParamBinding{arg: arg, wire: pr.Name})
 		case "cookie":

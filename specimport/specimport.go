@@ -21,6 +21,7 @@
 package specimport
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -102,6 +103,32 @@ type operation struct {
 type openAPIParamBinding struct {
 	arg  string
 	wire string
+	// array marks an array-typed query parameter; explode selects repeated
+	// keys (tags=a&tags=b, the OpenAPI default) over one comma-joined value.
+	array   bool
+	explode bool
+}
+
+// openAPIParamBindingWire is the persisted form of openAPIParamBinding,
+// whose fields are unexported.
+type openAPIParamBindingWire struct {
+	Arg     string `json:"arg"`
+	Wire    string `json:"wire"`
+	Array   bool   `json:"array,omitempty"`
+	Explode bool   `json:"explode,omitempty"`
+}
+
+func (b openAPIParamBinding) MarshalJSON() ([]byte, error) {
+	return json.Marshal(openAPIParamBindingWire{Arg: b.arg, Wire: b.wire, Array: b.array, Explode: b.explode})
+}
+
+func (b *openAPIParamBinding) UnmarshalJSON(data []byte) error {
+	var w openAPIParamBindingWire
+	if err := json.Unmarshal(data, &w); err != nil {
+		return err
+	}
+	*b = openAPIParamBinding{arg: w.Arg, wire: w.Wire, array: w.Array, explode: w.Explode}
+	return nil
 }
 
 // Imported is the result of parsing a spec: the protocol-neutral operation

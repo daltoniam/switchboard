@@ -210,12 +210,12 @@ func (in *Integration) executeOpenAPI(ctx context.Context, op *operation, args m
 	querySet := bindingArgSet(op.queryBindings)
 	q := url.Values{}
 	for _, b := range op.queryBindings {
-		if v, ok := args[b.arg]; ok && v != nil {
-			formatted, err := formatParamValue(v)
-			if err != nil {
-				return mcp.ErrResult(fmt.Errorf("specimport: query parameter %q: %w", b.arg, err))
-			}
-			q.Set(b.wire, formatted)
+		v, ok := args[b.arg]
+		if !ok || v == nil {
+			continue
+		}
+		if err := addQueryValue(q, b, v); err != nil {
+			return mcp.ErrResult(fmt.Errorf("specimport: query parameter %q: %w", b.arg, err))
 		}
 	}
 	path, err := substitutePathParams(op.pathTemplate, op.pathBindings, args)
@@ -591,6 +591,38 @@ func validateURL(raw string) error {
 
 // formatParamValue stringifies a path or query argument without scientific
 // notation for whole-number floats (JSON decodes integers as float64).
+// addQueryValue adds one query argument. Array parameters take a list (or a
+// single value) and are sent as repeated keys when exploded, else joined
+// with commas.
+func addQueryValue(q url.Values, b openAPIParamBinding, v any) error {
+	if !b.array {
+		formatted, err := formatParamValue(v)
+		if err != nil {
+			return err
+		}
+		q.Set(b.wire, formatted)
+		return nil
+	}
+	items, isList := v.([]any)
+	if !isList {
+		items = []any{v}
+	}
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		formatted, err := formatParamValue(item)
+		if err != nil {
+			return err
+		}
+		values = append(values, formatted)
+	}
+	if b.explode {
+		q[b.wire] = values
+	} else {
+		q.Set(b.wire, strings.Join(values, ","))
+	}
+	return nil
+}
+
 func formatParamValue(v any) (string, error) {
 	return mcp.ArgStr(map[string]any{"v": v}, "v")
 }
