@@ -308,3 +308,54 @@ func TestParseOpenAPI_LeavesOutNonDefaultParameterStyles(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, im.Tools(), 1, "explicit default styles are supported")
 }
+
+func TestParseOpenAPI_QueryParameterSchemas(t *testing.T) {
+	spec := func(param string) string {
+		return fmt.Sprintf(`{"openapi":"3.0.0","info":{"title":"t","version":"1"},"servers":[{"url":"https://api.example.test"}],
+		  "components":{"schemas":{
+		    "Ids":{"type":"array","items":{"type":"integer"}},
+		    "IdsAlias":{"$ref":"#/components/schemas/Ids"},
+		    "Filter":{"type":"object","properties":{"name":{"type":"string"}}},
+		    "Loop":{"$ref":"#/components/schemas/Loop"}
+		  }},
+		  "paths":{
+		    "/items":{"get":{"operationId":"listItems","parameters":[%s],"responses":{"200":{"description":"ok"}}}},
+		    "/health":{"get":{"operationId":"health","responses":{"200":{"description":"ok"}}}}}}`, param)
+	}
+	leftOut := map[string]string{
+		"deepObject":       `{"name":"filter","in":"query","style":"deepObject","schema":{"$ref":"#/components/schemas/Filter"}}`,
+		"form object":      `{"name":"filter","in":"query","schema":{"type":"object"}}`,
+		"external ref":     `{"name":"ids","in":"query","schema":{"$ref":"https://example.test/schemas.json#/Ids"}}`,
+		"missing ref":      `{"name":"ids","in":"query","schema":{"$ref":"#/components/schemas/Nope"}}`,
+		"cyclic ref":       `{"name":"ids","in":"query","schema":{"$ref":"#/components/schemas/Loop"}}`,
+		"pipeDelimited":    `{"name":"ids","in":"query","style":"pipeDelimited","schema":{"type":"array","items":{"type":"integer"}}}`,
+		"string with form": ``,
+	}
+	delete(leftOut, "string with form")
+	for name, param := range leftOut {
+		t.Run("left out: "+name, func(t *testing.T) {
+			im, err := Parse(KindOpenAPI, "demo", []byte(spec(param)), "")
+			require.NoError(t, err)
+			require.Len(t, im.Tools(), 1)
+			assert.Equal(t, mcp.ToolName("demo_health"), im.Tools()[0].Name)
+		})
+	}
+
+	t.Run("array through a ref chain is sent as repeated keys", func(t *testing.T) {
+		var gotQuery string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.RawQuery
+			_, _ = w.Write([]byte(`[]`))
+		}))
+		defer srv.Close()
+		im, err := Parse(KindOpenAPI, "demo", []byte(spec(`{"name":"ids","in":"query","schema":{"$ref":"#/components/schemas/IdsAlias"}}`)), srv.URL)
+		require.NoError(t, err)
+		require.Len(t, im.Tools(), 2)
+		in := NewIntegration(im)
+		require.NoError(t, in.Configure(context.Background(), mcp.Credentials{}))
+		res, err := in.Execute(context.Background(), "demo_listitems", map[string]any{"query_ids": []any{1, 2}})
+		require.NoError(t, err)
+		require.False(t, res.IsError, res.Data)
+		assert.Equal(t, "ids=1&ids=2", gotQuery)
+	})
+}

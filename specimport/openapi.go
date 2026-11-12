@@ -14,10 +14,11 @@ import (
 // We deliberately decode only what we use; unknown fields are ignored so a
 // fuller spec still parses.
 type openAPIDoc struct {
-	OpenAPI string                     `json:"openapi"`
-	Info    openAPIInfo                `json:"info"`
-	Servers []openAPIServer            `json:"servers"`
-	Paths   map[string]openAPIPathItem `json:"paths"`
+	OpenAPI    string                     `json:"openapi"`
+	Info       openAPIInfo                `json:"info"`
+	Servers    []openAPIServer            `json:"servers"`
+	Paths      map[string]openAPIPathItem `json:"paths"`
+	Components openAPIComponents          `json:"components"`
 }
 
 type openAPIInfo struct {
@@ -65,15 +66,11 @@ type openAPIParam struct {
 	Explode     *bool          `json:"explode"`
 }
 
-// isArray reports whether the parameter's schema type is (or includes, in
-// OpenAPI 3.1) "array".
+// isArray reports whether the parameter's (resolved) schema type is, or
+// includes in OpenAPI 3.1, "array".
 func (p openAPIParam) isArray() bool {
 	if p.Schema == nil || len(p.Schema.Type) == 0 {
 		return false
-	}
-	var one string
-	if json.Unmarshal(p.Schema.Type, &one) == nil {
-		return one == "array"
 	}
 	var many []string
 	if json.Unmarshal(p.Schema.Type, &many) == nil {
@@ -82,8 +79,9 @@ func (p openAPIParam) isArray() bool {
 				return true
 			}
 		}
+		return false
 	}
-	return false
+	return p.Schema.schemaType() == "array"
 }
 
 // queryExplode reports how an array query parameter is sent. Form style (the
@@ -107,7 +105,71 @@ type openAPIMediaType struct {
 }
 
 type openAPISchema struct {
+	Ref  string          `json:"$ref"`
 	Type json.RawMessage `json:"type"`
+}
+
+type openAPIComponents struct {
+	Schemas map[string]openAPISchema `json:"schemas"`
+}
+
+// maxSchemaRefDepth bounds how many $ref hops are followed for one schema.
+const maxSchemaRefDepth = 10
+
+// resolveSchema follows local "#/components/schemas/..." references. External,
+// missing or cyclic references are an error, so the parameter is never
+// silently treated as a plain value.
+func (c openAPIComponents) resolveSchema(s *openAPISchema) (*openAPISchema, error) {
+	const prefix = "#/components/schemas/"
+	for hops := 0; s != nil && s.Ref != ""; hops++ {
+		if hops >= maxSchemaRefDepth {
+			return nil, fmt.Errorf("schema $ref chain too long or cyclic at %q", s.Ref)
+		}
+		if !strings.HasPrefix(s.Ref, prefix) {
+			return nil, fmt.Errorf("unsupported schema $ref %q", s.Ref)
+		}
+		next, ok := c.Schemas[strings.TrimPrefix(s.Ref, prefix)]
+		if !ok {
+			return nil, fmt.Errorf("unresolved schema $ref %q", s.Ref)
+		}
+		s = &next
+	}
+	return s, nil
+}
+
+// resolveParams returns params with their schemas resolved.
+func (c openAPIComponents) resolveParams(params []openAPIParam) ([]openAPIParam, error) {
+	out := make([]openAPIParam, len(params))
+	for i, p := range params {
+		resolved, err := c.resolveSchema(p.Schema)
+		if err != nil {
+			return nil, fmt.Errorf("parameter %q: %w", p.Name, err)
+		}
+		p.Schema = resolved
+		out[i] = p
+	}
+	return out, nil
+}
+
+// schemaType returns the schema's type, the first non-null one for an
+// OpenAPI 3.1 type array.
+func (s *openAPISchema) schemaType() string {
+	if s == nil || len(s.Type) == 0 {
+		return ""
+	}
+	var one string
+	if json.Unmarshal(s.Type, &one) == nil {
+		return one
+	}
+	var many []string
+	if json.Unmarshal(s.Type, &many) == nil {
+		for _, t := range many {
+			if t != "null" {
+				return t
+			}
+		}
+	}
+	return ""
 }
 
 // methodEntry pairs an HTTP verb with its parsed operation for iteration.
@@ -197,7 +259,11 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 			if len(me.op.Servers) > 0 {
 				return nil, fmt.Errorf("specimport: operation-level servers are not supported on %s %s", me.method, rawPath)
 			}
-			op, err := buildOpenAPIOperation(name, rawPath, me, item.mergedParameters(me.op), seen)
+			params, err := d.Components.resolveParams(item.mergedParameters(me.op))
+			if err != nil {
+				continue
+			}
+			op, err := buildOpenAPIOperation(name, rawPath, me, params, seen)
 			if err != nil {
 				continue
 			}
@@ -213,7 +279,9 @@ func parseOpenAPI(name string, doc []byte, endpointOverride string) (*Imported, 
 // buildOpenAPIOperation converts a single (path, method, operation) into the
 // protocol-neutral operation form, deriving a stable, prefixed tool name and
 // splitting parameters into path vs query buckets.
-func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathParams []openAPIParam, seen map[string]bool) (operation, error) {
+// effective is the operation's parameter list: path-item parameters merged
+// with operation overrides, with schema references resolved.
+func buildOpenAPIOperation(integration, rawPath string, me methodEntry, effective []openAPIParam, seen map[string]bool) (operation, error) {
 	toolBase := me.op.OperationID
 	if toolBase == "" {
 		// Synthesize from method + path when operationId is absent, e.g.
@@ -227,7 +295,7 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 	var required []string
 	var pathBindings, queryBindings, headerBindings, cookieBindings []openAPIParamBinding
 	usedArgs := map[string]struct{}{}
-	for _, pr := range mergeOpenAPIParams(pathParams, me.op.Parameters) {
+	for _, pr := range effective {
 		if pr.Ref != "" || pr.Name == "" {
 			continue
 		}
@@ -251,8 +319,12 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 		case "path":
 			pathBindings = append(pathBindings, openAPIParamBinding{arg: arg, wire: pr.Name})
 		case "query":
-			if pr.isArray() && pr.Style != "" && pr.Style != "form" {
+			// Only form style is sent; objects (form or deepObject) are not.
+			if pr.Style != "" && pr.Style != "form" {
 				return operation{}, fmt.Errorf("specimport: unsupported query parameter style %q for %q on %s %s", pr.Style, pr.Name, me.method, rawPath)
+			}
+			if pr.Schema.schemaType() == "object" {
+				return operation{}, fmt.Errorf("specimport: unsupported object query parameter %q on %s %s", pr.Name, me.method, rawPath)
 			}
 			queryBindings = append(queryBindings, openAPIParamBinding{
 				arg: arg, wire: pr.Name, array: pr.isArray(), explode: pr.queryExplode(),
