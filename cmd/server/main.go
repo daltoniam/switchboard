@@ -90,6 +90,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/recoll"
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/salesforce"
+	"github.com/daltoniam/switchboard/integrations/semaphoreui"
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	"github.com/daltoniam/switchboard/integrations/servicenow"
 	signozInt "github.com/daltoniam/switchboard/integrations/signoz"
@@ -110,6 +111,7 @@ import (
 	"github.com/daltoniam/switchboard/project"
 	"github.com/daltoniam/switchboard/registry"
 	"github.com/daltoniam/switchboard/server"
+	"github.com/daltoniam/switchboard/specimport"
 	"github.com/daltoniam/switchboard/version"
 	wasmmod "github.com/daltoniam/switchboard/wasm"
 	"github.com/daltoniam/switchboard/web"
@@ -346,6 +348,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		influxdb.New(),
 		airflow.New(),
 		argoworkflows.New(),
+		semaphoreui.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),
@@ -427,6 +430,16 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	switchboardIntegration := switchboardInt.New(services)
 	if err := reg.Register(switchboardIntegration); err != nil {
 		log.Fatalf("Failed to register switchboard integration: %v", err)
+	}
+
+	// Register bring-your-own-spec integrations declared in config, and keep
+	// them live-reloadable: the syncer reconciles the registry against
+	// Config.SpecImports at startup and again on every config change.
+	specSyncer := specimport.NewSyncer(reg)
+	if res := specSyncer.Sync(cfgMgr.Get().SpecImports); len(res.Errors) > 0 {
+		for _, err := range res.Errors {
+			log.Printf("spec import: %v", err)
+		}
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -615,8 +628,18 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	cancelAutoUpdate := mp.StartAutoUpdateLoop(ctx)
 	defer cancelAutoUpdate()
 
+	// On any config change, reconcile spec imports first (registry membership
+	// may change), then refresh the search index so new/removed tools surface.
+	onConfigChange := func() {
+		if res := specSyncer.Sync(cfgMgr.Get().SpecImports); len(res.Errors) > 0 {
+			for _, err := range res.Errors {
+				log.Printf("spec import: %v", err)
+			}
+		}
+		srv.RefreshSearchIndex()
+	}
 	ws := web.New(services, port, mp, wasmLoader,
-		web.WithConfigChangeHook(srv.RefreshSearchIndex),
+		web.WithConfigChangeHook(onConfigChange),
 		web.WithProjectCatalog(projectStore),
 		web.WithAWMStore(workStore),
 	)
