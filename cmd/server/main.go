@@ -89,6 +89,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/recoll"
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/salesforce"
+	"github.com/daltoniam/switchboard/integrations/semaphoreui"
 	"github.com/daltoniam/switchboard/integrations/sentry"
 	"github.com/daltoniam/switchboard/integrations/servicenow"
 	signozInt "github.com/daltoniam/switchboard/integrations/signoz"
@@ -346,6 +347,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		influxdb.New(),
 		airflow.New(),
 		argoworkflows.New(),
+		semaphoreui.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),

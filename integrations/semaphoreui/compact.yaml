@@ -1,0 +1,13 @@
+version: 1
+
+tools:
+  semaphoreui_get_project:
+    spec: [id, name]
+  semaphoreui_list_templates:
+    spec: ['templates[].id', 'templates[].project_id', 'templates[].name', 'templates[].app', 'templates[].type', 'templates[].last_task', truncated]
+  semaphoreui_get_template:
+    spec: [id, project_id, name, app, type, last_task]
+  semaphoreui_list_tasks:
+    spec: ['tasks[].id', 'tasks[].project_id', 'tasks[].template_id', 'tasks[].status', 'tasks[].created', 'tasks[].start', 'tasks[].end', has_next, next_before, pagination_known]
+  semaphoreui_get_task:
+    spec: [id, project_id, template_id, status, created, start, end]

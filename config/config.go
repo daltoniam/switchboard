@@ -20,6 +20,12 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"semaphoreui": {
+		"base_url":   "SEMAPHOREUI_BASE_URL",
+		"api_token":  "SEMAPHOREUI_API_TOKEN",
+		"project_id": "SEMAPHOREUI_PROJECT_ID",
+		"ca_cert":    "SEMAPHOREUI_CA_CERT",
+	},
 	"argoworkflows": {
 		"base_url":  "ARGO_WORKFLOWS_BASE_URL",
 		"namespace": "ARGO_WORKFLOWS_NAMESPACE",
@@ -400,6 +406,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"semaphoreui": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "api_token": "", "project_id": "", "ca_cert": ""},
+			},
 			"argoworkflows": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "namespace": "", "token": "", "ca_cert": ""},
