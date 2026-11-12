@@ -292,6 +292,13 @@ pagination, response limits, and the live acceptance test.
 Proxies Mobbin's hosted MCP server at `https://api.mobbin.com/mcp`, a searchable library of real app screens, user flows, and website sections. Tools are `mobbin_search_screens`, `mobbin_search_flows`, `mobbin_search_sections`, `mobbin_list_collections`, and `mobbin_get_collection_contents` (reads), plus `mobbin_create_collection`, `mobbin_save_content`, and `mobbin_add_comment` (writes to your Mobbin account). Search results include inline preview images.
 
 Open `/integrations/mobbin/setup` and select **Sign in with Mobbin**. Mobbin's authorization server is a separate issuer advertised through protected resource metadata (RFC 9728); OAuth uses dynamic client registration, PKCE, the `openid` scope, and resource binding to the MCP endpoint. A Mobbin account is required. Access tokens expire after about an hour and the shared remote OAuth flow does not refresh them, so sign in again when the setup page shows a connection error.
+
+### Discord (`discord`)
+
+Reads and sends Discord messages as a **bot** through the REST API (`https://discord.com/api/v10`). Reads: `discord_get_me`, `discord_list_guilds` (start here), `discord_list_channels`, `discord_list_channel_messages`, and `discord_get_user`. Writes, which post as the bot: `discord_send_channel_message` and `discord_send_direct_message`. Sends never ping `@everyone`, `@here`, or roles. Only bot tokens are supported; user tokens (self-bots) break Discord's terms.
+
+Create a bot in the Discord Developer Portal, turn on the **Message Content** intent, invite it with `scope=bot&permissions=68608`, then set `DISCORD_BOT_TOKEN` or enter the token on the Discord integration page and enable it. See [Discord setup](docs/discord-setup.md) for each step.
+
 ### Higgsfield (`higgsfield`)
 
 Connects to Higgsfield's hosted MCP server at `https://mcp.higgsfield.ai/mcp` for AI image, video, and audio generation. Higgsfield has no API-key REST API for account features, so Switchboard proxies a curated set of 23 of the ~150 hosted tools (credits, model catalog, presets, voices, history, jobs, projects, media import, and image/video/audio generation) with hand-written descriptions and compaction. Chat-widget workflows (websites, 3D scenes, TikTok publishing, Ads Studio) are refused locally.
@@ -384,6 +391,8 @@ Environment variables override credential values but do not change the durable e
 | Intercom | `base_url` | `INTERCOM_BASE_URL` (optional — default `https://api.intercom.io`; EU `https://api.eu.intercom.io`, AU `https://api.au.intercom.io`) |
 | Front | `access_token` | `FRONT_ACCESS_TOKEN` (API token or OAuth access token) |
 | Front | `base_url` | `FRONT_BASE_URL` (optional — default `https://api2.frontapp.com`) |
+| Discord | `bot_token` | `DISCORD_BOT_TOKEN` (bot token from the Developer Portal; never a user token) |
+| Discord | `base_url` | `DISCORD_BASE_URL` (optional — default `https://discord.com/api/v10`) |
 | Grist | `api_key` | `GRIST_API_KEY` (API key from Profile → API) |
 | Grist | `base_url` | `GRIST_HOST` (optional — default `https://docs.getgrist.com`; team sites `https://{team}.getgrist.com`; self-hosted origin) |
 | Okta | `api_token` | `OKTA_API_TOKEN` |
@@ -456,6 +465,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
+| Discord | Bot Token | Create a bot in the Discord Developer Portal, enable the Message Content intent, invite it to a server, and set `DISCORD_BOT_TOKEN` or enter it in the web UI; enable explicitly. See [Discord setup](docs/discord-setup.md) |
 | Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |
 | Obsidian | Local REST API key | Install the [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) community plugin in Obsidian, copy its API key from Settings → Local REST API, and set `OBSIDIAN_API_KEY` or enter it in the web UI. Obsidian must be running. The default HTTPS port uses a self-signed certificate: set `ca_cert`, or point `base_url` at the plugin's optional HTTP port (`http://127.0.0.1:27123`). |
 | Recoll WebUI | Base URL | Set `RECOLL_URL` to the Recoll WebUI root (for example `http://localhost:8080`) or enter it in the web UI |

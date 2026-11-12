@@ -34,6 +34,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/datadog"
 	"github.com/daltoniam/switchboard/integrations/dbt"
 	"github.com/daltoniam/switchboard/integrations/digitalocean"
+	"github.com/daltoniam/switchboard/integrations/discord"
 	"github.com/daltoniam/switchboard/integrations/druid"
 	"github.com/daltoniam/switchboard/integrations/elasticsearch"
 	"github.com/daltoniam/switchboard/integrations/figma"
@@ -366,6 +367,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		hubspot.New(),
 		intercom.New(),
 		front.New(),
+		discord.New(),
 		grist.New(),
 		gcalIntegration,
 		gdriveIntegration,

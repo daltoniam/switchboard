@@ -1,0 +1,41 @@
+# Switchboard compaction specs for the discord integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Discord list
+# endpoints return top-level arrays; specs apply to each element.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# discord.yaml there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+  discord_get_me:
+    spec: [id, username, global_name, bot]
+
+  discord_list_guilds:
+    spec: [id, name, owner]
+
+  discord_list_channels:
+    spec: [id, type, name, topic, parent_id, position, last_message_id]
+
+  discord_list_channel_messages:
+    spec:
+      - id
+      - type
+      - timestamp
+      - edited_timestamp
+      - content
+      - author.id
+      - author.username
+      - author.global_name
+      - author.bot
+      - attachments[].filename
+      - attachments[].url
+      - message_reference.message_id
+
+  discord_get_user:
+    spec: [id, username, global_name, bot]
