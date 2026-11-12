@@ -232,3 +232,79 @@ func TestExecuteOpenAPI_EncodesArrayQueryParameters(t *testing.T) {
 		assert.Equal(t, "ids=1%2C2&q=x&tags=a&tags=b+c", gotQuery, label)
 	}
 }
+
+// The same schema must always produce the same query: aliases for fields
+// that conflict across union members are assigned in a fixed order.
+func TestGraphQLUnionAliasesAreDeterministic(t *testing.T) {
+	doc := `{"data":{"__schema":{"queryType":{"name":"Query"},"mutationType":null,"types":[
+	  {"kind":"OBJECT","name":"Query","fields":[{"name":"search","args":[],"type":{"kind":"UNION","name":"R","ofType":null}}]},
+	  {"kind":"UNION","name":"R","fields":null,"possibleTypes":[{"kind":"OBJECT","name":"P"},{"kind":"OBJECT","name":"Q"}]},
+	  {"kind":"OBJECT","name":"P","fields":[
+	    {"name":"x","args":[],"type":{"kind":"SCALAR","name":"String","ofType":null}},
+	    {"name":"x_","args":[],"type":{"kind":"SCALAR","name":"String","ofType":null}},
+	    {"name":"a","args":[],"type":{"kind":"SCALAR","name":"String","ofType":null}},
+	    {"name":"b","args":[],"type":{"kind":"SCALAR","name":"String","ofType":null}},
+	    {"name":"c","args":[],"type":{"kind":"SCALAR","name":"String","ofType":null}},
+	    {"name":"p_x","args":[],"type":{"kind":"SCALAR","name":"String","ofType":null}}]},
+	  {"kind":"OBJECT","name":"Q","fields":[
+	    {"name":"x","args":[],"type":{"kind":"SCALAR","name":"Int","ofType":null}},
+	    {"name":"x_","args":[],"type":{"kind":"SCALAR","name":"Int","ofType":null}},
+	    {"name":"a","args":[],"type":{"kind":"SCALAR","name":"Int","ofType":null}},
+	    {"name":"b","args":[],"type":{"kind":"SCALAR","name":"Int","ofType":null}},
+	    {"name":"c","args":[],"type":{"kind":"SCALAR","name":"Int","ofType":null}}]}
+	]}}}`
+	first := ""
+	for i := 0; i < 50; i++ {
+		im, err := Parse(KindGraphQL, "demo", []byte(doc), "https://api.example.test/graphql")
+		require.NoError(t, err)
+		query := im.operations[0].gqlDocument
+		if i == 0 {
+			first = query
+			continue
+		}
+		require.Equal(t, first, query, "import %d produced a different query", i)
+	}
+}
+
+// An operation whose parameter style the importer cannot send is left out
+// (like any other unsupported operation) while the rest of the spec imports.
+func TestParseOpenAPI_LeavesOutNonDefaultParameterStyles(t *testing.T) {
+	for _, tc := range []struct{ in, style string }{
+		{"path", "label"}, {"path", "matrix"}, {"header", "form"}, {"cookie", "simple"},
+		{"query", "spaceDelimited"},
+	} {
+		t.Run(tc.in+"_"+tc.style, func(t *testing.T) {
+			path := "/items"
+			if tc.in == "path" {
+				path = "/items/{id}"
+			}
+			schema := `{"type":"string"}`
+			if tc.in == "query" {
+				schema = `{"type":"array","items":{"type":"string"}}`
+			}
+			doc := fmt.Sprintf(`{"openapi":"3.0.0","info":{"title":"t","version":"1"},"servers":[{"url":"https://api.example.test"}],
+			  "paths":{
+			    "%s":{"get":{"operationId":"styled","parameters":[
+			      {"name":"id","in":"%s","required":true,"style":"%s","schema":%s}
+			    ],"responses":{"200":{"description":"ok"}}}},
+			    "/health":{"get":{"operationId":"health","responses":{"200":{"description":"ok"}}}}}}`,
+				path, tc.in, tc.style, schema)
+			im, err := Parse(KindOpenAPI, "demo", []byte(doc), "")
+			require.NoError(t, err)
+			var names []string
+			for _, tool := range im.Tools() {
+				names = append(names, string(tool.Name))
+			}
+			assert.Equal(t, []string{"demo_health"}, names, "the unsupported operation is left out, the rest imports")
+		})
+	}
+	doc := `{"openapi":"3.0.0","info":{"title":"t","version":"1"},"servers":[{"url":"https://api.example.test"}],
+	  "paths":{"/items/{id}":{"get":{"operationId":"getItem","parameters":[
+	    {"name":"id","in":"path","required":true,"style":"simple","schema":{"type":"string"}},
+	    {"name":"X-Trace","in":"header","style":"simple","schema":{"type":"string"}},
+	    {"name":"sess","in":"cookie","style":"form","schema":{"type":"string"}}
+	  ],"responses":{"200":{"description":"ok"}}}}}}`
+	im, err := Parse(KindOpenAPI, "demo", []byte(doc), "")
+	require.NoError(t, err)
+	assert.Len(t, im.Tools(), 1, "explicit default styles are supported")
+}

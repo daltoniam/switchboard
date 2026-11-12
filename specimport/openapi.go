@@ -244,6 +244,9 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 		if pr.Required {
 			required = append(required, arg)
 		}
+		if style := strings.ToLower(pr.Style); style != "" && style != defaultParamStyle(pr.In) && strings.ToLower(pr.In) != "query" {
+			return operation{}, fmt.Errorf("specimport: unsupported %s parameter style %q for %q on %s %s", pr.In, pr.Style, pr.Name, me.method, rawPath)
+		}
 		switch strings.ToLower(pr.In) {
 		case "path":
 			pathBindings = append(pathBindings, openAPIParamBinding{arg: arg, wire: pr.Name})
@@ -296,6 +299,18 @@ func buildOpenAPIOperation(integration, rawPath string, me methodEntry, pathPara
 		headerBindings: headerBindings,
 		cookieBindings: cookieBindings,
 	}, nil
+}
+
+// defaultParamStyle is the OpenAPI default serialization style for a
+// parameter location: the only style the importer sends for path, header and
+// cookie parameters.
+func defaultParamStyle(in string) string {
+	switch strings.ToLower(in) {
+	case "query", "cookie":
+		return "form"
+	default:
+		return "simple"
+	}
 }
 
 func openAPIToolArg(p openAPIParam) string {

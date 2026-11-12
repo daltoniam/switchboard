@@ -489,7 +489,14 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 			continue
 		}
 		aliases := map[string]string{}
+		// Allocate in a fixed order: allocation reserves names as it goes, so
+		// map order would let reimports swap which field gets which key.
+		names := make([]string, 0, len(conflicts))
 		for name := range conflicts {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
 			al := sanitizeName(pt.Name) + "_" + name
 			for globalReserved[al] {
 				al += "_"
