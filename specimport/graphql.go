@@ -390,10 +390,16 @@ func (s *selectionBuilder) selectionForField(f gqlField, depth int, visited map[
 		return ""
 	}
 	if depth <= 1 {
+		if !s.takeLeaf() {
+			return ""
+		}
 		return gqlFieldLabel(f.Name, aliases) + " { __typename }"
 	}
 	nested := s.fields(name, depth-1, visited, false, nil)
 	if nested == "" {
+		if !s.takeLeaf() {
+			return ""
+		}
 		nested = "__typename"
 	}
 	return gqlFieldLabel(f.Name, aliases) + " { " + nested + " }"
@@ -403,7 +409,7 @@ func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visi
 	label := gqlFieldLabel(f.Name, aliases)
 	elemKind, elemName := f.Type.listElementNamed()
 	if scalarsOnly {
-		if !isComposite(elemKind) {
+		if !isComposite(elemKind) || !s.takeLeaf() {
 			return ""
 		}
 		if leaf := s.firstScalarField(elemName); leaf != "" {
@@ -412,6 +418,9 @@ func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visi
 		return label + " { __typename }"
 	}
 	if depth <= 1 {
+		if !s.takeLeaf() {
+			return ""
+		}
 		return label + " { __typename }"
 	}
 	if !isComposite(elemKind) {
@@ -419,6 +428,9 @@ func (s *selectionBuilder) selectionForListComposite(f gqlField, depth int, visi
 	}
 	nested := s.fields(elemName, depth-1, visited, false, nil)
 	if nested == "" {
+		if !s.takeLeaf() {
+			return ""
+		}
 		nested = "__typename"
 	}
 	return label + " { " + nested + " }"
@@ -457,6 +469,9 @@ func (s *selectionBuilder) unionSelection(t gqlType, depth int, visited map[stri
 	visited[t.Name] = true
 	defer delete(visited, t.Name)
 
+	if !s.takeLeaf() {
+		return ""
+	}
 	conflicts := s.unionFieldConflicts(t)
 	globalReserved := unionAllFieldNames(s, t)
 	var parts []string

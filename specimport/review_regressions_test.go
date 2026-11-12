@@ -165,3 +165,32 @@ func TestGraphQLUnionMembersShareTheSelectionBudget(t *testing.T) {
 	assert.NotEmpty(t, leaves, "members still get fields")
 	assert.LessOrEqual(t, len(leaves), maxDocumentSelections, "the whole query shares one leaf budget")
 }
+
+// Synthesized __typename and fallback leaves count against the same budget,
+// so a union of composite-only members stays bounded too.
+func TestGraphQLCompositeOnlyUnionStaysWithinTheBudget(t *testing.T) {
+	const members, fieldsPer = 49, 50
+	types := []string{`{"kind":"OBJECT","name":"Inner","fields":[{"name":"child","args":[],"type":{"kind":"OBJECT","name":"Inner","ofType":null}}]}`}
+	var possible []string
+	for m := 0; m < members; m++ {
+		var fields []string
+		for f := 0; f < fieldsPer; f++ {
+			fields = append(fields, fmt.Sprintf(`{"name":"m%df%d","args":[],"type":{"kind":"OBJECT","name":"Inner","ofType":null}}`, m, f))
+		}
+		types = append(types, fmt.Sprintf(`{"kind":"OBJECT","name":"M%d","fields":[%s]}`, m, strings.Join(fields, ",")))
+		possible = append(possible, fmt.Sprintf(`{"kind":"OBJECT","name":"M%d"}`, m))
+	}
+	doc := fmt.Sprintf(`{"data":{"__schema":{"queryType":{"name":"Query"},"mutationType":null,"types":[
+	  {"kind":"OBJECT","name":"Query","fields":[{"name":"search","args":[],"type":{"kind":"UNION","name":"Wide","ofType":null}}]},
+	  {"kind":"UNION","name":"Wide","fields":null,"possibleTypes":[%s]},
+	  %s]}}}`, strings.Join(possible, ","), strings.Join(types, ","))
+
+	im, err := Parse(KindGraphQL, "demo", []byte(doc), "https://api.example.test/graphql")
+	require.NoError(t, err)
+	require.Len(t, im.operations, 1)
+	query := im.operations[0].gqlDocument
+	leaves := strings.Count(query, "__typename")
+	assert.Greater(t, leaves, 1, "members still get selections")
+	assert.LessOrEqual(t, leaves, maxDocumentSelections, "synthesized leaves share the query budget")
+	assert.Equal(t, strings.Count(query, "{"), strings.Count(query, "}"), "the query stays well formed")
+}
