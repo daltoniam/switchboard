@@ -292,6 +292,13 @@ pagination, response limits, and the live acceptance test.
 Proxies Mobbin's hosted MCP server at `https://api.mobbin.com/mcp`, a searchable library of real app screens, user flows, and website sections. Tools are `mobbin_search_screens`, `mobbin_search_flows`, `mobbin_search_sections`, `mobbin_list_collections`, and `mobbin_get_collection_contents` (reads), plus `mobbin_create_collection`, `mobbin_save_content`, and `mobbin_add_comment` (writes to your Mobbin account). Search results include inline preview images.
 
 Open `/integrations/mobbin/setup` and select **Sign in with Mobbin**. Mobbin's authorization server is a separate issuer advertised through protected resource metadata (RFC 9728); OAuth uses dynamic client registration, PKCE, the `openid` scope, and resource binding to the MCP endpoint. A Mobbin account is required. Access tokens expire after about an hour and the shared remote OAuth flow does not refresh them, so sign in again when the setup page shows a connection error.
+
+### GroupMe (`groupme`)
+
+Reads and sends GroupMe messages through the public v3 API at `https://api.groupme.com/v3`. Reads: `groupme_get_me`, `groupme_list_groups` (start here), `groupme_get_group`, `groupme_list_group_messages`, `groupme_list_chats`, and `groupme_list_direct_messages`. Writes, which send real messages as you or your bot: `groupme_send_group_message`, `groupme_send_direct_message`, and `groupme_post_bot_message`. Message lists page with `before_id`, `since_id`, and (groups only) `after_id`.
+
+Sign in at [dev.groupme.com](https://dev.groupme.com) and copy the **Access Token** from the top right, then set `GROUPME_ACCESS_TOKEN` or enter it on the GroupMe integration page and enable it. The token acts as your GroupMe account, so anyone with it can read and send your messages. Bot posts need a bot you created at dev.groupme.com/bots; `groupme_list_bots` shows its `bot_id`.
+
 ### Higgsfield (`higgsfield`)
 
 Connects to Higgsfield's hosted MCP server at `https://mcp.higgsfield.ai/mcp` for AI image, video, and audio generation. Higgsfield has no API-key REST API for account features, so Switchboard proxies a curated set of 23 of the ~150 hosted tools (credits, model catalog, presets, voices, history, jobs, projects, media import, and image/video/audio generation) with hand-written descriptions and compaction. Chat-widget workflows (websites, 3D scenes, TikTok publishing, Ads Studio) are refused locally.
@@ -384,6 +391,8 @@ Environment variables override credential values but do not change the durable e
 | Intercom | `base_url` | `INTERCOM_BASE_URL` (optional — default `https://api.intercom.io`; EU `https://api.eu.intercom.io`, AU `https://api.au.intercom.io`) |
 | Front | `access_token` | `FRONT_ACCESS_TOKEN` (API token or OAuth access token) |
 | Front | `base_url` | `FRONT_BASE_URL` (optional — default `https://api2.frontapp.com`) |
+| GroupMe | `access_token` | `GROUPME_ACCESS_TOKEN` (Access Token from dev.groupme.com) |
+| GroupMe | `base_url` | `GROUPME_BASE_URL` (optional — default `https://api.groupme.com/v3`) |
 | Grist | `api_key` | `GRIST_API_KEY` (API key from Profile → API) |
 | Grist | `base_url` | `GRIST_HOST` (optional — default `https://docs.getgrist.com`; team sites `https://{team}.getgrist.com`; self-hosted origin) |
 | Okta | `api_token` | `OKTA_API_TOKEN` |
@@ -456,6 +465,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
+| GroupMe | Access Token | Copy the Access Token from [dev.groupme.com](https://dev.groupme.com) and set `GROUPME_ACCESS_TOKEN` or enter it in the web UI; enable explicitly |
 | Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |
 | Obsidian | Local REST API key | Install the [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) community plugin in Obsidian, copy its API key from Settings → Local REST API, and set `OBSIDIAN_API_KEY` or enter it in the web UI. Obsidian must be running. The default HTTPS port uses a self-signed certificate: set `ca_cert`, or point `base_url` at the plugin's optional HTTP port (`http://127.0.0.1:27123`). |
 | Recoll WebUI | Base URL | Set `RECOLL_URL` to the Recoll WebUI root (for example `http://localhost:8080`) or enter it in the web UI |
