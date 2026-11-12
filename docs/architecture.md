@@ -101,6 +101,11 @@ integrations/
     compact.yaml             Field compaction specs (read tools)
     tools.go                 GroupMe tool definitions and dispatch map (10 tools)
     handlers.go              Account, groups, group messages, chats, direct messages, bots
+  discord/
+    discord.go               Discord bot integration adapter (core, HTTP helpers, FieldCompactionIntegration)
+    compact.yaml             Field compaction specs (read tools)
+    tools.go                 Discord tool definitions and dispatch map (7 tools)
+    handlers.go              Bot user, guilds, channels, messages, users, channel and direct message sends
   mobbin/
     mobbin.go                Mobbin hosted MCP proxy (static catalog, remotemcp OAuth)
     tools.go                 Mobbin tool definitions (8 tools)
