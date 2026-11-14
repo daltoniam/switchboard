@@ -34,6 +34,7 @@ type OAuthState struct {
 	token        string
 	refreshToken string
 	expiry       time.Time
+	issued       time.Time
 	err          string
 	done         bool
 }
@@ -493,7 +494,8 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 
 	os.token = tokenResp.AccessToken
 	os.refreshToken = tokenResp.RefreshToken
-	os.expiry = expiryAfter(time.Now(), tokenResp.ExpiresIn)
+	os.issued = time.Now()
+	os.expiry = expiryAfter(os.issued, tokenResp.ExpiresIn)
 	os.done = true
 	return nil
 }
@@ -518,6 +520,7 @@ func LoginCredentials(name string) (mcp.Credentials, bool) {
 		CredKeyAccessToken:  os.token,
 		CredKeyRefreshToken: os.refreshToken,
 		CredKeyTokenExpiry:  formatExpiry(os.expiry),
+		CredKeyTokenIssued:  formatExpiry(os.issued),
 		CredKeyClientID:     os.clientID,
 		CredKeyClientSecret: os.clientSecret,
 	}, true

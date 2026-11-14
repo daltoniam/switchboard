@@ -116,3 +116,39 @@ func TestUpdateIntegrationShared_SerializesProcesses(t *testing.T) {
 	higgsfield, _ := reloaded.GetIntegration("higgsfield")
 	assert.Equal(t, strconv.Itoa(2*perProcess), higgsfield.Credentials["counter"])
 }
+
+func TestSave_DropsCredentialAnotherProcessRemoved(t *testing.T) {
+	first, second := twoProcesses(t)
+	setCredential(t, first, "higgsfield", "mcp_refresh_token", "old")
+	require.NoError(t, second.Load())
+	require.NoError(t, second.UpdateIntegration("higgsfield", func(ic *mcp.IntegrationConfig) error {
+		delete(ic.Credentials, "mcp_refresh_token")
+		return nil
+	}))
+
+	setCredential(t, first, "github", "token", "ghp_first")
+
+	reloaded := &manager{filePath: first.filePath, envLookup: noEnv}
+	require.NoError(t, reloaded.Load())
+	higgsfield, _ := reloaded.GetIntegration("higgsfield")
+	assert.NotContains(t, higgsfield.Credentials, "mcp_refresh_token", "a stale process must not restore a removed credential")
+	fromFirst, _ := first.GetIntegration("higgsfield")
+	assert.NotContains(t, fromFirst.Credentials, "mcp_refresh_token", "the saving process drops it at runtime too")
+}
+
+func TestSave_KeepsCredentialThisProcessAddedWhenAnotherRemovedIt(t *testing.T) {
+	first, second := twoProcesses(t)
+	setCredential(t, first, "higgsfield", "mcp_refresh_token", "old")
+	require.NoError(t, second.Load())
+	require.NoError(t, second.UpdateIntegration("higgsfield", func(ic *mcp.IntegrationConfig) error {
+		delete(ic.Credentials, "mcp_refresh_token")
+		return nil
+	}))
+
+	setCredential(t, first, "higgsfield", "mcp_refresh_token", "new")
+
+	reloaded := &manager{filePath: first.filePath, envLookup: noEnv}
+	require.NoError(t, reloaded.Load())
+	higgsfield, _ := reloaded.GetIntegration("higgsfield")
+	assert.Equal(t, "new", higgsfield.Credentials["mcp_refresh_token"])
+}

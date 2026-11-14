@@ -65,13 +65,25 @@ func (m *manager) adoptSavedCredentials() error {
 		if baseIC == nil || ours == nil {
 			continue
 		}
-		for key, value := range savedIC.Credentials {
-			if value == baseIC.Credentials[key] || ours.Credentials[key] != baseIC.Credentials[key] {
+		runtime := m.cfg.Integrations[name]
+		for key := range credentialKeys(baseIC.Credentials, savedIC.Credentials) {
+			value, saved := savedIC.Credentials[key]
+			baseValue, inBase := baseIC.Credentials[key]
+			ourValue, inOurs := ours.Credentials[key]
+			if (saved == inBase && value == baseValue) || inOurs != inBase || ourValue != baseValue {
+				continue // unchanged on disk, or changed here: keep ours
+			}
+			envVar, mapped := envMapping[name][key]
+			fromFile := runtime != nil && (!mapped || m.envLookup(envVar) == "")
+			if !saved {
+				delete(ours.Credentials, key)
+				if fromFile {
+					delete(runtime.Credentials, key)
+				}
 				continue
 			}
 			ours.Credentials[key] = value
-			runtime := m.cfg.Integrations[name]
-			if envVar, mapped := envMapping[name][key]; runtime != nil && (!mapped || m.envLookup(envVar) == "") {
+			if fromFile {
 				runtime.Credentials[key] = value
 			}
 		}
@@ -100,4 +112,16 @@ func (m *manager) UpdateIntegrationShared(ctx context.Context, name string, upda
 		}
 		return m.setIntegrationLocked(name, ic)
 	})
+}
+
+// credentialKeys returns every key present in either set.
+func credentialKeys(a, b mcp.Credentials) map[string]struct{} {
+	keys := make(map[string]struct{}, len(a)+len(b))
+	for key := range a {
+		keys[key] = struct{}{}
+	}
+	for key := range b {
+		keys[key] = struct{}{}
+	}
+	return keys
 }

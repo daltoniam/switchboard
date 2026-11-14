@@ -21,11 +21,14 @@ const (
 	CredKeyAccessToken  = "mcp_access_token"
 	CredKeyRefreshToken = "mcp_refresh_token"
 	CredKeyTokenExpiry  = "mcp_token_expiry" // RFC 3339, UTC
+	CredKeyTokenIssued  = "mcp_token_issued" // RFC 3339, UTC
 	CredKeyClientID     = "mcp_client_id"
 	CredKeyClientSecret = "mcp_client_secret"
 )
 
-// RenewalLead is how long before expiry an access token is renewed.
+// RenewalLead is how long before expiry an access token is renewed. For a
+// token that lives less than twice as long, renewal starts halfway through its
+// life instead, so a freshly issued short-lived token is not renewed again.
 const RenewalLead = time.Hour
 
 // RenewalTarget names the login to renew: the integration's config entry,
@@ -93,6 +96,7 @@ func (r *TokenRenewal) Fresh(ctx context.Context, target RenewalTarget, creds mc
 				ic.Credentials[CredKeyRefreshToken] = grant.refreshToken
 			}
 			ic.Credentials[CredKeyTokenExpiry] = formatExpiry(grant.expiry)
+			ic.Credentials[CredKeyTokenIssued] = formatExpiry(r.clock())
 		}
 		fresh = maps.Clone(ic.Credentials)
 		return nil
@@ -103,8 +107,9 @@ func (r *TokenRenewal) Fresh(ctx context.Context, target RenewalTarget, creds mc
 	return fresh, fresh[CredKeyAccessToken] != creds[CredKeyAccessToken], nil
 }
 
-// renewalDue reports whether creds can be renewed and expire within
-// RenewalLead.
+// renewalDue reports whether creds can be renewed and are inside their
+// renewal window: RenewalLead before expiry, or the second half of the
+// token's life when that is shorter and the issue time is known.
 func renewalDue(creds mcp.Credentials, now time.Time) bool {
 	if creds[CredKeyRefreshToken] == "" {
 		return false
@@ -113,7 +118,11 @@ func renewalDue(creds mcp.Credentials, now time.Time) bool {
 	if err != nil {
 		return false
 	}
-	return !now.Add(RenewalLead).Before(expiry)
+	lead := RenewalLead
+	if issued, err := time.Parse(time.RFC3339, creds[CredKeyTokenIssued]); err == nil && expiry.After(issued) {
+		lead = min(lead, expiry.Sub(issued)/2)
+	}
+	return !now.Add(lead).Before(expiry)
 }
 
 // TokenExpired reports whether creds carry an expiry that has passed. An

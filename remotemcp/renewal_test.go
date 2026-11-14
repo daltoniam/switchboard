@@ -297,4 +297,62 @@ func TestHandleOAuthCallback_KeepsRefreshTokenAndExpiry(t *testing.T) {
 	expiry, err := time.Parse(time.RFC3339, creds[CredKeyTokenExpiry])
 	require.NoError(t, err)
 	assert.WithinDuration(t, before.Add(24*time.Hour), expiry, time.Minute)
+	issued, err := time.Parse(time.RFC3339, creds[CredKeyTokenIssued])
+	require.NoError(t, err)
+	assert.WithinDuration(t, before, issued, time.Minute)
+}
+
+func TestTokenRenewal_ShortLivedTokenIsNotRenewedAgainRightAway(t *testing.T) {
+	var refreshes atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			n := refreshes.Add(1)
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "access-" + string(rune('0'+n)), "expires_in": 1800})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"authorization_endpoint": "x", "token_endpoint": "http://" + r.Host + "/token"})
+	}))
+	defer srv.Close()
+	creds := loginExpiring(10 * time.Minute)
+	store := &memoryStore{creds: maps.Clone(creds)}
+	renewal := newRenewal(store)
+	tgt := RenewalTarget{Integration: "higgsfield", ServerURL: srv.URL}
+
+	fresh, renewed, err := renewal.Fresh(context.Background(), tgt, creds)
+	require.NoError(t, err)
+	require.True(t, renewed)
+	assert.Equal(t, formatExpiry(renewalNow), fresh[CredKeyTokenIssued])
+
+	again, renewed, err := renewal.Fresh(context.Background(), tgt, fresh)
+	require.NoError(t, err)
+	assert.False(t, renewed, "a token just issued for 30 minutes is not due yet")
+	assert.Equal(t, fresh, again)
+	assert.EqualValues(t, 1, refreshes.Load())
+}
+
+func TestRenewalDue(t *testing.T) {
+	login := func(issuedAgo, expiresIn time.Duration) mcp.Credentials {
+		c := loginExpiring(expiresIn)
+		if issuedAgo >= 0 {
+			c[CredKeyTokenIssued] = formatExpiry(renewalNow.Add(-issuedAgo))
+		}
+		return c
+	}
+	tests := []struct {
+		name  string
+		creds mcp.Credentials
+		want  bool
+	}{
+		{"long token far from expiry", login(time.Hour, 23*time.Hour), false},
+		{"long token inside the lead", login(23*time.Hour+30*time.Minute, 30*time.Minute), true},
+		{"short token just issued", login(0, 30*time.Minute), false},
+		{"short token past half its life", login(20*time.Minute, 10*time.Minute), true},
+		{"unknown issue time uses the full lead", login(-1, 30*time.Minute), true},
+		{"expired", login(25*time.Hour, -time.Hour), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, renewalDue(tt.creds, renewalNow))
+		})
+	}
 }

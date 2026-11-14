@@ -1993,7 +1993,7 @@ func (w *WebServer) saveRemoteMCPOAuth(ctx context.Context, name, token string, 
 	next.Enabled = true
 	next.Credentials[profile.CredentialKey] = token
 	if profile.Renewable {
-		for _, key := range []string{remotemcp.CredKeyRefreshToken, remotemcp.CredKeyTokenExpiry, remotemcp.CredKeyClientID, remotemcp.CredKeyClientSecret} {
+		for _, key := range []string{remotemcp.CredKeyRefreshToken, remotemcp.CredKeyTokenExpiry, remotemcp.CredKeyTokenIssued, remotemcp.CredKeyClientID, remotemcp.CredKeyClientSecret} {
 			next.Credentials[key] = login[key]
 		}
 	}
