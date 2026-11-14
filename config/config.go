@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -393,6 +394,10 @@ type manager struct {
 	persisted *mcp.Config // durable config, never containing environment overrides
 	filePath  string
 	envLookup func(string) string // defaults to os.Getenv; override in tests
+	// base is the file as this process last read or wrote it, so a save can
+	// tell its own changes from changes another process saved since.
+	base         *mcp.Config
+	fileLockHeld bool
 }
 
 // NewManager returns a ConfigService backed by a JSON file at ~/.config/switchboard/config.json.
@@ -805,6 +810,7 @@ func (m *manager) Load() error {
 	}
 	m.persisted = mergeWithDefaults(&cfg)
 	m.cfg = cloneConfig(m.persisted)
+	m.base = cloneConfig(m.persisted)
 	// Validate user-supplied globs from the config file (defaults have no globs).
 	for name, ic := range cfg.Integrations {
 		if err := mcp.ValidateToolGlobs(ic.ToolGlobs); err != nil {
@@ -905,11 +911,14 @@ func (m *manager) Save() error {
 }
 
 func (m *manager) saveLocked() error {
-	dir := filepath.Dir(m.filePath)
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("create config dir: %w", err)
-	}
+	return m.withFileLock(context.Background(), m.writeLocked)
+}
 
+// writeLocked saves the config. Call with m.mu and the file lock held.
+func (m *manager) writeLocked() error {
+	if err := m.adoptSavedCredentials(); err != nil {
+		return err
+	}
 	target := m.persisted
 	if target == nil {
 		target = m.cfg
@@ -922,6 +931,7 @@ func (m *manager) saveLocked() error {
 	if err := atomicWriteConfig(m.filePath, data); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
+	m.base = cloneConfig(target)
 	return nil
 }
 
