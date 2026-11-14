@@ -20,6 +20,13 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"nexus": {
+		"base_url":     "NEXUS_BASE_URL",
+		"username":     "NEXUS_USERNAME",
+		"password":     "NEXUS_PASSWORD",
+		"repositories": "NEXUS_REPOSITORIES",
+		"ca_cert":      "NEXUS_CA_CERT",
+	},
 	"semaphoreui": {
 		"base_url":   "SEMAPHOREUI_BASE_URL",
 		"api_token":  "SEMAPHOREUI_API_TOKEN",
@@ -414,6 +421,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"nexus": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "repositories": "", "ca_cert": ""},
+			},
 			"semaphoreui": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "api_token": "", "project_id": "", "ca_cert": ""},

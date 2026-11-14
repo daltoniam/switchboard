@@ -320,6 +320,11 @@ Environment variables override credential values but do not change the durable e
 | Integration | Credential | Env Var |
 |---|---|---|
 | GitHub | `token` | `GITHUB_TOKEN` |
+| [Nexus Repository](docs/nexus.md) | `base_url` | `NEXUS_BASE_URL` (required HTTPS installation URL) |
+| Nexus Repository | `username` | `NEXUS_USERNAME` (required dedicated reader) |
+| Nexus Repository | `password` | `NEXUS_PASSWORD` (required Basic password or authorized Pro user-token secret) |
+| Nexus Repository | `repositories` | `NEXUS_REPOSITORIES` (required comma-separated repository allowlist) |
+| Nexus Repository | `ca_cert` | `NEXUS_CA_CERT` (optional PEM CA certificate) |
 | Argo Workflows | `base_url` | `ARGO_WORKFLOWS_BASE_URL` (required HTTPS installation URL) |
 | Argo Workflows | `namespace` | `ARGO_WORKFLOWS_NAMESPACE` (required fixed namespace) |
 | Argo Workflows | `token` | `ARGO_WORKFLOWS_TOKEN` (required get/list-only service-account token) |

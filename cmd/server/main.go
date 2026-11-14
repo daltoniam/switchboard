@@ -73,6 +73,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/mobbin"
 	"github.com/daltoniam/switchboard/integrations/mysql"
 	"github.com/daltoniam/switchboard/integrations/netsuite"
+	"github.com/daltoniam/switchboard/integrations/nexus"
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	"github.com/daltoniam/switchboard/integrations/notionmcp"
@@ -350,6 +351,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		airflow.New(),
 		argoworkflows.New(),
 		semaphoreui.New(),
+		nexus.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),
