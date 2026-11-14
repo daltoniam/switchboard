@@ -32,6 +32,8 @@ type OAuthState struct {
 	codeVerifier string
 	resource     string
 	token        string
+	refreshToken string
+	expiry       time.Time
 	err          string
 	done         bool
 }
@@ -465,9 +467,11 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 	}
 
 	var tokenResp struct {
-		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		Error       string `json:"error"`
+		AccessToken  string `json:"access_token"`
+		TokenType    string `json:"token_type"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+		Error        string `json:"error"`
 	}
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		os.err = fmt.Sprintf("parse token response: %v", err)
@@ -488,8 +492,35 @@ func HandleOAuthCallback(name, code, stateParam string) error {
 	}
 
 	os.token = tokenResp.AccessToken
+	os.refreshToken = tokenResp.RefreshToken
+	os.expiry = expiryAfter(time.Now(), tokenResp.ExpiresIn)
 	os.done = true
 	return nil
+}
+
+// LoginCredentials returns the credentials of a completed OAuth flow under
+// the CredKey* names, including what TokenRenewal needs to renew it: the
+// refresh token, the expiry, and the dynamically registered client. Values
+// the server did not send are empty, so saving them clears any old login.
+func LoginCredentials(name string) (mcp.Credentials, bool) {
+	activeRemoteOAuth.mu.Lock()
+	os := activeRemoteOAuth.states[name]
+	activeRemoteOAuth.mu.Unlock()
+	if os == nil {
+		return nil, false
+	}
+	os.mu.Lock()
+	defer os.mu.Unlock()
+	if !os.done || os.err != "" || os.token == "" {
+		return nil, false
+	}
+	return mcp.Credentials{
+		CredKeyAccessToken:  os.token,
+		CredKeyRefreshToken: os.refreshToken,
+		CredKeyTokenExpiry:  formatExpiry(os.expiry),
+		CredKeyClientID:     os.clientID,
+		CredKeyClientSecret: os.clientSecret,
+	}, true
 }
 
 // PollOAuth checks the status of a pending OAuth flow.

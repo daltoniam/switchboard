@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"sync"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/config"
@@ -101,7 +102,7 @@ func newHiggsfieldOAuthFixture(t *testing.T) *higgsfieldOAuthFixture {
 		f.mu.Lock()
 		f.tokenForm = r.PostForm
 		f.mu.Unlock()
-		writeJSON(w, http.StatusOK, map[string]string{"access_token": "higgsfield-oauth-token", "token_type": "Bearer"})
+		writeJSON(w, http.StatusOK, map[string]any{"access_token": "higgsfield-oauth-token", "token_type": "Bearer", "refresh_token": "higgsfield-refresh-token", "expires_in": 86400})
 	})
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer higgsfield-oauth-token" {
@@ -158,6 +159,11 @@ func TestHiggsfieldOAuthFlow(t *testing.T) {
 	assert.True(t, saved.Enabled)
 	assert.Equal(t, "higgsfield-oauth-token", saved.Credentials["mcp_access_token"])
 	assert.Equal(t, f.server.URL, saved.Credentials["base_url"])
+	assert.Equal(t, "higgsfield-refresh-token", saved.Credentials["mcp_refresh_token"], "the refresh token is kept so the login can be renewed")
+	assert.Equal(t, "higgsfield-client", saved.Credentials["mcp_client_id"])
+	expiry, err := time.Parse(time.RFC3339, saved.Credentials["mcp_token_expiry"])
+	require.NoError(t, err)
+	assert.WithinDuration(t, time.Now().Add(24*time.Hour), expiry, time.Minute)
 	assert.True(t, integration.Healthy(t.Context()), "adapter must use the new token immediately")
 	result, err := integration.Execute(t.Context(), "higgsfield_balance", nil)
 	require.NoError(t, err)

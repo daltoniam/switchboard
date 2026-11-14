@@ -316,6 +316,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	gpeopleIntegration := gpeople.New()
 	gmeetIntegration := gmeet.New()
 	microsoft365Integration := microsoft365.New()
+	higgsfieldIntegration := higgsfield.New()
 	amazonIntegration := amazon.New()
 
 	// One process-wide filesystem catalog. ProjectInterop and the
@@ -343,7 +344,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		figma.New(),
 		notionmcp.New(),
 		mobbin.New(),
-		higgsfield.New(),
+		higgsfieldIntegration,
 		metabase.New(),
 		paperless.New(),
 		obsidian.New(),
@@ -502,6 +503,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	gpeople.SetConfigService(gpeopleIntegration, cfgMgr)
 	gmeet.SetConfigService(gmeetIntegration, cfgMgr)
 	microsoft365.SetConfigService(microsoft365Integration, cfgMgr)
+	higgsfield.SetConfigService(higgsfieldIntegration, cfgMgr)
 	amazon.SetBrowserService(amazonIntegration, browserSvc)
 
 	var serverOpts []server.Option
