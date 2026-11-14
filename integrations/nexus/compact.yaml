@@ -1,0 +1,22 @@
+version: 1
+tools:
+  nexus_list_components:
+    spec:
+      - items[].id
+      - items[].repository
+      - items[].format
+      - items[].group
+      - items[].name
+      - items[].version
+      - continuationToken
+  nexus_search_components:
+    spec:
+      - items[].id
+      - items[].repository
+      - items[].format
+      - items[].group
+      - items[].name
+      - items[].version
+      - continuationToken
+  nexus_get_component:
+    spec: [id, repository, format, group, name, version, assets, asset_count, truncated]
