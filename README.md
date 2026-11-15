@@ -320,6 +320,10 @@ Environment variables override credential values but do not change the durable e
 | Integration | Credential | Env Var |
 |---|---|---|
 | GitHub | `token` | `GITHUB_TOKEN` |
+| [Wazuh](docs/wazuh-setup.md) | `base_url` | `WAZUH_BASE_URL` (required HTTPS manager URL) |
+| Wazuh | `username` | `WAZUH_USERNAME` (required dedicated scoped agent reader) |
+| Wazuh | `password` | `WAZUH_PASSWORD` (required reader password) |
+| Wazuh | `ca_cert` | `WAZUH_CA_CERT` (optional PEM CA certificate) |
 | [Nexus Repository](docs/nexus.md) | `base_url` | `NEXUS_BASE_URL` (required HTTPS installation URL) |
 | Nexus Repository | `username` | `NEXUS_USERNAME` (required dedicated reader) |
 | Nexus Repository | `password` | `NEXUS_PASSWORD` (required Basic password or authorized Pro user-token secret) |
