@@ -96,6 +96,11 @@ integrations/
     compact.yaml             Field compaction specs (read tools)
     tools.go                 Grist tool definitions (~30 tools)
     handlers.go              Orgs, workspaces, docs, tables, columns, records, SQL, webhooks, attachments
+  grafana/
+    grafana.go               Grafana integration adapter (core, HTTP error handling, FieldCompactionIntegration)
+    compact.yaml             Field compaction specs (read tools)
+    tools.go                 Grafana tool definitions and dispatch map (7 tools)
+    handlers.go              Dashboards (search, get, save/import), folders, data sources, queries, health
   groupme/
     groupme.go               GroupMe integration adapter (core, HTTP envelope handling, FieldCompactionIntegration)
     compact.yaml             Field compaction specs (read tools)
