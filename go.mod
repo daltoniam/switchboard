@@ -16,6 +16,7 @@ require (
 	cloud.google.com/go/run v1.15.0
 	cloud.google.com/go/storage v1.56.0
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v3 v3.0.0
+	github.com/1password/onepassword-sdk-go v0.4.1
 	github.com/ClickHouse/clickhouse-go/v2 v2.43.0
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/DataDog/datadog-api-client-go/v2 v2.55.0
@@ -83,7 +84,6 @@ require (
 	dev.gaijin.team/go/exhaustruct/v4 v4.0.0 // indirect
 	dev.gaijin.team/go/golib v0.6.0 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
-	github.com/1password/onepassword-sdk-go v0.4.1 // indirect
 	github.com/42wim/httpsig v1.2.3 // indirect
 	github.com/4meepo/tagalign v1.4.3 // indirect
 	github.com/Abirdcfly/dupword v0.1.7 // indirect
