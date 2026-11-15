@@ -293,6 +293,12 @@ Proxies Mobbin's hosted MCP server at `https://api.mobbin.com/mcp`, a searchable
 
 Open `/integrations/mobbin/setup` and select **Sign in with Mobbin**. Mobbin's authorization server is a separate issuer advertised through protected resource metadata (RFC 9728); OAuth uses dynamic client registration, PKCE, the `openid` scope, and resource binding to the MCP endpoint. A Mobbin account is required. Access tokens expire after about an hour and the shared remote OAuth flow does not refresh them, so sign in again when the setup page shows a connection error.
 
+### 1Password (`onepassword`)
+
+Reads and writes 1Password items through the official [1Password Go SDK](https://github.com/1password/onepassword-sdk-go), signed in with a service account. Reads: `onepassword_list_vaults` (start here), `onepassword_list_items` (search by title, URL, tag or category; never returns secrets), `onepassword_get_item`, and `onepassword_resolve_secret` (one value from an `op://vault/item/field` reference). `onepassword_get_item` returns concealed values (passwords, secrets, card numbers, one-time password seeds, SSH private keys) as `[REDACTED]` unless `reveal` is true, and gives every field its `op://` reference. Writes: `onepassword_create_item` (logins, passwords, secure notes, API credentials and other categories; `generate_password` makes a random 32-character password) and `onepassword_update_item` (set or add fields, change the password, title, notes or tags; 1Password keeps earlier versions). Write responses redact concealed values. There is no delete tool. Vaults and items can be named by id or title.
+
+In 1Password, open **Developer → Service accounts**, create a service account with access to only the vaults Switchboard should see (read-only access is enough without the write tools), and copy its token (`ops_...`). Set `OP_SERVICE_ACCOUNT_TOKEN` or enter it on the 1Password integration page and enable it. Service accounts cannot reach Personal or Private vaults. The SDK runs as WebAssembly inside Switchboard (no `op` CLI, no CGO) and signs in on first use, which takes about a second.
+
 ### GroupMe (`groupme`)
 
 Reads and sends GroupMe messages through the public v3 API at `https://api.groupme.com/v3`. Reads: `groupme_get_me`, `groupme_list_groups` (start here), `groupme_get_group`, `groupme_list_group_messages`, `groupme_list_chats`, and `groupme_list_direct_messages`. Writes, which send real messages as you or your bot: `groupme_send_group_message`, `groupme_send_direct_message`, and `groupme_post_bot_message`. Message lists page with `before_id`, `since_id`, and (groups only) `after_id`.
@@ -406,6 +412,7 @@ Environment variables override credential values but do not change the durable e
 | Intercom | `base_url` | `INTERCOM_BASE_URL` (optional — default `https://api.intercom.io`; EU `https://api.eu.intercom.io`, AU `https://api.au.intercom.io`) |
 | Front | `access_token` | `FRONT_ACCESS_TOKEN` (API token or OAuth access token) |
 | Front | `base_url` | `FRONT_BASE_URL` (optional — default `https://api2.frontapp.com`) |
+| 1Password | `service_account_token` | `OP_SERVICE_ACCOUNT_TOKEN` (service account token, `ops_...`) |
 | GroupMe | `access_token` | `GROUPME_ACCESS_TOKEN` (Access Token from dev.groupme.com) |
 | GroupMe | `base_url` | `GROUPME_BASE_URL` (optional — default `https://api.groupme.com/v3`) |
 | Discord | `bot_token` | `DISCORD_BOT_TOKEN` (bot token from the Developer Portal; never a user token) |
@@ -482,6 +489,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
+| 1Password | Service account token | Create a service account under Developer → Service accounts with access to the vaults Switchboard should see, then set `OP_SERVICE_ACCOUNT_TOKEN` or enter it in the web UI; enable explicitly |
 | GroupMe | Access Token | Copy the Access Token from [dev.groupme.com](https://dev.groupme.com) and set `GROUPME_ACCESS_TOKEN` or enter it in the web UI; enable explicitly |
 | Discord | Bot Token | Create a bot in the Discord Developer Portal, enable the Message Content intent, invite it to a server, and set `DISCORD_BOT_TOKEN` or enter it in the web UI; enable explicitly. See [Discord setup](docs/discord-setup.md) |
 | Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |

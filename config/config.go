@@ -281,6 +281,9 @@ var envMapping = map[string]map[string]string{
 		"access_token": "GROUPME_ACCESS_TOKEN",
 		"base_url":     "GROUPME_BASE_URL",
 	},
+	"onepassword": {
+		"service_account_token": "OP_SERVICE_ACCOUNT_TOKEN",
+	},
 	"discord": {
 		"bot_token": "DISCORD_BOT_TOKEN",
 		"base_url":  "DISCORD_BASE_URL",
@@ -631,6 +634,10 @@ func defaultConfig() *mcp.Config {
 			"groupme": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"onepassword": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"service_account_token": ""},
 			},
 			"discord": {
 				Enabled:     false,

@@ -1,0 +1,42 @@
+# 1Password field compaction specs.
+#
+# Handlers already shape SDK responses into small views, so these specs keep
+# every routing field: ids, titles, categories, URLs and tags for choosing an
+# item, and the field list (values redacted unless revealed) for reading one.
+# Write tools (create_item, update_item) return their full confirmation.
+version: 1
+tools:
+  onepassword_list_vaults:
+    spec: [id, title, description, type, items, updated_at]
+  onepassword_list_items:
+    spec:
+      - count
+      - total
+      - items[].id
+      - items[].title
+      - items[].category
+      - items[].urls
+      - items[].tags
+      - items[].updated_at
+  onepassword_get_item:
+    spec:
+      - id
+      - title
+      - category
+      - vault_id
+      - vault
+      - version
+      - urls
+      - tags
+      - notes
+      - fields[].id
+      - fields[].title
+      - fields[].section
+      - fields[].type
+      - fields[].value
+      - fields[].concealed
+      - fields[].otp_code
+      - fields[].reference
+      - updated_at
+  onepassword_resolve_secret:
+    spec: [reference, value]
