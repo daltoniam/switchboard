@@ -106,6 +106,7 @@ import (
 	switchboardInt "github.com/daltoniam/switchboard/integrations/switchboard"
 	"github.com/daltoniam/switchboard/integrations/tailscale"
 	"github.com/daltoniam/switchboard/integrations/vercel"
+	"github.com/daltoniam/switchboard/integrations/wazuh"
 	webfetchInt "github.com/daltoniam/switchboard/integrations/webfetch"
 	xInt "github.com/daltoniam/switchboard/integrations/x"
 	"github.com/daltoniam/switchboard/integrations/ynab"
@@ -353,6 +354,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		argoworkflows.New(),
 		semaphoreui.New(),
 		nexus.New(),
+		wazuh.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),
