@@ -20,6 +20,12 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"wazuh": {
+		"base_url": "WAZUH_BASE_URL",
+		"username": "WAZUH_USERNAME",
+		"password": "WAZUH_PASSWORD",
+		"ca_cert":  "WAZUH_CA_CERT",
+	},
 	"nexus": {
 		"base_url":     "NEXUS_BASE_URL",
 		"username":     "NEXUS_USERNAME",
@@ -421,6 +427,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"wazuh": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "ca_cert": ""},
+			},
 			"nexus": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "repositories": "", "ca_cert": ""},

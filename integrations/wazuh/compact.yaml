@@ -1,0 +1,8 @@
+version: 1
+tools:
+  wazuh_list_agents:
+    spec: [affected_items, total_affected_items, total_failed_items, failed_items, partial, next_offset]
+  wazuh_get_agent:
+    spec: [affected_items, total_affected_items, total_failed_items, failed_items, partial, next_offset]
+  wazuh_get_agent_status_summary:
+    spec: [connection, configuration]
