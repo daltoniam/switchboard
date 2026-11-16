@@ -1,0 +1,8 @@
+version: 1
+tools:
+  snipeit_list_assets:
+    spec: [total, next_offset, rows]
+  snipeit_get_asset:
+    spec: [id, name, asset_tag, serial, model, status_label, location, assigned_to]
+  snipeit_get_asset_by_tag:
+    spec: [total, next_offset, rows]
