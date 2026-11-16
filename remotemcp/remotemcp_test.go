@@ -1,6 +1,7 @@
 package remotemcp
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -9,7 +10,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -799,4 +802,180 @@ func TestNewStructured_ExecuteReturnsStructuredContent(t *testing.T) {
 			assert.Equal(t, tc.want, result.Data)
 		})
 	}
+}
+
+// failingToolCalls answers the next `failures` requests for `method`
+// (tools/call by default) with `status` before they reach the MCP server, the
+// way a remote server that has dropped its session answers a client still
+// holding it. attempts counts tools/call requests.
+type failingToolCalls struct {
+	next     http.Handler
+	method   string
+	status   int
+	failures atomic.Int32
+	attempts atomic.Int32
+}
+
+func (f *failingToolCalls) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	if bytes.Contains(body, []byte(`"tools/call"`)) {
+		f.attempts.Add(1)
+	}
+	if bytes.Contains(body, []byte(`"server/discover"`)) {
+		// Like Mobbin, refuse the newer handshake so clients use initialize.
+		http.Error(w, "unsupported protocol version", http.StatusNotFound)
+		return
+	}
+	method := f.method
+	if method == "" {
+		method = "tools/call"
+	}
+	if bytes.Contains(body, []byte(`"`+method+`"`)) && f.failures.Add(-1) >= 0 {
+		http.Error(w, "session not found", f.status)
+		return
+	}
+	f.next.ServeHTTP(w, r)
+}
+
+func TestExecute_ReconnectsAfterRemoteDropsSession(t *testing.T) {
+	tests := []struct {
+		name         string
+		method       string
+		status       int
+		failures     int32
+		wantError    bool
+		wantAttempts int32
+	}{
+		{name: "session missing once is retried on a new session", status: http.StatusNotFound, failures: 1, wantAttempts: 2},
+		{name: "retries only once", status: http.StatusNotFound, failures: 2, wantError: true, wantAttempts: 2},
+		{name: "other rejections are not retried", status: http.StatusForbidden, failures: 1, wantError: true, wantAttempts: 1},
+		{name: "session missing after initialize is retried", method: "notifications/initialized", status: http.StatusNotFound, failures: 1, wantAttempts: 1},
+		{name: "session missing during initialize is retried", method: "initialize", status: http.StatusNotFound, failures: 1, wantAttempts: 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "1"}, nil)
+			mcpsdk.AddTool(server, &mcpsdk.Tool{Name: "ping"}, func(context.Context, *mcpsdk.CallToolRequest, struct{}) (*mcpsdk.CallToolResult, any, error) {
+				return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "pong"}}}, nil, nil
+			})
+			fault := &failingToolCalls{
+				method: tc.method,
+				status: tc.status,
+				next:   mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true}),
+			}
+			testServer := httptest.NewServer(fault)
+			defer testServer.Close()
+
+			integration := NewOptionalToken("test", testServer.URL)
+			require.NoError(t, integration.Configure(t.Context(), mcp.Credentials{}))
+			first, err := integration.Execute(t.Context(), "test_ping", nil)
+			require.NoError(t, err)
+			require.False(t, first.IsError, first.Data)
+
+			fault.attempts.Store(0)
+			fault.failures.Store(tc.failures)
+			if tc.method != "" {
+				// The handshake only runs on a new session.
+				integration.(*remote).disconnect()
+			}
+			result, err := integration.Execute(t.Context(), "test_ping", nil)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantError, result.IsError, result.Data)
+			assert.Equal(t, tc.wantAttempts, fault.attempts.Load())
+			if !tc.wantError {
+				assert.Equal(t, "pong", result.Data)
+			}
+		})
+	}
+}
+
+func TestExecute_ReconnectsWhenConfigureClosedTheSession(t *testing.T) {
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "test", Version: "1"}, nil)
+	mcpsdk.AddTool(server, &mcpsdk.Tool{Name: "ping"}, func(context.Context, *mcpsdk.CallToolRequest, struct{}) (*mcpsdk.CallToolResult, any, error) {
+		return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "pong"}}}, nil, nil
+	})
+	testServer := httptest.NewServer(mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true}))
+	defer testServer.Close()
+
+	r := New("test", testServer.URL).(*remote)
+	require.NoError(t, r.Configure(t.Context(), mcp.Credentials{"access_token": "old"}))
+	stale, err := r.connect(t.Context())
+	require.NoError(t, err)
+	// A token refresh closes the session after Execute picked it up.
+	require.NoError(t, r.Configure(t.Context(), mcp.Credentials{"access_token": "new"}))
+	r.session = stale
+
+	result, err := r.Execute(t.Context(), "test_ping", nil)
+	require.NoError(t, err)
+	assert.False(t, result.IsError, result.Data)
+	assert.Equal(t, "pong", result.Data)
+}
+
+// TestExecute_UsesNegotiatedProtocolVersionUpstream proxies a call from a
+// client on a newer protocol than the remote server supports. The go-sdk
+// server keeps the caller's MCP-Protocol-Version in the request context; it
+// must not reach the remote server, which only accepts the version it
+// negotiated with Switchboard (Mobbin answers anything else with 404).
+func TestExecute_UsesNegotiatedProtocolVersionUpstream(t *testing.T) {
+	const remoteVersion = "2025-11-25"
+	remoteServer := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "remote", Version: "1"}, nil)
+	mcpsdk.AddTool(remoteServer, &mcpsdk.Tool{Name: "ping"}, func(context.Context, *mcpsdk.CallToolRequest, struct{}) (*mcpsdk.CallToolResult, any, error) {
+		return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: "pong"}}}, nil, nil
+	})
+	remoteHandler := mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return remoteServer }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true})
+	var rejected atomic.Int32
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		version := r.Header.Get("Mcp-Protocol-Version")
+		if bytes.Contains(body, []byte(`"server/discover"`)) || (version != "" && version != remoteVersion) {
+			rejected.Add(1)
+			http.Error(w, "unsupported protocol version", http.StatusNotFound)
+			return
+		}
+		remoteHandler.ServeHTTP(w, r)
+	}))
+	defer remote.Close()
+
+	integration := NewOptionalToken("remote", remote.URL)
+	require.NoError(t, integration.Configure(t.Context(), mcp.Credentials{}))
+
+	proxy := mcpsdk.NewServer(&mcpsdk.Implementation{Name: "proxy", Version: "1"}, nil)
+	mcpsdk.AddTool(proxy, &mcpsdk.Tool{Name: "proxied"}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, _ struct{}) (*mcpsdk.CallToolResult, any, error) {
+		result, err := integration.Execute(ctx, "remote_ping", nil)
+		require.NoError(t, err)
+		return &mcpsdk.CallToolResult{IsError: result.IsError, Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: result.Data}}}, nil, nil
+	})
+	proxyServer := httptest.NewServer(mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return proxy }, &mcpsdk.StreamableHTTPOptions{JSONResponse: true, Stateless: true}))
+	defer proxyServer.Close()
+
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "caller", Version: "1"}, nil)
+	session, err := client.Connect(t.Context(), &mcpsdk.StreamableClientTransport{Endpoint: proxyServer.URL, DisableStandaloneSSE: true}, nil)
+	require.NoError(t, err)
+	defer func() { _ = session.Close() }()
+	require.NotEqual(t, remoteVersion, session.InitializeResult().ProtocolVersion, "caller must use a newer protocol than the remote server")
+
+	result, err := session.CallTool(t.Context(), &mcpsdk.CallToolParams{Name: "proxied", Arguments: map[string]any{}})
+	require.NoError(t, err)
+	text := result.Content[0].(*mcpsdk.TextContent).Text
+	assert.False(t, result.IsError, text)
+	assert.Equal(t, "pong", text)
+}
+
+type ctxKey struct{}
+
+func TestUpstreamContext_KeepsCancellationAndDeadlineButNotValues(t *testing.T) {
+	deadline := time.Now().Add(time.Hour)
+	parent, cancelParent := context.WithDeadline(context.WithValue(t.Context(), ctxKey{}, "caller"), deadline)
+	ctx := upstreamContext(parent)
+
+	assert.Nil(t, ctx.Value(ctxKey{}))
+	got, ok := ctx.Deadline()
+	require.True(t, ok)
+	assert.Equal(t, deadline, got)
+
+	cancelParent()
+	<-ctx.Done()
+	assert.ErrorIs(t, ctx.Err(), context.Canceled)
 }

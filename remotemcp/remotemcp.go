@@ -3,6 +3,7 @@ package remotemcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -148,6 +149,61 @@ func (r *remote) disconnect() {
 	}
 }
 
+// drop forgets session if it is still the current one, so a concurrent
+// caller that already reconnected keeps its new session.
+func (r *remote) drop(session *mcpsdk.ClientSession) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.session == session {
+		r.session = nil
+	}
+	_ = session.Close()
+}
+
+// upstreamContext keeps ctx's cancellation and deadline but drops its values.
+// When Execute runs inside a go-sdk server handler, ctx carries the caller's
+// MCP-Protocol-Version, and the go-sdk client would send that version to the
+// remote server instead of the one negotiated with it. A server that does not
+// support the caller's version answers 404, which reads as "session not found".
+func upstreamContext(ctx context.Context) context.Context {
+	return valuelessContext{ctx}
+}
+
+type valuelessContext struct{ context.Context }
+
+func (valuelessContext) Value(any) any { return nil }
+
+// sessionGone reports whether err means the session ended before the request
+// was handled: the server answered 404 for it, or it was closed locally.
+func sessionGone(err error) bool {
+	return errors.Is(err, mcpsdk.ErrSessionMissing) || errors.Is(err, mcpsdk.ErrConnectionClosed)
+}
+
+// callTool calls the tool and, when the session is gone before the request
+// was handled (the server answered 404 for it, or Configure closed it), opens
+// a new session and tries once more. Other failures are not retried because
+// the call may already have taken effect.
+func (r *remote) callTool(ctx context.Context, session *mcpsdk.ClientSession, params *mcpsdk.CallToolParams) (*mcpsdk.CallToolResult, error) {
+	result, err := session.CallTool(ctx, params)
+	if err == nil {
+		return result, nil
+	}
+	r.drop(session)
+	if !sessionGone(err) {
+		return nil, err
+	}
+	session, err = r.connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result, err = session.CallTool(ctx, params)
+	if err != nil {
+		r.drop(session)
+		return nil, err
+	}
+	return result, nil
+}
+
 // Close closes any active session and clears session/client/tool cache.
 // It is safe and idempotent; concurrent Configure/Tools/Execute serialize on r.mu.
 func (r *remote) Close() error {
@@ -164,6 +220,7 @@ func (r *remote) Close() error {
 }
 
 func (r *remote) Healthy(ctx context.Context) bool {
+	ctx = upstreamContext(ctx)
 	session, err := r.connect(ctx)
 	if err != nil {
 		return false
@@ -209,7 +266,11 @@ func (r *remote) Tools() []mcp.ToolDefinition {
 }
 
 func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	ctx = upstreamContext(ctx)
 	session, err := r.connect(ctx)
+	if sessionGone(err) {
+		session, err = r.connect(ctx)
+	}
 	if err != nil {
 		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 	}
@@ -219,12 +280,11 @@ func (r *remote) Execute(ctx context.Context, toolName mcp.ToolName, args map[st
 		args = map[string]any{}
 	}
 
-	result, err := session.CallTool(ctx, &mcpsdk.CallToolParams{
+	result, err := r.callTool(ctx, session, &mcpsdk.CallToolParams{
 		Name:      remoteName,
 		Arguments: args,
 	})
 	if err != nil {
-		r.disconnect()
 		return &mcp.ToolResult{Data: err.Error(), IsError: true}, nil
 	}
 
