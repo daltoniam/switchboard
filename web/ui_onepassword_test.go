@@ -127,5 +127,6 @@ func TestUIOnePassword(t *testing.T) {
 	var saved mcp.Config
 	require.NoError(t, json.Unmarshal(data, &saved))
 	require.False(t, saved.Integrations["onepassword"].Enabled)
-	require.Equal(t, wantToken, saved.Integrations["onepassword"].Credentials["service_account_token"])
+	// Compared as a bool so a failure never prints the token into CI logs.
+	require.True(t, saved.Integrations["onepassword"].Credentials["service_account_token"] == wantToken, "saved service account token differs from the one entered")
 }
