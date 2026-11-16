@@ -646,7 +646,9 @@ func matchField(it op.Item, in fieldInput) (int, error) {
 // one, creating the section when the item lacks it.
 func addField(it *op.Item, in fieldInput) {
 	sectionID := ensureSection(it, in.Section)
-	taken := map[string]bool{}
+	// The built-in ids stay reserved even when the item lacks those fields,
+	// so a later username or password update never lands in a custom field.
+	taken := map[string]bool{"username": true, "password": true}
 	for _, f := range it.Fields {
 		taken[f.ID] = true
 	}
@@ -672,11 +674,15 @@ func ensureSection(it *op.Item, title string) string {
 }
 
 // setBuiltIn sets a login's built-in username or password field, adding it
-// when missing.
+// when missing. Built-in fields sit outside every section; a custom field
+// that shares the id is left alone. The field type is always reapplied so a
+// password is stored concealed even if the field was saved as text.
 func setBuiltIn(it *op.Item, id string, t op.ItemFieldType, value string) {
 	for i := range it.Fields {
-		if it.Fields[i].ID == id {
-			it.Fields[i].Value = value
+		f := &it.Fields[i]
+		if f.ID == id && (f.SectionID == nil || *f.SectionID == "") {
+			f.Value = value
+			f.FieldType = t
 			return
 		}
 	}

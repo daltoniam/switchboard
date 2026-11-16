@@ -547,6 +547,44 @@ func TestUpdateItem_GeneratePasswordAddsMissingField(t *testing.T) {
 	assert.Equal(t, "generated-"+secret, f.put.Fields[0].Value)
 }
 
+func TestUpdateItem_PasswordAlwaysConcealed(t *testing.T) {
+	sect := "sec1"
+	tests := []struct {
+		name   string
+		fields []op.ItemField
+	}{
+		{"built-in stored as text", []op.ItemField{{ID: "password", Title: "password", FieldType: op.ItemFieldTypeText, Value: "old"}}},
+		{"custom text field holds the id", []op.ItemField{{ID: "password", Title: "password", SectionID: &sect, FieldType: op.ItemFieldTypeText, Value: "note"}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFake()
+			f.full[itemID] = op.Item{ID: itemID, Title: "Bare", Category: op.ItemCategoryPassword, VaultID: vaultID, Version: 1,
+				Sections: []op.ItemSection{{ID: sect, Title: "Notes"}}, Fields: tc.fields}
+			res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": itemID, "password": secret})
+			require.False(t, res.IsError, res.Data)
+			assert.NotContains(t, res.Data, secret)
+			for _, fl := range f.put.Fields {
+				if fl.Value == secret {
+					assert.Nil(t, fl.SectionID, "the password goes in the built-in field, not a custom one")
+					assert.Equal(t, op.ItemFieldTypeConcealed, fl.FieldType)
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateItem_CustomFieldNeverTakesBuiltInID(t *testing.T) {
+	f := newFake()
+	f.full[itemID] = op.Item{ID: itemID, Title: "Bare", Category: op.ItemCategoryPassword, VaultID: vaultID, Version: 1}
+	res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": itemID,
+		"fields": []any{map[string]any{"title": "Password", "value": "x"}, map[string]any{"title": "Username", "value": "y"}}})
+	require.False(t, res.IsError, res.Data)
+	for _, fl := range f.put.Fields {
+		assert.NotContains(t, []string{"password", "username"}, fl.ID)
+	}
+}
+
 func TestUpdateItem_Rejects(t *testing.T) {
 	tests := []struct {
 		name string
