@@ -320,6 +320,9 @@ Environment variables override credential values but do not change the durable e
 | Integration | Credential | Env Var |
 |---|---|---|
 | GitHub | `token` | `GITHUB_TOKEN` |
+| [Snipe-IT](docs/snipeit-setup.md) | `base_url` | `SNIPEIT_BASE_URL` (required HTTPS installation URL) |
+| Snipe-IT | `token` | `SNIPEIT_TOKEN` (required dedicated asset reader PAT) |
+| Snipe-IT | `ca_cert` | `SNIPEIT_CA_CERT` (optional PEM CA certificate) |
 | [Wazuh](docs/wazuh-setup.md) | `base_url` | `WAZUH_BASE_URL` (required HTTPS manager URL) |
 | Wazuh | `username` | `WAZUH_USERNAME` (required dedicated scoped agent reader) |
 | Wazuh | `password` | `WAZUH_PASSWORD` (required reader password) |

@@ -98,6 +98,7 @@ import (
 	signozInt "github.com/daltoniam/switchboard/integrations/signoz"
 	slackInt "github.com/daltoniam/switchboard/integrations/slack"
 	"github.com/daltoniam/switchboard/integrations/slackmcp"
+	"github.com/daltoniam/switchboard/integrations/snipeit"
 	snowflakeInt "github.com/daltoniam/switchboard/integrations/snowflake"
 	"github.com/daltoniam/switchboard/integrations/sourcebot"
 	"github.com/daltoniam/switchboard/integrations/stripe"
@@ -353,6 +354,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		argoworkflows.New(),
 		semaphoreui.New(),
 		nexus.New(),
+		snipeit.New(),
 		wazuh.New(),
 		recoll.New(),
 		imessage.New(),
