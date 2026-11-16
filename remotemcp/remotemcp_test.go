@@ -912,6 +912,23 @@ func TestExecute_ReconnectsWhenConfigureClosedTheSession(t *testing.T) {
 	assert.Equal(t, "pong", result.Data)
 }
 
+func TestRetrySafe(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"server has no such session", fmt.Errorf("calling %q: %w", "tools/call", mcpsdk.ErrSessionMissing), true},
+		{"connection closed, call may have run", fmt.Errorf("%w: calling %q", mcpsdk.ErrConnectionClosed, "tools/call"), false},
+		{"other failure", fmt.Errorf("calling %q: boom", "tools/call"), false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, retrySafe(tc.err))
+		})
+	}
+}
+
 // TestExecute_UsesNegotiatedProtocolVersionUpstream proxies a call from a
 // client on a newer protocol than the remote server supports. The go-sdk
 // server keeps the caller's MCP-Protocol-Version in the request context; it

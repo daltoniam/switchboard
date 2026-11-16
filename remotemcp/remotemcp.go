@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -25,7 +26,7 @@ type remote struct {
 
 	mu            sync.RWMutex
 	token         string
-	session       *mcpsdk.ClientSession
+	session       *liveSession
 	client        *mcpsdk.Client
 	cachedTools   []mcp.ToolDefinition
 	toolsFetched  bool
@@ -73,7 +74,7 @@ func (r *remote) Configure(_ context.Context, creds mcp.Credentials) error {
 
 	if token != r.token {
 		if r.session != nil {
-			_ = r.session.Close()
+			r.session.close()
 			r.session = nil
 		}
 		r.token = token
@@ -99,7 +100,7 @@ func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return base.RoundTrip(r)
 }
 
-func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
+func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 	r.mu.RLock()
 	if r.session != nil {
 		sess := r.session
@@ -136,28 +137,40 @@ func (r *remote) connect(ctx context.Context) (*mcpsdk.ClientSession, error) {
 	}
 
 	r.client = client
-	r.session = session
-	return session, nil
+	r.session = &liveSession{ClientSession: session}
+	return r.session, nil
 }
 
 func (r *remote) disconnect() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.session != nil {
-		_ = r.session.Close()
+		r.session.close()
 		r.session = nil
 	}
 }
 
 // drop forgets session if it is still the current one, so a concurrent
 // caller that already reconnected keeps its new session.
-func (r *remote) drop(session *mcpsdk.ClientSession) {
+func (r *remote) drop(session *liveSession) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.session == session {
 		r.session = nil
 	}
-	_ = session.Close()
+	session.close()
+}
+
+// liveSession is a client session that remembers whether this adapter has
+// closed it, so a caller holding it can tell that nothing was sent on it.
+type liveSession struct {
+	*mcpsdk.ClientSession
+	closed atomic.Bool
+}
+
+func (s *liveSession) close() {
+	s.closed.Store(true)
+	_ = s.Close()
 }
 
 // upstreamContext keeps ctx's cancellation and deadline but drops its values.
@@ -173,23 +186,39 @@ type valuelessContext struct{ context.Context }
 
 func (valuelessContext) Value(any) any { return nil }
 
-// sessionGone reports whether err means the session ended before the request
-// was handled: the server answered 404 for it, or it was closed locally.
+// sessionGone reports whether connecting failed because the session ended:
+// the server answered 404 for it, or it was closed locally. Connecting sends
+// no tool call, so trying again is safe.
 func sessionGone(err error) bool {
 	return errors.Is(err, mcpsdk.ErrSessionMissing) || errors.Is(err, mcpsdk.ErrConnectionClosed)
 }
 
-// callTool calls the tool and, when the session is gone before the request
-// was handled (the server answered 404 for it, or Configure closed it), opens
-// a new session and tries once more. Other failures are not retried because
-// the call may already have taken effect.
-func (r *remote) callTool(ctx context.Context, session *mcpsdk.ClientSession, params *mcpsdk.CallToolParams) (*mcpsdk.CallToolResult, error) {
+// retrySafe reports whether a failed call can be sent again: only when the
+// server answered that it has no such session, so it never ran the call. A
+// closed connection proves nothing, since the call may already have run.
+func retrySafe(err error) bool {
+	return errors.Is(err, mcpsdk.ErrSessionMissing)
+}
+
+// callTool calls the tool on session. If this adapter closed the session
+// before the call (Configure replaced it), nothing was sent, so it uses a new
+// session. If the server answers that the session is gone, it opens a new
+// session and tries once more. Other failures are not retried because the
+// call may already have taken effect.
+func (r *remote) callTool(ctx context.Context, session *liveSession, params *mcpsdk.CallToolParams) (*mcpsdk.CallToolResult, error) {
+	if session.closed.Load() {
+		r.drop(session)
+		var err error
+		if session, err = r.connect(ctx); err != nil {
+			return nil, err
+		}
+	}
 	result, err := session.CallTool(ctx, params)
 	if err == nil {
 		return result, nil
 	}
 	r.drop(session)
-	if !sessionGone(err) {
+	if !retrySafe(err) {
 		return nil, err
 	}
 	session, err = r.connect(ctx)
@@ -210,7 +239,7 @@ func (r *remote) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.session != nil {
-		_ = r.session.Close()
+		r.session.close()
 		r.session = nil
 	}
 	r.client = nil
