@@ -614,30 +614,31 @@ func parseFieldInputs(raw any) ([]fieldInput, error) {
 // matchField finds the field an input changes: by id, else by title (any
 // case) within the named section. It returns -1 when the input adds a field.
 func matchField(it op.Item, in fieldInput) (int, error) {
-	if in.ID != "" {
-		for i, f := range it.Fields {
-			if f.ID == in.ID {
-				return i, nil
-			}
-		}
-		return -1, fmt.Errorf("onepassword: no field with id %q in item %s; give a title to add a new field", in.ID, it.Title)
-	}
 	sections := map[string]string{}
 	for _, s := range it.Sections {
 		sections[s.ID] = s.Title
 	}
 	found := -1
 	for i, f := range it.Fields {
-		if !strings.EqualFold(f.Title, in.Title) {
+		if in.ID != "" && f.ID != in.ID {
+			continue
+		}
+		if in.ID == "" && !strings.EqualFold(f.Title, in.Title) {
 			continue
 		}
 		if in.Section != "" && (f.SectionID == nil || !strings.EqualFold(sections[*f.SectionID], in.Section)) {
 			continue
 		}
 		if found >= 0 {
+			if in.ID != "" {
+				return -1, fmt.Errorf("onepassword: more than one field has id %q in item %s; pass its section", in.ID, it.Title)
+			}
 			return -1, fmt.Errorf("onepassword: more than one field is titled %q in item %s; pass its id or section", in.Title, it.Title)
 		}
 		found = i
+	}
+	if found < 0 && in.ID != "" {
+		return -1, fmt.Errorf("onepassword: no field with id %q in item %s; give a title to add a new field", in.ID, it.Title)
 	}
 	return found, nil
 }

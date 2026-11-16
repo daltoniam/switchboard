@@ -585,6 +585,37 @@ func TestUpdateItem_CustomFieldNeverTakesBuiltInID(t *testing.T) {
 	}
 }
 
+func TestUpdateItem_FieldIDHonorsSection(t *testing.T) {
+	sect := "sec1"
+	shared := func() *fakeStore {
+		f := newFake()
+		f.full[itemID] = op.Item{ID: itemID, Title: "Bare", Category: op.ItemCategoryPassword, VaultID: vaultID, Version: 1,
+			Sections: []op.ItemSection{{ID: sect, Title: "Notes"}},
+			Fields: []op.ItemField{
+				{ID: "password", Title: "password", FieldType: op.ItemFieldTypeConcealed, Value: secret},
+				{ID: "password", Title: "password", SectionID: &sect, FieldType: op.ItemFieldTypeText, Value: "note"},
+			}}
+		return f
+	}
+
+	t.Run("section picks the custom field", func(t *testing.T) {
+		f := shared()
+		res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": itemID,
+			"fields": []any{map[string]any{"id": "password", "section": "Notes", "value": "changed"}}})
+		require.False(t, res.IsError, res.Data)
+		assert.Equal(t, secret, f.put.Fields[0].Value, "built-in password untouched")
+		assert.Equal(t, "changed", f.put.Fields[1].Value)
+	})
+	t.Run("shared id without section is ambiguous", func(t *testing.T) {
+		f := shared()
+		res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": itemID,
+			"fields": []any{map[string]any{"id": "password", "value": "changed"}}})
+		assert.True(t, res.IsError)
+		assert.Contains(t, res.Data, `more than one field has id "password"`)
+		assert.Nil(t, f.put)
+	})
+}
+
 func TestUpdateItem_Rejects(t *testing.T) {
 	tests := []struct {
 		name string
