@@ -1,0 +1,8 @@
+version: 1
+tools:
+  gatus_list_endpoints:
+    spec: [endpoints, total_fetched, matching_count, returned_count, truncated, caveat]
+  gatus_get_endpoint:
+    spec: [key, name, group, results, page, page_size, caveat]
+  gatus_get_uptime:
+    spec: [key, duration, ratio, caveat]
