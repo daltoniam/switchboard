@@ -20,6 +20,12 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"gatus": {
+		"base_url": "GATUS_BASE_URL",
+		"username": "GATUS_USERNAME",
+		"password": "GATUS_PASSWORD",
+		"ca_cert":  "GATUS_CA_CERT",
+	},
 	"snipeit": {
 		"base_url": "SNIPEIT_BASE_URL",
 		"token":    "SNIPEIT_TOKEN",
@@ -432,6 +438,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"gatus": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "ca_cert": ""},
+			},
 			"snipeit": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "token": "", "ca_cert": ""},
