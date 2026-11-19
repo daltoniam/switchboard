@@ -327,10 +327,11 @@ func mergePR(ctx context.Context, g *integration, args map[string]any) (*mcp.Too
 	repo := r.Str("repo")
 	pull := r.Int("pull_number")
 	commitMessage := r.Str("commit_message")
+	sha := r.Str("sha")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
-	opts := &gh.PullRequestOptions{}
+	opts := &gh.PullRequestOptions{SHA: sha}
 	if method, err := mcp.ArgStr(args, "merge_method"); err != nil {
 		return mcp.ErrResult(err)
 	} else if method != "" {
