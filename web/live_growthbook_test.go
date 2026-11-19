@@ -35,10 +35,10 @@ func init() {
 			{Tool: "growthbook_get_feature_staleness", Args: map[string]any{"feature_ids": "live-checkout-express,live-beta-banner"}, Expect: []string{"live-checkout-express", "staleByEnv"}},
 			{Tool: "growthbook_list_feature_revisions", Args: map[string]any{"feature_id": "live-beta-banner", "status": "published"}, Expect: []string{"live-beta-banner", "published", "Created via REST API"}},
 			{Tool: "growthbook_list_experiments", Expect: []string{"Live Checkout Test", "Live Banner Test", "won"}},
-			{Tool: "growthbook_list_experiments", Args: map[string]any{"status": "stopped"}, Expect: []string{"Live Banner Test"}},
+			{Tool: "growthbook_list_experiments", Args: map[string]any{"status": "stopped"}, Expect: []string{"Live Banner Test", `"total":1`}},
 			{Tool: "growthbook_get_experiment", Args: map[string]any{"experiment_id": "${stopped_id}"}, Expect: []string{"Live Banner Test", "live-banner-flow", "Banner won"}},
 			{Tool: "growthbook_get_experiment_results", Args: map[string]any{"experiment_id": "${experiment_id}"}, Expect: []string{"Purchase Rate", "chanceToBeatControl", "Express", `"totalUsers":400`}},
-			{Tool: "growthbook_refresh_experiment_results", Args: map[string]any{"experiment_id": "${experiment_id}"}, Expect: []string{"snp_", "${experiment_id}"}},
+			{Tool: "growthbook_refresh_experiment_results", Args: map[string]any{"experiment_id": "${stopped_id}"}, Expect: []string{"snp_", "${stopped_id}"}},
 			{Tool: "growthbook_get_snapshot", Args: map[string]any{"snapshot_id": "${snapshot_id}"}, Expect: []string{"${snapshot_id}", "success"}},
 			{Tool: "growthbook_list_fact_metrics", Expect: []string{"Purchase Rate", "${fact_table_id}"}},
 			{Tool: "growthbook_get_fact_metric", Args: map[string]any{"metric_id": "${metric_id}"}, Expect: []string{"Purchase Rate", "proportion"}},
@@ -251,6 +251,11 @@ func liveGrowthBookProvision(t *testing.T) liveProvision {
 		}
 		return nil
 	})
+	// Only the running experiment has a snapshot, so the refresh case on the
+	// stopped one can only pass by creating a new analysis.
+	status, data, err = api.call(http.MethodGet, fmt.Sprintf("/api/v1/experiments/%v/results", stopped["id"]), nil)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, status, "stopped experiment must start without results: %s", data)
 	rest(http.MethodPost, "/v2/features/live-beta-banner/toggle", map[string]any{"environments": map[string]any{"production": true}, "reason": "live launch"})
 	rest(http.MethodPost, "/v1/code-refs", map[string]any{"branch": "main", "repoName": "acme/web", "refs": []any{map[string]any{"filePath": "src/checkout.ts", "startingLineNumber": 42, "lines": "if (gb.isOn('live-checkout-express')) {", "flagKey": "live-checkout-express", "contentHash": "live"}}})
 

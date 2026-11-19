@@ -107,19 +107,29 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestConfigure_FailureClearsPreviousState(t *testing.T) {
-	adapter := New().(*growthbook)
-	require.NoError(t, adapter.Configure(context.Background(), mcp.Credentials{"api_key": "secret_abc"}))
+	adapter, requests := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"projects":[]}`)
+	})
+	require.True(t, adapter.Healthy(context.Background()))
 	require.Error(t, adapter.Configure(context.Background(), mcp.Credentials{}))
 	assert.Empty(t, adapter.apiKey)
 	assert.False(t, adapter.Healthy(context.Background()))
+	assert.Len(t, *requests, 1, "a failed reconfigure must not keep the old credentials")
 }
 
 func TestCloseIsIdempotent(t *testing.T) {
-	adapter := New().(*growthbook)
-	require.NoError(t, adapter.Configure(context.Background(), mcp.Credentials{"api_key": "secret_abc"}))
+	adapter, requests := newTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"projects":[]}`)
+	})
+	require.True(t, adapter.Healthy(context.Background()))
+	require.Len(t, *requests, 1)
 	require.NoError(t, adapter.Close())
 	require.NoError(t, adapter.Close())
 	assert.False(t, adapter.Healthy(context.Background()))
+	result, err := adapter.Execute(context.Background(), "growthbook_list_projects", nil)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Len(t, *requests, 1, "a closed adapter must not reach GrowthBook")
 }
 
 func TestHealthy(t *testing.T) {
