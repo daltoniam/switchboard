@@ -28,7 +28,12 @@ func newTestServer(t *testing.T, handler func(w http.ResponseWriter, r *http.Req
 	t.Helper()
 	var requests []recordedRequest
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "Bearer "+testKey, r.Header.Get("Authorization"))
+		// The handler runs outside the test goroutine, so it reports with
+		// non-fatal assertions and answers with an error status instead.
+		if !assert.Equal(t, "Bearer "+testKey, r.Header.Get("Authorization")) {
+			http.Error(w, `{"message":"unexpected authorization"}`, http.StatusUnauthorized)
+			return
+		}
 		record := recordedRequest{Method: r.Method, Path: r.URL.Path, Query: map[string]string{}}
 		for key := range r.URL.Query() {
 			record.Query[key] = r.URL.Query().Get(key)
@@ -36,8 +41,10 @@ func newTestServer(t *testing.T, handler func(w http.ResponseWriter, r *http.Req
 		if r.Body != nil {
 			data, _ := io.ReadAll(r.Body)
 			if len(data) > 0 {
-				require.Equal(t, "application/json", r.Header.Get("Content-Type"))
-				require.NoError(t, json.Unmarshal(data, &record.Body))
+				if !assert.Equal(t, "application/json", r.Header.Get("Content-Type")) || !assert.NoError(t, json.Unmarshal(data, &record.Body)) {
+					http.Error(w, `{"message":"unexpected request body"}`, http.StatusBadRequest)
+					return
+				}
 			}
 		}
 		requests = append(requests, record)

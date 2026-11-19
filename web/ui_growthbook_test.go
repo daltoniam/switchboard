@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/pem"
 	"io"
 	"net/http"
@@ -82,6 +83,14 @@ func TestUIGrowthBook(t *testing.T) {
 		case "GET /gb/api/v1/sdk-connections":
 			_, _ = io.WriteString(w, `{"connections":[{"id":"sdk_ui","name":"UI Web App","key":"sdk-ui-public","environment":"production","encryptionKey":"SECRET_SENTINEL","proxySigningKey":"SECRET_SENTINEL"}],`+page+`}`)
 		case "POST /gb/api/v2/features/ui-checkout-flag/toggle":
+			var body struct {
+				Environments map[string]any `json:"environments"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Environments) != 1 || body.Environments["production"] != false {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = io.WriteString(w, `{"message":"expected a request that disables only production"}`)
+				return
+			}
 			w.WriteHeader(http.StatusAccepted)
 			_, _ = io.WriteString(w, `{"confirmation":{"id":"cnf_ui","status":"pending","url":"https://app.growthbook.example/confirm/cnf_ui","actions":[{"action":"feature.toggle","environments":["production"]}]}}`)
 		default:
