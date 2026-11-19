@@ -26,6 +26,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/airflow"
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	"github.com/daltoniam/switchboard/integrations/argoworkflows"
+	"github.com/daltoniam/switchboard/integrations/authentik"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/botidentity"
 	"github.com/daltoniam/switchboard/integrations/clickhouse"
@@ -359,6 +360,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		snipeit.New(),
 		wazuh.New(),
 		gatus.New(),
+		authentik.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),

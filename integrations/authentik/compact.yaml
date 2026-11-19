@@ -1,0 +1,8 @@
+version: 1
+tools:
+  authentik_list_users:
+    spec: [page, caveat]
+  authentik_get_user:
+    spec: [pk, username, is_active, last_login, groups, truncated]
+  authentik_list_user_applications:
+    spec: [page, caveat]
