@@ -1,0 +1,1 @@
+{"environments":[{"id":"production","projects":[],"description":"","defaultState":true,"toggleOnList":true,"isProduction":true},{"id":"staging","projects":["prj_2ChD3pcdGrNbGm6CBG3z6B"],"description":"Staging","defaultState":false,"toggleOnList":false,"isProduction":false}]}

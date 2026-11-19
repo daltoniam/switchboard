@@ -35,6 +35,7 @@ const simpleLogoAliases = {
   gtasks: 'googletasks', paperless: 'paperlessngx', likec4excalidraw: 'excalidraw',
 };
 const logoSources = {
+  growthbook: 'https://cdn.jsdelivr.net/gh/gilbarbara/logos@4a5b550414be64d5c007574cd395d910d50e8950/logos/growth-book-icon.svg',
   launchdarkly: 'https://cdn.jsdelivr.net/gh/gilbarbara/logos@4a5b550414be64d5c007574cd395d910d50e8950/logos/launchdarkly-icon.svg',
   netsuite: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@519c5834ec021db50db5a0db16a510f5679ae887/svg/netsuite.svg',
   servicenow: 'https://cdn.jsdelivr.net/gh/callback-io/allogo@95790d39b66a2bdb09661ea779fc15361d58f07f/public/logos/servicenow/icon.svg',
