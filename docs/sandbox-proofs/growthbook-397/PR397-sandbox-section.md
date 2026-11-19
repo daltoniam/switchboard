@@ -58,7 +58,7 @@ Proof head `41f207e07389bb64f634b4970c9940ad60f5e5b3`. Self-hosted GrowthBook **
 - **Minor (INFO, not a bug):** `growthbook_toggle_feature` with `enabled:"true"` (a string) is accepted and coerced. Toggling an environment to the state it already has returns `status:"updated"` with an unchanged revision version.
 - **Secrets:** a leak scan of every MCP response and Switchboard log found no API key, admin password, warehouse password, `encryptionKey`, `proxySigningKey` or `secureAttributeSalt`. The proxy log shows the key only in the bearer header, never in a query string.
 
-Artifacts on branch `sandbox-e2e-proofs` at `3df88f6b368ebff2e2b6fcf69039f52b1f47600b` (not in this PR diff): [proof.mp4](https://github.com/daltoniam/switchboard/blob/sandbox-e2e-proofs/docs/sandbox-proofs/growthbook-397/proof.mp4) · [REPORT.md](https://github.com/daltoniam/switchboard/blob/sandbox-e2e-proofs/docs/sandbox-proofs/growthbook-397/REPORT.md)
+Artifacts on branch `sandbox-e2e-proofs` at `8178dbcac8c49f648c07cf8d3cc08770263c60b1` (not in this PR diff): [proof.mp4](https://github.com/daltoniam/switchboard/blob/sandbox-e2e-proofs/docs/sandbox-proofs/growthbook-397/proof.mp4) · [REPORT.md](https://github.com/daltoniam/switchboard/blob/sandbox-e2e-proofs/docs/sandbox-proofs/growthbook-397/REPORT.md)
 
 <details><summary>Full report</summary>
 
