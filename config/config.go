@@ -20,6 +20,11 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"authentik": {
+		"base_url": "AUTHENTIK_BASE_URL",
+		"token":    "AUTHENTIK_TOKEN",
+		"ca_cert":  "AUTHENTIK_CA_CERT",
+	},
 	"gatus": {
 		"base_url": "GATUS_BASE_URL",
 		"username": "GATUS_USERNAME",
@@ -438,6 +443,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"authentik": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "token": "", "ca_cert": ""},
+			},
 			"gatus": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "username": "", "password": "", "ca_cert": ""},

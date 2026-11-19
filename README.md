@@ -320,6 +320,9 @@ Environment variables override credential values but do not change the durable e
 | Integration | Credential | Env Var |
 |---|---|---|
 | GitHub | `token` | `GITHUB_TOKEN` |
+| [authentik](docs/authentik.md) | `base_url` | `AUTHENTIK_BASE_URL` (required trusted HTTPS tenant URL) |
+| authentik | `token` | `AUTHENTIK_TOKEN` (required dedicated non-superuser API-intent token) |
+| authentik | `ca_cert` | `AUTHENTIK_CA_CERT` (optional PEM CA certificate) |
 | [Snipe-IT](docs/snipeit-setup.md) | `base_url` | `SNIPEIT_BASE_URL` (required HTTPS installation URL) |
 | Snipe-IT | `token` | `SNIPEIT_TOKEN` (required dedicated asset reader PAT) |
 | Snipe-IT | `ca_cert` | `SNIPEIT_CA_CERT` (optional PEM CA certificate) |
