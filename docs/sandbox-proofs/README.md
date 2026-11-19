@@ -9,6 +9,7 @@ This directory holds **live end-to-end smoke proof** from local Docker sandboxes
 | [`cloudflare-303/`](cloudflare-303/) | [#303](https://github.com/daltoniam/switchboard/pull/303) | Cloudflare Access + tunnels |
 | [`github-307/`](github-307/) | [#307](https://github.com/daltoniam/switchboard/pull/307) | GitHub `github_trigger_workflow` optional `inputs` |
 | [`imessage-320/`](imessage-320/) | [#320](https://github.com/daltoniam/switchboard/pull/320) | iMessage (SQLite read + AppleScript send) — re-run on `d7de0f40` (**53 PASS / 0 FAIL**); earlier run in [`prior-cec573f3/`](imessage-320/prior-cec573f3/) |
+| [`growthbook-397/`](growthbook-397/) | [#397](https://github.com/daltoniam/switchboard/pull/397) | GrowthBook native REST — **78 PASS / 0 FAIL / 4 INFO** at `41f207e` |
 
 **Branch:** `sandbox-e2e-proofs` (published separately so integration PR diffs stay focused on code).
 
