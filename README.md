@@ -444,6 +444,9 @@ Environment variables override credential values but do not change the durable e
 | Prometheus | `ca_cert` | `PROMETHEUS_CA_CERT` (optional PEM CA certificate; TLS verification cannot be disabled) |
 | LaunchDarkly | `access_token` | `LAUNCHDARKLY_ACCESS_TOKEN` (personal or service access token; SDK keys cannot call the REST API) |
 | LaunchDarkly | `base_url` | `LAUNCHDARKLY_BASE_URL` (optional — default `https://app.launchdarkly.com`; EU `https://app.eu.launchdarkly.com`; Federal `https://app.launchdarkly.us`) |
+| [GrowthBook](docs/growthbook.md) | `api_key` | `GROWTHBOOK_API_KEY` (Secret Key or Personal Access Token; SDK client keys cannot call the REST API) |
+| GrowthBook | `base_url` | `GROWTHBOOK_BASE_URL` (optional HTTPS API URL; default `https://api.growthbook.io/api`, self-hosted `API_HOST`) |
+| GrowthBook | `ca_cert` | `GROWTHBOOK_CA_CERT` (optional PEM CA certificate for a self-hosted API) |
 | dbt | `token` | `DBT_TOKEN` (dbt Cloud service token with Job Viewer permission, or a personal access token; sent as `Authorization: Token <token>`) |
 | dbt | `account_id` | `DBT_ACCOUNT_ID` (numeric dbt Cloud account ID) |
 | dbt | `base_url` | `DBT_BASE_URL` (optional — default `https://cloud.getdbt.com`; cell/regional access URL such as `https://ab123.us1.dbt.com`, `https://emea.dbt.com`, `https://au.dbt.com`) |

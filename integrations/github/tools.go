@@ -499,7 +499,7 @@ var tools = []mcp.ToolDefinition{
 	},
 	{
 		Name: mcp.ToolName("github_merge_pull"), Description: "Merge a pull request",
-		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "commit_message": "Merge commit message", "merge_method": "Method: merge, squash, rebase"},
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "commit_message": "Merge commit message", "merge_method": "Method: merge, squash, rebase", "sha": "Expected head SHA. GitHub refuses the merge if the PR head has moved, so only the commit you checked is merged."},
 		Required:   []string{"owner", "repo", "pull_number"},
 	},
 	{

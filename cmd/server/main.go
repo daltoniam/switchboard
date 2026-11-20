@@ -56,6 +56,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gpeople"
 	"github.com/daltoniam/switchboard/integrations/grist"
 	"github.com/daltoniam/switchboard/integrations/groupme"
+	"github.com/daltoniam/switchboard/integrations/growthbook"
 	"github.com/daltoniam/switchboard/integrations/gsheets"
 	"github.com/daltoniam/switchboard/integrations/gslides"
 	"github.com/daltoniam/switchboard/integrations/gtasks"
@@ -361,6 +362,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		wazuh.New(),
 		gatus.New(),
 		authentik.New(),
+		growthbook.New(),
 		recoll.New(),
 		imessage.New(),
 		awsInt.New(),

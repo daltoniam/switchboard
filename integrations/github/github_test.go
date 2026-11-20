@@ -451,3 +451,48 @@ func TestMaxResponseBytesForTool(t *testing.T) {
 	_, ok = g.MaxResponseBytesForTool(mcp.ToolName("github_list_issues"))
 	assert.False(t, ok, "unrelated tools should not declare a per-tool cap")
 }
+
+// ── PR merge expected-head guard ────────────────────────────────
+
+func TestMergePR_SendsExpectedHeadSHA(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    map[string]any
+		wantSHA string
+	}{
+		{name: "sha passed through", args: map[string]any{"owner": "o", "repo": "r", "pull_number": 7, "merge_method": "squash", "sha": "abc123"}, wantSHA: "abc123"},
+		{name: "no sha merges current head", args: map[string]any{"owner": "o", "repo": "r", "pull_number": 7}, wantSHA: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var body map[string]any
+			g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/repos/o/r/pulls/7/merge", r.URL.Path)
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"merged":true,"sha":"merged-sha"}`))
+			}))
+			defer ts.Close()
+
+			result, err := mergePR(context.Background(), g, tt.args)
+			require.NoError(t, err)
+			assert.False(t, result.IsError, "unexpected error: %s", result.Data)
+			sha, _ := body["sha"].(string)
+			assert.Equal(t, tt.wantSHA, sha)
+		})
+	}
+}
+
+func TestMergePR_HeadMovedIsAnError(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"message":"Head branch was modified. Review and try the merge again."}`))
+	}))
+	defer ts.Close()
+
+	result, err := mergePR(context.Background(), g, map[string]any{"owner": "o", "repo": "r", "pull_number": 7, "sha": "old"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "Head branch was modified")
+}

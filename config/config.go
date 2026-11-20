@@ -25,6 +25,11 @@ var envMapping = map[string]map[string]string{
 		"token":    "AUTHENTIK_TOKEN",
 		"ca_cert":  "AUTHENTIK_CA_CERT",
 	},
+	"growthbook": {
+		"api_key":  "GROWTHBOOK_API_KEY",
+		"base_url": "GROWTHBOOK_BASE_URL",
+		"ca_cert":  "GROWTHBOOK_CA_CERT",
+	},
 	"gatus": {
 		"base_url": "GATUS_BASE_URL",
 		"username": "GATUS_USERNAME",
@@ -449,6 +454,10 @@ func defaultConfig() *mcp.Config {
 			"authentik": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "token": "", "ca_cert": ""},
+			},
+			"growthbook": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "base_url": "", "ca_cert": ""},
 			},
 			"gatus": {
 				Enabled:     false,
