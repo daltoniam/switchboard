@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -24,9 +25,28 @@ type recordedRequest struct {
 	Body   map[string]any
 }
 
-func newTestServer(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) (*growthbook, *[]recordedRequest) {
+// requestLog records requests from the server goroutine for the test
+// goroutine to read.
+type requestLog struct {
+	mu       sync.Mutex
+	requests []recordedRequest
+}
+
+func (l *requestLog) add(record recordedRequest) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.requests = append(l.requests, record)
+}
+
+func (l *requestLog) list() []recordedRequest {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]recordedRequest(nil), l.requests...)
+}
+
+func newTestServer(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) (*growthbook, *requestLog) {
 	t.Helper()
-	var requests []recordedRequest
+	requests := &requestLog{}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// The handler runs outside the test goroutine, so it reports with
 		// non-fatal assertions and answers with an error status instead.
@@ -47,7 +67,7 @@ func newTestServer(t *testing.T, handler func(w http.ResponseWriter, r *http.Req
 				}
 			}
 		}
-		requests = append(requests, record)
+		requests.add(record)
 		w.Header().Set("Content-Type", "application/json")
 		handler(w, r)
 	}))
@@ -60,7 +80,7 @@ func newTestServer(t *testing.T, handler func(w http.ResponseWriter, r *http.Req
 		"base_url": server.URL,
 		"ca_cert":  strings.ReplaceAll(string(cert), "\n", `\n`),
 	}))
-	return adapter, &requests
+	return adapter, requests
 }
 
 func TestNew(t *testing.T) {
@@ -114,7 +134,7 @@ func TestConfigure_FailureClearsPreviousState(t *testing.T) {
 	require.Error(t, adapter.Configure(context.Background(), mcp.Credentials{}))
 	assert.Empty(t, adapter.apiKey)
 	assert.False(t, adapter.Healthy(context.Background()))
-	assert.Len(t, *requests, 1, "a failed reconfigure must not keep the old credentials")
+	assert.Len(t, requests.list(), 1, "a failed reconfigure must not keep the old credentials")
 }
 
 func TestCloseIsIdempotent(t *testing.T) {
@@ -122,14 +142,14 @@ func TestCloseIsIdempotent(t *testing.T) {
 		_, _ = io.WriteString(w, `{"projects":[]}`)
 	})
 	require.True(t, adapter.Healthy(context.Background()))
-	require.Len(t, *requests, 1)
+	require.Len(t, requests.list(), 1)
 	require.NoError(t, adapter.Close())
 	require.NoError(t, adapter.Close())
 	assert.False(t, adapter.Healthy(context.Background()))
 	result, err := adapter.Execute(context.Background(), "growthbook_list_projects", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Len(t, *requests, 1, "a closed adapter must not reach GrowthBook")
+	assert.Len(t, requests.list(), 1, "a closed adapter must not reach GrowthBook")
 }
 
 func TestHealthy(t *testing.T) {
@@ -138,9 +158,9 @@ func TestHealthy(t *testing.T) {
 		_, _ = io.WriteString(w, `{"projects":[],"limit":1,"offset":0,"count":0,"total":0,"hasMore":false,"nextOffset":null}`)
 	})
 	assert.True(t, adapter.Healthy(context.Background()))
-	require.Len(t, *requests, 1)
-	assert.Equal(t, "/api/v1/projects", (*requests)[0].Path)
-	assert.Equal(t, "1", (*requests)[0].Query["limit"])
+	require.Len(t, requests.list(), 1)
+	assert.Equal(t, "/api/v1/projects", requests.list()[0].Path)
+	assert.Equal(t, "1", requests.list()[0].Query["limit"])
 }
 
 func TestHealthy_Unauthorized(t *testing.T) {
@@ -269,8 +289,8 @@ func TestReadTools_RequestMapping(t *testing.T) {
 			result, err := adapter.Execute(context.Background(), tt.tool, tt.args)
 			require.NoError(t, err)
 			require.False(t, result.IsError, result.Data)
-			require.Len(t, *requests, 1)
-			got := (*requests)[0]
+			require.Len(t, requests.list(), 1)
+			got := requests.list()[0]
 			assert.Equal(t, http.MethodGet, got.Method)
 			assert.Equal(t, tt.wantPath, got.Path)
 			assert.Equal(t, tt.wantQuery, got.Query)
@@ -298,7 +318,7 @@ func TestReadTools_RequiredArgs(t *testing.T) {
 			assert.Contains(t, result.Data, tool.Required[0])
 		})
 	}
-	assert.Empty(t, *requests, "missing required args must not reach GrowthBook")
+	assert.Empty(t, requests.list(), "missing required args must not reach GrowthBook")
 }
 
 func TestPathArgsRejectTraversal(t *testing.T) {
@@ -310,7 +330,7 @@ func TestPathArgsRejectTraversal(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, result.IsError, id)
 	}
-	assert.Empty(t, *requests)
+	assert.Empty(t, requests.list())
 }
 
 func TestInvalidArgsAreRejected(t *testing.T) {
@@ -335,7 +355,7 @@ func TestInvalidArgsAreRejected(t *testing.T) {
 		assert.True(t, result.IsError, "%s %v", tt.tool, tt.args)
 		assert.Contains(t, result.Data, tt.want)
 	}
-	assert.Empty(t, *requests)
+	assert.Empty(t, requests.list())
 }
 
 func TestListSDKConnections_StripsSecrets(t *testing.T) {
@@ -400,12 +420,19 @@ func TestAPIErrors(t *testing.T) {
 
 func TestRedirectsAreNotFollowed(t *testing.T) {
 	adapter, requests := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "https://attacker.example/steal", http.StatusFound)
+		if r.URL.Path == "/api/v1/redirected" {
+			_, _ = io.WriteString(w, `{"projects":[{"id":"prj_redirected"}]}`)
+			return
+		}
+		http.Redirect(w, r, "/api/v1/redirected", http.StatusFound)
 	})
 	result, err := adapter.Execute(context.Background(), "growthbook_list_projects", nil)
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Len(t, *requests, 1)
+	assert.Contains(t, result.Data, "redirect")
+	assert.NotContains(t, result.Data, "prj_redirected")
+	require.Len(t, requests.list(), 1, "the redirect target must not be requested")
+	assert.Equal(t, "/api/v1/projects", requests.list()[0].Path)
 }
 
 func TestNonJSONSuccessIsError(t *testing.T) {
@@ -425,8 +452,8 @@ func TestToggleFeature(t *testing.T) {
 	result, err := adapter.Execute(context.Background(), "growthbook_toggle_feature", map[string]any{"feature_id": "f1", "environment": "production", "enabled": true, "reason": "launch"})
 	require.NoError(t, err)
 	require.False(t, result.IsError, result.Data)
-	require.Len(t, *requests, 1)
-	got := (*requests)[0]
+	require.Len(t, requests.list(), 1)
+	got := requests.list()[0]
 	assert.Equal(t, http.MethodPost, got.Method)
 	assert.Equal(t, "/api/v2/features/f1/toggle", got.Path)
 	assert.Equal(t, map[string]any{"environments": map[string]any{"production": true}, "reason": "launch"}, got.Body)
@@ -453,7 +480,7 @@ func TestToggleFeature_Validation(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, result.IsError, "%v", args)
 	}
-	assert.Empty(t, *requests)
+	assert.Empty(t, requests.list())
 }
 
 func TestWrite_ConfirmationRequired(t *testing.T) {
@@ -486,9 +513,9 @@ func TestCreateFeature_StartsDisabledEverywhere(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError, result.Data)
-	require.Len(t, *requests, 2)
-	assert.Equal(t, "/api/v1/environments", (*requests)[0].Path)
-	got := (*requests)[1]
+	require.Len(t, requests.list(), 2)
+	assert.Equal(t, "/api/v1/environments", requests.list()[0].Path)
+	got := requests.list()[1]
 	assert.Equal(t, http.MethodPost, got.Method)
 	assert.Equal(t, "/api/v2/features", got.Path)
 	assert.Equal(t, map[string]any{
@@ -514,7 +541,7 @@ func TestCreateFeature_Validation(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, result.IsError, "%v", args)
 	}
-	assert.Empty(t, *requests)
+	assert.Empty(t, requests.list())
 }
 
 func TestRefreshExperimentResults(t *testing.T) {
@@ -524,7 +551,7 @@ func TestRefreshExperimentResults(t *testing.T) {
 	result, err := adapter.Execute(context.Background(), "growthbook_refresh_experiment_results", map[string]any{"experiment_id": "exp_1", "phase": 1, "dimension": "exp:country"})
 	require.NoError(t, err)
 	require.False(t, result.IsError, result.Data)
-	got := (*requests)[0]
+	got := requests.list()[0]
 	assert.Equal(t, http.MethodPost, got.Method)
 	assert.Equal(t, "/api/v1/experiments/exp_1/snapshot", got.Path)
 	assert.Equal(t, map[string]any{"phase": float64(1), "dimension": "exp:country"}, got.Body)
@@ -538,5 +565,5 @@ func TestRefreshExperimentResults_EmptyBody(t *testing.T) {
 	result, err := adapter.Execute(context.Background(), "growthbook_refresh_experiment_results", map[string]any{"experiment_id": "exp_1"})
 	require.NoError(t, err)
 	require.False(t, result.IsError, result.Data)
-	assert.Equal(t, map[string]any{}, (*requests)[0].Body)
+	assert.Equal(t, map[string]any{}, requests.list()[0].Body)
 }

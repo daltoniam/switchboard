@@ -123,6 +123,8 @@ func liveContainerIP(t *testing.T, container *liveDockerContainer) string {
 	return ip
 }
 
+const liveGrowthBookWarehouseDSN = "postgresql://warehouse_reader:live-warehouse-password@127.0.0.1:5432/warehouse"
+
 const liveGrowthBookWarehouseSQL = `
 CREATE TABLE experiment_viewed (user_id text, timestamp timestamptz, experiment_id text, variation_id text);
 CREATE TABLE purchases (user_id text, timestamp timestamptz, amount numeric);
@@ -133,17 +135,19 @@ INSERT INTO purchases SELECT 'u'||g, now() - interval '1 day', 10 + g%7 FROM gen
 func liveGrowthBookProvision(t *testing.T) liveProvision {
 	warehouse := liveStartContainer(t, liveDockerOptions{Image: liveGrowthBookWarehouseImage, Env: map[string]string{"POSTGRES_USER": "warehouse_reader", "POSTGRES_PASSWORD": "live-warehouse-password", "POSTGRES_DB": "warehouse"}})
 	mongo := liveStartContainer(t, liveDockerOptions{Image: liveGrowthBookMongoImage, Env: map[string]string{"MONGO_INITDB_ROOT_USERNAME": "root", "MONGO_INITDB_ROOT_PASSWORD": "live-mongo-password"}})
+	// TCP probes skip the image's temporary init server, which only
+	// listens on the Unix socket and restarts before the real one.
 	liveEventually(t, time.Minute, func() error {
-		return exec.CommandContext(t.Context(), "docker", "exec", warehouse.id, "pg_isready", "-U", "warehouse_reader", "-d", "warehouse").Run()
+		return exec.CommandContext(t.Context(), "docker", "exec", warehouse.id, "pg_isready", "-h", "127.0.0.1", "-U", "warehouse_reader", "-d", "warehouse").Run()
 	})
 	liveEventually(t, time.Minute, func() error {
-		_, err := exec.CommandContext(t.Context(), "docker", "exec", warehouse.id, "psql", "-U", "warehouse_reader", "-d", "warehouse", "-c", "SELECT 1").CombinedOutput()
+		_, err := exec.CommandContext(t.Context(), "docker", "exec", warehouse.id, "psql", liveGrowthBookWarehouseDSN, "-c", "SELECT 1").CombinedOutput()
 		return err
 	})
 	liveEventually(t, time.Minute, func() error {
 		return exec.CommandContext(t.Context(), "docker", "exec", mongo.id, "mongosh", "--quiet", "-u", "root", "-p", "live-mongo-password", "--eval", "db.adminCommand('ping')").Run()
 	})
-	warehouse.Exec(t, liveGrowthBookWarehouseSQL, "psql", "-v", "ON_ERROR_STOP=1", "-U", "warehouse_reader", "-d", "warehouse")
+	warehouse.Exec(t, liveGrowthBookWarehouseSQL, "psql", "-v", "ON_ERROR_STOP=1", liveGrowthBookWarehouseDSN)
 
 	server := liveStartContainer(t, liveDockerOptions{Image: liveGrowthBookImage, Ports: []string{"3100/tcp"}, Env: map[string]string{
 		"MONGODB_URI":        fmt.Sprintf("mongodb://root:live-mongo-password@%s:27017/growthbook?authSource=admin", liveContainerIP(t, mongo)),
