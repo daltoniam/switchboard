@@ -3,6 +3,7 @@ package datadog
 import (
 	"testing"
 
+	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,6 +48,21 @@ func TestFieldCompactionSpec_ReturnsFalseForMutationTool(t *testing.T) {
 	d := &dd{}
 	_, ok := d.CompactSpec("datadog_create_monitor")
 	assert.False(t, ok, "mutation tools should return false")
+}
+
+func TestFieldCompactionSpec_OnCallLookupsKeepResponderIdentity(t *testing.T) {
+	d := &dd{}
+	body := []byte(`{"data":{"id":"x","relationships":{"responders":{"data":[{"id":"u1","type":"users"}]}}},"included":[{"id":"u1","type":"users","attributes":{"name":"On Call","email":"oncall@example.com","handle":"oncall@example.com","icon":"https://img"}}]}`)
+	for _, tool := range []mcp.ToolName{"datadog_get_team_oncall_users", "datadog_get_schedule_oncall_user"} {
+		t.Run(string(tool), func(t *testing.T) {
+			fields, ok := d.CompactSpec(tool)
+			require.True(t, ok)
+			out, err := mcp.CompactJSON(body, fields)
+			require.NoError(t, err)
+			assert.Contains(t, string(out), "oncall@example.com")
+			assert.Contains(t, string(out), "On Call")
+		})
+	}
 }
 
 func TestFieldCompactionSpec_ReturnsFalseForUnknownTool(t *testing.T) {

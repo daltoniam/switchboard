@@ -598,8 +598,8 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"schedule_id"},
 	},
 	{
-		Name: mcp.ToolName("datadog_get_schedule_oncall_user"), Description: "Get the current on-call user for a schedule. Find who is on-call right now for a given rotation.",
-		Parameters: map[string]string{"schedule_id": "On-Call schedule ID"},
+		Name: mcp.ToolName("datadog_get_schedule_oncall_user"), Description: "Get the on-call user for a schedule, including their name and email. Find who is on-call right now (or at a given time) for a rotation.",
+		Parameters: map[string]string{"schedule_id": "On-Call schedule ID", "at": "Optional RFC3339 timestamp; defaults to now"},
 		Required:   []string{"schedule_id"},
 	},
 	{
@@ -637,7 +637,7 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"team_id", "body_json"},
 	},
 	{
-		Name: mcp.ToolName("datadog_get_team_oncall_users"), Description: "Get the current on-call users for a team. Find who is on-call right now across all team schedules.",
+		Name: mcp.ToolName("datadog_get_team_oncall_users"), Description: "Get who is on-call right now for a team (team ID from datadog_list_teams), including responder names and emails and the escalation chain behind them. Use this to answer 'who is on call?'.",
 		Parameters: map[string]string{"team_id": "Team ID"},
 		Required:   []string{"team_id"},
 	},

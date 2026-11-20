@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/google/uuid"
@@ -16,14 +17,20 @@ import (
 // ── Raw HTTP helper ──────────────────────────────────────────────────
 
 // ddGet performs a raw GET against the Datadog API for endpoints not yet
-// exposed by the Go SDK. It reuses the SDK client for auth, retry, and
-// base-URL resolution.
+// exposed by the Go SDK. It reuses the SDK client for retry and base-URL
+// resolution. PrepareRequest does not add credentials (each generated SDK
+// method calls SetAuthKeys itself), so the keys are added here; without them
+// Datadog answers 401.
 func ddGet(ctx context.Context, d *dd, path string, query url.Values) (*mcp.ToolResult, error) {
 	base, err := d.client.Cfg.ServerURLWithContext(ctx, "")
 	if err != nil {
 		return mcp.ErrResult(fmt.Errorf("resolve base URL: %w", err))
 	}
 	headers := map[string]string{"Accept": "application/json"}
+	datadog.SetAuthKeys(ctx, &headers,
+		[2]string{"apiKeyAuth", "DD-API-KEY"},
+		[2]string{"appKeyAuth", "DD-APPLICATION-KEY"},
+	)
 	req, err := d.client.PrepareRequest(ctx, base+path, http.MethodGet, nil, headers, query, url.Values{}, nil)
 	if err != nil {
 		return mcp.ErrResult(fmt.Errorf("prepare request: %w", err))
@@ -76,11 +83,16 @@ func getOnCallSchedule(ctx context.Context, d *dd, args map[string]any) (*mcp.To
 func getScheduleOnCallUser(ctx context.Context, d *dd, args map[string]any) (*mcp.ToolResult, error) {
 	r := mcp.NewArgs(args)
 	id := r.Str("schedule_id")
+	at := r.Str("at")
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 	api := datadogV2.NewOnCallApi(d.client)
-	resp, _, err := api.GetScheduleOnCallUser(ctx, id, *datadogV2.NewGetScheduleOnCallUserOptionalParameters())
+	opts := datadogV2.NewGetScheduleOnCallUserOptionalParameters().WithInclude("user")
+	if at != "" {
+		opts = opts.WithFilterAtTs(at)
+	}
+	resp, _, err := api.GetScheduleOnCallUser(ctx, id, *opts)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
@@ -142,7 +154,8 @@ func getTeamOnCallUsers(ctx context.Context, d *dd, args map[string]any) (*mcp.T
 		return mcp.ErrResult(err)
 	}
 	api := datadogV2.NewOnCallApi(d.client)
-	resp, _, err := api.GetTeamOnCallUsers(ctx, teamID, *datadogV2.NewGetTeamOnCallUsersOptionalParameters())
+	opts := datadogV2.NewGetTeamOnCallUsersOptionalParameters().WithInclude("responders,escalations,escalations.responders")
+	resp, _, err := api.GetTeamOnCallUsers(ctx, teamID, *opts)
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
