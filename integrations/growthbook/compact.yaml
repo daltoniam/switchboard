@@ -1,0 +1,367 @@
+# Switchboard compaction specs for the growthbook integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+#
+# Feature flag environments are keyed by environment id (a dynamic map), so
+# list_features and get_feature keep the whole environments object. Each
+# environment carries a compiled SDK "definition" string that repeats the
+# rules; the engine cannot reach keys under the dynamic map, so handlers drop
+# it before compaction (see dropEnvironmentDefinitions in handlers.go).
+#
+# Secrets never reach compaction: handlers strip SDK connection encryption and
+# proxy signing keys, data source connection parameters, and the secure
+# attribute salt in settings, so script callers (which bypass compaction) do
+# not see them either.
+#
+# Rules inside a list are nested arrays, which the engine cannot project into
+# sub-objects, so list_features keeps rules whole. Experiment results keep the
+# per-dimension result rows whole for the same reason; they are already the
+# decision data (users, chance to win, percent change, intervals).
+
+version: 1
+tools:
+  growthbook_list_features:
+    spec:
+      - features[].id
+      - features[].description
+      - features[].valueType
+      - features[].defaultValue
+      - features[].archived
+      - features[].project
+      - features[].tags
+      - features[].ownerEmail
+      - features[].dateUpdated
+      - features[].environments
+      - features[].rules
+      - features[].prerequisites
+      - features[].revision.version
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_get_feature:
+    spec:
+      - feature.id
+      - feature.description
+      - feature.valueType
+      - feature.defaultValue
+      - feature.archived
+      - feature.project
+      - feature.tags
+      - feature.ownerEmail
+      - feature.dateCreated
+      - feature.dateUpdated
+      - feature.environments
+      - feature.rules
+      - feature.prerequisites
+      - feature.revision.version
+      - feature.revision.comment
+      - feature.revision.date
+      - feature.revision.publishedBy.name
+  growthbook_get_feature_staleness:
+    spec:
+      - features.*
+  growthbook_list_feature_revisions:
+    spec:
+      - revisions[].id
+      - revisions[].featureId
+      - revisions[].version
+      - revisions[].baseVersion
+      - revisions[].status
+      - revisions[].comment
+      - revisions[].date
+      - revisions[].createdBy.name
+      - revisions[].publishedBy.name
+      - revisions[].environmentsEnabled
+      - revisions[].defaultValue
+      - revisions[].rules
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_list_experiments:
+    spec:
+      - experiments[].id
+      - experiments[].trackingKey
+      - experiments[].name
+      - experiments[].type
+      - experiments[].status
+      - experiments[].archived
+      - experiments[].project
+      - experiments[].tags
+      - experiments[].ownerEmail
+      - experiments[].hypothesis
+      - experiments[].dateUpdated
+      - experiments[].variations
+      - experiments[].phases
+      - experiments[].settings.datasourceId
+      - experiments[].settings.goals
+      - experiments[].settings.statsEngine
+      - experiments[].linkedFeatures
+      - experiments[].resultSummary
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_get_experiment:
+    spec:
+      - experiment.id
+      - experiment.trackingKey
+      - experiment.name
+      - experiment.type
+      - experiment.status
+      - experiment.enhancedStatus
+      - experiment.archived
+      - experiment.project
+      - experiment.tags
+      - experiment.ownerEmail
+      - experiment.hypothesis
+      - experiment.description
+      - experiment.dateCreated
+      - experiment.dateUpdated
+      - experiment.hashAttribute
+      - experiment.variations
+      - experiment.phases
+      - experiment.settings.datasourceId
+      - experiment.settings.assignmentQueryId
+      - experiment.settings.experimentId
+      - experiment.settings.segmentId
+      - experiment.settings.statsEngine
+      - experiment.settings.attributionModel
+      - experiment.settings.goals
+      - experiment.settings.secondaryMetrics
+      - experiment.settings.guardrails
+      - experiment.linkedFeatures
+      - experiment.resultSummary
+  growthbook_get_experiment_results:
+    spec:
+      - experiment.id
+      - experiment.name
+      - experiment.status
+      - experiment.enhancedStatus
+      - experiment.variations
+      - result.id
+      - result.dateUpdated
+      - result.phase
+      - result.dimension
+      - result.dateStart
+      - result.dateEnd
+      - result.settings.statsEngine
+      - result.settings.goals
+      - result.results
+      - result.health
+    max_bytes: 200000
+  growthbook_get_snapshot:
+    spec:
+      - snapshot.id
+      - snapshot.experiment
+      - snapshot.status
+  growthbook_list_fact_metrics:
+    spec:
+      - factMetrics[].id
+      - factMetrics[].name
+      - factMetrics[].description
+      - factMetrics[].metricType
+      - factMetrics[].datasource
+      - factMetrics[].projects
+      - factMetrics[].tags
+      - factMetrics[].inverse
+      - factMetrics[].numerator.factTableId
+      - factMetrics[].numerator.column
+      - factMetrics[].ownerEmail
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_get_fact_metric:
+    spec:
+      - factMetric.id
+      - factMetric.name
+      - factMetric.description
+      - factMetric.metricType
+      - factMetric.datasource
+      - factMetric.projects
+      - factMetric.tags
+      - factMetric.inverse
+      - factMetric.numerator
+      - factMetric.windowSettings
+      - factMetric.cappingSettings
+      - factMetric.minSampleSize
+      - factMetric.minPercentChange
+      - factMetric.maxPercentChange
+      - factMetric.targetMDE
+      - factMetric.ownerEmail
+      - factMetric.dateUpdated
+  growthbook_list_metrics:
+    spec:
+      - metrics[].id
+      - metrics[].name
+      - metrics[].description
+      - metrics[].type
+      - metrics[].datasourceId
+      - metrics[].projects
+      - metrics[].tags
+      - metrics[].archived
+      - metrics[].behavior.goal
+      - metrics[].ownerEmail
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_list_fact_tables:
+    spec:
+      - factTables[].id
+      - factTables[].name
+      - factTables[].description
+      - factTables[].datasource
+      - factTables[].userIdTypes
+      - factTables[].sql
+      - factTables[].projects
+      - factTables[].tags
+      - factTables[].columns
+      - factTables[].ownerEmail
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_list_projects:
+    spec:
+      - projects[].id
+      - projects[].name
+      - projects[].description
+      - projects[].publicId
+      - projects[].owner
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_list_environments:
+    spec:
+      - environments[].id
+      - environments[].description
+      - environments[].isProduction
+      - environments[].defaultState
+      - environments[].projects
+  growthbook_list_sdk_connections:
+    spec:
+      - connections[].id
+      - connections[].name
+      - connections[].key
+      - connections[].environment
+      - connections[].projects
+      - connections[].languages
+      - connections[].sdkVersion
+      - connections[].encryptPayload
+      - connections[].remoteEvalEnabled
+      - connections[].proxyEnabled
+      - connections[].archived
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_list_saved_groups:
+    spec:
+      - savedGroups[].id
+      - savedGroups[].name
+      - savedGroups[].type
+      - savedGroups[].attributeKey
+      - savedGroups[].condition
+      - savedGroups[].projects
+      - savedGroups[].archived
+      - savedGroups[].dateUpdated
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_get_saved_group:
+    spec:
+      - savedGroup.id
+      - savedGroup.name
+      - savedGroup.type
+      - savedGroup.attributeKey
+      - savedGroup.condition
+      - savedGroup.values
+      - savedGroup.projects
+      - savedGroup.archived
+      - savedGroup.owner
+      - savedGroup.dateUpdated
+    max_bytes: 100000
+  growthbook_list_attributes:
+    spec:
+      - attributes[].property
+      - attributes[].datatype
+      - attributes[].description
+      - attributes[].hashAttribute
+      - attributes[].enum
+      - attributes[].projects
+  growthbook_list_data_sources:
+    spec:
+      - dataSources[].id
+      - dataSources[].name
+      - dataSources[].type
+      - dataSources[].description
+      - dataSources[].projectIds
+      - dataSources[].identifierTypes
+      - dataSources[].assignmentQueries
+      - dataSources[].eventTracker
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_list_segments:
+    spec:
+      - segments[].id
+      - segments[].name
+      - segments[].description
+      - segments[].type
+      - segments[].identifierType
+      - segments[].datasourceId
+      - segments[].query
+      - segments[].factTableId
+      - segments[].projects
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_list_audit_logs:
+    spec:
+      - audits[].id
+      - audits[].event
+      - audits[].entity
+      - audits[].user.name
+      - audits[].reason
+      - audits[].dateCreated
+      - nextCursor
+  growthbook_list_code_refs:
+    spec:
+      - codeRefs[].feature
+      - codeRefs[].repo
+      - codeRefs[].branch
+      - codeRefs[].refs
+      - codeRefs[].dateUpdated
+      - total
+      - hasMore
+      - nextOffset
+  growthbook_get_feature_code_refs:
+    spec:
+      - codeRefs[].feature
+      - codeRefs[].repo
+      - codeRefs[].branch
+      - codeRefs[].refs
+      - codeRefs[].dateUpdated
+  growthbook_get_settings:
+    spec:
+      - settings.featureKeyExample
+      - settings.featureRegexValidator
+      - settings.statsEngine
+      - settings.confidenceLevel
+      - settings.pValueThreshold
+      - settings.srmThreshold
+      - settings.attributionModel
+      - settings.requireReviews
+      - settings.restApiBypassesReviews
+      - settings.killswitchConfirmation
+      - settings.experimentMinLengthDays
+      - settings.sequentialTestingEnabled
+      - settings.regressionAdjustmentEnabled
+  growthbook_list_members:
+    spec:
+      - members[].id
+      - members[].name
+      - members[].email
+      - members[].globalRole
+      - members[].lastLoginDate
+      - total
+      - hasMore
+      - nextOffset

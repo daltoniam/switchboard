@@ -17,7 +17,7 @@ test('branded logo CSS uses immutable CDN URLs and preserves theme variants', ()
   const css = readFileSync(new URL('../../static/style.css', import.meta.url), 'utf8');
   const rules = [...css.matchAll(/\.integration-icon\[data-integration="([^"]+)"\]\{([^}]+)\}/g)];
   const branded = rules.filter(([, , rule]) => rule.includes('--integration-light:'));
-  assert.equal(rules.length, 71);
+  assert.equal(rules.length, 72);
   assert.ok(rules.some(([, name]) => name === 'grafana'));
   assert.ok(rules.some(([, name]) => name === 'groupme'));
   assert.ok(rules.some(([, name]) => name === 'discord'));
