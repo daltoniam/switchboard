@@ -176,7 +176,11 @@ func (g *grafana) doRequest(ctx context.Context, method, path string, query url.
 		return nil, fmt.Errorf("grafana: response is larger than %d MB; narrow the search or query", maxResponseSize/(1024*1024))
 	}
 	if looksLikeHTML(resp.Header.Get("Content-Type"), data) {
-		return nil, fmt.Errorf("grafana: %s answered with a web page (HTTP %d) instead of the API; %s", g.baseURL, resp.StatusCode, sleepingStackHint)
+		msg := fmt.Sprintf("grafana: %s answered with a web page (HTTP %d) instead of the API; %s", g.baseURL, resp.StatusCode, sleepingStackHint)
+		if resp.StatusCode < 400 {
+			return nil, errors.New(msg)
+		}
+		return nil, statusError(resp, nil, msg, retrySafe)
 	}
 
 	var parsed any
@@ -196,13 +200,20 @@ func (g *grafana) doRequest(ctx context.Context, method, path string, query url.
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 			msg += "; check the service account token and that its role allows this action"
 		}
-		apiErr := &apiError{status: resp.StatusCode, body: parsed, msg: msg}
-		if resp.StatusCode == http.StatusTooManyRequests || (retrySafe && resp.StatusCode >= 500) {
-			return nil, &mcp.RetryableError{StatusCode: resp.StatusCode, Err: apiErr, RetryAfter: mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))}
-		}
-		return nil, apiErr
+		return nil, statusError(resp, parsed, msg, retrySafe)
 	}
 	return parsed, nil
+}
+
+// statusError types a failed response. A rate limit is always retryable,
+// since Grafana did not process the request; a server error only when the
+// request is safe to repeat.
+func statusError(resp *http.Response, parsed any, msg string, retrySafe bool) error {
+	apiErr := &apiError{status: resp.StatusCode, body: parsed, msg: msg}
+	if resp.StatusCode == http.StatusTooManyRequests || (retrySafe && resp.StatusCode >= 500) {
+		return &mcp.RetryableError{StatusCode: resp.StatusCode, Err: apiErr, RetryAfter: mcp.ParseRetryAfter(resp.Header.Get("Retry-After"))}
+	}
+	return apiErr
 }
 
 // redirectTarget names where a redirect points without echoing its query,

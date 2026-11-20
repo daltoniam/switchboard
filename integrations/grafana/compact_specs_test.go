@@ -51,7 +51,7 @@ func TestFieldCompactionSpecs_Shapes(t *testing.T) {
 		drop    []string
 	}{
 		{"grafana_search_dashboards", `[{"id":622268405960704,"uid":"svc","orgId":1,"title":"Service Overview","uri":"db/service-overview","url":"/d/svc/service-overview","slug":"","type":"dash-db","tags":["svc"],"isStarred":false,"folderId":622247308582912,"folderUid":"ops","folderTitle":"Ops","folderUrl":"/dashboards/f/ops/ops","sortMeta":0,"isDeleted":false}]`,
-			[]string{`"svc"`, `"Service Overview"`, `"/d/svc/service-overview"`, `"Ops"`}, []string{"orgId", "uri", "sortMeta", "folderId"}},
+			[]string{`"uid":"svc"`, `"title":"Service Overview"`, `"url":"/d/svc/service-overview"`, `"folderTitle":"Ops"`}, []string{"orgId", "uri", "sortMeta", "folderId"}},
 		{"grafana_get_dashboard", `{"meta":{"type":"db","canSave":true,"canAdmin":true,"slug":"s","url":"/d/svc/s","version":3,"folderUid":"ops","folderTitle":"Ops","provisioned":false,"annotationsPermissions":{"dashboard":{"canAdd":true}}},"dashboard":{"id":7,"uid":"svc","title":"S","panels":[{"type":"timeseries","targets":[{"expr":"up"}]}],"version":3}}`,
 			[]string{`"panels"`, `"expr":"up"`, `"folderUid":"ops"`, `"version":3`}, []string{"canAdmin", "annotationsPermissions", "slug"}},
 		{"grafana_list_folders", `[{"id":-1,"uid":"sharedwithme","title":"Shared with me"},{"id":3,"uid":"ops","title":"Ops","parentUid":"root"}]`,

@@ -33,6 +33,9 @@ func init() {
 				},
 				"inputs": map[string]any{"DS_TESTDATA": "live-testdata"},
 			}, Expect: []string{"live-imported", "imported"}},
+			// Only a substituted import holds the data source uid; an unresolved
+			// ${DS_TESTDATA} would not.
+			{Tool: "grafana_get_dashboard", Args: map[string]any{"uid": "live-imported"}, Expect: []string{"Live Imported", "live-testdata"}},
 			{Tool: "grafana_list_folders", Args: map[string]any{"parent_uid": "live-ops"}, Expect: []string{"live-k8s", "Live K8s"}},
 			{Tool: "grafana_list_datasources", Expect: []string{"live-testdata", "grafana-testdata-datasource"}},
 			{Tool: "grafana_query_datasource", Args: map[string]any{"datasource_uid": "live-testdata", "query": map[string]any{"scenarioId": "random_walk", "seriesCount": 1}, "from": "now-10m", "max_data_points": 10}, Expect: []string{`"ref_id":"A"`, "A-series", "values"}},

@@ -32,7 +32,7 @@ var tools = []mcp.ToolDefinition{
 			"An exported dashboard with __inputs (such as ${DS_PROMETHEUS}) needs inputs mapping each name to a data source uid. Use after grafana_get_dashboard, grafana_list_folders or grafana_list_datasources.",
 		Parameters: map[string]string{
 			"dashboard":  "Dashboard JSON model as an object or JSON string. The {dashboard, meta} result of grafana_get_dashboard is accepted too. Omit uid to create a new dashboard",
-			"folder_uid": "Optional folder uid from grafana_list_folders (default: the General folder for new dashboards)",
+			"folder_uid": "Optional folder uid from grafana_list_folders (default: the dashboard's current folder, or General for a new dashboard)",
 			"overwrite":  "Replace the stored dashboard even if its version or title clash (default false)",
 			"message":    "Optional version history note describing the change",
 			"inputs":     `Optional object mapping each __inputs name to its value, e.g. {"DS_PROMETHEUS":"<data source uid>"}`,

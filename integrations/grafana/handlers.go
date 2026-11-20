@@ -141,10 +141,24 @@ func saveDashboard(ctx context.Context, g *grafana, args map[string]any) (*mcp.T
 	}
 
 	dash = maps.Clone(dash)
-	// Grafana matches by uid. An id copied from another Grafana, or from an
-	// export, would point at a different dashboard or none.
-	if uid, _ := dash["uid"].(string); uid != "" {
-		delete(dash, "id")
+	if uid, _ := dash["uid"].(string); uid != "" && importInputs == nil {
+		existing, err := findDashboard(ctx, g, uid)
+		if err != nil {
+			return mcp.ErrResult(err)
+		}
+		if existing == nil {
+			// A new dashboard. An id copied from another Grafana, or from an
+			// export, would point at a different dashboard or none.
+			delete(dash, "id")
+		} else {
+			// An update. Grafana needs the stored id to check the version
+			// instead of reporting a uid clash, and saving without a folder
+			// would move the dashboard to the root.
+			dash["id"] = existing.id
+			if folderUID == "" {
+				folderUID = existing.folderUID
+			}
+		}
 	}
 
 	body := map[string]any{"dashboard": dash, "overwrite": overwrite}
@@ -163,6 +177,32 @@ func saveDashboard(ctx context.Context, g *grafana, args map[string]any) (*mcp.T
 		return mcp.ErrResult(err)
 	}
 	return mcp.JSONResult(data)
+}
+
+// storedDashboard is what a save needs to know about the dashboard a uid
+// already names.
+type storedDashboard struct {
+	id        any
+	folderUID string
+}
+
+// findDashboard looks up the dashboard a uid names. It returns nil when there
+// is none.
+func findDashboard(ctx context.Context, g *grafana, uid string) (*storedDashboard, error) {
+	data, err := g.doRequest(ctx, http.MethodGet, "/api/dashboards/uid/"+url.PathEscape(uid), nil, nil, true)
+	var apiErr *apiError
+	if errors.As(err, &apiErr) && apiErr.status == http.StatusNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	found, _ := data.(map[string]any)
+	dash, _ := found["dashboard"].(map[string]any)
+	meta, _ := found["meta"].(map[string]any)
+	stored := &storedDashboard{id: dash["id"]}
+	stored.folderUID, _ = meta["folderUid"].(string)
+	return stored, nil
 }
 
 // resolveInputs pairs an exported dashboard's __inputs with the values the

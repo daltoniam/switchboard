@@ -211,11 +211,11 @@ func TestSearchDashboards_BadLimit(t *testing.T) {
 func TestGetDashboard(t *testing.T) {
 	g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/dashboards/uid/a%2Fb", r.URL.EscapedPath())
-		_, _ = io.WriteString(w, `{"meta":{"folderUid":"ops","version":3},"dashboard":{"uid":"a/b","title":"T","id":622268405960704}}`)
+		_, _ = io.WriteString(w, `{"meta":{"folderUid":"ops","version":3},"dashboard":{"uid":"a/b","title":"T","id":9007199254740993}}`)
 	})
 	result := execute(t, g, "grafana_get_dashboard", map[string]any{"uid": "a/b"})
 	require.False(t, result.IsError, result.Data)
-	assert.Contains(t, result.Data, `"id":622268405960704`, "large ids must survive the round trip unchanged")
+	assert.Contains(t, result.Data, `"id":9007199254740993`, "ids above 2^53 must survive the round trip unchanged")
 }
 
 func TestGetDashboard_RequiresUID(t *testing.T) {
@@ -264,6 +264,11 @@ func TestSaveDashboard_Variants(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					w.WriteHeader(http.StatusNotFound)
+					_, _ = io.WriteString(w, `{"message":"Dashboard not found"}`)
+					return
+				}
 				assert.Equal(t, http.MethodPost, r.Method)
 				assert.Equal(t, "/api/dashboards/db", r.URL.Path)
 				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
@@ -342,7 +347,11 @@ func TestSaveDashboard_Rejects(t *testing.T) {
 
 func TestSaveDashboard_VersionConflictIsNotRetried(t *testing.T) {
 	calls := 0
-	g := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+	g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = io.WriteString(w, `{"meta":{"folderUid":"ops"},"dashboard":{"id":7,"uid":"svc","version":2}}`)
+			return
+		}
 		calls++
 		w.WriteHeader(http.StatusPreconditionFailed)
 		_, _ = io.WriteString(w, `{"message":"The dashboard has been changed by someone else","status":"version-mismatch"}`)
@@ -562,7 +571,7 @@ func TestErrors_SleepingStack(t *testing.T) {
 		}},
 		{"HTML error page", func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
-			w.WriteHeader(http.StatusServiceUnavailable)
+			w.WriteHeader(http.StatusNotFound)
 			_, _ = io.WriteString(w, `<html><body>paused</body></html>`)
 		}},
 	}
@@ -609,4 +618,101 @@ func TestErrors_RateLimitIsRetryable(t *testing.T) {
 	_, err := g.doRequest(context.Background(), http.MethodPost, "/api/dashboards/db", nil, map[string]any{}, false)
 	require.Error(t, err)
 	assert.True(t, mcp.IsRetryable(err), "a rate-limited request was not processed, so even a save can retry")
+}
+
+func TestSaveDashboard_UpdateKeepsIDAndFolder(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       map[string]any
+		wantFolder string
+	}{
+		{"plain dashboard", map[string]any{"dashboard": map[string]any{"uid": "svc", "title": "S", "version": 2}}, "ops"},
+		{"get_dashboard result", map[string]any{"dashboard": map[string]any{"meta": map[string]any{"folderUid": "ops"}, "dashboard": map[string]any{"uid": "svc", "title": "S", "version": 2, "id": 7}}}, "ops"},
+		{"explicit folder wins", map[string]any{"dashboard": map[string]any{"uid": "svc", "title": "S", "version": 2}, "folder_uid": "new"}, "new"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			saved := false
+			g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					assert.Equal(t, "/api/dashboards/uid/svc", r.URL.Path)
+					_, _ = io.WriteString(w, `{"meta":{"folderUid":"ops"},"dashboard":{"id":9007199254740993,"uid":"svc","version":2}}`)
+					return
+				}
+				saved = true
+				raw, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				assert.Contains(t, string(raw), `"id":9007199254740993`, "the stored id keeps Grafana's version check")
+				var body map[string]any
+				require.NoError(t, json.Unmarshal(raw, &body))
+				assert.Equal(t, tc.wantFolder, body["folderUid"], "an update must not move the dashboard")
+				assert.Equal(t, false, body["overwrite"])
+				_, _ = io.WriteString(w, `{"status":"success","uid":"svc","version":3}`)
+			})
+			result := execute(t, g, "grafana_save_dashboard", tc.args)
+			require.False(t, result.IsError, result.Data)
+			assert.True(t, saved)
+		})
+	}
+}
+
+func TestSaveDashboard_NewDashboardDropsForeignID(t *testing.T) {
+	g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = io.WriteString(w, `{"message":"Dashboard not found"}`)
+			return
+		}
+		body := decodeBody(t, r)
+		dash, _ := body["dashboard"].(map[string]any)
+		assert.NotContains(t, dash, "id", "an id from another Grafana points at the wrong dashboard")
+		assert.NotContains(t, body, "folderUid")
+		_, _ = io.WriteString(w, `{"status":"success","uid":"svc"}`)
+	})
+	result := execute(t, g, "grafana_save_dashboard", map[string]any{"dashboard": map[string]any{"uid": "svc", "title": "S", "id": 99}})
+	require.False(t, result.IsError, result.Data)
+}
+
+func TestSaveDashboard_LookupFailureStopsTheSave(t *testing.T) {
+	g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodGet, r.Method, "nothing may be saved when the lookup fails")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = io.WriteString(w, `{"message":"Access denied"}`)
+	})
+	result := execute(t, g, "grafana_save_dashboard", map[string]any{"dashboard": map[string]any{"uid": "svc", "title": "S"}})
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "grafana API error (403)")
+}
+
+func TestErrors_HTMLErrorKeepsRetryClassification(t *testing.T) {
+	tests := []struct {
+		name      string
+		status    int
+		method    string
+		retrySafe bool
+		retryable bool
+	}{
+		{"rate limited save", http.StatusTooManyRequests, http.MethodPost, false, true},
+		{"unavailable read", http.StatusServiceUnavailable, http.MethodGet, true, true},
+		{"bad gateway read", http.StatusBadGateway, http.MethodGet, true, true},
+		{"unavailable save", http.StatusServiceUnavailable, http.MethodPost, false, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "text/html")
+				w.Header().Set("Retry-After", "2")
+				w.WriteHeader(tc.status)
+				_, _ = io.WriteString(w, `<html><body>busy</body></html>`)
+			})
+			_, err := g.doRequest(context.Background(), tc.method, "/api/datasources", nil, nil, tc.retrySafe)
+			require.Error(t, err)
+			assert.Equal(t, tc.retryable, mcp.IsRetryable(err))
+			assert.Contains(t, err.Error(), "web page")
+			var re *mcp.RetryableError
+			if tc.retryable && assert.ErrorAs(t, err, &re) {
+				assert.Equal(t, 2*time.Second, re.RetryAfter)
+			}
+		})
+	}
 }
