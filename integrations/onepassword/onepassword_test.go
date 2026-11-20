@@ -96,7 +96,7 @@ func newFake() *fakeStore {
 		},
 		items: map[string][]op.ItemOverview{
 			vaultID: {
-				{ID: itemID, Title: "MacBook Pro recovery FileVault code", Category: op.ItemCategoryPassword, VaultID: vaultID, Tags: []string{"mac"}, State: op.ItemStateActive},
+				{ID: itemID, Title: "MacBook Pro recovery FileVault code", Category: op.ItemCategoryPassword, VaultID: vaultID, Tags: []string{"laptop"}, State: op.ItemStateActive},
 				{ID: "loginloginloginloginloginl", Title: "GitHub", Category: op.ItemCategoryLogin, VaultID: vaultID, Websites: []op.Website{{URL: "https://github.com", Label: "website"}}, State: op.ItemStateActive},
 				{ID: "dupdupdupdupdupdupdupdupd1", Title: "Twin", Category: op.ItemCategorySecureNote, VaultID: vaultID},
 				{ID: "dupdupdupdupdupdupdupdupd2", Title: "twin", Category: op.ItemCategorySecureNote, VaultID: vaultID},
@@ -306,7 +306,7 @@ func TestListItems(t *testing.T) {
 		{"vault by id", map[string]any{"vault": vaultID}, []string{"MacBook Pro recovery FileVault code", "GitHub", "Twin", "twin"}, 4},
 		{"query matches title", map[string]any{"vault": "Claude", "query": "filevault"}, []string{"MacBook Pro recovery FileVault code"}, 1},
 		{"query matches url", map[string]any{"vault": "Claude", "query": "github.com"}, []string{"GitHub"}, 1},
-		{"query matches tag", map[string]any{"vault": "Claude", "query": "MAC"}, []string{"MacBook Pro recovery FileVault code"}, 1},
+		{"query matches tag only", map[string]any{"vault": "Claude", "query": "LAPTOP"}, []string{"MacBook Pro recovery FileVault code"}, 1},
 		{"category", map[string]any{"vault": "Claude", "category": "secure_note"}, []string{"Twin", "twin"}, 2},
 		{"limit", map[string]any{"vault": "Claude", "limit": 1}, []string{"MacBook Pro recovery FileVault code"}, 4},
 	}
