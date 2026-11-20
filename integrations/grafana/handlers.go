@@ -319,6 +319,12 @@ func queryDatasource(ctx context.Context, g *grafana, args map[string]any) (*mcp
 	if strings.TrimSpace(expr) == "" && extra == nil {
 		return mcp.ErrResult(fmt.Errorf("grafana: expr or query is required"))
 	}
+	// These limits are validated below, so query may not override them.
+	for key, param := range map[string]string{"maxDataPoints": "max_data_points", "intervalMs": "interval_ms"} {
+		if _, ok := extra[key]; ok {
+			return mcp.ErrResult(fmt.Errorf("grafana: set %s with %s, not inside query", key, param))
+		}
+	}
 	if maxDataPoints == 0 {
 		maxDataPoints = defaultMaxDataPoints
 	}

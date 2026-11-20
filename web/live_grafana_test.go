@@ -32,7 +32,7 @@ func init() {
 					"panels": []any{map[string]any{"type": "timeseries", "title": "Walk", "datasource": map[string]any{"uid": "${DS_TESTDATA}"}, "targets": []any{map[string]any{"refId": "A"}}}},
 				},
 				"inputs": map[string]any{"DS_TESTDATA": "live-testdata"},
-			}, Expect: []string{"live-imported", "imported"}},
+			}, Expect: []string{"live-imported", `"imported":true`}},
 			// Only a substituted import holds the data source uid; an unresolved
 			// ${DS_TESTDATA} would not.
 			{Tool: "grafana_get_dashboard", Args: map[string]any{"uid": "live-imported"}, Expect: []string{"Live Imported", "live-testdata"}},

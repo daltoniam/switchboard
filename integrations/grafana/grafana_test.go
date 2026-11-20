@@ -516,6 +516,8 @@ func TestQueryDatasource_Rejects(t *testing.T) {
 		{"bad query JSON", map[string]any{"datasource_uid": "prom", "query": "{x"}, "query must be a JSON object"},
 		{"too many points", map[string]any{"datasource_uid": "prom", "expr": "up", "max_data_points": 5000}, "max_data_points must be between 1 and 2000"},
 		{"negative interval", map[string]any{"datasource_uid": "prom", "expr": "up", "interval_ms": -1}, "interval_ms must be 0 or more"},
+		{"points override in query", map[string]any{"datasource_uid": "prom", "query": map[string]any{"maxDataPoints": 1000000}}, "set maxDataPoints with max_data_points"},
+		{"interval override in query", map[string]any{"datasource_uid": "prom", "query": map[string]any{"intervalMs": -5}}, "set intervalMs with interval_ms"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

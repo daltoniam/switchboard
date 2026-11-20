@@ -62,7 +62,7 @@ var tools = []mcp.ToolDefinition{
 		Parameters: map[string]string{
 			"datasource_uid":  "Data source uid from grafana_list_datasources",
 			"expr":            "Query expression, e.g. PromQL rate(http_requests_total[5m]) or LogQL {app=\"api\"}",
-			"query":           `Optional object of extra query fields for other data source types, e.g. {"rawSql":"select 1","format":"table"}; merged into the query`,
+			"query":           `Optional object of extra query fields for other data source types, e.g. {"rawSql":"select 1","format":"table"}; merged into the query (use max_data_points and interval_ms for those limits)`,
 			"from":            "Range start: now-1h, an epoch in milliseconds, or RFC3339 (default now-1h)",
 			"to":              "Range end: now, an epoch in milliseconds, or RFC3339 (default now)",
 			"instant":         "Instant query: one value per series at to (default false: range query)",
