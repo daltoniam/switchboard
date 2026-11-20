@@ -83,6 +83,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/obsidian"
 	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
+	"github.com/daltoniam/switchboard/integrations/onepassword"
 	"github.com/daltoniam/switchboard/integrations/openbao"
 	"github.com/daltoniam/switchboard/integrations/pagerduty"
 	"github.com/daltoniam/switchboard/integrations/paperless"
@@ -385,6 +386,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		intercom.New(),
 		front.New(),
 		groupme.New(),
+		onepassword.New(),
 		discord.New(),
 		grist.New(),
 		gcalIntegration,

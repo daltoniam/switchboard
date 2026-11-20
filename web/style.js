@@ -33,6 +33,7 @@ const integrationNames = { notionmcp: 'notion-mcp', webfetch: 'web' };
 const simpleLogoAliases = {
   airflow: 'apacheairflow', gdocs: 'googledocs', gforms: 'googleforms',
   gtasks: 'googletasks', paperless: 'paperlessngx', likec4excalidraw: 'excalidraw',
+  onepassword: '1password',
 };
 const logoSources = {
   growthbook: 'https://cdn.jsdelivr.net/gh/gilbarbara/logos@4a5b550414be64d5c007574cd395d910d50e8950/logos/growth-book-icon.svg',

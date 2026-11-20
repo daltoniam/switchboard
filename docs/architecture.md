@@ -96,6 +96,11 @@ integrations/
     compact.yaml             Field compaction specs (read tools)
     tools.go                 Grist tool definitions (~30 tools)
     handlers.go              Orgs, workspaces, docs, tables, columns, records, SQL, webhooks, attachments
+  onepassword/
+    onepassword.go           1Password adapter (core, store port over the 1Password Go SDK, sign-in, Close, FieldCompactionIntegration)
+    compact.yaml             Field compaction specs (read tools)
+    tools.go                 1Password tool definitions and dispatch map (6 tools)
+    handlers.go              Vaults, item list/get/create/update with redaction, secret references
   groupme/
     groupme.go               GroupMe integration adapter (core, HTTP envelope handling, FieldCompactionIntegration)
     compact.yaml             Field compaction specs (read tools)
