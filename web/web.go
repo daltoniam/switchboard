@@ -1836,6 +1836,10 @@ type remoteOAuthProfile struct {
 	Options            remotemcp.OAuthOptions
 	CredentialKey      string
 	ClearCredentialKey string
+	// Renewable saves the refresh token, expiry and OAuth client with the
+	// access token, for adapters that renew the login with
+	// remotemcp.TokenRenewal.
+	Renewable bool
 }
 
 var remoteOAuthProfiles = map[string]remoteOAuthProfile{
@@ -1870,6 +1874,7 @@ var remoteOAuthProfiles = map[string]remoteOAuthProfile{
 		ResourcePath:  "/mcp",
 		Options:       remotemcp.OAuthOptions{Scope: "openid email offline_access"},
 		CredentialKey: "mcp_access_token",
+		Renewable:     true,
 	},
 }
 
@@ -1961,7 +1966,8 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 		return
 	}
 
-	if err := w.saveRemoteMCPOAuth(r.Context(), name, token); err != nil {
+	login, _ := remotemcp.LoginCredentials(name)
+	if err := w.saveRemoteMCPOAuth(r.Context(), name, token, login); err != nil {
 		http.Redirect(rw, r, setupPath+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
@@ -1970,7 +1976,7 @@ func (w *WebServer) handleRemoteMCPOAuthCallback(rw http.ResponseWriter, r *http
 	http.Redirect(rw, r, setupPath+"?result=Connected+via+MCP+OAuth", http.StatusSeeOther)
 }
 
-func (w *WebServer) saveRemoteMCPOAuth(ctx context.Context, name, token string) error {
+func (w *WebServer) saveRemoteMCPOAuth(ctx context.Context, name, token string, login mcp.Credentials) error {
 	w.configMu.Lock()
 	defer w.configMu.Unlock()
 
@@ -1986,6 +1992,11 @@ func (w *WebServer) saveRemoteMCPOAuth(ctx context.Context, name, token string) 
 	}
 	next.Enabled = true
 	next.Credentials[profile.CredentialKey] = token
+	if profile.Renewable {
+		for _, key := range []string{remotemcp.CredKeyRefreshToken, remotemcp.CredKeyTokenExpiry, remotemcp.CredKeyTokenIssued, remotemcp.CredKeyClientID, remotemcp.CredKeyClientSecret} {
+			next.Credentials[key] = login[key]
+		}
+	}
 	if profile.ClearCredentialKey != "" {
 		next.Credentials[profile.ClearCredentialKey] = ""
 	}

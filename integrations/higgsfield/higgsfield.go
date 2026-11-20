@@ -17,11 +17,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"maps"
 	"net/url"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	mcp "github.com/daltoniam/switchboard"
 	"github.com/daltoniam/switchboard/compact"
@@ -53,6 +55,16 @@ type higgsfield struct {
 	mu      sync.RWMutex
 	baseURL string
 	remote  mcp.Integration
+	creds   mcp.Credentials
+	renewal remotemcp.TokenRenewal
+}
+
+// SetConfigService lets the integration renew its OAuth login before the
+// 24-hour access token expires and save the rotated tokens.
+func SetConfigService(i mcp.Integration, svc mcp.ConfigService) {
+	if h, ok := i.(*higgsfield); ok {
+		h.renewal.SetConfigService(svc)
+	}
 }
 
 // New returns the Higgsfield hosted MCP integration.
@@ -79,7 +91,7 @@ func MCPServerURL(integration mcp.Integration) string {
 }
 
 func (h *higgsfield) Configure(ctx context.Context, creds mcp.Credentials) error {
-	token := strings.TrimSpace(creds["mcp_access_token"])
+	token := strings.TrimSpace(creds[remotemcp.CredKeyAccessToken])
 	if token == "" {
 		return fmt.Errorf("higgsfield: mcp_access_token is required")
 	}
@@ -90,6 +102,7 @@ func (h *higgsfield) Configure(ctx context.Context, creds mcp.Credentials) error
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.creds = maps.Clone(creds)
 	credentials := mcp.Credentials{"access_token": token}
 	if h.remote != nil && h.baseURL == baseURL {
 		return h.remote.Configure(ctx, credentials)
@@ -124,7 +137,32 @@ func normalizeBaseURL(baseURL string) (string, error) {
 	return strings.TrimRight(parsed.String(), "/"), nil
 }
 
+// renewIfDue renews the login when its access token has less than
+// remotemcp.RenewalLead left. If renewal fails while the token still works,
+// the failure is logged and the token is used until it expires.
+func (h *higgsfield) renewIfDue(ctx context.Context) error {
+	h.mu.RLock()
+	creds, baseURL := h.creds, h.baseURL
+	h.mu.RUnlock()
+	target := remotemcp.RenewalTarget{Integration: integrationName, ServerURL: baseURL, Resource: baseURL + "/mcp"}
+	fresh, renewed, err := h.renewal.Fresh(ctx, target, creds)
+	if err != nil {
+		if remotemcp.TokenExpired(creds, time.Now()) {
+			return err
+		}
+		log.Printf("WARN: %v", err)
+		return nil
+	}
+	if !renewed {
+		return nil
+	}
+	return h.Configure(ctx, fresh)
+}
+
 func (h *higgsfield) Healthy(ctx context.Context) bool {
+	if h.renewIfDue(ctx) != nil {
+		return false
+	}
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.remote != nil && h.remote.Healthy(ctx)
@@ -142,14 +180,17 @@ func (h *higgsfield) Tools() []mcp.ToolDefinition {
 }
 
 func (h *higgsfield) Execute(ctx context.Context, toolName mcp.ToolName, args map[string]any) (*mcp.ToolResult, error) {
+	upstream, ok := dispatch[toolName]
+	if !ok {
+		return mcp.ErrResult(fmt.Errorf("unknown tool: %s", toolName))
+	}
+	if err := h.renewIfDue(ctx); err != nil {
+		return mcp.ErrResult(err)
+	}
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if h.remote == nil {
 		return mcp.ErrResult(mcp.ErrNotConfigured)
-	}
-	upstream, ok := dispatch[toolName]
-	if !ok {
-		return mcp.ErrResult(fmt.Errorf("unknown tool: %s", toolName))
 	}
 	// remotemcp strips its own "<name>_" prefix to recover the upstream name.
 	return h.remote.Execute(ctx, mcp.ToolName(integrationName+"_"+upstream), args)

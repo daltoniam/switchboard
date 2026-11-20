@@ -50,7 +50,11 @@ func TestSaveRejectsSymlinkAndRollsBack(t *testing.T) {
 	assert.Equal(t, data, after)
 	files, err := os.ReadDir(filepath.Dir(path))
 	require.NoError(t, err)
-	assert.Len(t, files, 2)
+	var names []string
+	for _, file := range files {
+		names = append(names, file.Name())
+	}
+	assert.ElementsMatch(t, []string{"config.json", "config.json.lock", "target.json"}, names, "no temp file is left behind")
 }
 
 func TestAtomicIntegrationUpdateUsesCurrentCopyAndRollsBack(t *testing.T) {

@@ -580,6 +580,14 @@ type IntegrationConfigUpdater interface {
 	UpdateIntegration(name string, update func(*IntegrationConfig) error) error
 }
 
+// SharedIntegrationConfigUpdater updates one integration while holding a lock
+// shared with every Switchboard process that uses the same config file. The
+// update starts from the newest saved copy, so a value another process wrote
+// (such as a rotated single-use OAuth refresh token) is seen, not overwritten.
+type SharedIntegrationConfigUpdater interface {
+	UpdateIntegrationShared(ctx context.Context, name string, update func(*IntegrationConfig) error) error
+}
+
 type CredentialEditor interface {
 	EditCredentials(ctx context.Context, credentials Credentials, enabled bool) error
 }
