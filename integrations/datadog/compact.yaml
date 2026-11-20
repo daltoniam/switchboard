@@ -148,6 +148,11 @@ tools:
             - data.id
             - data.attributes
             - data.relationships
+            - included[].id
+            - included[].type
+            - included[].attributes.name
+            - included[].attributes.email
+            - included[].attributes.handle
     datadog_get_slo:
         spec:
             - data.id
@@ -198,6 +203,10 @@ tools:
         spec:
             - data.id
             - data.relationships
+            - included[].id
+            - included[].type
+            - included[].attributes
+            - included[].relationships
     datadog_get_team_permission_settings:
         spec:
             - data[].id

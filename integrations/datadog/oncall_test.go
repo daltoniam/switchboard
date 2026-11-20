@@ -57,6 +57,36 @@ func TestDdGet_Success(t *testing.T) {
 	assert.Contains(t, result.Data, `"s1"`)
 }
 
+func TestDdGet_SendsAuthHeaders(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("DD-API-KEY") != "test-api-key" || r.Header.Get("DD-APPLICATION-KEY") != "test-app-key" {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"errors":["Unauthorized"]}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer ts.Close()
+
+	d := setupDD(t, ts)
+	ctx := d.ctx(context.Background())
+
+	calls := map[string]func() (*mcp.ToolResult, error){
+		"list_schedules":           func() (*mcp.ToolResult, error) { return listOnCallSchedules(ctx, d, map[string]any{}) },
+		"list_escalation_policies": func() (*mcp.ToolResult, error) { return listOnCallEscalationPolicies(ctx, d, map[string]any{}) },
+		"list_pages":               func() (*mcp.ToolResult, error) { return listOnCallPages(ctx, d, map[string]any{}) },
+		"get_page":                 func() (*mcp.ToolResult, error) { return getOnCallPage(ctx, d, map[string]any{"page_id": "p1"}) },
+	}
+	for name, call := range calls {
+		t.Run(name, func(t *testing.T) {
+			result, err := call()
+			require.NoError(t, err)
+			assert.False(t, result.IsError, result.Data)
+		})
+	}
+}
+
 func TestDdGet_HTTPError(t *testing.T) {
 	ts := httptest.NewServer(jsonHandler(404, `{"errors":["not found"]}`))
 	defer ts.Close()
@@ -160,6 +190,42 @@ func TestGetOnCallTeamRoutingRules_MissingArg(t *testing.T) {
 	result, err := getOnCallTeamRoutingRules(ctx, d, map[string]any{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
+}
+
+// ── Who is on call (names included) ──────────────────────────────────
+
+func TestGetTeamOnCallUsers_IncludesResponders(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v2/on-call/teams/team1/on-call", r.URL.Path)
+		assert.Equal(t, "responders,escalations,escalations.responders", r.URL.Query().Get("include"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"id":"x","type":"team_oncall_responders"},"included":[{"id":"u1","type":"users","attributes":{"email":"oncall@example.com","name":"On Call"}}]}`))
+	}))
+	defer ts.Close()
+
+	d := setupDD(t, ts)
+	ctx := d.ctx(context.Background())
+	result, err := getTeamOnCallUsers(ctx, d, map[string]any{"team_id": "team1"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError, result.Data)
+	assert.Contains(t, result.Data, "oncall@example.com")
+}
+
+func TestGetScheduleOnCallUser_IncludesUserAndTime(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v2/on-call/schedules/s1/on-call", r.URL.Path)
+		assert.Equal(t, "user", r.URL.Query().Get("include"))
+		assert.Equal(t, "2026-11-20T00:00:00Z", r.URL.Query().Get("filter[at_ts]"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"id":"sh1","type":"shifts"}}`))
+	}))
+	defer ts.Close()
+
+	d := setupDD(t, ts)
+	ctx := d.ctx(context.Background())
+	result, err := getScheduleOnCallUser(ctx, d, map[string]any{"schedule_id": "s1", "at": "2026-11-20T00:00:00Z"})
+	require.NoError(t, err)
+	assert.False(t, result.IsError, result.Data)
 }
 
 // ── List/get pages ───────────────────────────────────────────────────
