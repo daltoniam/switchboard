@@ -29,6 +29,8 @@ const (
 )
 
 // readJSON GETs a read-only endpoint and returns its body.
+var errNegativePage = errors.New("grafana: page must be 1 or more")
+
 func readJSON(ctx context.Context, g *grafana, path string, q url.Values) (*mcp.ToolResult, error) {
 	data, err := g.doRequest(ctx, http.MethodGet, path, q, nil, true)
 	if err != nil {
@@ -77,6 +79,9 @@ func searchDashboards(ctx context.Context, g *grafana, args map[string]any) (*mc
 	}
 	if limit < 1 || limit > maxSearchLimit {
 		return mcp.ErrResult(fmt.Errorf("grafana: limit must be between 1 and %d", maxSearchLimit))
+	}
+	if page < 0 {
+		return mcp.ErrResult(errNegativePage)
 	}
 	q := url.Values{"type": {"dash-db"}, "limit": {strconv.Itoa(limit)}}
 	if query != "" {
@@ -153,6 +158,8 @@ func saveDashboard(ctx context.Context, g *grafana, args map[string]any) (*mcp.T
 			// The import API matches by uid. For a new dashboard, an id copied
 			// from another Grafana, or from an export, would point at a
 			// different dashboard or none.
+			delete(dash, "id")
+		case existing.id == nil:
 			delete(dash, "id")
 		default:
 			// An update. Grafana needs the stored id to check the version
@@ -273,6 +280,9 @@ func listFolders(ctx context.Context, g *grafana, args map[string]any) (*mcp.Too
 	if limit < 1 || limit > maxFolderLimit {
 		return mcp.ErrResult(fmt.Errorf("grafana: limit must be between 1 and %d", maxFolderLimit))
 	}
+	if page < 0 {
+		return mcp.ErrResult(errNegativePage)
+	}
 	q := url.Values{"limit": {strconv.Itoa(limit)}}
 	if parentUID != "" {
 		q.Set("parentUid", parentUID)
@@ -315,6 +325,9 @@ func queryDatasource(ctx context.Context, g *grafana, args map[string]any) (*mcp
 	if maxDataPoints < 1 || maxDataPoints > maxMaxDataPoints {
 		return mcp.ErrResult(fmt.Errorf("grafana: max_data_points must be between 1 and %d", maxMaxDataPoints))
 	}
+	if intervalMs < 0 {
+		return mcp.ErrResult(fmt.Errorf("grafana: interval_ms must be 0 or more"))
+	}
 	if from == "" {
 		from = "now-1h"
 	}
@@ -340,7 +353,7 @@ func queryDatasource(ctx context.Context, g *grafana, args map[string]any) (*mcp
 	data, err := g.doRequest(ctx, http.MethodPost, "/api/ds/query", nil, body, true)
 	if err != nil {
 		var apiErr *apiError
-		if errors.As(err, &apiErr) {
+		if !mcp.IsRetryable(err) && errors.As(err, &apiErr) {
 			if detail := queryErrors(apiErr.body); detail != "" {
 				return mcp.ErrResult(fmt.Errorf("grafana: query failed (%d): %s", apiErr.status, detail))
 			}

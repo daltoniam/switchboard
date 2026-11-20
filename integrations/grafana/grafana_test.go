@@ -515,6 +515,7 @@ func TestQueryDatasource_Rejects(t *testing.T) {
 		{"no expr or query", map[string]any{"datasource_uid": "prom"}, "expr or query is required"},
 		{"bad query JSON", map[string]any{"datasource_uid": "prom", "query": "{x"}, "query must be a JSON object"},
 		{"too many points", map[string]any{"datasource_uid": "prom", "expr": "up", "max_data_points": 5000}, "max_data_points must be between 1 and 2000"},
+		{"negative interval", map[string]any{"datasource_uid": "prom", "expr": "up", "interval_ms": -1}, "interval_ms must be 0 or more"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -639,14 +640,14 @@ func TestSaveDashboard_UpdateKeepsIDAndFolder(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			saved := false
+			var saved atomic.Bool
 			g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodGet {
 					assert.Equal(t, "/api/dashboards/uid/svc", r.URL.Path)
 					_, _ = io.WriteString(w, `{"meta":{"folderUid":"ops"},"dashboard":{"id":9007199254740993,"uid":"svc","version":2}}`)
 					return
 				}
-				saved = true
+				saved.Store(true)
 				raw, err := io.ReadAll(r.Body)
 				assert.NoError(t, err)
 				assert.Contains(t, string(raw), `"id":9007199254740993`, "the stored id keeps Grafana's version check")
@@ -658,7 +659,7 @@ func TestSaveDashboard_UpdateKeepsIDAndFolder(t *testing.T) {
 			})
 			result := execute(t, g, "grafana_save_dashboard", tc.args)
 			require.False(t, result.IsError, result.Data)
-			assert.True(t, saved)
+			assert.True(t, saved.Load())
 		})
 	}
 }
@@ -671,7 +672,8 @@ func TestSaveDashboard_NewDashboardDropsForeignID(t *testing.T) {
 			return
 		}
 		body := decodeBody(t, r)
-		dash, _ := body["dashboard"].(map[string]any)
+		dash, ok := body["dashboard"].(map[string]any)
+		assert.True(t, ok, "the save must send a dashboard")
 		assert.NotContains(t, dash, "id", "an id from another Grafana points at the wrong dashboard")
 		assert.NotContains(t, body, "folderUid")
 		_, _ = io.WriteString(w, `{"status":"success","uid":"svc"}`)
@@ -734,7 +736,8 @@ func TestSaveDashboard_ImportUpdateKeepsFolder(t *testing.T) {
 		assert.Equal(t, "/api/dashboards/import", r.URL.Path)
 		body := decodeBody(t, r)
 		assert.Equal(t, "ops", body["folderUid"], "re-importing must not move the dashboard")
-		dash, _ := body["dashboard"].(map[string]any)
+		dash, ok := body["dashboard"].(map[string]any)
+		assert.True(t, ok, "the save must send a dashboard")
 		assert.NotContains(t, dash, "id", "the import API matches by uid")
 		_, _ = io.WriteString(w, `{"uid":"rb","imported":true}`)
 	})
@@ -752,11 +755,13 @@ func truncatingServer(t *testing.T, status int) *grafana {
 		w.Header().Set("Content-Length", "100")
 		w.WriteHeader(status)
 		_, _ = io.WriteString(w, `{"message":`)
-		if hj, ok := w.(http.Hijacker); ok {
-			conn, _, err := hj.Hijack()
-			if assert.NoError(t, err) {
-				_ = conn.Close()
-			}
+		hj, ok := w.(http.Hijacker)
+		if !assert.True(t, ok, "the test server must allow cutting the connection") {
+			return
+		}
+		conn, _, err := hj.Hijack()
+		if assert.NoError(t, err) {
+			_ = conn.Close()
 		}
 	})
 }
@@ -801,4 +806,45 @@ func TestErrors_OversizedErrorBodyKeepsRetryClassification(t *testing.T) {
 	if assert.ErrorAs(t, err, &re) {
 		assert.Equal(t, 4*time.Second, re.RetryAfter)
 	}
+}
+
+func TestPaging_RejectsNegativePage(t *testing.T) {
+	for _, tool := range []mcp.ToolName{"grafana_search_dashboards", "grafana_list_folders"} {
+		t.Run(string(tool), func(t *testing.T) {
+			g := newTestClient(t, func(http.ResponseWriter, *http.Request) { t.Error("must not call Grafana") })
+			result := execute(t, g, tool, map[string]any{"page": -1})
+			assert.True(t, result.IsError)
+			assert.Contains(t, result.Data, "page must be 1 or more")
+		})
+	}
+}
+
+func TestQueryDatasource_RetryableFailureStaysRetryable(t *testing.T) {
+	g := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = io.WriteString(w, `{"results":{"A":{"status":503,"error":"backend unavailable"}}}`)
+	})
+	_, err := g.Execute(context.Background(), "grafana_query_datasource", map[string]any{"datasource_uid": "prom", "expr": "up"})
+	require.Error(t, err, "a retryable failure must reach the caller as an error, not a tool result")
+	assert.True(t, mcp.IsRetryable(err))
+}
+
+func TestSaveDashboard_StoredDashboardWithoutIDSendsNoID(t *testing.T) {
+	var posted atomic.Bool
+	g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = io.WriteString(w, `{"meta":{"folderUid":"ops"},"dashboard":{"uid":"svc"}}`)
+			return
+		}
+		posted.Store(true)
+		body := decodeBody(t, r)
+		dash, ok := body["dashboard"].(map[string]any)
+		assert.True(t, ok)
+		assert.NotContains(t, dash, "id", "never send a null id")
+		assert.Equal(t, "ops", body["folderUid"])
+		_, _ = io.WriteString(w, `{"status":"success"}`)
+	})
+	result := execute(t, g, "grafana_save_dashboard", map[string]any{"dashboard": map[string]any{"uid": "svc", "title": "S", "id": 5}})
+	require.False(t, result.IsError, result.Data)
+	assert.True(t, posted.Load())
 }
