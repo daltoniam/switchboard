@@ -114,8 +114,17 @@ func TestUIOnePassword(t *testing.T) {
 	app.restart()
 	uiNavigate(t, page, app.URL+"/integrations/onepassword")
 	uiText(t, page.Locator(".badge").First(), wantBadge)
-	names, _ = uiOnePasswordMCP(t, app)
+	names, result = uiOnePasswordMCP(t, app)
 	require.Len(t, names, uiOnePasswordTools)
+	require.NotNil(t, result, "execution must still run after a restart")
+	if liveToken != "" && liveVault != "" {
+		require.False(t, result.IsError, uiResultText(t, result))
+		require.Contains(t, uiResultText(t, result), liveVault)
+	} else {
+		require.True(t, result.IsError)
+		require.Contains(t, uiResultText(t, result), "cannot sign in")
+		require.NotContains(t, uiResultText(t, result), "ops_not-a-real-token")
+	}
 	require.NoError(t, form.Locator(".toggle").Click())
 	uiSave(t, page)
 	uiText(t, page.Locator(".badge").First(), "Disabled")

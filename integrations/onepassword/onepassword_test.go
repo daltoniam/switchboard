@@ -594,6 +594,15 @@ func TestUpdateItem_CustomFieldNeverTakesBuiltInID(t *testing.T) {
 	res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": itemID,
 		"fields": []any{map[string]any{"title": "Password", "value": "x"}, map[string]any{"title": "Username", "value": "y"}}})
 	require.False(t, res.IsError, res.Data)
+	require.NotNil(t, f.put)
+	stored := map[string]op.ItemField{}
+	for _, fl := range f.put.Fields {
+		stored[fl.Title] = fl
+	}
+	require.Contains(t, stored, "Password", "both custom fields must be stored")
+	require.Contains(t, stored, "Username", "both custom fields must be stored")
+	assert.Equal(t, "x", stored["Password"].Value)
+	assert.Equal(t, "y", stored["Username"].Value)
 	for _, fl := range f.put.Fields {
 		assert.NotContains(t, []string{"password", "username"}, fl.ID)
 	}
