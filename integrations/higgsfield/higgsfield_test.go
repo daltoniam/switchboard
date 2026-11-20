@@ -31,6 +31,9 @@ type hostedFixture struct {
 	mu     sync.Mutex
 	paths  []string
 	calls  []upstreamCall
+	// oauth, when set, serves every path other than /mcp (OAuth discovery
+	// and the token endpoint).
+	oauth http.Handler
 }
 
 func newHostedFixture(t *testing.T, results map[string]string, extra ...string) *hostedFixture {
@@ -70,6 +73,10 @@ func newHostedFixture(t *testing.T, results map[string]string, extra ...string) 
 		f.paths = append(f.paths, r.URL.Path)
 		f.mu.Unlock()
 		if r.URL.Path != "/mcp" {
+			if f.oauth != nil {
+				f.oauth.ServeHTTP(w, r)
+				return
+			}
 			http.NotFound(w, r)
 			return
 		}
