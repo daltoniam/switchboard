@@ -314,7 +314,7 @@ func TestSaveDashboard_Import(t *testing.T) {
 	})
 	dash := `{"__inputs":[{"name":"DS_PROMETHEUS","type":"datasource","pluginId":"prometheus"}],"uid":"rb","title":"RB"}`
 	result := execute(t, g, "grafana_save_dashboard", map[string]any{
-		"dashboard": dash, "folder_uid": "ops", "overwrite": true, "inputs": map[string]any{"DS_PROMETHEUS": "prom-uid"},
+		"dashboard": dash, "folder_uid": "ops", "overwrite": true, "inputs": map[string]any{"DS_PROMETHEUS": "prom-uid"}, "message": "imported by a test",
 	})
 	require.False(t, result.IsError, result.Data)
 	assert.Contains(t, result.Data, `"imported":true`)
@@ -784,5 +784,21 @@ func TestErrors_TruncatedErrorBodyKeepsRetryClassification(t *testing.T) {
 				assert.Equal(t, 3*time.Second, re.RetryAfter)
 			}
 		})
+	}
+}
+
+func TestErrors_OversizedErrorBodyKeepsRetryClassification(t *testing.T) {
+	g := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "4")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = io.WriteString(w, strings.Repeat("x", maxResponseSize+1))
+	})
+	_, err := g.doRequest(context.Background(), http.MethodPost, "/api/dashboards/db", nil, map[string]any{}, false)
+	require.Error(t, err)
+	assert.True(t, mcp.IsRetryable(err))
+	assert.Contains(t, err.Error(), "(429)")
+	var re *mcp.RetryableError
+	if assert.ErrorAs(t, err, &re) {
+		assert.Equal(t, 4*time.Second, re.RetryAfter)
 	}
 }

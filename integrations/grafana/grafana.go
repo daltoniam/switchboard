@@ -178,6 +178,10 @@ func (g *grafana) doRequest(ctx context.Context, method, path string, query url.
 		return nil, fmt.Errorf("grafana: incomplete response: %w", err)
 	}
 	if len(data) > maxResponseSize {
+		if resp.StatusCode >= 400 {
+			msg := fmt.Sprintf("grafana API error (%d): error response is larger than %d MB", resp.StatusCode, maxResponseSize/(1024*1024))
+			return nil, statusError(resp, nil, msg, retrySafe)
+		}
 		return nil, fmt.Errorf("grafana: response is larger than %d MB; narrow the search or query", maxResponseSize/(1024*1024))
 	}
 	if looksLikeHTML(resp.Header.Get("Content-Type"), data) {
