@@ -16,6 +16,7 @@ var tools = []mcp.ToolDefinition{
 			"query":    "Optional text matched against item titles, website URLs and tags (case-insensitive)",
 			"category": "Optional category filter, e.g. Login, Password, SecureNote, ApiCredentials",
 			"limit":    "Maximum items to return, 1-1000 (default 200)",
+			"offset":   "Matching items to skip, for the next page (use next_offset from the previous result; default 0)",
 		},
 		Required: []string{"vault"},
 		Access:   mcp.AccessRead,

@@ -18,6 +18,9 @@ const redacted = "[REDACTED]"
 const (
 	defaultItemLimit = 200
 	maxItemLimit     = 1000
+	// maxFieldInputs bounds the custom fields one call may add or change;
+	// adding fields costs time per field already on the item.
+	maxFieldInputs = 100
 )
 
 // untitledSectionID is where 1Password keeps custom fields added without a
@@ -90,11 +93,18 @@ func listItems(ctx context.Context, s store, args map[string]any) (*mcp.ToolResu
 	if _, ok := args["limit"]; ok {
 		limit = r.Int("limit")
 	}
+	offset := 0
+	if _, ok := args["offset"]; ok {
+		offset = r.Int("offset")
+	}
 	if err := r.Err(); err != nil {
 		return mcp.ErrResult(err)
 	}
 	if limit < 1 || limit > maxItemLimit {
 		return mcp.ErrResult(fmt.Errorf("onepassword: limit must be between 1 and %d", maxItemLimit))
+	}
+	if offset < 0 {
+		return mcp.ErrResult(fmt.Errorf("onepassword: offset must be 0 or more"))
 	}
 	var category op.ItemCategory
 	if categoryRef != "" {
@@ -123,11 +133,15 @@ func listItems(ctx context.Context, s store, args map[string]any) (*mcp.ToolResu
 			continue
 		}
 		total++
-		if len(matches) < limit {
+		if total > offset && len(matches) < limit {
 			matches = append(matches, itemSummary{ID: it.ID, Title: it.Title, Category: string(it.Category), VaultID: it.VaultID, URLs: urls, Tags: orEmpty(it.Tags), UpdatedAt: it.UpdatedAt})
 		}
 	}
-	return mcp.JSONResult(map[string]any{"items": matches, "count": len(matches), "total": total})
+	out := map[string]any{"items": matches, "count": len(matches), "total": total}
+	if next := offset + len(matches); next < total {
+		out["next_offset"] = next
+	}
+	return mcp.JSONResult(out)
 }
 
 func getItem(ctx context.Context, s store, args map[string]any) (*mcp.ToolResult, error) {
@@ -593,6 +607,9 @@ func parseFieldInputs(raw any) ([]fieldInput, error) {
 	if err := json.Unmarshal(data, &inputs); err != nil {
 		return nil, fmt.Errorf("onepassword: fields must be an array of objects with string title, value, type and section")
 	}
+	if len(inputs) > maxFieldInputs {
+		return nil, fmt.Errorf("onepassword: at most %d fields per call; split the change", maxFieldInputs)
+	}
 	for i := range inputs {
 		in := &inputs[i]
 		in.ID = strings.TrimSpace(in.ID)
@@ -662,14 +679,16 @@ func ensureSection(it *op.Item, title string) string {
 			return s.ID
 		}
 	}
-	id := untitledSectionID
-	if title != "" {
-		taken := map[string]bool{}
-		for _, s := range it.Sections {
-			taken[s.ID] = true
-		}
-		id = uniqueID(slug(title), taken)
+	taken := map[string]bool{}
+	for _, s := range it.Sections {
+		taken[s.ID] = true
 	}
+	// The untitled section's usual id may belong to a section since renamed.
+	base := untitledSectionID
+	if title != "" {
+		base = slug(title)
+	}
+	id := uniqueID(base, taken)
 	it.Sections = append(it.Sections, op.ItemSection{ID: id, Title: title})
 	return id
 }

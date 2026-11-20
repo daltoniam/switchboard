@@ -52,8 +52,8 @@ func TestFieldCompactionSpecs_Shapes(t *testing.T) {
 	}{
 		{"onepassword_list_vaults", `[{"id":"v1","title":"Claude","description":"agents","type":"userCreated","items":84,"updated_at":"2026-11-01T00:00:00Z"}]`,
 			[]string{`"v1"`, `"Claude"`, `"items":84`}, nil},
-		{"onepassword_list_items", `{"items":[{"id":"i1","title":"GitHub","category":"Login","vault_id":"v1","urls":["https://github.com"],"tags":["work"],"updated_at":"2026-11-01T00:00:00Z"}],"count":1,"total":1}`,
-			[]string{`"i1"`, `"GitHub"`, `"Login"`, `"https://github.com"`, `"work"`, `"total":1`}, []string{"vault_id"}},
+		{"onepassword_list_items", `{"items":[{"id":"i1","title":"GitHub","category":"Login","vault_id":"v1","urls":["https://github.com"],"tags":["work"],"updated_at":"2026-11-01T00:00:00Z"}],"count":1,"total":3,"next_offset":1}`,
+			[]string{`"i1"`, `"GitHub"`, `"Login"`, `"https://github.com"`, `"work"`, `"total":3`, `"next_offset":1`}, []string{"vault_id"}},
 		{"onepassword_get_item", `{"id":"i1","title":"GitHub","category":"Login","vault_id":"v1","vault":"Claude","version":7,"urls":["https://github.com"],"notes":"n","fields":[{"id":"password","title":"password","type":"Concealed","value":"[REDACTED]","concealed":true,"reference":"op://v1/i1/password"}],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-11-01T00:00:00Z"}`,
 			[]string{`"[REDACTED]"`, `"op://v1/i1/password"`, `"version":7`, `"concealed":true`}, []string{"created_at"}},
 		{"onepassword_resolve_secret", `{"reference":"op://v1/i1/password","value":"s3cret"}`,

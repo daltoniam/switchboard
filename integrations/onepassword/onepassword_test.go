@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -333,6 +334,7 @@ func TestListItems_Rejects(t *testing.T) {
 		{"unknown vault", map[string]any{"vault": "Nope"}, `vault "Nope" not found; vaults: Claude, Shared`},
 		{"bad category", map[string]any{"vault": "Claude", "category": "Spaceship"}, "unknown category"},
 		{"bad limit", map[string]any{"vault": "Claude", "limit": 0}, "limit must be between 1 and 1000"},
+		{"negative offset", map[string]any{"vault": "Claude", "offset": -1}, "offset must be 0 or more"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -440,8 +442,12 @@ func TestCreateItem_Login(t *testing.T) {
 	for _, s := range p.Sections {
 		sections[s.ID] = s.Title
 	}
-	assert.Equal(t, "", sections[*p.Fields[2].SectionID], "unsectioned extra fields share an untitled section")
-	assert.Equal(t, "Server", sections[*p.Fields[3].SectionID])
+	untitled, ok := sections[*p.Fields[2].SectionID]
+	require.True(t, ok, "the untitled section must be created")
+	assert.Equal(t, "", untitled, "unsectioned extra fields share an untitled section")
+	server, ok := sections[*p.Fields[3].SectionID]
+	require.True(t, ok, "the Server section must be created")
+	assert.Equal(t, "Server", server)
 }
 
 func TestCreateItem_GeneratePassword(t *testing.T) {
@@ -478,6 +484,7 @@ func TestCreateItem_Rejects(t *testing.T) {
 		{"url on a note", map[string]any{"vault": "Claude", "title": "x", "category": "SecureNote", "url": "https://x"}, "url applies to Login and Password items"},
 		{"password and generate", map[string]any{"vault": "Claude", "title": "x", "password": "p", "generate_password": true}, "either password or generate_password"},
 		{"bad field type", map[string]any{"vault": "Claude", "title": "x", "fields": []any{map[string]any{"title": "a", "value": "b", "type": "hologram"}}}, `unknown field type "hologram"`},
+		{"too many fields", map[string]any{"vault": "Claude", "title": "x", "fields": manyFields(maxFieldInputs + 1)}, "at most 100 fields"},
 		{"field without title", map[string]any{"vault": "Claude", "title": "x", "fields": []any{map[string]any{"value": "b"}}}, "fields[0] needs a title"},
 		{"fields not a list", map[string]any{"vault": "Claude", "title": "x", "fields": "nope"}, "fields must be an array"},
 	}
@@ -564,12 +571,19 @@ func TestUpdateItem_PasswordAlwaysConcealed(t *testing.T) {
 			res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": itemID, "password": secret})
 			require.False(t, res.IsError, res.Data)
 			assert.NotContains(t, res.Data, secret)
-			for _, fl := range f.put.Fields {
+			require.NotNil(t, f.put)
+			var builtIn *op.ItemField
+			for i, fl := range f.put.Fields {
 				if fl.Value == secret {
 					assert.Nil(t, fl.SectionID, "the password goes in the built-in field, not a custom one")
-					assert.Equal(t, op.ItemFieldTypeConcealed, fl.FieldType)
+				}
+				if fl.ID == "password" && fl.SectionID == nil {
+					builtIn = &f.put.Fields[i]
 				}
 			}
+			require.NotNil(t, builtIn, "the update must store a built-in password field")
+			assert.Equal(t, secret, builtIn.Value)
+			assert.Equal(t, op.ItemFieldTypeConcealed, builtIn.FieldType)
 		})
 	}
 }
@@ -676,4 +690,63 @@ func TestErrors_StoreFailureIsReported(t *testing.T) {
 	res := run(t, newTestAdapter(t, f), "onepassword_list_vaults", nil)
 	assert.True(t, res.IsError)
 	assert.Contains(t, res.Data, "onepassword: permission denied")
+}
+
+func manyFields(n int) []any {
+	fields := make([]any, n)
+	for i := range fields {
+		fields[i] = map[string]any{"title": fmt.Sprintf("f%d", i), "value": "v"}
+	}
+	return fields
+}
+
+func TestListItems_Pages(t *testing.T) {
+	all := []string{"MacBook Pro recovery FileVault code", "GitHub", "Twin", "twin"}
+	tests := []struct {
+		name       string
+		args       map[string]any
+		want       []string
+		nextOffset any
+	}{
+		{"first page", map[string]any{"vault": "Claude", "limit": 2}, all[:2], float64(2)},
+		{"last page", map[string]any{"vault": "Claude", "limit": 2, "offset": 2}, all[2:], nil},
+		{"past the end", map[string]any{"vault": "Claude", "offset": 9}, nil, nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			out := decode(t, run(t, newTestAdapter(t, newFake()), "onepassword_list_items", tc.args))
+			var titles []string
+			for _, it := range out["items"].([]any) {
+				titles = append(titles, it.(map[string]any)["title"].(string))
+			}
+			assert.Equal(t, tc.want, titles)
+			assert.EqualValues(t, 4, out["total"])
+			assert.Equal(t, tc.nextOffset, out["next_offset"])
+		})
+	}
+}
+
+func TestUpdateItem_RenamedDefaultSectionIsNotReused(t *testing.T) {
+	f := newFake()
+	f.full[itemID] = op.Item{ID: itemID, Title: "Bare", Category: op.ItemCategoryPassword, VaultID: vaultID, Version: 1,
+		Sections: []op.ItemSection{{ID: untitledSectionID, Title: "Renamed"}}}
+	res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": itemID,
+		"fields": []any{map[string]any{"title": "Note", "value": "x"}}})
+	require.False(t, res.IsError, res.Data)
+	ids := map[string]bool{}
+	for _, sec := range f.put.Sections {
+		assert.False(t, ids[sec.ID], "section id %q is used twice", sec.ID)
+		ids[sec.ID] = true
+	}
+	require.Len(t, f.put.Fields, 1)
+	require.NotNil(t, f.put.Fields[0].SectionID)
+	assert.NotEqual(t, untitledSectionID, *f.put.Fields[0].SectionID)
+}
+
+func TestUpdateItem_TooManyFields(t *testing.T) {
+	f := newFake()
+	res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": "GitHub", "fields": manyFields(maxFieldInputs + 1)})
+	assert.True(t, res.IsError)
+	assert.Contains(t, res.Data, "at most 100 fields")
+	assert.Nil(t, f.put)
 }

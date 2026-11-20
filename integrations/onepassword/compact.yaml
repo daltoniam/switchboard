@@ -12,6 +12,7 @@ tools:
     spec:
       - count
       - total
+      - next_offset
       - items[].id
       - items[].title
       - items[].category
