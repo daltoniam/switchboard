@@ -280,6 +280,9 @@ func updateItem(ctx context.Context, s store, args map[string]any) (*mcp.ToolRes
 		if err != nil {
 			return mcp.ErrResult(err)
 		}
+		if idx >= 0 && in.Value == nil && in.Type == "" {
+			return mcp.ErrResult(fmt.Errorf("onepassword: fields[%d] needs a value or a type", i))
+		}
 		targets[i] = idx
 	}
 	if generate {
@@ -309,7 +312,9 @@ func updateItem(ctx context.Context, s store, args map[string]any) (*mcp.ToolRes
 			continue
 		}
 		f := &item.Fields[targets[i]]
-		f.Value = in.Value
+		if in.Value != nil {
+			f.Value = *in.Value
+		}
 		if in.Type != "" {
 			f.FieldType = in.fieldType
 		}
@@ -559,13 +564,21 @@ func checkLoginArgs(c op.ItemCategory, username, password, generate, url bool) e
 
 // fieldInput is one entry of the fields argument.
 type fieldInput struct {
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Value   string `json:"value"`
-	Type    string `json:"type"`
-	Section string `json:"section"`
+	ID      string  `json:"id"`
+	Title   string  `json:"title"`
+	Value   *string `json:"value"` // nil when omitted, so a type-only change keeps the value
+	Type    string  `json:"type"`
+	Section string  `json:"section"`
 
 	fieldType op.ItemFieldType
+}
+
+// value is the given value, or empty when the input omits it.
+func (in fieldInput) value() string {
+	if in.Value == nil {
+		return ""
+	}
+	return *in.Value
 }
 
 var fieldTypes = map[string]op.ItemFieldType{
@@ -670,7 +683,7 @@ func addField(it *op.Item, in fieldInput) {
 	for _, f := range it.Fields {
 		taken[f.ID] = true
 	}
-	it.Fields = append(it.Fields, op.ItemField{ID: uniqueID(slug(in.Title), taken), Title: in.Title, SectionID: &sectionID, FieldType: in.fieldType, Value: in.Value})
+	it.Fields = append(it.Fields, op.ItemField{ID: uniqueID(slug(in.Title), taken), Title: in.Title, SectionID: &sectionID, FieldType: in.fieldType, Value: in.value()})
 }
 
 func ensureSection(it *op.Item, title string) string {

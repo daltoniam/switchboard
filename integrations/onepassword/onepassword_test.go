@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -177,7 +178,10 @@ func TestConfigure_Rejects(t *testing.T) {
 			err := New().Configure(context.Background(), mcp.Credentials{"service_account_token": tc.token})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.want)
-			assert.NotContains(t, err.Error(), "dop_v1_abc", "errors must not echo the token")
+			if tc.token != "" {
+				assert.NotContains(t, err.Error(), tc.token, "errors must not echo the token")
+				assert.NotContains(t, err.Error(), strconv.Quote(tc.token), "errors must not echo the token, quoted or not")
+			}
 		})
 	}
 }
@@ -649,6 +653,7 @@ func TestUpdateItem_Rejects(t *testing.T) {
 		{"username on a password item", map[string]any{"vault": "Claude", "item": itemID, "username": "u"}, "username applies to Login items"},
 		{"field without id or title", map[string]any{"vault": "Claude", "item": "GitHub", "fields": []any{map[string]any{"value": "x"}}}, "fields[0] needs an id or a title"},
 		{"unknown field id", map[string]any{"vault": "Claude", "item": "GitHub", "fields": []any{map[string]any{"id": "nope", "value": "x"}}}, `no field with id "nope"`},
+		{"field change with neither value nor type", map[string]any{"vault": "Claude", "item": "GitHub", "fields": []any{map[string]any{"id": "pin"}}}, "fields[0] needs a value or a type"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -758,4 +763,36 @@ func TestUpdateItem_TooManyFields(t *testing.T) {
 	assert.True(t, res.IsError)
 	assert.Contains(t, res.Data, "at most 100 fields")
 	assert.Nil(t, f.put)
+}
+
+func TestUpdateItem_TypeOnlyChangeKeepsValue(t *testing.T) {
+	f := newFake()
+	res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": "GitHub",
+		"fields": []any{map[string]any{"id": "pin", "type": "concealed"}}})
+	require.False(t, res.IsError, res.Data)
+	require.NotNil(t, f.put)
+	var pin *op.ItemField
+	for i := range f.put.Fields {
+		if f.put.Fields[i].ID == "pin" {
+			pin = &f.put.Fields[i]
+		}
+	}
+	require.NotNil(t, pin)
+	assert.Equal(t, "0000", pin.Value, "a type-only change must not clear the value")
+	assert.Equal(t, op.ItemFieldTypeConcealed, pin.FieldType)
+}
+
+func TestUpdateItem_ExplicitEmptyValueClears(t *testing.T) {
+	f := newFake()
+	res := run(t, newTestAdapter(t, f), "onepassword_update_item", map[string]any{"vault": "Claude", "item": "GitHub",
+		"fields": []any{map[string]any{"id": "pin", "value": ""}}})
+	require.False(t, res.IsError, res.Data)
+	require.NotNil(t, f.put)
+	for _, fl := range f.put.Fields {
+		if fl.ID == "pin" {
+			assert.Empty(t, fl.Value)
+			return
+		}
+	}
+	t.Fatal("pin field missing")
 }

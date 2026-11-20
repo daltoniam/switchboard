@@ -35,7 +35,7 @@ func init() {
 			{Tool: "onepassword_list_vaults", Expect: []string{"${vault}"}},
 			{Tool: "onepassword_list_items", Args: map[string]any{"vault": "${vault}"}, Expect: []string{"${item}"}},
 			{Tool: "onepassword_get_item", Args: map[string]any{"vault": "${vault}", "item": "${item}"}, Expect: []string{"${item}", "[REDACTED]", "op://"}},
-			{Tool: "onepassword_get_item", Args: map[string]any{"vault": "${vault}", "item": "${item}", "reveal": true}, Expect: []string{"${item}", `"otp_code"`}},
+			{Tool: "onepassword_get_item", Args: map[string]any{"vault": "${vault}", "item": "${item}", "reveal": true}, Expect: []string{"${item}", "${password}", `"otp_code"`}},
 			{Tool: "onepassword_resolve_secret", Args: map[string]any{"reference": "op://${vault}/${item}/password"}, Expect: []string{"${password}"}},
 		},
 		Skips: map[mcp.ToolName]string{

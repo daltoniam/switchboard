@@ -65,7 +65,7 @@ var tools = []mcp.ToolDefinition{
 			"generate_password": "Replace the password with a random 32-character one, for Login and Password items (default false)",
 			"notes":             "Optional new notes, replacing the old ones",
 			"tags":              "Optional array of tags, replacing the old ones",
-			"fields":            `Optional array of fields to set, each {"id" or "title","value","type","section"}. Matched by id, then by title (case-insensitive) within the section if given; unmatched fields are added. type is text (default for new fields), concealed, url, email, phone, date or totp`,
+			"fields":            `Optional array of fields to set, each {"id" or "title","value","type","section"}. Matched by id, then by title (case-insensitive) within the section if given; unmatched fields are added. Omit value to change only the type; pass "" to clear it. type is text (default for new fields), concealed, url, email, phone, date or totp`,
 		},
 		Required: []string{"vault", "item"},
 		Access:   mcp.AccessWrite,
