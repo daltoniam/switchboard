@@ -116,10 +116,13 @@ func TestTools_EntryPointSaysStartHere(t *testing.T) {
 	t.Fatal("grafana_search_dashboards not defined")
 }
 
-func TestTools_OnlySaveDashboardWrites(t *testing.T) {
+// grafana_query_datasource is a write: Grafana runs the query with the data
+// source's own privileges, so raw SQL or Flux can change data.
+func TestTools_WritesAreMarked(t *testing.T) {
+	writes := map[mcp.ToolName]bool{"grafana_save_dashboard": true, "grafana_query_datasource": true}
 	for _, tool := range New().Tools() {
-		if tool.Name == "grafana_save_dashboard" {
-			assert.Equal(t, mcp.AccessWrite, tool.Access)
+		if writes[tool.Name] {
+			assert.Equal(t, mcp.AccessWrite, tool.Access, "%s must be a write", tool.Name)
 			assert.Contains(t, tool.Description, "WRITE:")
 		} else {
 			assert.Equal(t, mcp.AccessRead, tool.Access, "%s must be a read", tool.Name)

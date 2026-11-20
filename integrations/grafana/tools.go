@@ -58,7 +58,8 @@ var tools = []mcp.ToolDefinition{
 	{
 		Name: "grafana_query_datasource",
 		Description: "Run a metrics or logs query (PromQL for Prometheus, LogQL for Loki) through a Grafana data source and return data frames of timestamps and values. " +
-			"Set instant for a single current value per series; otherwise returns a range over from..to. Read-only. Use after grafana_list_datasources.",
+			"Set instant for a single current value per series; otherwise returns a range over from..to. Use after grafana_list_datasources. " +
+			"WRITE: Grafana runs the query with the data source's own database privileges and does not make it read-only, so raw SQL, Flux or InfluxQL may change data.",
 		Parameters: map[string]string{
 			"datasource_uid":  "Data source uid from grafana_list_datasources",
 			"expr":            "Query expression, e.g. PromQL rate(http_requests_total[5m]) or LogQL {app=\"api\"}",
@@ -70,7 +71,7 @@ var tools = []mcp.ToolDefinition{
 			"interval_ms":     "Optional step between points in milliseconds (default: the range divided by max_data_points, at least 1000)",
 		},
 		Required: []string{"datasource_uid"},
-		Access:   mcp.AccessRead,
+		Access:   mcp.AccessWrite,
 	},
 	{
 		Name:        "grafana_get_health",
