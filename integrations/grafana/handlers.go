@@ -141,23 +141,27 @@ func saveDashboard(ctx context.Context, g *grafana, args map[string]any) (*mcp.T
 	}
 
 	dash = maps.Clone(dash)
-	if uid, _ := dash["uid"].(string); uid != "" && importInputs == nil {
+	isImport := importInputs != nil
+	// An import with a folder needs nothing from the stored dashboard.
+	if uid, _ := dash["uid"].(string); uid != "" && (!isImport || folderUID == "") {
 		existing, err := findDashboard(ctx, g, uid)
 		if err != nil {
 			return mcp.ErrResult(err)
 		}
-		if existing == nil {
-			// A new dashboard. An id copied from another Grafana, or from an
-			// export, would point at a different dashboard or none.
+		switch {
+		case existing == nil || isImport:
+			// The import API matches by uid. For a new dashboard, an id copied
+			// from another Grafana, or from an export, would point at a
+			// different dashboard or none.
 			delete(dash, "id")
-		} else {
+		default:
 			// An update. Grafana needs the stored id to check the version
-			// instead of reporting a uid clash, and saving without a folder
-			// would move the dashboard to the root.
+			// instead of reporting a uid clash.
 			dash["id"] = existing.id
-			if folderUID == "" {
-				folderUID = existing.folderUID
-			}
+		}
+		// Saving without a folder would move an existing dashboard to the root.
+		if existing != nil && folderUID == "" {
+			folderUID = existing.folderUID
 		}
 	}
 

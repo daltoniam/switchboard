@@ -170,6 +170,11 @@ func (g *grafana) doRequest(ctx context.Context, method, path string, query url.
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize+1))
 	if err != nil {
+		if resp.StatusCode >= 400 {
+			// The status alone says whether the request can be retried.
+			msg := fmt.Sprintf("grafana API error (%d): incomplete response: %v", resp.StatusCode, err)
+			return nil, statusError(resp, nil, msg, retrySafe)
+		}
 		return nil, fmt.Errorf("grafana: incomplete response: %w", err)
 	}
 	if len(data) > maxResponseSize {

@@ -3,10 +3,12 @@ package grafana
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,8 +38,9 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) *grafana {
 // decodeBody reads a JSON request body into a map.
 func decodeBody(t *testing.T, r *http.Request) map[string]any {
 	t.Helper()
+	// Handlers run outside the test goroutine, so failures must not be fatal.
 	var body map[string]any
-	require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+	assert.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 	return body
 }
 
@@ -274,7 +277,9 @@ func TestSaveDashboard_Variants(t *testing.T) {
 				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 				body := decodeBody(t, r)
 				dash, ok := body["dashboard"].(map[string]any)
-				require.True(t, ok)
+				if !assert.True(t, ok) {
+					return
+				}
 				for k, v := range tc.wantDash {
 					if v == nil {
 						assert.NotContains(t, dash, k)
@@ -346,20 +351,20 @@ func TestSaveDashboard_Rejects(t *testing.T) {
 }
 
 func TestSaveDashboard_VersionConflictIsNotRetried(t *testing.T) {
-	calls := 0
+	var calls atomic.Int32
 	g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			_, _ = io.WriteString(w, `{"meta":{"folderUid":"ops"},"dashboard":{"id":7,"uid":"svc","version":2}}`)
 			return
 		}
-		calls++
+		calls.Add(1)
 		w.WriteHeader(http.StatusPreconditionFailed)
 		_, _ = io.WriteString(w, `{"message":"The dashboard has been changed by someone else","status":"version-mismatch"}`)
 	})
 	result := execute(t, g, "grafana_save_dashboard", map[string]any{"dashboard": map[string]any{"uid": "svc", "title": "S", "version": 1}})
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "grafana API error (412): The dashboard has been changed by someone else")
-	assert.Equal(t, 1, calls)
+	assert.EqualValues(t, 1, calls.Load())
 }
 
 func TestSaveDashboard_ServerErrorIsNotRetryable(t *testing.T) {
@@ -434,8 +439,9 @@ func TestQueryDatasource_Body(t *testing.T) {
 					assert.Equal(t, v, body[k], k)
 				}
 				queries, ok := body["queries"].([]any)
-				require.True(t, ok)
-				require.Len(t, queries, 1)
+				if !assert.True(t, ok) || !assert.Len(t, queries, 1) {
+					return
+				}
 				q := queries[0].(map[string]any)
 				for k, v := range tc.wantQuery {
 					assert.Equal(t, v, q[k], k)
@@ -588,9 +594,9 @@ func TestErrors_SleepingStack(t *testing.T) {
 }
 
 func TestErrors_RedirectIsNotFollowed(t *testing.T) {
-	var leaked bool
-	other := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		leaked = r.Header.Get("Authorization") != ""
+	var visits atomic.Int32
+	other := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		visits.Add(1)
 	}))
 	t.Cleanup(other.Close)
 	g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
@@ -598,7 +604,8 @@ func TestErrors_RedirectIsNotFollowed(t *testing.T) {
 	})
 	result := execute(t, g, "grafana_list_datasources", nil)
 	assert.True(t, result.IsError)
-	assert.False(t, leaked, "the token must never follow a redirect")
+	assert.Contains(t, result.Data, "redirected")
+	assert.Zero(t, visits.Load(), "a redirect must never be followed, with or without the token")
 }
 
 func TestErrors_OversizedResponse(t *testing.T) {
@@ -641,10 +648,10 @@ func TestSaveDashboard_UpdateKeepsIDAndFolder(t *testing.T) {
 				}
 				saved = true
 				raw, err := io.ReadAll(r.Body)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Contains(t, string(raw), `"id":9007199254740993`, "the stored id keeps Grafana's version check")
 				var body map[string]any
-				require.NoError(t, json.Unmarshal(raw, &body))
+				assert.NoError(t, json.Unmarshal(raw, &body))
 				assert.Equal(t, tc.wantFolder, body["folderUid"], "an update must not move the dashboard")
 				assert.Equal(t, false, body["overwrite"])
 				_, _ = io.WriteString(w, `{"status":"success","uid":"svc","version":3}`)
@@ -675,7 +682,7 @@ func TestSaveDashboard_NewDashboardDropsForeignID(t *testing.T) {
 
 func TestSaveDashboard_LookupFailureStopsTheSave(t *testing.T) {
 	g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodGet, r.Method, "nothing may be saved when the lookup fails")
+		assert.Equal(t, http.MethodGet, r.Method, "nothing may be saved when the lookup fails")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = io.WriteString(w, `{"message":"Access denied"}`)
 	})
@@ -712,6 +719,69 @@ func TestErrors_HTMLErrorKeepsRetryClassification(t *testing.T) {
 			var re *mcp.RetryableError
 			if tc.retryable && assert.ErrorAs(t, err, &re) {
 				assert.Equal(t, 2*time.Second, re.RetryAfter)
+			}
+		})
+	}
+}
+
+func TestSaveDashboard_ImportUpdateKeepsFolder(t *testing.T) {
+	g := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			assert.Equal(t, "/api/dashboards/uid/rb", r.URL.Path)
+			_, _ = io.WriteString(w, `{"meta":{"folderUid":"ops"},"dashboard":{"id":7,"uid":"rb"}}`)
+			return
+		}
+		assert.Equal(t, "/api/dashboards/import", r.URL.Path)
+		body := decodeBody(t, r)
+		assert.Equal(t, "ops", body["folderUid"], "re-importing must not move the dashboard")
+		dash, _ := body["dashboard"].(map[string]any)
+		assert.NotContains(t, dash, "id", "the import API matches by uid")
+		_, _ = io.WriteString(w, `{"uid":"rb","imported":true}`)
+	})
+	dash := `{"__inputs":[{"name":"DS_PROMETHEUS","type":"datasource","pluginId":"prometheus"}],"uid":"rb","title":"RB"}`
+	result := execute(t, g, "grafana_save_dashboard", map[string]any{"dashboard": dash, "overwrite": true, "inputs": map[string]any{"DS_PROMETHEUS": "p"}})
+	require.False(t, result.IsError, result.Data)
+}
+
+// truncatingServer answers with a status and Content-Length but closes the
+// connection before the body is complete.
+func truncatingServer(t *testing.T, status int) *grafana {
+	t.Helper()
+	return newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "3")
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(status)
+		_, _ = io.WriteString(w, `{"message":`)
+		if hj, ok := w.(http.Hijacker); ok {
+			conn, _, err := hj.Hijack()
+			if assert.NoError(t, err) {
+				_ = conn.Close()
+			}
+		}
+	})
+}
+
+func TestErrors_TruncatedErrorBodyKeepsRetryClassification(t *testing.T) {
+	tests := []struct {
+		name      string
+		status    int
+		retrySafe bool
+		retryable bool
+	}{
+		{"rate limited", http.StatusTooManyRequests, false, true},
+		{"unavailable read", http.StatusServiceUnavailable, true, true},
+		{"unavailable save", http.StatusServiceUnavailable, false, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := truncatingServer(t, tc.status)
+			_, err := g.doRequest(context.Background(), http.MethodGet, "/api/datasources", nil, nil, tc.retrySafe)
+			require.Error(t, err)
+			assert.Equal(t, tc.retryable, mcp.IsRetryable(err))
+			assert.Contains(t, err.Error(), fmt.Sprintf("(%d)", tc.status))
+			var re *mcp.RetryableError
+			if tc.retryable && assert.ErrorAs(t, err, &re) {
+				assert.Equal(t, 3*time.Second, re.RetryAfter)
 			}
 		})
 	}

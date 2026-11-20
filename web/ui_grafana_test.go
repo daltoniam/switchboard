@@ -13,6 +13,7 @@ import (
 
 	mcp "github.com/daltoniam/switchboard"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -61,7 +62,7 @@ func TestUIGrafana(t *testing.T) {
 		case "/grafana/api/org":
 			fmt.Fprint(w, `{"id":1,"name":"Main Org."}`)
 		case "/grafana/api/search":
-			require.Equal(t, "dash-db", r.URL.Query().Get("type"))
+			assert.Equal(t, "dash-db", r.URL.Query().Get("type"))
 			fmt.Fprint(w, `[{"id":7,"uid":"svc","title":"Service Overview","url":"/d/svc/service-overview","folderUid":"ops","folderTitle":"Ops","folderUrl":"/dashboards/f/SECRET_SENTINEL","tags":["prod"]}]`)
 		default:
 			w.WriteHeader(http.StatusNotFound)
