@@ -94,7 +94,7 @@ func TestByteCapAndNoPartialRetry(t *testing.T) {
 func TestSanitizationAndFinalByteBudget(t *testing.T) {
 	body := ""
 	for index := range 20 {
-		value := map[string]any{"event": "message", "id": fmt.Sprintf("%012d", index), "time": index + 1, "title": strings.Repeat("界", 140), "message": strings.Repeat("<", 1100), "tags": []string{strings.Repeat("界", 70), "a", "b", "c", "d", "e", "f", "g", "h"}, "attachment": map[string]any{"url": "SECRET"}}
+		value := map[string]any{"event": "message", "topic": "ops", "id": fmt.Sprintf("%012d", index), "time": index + 1, "title": strings.Repeat("界", 140), "message": strings.Repeat("<", 1100), "tags": []string{strings.Repeat("界", 70), "a", "b", "c", "d", "e", "f", "g", "h"}, "attachment": map[string]any{"url": "SECRET"}}
 		data, err := json.Marshal(value)
 		require.NoError(t, err)
 		body += string(data) + "\n"
@@ -107,6 +107,12 @@ func TestSanitizationAndFinalByteBudget(t *testing.T) {
 	require.NotContains(t, result.Data, "SECRET")
 	require.Equal(t, true, value["adapter_truncated"])
 	require.Equal(t, true, value["incomplete"])
+	require.NotEmpty(t, value["messages"])
+	require.True(t, result.IsError)
+	require.Equal(t, "error", value["status"])
+	require.Contains(t, value["error"], "64 KiB")
+	require.Equal(t, true, value["truncations"].(map[string]any)["response_bytes"])
+	require.Equal(t, true, value["truncations"].(map[string]any)["output_bytes"])
 	for _, item := range value["messages"].([]any) {
 		message := item.(map[string]any)
 		require.LessOrEqual(t, utf8.RuneCountInString(message["title"].(string)), 128)
