@@ -181,7 +181,7 @@ func (n *ntfy) Execute(ctx context.Context, name mcp.ToolName, args map[string]a
 	if state == nil {
 		return mcp.ErrResult(mcp.ErrNotConfigured)
 	}
-	defer state.client.CloseIdleConnections()
+	defer n.releaseSnapshot(state)
 	return fn(ctx, state, args)
 }
 
@@ -191,6 +191,12 @@ func (n *ntfy) snapshot() *pollClient {
 	return n.state
 }
 
+func (n *ntfy) releaseSnapshot(state *pollClient) {
+	if n.snapshot() != state {
+		state.client.CloseIdleConnections()
+	}
+}
+
 func (n *ntfy) Healthy(ctx context.Context) bool {
 	ctx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
@@ -198,7 +204,7 @@ func (n *ntfy) Healthy(ctx context.Context) bool {
 	if state == nil {
 		return false
 	}
-	defer state.client.CloseIdleConnections()
+	defer n.releaseSnapshot(state)
 	result := state.poll(ctx, pollOptions{since: "latest", limit: 1})
 	return result.Error == ""
 }

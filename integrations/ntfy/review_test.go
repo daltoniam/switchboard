@@ -61,10 +61,11 @@ func TestSameSecondMessagesUseReverseReplayOrder(t *testing.T) {
 
 func TestReconfigureAndCancelledCallsDoNotWaitForInflightPoll(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
+	markEntered := sync.OnceFunc(func() { close(entered) })
 	adapter, _ := testAdapter(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/ntfy/ops/json", r.URL.Path)
 		assert.Equal(t, "Bearer test-secret", r.Header.Get("Authorization"))
-		close(entered)
+		markEntered()
 		select {
 		case <-release:
 			w.Header().Set("Content-Type", "application/x-ndjson")
@@ -89,10 +90,17 @@ func TestReconfigureAndCancelledCallsDoNotWaitForInflightPoll(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("first poll did not start")
 	}
+	replacementCalls := make(chan struct{}, 2)
 	_, replacement := testAdapter(t, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/newtopic/json", r.URL.Path)
 		assert.Equal(t, "Bearer new-secret", r.Header.Get("Authorization"))
+		select {
+		case replacementCalls <- struct{}{}:
+		default:
+			t.Error("unexpected additional request to the replacement server")
+		}
 		w.Header().Set("Content-Type", "application/x-ndjson")
+		_, _ = io.WriteString(w, strings.Replace(fixture, `"topic":"ops"`, `"topic":"newtopic"`, 1)+"\n")
 	})
 	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: replacement.Certificate().Raw})
 	reconfigured := make(chan error, 1)
@@ -103,8 +111,20 @@ func TestReconfigureAndCancelledCallsDoNotWaitForInflightPoll(t *testing.T) {
 	case err := <-reconfigured:
 		require.NoError(t, err)
 	case <-time.After(200 * time.Millisecond):
-		t.Error("reconfiguration waited for an in-flight network poll")
+		t.Fatal("reconfiguration waited for an in-flight network poll")
 	}
+	replacementContext, stopReplacement := context.WithTimeout(t.Context(), time.Second)
+	defer stopReplacement()
+	replacementResult, err := adapter.Execute(replacementContext, "ntfy_list_messages", nil)
+	require.NoError(t, err)
+	require.False(t, replacementResult.IsError, replacementResult.Data)
+	var replacementValue map[string]any
+	require.NoError(t, json.Unmarshal([]byte(replacementResult.Data), &replacementValue))
+	require.Equal(t, "newtopic", replacementValue["scope"].(map[string]any)["topic"])
+	require.Len(t, replacementValue["messages"], 1)
+	require.Equal(t, "AbCd1234EfGh", replacementValue["messages"].([]any)[0].(map[string]any)["id"])
+	require.True(t, adapter.Healthy(replacementContext))
+	require.Len(t, replacementCalls, 2, "Execute and Healthy must both reach the replacement server")
 	cancelled, stop := context.WithCancel(t.Context())
 	stop()
 	cancelledExecute := make(chan execution, 1)
@@ -127,9 +147,13 @@ func TestReconfigureAndCancelledCallsDoNotWaitForInflightPoll(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 		t.Error("cancelled Healthy waited behind reconfiguration and an in-flight poll")
 	}
+	require.Len(t, replacementCalls, 2, "cancelled calls must not reach the replacement server")
 	cancel()
 	select {
-	case <-first:
+	case value := <-first:
+		require.NoError(t, value.err)
+		require.NotNil(t, value.result)
+		require.True(t, value.result.IsError, value.result.Data)
 	case <-time.After(time.Second):
 		t.Fatal("first poll did not respect cancellation")
 	}

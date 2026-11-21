@@ -185,10 +185,109 @@ func TestReconfigureClosesOldConnectionsAndCanReopen(t *testing.T) {
 	require.NoError(t, adapter.Close())
 	require.NoError(t, adapter.Configure(t.Context(), creds))
 	require.True(t, adapter.Healthy(t.Context()))
-	var group sync.WaitGroup
-	for range 6 {
-		group.Go(func() { _, _ = adapter.Execute(context.Background(), "ntfy_list_messages", nil) })
+}
+
+func TestCloseWithInflightRequests(t *testing.T) {
+	const workers = 6
+	entered := make(chan struct{}, workers)
+	release := make(chan struct{})
+	releasePolls := sync.OnceFunc(func() { close(release) })
+	defer releasePolls()
+	adapter, _ := testAdapter(t, func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case entered <- struct{}{}:
+		default:
+			t.Error("unexpected additional in-flight request")
+		}
+		select {
+		case <-release:
+			w.Header().Set("Content-Type", "application/x-ndjson")
+			_, _ = io.WriteString(w, fixture+"\n")
+		case <-r.Context().Done():
+		}
+	})
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	type execution struct {
+		result *mcp.ToolResult
+		err    error
 	}
-	require.NoError(t, adapter.Close())
-	group.Wait()
+	results := make(chan execution, workers)
+	for range workers {
+		go func() {
+			result, err := adapter.Execute(ctx, "ntfy_list_messages", nil)
+			results <- execution{result, err}
+		}()
+	}
+	for range workers {
+		select {
+		case <-entered:
+		case value := <-results:
+			t.Fatalf("poll returned before all requests were in flight: result=%+v, err=%v", value.result, value.err)
+		case <-ctx.Done():
+			t.Fatal("not all requests reached the HTTP handler")
+		}
+	}
+	closed := make(chan error, 1)
+	go func() { closed <- adapter.Close() }()
+	select {
+	case err := <-closed:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("Close waited for active requests")
+	}
+	require.Nil(t, adapter.snapshot(), "Close must retire the active configuration")
+	require.False(t, adapter.Healthy(ctx))
+	afterClose, err := adapter.Execute(ctx, "ntfy_list_messages", nil)
+	require.NoError(t, err)
+	require.True(t, afterClose.IsError, afterClose.Data)
+	require.Equal(t, mcp.ErrNotConfigured.Error(), afterClose.Data)
+	releasePolls()
+	for range workers {
+		select {
+		case value := <-results:
+			require.NoError(t, value.err)
+			require.NotNil(t, value.result)
+			require.False(t, value.result.IsError, value.result.Data)
+			var raw map[string]any
+			require.NoError(t, json.Unmarshal([]byte(value.result.Data), &raw))
+			require.Equal(t, "ops", raw["scope"].(map[string]any)["topic"])
+			require.Len(t, raw["messages"], 1)
+			require.Equal(t, "AbCd1234EfGh", raw["messages"].([]any)[0].(map[string]any)["id"])
+		case <-ctx.Done():
+			t.Fatal("active request did not finish after releasing the handler")
+		}
+	}
+}
+
+func TestExecuteAndHealthyReuseConnections(t *testing.T) {
+	connections := make(chan string, 4)
+	adapter, _ := testAdapter(t, func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case connections <- r.RemoteAddr:
+		default:
+			t.Error("unexpected additional connection-reuse request")
+		}
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		_, _ = io.WriteString(w, fixture+"\n")
+	})
+	var originalConnection string
+	for _, operation := range []string{"execute", "healthy", "execute", "healthy"} {
+		if operation == "healthy" {
+			require.True(t, adapter.Healthy(t.Context()))
+		} else {
+			result, value := resultJSON(t, adapter, "ntfy_list_messages", nil)
+			require.False(t, result.IsError, result.Data)
+			require.Len(t, value["messages"], 1)
+		}
+		select {
+		case connection := <-connections:
+			if originalConnection == "" {
+				originalConnection = connection
+			}
+			require.Equal(t, originalConnection, connection, "%s must reuse the established TLS connection", operation)
+		case <-time.After(time.Second):
+			t.Fatal("operation did not reach the HTTP handler")
+		}
+	}
 }
