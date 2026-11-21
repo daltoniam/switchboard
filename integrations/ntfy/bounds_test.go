@@ -6,7 +6,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"sync"
@@ -130,11 +132,51 @@ func TestEveryCompactionFieldExistsForEmptyAndErrorResponses(t *testing.T) {
 }
 
 func TestReconfigureClosesOldConnectionsAndCanReopen(t *testing.T) {
-	adapter, provider := testAdapter(t, func(w http.ResponseWriter, _ *http.Request) { w.Header().Set("Content-Type", "application/x-ndjson") })
+	idleConnections := make(chan net.Conn, 1)
+	closedConnections := make(chan net.Conn, 1)
+	provider := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+	}))
+	provider.Config.ConnState = func(connection net.Conn, state http.ConnState) {
+		switch state {
+		case http.StateIdle:
+			select {
+			case idleConnections <- connection:
+			default:
+			}
+		case http.StateClosed:
+			select {
+			case closedConnections <- connection:
+			default:
+			}
+		}
+	}
+	provider.StartTLS()
+	t.Cleanup(provider.Close)
+	adapter := New().(*ntfy)
+	t.Cleanup(func() { require.NoError(t, adapter.Close()) })
 	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: provider.Certificate().Raw})
 	creds := mcp.Credentials{"base_url": provider.URL + "/ntfy", "topic": "ops", "api_token": "test-secret", "ca_cert": strings.ReplaceAll(string(cert), "\n", `\n`)}
-	require.True(t, adapter.Healthy(t.Context()))
 	require.NoError(t, adapter.Configure(t.Context(), creds))
+	require.Empty(t, adapter.snapshot().poll(t.Context(), pollOptions{since: "latest", limit: 1}).Error)
+	var originalConnection net.Conn
+	select {
+	case originalConnection = <-idleConnections:
+	case <-time.After(time.Second):
+		t.Fatal("original connection did not become idle")
+	}
+	select {
+	case <-closedConnections:
+		t.Fatal("original connection closed before reconfiguration")
+	default:
+	}
+	require.NoError(t, adapter.Configure(t.Context(), creds))
+	select {
+	case connection := <-closedConnections:
+		require.Same(t, originalConnection, connection)
+	case <-time.After(time.Second):
+		t.Fatal("reconfiguration did not close the original idle connection")
+	}
 	require.True(t, adapter.Healthy(t.Context()))
 	require.NoError(t, adapter.Close())
 	require.NoError(t, adapter.Configure(t.Context(), creds))
