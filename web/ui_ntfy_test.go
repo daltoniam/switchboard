@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -75,7 +76,7 @@ func uiNtfyAssertSanitized(t *testing.T, text string) {
 	walk(value)
 }
 
-func uiNtfyMCP(t *testing.T, app *uiApp) []string {
+func uiNtfyMCP(t *testing.T, app *uiApp, pollCutoffs func() []string) []string {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
@@ -127,9 +128,13 @@ func uiNtfyMCP(t *testing.T, app *uiApp) []string {
 					require.NoError(t, err)
 					arguments = map[string]any{"script": fmt.Sprintf("JSON.stringify(api.call(%q, %s));", c.tool, args)}
 				}
+				before := len(pollCutoffs())
 				result, err := session.CallTool(ctx, &mcpsdk.CallToolParams{Name: "execute", Arguments: arguments})
 				require.NoError(t, err)
 				require.False(t, result.IsError)
+				if len(c.args) > 0 {
+					require.Equal(t, []string{strconv.FormatInt(since, 10)}, pollCutoffs()[before:], "each replay poll must forward the requested cutoff unchanged")
+				}
 				text, ok := result.Content[0].(*mcpsdk.TextContent)
 				require.True(t, ok)
 				data := text.Text
@@ -180,6 +185,13 @@ func uiNtfyMCP(t *testing.T, app *uiApp) []string {
 func TestUINtfy(t *testing.T) {
 	app := newUIApp(t)
 	t.Logf("isolated development URL: %s", app.URL)
+	var mu sync.Mutex
+	var cutoffs []string
+	pollCutoffs := func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]string(nil), cutoffs...)
+	}
 	provider := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer ui-ntfy-token" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -197,6 +209,9 @@ func TestUINtfy(t *testing.T) {
 			}
 		}
 		if query.Get("since") != "latest" {
+			mu.Lock()
+			cutoffs = append(cutoffs, query.Get("since"))
+			mu.Unlock()
 			since, err := strconv.ParseInt(query.Get("since"), 10, 64)
 			if err != nil || since < time.Now().Add(-time.Hour).Unix() || since > time.Now().Unix() {
 				t.Errorf("ntfy since must be latest or within the last hour")
@@ -253,7 +268,7 @@ func TestUINtfy(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, count, "fresh installs must register the ntfy integration")
 	uiText(t, card, "Disabled")
-	require.Empty(t, uiNtfyMCP(t, app))
+	require.Empty(t, uiNtfyMCP(t, app, pollCutoffs))
 	require.NoError(t, card.Click())
 	require.Equal(t, app.URL+"/integrations/ntfy", page.URL())
 	form := page.Locator("#integration-configuration")
@@ -287,7 +302,7 @@ func TestUINtfy(t *testing.T) {
 	require.NoError(t, form.Locator("#cred_api_token").Fill("ui-ntfy-token"))
 	uiSave(t, page)
 	uiText(t, page.Locator(".badge").First(), "Connected")
-	require.Len(t, uiNtfyMCP(t, app), 2)
+	require.Len(t, uiNtfyMCP(t, app, pollCutoffs), 2)
 	uiCapture(t, page, "ntfy-desktop")
 	require.NoError(t, page.SetViewportSize(390, 844))
 	require.NoError(t, page.Locator("[data-sidebar-close]").Click())
@@ -301,7 +316,7 @@ func TestUINtfy(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expected, value)
 	}
-	require.Len(t, uiNtfyMCP(t, app), 2)
+	require.Len(t, uiNtfyMCP(t, app, pollCutoffs), 2)
 	require.NoError(t, form.Locator("#cred_api_token").Fill(""))
 	uiSave(t, page)
 	uiText(t, page.Locator(".badge").First(), "Not Verified")
@@ -311,7 +326,7 @@ func TestUINtfy(t *testing.T) {
 	require.NoError(t, form.Locator(".toggle").Click())
 	uiSave(t, page)
 	uiText(t, page.Locator(".badge").First(), "Disabled")
-	require.Empty(t, uiNtfyMCP(t, app))
+	require.Empty(t, uiNtfyMCP(t, app, pollCutoffs))
 	uiNavigate(t, page, app.URL+"/integrations")
 	uiText(t, card, "Disabled")
 }

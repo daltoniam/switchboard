@@ -26,7 +26,7 @@ func TestUpstreamFailuresAreExplicitAndSanitized(t *testing.T) {
 	}{
 		{"unauthorized", 401, "text/plain", "SECRET test-secret"}, {"forbidden", 403, "application/json", `{"error":"SECRET"}`},
 		{"inaccessible", 404, "text/plain", "SECRET"}, {"no content", 204, "application/x-ndjson", ""},
-		{"HTML", 200, "text/html", "SECRET"}, {"bad JSON", 200, "application/x-ndjson", "SECRET"},
+		{"HTML", 200, "text/html", fixture}, {"bad JSON", 200, "application/x-ndjson", "SECRET"},
 		{"array", 200, "application/x-ndjson", "[]"}, {"null", 200, "application/x-ndjson", "null"},
 		{"trailing JSON", 200, "application/x-ndjson", fixture + ` {"event":"message"}`},
 		{"partial JSON", 200, "application/x-ndjson", fixture + "\n{"},
