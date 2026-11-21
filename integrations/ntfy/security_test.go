@@ -103,7 +103,11 @@ func TestSanitizationAndFinalByteBudget(t *testing.T) {
 		w.Header().Set("Content-Type", "application/x-ndjson")
 		_, _ = io.WriteString(w, body)
 	})
-	result, value := resultJSON(t, adapter, "ntfy_list_messages", map[string]any{"limit": 20})
+	result, err := adapter.Execute(t.Context(), "ntfy_list_messages", map[string]any{"limit": 20})
+	require.NoError(t, err)
+	require.Less(t, len(result.Data), maxOutputBytes)
+	var value map[string]any
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &value))
 	require.NotContains(t, result.Data, "SECRET")
 	require.Equal(t, true, value["adapter_truncated"])
 	require.Equal(t, true, value["incomplete"])
