@@ -107,19 +107,20 @@ func uiNtfyMCP(t *testing.T, app *uiApp) []string {
 	since := time.Now().Add(-30 * time.Minute).Unix()
 	var discoveredID string
 	for _, c := range []struct {
+		name string
 		tool mcp.ToolName
 		args map[string]any
 	}{
-		{"ntfy_list_messages", map[string]any{}},
-		{"ntfy_list_messages", map[string]any{"since": since, "priority": 4, "tags": "backup", "limit": 1}},
-		{"ntfy_get_message", map[string]any{"since": since}},
+		{"latest", "ntfy_list_messages", map[string]any{}},
+		{"filtered", "ntfy_list_messages", map[string]any{"since": since, "priority": 4, "tags": "backup", "limit": 1}},
+		{"exact", "ntfy_get_message", map[string]any{"since": since}},
 	} {
 		if c.tool == "ntfy_get_message" {
 			require.NotEmpty(t, discoveredID, "discover the exact message ID through the list tool before lookup")
 			c.args["id"] = discoveredID
 		}
 		for _, raw := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/raw=%t", c.tool, raw), func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s/%s/raw=%t", c.tool, c.name, raw), func(t *testing.T) {
 				arguments := map[string]any{"tool_name": c.tool, "arguments": c.args}
 				if raw {
 					args, err := json.Marshal(c.args)
@@ -145,9 +146,15 @@ func uiNtfyMCP(t *testing.T, app *uiApp) []string {
 				uiNtfyAssertSanitized(t, data)
 				var value map[string]any
 				require.NoError(t, json.Unmarshal([]byte(data), &value))
+				messages := value["messages"].([]any)
+				require.Len(t, messages, 1)
+				require.EqualValues(t, 1, value["returned_count"])
+				message := messages[0].(map[string]any)
+				require.Equal(t, uiNtfyMessageID, message["id"])
+				require.EqualValues(t, 4, message["priority"])
+				require.Contains(t, message["tags"], "backup")
 				if c.tool == "ntfy_list_messages" {
-					messages := value["messages"].([]any)
-					discoveredID = messages[0].(map[string]any)["id"].(string)
+					discoveredID = message["id"].(string)
 				}
 				require.Equal(t, "incomplete", value["status"])
 				require.Equal(t, true, value["adapter_truncated"])
@@ -160,6 +167,7 @@ func uiNtfyMCP(t *testing.T, app *uiApp) []string {
 					require.Equal(t, strconv.FormatInt(since, 10), window["since"])
 				}
 				truncations := value["truncations"].(map[string]any)
+				require.Equal(t, c.name == "filtered", truncations["message_limit"])
 				for _, field := range []string{"title", "message", "tags", "tags[1]"} {
 					require.Equal(t, true, truncations[uiNtfyMessageID+"."+field])
 				}
@@ -196,6 +204,17 @@ func TestUINtfy(t *testing.T) {
 				return
 			}
 		}
+		filtered := query.Get("since") != "latest" && query.Get("id") == ""
+		if filtered && (query.Get("priority") != "4" || query.Get("tags") != "backup") {
+			t.Errorf("filtered ntfy poll must forward exact priority=4 and tags=backup")
+			http.Error(w, "missing or invalid filters", http.StatusBadRequest)
+			return
+		}
+		if !filtered && (query.Has("priority") || query.Has("tags")) {
+			t.Errorf("unfiltered ntfy poll must not send priority or tags")
+			http.Error(w, "unexpected filters", http.StatusBadRequest)
+			return
+		}
 		w.Header().Set("Content-Type", "application/x-ndjson; charset=utf-8")
 		if query.Get("id") != "" && query.Get("id") != uiNtfyMessageID {
 			return
@@ -211,7 +230,17 @@ func TestUINtfy(t *testing.T) {
 			"attachment": map[string]string{"url": "https://SECRET_SENTINEL.invalid/attachment"},
 			"sender":     "SECRET_SENTINEL", "client": "SECRET_SENTINEL", "unknown_metadata": "SECRET_SENTINEL",
 		}
-		if err := json.NewEncoder(w).Encode(message); err != nil {
+		encoder := json.NewEncoder(w)
+		if filtered {
+			message["id"] = "NtfyBackup11"
+			message["time"] = time.Now().Add(-2 * time.Minute).Unix()
+			if err := encoder.Encode(message); err != nil {
+				t.Errorf("encode older ntfy fixture: %v", err)
+			}
+			message["id"] = uiNtfyMessageID
+			message["time"] = time.Now().Add(-time.Minute).Unix()
+		}
+		if err := encoder.Encode(message); err != nil {
 			t.Errorf("encode ntfy fixture: %v", err)
 		}
 	}))

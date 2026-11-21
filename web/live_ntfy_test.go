@@ -36,7 +36,7 @@ func init() {
 		Integration: "ntfy", Tier: liveContainer, Adapter: ntfy.New(), Provision: liveNtfyProvision,
 		Cases: []liveCase{
 			{Tool: "ntfy_list_messages", Expect: []string{"${deployment_id}", "Deployment succeeded", "Production rollout healthy", "ops_notifications", "latest", "truncat"}},
-			{Tool: "ntfy_list_messages", Args: map[string]any{"since": "${since}"}, Expect: []string{"${backup_id}", "${deployment_id}", "Backup completed", "Deployment succeeded", "truncat"}},
+			{Tool: "ntfy_list_messages", Args: map[string]any{"since": "${since}"}, Expect: []string{"${backup_id}", "${backup_pending_id}", "${maintenance_id}", "${deployment_id}", "Backup completed", "Backup pending", "Maintenance completed", "Deployment succeeded", "truncat"}},
 			{Tool: "ntfy_list_messages", Args: map[string]any{"since": "${since}", "priority": 4, "tags": "backup", "limit": 1}, Expect: []string{"${backup_id}", "Backup completed", "Snapshot saved", "backup", "truncat"}},
 			{Tool: "ntfy_list_messages", Args: map[string]any{"since": "${since}", "limit": 1}, Expect: []string{"truncat", "true", "ops_notifications"}},
 			{Tool: "ntfy_get_message", Args: map[string]any{"id": "${backup_id}", "since": "${since}"}, Expect: []string{"${backup_id}", "Backup completed", "Snapshot saved", "backup", "ops_notifications", "truncat"}},
@@ -190,6 +190,8 @@ visitor-request-limit-burst: 200
 	}{
 		{"routine_id", "Routine check", "Cache can retain multiple messages", 3, []string{"routine"}},
 		{"backup_id", "Backup completed " + strings.Repeat("T", 128) + "TITLE_OVERFLOW", "Snapshot saved " + strings.Repeat("m", 1024) + "MESSAGE_OVERFLOW", 4, []string{"backup", strings.Repeat("t", 64) + "TAG_OVERFLOW", "three", "four", "five", "six", "seven", "eight", "TAG_OVERFLOW"}},
+		{"backup_pending_id", "Backup pending", "Snapshot queued", 3, []string{"backup"}},
+		{"maintenance_id", "Maintenance completed", "Certificate renewed", 4, []string{"maintenance"}},
 		{"deployment_id", "Deployment succeeded", "Production rollout healthy", 5, []string{"deploy", "production"}},
 	} {
 		if seed.key != "routine_id" {
@@ -231,7 +233,7 @@ visitor-request-limit-burst: 200
 		count++
 	}
 	require.NoError(t, scanner.Err())
-	require.Equal(t, 3, count, "real finite polls return only cached NDJSON message records")
+	require.Equal(t, 5, count, "real finite polls return only cached NDJSON message records")
 	require.Contains(t, string(data), "SECRET_SENTINEL")
 	for _, denial := range []struct {
 		name, method, path, token string
@@ -290,10 +292,12 @@ visitor-request-limit-burst: 200
 			}
 			require.Equal(t, true, value["adapter_truncated"])
 		} else {
-			require.Len(t, messages, 3)
+			require.Len(t, messages, 5)
 			require.Equal(t, values["deployment_id"], messages[0].(map[string]any)["id"])
-			require.Equal(t, values["backup_id"], messages[1].(map[string]any)["id"])
-			require.Equal(t, values["routine_id"], messages[2].(map[string]any)["id"])
+			require.Equal(t, values["maintenance_id"], messages[1].(map[string]any)["id"])
+			require.Equal(t, values["backup_pending_id"], messages[2].(map[string]any)["id"])
+			require.Equal(t, values["backup_id"], messages[3].(map[string]any)["id"])
+			require.Equal(t, values["routine_id"], messages[4].(map[string]any)["id"])
 		}
 	}
 	return liveProvision{Credentials: credentials, Values: values}

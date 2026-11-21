@@ -26,15 +26,37 @@ func TestPublicServiceTrailingDotIsRejected(t *testing.T) {
 }
 
 func TestSameSecondMessagesUseReverseReplayOrder(t *testing.T) {
-	body := strings.Replace(fixture, "AbCd1234EfGh", "AAAAAAAAAAAA", 1) + "\n" + strings.Replace(fixture, "AbCd1234EfGh", "ZZZZZZZZZZZZ", 1) + "\n"
-	adapter, _ := testAdapter(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/x-ndjson")
-		_, _ = io.WriteString(w, body)
-	})
-	result, value := resultJSON(t, adapter, "ntfy_list_messages", map[string]any{"limit": 1})
-	require.False(t, result.IsError, result.Data)
-	require.Equal(t, "ZZZZZZZZZZZZ", value["messages"].([]any)[0].(map[string]any)["id"])
-	require.Equal(t, true, value["truncations"].(map[string]any)["message_limit"])
+	for _, tc := range []struct {
+		name      string
+		replayIDs []string
+		wantIDs   []string
+	}{
+		{"ascending IDs", []string{"AAAAAAAAAAAA", "ZZZZZZZZZZZZ"}, []string{"ZZZZZZZZZZZZ"}},
+		{"descending IDs", []string{"ZZZZZZZZZZZZ", "AAAAAAAAAAAA"}, []string{"AAAAAAAAAAAA"}},
+		{"mixed IDs", []string{"AAAAAAAAAAAA", "ZZZZZZZZZZZZ", "MMMMMMMMMMMM"}, []string{"MMMMMMMMMMMM", "ZZZZZZZZZZZZ"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var body strings.Builder
+			for _, id := range tc.replayIDs {
+				body.WriteString(strings.Replace(fixture, "AbCd1234EfGh", id, 1))
+				body.WriteByte('\n')
+			}
+			adapter, _ := testAdapter(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/x-ndjson")
+				_, _ = io.WriteString(w, body.String())
+			})
+			result, value := resultJSON(t, adapter, "ntfy_list_messages", map[string]any{"limit": len(tc.wantIDs)})
+			require.False(t, result.IsError, result.Data)
+			messages := value["messages"].([]any)
+			require.Len(t, messages, len(tc.wantIDs))
+			var gotIDs []string
+			for _, message := range messages {
+				gotIDs = append(gotIDs, message.(map[string]any)["id"].(string))
+			}
+			require.Equal(t, tc.wantIDs, gotIDs, "same-second messages must use reverse replay order")
+			require.Equal(t, true, value["truncations"].(map[string]any)["message_limit"])
+		})
+	}
 }
 
 func TestReconfigureAndCancelledCallsDoNotWaitForInflightPoll(t *testing.T) {
