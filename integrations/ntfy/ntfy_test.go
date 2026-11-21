@@ -15,6 +15,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -101,31 +102,41 @@ func TestDispatchMap_NoOrphanHandlers(t *testing.T) {
 func TestPollContractAndCompaction(t *testing.T) {
 	since := strconv.FormatInt(time.Now().Unix()-300, 10)
 	for _, tc := range []struct {
-		name  mcp.ToolName
-		args  map[string]any
-		query string
+		name    mcp.ToolName
+		args    map[string]any
+		query   string
+		replay  string
+		limited bool
 	}{
-		{"ntfy_list_messages", nil, "poll=1&since=latest"},
-		{"ntfy_list_messages", map[string]any{"since": since, "priority": 4, "tags": "warning", "limit": 1}, "poll=1&priority=4&since=" + since + "&tags=warning"},
-		{"ntfy_get_message", map[string]any{"id": "AbCd1234EfGh", "since": since}, "id=AbCd1234EfGh&poll=1&since=" + since},
+		{"ntfy_list_messages", nil, "poll=1&since=latest", fixture, false},
+		{"ntfy_list_messages", map[string]any{"since": since, "priority": 4, "tags": "warning", "limit": 1}, "poll=1&priority=4&since=" + since + "&tags=warning", strings.Replace(fixture, "AbCd1234EfGh", "ZyXw9876VuTs", 1) + "\n" + fixture, true},
+		{"ntfy_get_message", map[string]any{"id": "AbCd1234EfGh", "since": since}, "id=AbCd1234EfGh&poll=1&since=" + since, fixture, false},
 	} {
 		t.Run(tc.query, func(t *testing.T) {
 			adapter, _ := testAdapter(t, func(w http.ResponseWriter, r *http.Request) {
-				require.Equal(t, http.MethodGet, r.Method)
-				require.Equal(t, "/ntfy/ops/json", r.URL.Path)
-				require.Equal(t, tc.query, r.URL.RawQuery)
-				require.Equal(t, "Bearer test-secret", r.Header.Get("Authorization"))
-				require.Empty(t, r.Header.Get("X-Subscriber-Rate"))
+				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, "/ntfy/ops/json", r.URL.Path)
+				assert.Equal(t, tc.query, r.URL.RawQuery)
+				assert.Equal(t, "Bearer test-secret", r.Header.Get("Authorization"))
+				assert.Empty(t, r.Header.Get("X-Subscriber-Rate"))
 				w.Header().Set("Content-Type", "application/x-ndjson")
-				_, _ = io.WriteString(w, `{"event":"open","id":"ignored"}`+"\n"+fixture+"\n"+`{"event":"keepalive"}`+"\n")
+				_, _ = io.WriteString(w, `{"event":"open","id":"ignored"}`+"\n"+tc.replay+"\n"+`{"event":"keepalive"}`+"\n")
 			})
 			result, value := resultJSON(t, adapter, tc.name, tc.args)
 			require.False(t, result.IsError, result.Data)
 			require.NotContains(t, result.Data, "SECRET")
 			require.NotContains(t, result.Data, "test-secret")
 			require.Len(t, value["messages"], 1)
-			require.Equal(t, "ok", value["status"])
-			require.Equal(t, false, value["incomplete"])
+			require.Equal(t, "AbCd1234EfGh", value["messages"].([]any)[0].(map[string]any)["id"])
+			require.Equal(t, float64(1), value["returned_count"])
+			if tc.limited {
+				require.Equal(t, "incomplete", value["status"])
+			} else {
+				require.Equal(t, "ok", value["status"])
+			}
+			require.Equal(t, tc.limited, value["incomplete"])
+			require.Equal(t, tc.limited, value["adapter_truncated"])
+			require.Equal(t, tc.limited, value["truncations"].(map[string]any)["message_limit"])
 			fields, ok := adapter.CompactSpec(tc.name)
 			require.True(t, ok)
 			require.Equal(t, value, mcp.CompactAny(value, fields))

@@ -7,10 +7,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,8 +40,8 @@ func TestSameSecondMessagesUseReverseReplayOrder(t *testing.T) {
 func TestReconfigureAndCancelledCallsDoNotWaitForInflightPoll(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
 	adapter, _ := testAdapter(t, func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/ntfy/ops/json", r.URL.Path)
-		require.Equal(t, "Bearer test-secret", r.Header.Get("Authorization"))
+		assert.Equal(t, "/ntfy/ops/json", r.URL.Path)
+		assert.Equal(t, "Bearer test-secret", r.Header.Get("Authorization"))
 		close(entered)
 		select {
 		case <-release:
@@ -66,8 +68,8 @@ func TestReconfigureAndCancelledCallsDoNotWaitForInflightPoll(t *testing.T) {
 		t.Fatal("first poll did not start")
 	}
 	_, replacement := testAdapter(t, func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/newtopic/json", r.URL.Path)
-		require.Equal(t, "Bearer new-secret", r.Header.Get("Authorization"))
+		assert.Equal(t, "/newtopic/json", r.URL.Path)
+		assert.Equal(t, "Bearer new-secret", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/x-ndjson")
 	})
 	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: replacement.Certificate().Raw})
@@ -113,15 +115,30 @@ func TestReconfigureAndCancelledCallsDoNotWaitForInflightPoll(t *testing.T) {
 
 func TestInflightPollRetainsConfiguredSnapshot(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
+	releasePoll := sync.OnceFunc(func() { close(release) })
+	defer releasePoll()
 	adapter, _ := testAdapter(t, func(w http.ResponseWriter, _ *http.Request) {
 		close(entered)
 		<-release
 		w.Header().Set("Content-Type", "application/x-ndjson")
 		_, _ = io.WriteString(w, fixture+"\n")
 	})
-	result := make(chan *mcp.ToolResult, 1)
-	go func() { value, _ := adapter.Execute(t.Context(), "ntfy_list_messages", nil); result <- value }()
-	<-entered
+	type execution struct {
+		result *mcp.ToolResult
+		err    error
+	}
+	result := make(chan execution, 1)
+	go func() {
+		value, err := adapter.Execute(t.Context(), "ntfy_list_messages", nil)
+		result <- execution{value, err}
+	}()
+	select {
+	case <-entered:
+	case value := <-result:
+		t.Fatalf("poll returned before reaching the HTTP handler: result=%+v, err=%v", value.result, value.err)
+	case <-time.After(time.Second):
+		t.Fatal("poll did not reach the HTTP handler")
+	}
 	closed := make(chan error, 1)
 	go func() { closed <- adapter.Close() }()
 	select {
@@ -130,11 +147,17 @@ func TestInflightPollRetainsConfiguredSnapshot(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 		t.Error("Close waited for an in-flight network poll")
 	}
-	close(release)
-	value := <-result
-	require.False(t, value.IsError, value.Data)
-	var raw map[string]any
-	require.NoError(t, json.Unmarshal([]byte(value.Data), &raw))
-	require.Equal(t, "ops", raw["scope"].(map[string]any)["topic"])
-	require.Len(t, raw["messages"], 1)
+	releasePoll()
+	select {
+	case value := <-result:
+		require.NoError(t, value.err)
+		require.NotNil(t, value.result)
+		require.False(t, value.result.IsError, value.result.Data)
+		var raw map[string]any
+		require.NoError(t, json.Unmarshal([]byte(value.result.Data), &raw))
+		require.Equal(t, "ops", raw["scope"].(map[string]any)["topic"])
+		require.Len(t, raw["messages"], 1)
+	case <-time.After(time.Second):
+		t.Fatal("poll did not finish after releasing the HTTP handler")
+	}
 }
