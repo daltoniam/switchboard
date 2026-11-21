@@ -193,7 +193,7 @@ func TestRateLimitBudget(t *testing.T) {
 	require.EqualValues(t, 3, calls.Load())
 }
 
-func TestDeadlineAndTLS(t *testing.T) {
+func TestDeadline(t *testing.T) {
 	adapter, provider := testAdapter(t, func(w http.ResponseWriter, r *http.Request) { <-r.Context().Done() })
 	ctx, cancel := context.WithTimeout(t.Context(), 25*time.Millisecond)
 	defer cancel()
@@ -203,6 +203,20 @@ func TestDeadlineAndTLS(t *testing.T) {
 	require.True(t, result.IsError)
 	require.Less(t, time.Since(start), time.Second)
 	require.NotContains(t, result.Data, provider.URL)
-	require.NoError(t, adapter.Configure(t.Context(), mcp.Credentials{"base_url": provider.URL, "topic": "ops", "api_token": "test-secret"}))
-	require.False(t, adapter.Healthy(t.Context()))
+}
+
+func TestTLSCertificateVerification(t *testing.T) {
+	var calls atomic.Int32
+	adapter, provider := testAdapter(t, func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/x-ndjson")
+	})
+	require.True(t, adapter.Healthy(t.Context()))
+	require.EqualValues(t, 1, calls.Load())
+	require.NoError(t, adapter.Configure(t.Context(), mcp.Credentials{"base_url": provider.URL + "/ntfy", "topic": "ops", "api_token": "test-secret"}))
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	require.False(t, adapter.Healthy(ctx))
+	require.NoError(t, ctx.Err())
+	require.EqualValues(t, 1, calls.Load())
 }
