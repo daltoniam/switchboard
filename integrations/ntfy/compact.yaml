@@ -1,0 +1,6 @@
+version: 1
+tools:
+  ntfy_list_messages:
+    spec: [messages, scope, window, status, returned_count, upstream_truncated, adapter_truncated, incomplete, truncations, error, caveat]
+  ntfy_get_message:
+    spec: [messages, scope, window, status, returned_count, upstream_truncated, adapter_truncated, incomplete, truncations, error, caveat]

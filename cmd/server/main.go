@@ -81,6 +81,7 @@ import (
 	nomadInt "github.com/daltoniam/switchboard/integrations/nomad"
 	notionInt "github.com/daltoniam/switchboard/integrations/notion"
 	"github.com/daltoniam/switchboard/integrations/notionmcp"
+	"github.com/daltoniam/switchboard/integrations/ntfy"
 	"github.com/daltoniam/switchboard/integrations/obsidian"
 	"github.com/daltoniam/switchboard/integrations/okta"
 	"github.com/daltoniam/switchboard/integrations/ollama"
@@ -363,6 +364,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		snipeit.New(),
 		wazuh.New(),
 		gatus.New(),
+		ntfy.New(),
 		authentik.New(),
 		growthbook.New(),
 		recoll.New(),

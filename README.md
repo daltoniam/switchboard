@@ -452,6 +452,10 @@ Environment variables override credential values but do not change the durable e
 | Prometheus | `ca_cert` | `PROMETHEUS_CA_CERT` (optional PEM CA certificate; TLS verification cannot be disabled) |
 | LaunchDarkly | `access_token` | `LAUNCHDARKLY_ACCESS_TOKEN` (personal or service access token; SDK keys cannot call the REST API) |
 | LaunchDarkly | `base_url` | `LAUNCHDARKLY_BASE_URL` (optional — default `https://app.launchdarkly.com`; EU `https://app.eu.launchdarkly.com`; Federal `https://app.launchdarkly.us`) |
+| [ntfy](docs/ntfy.md) | `base_url` | `NTFY_BASE_URL` (required trusted HTTPS self-hosted server) |
+| ntfy | `topic` | `NTFY_TOPIC` (required fixed private topic) |
+| ntfy | `api_token` | `NTFY_API_TOKEN` (dedicated non-admin user token with read-only topic ACL) |
+| ntfy | `ca_cert` | `NTFY_CA_CERT` (optional PEM CA certificate; TLS verification stays enabled) |
 | [GrowthBook](docs/growthbook.md) | `api_key` | `GROWTHBOOK_API_KEY` (Secret Key or Personal Access Token; SDK client keys cannot call the REST API) |
 | GrowthBook | `base_url` | `GROWTHBOOK_BASE_URL` (optional HTTPS API URL; default `https://api.growthbook.io/api`, self-hosted `API_HOST`) |
 | GrowthBook | `ca_cert` | `GROWTHBOOK_CA_CERT` (optional PEM CA certificate for a self-hosted API) |
