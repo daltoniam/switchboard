@@ -496,3 +496,93 @@ func TestMergePR_HeadMovedIsAnError(t *testing.T) {
 	assert.True(t, result.IsError)
 	assert.Contains(t, result.Data, "Head branch was modified")
 }
+
+// ── PR review threads (GraphQL) ─────────────────────────────────
+
+func TestListReviewThreads(t *testing.T) {
+	var query map[string]any
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/graphql", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&query))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"repository":{"pullRequest":{"reviewThreads":{
+			"pageInfo":{"hasNextPage":false,"endCursor":"c1"},
+			"nodes":[
+				{"id":"T1","isResolved":false,"isOutdated":false,"path":"a.ts","line":3,
+				 "comments":{"nodes":[{"author":{"login":"agents-pipeline"},"body":"P1 fix this","url":"https://x/1","createdAt":"2026-11-20T00:00:00Z"}]}},
+				{"id":"T2","isResolved":true,"isOutdated":true,"path":"b.ts","line":null,
+				 "comments":{"nodes":[{"author":{"login":"alice"},"body":"nit","url":"https://x/2","createdAt":"2026-11-20T00:00:00Z"}]}}
+			]}}}}}`))
+	}))
+	defer ts.Close()
+
+	result, err := listReviewThreads(context.Background(), g, map[string]any{"owner": "o", "repo": "r", "pull_number": 7})
+	require.NoError(t, err)
+	require.False(t, result.IsError, "unexpected error: %s", result.Data)
+
+	vars, _ := query["variables"].(map[string]any)
+	assert.Equal(t, "o", vars["owner"])
+	assert.Equal(t, "r", vars["repo"])
+	assert.EqualValues(t, 7, vars["number"])
+	assert.Contains(t, query["query"], "reviewThreads")
+
+	var out struct {
+		Threads []struct {
+			ID         string `json:"id"`
+			IsResolved bool   `json:"is_resolved"`
+			IsOutdated bool   `json:"is_outdated"`
+			Path       string `json:"path"`
+			Author     string `json:"author"`
+			Body       string `json:"body"`
+		} `json:"threads"`
+		Unresolved  int    `json:"unresolved"`
+		HasNextPage bool   `json:"has_next_page"`
+		EndCursor   string `json:"end_cursor"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(result.Data), &out))
+	require.Len(t, out.Threads, 2)
+	assert.Equal(t, 1, out.Unresolved)
+	assert.Equal(t, "T1", out.Threads[0].ID)
+	assert.False(t, out.Threads[0].IsResolved)
+	assert.Equal(t, "agents-pipeline", out.Threads[0].Author)
+	assert.Equal(t, "P1 fix this", out.Threads[0].Body)
+	assert.True(t, out.Threads[1].IsResolved)
+	assert.False(t, out.HasNextPage)
+}
+
+func TestListReviewThreads_PassesCursor(t *testing.T) {
+	var query map[string]any
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&query))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false},"nodes":[]}}}}}`))
+	}))
+	defer ts.Close()
+
+	result, err := listReviewThreads(context.Background(), g, map[string]any{"owner": "o", "repo": "r", "pull_number": 7, "after": "c1"})
+	require.NoError(t, err)
+	require.False(t, result.IsError, "unexpected error: %s", result.Data)
+	vars, _ := query["variables"].(map[string]any)
+	assert.Equal(t, "c1", vars["after"])
+}
+
+func TestListReviewThreads_GraphQLErrors(t *testing.T) {
+	g, ts := newTestGitHub(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"Could not resolve to a PullRequest"}]}`))
+	}))
+	defer ts.Close()
+
+	result, err := listReviewThreads(context.Background(), g, map[string]any{"owner": "o", "repo": "r", "pull_number": 7})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	assert.Contains(t, result.Data, "Could not resolve to a PullRequest")
+}
+
+func TestListReviewThreads_RequiresArgs(t *testing.T) {
+	g := &integration{token: "t"}
+	result, err := listReviewThreads(context.Background(), g, map[string]any{"owner": "o", "repo": "r"})
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+}

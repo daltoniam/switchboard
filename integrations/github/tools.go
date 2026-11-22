@@ -458,6 +458,11 @@ var tools = []mcp.ToolDefinition{
 		Required:   []string{"owner", "repo", "pull_number"},
 	},
 	{
+		Name: mcp.ToolName("github_list_review_threads"), Description: "List review threads on a pull request with whether each is resolved or outdated, and its first comment's author and body. Returns an unresolved count. Use this to check for open review feedback; the REST review and comment tools do not report resolution.",
+		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "per_page": "Threads per page (max 100, default 100)", "after": "end_cursor from the previous page"},
+		Required:   []string{"owner", "repo", "pull_number"},
+	},
+	{
 		Name: mcp.ToolName("github_list_pull_reviews"), Description: "List reviews on a pull request",
 		Parameters: map[string]string{"owner": "Repository owner", "repo": "Repository name", "pull_number": "Pull request number", "page": "Page number", "per_page": "Results per page"},
 		Required:   []string{"owner", "repo", "pull_number"},
