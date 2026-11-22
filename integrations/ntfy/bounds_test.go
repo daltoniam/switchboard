@@ -16,6 +16,7 @@ import (
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,8 +91,8 @@ func TestSharedNumericArgumentForms(t *testing.T) {
 
 func TestHealthyExactBoundedPollAndCredentialInterfaces(t *testing.T) {
 	adapter, _ := testAdapter(t, func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/ntfy/ops/json", r.URL.Path)
-		require.Equal(t, url.Values{"poll": {"1"}, "since": {"latest"}}, r.URL.Query())
+		assert.Equal(t, "/ntfy/ops/json", r.URL.Path)
+		assert.Equal(t, url.Values{"poll": {"1"}, "since": {"latest"}}, r.URL.Query())
 		w.Header().Set("Content-Type", "application/x-ndjson")
 		_, _ = io.WriteString(w, `{"event":"open"}`+"\n")
 	})
