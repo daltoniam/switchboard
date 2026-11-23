@@ -32,8 +32,8 @@ func TestLoad_CreatesDefaultWhenMissing(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.NoError(t, err)
 
-	assert.Len(t, m.cfg.Integrations, 96)
-	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "mobbin", "metabase", "paperless", "obsidian", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "groupme", "discord", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus", "druid", "mysql", "semaphoreui", "nexus", "wazuh"} {
+	assert.Len(t, m.cfg.Integrations, 97)
+	for _, name := range []string{"airflow", "github", "forgejo", "datadog", "linear", "sentry", "slack", "slackmcp", "likec4excalidraw", "figma", "notion-mcp", "mobbin", "metabase", "paperless", "obsidian", "recoll", "imessage", "aws", "posthog", "postgres", "clickhouse", "elasticsearch", "pganalyze", "rwx", "projectinterop", "gmail", "gcal", "gdrive", "gdocs", "gsheets", "gslides", "gforms", "gchat", "gmeet", "gtasks", "gpeople", "notion", "ollama", "ynab", "stripe", "gcp", "suno", "amazon", "jira", "confluence", "salesforce", "servicenow", "cloudflare", "digitalocean", "fly", "kubernetes", "vercel", "snowflake", "acp", "web", "botidentity", "x", "signoz", "nomad", "agents", "switchboard", "netsuite", "ramp", "gong", "zendesk", "hubspot", "intercom", "front", "grafana", "groupme", "discord", "grist", "okta", "microsoft365", "pagerduty", "launchdarkly", "tailscale", "dbt", "sourcebot", "argoworkflows", "openbao", "keycloak", "prometheus", "druid", "mysql", "semaphoreui", "nexus", "wazuh"} {
 		ic, ok := m.cfg.Integrations[name]
 		require.True(t, ok, "missing default integration: %s", name)
 		assert.False(t, ic.Enabled)
@@ -174,7 +174,7 @@ func TestSave(t *testing.T) {
 
 	var cfg mcp.Config
 	require.NoError(t, json.Unmarshal(data, &cfg))
-	assert.Len(t, cfg.Integrations, 96)
+	assert.Len(t, cfg.Integrations, 97)
 }
 
 func TestGet(t *testing.T) {
@@ -183,7 +183,7 @@ func TestGet(t *testing.T) {
 
 	cfg := m.Get()
 	assert.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 96)
+	assert.Len(t, cfg.Integrations, 97)
 }
 
 func TestUpdate(t *testing.T) {
@@ -367,7 +367,7 @@ func countName(names []string, want string) int {
 func TestDefaultConfig(t *testing.T) {
 	cfg := defaultConfig()
 	require.NotNil(t, cfg)
-	assert.Len(t, cfg.Integrations, 96)
+	assert.Len(t, cfg.Integrations, 97)
 
 	expected := map[string][]string{
 		"jenkins":          {"base_url", "username", "api_token", "ca_cert"},
@@ -409,6 +409,7 @@ func TestDefaultConfig(t *testing.T) {
 		"hubspot":          {"access_token", "base_url"},
 		"intercom":         {"access_token", "base_url"},
 		"front":            {"access_token", "base_url"},
+		"grafana":          {"base_url", "service_account_token"},
 		"groupme":          {"access_token", "base_url"},
 		"onepassword":      {"service_account_token"},
 		"discord":          {"bot_token", "base_url"},
@@ -875,8 +876,10 @@ func TestEnvMapping_ReturnsMapping(t *testing.T) {
 	assert.Equal(t, "GROUPME_BASE_URL", m["groupme"]["base_url"])
 	assert.Equal(t, "DISCORD_BOT_TOKEN", m["discord"]["bot_token"])
 	assert.Equal(t, "DISCORD_BASE_URL", m["discord"]["base_url"])
+	assert.Equal(t, "GRAFANA_URL", m["grafana"]["base_url"])
+	assert.Equal(t, "GRAFANA_SERVICE_ACCOUNT_TOKEN", m["grafana"]["service_account_token"])
 	assert.Equal(t, "OP_SERVICE_ACCOUNT_TOKEN", m["onepassword"]["service_account_token"])
-	assert.Len(t, m, 84)
+	assert.Len(t, m, 85)
 	assert.Equal(t, "DRUID_BASE_URL", m["druid"]["base_url"])
 	assert.Equal(t, "DRUID_USERNAME", m["druid"]["username"])
 	assert.Equal(t, "DRUID_PASSWORD", m["druid"]["password"])

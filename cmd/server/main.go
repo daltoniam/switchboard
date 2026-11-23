@@ -54,6 +54,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/gmeet"
 	"github.com/daltoniam/switchboard/integrations/gong"
 	"github.com/daltoniam/switchboard/integrations/gpeople"
+	"github.com/daltoniam/switchboard/integrations/grafana"
 	"github.com/daltoniam/switchboard/integrations/grist"
 	"github.com/daltoniam/switchboard/integrations/groupme"
 	"github.com/daltoniam/switchboard/integrations/growthbook"
@@ -390,6 +391,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		intercom.New(),
 		front.New(),
 		groupme.New(),
+		grafana.New(),
 		onepassword.New(),
 		discord.New(),
 		grist.New(),

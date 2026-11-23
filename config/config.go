@@ -311,6 +311,10 @@ var envMapping = map[string]map[string]string{
 		"access_token": "FRONT_ACCESS_TOKEN",
 		"base_url":     "FRONT_BASE_URL",
 	},
+	"grafana": {
+		"base_url":              "GRAFANA_URL",
+		"service_account_token": "GRAFANA_SERVICE_ACCOUNT_TOKEN",
+	},
 	"groupme": {
 		"access_token": "GROUPME_ACCESS_TOKEN",
 		"base_url":     "GROUPME_BASE_URL",
@@ -692,6 +696,10 @@ func defaultConfig() *mcp.Config {
 			"front": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"access_token": "", "base_url": ""},
+			},
+			"grafana": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "service_account_token": ""},
 			},
 			"groupme": {
 				Enabled:     false,

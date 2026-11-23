@@ -1,0 +1,74 @@
+# Switchboard compaction specs for the grafana integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response.
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# grafana.yaml there with only the tools you want to change.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+
+version: 1
+tools:
+  # Top-level array of search hits. Drops numeric ids, slugs and sort data.
+  grafana_search_dashboards:
+    spec:
+      - uid
+      - title
+      - url
+      - folderUid
+      - folderTitle
+      - tags
+      - isStarred
+
+  # The dashboard model is kept whole: it is what grafana_save_dashboard
+  # needs back. Meta keeps only folder, version and edit state; permission
+  # flags and annotation rights are dropped.
+  grafana_get_dashboard:
+    spec:
+      - dashboard
+      - meta.url
+      - meta.folderUid
+      - meta.folderTitle
+      - meta.version
+      - meta.updated
+      - meta.updatedBy
+      - meta.canSave
+      - meta.provisioned
+
+  grafana_list_folders:
+    spec:
+      - uid
+      - title
+      - parentUid
+
+  # Drops logo URLs, basic-auth user names and plugin jsonData.
+  grafana_list_datasources:
+    spec:
+      - uid
+      - name
+      - type
+      - url
+      - isDefault
+      - readOnly
+
+  # One entry per query ref_id (a failed query becomes an error result, so
+  # entries carry no error field). Frames keep their schema (series names,
+  # labels, units) and the columnar values.
+  grafana_query_datasource:
+    spec:
+      - ref_id
+      - status
+      - frames[].schema
+      - frames[].data
+    max_bytes: 200000
+
+  grafana_get_health:
+    spec:
+      - grafana.version
+      - grafana.database
+      - grafana.commit
+      - organization.id
+      - organization.name

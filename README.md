@@ -293,6 +293,12 @@ Proxies Mobbin's hosted MCP server at `https://api.mobbin.com/mcp`, a searchable
 
 Open `/integrations/mobbin/setup` and select **Sign in with Mobbin**. Mobbin's authorization server is a separate issuer advertised through protected resource metadata (RFC 9728); OAuth uses dynamic client registration, PKCE, the `openid` scope, and resource binding to the MCP endpoint. A Mobbin account is required. Access tokens expire after about an hour and the shared remote OAuth flow does not refresh them, so sign in again when the setup page shows a connection error.
 
+### Grafana (`grafana`)
+
+Reads and edits Grafana dashboards and queries its data sources through the Grafana HTTP API, on Grafana Cloud or self-hosted Grafana. Reads: `grafana_search_dashboards` (start here), `grafana_get_dashboard`, `grafana_list_folders`, `grafana_list_datasources`, and `grafana_get_health`. `grafana_query_datasource` runs PromQL, LogQL or any data source's own query fields, instant or range; it counts as a write because Grafana runs the query with the data source's own database privileges, so raw SQL or Flux could change data. `grafana_save_dashboard` creates or updates a dashboard from its JSON model in a folder; without `overwrite` it refuses to replace a dashboard someone else changed, and an exported dashboard with `__inputs` is imported with an `inputs` map of data source uids. Grafana keeps earlier versions in each dashboard's history.
+
+In Grafana, open **Administration → Users and access → Service accounts**, add a service account with the **Editor** role (or **Viewer** for read-only use), and add a token. Set `GRAFANA_URL` (for example `https://acme.grafana.net`) and `GRAFANA_SERVICE_ACCOUNT_TOKEN`, or enter both on the Grafana integration page and enable it. Redirects are never followed, so the token stays with Grafana. A Grafana Cloud free stack sleeps after inactivity and then answers with a wake-up page; the tools report that and ask you to open the stack in a browser.
+
 ### 1Password (`onepassword`)
 
 Reads and writes 1Password items through the official [1Password Go SDK](https://github.com/1password/onepassword-sdk-go), signed in with a service account. Reads: `onepassword_list_vaults` (start here), `onepassword_list_items` (search by title, URL, tag or category; never returns secrets), `onepassword_get_item`, and `onepassword_resolve_secret` (one value from an `op://vault/item/field` reference). `onepassword_get_item` returns concealed values (passwords, secrets, card numbers, one-time password seeds, SSH private keys) as `[REDACTED]` unless `reveal` is true, and gives every field its `op://` reference. Writes: `onepassword_create_item` (logins, passwords, secure notes, API credentials and other categories; `generate_password` makes a random 32-character password) and `onepassword_update_item` (set or add fields, change the password, title, notes or tags; 1Password keeps earlier versions). Write responses redact concealed values. There is no delete tool. Vaults and items can be named by id or title.
@@ -418,6 +424,8 @@ Environment variables override credential values but do not change the durable e
 | Intercom | `base_url` | `INTERCOM_BASE_URL` (optional — default `https://api.intercom.io`; EU `https://api.eu.intercom.io`, AU `https://api.au.intercom.io`) |
 | Front | `access_token` | `FRONT_ACCESS_TOKEN` (API token or OAuth access token) |
 | Front | `base_url` | `FRONT_BASE_URL` (optional — default `https://api2.frontapp.com`) |
+| Grafana | `base_url` | `GRAFANA_URL` (Grafana root URL, e.g. `https://acme.grafana.net`) |
+| Grafana | `service_account_token` | `GRAFANA_SERVICE_ACCOUNT_TOKEN` (service account token, `glsa_...`) |
 | 1Password | `service_account_token` | `OP_SERVICE_ACCOUNT_TOKEN` (service account token, `ops_...`) |
 | GroupMe | `access_token` | `GROUPME_ACCESS_TOKEN` (Access Token from dev.groupme.com) |
 | GroupMe | `base_url` | `GROUPME_BASE_URL` (optional — default `https://api.groupme.com/v3`) |
@@ -506,6 +514,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
+| Grafana | Service account token | Add a service account (Editor, or Viewer for read-only) with a token under Administration → Service accounts, then set `GRAFANA_URL` and `GRAFANA_SERVICE_ACCOUNT_TOKEN` or enter them in the web UI; enable explicitly |
 | 1Password | Service account token | Create a service account under Developer → Service accounts with access to the vaults Switchboard should see, then set `OP_SERVICE_ACCOUNT_TOKEN` or enter it in the web UI; enable explicitly |
 | GroupMe | Access Token | Copy the Access Token from [dev.groupme.com](https://dev.groupme.com) and set `GROUPME_ACCESS_TOKEN` or enter it in the web UI; enable explicitly |
 | Discord | Bot Token | Create a bot in the Discord Developer Portal, enable the Message Content intent, invite it to a server, and set `DISCORD_BOT_TOKEN` or enter it in the web UI; enable explicitly. See [Discord setup](docs/discord-setup.md) |
