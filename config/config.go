@@ -21,6 +21,12 @@ const (
 // When an env var is set, it overrides the corresponding JSON config value.
 // These use standard/conventional env var names where they exist.
 var envMapping = map[string]map[string]string{
+	"jenkins": {
+		"base_url":  "JENKINS_BASE_URL",
+		"username":  "JENKINS_USERNAME",
+		"api_token": "JENKINS_API_TOKEN",
+		"ca_cert":   "JENKINS_CA_CERT",
+	},
 	"ntfy": {
 		"base_url":  "NTFY_BASE_URL",
 		"topic":     "NTFY_TOPIC",
@@ -466,6 +472,10 @@ func configPath() (string, error) {
 func defaultConfig() *mcp.Config {
 	return &mcp.Config{
 		Integrations: map[string]*mcp.IntegrationConfig{
+			"jenkins": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"base_url": "", "username": "", "api_token": "", "ca_cert": ""},
+			},
 			"ntfy": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"base_url": "", "topic": "", "api_token": "", "ca_cert": ""},

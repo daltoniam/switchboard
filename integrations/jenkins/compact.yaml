@@ -1,0 +1,8 @@
+version: 1
+tools:
+  jenkins_list_jobs:
+    spec: ["jobs[].name", "jobs[]._class", "jobs[].color", "jobs[].lastBuild", returned_count, offset, limit, possibly_more]
+  jenkins_get_job:
+    spec: [name, _class, color, buildable, inQueue, lastBuild, "builds[].number", "builds[].result", "builds[].timestamp", "builds[].duration", "builds[].building", returned_count, offset, limit, possibly_more]
+  jenkins_get_build:
+    spec: [number, result, building, phase, timestamp, duration, estimatedDuration]

@@ -452,6 +452,10 @@ Environment variables override credential values but do not change the durable e
 | Prometheus | `ca_cert` | `PROMETHEUS_CA_CERT` (optional PEM CA certificate; TLS verification cannot be disabled) |
 | LaunchDarkly | `access_token` | `LAUNCHDARKLY_ACCESS_TOKEN` (personal or service access token; SDK keys cannot call the REST API) |
 | LaunchDarkly | `base_url` | `LAUNCHDARKLY_BASE_URL` (optional — default `https://app.launchdarkly.com`; EU `https://app.eu.launchdarkly.com`; Federal `https://app.launchdarkly.us`) |
+| [Jenkins](docs/jenkins.md) | `base_url` | `JENKINS_BASE_URL` (required trusted HTTPS installation URL, including any deployment prefix) |
+| Jenkins | `username` | `JENKINS_USERNAME` (dedicated user with Overall/Read and scoped Job/Read only) |
+| Jenkins | `api_token` | `JENKINS_API_TOKEN` (dedicated user's API token; never a password) |
+| Jenkins | `ca_cert` | `JENKINS_CA_CERT` (optional PEM CA certificate; TLS verification stays enabled) |
 | [ntfy](docs/ntfy.md) | `base_url` | `NTFY_BASE_URL` (required trusted HTTPS self-hosted server) |
 | ntfy | `topic` | `NTFY_TOPIC` (required fixed private topic) |
 | ntfy | `api_token` | `NTFY_API_TOKEN` (dedicated non-admin user token with read-only topic ACL) |
