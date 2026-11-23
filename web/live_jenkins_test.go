@@ -268,6 +268,19 @@ exec /usr/local/bin/jenkins.sh`},
 			return nil
 		})
 	}
+	admin(http.MethodPost, "/job/z-hidden/build?delay=0sec", "", http.StatusCreated)
+	waitBuild("/job/z-hidden/1", "hidden", "SUCCESS", false)
+	var hiddenBuild struct {
+		Number    int    `json:"number"`
+		Result    string `json:"result"`
+		Building  bool   `json:"building"`
+		Timestamp int64  `json:"timestamp"`
+	}
+	require.NoError(t, json.Unmarshal(admin(http.MethodGet, "/job/z-hidden/1/api/json?tree=number,result,building,timestamp", "", http.StatusOK), &hiddenBuild))
+	require.Equal(t, 1, hiddenBuild.Number)
+	require.Equal(t, "SUCCESS", hiddenBuild.Result)
+	require.False(t, hiddenBuild.Building)
+	require.Positive(t, hiddenBuild.Timestamp)
 	for number := 1; number <= 2; number++ {
 		admin(http.MethodPost, "/job/a-visible/build?delay=0sec", "", http.StatusCreated)
 		waitBuild(fmt.Sprintf("/job/a-visible/%d", number), "root", "SUCCESS", false)
