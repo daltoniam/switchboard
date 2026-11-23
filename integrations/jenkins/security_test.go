@@ -180,9 +180,12 @@ func TestReadOnlySurfaceNeverAttemptsWrites(t *testing.T) {
 	_ = successJSON(t, execute(t, j, "jenkins_get_job", map[string]any{"job_path": []string{"feature/foo"}}))
 	_ = successJSON(t, execute(t, j, "jenkins_get_build", map[string]any{"job_path": []string{"feature/foo"}, "build_number": 42}))
 	for _, action := range []string{"build", "build_with_parameters", "stop", "delete_job", "script", "get_logs", "get_config", "list_agents", "list_queue", "get_url"} {
-		if result := execute(t, j, mcp.ToolName("jenkins_"+action), nil); !result.IsError {
-			t.Fatalf("out-of-scope action %s accepted", action)
-		}
+		t.Run(action, func(t *testing.T) {
+			result := execute(t, j, mcp.ToolName("jenkins_"+action), nil)
+			if !result.IsError || result.Data != "jenkins: unknown tool" {
+				t.Fatalf("out-of-scope action must be rejected by dispatch, got %+v", result)
+			}
+		})
 	}
 	if writes.Load() != 0 || reads.Load() != 3 {
 		t.Fatalf("writes=%d reads=%d", writes.Load(), reads.Load())
