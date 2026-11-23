@@ -65,6 +65,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/imessage"
 	"github.com/daltoniam/switchboard/integrations/influxdb"
 	"github.com/daltoniam/switchboard/integrations/intercom"
+	"github.com/daltoniam/switchboard/integrations/jenkins"
 	"github.com/daltoniam/switchboard/integrations/jira"
 	"github.com/daltoniam/switchboard/integrations/keycloak"
 	"github.com/daltoniam/switchboard/integrations/kubernetes"
@@ -357,6 +358,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		obsidian.New(),
 		influxdb.New(),
 		airflow.New(),
+		jenkins.New(),
 		argoworkflows.New(),
 		semaphoreui.New(),
 		nexus.New(),
