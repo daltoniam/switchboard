@@ -226,6 +226,7 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	mcp.ToolName("github_list_pull_commits"):        listPRCommits,
 	mcp.ToolName("github_list_pull_files"):          listPRFiles,
 	mcp.ToolName("github_list_pull_reviews"):        listPRReviews,
+	mcp.ToolName("github_list_review_threads"):      listReviewThreads,
 	mcp.ToolName("github_create_pull_review"):       createPRReview,
 	mcp.ToolName("github_list_pull_comments"):       listPRComments,
 	mcp.ToolName("github_create_pull_comment"):      createPRComment,
