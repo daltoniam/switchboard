@@ -152,6 +152,7 @@ func TestConfigureValidation(t *testing.T) {
 		{"base_url", "https://example.com/%2fetc"},
 		{"username", "bad:name"}, {"username", " bad"}, {"username", "bad\nname"},
 		{"api_token", " bad"}, {"api_token", "bad\r\nname"}, {"api_token", "bad\x00name"},
+		{"api_token", "bad\tname"}, {"api_token", "bad\u0085name"},
 		{"ca_cert", "not a certificate"},
 	}
 	for i, tc := range cases {
@@ -162,8 +163,16 @@ func TestConfigureValidation(t *testing.T) {
 			if err == nil {
 				t.Fatal("invalid credentials accepted")
 			}
-			if strings.Contains(err.Error(), "secret-token") || strings.Contains(err.Error(), "bad\\r") || strings.Contains(err.Error(), "user:secret") {
-				t.Fatalf("credential echoed: %v", err)
+			token := creds["api_token"]
+			jsonToken, marshalErr := json.Marshal(token)
+			if marshalErr != nil {
+				t.Fatal(marshalErr)
+			}
+			quotedToken, asciiToken := strconv.Quote(token), strconv.QuoteToASCII(token)
+			for _, sensitive := range []string{token, quotedToken[1 : len(quotedToken)-1], asciiToken[1 : len(asciiToken)-1], string(jsonToken[1 : len(jsonToken)-1]), "user:secret"} {
+				if sensitive != "" && strings.Contains(err.Error(), sensitive) {
+					t.Fatal("credential echoed in validation error")
+				}
 			}
 		})
 	}
