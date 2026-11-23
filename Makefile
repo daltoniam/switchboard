@@ -133,8 +133,8 @@ fmt: ## Format Go source files
 gosec: ## Run security scanner
 	go tool gosec -exclude-dir=gen -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...
 
-govulncheck: ## Run vulnerability checker
-	go tool govulncheck ./...
+govulncheck: build ## Run vulnerability checker against the shipped server binary
+	go tool govulncheck -mode=binary $(BIN)
 
 security: gosec govulncheck ## Run all security checks
 
