@@ -22,7 +22,7 @@ import (
 )
 
 const uiJenkinsFolder = `{"name":"team","_class":"com.cloudbees.hudson.plugins.folder.Folder","color":"blue","lastBuild":{"number":42,"result":"SUCCESS","timestamp":1700000000000,"actions":[{"secret":"SECRET_SENTINEL"}]},"jobs":[{"name":"SECRET_SENTINEL"}],"actions":[{"parameters":[{"value":"SECRET_SENTINEL"}]}],"credentials":"SECRET_SENTINEL","url":"https://SECRET_SENTINEL.invalid/"}`
-const uiJenkinsJob = `{"name":"feature/foo","_class":"org.jenkinsci.plugins.workflow.job.WorkflowJob","color":"blue","buildable":true,"inQueue":false,"lastBuild":{"number":42,"result":"SUCCESS","timestamp":1700000000000,"credentials":"SECRET_SENTINEL"},"builds":[{"number":42,"result":"SUCCESS","timestamp":1700000000000,"duration":1234,"building":false,"actions":[{"secret":"SECRET_SENTINEL"}]},{"number":41,"result":"FAILURE","timestamp":1699999999000,"duration":1000,"building":false,"logs":"SECRET_SENTINEL"}],"jobs":[{"name":"SECRET_SENTINEL"}],"actions":[{"parameters":[{"value":"SECRET_SENTINEL"}]}],"logs":"SECRET_SENTINEL","credentials":{"password":"SECRET_SENTINEL"},"description":"SECRET_SENTINEL"}`
+const uiJenkinsJob = `{"name":"feature/foo","_class":"org.jenkinsci.plugins.workflow.job.WorkflowJob","color":"blue","buildable":true,"inQueue":false,"lastBuild":{"number":42,"result":"SUCCESS","timestamp":1700000000000,"credentials":"SECRET_SENTINEL"},"allBuilds":[{"number":42,"result":"SUCCESS","timestamp":1700000000000,"duration":1234,"building":false,"actions":[{"secret":"SECRET_SENTINEL"}]},{"number":41,"result":"FAILURE","timestamp":1699999999000,"duration":1000,"building":false,"logs":"SECRET_SENTINEL"}],"jobs":[{"name":"SECRET_SENTINEL"}],"actions":[{"parameters":[{"value":"SECRET_SENTINEL"}]}],"logs":"SECRET_SENTINEL","credentials":{"password":"SECRET_SENTINEL"},"description":"SECRET_SENTINEL"}`
 const uiJenkinsBuild = `{"number":42,"result":"SUCCESS","building":false,"timestamp":1700000000000,"duration":1234,"estimatedDuration":5678,"actions":[{"parameters":[{"value":"SECRET_SENTINEL"}]}],"changeSets":[{"author":{"email":"SECRET_SENTINEL"}}],"logs":"SECRET_SENTINEL","credentials":{"password":"SECRET_SENTINEL"},"url":"https://SECRET_SENTINEL.invalid/"}`
 
 func uiJenkinsMCP(t *testing.T, app *uiApp, enabled bool) {
@@ -179,11 +179,11 @@ func TestUIJenkins(t *testing.T) {
 			}
 			_, _ = io.WriteString(w, `{"jobs":[`+uiJenkinsJob+`],"actions":[{"secret":"SECRET_SENTINEL"}]}`)
 		case "/jenkins/job/team/job/feature%2Ffoo/api/json":
-			if tree == "name,_class,color,buildable,inQueue,lastBuild[number,result,timestamp],builds[number,result,timestamp,duration,building]{0,20}" {
+			if tree == "name,_class,color,buildable,inQueue,lastBuild[number,result,timestamp],allBuilds[number,result,timestamp,duration,building]{0,20}" {
 				_, _ = io.WriteString(w, uiJenkinsJob)
 				return
 			}
-			if tree != "name,_class,color,buildable,inQueue,lastBuild[number,result,timestamp],builds[number,result,timestamp,duration,building]{1,2}" {
+			if tree != "name,_class,color,buildable,inQueue,lastBuild[number,result,timestamp],allBuilds[number,result,timestamp,duration,building]{1,2}" {
 				t.Errorf("unexpected Jenkins job tree: %s", tree)
 				http.Error(w, "invalid tree", http.StatusBadRequest)
 				return
@@ -193,7 +193,7 @@ func TestUIJenkins(t *testing.T) {
 				t.Errorf("decode Jenkins fixture: %v", err)
 				return
 			}
-			job["builds"] = job["builds"].([]any)[1:]
+			job["allBuilds"] = job["allBuilds"].([]any)[1:]
 			if err := json.NewEncoder(w).Encode(job); err != nil {
 				t.Errorf("encode Jenkins fixture: %v", err)
 			}

@@ -195,12 +195,12 @@ func getJob(ctx context.Context, j *jenkins, args map[string]any) (*mcp.ToolResu
 	if err != nil {
 		return mcp.ErrResult(err)
 	}
-	tree := fmt.Sprintf("name,_class,color,buildable,inQueue,lastBuild[number,result,timestamp],builds[number,result,timestamp,duration,building]{%d,%d}", window.Offset, window.Offset+window.Limit)
+	tree := fmt.Sprintf("name,_class,color,buildable,inQueue,lastBuild[number,result,timestamp],allBuilds[number,result,timestamp,duration,building]{%d,%d}", window.Offset, window.Offset+window.Limit)
 	var response struct {
 		jobSummary
 		Buildable *bool          `json:"buildable"`
 		InQueue   *bool          `json:"inQueue"`
-		Builds    []buildSummary `json:"builds"`
+		Builds    []buildSummary `json:"allBuilds"`
 	}
 	if err := j.get(ctx, path, tree, &response); err != nil {
 		return mcp.ErrResult(err)

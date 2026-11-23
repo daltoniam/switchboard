@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -71,24 +72,57 @@ func TestCustomCAPEMValidation(t *testing.T) {
 	}
 }
 
+type retryWaitTransport func(*http.Request) (*http.Response, error)
+
+func (f retryWaitTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
 func TestRetryWaitHonorsCancellation(t *testing.T) {
-	requested := make(chan struct{})
-	j, _ := fixture(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Retry-After", "2")
-		w.WriteHeader(429)
-		close(requested)
-	})
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go func() {
-		<-requested
+	synctest.Test(t, func(t *testing.T) {
+		requests := 0
+		j := &jenkins{
+			baseURL: "https://jenkins.example.com",
+			client: &http.Client{Transport: retryWaitTransport(func(*http.Request) (*http.Response, error) {
+				requests++
+				return &http.Response{
+					StatusCode: http.StatusTooManyRequests,
+					Header:     http.Header{"Retry-After": {"2"}},
+					Body:       http.NoBody,
+				}, nil
+			})},
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		var result *mcp.ToolResult
+		var err error
+		done := make(chan struct{})
+		go func() {
+			result, err = j.Execute(ctx, "jenkins_list_jobs", nil)
+			close(done)
+		}()
+		synctest.Wait()
+		if requests != 1 {
+			t.Fatalf("requests before cancellation = %d, want 1", requests)
+		}
+		select {
+		case <-done:
+			t.Fatal("request completed before retry wait cancellation")
+		default:
+		}
+		started := time.Now()
 		cancel()
-	}()
-	started := time.Now()
-	result, err := j.Execute(ctx, "jenkins_list_jobs", nil)
-	if err != nil || result == nil || !result.IsError || time.Since(started) > time.Second {
-		t.Fatal("retry wait did not honor context")
-	}
+		<-done
+		if elapsed := time.Since(started); elapsed != 0 {
+			t.Fatalf("retry wait advanced time by %s after cancellation", elapsed)
+		}
+		if err != nil || result == nil || !result.IsError || !strings.Contains(result.Data, "request canceled during rate-limit wait") {
+			t.Fatalf("expected retry-wait cancellation, got result=%+v err=%v", result, err)
+		}
+		if requests != 1 {
+			t.Fatalf("requests after cancellation = %d, want 1", requests)
+		}
+	})
 }
 
 func TestBoundedCollectionAndStringEdges(t *testing.T) {

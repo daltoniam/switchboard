@@ -80,7 +80,7 @@ class LiveAuthorizationStrategy extends AuthorizationStrategy {
             if (permission != Item.READ && permission != Item.DISCOVER) {
                 return false
             }
-            return fullName in ['a-visible', 'b-team', 'b-team/nested', 'b-team/nested/c-build', 'c-branches', 'd-running'] || fullName in ['c-branches/main', 'c-branches/feature%2Ffoo']
+            return fullName in ['a-visible', 'b-team', 'b-team/nested', 'b-team/nested/c-build', 'c-branches', 'd-running', 'e-history'] || fullName in ['c-branches/main', 'c-branches/feature%2Ffoo']
         }
     }
     ACL getRootACL() { return scoped(null) }
@@ -114,6 +114,8 @@ func init() {
 			{Tool: "jenkins_list_jobs", Args: map[string]any{"folder_path": []string{"c-branches"}}, Expect: []string{"feature%2Ffoo", "main", "SUCCESS", `"returned_count":2`}},
 			{Tool: "jenkins_get_job", Args: map[string]any{"job_path": []string{"a-visible"}, "limit": 1}, Expect: []string{"a-visible", "hudson.model.FreeStyleProject", `"buildable":true`, `"inQueue":false`, `"number":2`, "SUCCESS", "${root_timestamp}", `"returned_count":1`, `"possibly_more":true`}},
 			{Tool: "jenkins_get_job", Args: map[string]any{"job_path": []string{"a-visible"}, "offset": 1, "limit": 2}, Expect: []string{"a-visible", `"number":1`, `"number":2`, `"offset":1`, `"returned_count":1`, `"possibly_more":false`}},
+			{Tool: "jenkins_get_job", Args: map[string]any{"job_path": []string{"e-history"}, "offset": 100, "limit": 2}, Expect: []string{"e-history", `"builds":[`, `"number":103,`, `"number":3,`, `"number":2,`, "SUCCESS", `"building":false`, `"offset":100`, `"limit":2`, `"returned_count":2`, `"possibly_more":true`}},
+			{Tool: "jenkins_get_job", Args: map[string]any{"job_path": []string{"e-history"}, "offset": 102, "limit": 2}, Expect: []string{"e-history", `"builds":[`, `"number":103,`, `"number":1,`, "SUCCESS", `"building":false`, `"offset":102`, `"limit":2`, `"returned_count":1`, `"possibly_more":false`}},
 			{Tool: "jenkins_get_job", Args: map[string]any{"job_path": []string{"b-team", "nested", "c-build"}}, Expect: []string{"c-build", "FAILURE", "${nested_timestamp}", `"building":false`}},
 			{Tool: "jenkins_get_job", Args: map[string]any{"job_path": []string{"c-branches", "feature%2Ffoo"}}, Expect: []string{"feature%2Ffoo", "org.jenkinsci.plugins.workflow.job.WorkflowJob", "SUCCESS", "${branch_timestamp}"}},
 			{Tool: "jenkins_get_build", Args: map[string]any{"job_path": []string{"a-visible"}, "build_number": 2}, Expect: []string{`"number":2`, "SUCCESS", `"phase":"completed"`, `"building":false`, "${root_timestamp}", `"duration":${root_duration}`}},
@@ -230,6 +232,7 @@ exec /usr/local/bin/jenkins.sh`},
 		{"/job/b-team/createItem?name=nested", folderXML},
 		{"/job/b-team/job/nested/createItem?name=c-build", jobXML("exit 1")},
 		{"/createItem?name=d-running", jobXML("sleep 900")},
+		{"/createItem?name=e-history", jobXML("echo LIVE_HISTORY")},
 		{"/createItem?name=z-hidden", jobXML("echo PRIVATE_HIDDEN")},
 		{"/job/b-team/job/nested/createItem?name=z-hidden", jobXML("echo PRIVATE_HIDDEN")},
 	} {
@@ -268,6 +271,10 @@ exec /usr/local/bin/jenkins.sh`},
 	for number := 1; number <= 2; number++ {
 		admin(http.MethodPost, "/job/a-visible/build?delay=0sec", "", http.StatusCreated)
 		waitBuild(fmt.Sprintf("/job/a-visible/%d", number), "root", "SUCCESS", false)
+	}
+	for number := 1; number <= 103; number++ {
+		admin(http.MethodPost, "/job/e-history/build?delay=0sec", "", http.StatusCreated)
+		waitBuild(fmt.Sprintf("/job/e-history/%d", number), "history", "SUCCESS", false)
 	}
 	admin(http.MethodPost, "/job/b-team/job/nested/job/c-build/build?delay=0sec", "", http.StatusCreated)
 	waitBuild("/job/b-team/job/nested/job/c-build/1", "nested", "FAILURE", false)

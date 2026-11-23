@@ -20,7 +20,7 @@ import (
 )
 
 const jobsFixture = `{"_class":"hudson.model.Hudson","jobs":[{"name":"team","_class":"com.cloudbees.hudson.plugins.folder.Folder","color":"blue","lastBuild":{"number":42,"result":"SUCCESS","timestamp":1700000000000,"actions":[{"secret":"PRIVATE"}]},"url":"https://evil.invalid/","description":"PRIVATE","actions":[{"parameters":[{"value":"PRIVATE"}]}]}],"secret":"PRIVATE"}`
-const jobFixture = `{"name":"feature/foo","_class":"org.jenkinsci.plugins.workflow.job.WorkflowJob","color":"blue_anime","buildable":true,"inQueue":false,"lastBuild":{"number":42,"result":null,"timestamp":1700000000000},"builds":[{"number":42,"result":null,"timestamp":1700000000000,"duration":0,"building":true,"actions":[{"secret":"PRIVATE"}]},{"number":41,"result":"SUCCESS","timestamp":1699999999000,"duration":1000,"building":false}],"actions":[{"parameters":[{"value":"PRIVATE"}]}],"url":"https://evil.invalid/","description":"PRIVATE"}`
+const jobFixture = `{"name":"feature/foo","_class":"org.jenkinsci.plugins.workflow.job.WorkflowJob","color":"blue_anime","buildable":true,"inQueue":false,"lastBuild":{"number":42,"result":null,"timestamp":1700000000000},"allBuilds":[{"number":42,"result":null,"timestamp":1700000000000,"duration":0,"building":true,"actions":[{"secret":"PRIVATE"}]},{"number":41,"result":"SUCCESS","timestamp":1699999999000,"duration":1000,"building":false}],"actions":[{"parameters":[{"value":"PRIVATE"}]}],"url":"https://evil.invalid/","description":"PRIVATE"}`
 const buildFixture = `{"number":42,"result":null,"building":true,"timestamp":1700000000000,"duration":1234,"estimatedDuration":5678,"actions":[{"parameters":[{"value":"PRIVATE"}]}],"changeSets":[{"author":{"email":"PRIVATE"}}],"url":"https://evil.invalid/","console":"PRIVATE"}`
 
 func credentials(base string) mcp.Credentials {
@@ -180,15 +180,22 @@ func TestConfigureValidation(t *testing.T) {
 }
 
 func TestRequestAndProjection(t *testing.T) {
+	last := map[string]any{"number": float64(42), "result": "SUCCESS", "timestamp": float64(1700000000000)}
+	jobs := []any{map[string]any{"name": "team", "_class": "com.cloudbees.hudson.plugins.folder.Folder", "color": "blue", "lastBuild": last}}
+	jobLast := map[string]any{"number": float64(42), "result": nil, "timestamp": float64(1700000000000)}
+	builds := []any{
+		map[string]any{"number": float64(42), "result": nil, "timestamp": float64(1700000000000), "duration": float64(0), "building": true},
+		map[string]any{"number": float64(41), "result": "SUCCESS", "timestamp": float64(1699999999000), "duration": float64(1000), "building": false},
+	}
 	cases := []struct {
 		name             mcp.ToolName
 		args             map[string]any
 		path, tree, body string
 		want             map[string]any
 	}{
-		{"jenkins_list_jobs", nil, "/jenkins/api/json", "jobs[name,_class,color,lastBuild[number,result,timestamp]]{0,20}", jobsFixture, map[string]any{"returned_count": float64(1), "offset": float64(0), "limit": float64(20), "possibly_more": false}},
-		{"jenkins_list_jobs", map[string]any{"folder_path": []any{"team", "a %2F#?+é"}, "offset": "2", "limit": 1}, "/jenkins/job/team/job/a%20%252F%23%3F+%C3%A9/api/json", "jobs[name,_class,color,lastBuild[number,result,timestamp]]{2,3}", jobsFixture, map[string]any{"returned_count": float64(1), "offset": float64(2), "limit": float64(1), "possibly_more": true}},
-		{"jenkins_get_job", map[string]any{"job_path": `["team","feature/foo"]`, "offset": 5, "limit": 2}, "/jenkins/job/team/job/feature%2Ffoo/api/json", "name,_class,color,buildable,inQueue,lastBuild[number,result,timestamp],builds[number,result,timestamp,duration,building]{5,7}", jobFixture, map[string]any{"name": "feature/foo", "buildable": true, "inQueue": false, "returned_count": float64(2), "offset": float64(5), "limit": float64(2), "possibly_more": true}},
+		{"jenkins_list_jobs", nil, "/jenkins/api/json", "jobs[name,_class,color,lastBuild[number,result,timestamp]]{0,20}", jobsFixture, map[string]any{"jobs": jobs, "returned_count": float64(1), "offset": float64(0), "limit": float64(20), "possibly_more": false}},
+		{"jenkins_list_jobs", map[string]any{"folder_path": []any{"team", "a %2F#?+é"}, "offset": "2", "limit": 1}, "/jenkins/job/team/job/a%20%252F%23%3F+%C3%A9/api/json", "jobs[name,_class,color,lastBuild[number,result,timestamp]]{2,3}", jobsFixture, map[string]any{"jobs": jobs, "returned_count": float64(1), "offset": float64(2), "limit": float64(1), "possibly_more": true}},
+		{"jenkins_get_job", map[string]any{"job_path": `["team","feature/foo"]`, "offset": 5, "limit": 2}, "/jenkins/job/team/job/feature%2Ffoo/api/json", "name,_class,color,buildable,inQueue,lastBuild[number,result,timestamp],allBuilds[number,result,timestamp,duration,building]{5,7}", jobFixture, map[string]any{"name": "feature/foo", "_class": "org.jenkinsci.plugins.workflow.job.WorkflowJob", "color": "blue_anime", "lastBuild": jobLast, "buildable": true, "inQueue": false, "builds": builds, "returned_count": float64(2), "offset": float64(5), "limit": float64(2), "possibly_more": true}},
 		{"jenkins_get_build", map[string]any{"job_path": []string{"team", "feature/foo"}, "build_number": json.Number("42")}, "/jenkins/job/team/job/feature%2Ffoo/42/api/json", "number,result,building,timestamp,duration,estimatedDuration", buildFixture, map[string]any{"number": float64(42), "result": nil, "building": true, "phase": "building", "timestamp": float64(1700000000000), "duration": float64(1234), "estimatedDuration": float64(5678)}},
 	}
 	for i, tc := range cases {
@@ -208,10 +215,8 @@ func TestRequestAndProjection(t *testing.T) {
 			})
 			result := execute(t, j, tc.name, tc.args)
 			out := successJSON(t, result)
-			for key, want := range tc.want {
-				if !reflect.DeepEqual(out[key], want) {
-					t.Errorf("%s=%v want %v", key, out[key], want)
-				}
+			if !reflect.DeepEqual(out, tc.want) {
+				t.Errorf("projection=%#v want %#v", out, tc.want)
 			}
 			if strings.Contains(result.Data, "PRIVATE") || strings.Contains(result.Data, "evil.invalid") || strings.Contains(result.Data, "actions") {
 				t.Fatal("raw/script result leaked fields outside typed allowlist")
@@ -220,6 +225,26 @@ func TestRequestAndProjection(t *testing.T) {
 				t.Fatal("unexpected extra requests")
 			}
 		})
+	}
+}
+
+func TestBuildHistoryBeyondLatestHundred(t *testing.T) {
+	j, _ := fixture(t, func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("tree"); got != "name,_class,color,buildable,inQueue,lastBuild[number,result,timestamp],allBuilds[number,result,timestamp,duration,building]{100,102}" {
+			t.Errorf("history must select a bounded allBuilds window, got %s", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"name":"history","_class":"hudson.model.FreeStyleProject","color":"blue","buildable":true,"inQueue":false,"lastBuild":{"number":101,"result":"SUCCESS","timestamp":1700000000000},"builds":[],"allBuilds":[{"number":1,"result":"SUCCESS","timestamp":1699999999000,"duration":1000,"building":false}]}`))
+	})
+	out := successJSON(t, execute(t, j, "jenkins_get_job", map[string]any{"job_path": []string{"history"}, "offset": 100, "limit": 2}))
+	want := map[string]any{
+		"name": "history", "_class": "hudson.model.FreeStyleProject", "color": "blue", "buildable": true, "inQueue": false,
+		"lastBuild":      map[string]any{"number": float64(101), "result": "SUCCESS", "timestamp": float64(1700000000000)},
+		"builds":         []any{map[string]any{"number": float64(1), "result": "SUCCESS", "timestamp": float64(1699999999000), "duration": float64(1000), "building": false}},
+		"returned_count": float64(1), "offset": float64(100), "limit": float64(2), "possibly_more": false,
+	}
+	if !reflect.DeepEqual(out, want) {
+		t.Fatalf("older build projection=%#v want %#v", out, want)
 	}
 }
 
@@ -232,7 +257,7 @@ func TestEmptyAndCompletedShapes(t *testing.T) {
 	}{
 		{"jenkins_list_jobs", map[string]any{"folder_path": []any{}}, `{"jobs":[]}`, `"jobs":[]`},
 		{"jenkins_list_jobs", map[string]any{"folder_path": "[]"}, `{"jobs":[]}`, `"possibly_more":false`},
-		{"jenkins_get_job", map[string]any{"job_path": []string{"new"}}, `{"name":"new","_class":"hudson.model.FreeStyleProject","color":"notbuilt","buildable":false,"inQueue":true,"lastBuild":null,"builds":[]}`, `"builds":[]`},
+		{"jenkins_get_job", map[string]any{"job_path": []string{"new"}}, `{"name":"new","_class":"hudson.model.FreeStyleProject","color":"notbuilt","buildable":false,"inQueue":true,"lastBuild":null,"allBuilds":[]}`, `"builds":[]`},
 		{"jenkins_get_build", map[string]any{"job_path": []string{"job"}, "build_number": 42}, strings.ReplaceAll(strings.ReplaceAll(buildFixture, `"building":true`, `"building":false`), `"result":null`, `"result":"SUCCESS"`), `"phase":"completed"`},
 	}
 	for i, tc := range cases {
@@ -391,6 +416,12 @@ func TestTLSVerifiedAndContextCancellation(t *testing.T) {
 	if result := execute(t, j, "jenkins_list_jobs", nil); !result.IsError {
 		t.Fatal("untrusted server certificate accepted")
 	}
+	creds := credentials(ts.URL + "/jenkins")
+	creds["ca_cert"] = string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: ts.Certificate().Raw}))
+	if err := j.Configure(context.Background(), creds); err != nil {
+		t.Fatal(err)
+	}
+	_ = successJSON(t, execute(t, j, "jenkins_list_jobs", nil))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	result, err := j.Execute(ctx, "jenkins_list_jobs", nil)
@@ -469,7 +500,8 @@ func TestProjectionRejectsOversizeAndMalformed(t *testing.T) {
 		{"too many jobs", "jenkins_list_jobs", `{"jobs":[` + strings.TrimSuffix(strings.Repeat(job+",", 51), ",") + `]}`, map[string]any{"limit": 50}},
 		{"ignored limit", "jenkins_list_jobs", `{"jobs":[` + job + "," + job + `]}`, map[string]any{"limit": 1}},
 		{"long name", "jenkins_list_jobs", strings.Replace(jobsFixture, `"name":"team"`, `"name":"`+strings.Repeat("é", 513)+`"`, 1), nil},
-		{"long class", "jenkins_list_jobs", strings.Replace(jobsFixture, `"color":"blue"`, `"color":"`+strings.Repeat("x", 513)+`"`, 1), nil},
+		{"long class", "jenkins_list_jobs", strings.Replace(jobsFixture, `"_class":"com.cloudbees.hudson.plugins.folder.Folder"`, `"_class":"`+strings.Repeat("x", 513)+`"`, 1), nil},
+		{"long color", "jenkins_list_jobs", strings.Replace(jobsFixture, `"color":"blue"`, `"color":"`+strings.Repeat("x", 513)+`"`, 1), nil},
 		{"long result", "jenkins_get_build", strings.Replace(buildFixture, `"result":null`, `"result":"`+strings.Repeat("x", 513)+`"`, 1), map[string]any{"job_path": []string{"job"}, "build_number": 42}},
 		{"missing building", "jenkins_get_build", `{"number":42,"result":null}`, map[string]any{"job_path": []string{"job"}, "build_number": 42}},
 		{"wrong build", "jenkins_get_build", strings.Replace(buildFixture, `"number":42`, `"number":43`, 1), map[string]any{"job_path": []string{"job"}, "build_number": 42}},
