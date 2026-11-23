@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	mcp "github.com/daltoniam/switchboard"
@@ -451,6 +453,54 @@ func TestHealthyBoundedAndClose(t *testing.T) {
 	}
 }
 
+func TestRetryAfterHTTPDateWaitsUntilDeadline(t *testing.T) {
+	cases := []struct {
+		name   string
+		offset time.Duration
+	}{
+		{"whole second", 0},
+		{"quarter second", 250 * time.Millisecond},
+		{"last millisecond", 999 * time.Millisecond},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				time.Sleep(tc.offset)
+				requests := 0
+				var advertised, retriedAt time.Time
+				j := &jenkins{
+					baseURL: "https://jenkins.example.com",
+					client: &http.Client{Transport: retryWaitTransport(func(*http.Request) (*http.Response, error) {
+						requests++
+						if requests == 1 {
+							header := time.Now().Add(2 * time.Second).UTC().Format(http.TimeFormat)
+							var err error
+							advertised, err = http.ParseTime(header)
+							if err != nil {
+								t.Fatal(err)
+							}
+							return &http.Response{StatusCode: http.StatusTooManyRequests, Header: http.Header{"Retry-After": {header}}, Body: http.NoBody}, nil
+						}
+						retriedAt = time.Now()
+						return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(jobsFixture))}, nil
+					})},
+				}
+				started := time.Now()
+				_ = successJSON(t, execute(t, j, "jenkins_list_jobs", nil))
+				if requests != 2 {
+					t.Fatalf("requests = %d, want 2", requests)
+				}
+				if !advertised.After(started) || advertised.Sub(started) > maxRetryDelay {
+					t.Fatalf("advertised retry delay %s is not positive and bounded", advertised.Sub(started))
+				}
+				if !retriedAt.Equal(advertised) || !time.Now().Equal(advertised) {
+					t.Fatalf("retry at %s after %s, want advertised deadline %s after %s", retriedAt, retriedAt.Sub(started), advertised, advertised.Sub(started))
+				}
+			})
+		})
+	}
+}
+
 func TestBoundedRetryAfter(t *testing.T) {
 	cases := []struct {
 		name, header string
@@ -459,7 +509,6 @@ func TestBoundedRetryAfter(t *testing.T) {
 		wantError    bool
 	}{
 		{"zero", "0", 200, 2, false},
-		{"date", time.Now().Add(time.Second).UTC().Format(http.TimeFormat), 200, 2, false},
 		{"still limited", "0", 429, 2, true},
 		{"missing", "", 200, 1, true},
 		{"negative", "-1", 200, 1, true},

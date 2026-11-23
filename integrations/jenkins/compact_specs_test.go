@@ -40,6 +40,37 @@ func TestFieldCompactionSpecs_NoOrphanSpecs(t *testing.T) {
 	}
 }
 
+func TestFieldCompactionSpecs_CompletedBuildResult(t *testing.T) {
+	for _, status := range []string{"SUCCESS", "FAILURE", "UNSTABLE", "ABORTED", "NOT_BUILT"} {
+		t.Run(status, func(t *testing.T) {
+			body := strings.Replace(buildFixture, `"result":null`, `"result":"`+status+`"`, 1)
+			body = strings.Replace(body, `"building":true`, `"building":false`, 1)
+			j, _ := fixture(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(body))
+			})
+			result := execute(t, j, "jenkins_get_build", map[string]any{"job_path": []string{"job"}, "build_number": 42})
+			_ = successJSON(t, result)
+			fields, ok := j.CompactSpec("jenkins_get_build")
+			if !ok {
+				t.Fatal("missing get-build compaction spec")
+			}
+			projected, err := mcp.CompactJSON([]byte(result.Data), fields)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			if err := json.Unmarshal(projected, &got); err != nil {
+				t.Fatal(err)
+			}
+			want := map[string]any{"number": float64(42), "result": status, "building": false, "phase": "completed", "timestamp": float64(1700000000000), "duration": float64(1234), "estimatedDuration": float64(5678)}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("completed build projection=%s want %#v", projected, want)
+			}
+		})
+	}
+}
+
 func TestFieldCompactionSpecs_RealisticShapeParity(t *testing.T) {
 	cases := []struct {
 		tool mcp.ToolName
