@@ -123,8 +123,11 @@ jobs:
       - name: Run gosec
         run: go tool gosec -exclude-dir=gen -exclude=G101,G104,G115,G117,G119,G120,G304,G505,G704,G706 ./...
 
+      # Source-mode govulncheck over ./... builds a whole-program call graph
+      # that peaks above 14 GB and starves the hosted runner. Scanning the
+      # shipped binary reports the same symbol-level findings in under 1 GB.
       - name: Run govulncheck
-        run: go tool govulncheck ./...
+        run: make govulncheck
 
   rust-sdk:
     runs-on: ubuntu-latest
