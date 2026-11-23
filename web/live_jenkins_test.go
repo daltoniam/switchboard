@@ -140,6 +140,93 @@ func TestLiveJenkinsSpec(t *testing.T) {
 	require.Empty(t, spec.Skips)
 }
 
+func liveJenkinsValidateBuildPage(data string, wantNumbers []int, wantTimestamp int64) error {
+	var response struct {
+		Builds []struct {
+			Number    int   `json:"number"`
+			Timestamp int64 `json:"timestamp"`
+		} `json:"builds"`
+	}
+	if err := json.Unmarshal([]byte(data), &response); err != nil {
+		return fmt.Errorf("decode Jenkins build page: %w", err)
+	}
+	if len(response.Builds) != len(wantNumbers) {
+		return fmt.Errorf("build page contains %d builds, want %d", len(response.Builds), len(wantNumbers))
+	}
+	for index, number := range wantNumbers {
+		if response.Builds[index].Number != number {
+			return fmt.Errorf("builds[%d].number = %d, want %d", index, response.Builds[index].Number, number)
+		}
+	}
+	if wantTimestamp != 0 && len(response.Builds) > 0 && response.Builds[0].Timestamp != wantTimestamp {
+		return fmt.Errorf("builds[0].timestamp = %d, want %d", response.Builds[0].Timestamp, wantTimestamp)
+	}
+	return nil
+}
+
+func TestLiveJenkinsValidateBuildPage(t *testing.T) {
+	const latest = `{"number":2,"result":"SUCCESS","timestamp":1700000000000,"duration":10,"building":false}`
+	const older = `{"number":1,"result":"SUCCESS","timestamp":1699999999000,"duration":5,"building":false}`
+	var firstPage liveCase
+	for _, c := range liveSpecs["jenkins"].Cases {
+		if c.Tool == "jenkins_get_job" {
+			firstPage = c
+			break
+		}
+	}
+	require.Equal(t, mcp.ToolName("jenkins_get_job"), firstPage.Tool)
+	require.Equal(t, map[string]any{"job_path": []string{"a-visible"}, "limit": 1}, firstPage.Args)
+	require.NotEmpty(t, firstPage.Expect)
+	expanded := liveExpandCases(t, []liveCase{firstPage}, map[string]string{"root_timestamp": "1700000000000"})
+	for _, tc := range []struct {
+		name, builds string
+		valid        bool
+	}{
+		{"selected latest build", `[` + latest + `]`, true},
+		{"older build masked by latest metadata", `[` + older + `]`, false},
+		{"empty page masked by latest metadata", `[]`, false},
+		{"null page masked by latest metadata", `null`, false},
+		{"duplicate selected build", `[` + latest + `,` + latest + `]`, false},
+		{"extra older build", `[` + latest + `,` + older + `]`, false},
+		{"timestamp masked by latest metadata", `[` + strings.Replace(latest, "1700000000000", "1699999999000", 1) + `]`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data := `{"name":"a-visible","_class":"hudson.model.FreeStyleProject","buildable":true,"inQueue":false,"lastBuild":` + latest + `,"builds":` + tc.builds + `,"returned_count":1,"offset":0,"limit":1,"possibly_more":true}`
+			require.True(t, liveContainsAll(data, expanded[0].Expect), "latest metadata satisfies the old whole-response assertions")
+			err := liveJenkinsValidateBuildPage(data, []int{2}, 1700000000000)
+			if tc.valid {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err, "build selection must be checked within the builds array")
+			}
+		})
+	}
+}
+
+func TestLiveJenkinsValidateBuildPageOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name, data string
+		valid      bool
+	}{
+		{"selected history page", `{"builds":[{"number":3},{"number":2}]}`, true},
+		{"reversed history page", `{"builds":[{"number":2},{"number":3}]}`, false},
+		{"duplicate history build", `{"builds":[{"number":3},{"number":3}]}`, false},
+		{"short history page", `{"builds":[{"number":3}]}`, false},
+		{"long history page", `{"builds":[{"number":3},{"number":2},{"number":1}]}`, false},
+		{"missing page", `{"lastBuild":{"number":3}}`, false},
+		{"invalid JSON", `{`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := liveJenkinsValidateBuildPage(tc.data, []int{3, 2}, 0)
+			if tc.valid {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+			}
+		})
+	}
+}
+
 func TestLiveJenkinsProvision(t *testing.T) {
 	if os.Getenv("SWITCHBOARD_LIVE") != "1" {
 		t.Skip("run with SWITCHBOARD_LIVE=1 to verify disposable Jenkins provisioning")
@@ -336,11 +423,31 @@ exec /usr/local/bin/jenkins.sh`},
 	t.Cleanup(func() { require.NoError(t, adapter.(io.Closer).Close()) })
 	require.NoError(t, adapter.Configure(t.Context(), mcp.Credentials(credentials)))
 	require.True(t, adapter.Healthy(t.Context()))
+	pages := map[string]map[int][]int{
+		"a-visible":                {0: {2}, 1: {1}},
+		"e-history":                {100: {3, 2}, 102: {1}},
+		"b-team/nested/c-build":    {0: {1}},
+		"c-branches/feature%2Ffoo": {0: {1}},
+	}
 	for _, c := range liveExpandCases(t, liveSpecs["jenkins"].Cases, values) {
 		result, err := adapter.Execute(t.Context(), c.Tool, c.Args)
 		require.NoError(t, err)
 		require.False(t, result.IsError, "%s: %s", c.Tool, result.Data)
 		require.True(t, liveContainsAll(result.Data, c.Expect), "%s expected %q in %s", c.Tool, c.Expect, result.Data)
+		if c.Tool == "jenkins_get_job" {
+			path, ok := c.Args["job_path"].([]string)
+			require.True(t, ok)
+			offset, _ := c.Args["offset"].(int)
+			wantNumbers, ok := pages[strings.Join(path, "/")][offset]
+			require.True(t, ok, "every live job page must assert its selected build numbers")
+			var wantTimestamp int64
+			if len(path) == 1 && path[0] == "a-visible" && offset == 0 {
+				_, err := fmt.Sscan(values["root_timestamp"], &wantTimestamp)
+				require.NoError(t, err)
+				require.Positive(t, wantTimestamp)
+			}
+			require.NoError(t, liveJenkinsValidateBuildPage(result.Data, wantNumbers, wantTimestamp), "%s offset %d", path, offset)
+		}
 		for _, forbidden := range []string{"SECRET_SENTINEL", "PRIVATE_HIDDEN", "z-hidden", "actions", "parameters", "changeSets", "console", "description", "url"} {
 			require.NotContains(t, result.Data, forbidden)
 		}
