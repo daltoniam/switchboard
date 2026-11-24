@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -430,6 +431,18 @@ func TestRequestAndProjection(t *testing.T) {
 	}
 	for index, tc := range cases {
 		t.Run(fmt.Sprintf("%d_%s", index, tc.name), func(t *testing.T) {
+			var targetCalls, targetConnections atomic.Int32
+			target := httptest.NewUnstartedServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				targetCalls.Add(1)
+			}))
+			target.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+				if state == http.StateNew {
+					targetConnections.Add(1)
+				}
+			}
+			target.StartTLS()
+			t.Cleanup(target.Close)
+			body := strings.ReplaceAll(tc.body, "https://evil.invalid", target.URL)
 			var calls atomic.Int32
 			integration, _ := fixture(t, func(w http.ResponseWriter, r *http.Request) {
 				calls.Add(1)
@@ -441,7 +454,7 @@ func TestRequestAndProjection(t *testing.T) {
 					t.Errorf("unexpected fixed request: %s", r.URL)
 				}
 				w.Header().Set("Content-Type", "application/hal+json;charset=UTF-8")
-				_, _ = io.WriteString(w, tc.body)
+				_, _ = io.WriteString(w, body)
 			})
 			result := execute(t, integration, tc.name, tc.args)
 			if got := successJSON(t, result); !reflect.DeepEqual(got, tc.want) {
@@ -450,6 +463,9 @@ func TestRequestAndProjection(t *testing.T) {
 			assertSafe(t, result.Data)
 			if calls.Load() != 1 {
 				t.Fatal("one tool call must fetch only one fixed upstream resource")
+			}
+			if received, connected := targetCalls.Load(), targetConnections.Load(); received != 0 || connected != 0 {
+				t.Fatalf("untrusted HAL-link target received %d requests and %d connections", received, connected)
 			}
 		})
 	}
