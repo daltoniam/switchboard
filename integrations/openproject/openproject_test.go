@@ -865,46 +865,53 @@ func TestRetryAfterInvalidOrUnboundedRejected(t *testing.T) {
 
 func TestRetryAfterHTTPDateHonored(t *testing.T) {
 	var calls atomic.Int32
-	var advertised, retriedAt time.Time
+	requestTimes := make(chan time.Time, 3)
 	integration, _ := fixture(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/hal+json")
 		if calls.Add(1) == 1 {
 			header := time.Now().Add(1500 * time.Millisecond).UTC().Format(http.TimeFormat)
-			var err error
-			advertised, err = http.ParseTime(header)
+			advertised, err := http.ParseTime(header)
 			if err != nil {
 				t.Error(err)
 			}
+			requestTimes <- advertised
 			w.Header().Set("Retry-After", header)
 			w.WriteHeader(http.StatusTooManyRequests)
 			return
 		}
-		retriedAt = time.Now()
+		requestTimes <- time.Now()
 		_, _ = io.WriteString(w, collectionFixture(0, 0, 1, 20))
 	})
 	_ = successJSON(t, execute(t, integration, "openproject_list_work_packages", nil))
-	if calls.Load() != 2 || retriedAt.Before(advertised) {
-		t.Fatalf("retried before HTTP-date deadline: retry=%s deadline=%s calls=%d", retriedAt, advertised, calls.Load())
+	if calls.Load() != 2 {
+		t.Fatalf("request count = %d, want 2", calls.Load())
+	}
+	advertised, retriedAt := <-requestTimes, <-requestTimes
+	if retriedAt.Before(advertised) {
+		t.Fatalf("retried before HTTP-date deadline: retry=%s deadline=%s", retriedAt, advertised)
 	}
 }
 
 func TestRetryAfterPositiveDelayHonored(t *testing.T) {
 	var calls atomic.Int32
-	var first, second time.Time
+	requestTimes := make(chan time.Time, 3)
 	integration, _ := fixture(t, func(w http.ResponseWriter, _ *http.Request) {
 		call := calls.Add(1)
+		requestTimes <- time.Now()
 		w.Header().Set("Content-Type", "application/hal+json")
 		if call == 1 {
-			first = time.Now()
 			w.Header().Set("Retry-After", "1")
 			w.WriteHeader(http.StatusTooManyRequests)
 			return
 		}
-		second = time.Now()
 		_, _ = io.WriteString(w, collectionFixture(0, 0, 1, 20))
 	})
 	_ = successJSON(t, execute(t, integration, "openproject_list_work_packages", nil))
-	if calls.Load() != 2 || second.Sub(first) < time.Second {
+	if calls.Load() != 2 {
+		t.Fatalf("request count = %d, want 2", calls.Load())
+	}
+	first, second := <-requestTimes, <-requestTimes
+	if second.Sub(first) < time.Second {
 		t.Fatal("positive Retry-After was not honored")
 	}
 }
