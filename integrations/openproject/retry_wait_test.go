@@ -2,7 +2,9 @@ package openproject
 
 import (
 	"context"
+	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -136,6 +138,68 @@ func TestRetryBudgetSpansAttempts(t *testing.T) {
 					t.Fatalf("error = %s, want %q", message, testCase.wantError)
 				}
 				assertSafe(t, message)
+			})
+		})
+	}
+}
+
+func TestRetryAfterSuccessfulWaitMatchesHeader(t *testing.T) {
+	for _, testCase := range []struct {
+		name        string
+		header      string
+		clockOffset time.Duration
+		wantDelay   time.Duration
+	}{
+		{"zero seconds", "0", 0, 0},
+		{"one second", "1", 0, time.Second},
+		{"maximum seconds", "2", 0, 2 * time.Second},
+		{"future date whole second", "future HTTP date", 0, 2 * time.Second},
+		{"future date fractional second", "future HTTP date", 250 * time.Millisecond, 1750 * time.Millisecond},
+		{"past date", "past HTTP date", 250 * time.Millisecond, 0},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				time.Sleep(time.Until(time.Now().Truncate(time.Second).Add(time.Second)) + testCase.clockOffset)
+				started := time.Now()
+				header := testCase.header
+				switch header {
+				case "future HTTP date":
+					header = started.Add(2 * time.Second).UTC().Format(http.TimeFormat)
+				case "past HTTP date":
+					header = started.Add(-time.Second).UTC().Format(http.TimeFormat)
+				}
+				var requestTimes []time.Duration
+				integration := &openproject{
+					baseURL:     "https://openproject.example.com/openproject",
+					workspaceID: 7,
+					apiToken:    "secret-token",
+					client: &http.Client{Transport: retryWaitTransport(func(*http.Request) (*http.Response, error) {
+						requestTimes = append(requestTimes, time.Since(started))
+						if len(requestTimes) == 1 {
+							return &http.Response{
+								StatusCode: http.StatusTooManyRequests,
+								Header:     http.Header{"Retry-After": {header}},
+								Body:       http.NoBody,
+							}, nil
+						}
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Header:     http.Header{"Content-Type": {"application/hal+json"}},
+							Body:       io.NopCloser(strings.NewReader(collectionFixture(1, 1, 1, 20, workPackageFixture))),
+						}, nil
+					})},
+				}
+				result := execute(t, integration, "openproject_list_work_packages", nil)
+				if got, want := successJSON(t, result), listJSON(1, 1, 1, 20, 1, 0, nil, summaryJSON()); !reflect.DeepEqual(got, want) {
+					t.Fatalf("retried collection = %#v, want %#v", got, want)
+				}
+				if want := []time.Duration{0, testCase.wantDelay}; !reflect.DeepEqual(requestTimes, want) {
+					t.Fatalf("request start times = %v, want %v", requestTimes, want)
+				}
+				if elapsed := time.Since(started); elapsed != testCase.wantDelay {
+					t.Fatalf("successful retry lasted %s, want %s", elapsed, testCase.wantDelay)
+				}
+				assertSafe(t, result.Data)
 			})
 		})
 	}
