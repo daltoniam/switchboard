@@ -1,0 +1,6 @@
+version: 1
+tools:
+  openproject_list_work_packages:
+    spec: ["work_packages[].id", "work_packages[].displayId", "work_packages[].subject", "work_packages[].status", "work_packages[].type", "work_packages[].project_id", "work_packages[].updatedAt", total, count, page, page_size, returned, omitted, truncated, next_page]
+  openproject_get_work_package:
+    spec: [id, displayId, subject, status, type, project_id, updatedAt, createdAt, startDate, dueDate, description, description_truncated, truncated]

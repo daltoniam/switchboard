@@ -448,6 +448,10 @@ Environment variables override credential values but do not change the durable e
 | Jenkins | `username` | `JENKINS_USERNAME` (dedicated user with Overall/Read and scoped Job/Read only) |
 | Jenkins | `api_token` | `JENKINS_API_TOKEN` (dedicated user's API token; never a password) |
 | Jenkins | `ca_cert` | `JENKINS_CA_CERT` (optional PEM CA certificate; TLS verification stays enabled) |
+| [OpenProject](docs/openproject.md) | `base_url` | `OPENPROJECT_BASE_URL` (required trusted HTTPS Community installation URL, including any deployment prefix) |
+| OpenProject | `api_token` | `OPENPROJECT_API_TOKEN` (dedicated non-admin account with effective View work packages permission only) |
+| OpenProject | `workspace_id` | `OPENPROJECT_WORKSPACE_ID` (required positive numeric ID of the selected project) |
+| OpenProject | `ca_cert` | `OPENPROJECT_CA_CERT` (optional PEM CA certificate; TLS verification stays enabled) |
 | [ntfy](docs/ntfy.md) | `base_url` | `NTFY_BASE_URL` (required trusted HTTPS self-hosted server) |
 | ntfy | `topic` | `NTFY_TOPIC` (required fixed private topic) |
 | ntfy | `api_token` | `NTFY_API_TOKEN` (dedicated non-admin user token with read-only topic ACL) |
