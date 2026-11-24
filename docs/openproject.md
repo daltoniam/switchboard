@@ -58,6 +58,12 @@ For example, pass the following objects to `execute` in order:
 
 List requests use `GET /api/v3/workspaces/{configured_id}/work_packages`, not the deprecated `/projects/{id}/work_packages` collection alias. Exact reads use `GET /api/v3/work_packages/{numeric_id}`. Both are relative to the configured installation subpath and request `application/hal+json`.
 
+### Version-specific collection route
+
+The collection namespace and the project relationship namespace are intentionally different. In the supported **v17.9.2** release, the [workspace collection contract](https://github.com/opf/openproject/blob/v17.9.2/docs/api/apiv3/paths/workspace_work_packages.yml) defines `/api/v3/workspaces/{id}/work_packages`, and the [project collection contract](https://github.com/opf/openproject/blob/v17.9.2/docs/api/apiv3/paths/project_work_packages.yml) explicitly deprecates `/api/v3/projects/{id}/work_packages` in its favor. The [workspace router](https://github.com/opf/openproject/blob/v17.9.2/lib/api/v3/workspaces/nested_apis.rb) mounts `WorkPackagesByWorkspaceAPI`. By contrast, a work package's `_links.project.href` still uses `/api/v3/projects/{id}`. Do not derive the collection route from that relationship URL or substitute an older release's route in the client or fixtures.
+
+`TestRequestAndProjection`, `TestHealthyUsesBoundedReadAndClose` and `TestUIOpenProject` intentionally require the workspace collection route, including the configured installation subpath. Real-product acceptance independently checks it: `liveOpenProjectProvision` requires an authenticated `GET /api/v3/workspaces/{id}/work_packages` to return HTTP 200, the seeded second-page record and correct paging metadata from the pinned official v17.9.2 container before running the adapter and MCP cases. These route assertions are not based only on mock agreement.
+
 The adapter explicitly sends `filters=[]` when no search text is supplied, removing the API's default open-only status filter. Search text is encoded into a constructed `subjectOrId` filter with the documented `**` operator. It is not a caller-supplied filter object or arbitrary query language. Sorting is fixed to `[["id","asc"]]`. Callers cannot supply workspace overrides, URLs, paths, headers, credentials, `select`, grouping, sums, timestamps, baselines or arbitrary expansions.
 
 ### Paging and project isolation
