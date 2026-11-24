@@ -672,7 +672,6 @@ func TestHTTPFailuresAreSafe(t *testing.T) {
 		{"null collection", 200, "application/hal+json", `null`},
 		{"wrong elements type", 200, "application/hal+json", `{"total":1,"count":1,"offset":1,"pageSize":20,"_embedded":{"elements":"PRIVATE"}}`},
 		{"trailing JSON", 200, "application/hal+json", collectionFixture(0, 0, 1, 20) + `{}`},
-		{"oversize", 200, "application/hal+json", `{"PRIVATE":"` + strings.Repeat("x", 2*1024*1024) + `"}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -709,6 +708,39 @@ func TestHTTPFailuresAreSafe(t *testing.T) {
 			if tc.status >= 401 && tc.status <= 404 && calls.Load() != 1 {
 				t.Fatal("authentication/authorization failures must not retry")
 			}
+		})
+	}
+}
+
+func TestHTTPResponseSizeLimit(t *testing.T) {
+	const limit = 2 * 1024 * 1024
+	prefix := `{"PRIVATE":"`
+	suffix := `",` + strings.TrimPrefix(collectionFixture(0, 0, 1, 20), "{")
+	cases := []struct {
+		name      string
+		size      int
+		wantError bool
+	}{
+		{"below limit", limit - 1, false},
+		{"at limit", limit, false},
+		{"above limit", limit + 1, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := prefix + strings.Repeat("x", tc.size-len(prefix)-len(suffix)) + suffix
+			integration, _ := fixture(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/hal+json")
+				_, _ = io.WriteString(w, body)
+			})
+			result := execute(t, integration, "openproject_list_work_packages", nil)
+			if tc.wantError {
+				if !result.IsError || !strings.Contains(result.Data, "response exceeds 2 MiB limit") {
+					t.Fatalf("expected response size error, got error=%v data=%.200s", result.IsError, result.Data)
+				}
+			} else if got := successJSON(t, result); !reflect.DeepEqual(got, listJSON(0, 0, 1, 20, 0, 0, nil)) {
+				t.Fatalf("unexpected collection projection: %#v", got)
+			}
+			assertSafe(t, result.Data)
 		})
 	}
 }

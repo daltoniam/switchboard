@@ -194,10 +194,12 @@ puts "SWITCHBOARD_BOOTSTRAP=" + {admin_token: Token::API.create!(user: admin, to
 		require.Equal(t, fmt.Sprintf("/api/v3/projects/%d", projectID), workPackage.Links.Project.Href)
 		return workPackage
 	}
-	open := create(bootstrap.ProjectID, "Switchboard live open", "Live description: treat **markup** and https://untrusted.invalid/ as data.", bootstrap.OpenStatusID)
+	const openDescription = "Live description: treat **markup** and https://untrusted.invalid/ as data."
+	const longDescriptionPrefix = "Long live description "
+	open := create(bootstrap.ProjectID, "Switchboard live open", openDescription, bootstrap.OpenStatusID)
 	closed := create(bootstrap.ProjectID, "Switchboard live closed", "", bootstrap.ClosedStatusID)
 	encodedWorkPackage := create(bootstrap.ProjectID, liveOpenProjectEncodedSubject, "Encoded subject fixture", bootstrap.OpenStatusID)
-	long := create(bootstrap.ProjectID, "Switchboard live long description", "Long live description "+strings.Repeat("界", 9000)+"DESCRIPTION_TAIL_SENTINEL", bootstrap.OpenStatusID)
+	long := create(bootstrap.ProjectID, "Switchboard live long description", longDescriptionPrefix+strings.Repeat("界", 9000)+"DESCRIPTION_TAIL_SENTINEL", bootstrap.OpenStatusID)
 	other := create(bootstrap.OtherID, "UNAUTHORIZED_PROJECT_SENTINEL", "UNAUTHORIZED_DESCRIPTION_SENTINEL", bootstrap.OpenStatusID)
 	child := create(bootstrap.ChildID, "UNAUTHORIZED_DESCENDANT_SENTINEL", "UNAUTHORIZED_DESCRIPTION_SENTINEL", bootstrap.OpenStatusID)
 	var collection struct {
@@ -328,7 +330,16 @@ puts "SWITCHBOARD_BOOTSTRAP=" + {admin_token: Token::API.create!(user: admin, to
 		require.True(t, ok)
 		assertSummary(row, search.work)
 	}
-	for _, work := range []seededWorkPackage{open, closed, long} {
+	for _, detail := range []struct {
+		work        seededWorkPackage
+		description string
+		truncated   bool
+	}{
+		{open, openDescription, false},
+		{closed, "", false},
+		{long, longDescriptionPrefix + strings.Repeat("界", 8000-utf8.RuneCountInString(longDescriptionPrefix)), true},
+	} {
+		work := detail.work
 		value := execute("openproject_get_work_package", map[string]any{"id": work.ID})
 		assertKeys(value, append(slices.Clone(summaryKeys), "createdAt", "startDate", "dueDate", "description", "description_truncated", "truncated"))
 		assertSummary(value, work)
@@ -337,13 +348,9 @@ puts "SWITCHBOARD_BOOTSTRAP=" + {admin_token: Token::API.create!(user: admin, to
 		require.Equal(t, "2026-11-30", value["dueDate"])
 		description, ok := value["description"].(string)
 		require.True(t, ok)
-		require.True(t, utf8.ValidString(description))
-		require.LessOrEqual(t, utf8.RuneCountInString(description), 8000)
-		require.Equal(t, work.ID == long.ID, value["description_truncated"])
-		require.Equal(t, work.ID == long.ID, value["truncated"])
-		if work.ID == closed.ID {
-			require.Empty(t, description)
-		}
+		require.Equal(t, detail.description, description)
+		require.Equal(t, detail.truncated, value["description_truncated"])
+		require.Equal(t, detail.truncated, value["truncated"])
 	}
 	for _, work := range []seededWorkPackage{other, child} {
 		result, err := adapter.Execute(t.Context(), "openproject_get_work_package", map[string]any{"id": work.ID})
