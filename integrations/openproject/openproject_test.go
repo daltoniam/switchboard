@@ -754,8 +754,8 @@ func TestOversizeDecompressedBodyRejected(t *testing.T) {
 		_ = compressed.Close()
 	})
 	result := execute(t, integration, "openproject_list_work_packages", nil)
-	if !result.IsError {
-		t.Fatal("2 MiB limit was applied only to compressed bytes")
+	if !result.IsError || !strings.Contains(result.Data, "response exceeds 2 MiB limit") {
+		t.Fatalf("expected decompressed response size error, got error=%v data=%.200s", result.IsError, result.Data)
 	}
 	assertSafe(t, result.Data)
 }
