@@ -1,6 +1,42 @@
 # Notion v3 Transaction Debugging Guide
 
-How to diagnose and fix 400/500 errors from `submitTransaction`.
+How to diagnose and fix 404/400/500 errors from Notion v3 writes. All cookie-backed write handlers call the internal `submitTransaction` helper, which posts to `/api/v3/saveTransactions`. OAuth-backed v1 writes are separate.
+
+## Write Endpoint and Envelope
+
+A `404 Cannot POST /api/v3/submitTransaction` indicates an unavailable route, not an invalid operation or database ID. Changing only the URL is insufficient: `saveTransactions` expects a batch envelope rather than top-level `operations`.
+
+```json
+{
+  "requestId": "<request-uuid>",
+  "transactions": [
+    {
+      "id": "<transaction-uuid>",
+      "spaceId": "<configured-workspace-id>",
+      "operations": [
+        {"command": "set", "pointer": {"table": "block", "id": "<block-id>", "spaceId": "<configured-workspace-id>"}, "path": ["type"], "args": "page"}
+      ]
+    }
+  ]
+}
+```
+
+Switchboard generates distinct request and transaction UUIDs for each helper call, sets the transaction's `spaceId` from the configured workspace, and keeps all operations in one transaction. At submission, legacy flat operations are copied into pointer format with the configured workspace; existing pointer operations are preserved. Requests include `x-notion-active-user-header` and `x-notion-space-id` when configured. It does not retry against alternate write endpoints: an ambiguous write result must not trigger a second mutation.
+
+Public implementation evidence checked on 2026-11-24, without issuing live writes:
+
+- [Mikubill/transfer](https://github.com/Mikubill/transfer/blob/9227a05701322bfd00f64d557554818e25248c25/apis/public/notion/client.go): `SubmitTransaction` posts the UUID/space/batch envelope to `https://www.notion.so/api/v3/saveTransactions`.
+- [FSB Notion handler](https://github.com/fullselfbrowsing/FSB/blob/df541df6638ff660f8633a383a7f4191e76d2fe6/catalog/handlers/notion.js): `saveTransactions` uses the same envelope. Its [2026-06-29 UAT record](https://github.com/fullselfbrowsing/FSB/blob/df541df6638ff660f8633a383a7f4191e76d2fe6/.planning/milestones/v1.0.0-phases/41-depth-2-remaining-hand-ports-guarded-writes/41-HUMAN-UAT.md) reports verified page/database/row writes against that route on `app.notion.com`.
+- [webclipper/web-clipper](https://github.com/webclipper/web-clipper/blob/33a3f3a09b02d114d61fdc84e465f310ecf39e7c/src/common/backend/services/notion/service.ts): uses `/api/v3/saveTransactionsFanout` with the same envelope and flat operations. This supports the envelope shape but is not a reason to add a blind fanout fallback.
+
+- [cmux append implementation](https://github.com/manaflow-ai/cmux/blob/9fb414f372c07a1a199632ea4091d4cb3d8caa84/Resources/browser-repl/sites/notion.js): uses pointer-format `set` and `listAfter` operations for `saveTransactions` and an active-user header. The page's `space_id` provides the pointers' workspace.
+- [OpenTabs Notion transport](https://github.com/opentabs-dev/opentabs/blob/de9200b1231cae419d1a437e410114a9e2fe8eca/plugins/notion/src/notion-api.ts): sends active-user and workspace headers when available.
+
+The public sources are not an official API stability guarantee. During hot-reloaded verification on 2026-11-24, the parent agent reported a successful append after supplying a hyphenated page UUID with the new endpoint, pointer operations, and routing headers. Read-back verification remains a separate deployment check.
+
+### Compact IDs can resemble authentication failures
+
+Live verification found that a 32-character compact page ID caused `UserValidationError` on reads and generic `ValidationError` on writes, while the same ID in hyphenated UUID form read and appended successfully. Supply canonical hyphenated UUIDs to v3 handlers; automatic compact-ID normalization is outside this change. Before attributing a 400 to expired credentials or workspace selection, compare the ID format. If validation persists, confirm the target page's `space_id` matches the configured workspace (configuration currently selects the first workspace deterministically).
 
 ## ID Disambiguation
 
@@ -71,8 +107,8 @@ Missing `resolved: false` causes `PostgresNullConstraintError` (400).
 
 - `pointer` identifies the record being re-parented (the new page/row)
 - `args.parentId` / `args.parentTable` identify the target parent (camelCase)
-- Works with both `submitTransaction` and `saveTransactionsFanout`
-- Can coexist with flat-format ops (`set`, `update`, `listAfter`) in the same transaction
+- Included inside `transactions[0].operations` by the shared write helper
+- Builders can mix pointer and flat operations; submission converts all flat operations to pointers before sending
 
 ## Common 400 Error Causes
 
@@ -102,23 +138,19 @@ Missing `resolved: false` causes `PostgresNullConstraintError` (400).
 
 ## Transaction Format Reference
 
-### Flat format (Switchboard default)
+### Legacy flat operation format (internal builders only)
 
 ```json
-{"operations": [
-  {"command": "set", "table": "block", "id": "...", "path": [], "args": {...}}
-]}
+{"command": "set", "table": "block", "id": "...", "path": [], "args": {"type": "page"}}
 ```
 
-### Pointer format (used by `setParent` and Notion web app)
+### Pointer operation format (wire format for every command)
 
 ```json
-{"operations": [
-  {"command": "setParent", "pointer": {"table": "block", "id": "...", "spaceId": "..."}, "path": [], "args": {...}}
-]}
+{"command": "setParent", "pointer": {"table": "block", "id": "...", "spaceId": "..."}, "path": [], "args": {"parentId": "...", "parentTable": "collection"}}
 ```
 
-Both formats work with `submitTransaction`. Flat and pointer ops can be mixed in a single transaction.
+Operation builders are unchanged by the endpoint migration. Legacy flat operations are converted to pointers at submission, preserving command, arguments, path, and order inside the same transaction's `operations` array; they are not the top-level request body. Tests cover mixed formats and validate the batch envelope for every write handler.
 
 ## Known Limitations
 

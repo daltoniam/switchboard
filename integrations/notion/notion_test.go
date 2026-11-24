@@ -381,7 +381,7 @@ func TestDoRequest_ReturnsSuccessOn204(t *testing.T) {
 	defer ts.Close()
 
 	n := &notion{tokenV2: "key", baseURL: ts.URL, client: ts.Client()}
-	data, err := n.doRequest(context.Background(), "/api/v3/submitTransaction", map[string]any{})
+	data, err := n.doRequest(context.Background(), "/api/v3/saveTransactions", map[string]any{})
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "success")
 }
@@ -397,7 +397,7 @@ func TestDoRequest_PostsJSONBody(t *testing.T) {
 	defer ts.Close()
 
 	n := &notion{tokenV2: "key", baseURL: ts.URL, client: ts.Client()}
-	data, err := n.doRequest(context.Background(), "/api/v3/submitTransaction", map[string]string{"key": "val"})
+	data, err := n.doRequest(context.Background(), "/api/v3/saveTransactions", map[string]string{"key": "val"})
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "ok")
 }
@@ -1225,9 +1225,8 @@ func TestListDataSourceTemplates_RequiresDataSourceID(t *testing.T) {
 
 func TestCreatePage_SubmitsTransactionWithPageBlock(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "/api/v3/saveTransactions", r.URL.Path)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		// Should have: set (block), update (block times), listAfter (parent content)
 		require.GreaterOrEqual(t, len(body.Operations), 3)
@@ -1290,8 +1289,7 @@ func TestCreatePage_RequiresParent(t *testing.T) {
 
 func TestCreatePage_SupportsParentDatabaseID(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		setOp := body.Operations[0]
 		args, _ := setOp.Args.(map[string]any)
@@ -1310,8 +1308,7 @@ func TestCreatePage_SupportsParentDatabaseID(t *testing.T) {
 
 func TestCreatePage_CollectionParent_UsesSetParent(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		// Find setParent op
 		var foundSetParent bool
@@ -1344,8 +1341,7 @@ func TestCreatePage_CollectionParent_UsesSetParent(t *testing.T) {
 
 func TestCreatePage_BlockParent_StillUsesListAfter(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		var foundListAfter, foundSetParent bool
 		for _, op := range body.Operations {
@@ -1373,9 +1369,8 @@ func TestCreatePage_BlockParent_StillUsesListAfter(t *testing.T) {
 
 func TestUpdatePage_SubmitsPropertyUpdates(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "/api/v3/saveTransactions", r.URL.Path)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		require.GreaterOrEqual(t, len(body.Operations), 1)
 		op := body.Operations[0]
@@ -1404,8 +1399,7 @@ func TestUpdatePage_RequiresPageID(t *testing.T) {
 
 func TestUpdatePage_ArchivesPageWhenRequested(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		// Should have an operation setting alive to false
 		found := false
@@ -1441,9 +1435,8 @@ func TestMovePage_SubmitsListRemoveAndListAfterOps(t *testing.T) {
 					}
 				}
 			}`)
-		case "/api/v3/submitTransaction":
-			var body transaction
-			_ = json.NewDecoder(r.Body).Decode(&body)
+		case "/api/v3/saveTransactions":
+			body := decodeSaveTransaction(t, r, "space-1")
 
 			commands := make([]string, len(body.Operations))
 			for i, op := range body.Operations {
@@ -1482,9 +1475,8 @@ func TestMovePage_RequiresPageIDAndParent(t *testing.T) {
 
 func TestCreatePageWithContent_SubmitsPageAndChildBlocksAtomically(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "/api/v3/saveTransactions", r.URL.Path)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		// Should have ops for page + 2 child blocks + parent linkage
 		// Minimum: page set + page update + parent listAfter + 2×(child set + child update + page listAfter)
@@ -1552,8 +1544,7 @@ func TestCreatePageWithContent_RequiresParentAndChildren(t *testing.T) {
 
 func TestCreatePageWithContent_CollectionParent_UsesSetParent(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		var foundSetParent bool
 		for _, op := range body.Operations {
@@ -1594,9 +1585,8 @@ func TestMovePage_BlockToCollection_UsesSetParent(t *testing.T) {
 					}
 				}
 			}`)
-		case "/api/v3/submitTransaction":
-			var body transaction
-			_ = json.NewDecoder(r.Body).Decode(&body)
+		case "/api/v3/saveTransactions":
+			body := decodeSaveTransaction(t, r, "space-1")
 
 			commands := make([]string, len(body.Operations))
 			for i, op := range body.Operations {
@@ -1636,9 +1626,8 @@ func TestMovePage_CollectionToBlock_SkipsListRemoveOnCollection(t *testing.T) {
 					}
 				}
 			}`)
-		case "/api/v3/submitTransaction":
-			var body transaction
-			_ = json.NewDecoder(r.Body).Decode(&body)
+		case "/api/v3/saveTransactions":
+			body := decodeSaveTransaction(t, r, "space-1")
 
 			// Should NOT listRemove on the collection (collections have no content list)
 			for _, op := range body.Operations {
@@ -1676,9 +1665,8 @@ func TestMovePage_MissingParentTable_DefaultsToBlock(t *testing.T) {
 					}
 				}
 			}`)
-		case "/api/v3/submitTransaction":
-			var body transaction
-			_ = json.NewDecoder(r.Body).Decode(&body)
+		case "/api/v3/saveTransactions":
+			body := decodeSaveTransaction(t, r, "space-1")
 
 			// Should default to block behavior: listRemove from old parent
 			commands := make([]string, len(body.Operations))
@@ -1702,9 +1690,8 @@ func TestMovePage_MissingParentTable_DefaultsToBlock(t *testing.T) {
 
 func TestUpdateBlock_SubmitsSetOperationOnBlock(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "/api/v3/saveTransactions", r.URL.Path)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		require.GreaterOrEqual(t, len(body.Operations), 1)
 		op := body.Operations[0]
@@ -1745,9 +1732,8 @@ func TestDeleteBlock_SubmitsAliveFalseAndListRemove(t *testing.T) {
 					}
 				}
 			}`)
-		case "/api/v3/submitTransaction":
-			var body transaction
-			_ = json.NewDecoder(r.Body).Decode(&body)
+		case "/api/v3/saveTransactions":
+			body := decodeSaveTransaction(t, r, "space-1")
 
 			commands := make([]string, len(body.Operations))
 			for i, op := range body.Operations {
@@ -1782,9 +1768,8 @@ func TestDeleteBlock_RequiresBlockID(t *testing.T) {
 
 func TestAppendBlockChildren_SubmitsSetAndListAfterPerChild(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "/api/v3/saveTransactions", r.URL.Path)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		// 2 children: each needs set + update + listAfter = 6 ops minimum
 		require.GreaterOrEqual(t, len(body.Operations), 6)
@@ -1814,9 +1799,8 @@ func TestAppendBlockChildren_SubmitsSetAndListAfterPerChild(t *testing.T) {
 
 func TestAppendBlockChildren_CodeBlockIncludesFormat(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "/api/v3/saveTransactions", r.URL.Path)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		// Find the set op for the code block
 		var found bool
@@ -1871,9 +1855,8 @@ func TestAppendBlockChildren_RequiresBlockIDAndChildren(t *testing.T) {
 
 func TestCreateDatabase_SubmitsBlockCollectionAndViewOps(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "/api/v3/saveTransactions", r.URL.Path)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		// Should create: collection_view_page block, collection, collection_view, + parent linkage
 		tables := make(map[string]bool)
@@ -1948,9 +1931,8 @@ func TestUpdateDataSource_SubmitsSchemaUpdate(t *testing.T) {
 					}
 				}
 			}`)
-		case "/api/v3/submitTransaction":
-			var body transaction
-			_ = json.NewDecoder(r.Body).Decode(&body)
+		case "/api/v3/saveTransactions":
+			body := decodeSaveTransaction(t, r, "space-1")
 
 			require.GreaterOrEqual(t, len(body.Operations), 1)
 			op := body.Operations[0]
@@ -1980,9 +1962,8 @@ func TestUpdateDataSource_RequiresDataSourceID(t *testing.T) {
 
 func TestCreateComment_SubmitsDiscussionAndCommentOps(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v3/submitTransaction", r.URL.Path)
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "/api/v3/saveTransactions", r.URL.Path)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		// Should create: discussion + comment + listAfter linkages
 		tables := make(map[string]bool)
@@ -2004,8 +1985,7 @@ func TestCreateComment_SubmitsDiscussionAndCommentOps(t *testing.T) {
 
 func TestCreateComment_DiscussionHasResolvedFieldAndNoPrePopulatedComments(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		for _, op := range body.Operations {
 			if op.Table == "discussion" && op.Command == "set" {
@@ -2034,8 +2014,7 @@ func TestCreateComment_DiscussionHasResolvedFieldAndNoPrePopulatedComments(t *te
 
 func TestCreateComment_ReplyToExistingDiscussion(t *testing.T) {
 	n := testNotion(t, func(w http.ResponseWriter, r *http.Request) {
-		var body transaction
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		body := decodeSaveTransaction(t, r, "space-1")
 
 		// When replying, should NOT create a new discussion
 		for _, op := range body.Operations {
