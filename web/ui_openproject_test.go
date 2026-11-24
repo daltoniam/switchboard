@@ -37,12 +37,15 @@ func uiOpenProjectMCP(t *testing.T, app *uiApp, enabled bool) {
 		result, err := session.CallTool(ctx, &mcpsdk.CallToolParams{Name: name, Arguments: arguments})
 		require.NoError(t, err)
 		require.NotEmpty(t, result.Content)
-		text, ok := result.Content[0].(*mcpsdk.TextContent)
-		require.True(t, ok)
-		require.False(t, result.IsError, text.Text)
-		for _, forbidden := range []string{"SECRET_SENTINEL", "ui-openproject-token", "Authorization"} {
-			require.NotContains(t, text.Text, forbidden)
+		for _, content := range result.Content {
+			text, ok := content.(*mcpsdk.TextContent)
+			require.True(t, ok, "OpenProject search, read and script responses must contain only text blocks")
+			for _, forbidden := range []string{"SECRET_SENTINEL", "ui-openproject-token", "Authorization"} {
+				require.NotContains(t, text.Text, forbidden)
+			}
 		}
+		text := result.Content[0].(*mcpsdk.TextContent)
+		require.False(t, result.IsError, text.Text)
 		return text.Text
 	}
 	var catalog struct {
