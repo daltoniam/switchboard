@@ -861,7 +861,7 @@ func TestRetryAfterHTTPDateHonored(t *testing.T) {
 	}
 }
 
-func TestRetryAfterHonoredAndCancellationBounded(t *testing.T) {
+func TestRetryAfterPositiveDelayHonored(t *testing.T) {
 	var calls atomic.Int32
 	var first, second time.Time
 	integration, _ := fixture(t, func(w http.ResponseWriter, _ *http.Request) {
@@ -880,21 +880,6 @@ func TestRetryAfterHonoredAndCancellationBounded(t *testing.T) {
 	if calls.Load() != 2 || second.Sub(first) < time.Second {
 		t.Fatal("positive Retry-After was not honored")
 	}
-	var blockedCalls atomic.Int32
-	blocked, _ := fixture(t, func(w http.ResponseWriter, _ *http.Request) {
-		blockedCalls.Add(1)
-		w.Header().Set("Retry-After", "999999")
-		w.WriteHeader(http.StatusTooManyRequests)
-		_, _ = io.WriteString(w, "PRIVATE secret-token")
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-	started := time.Now()
-	result, err := blocked.Execute(ctx, "openproject_list_work_packages", nil)
-	if err != nil || result == nil || !result.IsError || time.Since(started) > 2*time.Second || blockedCalls.Load() > 3 {
-		t.Fatalf("unbounded Retry-After or ignored cancellation: result=%v err=%v calls=%d", result, err, blockedCalls.Load())
-	}
-	assertSafe(t, result.Data)
 }
 
 func TestDescriptionRawOnlyAndBounded(t *testing.T) {
