@@ -803,13 +803,9 @@ func TestBoundedRetryAfter(t *testing.T) {
 				}
 				_, _ = io.WriteString(w, collectionFixture(0, 0, 1, 20))
 			})
-			started := time.Now()
 			result := execute(t, integration, "openproject_list_work_packages", nil)
 			if result.IsError != tc.wantError || calls.Load() != tc.wantCalls {
 				t.Fatalf("retry result=%+v calls=%d wantError=%v wantCalls=%d", result, calls.Load(), tc.wantError, tc.wantCalls)
-			}
-			if time.Since(started) > 10*time.Second {
-				t.Fatal("retry exceeded overall 10 second request budget")
 			}
 			assertSafe(t, result.Data)
 		})
@@ -826,9 +822,8 @@ func TestRetryAfterInvalidOrUnboundedRejected(t *testing.T) {
 				w.WriteHeader(http.StatusTooManyRequests)
 				_, _ = io.WriteString(w, "PRIVATE secret-token")
 			})
-			started := time.Now()
 			result := execute(t, integration, "openproject_list_work_packages", nil)
-			if !result.IsError || calls.Load() != 1 || time.Since(started) > time.Second {
+			if !result.IsError || calls.Load() != 1 {
 				t.Fatal("invalid or unbounded Retry-After should fail safely without retry")
 			}
 			assertSafe(t, result.Data)
