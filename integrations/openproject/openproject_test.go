@@ -1083,16 +1083,18 @@ func TestHealthyUsesBoundedReadAndClose(t *testing.T) {
 	if !integration.Healthy(context.Background()) || calls.Load() != 1 {
 		t.Fatal("configured valid project should be healthy")
 	}
-	if closer, ok := integration.(io.Closer); ok {
-		if err := closer.Close(); err != nil {
-			t.Fatal(err)
-		}
-		if err := closer.Close(); err != nil {
-			t.Fatal(err)
-		}
-		if integration.Healthy(context.Background()) || calls.Load() != 1 {
-			t.Fatal("closed adapter retained active credentials")
-		}
+	closer, ok := integration.(io.Closer)
+	if !ok {
+		t.Fatal("integration must implement io.Closer")
+	}
+	if err := closer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := closer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if integration.Healthy(context.Background()) || calls.Load() != 1 {
+		t.Fatal("closed adapter retained active credentials")
 	}
 }
 
