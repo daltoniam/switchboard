@@ -488,6 +488,11 @@ func TestClose_WaitsOnlyForItsOwnSchemaFetches(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("new configuration did not start its schema fetch")
 	}
+	select {
+	case err := <-closed:
+		t.Fatalf("Close returned (%v) before its own schema fetch finished", err)
+	case <-time.After(50 * time.Millisecond):
+	}
 	close(releaseOld)
 	select {
 	case err := <-closed:
