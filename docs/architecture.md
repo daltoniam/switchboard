@@ -112,6 +112,10 @@ integrations/
   mobbin/
     mobbin.go                Mobbin hosted MCP proxy (static catalog, remotemcp OAuth)
     tools.go                 Mobbin tool definitions (8 tools)
+  render/
+    render.go                Render hosted MCP proxy (API-key bearer, default workspace, cursor pages, health via list_workspaces)
+    tools.go                 Render tool definitions and dispatch map to upstream names (48 tools)
+    compact.yaml             Compaction specs for services, deploys, events, logs, Postgres, Key Value, Blueprints
   higgsfield/
     higgsfield.go            Higgsfield hosted MCP proxy (curated static allowlist, remotemcp OAuth)
     tools.go                 Tool definitions and dispatch map (exposed name → upstream tool)

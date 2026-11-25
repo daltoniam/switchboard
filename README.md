@@ -283,6 +283,12 @@ Reads and sends Discord messages as a **bot** through the REST API (`https://dis
 
 Create a bot in the Discord Developer Portal, turn on the **Message Content** intent, invite it with `scope=bot&permissions=68608`, then set `DISCORD_BOT_TOKEN` or enter the token on the Discord integration page and enable it. See [Discord setup](docs/discord-setup.md) for each step.
 
+### Render (`render`)
+
+Connects to Render's official hosted MCP server at `https://mcp.render.com/mcp` with a Render API key, for Render cloud hosting: services, deploys, service events, logs, metrics, environment variables, cron jobs, Postgres (including read-only SQL), Key Value, Blueprints, and Workflows (48 tools). Start with `render_list_services` or `render_list_logs`. `render_list_deploys` and `render_list_events` return `{items, next_cursor}` pages. Restart a service with `render_trigger_deploy`; suspend, resume, rollback, custom domains, and deletes are not in Render's MCP server, so use the Render Dashboard for them.
+
+Create an API key in the Render Dashboard under **Account Settings → API Keys**, then set `RENDER_API_KEY` or enter it on the Render integration page and enable it. API keys have the full access of your account in every workspace you belong to; Render has no read-only keys. Set `workspace_id` (`RENDER_WORKSPACE_ID`) to the default workspace from `render_list_workspaces`, or pass `workspaceId` on each call. See [Render setup](docs/render.md).
+
 ### Higgsfield (`higgsfield`)
 
 Connects to Higgsfield's hosted MCP server at `https://mcp.higgsfield.ai/mcp` for AI image, video, and audio generation. Higgsfield has no API-key REST API for account features, so Switchboard proxies a curated set of 23 of the ~150 hosted tools (credits, model catalog, presets, voices, history, jobs, projects, media import, and image/video/audio generation) with hand-written descriptions and compaction. Chat-widget workflows (websites, 3D scenes, TikTok publishing, Ads Studio) are refused locally.
@@ -336,6 +342,9 @@ Environment variables override credential values but do not change the durable e
 | Notion MCP | `base_url` | `NOTION_MCP_BASE_URL` (optional, default `https://mcp.notion.com`; a trailing `/mcp` is accepted) |
 | Mobbin | `mcp_access_token` | `MOBBIN_MCP_ACCESS_TOKEN` |
 | Mobbin | `base_url` | `MOBBIN_MCP_BASE_URL` (optional, default `https://api.mobbin.com`; a trailing `/mcp` is accepted) |
+| [Render](docs/render.md) | `api_key` | `RENDER_API_KEY` (from Render Dashboard → Account Settings → API Keys) |
+| Render | `workspace_id` | `RENDER_WORKSPACE_ID` (optional default workspace, `tea-...` or `usr-...`) |
+| Render | `base_url` | `RENDER_MCP_BASE_URL` (optional, default `https://mcp.render.com`; a trailing `/mcp` is accepted) |
 | Metabase | `api_key` | `METABASE_API_KEY` |
 | Metabase | `url` | `METABASE_URL` |
 | Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
@@ -472,6 +481,7 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Notion | Hosted MCP OAuth (PKCE) or browser token | Web UI → Notion → Setup → Sign in with Notion, or set `NOTION_MCP_ACCESS_TOKEN` and enable explicitly |
 | Mobbin | Hosted MCP OAuth (PKCE) | Web UI → Mobbin → Setup, or set `MOBBIN_MCP_ACCESS_TOKEN` and enable explicitly |
 | Higgsfield | Hosted MCP OAuth (PKCE) | Web UI → higgsfield → Setup, or set `HIGGSFIELD_MCP_ACCESS_TOKEN` and enable explicitly |
+| Render | API Key (hosted MCP) | Create a key in Render Dashboard → Account Settings → API Keys, then set `RENDER_API_KEY` or enter it in the web UI; enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
 | LikeC4 Excalidraw | Local Streamable HTTP MCP | Start `likec4-excalidraw`, then set `LIKEC4_EXCALIDRAW_BASE_URL` or enter the printed URL in the web UI; bearer token is optional. |
