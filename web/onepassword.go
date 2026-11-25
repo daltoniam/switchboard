@@ -26,16 +26,7 @@ func (w *WebServer) handleOnePasswordSetup(rw http.ResponseWriter, r *http.Reque
 		data.AccountName = ic.Credentials["account_name"]
 		data.ServiceAccountToken = ic.Credentials["service_account_token"]
 		if ic.Enabled {
-			ctx, cancel := context.WithTimeout(r.Context(), onePasswordHealthTimeout)
-			if err := mcp.ConfigureIntegration(ctx, integration, ic); err != nil {
-				data.SignInError = err.Error()
-			} else {
-				data.Healthy = integration.Healthy(ctx)
-				if reporter, ok := integration.(interface{ SignInError() string }); ok && !data.Healthy {
-					data.SignInError = reporter.SignInError()
-				}
-			}
-			cancel()
+			data.Healthy, data.SignInError = onePasswordHealth(r.Context(), integration, ic)
 		}
 	}
 	for _, t := range integration.Tools() {
@@ -43,4 +34,21 @@ func (w *WebServer) handleOnePasswordSetup(rw http.ResponseWriter, r *http.Reque
 	}
 	page := w.pageData(r, "1Password Setup", "/integrations")
 	pages.OnePasswordSetup(page, data).Render(r.Context(), rw)
+}
+
+// onePasswordHealth applies the saved credentials (keeping an existing
+// session) and checks them, returning why sign-in failed when it did.
+func onePasswordHealth(ctx context.Context, integration mcp.Integration, ic *mcp.IntegrationConfig) (bool, string) {
+	ctx, cancel := context.WithTimeout(ctx, onePasswordHealthTimeout)
+	defer cancel()
+	if err := mcp.ConfigureIntegration(ctx, integration, ic); err != nil {
+		return false, err.Error()
+	}
+	if integration.Healthy(ctx) {
+		return true, ""
+	}
+	if reporter, ok := integration.(interface{ SignInError() string }); ok {
+		return false, reporter.SignInError()
+	}
+	return false, ""
 }
