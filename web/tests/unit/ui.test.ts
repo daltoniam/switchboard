@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, mock, test } from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { UI } from '../../static/ui.mjs';
 
@@ -13,26 +13,31 @@ test('stylesheet generation does not download the logo catalog or SVGs', () => {
   assert.doesNotMatch(source, /\bfetch\s*\(/);
 });
 
-test('branded logo CSS uses immutable CDN URLs and preserves theme variants', () => {
+function integrationLogoRules() {
   const css = readFileSync(new URL('../../static/style.css', import.meta.url), 'utf8');
   const rules = [...css.matchAll(/\.integration-icon\[data-integration="([^"]+)"\]\{([^}]+)\}/g)];
-  const branded = rules.filter(([, , rule]) => rule.includes('--integration-light:'));
-  assert.equal(rules.length, 75);
-  assert.ok(rules.some(([, name]) => name === 'jenkins'));
-  assert.ok(rules.some(([, name]) => name === 'render'));
-  assert.ok(rules.some(([, name]) => name === 'ntfy'));
-  assert.ok(rules.some(([, name]) => name === 'onepassword'));
-  assert.ok(rules.some(([, name]) => name === 'groupme'));
-  assert.ok(rules.some(([, name]) => name === 'discord'));
-  assert.ok(rules.some(([, name]) => name === 'mysql'));
-  assert.ok(rules.some(([, name]) => name === 'influxdb'));
-  assert.ok(rules.some(([, name]) => name === 'prometheus'));
-  assert.ok(rules.some(([, name]) => name === 'keycloak'));
-  assert.ok(rules.some(([, name]) => name === 'obsidian'));
-  assert.equal(branded.length, 33);
-  branded.forEach(([, name, rule]) => {
-    assert.match(rule, /--integration-light:url\("https:\/\/cdn\.jsdelivr\.net\/gh\/pheralb\/svgl@[a-f0-9]{40}\/static\/library\/[\w.-]+\.svg"\)/, name);
+  return rules;
+}
+
+test('every integration shown in the UI has a logo instead of the placeholder', () => {
+  const renamed = { notionmcp: 'notion-mcp', webfetch: 'web' };
+  const entries = readdirSync(new URL('../../../integrations/', import.meta.url), { withFileTypes: true });
+  const directories = entries.filter(entry => entry.isDirectory()).map(entry => entry.name);
+  const styled = new Set(integrationLogoRules().map(([, name]) => name));
+  const missing = [...directories, 'google'].map(name => renamed[name] ?? name).filter(name => !styled.has(name));
+  assert.deepEqual(missing, []);
+});
+
+test('logo CSS uses immutable CDN URLs and preserves theme variants', () => {
+  const rules = integrationLogoRules();
+  const pinned = /url\("https:\/\/cdn\.jsdelivr\.net\/gh\/[\w-]+\/[\w-]+@[a-f0-9]{40}\/[\w/.-]+\.(svg|png)"\)/;
+  const remote = rules.filter(([, , rule]) => rule.includes('url("https:'));
+  assert.ok(remote.length > 0);
+  remote.forEach(([, name, rule]) => {
+    const urls = rule.match(/url\("https:[^"]+"\)/g);
+    urls.forEach(url => assert.match(url, pinned, name));
   });
+  const branded = rules.filter(([, , rule]) => rule.includes('--integration-light:'));
   const entries = branded.map(([, name, rule]) => {
     const entry = [name, rule];
     return entry;
