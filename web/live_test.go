@@ -226,13 +226,14 @@ func TestLiveFieldPresent(t *testing.T) {
 func TestLiveExpandCases(t *testing.T) {
 	cases := []liveCase{{
 		Tool:   "demo_get",
-		Args:   map[string]any{"id": "${user_id}", "max": 5, "from": "${today}"},
+		Args:   map[string]any{"id": "${user_id}", "max": 5, "from": "${today}", "ids": []any{"${user_id}", 7}},
 		Expect: []string{"${user_id}", "ada"},
 	}}
 	got := liveExpandCases(t, cases, map[string]string{"user_id": "u-42", "today": "2026-11-04"})
-	require.Equal(t, map[string]any{"id": "u-42", "max": 5, "from": "2026-11-04"}, got[0].Args)
+	require.Equal(t, map[string]any{"id": "u-42", "max": 5, "from": "2026-11-04", "ids": []any{"u-42", 7}}, got[0].Args)
 	require.Equal(t, []string{"u-42", "ada"}, got[0].Expect)
 	require.Equal(t, "${user_id}", cases[0].Args["id"], "expansion must not mutate the registered spec")
+	require.Equal(t, []any{"${user_id}", 7}, cases[0].Args["ids"], "expansion must not mutate registered arrays")
 }
 
 func TestLiveDecodeScript(t *testing.T) {
@@ -397,7 +398,8 @@ func runLiveSpec(t *testing.T, spec liveSpec) {
 	require.True(t, evidence.Script, "at least one read case must succeed through a script")
 }
 
-// liveExpandCases fills ${name} placeholders in string args and expectations.
+// liveExpandCases fills ${name} placeholders in string args, strings inside
+// array args, and expectations.
 func liveExpandCases(t *testing.T, cases []liveCase, values map[string]string) []liveCase {
 	t.Helper()
 	pairs := make([]string, 0, 2*len(values))
@@ -414,8 +416,18 @@ func liveExpandCases(t *testing.T, cases []liveCase, values map[string]string) [
 	for _, c := range cases {
 		next := liveCase{Tool: c.Tool, Args: make(map[string]any, len(c.Args))}
 		for key, value := range c.Args {
-			if text, ok := value.(string); ok {
-				value = expand(text)
+			switch typed := value.(type) {
+			case string:
+				value = expand(typed)
+			case []any:
+				items := make([]any, len(typed))
+				for i, item := range typed {
+					if text, ok := item.(string); ok {
+						item = expand(text)
+					}
+					items[i] = item
+				}
+				value = items
 			}
 			next.Args[key] = value
 		}

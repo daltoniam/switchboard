@@ -5,7 +5,7 @@ import mcp "github.com/daltoniam/switchboard"
 var tools = []mcp.ToolDefinition{
 	{
 		Name:        "onepassword_list_vaults",
-		Description: "List the 1Password vaults the service account can access, with id, title, description and item count. Start here for 1Password passwords, secrets, credentials and logins: pick a vault for onepassword_list_items.",
+		Description: "List the 1Password vaults Switchboard can access, with id, title, description and item count. Start here for 1Password passwords, secrets, credentials and logins: pick a vault for onepassword_list_items.",
 		Access:      mcp.AccessRead,
 	},
 	{
@@ -17,6 +17,7 @@ var tools = []mcp.ToolDefinition{
 			"category": "Optional category filter, e.g. Login, Password, SecureNote, ApiCredentials",
 			"limit":    "Maximum items to return, 1-1000 (default 200)",
 			"offset":   "Matching items to skip, for the next page (use next_offset from the previous result; default 0)",
+			"archived": "List archived items instead of active ones (default false)",
 		},
 		Required: []string{"vault"},
 		Access:   mcp.AccessRead,
@@ -71,6 +72,28 @@ var tools = []mcp.ToolDefinition{
 		Access:   mcp.AccessWrite,
 	},
 	{
+		Name: "onepassword_archive_item",
+		Description: "Archive a 1Password item: hide it from the vault and autofill without deleting it. WRITE: people can restore it from Archive in the 1Password app. " +
+			"Prefer this over onepassword_delete_item for credentials that are no longer used. Use after onepassword_list_items.",
+		Parameters: map[string]string{
+			"vault": "Vault id or title from onepassword_list_vaults",
+			"item":  "Item id or exact title from onepassword_list_items",
+		},
+		Required: []string{"vault", "item"},
+		Access:   mcp.AccessWrite,
+	},
+	{
+		Name: "onepassword_delete_item",
+		Description: "Delete (remove, trash) a 1Password item, active or archived. DESTRUCTIVE: treat it as permanent, since it may not be recoverable. " +
+			"Only use when the user asks to delete; prefer onepassword_archive_item otherwise. Pass the item id when titles repeat.",
+		Parameters: map[string]string{
+			"vault": "Vault id or title from onepassword_list_vaults",
+			"item":  "Item id or exact title from onepassword_list_items (archived items are listed with archived=true)",
+		},
+		Required: []string{"vault", "item"},
+		Access:   mcp.AccessDestructive,
+	},
+	{
 		Name:        "onepassword_resolve_secret",
 		Description: "Resolve (read, reveal) one secret value from a 1Password secret reference such as op://vault/item/field or op://vault/item/section/field. Returns the plain-text value. Prefer the id-based reference from onepassword_get_item: a reference built from names works only when every name uses letters, digits, spaces, _, . or -.",
 		Parameters: map[string]string{
@@ -87,5 +110,7 @@ var dispatch = map[mcp.ToolName]handlerFunc{
 	"onepassword_get_item":       getItem,
 	"onepassword_create_item":    createItem,
 	"onepassword_update_item":    updateItem,
+	"onepassword_archive_item":   archiveItem,
+	"onepassword_delete_item":    deleteItem,
 	"onepassword_resolve_secret": resolveSecret,
 }

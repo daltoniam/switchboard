@@ -96,6 +96,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/prometheus"
 	"github.com/daltoniam/switchboard/integrations/ramp"
 	"github.com/daltoniam/switchboard/integrations/recoll"
+	"github.com/daltoniam/switchboard/integrations/render"
 	"github.com/daltoniam/switchboard/integrations/rwx"
 	"github.com/daltoniam/switchboard/integrations/salesforce"
 	"github.com/daltoniam/switchboard/integrations/semaphoreui"
@@ -350,6 +351,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		figma.New(),
 		mobbin.New(),
 		higgsfieldIntegration,
+		render.New(),
 		metabase.New(),
 		paperless.New(),
 		obsidian.New(),
