@@ -103,10 +103,10 @@ func (w *WebServer) handleAshbyAPIKeySave(rw http.ResponseWriter, r *http.Reques
 	http.Redirect(rw, r, ashbySetupPath+"?result="+url.QueryEscape(result), http.StatusSeeOther)
 }
 
-// sameOriginForm refuses cross-site form posts that would replace the API
-// key. Browsers send Fetch Metadata, or failing that an Origin or Referer
-// header, on form posts; a request with none of them is not from a browser
-// page and carries no ambient authority to abuse.
+// sameOriginForm accepts only form posts that prove they came from this
+// page: Fetch Metadata, or failing that a matching Origin or Referer. A post
+// with none of them is refused, because a cross-site page can suppress the
+// Referer and some browsers send neither of the others.
 func sameOriginForm(r *http.Request) bool {
 	if site := r.Header.Get("Sec-Fetch-Site"); site != "" {
 		return site == "same-origin" || site == "none"
@@ -117,7 +117,7 @@ func sameOriginForm(r *http.Request) bool {
 	if referer := r.Header.Get("Referer"); referer != "" {
 		return matchesRequestOrigin(r, referer)
 	}
-	return true
+	return false
 }
 
 // matchesRequestOrigin compares scheme and host with the origin this request

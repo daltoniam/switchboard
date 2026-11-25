@@ -306,12 +306,14 @@ func TestAshbyAPIKeySave(t *testing.T) {
 		{name: "blank key keeps the saved key", creds: mcp.Credentials{"api_base_url": api.URL, "api_key": "good-key"}, form: url.Values{"cred_api_key": {""}}, wantStatus: http.StatusSeeOther, wantFlash: "result=Configuration+saved", wantKey: "good-key"},
 		{name: "rejected key saves but is unhealthy", creds: mcp.Credentials{"api_base_url": api.URL}, form: url.Values{"enabled": {"true"}, "cred_api_key": {"bad-key"}}, wantStatus: http.StatusSeeOther, wantFlash: "result=Configuration+saved", wantKey: "bad-key", wantEnabled: true},
 		{name: "cross-site post refused", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": "cross-site"}, wantStatus: http.StatusForbidden, unchanged: true},
-		{name: "foreign origin refused without fetch metadata", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Origin": "https://attacker.test"}, wantStatus: http.StatusForbidden, unchanged: true},
-		{name: "opaque origin refused", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Origin": "null"}, wantStatus: http.StatusForbidden, unchanged: true},
-		{name: "foreign referer refused without origin", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Referer": "https://attacker.test/form"}, wantStatus: http.StatusForbidden, unchanged: true},
-		{name: "http origin refused for an https app", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Origin": "http://example.com", "X-Forwarded-Proto": "https"}, wantStatus: http.StatusForbidden, unchanged: true},
-		{name: "https referer refused for an http app", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Referer": "https://example.com/integrations/ashby/setup"}, wantStatus: http.StatusForbidden, unchanged: true},
-		{name: "same origin accepted", creds: mcp.Credentials{"api_base_url": api.URL}, form: url.Values{"enabled": {"true"}, "cred_api_key": {"good-key"}}, header: map[string]string{"Origin": "http://example.com"}, wantStatus: http.StatusSeeOther, wantFlash: "result=Configuration+saved", wantKey: "good-key", wantEnabled: true, wantHealthy: true},
+		{name: "foreign origin refused without fetch metadata", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": "", "Origin": "https://attacker.test"}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "opaque origin refused", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": "", "Origin": "null"}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "foreign referer refused without origin", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": "", "Referer": "https://attacker.test/form"}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "http origin refused for an https app", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": "", "Origin": "http://example.com", "X-Forwarded-Proto": "https"}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "https referer refused for an http app", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": "", "Referer": "https://example.com/integrations/ashby/setup"}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "no provenance headers refused", creds: mcp.Credentials{}, form: url.Values{"cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": ""}, wantStatus: http.StatusForbidden, unchanged: true},
+		{name: "same referer accepted", creds: mcp.Credentials{"api_base_url": api.URL}, form: url.Values{"enabled": {"true"}, "cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": "", "Referer": "http://example.com/integrations/ashby/setup"}, wantStatus: http.StatusSeeOther, wantFlash: "result=Configuration+saved", wantKey: "good-key", wantEnabled: true, wantHealthy: true},
+		{name: "same origin accepted", creds: mcp.Credentials{"api_base_url": api.URL}, form: url.Values{"enabled": {"true"}, "cred_api_key": {"good-key"}}, header: map[string]string{"Sec-Fetch-Site": "", "Origin": "http://example.com"}, wantStatus: http.StatusSeeOther, wantFlash: "result=Configuration+saved", wantKey: "good-key", wantEnabled: true, wantHealthy: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ws, reg, cfg := setupTestWeb()
@@ -322,7 +324,12 @@ func TestAshbyAPIKeySave(t *testing.T) {
 			cfg.cfg.Integrations["ashby"] = &mcp.IntegrationConfig{Credentials: maps.Clone(tc.creds)}
 			req := httptest.NewRequest(http.MethodPost, "/integrations/ashby/api-key", strings.NewReader(tc.form.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			req.Header.Set("Sec-Fetch-Site", "same-origin")
 			for k, v := range tc.header {
+				if v == "" {
+					req.Header.Del(k)
+					continue
+				}
 				req.Header.Set(k, v)
 			}
 			rr := httptest.NewRecorder()
@@ -375,6 +382,7 @@ func TestAshbyAPIKeySave_ToolsAndExecute(t *testing.T) {
 	cfg.cfg.Integrations["ashby"] = &mcp.IntegrationConfig{Credentials: mcp.Credentials{"api_base_url": api.URL}}
 	req := httptest.NewRequest(http.MethodPost, "/integrations/ashby/api-key", strings.NewReader(url.Values{"enabled": {"true"}, "cred_api_key": {"good-key"}}.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
 	ws.Handler().ServeHTTP(httptest.NewRecorder(), req)
 
 	names := map[mcp.ToolName]bool{}
