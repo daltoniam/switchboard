@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -221,13 +222,20 @@ func TestListTools_CanceledWhileAnotherConnectIsInFlight(t *testing.T) {
 	integration := New("test", srv.URL)
 	t.Cleanup(func() { _ = integration.(io.Closer).Close() })
 	require.NoError(t, integration.Configure(context.Background(), mcp.Credentials{"access_token": "t"}))
+	var callers atomic.Int32
+	secondAtGate := make(chan struct{})
+	integration.(*remote).beforeGate = func() {
+		if callers.Add(1) == 2 {
+			close(secondAtGate)
+		}
+	}
 
 	slowCtx, cancelSlow := context.WithCancel(context.Background())
 	t.Cleanup(cancelSlow)
 	go func() { _, _ = integration.(ToolLister).ListTools(slowCtx) }()
 	<-entered
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
@@ -235,9 +243,15 @@ func TestListTools_CanceledWhileAnotherConnectIsInFlight(t *testing.T) {
 		done <- err
 	}()
 	select {
+	case <-secondAtGate:
+	case <-time.After(5 * time.Second):
+		t.Fatal("second caller never reached the connection gate")
+	}
+	cancel()
+	select {
 	case err := <-done:
 		require.Error(t, err)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		assert.ErrorIs(t, err, context.Canceled)
 	case <-time.After(5 * time.Second):
 		releaseOnce.Do(func() { close(release) })
 		t.Fatal("ListTools ignored its canceled context while another connection was in flight")
