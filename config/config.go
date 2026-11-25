@@ -316,6 +316,7 @@ var envMapping = map[string]map[string]string{
 		"base_url":     "GROUPME_BASE_URL",
 	},
 	"onepassword": {
+		"account_name":          "OP_ACCOUNT_NAME",
 		"service_account_token": "OP_SERVICE_ACCOUNT_TOKEN",
 	},
 	"discord": {
@@ -407,6 +408,11 @@ var envMapping = map[string]map[string]string{
 	"ashby": {
 		"mcp_access_token": "ASHBY_MCP_ACCESS_TOKEN",
 		"base_url":         "ASHBY_MCP_BASE_URL",
+	},
+	"render": {
+		"api_key":      "RENDER_API_KEY",
+		"workspace_id": "RENDER_WORKSPACE_ID",
+		"base_url":     "RENDER_MCP_BASE_URL",
 	},
 }
 
@@ -556,6 +562,10 @@ func defaultConfig() *mcp.Config {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"mcp_access_token": "", "base_url": "", mcp.CredKeyTokenSource: ""},
 			},
+			"render": {
+				Enabled:     false,
+				Credentials: mcp.Credentials{"api_key": "", "workspace_id": "", "base_url": ""},
+			},
 			"metabase": {
 				Enabled:     false,
 				Credentials: mcp.Credentials{"api_key": "", "url": ""},
@@ -698,7 +708,7 @@ func defaultConfig() *mcp.Config {
 			},
 			"onepassword": {
 				Enabled:     false,
-				Credentials: mcp.Credentials{"service_account_token": ""},
+				Credentials: mcp.Credentials{"account_name": "", "service_account_token": ""},
 			},
 			"discord": {
 				Enabled:     false,

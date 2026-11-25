@@ -262,9 +262,14 @@ Open `/integrations/mobbin/setup` and select **Sign in with Mobbin**. Mobbin's a
 
 ### 1Password (`onepassword`)
 
-Reads and writes 1Password items through the official [1Password Go SDK](https://github.com/1password/onepassword-sdk-go), signed in with a service account. Reads: `onepassword_list_vaults` (start here), `onepassword_list_items` (search by title, URL, tag or category; never returns secrets), `onepassword_get_item`, and `onepassword_resolve_secret` (one value from an `op://vault/item/field` reference). `onepassword_get_item` returns concealed values (passwords, secrets, card numbers, one-time password seeds, SSH private keys) as `[REDACTED]` unless `reveal` is true, and gives every field its `op://` reference. Writes: `onepassword_create_item` (logins, passwords, secure notes, API credentials and other categories; `generate_password` makes a random 32-character password) and `onepassword_update_item` (set or add fields, change the password, title, notes or tags; 1Password keeps earlier versions). Write responses redact concealed values. There is no delete tool. Vaults and items can be named by id or title.
+Reads and writes 1Password items through the official [1Password Go SDK](https://github.com/1password/onepassword-sdk-go). Reads: `onepassword_list_vaults` (start here), `onepassword_list_items` (search by title, URL, tag or category, active or `archived`; never returns secrets), `onepassword_get_item`, and `onepassword_resolve_secret` (one value from an `op://vault/item/field` reference). `onepassword_get_item` returns concealed values (passwords, secrets, card numbers, one-time password seeds, SSH private keys) as `[REDACTED]` unless `reveal` is true, and gives every field its `op://` reference. Writes: `onepassword_create_item` (logins, passwords, secure notes, API credentials and other categories; `generate_password` makes a random 32-character password), `onepassword_update_item` (set or add fields, change the password, title, notes or tags; 1Password keeps earlier versions) and `onepassword_archive_item` (restorable from Archive in the app). `onepassword_delete_item` is destructive. Write responses redact concealed values. Vaults and items can be named by id or title.
 
-In 1Password, open **Developer → Service accounts**, create a service account with access to only the vaults Switchboard should see (read-only access is enough without the write tools), and copy its token (`ops_...`). Set `OP_SERVICE_ACCOUNT_TOKEN` or enter it on the 1Password integration page and enable it. Service accounts cannot reach Personal or Private vaults. The SDK runs as WebAssembly inside Switchboard (no `op` CLI, no CGO) and signs in on first use, which takes about a second.
+Open `/integrations/onepassword/setup` and fill in one sign-in method:
+
+- **1Password desktop app (recommended on your own computer).** In the 1Password app open **Settings → Developer**, and under **Developer Integrations** turn on **Integrate with 1Password SDKs**. Enter the account name shown at the top of the 1Password sidebar (or the account ID) as `account_name`, or set `OP_ACCOUNT_NAME`. 1Password asks you to approve Switchboard; the approval lasts until 1Password locks or Switchboard is idle for 10 minutes, and covers every vault your account can open. Switchboard must run on the same computer in your session, not in Docker, over SSH or as a system service. The SDK reaches the app through cgo on macOS and Linux, so use a build made on that computer (`go install` or `make build`); prebuilt macOS and Linux downloads are built without CGO and can only use a service account. Windows downloads support both.
+- **Service account (headless or shared servers).** Service accounts are created on 1Password.com in the browser, not in the desktop app: open the [service account wizard](https://start.1password.com/developer-tools/infrastructure-secrets/serviceaccount/), or go to **Developer → Directory**, select **Other** under Infrastructure Secrets Management, then **Create a Service Account**. Give it only the vaults Switchboard should see (read items is enough without the write tools) and copy its token (`ops_...`, shown once). Set `OP_SERVICE_ACCOUNT_TOKEN` or enter it as `service_account_token`. Service accounts cannot reach Personal, Private, Employee or the default Shared vault. See [Get started with service accounts](https://developer.1password.com/docs/service-accounts/get-started/).
+
+Set only one of the two; existing service account configurations keep working unchanged. Switchboard signs in on first use and keeps the session until the credentials change.
 
 ### GroupMe (`groupme`)
 
@@ -277,6 +282,12 @@ Sign in at [dev.groupme.com](https://dev.groupme.com) and copy the **Access Toke
 Reads and sends Discord messages as a **bot** through the REST API (`https://discord.com/api/v10`). Reads: `discord_get_me`, `discord_list_guilds` (start here), `discord_list_channels`, `discord_list_channel_messages`, and `discord_get_user`. Writes, which post as the bot: `discord_send_channel_message` and `discord_send_direct_message`. Sends never ping `@everyone`, `@here`, or roles. Only bot tokens are supported; user tokens (self-bots) break Discord's terms.
 
 Create a bot in the Discord Developer Portal, turn on the **Message Content** intent, invite it with `scope=bot&permissions=68608`, then set `DISCORD_BOT_TOKEN` or enter the token on the Discord integration page and enable it. See [Discord setup](docs/discord-setup.md) for each step.
+
+### Render (`render`)
+
+Connects to Render's official hosted MCP server at `https://mcp.render.com/mcp` with a Render API key, for Render cloud hosting: services, deploys, service events, logs, metrics, environment variables, cron jobs, Postgres (including read-only SQL), Key Value, Blueprints, and Workflows (48 tools). Start with `render_list_services` or `render_list_logs`. `render_list_deploys` and `render_list_events` return `{items, next_cursor}` pages. Restart a service with `render_trigger_deploy`; suspend, resume, rollback, custom domains, and deletes are not in Render's MCP server, so use the Render Dashboard for them.
+
+Create an API key in the Render Dashboard under **Account Settings → API Keys**, then set `RENDER_API_KEY` or enter it on the Render integration page and enable it. API keys have the full access of your account in every workspace you belong to; Render has no read-only keys. Set `workspace_id` (`RENDER_WORKSPACE_ID`) to the default workspace from `render_list_workspaces`, or pass `workspaceId` on each call. See [Render setup](docs/render.md).
 
 ### Higgsfield (`higgsfield`)
 
@@ -339,6 +350,9 @@ Environment variables override credential values but do not change the durable e
 | Mobbin | `base_url` | `MOBBIN_MCP_BASE_URL` (optional, default `https://api.mobbin.com`; a trailing `/mcp` is accepted) |
 | Ashby | `mcp_access_token` | `ASHBY_MCP_ACCESS_TOKEN` |
 | Ashby | `base_url` | `ASHBY_MCP_BASE_URL` (optional, default `https://mcp.ashbyhq.com`; a trailing `/mcp/v1` is accepted) |
+| [Render](docs/render.md) | `api_key` | `RENDER_API_KEY` (from Render Dashboard → Account Settings → API Keys) |
+| Render | `workspace_id` | `RENDER_WORKSPACE_ID` (optional default workspace, `tea-...` or `usr-...`) |
+| Render | `base_url` | `RENDER_MCP_BASE_URL` (optional, default `https://mcp.render.com`; a trailing `/mcp` is accepted) |
 | Metabase | `api_key` | `METABASE_API_KEY` |
 | Metabase | `url` | `METABASE_URL` |
 | Paperless-ngx | `token` | `PAPERLESS_TOKEN` |
@@ -393,7 +407,8 @@ Environment variables override credential values but do not change the durable e
 | Intercom | `base_url` | `INTERCOM_BASE_URL` (optional — default `https://api.intercom.io`; EU `https://api.eu.intercom.io`, AU `https://api.au.intercom.io`) |
 | Front | `access_token` | `FRONT_ACCESS_TOKEN` (API token or OAuth access token) |
 | Front | `base_url` | `FRONT_BASE_URL` (optional — default `https://api2.frontapp.com`) |
-| 1Password | `service_account_token` | `OP_SERVICE_ACCOUNT_TOKEN` (service account token, `ops_...`) |
+| 1Password | `account_name` | `OP_ACCOUNT_NAME` (account name from the 1Password desktop app sidebar; needs Settings → Developer → Integrate with 1Password SDKs) |
+| 1Password | `service_account_token` | `OP_SERVICE_ACCOUNT_TOKEN` (service account token, `ops_...`, for headless setups; set only one of the two) |
 | GroupMe | `access_token` | `GROUPME_ACCESS_TOKEN` (Access Token from dev.groupme.com) |
 | GroupMe | `base_url` | `GROUPME_BASE_URL` (optional — default `https://api.groupme.com/v3`) |
 | Discord | `bot_token` | `DISCORD_BOT_TOKEN` (bot token from the Developer Portal; never a user token) |
@@ -475,13 +490,14 @@ Some integrations support OAuth flows through the web UI at `http://localhost:38
 | Mobbin | Hosted MCP OAuth (PKCE) | Web UI → Mobbin → Setup, or set `MOBBIN_MCP_ACCESS_TOKEN` and enable explicitly |
 | Higgsfield | Hosted MCP OAuth (PKCE) | Web UI → higgsfield → Setup, or set `HIGGSFIELD_MCP_ACCESS_TOKEN` and enable explicitly |
 | Ashby | Hosted MCP OAuth (PKCE) | Web UI → ashby → Setup, or set `ASHBY_MCP_ACCESS_TOKEN` and enable explicitly |
+| Render | API Key (hosted MCP) | Create a key in Render Dashboard → Account Settings → API Keys, then set `RENDER_API_KEY` or enter it in the web UI; enable explicitly |
 | Sentry | OAuth Device Flow | Web UI → Sentry → Setup, or set `SENTRY_AUTH_TOKEN` |
 | Slack | Session Token | Web UI → Slack → Setup (auto-extracts from Chrome), or set `SLACK_TOKEN` |
 | LikeC4 Excalidraw | Local Streamable HTTP MCP | Start `likec4-excalidraw`, then set `LIKEC4_EXCALIDRAW_BASE_URL` or enter the printed URL in the web UI; bearer token is optional. |
 | Datadog | API + App Key | Set `DD_API_KEY` and `DD_APP_KEY` env vars or enter in web UI |
 | AWS | IAM Credentials | Set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars, or uses default credential chain |
 | Metabase | API Key | Set `METABASE_API_KEY` and `METABASE_URL` env vars or enter in web UI |
-| 1Password | Service account token | Create a service account under Developer → Service accounts with access to the vaults Switchboard should see, then set `OP_SERVICE_ACCOUNT_TOKEN` or enter it in the web UI; enable explicitly |
+| 1Password | Desktop app or service account token | Turn on Settings → Developer → Integrate with 1Password SDKs in the 1Password app and set `OP_ACCOUNT_NAME`, or create a service account on 1Password.com (Developer → Directory) and set `OP_SERVICE_ACCOUNT_TOKEN`; or use the setup page; enable explicitly |
 | GroupMe | Access Token | Copy the Access Token from [dev.groupme.com](https://dev.groupme.com) and set `GROUPME_ACCESS_TOKEN` or enter it in the web UI; enable explicitly |
 | Discord | Bot Token | Create a bot in the Discord Developer Portal, enable the Message Content intent, invite it to a server, and set `DISCORD_BOT_TOKEN` or enter it in the web UI; enable explicitly. See [Discord setup](docs/discord-setup.md) |
 | Paperless-ngx | API Token | Set `PAPERLESS_TOKEN` and `PAPERLESS_URL` env vars or enter in web UI |

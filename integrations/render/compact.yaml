@@ -1,0 +1,193 @@
+# Switchboard compaction specs for the render integration.
+#
+# Schema: tools.<tool_name>: { spec: [<spec_lines>], max_bytes?: <int> }
+#
+# The `spec` array is a WHITELIST: only fields whose paths are listed survive
+# compaction; everything else is stripped from the response. Within a kept
+# parent, use `-field` or `-*_pattern` for explicit exclusions (the only
+# blacklist-style escape hatch).
+#
+# Override at runtime: set $SWITCHBOARD_COMPACT_DIR=/path; place
+# render.yaml there with only the tools you want to change. Per-tool merge
+# replaces embedded values; omitted tools fall through to these defaults.
+#
+# Full spec syntax (paths, arrays, aliases, exclusions): docs/field-compaction.md.
+#
+# Shapes follow the hosted server's handlers (render-oss/render-mcp-server),
+# which marshal Render REST API v1 objects. List tools for services,
+# workspaces, Postgres and Key Value return top-level arrays, so specs apply
+# to each element. list_deploys and list_events are rewritten by the adapter
+# into {items, next_cursor}.
+#
+# Specs list only fields Render always returns for a Git-backed web service,
+# because the live acceptance run fails on a field that matches nothing.
+# Optional fields (cron schedule, image refs, maintenance windows, project
+# environment IDs) stay visible through the get tools: get_service keeps all
+# of serviceDetails.
+#
+# Deliberately uncompacted read tools (see compact_specs_test.go):
+# get_metrics (already a compact time series), query_postgres (arbitrary
+# rows), list_log_label_values (a list of strings), and the Workflow and
+# flow tools, whose upstream handlers already return curated summaries with
+# inputs, results and long errors trimmed.
+
+version: 1
+tools:
+  # [{id, name, email, type, ipAllowList, twoFactorAuthEnabled}]
+  render_list_workspaces:
+    spec: [id, name, email, type]
+
+  # [Service]: serviceDetails differs by service type; cron jobs carry
+  # schedule, web services url and numInstances.
+  render_list_services:
+    spec:
+      - id
+      - name
+      - type
+      - suspended
+      - autoDeploy
+      - repo
+      - branch
+      - dashboardUrl
+      - updatedAt
+      - serviceDetails.url
+      - serviceDetails.region
+      - serviceDetails.plan
+      - serviceDetails.runtime
+      - serviceDetails.numInstances
+
+  render_get_service:
+    spec:
+      - id
+      - name
+      - type
+      - slug
+      - ownerId
+      - repo
+      - branch
+      - rootDir
+      - autoDeploy
+      - suspended
+      - suspenders
+      - dashboardUrl
+      - createdAt
+      - updatedAt
+      - serviceDetails.*
+
+  # Adapter shape: {items: [Deploy], next_cursor}
+  render_list_deploys:
+    spec:
+      - items[].id
+      - items[].status
+      - items[].trigger
+      - items[].commit.id:commit_id
+      - items[].commit.message:commit_message
+      - items[].createdAt
+      - items[].finishedAt
+      - next_cursor
+
+  render_get_deploy:
+    spec:
+      - id
+      - status
+      - trigger
+      - commit.id
+      - commit.message
+      - createdAt
+      - startedAt
+      - finishedAt
+      - updatedAt
+
+  # Adapter shape: {items: [{id, serviceId, timestamp, type, details}], next_cursor}.
+  # details is a per-type union (failure reason, deploy status, ...), kept whole.
+  render_list_events:
+    spec:
+      - items[].id
+      - items[].type
+      - items[].timestamp
+      - items[].details
+      - next_cursor
+
+  # {hasMore, nextStartTime, nextEndTime, logs: [{id, timestamp, message, labels: [{name, value}]}]}
+  render_list_logs:
+    spec:
+      - logs[].timestamp
+      - logs[].message
+      - logs[].labels
+      - hasMore
+      - nextStartTime
+      - nextEndTime
+
+  # [Postgres]
+  render_list_postgres_instances:
+    spec:
+      - id
+      - name
+      - status
+      - plan
+      - region
+      - version
+      - role
+      - databaseName
+      - suspended
+      - highAvailabilityEnabled
+      - dashboardUrl
+      - createdAt
+
+  render_get_postgres:
+    spec:
+      - id
+      - name
+      - status
+      - plan
+      - region
+      - version
+      - role
+      - databaseName
+      - databaseUser
+      - suspended
+      - suspenders
+      - highAvailabilityEnabled
+      - diskAutoscalingEnabled
+      - readReplicas
+      - dashboardUrl
+      - createdAt
+      - updatedAt
+
+  # [KeyValue]
+  render_list_key_value:
+    spec:
+      - id
+      - name
+      - status
+      - plan
+      - region
+      - version
+      - options
+      - dashboardUrl
+      - createdAt
+
+  render_get_key_value:
+    spec:
+      - id
+      - name
+      - status
+      - plan
+      - region
+      - version
+      - options
+      - createdAt
+      - updatedAt
+
+  # BlueprintDetail
+  render_get_blueprint:
+    spec:
+      - id
+      - name
+      - status
+      - repo
+      - branch
+      - path
+      - autoSync
+      - lastSync
+      - resources
