@@ -219,6 +219,7 @@ puts "SWITCHBOARD_BOOTSTRAP=" + {admin_token: Token::API.create!(user: admin, to
 	require.Equal(t, 2, collection.Offset)
 	require.Len(t, collection.Embedded.Elements, 1)
 	require.Equal(t, closed.ID, collection.Embedded.Elements[0].ID)
+	t.Log("Verified real OpenProject v17.9.2 GET /api/v3/workspaces/{id}/work_packages: HTTP 200 with the non-admin reader token; total=4, count=1, pageSize=1, offset=2, seeded closed work package matched")
 	for _, hidden := range []struct {
 		projectID int
 		work      seededWorkPackage
