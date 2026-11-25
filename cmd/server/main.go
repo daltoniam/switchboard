@@ -26,6 +26,7 @@ import (
 	"github.com/daltoniam/switchboard/integrations/airflow"
 	"github.com/daltoniam/switchboard/integrations/amazon"
 	"github.com/daltoniam/switchboard/integrations/argoworkflows"
+	"github.com/daltoniam/switchboard/integrations/ashby"
 	"github.com/daltoniam/switchboard/integrations/authentik"
 	awsInt "github.com/daltoniam/switchboard/integrations/aws"
 	"github.com/daltoniam/switchboard/integrations/botidentity"
@@ -325,6 +326,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	gmeetIntegration := gmeet.New()
 	microsoft365Integration := microsoft365.New()
 	higgsfieldIntegration := higgsfield.New()
+	ashbyIntegration := ashby.New()
 	amazonIntegration := amazon.New()
 
 	// One process-wide filesystem catalog. ProjectInterop and the
@@ -351,6 +353,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 		figma.New(),
 		mobbin.New(),
 		higgsfieldIntegration,
+		ashbyIntegration,
 		render.New(),
 		metabase.New(),
 		paperless.New(),
@@ -520,6 +523,7 @@ func runServer(stdioMode bool, port int, listenHost, grpcSocket string, discover
 	gmeet.SetConfigService(gmeetIntegration, cfgMgr)
 	microsoft365.SetConfigService(microsoft365Integration, cfgMgr)
 	higgsfield.SetConfigService(higgsfieldIntegration, cfgMgr)
+	ashby.SetConfigService(ashbyIntegration, cfgMgr)
 	amazon.SetBrowserService(amazonIntegration, browserSvc)
 
 	var serverOpts []server.Option

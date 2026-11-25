@@ -118,6 +118,9 @@ integrations/
     compact.yaml             Compaction specs for services, deploys, events, logs, Postgres, Key Value, Blueprints
   higgsfield/
     higgsfield.go            Higgsfield hosted MCP proxy (curated static allowlist, remotemcp OAuth)
+  ashby/
+    ashby.go                 Ashby hosted recruiting MCP proxy (/mcp/v1, OAuth renewal, upstream schema merge)
+    tools.go                 Reviewed Ashby tool allowlist with access classes
     tools.go                 Tool definitions and dispatch map (exposed name → upstream tool)
     compact.yaml             Compaction specs for verified response shapes
   notion/

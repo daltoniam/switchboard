@@ -1,0 +1,119 @@
+package pages
+
+import (
+	"github.com/daltoniam/switchboard/web/templates/components"
+	"github.com/daltoniam/switchboard/web/templates/layouts"
+)
+
+type AshbySetupData struct {
+	Enabled       bool
+	HasToken      bool
+	HealthChecked bool
+	Healthy       bool
+	FlashResult   string
+	FlashError    string
+}
+
+templ AshbySetup(page layouts.PageData, data AshbySetupData) {
+	@layouts.Base(page) {
+		<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+			<a href="/integrations" class="btn btn-sm btn-outline" style="min-height: 44px;">← Back</a>
+			<h1 class="page-title" style="margin-bottom: 0;">Ashby Setup</h1>
+			if !data.HasToken {
+				@components.Badge("Not Connected", "muted")
+			} else if !data.Enabled {
+				@components.Badge("Disabled", "muted")
+			} else if data.HealthChecked && data.Healthy {
+				@components.Badge("Connected", "green")
+			} else if data.HealthChecked {
+				@components.Badge("Connection Error", "red")
+			} else {
+				@components.Badge("Token Saved", "muted")
+			}
+		</div>
+		<div aria-live="polite" aria-atomic="true">
+			if data.FlashError != "" {
+				<div class="flash flash-error">{ data.FlashError }</div>
+			} else if data.FlashResult != "" {
+				<div class="flash flash-success">{ data.FlashResult }</div>
+			}
+		</div>
+		<p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+			Connect to Ashby's hosted MCP server for recruiting and hiring: find candidates and applications, read candidate profiles and your interview feedback, check job pipelines and upcoming interviews, and move applications between stages. Ashby only returns data your own Ashby account can already see.
+		</p>
+		<section aria-labelledby="ashby-before" style="border-top: 1px solid var(--border-subtle); padding-top: 1.5rem; margin-bottom: 1.5rem;">
+			<h2 id="ashby-before" class="card-title" style="margin-bottom: 0.75rem;">Before you sign in</h2>
+			<ol style="color: var(--text-secondary); padding-left: 1.25rem; line-height: 1.6;">
+				<li>An Ashby Organization Admin turns on <strong>MCP Server</strong> under <strong>Admin → Organization Setup → Opt-In Features</strong>.</li>
+				<li>Sign in with an Ashby user that has <strong>Elevated Access</strong>. No API key is needed: the server uses your own Ashby permissions.</li>
+			</ol>
+		</section>
+		<section aria-labelledby="ashby-sign-in" style="border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+			<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1.5rem;">
+				<div style="flex: 1 1 18rem; min-width: 0;">
+					<h2 id="ashby-sign-in" class="card-title" style="margin-bottom: 0.75rem;">Sign in with Ashby</h2>
+					<p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+						Authorize access through Ashby's OAuth consent screen. Switchboard saves the access and refresh tokens in this plugin's configuration and renews the login before it expires; tokens are never displayed here.
+					</p>
+					<p style="color: var(--text-muted);">
+						Successful sign-in enables this plugin and makes its tools available immediately. Manage that setting in <a href="/integrations" style="color: var(--accent);">Integrations</a>.
+					</p>
+				</div>
+				<div style="flex: 1 1 14rem; min-width: 0;">
+					<button type="button" class="btn btn-green" id="ashby-oauth-start" onclick="startAshbyOAuth()" style="min-height: 44px;">
+						if data.HasToken {
+							Re-authorize with Ashby
+						} else {
+							Sign in with Ashby →
+						}
+					</button>
+					<div aria-live="polite" aria-atomic="true" style="margin-top: 0.75rem;">
+						<p id="ashby-oauth-status" style="color: var(--text-secondary);"></p>
+						<div id="ashby-oauth-error" class="flash flash-error" hidden></div>
+					</div>
+					<button type="button" class="btn btn-outline" id="ashby-oauth-retry" onclick="startAshbyOAuth()" style="display: none; min-height: 44px;">Try Again</button>
+					<noscript><p style="color: var(--text-secondary); margin-top: 0.75rem;">Enable JavaScript to sign in with Ashby.</p></noscript>
+				</div>
+			</div>
+		</section>
+		<script>
+			async function startAshbyOAuth() {
+				var button = document.getElementById('ashby-oauth-start');
+				var retry = document.getElementById('ashby-oauth-retry');
+				var status = document.getElementById('ashby-oauth-status');
+				var error = document.getElementById('ashby-oauth-error');
+				if (button.disabled) return;
+				button.disabled = true;
+				button.setAttribute('aria-busy', 'true');
+				retry.style.display = 'none';
+				error.hidden = true;
+				status.textContent = 'Starting secure sign-in…';
+				var controller = new AbortController();
+				var timeout = setTimeout(function() { controller.abort(); }, 30000);
+				try {
+					var response = await fetch('/api/remote/ashby/oauth/start', { method: 'POST', signal: controller.signal });
+					if (!response.ok) throw new Error('Could not start sign-in. Please try again.');
+					var data = await response.json();
+					if (data.error) throw new Error(data.error);
+					if (!data.authorize_url) throw new Error('No sign-in URL was returned. Please try again.');
+					var authorizeURL = new URL(data.authorize_url);
+					if (authorizeURL.protocol !== 'https:' && authorizeURL.protocol !== 'http:') {
+						throw new Error('Invalid sign-in URL. Please try again.');
+					}
+					status.textContent = 'Redirecting to Ashby…';
+					window.location.assign(authorizeURL.href);
+				} catch (err) {
+					status.textContent = '';
+					error.textContent = err.name === 'AbortError' ? 'Sign-in timed out. Please try again.' : err.message;
+					error.hidden = false;
+					button.disabled = false;
+					button.removeAttribute('aria-busy');
+					retry.style.display = 'inline-flex';
+					retry.focus();
+				} finally {
+					clearTimeout(timeout);
+				}
+			}
+		</script>
+	}
+}

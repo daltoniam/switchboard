@@ -1,0 +1,217 @@
+package ashby
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"maps"
+	"net/http"
+	"sync"
+	"testing"
+	"time"
+
+	mcp "github.com/daltoniam/switchboard"
+	"github.com/daltoniam/switchboard/remotemcp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// sharedStore is a config service that only supports shared updates, which
+// is all renewal uses.
+type sharedStore struct {
+	mcp.ConfigService
+	mu    sync.Mutex
+	creds mcp.Credentials
+}
+
+func (s *sharedStore) UpdateIntegrationShared(_ context.Context, name string, update func(*mcp.IntegrationConfig) error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if name != integrationName {
+		panic("unexpected integration " + name)
+	}
+	ic := &mcp.IntegrationConfig{Enabled: true, Credentials: maps.Clone(s.creds)}
+	if err := update(ic); err != nil {
+		return err
+	}
+	s.creds = ic.Credentials
+	return nil
+}
+
+// withTokenEndpoint makes the fixture an OAuth server that renews
+// "refresh-0" into the fixture's access token, or rejects every refresh.
+func withTokenEndpoint(f *hostedFixture, reject bool) {
+	f.oauth = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"authorization_endpoint": f.server.URL + "/authorize",
+				"token_endpoint":         f.server.URL + "/token",
+			})
+		case "/token":
+			f.tokenCalls.Add(1)
+			if reject || r.FormValue("refresh_token") != "refresh-0" || r.FormValue("resource") != f.server.URL+endpointPath {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"access_token":"` + fixtureToken + `","refresh_token":"refresh-1","expires_in":3600}`))
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+func expiringLogin(baseURL string) mcp.Credentials {
+	return mcp.Credentials{
+		"base_url":                    baseURL,
+		remotemcp.CredKeyAccessToken:  "expiring-token",
+		remotemcp.CredKeyRefreshToken: "refresh-0",
+		remotemcp.CredKeyTokenExpiry:  time.Now().Add(20 * time.Minute).UTC().Format(time.RFC3339),
+		remotemcp.CredKeyClientID:     "client-1",
+	}
+}
+
+func TestExecute_RenewsTokenNearExpiry(t *testing.T) {
+	fixture := newHostedFixture(t, nil)
+	withTokenEndpoint(fixture, false)
+	creds := expiringLogin(fixture.server.URL)
+	store := &sharedStore{creds: maps.Clone(creds)}
+	integration := newIntegration(t)
+	SetConfigService(integration, store)
+	require.NoError(t, integration.Configure(t.Context(), creds))
+
+	result, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+
+	require.NoError(t, err)
+	require.False(t, result.IsError, result.Data)
+	assert.Len(t, fixture.snapshot(), 1)
+	assert.Equal(t, fixtureToken, store.creds[remotemcp.CredKeyAccessToken])
+	assert.Equal(t, "refresh-1", store.creds[remotemcp.CredKeyRefreshToken])
+	assert.Equal(t, int32(1), fixture.tokenCalls.Load())
+
+	// The renewed login is in use: the next call needs no token request.
+	result, err = integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+	require.NoError(t, err)
+	require.False(t, result.IsError, result.Data)
+	assert.Equal(t, int32(1), fixture.tokenCalls.Load(), "a renewed token is not renewed again")
+}
+
+func TestExecute_RenewalFailure(t *testing.T) {
+	t.Run("expired token gives a clear error", func(t *testing.T) {
+		fixture := newHostedFixture(t, nil)
+		withTokenEndpoint(fixture, true)
+		creds := expiringLogin(fixture.server.URL)
+		creds[remotemcp.CredKeyTokenExpiry] = time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
+		integration := newIntegration(t)
+		SetConfigService(integration, &sharedStore{creds: maps.Clone(creds)})
+		require.NoError(t, integration.Configure(t.Context(), creds))
+
+		result, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+
+		require.NoError(t, err)
+		require.True(t, result.IsError)
+		assert.Contains(t, result.Data, "ashby: renew access token")
+		assert.Contains(t, result.Data, "invalid_grant")
+		assert.Empty(t, fixture.snapshot(), "an expired token is not sent")
+	})
+	t.Run("token still valid keeps working", func(t *testing.T) {
+		fixture := newHostedFixture(t, nil)
+		withTokenEndpoint(fixture, true)
+		creds := expiringLogin(fixture.server.URL)
+		creds[remotemcp.CredKeyAccessToken] = fixtureToken
+		integration := newIntegration(t)
+		SetConfigService(integration, &sharedStore{creds: maps.Clone(creds)})
+		require.NoError(t, integration.Configure(t.Context(), creds))
+
+		result, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+
+		require.NoError(t, err)
+		require.False(t, result.IsError, result.Data)
+		assert.Len(t, fixture.snapshot(), 1)
+		assert.Equal(t, int32(1), fixture.tokenCalls.Load(), "the call succeeds after a refused renewal, not by skipping it")
+	})
+}
+
+// duringRefresh runs fn while the token endpoint is handling a refresh,
+// then answers it successfully.
+func duringRefresh(f *hostedFixture, fn func()) {
+	f.oauth = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"authorization_endpoint": f.server.URL + "/authorize",
+				"token_endpoint":         f.server.URL + "/token",
+			})
+		case "/token":
+			f.tokenCalls.Add(1)
+			fn()
+			_, _ = w.Write([]byte(`{"access_token":"` + fixtureToken + `","refresh_token":"refresh-1","expires_in":3600}`))
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+func TestRenewal_DoesNotOverwriteNewerConfiguration(t *testing.T) {
+	fixture := newHostedFixture(t, nil)
+	creds := expiringLogin(fixture.server.URL)
+	integration := newIntegration(t)
+	SetConfigService(integration, &sharedStore{creds: maps.Clone(creds)})
+	require.NoError(t, integration.Configure(t.Context(), creds))
+	newer := mcp.Credentials{"base_url": fixture.server.URL, remotemcp.CredKeyAccessToken: "newer-login"}
+	duringRefresh(fixture, func() {
+		assert.NoError(t, integration.Configure(context.Background(), newer))
+	})
+
+	_, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+	require.NoError(t, err)
+
+	a := integration.(*ashby)
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	assert.Equal(t, int32(1), fixture.tokenCalls.Load())
+	assert.Equal(t, "newer-login", a.creds[remotemcp.CredKeyAccessToken], "a renewal started for the old login must not replace a newer one")
+}
+
+func TestRenewal_DoesNotReopenAfterClose(t *testing.T) {
+	fixture := newHostedFixture(t, nil)
+	creds := expiringLogin(fixture.server.URL)
+	integration := newIntegration(t)
+	SetConfigService(integration, &sharedStore{creds: maps.Clone(creds)})
+	require.NoError(t, integration.Configure(t.Context(), creds))
+	duringRefresh(fixture, func() {
+		assert.NoError(t, integration.(io.Closer).Close())
+	})
+
+	result, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	a := integration.(*ashby)
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	assert.Nil(t, a.remote, "renewal must not recreate a closed remote")
+	assert.Empty(t, fixture.snapshot())
+}
+
+func TestRenewal_SkippedAfterClose(t *testing.T) {
+	fixture := newHostedFixture(t, nil)
+	withTokenEndpoint(fixture, false)
+	creds := expiringLogin(fixture.server.URL)
+	integration := newIntegration(t)
+	SetConfigService(integration, &sharedStore{creds: maps.Clone(creds)})
+	require.NoError(t, integration.Configure(t.Context(), creds))
+	require.NoError(t, integration.(io.Closer).Close())
+
+	assert.False(t, integration.Healthy(t.Context()))
+	result, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+
+	a := integration.(*ashby)
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	assert.Nil(t, a.remote, "renewal must not reopen a closed adapter")
+	assert.Zero(t, fixture.tokenCalls.Load(), "a closed adapter does not renew")
+	assert.Empty(t, fixture.snapshot())
+}
