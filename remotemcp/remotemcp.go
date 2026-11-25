@@ -40,11 +40,15 @@ type remote struct {
 	serverURL    string
 	endpointPath string
 
-	mu            sync.RWMutex
-	token         string
-	session       *liveSession
-	sessionToken  string
+	mu           sync.RWMutex
+	token        string
+	session      *liveSession
+	sessionToken string
+	// generation changes whenever a dial in flight must not be published:
+	// a new token or Close. closes counts Close calls alone, so a dial
+	// that Close invalidated is never retried.
 	generation    uint64
+	closes        uint64
 	client        *mcpsdk.Client
 	cachedTools   []mcp.ToolDefinition
 	toolsFetched  bool
@@ -175,8 +179,9 @@ func (r *remote) connect(ctx context.Context) (*liveSession, error) {
 }
 
 // dial opens a session without holding mu. If Configure replaced the token
-// meanwhile, the new session is closed and retry is true; if Close ran, the
-// session is closed and an error returned so a closed adapter stays closed.
+// meanwhile, the new session is closed and retry is true; if Close ran at
+// all, the session is closed and an error returned so a closed adapter
+// stays closed even if the token also changed.
 func (r *remote) dial(ctx context.Context) (sess *liveSession, retry bool, err error) {
 	r.mu.RLock()
 	if r.session != nil {
@@ -184,7 +189,7 @@ func (r *remote) dial(ctx context.Context) (sess *liveSession, retry bool, err e
 		r.mu.RUnlock()
 		return sess, false, nil
 	}
-	token, generation := r.token, r.generation
+	token, generation, closes := r.token, r.generation, r.closes
 	r.mu.RUnlock()
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{
@@ -212,11 +217,12 @@ func (r *remote) dial(ctx context.Context) (sess *liveSession, retry bool, err e
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.closes != closes {
+		_ = session.Close()
+		return nil, false, fmt.Errorf("%s: closed while connecting", r.name)
+	}
 	if r.generation != generation {
 		_ = session.Close()
-		if r.token == token {
-			return nil, false, fmt.Errorf("%s: closed while connecting", r.name)
-		}
 		return nil, true, nil
 	}
 	r.client = client
@@ -323,6 +329,7 @@ func (r *remote) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.generation++
+	r.closes++
 	if r.session != nil {
 		r.session.close()
 		r.session = nil

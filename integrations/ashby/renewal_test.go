@@ -3,6 +3,7 @@ package ashby
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"maps"
 	"net/http"
 	"sync"
@@ -130,4 +131,65 @@ func TestExecute_RenewalFailure(t *testing.T) {
 		assert.Len(t, fixture.snapshot(), 1)
 		assert.Equal(t, int32(1), fixture.tokenCalls.Load(), "the call succeeds after a refused renewal, not by skipping it")
 	})
+}
+
+// duringRefresh runs fn while the token endpoint is handling a refresh,
+// then answers it successfully.
+func duringRefresh(f *hostedFixture, fn func()) {
+	f.oauth = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/oauth-authorization-server":
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"authorization_endpoint": f.server.URL + "/authorize",
+				"token_endpoint":         f.server.URL + "/token",
+			})
+		case "/token":
+			f.tokenCalls.Add(1)
+			fn()
+			_, _ = w.Write([]byte(`{"access_token":"` + fixtureToken + `","refresh_token":"refresh-1","expires_in":3600}`))
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+func TestRenewal_DoesNotOverwriteNewerConfiguration(t *testing.T) {
+	fixture := newHostedFixture(t, nil)
+	creds := expiringLogin(fixture.server.URL)
+	integration := newIntegration(t)
+	SetConfigService(integration, &sharedStore{creds: maps.Clone(creds)})
+	require.NoError(t, integration.Configure(t.Context(), creds))
+	newer := mcp.Credentials{"base_url": fixture.server.URL, remotemcp.CredKeyAccessToken: "newer-login"}
+	duringRefresh(fixture, func() {
+		assert.NoError(t, integration.Configure(context.Background(), newer))
+	})
+
+	_, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+	require.NoError(t, err)
+
+	a := integration.(*ashby)
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	assert.Equal(t, int32(1), fixture.tokenCalls.Load())
+	assert.Equal(t, "newer-login", a.creds[remotemcp.CredKeyAccessToken], "a renewal started for the old login must not replace a newer one")
+}
+
+func TestRenewal_DoesNotReopenAfterClose(t *testing.T) {
+	fixture := newHostedFixture(t, nil)
+	creds := expiringLogin(fixture.server.URL)
+	integration := newIntegration(t)
+	SetConfigService(integration, &sharedStore{creds: maps.Clone(creds)})
+	require.NoError(t, integration.Configure(t.Context(), creds))
+	duringRefresh(fixture, func() {
+		assert.NoError(t, integration.(io.Closer).Close())
+	})
+
+	result, err := integration.Execute(t.Context(), "ashby_get_pending_tasks", nil)
+	require.NoError(t, err)
+	assert.True(t, result.IsError)
+	a := integration.(*ashby)
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	assert.Nil(t, a.remote, "renewal must not recreate a closed remote")
+	assert.Empty(t, fixture.snapshot())
 }

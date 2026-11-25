@@ -54,6 +54,10 @@ type ashby struct {
 	remote  mcp.Integration
 	creds   mcp.Credentials
 	renewal remotemcp.TokenRenewal
+	// configGen changes on every Configure and Close, so a renewal that
+	// started from older credentials does not overwrite newer ones or
+	// reopen a closed adapter.
+	configGen uint64
 	// newRemote builds the remote client; tests replace it.
 	newRemote func(baseURL string) mcp.Integration
 
@@ -120,6 +124,11 @@ func (a *ashby) Configure(ctx context.Context, creds mcp.Credentials) error {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	return a.configureLocked(ctx, creds, token, baseURL)
+}
+
+func (a *ashby) configureLocked(ctx context.Context, creds mcp.Credentials, token, baseURL string) error {
+	a.configGen++
 	credentials := mcp.Credentials{"access_token": token}
 	if a.lifetime == nil {
 		a.lifetime, a.stop = context.WithCancel(context.Background())
@@ -177,7 +186,7 @@ func normalizeBaseURL(raw string) (string, error) {
 // the failure is logged and the token is used until it expires.
 func (a *ashby) renewIfDue(ctx context.Context) error {
 	a.mu.RLock()
-	creds, baseURL := a.creds, a.baseURL
+	creds, baseURL, generation := a.creds, a.baseURL, a.configGen
 	a.mu.RUnlock()
 	target := remotemcp.RenewalTarget{Integration: integrationName, ServerURL: baseURL, Resource: baseURL + endpointPath}
 	fresh, renewed, err := a.renewal.Fresh(ctx, target, creds)
@@ -191,7 +200,16 @@ func (a *ashby) renewIfDue(ctx context.Context) error {
 	if !renewed {
 		return nil
 	}
-	return a.Configure(ctx, fresh)
+	token := strings.TrimSpace(fresh[remotemcp.CredKeyAccessToken])
+	if token == "" {
+		return fmt.Errorf("ashby: renewed login has no access token")
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.configGen != generation {
+		return nil
+	}
+	return a.configureLocked(ctx, fresh, token, baseURL)
 }
 
 func (a *ashby) Healthy(ctx context.Context) bool {
@@ -306,6 +324,7 @@ func (a *ashby) MaxResponseBytesForTool(toolName mcp.ToolName) (int, bool) {
 // more than once; a later Configure starts fresh.
 func (a *ashby) Close() error {
 	a.mu.Lock()
+	a.configGen++
 	remote, stop := a.remote, a.stop
 	a.remote = nil
 	a.schemas = nil

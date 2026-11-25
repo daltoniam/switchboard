@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -214,7 +215,8 @@ func TestListTools_CanceledWhileAnotherConnectIsInFlight(t *testing.T) {
 		stream.ServeHTTP(w, r)
 	}))
 	t.Cleanup(srv.Close)
-	t.Cleanup(func() { close(release) })
+	var releaseOnce sync.Once
+	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
 
 	integration := New("test", srv.URL)
 	t.Cleanup(func() { _ = integration.(io.Closer).Close() })
@@ -227,11 +229,19 @@ func TestListTools_CanceledWhileAnotherConnectIsInFlight(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	start := time.Now()
-	_, err := integration.(ToolLister).ListTools(ctx)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
-	assert.Less(t, time.Since(start), 2*time.Second)
+	done := make(chan error, 1)
+	go func() {
+		_, err := integration.(ToolLister).ListTools(ctx)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	case <-time.After(5 * time.Second):
+		releaseOnce.Do(func() { close(release) })
+		t.Fatal("ListTools ignored its canceled context while another connection was in flight")
+	}
 }
 
 // A connection that finishes after Configure replaced the token is not
@@ -267,4 +277,21 @@ func TestConnect_CloseDuringConnectKeepsAdapterClosed(t *testing.T) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	assert.Nil(t, r.session)
+}
+
+func TestConnect_ConfigureThenCloseDuringConnectKeepsAdapterClosed(t *testing.T) {
+	srv := versionedServer(t)
+	r := NewWithOptions("test", srv.URL, Options{EndpointPath: "/mcp/v1"}).(*remote)
+	require.NoError(t, r.Configure(context.Background(), mcp.Credentials{"access_token": "a"}))
+	r.afterDial = func() {
+		r.afterDial = nil
+		require.NoError(t, r.Configure(context.Background(), mcp.Credentials{"access_token": "b"}))
+		require.NoError(t, r.Close())
+	}
+	_, err := r.connect(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "closed while connecting")
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	assert.Nil(t, r.session, "no session may be published after Close")
 }
